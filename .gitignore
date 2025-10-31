@@ -1,0 +1,38 @@
+# DevStack Extension - Ignore files
+
+# Binaries
+bin/
+*.exe
+devstack
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Coverage
+*.out
+*.coverage
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+*.tar.gz
+*.zip
+
+# Dependencies
+vendor/
