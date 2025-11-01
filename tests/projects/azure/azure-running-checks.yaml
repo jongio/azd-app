@@ -1,0 +1,61 @@
+# Example Azure.yaml with running checks for dependencies
+# This demonstrates the new checkRunning feature for verifying services are not just installed, but also running
+
+name: example-app-with-running-checks
+metadata:
+  template: example@1.0.0
+
+# Requirements section - verifies tools are installed, meet version requirements, and optionally are running
+reqs:
+  # Docker - requires version 20.0.0+ AND must be running
+  - id: docker
+    minVersion: "20.0.0"
+    checkRunning: true
+    # Built-in check: runs "docker ps" to verify Docker daemon is running
+    
+  # Node.js - just version check
+  - id: nodejs
+    minVersion: "20.0.0"
+    
+  # Python - just version check
+  - id: python
+    minVersion: "3.12.0"
+    
+  # Azure Developer CLI - just version check
+  - id: azd
+    minVersion: "1.5.0"
+    
+  # Custom tool example with running check
+  # - id: postgresql
+  #   minVersion: "14.0.0"
+  #   command: psql
+  #   args: ["--version"]
+  #   checkRunning: true
+  #   runningCheckCommand: pg_isready
+  #   runningCheckArgs: ["-h", "localhost"]
+  #   runningCheckExitCode: 0
+  
+  # Custom service example with expected output
+  # - id: redis
+  #   minVersion: "6.0.0"
+  #   command: redis-cli
+  #   args: ["--version"]
+  #   checkRunning: true
+  #   runningCheckCommand: redis-cli
+  #   runningCheckArgs: ["ping"]
+  #   runningCheckExpected: "PONG"
+
+# Services configuration (standard azd configuration)
+services:
+  web:
+    project: ./src/web
+    language: ts
+    host: containerapp
+
+# Note: When this extension is invoked via azd, all azd environment variables
+# are automatically available via os.Getenv():
+# - AZURE_SUBSCRIPTION_ID
+# - AZURE_RESOURCE_GROUP_NAME
+# - AZURE_LOCATION
+# - AZURE_ENV_NAME
+# - And any user-defined environment variables from .env files

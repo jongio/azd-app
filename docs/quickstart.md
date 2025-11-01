@@ -1,10 +1,10 @@
-# DevStack Extension - Quick Reference
+# App Extension - Quick Reference
 
 ## ✅ Your Extension is Now Working!
 
 You can use it with:
 ```powershell
-azd devstack hi
+azd app hi
 ```
 
 ## 🔄 Development Workflow
@@ -31,13 +31,13 @@ azd x build
 
 ```powershell
 # Test the hi command
-azd devstack hi
+azd app hi
 
 # See all available commands
-azd devstack --help
+azd app --help
 
 # Test a specific command with help
-azd devstack hi --help
+azd app hi --help
 ```
 
 ## 📁 Key Files
@@ -77,8 +77,8 @@ func newMyCommand() *cobra.Command {
 ```go
 func main() {
     rootCmd := &cobra.Command{
-        Use:   "devstack",
-        Short: "DevStack - Developer productivity commands for Azure Developer CLI",
+        Use:   "App",
+        Short: "App - Developer productivity commands for Azure Developer CLI",
     }
 
     rootCmd.AddCommand(newHiCommand())
@@ -100,7 +100,7 @@ azd x build
 4. **Test it**:
 
 ```powershell
-azd devstack mycommand
+azd app mycommand
 ```
 
 ## 🐛 Troubleshooting

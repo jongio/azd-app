@@ -1,0 +1,11 @@
+{
+  "name": "test-node-project",
+  "version": "1.0.0",
+  "description": "Test Node.js project",
+  "scripts": {
+    "dev": "echo 'Running dev server'"
+  },
+  "dependencies": {
+    "is-odd": "^3.0.1"
+  }
+}

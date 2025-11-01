@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Get version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Build for all platforms
+      run: |
+        # Windows AMD64
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/windows-amd64/app.exe ./src/cmd/app
+        
+        # Linux AMD64
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/linux-amd64/app ./src/cmd/app
+        
+        # macOS AMD64
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o bin/darwin-amd64/app ./src/cmd/app
+        
+        # macOS ARM64
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/darwin-arm64/app ./src/cmd/app
+
+    - name: Create platform packages
+      run: |
+        # Copy extension.yaml to each platform directory
+        for dir in bin/*/; do
+          cp extension.yaml "$dir"
+        done
+        
+        # Create zip for Windows
+        cd bin/windows-amd64
+        zip -r ../../app-windows-amd64.zip .
+        cd ../..
+        
+        # Create tar.gz for Linux
+        cd bin/linux-amd64
+        tar -czf ../../app-linux-amd64.tar.gz .
+        cd ../..
+        
+        # Create tar.gz for macOS AMD64
+        cd bin/darwin-amd64
+        tar -czf ../../app-darwin-amd64.tar.gz .
+        cd ../..
+        
+        # Create tar.gz for macOS ARM64
+        cd bin/darwin-arm64
+        tar -czf ../../app-darwin-arm64.tar.gz .
+        cd ../..
+
+    - name: Calculate checksums
+      id: checksums
+      run: |
+        echo "## Checksums" > checksums.txt
+        echo "" >> checksums.txt
+        
+        sha256sum app-windows-amd64.zip | tee -a checksums.txt
+        sha256sum app-linux-amd64.tar.gz | tee -a checksums.txt
+        sha256sum app-darwin-amd64.tar.gz | tee -a checksums.txt
+        sha256sum app-darwin-arm64.tar.gz | tee -a checksums.txt
+        
+        # Extract individual checksums for registry update
+        WIN_SHA=$(sha256sum app-windows-amd64.zip | awk '{print $1}')
+        LINUX_SHA=$(sha256sum app-linux-amd64.tar.gz | awk '{print $1}')
+        DARWIN_AMD64_SHA=$(sha256sum app-darwin-amd64.tar.gz | awk '{print $1}')
+        DARWIN_ARM64_SHA=$(sha256sum app-darwin-arm64.tar.gz | awk '{print $1}')
+        
+        echo "WIN_SHA=$WIN_SHA" >> $GITHUB_OUTPUT
+        echo "LINUX_SHA=$LINUX_SHA" >> $GITHUB_OUTPUT
+        echo "DARWIN_AMD64_SHA=$DARWIN_AMD64_SHA" >> $GITHUB_OUTPUT
+        echo "DARWIN_ARM64_SHA=$DARWIN_ARM64_SHA" >> $GITHUB_OUTPUT
+
+    - name: Update registry.json with checksums
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        
+        # Update the registry.json with actual checksums
+        sed -i "s/\"version\": \"0.1.0\"/\"version\": \"$VERSION\"/" registry.json
+        sed -i "s|v0.1.0|v$VERSION|g" registry.json
+        
+        # Update checksums
+        jq --arg win "${{ steps.checksums.outputs.WIN_SHA }}" \
+           --arg linux "${{ steps.checksums.outputs.LINUX_SHA }}" \
+           --arg darwin_amd64 "${{ steps.checksums.outputs.DARWIN_AMD64_SHA }}" \
+           --arg darwin_arm64 "${{ steps.checksums.outputs.DARWIN_ARM64_SHA }}" \
+           '.extensions[0].versions[0].artifacts["windows-amd64"].checksum.value = $win |
+            .extensions[0].versions[0].artifacts["linux-amd64"].checksum.value = $linux |
+            .extensions[0].versions[0].artifacts["darwin-amd64"].checksum.value = $darwin_amd64 |
+            .extensions[0].versions[0].artifacts["darwin-arm64"].checksum.value = $darwin_arm64' \
+           registry.json > registry.tmp.json && mv registry.tmp.json registry.json
+
+    - name: Extract changelog for this version
+      id: changelog
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        # Extract changelog section for this version
+        sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > release-notes.md || echo "Release $VERSION" > release-notes.md
+        cat checksums.txt >> release-notes.md
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release-notes.md
+        files: |
+          app-windows-amd64.zip
+          app-linux-amd64.tar.gz
+          app-darwin-amd64.tar.gz
+          app-darwin-arm64.tar.gz
+          registry.json
+          checksums.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update registry.json in repository
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add registry.json
+        git commit -m "Update registry.json for version ${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
+        git push origin HEAD:main || echo "No changes to push"

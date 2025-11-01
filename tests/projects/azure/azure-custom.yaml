@@ -1,0 +1,20 @@
+name: test-custom-tools
+reqs:
+  # Standard tool using registry
+  - id: nodejs
+    minVersion: 18.0.0
+  
+  # Custom tool with explicit configuration
+  - id: go
+    minVersion: 1.21.0
+    command: go
+    args: ["version"]
+    versionField: 2  # "go version go1.21.0 windows/amd64" -> field 2 is "go1.21.0"
+    versionPrefix: "go"  # Strip "go" prefix to get "1.21.0"
+  
+  # Another custom tool
+  - id: git
+    minVersion: 2.40.0
+    command: git
+    args: ["--version"]
+    versionField: 2  # "git version 2.43.0" -> field 2

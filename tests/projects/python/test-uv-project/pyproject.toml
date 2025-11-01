@@ -1,0 +1,11 @@
+[project]
+name = "test-uv-project"
+version = "0.1.0"
+description = "Test project for uv"
+requires-python = ">=3.10"
+dependencies = [
+    "six>=1.16.0",
+]
+
+[tool.uv]
+dev-dependencies = []

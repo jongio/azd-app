@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Build script for DevStack Extension (Unix/Linux/macOS)
+# Build script for App Extension (Unix/Linux/macOS)
 
 set -e
 
-EXTENSION_NAME="devstack"
+EXTENSION_NAME="app"
 OUTPUT_DIR="bin"
 
-echo "Building DevStack Extension..."
+echo "Building App Extension..."
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
