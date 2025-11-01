@@ -7,7 +7,7 @@ Following the official azd extension documentation, we:
 1. ✅ Created a Go-based azd extension using the proper structure
 2. ✅ Used `azd x build` to build and install the extension
 3. ✅ Registered the extension in azd's config.json
-4. ✅ Successfully tested with `azd devstack hi`
+4. ✅ Successfully tested with `azd app hi`
 
 ## How It Works
 
@@ -15,7 +15,7 @@ The azd extension system works by:
 
 1. **Building**: `azd x build` compiles your Go code and places the binary in `~/.azd/extensions/[extension-id]/[version]/`
 2. **Registration**: The extension must be registered in `~/.azd/config.json` under `extension.installed`
-3. **Discovery**: When you type `azd devstack`, azd looks up the namespace in config.json and executes the registered binary
+3. **Discovery**: When you type `azd app`, azd looks up the namespace in config.json and executes the registered binary
 
 ## Current Status
 
@@ -23,10 +23,10 @@ Your extension is fully functional! You can now:
 
 ```powershell
 # Use your extension
-azd devstack hi
+azd app hi
 
 # See all commands
-azd devstack --help
+azd app --help
 
 # Rebuild after changes
 azd x build
@@ -73,7 +73,7 @@ azd x build
 .\install-local.ps1
 
 # 3. Test
-azd devstack [command]
+azd app [command]
 
 # Pro tip: Use watch mode during development
 azd x watch
@@ -96,9 +96,9 @@ The key components that make azd recognize your extension:
    {
      "extension": {
        "installed": {
-         "devstack.azd.devstack": {
-           "id": "devstack.azd.devstack",
-           "namespace": "devstack",
+         "App.azd.App": {
+           "id": "App.azd.App",
+           "namespace": "App",
            "capabilities": ["custom-commands"],
            ...
          }

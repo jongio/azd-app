@@ -1,9 +1,8 @@
-# DevStack Extension - Ignore files
+# App Extension - Ignore files
 
 # Binaries
 bin/
 *.exe
-devstack
 *.dll
 *.so
 *.dylib
@@ -14,6 +13,8 @@ devstack
 # Coverage
 *.out
 *.coverage
+coverage
+src/coverage
 
 # Go workspace file
 go.work
@@ -36,3 +37,48 @@ dist/
 
 # Dependencies
 vendor/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.Python
+*.egg-info/
+.uv/
+.pytest_cache/
+poetry.lock
+
+# Node.js
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+.npm
+.yarn
+
+# .NET
+obj/
+*.pdb
+*.cache
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local configuration
+*.local
+.env
+.env.local
+
+# Test fixtures - preserve lock files and manifests in tests/
+!tests/projects/**/package.json
+!tests/projects/**/package-lock.json
+!tests/projects/**/pnpm-lock.yaml
+!tests/projects/**/yarn.lock
+!tests/projects/**/requirements.txt
+!tests/projects/**/pyproject.toml
+!tests/projects/**/poetry.lock
+!tests/projects/**/uv.lock
+!tests/projects/**/*.yaml

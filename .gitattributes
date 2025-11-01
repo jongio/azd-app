@@ -1,0 +1,42 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.go text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# Documentation
+*.txt text eol=lf
+LICENSE text eol=lf
+
+# Lock files (preserve as-is)
+*.lock binary
+go.sum binary
+
+# Binary files
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.tgz binary
+
+# Images (not expected but for completeness)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
