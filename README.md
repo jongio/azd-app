@@ -1,5 +1,11 @@
 # App Extension for Azure Developer CLI
+# App Extension for Azure Developer CLI
 
+[![CI](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app-extension)](https://goreportcard.com/report/github.com/jongio/azd-app-extension)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+An Azure Developer CLI (azd) extension that automates development environment setup by detecting project types and running appropriate commands across multiple languages and frameworks.
 [![CI](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app-extension)](https://goreportcard.com/report/github.com/jongio/azd-app-extension)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -89,6 +95,23 @@ go build -o bin/app ./src/cmd/app      # Linux/macOS
 ```powershell
 .\install-local.ps1 -Uninstall
 ```
+
+### Using Devcontainer
+
+For a consistent, pre-configured development environment:
+
+1. Install [Docker](https://docs.docker.com/get-docker/) and [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+2. Open the project in VS Code
+3. Click "Reopen in Container" when prompted
+
+The devcontainer includes:
+- Go, Node.js, Python, .NET pre-installed
+- All package managers (npm, pnpm, yarn, pip, poetry, uv)
+- Azure Developer CLI and Azure CLI
+- Mage, golangci-lint, and all development tools
+- Your Azure credentials automatically mounted
+
+See [.devcontainer/README.md](.devcontainer/README.md) for details.
 
 ### Prerequisites
 
