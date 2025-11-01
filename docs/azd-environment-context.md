@@ -112,6 +112,90 @@ $env:TEST_AZD_VAR = "test-value"
 azd app run  # Should see TEST_AZD_VAR in child process environment
 ```
 
+## Special Considerations for .NET Aspire
+
+### Issue with `aspire run` Command
+
+The Aspire CLI (`aspire run`) **does not expose options to pass environment variables** to the AppHost subprocess. When using `aspire run`, environment variables are lost during the process chain:
+
+```
+azd app (with env vars) 
+  → aspire run (inherits env vars)
+    → dotnet run (env vars NOT passed through by aspire CLI)
+      → AppHost.cs (NO access to azd environment variables ❌)
+```
+
+### Solution: Use `dotnet run` Directly
+
+To ensure environment variable propagation for Aspire projects, the App extension **bypasses `aspire run`** and calls `dotnet run` directly:
+
+```go
+// src/internal/runner/runner.go
+func RunAspire(project types.AspireProject) error {
+    // Use dotnet run instead of aspire run to ensure environment variable propagation.
+    // The aspire CLI internally calls dotnet run, but doesn't expose environment variable options.
+    // By calling dotnet run directly, all environment variables (including AZD_SERVER,
+    // AZD_ACCESS_TOKEN, and Azure environment values) are properly inherited.
+    args := []string{"run", "--project", project.ProjectFile}
+    return executor.StartCommand("dotnet", args, project.Dir)
+}
+```
+
+This ensures the full environment context flows through:
+
+```
+azd app (with env vars)
+  → dotnet run (inherits env vars via executor.StartCommand)
+    → AppHost.cs (FULL access to azd environment variables ✅)
+```
+
+### Verification
+
+You can verify environment variables are propagating by adding this code to your `AppHost.cs`:
+
+```csharp
+using System;
+
+// Print environment variables at startup
+Console.WriteLine("========================================");
+Console.WriteLine("🔍 Checking azd Environment Variables:");
+Console.WriteLine("========================================");
+Console.WriteLine($"AZD_SERVER: {Environment.GetEnvironmentVariable("AZD_SERVER") ?? "❌ NOT SET"}");
+Console.WriteLine($"AZD_ACCESS_TOKEN: {Environment.GetEnvironmentVariable("AZD_ACCESS_TOKEN")?.Substring(0, Math.Min(10, Environment.GetEnvironmentVariable("AZD_ACCESS_TOKEN")?.Length ?? 0)) ?? "❌ NOT SET"}...");
+Console.WriteLine($"AZURE_SUBSCRIPTION_ID: {Environment.GetEnvironmentVariable("AZURE_SUBSCRIPTION_ID") ?? "❌ NOT SET"}");
+Console.WriteLine($"AZURE_ENV_NAME: {Environment.GetEnvironmentVariable("AZURE_ENV_NAME") ?? "❌ NOT SET"}");
+Console.WriteLine();
+
+// List all AZD_* and AZURE_* variables
+Console.WriteLine("📋 All AZD/AZURE Environment Variables:");
+Console.WriteLine("----------------------------------------");
+var azdVars = Environment.GetEnvironmentVariables()
+    .Cast<System.Collections.DictionaryEntry>()
+    .Where(e => e.Key.ToString()!.StartsWith("AZD_") || e.Key.ToString()!.StartsWith("AZURE_"))
+    .OrderBy(e => e.Key.ToString());
+
+if (!azdVars.Any())
+{
+    Console.WriteLine("  ⚠️ No AZD_ or AZURE_ environment variables found!");
+}
+else
+{
+    foreach (var entry in azdVars)
+    {
+        Console.WriteLine($"  {entry.Key} = {entry.Value}");
+    }
+}
+Console.WriteLine("========================================");
+Console.WriteLine();
+```
+
+When running with `azd app run`, you should see all environment variables printed at startup.
+
+### Reference
+
+- [Aspire CLI Source Code](https://github.com/dotnet/aspire/blob/main/src/Aspire.Cli/DotNet/DotNetCliRunner.cs) - Shows `aspire run` internally calls `RunAsync` with optional environment parameter, but the CLI doesn't expose this to users
+- [DotNetCliRunner.cs Line 233](https://github.com/dotnet/aspire/blob/main/src/Aspire.Cli/DotNet/DotNetCliRunner.cs#L233) - The `RunAsync` method that accepts `IDictionary<string, string>? env` parameter
+
 ## Best Practices
 
 1. **Always use executor package functions** instead of raw `exec.Command()`

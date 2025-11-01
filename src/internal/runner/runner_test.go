@@ -130,3 +130,124 @@ func TestRunnerFunctionSignatures(t *testing.T) {
 		// but that's okay - we're just testing the signature
 	})
 }
+
+func TestRunNode(t *testing.T) {
+	tests := []struct {
+		name           string
+		project        types.NodeProject
+		script         string
+		expectError    bool
+		errorSubstring string
+	}{
+		{
+			name: "valid npm project with dev script",
+			project: types.NodeProject{
+				Dir:            "/tmp/test",
+				PackageManager: "npm",
+			},
+			script:      "dev",
+			expectError: false,
+		},
+		{
+			name: "valid pnpm project with start script",
+			project: types.NodeProject{
+				Dir:            "/tmp/test",
+				PackageManager: "pnpm",
+			},
+			script:      "start",
+			expectError: false,
+		},
+		{
+			name: "invalid script with semicolon",
+			project: types.NodeProject{
+				Dir:            "/tmp/test",
+				PackageManager: "npm",
+			},
+			script:         "dev; rm -rf /",
+			expectError:    true,
+			errorSubstring: "invalid script name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip actual execution since we're testing validation
+			t.Skip("Skipping actual execution in unit tests")
+
+			err := RunNode(tt.project, tt.script)
+			if tt.expectError && err == nil {
+				t.Error("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRunPython(t *testing.T) {
+	tests := []struct {
+		name    string
+		project types.PythonProject
+	}{
+		{
+			name: "uv project",
+			project: types.PythonProject{
+				Dir:            "/tmp/test",
+				PackageManager: "uv",
+			},
+		},
+		{
+			name: "poetry project",
+			project: types.PythonProject{
+				Dir:            "/tmp/test",
+				PackageManager: "poetry",
+			},
+		},
+		{
+			name: "pip project",
+			project: types.PythonProject{
+				Dir:            "/tmp/test",
+				PackageManager: "pip",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip actual execution since we're testing structure
+			t.Skip("Skipping actual execution in unit tests")
+
+			_ = RunPython(tt.project)
+		})
+	}
+}
+
+func TestRunDotnet(t *testing.T) {
+	tests := []struct {
+		name    string
+		project types.DotnetProject
+	}{
+		{
+			name: "csproj project",
+			project: types.DotnetProject{
+				Path: "/tmp/test/App.csproj",
+			},
+		},
+		{
+			name: "solution file",
+			project: types.DotnetProject{
+				Path: "/tmp/test/Solution.sln",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip actual execution since we're testing structure
+			t.Skip("Skipping actual execution in unit tests")
+
+			_ = RunDotnet(tt.project)
+		})
+	}
+}

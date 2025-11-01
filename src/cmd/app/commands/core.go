@@ -3,12 +3,14 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"app/src/internal/detector"
 	"app/src/internal/installer"
 	"app/src/internal/orchestrator"
 	"app/src/internal/runner"
 	"app/src/internal/security"
+	"app/src/internal/types"
 
 	"gopkg.in/yaml.v3"
 )
@@ -180,17 +182,62 @@ func executeRun() error {
 	fmt.Println("🚀 Starting development environment...")
 	fmt.Println()
 
-	// Strategy 1: Look for AppHost.cs (Aspire) - Highest priority
-	aspireProject, err := detector.FindAppHost(".")
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Strategy 1: Check if current directory is itself a runnable project
+	// This allows running from within any project directory
+
+	// Check for Aspire project (AppHost.cs) in current directory first
+	aspireProject, err := detector.FindAppHost(cwd)
 	if err == nil && aspireProject != nil {
 		fmt.Println("✨ Found Aspire project:", aspireProject.Dir)
 		return runner.RunAspire(*aspireProject)
 	}
 
+	// Check for Python project in current directory
+	if isPythonProject(cwd) {
+		packageManager := detector.DetectPythonPackageManager(cwd)
+		pythonProject := types.PythonProject{
+			Dir:            cwd,
+			PackageManager: packageManager,
+		}
+		fmt.Printf("✨ Found Python project (%s)\n", packageManager)
+		return runner.RunPython(pythonProject)
+	}
+
+	// Check for Node.js project in current directory
+	if isNodeProject(cwd) {
+		packageManager := detector.DetectNodePackageManager(cwd)
+		script := detector.DetectPnpmScript(cwd)
+		if script == "" {
+			return fmt.Errorf("no dev or start script found in package.json")
+		}
+		nodeProject := types.NodeProject{
+			Dir:            cwd,
+			PackageManager: packageManager,
+		}
+		fmt.Printf("✨ Found Node.js project (%s)\n", packageManager)
+		return runner.RunNode(nodeProject, script)
+	}
+
+	// Check for .NET project in current directory
+	if isDotnetProject(cwd) {
+		// Find the .csproj or .sln in current directory
+		dotnetProjects, err := detector.FindDotnetProjects(cwd)
+		if err == nil && len(dotnetProjects) > 0 {
+			fmt.Println("✨ Found .NET project")
+			return runner.RunDotnet(dotnetProjects[0])
+		}
+	}
+
 	// Strategy 2: Look for docker compose in package.json
-	if detector.HasPackageJson(".") {
-		if detector.HasDockerComposeScript(".") {
-			scriptName := detector.FindDockerComposeScript(".")
+	if detector.HasPackageJson(cwd) {
+		if detector.HasDockerComposeScript(cwd) {
+			scriptName := detector.FindDockerComposeScript(cwd)
 			if scriptName != "" {
 				fmt.Println("✨ Found docker compose script in package.json")
 				return runner.RunDockerCompose(scriptName, "docker compose up")
@@ -198,11 +245,8 @@ func executeRun() error {
 		}
 	}
 
-	// Strategy 3: Try to start each project using project-aware commands
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
+	// Strategy 3: Fall back to scanning for projects (old behavior)
+	// This handles cases where user runs from a parent directory
 
 	hasProjects := false
 
@@ -216,7 +260,7 @@ func executeRun() error {
 			script := detector.DetectPnpmScript(nodeProject.Dir)
 			if script != "" {
 				fmt.Printf("   ✨ Starting %s with script: %s\n", nodeProject.Dir, script)
-				return runner.RunPnpmScript(script)
+				return runner.RunNode(nodeProject, script)
 			}
 		}
 	}
@@ -230,8 +274,9 @@ func executeRun() error {
 			fmt.Printf("   • %s (%s)\n", pyProject.Dir, pyProject.PackageManager)
 		}
 		fmt.Println()
-		fmt.Println("ℹ️  Python projects detected but no automatic run command available")
-		fmt.Println("   Tip: Add an Aspire AppHost or configure a start script")
+		fmt.Println("ℹ️  Python projects detected")
+		fmt.Println("   Tip: Run 'azd app run' from within the Python project directory")
+		fmt.Println("   Or add an Aspire AppHost for orchestrated startup")
 	}
 
 	// Check for .NET projects
@@ -243,8 +288,9 @@ func executeRun() error {
 			fmt.Printf("   • %s\n", dotnetProject.Path)
 		}
 		fmt.Println()
-		fmt.Println("ℹ️  .NET projects detected but no automatic run command available")
-		fmt.Println("   Tip: Add an Aspire AppHost for orchestrated startup")
+		fmt.Println("ℹ️  .NET projects detected")
+		fmt.Println("   Tip: Run 'azd app run' from within the .NET project directory")
+		fmt.Println("   Or add an Aspire AppHost for orchestrated startup")
 	}
 
 	if !hasProjects {
@@ -254,8 +300,38 @@ func executeRun() error {
 		fmt.Println("  • .NET Aspire (AppHost.cs) - recommended for multi-project solutions")
 		fmt.Println("  • Docker Compose (in package.json)")
 		fmt.Println("  • Node.js with dev/start scripts")
+		fmt.Println("  • Python projects (main.py, app.py)")
+		fmt.Println("  • .NET projects (.csproj, .sln)")
 		return fmt.Errorf("no development environment found")
 	}
 
-	return fmt.Errorf("no runnable project configuration found")
+	return fmt.Errorf("no runnable project configuration found in current directory")
+}
+
+// Helper functions to check if a directory contains specific project types
+
+func isPythonProject(dir string) bool {
+	// Check for Python project indicators
+	indicators := []string{"requirements.txt", "pyproject.toml", "poetry.lock", "uv.lock"}
+	for _, indicator := range indicators {
+		if _, err := os.Stat(filepath.Join(dir, indicator)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func isNodeProject(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "package.json"))
+	return err == nil
+}
+
+func isDotnetProject(dir string) bool {
+	// Check for .csproj or .sln files in current directory
+	matches, _ := filepath.Glob(filepath.Join(dir, "*.csproj"))
+	if len(matches) > 0 {
+		return true
+	}
+	matches, _ = filepath.Glob(filepath.Join(dir, "*.sln"))
+	return len(matches) > 0
 }
