@@ -133,6 +133,21 @@ azd x build
 ## 📚 Useful Commands
 
 ```powershell
+# Check requirements in azure.yaml
+azd app reqs
+
+# Auto-generate requirements from your project
+azd app reqs --generate
+
+# Preview what would be generated
+azd app reqs --generate --dry-run
+
+# Install dependencies
+azd app deps
+
+# Run your development environment
+azd app run
+
 # List all installed extensions
 azd extension list --installed
 
@@ -148,6 +163,44 @@ azd x watch
 # Package the extension
 azd x pack
 ```
+
+## 💡 Quick Tips
+
+### Auto-Generate Requirements
+
+Navigate to any project and run:
+```powershell
+azd app reqs --generate
+```
+
+This will:
+- Detect your project type (Node.js, Python, .NET, etc.)
+- Find your package manager (npm/pnpm/yarn, pip/poetry/uv, etc.)
+- Check installed versions on your machine
+- Generate or update `azure.yaml` with appropriate minimum versions
+
+**Example Output:**
+```
+🔍 Scanning project for dependencies...
+
+Found:
+  ✓ Node.js project (pnpm)
+
+📝 Detected requirements:
+  • node (22.19.0 installed) → minVersion: "22.0.0"
+  • pnpm (10.20.0 installed) → minVersion: "10.0.0"
+
+✅ Created azure.yaml with 2 requirements
+```
+
+### Verify Requirements
+
+After generating or manually creating requirements:
+```powershell
+azd app reqs
+```
+
+This validates all tools are installed with correct versions.
 
 ## 🚀 Next Steps
 

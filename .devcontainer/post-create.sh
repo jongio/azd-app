@@ -3,41 +3,31 @@ set -e
 
 echo "🚀 Setting up App Extension development environment..."
 
-# Install Go tools
+# Install Go tools (not included in base image)
 echo "📦 Installing Go tools..."
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 go install github.com/magefile/mage@latest
 
-# Install Azure Developer CLI
-echo "📦 Installing Azure Developer CLI..."
-curl -fsSL https://aka.ms/install-azd.sh | bash
+# Install additional package managers for testing (not in devcontainer features)
+echo "📦 Installing additional package managers..."
 
-# Install additional package managers for testing
-echo "📦 Installing package managers..."
-
-# Install pnpm
+# Install pnpm (npm is already installed via node feature)
 npm install -g pnpm
 
-# Install poetry
+# Install poetry (pip is already installed via python feature)
 curl -sSL https://install.python-poetry.org | python3 -
 
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Add poetry and uv to PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+# Add to PATH for current session
 export PATH="$HOME/.local/bin:$PATH"
 
-# Install .NET Aspire workload
-echo "📦 Installing .NET Aspire workload..."
-dotnet workload update
-dotnet workload install aspire
-
-# Run go mod download
+# Download Go dependencies
 echo "📦 Downloading Go dependencies..."
 go mod download
 
-# Run tests to verify setup
+# Run quick tests to verify setup
 echo "✅ Running tests to verify setup..."
 go test ./... -short
 

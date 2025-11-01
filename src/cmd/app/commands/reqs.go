@@ -50,14 +50,40 @@ var toolRegistry = map[string]ToolConfig{
 		Args:          []string{"--version"},
 		VersionPrefix: "v",
 	},
+	"npm": {
+		Command: "npm",
+		Args:    []string{"--version"},
+	},
 	"pnpm": {
 		Command: "pnpm",
+		Args:    []string{"--version"},
+	},
+	"yarn": {
+		Command: "yarn",
 		Args:    []string{"--version"},
 	},
 	"python": {
 		Command:      "python",
 		Args:         []string{"--version"},
 		VersionField: 1, // "Python 3.12.0" -> take field 1
+	},
+	"pip": {
+		Command:      "pip",
+		Args:         []string{"--version"},
+		VersionField: 1, // "pip 25.2 from ..." -> take field 1
+	},
+	"poetry": {
+		Command:      "poetry",
+		Args:         []string{"--version"},
+		VersionField: 2, // "Poetry (version 2.2.1)" -> take field 2
+	},
+	"uv": {
+		Command: "uv",
+		Args:    []string{"--version"},
+	},
+	"pipenv": {
+		Command: "pipenv",
+		Args:    []string{"--version"},
 	},
 	"dotnet": {
 		Command: "dotnet",
@@ -66,6 +92,16 @@ var toolRegistry = map[string]ToolConfig{
 	"aspire": {
 		Command: "aspire",
 		Args:    []string{"--version"},
+	},
+	"docker": {
+		Command:      "docker",
+		Args:         []string{"--version"},
+		VersionField: 2, // "Docker version 28.5.1, build ..." -> take field 2
+	},
+	"git": {
+		Command:      "git",
+		Args:         []string{"--version"},
+		VersionField: 2, // "git version 2.51.2.windows.1" -> take field 2
 	},
 	"azd": {
 		Command: "azd",
@@ -85,15 +121,40 @@ var toolAliases = map[string]string{
 
 // NewReqsCommand creates the reqs command.
 func NewReqsCommand() *cobra.Command {
-	return &cobra.Command{
+	var generateMode bool
+	var dryRun bool
+
+	cmd := &cobra.Command{
 		Use:   "reqs",
 		Short: "Check for required requirements",
 		Long: `The reqs command verifies that all required requirements defined in azure.yaml
-are installed and meet the minimum version requirements.`,
+are installed and meet the minimum version requirements.
+
+With --generate, it scans your project to detect dependencies and automatically
+generates the requirements section in azure.yaml based on what's installed on your machine.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if generateMode {
+				// Get current working directory
+				workingDir, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("failed to get working directory: %w", err)
+				}
+
+				config := GenerateConfig{
+					DryRun:     dryRun,
+					WorkingDir: workingDir,
+				}
+				return runGenerate(config)
+			}
 			return cmdOrchestrator.Run("reqs")
 		},
 	}
+
+	cmd.Flags().BoolVarP(&generateMode, "generate", "g", false, "Generate requirements from detected project dependencies")
+	cmd.Flags().BoolVar(&generateMode, "gen", false, "Alias for --generate")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without modifying azure.yaml")
+
+	return cmd
 }
 
 func runReqs() error {

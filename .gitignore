@@ -82,3 +82,8 @@ obj/
 !tests/projects/**/poetry.lock
 !tests/projects/**/uv.lock
 !tests/projects/**/*.yaml
+
+# Generated azure.yaml files from integration tests
+tests/projects/node/test-pnpm-project/azure.yaml
+tests/projects/python/test-uv-project/azure.yaml
+tests/projects/aspire-test/azure.yaml

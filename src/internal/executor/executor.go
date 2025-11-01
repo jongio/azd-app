@@ -15,12 +15,15 @@ import (
 const DefaultTimeout = 30 * time.Minute
 
 // RunWithContext executes a command with context for cancellation and timeout.
+// The command inherits all environment variables from the parent process, including
+// azd-specific variables like AZD_SERVER, AZD_ACCESS_TOKEN, and environment values.
 func RunWithContext(ctx context.Context, name string, args []string, dir string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ() // Inherit all environment variables from parent process
 
 	return cmd.Run()
 }
@@ -40,6 +43,7 @@ func RunCommand(name string, args []string, dir string) error {
 
 // StartCommand starts a long-running command in the background and returns immediately.
 // The command inherits stdout/stderr/stdin from the parent process.
+// The command inherits all environment variables including azd context (AZD_SERVER, AZD_ACCESS_TOKEN, etc.).
 // Use this for starting servers, Aspire projects, or other long-running processes.
 func StartCommand(name string, args []string, dir string) error {
 	cmd := exec.Command(name, args...)
@@ -47,6 +51,7 @@ func StartCommand(name string, args []string, dir string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ() // Inherit all environment variables from parent process
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start command: %w", err)
@@ -60,10 +65,12 @@ func StartCommand(name string, args []string, dir string) error {
 }
 
 // RunCommandWithOutput executes a command and captures output with timeout.
+// The command inherits all environment variables from the parent process.
 func RunCommandWithOutput(ctx context.Context, name string, args []string, dir string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ() // Inherit all environment variables from parent process
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -116,11 +123,13 @@ func (lw *lineWriter) Write(p []byte) (n int, err error) {
 // StartCommandWithOutputMonitoring starts a command and monitors its output line-by-line.
 // The handler function is called for each line of stdout/stderr.
 // Output is still displayed to the user in real-time.
+// The command inherits all environment variables including azd context.
 // This function BLOCKS and waits for the command to complete or be interrupted.
 func StartCommandWithOutputMonitoring(name string, args []string, dir string, handler OutputLineHandler) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ() // Inherit all environment variables from parent process
 
 	// Wrap stdout and stderr with line handlers
 	cmd.Stdout = &lineWriter{output: os.Stdout, handler: handler}

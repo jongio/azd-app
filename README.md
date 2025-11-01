@@ -125,20 +125,64 @@ Once installed, you can use these commands:
 
 ### `azd app reqs`
 
-Verifies that all required tools are installed and optionally checks if they are running.
+Verifies that all required tools are installed and optionally checks if they are running. Can also auto-generate requirements based on your project.
 
 ```bash
+# Check requirements defined in azure.yaml
 azd app reqs
+
+# Auto-generate requirements from your project
+azd app reqs --generate
+
+# Preview what would be generated without making changes
+azd app reqs --generate --dry-run
 ```
 
 **Features:**
 - ✅ Checks if required tools are installed
 - ✅ Validates minimum version requirements
 - ✅ Verifies if services are running (e.g., Docker daemon)
+- ✅ **Auto-generates requirements from detected project dependencies**
+- ✅ **Smart version normalization** (e.g., Node: major only, Python: major.minor)
+- ✅ **Merges with existing requirements** without duplicates
 - ✅ Supports custom tool configurations
-- ✅ Built-in support for Node.js, Python, .NET, Aspire, Docker, Azure CLI, and more
+- ✅ Built-in support for Node.js, Python, .NET, Aspire, Docker, Git, Azure CLI, and more
 
-**Example azure.yaml configuration:**
+**Auto-Generation Example:**
+
+When you run `azd app reqs --generate` in a Node.js project:
+
+```bash
+🔍 Scanning project for dependencies...
+
+Found:
+  ✓ Node.js project (pnpm)
+
+📝 Detected requirements:
+  • node (22.19.0 installed) → minVersion: "22.0.0"
+  • pnpm (10.20.0 installed) → minVersion: "10.0.0"
+
+✅ Created azure.yaml with 2 requirements
+```
+
+The generated `azure.yaml`:
+```yaml
+name: my-project
+reqs:
+  - id: node
+    minVersion: 22.0.0
+  - id: pnpm
+    minVersion: 10.0.0
+```
+
+**Supported Detection:**
+- **Node.js**: Automatically detects npm, pnpm, or yarn based on lock files
+- **Python**: Detects pip, poetry, uv, or pipenv based on project files
+- **.NET**: Detects dotnet SDK and Aspire workloads
+- **Docker**: Detects from Dockerfile or docker-compose files
+- **Git**: Detects from .git directory
+
+**Manual Configuration Example:**
 
 ```yaml
 name: my-project

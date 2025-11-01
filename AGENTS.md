@@ -76,8 +76,18 @@ return "npm" // default
 ### Command Execution
 - **ALWAYS use `executor.RunCommand()`** instead of raw `exec.Command()`
 - Provides context-aware execution with 30-minute default timeout
+- **Automatically inherits azd environment context** (AZD_SERVER, AZD_ACCESS_TOKEN, environment variables)
 - Signature: `executor.RunCommand(name string, args []string, dir string) error`
 - Example: `executor.RunCommand("npm", []string{"install"}, projectDir)`
+
+### Environment Context Propagation
+- **All spawned commands inherit azd environment variables** via `cmd.Env = os.Environ()`
+- Critical variables set by azd:
+  - `AZD_SERVER`: gRPC server address for extension ↔ azd communication
+  - `AZD_ACCESS_TOKEN`: JWT token for authenticating gRPC requests
+  - Environment-specific variables: Deployment context, Azure resources, configuration
+- **Never manually create commands with `exec.Command()`** - always use executor package
+- See `docs/azd-environment-context.md` for detailed documentation
 
 ### Security Validation
 - **Path validation**: Use `security.ValidatePath()` before any file operations

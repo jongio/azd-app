@@ -1,4 +1,5 @@
 // go:build integration
+//go:build integration
 // +build integration
 
 package commands
@@ -130,14 +131,14 @@ func TestCheckPrerequisiteIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkPrerequisite(tt.prereq)
+			passed := checkPrerequisite(tt.prereq)
 
-			if tt.wantPass && err != nil {
-				t.Errorf("checkPrerequisite() error = %v, want success", err)
+			if tt.wantPass && !passed {
+				t.Errorf("checkPrerequisite() failed, want success")
 			}
 
-			if !tt.wantPass && err == nil {
-				t.Errorf("checkPrerequisite() succeeded, want error")
+			if !tt.wantPass && passed {
+				t.Errorf("checkPrerequisite() succeeded, want failure")
 			}
 		})
 	}
@@ -149,9 +150,9 @@ func TestCheckIsRunningIntegration(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		prereq   Prerequisite
-		skipMsg  string
+		name    string
+		prereq  Prerequisite
+		skipMsg string
 	}{
 		{
 			name: "docker_running_check",
