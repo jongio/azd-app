@@ -1,5 +1,11 @@
 # App Extension for Azure Developer CLI
+# App Extension for Azure Developer CLI
 
+[![CI](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app-extension)](https://goreportcard.com/report/github.com/jongio/azd-app-extension)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+An Azure Developer CLI (azd) extension that automates development environment setup by detecting project types and running appropriate commands across multiple languages and frameworks.
 [![CI](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/jongio/azd-app-extension/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app-extension)](https://goreportcard.com/report/github.com/jongio/azd-app-extension)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
