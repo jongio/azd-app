@@ -254,10 +254,10 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	installed, version := getInstalledVersion(prereq)
 
 	result := ReqResult{
-		ID:       prereq.ID,
+		ID:        prereq.ID,
 		Installed: installed,
-		Version:  version,
-		Required: prereq.MinVersion,
+		Version:   version,
+		Required:  prereq.MinVersion,
 		Satisfied: false,
 	}
 

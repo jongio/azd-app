@@ -44,7 +44,7 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 	if err := security.ValidatePath(project.Path); err != nil {
 		return fmt.Errorf("invalid project path: %w", err)
 	}
-	
+
 	if !output.IsJSON() {
 		fmt.Printf("   📥 Restoring: %s\n", project.Path)
 	}
@@ -96,7 +96,7 @@ func setupWithUv(projectDir string) error {
 
 	cmd := exec.Command("uv", "sync")
 	cmd.Dir = projectDir
-	
+
 	if output.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
@@ -113,7 +113,7 @@ func setupWithUv(projectDir string) error {
 			}
 			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt")
 			installCmd.Dir = projectDir
-			
+
 			if output.IsJSON() {
 				installCmd.Stdout = io.Discard
 				installCmd.Stderr = io.Discard
@@ -165,7 +165,7 @@ func setupWithPoetry(projectDir string) error {
 	// Install dependencies (use --no-root to avoid installing the package itself)
 	cmd := exec.Command("poetry", "install", "--no-root")
 	cmd.Dir = projectDir
-	
+
 	if output.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard

@@ -69,9 +69,9 @@ func executeReqs() error {
 	if azureYamlPath == "" {
 		if output.IsJSON() {
 			return output.PrintJSON(map[string]interface{}{
-				"satisfied": true,
+				"satisfied":    true,
 				"requirements": []interface{}{},
-				"message": "No azure.yaml found",
+				"message":      "No azure.yaml found",
 			})
 		}
 		fmt.Println("ℹ️  No azure.yaml found - skipping requirement check")
@@ -98,9 +98,9 @@ func executeReqs() error {
 	if len(azureYaml.Requirements) == 0 {
 		if output.IsJSON() {
 			return output.PrintJSON(map[string]interface{}{
-				"satisfied": true,
+				"satisfied":    true,
 				"requirements": []interface{}{},
-				"message": "No requirements defined",
+				"message":      "No requirements defined",
 			})
 		}
 		fmt.Println("ℹ️  No requirements defined in azure.yaml")
@@ -111,7 +111,7 @@ func executeReqs() error {
 	// Check all prerequisites
 	results := make([]ReqResult, 0, len(azureYaml.Requirements))
 	allSatisfied := true
-	
+
 	for _, prereq := range azureYaml.Requirements {
 		result := checkPrerequisiteWithResult(prereq)
 		results = append(results, result)
@@ -283,10 +283,10 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	// Import the runServicesFromAzureYaml logic by calling it directly
 	// We can't easily reuse the function from run.go due to package isolation,
 	// so we'll implement a simple version that calls the service orchestrator
-	
+
 	fmt.Println("🚀 Starting development environment...")
 	fmt.Println()
-	
+
 	// Filter services if needed (for now, run all services)
 	services := azureYaml.Services
 
@@ -344,12 +344,12 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	<-sigChan
 
 	fmt.Println("\n\n🛑 Shutting down services...")
-	
+
 	// Stop dashboard
 	if err := dashboardServer.Stop(); err != nil {
 		fmt.Printf("Warning: Failed to stop dashboard: %v\n", err)
 	}
-	
+
 	service.StopAllServices(result.Processes)
 	fmt.Println("✅ All services stopped")
 

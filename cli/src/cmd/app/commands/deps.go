@@ -101,7 +101,7 @@ func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string
 		// Install dependencies based on service language
 		var err error
 		var result map[string]interface{}
-		
+
 		switch svc.Language {
 		case "node", "nodejs", "javascript", "typescript":
 			hasProjects = true
@@ -124,7 +124,7 @@ func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string
 				fmt.Printf("   ⚠️  Warning: Failed to install .NET dependencies for service %s: %v\n", serviceName, err)
 			}
 		}
-		
+
 		if result != nil {
 			results = append(results, result)
 		}
@@ -173,7 +173,7 @@ func installNodeServiceDeps(serviceName, serviceDir string) error {
 func installNodeServiceDepsWithResult(serviceName, serviceDir string) (map[string]interface{}, error) {
 	// Detect package manager only within the service directory (no parent search)
 	packageManager := detector.DetectNodePackageManagerWithBoundary(serviceDir, serviceDir)
-	
+
 	nodeProject := types.NodeProject{
 		Dir:            serviceDir,
 		PackageManager: packageManager,
@@ -183,14 +183,14 @@ func installNodeServiceDepsWithResult(serviceName, serviceDir string) (map[strin
 		fmt.Printf("📦 Found Node.js service: %s\n", serviceName)
 		fmt.Printf("   📥 Installing: %s (%s)\n", serviceDir, packageManager)
 	}
-	
+
 	err := installer.InstallNodeDependencies(nodeProject)
 	result := map[string]interface{}{
-		"service":  serviceName,
-		"type":     "node",
-		"dir":      serviceDir,
-		"manager":  packageManager,
-		"success":  err == nil,
+		"service": serviceName,
+		"type":    "node",
+		"dir":     serviceDir,
+		"manager": packageManager,
+		"success": err == nil,
 	}
 	if err != nil {
 		result["error"] = err.Error()
@@ -208,7 +208,7 @@ func installPythonServiceDeps(serviceName, serviceDir string) error {
 // installPythonServiceDepsWithResult installs Python dependencies and returns structured result.
 func installPythonServiceDepsWithResult(serviceName, serviceDir string) (map[string]interface{}, error) {
 	packageManager := detector.DetectPythonPackageManager(serviceDir)
-	
+
 	pythonProject := types.PythonProject{
 		Dir:            serviceDir,
 		PackageManager: packageManager,
@@ -218,14 +218,14 @@ func installPythonServiceDepsWithResult(serviceName, serviceDir string) (map[str
 		fmt.Printf("🐍 Found Python service: %s\n", serviceName)
 		fmt.Printf("   📦 %s (%s)\n", serviceDir, packageManager)
 	}
-	
+
 	err := installer.SetupPythonVirtualEnv(pythonProject)
 	result := map[string]interface{}{
-		"service":  serviceName,
-		"type":     "python",
-		"dir":      serviceDir,
-		"manager":  packageManager,
-		"success":  err == nil,
+		"service": serviceName,
+		"type":    "python",
+		"dir":     serviceDir,
+		"manager": packageManager,
+		"success": err == nil,
 	}
 	if err != nil {
 		result["error"] = err.Error()
@@ -259,7 +259,7 @@ func installDotnetServiceDepsWithResult(serviceName, serviceDir string) (map[str
 		fmt.Printf("🔷 Found .NET service: %s\n", serviceName)
 		fmt.Printf("   📦 %s\n", serviceDir)
 	}
-	
+
 	// Install dependencies for all .NET projects in the service directory
 	for _, dotnetProject := range dotnetProjects {
 		if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
@@ -274,7 +274,7 @@ func installDotnetServiceDepsWithResult(serviceName, serviceDir string) (map[str
 			}, errResult
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"service": serviceName,
 		"type":    "dotnet",

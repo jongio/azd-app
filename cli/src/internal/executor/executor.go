@@ -22,7 +22,7 @@ const DefaultTimeout = 30 * time.Minute
 func RunWithContext(ctx context.Context, name string, args []string, dir string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
-	
+
 	// In JSON mode, suppress output from subprocesses to ensure valid JSON
 	if output.IsJSON() {
 		cmd.Stdout = io.Discard
@@ -33,7 +33,7 @@ func RunWithContext(ctx context.Context, name string, args []string, dir string)
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
 	}
-	
+
 	cmd.Env = os.Environ() // Inherit all environment variables from parent process
 
 	return cmd.Run()

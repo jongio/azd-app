@@ -233,11 +233,11 @@ func TestGetStatusIcon(t *testing.T) {
 func TestGetAzureEndpoints(t *testing.T) {
 	// Set up test environment variables
 	testEnvVars := map[string]string{
-		"SERVICE_API_ENDPOINT_URL":      "https://api.example.com",
-		"SERVICE_WEB_URL":               "https://web.example.com",
-		"SERVICE_BACKEND_ENDPOINT_URL":  "https://backend.example.com",
-		"OTHER_VAR":                     "not-a-service",
-		"SERVICE_CACHE_CONNECTION_STR":  "redis://localhost:6379", // Should be ignored
+		"SERVICE_API_ENDPOINT_URL":     "https://api.example.com",
+		"SERVICE_WEB_URL":              "https://web.example.com",
+		"SERVICE_BACKEND_ENDPOINT_URL": "https://backend.example.com",
+		"OTHER_VAR":                    "not-a-service",
+		"SERVICE_CACHE_CONNECTION_STR": "redis://localhost:6379", // Should be ignored
 	}
 
 	// Set environment variables
