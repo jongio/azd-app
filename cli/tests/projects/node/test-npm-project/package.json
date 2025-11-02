@@ -1,0 +1,11 @@
+{
+  "name": "test-npm-project",
+  "version": "1.0.0",
+  "description": "Test npm project",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ms": "^2.1.3"
+  }
+}

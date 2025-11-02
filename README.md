@@ -19,7 +19,7 @@ You have your full Azure Developer CLI (azd) projects set up - they provision an
 
 ## ✨ The Solution
 
-With the **azd-app extension**, local development becomes effortless with just a few simple commands:
+With the **azd app extension**, local development becomes effortless with just a few simple commands:
 
 ```bash
 azd app reqs  # ✅ Check all prerequisites are installed
