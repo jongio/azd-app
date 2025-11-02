@@ -46,7 +46,8 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 		if svc.Project != "" {
 			// Convert relative path to absolute
 			if !filepath.IsAbs(svc.Project) {
-				absPath := filepath.Join(azureYamlDir, svc.Project)
+				// Clean the path and join with azure.yaml directory
+				absPath := filepath.Clean(filepath.Join(azureYamlDir, svc.Project))
 				svc.Project = absPath
 				azureYaml.Services[name] = svc
 			}

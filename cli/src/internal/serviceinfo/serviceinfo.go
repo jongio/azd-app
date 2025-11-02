@@ -1,17 +1,12 @@
 package serviceinfo
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
-
-	"gopkg.in/yaml.v3"
 )
 
 // ServiceInfo contains comprehensive information about a service.
@@ -78,31 +73,17 @@ func GetServiceInfo(projectDir string) ([]*ServiceInfo, error) {
 
 // parseAzureYaml parses azure.yaml from the project directory.
 func parseAzureYaml(projectDir string) (*service.AzureYaml, error) {
-	azureYamlPath, err := detector.FindAzureYaml(projectDir)
+	// Use service.ParseAzureYaml which handles path resolution correctly
+	azureYaml, err := service.ParseAzureYaml(projectDir)
 	if err != nil {
-		return nil, fmt.Errorf("error searching for azure.yaml: %w", err)
+		// If azure.yaml not found, return empty structure
+		if strings.Contains(err.Error(), "not found") {
+			return &service.AzureYaml{Services: make(map[string]service.Service)}, nil
+		}
+		return nil, err
 	}
 
-	if azureYamlPath == "" {
-		return &service.AzureYaml{Services: make(map[string]service.Service)}, nil
-	}
-
-	if err := security.ValidatePath(azureYamlPath); err != nil {
-		return nil, fmt.Errorf("invalid path: %w", err)
-	}
-
-	// #nosec G304 -- Path validated by security.ValidatePath above
-	data, err := os.ReadFile(azureYamlPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	var azureYaml service.AzureYaml
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
-		return nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
-	}
-
-	return &azureYaml, nil
+	return azureYaml, nil
 }
 
 // getAzureEnvironmentValues reads Azure environment variables from the current process environment.
