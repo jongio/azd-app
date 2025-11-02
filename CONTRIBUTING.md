@@ -1,23 +1,30 @@
-# Contributing to App
+# Contributing to azd-app
 
-Thank you for your interest in contributing to App! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to azd-app! This document provides guidelines for contributing to the project.
 
 ## Getting Started
 
 1. **Fork the repository** and clone your fork
-2. **Set up your development environment**:
-   ```bash
-   # Install Go 1.21 or later
-   go version
-   
-   # Install dependencies
-   go mod download
-   
-   # Build the extension
-   go build -o bin/app.exe
+2. **Set up your development environment** based on the component you're working on:
+
+### CLI Extension
+
+```bash
+# Navigate to CLI directory
+cd cli
+
+# Install Go 1.21 or later
+go version
+
+# Install dependencies
+go mod download
+
+# Build the extension
+go build -o bin/app.exe ./src/cmd/app
    ```
 3. **Install locally for testing**:
    ```bash
+   cd cli
    .\install-local.ps1
    ```
 

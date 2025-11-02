@@ -3,7 +3,7 @@
   "extensions": [
     {
       "id": "jongio.azd.app",
-      "namespace": "jongioapp",
+      "namespace": "azdapp",
       "displayName": "App Extension",
       "description": "A collection of developer productivity commands for Azure Developer CLI",
       "publisher": "jongio",
@@ -38,7 +38,7 @@
           "entryPoint": "app",
           "artifacts": {
             "windows-amd64": {
-              "url": "https://github.com/jongio/azd-app-extension/releases/download/v0.1.0/app-windows-amd64.zip",
+              "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-windows-amd64.zip",
               "checksum": {
                 "algorithm": "sha256",
                 "value": "to-be-calculated"
@@ -46,7 +46,7 @@
               "entryPoint": "app.exe"
             },
             "linux-amd64": {
-              "url": "https://github.com/jongio/azd-app-extension/releases/download/v0.1.0/app-linux-amd64.tar.gz",
+              "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-linux-amd64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
                 "value": "to-be-calculated"
@@ -54,7 +54,7 @@
               "entryPoint": "app"
             },
             "darwin-amd64": {
-              "url": "https://github.com/jongio/azd-app-extension/releases/download/v0.1.0/app-darwin-amd64.tar.gz",
+              "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-darwin-amd64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
                 "value": "to-be-calculated"
@@ -62,7 +62,7 @@
               "entryPoint": "app"
             },
             "darwin-arm64": {
-              "url": "https://github.com/jongio/azd-app-extension/releases/download/v0.1.0/app-darwin-arm64.tar.gz",
+              "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-darwin-arm64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
                 "value": "to-be-calculated"

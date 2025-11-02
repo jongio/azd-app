@@ -1,12 +1,20 @@
 # AI Agent Guidelines
 
-This document provides guidelines for AI agents (like GitHub Copilot) working with the App project.
+This document provides guidelines for AI agents (like GitHub Copilot) working with the azd-app project.
 
 ## Project Overview
 
-App is an Azure Developer CLI (azd) extension that automates development environment setup by detecting project types and running appropriate commands.
+azd-app is a monorepo containing multiple productivity tools for Azure Developer CLI:
 
-### Supported Project Types
+- **cli/**: Azure Developer CLI extension that automates development environment setup
+- **vsc/**: VS Code extension (coming soon)
+- **mcp/**: Model Context Protocol server (coming soon)
+
+### CLI Extension
+
+The CLI extension (in `cli/`) automates development environment setup by detecting project types and running appropriate commands.
+
+#### Supported Project Types
 - **Node.js**: npm, pnpm, yarn
 - **Python**: uv, poetry, pip
 - **.NET**: dotnet restore for .csproj and .sln
@@ -16,22 +24,33 @@ App is an Azure Developer CLI (azd) extension that automates development environ
 ## Repository Structure
 
 ```
-src/
-├── cmd/app/          # CLI entry point
-│   └── commands/          # Command implementations (deps, run, reqs, listen)
-│       ├── core.go        # Command orchestrator setup & core logic
-│       ├── deps.go        # Deps command (depends on reqs)
-│       ├── run.go         # Run command (depends on deps)
-│       ├── reqs.go        # Reqs command (no dependencies)
-│       └── listen.go      # Extension framework integration (azd lifecycle)
-├── internal/
-│   ├── detector/          # Project type & package manager detection
-│   ├── installer/         # Dependency installation logic
-│   ├── runner/            # Project execution logic
-│   ├── executor/          # Safe command execution with context/timeout
-│   ├── orchestrator/      # Command dependency chain management
-│   ├── security/          # Input validation & sanitization
-│   └── types/             # Shared type definitions
+azd-app/
+├── cli/                   # CLI Extension
+│   ├── src/
+│   │   ├── cmd/app/          # CLI entry point
+│   │   │   └── commands/     # Command implementations (deps, run, reqs, listen)
+│   │   │       ├── core.go        # Command orchestrator setup & core logic
+│   │   │       ├── deps.go        # Deps command (depends on reqs)
+│   │   │       ├── run.go         # Run command (depends on deps)
+│   │   │       ├── reqs.go        # Reqs command (no dependencies)
+│   │   │       └── listen.go      # Extension framework integration (azd lifecycle)
+│   │   └── internal/
+│   │       ├── detector/          # Project type & package manager detection
+│   │       ├── installer/         # Dependency installation logic
+│   │       ├── runner/            # Project execution logic
+│   │       ├── executor/          # Safe command execution with context/timeout
+│   │       ├── orchestrator/      # Command dependency chain management
+│   │       ├── security/          # Input validation & sanitization
+│   │       └── types/             # Shared type definitions
+│   ├── dashboard/         # Web dashboard (embedded in CLI)
+│   ├── tests/
+│   ├── docs/
+│   ├── scripts/
+│   ├── go.mod
+│   └── magefile.go
+├── vsc/                   # VS Code Extension (coming soon)
+├── mcp/                   # MCP Server (coming soon)
+└── .github/               # CI/CD workflows
 ```
 
 ## Command Dependency Chain
@@ -53,9 +72,11 @@ The orchestrator provides:
 - **Cycle detection**: Prevents infinite loops
 - **Error propagation**: Failed dependencies prevent dependent commands
 
+See `cli/docs/command-dependency-chain.md` for detailed design documentation.
+
 The `listen` command is required for proper azd extension framework integration. It establishes a bidirectional connection with azd and registers the extension's capabilities. This prevents azd from incorrectly trying to invoke the extension for unsupported operations (like service-target-provider).
 
-See `docs/command-dependency-chain.md` for detailed design documentation.
+See `cli/docs/command-dependency-chain.md` for detailed design documentation.
 
 ## Code Patterns
 
@@ -87,7 +108,7 @@ return "npm" // default
   - `AZD_ACCESS_TOKEN`: JWT token for authenticating gRPC requests
   - Environment-specific variables: Deployment context, Azure resources, configuration
 - **Never manually create commands with `exec.Command()`** - always use executor package
-- See `docs/azd-environment-context.md` for detailed documentation
+- See `cli/docs/azd-environment-context.md` for detailed documentation
 
 ### Security Validation
 - **Path validation**: Use `security.ValidatePath()` before any file operations
