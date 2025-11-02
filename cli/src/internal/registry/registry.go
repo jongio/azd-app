@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -83,8 +85,8 @@ func GetRegistry(projectDir string) *ServiceRegistry {
 		}
 	}
 
-	// Clean up stale entries
-	registry.cleanStale()
+	// Don't clean stale entries immediately on load - let services manage their own lifecycle
+	// This prevents removing recently started services that haven't had their LastChecked updated yet
 
 	registryCache[absPath] = registry
 	return registry
@@ -98,7 +100,11 @@ func (r *ServiceRegistry) Register(entry *ServiceRegistryEntry) error {
 	r.services[entry.Name] = entry
 	entry.LastChecked = time.Now()
 
-	return r.save()
+	err := r.save()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to save registry for %s: %v\n", entry.Name, err)
+	}
+	return err
 }
 
 // Unregister removes a service from the registry.
@@ -181,18 +187,21 @@ func (r *ServiceRegistry) cleanStale() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for key, entry := range r.services {
-		// Check if process is still running
-		if entry.PID > 0 {
-			process, err := os.FindProcess(entry.PID)
-			if err != nil || process == nil {
-				delete(r.services, key)
-				continue
-			}
+	// On Windows, process checking is unreliable, so we use a timeout-based approach
+	// Remove entries that haven't been checked in over 1 hour
+	timeout := time.Hour
+	now := time.Now()
 
-			// Try to signal the process (doesn't actually send signal on Windows)
-			if err := process.Signal(os.Signal(nil)); err != nil {
-				// Process doesn't exist
+	for key, entry := range r.services {
+		// If last checked is zero or very old, remove it
+		if entry.LastChecked.IsZero() || now.Sub(entry.LastChecked) > timeout {
+			delete(r.services, key)
+			continue
+		}
+
+		// On non-Windows systems, we can do actual process checking
+		if runtime.GOOS != "windows" && entry.PID > 0 {
+			if !isProcessRunning(entry.PID) {
 				delete(r.services, key)
 			}
 		}
@@ -200,6 +209,19 @@ func (r *ServiceRegistry) cleanStale() {
 
 	// Save after cleanup
 	_ = r.save()
+}
+
+// isProcessRunning checks if a process with the given PID is running.
+// This only works reliably on Unix systems.
+func isProcessRunning(pid int) bool {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+
+	// On Unix systems, Signal(0) is a standard way to check if process exists
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
 }
 
 // Clear removes all entries from the registry.

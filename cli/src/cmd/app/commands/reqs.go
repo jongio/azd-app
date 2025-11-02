@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 
 	"github.com/spf13/cobra"
@@ -33,6 +34,18 @@ type Prerequisite struct {
 // AzureYaml represents the structure of azure.yaml.
 type AzureYaml struct {
 	Requirements []Prerequisite `yaml:"reqs"`
+}
+
+// ReqResult represents the result of checking a requirement.
+type ReqResult struct {
+	ID         string `json:"id"`
+	Installed  bool   `json:"installed"`
+	Version    string `json:"version,omitempty"`
+	Required   string `json:"required"`
+	Satisfied  bool   `json:"satisfied"`
+	Running    bool   `json:"running,omitempty"`
+	CheckedRun bool   `json:"checkedRunning,omitempty"`
+	Message    string `json:"message,omitempty"`
 }
 
 // ToolConfig defines how to check a specific tool.
@@ -132,6 +145,19 @@ are installed and meet the minimum version requirements.
 
 With --generate, it scans your project to detect dependencies and automatically
 generates the requirements section in azure.yaml based on what's installed on your machine.`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Try to get the output flag from parent or self
+			var formatValue string
+			if flag := cmd.InheritedFlags().Lookup("output"); flag != nil {
+				formatValue = flag.Value.String()
+			} else if flag := cmd.Flags().Lookup("output"); flag != nil {
+				formatValue = flag.Value.String()
+			}
+			if formatValue != "" {
+				return output.SetFormat(formatValue)
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if generateMode {
 				// Get current working directory
@@ -176,21 +202,43 @@ func runReqs() error {
 	}
 
 	if len(azureYaml.Requirements) == 0 {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"satisfied":    true,
+				"requirements": []interface{}{},
+				"message":      "No requirements defined in azure.yaml",
+			})
+		}
 		fmt.Println("✅ No requirements defined in azure.yaml")
 		return nil
 	}
 
-	fmt.Println("🔍 Checking requirements...")
-	fmt.Println()
-
+	// Check all prerequisites
+	results := make([]ReqResult, 0, len(azureYaml.Requirements))
 	allPassed := true
+
+	if !output.IsJSON() {
+		fmt.Println("🔍 Checking requirements...")
+		fmt.Println()
+	}
+
 	for _, prereq := range azureYaml.Requirements {
-		passed := checkPrerequisite(prereq)
-		if !passed {
+		result := checkPrerequisiteWithResult(prereq)
+		results = append(results, result)
+		if !result.Satisfied {
 			allPassed = false
 		}
 	}
 
+	// JSON output
+	if output.IsJSON() {
+		return output.PrintJSON(map[string]interface{}{
+			"satisfied":    allPassed,
+			"requirements": results,
+		})
+	}
+
+	// Default output
 	fmt.Println()
 	if allPassed {
 		fmt.Println("✅ All requirements are satisfied!")
@@ -201,41 +249,79 @@ func runReqs() error {
 	return fmt.Errorf("requirement check failed")
 }
 
-func checkPrerequisite(prereq Prerequisite) bool {
+// checkPrerequisiteWithResult checks a prerequisite and returns structured result.
+func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	installed, version := getInstalledVersion(prereq)
 
+	result := ReqResult{
+		ID:       prereq.ID,
+		Installed: installed,
+		Version:  version,
+		Required: prereq.MinVersion,
+		Satisfied: false,
+	}
+
 	if !installed {
-		fmt.Printf("❌ %s: NOT INSTALLED (required: %s)\n", prereq.ID, prereq.MinVersion)
-		return false
+		result.Message = "Not installed"
+		if !output.IsJSON() {
+			fmt.Printf("❌ %s: NOT INSTALLED (required: %s)\n", prereq.ID, prereq.MinVersion)
+		}
+		return result
 	}
 
 	if version == "" {
-		fmt.Printf("⚠️  %s: INSTALLED (version unknown, required: %s)\n", prereq.ID, prereq.MinVersion)
+		result.Message = "Version unknown"
+		if !output.IsJSON() {
+			fmt.Printf("⚠️  %s: INSTALLED (version unknown, required: %s)\n", prereq.ID, prereq.MinVersion)
+		}
 		// Continue to check if it's running if needed
 	} else {
 		versionOk := compareVersions(version, prereq.MinVersion)
 		if !versionOk {
-			fmt.Printf("❌ %s: %s (required: %s)\n", prereq.ID, version, prereq.MinVersion)
-			return false
+			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
+			if !output.IsJSON() {
+				fmt.Printf("❌ %s: %s (required: %s)\n", prereq.ID, version, prereq.MinVersion)
+			}
+			return result
 		}
-		fmt.Printf("✅ %s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
+		if !output.IsJSON() {
+			fmt.Printf("✅ %s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
+		}
 	}
 
 	// Check if the tool is running (if configured)
 	if prereq.CheckRunning {
+		result.CheckedRun = true
 		isRunning := checkIsRunning(prereq)
+		result.Running = isRunning
 		if !isRunning {
-			fmt.Printf(" - ❌ NOT RUNNING\n")
-			return false
+			result.Message = "Not running"
+			if !output.IsJSON() {
+				fmt.Printf(" - ❌ NOT RUNNING\n")
+			}
+			return result
 		}
-		fmt.Printf(" - ✅ RUNNING\n")
-		return true
+		result.Satisfied = true
+		result.Message = "Running"
+		if !output.IsJSON() {
+			fmt.Printf(" - ✅ RUNNING\n")
+		}
+		return result
 	}
 
 	if version != "" {
-		fmt.Println()
+		result.Satisfied = true
+		result.Message = "Satisfied"
+		if !output.IsJSON() {
+			fmt.Println()
+		}
 	}
-	return true
+	return result
+}
+
+func checkPrerequisite(prereq Prerequisite) bool {
+	result := checkPrerequisiteWithResult(prereq)
+	return result.Satisfied
 }
 
 func getInstalledVersion(prereq Prerequisite) (installed bool, version string) {

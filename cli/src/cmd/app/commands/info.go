@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 
 	"github.com/spf13/cobra"
@@ -48,6 +49,12 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	services := reg.ListAll()
 
 	if len(services) == 0 {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"project":  projectDir,
+				"services": []interface{}{},
+			})
+		}
 		fmt.Println("No services are running in this project")
 		fmt.Println("Run 'azd app run' to start services")
 		return nil
@@ -56,6 +63,72 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Get Azure environment variables for endpoint mapping
 	azdEnv := getAzureEndpoints()
 
+	// For JSON output
+	if output.IsJSON() {
+		return printInfoJSON(projectDir, services, azdEnv)
+	}
+
+	// Default output
+	printInfoDefault(projectDir, services, azdEnv)
+	return nil
+}
+
+// printInfoJSON outputs service information in JSON format.
+func printInfoJSON(projectDir string, services []*registry.ServiceRegistryEntry, azdEnv map[string]string) error {
+	type ServiceOutput struct {
+		Name            string            `json:"name"`
+		URL             string            `json:"url"`
+		AzureURL        string            `json:"azureUrl,omitempty"`
+		Language        string            `json:"language"`
+		Framework       string            `json:"framework"`
+		Port            int               `json:"port"`
+		Status          string            `json:"status"`
+		Health          string            `json:"health"`
+		PID             int               `json:"pid"`
+		StartTime       time.Time         `json:"startTime"`
+		LastChecked     time.Time         `json:"lastChecked"`
+		Error           string            `json:"error,omitempty"`
+		EnvironmentVars map[string]string `json:"environmentVariables,omitempty"`
+	}
+
+	outputServices := make([]ServiceOutput, 0, len(services))
+	for _, svc := range services {
+		svcOutput := ServiceOutput{
+			Name:        svc.Name,
+			URL:         svc.URL,
+			Language:    svc.Language,
+			Framework:   svc.Framework,
+			Port:        svc.Port,
+			Status:      svc.Status,
+			Health:      svc.Health,
+			PID:         svc.PID,
+			StartTime:   svc.StartTime,
+			LastChecked: svc.LastChecked,
+			Error:       svc.Error,
+		}
+
+		// Add Azure endpoint if available
+		if azureEndpoint, exists := azdEnv[svc.Name]; exists {
+			svcOutput.AzureURL = azureEndpoint
+		}
+
+		// Add environment variables
+		envVars := getServiceEnvVars(svc.Name)
+		if len(envVars) > 0 {
+			svcOutput.EnvironmentVars = envVars
+		}
+
+		outputServices = append(outputServices, svcOutput)
+	}
+
+	return output.PrintJSON(map[string]interface{}{
+		"project":  projectDir,
+		"services": outputServices,
+	})
+}
+
+// printInfoDefault outputs service information in default format.
+func printInfoDefault(projectDir string, services []*registry.ServiceRegistryEntry, azdEnv map[string]string) {
 	// Show project directory header
 	fmt.Printf("\n%s╔═══════════════════════════════════════════════════════════════════════╗%s\n", colorBold, colorReset)
 	fmt.Printf("%s║ Project: %-60s║%s\n", colorBold, projectDir, colorReset)
@@ -99,8 +172,6 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		}
 	}
 	fmt.Println()
-
-	return nil
 }
 
 // getAzureEndpoints extracts Azure endpoint URLs from environment variables.

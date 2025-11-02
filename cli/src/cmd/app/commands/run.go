@@ -141,19 +141,19 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 		return err
 	}
 
-	// Get service URLs
-	urls := service.GetServiceURLs(result.Processes)
-	logger.LogSummary(urls)
+	// Show ready message
+	logger.LogReady()
 
 	// Start dashboard server
 	dashboardServer := dashboard.GetServer(cwd)
 	dashboardURL, err := dashboardServer.Start()
 	if err != nil {
-		fmt.Printf("Warning: Failed to start dashboard: %v\n", err)
+		fmt.Printf("%s⚠%s  Dashboard unavailable: %v\n", "\033[93m", "\033[0m", err)
 	} else {
-		fmt.Printf("\n📊 Dashboard: %s\n", dashboardURL)
-		fmt.Println()
+		fmt.Printf("%s📊 Dashboard:%s %s%s%s\n", "\033[1m", "\033[0m", "\033[94m", dashboardURL, "\033[0m")
 	}
+
+	fmt.Printf("\n%s💡 Press Ctrl+C to stop all services%s\n\n", "\033[90m", "\033[0m")
 
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -162,7 +162,7 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 	// Wait for interrupt signal
 	<-sigChan
 
-	fmt.Println("\n\n🛑 Shutting down services...")
+	fmt.Printf("\n\n%s🛑 Shutting down services...%s\n", "\033[93m", "\033[0m")
 
 	// Stop dashboard
 	if err := dashboardServer.Stop(); err != nil {
@@ -170,7 +170,7 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 	}
 
 	service.StopAllServices(result.Processes)
-	fmt.Println("✅ All services stopped")
+	fmt.Printf("%s✅ All services stopped%s\n\n", "\033[92m", "\033[0m")
 
 	return nil
 }

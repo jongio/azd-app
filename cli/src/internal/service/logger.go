@@ -65,9 +65,12 @@ func (l *ServiceLogger) FormatLogEntry(serviceName string, message string) strin
 	timestamp := time.Now().Format("15:04:05")
 	color := l.getServiceColor(serviceName)
 
-	// Format: [HH:MM:SS] [service-name] message
-	prefix := fmt.Sprintf("%s[%s] [%s]%s", colorGray, timestamp, serviceName, colorReset)
-	return fmt.Sprintf("%s %s%s%s", prefix, color, message, colorReset)
+	// Format: HH:MM:SS service-name │ message
+	return fmt.Sprintf("%s%s%s %s%-15s%s %s│%s %s",
+		colorGray, timestamp, colorReset,
+		color, serviceName, colorReset,
+		colorGray, colorReset,
+		message)
 }
 
 // LogService logs a message from a specific service.
@@ -77,8 +80,11 @@ func (l *ServiceLogger) LogService(serviceName string, message string) {
 
 	// Format the message without calling getServiceColor again
 	timestamp := time.Now().Format("15:04:05")
-	prefix := fmt.Sprintf("%s[%s] [%s]%s", colorGray, timestamp, serviceName, colorReset)
-	formatted := fmt.Sprintf("%s %s%s%s", prefix, color, message, colorReset)
+	formatted := fmt.Sprintf("%s%s%s %s%-15s%s %s│%s %s",
+		colorGray, timestamp, colorReset,
+		color, serviceName, colorReset,
+		colorGray, colorReset,
+		message)
 
 	fmt.Println(formatted)
 }
@@ -89,7 +95,7 @@ func (l *ServiceLogger) LogInfo(message string) {
 	defer l.mu.Unlock()
 
 	timestamp := time.Now().Format("15:04:05")
-	fmt.Printf("%s[%s]%s %s\n", colorGray, timestamp, colorReset, message)
+	fmt.Printf("%s%s%s %s\n", colorGray, timestamp, colorReset, message)
 }
 
 // LogSuccess logs a success message with green color.
@@ -98,9 +104,11 @@ func (l *ServiceLogger) LogSuccess(serviceName string, message string) {
 	defer l.mu.Unlock()
 
 	timestamp := time.Now().Format("15:04:05")
-	fmt.Printf("%s[%s]%s %s[%s]%s %s✓%s %s\n",
+	color := l.getServiceColor(serviceName)
+
+	fmt.Printf("%s%s%s %s%-15s%s %s✓%s %s\n",
 		colorGray, timestamp, colorReset,
-		l.getServiceColor(serviceName), serviceName, colorReset,
+		color, serviceName, colorReset,
 		"\033[92m", colorReset,
 		message)
 }
@@ -111,9 +119,11 @@ func (l *ServiceLogger) LogError(serviceName string, message string) {
 	defer l.mu.Unlock()
 
 	timestamp := time.Now().Format("15:04:05")
-	fmt.Printf("%s[%s]%s %s[%s]%s %s✗%s %s\n",
+	color := l.getServiceColor(serviceName)
+
+	fmt.Printf("%s%s%s %s%-15s%s %s✗%s %s\n",
 		colorGray, timestamp, colorReset,
-		l.getServiceColor(serviceName), serviceName, colorReset,
+		color, serviceName, colorReset,
 		"\033[91m", colorReset,
 		message)
 }
@@ -124,9 +134,11 @@ func (l *ServiceLogger) LogWarning(serviceName string, message string) {
 	defer l.mu.Unlock()
 
 	timestamp := time.Now().Format("15:04:05")
-	fmt.Printf("%s[%s]%s %s[%s]%s %s⚠%s %s\n",
+	color := l.getServiceColor(serviceName)
+
+	fmt.Printf("%s%s%s %s%-15s%s %s⚠%s  %s\n",
 		colorGray, timestamp, colorReset,
-		l.getServiceColor(serviceName), serviceName, colorReset,
+		color, serviceName, colorReset,
 		"\033[93m", colorReset,
 		message)
 }
@@ -145,25 +157,43 @@ func (l *ServiceLogger) LogStartup(serviceCount int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	fmt.Printf("\n%s%s╔══════════════════════════════════════╗%s\n", colorBold, "\033[96m", colorReset)
-	fmt.Printf("%s%s║  Starting %d service(s)...           ║%s\n", colorBold, "\033[96m", serviceCount, colorReset)
-	fmt.Printf("%s%s╚══════════════════════════════════════╝%s\n\n", colorBold, "\033[96m", colorReset)
+	fmt.Printf("\n%s🚀 Azure Developer CLI - App Extension%s\n", colorBold, colorReset)
+	fmt.Printf("%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", "\033[90m", colorReset)
+
+	serviceWord := "service"
+	if serviceCount != 1 {
+		serviceWord = "services"
+	}
+
+	fmt.Printf("\n%s⚡ Starting %d %s...%s\n\n", "\033[96m", serviceCount, serviceWord, colorReset)
 }
 
 // LogSummary logs the final summary of service URLs.
 func (l *ServiceLogger) LogSummary(urls map[string]string) {
-	fmt.Printf("\n%s%s╔══════════════════════════════════════╗%s\n", colorBold, "\033[92m", colorReset)
-	fmt.Printf("%s%s║  All services ready!                 ║%s\n", colorBold, "\033[92m", colorReset)
-	fmt.Printf("%s%s╚══════════════════════════════════════╝%s\n\n", colorBold, "\033[92m", colorReset)
+	fmt.Printf("\n%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", "\033[90m", colorReset)
+	fmt.Printf("%s✨ All services ready!%s\n", "\033[92m", colorReset)
+	fmt.Printf("%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n\n", "\033[90m", colorReset)
 
 	if len(urls) > 0 {
-		fmt.Println("Service URLs:")
+		fmt.Printf("%s📡 Service URLs:%s\n\n", colorBold, colorReset)
 		for name, url := range urls {
 			color := l.getServiceColor(name)
-			fmt.Printf("  %s%s%s: %s%s%s\n", color, name, colorReset, colorBold, url, colorReset)
+			// Extract just the service name without path for cleaner display
+			displayName := name
+			if len(displayName) > 15 {
+				displayName = displayName[:12] + "..."
+			}
+			fmt.Printf("   %s%-18s%s → %s%s%s\n", color, displayName, colorReset, "\033[94m", url, colorReset)
 		}
 		fmt.Println()
 	}
+}
+
+// LogReady logs the ready message without repeating URLs.
+func (l *ServiceLogger) LogReady() {
+	fmt.Printf("\n%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", "\033[90m", colorReset)
+	fmt.Printf("%s✨ All services ready!%s\n", "\033[92m", colorReset)
+	fmt.Printf("%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n\n", "\033[90m", colorReset)
 }
 
 // StreamLogs streams logs from multiple services to the console.

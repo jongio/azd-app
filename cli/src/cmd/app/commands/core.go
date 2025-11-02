@@ -10,6 +10,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/installer"
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 
@@ -48,8 +49,10 @@ func init() {
 
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
-	fmt.Println("🔍 Checking requirements...")
-	fmt.Println()
+	if !output.IsJSON() {
+		fmt.Println("🔍 Checking requirements...")
+		fmt.Println()
+	}
 
 	// Get current working directory
 	cwd, err := os.Getwd()
@@ -64,6 +67,13 @@ func executeReqs() error {
 	}
 
 	if azureYamlPath == "" {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"satisfied": true,
+				"requirements": []interface{}{},
+				"message": "No azure.yaml found",
+			})
+		}
 		fmt.Println("ℹ️  No azure.yaml found - skipping requirement check")
 		fmt.Println()
 		return nil
@@ -86,19 +96,39 @@ func executeReqs() error {
 	}
 
 	if len(azureYaml.Requirements) == 0 {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"satisfied": true,
+				"requirements": []interface{}{},
+				"message": "No requirements defined",
+			})
+		}
 		fmt.Println("ℹ️  No requirements defined in azure.yaml")
 		fmt.Println()
 		return nil
 	}
 
+	// Check all prerequisites
+	results := make([]ReqResult, 0, len(azureYaml.Requirements))
 	allSatisfied := true
+	
 	for _, prereq := range azureYaml.Requirements {
-		passed := checkPrerequisite(prereq)
-		if !passed {
+		result := checkPrerequisiteWithResult(prereq)
+		results = append(results, result)
+		if !result.Satisfied {
 			allSatisfied = false
 		}
 	}
 
+	// JSON output
+	if output.IsJSON() {
+		return output.PrintJSON(map[string]interface{}{
+			"satisfied":    allSatisfied,
+			"requirements": results,
+		})
+	}
+
+	// Default output
 	fmt.Println()
 	if !allSatisfied {
 		return fmt.Errorf("requirement check failed")
@@ -110,60 +140,137 @@ func executeReqs() error {
 
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
-	fmt.Println("🔍 Installing dependencies...")
-	fmt.Println()
+	if !output.IsJSON() {
+		fmt.Println("🔍 Installing dependencies...")
+		fmt.Println()
+	}
 
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
 	hasProjects := false
+	var results []map[string]interface{}
 
 	// Step 1: Find and install Node.js projects
 	nodeProjects, err := detector.FindNodeProjects(cwd)
 	if err == nil && len(nodeProjects) > 0 {
 		hasProjects = true
-		fmt.Printf("📦 Found %d Node.js project(s)\n", len(nodeProjects))
-		for _, nodeProject := range nodeProjects {
-			if err := installer.InstallNodeDependencies(nodeProject); err != nil {
-				fmt.Printf("   ⚠️  Warning: Failed to install for %s: %v\n", nodeProject.Dir, err)
-			}
+		if !output.IsJSON() {
+			fmt.Printf("📦 Found %d Node.js project(s)\n", len(nodeProjects))
 		}
-		fmt.Println()
+		for _, nodeProject := range nodeProjects {
+			result := map[string]interface{}{
+				"type":    "node",
+				"dir":     nodeProject.Dir,
+				"manager": nodeProject.PackageManager,
+			}
+			if err := installer.InstallNodeDependencies(nodeProject); err != nil {
+				if !output.IsJSON() {
+					fmt.Printf("   ⚠️  Warning: Failed to install for %s: %v\n", nodeProject.Dir, err)
+				}
+				result["success"] = false
+				result["error"] = err.Error()
+			} else {
+				result["success"] = true
+			}
+			results = append(results, result)
+		}
+		if !output.IsJSON() {
+			fmt.Println()
+		}
 	}
 
 	// Step 2: Find and install Python projects
 	pythonProjects, err := detector.FindPythonProjects(cwd)
 	if err == nil && len(pythonProjects) > 0 {
 		hasProjects = true
-		fmt.Printf("🐍 Found %d Python project(s)\n", len(pythonProjects))
-		for _, pyProject := range pythonProjects {
-			if err := installer.SetupPythonVirtualEnv(pyProject); err != nil {
-				fmt.Printf("   ⚠️  Warning: Failed to setup environment for %s: %v\n", pyProject.Dir, err)
-			}
+		if !output.IsJSON() {
+			fmt.Printf("🐍 Found %d Python project(s)\n", len(pythonProjects))
 		}
-		fmt.Println()
+		for _, pyProject := range pythonProjects {
+			result := map[string]interface{}{
+				"type":    "python",
+				"dir":     pyProject.Dir,
+				"manager": pyProject.PackageManager,
+			}
+			if err := installer.SetupPythonVirtualEnv(pyProject); err != nil {
+				if !output.IsJSON() {
+					fmt.Printf("   ⚠️  Warning: Failed to setup environment for %s: %v\n", pyProject.Dir, err)
+				}
+				result["success"] = false
+				result["error"] = err.Error()
+			} else {
+				result["success"] = true
+			}
+			results = append(results, result)
+		}
+		if !output.IsJSON() {
+			fmt.Println()
+		}
 	}
 
 	// Step 3: Find and install .NET projects
 	dotnetProjects, err := detector.FindDotnetProjects(cwd)
 	if err == nil && len(dotnetProjects) > 0 {
 		hasProjects = true
-		fmt.Printf("🔷 Found %d .NET project(s)\n", len(dotnetProjects))
-		for _, dotnetProject := range dotnetProjects {
-			if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
-				fmt.Printf("   ⚠️  Warning: Failed to restore %s: %v\n", dotnetProject.Path, err)
-			}
+		if !output.IsJSON() {
+			fmt.Printf("🔷 Found %d .NET project(s)\n", len(dotnetProjects))
 		}
-		fmt.Println()
+		for _, dotnetProject := range dotnetProjects {
+			result := map[string]interface{}{
+				"type": "dotnet",
+				"path": dotnetProject.Path,
+			}
+			if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
+				if !output.IsJSON() {
+					fmt.Printf("   ⚠️  Warning: Failed to restore %s: %v\n", dotnetProject.Path, err)
+				}
+				result["success"] = false
+				result["error"] = err.Error()
+			} else {
+				result["success"] = true
+			}
+			results = append(results, result)
+		}
+		if !output.IsJSON() {
+			fmt.Println()
+		}
 	}
 
 	if !hasProjects {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"success":  true,
+				"projects": []interface{}{},
+				"message":  "No projects detected",
+			})
+		}
 		fmt.Println("ℹ️  No projects detected - skipping dependency installation")
 		fmt.Println()
 		return nil
+	}
+
+	if output.IsJSON() {
+		// Check if any project failed
+		allSuccess := true
+		for _, result := range results {
+			if success, ok := result["success"].(bool); ok && !success {
+				allSuccess = false
+				break
+			}
+		}
+		return output.PrintJSON(map[string]interface{}{
+			"success":  allSuccess,
+			"projects": results,
+		})
 	}
 
 	fmt.Println("✅ Dependencies installed successfully!")

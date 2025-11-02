@@ -83,20 +83,12 @@ func (s *Server) setupRoutes() {
 		return
 	}
 
-	// Debug: List files in embedded FS
-	fs.WalkDir(distFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			log.Printf("  - %s", path)
-		}
-		return nil
-	})
-
 	// API endpoints (these take precedence over the file server)
 	s.mux.HandleFunc("/api/project", s.handleGetProject)
 	s.mux.HandleFunc("/api/services", s.handleGetServices)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 
-	// Serve static files with logging
+	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fileServer.ServeHTTP(w, r)

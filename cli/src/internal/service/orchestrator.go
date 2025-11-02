@@ -89,8 +89,13 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			result.Processes[rt.Name] = process
 			mu.Unlock()
 
-			// Log service URL immediately
-			fmt.Printf("Started %s: %s\n", rt.Name, fmt.Sprintf("http://localhost:%d", process.Port))
+			// Log service URL immediately with modern formatting
+			url := fmt.Sprintf("http://localhost:%d", process.Port)
+			fmt.Printf("   %s✓%s %s%-15s%s → %s%s%s\n",
+				"\033[92m", "\033[0m",
+				"\033[36m", rt.Name, "\033[0m",
+				"\033[94m", url, "\033[0m")
+
 			reg.UpdateStatus(rt.Name, "running", "healthy")
 			process.Ready = true
 
