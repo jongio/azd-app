@@ -22,15 +22,20 @@ You have your full Azure Developer CLI (azd) projects set up - they provision an
 With the **azd app extension**, local development becomes effortless with just a few simple commands:
 
 ```bash
-azd app reqs  # ✅ Check all prerequisites are installed
-azd app deps  # 📦 Install all dependencies automatically
-azd app run   # 🚀 Start your application locally with a live dashboard
+azd app reqs     # ✅ Check all prerequisites are installed
+azd app deps     # 📦 Install all dependencies automatically
+azd app run      # 🚀 Start your application locally with a live dashboard
+azd app info     # 📋 Show information about running services
+azd app logs     # 📜 View logs from running services
+azd app version  # ℹ️  Show version information
 ```
 
 The `azd app run` command automatically launches a **web dashboard** where you can:
-- 📊 View all available service URLs in one place
+- 📊 View all available service URLs (local and Azure) in one place
 - 💚 Monitor the health status of your locally running services
-- 🔗 Click to open any service directly in your browser
+- � Stream live logs from all services
+- �🔗 Click to open any service directly in your browser
+- 🌐 See Azure deployment information alongside local services
 
 **Smart. Simple. Automatic.** Works with Node.js, Python, .NET, Aspire, and more.
 
@@ -47,7 +52,15 @@ An Azure Developer CLI (azd) extension that automates development environment se
 
 - **Languages**: Node.js, Python, .NET, Aspire
 - **Package Managers**: npm, pnpm, yarn, uv, poetry, pip, dotnet
-- **Features**: Smart detection, dependency installation, dev environment orchestration
+- **Features**: 
+  - Smart project and dependency detection
+  - Prerequisite checking with caching
+  - Automatic dependency installation
+  - Service orchestration from azure.yaml
+  - Live web dashboard with service monitoring
+  - Real-time log streaming
+  - Azure environment integration
+  - Python entry point auto-detection
 
 👉 [CLI Documentation](./cli/README.md)
 
@@ -103,11 +116,21 @@ azd extension install app
 ```bash
 # Option 1: Use an existing azd project
 cd your-azd-project
-azd app run
+azd app reqs  # Check prerequisites
+azd app deps  # Install dependencies
+azd app run   # Start services with dashboard
 
 # Option 2: Create a new sample project
 azd init -t hello-azd
 azd app run
+
+# View service information
+azd app info
+
+# Stream logs
+azd app logs           # All services
+azd app logs api       # Specific service
+azd app logs -f        # Follow mode
 ```
 
 For detailed installation and usage instructions, see the [CLI documentation](./cli/README.md).

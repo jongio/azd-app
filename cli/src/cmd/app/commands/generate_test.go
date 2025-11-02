@@ -478,7 +478,7 @@ func TestFindOrCreateAzureYaml(t *testing.T) {
 	})
 }
 
-func TestMergeRequirements(t *testing.T) {
+func TestMergeReqs(t *testing.T) {
 	// Create temporary directory
 	tmpDir, err := os.MkdirTemp("", "test-merge-*")
 	if err != nil {
@@ -500,9 +500,9 @@ reqs:
 			{ID: "npm", MinVersion: "11.0.0"},
 		}
 
-		added, skipped, err := mergeRequirements(testFile, detected)
+		added, skipped, err := mergeReqs(testFile, detected)
 		if err != nil {
-			t.Fatalf("mergeRequirements failed: %v", err)
+			t.Fatalf("mergeReqs failed: %v", err)
 		}
 
 		if added != 2 {
@@ -532,9 +532,9 @@ reqs:
 			{ID: "git", MinVersion: "2.0.0"},
 		}
 
-		added, skipped, err := mergeRequirements(testFile, detected)
+		added, skipped, err := mergeReqs(testFile, detected)
 		if err != nil {
-			t.Fatalf("mergeRequirements failed: %v", err)
+			t.Fatalf("mergeReqs failed: %v", err)
 		}
 
 		if added != 1 { // Only git is new
@@ -553,7 +553,7 @@ reqs:
 			{ID: "node", MinVersion: "22.0.0"},
 		}
 
-		_, _, err := mergeRequirements(maliciousPath, detected)
+		_, _, err := mergeReqs(maliciousPath, detected)
 		if err == nil {
 			t.Error("Expected error for path traversal, got nil")
 		}

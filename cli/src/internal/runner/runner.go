@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 )
@@ -17,10 +18,10 @@ func RunAspire(project types.AspireProject) error {
 		return fmt.Errorf("invalid project directory: %w", err)
 	}
 
-	fmt.Println("🚀 Starting Aspire project...")
-	fmt.Println("📁 Directory:", project.Dir)
-	fmt.Println("📝 Project:", project.ProjectFile)
-	fmt.Println()
+	output.Info("Starting Aspire project...")
+	output.Item("Directory: %s", project.Dir)
+	output.Item("Project: %s", project.ProjectFile)
+	output.Newline()
 
 	// Use dotnet run instead of aspire run to ensure environment variable propagation.
 	// The aspire CLI internally calls dotnet run, but doesn't expose environment variable options.
@@ -38,8 +39,8 @@ func RunPnpmScript(script string) error {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 
-	fmt.Println("🚀 Starting pnpm", script)
-	fmt.Println()
+	output.Info("Starting pnpm %s", script)
+	output.Newline()
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -56,9 +57,9 @@ func RunDockerCompose(scriptName, scriptCmd string) error {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 
-	fmt.Println("🚀 Starting docker compose via pnpm", scriptName)
-	fmt.Println("   Command:", scriptCmd)
-	fmt.Println()
+	output.Info("Starting docker compose via pnpm %s", scriptName)
+	output.Item("Command: %s", scriptCmd)
+	output.Newline()
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -81,15 +82,65 @@ func RunNode(project types.NodeProject, script string) error {
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	fmt.Printf("🚀 Starting Node.js project with %s %s\n", project.PackageManager, script)
-	fmt.Println("📁 Directory:", project.Dir)
-	fmt.Println()
+	output.Info("Starting Node.js project with %s %s", project.PackageManager, script)
+	output.Item("Directory: %s", project.Dir)
+	output.Newline()
 
 	return executor.StartCommand(project.PackageManager, []string{"run", script}, project.Dir)
 }
 
+// findPythonEntryPoint searches for common Python entry point files.
+// It checks multiple locations in order of preference.
+// Returns the relative path to the entry point file, or an error with helpful configuration guidance.
+func findPythonEntryPoint(projectDir string) (string, error) {
+	// Common entry point filenames in order of preference
+	entryPoints := []string{
+		"main.py",
+		"app.py",
+		"agent.py",
+		"__main__.py",
+		"run.py",
+		"server.py",
+	}
+
+	// Common directories to search in order
+	searchDirs := []string{
+		"",          // Root directory
+		"src",       // src/
+		"src/app",   // src/app/
+		"src/agent", // src/agent/
+		"app",       // app/
+		"agent",     // agent/
+	}
+
+	// Try each combination of directory and entry point
+	for _, dir := range searchDirs {
+		for _, entry := range entryPoints {
+			var path string
+			if dir == "" {
+				path = filepath.Join(projectDir, entry)
+			} else {
+				path = filepath.Join(projectDir, dir, entry)
+			}
+
+			if _, err := os.Stat(path); err == nil {
+				// Return relative path from project directory
+				relPath, err := filepath.Rel(projectDir, path)
+				if err != nil {
+					relPath = path
+				}
+				return relPath, nil
+			}
+		}
+	}
+
+	// Provide helpful error message with configuration instructions
+	return "", fmt.Errorf("no Python entry point found. Searched for: %v in directories: %v.\n\nTo fix this, you can:\n  1. Create one of the expected entry point files (e.g., main.py, app.py, agent.py)\n  2. OR specify a custom entry point in azure.yaml:\n     services:\n       yourservice:\n         language: python\n         project: ./path/to/service\n         entrypoint: path/to/your/entrypoint.py",
+		entryPoints, searchDirs)
+}
+
 // RunPython runs a Python project with the detected package manager.
-// For projects with a dev script, it runs that. Otherwise, it looks for common entry points.
+// If an entrypoint is specified in the PythonProject, it takes precedence over auto-detection.
 func RunPython(project types.PythonProject) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Dir); err != nil {
@@ -99,9 +150,27 @@ func RunPython(project types.PythonProject) error {
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	fmt.Printf("🚀 Starting Python project with %s\n", project.PackageManager)
-	fmt.Println("📁 Directory:", project.Dir)
-	fmt.Println()
+	// Determine entry point: use explicit entrypoint if provided, otherwise auto-detect
+	var entryPoint string
+	var err error
+	if project.Entrypoint != "" {
+		entryPoint = project.Entrypoint
+		output.Info("Starting Python project with %s", project.PackageManager)
+		output.Item("Directory: %s", project.Dir)
+		output.Item("Entry point (from azure.yaml): %s", entryPoint)
+		output.Newline()
+	} else {
+		entryPoint, err = findPythonEntryPoint(project.Dir)
+		if err != nil {
+			output.Error("Failed to find Python entry point")
+			output.Newline()
+			return err
+		}
+		output.Info("Starting Python project with %s", project.PackageManager)
+		output.Item("Directory: %s", project.Dir)
+		output.Item("Entry point (auto-detected): %s", entryPoint)
+		output.Newline()
+	}
 
 	// Different package managers have different run commands
 	var cmd string
@@ -109,47 +178,19 @@ func RunPython(project types.PythonProject) error {
 
 	switch project.PackageManager {
 	case "uv":
-		// uv run <script or module>
-		// Try common entry points: main.py, app.py, src/main.py
-		args = []string{"run", "python"}
-		if _, err := os.Stat(fmt.Sprintf("%s/main.py", project.Dir)); err == nil {
-			args = append(args, "main.py")
-		} else if _, err := os.Stat(fmt.Sprintf("%s/app.py", project.Dir)); err == nil {
-			args = append(args, "app.py")
-		} else if _, err := os.Stat(fmt.Sprintf("%s/src/main.py", project.Dir)); err == nil {
-			args = append(args, "src/main.py")
-		} else {
-			return fmt.Errorf("no entry point found (main.py, app.py, or src/main.py)")
-		}
+		// uv run python <script>
+		args = []string{"run", "python", entryPoint}
 		cmd = "uv"
 
 	case "poetry":
 		// poetry run python <script>
-		args = []string{"run", "python"}
-		if _, err := os.Stat(fmt.Sprintf("%s/main.py", project.Dir)); err == nil {
-			args = append(args, "main.py")
-		} else if _, err := os.Stat(fmt.Sprintf("%s/app.py", project.Dir)); err == nil {
-			args = append(args, "app.py")
-		} else if _, err := os.Stat(fmt.Sprintf("%s/src/main.py", project.Dir)); err == nil {
-			args = append(args, "src/main.py")
-		} else {
-			return fmt.Errorf("no entry point found (main.py, app.py, or src/main.py)")
-		}
+		args = []string{"run", "python", entryPoint}
 		cmd = "poetry"
 
 	case "pip":
 		// Activate venv and run python
 		// For now, just run python directly from venv if it exists
-		args = []string{}
-		if _, err := os.Stat(fmt.Sprintf("%s/main.py", project.Dir)); err == nil {
-			args = append(args, "main.py")
-		} else if _, err := os.Stat(fmt.Sprintf("%s/app.py", project.Dir)); err == nil {
-			args = append(args, "app.py")
-		} else if _, err := os.Stat(fmt.Sprintf("%s/src/main.py", project.Dir)); err == nil {
-			args = append(args, "src/main.py")
-		} else {
-			return fmt.Errorf("no entry point found (main.py, app.py, or src/main.py)")
-		}
+		args = []string{entryPoint}
 		// Check for venv
 		venvPython := fmt.Sprintf("%s/.venv/Scripts/python.exe", project.Dir)
 		if _, err := os.Stat(venvPython); err == nil {
@@ -178,9 +219,9 @@ func RunDotnet(project types.DotnetProject) error {
 		return fmt.Errorf("invalid project path: %w", err)
 	}
 
-	fmt.Println("🚀 Starting .NET project...")
-	fmt.Println("📁 Project:", project.Path)
-	fmt.Println()
+	output.Info("Starting .NET project...")
+	output.Item("Project: %s", project.Path)
+	output.Newline()
 
 	// For .sln files, we need to run from the directory
 	// For .csproj files, we can pass the path directly

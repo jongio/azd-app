@@ -3,9 +3,11 @@ package service
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 )
 
@@ -44,12 +46,20 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 		go func(rt *ServiceRuntime) {
 			defer wg.Done()
 
+			// Extract Azure URL from environment variables if available
+			azureURL := ""
+			serviceNameUpper := strings.ToUpper(rt.Name)
+			if url, exists := envVars["SERVICE_"+serviceNameUpper+"_URL"]; exists {
+				azureURL = url
+			}
+
 			// Register service in starting state
 			reg.Register(&registry.ServiceRegistryEntry{
 				Name:       rt.Name,
 				ProjectDir: projectDir,
 				Port:       rt.Port,
 				URL:        fmt.Sprintf("http://localhost:%d", rt.Port),
+				AzureURL:   azureURL,
 				Language:   rt.Language,
 				Framework:  rt.Framework,
 				Status:     "starting",
@@ -91,21 +101,13 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 
 			// Log service URL immediately with modern formatting
 			url := fmt.Sprintf("http://localhost:%d", process.Port)
-			fmt.Printf("   %s✓%s %s%-15s%s → %s%s%s\n",
-				"\033[92m", "\033[0m",
-				"\033[36m", rt.Name, "\033[0m",
-				"\033[94m", url, "\033[0m")
+			output.ItemSuccess("%s%-15s%s → %s", output.Cyan, rt.Name, output.Reset, url)
 
 			reg.UpdateStatus(rt.Name, "running", "healthy")
 			process.Ready = true
 
-			// Keep reading output in background to prevent process from blocking
-			go func() {
-				ReadServiceOutput(process.Stdout, make(chan string))
-			}()
-			go func() {
-				ReadServiceOutput(process.Stderr, make(chan string))
-			}()
+			// Note: Log collection is already handled by StartLogCollection in StartService
+			// which sets up goroutines to read from stdout/stderr and populate the log buffer
 		}(runtime)
 	}
 
@@ -141,7 +143,7 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 
 			if err := StopService(proc); err != nil {
 				// Log error but continue stopping other services
-				fmt.Printf("Error stopping service %s: %v\n", serviceName, err)
+				output.Error("Error stopping service %s: %v", serviceName, err)
 			}
 
 			// Unregister from registry

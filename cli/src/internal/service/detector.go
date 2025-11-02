@@ -77,7 +77,7 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	usedPorts[port] = true
 
 	// Build command and args based on framework (AFTER port assignment)
-	if err := buildRunCommand(runtime, projectDir); err != nil {
+	if err := buildRunCommand(runtime, projectDir, service.Entrypoint); err != nil {
 		return nil, fmt.Errorf("failed to build run command: %w", err)
 	}
 
@@ -306,7 +306,8 @@ func detectPHPFramework(projectDir string) (string, string, error) {
 }
 
 // buildRunCommand builds the command and arguments to run the service.
-func buildRunCommand(runtime *ServiceRuntime, projectDir string) error {
+// If entrypoint is provided (from azure.yaml), it takes precedence over auto-detection.
+func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint string) error {
 	switch runtime.Framework {
 	case "Next.js", "React", "Vue", "Svelte", "SvelteKit", "Remix", "Astro", "Nuxt":
 		runtime.Command = runtime.PackageManager
@@ -344,24 +345,59 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string) error {
 
 	case "FastAPI":
 		runtime.Command = "uvicorn"
-		// Find the main app file
-		appFile := findPythonAppFile(projectDir)
+		// Use entrypoint if provided, otherwise find the app file
+		appFile := entrypoint
+		if appFile == "" {
+			appFile = findPythonAppFile(projectDir)
+		}
+		// Validate that the entrypoint file exists
+		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
+			return err
+		}
 		runtime.Args = []string{appFile + ":app", "--reload", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
 
 	case "Flask":
 		runtime.Command = "python"
 		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
-		runtime.Env["FLASK_APP"] = findPythonAppFile(projectDir)
+		// Use entrypoint if provided, otherwise find the app file
+		var appFile string
+		if entrypoint != "" {
+			appFile = entrypoint
+			runtime.Env["FLASK_APP"] = entrypoint
+		} else {
+			appFile = findPythonAppFile(projectDir)
+			runtime.Env["FLASK_APP"] = appFile
+		}
+		// Validate that the entrypoint file exists
+		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
+			return err
+		}
 		runtime.Env["FLASK_ENV"] = "development"
 
 	case "Streamlit":
 		runtime.Command = "streamlit"
-		appFile := findPythonAppFile(projectDir)
+		// Use entrypoint if provided, otherwise find the app file
+		appFile := entrypoint
+		if appFile == "" {
+			appFile = findPythonAppFile(projectDir)
+		}
+		// Validate that the entrypoint file exists
+		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
+			return err
+		}
 		runtime.Args = []string{"run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}
 
 	case "Python":
 		runtime.Command = "python"
-		appFile := findPythonAppFile(projectDir)
+		// Use entrypoint if provided, otherwise find the app file
+		appFile := entrypoint
+		if appFile == "" {
+			appFile = findPythonAppFile(projectDir)
+		}
+		// Validate that the entrypoint file exists
+		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
+			return err
+		}
 		runtime.Args = []string{appFile + ".py"}
 
 	case "Aspire":
@@ -529,6 +565,35 @@ func findPythonAppFile(projectDir string) string {
 		}
 	}
 	return "main"
+}
+
+// validatePythonEntrypoint checks if the Python entrypoint file exists and provides helpful error messages.
+func validatePythonEntrypoint(projectDir string, appFile string) error {
+	// Try different file path variations
+	possiblePaths := []string{
+		filepath.Join(projectDir, appFile),
+		filepath.Join(projectDir, appFile+".py"),
+	}
+
+	// Check if file exists
+	for _, path := range possiblePaths {
+		if err := security.ValidatePath(path); err == nil {
+			if _, err := os.Stat(path); err == nil {
+				return nil // File exists
+			}
+		}
+	}
+
+	// File doesn't exist - provide helpful error message
+	expectedPath := filepath.Join(projectDir, appFile+".py")
+	return fmt.Errorf(
+		"Python entrypoint file not found: %s\n"+
+			"Expected file: %s\n"+
+			"Please ensure the file exists or specify the correct entrypoint in azure.yaml using:\n"+
+			"  entrypoint: <filename>",
+		appFile,
+		expectedPath,
+	)
 }
 
 func normalizeLanguage(language string) string {

@@ -7,29 +7,33 @@ const API_BASE = ''
 const MOCK_SERVICES: Service[] = [
   {
     name: 'api',
-    pid: 12345,
-    port: 5000,
-    url: 'http://localhost:5000',
-    status: 'ready',
-    health: 'healthy',
+    local: {
+      status: 'ready',
+      health: 'healthy',
+      pid: 12345,
+      port: 5000,
+      url: 'http://localhost:5000',
+      startTime: new Date().toISOString(),
+      lastChecked: new Date().toISOString()
+    },
     language: 'python',
     framework: 'flask',
-    projectDir: '/Users/dev/projects/fullstack',
-    startTime: new Date().toISOString(),
-    lastChecked: new Date().toISOString()
+    project: '/Users/dev/projects/fullstack'
   },
   {
     name: 'web',
-    pid: 12346,
-    port: 5001,
-    url: 'http://localhost:5001',
-    status: 'ready',
-    health: 'healthy',
+    local: {
+      status: 'ready',
+      health: 'healthy',
+      pid: 12346,
+      port: 5001,
+      url: 'http://localhost:5001',
+      startTime: new Date().toISOString(),
+      lastChecked: new Date().toISOString()
+    },
     language: 'node',
     framework: 'express',
-    projectDir: '/Users/dev/projects/fullstack',
-    startTime: new Date().toISOString(),
-    lastChecked: new Date().toISOString()
+    project: '/Users/dev/projects/fullstack'
   }
 ]
 
@@ -75,7 +79,7 @@ export function useServices() {
         if (update.type === 'update' || update.type === 'add') {
           setServices(prev => {
             const index = prev.findIndex(
-              s => s.name === update.service.name && s.projectDir === update.service.projectDir
+              s => s.name === update.service.name
             )
             if (index >= 0) {
               const updated = [...prev]
@@ -87,7 +91,7 @@ export function useServices() {
         } else if (update.type === 'remove') {
           setServices(prev =>
             prev.filter(
-              s => !(s.name === update.service.name && s.projectDir === update.service.projectDir)
+              s => s.name !== update.service.name
             )
           )
         }

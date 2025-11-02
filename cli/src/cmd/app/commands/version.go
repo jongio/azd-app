@@ -1,8 +1,7 @@
 package commands
 
 import (
-	"fmt"
-
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -19,9 +18,9 @@ func NewVersionCommand() *cobra.Command {
 		Short: "Show version information",
 		Long:  `Display the version of the azd app extension.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("azd app extension\n")
-			fmt.Printf("  Version: %s\n", Version)
-			fmt.Printf("  Built: %s\n", BuildTime)
+			output.Header("azd app extension")
+			output.Label("Version", Version)
+			output.Label("Built", BuildTime)
 			return nil
 		},
 	}

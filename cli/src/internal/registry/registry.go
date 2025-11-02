@@ -18,6 +18,7 @@ type ServiceRegistryEntry struct {
 	PID         int       `json:"pid"`
 	Port        int       `json:"port"`
 	URL         string    `json:"url"`
+	AzureURL    string    `json:"azureUrl,omitempty"`
 	Language    string    `json:"language"`
 	Framework   string    `json:"framework"`
 	Status      string    `json:"status"` // "starting", "ready", "stopping", "stopped", "error"

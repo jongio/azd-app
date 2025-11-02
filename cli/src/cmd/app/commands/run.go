@@ -10,6 +10,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 
 	"github.com/spf13/cobra"
@@ -88,9 +89,9 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 
 	// Check if there are services defined
 	if !service.HasServices(azureYaml) {
-		fmt.Println("ℹ️  No services defined in azure.yaml")
-		fmt.Println("   Add a 'services' section to azure.yaml to use service orchestration")
-		fmt.Println("   or remove azure.yaml to use auto-detection (Aspire, pnpm, docker-compose)")
+		output.Info("No services defined in azure.yaml")
+		output.Item("Add a 'services' section to azure.yaml to use service orchestration")
+		output.Item("or remove azure.yaml to use auto-detection (Aspire, pnpm, docker-compose)")
 		return nil
 	}
 
@@ -157,12 +158,15 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 	dashboardServer := dashboard.GetServer(cwd)
 	dashboardURL, err := dashboardServer.Start()
 	if err != nil {
-		fmt.Printf("%s⚠%s  Dashboard unavailable: %v\n", "\033[93m", "\033[0m", err)
+		output.Warning("Dashboard unavailable: %v", err)
 	} else {
-		fmt.Printf("%s📊 Dashboard:%s %s%s%s\n", "\033[1m", "\033[0m", "\033[94m", dashboardURL, "\033[0m")
+		output.Newline()
+		output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
+		output.Newline()
 	}
 
-	fmt.Printf("\n%s💡 Press Ctrl+C to stop all services%s\n\n", "\033[90m", "\033[0m")
+	output.Info("💡 Press Ctrl+C to stop all services")
+	output.Newline()
 
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -171,32 +175,34 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 	// Wait for interrupt signal
 	<-sigChan
 
-	fmt.Printf("\n\n%s🛑 Shutting down services...%s\n", "\033[93m", "\033[0m")
+	output.Newline()
+	output.Newline()
+	output.Warning("🛑 Shutting down services...")
 
 	// Stop dashboard
 	if err := dashboardServer.Stop(); err != nil {
-		fmt.Printf("Warning: Failed to stop dashboard: %v\n", err)
+		output.Warning("Failed to stop dashboard: %v", err)
 	}
 
 	service.StopAllServices(result.Processes)
-	fmt.Printf("%s✅ All services stopped%s\n\n", "\033[92m", "\033[0m")
+	output.Success("All services stopped")
+	output.Newline()
 
 	return nil
 }
 
 // showDryRun displays what would be executed without starting services.
 func showDryRun(runtimes []*service.ServiceRuntime) error {
-	fmt.Println("🔍 Dry-run mode: Showing execution plan")
-	fmt.Println()
+	output.Section("🔍", "Dry-run mode: Showing execution plan")
 
 	for _, runtime := range runtimes {
-		fmt.Printf("Service: %s\n", runtime.Name)
-		fmt.Printf("  Language:  %s\n", runtime.Language)
-		fmt.Printf("  Framework: %s\n", runtime.Framework)
-		fmt.Printf("  Port:      %d\n", runtime.Port)
-		fmt.Printf("  Directory: %s\n", runtime.WorkingDir)
-		fmt.Printf("  Command:   %s %v\n", runtime.Command, runtime.Args)
-		fmt.Println()
+		output.Newline()
+		output.Info("%s", runtime.Name)
+		output.Label("Language", runtime.Language)
+		output.Label("Framework", runtime.Framework)
+		output.Label("Port", fmt.Sprintf("%d", runtime.Port))
+		output.Label("Directory", runtime.WorkingDir)
+		output.Label("Command", fmt.Sprintf("%s %v", runtime.Command, runtime.Args))
 	}
 
 	return nil

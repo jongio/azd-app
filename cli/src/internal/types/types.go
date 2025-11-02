@@ -4,6 +4,7 @@ package types
 type PythonProject struct {
 	Dir            string
 	PackageManager string // "uv", "poetry", or "pip"
+	Entrypoint     string // Optional: entry point file specified in azure.yaml
 }
 
 // NodeProject represents a detected Node.js project.

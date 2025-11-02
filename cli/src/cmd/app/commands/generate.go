@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 
 	"gopkg.in/yaml.v3"
@@ -29,45 +30,45 @@ type GenerateConfig struct {
 	WorkingDir string // Directory to start search from
 }
 
-// GenerateResult contains the outcome of requirement generation.
+// GenerateResult contains the outcome of reqs generation.
 type GenerateResult struct {
-	Requirements  []DetectedRequirement
+	Reqs          []DetectedRequirement
 	AzureYamlPath string
 	Created       bool // True if azure.yaml was created vs updated
-	Added         int  // Number of requirements added
-	Skipped       int  // Number of existing requirements preserved
+	Added         int  // Number of reqs added
+	Skipped       int  // Number of existing reqs preserved
 }
 
 // runGenerate is the main entry point for the generate command.
 func runGenerate(config GenerateConfig) error {
-	fmt.Println("🔍 Scanning project for dependencies...")
-	fmt.Println()
+	output.Section("🔍", "Scanning project for dependencies")
 
-	// Detect all requirements based on project structure
-	requirements, err := detectProjectRequirements(config.WorkingDir)
+	// Detect all reqs based on project structure
+	requirements, err := detectProjectReqs(config.WorkingDir)
 	if err != nil {
-		return fmt.Errorf("failed to detect requirements: %w", err)
+		return fmt.Errorf("failed to detect reqs: %w", err)
 	}
 
 	if len(requirements) == 0 {
-		fmt.Printf("⚠️  No project dependencies detected in current directory\n")
-		fmt.Printf("   Searched: %s\n\n", config.WorkingDir)
-		fmt.Println("   Supported project types:")
-		fmt.Println("   • Node.js (package.json)")
-		fmt.Println("   • Python (requirements.txt, pyproject.toml)")
-		fmt.Println("   • .NET (.csproj, .sln)")
-		fmt.Println("   • .NET Aspire (AppHost.cs)")
-		fmt.Println("   • Docker Compose (docker-compose.yml or package.json scripts)")
-		fmt.Println()
-		fmt.Println("   Make sure you're in a valid project directory.")
+		output.Warning("No project dependencies detected in current directory")
+		output.Item("Searched: %s", config.WorkingDir)
+		output.Newline()
+		output.Item("Supported project types:")
+		output.Item("  • Node.js (package.json)")
+		output.Item("  • Python (requirements.txt, pyproject.toml)")
+		output.Item("  • .NET (.csproj, .sln)")
+		output.Item("  • .NET Aspire (AppHost.cs)")
+		output.Item("  • Docker Compose (docker-compose.yml or package.json scripts)")
+		output.Newline()
+		output.Item("Make sure you're in a valid project directory.")
 		return fmt.Errorf("no dependencies detected")
 	}
 
 	// Display found dependencies
 	displayDetectedDependencies(requirements)
 
-	// Display detected requirements with versions
-	displayDetectedRequirements(requirements)
+	// Display detected reqs with versions
+	displayDetectedReqs(requirements)
 
 	// Find or create azure.yaml
 	azureYamlPath, created, err := findOrCreateAzureYaml(config.WorkingDir, config.DryRun)
@@ -76,35 +77,36 @@ func runGenerate(config GenerateConfig) error {
 	}
 
 	if config.DryRun {
-		fmt.Printf("\nWould update: %s\n", azureYamlPath)
-		fmt.Println("\nRun without --dry-run to apply changes.")
+		output.Info("Would update: %s", azureYamlPath)
+		output.Newline()
+		output.Item("Run without --dry-run to apply changes.")
 		return nil
 	}
 
-	// Merge with existing requirements
-	added, skipped, err := mergeRequirements(azureYamlPath, requirements)
+	// Merge with existing reqs
+	added, skipped, err := mergeReqs(azureYamlPath, requirements)
 	if err != nil {
-		return fmt.Errorf("failed to merge requirements: %w", err)
+		return fmt.Errorf("failed to merge reqs: %w", err)
 	}
 
-	fmt.Println()
+	output.Newline()
 	if created {
-		fmt.Printf("✅ Created azure.yaml with %d requirements\n", added)
+		output.Success("Created azure.yaml with %d reqs", added)
 	} else {
-		fmt.Printf("✅ Updated azure.yaml with %d requirements\n", added)
+		output.Success("Updated azure.yaml with %d reqs", added)
 		if skipped > 0 {
-			fmt.Printf("   (%d existing requirements preserved)\n", skipped)
+			output.Item("(%d existing reqs preserved)", skipped)
 		}
 	}
-	fmt.Printf("   Path: %s\n", azureYamlPath)
-	fmt.Println()
-	fmt.Println("Run 'azd app reqs' to verify all requirements are met.")
+	output.Label("Path", azureYamlPath)
+	output.Newline()
+	output.Item("Run 'azd app reqs' to verify all reqs are met.")
 
 	return nil
 }
 
-// detectProjectRequirements scans the project directory for all dependencies.
-func detectProjectRequirements(projectDir string) ([]DetectedRequirement, error) {
+// detectProjectReqs scans the project directory for all dependencies.
+func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 	var requirements []DetectedRequirement
 	foundSources := make(map[string]bool)
 
@@ -580,52 +582,52 @@ func displayDetectedDependencies(requirements []DetectedRequirement) {
 		}
 	}
 
-	fmt.Println("Found:")
+	output.Item("Found:")
 	for source := range sources {
-		fmt.Printf("  ✓ %s\n", source)
+		output.ItemSuccess("%s", source)
 	}
-	fmt.Println()
+	output.Newline()
 }
 
-func displayDetectedRequirements(requirements []DetectedRequirement) {
+func displayDetectedReqs(reqs []DetectedRequirement) {
 	hasUninstalled := false
 	installedCount := 0
 
-	fmt.Println("📝 Detected requirements:")
-	for _, req := range requirements {
+	output.Section("📝", "Detected reqs")
+	for _, req := range reqs {
 		if req.InstalledVersion != "" {
 			installedCount++
 			runningNote := ""
 			if req.CheckRunning {
 				runningNote = ", must be running"
 			}
-			fmt.Printf("  • %s (%s installed%s) → minVersion: \"%s\"\n",
+			output.Item("%s (%s installed%s) → minVersion: \"%s\"",
 				req.ID, req.InstalledVersion, runningNote, req.MinVersion)
 		} else {
 			hasUninstalled = true
-			fmt.Printf("  • %s (NOT INSTALLED) → will be added to requirements\n", req.ID)
+			output.Item("%s (NOT INSTALLED) → will be added to reqs", req.ID)
 		}
 	}
-	fmt.Println()
+	output.Newline()
 
 	if hasUninstalled {
-		fmt.Println("⚠️  Some detected dependencies are not installed:")
-		fmt.Println()
-		for _, req := range requirements {
+		output.Warning("Some detected dependencies are not installed:")
+		output.Newline()
+		for _, req := range reqs {
 			if req.InstalledVersion == "" {
-				fmt.Printf("  ❌ %s: NOT INSTALLED\n", req.ID)
+				output.ItemError("%s: NOT INSTALLED", req.ID)
 				if req.ID == "pnpm" {
-					fmt.Println("     Install: npm install -g pnpm")
+					output.Item("     Install: npm install -g pnpm")
 				} else if req.ID == "poetry" {
-					fmt.Println("     Install: curl -sSL https://install.python-poetry.org | python3 -")
+					output.Item("     Install: curl -sSL https://install.python-poetry.org | python3 -")
 				} else if req.ID == "uv" {
-					fmt.Println("     Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
+					output.Item("     Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
 				}
 			}
 		}
-		fmt.Println()
-		fmt.Println("Generating requirements anyway. Run 'azd app reqs' to check status.")
-		fmt.Println()
+		output.Newline()
+		output.Item("Generating requirements anyway. Run 'azd app reqs' to check status.")
+		output.Newline()
 	}
 }
 
@@ -666,8 +668,8 @@ reqs:
 	return newPath, true, nil
 }
 
-// mergeRequirements merges detected requirements into azure.yaml.
-func mergeRequirements(azureYamlPath string, detected []DetectedRequirement) (int, int, error) {
+// mergeReqs merges detected reqs into azure.yaml.
+func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, error) {
 	// Validate path
 	if err := security.ValidatePath(azureYamlPath); err != nil {
 		return 0, 0, fmt.Errorf("invalid path: %w", err)

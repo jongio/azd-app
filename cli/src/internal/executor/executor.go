@@ -68,9 +68,10 @@ func StartCommand(name string, args []string, dir string) error {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	fmt.Printf("\n✅ Started %s (PID: %d)\n", name, cmd.Process.Pid)
-	fmt.Println("   Output will appear below. Press Ctrl+C to stop it when ready.")
-	fmt.Println()
+	output.Newline()
+	output.Success("Started %s (PID: %d)", name, cmd.Process.Pid)
+	output.Item("Output will appear below. Press Ctrl+C to stop it when ready.")
+	output.Newline()
 
 	return nil
 }
@@ -151,9 +152,10 @@ func StartCommandWithOutputMonitoring(name string, args []string, dir string, ha
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	fmt.Printf("\n✅ Started %s (PID: %d)\n", name, cmd.Process.Pid)
-	fmt.Println("   Press Ctrl+C to stop.")
-	fmt.Println()
+	output.Newline()
+	output.Success("Started %s (PID: %d)", name, cmd.Process.Pid)
+	output.Item("Press Ctrl+C to stop.")
+	output.Newline()
 
 	// Wait for the command to complete (this blocks until the process exits or is killed)
 	if err := cmd.Wait(); err != nil {

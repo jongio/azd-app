@@ -33,7 +33,8 @@ func NewDepsCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDepsWithServices()
+			// Use orchestrator to run deps (which will automatically run reqs first)
+			return cmdOrchestrator.Run("deps")
 		},
 	}
 }
@@ -63,7 +64,7 @@ func runDepsWithServices() error {
 	}
 
 	if !service.HasServices(azureYaml) {
-		fmt.Println("ℹ️  No services defined in azure.yaml - skipping dependency installation")
+		output.Info("No services defined in azure.yaml - skipping dependency installation")
 		return nil
 	}
 
@@ -73,8 +74,7 @@ func runDepsWithServices() error {
 // installDepsFromAzureYaml installs dependencies for services defined in azure.yaml.
 func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string) error {
 	if !output.IsJSON() {
-		fmt.Println("🔍 Installing dependencies...")
-		fmt.Println()
+		output.Section("🔍", "Installing dependencies")
 	}
 
 	hasProjects := false
@@ -107,21 +107,21 @@ func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string
 			hasProjects = true
 			result, err = installNodeServiceDepsWithResult(serviceName, serviceDir)
 			if err != nil && !output.IsJSON() {
-				fmt.Printf("   ⚠️  Warning: Failed to install Node.js dependencies for service %s: %v\n", serviceName, err)
+				output.ItemWarning("Failed to install Node.js dependencies for service %s: %v", serviceName, err)
 			}
 
 		case "python":
 			hasProjects = true
 			result, err = installPythonServiceDepsWithResult(serviceName, serviceDir)
 			if err != nil && !output.IsJSON() {
-				fmt.Printf("   ⚠️  Warning: Failed to install Python dependencies for service %s: %v\n", serviceName, err)
+				output.ItemWarning("Failed to install Python dependencies for service %s: %v", serviceName, err)
 			}
 
 		case "dotnet", ".net", "csharp", "c#":
 			hasProjects = true
 			result, err = installDotnetServiceDepsWithResult(serviceName, serviceDir)
 			if err != nil && !output.IsJSON() {
-				fmt.Printf("   ⚠️  Warning: Failed to install .NET dependencies for service %s: %v\n", serviceName, err)
+				output.ItemWarning("Failed to install .NET dependencies for service %s: %v", serviceName, err)
 			}
 		}
 
@@ -138,8 +138,7 @@ func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string
 				"message":  "No dependency-managed services found in azure.yaml",
 			})
 		}
-		fmt.Println("ℹ️  No dependency-managed services found in azure.yaml")
-		fmt.Println()
+		output.Info("No dependency-managed services found in azure.yaml")
 		return nil
 	}
 
@@ -158,7 +157,7 @@ func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string
 		})
 	}
 
-	fmt.Println("✅ Dependencies installed successfully!")
+	output.Success("Dependencies installed successfully!")
 	return nil
 }
 
@@ -180,8 +179,8 @@ func installNodeServiceDepsWithResult(serviceName, serviceDir string) (map[strin
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("📦 Found Node.js service: %s\n", serviceName)
-		fmt.Printf("   📥 Installing: %s (%s)\n", serviceDir, packageManager)
+		output.Step("📦", "Found Node.js service: %s", serviceName)
+		output.Item("Installing: %s (%s)", serviceDir, packageManager)
 	}
 
 	err := installer.InstallNodeDependencies(nodeProject)
@@ -215,8 +214,8 @@ func installPythonServiceDepsWithResult(serviceName, serviceDir string) (map[str
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("🐍 Found Python service: %s\n", serviceName)
-		fmt.Printf("   📦 %s (%s)\n", serviceDir, packageManager)
+		output.Step("🐍", "Found Python service: %s", serviceName)
+		output.Item("%s (%s)", serviceDir, packageManager)
 	}
 
 	err := installer.SetupPythonVirtualEnv(pythonProject)
@@ -256,8 +255,8 @@ func installDotnetServiceDepsWithResult(serviceName, serviceDir string) (map[str
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("🔷 Found .NET service: %s\n", serviceName)
-		fmt.Printf("   📦 %s\n", serviceDir)
+		output.Step("🔷", "Found .NET service: %s", serviceName)
+		output.Item("%s", serviceDir)
 	}
 
 	// Install dependencies for all .NET projects in the service directory

@@ -59,6 +59,12 @@ app.get('/', (req, res) => {
         button:hover {
             background: #0056b3;
         }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #5a6268;
+        }
         #data {
             margin-top: 20px;
         }
@@ -95,6 +101,7 @@ app.get('/', (req, res) => {
         
         <button onclick="checkHealth()">Check API Health</button>
         <button onclick="loadData()">Load Data from API</button>
+        <button onclick="generateLogs()" class="secondary">🎲 Generate Random Logs</button>
         
         <div id="data"></div>
     </div>
@@ -139,6 +146,19 @@ app.get('/', (req, res) => {
             }
         }
 
+        async function generateLogs() {
+            const statusDiv = document.getElementById('status');
+            try {
+                const response = await fetch('/api/generate-logs');
+                const data = await response.json();
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = '✅ Generated ' + data.count + ' random log messages - check the dashboard!';
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = '❌ Failed to generate logs: ' + error.message;
+            }
+        }
+
         // Auto-check health on load
         checkHealth();
     </script>
@@ -166,6 +186,45 @@ app.get('/api/data', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to reach API', message: error.message });
   }
+});
+
+// Generate random log messages
+app.get('/api/generate-logs', (req, res) => {
+  const messages = [
+    '🎲 User clicked the random log button',
+    '✨ Generating some random activity',
+    '📊 Processing mock data request',
+    '🔄 Simulating background task',
+    '💾 Mock database query executed',
+    '🌐 API call simulation in progress',
+    '⚡ Quick operation completed',
+    '🎯 Target action triggered',
+    '🚀 Launching mock process',
+    '📝 Writing random log entry',
+    '🔍 Searching mock records',
+    '💡 Random insight generated',
+    '🎨 UI interaction logged',
+    '⏰ Timer event triggered',
+    '🔔 Notification sent to user'
+  ];
+
+  const randomCount = Math.floor(Math.random() * 5) + 3; // 3-7 messages
+  
+  for (let i = 0; i < randomCount; i++) {
+    const message = messages[Math.floor(Math.random() * messages.length)];
+    const delay = Math.random() * 100; // Random delay up to 100ms
+    
+    setTimeout(() => {
+      console.log(message);
+      console.error(`[DEBUG] Log entry ${i + 1}/${randomCount}`);
+    }, delay);
+  }
+
+  res.json({ 
+    success: true, 
+    count: randomCount,
+    message: 'Random log messages generated'
+  });
 });
 
 app.listen(PORT, () => {

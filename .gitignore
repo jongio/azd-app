@@ -78,6 +78,7 @@ obj/
 !tests/projects/**/pnpm-lock.yaml
 !tests/projects/**/yarn.lock
 !tests/projects/**/requirements.txt
+!tests/projects/**/.azure/**/.env
 !tests/projects/**/pyproject.toml
 !tests/projects/**/poetry.lock
 !tests/projects/**/uv.lock

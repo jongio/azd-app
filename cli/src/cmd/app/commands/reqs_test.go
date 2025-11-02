@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -404,8 +405,11 @@ reqs: []
 	}
 
 	err = runReqs()
-	if err != nil {
-		t.Errorf("Expected no error with empty reqs, got %v", err)
+	if err == nil {
+		t.Error("Expected error with empty reqs (backwards compatibility removed), got nil")
+	}
+	if !strings.Contains(err.Error(), "no reqs defined in azure.yaml") {
+		t.Errorf("Expected error about no reqs defined, got: %v", err)
 	}
 }
 
@@ -532,33 +536,33 @@ reqs:
 		t.Fatal(err)
 	}
 
-	if len(azureYaml.Requirements) != 2 {
-		t.Errorf("Expected 2 requirements, got %d", len(azureYaml.Requirements))
+	if len(azureYaml.Reqs) != 2 {
+		t.Errorf("Expected 2 reqs, got %d", len(azureYaml.Reqs))
 	}
 
 	// Check first req (built-in)
-	if azureYaml.Requirements[0].ID != "node" {
-		t.Errorf("First req ID = %s, want node", azureYaml.Requirements[0].ID)
+	if azureYaml.Reqs[0].ID != "node" {
+		t.Errorf("First req ID = %s, want node", azureYaml.Reqs[0].ID)
 	}
-	if azureYaml.Requirements[0].MinVersion != "18.0.0" {
-		t.Errorf("First req MinVersion = %s, want 18.0.0", azureYaml.Requirements[0].MinVersion)
+	if azureYaml.Reqs[0].MinVersion != "18.0.0" {
+		t.Errorf("First req MinVersion = %s, want 18.0.0", azureYaml.Reqs[0].MinVersion)
 	}
-	if azureYaml.Requirements[0].Command != "" {
+	if azureYaml.Reqs[0].Command != "" {
 		t.Errorf("First req should have empty Command for built-in tool")
 	}
 
 	// Check second req (custom)
-	if azureYaml.Requirements[1].ID != "custom-tool" {
-		t.Errorf("Second req ID = %s, want custom-tool", azureYaml.Requirements[1].ID)
+	if azureYaml.Reqs[1].ID != "custom-tool" {
+		t.Errorf("Second req ID = %s, want custom-tool", azureYaml.Reqs[1].ID)
 	}
-	if azureYaml.Requirements[1].Command != "my-tool" {
-		t.Errorf("Second req Command = %s, want my-tool", azureYaml.Requirements[1].Command)
+	if azureYaml.Reqs[1].Command != "my-tool" {
+		t.Errorf("Second req Command = %s, want my-tool", azureYaml.Reqs[1].Command)
 	}
-	if azureYaml.Requirements[1].VersionPrefix != "v" {
-		t.Errorf("Second req VersionPrefix = %s, want v", azureYaml.Requirements[1].VersionPrefix)
+	if azureYaml.Reqs[1].VersionPrefix != "v" {
+		t.Errorf("Second req VersionPrefix = %s, want v", azureYaml.Reqs[1].VersionPrefix)
 	}
-	if azureYaml.Requirements[1].VersionField != 1 {
-		t.Errorf("Second req VersionField = %d, want 1", azureYaml.Requirements[1].VersionField)
+	if azureYaml.Reqs[1].VersionField != 1 {
+		t.Errorf("Second req VersionField = %d, want 1", azureYaml.Reqs[1].VersionField)
 	}
 }
 
@@ -741,18 +745,18 @@ reqs:
 		t.Fatal(err)
 	}
 
-	if len(azureYaml.Requirements) != 2 {
-		t.Errorf("Expected 2 requirements, got %d", len(azureYaml.Requirements))
+	if len(azureYaml.Reqs) != 2 {
+		t.Errorf("Expected 2 reqs, got %d", len(azureYaml.Reqs))
 	}
 
 	// Check Docker requirement
-	dockerReq := azureYaml.Requirements[0]
+	dockerReq := azureYaml.Reqs[0]
 	if !dockerReq.CheckRunning {
 		t.Error("Docker CheckRunning should be true")
 	}
 
 	// Check custom service requirement
-	customReq := azureYaml.Requirements[1]
+	customReq := azureYaml.Reqs[1]
 	if !customReq.CheckRunning {
 		t.Error("Custom service CheckRunning should be true")
 	}

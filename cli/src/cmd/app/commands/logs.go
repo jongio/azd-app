@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/spf13/cobra"
 )
@@ -73,8 +74,8 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	// Check if any services are running
 	serviceNames := logManager.GetServiceNames()
 	if len(serviceNames) == 0 {
-		fmt.Println("ℹ️  No services are currently running")
-		fmt.Println("   Run 'azd app run' to start services")
+		output.Info("No services are currently running")
+		output.Item("Run 'azd app run' to start services")
 		return nil
 	}
 

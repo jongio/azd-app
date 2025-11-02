@@ -7,11 +7,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/security"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // Prerequisite represents a prerequisite from azure.yaml.
@@ -33,7 +32,7 @@ type Prerequisite struct {
 
 // AzureYaml represents the structure of azure.yaml.
 type AzureYaml struct {
-	Requirements []Prerequisite `yaml:"reqs"`
+	Reqs []Prerequisite `yaml:"reqs"`
 }
 
 // ReqResult represents the result of checking a requirement.
@@ -136,15 +135,20 @@ var toolAliases = map[string]string{
 func NewReqsCommand() *cobra.Command {
 	var generateMode bool
 	var dryRun bool
+	var noCache bool
+	var clearCache bool
 
 	cmd := &cobra.Command{
 		Use:   "reqs",
-		Short: "Check for required requirements",
-		Long: `The reqs command verifies that all required requirements defined in azure.yaml
-are installed and meet the minimum version requirements.
+		Short: "Check for required reqs",
+		Long: `The reqs command verifies that all required reqs defined in azure.yaml
+are installed and meet the minimum version reqs.
 
 With --generate, it scans your project to detect dependencies and automatically
-generates the requirements section in azure.yaml based on what's installed on your machine.`,
+generates the reqs section in azure.yaml based on what's installed on your machine.
+
+The command caches results in .azure/cache/ to improve performance on subsequent runs.
+Use --no-cache to force a fresh check and bypass cached results.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Try to get the output flag from parent or self
 			var formatValue string
@@ -159,6 +163,14 @@ generates the requirements section in azure.yaml based on what's installed on yo
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle clear cache flag
+			if clearCache {
+				return runClearCache()
+			}
+
+			// Set global cache disable flag (defined in core.go)
+			setDisableCache(noCache)
+
 			if generateMode {
 				// Get current working directory
 				workingDir, err := os.Getwd()
@@ -176,77 +188,18 @@ generates the requirements section in azure.yaml based on what's installed on yo
 		},
 	}
 
-	cmd.Flags().BoolVarP(&generateMode, "generate", "g", false, "Generate requirements from detected project dependencies")
+	cmd.Flags().BoolVarP(&generateMode, "generate", "g", false, "Generate reqs from detected project dependencies")
 	cmd.Flags().BoolVar(&generateMode, "gen", false, "Alias for --generate")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without modifying azure.yaml")
+	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Force fresh reqs check and bypass cached results")
+	cmd.Flags().BoolVar(&clearCache, "clear-cache", false, "Clear cached reqs results")
 
 	return cmd
 }
 
 func runReqs() error {
-	// Validate path to azure.yaml
-	azureYamlPath := "azure.yaml"
-	if err := security.ValidatePath(azureYamlPath); err != nil {
-		return fmt.Errorf("invalid path: %w", err)
-	}
-
-	// #nosec G304 -- Path validated by security.ValidatePath above
-	data, err := os.ReadFile(azureYamlPath)
-	if err != nil {
-		return fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	var azureYaml AzureYaml
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
-		return fmt.Errorf("failed to parse azure.yaml: %w", err)
-	}
-
-	if len(azureYaml.Requirements) == 0 {
-		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"satisfied":    true,
-				"requirements": []interface{}{},
-				"message":      "No requirements defined in azure.yaml",
-			})
-		}
-		fmt.Println("✅ No requirements defined in azure.yaml")
-		return nil
-	}
-
-	// Check all prerequisites
-	results := make([]ReqResult, 0, len(azureYaml.Requirements))
-	allPassed := true
-
-	if !output.IsJSON() {
-		fmt.Println("🔍 Checking requirements...")
-		fmt.Println()
-	}
-
-	for _, prereq := range azureYaml.Requirements {
-		result := checkPrerequisiteWithResult(prereq)
-		results = append(results, result)
-		if !result.Satisfied {
-			allPassed = false
-		}
-	}
-
-	// JSON output
-	if output.IsJSON() {
-		return output.PrintJSON(map[string]interface{}{
-			"satisfied":    allPassed,
-			"requirements": results,
-		})
-	}
-
-	// Default output
-	fmt.Println()
-	if allPassed {
-		fmt.Println("✅ All requirements are satisfied!")
-		return nil
-	}
-
-	fmt.Println("❌ Some requirements are missing or don't meet minimum version requirements")
-	return fmt.Errorf("requirement check failed")
+	// Use orchestrator to execute reqs check with caching support
+	return executeReqs()
 }
 
 // checkPrerequisiteWithResult checks a prerequisite and returns structured result.
@@ -264,7 +217,7 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	if !installed {
 		result.Message = "Not installed"
 		if !output.IsJSON() {
-			fmt.Printf("❌ %s: NOT INSTALLED (required: %s)\n", prereq.ID, prereq.MinVersion)
+			output.ItemError("%s: NOT INSTALLED (required: %s)", prereq.ID, prereq.MinVersion)
 		}
 		return result
 	}
@@ -272,7 +225,7 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	if version == "" {
 		result.Message = "Version unknown"
 		if !output.IsJSON() {
-			fmt.Printf("⚠️  %s: INSTALLED (version unknown, required: %s)\n", prereq.ID, prereq.MinVersion)
+			output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.ID, prereq.MinVersion)
 		}
 		// Continue to check if it's running if needed
 	} else {
@@ -280,12 +233,12 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 		if !versionOk {
 			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
 			if !output.IsJSON() {
-				fmt.Printf("❌ %s: %s (required: %s)\n", prereq.ID, version, prereq.MinVersion)
+				output.ItemError("%s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
 			}
 			return result
 		}
 		if !output.IsJSON() {
-			fmt.Printf("✅ %s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
+			output.ItemSuccess("%s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
 		}
 	}
 
@@ -297,14 +250,14 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 		if !isRunning {
 			result.Message = "Not running"
 			if !output.IsJSON() {
-				fmt.Printf(" - ❌ NOT RUNNING\n")
+				output.Item("- %s✗%s NOT RUNNING", output.Red, output.Reset)
 			}
 			return result
 		}
 		result.Satisfied = true
 		result.Message = "Running"
 		if !output.IsJSON() {
-			fmt.Printf(" - ✅ RUNNING\n")
+			output.Item("- %s✓%s RUNNING", output.Green, output.Reset)
 		}
 		return result
 	}
@@ -312,9 +265,6 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	if version != "" {
 		result.Satisfied = true
 		result.Message = "Satisfied"
-		if !output.IsJSON() {
-			fmt.Println()
-		}
 	}
 	return result
 }
@@ -501,4 +451,26 @@ func parseVersion(version string) []int {
 	}
 
 	return result
+}
+
+// runClearCache clears the reqs cache.
+func runClearCache() error {
+	cacheManager, err := cache.NewCacheManager()
+	if err != nil {
+		return fmt.Errorf("failed to initialize cache manager: %w", err)
+	}
+
+	if err := cacheManager.ClearCache(); err != nil {
+		return fmt.Errorf("failed to clear cache: %w", err)
+	}
+
+	if output.IsJSON() {
+		return output.PrintJSON(map[string]interface{}{
+			"success": true,
+			"message": "Reqs cache cleared successfully",
+		})
+	}
+
+	output.Success("Reqs cache cleared successfully")
+	return nil
 }

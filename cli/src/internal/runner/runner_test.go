@@ -185,6 +185,133 @@ func TestRunNode(t *testing.T) {
 	}
 }
 
+func TestFindPythonEntryPoint(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupFiles    []string // Files to create for the test
+		expectedEntry string   // Expected entry point file
+		expectError   bool
+	}{
+		{
+			name:          "main.py in root",
+			setupFiles:    []string{"main.py"},
+			expectedEntry: "main.py",
+			expectError:   false,
+		},
+		{
+			name:          "app.py in root",
+			setupFiles:    []string{"app.py"},
+			expectedEntry: "app.py",
+			expectError:   false,
+		},
+		{
+			name:          "agent.py in root",
+			setupFiles:    []string{"agent.py"},
+			expectedEntry: "agent.py",
+			expectError:   false,
+		},
+		{
+			name:          "main.py in src/",
+			setupFiles:    []string{"src/main.py"},
+			expectedEntry: filepath.Join("src", "main.py"),
+			expectError:   false,
+		},
+		{
+			name:          "agent.py in src/agent/",
+			setupFiles:    []string{"src/agent/agent.py"},
+			expectedEntry: filepath.Join("src", "agent", "agent.py"),
+			expectError:   false,
+		},
+		{
+			name:          "main.py in src/app/",
+			setupFiles:    []string{"src/app/main.py"},
+			expectedEntry: filepath.Join("src", "app", "main.py"),
+			expectError:   false,
+		},
+		{
+			name:          "__main__.py in root",
+			setupFiles:    []string{"__main__.py"},
+			expectedEntry: "__main__.py",
+			expectError:   false,
+		},
+		{
+			name:          "run.py in app/",
+			setupFiles:    []string{"app/run.py"},
+			expectedEntry: filepath.Join("app", "run.py"),
+			expectError:   false,
+		},
+		{
+			name:          "server.py in src/",
+			setupFiles:    []string{"src/server.py"},
+			expectedEntry: filepath.Join("src", "server.py"),
+			expectError:   false,
+		},
+		{
+			name:          "prefers main.py over others",
+			setupFiles:    []string{"main.py", "app.py", "agent.py"},
+			expectedEntry: "main.py",
+			expectError:   false,
+		},
+		{
+			name:          "prefers root over src/",
+			setupFiles:    []string{"main.py", "src/main.py"},
+			expectedEntry: "main.py",
+			expectError:   false,
+		},
+		{
+			name:        "no entry point found",
+			setupFiles:  []string{"README.md", "requirements.txt"},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory
+			tmpDir, err := os.MkdirTemp("", "python-entry-test-*")
+			if err != nil {
+				t.Fatalf("failed to create temp dir: %v", err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+
+			// Create test files
+			for _, file := range tt.setupFiles {
+				fullPath := filepath.Join(tmpDir, file)
+				dir := filepath.Dir(fullPath)
+
+				// Create directory if needed
+				if err := os.MkdirAll(dir, 0750); err != nil {
+					t.Fatalf("failed to create directory %s: %v", dir, err)
+				}
+
+				// Create file
+				if err := os.WriteFile(fullPath, []byte("# Python file"), 0600); err != nil {
+					t.Fatalf("failed to create file %s: %v", fullPath, err)
+				}
+			}
+
+			// Test the function
+			entry, err := findPythonEntryPoint(tmpDir)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if entry != tt.expectedEntry {
+				t.Errorf("expected entry point %q, got %q", tt.expectedEntry, entry)
+			}
+		})
+	}
+}
+
 func TestRunPython(t *testing.T) {
 	tests := []struct {
 		name    string

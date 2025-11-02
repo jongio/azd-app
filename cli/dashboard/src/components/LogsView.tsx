@@ -3,11 +3,20 @@ import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Download, Trash2, Pause, Play } from 'lucide-react'
+import Convert from 'ansi-to-html'
+
+const ansiConverter = new Convert({
+  fg: '#FFF',
+  bg: '#000',
+  newline: false,
+  escapeXML: true,
+  stream: false
+})
 
 interface LogEntry {
   service: string
   message: string
-  level: string
+  level: number
   timestamp: string
   isStderr: boolean
 }
@@ -54,9 +63,11 @@ export function LogsView() {
       ? '/api/logs?tail=500'
       : `/api/logs?service=${selectedService}&tail=500`
 
+    console.log('Fetching initial logs from:', url)
     try {
       const res = await fetch(url)
       const data = await res.json()
+      console.log('Fetched logs:', data?.length, 'entries', data)
       setLogs(data || [])
     } catch (err) {
       console.error('Failed to fetch logs:', err)
@@ -75,9 +86,15 @@ export function LogsView() {
       ? `${protocol}//${window.location.host}/api/logs/stream`
       : `${protocol}//${window.location.host}/api/logs/stream?service=${selectedService}`
 
+    console.log('Setting up WebSocket connection to:', url)
     const ws = new WebSocket(url)
 
+    ws.onopen = () => {
+      console.log('WebSocket connected successfully')
+    }
+
     ws.onmessage = (event) => {
+      console.log('Received log entry:', event.data)
       if (!isPaused) {
         try {
           const entry = JSON.parse(event.data)
@@ -137,17 +154,30 @@ export function LogsView() {
   }
 
   const getLogColor = (log: LogEntry) => {
-    if (log.isStderr || log.level === 'ERROR') return 'text-red-400'
-    if (log.level === 'WARN') return 'text-yellow-400'
-    if (log.level === 'DEBUG') return 'text-gray-400'
+    if (log.isStderr || log.level === 3) return 'text-red-400'
+    if (log.level === 2) return 'text-yellow-400'
+    if (log.level === 1) return 'text-gray-400'
     return 'text-foreground'
+  }
+
+  const convertAnsiToHtml = (text: string) => {
+    try {
+      return ansiConverter.toHtml(text)
+    } catch {
+      // If conversion fails, return original text
+      return text
+    }
   }
 
   return (
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex gap-4 items-center flex-wrap">
-        <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)}>
+        <Select 
+          value={selectedService} 
+          onChange={(e) => setSelectedService(e.target.value)}
+          className="min-w-[150px]"
+        >
           <option value="all">All Services</option>
           {services.map((service) => (
             <option key={service} value={service}>{service}</option>
@@ -198,7 +228,11 @@ export function LogsView() {
                 {' '}
                 <span className="text-blue-400">[{log?.service || 'unknown'}]</span>
                 {' '}
-                {log?.message || ''}
+                <span 
+                  dangerouslySetInnerHTML={{ 
+                    __html: convertAnsiToHtml(log?.message || '') 
+                  }} 
+                />
               </div>
             ))}
             <div ref={logsEndRef} />

@@ -1,15 +1,32 @@
+export interface LocalServiceInfo {
+  status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
+  health: 'healthy' | 'unhealthy' | 'unknown'
+  url?: string
+  port?: number
+  pid?: number
+  startTime?: string
+  lastChecked?: string
+}
+
+export interface AzureServiceInfo {
+  url?: string
+  resourceName?: string
+  imageName?: string
+}
+
 export interface Service {
   name: string
-  projectDir: string
-  pid: number
-  port: number
-  url: string
-  language: string
-  framework: string
-  status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error'
-  health: 'healthy' | 'unhealthy' | 'unknown'
-  startTime: string
-  lastChecked: string
+  language?: string
+  framework?: string
+  project?: string
+  local?: LocalServiceInfo
+  azure?: AzureServiceInfo
+  environmentVariables?: Record<string, string>
+  // Legacy fields for compatibility during transition
+  status?: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
+  health?: 'healthy' | 'unhealthy' | 'unknown'
+  startTime?: string
+  lastChecked?: string
   error?: string
 }
 

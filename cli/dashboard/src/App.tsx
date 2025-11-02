@@ -14,21 +14,22 @@ function App() {
   useEffect(() => {
     fetch('/api/project')
       .then(res => res.json())
-      .then(data => setProjectName(data.name))
+      .then(data => {
+        setProjectName(data.name)
+        // Update document title to match h1
+        document.title = `${data.name} Dashboard`
+      })
       .catch(err => console.error('Failed to fetch project name:', err))
   }, [])
 
-  // Group services by project
-  const servicesByProject = services.reduce((acc, service) => {
-    if (!acc[service.projectDir]) {
-      acc[service.projectDir] = []
-    }
-    acc[service.projectDir].push(service)
-    return acc
-  }, {} as Record<string, typeof services>)
-
-  const runningServices = services.filter(s => s.status === 'running' || s.status === 'ready')
-  const healthyServices = services.filter(s => s.health === 'healthy')
+  const runningServices = services.filter(s => {
+    const status = s.local?.status || s.status
+    return status === 'running' || status === 'ready'
+  })
+  const healthyServices = services.filter(s => {
+    const health = s.local?.health || s.health
+    return health === 'healthy'
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,22 +140,9 @@ function App() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-10">
-                {Object.entries(servicesByProject).map(([projectDir, projectServices]) => (
-                  <div key={projectDir} className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/50 to-transparent"></div>
-                      <h2 className="text-lg font-semibold text-muted-foreground px-4">
-                        {projectDir}
-                      </h2>
-                      <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/50 to-transparent"></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {projectServices.map((service) => (
-                        <ServiceCard key={`${service.projectDir}:${service.name}`} service={service} />
-                      ))}
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {services.map((service) => (
+                  <ServiceCard key={service.name} service={service} />
                 ))}
               </div>
             )}
@@ -165,6 +153,23 @@ function App() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Footer with project paths */}
+      {services.length > 0 && (
+        <footer className="border-t border-white/10 glass backdrop-blur-xl mt-10">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium">Project paths:</span>
+              {Array.from(new Set(services.map(s => s.project).filter(Boolean))).map((project, index, array) => (
+                <span key={project} className="font-mono">
+                  {project}
+                  {index < array.length - 1 && <span className="mx-2">•</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   )
 }

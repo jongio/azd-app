@@ -1,13 +1,19 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 
 	"github.com/spf13/cobra"
 )
@@ -32,6 +38,116 @@ func NewInfoCommand() *cobra.Command {
 	return cmd
 }
 
+// validateAndCleanServices checks if registered processes are still running and cleans up stale entries.
+func validateAndCleanServices(reg *registry.ServiceRegistry) error {
+	services := reg.ListAll()
+	var servicesToRemove []string
+
+	for _, svc := range services {
+		// Primary check: is the port actually listening?
+		// This is more reliable than PID checking due to PID reuse
+		portListening := isPortReachable(svc.Port)
+		pidExists := isProcessRunning(svc.PID)
+
+		// If port is not listening, the service is effectively not running
+		// even if a process with that PID exists (could be PID reuse)
+		if !portListening {
+			if pidExists {
+				// PID exists but port isn't listening - likely PID reuse or crashed service
+				// Mark as not running and remove
+				servicesToRemove = append(servicesToRemove, svc.Name)
+			} else {
+				// Both PID and port are gone - definitely not running
+				servicesToRemove = append(servicesToRemove, svc.Name)
+			}
+		} else {
+			// Port is listening - service is running
+			health := "healthy"
+			if !pidExists {
+				// Port is listening but PID changed - update health but keep running
+				health = "unknown"
+			}
+
+			// Update the service status
+			if svc.Health != health {
+				reg.UpdateStatus(svc.Name, "running", health)
+			}
+		}
+	}
+
+	// Remove stale services
+	for _, serviceName := range servicesToRemove {
+		if err := reg.Unregister(serviceName); err != nil {
+			return fmt.Errorf("failed to unregister stale service %s: %w", serviceName, err)
+		}
+	}
+
+	return nil
+}
+
+// isProcessRunning checks if a process with the given PID is actually running.
+// Works on both Windows and Unix systems.
+func isProcessRunning(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+
+	if runtime.GOOS == "windows" {
+		// On Windows, use tasklist command to check if process exists
+		cmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/NH")
+		output, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+		// If the process exists, tasklist will return a line with the PID
+		return strings.Contains(string(output), strconv.Itoa(pid))
+	} else {
+		// On Unix systems, use os.FindProcess and send signal 0
+		process, err := os.FindProcess(pid)
+		if err != nil {
+			return false
+		}
+		err = process.Signal(syscall.Signal(0))
+		return err == nil
+	}
+}
+
+// isPortReachable checks if a port is reachable (simple health check).
+func isPortReachable(port int) bool {
+	// Check using netstat to see if port is listening
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("netstat", "-an")
+		output, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+		portStr := fmt.Sprintf(":%d ", port)
+		// Check each line to ensure :PORT and LISTENING appear on the SAME line
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, portStr) && strings.Contains(line, "LISTENING") {
+				return true
+			}
+		}
+		return false
+	} else {
+		cmd := exec.Command("netstat", "-ln")
+		output, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+		portStr := fmt.Sprintf(":%d ", port)
+		// Check each line to ensure the port appears with LISTEN state
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, portStr) && strings.Contains(line, "LISTEN") {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 // runInfo executes the info command.
 func runInfo(cmd *cobra.Command, args []string) error {
 	// Default: show services from current directory
@@ -46,79 +162,53 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	reg := registry.GetRegistry(projectDir)
-	services := reg.ListAll()
 
-	if len(services) == 0 {
-		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"project":  projectDir,
-				"services": []interface{}{},
-			})
-		}
-		fmt.Println("No services are running in this project")
-		fmt.Println("Run 'azd app run' to start services")
-		return nil
+	// Validate and clean up stale processes in real-time
+	if err := validateAndCleanServices(reg); err != nil && !output.IsJSON() {
+		output.Warning("Failed to validate service status: %v", err)
 	}
 
-	// Get Azure environment variables for endpoint mapping
-	azdEnv := getAzureEndpoints()
+	// Use shared serviceinfo package to get merged service data
+	allServices, err := serviceinfo.GetServiceInfo(projectDir)
+	if err != nil && !output.IsJSON() {
+		output.Warning("Failed to get service info: %v", err)
+	}
+
+	// Get Azure environment values for environment variable display
+	azureEnv := getAzureEnvironmentValues()
 
 	// For JSON output
 	if output.IsJSON() {
-		return printInfoJSON(projectDir, services, azdEnv)
+		return printInfoJSON(projectDir, allServices, azureEnv)
 	}
 
 	// Default output
-	printInfoDefault(projectDir, services, azdEnv)
+	printInfoDefault(projectDir, allServices, azureEnv)
 	return nil
-}
-
-// printInfoJSON outputs service information in JSON format.
-func printInfoJSON(projectDir string, services []*registry.ServiceRegistryEntry, azdEnv map[string]string) error {
-	type ServiceOutput struct {
-		Name            string            `json:"name"`
-		URL             string            `json:"url"`
-		AzureURL        string            `json:"azureUrl,omitempty"`
-		Language        string            `json:"language"`
-		Framework       string            `json:"framework"`
-		Port            int               `json:"port"`
-		Status          string            `json:"status"`
-		Health          string            `json:"health"`
-		PID             int               `json:"pid"`
-		StartTime       time.Time         `json:"startTime"`
-		LastChecked     time.Time         `json:"lastChecked"`
-		Error           string            `json:"error,omitempty"`
-		EnvironmentVars map[string]string `json:"environmentVariables,omitempty"`
-	}
-
-	outputServices := make([]ServiceOutput, 0, len(services))
+} // printInfoJSON outputs service information in JSON format.
+func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azureEnv map[string]string) error {
+	// Use serviceinfo.ServiceInfo directly - same schema as /api/services
+	outputServices := make([]serviceinfo.ServiceInfo, 0, len(services))
 	for _, svc := range services {
-		svcOutput := ServiceOutput{
-			Name:        svc.Name,
-			URL:         svc.URL,
-			Language:    svc.Language,
-			Framework:   svc.Framework,
-			Port:        svc.Port,
-			Status:      svc.Status,
-			Health:      svc.Health,
-			PID:         svc.PID,
-			StartTime:   svc.StartTime,
-			LastChecked: svc.LastChecked,
-			Error:       svc.Error,
+		// Add Azure-related environment variables if Azure info exists
+		if svc.Azure != nil && azureEnv != nil {
+			svc.EnvironmentVars = make(map[string]string)
+
+			// Add the environment variables that were used to build the Azure info
+			serviceName := strings.ToUpper(svc.Name)
+
+			for envKey, envValue := range azureEnv {
+				envKeyUpper := strings.ToUpper(envKey)
+
+				// Include environment variables related to this service
+				if strings.HasPrefix(envKeyUpper, serviceName+"_") ||
+					strings.HasPrefix(envKeyUpper, "SERVICE_"+serviceName+"_") {
+					svc.EnvironmentVars[envKey] = envValue
+				}
+			}
 		}
 
-		// Add Azure endpoint if available
-		if azureEndpoint, exists := azdEnv[svc.Name]; exists {
-			svcOutput.AzureURL = azureEndpoint
-		}
-
-		// Add environment variables
-		envVars := getServiceEnvVars(svc.Name)
-		if len(envVars) > 0 {
-			svcOutput.EnvironmentVars = envVars
-		}
-
-		outputServices = append(outputServices, svcOutput)
+		outputServices = append(outputServices, *svc) // Dereference pointer
 	}
 
 	return output.PrintJSON(map[string]interface{}{
@@ -128,50 +218,102 @@ func printInfoJSON(projectDir string, services []*registry.ServiceRegistryEntry,
 }
 
 // printInfoDefault outputs service information in default format.
-func printInfoDefault(projectDir string, services []*registry.ServiceRegistryEntry, azdEnv map[string]string) {
+func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, azureEnv map[string]string) {
 	// Show project directory header
-	fmt.Printf("\n%s╔═══════════════════════════════════════════════════════════════════════╗%s\n", colorBold, colorReset)
-	fmt.Printf("%s║ Project: %-60s║%s\n", colorBold, projectDir, colorReset)
-	fmt.Printf("%s╚═══════════════════════════════════════════════════════════════════════╝%s\n", colorBold, colorReset)
+	output.Section("📦", fmt.Sprintf("Project: %s", projectDir))
+
+	if len(services) == 0 {
+		output.Info("No services defined in azure.yaml")
+		output.Item("Run 'azd app reqs --generate' to create azure.yaml with service definitions")
+		return
+	}
 
 	// Print services
 	for i, svc := range services {
 		if i > 0 {
-			fmt.Println(strings.Repeat("─", 75))
+			output.Divider()
 		}
 
-		statusIcon := getStatusIcon(svc.Status, svc.Health)
-		fmt.Printf("\n  %s %s%s%s\n", statusIcon, colorBold, svc.Name, colorReset)
-		fmt.Printf("  URL:       %s\n", svc.URL)
-
-		// Show Azure endpoint if available
-		if azureEndpoint, exists := azdEnv[svc.Name]; exists {
-			fmt.Printf("  Azure URL: %s\n", azureEndpoint)
+		// Get status and health from Local (with defaults if Local is nil)
+		status := "unknown"
+		health := "unknown"
+		if svc.Local != nil {
+			status = svc.Local.Status
+			health = svc.Local.Health
 		}
 
-		fmt.Printf("  Language:  %s\n", svc.Language)
-		fmt.Printf("  Framework: %s\n", svc.Framework)
-		fmt.Printf("  Port:      %d\n", svc.Port)
-		fmt.Printf("  Status:    %s\n", formatStatus(svc.Status))
-		fmt.Printf("  Health:    %s\n", formatHealth(svc.Health))
-		fmt.Printf("  PID:       %d\n", svc.PID)
-		fmt.Printf("  Started:   %s\n", formatTime(svc.StartTime))
-		fmt.Printf("  Checked:   %s\n", formatTime(svc.LastChecked))
+		statusIcon := getStatusIcon(status, health)
+		output.Newline()
+		output.Info("  %s %s", statusIcon, svc.Name)
 
-		// Show all SERVICE_{name}_ environment variables
-		serviceEnvVars := getServiceEnvVars(svc.Name)
-		if len(serviceEnvVars) > 0 {
-			fmt.Printf("\n  %sEnvironment Variables:%s\n", colorBold, colorReset)
-			for key, value := range serviceEnvVars {
-				fmt.Printf("    %s=%s\n", key, value)
+		// Local development info
+		if svc.Local != nil {
+			if svc.Local.URL != "" {
+				output.Label("  Local URL", svc.Local.URL)
+			} else if svc.Local.Port > 0 {
+				output.Label("  Local URL", fmt.Sprintf("http://localhost:%d (not running)", svc.Local.Port))
 			}
 		}
 
-		if svc.Error != "" {
-			fmt.Printf("\n  %sError:     %s%s\n", colorRed, svc.Error, colorReset)
+		// Azure URL and info
+		if svc.Azure != nil {
+			if svc.Azure.URL != "" {
+				output.Label("  Azure URL", svc.Azure.URL)
+			}
+			if svc.Azure.ResourceName != "" {
+				output.Label("  Azure Resource", svc.Azure.ResourceName)
+			}
+			if svc.Azure.ImageName != "" {
+				output.Label("  Docker Image", svc.Azure.ImageName)
+			}
+		}
+
+		// Service definition info
+		if svc.Language != "" {
+			output.Label("  Language", svc.Language)
+		}
+		if svc.Framework != "" {
+			output.Label("  Framework", svc.Framework)
+		}
+		if svc.Project != "" {
+			output.Label("  Project", svc.Project)
+		}
+
+		// Runtime info (only if service is running)
+		if svc.Local != nil && svc.Local.Status == "running" {
+			if svc.Local.Port > 0 {
+				output.Label("  Port", fmt.Sprintf("%d", svc.Local.Port))
+			}
+			if svc.Local.PID > 0 {
+				output.Label("  PID", fmt.Sprintf("%d", svc.Local.PID))
+			}
+			if svc.Local.StartTime != nil {
+				output.Label("  Started", formatTime(*svc.Local.StartTime))
+			}
+			if svc.Local.LastChecked != nil {
+				output.Label("  Checked", formatTime(*svc.Local.LastChecked))
+			}
+		}
+
+		// Status and health (from Local)
+		if svc.Local != nil {
+			output.Label("  Status", formatStatus(svc.Local.Status))
+			if svc.Local.Health != "unknown" {
+				output.Label("  Health", formatHealth(svc.Local.Health))
+			}
+		}
+
+		// Environment variables for this service (grouped by prefix)
+		envVars := getServiceEnvironmentVars(svc.Name, azureEnv)
+		if len(envVars) > 0 {
+			output.Newline()
+			output.Info("  Environment Variables:")
+			for key, value := range envVars {
+				output.Item("  %s = %s", key, value)
+			}
 		}
 	}
-	fmt.Println()
+	output.Newline()
 }
 
 // getAzureEndpoints extracts Azure endpoint URLs from environment variables.
@@ -218,6 +360,35 @@ func getServiceEnvVars(serviceName string) map[string]string {
 
 		if strings.HasPrefix(key, prefix) {
 			envVars[key] = value
+		}
+	}
+
+	return envVars
+}
+
+// getServiceEnvironmentVars returns environment variables for a specific service,
+// filtering and organizing them by relevant prefixes.
+func getServiceEnvironmentVars(serviceName string, azureEnv map[string]string) map[string]string {
+	envVars := make(map[string]string)
+	serviceNameUpper := strings.ToUpper(serviceName)
+
+	// Patterns to match (in priority order):
+	// 1. SERVICE_{SERVICENAME}_* (highest priority - service-specific)
+	// 2. AZURE_{SERVICENAME}_* (Azure-specific for this service)
+
+	for key, value := range azureEnv {
+		keyUpper := strings.ToUpper(key)
+
+		// Match SERVICE_{SERVICENAME}_*
+		if strings.HasPrefix(keyUpper, "SERVICE_"+serviceNameUpper+"_") {
+			envVars[key] = value
+			continue
+		}
+
+		// Match AZURE_{SERVICENAME}_*
+		if strings.HasPrefix(keyUpper, "AZURE_"+serviceNameUpper+"_") {
+			envVars[key] = value
+			continue
 		}
 	}
 
@@ -323,3 +494,35 @@ const (
 	colorBold   = "\033[1m"
 	colorReset  = "\033[0m"
 )
+
+// getAzureEnvironmentValues gets environment values from azd env get-values or current environment.
+func getAzureEnvironmentValues() map[string]string {
+	allEnvVars := make(map[string]string)
+
+	// First, try to get values from azd env get-values
+	cmd := exec.Command("azd", "env", "get-values", "--output", "json")
+	output, err := cmd.Output()
+	if err == nil {
+		var envVars map[string]string
+		if err := json.Unmarshal(output, &envVars); err == nil {
+			// Add all environment variables from azd
+			for key, value := range envVars {
+				allEnvVars[key] = value
+			}
+		}
+	}
+
+	// Fallback: Check current process environment for all variables
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := parts[0]
+		value := parts[1]
+		allEnvVars[key] = value
+	}
+
+	return allEnvVars
+}

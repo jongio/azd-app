@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/installer"
@@ -20,6 +21,14 @@ import (
 
 // Global orchestrator instance shared across all commands.
 var cmdOrchestrator *orchestrator.Orchestrator
+
+// Global flag to disable cache (set by --no-cache flag)
+var disableCache bool
+
+// setDisableCache sets the cache disable flag
+func setDisableCache(disable bool) {
+	disableCache = disable
+}
 
 // init initializes the command orchestrator and registers all commands.
 func init() {
@@ -59,8 +68,7 @@ func init() {
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
 	if !output.IsJSON() {
-		fmt.Println("🔍 Checking requirements...")
-		fmt.Println()
+		output.Section("🔍", "Checking reqs...")
 	}
 
 	// Get current working directory
@@ -76,16 +84,7 @@ func executeReqs() error {
 	}
 
 	if azureYamlPath == "" {
-		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"satisfied":    true,
-				"requirements": []interface{}{},
-				"message":      "No azure.yaml found",
-			})
-		}
-		fmt.Println("ℹ️  No azure.yaml found - skipping requirement check")
-		fmt.Println()
-		return nil
+		return fmt.Errorf("no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one")
 	}
 
 	// Validate path to azure.yaml
@@ -104,54 +103,115 @@ func executeReqs() error {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	if len(azureYaml.Requirements) == 0 {
-		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"satisfied":    true,
-				"requirements": []interface{}{},
-				"message":      "No requirements defined",
-			})
-		}
-		fmt.Println("ℹ️  No requirements defined in azure.yaml")
-		fmt.Println()
-		return nil
+	if len(azureYaml.Reqs) == 0 {
+		return fmt.Errorf("no reqs defined in azure.yaml - run 'azd app reqs --generate' to add them")
 	}
 
-	// Check all prerequisites
-	results := make([]ReqResult, 0, len(azureYaml.Requirements))
-	allSatisfied := true
-
-	for _, prereq := range azureYaml.Requirements {
-		result := checkPrerequisiteWithResult(prereq)
-		results = append(results, result)
-		if !result.Satisfied {
-			allSatisfied = false
+	// Initialize cache manager (skip if caching is disabled)
+	var cacheManager *cache.CacheManager
+	if !disableCache {
+		var err error
+		cacheManager, err = cache.NewCacheManager()
+		if err != nil {
+			// If cache fails, proceed without caching (fallback)
+			if !output.IsJSON() {
+				output.Warning("Cache initialization failed, proceeding without cache: %v", err)
+			}
+			cacheManager = nil
 		}
+	} else if !output.IsJSON() {
+		output.Info("Cache disabled, performing fresh reqs check...")
+	}
+
+	var results []ReqResult
+	var allSatisfied bool
+
+	// Try to get cached results first (only if cache is available and enabled)
+	if cacheManager != nil {
+		cachedResults, valid, cacheErr := cacheManager.GetCachedResults(azureYamlPath)
+		if cacheErr != nil && !output.IsJSON() {
+			output.Warning("Failed to read cache: %v", cacheErr)
+		}
+		if valid && cachedResults != nil {
+			// Use cached results
+			if !output.IsJSON() {
+				output.Info("Using cached reqs check results...")
+			}
+
+			// Convert cached results to ReqResult format
+			results = make([]ReqResult, len(cachedResults.Results))
+			for i, cached := range cachedResults.Results {
+				results[i] = ReqResult{
+					ID:         cached.ID,
+					Installed:  cached.Installed,
+					Version:    cached.Version,
+					Required:   cached.Required,
+					Satisfied:  cached.Satisfied,
+					Running:    cached.Running,
+					CheckedRun: cached.CheckedRun,
+					Message:    cached.Message,
+				}
+			}
+			allSatisfied = cachedResults.AllPassed
+
+			// Print cached results in non-JSON mode
+			if !output.IsJSON() {
+				for _, result := range results {
+					printRequirementResult(result)
+				}
+			}
+		} else {
+			// Cache miss or invalid - perform fresh check
+			results, allSatisfied = performReqsCheck(azureYaml.Reqs)
+
+			// Save to cache
+			if cacheManager != nil {
+				cacheResults := make([]cache.CachedReqResult, len(results))
+				for i, result := range results {
+					cacheResults[i] = cache.CachedReqResult{
+						ID:         result.ID,
+						Installed:  result.Installed,
+						Version:    result.Version,
+						Required:   result.Required,
+						Satisfied:  result.Satisfied,
+						Running:    result.Running,
+						CheckedRun: result.CheckedRun,
+						Message:    result.Message,
+					}
+				}
+				if saveErr := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); saveErr != nil && !output.IsJSON() {
+					output.Warning("Failed to save cache: %v", saveErr)
+				}
+			}
+		}
+	} else {
+		// No cache available - perform fresh check
+		results, allSatisfied = performReqsCheck(azureYaml.Reqs)
 	}
 
 	// JSON output
 	if output.IsJSON() {
 		return output.PrintJSON(map[string]interface{}{
-			"satisfied":    allSatisfied,
-			"requirements": results,
+			"satisfied": allSatisfied,
+			"reqs":      results,
 		})
 	}
 
 	// Default output
-	fmt.Println()
+	output.Newline()
 	if !allSatisfied {
 		return fmt.Errorf("requirement check failed")
 	}
 
-	fmt.Println("✅ All requirements satisfied!")
+	output.Success("All reqs satisfied!")
 	return nil
 }
 
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
 	if !output.IsJSON() {
-		fmt.Println("🔍 Installing dependencies...")
-		fmt.Println()
+		output.Newline()
+		output.Section("🔍", "Installing dependencies")
 	}
 
 	// Get current working directory
@@ -173,7 +233,7 @@ func executeDeps() error {
 	if err == nil && len(nodeProjects) > 0 {
 		hasProjects = true
 		if !output.IsJSON() {
-			fmt.Printf("📦 Found %d Node.js project(s)\n", len(nodeProjects))
+			output.Step("📦", "Found %s Node.js project(s)", output.Count(len(nodeProjects)))
 		}
 		for _, nodeProject := range nodeProjects {
 			result := map[string]interface{}{
@@ -183,7 +243,7 @@ func executeDeps() error {
 			}
 			if err := installer.InstallNodeDependencies(nodeProject); err != nil {
 				if !output.IsJSON() {
-					fmt.Printf("   ⚠️  Warning: Failed to install for %s: %v\n", nodeProject.Dir, err)
+					output.ItemWarning("Failed to install for %s: %v", nodeProject.Dir, err)
 				}
 				result["success"] = false
 				result["error"] = err.Error()
@@ -193,7 +253,7 @@ func executeDeps() error {
 			results = append(results, result)
 		}
 		if !output.IsJSON() {
-			fmt.Println()
+			output.Newline()
 		}
 	}
 
@@ -202,7 +262,7 @@ func executeDeps() error {
 	if err == nil && len(pythonProjects) > 0 {
 		hasProjects = true
 		if !output.IsJSON() {
-			fmt.Printf("🐍 Found %d Python project(s)\n", len(pythonProjects))
+			output.Step("🐍", "Found %s Python project(s)", output.Count(len(pythonProjects)))
 		}
 		for _, pyProject := range pythonProjects {
 			result := map[string]interface{}{
@@ -212,7 +272,7 @@ func executeDeps() error {
 			}
 			if err := installer.SetupPythonVirtualEnv(pyProject); err != nil {
 				if !output.IsJSON() {
-					fmt.Printf("   ⚠️  Warning: Failed to setup environment for %s: %v\n", pyProject.Dir, err)
+					output.ItemWarning("Failed to setup environment for %s: %v", pyProject.Dir, err)
 				}
 				result["success"] = false
 				result["error"] = err.Error()
@@ -222,7 +282,7 @@ func executeDeps() error {
 			results = append(results, result)
 		}
 		if !output.IsJSON() {
-			fmt.Println()
+			output.Newline()
 		}
 	}
 
@@ -231,7 +291,7 @@ func executeDeps() error {
 	if err == nil && len(dotnetProjects) > 0 {
 		hasProjects = true
 		if !output.IsJSON() {
-			fmt.Printf("🔷 Found %d .NET project(s)\n", len(dotnetProjects))
+			output.Step("🔷", "Found %s .NET project(s)", output.Count(len(dotnetProjects)))
 		}
 		for _, dotnetProject := range dotnetProjects {
 			result := map[string]interface{}{
@@ -240,7 +300,7 @@ func executeDeps() error {
 			}
 			if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
 				if !output.IsJSON() {
-					fmt.Printf("   ⚠️  Warning: Failed to restore %s: %v\n", dotnetProject.Path, err)
+					output.ItemWarning("Failed to restore %s: %v", dotnetProject.Path, err)
 				}
 				result["success"] = false
 				result["error"] = err.Error()
@@ -250,7 +310,7 @@ func executeDeps() error {
 			results = append(results, result)
 		}
 		if !output.IsJSON() {
-			fmt.Println()
+			output.Newline()
 		}
 	}
 
@@ -262,8 +322,7 @@ func executeDeps() error {
 				"message":  "No projects detected",
 			})
 		}
-		fmt.Println("ℹ️  No projects detected - skipping dependency installation")
-		fmt.Println()
+		output.Info("No projects detected - skipping dependency installation")
 		return nil
 	}
 
@@ -282,7 +341,7 @@ func executeDeps() error {
 		})
 	}
 
-	fmt.Println("✅ Dependencies installed successfully!")
+	output.Success("Dependencies installed successfully!")
 	return nil
 }
 
@@ -290,8 +349,7 @@ func executeDeps() error {
 // This ensures deps (and transitively reqs) are run before starting services.
 func executeRun() error {
 	if !output.IsJSON() {
-		fmt.Println("🚀 Starting services (reqs and deps already checked)...")
-		fmt.Println()
+		output.Section("🚀", "Starting services (reqs and deps already checked)...")
 	}
 	// The actual run logic is handled by the run command's RunE function
 	// This is just a marker to ensure the dependency chain is executed
@@ -308,8 +366,7 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	// Get directory containing azure.yaml
 	azureYamlDir := filepath.Dir(azureYamlPath)
 
-	fmt.Println("🚀 Starting development environment...")
-	fmt.Println()
+	output.Section("🚀", "Starting development environment")
 
 	// Filter services if needed (for now, run all services)
 	services := azureYaml.Services
@@ -354,10 +411,11 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	dashboardServer := dashboard.GetServer(cwd)
 	dashboardURL, err := dashboardServer.Start()
 	if err != nil {
-		fmt.Printf("Warning: Failed to start dashboard: %v\n", err)
+		output.Warning("Failed to start dashboard: %v", err)
 	} else {
-		fmt.Printf("\n📊 Dashboard: %s\n", dashboardURL)
-		fmt.Println()
+		output.Newline()
+		output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
+		output.Newline()
 	}
 
 	// Set up signal handling for graceful shutdown
@@ -367,15 +425,59 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	// Wait for interrupt signal
 	<-sigChan
 
-	fmt.Println("\n\n🛑 Shutting down services...")
+	output.Newline()
+	output.Newline()
+	output.Warning("🛑 Shutting down services...")
 
 	// Stop dashboard
 	if err := dashboardServer.Stop(); err != nil {
-		fmt.Printf("Warning: Failed to stop dashboard: %v\n", err)
+		output.Warning("Failed to stop dashboard: %v", err)
 	}
 
 	service.StopAllServices(result.Processes)
-	fmt.Println("✅ All services stopped")
+	output.Success("All services stopped")
 
 	return nil
+}
+
+// performReqsCheck performs fresh reqs checking.
+func performReqsCheck(reqs []Prerequisite) ([]ReqResult, bool) {
+	results := make([]ReqResult, 0, len(reqs))
+	allSatisfied := true
+
+	for _, prereq := range reqs {
+		result := checkPrerequisiteWithResult(prereq)
+		results = append(results, result)
+		if !result.Satisfied {
+			allSatisfied = false
+		}
+	}
+
+	return results, allSatisfied
+}
+
+// printRequirementResult prints a single requirement result in human-readable format.
+func printRequirementResult(result ReqResult) {
+	if !result.Installed {
+		output.ItemError("%s: NOT INSTALLED (required: %s)", result.ID, result.Required)
+		return
+	}
+
+	if result.Version == "" {
+		output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", result.ID, result.Required)
+	} else if !result.Satisfied && !result.CheckedRun {
+		output.ItemError("%s: %s (required: %s)", result.ID, result.Version, result.Required)
+		return
+	} else {
+		output.ItemSuccess("%s: %s (required: %s)", result.ID, result.Version, result.Required)
+	}
+
+	// Check running status if applicable
+	if result.CheckedRun {
+		if result.Running {
+			output.Item("- %s✓%s RUNNING", output.Green, output.Reset)
+		} else {
+			output.Item("- %s✗%s NOT RUNNING", output.Red, output.Reset)
+		}
+	}
 }

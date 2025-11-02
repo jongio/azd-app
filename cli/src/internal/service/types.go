@@ -16,14 +16,15 @@ type AzureYaml struct {
 
 // Service represents a service definition in azure.yaml.
 type Service struct {
-	Host     string                 `yaml:"host"`
-	Language string                 `yaml:"language,omitempty"`
-	Project  string                 `yaml:"project,omitempty"`
-	Image    string                 `yaml:"image,omitempty"`
-	Docker   *DockerConfig          `yaml:"docker,omitempty"`
-	Config   map[string]interface{} `yaml:"config,omitempty"`
-	Env      []EnvVar               `yaml:"env,omitempty"`
-	Uses     []string               `yaml:"uses,omitempty"`
+	Host       string                 `yaml:"host"`
+	Language   string                 `yaml:"language,omitempty"`
+	Project    string                 `yaml:"project,omitempty"`
+	Entrypoint string                 `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
+	Image      string                 `yaml:"image,omitempty"`
+	Docker     *DockerConfig          `yaml:"docker,omitempty"`
+	Config     map[string]interface{} `yaml:"config,omitempty"`
+	Env        []EnvVar               `yaml:"env,omitempty"`
+	Uses       []string               `yaml:"uses,omitempty"`
 }
 
 // DockerConfig represents Docker build configuration.
@@ -122,11 +123,11 @@ type OrchestrationOptions struct {
 
 // LogEntry represents a log entry from a service.
 type LogEntry struct {
-	Service   string
-	Message   string
-	Level     LogLevel
-	Timestamp time.Time
-	IsStderr  bool
+	Service   string    `json:"service"`
+	Message   string    `json:"message"`
+	Level     LogLevel  `json:"level"`
+	Timestamp time.Time `json:"timestamp"`
+	IsStderr  bool      `json:"isStderr"`
 }
 
 // LogLevel represents the severity of a log message.

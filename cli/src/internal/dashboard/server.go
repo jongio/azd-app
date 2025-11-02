@@ -15,6 +15,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 
 	"github.com/gorilla/websocket"
 )
@@ -100,8 +101,13 @@ func (s *Server) setupRoutes() {
 
 // handleGetServices returns services for the current project.
 func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
-	reg := registry.GetRegistry(s.projectDir)
-	services := reg.ListAll()
+	// Use shared serviceinfo package to get merged service data
+	services, err := serviceinfo.GetServiceInfo(s.projectDir)
+	if err != nil {
+		log.Printf("Warning: Failed to get service info: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to get service info: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(services); err != nil {
@@ -147,9 +153,13 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 	}()
 
-	// Send initial service data
-	reg := registry.GetRegistry(s.projectDir)
-	services := reg.ListAll()
+	// Send initial service data using shared serviceinfo package
+	services, err := serviceinfo.GetServiceInfo(s.projectDir)
+	if err != nil {
+		log.Printf("Warning: Failed to get service info: %v", err)
+		services = []*serviceinfo.ServiceInfo{} // Empty array on error
+	}
+
 	if err := conn.WriteJSON(map[string]interface{}{
 		"type":     "services",
 		"services": services,

@@ -24,16 +24,12 @@ func InstallNodeDependencies(project types.NodeProject) error {
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	if !output.IsJSON() {
-		fmt.Printf("   📥 Installing: %s (%s)\n", project.Dir, project.PackageManager)
-	}
-
 	if err := executor.RunCommand(project.PackageManager, []string{"install"}, project.Dir); err != nil {
 		return fmt.Errorf("failed to run %s install: %w", project.PackageManager, err)
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   ✓ Installed dependencies\n")
+		output.ItemSuccess("Installed dependencies")
 	}
 	return nil
 }
@@ -46,7 +42,7 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   📥 Restoring: %s\n", project.Path)
+		output.Item("Restoring: %s", project.Path)
 	}
 
 	dir := filepath.Dir(project.Path)
@@ -55,17 +51,13 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   ✓ Restored packages\n")
+		output.ItemSuccess("Restored packages")
 	}
 	return nil
 }
 
 // SetupPythonVirtualEnv creates a virtual environment and installs dependencies.
 func SetupPythonVirtualEnv(project types.PythonProject) error {
-	if !output.IsJSON() {
-		fmt.Printf("   📦 %s (%s)\n", project.Dir, project.PackageManager)
-	}
-
 	switch project.PackageManager {
 	case "uv":
 		return setupWithUv(project.Dir)
@@ -83,7 +75,7 @@ func setupWithUv(projectDir string) error {
 	// Check if uv is installed
 	if _, err := exec.LookPath("uv"); err != nil {
 		if !output.IsJSON() {
-			fmt.Printf("   ⚠ uv not found, falling back to pip\n")
+			output.ItemWarning("uv not found, falling back to pip")
 		}
 		return setupWithPip(projectDir)
 	}
@@ -91,7 +83,7 @@ func setupWithUv(projectDir string) error {
 	// uv automatically manages virtual environments
 	// Just sync the project
 	if !output.IsJSON() {
-		fmt.Printf("   🔄 Syncing with uv...\n")
+		output.Item("Syncing with uv...")
 	}
 
 	cmd := exec.Command("uv", "sync")
@@ -109,7 +101,7 @@ func setupWithUv(projectDir string) error {
 		// If uv sync fails, try uv pip install
 		if _, statErr := os.Stat(filepath.Join(projectDir, "requirements.txt")); statErr == nil {
 			if !output.IsJSON() {
-				fmt.Printf("   📥 Installing with uv pip...\n")
+				output.Item("Installing with uv pip...")
 			}
 			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt")
 			installCmd.Dir = projectDir
@@ -131,7 +123,7 @@ func setupWithUv(projectDir string) error {
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   ✓ Environment ready (uv)\n")
+		output.ItemSuccess("Environment ready (uv)")
 	}
 	return nil
 }
@@ -141,7 +133,7 @@ func setupWithPoetry(projectDir string) error {
 	// Check if poetry is installed
 	if _, err := exec.LookPath("poetry"); err != nil {
 		if !output.IsJSON() {
-			fmt.Printf("   ⚠ poetry not found, falling back to pip\n")
+			output.ItemWarning("poetry not found, falling back to pip")
 		}
 		return setupWithPip(projectDir)
 	}
@@ -153,13 +145,13 @@ func setupWithPoetry(projectDir string) error {
 
 	if err == nil && len(cmdOutput) > 0 {
 		if !output.IsJSON() {
-			fmt.Printf("   ✓ Poetry environment exists\n")
+			output.ItemSuccess("Poetry environment exists")
 		}
 		return nil
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   📥 Installing dependencies with poetry...\n")
+		output.Item("Installing dependencies with poetry...")
 	}
 
 	// Install dependencies (use --no-root to avoid installing the package itself)
@@ -179,7 +171,7 @@ func setupWithPoetry(projectDir string) error {
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   ✓ Dependencies installed (poetry)\n")
+		output.ItemSuccess("Dependencies installed (poetry)")
 	}
 	return nil
 }
@@ -191,13 +183,13 @@ func setupWithPip(projectDir string) error {
 	// Check if venv already exists
 	if _, err := os.Stat(venvPath); err == nil {
 		if !output.IsJSON() {
-			fmt.Printf("   ✓ Virtual environment exists\n")
+			output.ItemSuccess("Virtual environment exists")
 		}
 		return nil
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   🔨 Creating virtual environment...\n")
+		output.Item("Creating virtual environment...")
 	}
 
 	// Create virtual environment
@@ -209,14 +201,14 @@ func setupWithPip(projectDir string) error {
 	}
 
 	if !output.IsJSON() {
-		fmt.Printf("   ✓ Created .venv\n")
+		output.ItemSuccess("Created .venv")
 	}
 
 	// Check if requirements.txt exists and install dependencies
 	requirementsPath := filepath.Join(projectDir, "requirements.txt")
 	if _, err := os.Stat(requirementsPath); err == nil {
 		if !output.IsJSON() {
-			fmt.Printf("   📥 Installing dependencies...\n")
+			output.Item("Installing dependencies...")
 		}
 
 		// Determine the pip path based on OS
@@ -232,7 +224,7 @@ func setupWithPip(projectDir string) error {
 		}
 
 		if !output.IsJSON() {
-			fmt.Printf("   ✓ Dependencies installed (pip)\n")
+			output.ItemSuccess("Dependencies installed (pip)")
 		}
 	}
 

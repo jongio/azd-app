@@ -15,24 +15,34 @@
           "usage": "azd app <command> [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
-            },
-            {
               "name": "reqs",
-              "description": "Verify all prerequisites are installed",
+              "description": "Check for required prerequisites",
               "usage": "azd app reqs"
             },
             {
               "name": "deps",
-              "description": "Install all project dependencies",
+              "description": "Install dependencies for all detected projects",
               "usage": "azd app deps"
             },
             {
               "name": "run",
-              "description": "Start the development environment",
+              "description": "Run the development environment (services from azure.yaml, Aspire, pnpm, or docker compose)",
               "usage": "azd app run"
+            },
+            {
+              "name": "logs",
+              "description": "View logs from running services",
+              "usage": "azd app logs [service-name]"
+            },
+            {
+              "name": "info",
+              "description": "Show information about running services",
+              "usage": "azd app info"
+            },
+            {
+              "name": "version",
+              "description": "Show version information",
+              "usage": "azd app version"
             }
           ],
           "entryPoint": "app",
