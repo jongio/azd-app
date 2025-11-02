@@ -14,10 +14,14 @@ param(
     [switch]$Install = $false
 )
 
-$ProjectRoot = $PSScriptRoot
-$CommandFileName = "cmd_$CommandName.go"
-$CommandFilePath = Join-Path $ProjectRoot $CommandFileName
-$MainFilePath = Join-Path $ProjectRoot "main.go"
+# Get the repository root (parent of scripts folder)
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent $ScriptDir
+
+$CommandFileName = "$CommandName.go"
+$CommandsDir = Join-Path $ProjectRoot "src\cmd\app\commands"
+$CommandFilePath = Join-Path $CommandsDir $CommandFileName
+$MainFilePath = Join-Path $ProjectRoot "src\cmd\app\main.go"
 
 Write-Host "🚀 Creating new command: $CommandName" -ForegroundColor Cyan
 
@@ -27,11 +31,17 @@ if (Test-Path $CommandFilePath) {
     exit 1
 }
 
+# Ensure commands directory exists
+if (-not (Test-Path $CommandsDir)) {
+    Write-Host "❌ Commands directory not found: $CommandsDir" -ForegroundColor Red
+    exit 1
+}
+
 # Step 1: Create the command file
-Write-Host "`n📝 Creating $CommandFileName..." -ForegroundColor Yellow
+Write-Host "`n📝 Creating $CommandFileName in src/cmd/app/commands/..." -ForegroundColor Yellow
 
 $commandTemplate = @"
-package main
+package commands
 
 import (
 	"fmt"
@@ -39,7 +49,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func new$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Command() *cobra.Command {
+// New$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Command creates the $CommandName command.
+func New$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Command() *cobra.Command {
 	return &cobra.Command{
 		Use:   "$CommandName",
 		Short: "$ShortDescription",
@@ -58,55 +69,43 @@ func new$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Comm
 "@
 
 $commandTemplate | Out-File -FilePath $CommandFilePath -Encoding utf8
-Write-Host "   ✓ Created $CommandFileName" -ForegroundColor Green
+Write-Host "   ✓ Created src/cmd/app/commands/$CommandFileName" -ForegroundColor Green
 
 # Step 2: Update main.go to register the command
-Write-Host "`n📝 Registering command in main.go..." -ForegroundColor Yellow
+Write-Host "`n📝 Registering command in src/cmd/app/main.go..." -ForegroundColor Yellow
 
 $mainContent = Get-Content $MainFilePath -Raw
 
-# Generate the function name with proper capitalization
-$functionName = "new$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Command()"
+# Generate the function name with proper capitalization  
+$functionName = "commands.New$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Command()"
 
 # Check if already registered
-if ($mainContent -match [regex]::Escape("rootCmd.AddCommand($functionName)")) {
+if ($mainContent -match [regex]::Escape($functionName)) {
     Write-Host "   ⚠ Command already registered in main.go" -ForegroundColor Yellow
 } else {
-    # Find the "// Add commands" comment and add after the last AddCommand
+    # Find the rootCmd.AddCommand section and add before the last command (usually NewListenCommand)
     # Look for the pattern where commands are added
-    $pattern = '(// Add commands\s+(?:rootCmd\.AddCommand\([^)]+\)\s+)+)'
+    $pattern = '(\s+rootCmd\.AddCommand\(\s+(?:commands\.\w+Command\(\),\s+)+)'
     
     if ($mainContent -match $pattern) {
-        # Add the new command after the last AddCommand line
-        $commandsSection = $matches[1]
-        $newCommandLine = "`trootCmd.AddCommand($functionName)`n"
-        $updatedSection = $commandsSection + $newCommandLine
-        $mainContent = $mainContent -replace [regex]::Escape($commandsSection), $updatedSection
+        # Find the last command before the closing paren
+        $addCommandBlock = $matches[1]
+        # Insert before the last command (which should be NewListenCommand with its comment)
+        $newCommandLine = "`t`tcommands.New$($CommandName.Substring(0,1).ToUpper() + $CommandName.Substring(1))Command(),`n"
         
-        $mainContent | Out-File -FilePath $MainFilePath -Encoding utf8 -NoNewline
-        Write-Host "   ✓ Registered $functionName in main.go" -ForegroundColor Green
-    } else {
-        # Fallback: Look for any AddCommand and add after it
-        if ($mainContent -match '(\trootCmd\.AddCommand\([^)]+\))') {
-            $lastMatch = $null
-            $matches = [regex]::Matches($mainContent, '\trootCmd\.AddCommand\([^)]+\)')
-            if ($matches.Count -gt 0) {
-                $lastMatch = $matches[$matches.Count - 1]
-                $insertPoint = $lastMatch.Index + $lastMatch.Length
-                $before = $mainContent.Substring(0, $insertPoint)
-                $after = $mainContent.Substring($insertPoint)
-                $mainContent = $before + "`n`trootCmd.AddCommand($functionName)" + $after
-                
-                $mainContent | Out-File -FilePath $MainFilePath -Encoding utf8 -NoNewline
-                Write-Host "   ✓ Registered $functionName in main.go" -ForegroundColor Green
-            } else {
-                Write-Host "   ❌ Could not find AddCommand pattern in main.go" -ForegroundColor Red
-                Write-Host "   Please manually add: rootCmd.AddCommand($functionName)" -ForegroundColor Yellow
-            }
+        # Find NewListenCommand line and insert before it
+        if ($mainContent -match '(\s+commands\.NewListenCommand\(\),\s+// Required for azd extension framework)') {
+            $listenLine = $matches[1]
+            $updatedBlock = $mainContent -replace [regex]::Escape($listenLine), ($newCommandLine + $listenLine)
+            $updatedBlock | Out-File -FilePath $MainFilePath -Encoding utf8 -NoNewline
+            Write-Host "   ✓ Registered $functionName in main.go" -ForegroundColor Green
         } else {
-            Write-Host "   ❌ Could not find AddCommand pattern in main.go" -ForegroundColor Red
-            Write-Host "   Please manually add: rootCmd.AddCommand($functionName)" -ForegroundColor Yellow
+            Write-Host "   ❌ Could not find NewListenCommand in main.go" -ForegroundColor Red
+            Write-Host "   Please manually add: $functionName" -ForegroundColor Yellow
         }
+    } else {
+        Write-Host "   ❌ Could not find AddCommand pattern in main.go" -ForegroundColor Red
+        Write-Host "   Please manually add: $functionName" -ForegroundColor Yellow
     }
 }
 

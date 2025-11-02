@@ -53,11 +53,72 @@ if (-not (Test-Path $ExtensionInstallDir)) {
 }
 
 # Copy binary and manifest
-Copy-Item "$ProjectRoot\bin\$BinaryName" "$ExtensionInstallDir\$BinaryName" -Force
-Copy-Item "$ProjectRoot\extension.yaml" "$ExtensionInstallDir\extension.yaml" -Force
+try {
+    # Try to copy the binary
+    Copy-Item "$ProjectRoot\bin\$BinaryName" "$ExtensionInstallDir\$BinaryName" -Force -ErrorAction Stop
+    Write-Host "   ✓ Copied $BinaryName to $ExtensionInstallDir" -ForegroundColor Gray
+} catch {
+    Write-Host "❌ Failed to copy $BinaryName - file is in use by another process" -ForegroundColor Red
+    Write-Host "   Attempting to force close handles..." -ForegroundColor Yellow
+    
+    # Try to kill any processes using the file
+    $targetFile = "$ExtensionInstallDir\$BinaryName"
+    
+    # Method 1: Try to find and kill processes with the file open using handle.exe if available
+    $handleExe = Get-Command "handle.exe" -ErrorAction SilentlyContinue
+    if ($handleExe) {
+        Write-Host "   Using handle.exe to find processes..." -ForegroundColor Gray
+        try {
+            $handleOutput = & handle.exe -accepteula $targetFile 2>&1
+            if ($handleOutput -match "pid: (\d+)") {
+                $pids = $handleOutput | ForEach-Object { if ($_ -match "pid: (\d+)") { $matches[1] } }
+                foreach ($pid in $pids) {
+                    Write-Host "   Killing process PID $pid..." -ForegroundColor Yellow
+                    Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+                }
+            }
+        } catch {
+            Write-Host "   handle.exe failed: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    
+    # Method 2: Kill any azd or app processes that might be using the file
+    Write-Host "   Killing azd and app processes..." -ForegroundColor Yellow
+    Get-Process | Where-Object {$_.ProcessName -like "*azd*" -or $_.ProcessName -like "*app*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+    
+    # Method 3: Try to delete the existing file if it exists
+    if (Test-Path $targetFile) {
+        Write-Host "   Removing existing file..." -ForegroundColor Yellow
+        try {
+            Remove-Item $targetFile -Force -ErrorAction Stop
+        } catch {
+            Write-Host "❌ Still cannot remove existing file: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    
+    # Wait a moment for processes to fully exit
+    Start-Sleep -Seconds 2
+    
+    # Try copying again
+    Write-Host "   Retrying copy..." -ForegroundColor Yellow
+    try {
+        Copy-Item "$ProjectRoot\bin\$BinaryName" "$ExtensionInstallDir\$BinaryName" -Force -ErrorAction Stop
+        Write-Host "   ✓ Copied $BinaryName to $ExtensionInstallDir (after cleanup)" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Copy failed even after cleanup: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "   Please manually close any azd or app processes and try again." -ForegroundColor Red
+        exit 1
+    }
+}
 
-Write-Host "   ✓ Copied $BinaryName to $ExtensionInstallDir" -ForegroundColor Gray
-Write-Host "   ✓ Copied extension.yaml" -ForegroundColor Gray
+# Copy extension.yaml (this should not have the same issue)
+try {
+    Copy-Item "$ProjectRoot\extension.yaml" "$ExtensionInstallDir\extension.yaml" -Force -ErrorAction Stop
+    Write-Host "   ✓ Copied extension.yaml" -ForegroundColor Gray
+} catch {
+    Write-Host "❌ Failed to copy extension.yaml: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
 
 # Now register it in config.json so azd can find it
 Write-Host "`n� Registering extension in azd config..." -ForegroundColor Yellow

@@ -21,6 +21,8 @@ func main() {
 		commands.NewReqsCommand(),
 		commands.NewRunCommand(),
 		commands.NewDepsCommand(),
+		commands.NewInfoCommand(),
+		commands.NewVersionCommand(),
 		commands.NewListenCommand(), // Required for azd extension framework
 	)
 

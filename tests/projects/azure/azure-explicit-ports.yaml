@@ -1,0 +1,42 @@
+# Example azure.yaml demonstrating explicit port configuration
+# Ports defined in service config are MANDATORY and will never be changed
+
+name: explicit-port-example
+
+services:
+  # Service with explicit port - MUST use 3000, will prompt to kill if in use
+  frontend:
+    host: containerapp
+    project: ./src/frontend
+    language: TypeScript
+    config:
+      port: 3000  # EXPLICIT: This port is mandatory and cannot be changed
+  
+  # Service with explicit port - MUST use 8080
+  backend:
+    host: containerapp
+    project: ./src/backend
+    language: Python
+    config:
+      port: 8080  # EXPLICIT: This port is mandatory and cannot be changed
+  
+  # Service without explicit port - will auto-detect or find available port
+  api:
+    host: containerapp
+    project: ./src/api
+    language: JavaScript
+    # No port config - flexible, can use any available port
+    # Priority: framework config > env vars > defaults > auto-assign
+
+# Port Priority (as implemented in DetectPort):
+# 1. azure.yaml config (EXPLICIT - never changed) ← MANDATORY
+# 2. Framework config files (package.json, launchSettings.json, etc.)
+# 3. Environment variables (PORT, {SERVICE}_PORT)
+# 4. Framework defaults (e.g., 3000 for Next.js, 8000 for Django)
+# 5. Dynamic assignment (find available port 3000-9999)
+
+# Behavior when explicit port is in use:
+# - System will prompt: "Port 3000 for service 'frontend' is in use by process 1234. Stop existing process? (y/N):"
+# - If user confirms (y): Kill process and use the port
+# - If user declines (N): Fail with error - explicit ports cannot be changed
+# - Error message: "port 3000 is required for service 'frontend' but is in use and cannot be freed"

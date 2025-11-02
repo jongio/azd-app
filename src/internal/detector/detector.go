@@ -153,9 +153,8 @@ func DetectNodePackageManager(projectDir string) string {
 	return DetectNodePackageManagerWithBoundary(projectDir, "")
 }
 
-// DetectNodePackageManagerWithBoundary determines package manager with a search boundary.
-// Searches up the directory tree to find lock files but stops at the boundary directory.
-// This prevents searching beyond the project root into unrelated parent directories.
+// DetectNodePackageManagerWithBoundary determines package manager by checking only the project directory.
+// Does not search up the directory tree to avoid interference from parent workspace configurations.
 func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string) string {
 	// Clean the paths to absolute
 	absDir, err := filepath.Abs(projectDir)
@@ -163,55 +162,19 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 		absDir = projectDir
 	}
 
-	absBoundary := ""
-	if boundaryDir != "" {
-		absBoundary, err = filepath.Abs(boundaryDir)
-		if err != nil {
-			absBoundary = boundaryDir
-		}
+	// Check ONLY the project directory itself for lock files
+	// Priority: pnpm-lock.yaml > yarn.lock > package-lock.json > npm (default)
+	if _, err := os.Stat(filepath.Join(absDir, "pnpm-lock.yaml")); err == nil {
+		return "pnpm"
+	}
+	if _, err := os.Stat(filepath.Join(absDir, "yarn.lock")); err == nil {
+		return "yarn"
+	}
+	if _, err := os.Stat(filepath.Join(absDir, "package-lock.json")); err == nil {
+		return "npm"
 	}
 
-	// Search up the directory tree
-	currentDir := absDir
-	for {
-		// Check for pnpm-lock.yaml or pnpm-workspace.yaml
-		if _, err := os.Stat(filepath.Join(currentDir, "pnpm-lock.yaml")); err == nil {
-			return "pnpm"
-		}
-		if _, err := os.Stat(filepath.Join(currentDir, "pnpm-workspace.yaml")); err == nil {
-			return "pnpm"
-		}
-
-		// Check for yarn.lock
-		if _, err := os.Stat(filepath.Join(currentDir, "yarn.lock")); err == nil {
-			return "yarn"
-		}
-
-		// Check for package-lock.json (npm)
-		if _, err := os.Stat(filepath.Join(currentDir, "package-lock.json")); err == nil {
-			return "npm"
-		}
-
-		// Stop if we've reached the boundary directory
-		if absBoundary != "" && currentDir == absBoundary {
-			break
-		}
-
-		// Stop if we hit a .git directory (repository root)
-		if _, err := os.Stat(filepath.Join(currentDir, ".git")); err == nil {
-			break
-		}
-
-		// Move to parent directory
-		parentDir := filepath.Dir(currentDir)
-		if parentDir == currentDir {
-			// Reached filesystem root
-			break
-		}
-		currentDir = parentDir
-	}
-
-	// Default to npm (most universal)
+	// Default to npm if no lock files found
 	return "npm"
 }
 

@@ -1,0 +1,36 @@
+name: fullstack-test
+metadata:
+  template: fullstack-test
+
+reqs:
+  - id: node
+    minVersion: "18.0.0"
+  - id: npm
+    minVers`ion: "9.0.0"
+  - id: python
+    minVersion: "3.9.0"
+  - id: pip
+    minVersion: "20.0.0"
+
+services:
+  api:
+    language: python
+    project: ./api
+    host: localhost
+    config:
+      port: 5000
+    env:
+      - name: FLASK_ENV
+        value: development
+      - name: FLASK_APP
+        value: app.py
+  
+  web:
+    language: node
+    project: ./web
+    host: localhost
+    config:
+      port: 5001
+    env:
+      - name: API_URL
+        value: http://localhost:5000

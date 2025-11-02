@@ -1,0 +1,13 @@
+{
+  "name": "fullstack-web",
+  "version": "1.0.0",
+  "description": "Simple Node.js app that calls Python API",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

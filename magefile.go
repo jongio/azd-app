@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -18,10 +20,45 @@ const (
 	srcDir      = "src/cmd/app"
 	binDir      = "bin"
 	coverageDir = "coverage"
+	versionFile = "version.txt"
 )
 
 // Default target runs Lint, Test, and Build.
 var Default = All
+
+// getVersion reads the current version from version.txt.
+func getVersion() (string, error) {
+	data, err := os.ReadFile(versionFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read version file: %w", err)
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// bumpVersion increments the patch version and writes it back.
+func bumpVersion() (string, error) {
+	version, err := getVersion()
+	if err != nil {
+		return "", err
+	}
+
+	// Parse version (simple semver: major.minor.patch)
+	var major, minor, patch int
+	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
+		return "", fmt.Errorf("failed to parse version %s: %w", version, err)
+	}
+
+	// Increment patch
+	patch++
+	newVersion := fmt.Sprintf("%d.%d.%d", major, minor, patch)
+
+	// Write back
+	if err := os.WriteFile(versionFile, []byte(newVersion+"\n"), 0644); err != nil {
+		return "", fmt.Errorf("failed to write version file: %w", err)
+	}
+
+	return newVersion, nil
+}
 
 // All runs lint, test, and build.
 func All() error {
@@ -29,9 +66,15 @@ func All() error {
 	return nil
 }
 
-// Build compiles the app binary for the current platform.
+// Build compiles the app binary for the current platform with version info.
 func Build() error {
 	fmt.Println("Building", binaryName+"...")
+
+	// Bump version
+	version, err := bumpVersion()
+	if err != nil {
+		return err
+	}
 
 	output := filepath.Join(binDir, binaryName)
 	if runtime.GOOS == "windows" {
@@ -42,11 +85,15 @@ func Build() error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
-	if err := sh.RunV("go", "build", "-o", output, "./"+srcDir); err != nil {
+	// Build with version injected via ldflags
+	buildTime := time.Now().Format(time.RFC3339)
+	ldflags := fmt.Sprintf("-X app/src/cmd/app/commands.Version=%s -X app/src/cmd/app/commands.BuildTime=%s", version, buildTime)
+
+	if err := sh.RunV("go", "build", "-ldflags", ldflags, "-o", output, "./"+srcDir); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	fmt.Println("✅ Build complete!")
+	fmt.Printf("✅ Build complete! Version: %s\n", version)
 	return nil
 }
 
@@ -147,7 +194,22 @@ func Clean() error {
 
 // Install installs the extension locally using azd x build.
 func Install() error {
+	// First build to get the version
+	if err := Build(); err != nil {
+		return err
+	}
+
+	version, err := getVersion()
+	if err != nil {
+		return err
+	}
+
 	fmt.Println("Installing locally...")
 	// Use pwsh (PowerShell 7) instead of powershell (Windows PowerShell 5.1) for better UTF-8 support
-	return sh.RunV("pwsh", "-File", "install-local.ps1")
+	if err := sh.RunV("pwsh", "-File", "install-local.ps1"); err != nil {
+		return err
+	}
+
+	fmt.Printf("✅ Installed version: %s\n", version)
+	return nil
 }
