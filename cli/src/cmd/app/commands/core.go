@@ -229,6 +229,7 @@ func executeDeps() error {
 	var results []map[string]interface{}
 
 	// Step 1: Find and install Node.js projects
+	//nolint:dupl // Similar code pattern repeated for each project type for clarity
 	nodeProjects, err := detector.FindNodeProjects(cwd)
 	if err == nil && len(nodeProjects) > 0 {
 		hasProjects = true
@@ -258,6 +259,7 @@ func executeDeps() error {
 	}
 
 	// Step 2: Find and install Python projects
+	//nolint:dupl // Similar code pattern repeated for each project type for clarity
 	pythonProjects, err := detector.FindPythonProjects(cwd)
 	if err == nil && len(pythonProjects) > 0 {
 		hasProjects = true

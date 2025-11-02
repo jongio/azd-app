@@ -15,9 +15,9 @@ func newVersionCommand() *cobra.Command {
 			fmt.Println("✨ Running version command!")
 			fmt.Println()
 			fmt.Println("TODO: Implement version logic here")
-			
+
 			// Your command logic goes here
-			
+
 			return nil
 		},
 	}

@@ -224,3 +224,60 @@ func Uninstall() error {
 	fmt.Println("✅ Extension uninstalled!")
 	return nil
 }
+
+// Preflight runs all checks before shipping: format, lint, security, tests, and coverage.
+func Preflight() error {
+	fmt.Println("🚀 Running preflight checks...")
+	fmt.Println()
+
+	// 1. Format check
+	fmt.Println("📝 Step 1/6: Checking code formatting...")
+	if err := Fmt(); err != nil {
+		return fmt.Errorf("formatting failed: %w", err)
+	}
+	fmt.Println()
+
+	// 2. Lint
+	fmt.Println("🔍 Step 2/6: Running linter...")
+	if err := Lint(); err != nil {
+		return fmt.Errorf("linting failed: %w", err)
+	}
+	fmt.Println()
+
+	// 3. Security scan with gosec
+	fmt.Println("🔒 Step 3/6: Running security scan (gosec)...")
+	if err := sh.RunV("gosec", "-quiet", "./..."); err != nil {
+		fmt.Println("⚠️  gosec not installed or found security issues.")
+		fmt.Println("To install: go install github.com/securego/gosec/v2/cmd/gosec@latest")
+		return err
+	}
+	fmt.Println()
+
+	// 4. Spell check with typos
+	fmt.Println("✏️  Step 4/6: Running spell check (typos)...")
+	if err := sh.RunV("typos", "."); err != nil {
+		fmt.Println("⚠️  typos not installed or found spelling errors.")
+		fmt.Println("To install: cargo install typos-cli")
+		fmt.Println("Or download from: https://github.com/crate-ci/typos")
+		return err
+	}
+	fmt.Println()
+
+	// 5. Run all tests
+	fmt.Println("🧪 Step 5/6: Running all tests...")
+	if err := TestAll(); err != nil {
+		return fmt.Errorf("tests failed: %w", err)
+	}
+	fmt.Println()
+
+	// 6. Generate coverage report
+	fmt.Println("📊 Step 6/6: Generating coverage report...")
+	if err := TestCoverage(); err != nil {
+		return fmt.Errorf("coverage generation failed: %w", err)
+	}
+	fmt.Println()
+
+	fmt.Println("✅ All preflight checks passed!")
+	fmt.Println("🎉 Ready to ship!")
+	return nil
+}

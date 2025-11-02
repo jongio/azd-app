@@ -3,24 +3,15 @@ metadata:
   template: test-project@0.0.1
 
 prerequisites:
-  # JavaScript ecosystem
   - id: nodejs
     minVersion: "20.0.0"
-    
   - id: pnpm
     minVersion: "9.0.0"
-    
-  # Python ecosystem
   - id: python
     minVersion: "3.12.0"
-    
-  # .NET ecosystem (for Aspire orchestration)
   - id: dotnet
     minVersion: "9.0.0"
-    
-  # Azure tooling (required for provisioning AI Foundry resources)
   - id: azd
     minVersion: "1.5.0"
-    
   - id: azure-cli
     minVersion: "2.60.0"

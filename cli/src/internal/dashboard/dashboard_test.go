@@ -163,10 +163,10 @@ func TestHandleGetAllServices(t *testing.T) {
 		Port:       8080,
 	})
 
-	req := httptest.NewRequest("GET", "/api/services/all", nil)
+	req := httptest.NewRequest("GET", "/api/services", nil)
 	w := httptest.NewRecorder()
 
-	srv.handleGetAllServices(w, req)
+	srv.handleGetServices(w, req)
 
 	resp := w.Result()
 	if resp.StatusCode != http.StatusOK {

@@ -12,10 +12,10 @@ import (
 
 // ReqsCache represents cached reqs check results.
 type ReqsCache struct {
-	Timestamp    time.Time          `json:"timestamp"`
+	Timestamp     time.Time         `json:"timestamp"`
 	AzureYamlHash string            `json:"azureYamlHash"`
-	Results      []CachedReqResult `json:"results"`
-	AllPassed    bool               `json:"allPassed"`
+	Results       []CachedReqResult `json:"results"`
+	AllPassed     bool              `json:"allPassed"`
 }
 
 // CachedReqResult represents a cached req check result.
@@ -88,7 +88,7 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 	}
 
 	cacheFile := filepath.Join(cm.cacheDir, "reqs_cache.json")
-	
+
 	// Check if cache file exists
 	cacheInfo, err := os.Stat(cacheFile)
 	if os.IsNotExist(err) {
