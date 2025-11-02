@@ -235,8 +235,8 @@ func (s *Server) Start() (string, error) {
 	// Use port manager to get a persistent port for the dashboard
 	portMgr := portmanager.GetPortManager(s.projectDir)
 
-	// Assign port for dashboard service (isExplicit=false, cleanStale=true)
-	port, err := portMgr.AssignPort("azd-app-dashboard", 3100, false, true)
+	// Assign port for dashboard service (isExplicit=false, cleanStale=false to avoid prompts)
+	port, err := portMgr.AssignPort("azd-app-dashboard", 3100, false, false)
 	if err != nil {
 		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
 	}
@@ -251,7 +251,6 @@ func (s *Server) Start() (string, error) {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Dashboard server error: %v", err)
 			errChan <- err
 		}
 	}()
@@ -259,17 +258,61 @@ func (s *Server) Start() (string, error) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 
-	// Check if there was an immediate error
+	// Check if there was an immediate error (like port already in use)
 	select {
 	case err := <-errChan:
+		// Port binding failed, try to find an alternative port
+		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
+			return fmt.Sprintf("http://localhost:%d", port), nil
+		}
 		return "", fmt.Errorf("dashboard server failed to start: %w", err)
 	default:
 		// Server started successfully
 	}
-	time.Sleep(100 * time.Millisecond)
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 	return url, nil
+}
+
+// retryWithAlternativePort attempts to start the server on an alternative port.
+func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int, error) {
+	// Release the failed port assignment
+	portMgr.ReleasePort("azd-app-dashboard")
+
+	// Try to find a new port (starting from 3101 to avoid immediate conflict)
+	for attempt := 0; attempt < 10; attempt++ {
+		port, err := portMgr.AssignPort("azd-app-dashboard", 3100+attempt+1, false, false)
+		if err != nil {
+			continue
+		}
+
+		s.port = port
+		s.server = &http.Server{
+			Addr:    fmt.Sprintf(":%d", port),
+			Handler: s.mux,
+		}
+
+		errChan := make(chan error, 1)
+		go func() {
+			if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errChan <- err
+			}
+		}()
+
+		time.Sleep(100 * time.Millisecond)
+
+		select {
+		case <-errChan:
+			// This port also failed, try next
+			portMgr.ReleasePort("azd-app-dashboard")
+			continue
+		default:
+			// Successfully started
+			return port, nil
+		}
+	}
+
+	return 0, fmt.Errorf("failed to find available port for dashboard after 10 attempts")
 }
 
 // BroadcastUpdate sends service updates to all connected WebSocket clients.
