@@ -3,8 +3,18 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/ci.yml'
+
+defaults:
+  run:
+    working-directory: cli
 
 jobs:
   test:
@@ -30,7 +40,7 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go-${{ hashFiles('cli/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
 
@@ -67,6 +77,7 @@ jobs:
       with:
         version: latest
         args: --timeout=5m
+        working-directory: cli
 
   build:
     name: Build
