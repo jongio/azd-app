@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math/rand"
 	"net/http"
 	"path/filepath"
 	"sync"
@@ -86,6 +87,8 @@ func (s *Server) setupRoutes() {
 	// API endpoints (these take precedence over the file server)
 	s.mux.HandleFunc("/api/project", s.handleGetProject)
 	s.mux.HandleFunc("/api/services", s.handleGetServices)
+	s.mux.HandleFunc("/api/logs", s.handleGetLogs)
+	s.mux.HandleFunc("/api/logs/stream", s.handleLogStream)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 
 	// Serve static files
@@ -235,8 +238,12 @@ func (s *Server) Start() (string, error) {
 	// Use port manager to get a persistent port for the dashboard
 	portMgr := portmanager.GetPortManager(s.projectDir)
 
+	// Use a random port in higher range (40000-49999) to avoid common conflicts
+	// This range is typically used for ephemeral/dynamic ports
+	preferredPort := 40000 + rand.Intn(10000)
+
 	// Assign port for dashboard service (isExplicit=false, cleanStale=false to avoid prompts)
-	port, err := portMgr.AssignPort("azd-app-dashboard", 3100, false, false)
+	port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 	if err != nil {
 		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
 	}
@@ -279,9 +286,11 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 	// Release the failed port assignment
 	portMgr.ReleasePort("azd-app-dashboard")
 
-	// Try to find a new port (starting from 3101 to avoid immediate conflict)
+	// Try to find a new port in the higher range with randomization
 	for attempt := 0; attempt < 10; attempt++ {
-		port, err := portMgr.AssignPort("azd-app-dashboard", 3100+attempt+1, false, false)
+		// Random port in 40000-49999 range
+		preferredPort := 40000 + rand.Intn(10000)
+		port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 		if err != nil {
 			continue
 		}
@@ -330,6 +339,114 @@ func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
 			log.Printf("WebSocket send error: %v", err)
 		}
 	}
+}
+
+// handleGetLogs returns recent logs for services.
+func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("service")
+	tailStr := r.URL.Query().Get("tail")
+
+	// Default to 500 lines
+	tail := 500
+	if tailStr != "" {
+		if n, err := fmt.Sscanf(tailStr, "%d", &tail); err != nil || n != 1 {
+			tail = 500
+		}
+	}
+
+	logManager := service.GetLogManager(s.projectDir)
+
+	var logs []service.LogEntry
+	if serviceName != "" {
+		// Get logs from specific service
+		buffer, exists := logManager.GetBuffer(serviceName)
+		if !exists {
+			http.Error(w, fmt.Sprintf("Service '%s' not found", serviceName), http.StatusNotFound)
+			return
+		}
+		logs = buffer.GetRecent(tail)
+	} else {
+		// Get logs from all services
+		logs = logManager.GetAllLogs(tail)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(logs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// handleLogStream streams logs via WebSocket.
+func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("service")
+
+	// Upgrade connection to WebSocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("WebSocket upgrade failed: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	logManager := service.GetLogManager(s.projectDir)
+
+	// Create subscriptions for log streams
+	subscriptions := make(map[string]chan service.LogEntry)
+
+	if serviceName != "" {
+		// Subscribe to specific service
+		buffer, exists := logManager.GetBuffer(serviceName)
+		if !exists {
+			conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)})
+			return
+		}
+		subscriptions[serviceName] = buffer.Subscribe()
+	} else {
+		// Subscribe to all services
+		for name, buffer := range logManager.GetAllBuffers() {
+			subscriptions[name] = buffer.Subscribe()
+		}
+	}
+
+	// Cleanup function
+	defer func() {
+		for svcName, ch := range subscriptions {
+			if buffer, exists := logManager.GetBuffer(svcName); exists {
+				buffer.Unsubscribe(ch)
+			}
+		}
+	}()
+
+	// Merge all subscription channels
+	mergedChan := make(chan service.LogEntry, 100)
+	for _, ch := range subscriptions {
+		go func(ch chan service.LogEntry) {
+			for entry := range ch {
+				mergedChan <- entry
+			}
+		}(ch)
+	}
+
+	// Stream logs to WebSocket
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case entry := <-mergedChan:
+				if err := conn.WriteJSON(entry); err != nil {
+					log.Printf("WebSocket write error: %v", err)
+					close(done)
+					return
+				}
+			case <-s.stopChan:
+				close(done)
+				return
+			}
+		}
+	}()
+
+	// Keep connection alive until client disconnects or server stops
+	<-done
 }
 
 // Stop stops the dashboard server and releases its port assignment.

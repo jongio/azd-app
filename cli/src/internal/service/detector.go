@@ -13,11 +13,19 @@ import (
 )
 
 // DetectServiceRuntime determines how to run a service based on its configuration and project structure.
-func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool) (*ServiceRuntime, error) {
+func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string) (*ServiceRuntime, error) {
 	projectDir := service.Project
 	if projectDir == "" {
 		return nil, fmt.Errorf("service %s has no project directory", serviceName)
 	}
+
+	// Resolve relative paths against azure.yaml directory
+	if !filepath.IsAbs(projectDir) {
+		projectDir = filepath.Join(azureYamlDir, projectDir)
+	}
+
+	// Clean and normalize the path
+	projectDir = filepath.Clean(projectDir)
 
 	// Validate project directory
 	if err := security.ValidatePath(projectDir); err != nil {

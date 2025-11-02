@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
@@ -44,7 +45,15 @@ func init() {
 		os.Exit(1)
 	}
 
-	// Note: 'run' command is now standalone in run.go and doesn't use the orchestrator
+	// run depends on deps (which depends on reqs)
+	if err := cmdOrchestrator.Register(&orchestrator.Command{
+		Name:         "run",
+		Dependencies: []string{"deps"},
+		Execute:      executeRun,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to register run command: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 // executeReqs is the core logic for the reqs command.
@@ -277,12 +286,27 @@ func executeDeps() error {
 	return nil
 }
 
+// executeRun is the function executed by the orchestrator for the run command.
+// This ensures deps (and transitively reqs) are run before starting services.
+func executeRun() error {
+	if !output.IsJSON() {
+		fmt.Println("🚀 Starting services (reqs and deps already checked)...")
+		fmt.Println()
+	}
+	// The actual run logic is handled by the run command's RunE function
+	// This is just a marker to ensure the dependency chain is executed
+	return nil
+}
+
 // runAzureYamlServices runs services defined in azure.yaml using service orchestration.
 // This is called from executeDeps to handle azure.yaml services in the orchestrator context.
 func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) error {
 	// Import the runServicesFromAzureYaml logic by calling it directly
 	// We can't easily reuse the function from run.go due to package isolation,
 	// so we'll implement a simple version that calls the service orchestrator
+
+	// Get directory containing azure.yaml
+	azureYamlDir := filepath.Dir(azureYamlPath)
 
 	fmt.Println("🚀 Starting development environment...")
 	fmt.Println()
@@ -296,7 +320,7 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	// Detect runtime for each service
 	runtimes := make([]*service.ServiceRuntime, 0, len(services))
 	for name, svc := range services {
-		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts)
+		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir)
 		if err != nil {
 			return fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
 		}

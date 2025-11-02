@@ -71,7 +71,7 @@ func GetPortManager(projectDir string) *PortManager {
 		filePath:    portsFile,
 	}
 	manager.portRange.start = 3000
-	manager.portRange.end = 9999
+	manager.portRange.end = 65535 // Allow full dynamic port range
 
 	// Ensure directory exists
 	if err := os.MkdirAll(portsDir, 0750); err != nil {

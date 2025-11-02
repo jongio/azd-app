@@ -34,6 +34,34 @@ if ($Uninstall) {
 
 Write-Host "🚀 Installing App Extension using azd developer tools..." -ForegroundColor Cyan
 
+# Build the dashboard first
+Write-Host "`n📊 Building dashboard..." -ForegroundColor Yellow
+Push-Location "$ProjectRoot\dashboard"
+try {
+    # Check if node_modules exists, if not run npm install
+    if (-not (Test-Path "node_modules")) {
+        Write-Host "   Installing dashboard dependencies..." -ForegroundColor Gray
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ npm install failed!" -ForegroundColor Red
+            Pop-Location
+            exit 1
+        }
+    }
+    
+    # Build the dashboard
+    Write-Host "   Building dashboard bundle..." -ForegroundColor Gray
+    npm run build
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ Dashboard build failed!" -ForegroundColor Red
+        Pop-Location
+        exit 1
+    }
+    Write-Host "   ✓ Dashboard built successfully" -ForegroundColor Green
+} finally {
+    Pop-Location
+}
+
 # Use azd x build which handles everything automatically
 Write-Host "`n📦 Building and installing with 'azd x build'..." -ForegroundColor Yellow
 azd x build

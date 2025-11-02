@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -43,6 +44,11 @@ func NewRunCommand() *cobra.Command {
 
 // runWithServices runs services from azure.yaml.
 func runWithServices(cmd *cobra.Command, args []string) error {
+	// Execute dependencies first (reqs -> deps -> run)
+	if err := cmdOrchestrator.Run("run"); err != nil {
+		return fmt.Errorf("failed to execute command dependencies: %w", err)
+	}
+
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -65,6 +71,9 @@ func runWithServices(cmd *cobra.Command, args []string) error {
 
 // runServicesFromAzureYaml orchestrates services defined in azure.yaml.
 func runServicesFromAzureYaml(azureYamlPath string) error {
+	// Get directory containing azure.yaml
+	azureYamlDir := filepath.Dir(azureYamlPath)
+
 	// Get current working directory for dashboard
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -102,7 +111,7 @@ func runServicesFromAzureYaml(azureYamlPath string) error {
 	// Detect runtime for each service
 	runtimes := make([]*service.ServiceRuntime, 0, len(services))
 	for name, svc := range services {
-		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts)
+		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir)
 		if err != nil {
 			return fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
 		}

@@ -68,7 +68,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			}
 
 			// Start service
-			process, err := StartService(rt, serviceEnv)
+			process, err := StartService(rt, serviceEnv, projectDir)
 			if err != nil {
 				mu.Lock()
 				startErrors[rt.Name] = err

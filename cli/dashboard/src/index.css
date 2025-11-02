@@ -2,26 +2,47 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
+    /* Modern gradient background colors */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    
+    /* Card with glass morphism */
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Vibrant primary color - electric blue */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    
+    /* Secondary accent - purple */
+    --secondary: 263 70% 65%;
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 217 33% 22%;
+    --muted-foreground: 215 20% 65%;
+    
+    /* Accent - cyan */
+    --accent: 189 94% 43%;
+    --accent-foreground: 222 47% 11%;
+    
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+    
+    /* Success color */
+    --success: 142 71% 45%;
+    --success-foreground: 210 40% 98%;
+    
+    /* Warning color */
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
   }
 }
 
@@ -29,8 +50,63 @@
   * {
     border-color: hsl(var(--border));
   }
+  
   body {
-    background-color: hsl(var(--background));
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(222 47% 8%) 100%);
     color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Animated gradient background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(14, 165, 233, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@layer utilities {
+  /* Glass morphism effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Glow effect */
+  .glow {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  }
+  
+  /* Smooth transitions */
+  .transition-all-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }

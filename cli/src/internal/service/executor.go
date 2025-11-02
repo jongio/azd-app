@@ -6,12 +6,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
 // StartService starts a service and returns the process handle.
-func StartService(runtime *ServiceRuntime, env map[string]string) (*ServiceProcess, error) {
+func StartService(runtime *ServiceRuntime, env map[string]string, projectDir string) (*ServiceProcess, error) {
 	process := &ServiceProcess{
 		Name:    runtime.Name,
 		Runtime: *runtime,
@@ -54,6 +55,9 @@ func StartService(runtime *ServiceRuntime, env map[string]string) (*ServiceProce
 	process.Stdout = stdoutPipe
 	process.Stderr = stderrPipe
 	process.Port = runtime.Port
+
+	// Start log collection
+	StartLogCollection(process, projectDir)
 
 	return process, nil
 }
@@ -128,4 +132,36 @@ func GetProcessStatus(process *ServiceProcess) string {
 	}
 
 	return "starting"
+}
+
+// StartLogCollection starts collecting logs from a service process.
+func StartLogCollection(process *ServiceProcess, projectDir string) {
+	// Get or create log manager for this project
+	logManager := GetLogManager(projectDir)
+
+	// Create log buffer for this service (1000 entries max, enable file logging)
+	buffer, err := logManager.CreateBuffer(process.Name, 1000, true)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to create log buffer for %s: %v\n", process.Name, err)
+		return
+	}
+
+	// Start goroutines to collect stdout and stderr
+	go collectStreamLogs(process.Stdout, process.Name, buffer, false)
+	go collectStreamLogs(process.Stderr, process.Name, buffer, true)
+}
+
+// collectStreamLogs reads from a stream and adds entries to the log buffer.
+func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuffer, isStderr bool) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		entry := LogEntry{
+			Service:   serviceName,
+			Message:   scanner.Text(),
+			Timestamp: time.Now(),
+			IsStderr:  isStderr,
+			Level:     inferLogLevel(scanner.Text()),
+		}
+		buffer.Add(entry)
+	}
 }
