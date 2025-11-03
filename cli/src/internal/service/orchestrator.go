@@ -54,7 +54,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			}
 
 			// Register service in starting state
-			reg.Register(&registry.ServiceRegistryEntry{
+			if err := reg.Register(&registry.ServiceRegistryEntry{
 				Name:       rt.Name,
 				ProjectDir: projectDir,
 				Port:       rt.Port,
@@ -65,7 +65,9 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				Status:     "starting",
 				Health:     "unknown",
 				StartTime:  time.Now(),
-			})
+			}); err != nil {
+				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to register service: %v", err))
+			}
 
 			// Resolve environment variables for this service
 			serviceEnv := make(map[string]string)
@@ -84,7 +86,9 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				startErrors[rt.Name] = err
 				result.Errors[rt.Name] = err
 				mu.Unlock()
-				reg.UpdateStatus(rt.Name, "error", "unknown")
+				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
+					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
+				}
 				logger.LogService(rt.Name, fmt.Sprintf("Failed to start: %v", err))
 				return
 			}
@@ -92,7 +96,9 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			// Update registry with PID
 			if entry, exists := reg.GetService(rt.Name); exists {
 				entry.PID = process.Process.Pid
-				reg.Register(entry)
+				if err := reg.Register(entry); err != nil {
+					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update registry with PID: %v", err))
+				}
 			}
 
 			mu.Lock()
@@ -103,7 +109,9 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			url := fmt.Sprintf("http://localhost:%d", process.Port)
 			output.ItemSuccess("%s%-15s%s → %s", output.Cyan, rt.Name, output.Reset, url)
 
-			reg.UpdateStatus(rt.Name, "running", "healthy")
+			if err := reg.UpdateStatus(rt.Name, "running", "healthy"); err != nil {
+				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
+			}
 			process.Ready = true
 
 			// Note: Log collection is already handled by StartLogCollection in StartService
@@ -139,7 +147,9 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 			defer wg.Done()
 
 			// Update status to stopping
-			reg.UpdateStatus(serviceName, "stopping", "unknown")
+			if err := reg.UpdateStatus(serviceName, "stopping", "unknown"); err != nil {
+				output.Error("Warning: failed to update status for %s: %v", serviceName, err)
+			}
 
 			if err := StopService(proc); err != nil {
 				// Log error but continue stopping other services
@@ -147,7 +157,9 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 			}
 
 			// Unregister from registry
-			reg.Unregister(serviceName)
+			if err := reg.Unregister(serviceName); err != nil {
+				output.Error("Warning: failed to unregister service %s: %v", serviceName, err)
+			}
 		}(name, process)
 	}
 

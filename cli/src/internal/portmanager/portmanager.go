@@ -109,7 +109,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 				Port:        preferredPort,
 				LastUsed:    time.Now(),
 			}
-			pm.save()
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
 			return preferredPort, nil
 		}
 
@@ -130,7 +132,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 			Port:        preferredPort,
 			LastUsed:    time.Now(),
 		}
-		pm.save()
+		if err := pm.save(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+		}
 		return preferredPort, nil
 	}
 
@@ -142,7 +146,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 
 		// Check if port is already available
 		if pm.isPortAvailable(assignment.Port) {
-			pm.save()
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
 			return assignment.Port, nil
 		}
 
@@ -154,7 +160,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 			} else {
 				// Successfully cleaned port
 				if pm.isPortAvailable(assignment.Port) {
-					pm.save()
+					if err := pm.save(); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+					}
 					return assignment.Port, nil
 				}
 			}
@@ -173,7 +181,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 				Port:        preferredPort,
 				LastUsed:    time.Now(),
 			}
-			pm.save()
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
 			return preferredPort, nil
 		}
 
@@ -187,7 +197,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 						Port:        preferredPort,
 						LastUsed:    time.Now(),
 					}
-					pm.save()
+					if err := pm.save(); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+					}
 					return preferredPort, nil
 				}
 			}
@@ -208,7 +220,9 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		Port:        port,
 		LastUsed:    time.Now(),
 	}
-	pm.save()
+	if err := pm.save(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+	}
 	return port, nil
 }
 
@@ -243,7 +257,9 @@ func (pm *PortManager) CleanStalePorts() {
 			delete(pm.assignments, name)
 		}
 	}
-	pm.save()
+	if err := pm.save(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save port assignments: %v\n", err)
+	}
 }
 
 // isPortAvailable checks if a port is available.

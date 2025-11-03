@@ -1,4 +1,3 @@
-// go:build integration
 //go:build integration
 // +build integration
 
@@ -10,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/types"
 )
 
 func TestRunAspireIntegration(t *testing.T) {
@@ -34,7 +35,10 @@ func TestRunAspireIntegration(t *testing.T) {
 
 	// Run Aspire in the background
 	go func() {
-		err := RunAspire(absPath)
+		err := RunAspire(types.AspireProject{
+			Dir:         absPath,
+			ProjectFile: filepath.Join(absPath, "TestAppHost.csproj"),
+		})
 		if err != nil && ctx.Err() == nil {
 			t.Logf("RunAspire error: %v", err)
 		}
@@ -81,7 +85,7 @@ func TestRunPnpmScriptIntegration(t *testing.T) {
 			}
 
 			// Note: This will try to run pnpm, which may not be installed
-			err := RunPnpmScript(tempDir, tt.script)
+			err := RunPnpmScript(tt.script)
 			if err != nil {
 				t.Logf("RunPnpmScript() error = %v (may be expected if pnpm is not installed)", err)
 				t.Skip("Skipping due to missing pnpm")

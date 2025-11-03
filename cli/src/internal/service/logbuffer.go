@@ -86,7 +86,9 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 	}
 
 	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, entry.Message)
-	lb.fileWriter.WriteString(line)
+	if _, err := lb.fileWriter.WriteString(line); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to write log entry: %v\n", err)
+	}
 	lb.fileWriter.Flush()
 }
 

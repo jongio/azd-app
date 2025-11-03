@@ -276,7 +276,9 @@ func displayLogsText(logs []service.LogEntry, output *os.File, showTimestamps, n
 func displayLogsJSON(logs []service.LogEntry, output *os.File) {
 	encoder := json.NewEncoder(output)
 	for _, entry := range logs {
-		encoder.Encode(entry)
+		if err := encoder.Encode(entry); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to encode log entry: %v\n", err)
+		}
 	}
 }
 

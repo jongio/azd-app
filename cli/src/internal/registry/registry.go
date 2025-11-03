@@ -184,6 +184,8 @@ func (r *ServiceRegistry) load() error {
 }
 
 // cleanStale removes entries for processes that are no longer running.
+//
+//nolint:unused // Kept for future use - will be used for automatic cleanup
 func (r *ServiceRegistry) cleanStale() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -214,6 +216,8 @@ func (r *ServiceRegistry) cleanStale() {
 
 // isProcessRunning checks if a process with the given PID is running.
 // This only works reliably on Unix systems.
+//
+//nolint:unused // Kept for future use - will be used by cleanStale
 func isProcessRunning(pid int) bool {
 	process, err := os.FindProcess(pid)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -294,7 +295,9 @@ func (s *Server) Start() (string, error) {
 // retryWithAlternativePort attempts to start the server on an alternative port.
 func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int, error) {
 	// Release the failed port assignment
-	portMgr.ReleasePort("azd-app-dashboard")
+	if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
+	}
 
 	// Try to find a new port in the higher range with randomization
 	for attempt := 0; attempt < 10; attempt++ {
@@ -323,7 +326,9 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		select {
 		case <-errChan:
 			// This port also failed, try next
-			portMgr.ReleasePort("azd-app-dashboard")
+			if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
+			}
 			continue
 		default:
 			// Successfully started
@@ -407,7 +412,9 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		// Subscribe to specific service
 		buffer, exists := logManager.GetBuffer(serviceName)
 		if !exists {
-			conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)})
+			if err := conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)}); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
+			}
 			return
 		}
 		subscriptions[serviceName] = buffer.Subscribe()
@@ -465,7 +472,9 @@ func (s *Server) Stop() error {
 
 	// Release port assignment
 	portMgr := portmanager.GetPortManager(s.projectDir)
-	portMgr.ReleasePort("azd-app-dashboard")
+	if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to release dashboard port: %v\n", err)
+	}
 
 	// Remove from servers map
 	serversMu.Lock()

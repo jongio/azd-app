@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:unused // Template file for creating new commands
 func newVersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

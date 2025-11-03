@@ -1,4 +1,3 @@
-// go:build integration
 //go:build integration
 // +build integration
 
@@ -8,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/jongio/azd-app/cli/src/internal/types"
 )
 
 func TestInstallNodeDependenciesIntegration(t *testing.T) {
@@ -83,7 +84,10 @@ func TestInstallNodeDependenciesIntegration(t *testing.T) {
 			tempDir := t.TempDir()
 			tt.setupFunc(t, tempDir)
 
-			err := InstallNodeDependencies(tempDir, tt.packageManager)
+			err := InstallNodeDependencies(types.NodeProject{
+				Dir:            tempDir,
+				PackageManager: tt.packageManager,
+			})
 			if err != nil {
 				t.Errorf("InstallNodeDependencies() error = %v", err)
 			}
@@ -117,7 +121,9 @@ func TestRestoreDotnetProjectIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := RestoreDotnetProject(csprojPath)
+	err := RestoreDotnetProject(types.DotnetProject{
+		Path: csprojPath,
+	})
 	if err != nil {
 		t.Errorf("RestoreDotnetProject() error = %v", err)
 	}
@@ -204,7 +210,10 @@ requests = "^2.31.0"
 			tempDir := t.TempDir()
 			tt.setupFunc(t, tempDir)
 
-			err := SetupPythonVirtualEnv(tempDir, tt.packageManager)
+			err := SetupPythonVirtualEnv(types.PythonProject{
+				Dir:            tempDir,
+				PackageManager: tt.packageManager,
+			})
 			if err != nil {
 				t.Logf("SetupPythonVirtualEnv() error = %v (may be expected if %s is not installed)", err, tt.packageManager)
 				t.Skip("Skipping due to missing package manager")

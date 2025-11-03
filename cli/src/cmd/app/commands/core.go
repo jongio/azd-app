@@ -360,6 +360,8 @@ func executeRun() error {
 
 // runAzureYamlServices runs services defined in azure.yaml using service orchestration.
 // This is called from executeDeps to handle azure.yaml services in the orchestrator context.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) error {
 	// Import the runServicesFromAzureYaml logic by calling it directly
 	// We can't easily reuse the function from run.go due to package isolation,

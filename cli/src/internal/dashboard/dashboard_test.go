@@ -99,6 +99,18 @@ func TestServer_Initialization(t *testing.T) {
 
 func TestHandleGetServices(t *testing.T) {
 	tempDir := t.TempDir()
+
+	// Create azure.yaml for the test
+	azureYamlContent := `name: test-project
+services:
+  test-service:
+    language: python
+    project: ./
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "azure.yaml"), []byte(azureYamlContent), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
 	srv := GetServer(tempDir)
 
 	// Create test registry with services
@@ -128,7 +140,7 @@ func TestHandleGetServices(t *testing.T) {
 	}
 
 	// Parse response
-	var services []*registry.ServiceRegistryEntry
+	var services []map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -137,13 +149,30 @@ func TestHandleGetServices(t *testing.T) {
 		t.Errorf("Expected 1 service, got %d", len(services))
 	}
 
-	if len(services) > 0 && services[0].Name != "test-service" {
-		t.Errorf("Expected service name 'test-service', got '%s'", services[0].Name)
+	if len(services) > 0 {
+		if name, ok := services[0]["name"].(string); !ok || name != "test-service" {
+			t.Errorf("Expected service name 'test-service', got '%v'", services[0]["name"])
+		}
 	}
 }
 
 func TestHandleGetAllServices(t *testing.T) {
 	tempDir := t.TempDir()
+
+	// Create azure.yaml for the test
+	azureYamlContent := `name: test-project
+services:
+  service1:
+    language: python
+    project: ./
+  service2:
+    language: node
+    project: ./
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "azure.yaml"), []byte(azureYamlContent), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
 	srv := GetServer(tempDir)
 
 	// Create test registry
@@ -173,7 +202,7 @@ func TestHandleGetAllServices(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
 
-	var services []*registry.ServiceRegistryEntry
+	var services []map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}

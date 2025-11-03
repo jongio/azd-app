@@ -40,6 +40,8 @@ func NewDepsCommand() *cobra.Command {
 }
 
 // runDepsWithServices installs deps for services from azure.yaml.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func runDepsWithServices() error {
 	// Get current working directory
 	cwd, err := os.Getwd()
@@ -72,6 +74,8 @@ func runDepsWithServices() error {
 }
 
 // installDepsFromAzureYaml installs dependencies for services defined in azure.yaml.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string) error {
 	if !output.IsJSON() {
 		output.Section("🔍", "Installing dependencies")
@@ -162,6 +166,8 @@ func installDepsFromAzureYaml(azureYaml *service.AzureYaml, azureYamlPath string
 }
 
 // installNodeServiceDeps installs Node.js dependencies for a specific service directory.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installNodeServiceDeps(serviceName, serviceDir string) error {
 	result, err := installNodeServiceDepsWithResult(serviceName, serviceDir)
 	_ = result // Ignore the result in non-JSON mode
@@ -169,6 +175,8 @@ func installNodeServiceDeps(serviceName, serviceDir string) error {
 }
 
 // installNodeServiceDepsWithResult installs Node.js dependencies and returns structured result.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installNodeServiceDepsWithResult(serviceName, serviceDir string) (map[string]interface{}, error) {
 	// Detect package manager only within the service directory (no parent search)
 	packageManager := detector.DetectNodePackageManagerWithBoundary(serviceDir, serviceDir)
@@ -198,6 +206,8 @@ func installNodeServiceDepsWithResult(serviceName, serviceDir string) (map[strin
 }
 
 // installPythonServiceDeps installs Python dependencies for a specific service directory.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installPythonServiceDeps(serviceName, serviceDir string) error {
 	result, err := installPythonServiceDepsWithResult(serviceName, serviceDir)
 	_ = result // Ignore the result in non-JSON mode
@@ -205,6 +215,8 @@ func installPythonServiceDeps(serviceName, serviceDir string) error {
 }
 
 // installPythonServiceDepsWithResult installs Python dependencies and returns structured result.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installPythonServiceDepsWithResult(serviceName, serviceDir string) (map[string]interface{}, error) {
 	packageManager := detector.DetectPythonPackageManager(serviceDir)
 
@@ -233,6 +245,8 @@ func installPythonServiceDepsWithResult(serviceName, serviceDir string) (map[str
 }
 
 // installDotnetServiceDeps installs .NET dependencies for a specific service directory.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installDotnetServiceDeps(serviceName, serviceDir string) error {
 	result, err := installDotnetServiceDepsWithResult(serviceName, serviceDir)
 	_ = result // Ignore the result in non-JSON mode
@@ -240,6 +254,8 @@ func installDotnetServiceDeps(serviceName, serviceDir string) error {
 }
 
 // installDotnetServiceDepsWithResult installs .NET dependencies and returns structured result.
+//
+//nolint:unused // Legacy function - kept for potential future use
 func installDotnetServiceDepsWithResult(serviceName, serviceDir string) (map[string]interface{}, error) {
 	// Find .NET projects in the service directory
 	dotnetProjects, err := detector.FindDotnetProjects(serviceDir)

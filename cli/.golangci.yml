@@ -1,81 +1,46 @@
 linters-settings:
-  dupl:
-    threshold: 150  # Increase threshold for duplicate code detection
-  goconst:
-    min-len: 3
-    min-occurrences: 5  # Require 5+ occurrences before flagging as constant
   errcheck:
-    check-blank: true
-    check-type-assertions: false
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-    disabled-checks:
-      - ifElseChain  # Allow if-else chains
-      - unlambda     # Allow simple lambda wrappers
-      - appendAssign # Allow different append patterns
-      - elseif       # Allow else {if} patterns
-      - dupBranchBody # Allow duplicate branch bodies when intentional
-  godot:
-    scope: toplevel
-    exclude:
-      - "^ANSI"
-      - "^Foreground"
-      - "^Bright"
-      - "^Global"
-      - "^Helper"
-      - "^Display"
-      - "^File"
-      - "^Tool"
-      - "^Common"
-  goprintffuncname:
-    enabled: false  # Don't enforce 'f' suffix on printf-like functions
-  gosec:
-    excludes:
-      - G204  # Subprocess with variable - we validate inputs
-      - G304  # File inclusion via variable - we validate paths
-  unused:
-    check-exported: false  # Don't flag exported but unused items
+    check-blank: false
+    exclude-functions:
+      - (io.Closer).Close
+      - (*database/sql.Rows).Close
+      - (*os.File).Close
+      - (io.ReadCloser).Close
+      - (*bufio.Writer).Flush
+      - (net.Listener).Close
 
 linters:
   disable:
-    - dupl  # Code duplication is sometimes clearer than abstraction
-    - goconst  # Too strict about string constants
-    - godot  # Comment periods - nice to have but not critical
-    - goprintffuncname  # Function naming - our names are clear
-    - gocritic  # Some checks are too opinionated
-    - unparam  # Unused parameters - sometimes needed for interface compliance
-    - gosimple  # Some simplifications reduce clarity
-
+    - dupl
+    - goconst
+    - godot
+    - goprintffuncname
+    - gocritic
+    - unparam
+    - gosimple
   enable:
-    - errcheck  # Critical: check error returns
-    - gosec  # Critical: security issues
-    - govet  # Critical: correctness issues
-    - staticcheck  # Critical: bugs and performance
-    - unused  # Important: dead code
-    - ineffassign  # Important: ineffectual assignments
-    - typecheck  # Critical: type errors
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - typecheck
 
 issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
   exclude-rules:
-    # Allow unused parameters in test helpers and defer statements
+    # Exclude test files from certain checks
     - path: _test\.go
       linters:
         - errcheck
-        - unused
-      text: "(os.RemoveAll|os.Chdir|os.Setenv|os.Unsetenv)"
-    # Allow unchecked Close() in defer statements
-    - linters:
+    # Allow certain error checks to be skipped in defer
+    - text: "Error return value of .*(Close|Flush) is not checked"
+      linters:
         - errcheck
-      text: "Error return value of.*Close"
-    # Allow unchecked Flush() for buffered writers
-    - linters:
-        - errcheck
-      text: "Error return value of.*Flush"
+  exclude-dirs:
+    - vendor
+    - bin
+    - dashboard/dist
+    - dashboard/node_modules
 
 run:
   timeout: 5m

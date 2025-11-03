@@ -70,7 +70,9 @@ func validateAndCleanServices(reg *registry.ServiceRegistry) error {
 
 			// Update the service status
 			if svc.Health != health {
-				reg.UpdateStatus(svc.Name, "running", health)
+				if err := reg.UpdateStatus(svc.Name, "running", health); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to update service health: %v\n", err)
+				}
 			}
 		}
 	}

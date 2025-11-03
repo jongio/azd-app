@@ -42,8 +42,9 @@ func TestAssignPort_Explicit_OutOfRange(t *testing.T) {
 		t.Fatal("Expected error for port outside range, got nil")
 	}
 
-	if err.Error() != "explicit port 100 for service 'test-service' is outside valid range 3000-9999" {
-		t.Errorf("Unexpected error message: %v", err)
+	expectedErr := "explicit port 100 for service 'test-service' is outside valid range 3000-65535"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error: %s, got: %v", expectedErr, err)
 	}
 }
 
