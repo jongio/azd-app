@@ -269,7 +269,9 @@ func (pm *PortManager) isPortAvailable(port int) bool {
 	if err != nil {
 		return false
 	}
-	listener.Close()
+	if err := listener.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to close listener: %v\n", err)
+	}
 	return true
 }
 

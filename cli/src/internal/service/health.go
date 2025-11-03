@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -95,7 +96,10 @@ func PortHealthCheck(port int) error {
 	if err != nil {
 		return fmt.Errorf("port %d not listening: %w", port, err)
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		// Log but don't fail health check on close error
+		log.Printf("Warning: failed to close health check connection: %v", err)
+	}
 	return nil
 }
 
@@ -151,6 +155,8 @@ func IsPortListening(port int) bool {
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		log.Printf("Warning: failed to close connection during port check: %v", err)
+	}
 	return true
 }

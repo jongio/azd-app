@@ -22,6 +22,9 @@ go mod download
 # Build the extension
 go build -o bin/app.exe ./src/cmd/app
    ```
+
+   > **Note:** If you encounter an error like "Operation did not complete successfully because the file contains a virus or potentially unwanted software", you need to exclude `go.exe` from Windows Defender or your antivirus software. This is a common false positive when Go builds executables. See [Windows Defender exclusions](https://support.microsoft.com/en-us/windows/add-an-exclusion-to-windows-security-811816c0-4dfd-af4a-47e4-c301afe13b26) for instructions.
+
 3. **Install locally for testing**:
    ```bash
    cd cli

@@ -1,12 +1,13 @@
 package dashboard
 
 import (
+	"crypto/rand"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -151,7 +152,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		s.clientsMu.Lock()
 		delete(s.clients, conn)
 		s.clientsMu.Unlock()
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			log.Printf("Failed to close websocket connection: %v", err)
+		}
 	}()
 
 	// Send initial service data using shared serviceinfo package
@@ -251,7 +254,11 @@ func (s *Server) Start() (string, error) {
 
 	// Use a random port in higher range (40000-49999) to avoid common conflicts
 	// This range is typically used for ephemeral/dynamic ports
-	preferredPort := 40000 + rand.Intn(10000)
+	nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random port: %w", err)
+	}
+	preferredPort := 40000 + int(nBig.Int64())
 
 	// Assign port for dashboard service (isExplicit=false, cleanStale=false to avoid prompts)
 	port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
@@ -261,8 +268,9 @@ func (s *Server) Start() (string, error) {
 
 	s.port = port
 	s.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: s.mux,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           s.mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Start server in background
@@ -302,7 +310,11 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 	// Try to find a new port in the higher range with randomization
 	for attempt := 0; attempt < 10; attempt++ {
 		// Random port in 40000-49999 range
-		preferredPort := 40000 + rand.Intn(10000)
+		nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
+		if err != nil {
+			continue
+		}
+		preferredPort := 40000 + int(nBig.Int64())
 		port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 		if err != nil {
 			continue
@@ -310,8 +322,9 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 
 		s.port = port
 		s.server = &http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
-			Handler: s.mux,
+			Addr:              fmt.Sprintf(":%d", port),
+			Handler:           s.mux,
+			ReadHeaderTimeout: 10 * time.Second,
 		}
 
 		errChan := make(chan error, 1)

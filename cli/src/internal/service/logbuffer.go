@@ -89,7 +89,9 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 	if _, err := lb.fileWriter.WriteString(line); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to write log entry: %v\n", err)
 	}
-	lb.fileWriter.Flush()
+	if err := lb.fileWriter.Flush(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to flush log buffer: %v\n", err)
+	}
 }
 
 // GetRecent returns the last N entries from the buffer.
@@ -195,7 +197,9 @@ func (lb *LogBuffer) Close() error {
 		defer lb.fileMu.Unlock()
 
 		if lb.fileWriter != nil {
-			lb.fileWriter.Flush()
+			if err := lb.fileWriter.Flush(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to flush log buffer on close: %v\n", err)
+			}
 		}
 		return lb.file.Close()
 	}
