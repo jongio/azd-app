@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.25']
+        go-version: ['1.25.x']
     
     steps:
     - name: Checkout code
@@ -88,7 +88,7 @@ jobs:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        file: ./coverage.out
+        file: cli/coverage.out
         flags: unittests
         name: codecov-${{ matrix.os }}-go-${{ matrix.go-version }}
       env:
@@ -105,7 +105,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.25'
+        go-version: '1.25.x'
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -139,7 +139,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.25'
+        go-version: '1.25.x'
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -166,4 +166,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: binaries
-        path: bin/
+        path: cli/bin/
