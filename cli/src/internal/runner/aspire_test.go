@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"os"
@@ -29,14 +30,49 @@ func TestAspireOutputCapture(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "aspire", "run", "--non-interactive")
 		cmd.Dir = testProjectPath
 
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
+		// Use pipes instead of buffers to avoid blocking on macOS
+		stdoutPipe, err := cmd.StdoutPipe()
+		if err != nil {
+			t.Fatalf("Failed to create stdout pipe: %v", err)
+		}
+		stderrPipe, err := cmd.StderrPipe()
+		if err != nil {
+			t.Fatalf("Failed to create stderr pipe: %v", err)
+		}
 
 		// Start the command
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Failed to start aspire: %v", err)
 		}
+
+		// Read from pipes in goroutines with mutex protection
+		var mu sync.Mutex
+		var stdout, stderr bytes.Buffer
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Read stdout
+		go func() {
+			defer wg.Done()
+			scanner := bufio.NewScanner(stdoutPipe)
+			for scanner.Scan() {
+				mu.Lock()
+				stdout.WriteString(scanner.Text() + "\n")
+				mu.Unlock()
+			}
+		}()
+
+		// Read stderr
+		go func() {
+			defer wg.Done()
+			scanner := bufio.NewScanner(stderrPipe)
+			for scanner.Scan() {
+				mu.Lock()
+				stderr.WriteString(scanner.Text() + "\n")
+				mu.Unlock()
+			}
+		}()
 
 		// Give it a few seconds to produce output
 		time.Sleep(5 * time.Second)
@@ -46,9 +82,14 @@ func TestAspireOutputCapture(t *testing.T) {
 			t.Logf("Warning: failed to kill process: %v", err)
 		}
 
+		// Wait for readers to finish
+		wg.Wait()
+
 		// Check if we got output
+		mu.Lock()
 		stdoutStr := stdout.String()
 		stderrStr := stderr.String()
+		mu.Unlock()
 
 		t.Logf("STDOUT length: %d", len(stdoutStr))
 		t.Logf("STDERR length: %d", len(stderrStr))
