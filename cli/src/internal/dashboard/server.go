@@ -27,6 +27,12 @@ import (
 //go:embed dist
 var staticFiles embed.FS
 
+// clientConn wraps a websocket connection with a write mutex for safe concurrent writes.
+type clientConn struct {
+	conn    *websocket.Conn
+	writeMu sync.Mutex
+}
+
 var (
 	servers   = make(map[string]*Server) // Key: normalized project directory path
 	serversMu sync.Mutex
@@ -43,7 +49,7 @@ type Server struct {
 	mux        *http.ServeMux
 	server     *http.Server
 	projectDir string
-	clients    map[*websocket.Conn]bool
+	clients    map[*clientConn]bool
 	clientsMu  sync.RWMutex
 	stopChan   chan struct{}
 }
@@ -66,7 +72,7 @@ func GetServer(projectDir string) *Server {
 		port:       0, // Will be assigned by port manager
 		mux:        http.NewServeMux(),
 		projectDir: absPath,
-		clients:    make(map[*websocket.Conn]bool),
+		clients:    make(map[*clientConn]bool),
 		stopChan:   make(chan struct{}),
 	}
 	srv.setupRoutes()
@@ -160,13 +166,16 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Wrap connection with mutex for safe concurrent writes
+	client := &clientConn{conn: conn}
+
 	s.clientsMu.Lock()
-	s.clients[conn] = true
+	s.clients[client] = true
 	s.clientsMu.Unlock()
 
 	defer func() {
 		s.clientsMu.Lock()
-		delete(s.clients, conn)
+		delete(s.clients, client)
 		s.clientsMu.Unlock()
 		if err := conn.Close(); err != nil {
 			log.Printf("Failed to close websocket connection: %v", err)
@@ -180,10 +189,14 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		services = []*serviceinfo.ServiceInfo{} // Empty array on error
 	}
 
-	if err := conn.WriteJSON(map[string]interface{}{
+	// Use the safe write method
+	client.writeMu.Lock()
+	err = conn.WriteJSON(map[string]interface{}{
 		"type":     "services",
 		"services": services,
-	}); err != nil {
+	})
+	client.writeMu.Unlock()
+	if err != nil {
 		return
 	}
 
@@ -401,7 +414,10 @@ func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
 	}
 
 	for client := range s.clients {
-		if err := client.WriteJSON(message); err != nil {
+		client.writeMu.Lock()
+		err := client.conn.WriteJSON(message)
+		client.writeMu.Unlock()
+		if err != nil {
 			log.Printf("WebSocket send error: %v", err)
 		}
 	}
@@ -425,7 +441,10 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 	}
 
 	for client := range s.clients {
-		if err := client.WriteJSON(message); err != nil {
+		client.writeMu.Lock()
+		err := client.conn.WriteJSON(message)
+		client.writeMu.Unlock()
+		if err != nil {
 			log.Printf("WebSocket send error: %v", err)
 		}
 	}

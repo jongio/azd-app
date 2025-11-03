@@ -168,7 +168,7 @@ services:
 func TestBroadcastServiceUpdate_InvalidProjectDir(t *testing.T) {
 	srv := &Server{
 		projectDir: "/nonexistent/path",
-		clients:    make(map[*websocket.Conn]bool),
+		clients:    make(map[*clientConn]bool),
 	}
 
 	// Should return error for invalid project directory (no azure.yaml)
