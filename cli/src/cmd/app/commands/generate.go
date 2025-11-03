@@ -519,6 +519,10 @@ func normalizeVersion(installedVersion string, toolID string) string {
 
 // Helper functions
 func fileExists(dir, filename string) bool {
+	// Validate the filename first to prevent path traversal before joining
+	if err := security.ValidatePath(filename); err != nil {
+		return false
+	}
 	path := filepath.Join(dir, filename)
 	if err := security.ValidatePath(path); err != nil {
 		return false
