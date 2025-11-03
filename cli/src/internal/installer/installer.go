@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
@@ -212,9 +213,10 @@ func setupWithPip(projectDir string) error {
 		}
 
 		// Determine the pip path based on OS
-		pipPath := filepath.Join(venvPath, "Scripts", "pip.exe")
-		if _, err := os.Stat(pipPath); err != nil {
-			// Try Unix-style path
+		var pipPath string
+		if runtime.GOOS == "windows" {
+			pipPath = filepath.Join(venvPath, "Scripts", "pip.exe")
+		} else {
 			pipPath = filepath.Join(venvPath, "bin", "pip")
 		}
 

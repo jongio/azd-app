@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
@@ -191,12 +192,24 @@ func RunPython(project types.PythonProject) error {
 		// Activate venv and run python
 		// For now, just run python directly from venv if it exists
 		args = []string{entryPoint}
-		// Check for venv
-		venvPython := fmt.Sprintf("%s/.venv/Scripts/python.exe", project.Dir)
+		// Check for venv - use platform-specific paths
+		var venvPython string
+		if runtime.GOOS == "windows" {
+			venvPython = filepath.Join(project.Dir, ".venv", "Scripts", "python.exe")
+		} else {
+			venvPython = filepath.Join(project.Dir, ".venv", "bin", "python")
+		}
+		
 		if _, err := os.Stat(venvPython); err == nil {
 			cmd = venvPython
 		} else {
-			venvPython = fmt.Sprintf("%s/venv/Scripts/python.exe", project.Dir)
+			// Try alternative venv directory
+			if runtime.GOOS == "windows" {
+				venvPython = filepath.Join(project.Dir, "venv", "Scripts", "python.exe")
+			} else {
+				venvPython = filepath.Join(project.Dir, "venv", "bin", "python")
+			}
+			
 			if _, err := os.Stat(venvPython); err == nil {
 				cmd = venvPython
 			} else {

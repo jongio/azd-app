@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -301,7 +302,7 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 	var cmd string
 	var args []string
 
-	if os.Getenv("OS") == "Windows_NT" || len(os.Getenv("WINDIR")) > 0 {
+	if runtime.GOOS == "windows" {
 		// Windows: use netstat to find PID
 		cmd = "powershell"
 		psScript := fmt.Sprintf(`
@@ -373,7 +374,7 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	var cmd []string
 	var args []string
 
-	if os.Getenv("OS") == "Windows_NT" || len(os.Getenv("WINDIR")) > 0 {
+	if runtime.GOOS == "windows" {
 		// Windows: use netstat and taskkill
 		cmd = []string{"powershell", "-Command"}
 		psScript := fmt.Sprintf(`
