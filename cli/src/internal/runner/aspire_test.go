@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -72,10 +73,13 @@ func TestAspireOutputCapture(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "aspire", "run", "--non-interactive")
 		cmd.Dir = testProjectPath
 
-		// Use our lineWriter approach
+		// Use our lineWriter approach with mutex for thread safety
+		var mu sync.Mutex
 		var capturedLines []string
 		lineHandler := func(line string) error {
+			mu.Lock()
 			capturedLines = append(capturedLines, line)
+			mu.Unlock()
 			return nil
 		}
 
@@ -100,20 +104,31 @@ func TestAspireOutputCapture(t *testing.T) {
 			t.Logf("Warning: failed to kill process: %v", err)
 		}
 
-		t.Logf("Captured %d lines", len(capturedLines))
-		if len(capturedLines) > 0 {
+		mu.Lock()
+		lineCount := len(capturedLines)
+		var linesToLog []string
+		if lineCount > 0 {
+			for i := 0; i < min(5, lineCount); i++ {
+				linesToLog = append(linesToLog, capturedLines[i])
+			}
+		}
+		mu.Unlock()
+
+		t.Logf("Captured %d lines", lineCount)
+		if len(linesToLog) > 0 {
 			t.Logf("First few lines:")
-			for i := 0; i < min(5, len(capturedLines)); i++ {
-				t.Logf("  %s", capturedLines[i])
+			for _, line := range linesToLog {
+				t.Logf("  %s", line)
 			}
 		}
 
-		if len(capturedLines) == 0 {
+		if lineCount == 0 {
 			t.Error("No lines captured with lineWriter approach")
 		}
 
 		// Check if we got dashboard URL
 		foundDashboard := false
+		mu.Lock()
 		for _, line := range capturedLines {
 			if strings.Contains(line, "Now listening on:") || strings.Contains(line, "localhost") {
 				foundDashboard = true
@@ -121,6 +136,7 @@ func TestAspireOutputCapture(t *testing.T) {
 				break
 			}
 		}
+		mu.Unlock()
 
 		if !foundDashboard {
 			t.Log("Warning: Did not find dashboard URL in output")
