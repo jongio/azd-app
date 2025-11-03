@@ -175,7 +175,7 @@ export function LogsView() {
       <div className="flex gap-4 items-center flex-wrap">
         <Select 
           value={selectedService} 
-          onChange={(e) => setSelectedService(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedService(e.target.value)}
           className="min-w-[150px]"
         >
           <option value="all">All Services</option>
@@ -189,7 +189,7 @@ export function LogsView() {
           <Input
             placeholder="Search logs..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>

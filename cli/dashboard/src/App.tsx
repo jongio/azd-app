@@ -4,6 +4,7 @@ import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceTable } from '@/components/ServiceTable'
 import { LogsView } from '@/components/LogsView'
 import { Sidebar } from '@/components/Sidebar'
+import type { Service } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
 
 function App() {
@@ -114,7 +115,7 @@ function App() {
               <ServiceTable services={services} onViewLogs={() => setActiveView('console')} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {services.map((service) => (
+                {services.map((service: Service) => (
                   <ServiceCard key={service.name} service={service} />
                 ))}
               </div>
