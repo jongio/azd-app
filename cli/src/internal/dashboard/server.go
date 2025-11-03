@@ -297,7 +297,7 @@ func (s *Server) Start() (string, error) {
 			errChan <- err
 		}
 	}()
-	
+
 	// Monitor for server errors in background
 	go func() {
 		select {
@@ -361,7 +361,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 				errChan <- err
 			}
 		}()
-		
+
 		// Monitor for server errors in background
 		go func() {
 			select {

@@ -14,7 +14,6 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-// Variables
 const (
 	binaryName  = "app"
 	srcDir      = "src/cmd/app"
@@ -23,7 +22,7 @@ const (
 	versionFile = "version.txt"
 )
 
-// Default target runs Lint, Test, and Build.
+// Default target runs all checks and builds.
 var Default = All
 
 // getVersion reads the current version from version.txt.
@@ -53,17 +52,17 @@ func bumpVersion() (string, error) {
 	newVersion := fmt.Sprintf("%d.%d.%d", major, minor, patch)
 
 	// Write back
-	if err := os.WriteFile(versionFile, []byte(newVersion+"\n"), 0644); err != nil {
+	if err := os.WriteFile(versionFile, []byte(newVersion+"\n"), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write version file: %w", err)
 	}
 
 	return newVersion, nil
 }
 
-// All runs lint, test, and build.
+// All runs lint, test, and build in dependency order.
 func All() error {
-	mg.Deps(Lint, Test, Build)
-	return nil
+	mg.Deps(Fmt, Lint, Test)
+	return Build()
 }
 
 // Build compiles the app binary for the current platform with version info.
@@ -81,7 +80,7 @@ func Build() error {
 		output += ".exe"
 	}
 
-	if err := os.MkdirAll(binDir, 0750); err != nil {
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
@@ -100,7 +99,7 @@ func Build() error {
 // BuildAll builds for all platforms using build.ps1.
 func BuildAll() error {
 	fmt.Println("Building for all platforms...")
-	return sh.RunV("powershell", "-File", "build.ps1", "-All")
+	return sh.RunV("pwsh", "-File", "build.ps1", "-All")
 }
 
 // Test runs unit tests only (with -short flag).
@@ -125,7 +124,7 @@ func TestAll() error {
 func TestCoverage() error {
 	fmt.Println("Running tests with coverage...")
 
-	if err := os.MkdirAll(coverageDir, 0750); err != nil {
+	if err := os.MkdirAll(coverageDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create coverage directory: %w", err)
 	}
 
@@ -154,14 +153,11 @@ func TestCoverage() error {
 // Lint runs golangci-lint on the codebase.
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
-
-	// Check if golangci-lint is installed
 	if err := sh.RunV("golangci-lint", "run", "./..."); err != nil {
-		fmt.Println("⚠️  golangci-lint not installed or failed.")
-		fmt.Println("To install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
+		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
 		return err
 	}
-
 	return nil
 }
 
@@ -192,9 +188,8 @@ func Clean() error {
 	return nil
 }
 
-// Install installs the extension locally using azd x build.
+// Install builds and installs the extension locally.
 func Install() error {
-	// First build to get the version
 	if err := Build(); err != nil {
 		return err
 	}
@@ -205,9 +200,8 @@ func Install() error {
 	}
 
 	fmt.Println("Installing locally...")
-	// Use pwsh (PowerShell 7) instead of powershell (Windows PowerShell 5.1) for better UTF-8 support
 	if err := sh.RunV("pwsh", "-File", "install-local.ps1"); err != nil {
-		return err
+		return fmt.Errorf("installation failed: %w", err)
 	}
 
 	fmt.Printf("✅ Installed version: %s\n", version)
@@ -230,54 +224,37 @@ func Preflight() error {
 	fmt.Println("🚀 Running preflight checks...")
 	fmt.Println()
 
-	// 1. Format check
-	fmt.Println("📝 Step 1/6: Checking code formatting...")
-	if err := Fmt(); err != nil {
-		return fmt.Errorf("formatting failed: %w", err)
+	checks := []struct {
+		name string
+		step int
+		fn   func() error
+	}{
+		{"Formatting code", 1, Fmt},
+		{"Running linter (golangci-lint with misspell)", 2, Lint},
+		{"Running security scan (gosec)", 3, runGosec},
+		{"Running all tests", 4, TestAll},
+		{"Generating coverage report", 5, TestCoverage},
 	}
-	fmt.Println()
 
-	// 2. Lint
-	fmt.Println("🔍 Step 2/6: Running linter...")
-	if err := Lint(); err != nil {
-		return fmt.Errorf("linting failed: %w", err)
+	for _, check := range checks {
+		fmt.Printf("📋 Step %d/%d: %s...\n", check.step, len(checks), check.name)
+		if err := check.fn(); err != nil {
+			return fmt.Errorf("%s failed: %w", check.name, err)
+		}
+		fmt.Println()
 	}
-	fmt.Println()
-
-	// 3. Security scan with gosec
-	fmt.Println("🔒 Step 3/6: Running security scan (gosec)...")
-	if err := sh.RunV("gosec", "-quiet", "./..."); err != nil {
-		fmt.Println("⚠️  gosec not installed or found security issues.")
-		fmt.Println("To install: go install github.com/securego/gosec/v2/cmd/gosec@latest")
-		return err
-	}
-	fmt.Println()
-
-	// 4. Spell check with typos
-	fmt.Println("✏️  Step 4/6: Running spell check (typos)...")
-	if err := sh.RunV("typos", "."); err != nil {
-		fmt.Println("⚠️  typos not installed or found spelling errors.")
-		fmt.Println("To install: cargo install typos-cli")
-		fmt.Println("Or download from: https://github.com/crate-ci/typos")
-		return err
-	}
-	fmt.Println()
-
-	// 5. Run all tests
-	fmt.Println("🧪 Step 5/6: Running all tests...")
-	if err := TestAll(); err != nil {
-		return fmt.Errorf("tests failed: %w", err)
-	}
-	fmt.Println()
-
-	// 6. Generate coverage report
-	fmt.Println("📊 Step 6/6: Generating coverage report...")
-	if err := TestCoverage(); err != nil {
-		return fmt.Errorf("coverage generation failed: %w", err)
-	}
-	fmt.Println()
 
 	fmt.Println("✅ All preflight checks passed!")
 	fmt.Println("🎉 Ready to ship!")
+	return nil
+}
+
+// runGosec runs security scanning with gosec.
+func runGosec() error {
+	if err := sh.RunV("gosec", "-quiet", "./..."); err != nil {
+		fmt.Println("⚠️  Security scan failed. Ensure gosec is installed:")
+		fmt.Println("    go install github.com/securego/gosec/v2/cmd/gosec@latest")
+		return err
+	}
 	return nil
 }
