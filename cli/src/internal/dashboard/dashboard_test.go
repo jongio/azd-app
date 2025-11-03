@@ -27,12 +27,12 @@ func TestGetServer_DifferentProjects(t *testing.T) {
 		t.Error("Expected different server instances for different projects")
 	}
 
-	absPath1, _ := filepath.Abs(tempDir1)
+	absPath1, _ := normalizeProjectPath(tempDir1)
 	if srv1.projectDir != absPath1 {
 		t.Errorf("Expected projectDir %s, got %s", absPath1, srv1.projectDir)
 	}
 
-	absPath2, _ := filepath.Abs(tempDir2)
+	absPath2, _ := normalizeProjectPath(tempDir2)
 	if srv2.projectDir != absPath2 {
 		t.Errorf("Expected projectDir %s, got %s", absPath2, srv2.projectDir)
 	}
@@ -243,8 +243,8 @@ func TestStop_CleansUpServerMap(t *testing.T) {
 
 	// Verify server is in map
 	serversMu.Lock()
-	absPath, _ := filepath.Abs(tempDir)
-	_, exists := servers[absPath]
+	_, key := normalizeProjectPath(tempDir)
+	_, exists := servers[key]
 	serversMu.Unlock()
 
 	if !exists {
@@ -256,7 +256,7 @@ func TestStop_CleansUpServerMap(t *testing.T) {
 
 	// Verify server is removed from map
 	serversMu.Lock()
-	_, exists = servers[absPath]
+	_, exists = servers[key]
 	serversMu.Unlock()
 
 	if exists {

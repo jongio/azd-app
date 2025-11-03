@@ -3,11 +3,23 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
+
+func shellCommand(command string) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/c", command}
+	}
+	return "sh", []string{"-c", command}
+}
+
+func intPtr(v int) *int {
+	return &v
+}
 
 func TestExtractFirstVersion(t *testing.T) {
 	tests := []struct {
@@ -584,13 +596,16 @@ func TestCheckIsRunning(t *testing.T) {
 		},
 		{
 			name: "custom check with exit code zero",
-			prereq: Prerequisite{
-				ID:                   "custom-service",
-				CheckRunning:         true,
-				RunningCheckCommand:  "cmd",
-				RunningCheckArgs:     []string{"/c", "exit", "0"},
-				RunningCheckExitCode: func() *int { v := 0; return &v }(),
-			},
+			prereq: func() Prerequisite {
+				cmdName, cmdArgs := shellCommand("exit 0")
+				return Prerequisite{
+					ID:                   "custom-service",
+					CheckRunning:         true,
+					RunningCheckCommand:  cmdName,
+					RunningCheckArgs:     cmdArgs,
+					RunningCheckExitCode: intPtr(0),
+				}
+			}(),
 			expected: true, // Should succeed with exit code 0
 		},
 		{
@@ -600,30 +615,36 @@ func TestCheckIsRunning(t *testing.T) {
 				CheckRunning:         true,
 				RunningCheckCommand:  "nonexistent-command-xyz",
 				RunningCheckArgs:     []string{},
-				RunningCheckExitCode: func() *int { v := 1; return &v }(),
+				RunningCheckExitCode: intPtr(1),
 			},
 			expected: false, // Command doesn't exist
 		},
 		{
 			name: "check with expected output",
-			prereq: Prerequisite{
-				ID:                   "echo-service",
-				CheckRunning:         true,
-				RunningCheckCommand:  "cmd",
-				RunningCheckArgs:     []string{"/c", "echo", "hello world"},
-				RunningCheckExpected: "hello",
-			},
+			prereq: func() Prerequisite {
+				cmdName, cmdArgs := shellCommand("echo hello world")
+				return Prerequisite{
+					ID:                   "echo-service",
+					CheckRunning:         true,
+					RunningCheckCommand:  cmdName,
+					RunningCheckArgs:     cmdArgs,
+					RunningCheckExpected: "hello",
+				}
+			}(),
 			expected: true, // echo output contains "hello"
 		},
 		{
 			name: "check with missing expected output",
-			prereq: Prerequisite{
-				ID:                   "echo-service",
-				CheckRunning:         true,
-				RunningCheckCommand:  "cmd",
-				RunningCheckArgs:     []string{"/c", "echo", "hello world"},
-				RunningCheckExpected: "goodbye",
-			},
+			prereq: func() Prerequisite {
+				cmdName, cmdArgs := shellCommand("echo hello world")
+				return Prerequisite{
+					ID:                   "echo-service",
+					CheckRunning:         true,
+					RunningCheckCommand:  cmdName,
+					RunningCheckArgs:     cmdArgs,
+					RunningCheckExpected: "goodbye",
+				}
+			}(),
 			expected: false, // echo output doesn't contain "goodbye"
 		},
 		{
@@ -658,44 +679,56 @@ func TestCheckPrerequisiteWithRunningCheck(t *testing.T) {
 	}{
 		{
 			name: "installed and running",
-			prereq: Prerequisite{
-				ID:                   "test-tool",
-				MinVersion:           "1.0.0",
-				Command:              "cmd",
-				Args:                 []string{"/c", "echo", "2.0.0"},
-				CheckRunning:         true,
-				RunningCheckCommand:  "cmd",
-				RunningCheckArgs:     []string{"/c", "echo", "running"},
-				RunningCheckExpected: "running",
-			},
+			prereq: func() Prerequisite {
+				versionCmd, versionArgs := shellCommand("echo 2.0.0")
+				runningCmd, runningArgs := shellCommand("echo running")
+				return Prerequisite{
+					ID:                   "test-tool",
+					MinVersion:           "1.0.0",
+					Command:              versionCmd,
+					Args:                 versionArgs,
+					CheckRunning:         true,
+					RunningCheckCommand:  runningCmd,
+					RunningCheckArgs:     runningArgs,
+					RunningCheckExpected: "running",
+				}
+			}(),
 			expected: true,
 		},
 		{
 			name: "installed but not running",
-			prereq: Prerequisite{
-				ID:                   "test-tool",
-				MinVersion:           "1.0.0",
-				Command:              "cmd",
-				Args:                 []string{"/c", "echo", "2.0.0"},
-				CheckRunning:         true,
-				RunningCheckCommand:  "cmd",
-				RunningCheckArgs:     []string{"/c", "echo", "stopped"},
-				RunningCheckExpected: "running", // Won't match
-			},
+			prereq: func() Prerequisite {
+				versionCmd, versionArgs := shellCommand("echo 2.0.0")
+				runningCmd, runningArgs := shellCommand("echo stopped")
+				return Prerequisite{
+					ID:                   "test-tool",
+					MinVersion:           "1.0.0",
+					Command:              versionCmd,
+					Args:                 versionArgs,
+					CheckRunning:         true,
+					RunningCheckCommand:  runningCmd,
+					RunningCheckArgs:     runningArgs,
+					RunningCheckExpected: "running", // Won't match
+				}
+			}(),
 			expected: false,
 		},
 		{
 			name: "version too old but running",
-			prereq: Prerequisite{
-				ID:                   "test-tool",
-				MinVersion:           "3.0.0",
-				Command:              "cmd",
-				Args:                 []string{"/c", "echo", "2.0.0"},
-				CheckRunning:         true,
-				RunningCheckCommand:  "cmd",
-				RunningCheckArgs:     []string{"/c", "echo", "running"},
-				RunningCheckExpected: "running",
-			},
+			prereq: func() Prerequisite {
+				versionCmd, versionArgs := shellCommand("echo 2.0.0")
+				runningCmd, runningArgs := shellCommand("echo running")
+				return Prerequisite{
+					ID:                   "test-tool",
+					MinVersion:           "3.0.0",
+					Command:              versionCmd,
+					Args:                 versionArgs,
+					CheckRunning:         true,
+					RunningCheckCommand:  runningCmd,
+					RunningCheckArgs:     runningArgs,
+					RunningCheckExpected: "running",
+				}
+			}(),
 			expected: false, // Version check should fail before running check
 		},
 	}

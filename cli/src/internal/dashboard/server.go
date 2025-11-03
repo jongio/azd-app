@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,7 +28,7 @@ import (
 var staticFiles embed.FS
 
 var (
-	servers   = make(map[string]*Server) // Key: absolute project directory path
+	servers   = make(map[string]*Server) // Key: normalized project directory path
 	serversMu sync.Mutex
 	upgrader  = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -52,14 +54,10 @@ func GetServer(projectDir string) *Server {
 	serversMu.Lock()
 	defer serversMu.Unlock()
 
-	// Get absolute path for consistent key
-	absPath, err := filepath.Abs(projectDir)
-	if err != nil {
-		absPath = projectDir
-	}
+	absPath, key := normalizeProjectPath(projectDir)
 
 	// Return existing server if already created
-	if srv, exists := servers[absPath]; exists {
+	if srv, exists := servers[key]; exists {
 		return srv
 	}
 
@@ -72,9 +70,27 @@ func GetServer(projectDir string) *Server {
 		stopChan:   make(chan struct{}),
 	}
 	srv.setupRoutes()
-	servers[absPath] = srv
+	servers[key] = srv
 
 	return srv
+}
+
+func normalizeProjectPath(projectDir string) (string, string) {
+	absPath := projectDir
+	if v, err := filepath.Abs(projectDir); err == nil {
+		absPath = v
+	}
+	if v, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = v
+	}
+	absPath = filepath.Clean(absPath)
+
+	key := absPath
+	if runtime.GOOS == "windows" {
+		key = strings.ToLower(key)
+	}
+
+	return absPath, key
 }
 
 // setupRoutes configures HTTP routes.
@@ -491,8 +507,8 @@ func (s *Server) Stop() error {
 
 	// Remove from servers map
 	serversMu.Lock()
-	absPath, _ := filepath.Abs(s.projectDir)
-	delete(servers, absPath)
+	_, key := normalizeProjectPath(s.projectDir)
+	delete(servers, key)
 	serversMu.Unlock()
 
 	if s.server != nil {
