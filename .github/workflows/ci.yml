@@ -58,6 +58,27 @@ jobs:
         npm run build
         cd ..
 
+    - name: Install Aspire CLI
+      shell: pwsh
+      run: |
+        $version = "9.1.0"
+        if (dotnet tool list --global | Select-String -Pattern "^aspire\s") {
+          dotnet tool update --global aspire --version $version
+        }
+        else {
+          dotnet tool install --global aspire --version $version
+        }
+        if ($IsWindows) {
+          $toolPath = "$env:USERPROFILE\.dotnet\tools"
+        }
+        else {
+          $toolPath = "$env:HOME/.dotnet/tools"
+        }
+        if (-not (Test-Path $toolPath)) {
+          throw "Dotnet tool path not found: $toolPath"
+        }
+        $toolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
     - name: Download dependencies
       run: go mod download
 
@@ -85,6 +106,20 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: cli/dashboard/package.json
+
+    - name: Build dashboard assets
+      run: |
+        cd dashboard
+        npm install
+        npm run build
+        cd ..
 
     - name: Install golangci-lint
       run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
