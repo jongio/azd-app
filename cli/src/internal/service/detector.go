@@ -13,7 +13,7 @@ import (
 )
 
 // DetectServiceRuntime determines how to run a service based on its configuration and project structure.
-func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string) (*ServiceRuntime, error) {
+func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string, runtimeMode string) (*ServiceRuntime, error) {
 	projectDir := service.Project
 	if projectDir == "" {
 		return nil, fmt.Errorf("service %s has no project directory", serviceName)
@@ -77,7 +77,7 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	usedPorts[port] = true
 
 	// Build command and args based on framework (AFTER port assignment)
-	if err := buildRunCommand(runtime, projectDir, service.Entrypoint); err != nil {
+	if err := buildRunCommand(runtime, projectDir, service.Entrypoint, runtimeMode); err != nil {
 		return nil, fmt.Errorf("failed to build run command: %w", err)
 	}
 
@@ -307,7 +307,7 @@ func detectPHPFramework(projectDir string) (string, string, error) {
 
 // buildRunCommand builds the command and arguments to run the service.
 // If entrypoint is provided (from azure.yaml), it takes precedence over auto-detection.
-func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint string) error {
+func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint string, runtimeMode string) error {
 	switch runtime.Framework {
 	case "Next.js", "React", "Vue", "Svelte", "SvelteKit", "Remix", "Astro", "Nuxt":
 		runtime.Command = runtime.PackageManager
@@ -405,7 +405,14 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 		// Find AppHost.csproj
 		csprojFiles, _ := filepath.Glob(filepath.Join(projectDir, "*.csproj"))
 		if len(csprojFiles) > 0 {
-			runtime.Args = []string{"run", "--project", csprojFiles[0]}
+			// In aspire mode, use dotnet run to get native Aspire dashboard
+			// In azd mode, run individual services separately
+			if runtimeMode == "aspire" {
+				runtime.Args = []string{"run", "--project", csprojFiles[0]}
+			} else {
+				// In azd mode, we run services individually, not the AppHost
+				runtime.Args = []string{"run", "--project", csprojFiles[0], "--no-launch-profile"}
+			}
 		} else {
 			runtime.Args = []string{"run"}
 		}

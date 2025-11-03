@@ -250,8 +250,8 @@ services:
 				t.Fatal("Service 'api' not found in azure.yaml")
 			}
 
-			// Detect runtime with entrypoint
-			runtime, err := service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir)
+			// Detect runtime with entrypoint (using default "azd" mode)
+			runtime, err := service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir, "azd")
 			if err != nil {
 				t.Fatalf("Failed to detect runtime: %v", err)
 			}
@@ -344,8 +344,8 @@ services:
 				t.Errorf("Expected entrypoint %q, got %q", tt.entrypoint, svc.Entrypoint)
 			}
 
-			// Detect runtime - should succeed without error
-			_, err = service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir)
+			// Detect runtime - should succeed without error (using default "azd" mode)
+			_, err = service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir, "azd")
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -538,8 +538,8 @@ services:
 
 			svc := azureYaml.Services["api"]
 
-			// Detect runtime - this should validate entrypoint
-			_, err = service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir)
+			// Detect runtime - this should validate entrypoint (using default "azd" mode)
+			_, err = service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir, "azd")
 
 			if tt.shouldError {
 				if err == nil {

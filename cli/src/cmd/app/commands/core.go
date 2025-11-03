@@ -381,7 +381,8 @@ func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) er
 	// Detect runtime for each service
 	runtimes := make([]*service.ServiceRuntime, 0, len(services))
 	for name, svc := range services {
-		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir)
+		// Use "azd" mode by default for background service tracking
+		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir, "azd")
 		if err != nil {
 			return fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
 		}
