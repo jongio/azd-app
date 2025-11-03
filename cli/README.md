@@ -381,7 +381,33 @@ mage install
 
 # Run everything (lint, test, build)
 mage all
+
+# Run preflight checks before committing/releasing
+# This includes: dashboard build, formatting, linting, security scan, all tests, and coverage
+mage preflight
 ```
+
+**Dashboard Development:**
+
+The dashboard is a React + TypeScript application that provides a web UI for monitoring services.
+
+```bash
+# Build the dashboard (TypeScript compilation + Vite build)
+mage dashboardBuild
+
+# Start dashboard development server with hot reload
+mage dashboardDev
+
+# Build dashboard manually
+cd dashboard
+npm install
+npm run build
+```
+
+The dashboard build is automatically included in:
+- `mage all` - Ensures dashboard is built before Go compilation
+- `mage preflight` - Validates TypeScript compilation and catches type errors
+- CI/CD workflows - Dashboard is built and validated in all pipelines
 
 **Learn more about Mage:**
 - [Mage Build Tool Guide](docs/mage-build-tool.md) - Complete guide to using Mage in this project
