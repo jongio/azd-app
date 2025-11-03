@@ -1,43 +1,41 @@
-# azd-app
+# azd app
 
-A suite of app tools for Azure Developer CLI.
+**Supercharge your local development with Azure Developer CLI.**
 
 [![CI](https://github.com/jongio/azd-app/actions/workflows/ci.yml/badge.svg)](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app/cli)](https://goreportcard.com/report/github.com/jongio/azd-app/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## � The Problem
+A suite of productivity tools that extend [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/) with powerful local development capabilities.
 
-You have your full Azure Developer CLI (azd) projects set up - they provision and deploy beautifully to Azure. But what about running them **locally**?
+---
 
-- ❓ How do you verify all prerequisites are installed?
-- ❓ How do you recursively install all your dependencies across multiple languages?
-- ❓ How do you actually run the application on your machine?
-- ❓ How do you view all available URLs and monitor the health of your running services?
+## Why azd app?
 
-**Azure Developer CLI doesn't handle this today.** Until now.
+Azure Developer CLI (azd) is fantastic for provisioning and deploying to Azure. But what about **local development**?
 
-## ✨ The Solution
+azd app fills that gap with intelligent automation:
 
-With the **azd app extension**, local development becomes effortless with just a few simple commands:
+- ✅ **Verify prerequisites** - Check all required tools are installed
+- 📦 **Install dependencies** - Recursively install across all projects and languages  
+- 🚀 **Run locally** - Start your entire application with one command
+- 📊 **Live dashboard** - Monitor services, view URLs, stream logs
+- 🔄 **Multi-language support** - Node.js, Python, .NET, Aspire, and more
+
+## Quick Example
 
 ```bash
-azd app reqs     # ✅ Check all prerequisites are installed
-azd app deps     # 📦 Install all dependencies automatically
-azd app run      # 🚀 Start your application locally with a live dashboard
-azd app info     # 📋 Show information about running services
-azd app logs     # 📜 View logs from running services
-azd app version  # ℹ️  Show version information
+# Check prerequisites
+azd app reqs
+
+# Install all dependencies automatically
+azd app deps
+
+# Start your application with live dashboard
+azd app run
 ```
 
-The `azd app run` command automatically launches a **web dashboard** where you can:
-- 📊 View all available service URLs (local and Azure) in one place
-- 💚 Monitor the health status of your locally running services
-- � Stream live logs from all services
-- �🔗 Click to open any service directly in your browser
-- 🌐 See Azure deployment information alongside local services
-
-**Smart. Simple. Automatic.** Works with Node.js, Python, .NET, Aspire, and more.
+That's it. No configuration needed. azd app detects your project structure and does the right thing.
 
 ---
 
@@ -174,3 +172,4 @@ MIT License - see [LICENSE](./LICENSE) for details.
 - [Documentation](./cli/docs/)
 - [Contributing Guide](./CONTRIBUTING.md)
 - [Issue Tracker](https://github.com/jongio/azd-app/issues)
+
