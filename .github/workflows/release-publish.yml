@@ -1,0 +1,25 @@
+name: Publish Release
+
+# Triggers when a draft release is published
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  announce:
+    name: Post-Release Tasks
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'cli-v')
+    
+    steps:
+    - name: Summary
+      run: |
+        echo "✅ Release published: ${{ github.event.release.tag_name }}"
+        echo "📦 Release URL: ${{ github.event.release.html_url }}"
+        echo "🎉 Registry was already updated during draft creation"
+        echo ""
+        echo "The registry.json in the main branch already has the correct checksums and URLs."

@@ -222,15 +222,45 @@ azd app deps
 Starts your development environment based on project type.
 
 ```bash
+# Run with default azd dashboard
 azd app run
+
+# Run specific services only
+azd app run --service web,api
+
+# Use native Aspire dashboard (for .NET Aspire projects)
+azd app run --runtime aspire
+
+# Preview what would run without starting
+azd app run --dry-run
+
+# Enable verbose logging
+azd app run --verbose
+
+# Load environment variables from custom file
+azd app run --env-file .env.local
 ```
 
+**Flags:**
+- `--service, -s`: Run specific service(s) only (comma-separated)
+- `--runtime`: Runtime mode - `azd` (default, uses azd dashboard) or `aspire` (native Aspire with dotnet run)
+- `--env-file`: Load environment variables from .env file
+- `--verbose, -v`: Enable verbose logging
+- `--dry-run`: Show what would be run without starting services
+
+**Runtime Modes:**
+- **azd** (default): Runs services through azd's built-in dashboard, works with all project types
+- **aspire**: Uses native .NET Aspire dashboard via `dotnet run` (only for Aspire projects)
+
 **Supports:**
-- .NET Aspire projects
+- Services defined in azure.yaml (multi-service orchestration)
+- .NET Aspire projects (AppHost.cs)
 - pnpm dev servers
 - Docker Compose orchestration
 
 ## Commands
+
+For complete command reference with all flags and options, see the [CLI Reference Documentation](docs/cli-reference.md).
 
 ### AZD Context Access
 
@@ -435,6 +465,15 @@ MIT License - Copyright (c) 2024 Jon Gallant (jongio)
 See [LICENSE](LICENSE) for details.
 
 ## Resources
+
+### Documentation
+
+- **[CLI Reference](docs/cli-reference.md)**: Complete command reference with all flags and options
+- **[Release Process](docs/release-process.md)**: Guide for publishing new versions
+- **[Quick Release](docs/release-quick.md)**: Quick reference for releases
+- **[Development Guides](docs/dev/)**: Internal development documentation
+
+### External Resources
 
 - [Azure Developer CLI Documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 - [azd Extension Framework](https://github.com/Azure/azure-dev/blob/main/cli/azd/docs/extension-framework.md)

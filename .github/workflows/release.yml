@@ -1,4 +1,9 @@
-name: Release
+name: Release (Legacy - Tag-based)
+
+# NOTE: This workflow is now LEGACY. Use release-draft.yml instead.
+# This workflow triggers on tag push for backward compatibility,
+# but the recommended process is to use the manual workflow dispatch.
+# See docs/release-process.md for details.
 
 on:
   push:
