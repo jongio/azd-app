@@ -61,12 +61,12 @@ jobs:
     - name: Install Aspire CLI
       shell: pwsh
       run: |
-        $version = "9.1.0"
-        if (dotnet tool list --global | Select-String -Pattern "^aspire\s") {
-          dotnet tool update --global aspire --version $version
+        $version = "9.5.2"
+        if (dotnet tool list --global | Select-String -Pattern "^aspire.cli\s") {
+          dotnet tool update --global aspire.cli --version $version
         }
         else {
-          dotnet tool install --global aspire --version $version
+          dotnet tool install --global aspire.cli --version $version
         }
         if ($IsWindows) {
           $toolPath = "$env:USERPROFILE\.dotnet\tools"
