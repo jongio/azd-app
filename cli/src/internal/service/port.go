@@ -82,7 +82,7 @@ func detectPortFromPackageJSON(projectDir string) (int, error) {
 		return 0, err
 	}
 
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return 0, err
@@ -115,7 +115,7 @@ func detectPortFromLaunchSettings(projectDir string) (int, error) {
 		return 0, err
 	}
 
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(launchSettingsPath)
 	if err != nil {
 		return 0, err
@@ -162,7 +162,7 @@ func detectPortFromDjangoSettings(projectDir string) (int, error) {
 		}
 	}
 
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		return 0, err
@@ -184,7 +184,7 @@ func detectPortFromSpringConfig(projectDir string) (int, error) {
 	// Try application.properties
 	propsPath := filepath.Join(projectDir, "src", "main", "resources", "application.properties")
 	if err := security.ValidatePath(propsPath); err == nil {
-		//nolint:gosec // G304: Path validated by security.ValidatePath
+		// #nosec G304 -- Path validated by security.ValidatePath
 		if data, err := os.ReadFile(propsPath); err == nil {
 			content := string(data)
 			portRegex := regexp.MustCompile(`server\.port\s*=\s*(\d+)`)
@@ -199,7 +199,7 @@ func detectPortFromSpringConfig(projectDir string) (int, error) {
 	// Try application.yml
 	ymlPath := filepath.Join(projectDir, "src", "main", "resources", "application.yml")
 	if err := security.ValidatePath(ymlPath); err == nil {
-		//nolint:gosec // G304: Path validated by security.ValidatePath
+		// #nosec G304 -- Path validated by security.ValidatePath
 		if data, err := os.ReadFile(ymlPath); err == nil {
 			var config struct {
 				Server struct {

@@ -90,7 +90,7 @@ func LoadDotEnv(path string) (map[string]string, error) {
 		return nil, fmt.Errorf("invalid .env file path: %w", err)
 	}
 
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open .env file: %w", err)

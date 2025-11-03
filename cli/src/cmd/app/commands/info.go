@@ -96,6 +96,7 @@ func isProcessRunning(pid int) bool {
 
 	if runtime.GOOS == "windows" {
 		// On Windows, use tasklist command to check if process exists
+		// #nosec G204 -- tasklist command with validated PID (integer), safe usage
 		cmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/NH")
 		output, err := cmd.Output()
 		if err != nil {

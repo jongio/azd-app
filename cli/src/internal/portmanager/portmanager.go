@@ -324,6 +324,7 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 	}
 
 	// Execute command to get PID
+	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), port is validated int
 	output, err := exec.Command(cmd, args...).Output()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get process on port %d: %w", port, err)

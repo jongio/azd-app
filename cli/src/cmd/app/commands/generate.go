@@ -531,7 +531,7 @@ func readFileContent(path string) string {
 	if err := security.ValidatePath(path); err != nil {
 		return ""
 	}
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return ""
@@ -660,7 +660,7 @@ name: %s
 reqs:
 `, dirName)
 
-	//nolint:gosec // G306: File permissions are intentionally 0644 for config files
+	// #nosec G306 -- azure.yaml is a config file, 0644 is appropriate for team access
 	if err := os.WriteFile(newPath, []byte(content), 0644); err != nil {
 		return "", false, fmt.Errorf("failed to create azure.yaml: %w", err)
 	}
@@ -676,7 +676,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	}
 
 	// Read existing azure.yaml
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(azureYamlPath)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to read azure.yaml: %w", err)
@@ -735,7 +735,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	}
 
 	// Write back to file
-	//nolint:gosec // G306: File permissions are intentionally 0644 for config files
+	// #nosec G306 -- azure.yaml is a config file, 0644 is appropriate for team access
 	if err := os.WriteFile(azureYamlPath, output, 0644); err != nil {
 		return 0, 0, fmt.Errorf("failed to write azure.yaml: %w", err)
 	}

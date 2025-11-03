@@ -199,7 +199,7 @@ func RunPython(project types.PythonProject) error {
 		} else {
 			venvPython = filepath.Join(project.Dir, ".venv", "bin", "python")
 		}
-		
+
 		if _, err := os.Stat(venvPython); err == nil {
 			cmd = venvPython
 		} else {
@@ -209,7 +209,7 @@ func RunPython(project types.PythonProject) error {
 			} else {
 				venvPython = filepath.Join(project.Dir, "venv", "bin", "python")
 			}
-			
+
 			if _, err := os.Stat(venvPython); err == nil {
 				cmd = venvPython
 			} else {

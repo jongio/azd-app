@@ -28,7 +28,7 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 	}
 
 	// Read file
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(azureYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)

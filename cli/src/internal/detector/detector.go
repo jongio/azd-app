@@ -85,7 +85,7 @@ func DetectPythonPackageManager(projectDir string) string {
 	pyprojectPath := filepath.Join(projectDir, "pyproject.toml")
 	// Validate path before reading
 	if err := security.ValidatePath(pyprojectPath); err == nil {
-		//nolint:gosec // G304: Path validated by security.ValidatePath
+		// #nosec G304 -- Path validated by security.ValidatePath
 		if data, err := os.ReadFile(pyprojectPath); err == nil {
 			content := string(data)
 			if strings.Contains(content, "[tool.poetry]") {
@@ -289,7 +289,7 @@ func DetectPnpmScript(dir string) string {
 	if err := security.ValidatePath(packageJsonPath); err != nil {
 		return ""
 	}
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(packageJsonPath)
 	if err != nil {
 		return ""
@@ -321,7 +321,7 @@ func HasDockerComposeScript(dir string) bool {
 	if err := security.ValidatePath(packageJsonPath); err != nil {
 		return false
 	}
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(packageJsonPath)
 	if err != nil {
 		return false
@@ -352,7 +352,7 @@ func FindDockerComposeScript(dir string) string {
 	if err := security.ValidatePath(packageJsonPath); err != nil {
 		return ""
 	}
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(packageJsonPath)
 	if err != nil {
 		return ""

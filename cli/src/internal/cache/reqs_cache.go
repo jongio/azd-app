@@ -99,6 +99,7 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 	}
 
 	// Read cache file
+	// #nosec G304 -- cacheFile comes from internal cache directory, not user input
 	data, err := os.ReadFile(cacheFile)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to read cache file: %w", err)
@@ -163,6 +164,7 @@ func (cm *CacheManager) ClearCache() error {
 
 // calculateFileHash calculates SHA256 hash of a file.
 func calculateFileHash(filePath string) (string, error) {
+	// #nosec G304 -- filePath is azureYamlPath which is validated by security.ValidatePath in caller
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err

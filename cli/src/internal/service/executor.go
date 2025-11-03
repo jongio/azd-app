@@ -26,6 +26,7 @@ func StartService(runtime *ServiceRuntime, env map[string]string, projectDir str
 
 	// Create command
 	args := runtime.Args
+	// #nosec G204 -- Command and args come from azure.yaml service configuration, validated by service package
 	cmd := exec.Command(runtime.Command, args...)
 	cmd.Dir = runtime.WorkingDir
 

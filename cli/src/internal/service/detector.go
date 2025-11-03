@@ -504,7 +504,7 @@ func containsText(filePath string, text string) bool {
 	if err := security.ValidatePath(filePath); err != nil {
 		return false
 	}
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false
@@ -529,7 +529,7 @@ func detectFrameworkFromPackageJSON(projectDir string) string {
 		return ""
 	}
 
-	//nolint:gosec // G304: Path validated by security.ValidatePath
+	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return ""

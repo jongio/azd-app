@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/spf13/cobra"
 )
@@ -111,6 +112,11 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	// Setup output writer
 	output := os.Stdout
 	if logsOutput != "" {
+		// Validate the output path to prevent path traversal attacks
+		if err := security.ValidatePath(logsOutput); err != nil {
+			return fmt.Errorf("invalid output path: %w", err)
+		}
+		// #nosec G304 -- Path validated by security.ValidatePath above
 		file, err := os.Create(logsOutput)
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %w", err)
