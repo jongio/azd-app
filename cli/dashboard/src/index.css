@@ -2,47 +2,46 @@
 
 @layer base {
   :root {
-    /* Modern gradient background colors */
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Aspire-inspired dark theme */
+    --background: 0 0% 8%;  /* #141414 - very dark background */
+    --foreground: 0 0% 95%;  /* Light text */
     
-    /* Card with glass morphism */
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
+    /* Card backgrounds */
+    --card: 0 0% 12%;  /* #1f1f1f - slightly lighter than bg */
+    --card-foreground: 0 0% 95%;
     
-    --popover: 222 47% 14%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
     
-    /* Vibrant primary color - electric blue */
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    /* Purple primary (Aspire accent) */
+    --primary: 266 100% 70%;  /* Purple accent */
+    --primary-foreground: 0 0% 100%;
     
-    /* Secondary accent - purple */
-    --secondary: 263 70% 65%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary */
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 95%;
     
-    --muted: 217 33% 22%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 25%;
+    --muted-foreground: 0 0% 60%;
     
-    /* Accent - cyan */
-    --accent: 189 94% 43%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent - keeping purple theme */
+    --accent: 266 100% 70%;
+    --accent-foreground: 0 0% 100%;
     
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
     
-    --border: 217 33% 22%;
-    --input: 217 33% 22%;
-    --ring: 217 91% 60%;
-    --radius: 0.75rem;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 266 100% 70%;
+    --radius: 0.5rem;
     
-    /* Success color */
+    /* Status colors matching Aspire */
     --success: 142 71% 45%;
-    --success-foreground: 210 40% 98%;
+    --success-foreground: 0 0% 100%;
     
-    /* Warning color */
     --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
+    --warning-foreground: 0 0% 100%;
   }
 }
 
@@ -52,29 +51,13 @@
   }
   
   body {
-    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(222 47% 8%) 100%);
+    background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
       sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-  
-  /* Animated gradient background */
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-      radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 40% 20%, rgba(14, 165, 233, 0.05) 0%, transparent 50%);
-    pointer-events: none;
-    z-index: 0;
   }
   
   #root {
@@ -84,29 +67,14 @@
 }
 
 @layer utilities {
-  /* Glass morphism effect */
+  /* Minimal glass effect for Aspire style */
   .glass {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  
-  /* Gradient text */
-  .gradient-text {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  /* Glow effect */
-  .glow {
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
   /* Smooth transitions */
   .transition-all-smooth {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
   }
 }

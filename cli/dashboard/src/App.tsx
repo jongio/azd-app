@@ -1,175 +1,174 @@
 import { useState, useEffect } from 'react'
 import { useServices } from '@/hooks/useServices'
 import { ServiceCard } from '@/components/ServiceCard'
+import { ServiceTable } from '@/components/ServiceTable'
 import { LogsView } from '@/components/LogsView'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { AlertCircle, Wifi, WifiOff, Zap, Activity } from 'lucide-react'
+import { Sidebar } from '@/components/Sidebar'
+import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
 
 function App() {
   const [projectName, setProjectName] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<string>('services')
-  const { services, loading, error, connected } = useServices()
+  const [activeView, setActiveView] = useState<string>('resources')
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    const saved = localStorage.getItem('dashboard-view-preference')
+    return (saved === 'cards' || saved === 'table') ? saved : 'table'
+  })
+  const { services, loading, error } = useServices()
 
-  // Fetch project name from backend
+  // Scroll to top when view changes
+  useEffect(() => {
+    const mainElement = document.querySelector('main')
+    if (mainElement) {
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [activeView])
+
+  // Scroll to top when view mode changes
+  useEffect(() => {
+    const mainElement = document.querySelector('main')
+    if (mainElement) {
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [viewMode])
+
+  useEffect(() => {
+    localStorage.setItem('dashboard-view-preference', viewMode)
+  }, [viewMode])
+
   useEffect(() => {
     fetch('/api/project')
       .then(res => res.json())
       .then(data => {
         setProjectName(data.name)
-        // Update document title to match h1
-        document.title = `${data.name} Dashboard`
+        document.title = `${data.name}`
       })
       .catch(err => console.error('Failed to fetch project name:', err))
   }, [])
 
-  const runningServices = services.filter(s => {
-    const status = s.local?.status || s.status
-    return status === 'running' || status === 'ready'
-  })
-  const healthyServices = services.filter(s => {
-    const health = s.local?.health || s.health
-    return health === 'healthy'
-  })
-
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Animated Header with Gradient */}
-      <header className="border-b border-white/10 glass sticky top-0 z-50 backdrop-blur-xl">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+  const renderContent = () => {
+    if (activeView === 'resources') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-foreground">Resources</h1>
+            <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-linear-to-r from-primary to-accent blur-xl opacity-50 animate-pulse"></div>
-                <div className="relative bg-linear-to-br from-primary to-accent p-3 rounded-2xl shadow-lg">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  className="pl-9 pr-4 py-2 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-64 text-foreground"
+                />
               </div>
-              <div>
-                <h1 className="text-4xl font-bold gradient-text">
-                  {projectName || 'AZD App'}
-                </h1>
-                <p className="text-muted-foreground mt-1 text-sm flex items-center gap-2">
-                  <Activity className="w-4 h-4" />
-                  Development Environment Dashboard
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-6">
-              {/* Stats */}
-              <div className="hidden md:flex items-center gap-6 text-sm">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{services.length}</div>
-                  <div className="text-muted-foreground text-xs">Total</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-success">{runningServices.length}</div>
-                  <div className="text-muted-foreground text-xs">Running</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-accent">{healthyServices.length}</div>
-                  <div className="text-muted-foreground text-xs">Healthy</div>
-                </div>
-              </div>
-              
-              {/* Connection Status */}
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full glass">
-                {connected ? (
-                  <>
-                    <div className="relative">
-                      <Wifi className="w-4 h-4 text-success" />
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-success rounded-full animate-ping"></span>
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-success rounded-full"></span>
-                    </div>
-                    <span className="text-success font-medium text-sm">Live</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-4 h-4 text-destructive" />
-                    <span className="text-destructive font-medium text-sm">Offline</span>
-                  </>
-                )}
-              </div>
+              <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
+                <Filter className="w-4 h-4 text-gray-500 hover:text-gray-300" />
+              </button>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-10">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="glass border-white/10 mb-8 p-1">
-            <TabsTrigger value="services" className="data-[state=active]:bg-linear-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-white transition-all-smooth">
-              Services
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="data-[state=active]:bg-linear-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-white transition-all-smooth">
-              Logs
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-1 mb-6 border-b border-[#2a2a2a]">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${viewMode === 'table' ? 'text-foreground' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              Table
+              {viewMode === 'table' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${viewMode === 'cards' ? 'text-foreground' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              Grid
+              {viewMode === 'cards' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+              )}
+            </button>
+          </div>
 
-          <TabsContent value="services" className="mt-0">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-primary/20 rounded-full"></div>
-                  <div className="absolute top-0 left-0 w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <p className="text-muted-foreground mt-4">Loading services...</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-destructive/10 border border-destructive/30 p-4 rounded-lg flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <div>
+                <p className="text-destructive font-medium">Error Loading Services</p>
+                <p className="text-destructive/80 text-sm mt-1">{error}</p>
               </div>
-            ) : error ? (
-              <div className="glass border-destructive/50 p-6 rounded-2xl flex items-center gap-3">
-                <AlertCircle className="w-6 h-6 text-destructive" />
-                <div>
-                  <p className="text-destructive font-semibold">Error Loading Services</p>
-                  <p className="text-destructive/80 text-sm mt-1">{error}</p>
-                </div>
-              </div>
-            ) : services.length === 0 ? (
-              <div className="glass p-12 rounded-2xl text-center">
-                <div className="max-w-md mx-auto">
-                  <div className="bg-linear-to-br from-primary/20 to-accent/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Activity className="w-10 h-10 text-primary" />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3">No Services Running</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Get started by launching your development services
-                  </p>
-                  <code className="glass px-4 py-3 rounded-lg text-primary inline-block border border-primary/30">
-                    azd app run
-                  </code>
-                </div>
-              </div>
+            </div>
+          ) : services.length === 0 ? (
+            <div className="bg-[#1a1a1a] border border-white/10 p-12 rounded-lg text-center">
+              <h3 className="text-xl font-semibold mb-2">No Services Running</h3>
+              <p className="text-muted-foreground mb-4">
+                Get started by launching your development services
+              </p>
+              <code className="bg-black/30 px-3 py-2 rounded text-primary inline-block text-sm">
+                azd app run
+              </code>
+            </div>
+          ) : (
+            viewMode === 'table' ? (
+              <ServiceTable services={services} onViewLogs={() => setActiveView('console')} />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {services.map((service) => (
                   <ServiceCard key={service.name} service={service} />
                 ))}
               </div>
-            )}
-          </TabsContent>
+            )
+          )}
+        </>
+      )
+    }
 
-          <TabsContent value="logs">
-            <LogsView />
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {/* Footer with project paths */}
-      {services.length > 0 && (
-        <footer className="border-t border-white/10 glass backdrop-blur-xl mt-10">
-          <div className="container mx-auto px-6 py-4">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium">Project paths:</span>
-              {Array.from(new Set(services.map(s => s.project).filter(Boolean))).map((project, index, array) => (
-                <span key={project} className="font-mono">
-                  {project}
-                  {index < array.length - 1 && <span className="mx-2">•</span>}
-                </span>
-              ))}
-            </div>
+    if (activeView === 'console') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-foreground">Console</h1>
           </div>
-        </footer>
-      )}
+          <LogsView />
+        </>
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Coming Soon</h2>
+          <p className="text-muted-foreground">This view is not yet implemented</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-screen bg-[#1a1a1a]">
+      <Sidebar activeView={activeView} onViewChange={setActiveView} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-14 border-b border-[#2a2a2a] flex items-center justify-between px-6 bg-[#0d0d0d]">
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-semibold">{projectName || 'testhost'}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
+              <Github className="w-4 h-4 text-gray-400 hover:text-gray-300" />
+            </button>
+            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
+              <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-300" />
+            </button>
+            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
+              <Settings className="w-4 h-4 text-gray-400 hover:text-gray-300" />
+            </button>
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto p-6 bg-[#1a1a1a]">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   )
 }
