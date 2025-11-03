@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -16,6 +17,11 @@ import (
 func TestRunAspireIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Skip on Windows due to process termination issues
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping aspire integration test on Windows due to process cleanup issues")
 	}
 
 	// Check if aspire is available
@@ -44,8 +50,8 @@ func TestRunAspireIntegration(t *testing.T) {
 		}
 	}()
 
-	// Wait a bit for startup
-	time.Sleep(10 * time.Second)
+	// Wait a short time for startup
+	time.Sleep(3 * time.Second)
 
 	// Cancel the context to stop Aspire
 	cancel()

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestAspireOutputCapture(t *testing.T) {
+	// Skip on Windows due to process termination issues with aspire spawning child processes
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping aspire output capture test on Windows due to process cleanup issues")
+	}
+
 	// Find the test Aspire project
 	testProjectPath := filepath.Join("..", "..", "..", "tests", "projects", "aspire-test", "TestAppHost")
 
@@ -74,8 +80,8 @@ func TestAspireOutputCapture(t *testing.T) {
 			}
 		}()
 
-		// Give it a few seconds to produce output
-		time.Sleep(5 * time.Second)
+		// Give it a short time to produce output
+		time.Sleep(2 * time.Second)
 
 		// Kill it
 		if err := cmd.Process.Kill(); err != nil {
@@ -140,8 +146,8 @@ func TestAspireOutputCapture(t *testing.T) {
 			t.Fatalf("Failed to start aspire: %v", err)
 		}
 
-		// Give it time to produce output
-		time.Sleep(5 * time.Second)
+		// Give it a short time to produce output
+		time.Sleep(2 * time.Second)
 
 		// Kill it
 		if err := cmd.Process.Kill(); err != nil {

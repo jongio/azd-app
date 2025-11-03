@@ -19,8 +19,11 @@ We take the security of azd-app seriously. If you believe you have found a secur
 
 ### Please DO:
 
-1. **Email** security reports to: [jongio@microsoft.com](mailto:jongio@microsoft.com)
-2. **Include** the following information:
+
+**How to report a vulnerability:**
+
+1. File a private issue in this repository and mark it as security-related.
+2. Include:
    - Type of vulnerability
    - Full paths of source file(s) related to the manifestation of the vulnerability
    - Location of the affected source code (tag/branch/commit or direct URL)

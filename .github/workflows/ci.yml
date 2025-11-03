@@ -87,13 +87,13 @@ jobs:
       run: go test -v -race -coverprofile=coverage.out ./...
 
     - name: Upload coverage to Codecov
+      if: github.repository == 'jongio/azd-app'
       uses: codecov/codecov-action@v4
       with:
         file: cli/coverage.out
         flags: unittests
         name: codecov-${{ matrix.os }}-go-${{ matrix.go-version }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     name: Lint
