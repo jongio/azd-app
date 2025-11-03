@@ -3,11 +3,59 @@ package serviceinfo
 import (
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
+
+var (
+	// environmentCache stores the latest environment variables from azd
+	// This cache is refreshed when azd fires environment update events (e.g., after provision)
+	environmentCache   map[string]string
+	environmentCacheMu sync.RWMutex
+)
+
+func init() {
+	environmentCache = make(map[string]string)
+}
+
+// RefreshEnvironmentCache updates the cached environment variables from the current process.
+// This is called by the listen command when azd fires an "environment updated" event.
+// By the time this is called, azd has already updated the process environment.
+func RefreshEnvironmentCache() {
+	environmentCacheMu.Lock()
+	defer environmentCacheMu.Unlock()
+
+	// Clear and repopulate the cache from current process environment
+	environmentCache = make(map[string]string)
+
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		environmentCache[parts[0]] = parts[1]
+	}
+}
+
+// RefreshEnvironmentFromEvent updates the cached environment variables from a provision event.
+// This is called by the listen command when azd fires an "environment updated" event.
+func RefreshEnvironmentFromEvent(bicepOutputs map[string]interface{}) {
+	environmentCacheMu.Lock()
+	defer environmentCacheMu.Unlock()
+
+	// Extract environment variables from bicep outputs
+	// Bicep outputs are typically in the format: { "outputName": { "value": "actualValue" } }
+	for key, val := range bicepOutputs {
+		if outputMap, ok := val.(map[string]interface{}); ok {
+			if value, ok := outputMap["value"].(string); ok {
+				environmentCache[strings.ToUpper(key)] = value
+			}
+		}
+	}
+}
 
 // ServiceInfo contains comprehensive information about a service.
 type ServiceInfo struct {
@@ -88,6 +136,8 @@ func parseAzureYaml(projectDir string) (*service.AzureYaml, error) {
 
 // getAzureEnvironmentValues reads Azure environment variables from the current process environment.
 // Since this is an azd extension, all azd environment variables are automatically available.
+// Additionally, it merges in values from the event-driven environment cache which is updated
+// when azd provision completes.
 func getAzureEnvironmentValues(projectDir string) map[string]string {
 	envVars := make(map[string]string)
 
@@ -102,6 +152,14 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 		value := parts[1]
 		envVars[key] = value
 	}
+
+	// Merge in the cached environment values from azd events (higher priority)
+	// This ensures we have the latest values from provision operations
+	environmentCacheMu.RLock()
+	for key, value := range environmentCache {
+		envVars[key] = value
+	}
+	environmentCacheMu.RUnlock()
 
 	return envVars
 }
@@ -151,7 +209,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 		}
 
 		// Pattern 1 (highest priority): SERVICE_{SERVICE_NAME}_NAME -> Azure resource name
-		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_NAME") {
+		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_NAME") && !strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
 			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
 			serviceName = strings.TrimSuffix(serviceName, "_NAME")
 			serviceName = strings.ToLower(serviceName)

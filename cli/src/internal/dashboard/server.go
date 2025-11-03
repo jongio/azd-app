@@ -385,6 +385,32 @@ func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
 	}
 }
 
+// BroadcastServiceUpdate fetches fresh service info and broadcasts to all connected clients.
+// This is called when environment variables are updated (e.g., after azd provision).
+func (s *Server) BroadcastServiceUpdate(projectDir string) error {
+	// Fetch fresh service info with updated environment variables
+	services, err := serviceinfo.GetServiceInfo(projectDir)
+	if err != nil {
+		return fmt.Errorf("failed to get service info: %w", err)
+	}
+
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	message := map[string]interface{}{
+		"type":     "services",
+		"services": services,
+	}
+
+	for client := range s.clients {
+		if err := client.WriteJSON(message); err != nil {
+			log.Printf("WebSocket send error: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
