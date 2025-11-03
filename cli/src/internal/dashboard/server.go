@@ -293,7 +293,18 @@ func (s *Server) Start() (string, error) {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("Dashboard server error: %v", err)
 			errChan <- err
+		}
+	}()
+	
+	// Monitor for server errors in background
+	go func() {
+		select {
+		case err := <-errChan:
+			log.Printf("Dashboard server encountered error after startup: %v", err)
+		case <-s.stopChan:
+			return
 		}
 	}()
 
@@ -346,7 +357,18 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		errChan := make(chan error, 1)
 		go func() {
 			if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("Dashboard server error on alternative port: %v", err)
 				errChan <- err
+			}
+		}()
+		
+		// Monitor for server errors in background
+		go func() {
+			select {
+			case err := <-errChan:
+				log.Printf("Dashboard server encountered error after startup on port %d: %v", port, err)
+			case <-s.stopChan:
+				return
 			}
 		}()
 
