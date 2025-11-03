@@ -82,6 +82,9 @@ func TestAspireOutputCapture(t *testing.T) {
 			t.Logf("Warning: failed to kill process: %v", err)
 		}
 
+		// Wait for the process to exit (this closes the pipes)
+		_ = cmd.Wait()
+
 		// Wait for readers to finish
 		wg.Wait()
 
@@ -144,6 +147,9 @@ func TestAspireOutputCapture(t *testing.T) {
 		if err := cmd.Process.Kill(); err != nil {
 			t.Logf("Warning: failed to kill process: %v", err)
 		}
+
+		// Wait for the process to exit
+		_ = cmd.Wait()
 
 		mu.Lock()
 		lineCount := len(capturedLines)
