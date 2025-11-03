@@ -263,21 +263,21 @@ func runGosec() error {
 // DashboardBuild builds the dashboard TypeScript/React code.
 func DashboardBuild() error {
 	fmt.Println("Building dashboard...")
-	
+
 	dashboardDir := "dashboard"
-	
+
 	// Install dependencies
 	fmt.Println("Installing dashboard dependencies...")
 	if err := sh.RunWith(map[string]string{"npm_config_update_notifier": "false"}, "npm", "install", "--prefix", dashboardDir); err != nil {
 		return fmt.Errorf("npm install failed: %w", err)
 	}
-	
+
 	// Run TypeScript compilation and build
 	fmt.Println("Building dashboard assets...")
 	if err := sh.RunV("npm", "run", "build", "--prefix", dashboardDir); err != nil {
 		return fmt.Errorf("dashboard build failed: %w", err)
 	}
-	
+
 	fmt.Println("✅ Dashboard build complete!")
 	return nil
 }

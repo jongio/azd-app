@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.4
 # Watch for changes and auto-rebuild
 param(
     [string]$Path = "src"

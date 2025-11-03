@@ -1,4 +1,5 @@
 # Build script for App Extension (Windows)
+#Requires -Version 7.4
 
 param(
     [switch]$All = $false

@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.4
 # Quick install script - just builds and copies, skips azd x build
 param(
     [switch]$SkipBuild

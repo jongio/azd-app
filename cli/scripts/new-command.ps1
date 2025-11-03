@@ -1,5 +1,6 @@
 # New Command Generator for App Extension
 # This script creates a new command file and registers it automatically
+#Requires -Version 7.4
 
 param(
     [Parameter(Mandatory=$true)]

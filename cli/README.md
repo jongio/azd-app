@@ -110,8 +110,11 @@ See [.devcontainer/README.md](.devcontainer/README.md) for details.
 ### Prerequisites
 
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) installed
-- Go 1.21 or later (for building from source)
-- PowerShell (for Windows development)
+- Go 1.25 or later (for building from source)
+- Node.js 20.0.0 or later (for building dashboard)
+- npm 10.0.0 or later (for building dashboard)
+- PowerShell 7.4 or later (recommended: 7.5.4 for full compatibility with build scripts)
+- TypeScript 5.9.3 (installed via npm, required for dashboard)
 
 ## Quick Start
 

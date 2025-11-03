@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.4
 # Run the app directly without installing as an extension
 # Useful for quick testing
 param(

@@ -1,6 +1,7 @@
 # App Extension - Local Install Script
 # This script installs the extension locally for azd to use
 # Based on the official azd extension installation process
+#Requires -Version 7.4
 
 param(
     [switch]$Uninstall = $false

@@ -1,5 +1,6 @@
 # App Extension - Quick Setup for Development
 # This creates an alias so you can use "azd App" during development
+#Requires -Version 7.4
 
 Write-Host "Setting up App Extension for development..." -ForegroundColor Cyan
 
