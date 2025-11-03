@@ -39,7 +39,7 @@ That's it. No configuration needed. azd app detects your project structure and d
 
 ---
 
-## �📦 Components
+## 📦 Components
 
 This monorepo contains multiple tools that work together to enhance your Azure Developer CLI experience:
 
