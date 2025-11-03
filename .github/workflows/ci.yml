@@ -49,12 +49,12 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: cli/dashboard/package-lock.json
+        cache-dependency-path: cli/dashboard/package.json
 
     - name: Build dashboard
       run: |
         cd dashboard
-        npm ci
+        npm install
         npm run build
         cd ..
 
@@ -111,12 +111,12 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: cli/dashboard/package-lock.json
+        cache-dependency-path: cli/dashboard/package.json
 
     - name: Build dashboard
       run: |
         cd dashboard
-        npm ci
+        npm install
         npm run build
         cd ..
 
