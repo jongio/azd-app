@@ -5,6 +5,7 @@ package installer
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -81,6 +82,13 @@ func TestInstallNodeDependenciesIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip yarn test if yarn is not installed
+			if tt.packageManager == "yarn" {
+				if _, err := exec.LookPath("yarn"); err != nil {
+					t.Skip("Skipping yarn test - yarn not installed")
+				}
+			}
+
 			tempDir := t.TempDir()
 			tt.setupFunc(t, tempDir)
 
