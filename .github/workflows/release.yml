@@ -26,7 +26,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.25'
 
     - name: Get version from tag
       id: version
@@ -74,21 +74,21 @@ jobs:
         cd ../..
 
     - name: Calculate checksums
-      working-directory: .
+      id: checksums
       run: |
-        echo "## Checksums" > checksums.txt
-        echo "" >> checksums.txt
+        echo "## Checksums" > ../checksums.txt
+        echo "" >> ../checksums.txt
         
-        sha256sum cli/app-windows-amd64.zip | tee -a checksums.txt
-        sha256sum cli/app-linux-amd64.tar.gz | tee -a checksums.txt
-        sha256sum cli/app-darwin-amd64.tar.gz | tee -a checksums.txt
-        sha256sum cli/app-darwin-arm64.tar.gz | tee -a checksums.txt
+        sha256sum app-windows-amd64.zip | tee -a ../checksums.txt
+        sha256sum app-linux-amd64.tar.gz | tee -a ../checksums.txt
+        sha256sum app-darwin-amd64.tar.gz | tee -a ../checksums.txt
+        sha256sum app-darwin-arm64.tar.gz | tee -a ../checksums.txt
         
         # Extract individual checksums for registry update
-        WIN_SHA=$(sha256sum cli/app-windows-amd64.zip | awk '{print $1}')
-        LINUX_SHA=$(sha256sum cli/app-linux-amd64.tar.gz | awk '{print $1}')
-        DARWIN_AMD64_SHA=$(sha256sum cli/app-darwin-amd64.tar.gz | awk '{print $1}')
-        DARWIN_ARM64_SHA=$(sha256sum cli/app-darwin-arm64.tar.gz | awk '{print $1}')
+        WIN_SHA=$(sha256sum app-windows-amd64.zip | awk '{print $1}')
+        LINUX_SHA=$(sha256sum app-linux-amd64.tar.gz | awk '{print $1}')
+        DARWIN_AMD64_SHA=$(sha256sum app-darwin-amd64.tar.gz | awk '{print $1}')
+        DARWIN_ARM64_SHA=$(sha256sum app-darwin-arm64.tar.gz | awk '{print $1}')
         
         echo "WIN_SHA=$WIN_SHA" >> $GITHUB_OUTPUT
         echo "LINUX_SHA=$LINUX_SHA" >> $GITHUB_OUTPUT
@@ -96,7 +96,6 @@ jobs:
         echo "DARWIN_ARM64_SHA=$DARWIN_ARM64_SHA" >> $GITHUB_OUTPUT
 
     - name: Update registry.json with checksums
-      working-directory: .
       run: |
         VERSION="${{ steps.version.outputs.VERSION }}"
         
@@ -115,16 +114,15 @@ jobs:
             .extensions[0].versions[0].artifacts["darwin-amd64"].checksum.value = $darwin_amd64 |
             .extensions[0].versions[0].artifacts["darwin-arm64"].url = "https://github.com/jongio/azd-app/releases/download/cli-v\($version)/app-darwin-arm64.tar.gz" |
             .extensions[0].versions[0].artifacts["darwin-arm64"].checksum.value = $darwin_arm64' \
-           registry.json > registry.tmp.json && mv registry.tmp.json registry.json
+           ../registry.json > ../registry.tmp.json && mv ../registry.tmp.json ../registry.json
 
     - name: Extract changelog for this version
       id: changelog
-      working-directory: .
       run: |
         VERSION="${{ steps.version.outputs.VERSION }}"
         # Extract changelog section for this version
-        sed -n "/## \[$VERSION\]/,/## \[/p" cli/CHANGELOG.md | sed '$d' > release-notes.md || echo "Release $VERSION" > release-notes.md
-        cat checksums.txt >> release-notes.md
+        sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > ../release-notes.md || echo "Release $VERSION" > ../release-notes.md
+        cat ../checksums.txt >> ../release-notes.md
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
@@ -141,12 +139,3 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Update registry.json in repository
-      working-directory: .
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add registry.json
-        git commit -m "Update registry.json for version ${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
-        git push origin HEAD:main || echo "No changes to push"

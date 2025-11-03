@@ -1,0 +1,41 @@
+name: Update Registry
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-registry:
+    name: Update registry.json
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'cli-v')
+    
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download registry.json from release
+      run: |
+        TAG="${{ github.event.release.tag_name }}"
+        curl -L -o registry.json "https://github.com/${{ github.repository }}/releases/download/${TAG}/registry.json"
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "Update registry.json for ${{ github.event.release.tag_name }}"
+        title: "Update registry.json for ${{ github.event.release.tag_name }}"
+        body: |
+          Automated update of registry.json with checksums and URLs for release ${{ github.event.release.tag_name }}.
+          
+          This PR was automatically created by the release workflow.
+        branch: update-registry-${{ github.event.release.tag_name }}
+        delete-branch: true
+        labels: automated
