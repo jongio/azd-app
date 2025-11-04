@@ -7,11 +7,17 @@
       "displayName": "App Extension",
       "description": "A collection of developer productivity commands for Azure Developer CLI",
       "publisher": "jongio",
-      "tags": ["developer", "productivity", "app"],
+      "tags": [
+        "developer",
+        "productivity",
+        "app"
+      ],
       "versions": [
         {
           "version": "0.1.0",
-          "capabilities": ["custom-commands"],
+          "capabilities": [
+            "custom-commands"
+          ],
           "usage": "azd app <command> [options]",
           "examples": [
             {
@@ -51,7 +57,7 @@
               "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-windows-amd64.zip",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "to-be-calculated"
+                "value": "fbff33d0d441b1ed189154c0409209fbb777dacfd3c6a84eddb642cdfd0b1b17"
               },
               "entryPoint": "app.exe"
             },
@@ -59,7 +65,7 @@
               "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-linux-amd64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "to-be-calculated"
+                "value": "62099de9473b896e5bf9e361d6afbcc2c32b2607054f0be7f48415b58ab17358"
               },
               "entryPoint": "app"
             },
@@ -67,7 +73,7 @@
               "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-darwin-amd64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "to-be-calculated"
+                "value": "e46e73c44b9a704c8d1c0d8dfcdbabab90b40012806a3d50dab488cabb2ca515"
               },
               "entryPoint": "app"
             },
@@ -75,7 +81,7 @@
               "url": "https://github.com/jongio/azd-app/releases/download/cli-v0.1.0/app-darwin-arm64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "to-be-calculated"
+                "value": "832f2a4a4fb39926deb0790afdcd69ce06e58ff4c8ed9c83dfa9029a46a5421e"
               },
               "entryPoint": "app"
             }
