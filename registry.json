@@ -14,7 +14,7 @@
       ],
       "versions": [
         {
-          "version": "0.1.0",
+          "version": "0.1.1",
           "capabilities": [
             "custom-commands"
           ],
@@ -54,34 +54,34 @@
           "entryPoint": "app",
           "artifacts": {
             "windows/amd64": {
-              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.0/app-windows-amd64.zip",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.1/app-windows-amd64.zip",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "3543f1284d9205e2dc6a9aab5b343151b9a94a60cdbeaae42f006eda57e38967"
+                "value": "61ac155a59ba369352e3eb4f42e6a18a786b047477638cc0d8461fa85279ad8b"
               },
               "entryPoint": "app.exe"
             },
             "linux/amd64": {
-              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.0/app-linux-amd64.tar.gz",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.1/app-linux-amd64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "8694c84ccca419c2d3265ea930e744aa05111dedb6396fa46e86a31fa5b06b70"
+                "value": "b2c9aaf3dcd9bc6fcf6fff0918a95c31dfd4372ab6046070bff19d40fd753705"
               },
               "entryPoint": "app"
             },
             "darwin/amd64": {
-              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.0/app-darwin-amd64.tar.gz",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.1/app-darwin-amd64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "fa1d56b0287305d0fe400659234d43bc8afd4a0a15e749c64a35a5a688996bb8"
+                "value": "db74dd2972090b222b48d307288260d12aa2759b7de9b00bfa3b4adf60dde3c8"
               },
               "entryPoint": "app"
             },
             "darwin/arm64": {
-              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.0/app-darwin-arm64.tar.gz",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-app-cli-v0.1.1/app-darwin-arm64.tar.gz",
               "checksum": {
                 "algorithm": "sha256",
-                "value": "2c6829924d02fcb8bd26080c49daba45df91e6247a26367c533fc99c5c66c0f4"
+                "value": "618def1a9811e6a1603fbdd65759aaa5400c273f0dec3b6d90e5fd228f6be131"
               },
               "entryPoint": "app"
             }
