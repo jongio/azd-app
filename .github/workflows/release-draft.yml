@@ -169,14 +169,29 @@ jobs:
         VERSION="${{ inputs.version }}"
         # Extract changelog section for this version
         if [ -f CHANGELOG.md ]; then
-          sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > ../release-assets/release-notes.md || echo "Release $VERSION" > ../release-assets/release-notes.md
+          # Use awk to extract the section more reliably
+          awk -v version="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "## \\[" version "\\]") found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md > ../release-assets/release-notes.md
+          
+          # If extraction failed or file is empty, use default message
+          if [ ! -s ../release-assets/release-notes.md ]; then
+            echo "## What's Changed in v$VERSION" > ../release-assets/release-notes.md
+            echo "" >> ../release-assets/release-notes.md
+            echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/cli/CHANGELOG.md) for details." >> ../release-assets/release-notes.md
+          fi
         else
-          echo "# Release $VERSION" > ../release-assets/release-notes.md
-          echo "" >> ../release-assets/release-notes.md
-          echo "## What's Changed" >> ../release-assets/release-notes.md
+          echo "## What's Changed in v$VERSION" > ../release-assets/release-notes.md
           echo "" >> ../release-assets/release-notes.md
           echo "See commit history for details." >> ../release-assets/release-notes.md
         fi
+        echo "" >> ../release-assets/release-notes.md
+        echo "---" >> ../release-assets/release-notes.md
         echo "" >> ../release-assets/release-notes.md
         cat ../release-assets/checksums.txt >> ../release-assets/release-notes.md
 
