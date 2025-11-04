@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/vscode"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 	"golang.org/x/sync/errgroup"
 
@@ -29,11 +31,14 @@ const (
 )
 
 var (
-	runServiceFilter string
-	runEnvFile       string
-	runVerbose       bool
-	runDryRun        bool
-	runRuntime       string
+	runServiceFilter       string
+	runEnvFile             string
+	runVerbose             bool
+	runDryRun              bool
+	runRuntime             string
+	runDebug               bool
+	runWaitForDebugger     bool
+	runRegenerateDebugConfig bool
 )
 
 // NewRunCommand creates the run command.
@@ -53,6 +58,9 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&runVerbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.Flags().BoolVar(&runDryRun, "dry-run", false, "Show what would be run without starting services")
 	cmd.Flags().StringVar(&runRuntime, "runtime", runtimeModeAzd, "Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)")
+	cmd.Flags().BoolVar(&runDebug, "debug", false, "Start services with debuggers enabled")
+	cmd.Flags().BoolVar(&runWaitForDebugger, "wait-for-debugger", false, "Pause services until debugger attaches")
+	cmd.Flags().BoolVar(&runRegenerateDebugConfig, "regenerate-debug-config", false, "Regenerate .vscode debug configurations")
 
 	return cmd
 }
@@ -179,7 +187,18 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 	// Find azure.yaml path for updates
 	azureYamlPath := filepath.Join(azureYamlDir, "azure.yaml")
 
-	for name, svc := range services {
+	// Sort service names for deterministic ordering (fixes debug port race condition)
+	serviceNames := make([]string, 0, len(services))
+	for name := range services {
+		serviceNames = append(serviceNames, name)
+	}
+	sort.Strings(serviceNames)
+
+	// Count services per language for debug port assignment
+	languageCounts := make(map[string]int)
+
+	for _, name := range serviceNames {
+		svc := services[name]
 		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir, runtimeMode)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
@@ -196,6 +215,14 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 			}
 		}
 
+		// Configure debug if --debug flag is set
+		if runDebug {
+			normalizedLang := service.NormalizeLanguage(runtime.Language)
+			languageIndex := languageCounts[normalizedLang]
+			languageCounts[normalizedLang]++
+			service.ConfigureDebug(runtime, runDebug, runWaitForDebugger, languageIndex)
+		}
+
 		runtimes = append(runtimes, runtime)
 	}
 
@@ -204,9 +231,22 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 
 // executeAndMonitorServices starts services and monitors them until interrupted.
 func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) error {
+	// Generate VS Code debug configurations if in debug mode
+	if runDebug {
+		if err := generateDebugConfig(runtimes, cwd); err != nil {
+			output.Warning("Failed to generate VS Code debug config: %v", err)
+		}
+	}
+
 	// Create logger
 	logger := service.NewServiceLogger(runVerbose)
-	logger.LogStartup(len(runtimes))
+	
+	// Show debug mode message if enabled
+	if runDebug {
+		output.Info("🐛 Starting services in debug mode...")
+	} else {
+		logger.LogStartup(len(runtimes))
+	}
 
 	// Load environment variables
 	envVars, err := loadEnvironmentVariables()
@@ -227,6 +267,11 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 	}
 
 	logger.LogReady()
+
+	// Show debug information if in debug mode
+	if runDebug {
+		showDebugInfo(runtimes)
+	}
 
 	// Start dashboard and wait for shutdown
 	return monitorServicesUntilShutdown(result, cwd)
@@ -438,7 +483,79 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 		output.Label("Port", fmt.Sprintf("%d", runtime.Port))
 		output.Label("Directory", runtime.WorkingDir)
 		output.Label("Command", fmt.Sprintf("%s %v", runtime.Command, runtime.Args))
+		
+		// Show debug info if enabled
+		if runtime.Debug.Enabled {
+			output.Label("Debug", fmt.Sprintf("enabled on port %d (%s)", runtime.Debug.Port, runtime.Debug.Protocol))
+		}
 	}
 
 	return nil
+}
+
+// generateDebugConfig generates VS Code debug configurations.
+func generateDebugConfig(runtimes []*service.ServiceRuntime, projectDir string) error {
+	// Check if first time or forced regeneration
+	isFirstTime := runRegenerateDebugConfig
+
+	// Collect service debug info
+	services := []vscode.ServiceDebugInfo{}
+	for _, rt := range runtimes {
+		if rt.Debug.Enabled {
+			services = append(services, vscode.ServiceDebugInfo{
+				Name:     rt.Name,
+				Language: rt.Language,
+				Port:     rt.Debug.Port,
+			})
+		}
+	}
+
+	if len(services) == 0 {
+		return nil // No debug services
+	}
+
+	// Check if this is the first time running in debug mode
+	vscodeDir := filepath.Join(projectDir, ".vscode")
+	launchPath := filepath.Join(vscodeDir, "launch.json")
+	if _, err := os.Stat(launchPath); os.IsNotExist(err) {
+		isFirstTime = true
+	}
+
+	// Generate config
+	if err := vscode.EnsureDebugConfig(projectDir, services, runRegenerateDebugConfig); err != nil {
+		return err
+	}
+
+	// Show helpful message on first time
+	if isFirstTime {
+		output.Newline()
+		output.Success("🛠️  Generated .vscode/launch.json and tasks.json")
+		output.Newline()
+	}
+
+	return nil
+}
+
+// showDebugInfo displays debug information for all services.
+func showDebugInfo(runtimes []*service.ServiceRuntime) {
+	output.Newline()
+	
+	// Show debug ports
+	hasDebugServices := false
+	for _, rt := range runtimes {
+		if rt.Debug.Enabled {
+			hasDebugServices = true
+			debugAddr := fmt.Sprintf("localhost:%d", rt.Debug.Port)
+			output.ItemSuccess("   ✅ %s%-15s%s running (debug: %s)", output.Cyan, rt.Name, output.Reset, debugAddr)
+		}
+	}
+
+	if hasDebugServices {
+		output.Newline()
+		output.Info("📖 To debug:")
+		output.Item("   1. Press F5 in VS Code")
+		output.Item("   2. Select \"🚀 Debug ALL Services\" to attach to all services")
+		output.Item("   3. Or select individual service to debug")
+		output.Newline()
+	}
 }
