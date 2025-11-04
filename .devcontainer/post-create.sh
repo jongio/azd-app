@@ -3,6 +3,9 @@ set -e
 
 echo "🚀 Setting up development environment..."
 
+# Ensure Go is available (from base image or system)
+export PATH="/usr/local/go/bin:${PATH}"
+
 # Ensure mage is in PATH
 if ! command -v mage &> /dev/null; then
     echo "⚠️  mage not found in PATH, installing via go install..."
