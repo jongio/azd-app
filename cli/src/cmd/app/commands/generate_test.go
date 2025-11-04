@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -556,6 +557,281 @@ reqs:
 		_, _, err := mergeReqs(maliciousPath, detected)
 		if err == nil {
 			t.Error("Expected error for path traversal, got nil")
+		}
+	})
+
+	t.Run("preserves comments and formatting", func(t *testing.T) {
+		testFile := filepath.Join(tmpDir, "azure3.yaml")
+		content := `# Project configuration file
+# This is important!
+name: test
+
+# Environment variables section
+# DO NOT MODIFY
+env:
+  - name: API_KEY
+    value: secret
+
+# Requirements section
+reqs:
+  # Node.js runtime - keep at v20
+  - id: node
+    minVersion: "20.0.0"
+  
+  # Package manager
+  - id: npm
+    minVersion: "10.0.0"
+
+# Services will go here
+services: []
+`
+		if err := os.WriteFile(testFile, []byte(content), 0600); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		detected := []DetectedRequirement{
+			{ID: "node", MinVersion: "22.0.0"}, // Already exists (will be skipped)
+			{ID: "git", MinVersion: "2.0.0"},   // New requirement (will be added)
+		}
+
+		added, skipped, err := mergeReqs(testFile, detected)
+		if err != nil {
+			t.Fatalf("mergeReqs failed: %v", err)
+		}
+
+		// Note: skipped counts ALL existing reqs in the file (node + npm = 2)
+		// not just the ones we tried to add
+		if added != 1 {
+			t.Errorf("Expected added=1, got %d", added)
+		}
+		if skipped != 2 {
+			t.Errorf("Expected skipped=2 (node+npm already in file), got %d", skipped)
+		}
+
+		// Read the file and verify comments are preserved
+		resultContent, err := os.ReadFile(testFile)
+		if err != nil {
+			t.Fatalf("Failed to read result file: %v", err)
+		}
+
+		resultStr := string(resultContent)
+
+		// Debug: print the result
+		t.Logf("Result YAML:\n%s", resultStr)
+
+		// Check that important comments are preserved
+		expectedComments := []string{
+			"# Project configuration file",
+			"# This is important!",
+			"# Environment variables section",
+			"# DO NOT MODIFY",
+			"# Requirements section",
+			// Note: Inline comments like "# Node.js runtime - keep at v20"
+			// may not be preserved by yaml.v3
+			// "# Node.js runtime - keep at v20",
+			// "# Package manager",
+			"# Services will go here",
+		}
+
+		for _, comment := range expectedComments {
+			if !strings.Contains(resultStr, comment) {
+				t.Errorf("Expected comment %q to be preserved, but it was not found", comment)
+			}
+		}
+
+		// Check that the env section is still there
+		if !strings.Contains(resultStr, "env:") {
+			t.Error("Expected env section to be preserved")
+		}
+		if !strings.Contains(resultStr, "API_KEY") {
+			t.Error("Expected env content to be preserved")
+		}
+
+		// Check that git was added
+		if !strings.Contains(resultStr, "id: git") {
+			t.Error("Expected git requirement to be added")
+		}
+
+		// Check that services section is still there
+		if !strings.Contains(resultStr, "services: []") {
+			t.Error("Expected services section to be preserved")
+		}
+	})
+
+	t.Run("handles empty reqs array", func(t *testing.T) {
+		// Create temp directory
+		tmpDir, err := os.MkdirTemp("", "test-merge-empty-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		// Write azure.yaml with empty reqs array
+		azureYaml := `name: test-app
+reqs: []
+`
+		azurePath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azurePath, []byte(azureYaml), 0600); err != nil {
+			t.Fatalf("Failed to write azure.yaml: %v", err)
+		}
+
+		// Test merging
+		newReqs := []DetectedRequirement{
+			{ID: "node", MinVersion: "20.0.0", Source: "package.json"},
+		}
+
+		added, existing, err := mergeReqs(azurePath, newReqs)
+		if err != nil {
+			t.Fatalf("mergeReqs failed: %v", err)
+		}
+
+		if added != 1 {
+			t.Errorf("Expected 1 added, got %d", added)
+		}
+
+		// Read result
+		result, err := os.ReadFile(azurePath)
+		if err != nil {
+			t.Fatalf("Failed to read result: %v", err)
+		}
+
+		resultStr := string(result)
+		if !strings.Contains(resultStr, "id: node") {
+			t.Error("Expected node requirement to be added to empty array")
+		}
+		if existing != 0 {
+			t.Errorf("Expected 0 existing, got %d", existing)
+		}
+	})
+
+	t.Run("handles no new requirements", func(t *testing.T) {
+		// Create temp directory
+		tmpDir, err := os.MkdirTemp("", "test-merge-none-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		// Write azure.yaml
+		azureYaml := `name: test-app
+reqs:
+  - id: node
+    minVersion: "20.0.0"
+`
+		azurePath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azurePath, []byte(azureYaml), 0600); err != nil {
+			t.Fatalf("Failed to write azure.yaml: %v", err)
+		}
+
+		// Test merging with no new reqs
+		added, existing, err := mergeReqs(azurePath, []DetectedRequirement{})
+		if err != nil {
+			t.Fatalf("mergeReqs failed: %v", err)
+		}
+
+		if added != 0 {
+			t.Errorf("Expected 0 added, got %d", added)
+		}
+		if existing != 1 {
+			t.Errorf("Expected 1 existing, got %d", existing)
+		}
+
+		// Read result - should be unchanged
+		result, err := os.ReadFile(azurePath)
+		if err != nil {
+			t.Fatalf("Failed to read result: %v", err)
+		}
+
+		if string(result) != azureYaml {
+			t.Error("Expected azure.yaml to be unchanged when no new requirements")
+		}
+	})
+
+	t.Run("handles complex nested yaml structure", func(t *testing.T) {
+		// Create temp directory
+		tmpDir, err := os.MkdirTemp("", "test-merge-complex-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tmpDir)
+
+		// Write azure.yaml with complex structure
+		azureYaml := `# Main config
+name: test-app
+version: "1.0"
+
+# Settings
+settings:
+  nested:
+    deep:
+      value: 123
+
+# Tools
+reqs:
+  - id: node
+    minVersion: "20.0.0"
+
+# More config
+services:
+  - name: api
+    config:
+      nested: value
+  - name: web
+    config:
+      other: data
+`
+		azurePath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azurePath, []byte(azureYaml), 0600); err != nil {
+			t.Fatalf("Failed to write azure.yaml: %v", err)
+		}
+
+		// Test merging
+		newReqs := []DetectedRequirement{
+			{ID: "docker", MinVersion: "20.0.0", Source: "Dockerfile"},
+		}
+
+		added, existing, err := mergeReqs(azurePath, newReqs)
+		if err != nil {
+			t.Fatalf("mergeReqs failed: %v", err)
+		}
+
+		if added != 1 {
+			t.Errorf("Expected 1 added, got %d", added)
+		}
+		if existing != 1 {
+			t.Errorf("Expected 1 existing, got %d", existing)
+		}
+
+		// Read result
+		result, err := os.ReadFile(azurePath)
+		if err != nil {
+			t.Fatalf("Failed to read result: %v", err)
+		}
+
+		resultStr := string(result)
+
+		// Verify all sections preserved
+		checks := []string{
+			"# Main config",
+			"version: \"1.0\"",
+			"# Settings",
+			"settings:",
+			"nested:",
+			"deep:",
+			"value: 123",
+			"# Tools",
+			"id: node",
+			"id: docker",
+			"# More config",
+			"services:",
+			"name: api",
+			"name: web",
+		}
+
+		for _, check := range checks {
+			if !strings.Contains(resultStr, check) {
+				t.Errorf("Expected %q to be preserved", check)
+			}
 		}
 	})
 }

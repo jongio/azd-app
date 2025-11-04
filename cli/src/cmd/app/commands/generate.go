@@ -11,6 +11,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 
 	"gopkg.in/yaml.v3"
 )
@@ -673,137 +674,95 @@ reqs:
 	return newPath, true, nil
 }
 
-// mergeReqs merges detected reqs into azure.yaml while preserving structure and order.
+// mergeReqs merges detected reqs into azure.yaml using text-based manipulation
+// to ensure no comments, formatting, or other content is lost.
 func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, error) {
 	// Validate path
 	if err := security.ValidatePath(azureYamlPath); err != nil {
 		return 0, 0, fmt.Errorf("invalid path: %w", err)
 	}
 
-	// Read existing azure.yaml
+	// Read existing azure.yaml as text
 	// #nosec G304 -- Path validated by security.ValidatePath
 	data, err := os.ReadFile(azureYamlPath)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to read azure.yaml: %w", err)
 	}
 
-	// Parse YAML using yaml.v3 Node to preserve structure
-	var root yaml.Node
-	if err := yaml.Unmarshal(data, &root); err != nil {
+	content := string(data)
+
+	// Parse YAML to extract existing requirements (read-only operation)
+	var azureYaml struct {
+		Reqs []Prerequisite `yaml:"reqs"`
+	}
+	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
 		return 0, 0, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	// Navigate to the document root (MappingNode)
-	if len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
-		return 0, 0, fmt.Errorf("invalid azure.yaml structure")
-	}
-	docNode := root.Content[0]
+	// Build map of existing requirement IDs
+	existingCount := len(azureYaml.Reqs)
 
-	// Find existing reqs section and build map of existing IDs
-	existingIDs := make(map[string]bool)
-	var reqsNode *yaml.Node
-
-	for i := 0; i < len(docNode.Content); i += 2 {
-		keyNode := docNode.Content[i]
-		valueNode := docNode.Content[i+1]
-
-		if keyNode.Value == "reqs" && valueNode.Kind == yaml.SequenceNode {
-			reqsNode = valueNode
-
-			// Scan existing reqs to find IDs
-			for _, itemNode := range valueNode.Content {
-				if itemNode.Kind == yaml.MappingNode {
-					for j := 0; j < len(itemNode.Content); j += 2 {
-						if itemNode.Content[j].Value == "id" {
-							existingIDs[itemNode.Content[j+1].Value] = true
-							break
-						}
-					}
-				}
-			}
-			break
+	// Convert detected requirements to generic map format for yamlutil
+	var items []map[string]interface{}
+	for _, det := range detected {
+		item := map[string]interface{}{
+			"id":         det.ID,
+			"minVersion": det.MinVersion,
 		}
+		if det.CheckRunning {
+			item["checkRunning"] = true
+		}
+		items = append(items, item)
 	}
 
-	// Filter out requirements that already exist
-	var newReqs []DetectedRequirement
-	for _, detected := range detected {
-		if !existingIDs[detected.ID] {
-			newReqs = append(newReqs, detected)
-		}
+	// Use yamlutil to append new requirements
+	opts := yamlutil.ArrayAppendOptions{
+		SectionKey: "reqs",
+		ItemIDKey:  "id",
+		Items:      items,
+		FormatItem: formatReqItem,
 	}
 
-	if len(newReqs) == 0 {
-		return 0, len(existingIDs), nil
-	}
-
-	// If no reqs section exists, create one at the end
-	if reqsNode == nil {
-		// Create reqs key
-		keyNode := &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Value: "reqs",
-		}
-		// Create reqs sequence
-		reqsNode = &yaml.Node{
-			Kind:    yaml.SequenceNode,
-			Content: []*yaml.Node{},
-		}
-		// Add to document
-		docNode.Content = append(docNode.Content, keyNode, reqsNode)
-	}
-
-	// Add new requirements to the reqs sequence
-	for _, req := range newReqs {
-		// Create a mapping node for this requirement
-		reqMap := &yaml.Node{
-			Kind: yaml.MappingNode,
-			Content: []*yaml.Node{
-				{Kind: yaml.ScalarNode, Value: "id"},
-				{Kind: yaml.ScalarNode, Value: req.ID},
-				{Kind: yaml.ScalarNode, Value: "minVersion"},
-				{Kind: yaml.ScalarNode, Value: req.MinVersion, Style: yaml.DoubleQuotedStyle},
-			},
-		}
-
-		// Add checkRunning if needed
-		if req.CheckRunning {
-			reqMap.Content = append(reqMap.Content,
-				&yaml.Node{Kind: yaml.ScalarNode, Value: "checkRunning"},
-				&yaml.Node{Kind: yaml.ScalarNode, Value: "true"},
-			)
-		}
-
-		// Add to reqs sequence
-		reqsNode.Content = append(reqsNode.Content, reqMap)
-	}
-
-	// Marshal back to YAML
-	output, err := yaml.Marshal(&root)
+	newContent, added, err := yamlutil.AppendToArraySection(content, opts)
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to marshal yaml: %w", err)
+		return 0, 0, fmt.Errorf("failed to append reqs: %w", err)
 	}
 
 	// Write back to file
 	// #nosec G306 -- azure.yaml is a config file, 0644 is appropriate for team access
-	if err := os.WriteFile(azureYamlPath, output, 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(newContent), 0644); err != nil {
 		return 0, 0, fmt.Errorf("failed to write azure.yaml: %w", err)
 	}
 
-	return len(newReqs), len(existingIDs), nil
+	return added, existingCount, nil
 }
 
-// Helper functions for YAML parsing
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
-}
+// formatReqItem formats a requirement item as YAML text.
+func formatReqItem(item map[string]interface{}, arrayIndent string) string {
+	var builder strings.Builder
 
-func getBool(m map[string]interface{}, key string) bool {
-	if val, ok := m[key].(bool); ok {
-		return val
+	// Array item with ID
+	builder.WriteString(arrayIndent)
+	builder.WriteString("- id: ")
+	builder.WriteString(item["id"].(string))
+	builder.WriteString("\n")
+
+	// MinVersion (quoted)
+	builder.WriteString(arrayIndent)
+	builder.WriteString("  minVersion: ")
+	minVersion := item["minVersion"].(string)
+	if strings.HasPrefix(minVersion, `"`) {
+		builder.WriteString(minVersion)
+	} else {
+		builder.WriteString(`"` + minVersion + `"`)
 	}
-	return false
+	builder.WriteString("\n")
+
+	// CheckRunning (if present)
+	if checkRunning, ok := item["checkRunning"].(bool); ok && checkRunning {
+		builder.WriteString(arrayIndent)
+		builder.WriteString("  checkRunning: true\n")
+	}
+
+	return builder.String()
 }
