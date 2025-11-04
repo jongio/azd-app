@@ -115,6 +115,11 @@ var toolRegistry = map[string]ToolConfig{
 		Args:         []string{"--version"},
 		VersionField: 2, // "git version 2.51.2.windows.1" -> take field 2
 	},
+	"go": {
+		Command:      "go",
+		Args:         []string{"version"},
+		VersionField: 2, // "go version go1.25.3 windows/amd64" -> take field 2
+	},
 	"azd": {
 		Command: "azd",
 		Args:    []string{"version"},

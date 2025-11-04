@@ -52,7 +52,7 @@ func NewRunCommand() *cobra.Command {
 }
 
 // runWithServices runs services from azure.yaml.
-func runWithServices(cmd *cobra.Command, args []string) error {
+func runWithServices(_ *cobra.Command, _ []string) error {
 	if err := validateRuntimeMode(runRuntime); err != nil {
 		return err
 	}

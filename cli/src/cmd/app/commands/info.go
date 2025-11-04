@@ -494,7 +494,6 @@ const (
 	colorYellow = "\033[93m"
 	colorRed    = "\033[91m"
 	colorGray   = "\033[90m"
-	colorBold   = "\033[1m"
 	colorReset  = "\033[0m"
 )
 

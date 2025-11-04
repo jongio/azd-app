@@ -254,7 +254,7 @@ func hasGit(dir string) bool {
 }
 
 // Tool detection functions
-func detectNode(projectDir string) DetectedRequirement {
+func detectNode(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:     "node",
 		Source: "package.json",
@@ -285,7 +285,7 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 	return detectTool("npm", "package.json")
 }
 
-func detectPython(projectDir string) DetectedRequirement {
+func detectPython(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:     "python",
 		Source: "requirements.txt or pyproject.toml",
@@ -329,7 +329,7 @@ func detectPythonPackageManager(projectDir string) DetectedRequirement {
 	return detectTool("pip", "requirements.txt")
 }
 
-func detectDotnet(projectDir string) DetectedRequirement {
+func detectDotnet(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:     "dotnet",
 		Source: ".csproj or .sln",
@@ -345,7 +345,7 @@ func detectDotnet(projectDir string) DetectedRequirement {
 	return req
 }
 
-func detectAspire(projectDir string) DetectedRequirement {
+func detectAspire(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:     "aspire",
 		Source: "AppHost.cs",
@@ -361,7 +361,7 @@ func detectAspire(projectDir string) DetectedRequirement {
 	return req
 }
 
-func detectDocker(projectDir string) DetectedRequirement {
+func detectDocker(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:           "docker",
 		Source:       "Dockerfile or docker-compose.yml",
@@ -378,7 +378,7 @@ func detectDocker(projectDir string) DetectedRequirement {
 	return req
 }
 
-func detectAzd(projectDir string) DetectedRequirement {
+func detectAzd(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:     "azd",
 		Source: "azure.yaml",
@@ -394,7 +394,7 @@ func detectAzd(projectDir string) DetectedRequirement {
 	return req
 }
 
-func detectGit(projectDir string) DetectedRequirement {
+func detectGit(_ string) DetectedRequirement {
 	req := DetectedRequirement{
 		ID:     "git",
 		Source: ".git directory",
@@ -620,11 +620,12 @@ func displayDetectedReqs(reqs []DetectedRequirement) {
 		for _, req := range reqs {
 			if req.InstalledVersion == "" {
 				output.ItemError("%s: NOT INSTALLED", req.ID)
-				if req.ID == "pnpm" {
+				switch req.ID {
+				case "pnpm":
 					output.Item("     Install: npm install -g pnpm")
-				} else if req.ID == "poetry" {
+				case "poetry":
 					output.Item("     Install: curl -sSL https://install.python-poetry.org | python3 -")
-				} else if req.ID == "uv" {
+				case "uv":
 					output.Item("     Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
 				}
 			}

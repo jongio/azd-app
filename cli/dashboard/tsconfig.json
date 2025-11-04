@@ -27,7 +27,7 @@
     "noFallthroughCasesInSwitch": true,
 
     /* Ignore deprecations - baseUrl will be deprecated in TS 7.0 but is required for paths */
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "5.0"
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

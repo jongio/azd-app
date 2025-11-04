@@ -165,23 +165,21 @@ func executeReqs() error {
 			results, allSatisfied = performReqsCheck(azureYaml.Reqs)
 
 			// Save to cache
-			if cacheManager != nil {
-				cacheResults := make([]cache.CachedReqResult, len(results))
-				for i, result := range results {
-					cacheResults[i] = cache.CachedReqResult{
-						ID:         result.ID,
-						Installed:  result.Installed,
-						Version:    result.Version,
-						Required:   result.Required,
-						Satisfied:  result.Satisfied,
-						Running:    result.Running,
-						CheckedRun: result.CheckedRun,
-						Message:    result.Message,
-					}
+			cacheResults := make([]cache.CachedReqResult, len(results))
+			for i, result := range results {
+				cacheResults[i] = cache.CachedReqResult{
+					ID:         result.ID,
+					Installed:  result.Installed,
+					Version:    result.Version,
+					Required:   result.Required,
+					Satisfied:  result.Satisfied,
+					Running:    result.Running,
+					CheckedRun: result.CheckedRun,
+					Message:    result.Message,
 				}
-				if saveErr := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); saveErr != nil && !output.IsJSON() {
-					output.Warning("Failed to save cache: %v", saveErr)
-				}
+			}
+			if saveErr := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); saveErr != nil && !output.IsJSON() {
+				output.Warning("Failed to save cache: %v", saveErr)
 			}
 		}
 	} else {
@@ -358,11 +356,12 @@ func executeRun() error {
 	return nil
 }
 
+// Deprecated: Legacy function kept for reference
+var _ = _runAzureYamlServices
+
 // runAzureYamlServices runs services defined in azure.yaml using service orchestration.
 // This is called from executeDeps to handle azure.yaml services in the orchestrator context.
-//
-//nolint:unused // Legacy function - kept for potential future use
-func runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) error {
+func _runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) error {
 	// Import the runServicesFromAzureYaml logic by calling it directly
 	// We can't easily reuse the function from run.go due to package isolation,
 	// so we'll implement a simple version that calls the service orchestrator

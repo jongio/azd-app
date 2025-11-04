@@ -15,9 +15,10 @@ import (
 )
 
 func TestAspireOutputCapture(t *testing.T) {
-	// Skip on Windows due to process termination issues with aspire spawning child processes
+	// Skip on Windows: Aspire spawns child processes that are difficult to terminate properly
+	// on Windows, leading to orphaned processes after test completion.
 	if runtime.GOOS == "windows" {
-		t.Skip("Skipping aspire output capture test on Windows due to process cleanup issues")
+		t.Skip("Test disabled on Windows - process cleanup issues with Aspire child processes")
 	}
 
 	// Find the test Aspire project
