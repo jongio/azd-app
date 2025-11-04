@@ -125,6 +125,7 @@ azd app run   # Start services with dashboard
 
 # Option 2: Create a new sample project
 azd init -t hello-azd
+azd up
 azd app run
 
 # View service information

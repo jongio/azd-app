@@ -673,7 +673,7 @@ reqs:
 	return newPath, true, nil
 }
 
-// mergeReqs merges detected reqs into azure.yaml.
+// mergeReqs merges detected reqs into azure.yaml while preserving structure and order.
 func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, error) {
 	// Validate path
 	if err := security.ValidatePath(azureYamlPath); err != nil {
@@ -687,54 +687,99 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 		return 0, 0, fmt.Errorf("failed to read azure.yaml: %w", err)
 	}
 
-	// Parse YAML
-	var azureYaml map[string]interface{}
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
+	// Parse YAML using yaml.v3 Node to preserve structure
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
 		return 0, 0, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	// Get existing requirements
-	var existingReqs []Prerequisite
-	if reqs, ok := azureYaml["reqs"].([]interface{}); ok {
-		for _, r := range reqs {
-			if reqMap, ok := r.(map[string]interface{}); ok {
-				prereq := Prerequisite{
-					ID:         getString(reqMap, "id"),
-					MinVersion: getString(reqMap, "minVersion"),
+	// Navigate to the document root (MappingNode)
+	if len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return 0, 0, fmt.Errorf("invalid azure.yaml structure")
+	}
+	docNode := root.Content[0]
+
+	// Find existing reqs section and build map of existing IDs
+	existingIDs := make(map[string]bool)
+	var reqsNode *yaml.Node
+
+	for i := 0; i < len(docNode.Content); i += 2 {
+		keyNode := docNode.Content[i]
+		valueNode := docNode.Content[i+1]
+
+		if keyNode.Value == "reqs" && valueNode.Kind == yaml.SequenceNode {
+			reqsNode = valueNode
+
+			// Scan existing reqs to find IDs
+			for _, itemNode := range valueNode.Content {
+				if itemNode.Kind == yaml.MappingNode {
+					for j := 0; j < len(itemNode.Content); j += 2 {
+						if itemNode.Content[j].Value == "id" {
+							existingIDs[itemNode.Content[j+1].Value] = true
+							break
+						}
+					}
 				}
-				if reqMap["checkRunning"] != nil {
-					prereq.CheckRunning = getBool(reqMap, "checkRunning")
-				}
-				existingReqs = append(existingReqs, prereq)
 			}
+			break
 		}
 	}
 
-	// Build map of existing IDs
-	existingIDs := make(map[string]bool)
-	for _, req := range existingReqs {
-		existingIDs[req.ID] = true
-	}
-
-	// Add new requirements
-	added := 0
+	// Filter out requirements that already exist
+	var newReqs []DetectedRequirement
 	for _, detected := range detected {
 		if !existingIDs[detected.ID] {
-			newReq := Prerequisite{
-				ID:           detected.ID,
-				MinVersion:   detected.MinVersion,
-				CheckRunning: detected.CheckRunning,
-			}
-			existingReqs = append(existingReqs, newReq)
-			added++
+			newReqs = append(newReqs, detected)
 		}
 	}
 
-	// Update azure.yaml
-	azureYaml["reqs"] = existingReqs
+	if len(newReqs) == 0 {
+		return 0, len(existingIDs), nil
+	}
+
+	// If no reqs section exists, create one at the end
+	if reqsNode == nil {
+		// Create reqs key
+		keyNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: "reqs",
+		}
+		// Create reqs sequence
+		reqsNode = &yaml.Node{
+			Kind:    yaml.SequenceNode,
+			Content: []*yaml.Node{},
+		}
+		// Add to document
+		docNode.Content = append(docNode.Content, keyNode, reqsNode)
+	}
+
+	// Add new requirements to the reqs sequence
+	for _, req := range newReqs {
+		// Create a mapping node for this requirement
+		reqMap := &yaml.Node{
+			Kind: yaml.MappingNode,
+			Content: []*yaml.Node{
+				{Kind: yaml.ScalarNode, Value: "id"},
+				{Kind: yaml.ScalarNode, Value: req.ID},
+				{Kind: yaml.ScalarNode, Value: "minVersion"},
+				{Kind: yaml.ScalarNode, Value: req.MinVersion, Style: yaml.DoubleQuotedStyle},
+			},
+		}
+
+		// Add checkRunning if needed
+		if req.CheckRunning {
+			reqMap.Content = append(reqMap.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "checkRunning"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "true"},
+			)
+		}
+
+		// Add to reqs sequence
+		reqsNode.Content = append(reqsNode.Content, reqMap)
+	}
 
 	// Marshal back to YAML
-	output, err := yaml.Marshal(azureYaml)
+	output, err := yaml.Marshal(&root)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to marshal yaml: %w", err)
 	}
@@ -745,8 +790,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 		return 0, 0, fmt.Errorf("failed to write azure.yaml: %w", err)
 	}
 
-	skipped := len(existingIDs)
-	return added, skipped, nil
+	return len(newReqs), len(existingIDs), nil
 }
 
 // Helper functions for YAML parsing

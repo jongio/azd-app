@@ -296,8 +296,19 @@ func Install() error {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
+	fmt.Println("Installing extension with azd extension install...")
+
+	// Install the extension to make it available as 'azd app'
+	if err := sh.RunV("azd", "extension", "install", "jongio.azd.app"); err != nil {
+		// If it fails because already installed, that's ok - try updating instead
+		fmt.Println("Extension already installed, updating...")
+		if err := sh.RunV("azd", "extension", "update", "jongio.azd.app"); err != nil {
+			return fmt.Errorf("failed to install/update extension: %w", err)
+		}
+	}
+
 	fmt.Printf("✅ Installed version: %s\n", version)
-	fmt.Println("\nTest it: azd app --version")
+	fmt.Println("\nTest it: azd app version")
 	return nil
 }
 
@@ -397,6 +408,17 @@ func InstallFast() error {
 
 	if err := sh.RunV("azd", "x", "build"); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
+	}
+
+	fmt.Println("Installing extension with azd extension install...")
+
+	// Install the extension to make it available as 'azd app'
+	if err := sh.RunV("azd", "extension", "install", "jongio.azd.app"); err != nil {
+		// If it fails because already installed, that's ok - try updating instead
+		fmt.Println("Extension already installed, updating...")
+		if err := sh.RunV("azd", "extension", "update", "jongio.azd.app"); err != nil {
+			return fmt.Errorf("failed to install/update extension: %w", err)
+		}
 	}
 
 	fmt.Printf("✅ Fast install complete! Version: %s\n", version)
