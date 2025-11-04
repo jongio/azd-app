@@ -11,21 +11,30 @@ import (
 	"time"
 )
 
+// DebugInfo represents debug information for a service.
+type DebugInfo struct {
+	Enabled  bool   `json:"enabled"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"` // "inspector", "debugpy", "delve", "coreclr", "jdwp", "lldb"
+	URL      string `json:"url"`      // "ws://localhost:9229" or "tcp://localhost:5678"
+}
+
 // ServiceRegistryEntry represents a running service in the registry.
 type ServiceRegistryEntry struct {
-	Name        string    `json:"name"`
-	ProjectDir  string    `json:"projectDir"`
-	PID         int       `json:"pid"`
-	Port        int       `json:"port"`
-	URL         string    `json:"url"`
-	AzureURL    string    `json:"azureUrl,omitempty"`
-	Language    string    `json:"language"`
-	Framework   string    `json:"framework"`
-	Status      string    `json:"status"` // "starting", "ready", "stopping", "stopped", "error"
-	Health      string    `json:"health"` // "healthy", "unhealthy", "unknown"
-	StartTime   time.Time `json:"startTime"`
-	LastChecked time.Time `json:"lastChecked"`
-	Error       string    `json:"error,omitempty"`
+	Name        string     `json:"name"`
+	ProjectDir  string     `json:"projectDir"`
+	PID         int        `json:"pid"`
+	Port        int        `json:"port"`
+	URL         string     `json:"url"`
+	AzureURL    string     `json:"azureUrl,omitempty"`
+	Language    string     `json:"language"`
+	Framework   string     `json:"framework"`
+	Status      string     `json:"status"` // "starting", "ready", "stopping", "stopped", "error"
+	Health      string     `json:"health"` // "healthy", "unhealthy", "unknown"
+	Debug       *DebugInfo `json:"debug,omitempty"`
+	StartTime   time.Time  `json:"startTime"`
+	LastChecked time.Time  `json:"lastChecked"`
+	Error       string     `json:"error,omitempty"`
 }
 
 // ServiceRegistry manages the registry of running services for a project.
