@@ -12,20 +12,20 @@ import (
 
 // DebugConfiguration represents a VS Code debug configuration.
 type DebugConfiguration struct {
-	Type        string                 `json:"type"`
-	Request     string                 `json:"request"`
-	Name        string                 `json:"name"`
-	Address     string                 `json:"address,omitempty"`
-	Port        int                    `json:"port,omitempty"`
-	SkipFiles   []string               `json:"skipFiles,omitempty"`
-	Connect     map[string]interface{} `json:"connect,omitempty"`
-	ProcessId   string                 `json:"processId,omitempty"`
-	ProcessName string                 `json:"processName,omitempty"`
-	Mode        string                 `json:"mode,omitempty"`
-	Host        string                 `json:"host,omitempty"`
-	PathMappings []PathMapping         `json:"pathMappings,omitempty"`
-	Cwd         string                 `json:"cwd,omitempty"`
-	Program     string                 `json:"program,omitempty"`
+	Type         string                 `json:"type"`
+	Request      string                 `json:"request"`
+	Name         string                 `json:"name"`
+	Address      string                 `json:"address,omitempty"`
+	Port         int                    `json:"port,omitempty"`
+	SkipFiles    []string               `json:"skipFiles,omitempty"`
+	Connect      map[string]interface{} `json:"connect,omitempty"`
+	ProcessId    string                 `json:"processId,omitempty"`
+	ProcessName  string                 `json:"processName,omitempty"`
+	Mode         string                 `json:"mode,omitempty"`
+	Host         string                 `json:"host,omitempty"`
+	PathMappings []PathMapping          `json:"pathMappings,omitempty"`
+	Cwd          string                 `json:"cwd,omitempty"`
+	Program      string                 `json:"program,omitempty"`
 }
 
 // PathMapping represents a path mapping for remote debugging.
@@ -103,7 +103,7 @@ var defaultDebugPorts = map[string]int{
 func GetDebugPort(language string, offset int) int {
 	// Normalize language to lowercase for lookup
 	normalized := strings.ToLower(language)
-	
+
 	// Map common language names to their debug language identifiers
 	langMap := map[string]string{
 		"javascript": "node",
@@ -114,11 +114,11 @@ func GetDebugPort(language string, offset int) int {
 		"csharp":     "dotnet",
 		"golang":     "go",
 	}
-	
+
 	if mapped, ok := langMap[normalized]; ok {
 		normalized = mapped
 	}
-	
+
 	basePort := defaultDebugPorts[normalized]
 	if basePort == 0 {
 		basePort = 9000 // fallback
@@ -359,4 +359,3 @@ func normalizeLanguageForDebug(language string) string {
 		return lower
 	}
 }
-

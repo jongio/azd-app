@@ -24,13 +24,13 @@ const (
 )
 
 var (
-	runServiceFilter       string
-	runEnvFile             string
-	runVerbose             bool
-	runDryRun              bool
-	runRuntime             string
-	runDebug               bool
-	runWaitForDebugger     bool
+	runServiceFilter         string
+	runEnvFile               string
+	runVerbose               bool
+	runDryRun                bool
+	runRuntime               string
+	runDebug                 bool
+	runWaitForDebugger       bool
 	runRegenerateDebugConfig bool
 )
 
@@ -212,7 +212,7 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 
 	// Create logger
 	logger := service.NewServiceLogger(runVerbose)
-	
+
 	// Show debug mode message if enabled
 	if runDebug {
 		output.Info("🐛 Starting services in debug mode...")
@@ -357,7 +357,7 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 		output.Label("Port", fmt.Sprintf("%d", runtime.Port))
 		output.Label("Directory", runtime.WorkingDir)
 		output.Label("Command", fmt.Sprintf("%s %v", runtime.Command, runtime.Args))
-		
+
 		// Show debug info if enabled
 		if runtime.Debug.Enabled {
 			output.Label("Debug", fmt.Sprintf("enabled on port %d (%s)", runtime.Debug.Port, runtime.Debug.Protocol))
@@ -413,7 +413,7 @@ func generateDebugConfig(runtimes []*service.ServiceRuntime, projectDir string) 
 // showDebugInfo displays debug information for all services.
 func showDebugInfo(runtimes []*service.ServiceRuntime) {
 	output.Newline()
-	
+
 	// Show debug ports
 	hasDebugServices := false
 	for _, rt := range runtimes {

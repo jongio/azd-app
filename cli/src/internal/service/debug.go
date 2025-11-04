@@ -86,7 +86,7 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 		}
 		jdwpFlag := fmt.Sprintf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=*:%d",
 			suspendFlag, debugPort)
-		
+
 		// Check if JAVA_TOOL_OPTIONS already exists
 		javaToolOptions := jdwpFlag
 		for i, env := range cmd.Env {

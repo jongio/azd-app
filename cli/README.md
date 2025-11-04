@@ -20,8 +20,10 @@ App automatically detects and manages dependencies for:
 - 🔍 **Smart Detection**: Automatically identifies project types and package managers
 - 📦 **Multi-Language Support**: Works with Node.js, Python, and .NET projects
 - 🚀 **One-Command Setup**: Install all dependencies with a single command
+- 🐛 **Zero-Friction Debugging**: F5 debugging with auto-generated VS Code configs for all languages
 - 🎯 **Environment-Aware**: Creates and manages virtual environments for Python
 - ⚡ **Fast Iteration**: Minimal test dependencies for quick validation
+- 📊 **Live Dashboard**: Real-time service monitoring with debug status
 
 ## Installation
 
