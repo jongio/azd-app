@@ -1,0 +1,26 @@
+name: Update Registry (Legacy)
+
+# NOTE: This workflow is now LEGACY and replaced by release-publish.yml
+# Kept for backward compatibility. See docs/release-process.md for new process.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-registry:
+    name: Update registry.json
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'azd-app-cli-v')
+    
+    steps:
+    - name: Redirect to new workflow
+      run: |
+        echo "⚠️ This workflow is deprecated."
+        echo "✅ The release-publish.yml workflow handles this now."
+        echo "📖 See docs/release-process.md for the new process."
+        exit 0
