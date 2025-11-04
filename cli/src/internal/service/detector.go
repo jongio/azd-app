@@ -658,6 +658,13 @@ func NormalizeLanguage(language string) string {
 	return normalizeLanguage(language)
 }
 
+// NormalizeLanguageForDebug normalizes language names for debug configuration.
+// Returns lowercase identifiers used by debuggers and VS Code.
+// This is the public version exported for use by other packages (e.g., vscode).
+func NormalizeLanguageForDebug(language string) string {
+	return normalizeLanguageForDebug(language)
+}
+
 // normalizeLanguageForDebug normalizes language names for debug configuration.
 // Returns lowercase identifiers used by debuggers and VS Code.
 func normalizeLanguageForDebug(language string) string {
