@@ -69,7 +69,7 @@ Generate a secure random secret for authentication:
 export AZD_AUTH_SECRET=$(openssl rand -base64 32)
 
 # On Windows (PowerShell)
-$env:AZD_AUTH_SECRET = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+$env:AZD_AUTH_SECRET = [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 
 # Verify secret is set
 echo $AZD_AUTH_SECRET

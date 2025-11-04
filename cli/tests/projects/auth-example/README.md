@@ -108,13 +108,20 @@ class AuthServerCredential:
 This credential can be used with **any** Azure SDK client:
 
 ```python
-from azure.identity import AuthServerCredential
+from auth_credential import AuthServerCredential
 from azure.mgmt.resource import SubscriptionClient
 
 credential = AuthServerCredential(
     server_url=os.environ["AUTH_SERVER_URL"],
     secret=os.environ["AZD_AUTH_SECRET"]
 )
+
+# For self-signed certificates in development:
+# credential = AuthServerCredential(
+#     server_url=os.environ["AUTH_SERVER_URL"],
+#     secret=os.environ["AZD_AUTH_SECRET"],
+#     verify_ssl=False  # Only for dev with self-signed certs!
+# )
 
 # Works with any Azure SDK client!
 client = SubscriptionClient(credential)

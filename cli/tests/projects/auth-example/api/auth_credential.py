@@ -35,6 +35,7 @@ class AuthServerCredential(TokenCredential):
         server_url: URL of the auth server (e.g., "http://auth-server:8080")
         secret: Shared secret for authentication
         timeout: Request timeout in seconds (default: 30)
+        verify_ssl: Verify SSL certificates (default: True). Set to False for self-signed certs in dev.
     
     Environment Variables:
         AUTH_SERVER_URL: Auth server URL (used if server_url not provided)
@@ -45,11 +46,13 @@ class AuthServerCredential(TokenCredential):
         self,
         server_url: Optional[str] = None,
         secret: Optional[str] = None,
-        timeout: int = 30
+        timeout: int = 30,
+        verify_ssl: bool = True
     ):
         self.server_url = server_url or os.environ.get("AUTH_SERVER_URL")
         self.secret = secret or os.environ.get("AZD_AUTH_SECRET")
         self.timeout = timeout
+        self.verify_ssl = verify_ssl
         self._token_cache = {}
         
         if not self.server_url:
@@ -126,7 +129,8 @@ class AuthServerCredential(TokenCredential):
             url,
             headers=headers,
             params=params,
-            timeout=self.timeout
+            timeout=self.timeout,
+            verify=self.verify_ssl
         )
         
         response.raise_for_status()
