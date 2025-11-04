@@ -76,6 +76,14 @@ type ServiceInfo struct {
 	EnvironmentVars map[string]string `json:"environmentVariables,omitempty"`
 }
 
+// DebugInfo contains debug information for a service.
+type DebugInfo struct {
+	Enabled  bool   `json:"enabled"`
+	Port     int    `json:"port,omitempty"`
+	Protocol string `json:"protocol,omitempty"`
+	URL      string `json:"url,omitempty"`
+}
+
 // LocalServiceInfo contains local development information.
 type LocalServiceInfo struct {
 	Status      string     `json:"status"` // "running", "not-running", "unknown"
@@ -83,6 +91,7 @@ type LocalServiceInfo struct {
 	URL         string     `json:"url,omitempty"`
 	Port        int        `json:"port,omitempty"`
 	PID         int        `json:"pid,omitempty"`
+	Debug       *DebugInfo `json:"debug,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`
 	LastChecked *time.Time `json:"lastChecked,omitempty"`
 }
@@ -281,12 +290,23 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	for _, runningSvc := range runningServices {
 		normalizedName := strings.ToLower(runningSvc.Name)
 		if existing, exists := serviceMap[normalizedName]; exists {
+			var debugInfo *DebugInfo
+			if runningSvc.Debug != nil && runningSvc.Debug.Enabled {
+				debugInfo = &DebugInfo{
+					Enabled:  runningSvc.Debug.Enabled,
+					Port:     runningSvc.Debug.Port,
+					Protocol: runningSvc.Debug.Protocol,
+					URL:      runningSvc.Debug.URL,
+				}
+			}
+			
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
 				Health:      runningSvc.Health,
 				URL:         runningSvc.URL,
 				Port:        runningSvc.Port,
 				PID:         runningSvc.PID,
+				Debug:       debugInfo,
 				StartTime:   &runningSvc.StartTime,
 				LastChecked: &runningSvc.LastChecked,
 			}
