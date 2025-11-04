@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
 // DebugConfiguration represents a VS Code debug configuration.
@@ -89,41 +89,10 @@ type ServiceDebugInfo struct {
 	Port     int
 }
 
-// defaultDebugPorts maps languages to their default debug ports.
-var defaultDebugPorts = map[string]int{
-	"node":   9229,
-	"python": 5678,
-	"go":     2345,
-	"dotnet": 5005,
-	"java":   5005,
-	"rust":   4711,
-}
-
 // GetDebugPort returns the debug port for a language with an offset for multiple services.
+// This is a convenience wrapper around service.GetDebugPort.
 func GetDebugPort(language string, offset int) int {
-	// Normalize language to lowercase for lookup
-	normalized := strings.ToLower(language)
-
-	// Map common language names to their debug language identifiers
-	langMap := map[string]string{
-		"javascript": "node",
-		"typescript": "node",
-		"node.js":    "node",
-		".net":       "dotnet",
-		"c#":         "dotnet",
-		"csharp":     "dotnet",
-		"golang":     "go",
-	}
-
-	if mapped, ok := langMap[normalized]; ok {
-		normalized = mapped
-	}
-
-	basePort := defaultDebugPorts[normalized]
-	if basePort == 0 {
-		basePort = 9000 // fallback
-	}
-	return basePort + offset
+	return service.GetDebugPort(language, offset)
 }
 
 // EnsureDebugConfig generates VS Code debug configurations if they don't exist.
@@ -170,7 +139,7 @@ func generateLaunchJSON(services []ServiceDebugInfo) LaunchConfig {
 	// Generate individual attach configs for each service
 	for _, svc := range services {
 		// Normalize language for debug
-		normalizedLang := normalizeLanguageForDebug(svc.Language)
+		normalizedLang := service.NormalizeLanguageForDebug(svc.Language)
 		debugPort := GetDebugPort(normalizedLang, languageCounts[normalizedLang])
 		languageCounts[normalizedLang]++
 
@@ -336,26 +305,4 @@ func writeTasksJSON(path string, config TasksConfig) error {
 	}
 
 	return nil
-}
-
-// normalizeLanguageForDebug normalizes language names for debug configuration.
-// Returns lowercase identifiers used by debuggers and VS Code.
-func normalizeLanguageForDebug(language string) string {
-	lower := strings.ToLower(language)
-	switch lower {
-	case "javascript", "typescript", "js", "ts", "node", "nodejs", "node.js":
-		return "node"
-	case "py", "python":
-		return "python"
-	case "dotnet", ".net", "c#", "csharp", "fsharp", "f#":
-		return "dotnet"
-	case "java":
-		return "java"
-	case "go", "golang":
-		return "go"
-	case "rs", "rust":
-		return "rust"
-	default:
-		return lower
-	}
 }
