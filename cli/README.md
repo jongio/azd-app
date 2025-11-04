@@ -261,6 +261,44 @@ azd app run --env-file .env.local
 - pnpm dev servers
 - Docker Compose orchestration
 
+### `azd app auth`
+
+Manage authentication server for secure container-to-container communication.
+
+```bash
+# Start authentication server
+azd app auth server start --secret mysecret
+
+# Get token from auth server
+azd app auth token get --server http://auth-server:8080 --secret mysecret
+
+# Check server health
+azd app auth token get --server http://auth-server:8080 --secret mysecret --health-check
+```
+
+**Server Commands:**
+- `azd app auth server start` - Start the authentication server
+- `azd app auth server status` - Check server status
+
+**Client Commands:**
+- `azd app auth token get` - Fetch tokens from auth server
+
+**Features:**
+- 🔐 Centralized authentication for container networks
+- 🔑 JWT-wrapped Azure tokens for security
+- 💾 Smart caching to minimize API calls
+- 🚦 Rate limiting to prevent abuse
+- 🔒 TLS/HTTPS support for production
+- 🐳 Compatible with Docker, Podman, and Kubernetes
+
+**Use Cases:**
+- Distribute Azure credentials across multiple containers
+- Sidecar authentication pattern
+- Standalone auth server for microservices
+- Eliminate credential duplication in container environments
+
+See [docs/auth-server.md](docs/auth-server.md) for comprehensive documentation including Docker Compose and Kubernetes examples.
+
 ## Commands
 
 For complete command reference with all flags and options, see the [CLI Reference Documentation](docs/cli-reference.md).
