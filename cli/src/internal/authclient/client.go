@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	// tokenExpiryBuffer is the buffer time before token expiry to refresh the token
+	tokenExpiryBuffer = time.Minute
+)
+
 // Client handles fetching tokens from the authentication server.
 type Client struct {
 	serverURL    string
@@ -101,7 +106,7 @@ func (c *Client) GetToken(scope string) (string, error) {
 	var lastErr error
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
 		if attempt > 0 {
-			// Exponential backoff
+			// Exponential backoff: backoff * 2^(attempt-1)
 			backoff := c.retryBackoff * time.Duration(1<<uint(attempt-1))
 			time.Sleep(backoff)
 		}
@@ -166,8 +171,8 @@ func (c *Client) getCachedToken(scope string) string {
 		return ""
 	}
 
-	// Check if token is expired (with 1 minute buffer)
-	if time.Now().Add(time.Minute).After(cached.ExpiresAt) {
+	// Check if token is expired (with buffer)
+	if time.Now().Add(tokenExpiryBuffer).After(cached.ExpiresAt) {
 		return ""
 	}
 

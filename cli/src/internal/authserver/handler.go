@@ -15,6 +15,17 @@ import (
 	gocache "github.com/patrickmn/go-cache"
 )
 
+const (
+	// defaultCacheCleanupInterval is how often to clean up expired cache entries
+	defaultCacheCleanupInterval = 10 * time.Minute
+
+	// azureTokenTimeout is the timeout for requesting tokens from Azure
+	azureTokenTimeout = 30 * time.Second
+
+	// cacheExpiryBuffer is the buffer time before token expiry to invalidate cache
+	cacheExpiryBuffer = time.Minute
+)
+
 // Handler manages HTTP request handling for the authentication server.
 type Handler struct {
 	config      *Config
@@ -41,7 +52,7 @@ func NewHandler(config *Config) (*Handler, error) {
 	return &Handler{
 		config:      config,
 		jwtManager:  NewJWTManager(config.SharedSecret),
-		tokenCache:  gocache.New(config.CacheExpiry, 10*time.Minute),
+		tokenCache:  gocache.New(config.CacheExpiry, defaultCacheCleanupInterval),
 		credential:  credential,
 		rateLimiter: NewRateLimiter(config.RateLimitRequests),
 	}, nil
@@ -142,7 +153,7 @@ func (h *Handler) handleGetToken(c *gin.Context) {
 	}
 
 	// Request new token from Azure
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), azureTokenTimeout)
 	defer cancel()
 
 	token, err := h.credential.GetToken(ctx, policy.TokenRequestOptions{
@@ -174,8 +185,8 @@ func (h *Handler) handleGetToken(c *gin.Context) {
 		"scope":        scope,
 	}
 
-	// Cache the response
-	h.tokenCache.Set(cacheKey, response, h.config.TokenExpiry-time.Minute)
+	// Cache the response (with buffer before expiry)
+	h.tokenCache.Set(cacheKey, response, h.config.TokenExpiry-cacheExpiryBuffer)
 
 	c.JSON(http.StatusOK, response)
 }
