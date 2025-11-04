@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Server Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .result pre {
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .error {
+            border-left-color: #e74c3c;
+            background: #fee;
+        }
+        
+        .success {
+            border-left-color: #27ae60;
+            background: #efe;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .info-item strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .info-item span {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .subscription-list {
+            margin-top: 15px;
+        }
+        
+        .subscription-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .subscription-item strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .subscription-item small {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .badge.enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .architecture {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Auth Server Demo</h1>
+            <p class="subtitle">
+                Demonstrating secure container-to-container Azure credential distribution
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>📐 Architecture</h2>
+            <div class="architecture">┌─────────────┐     HTTP      ┌─────────────┐
+│  Frontend   │──────────────>│   API       │
+│  (Node.js)  │               │  (Python)   │
+└─────────────┘               └──────┬──────┘
+                                     │ Get Token
+                                     ↓
+                              ┌─────────────┐
+                              │ Auth Server │
+                              │  (azd app)  │
+                              └──────┬──────┘
+                                     │ Azure Token
+                                     ↓
+                              ┌─────────────┐
+                              │   Azure     │
+                              │  Services   │
+                              └─────────────┘</div>
+        </div>
+
+        <div class="card">
+            <h2>🔌 Test Authentication</h2>
+            <p style="color: #666; margin-bottom: 15px;">
+                Verify that the API can authenticate with the auth server and Azure
+            </p>
+            <button id="testAuthBtn" onclick="testAuth()">Test Authentication</button>
+            <div id="authResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>📋 List Azure Subscriptions</h2>
+            <p style="color: #666; margin-bottom: 15px;">
+                Retrieve your Azure subscriptions using the custom AuthServerCredential
+            </p>
+            <button id="listSubsBtn" onclick="listSubscriptions()">List Subscriptions</button>
+            <div id="subsResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>💾 List Storage Accounts</h2>
+            <p style="color: #666; margin-bottom: 15px;">
+                List storage accounts in your first subscription
+            </p>
+            <button id="listStorageBtn" onclick="listStorageAccounts()">List Storage Accounts</button>
+            <div id="storageResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>ℹ️ How It Works</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>1. Frontend Request</strong>
+                    <span>User clicks button, frontend makes request to API</span>
+                </div>
+                <div class="info-item">
+                    <strong>2. Custom Credential</strong>
+                    <span>API uses AuthServerCredential to request token</span>
+                </div>
+                <div class="info-item">
+                    <strong>3. Auth Server</strong>
+                    <span>Validates secret, wraps Azure token in JWT, returns to API</span>
+                </div>
+                <div class="info-item">
+                    <strong>4. Azure SDK</strong>
+                    <span>API uses token to call Azure Management APIs</span>
+                </div>
+                <div class="info-item">
+                    <strong>5. Response</strong>
+                    <span>Data flows back through API to frontend</span>
+                </div>
+                <div class="info-item">
+                    <strong>6. Caching</strong>
+                    <span>Tokens are cached for 15 minutes at server and client</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testAuth() {
+            const btn = document.getElementById('testAuthBtn');
+            const resultDiv = document.getElementById('authResult');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Testing...';
+            resultDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/auth/test');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const expiresDate = new Date(data.expires_on * 1000);
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Authentication Successful!</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                            <p style="margin-top: 10px; color: #666;">
+                                Token expires: ${expiresDate.toLocaleString()}
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <strong>❌ Authentication Failed</strong>
+                            <pre>${data.error}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Request Failed</strong>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Authentication';
+            }
+        }
+
+        async function listSubscriptions() {
+            const btn = document.getElementById('listSubsBtn');
+            const resultDiv = document.getElementById('subsResult');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Loading...';
+            resultDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/subscriptions');
+                const data = await response.json();
+                
+                if (response.ok && data.subscriptions) {
+                    let html = `
+                        <div class="result success">
+                            <strong>✅ Found ${data.count} subscription(s)</strong>
+                            <p style="margin: 10px 0; color: #666;">
+                                Authenticated using: <code>${data.authMethod}</code>
+                            </p>
+                            <div class="subscription-list">
+                    `;
+                    
+                    data.subscriptions.forEach(sub => {
+                        const stateClass = sub.state === 'Enabled' ? 'enabled' : '';
+                        html += `
+                            <div class="subscription-item">
+                                <strong>${sub.name} <span class="badge ${stateClass}">${sub.state}</span></strong>
+                                <small>ID: ${sub.id}</small><br>
+                                <small>Tenant: ${sub.tenantId}</small>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div></div>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    throw new Error(data.detail || 'Failed to fetch subscriptions');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Request Failed</strong>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'List Subscriptions';
+            }
+        }
+
+        async function listStorageAccounts() {
+            const btn = document.getElementById('listStorageBtn');
+            const resultDiv = document.getElementById('storageResult');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Loading...';
+            resultDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/storage-accounts');
+                const data = await response.json();
+                
+                if (response.ok && data.accounts) {
+                    let html = `
+                        <div class="result success">
+                            <strong>✅ Found ${data.count} storage account(s)</strong>
+                            <p style="margin: 10px 0; color: #666;">
+                                In subscription: <code>${data.subscription_id}</code>
+                            </p>
+                    `;
+                    
+                    if (data.count > 0) {
+                        html += '<div class="subscription-list">';
+                        data.accounts.forEach(account => {
+                            html += `
+                                <div class="subscription-item">
+                                    <strong>${account.name}</strong>
+                                    <small>Location: ${account.location} | SKU: ${account.sku} | Kind: ${account.kind}</small>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    } else {
+                        html += '<p style="margin-top: 10px; color: #666;">No storage accounts found in this subscription.</p>';
+                    }
+                    
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    throw new Error(data.detail || 'Failed to fetch storage accounts');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Request Failed</strong>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'List Storage Accounts';
+            }
+        }
+
+        // Load initial status
+        window.addEventListener('load', () => {
+            console.log('Auth Server Demo loaded');
+        });
+    </script>
+</body>
+</html>

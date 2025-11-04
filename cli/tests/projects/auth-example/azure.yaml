@@ -1,0 +1,19 @@
+name: auth-example
+metadata:
+  template: auth-example@0.1.0
+
+services:
+  auth-server:
+    project: .
+    language: go
+    host: containerapp
+  
+  api:
+    project: ./api
+    language: python
+    host: containerapp
+  
+  frontend:
+    project: ./frontend
+    language: js
+    host: containerapp

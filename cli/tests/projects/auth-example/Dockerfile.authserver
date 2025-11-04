@@ -1,0 +1,38 @@
+# Dockerfile for building azd app auth server
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /build
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY src ./src
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o /build/bin/app ./src/cmd/app
+
+# Final stage - minimal image
+FROM alpine:latest
+
+# Install curl for healthcheck
+RUN apk --no-cache add curl ca-certificates
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /build/bin/app ./bin/app
+
+# Expose port
+EXPOSE 8080
+
+# Run as non-root user
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Default command
+CMD ["./bin/app", "auth", "server", "start"]

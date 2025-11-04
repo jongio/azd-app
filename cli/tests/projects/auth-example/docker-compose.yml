@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Auth Server - Distributes Azure tokens
+  auth-server:
+    build:
+      context: ../../../..  # Build from cli root to get the azd app binary
+      dockerfile: tests/projects/auth-example/Dockerfile.authserver
+    command: ./bin/app auth server start --secret ${AZD_AUTH_SECRET} --bind 0.0.0.0
+    environment:
+      - AZD_AUTH_SECRET=${AZD_AUTH_SECRET}
+    networks:
+      - app-network
+    ports:
+      - "8080"  # Internal only
+    volumes:
+      - ${HOME}/.azd:/root/.azd:ro  # Mount azd credentials (read-only)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API - Uses auth server to get Azure tokens
+  api:
+    build: ./api
+    environment:
+      - AUTH_SERVER_URL=http://auth-server:8080
+      - AZD_AUTH_SECRET=${AZD_AUTH_SECRET}
+      - PORT=8000
+    networks:
+      - app-network
+    ports:
+      - "8000:8000"
+    depends_on:
+      auth-server:
+        condition: service_healthy
+
+  # Frontend - Simple web UI
+  frontend:
+    build: ./frontend
+    environment:
+      - API_URL=http://api:8000
+      - PORT=3000
+    networks:
+      - app-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+networks:
+  app-network:
+    driver: bridge
