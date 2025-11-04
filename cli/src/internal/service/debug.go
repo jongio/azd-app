@@ -5,6 +5,40 @@ import (
 	"os/exec"
 )
 
+// Debug port mappings for each language
+var defaultDebugPorts = map[string]int{
+	"node":   9229,
+	"python": 5678,
+	"go":     2345,
+	"dotnet": 5005,
+	"java":   5005,
+	"rust":   4711,
+}
+
+// Debug protocol mappings for each language
+var debugProtocols = map[string]string{
+	"node":   "inspector",
+	"python": "debugpy",
+	"go":     "delve",
+	"dotnet": "coreclr",
+	"java":   "jdwp",
+	"rust":   "lldb",
+}
+
+// GetDebugPort returns the default debug port for a language with offset.
+// This is exported for use by other packages (e.g., vscode).
+func GetDebugPort(language string, offset int) int {
+	normalizedLang := normalizeLanguageForDebug(language)
+	return getDebugPort(normalizedLang, offset)
+}
+
+// GetDebugProtocol returns the debug protocol for a language.
+// This is exported for use by other packages (e.g., vscode).
+func GetDebugProtocol(language string) string {
+	normalizedLang := normalizeLanguageForDebug(language)
+	return getDebugProtocol(normalizedLang)
+}
+
 // ConfigureDebug sets up debug configuration for a service runtime.
 func ConfigureDebug(runtime *ServiceRuntime, debugEnabled bool, waitForDebugger bool, languageIndex int) {
 	if !debugEnabled {
@@ -111,16 +145,7 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 
 // getDebugPort returns the default debug port for a language with offset.
 func getDebugPort(language string, offset int) int {
-	defaultPorts := map[string]int{
-		"node":   9229,
-		"python": 5678,
-		"go":     2345,
-		"dotnet": 5005,
-		"java":   5005,
-		"rust":   4711,
-	}
-
-	basePort := defaultPorts[language]
+	basePort := defaultDebugPorts[language]
 	if basePort == 0 {
 		basePort = 9000 // fallback
 	}
@@ -129,16 +154,7 @@ func getDebugPort(language string, offset int) int {
 
 // getDebugProtocol returns the debug protocol for a language.
 func getDebugProtocol(language string) string {
-	protocols := map[string]string{
-		"node":   "inspector",
-		"python": "debugpy",
-		"go":     "delve",
-		"dotnet": "coreclr",
-		"java":   "jdwp",
-		"rust":   "lldb",
-	}
-
-	protocol := protocols[language]
+	protocol := debugProtocols[language]
 	if protocol == "" {
 		protocol = "unknown"
 	}
