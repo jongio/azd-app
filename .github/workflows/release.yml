@@ -53,17 +53,21 @@ jobs:
 
     - name: Build for all platforms
       run: |
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        VERSION="${GITHUB_REF#refs/tags/cli-v}"
+        LDFLAGS="-s -w -X github.com/jongio/azd-app/cli/src/cmd/app/commands.Version=$VERSION -X github.com/jongio/azd-app/cli/src/cmd/app/commands.BuildTime=$BUILD_TIME"
+        
         # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/windows-amd64/app.exe ./src/cmd/app
+        GOOS=windows GOARCH=amd64 go build -ldflags="$LDFLAGS" -o bin/windows-amd64/app.exe ./src/cmd/app
         
         # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/linux-amd64/app ./src/cmd/app
+        GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o bin/linux-amd64/app ./src/cmd/app
         
         # macOS AMD64
-        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o bin/darwin-amd64/app ./src/cmd/app
+        GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o bin/darwin-amd64/app ./src/cmd/app
         
         # macOS ARM64
-        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/darwin-arm64/app ./src/cmd/app
+        GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o bin/darwin-arm64/app ./src/cmd/app
 
     - name: Create platform packages
       run: |
