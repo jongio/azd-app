@@ -278,8 +278,6 @@ func Clean() error {
 
 // Install builds and installs the extension locally.
 func Install() error {
-	mg.Deps(DashboardBuild)
-
 	if err := Build(); err != nil {
 		return err
 	}
@@ -289,33 +287,25 @@ func Install() error {
 		return err
 	}
 
-	fmt.Println("Installing locally with azd x build...")
-
-	// Run azd x build which handles the installation
-	if err := sh.RunV("azd", "x", "build"); err != nil {
+	fmt.Println("Installing locally...")
+	if err := sh.RunV("pwsh", "-File", "scripts/install.ps1"); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
-	fmt.Println("Installing extension with azd extension install...")
-
-	// Install the extension to make it available as 'azd app'
-	if err := sh.RunV("azd", "extension", "install", "jongio.azd.app"); err != nil {
-		// If it fails because already installed, that's ok - try updating instead
-		fmt.Println("Extension already installed, updating...")
-		if err := sh.RunV("azd", "extension", "update", "jongio.azd.app"); err != nil {
-			return fmt.Errorf("failed to install/update extension: %w", err)
-		}
-	}
-
 	fmt.Printf("✅ Installed version: %s\n", version)
-	fmt.Println("\nTest it: azd app version")
 	return nil
+}
+
+// Watch monitors files and rebuilds/reinstalls on changes (uses PowerShell script).
+func Watch() error {
+	fmt.Println("Starting file watcher...")
+	return sh.RunV("pwsh", "-File", "scripts/watch.ps1")
 }
 
 // Uninstall removes the locally installed extension.
 func Uninstall() error {
 	fmt.Println("Uninstalling extension...")
-	if err := sh.RunV("azd", "extension", "uninstall", "jongio.azd.app"); err != nil {
+	if err := sh.RunV("pwsh", "-File", "scripts/install.ps1", "-Uninstall"); err != nil {
 		return fmt.Errorf("failed to uninstall extension: %w", err)
 	}
 
@@ -389,40 +379,6 @@ func DashboardBuild() error {
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
 	return sh.RunV("npm", "run", "dev", "--prefix", "dashboard")
-}
-
-// InstallFast builds and installs quickly without dashboard build (for rapid iteration).
-func InstallFast() error {
-	fmt.Println("Fast install mode - skipping dashboard build...")
-
-	if err := Build(); err != nil {
-		return err
-	}
-
-	version, err := getVersion()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Installing locally with azd x build...")
-
-	if err := sh.RunV("azd", "x", "build"); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
-	}
-
-	fmt.Println("Installing extension with azd extension install...")
-
-	// Install the extension to make it available as 'azd app'
-	if err := sh.RunV("azd", "extension", "install", "jongio.azd.app"); err != nil {
-		// If it fails because already installed, that's ok - try updating instead
-		fmt.Println("Extension already installed, updating...")
-		if err := sh.RunV("azd", "extension", "update", "jongio.azd.app"); err != nil {
-			return fmt.Errorf("failed to install/update extension: %w", err)
-		}
-	}
-
-	fmt.Printf("✅ Fast install complete! Version: %s\n", version)
-	return nil
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).

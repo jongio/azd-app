@@ -99,7 +99,7 @@ func Print(data interface{}, formatter func()) error {
 // Header prints a bold header with a divider
 func Header(text string) {
 	fmt.Printf("\n%s%s%s\n", Bold, text, Reset)
-	fmt.Println(strings.Repeat("━", len(text)))
+	fmt.Println(strings.Repeat("=", len(text)))
 }
 
 // Section prints a section header
@@ -163,7 +163,7 @@ func ItemWarning(format string, args ...interface{}) {
 
 // Divider prints a horizontal divider
 func Divider() {
-	fmt.Printf("\n%s%s%s\n", Dim, strings.Repeat("─", 75), Reset)
+	fmt.Printf("\n%s%s%s\n", Dim, strings.Repeat("-", 75), Reset)
 }
 
 // Newline prints a blank line
