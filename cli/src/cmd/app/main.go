@@ -34,7 +34,8 @@ func main() {
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
 		commands.NewVersionCommand(),
-		commands.NewListenCommand(), // Required for azd extension framework
+		commands.NewAuthCommand(),        // Authentication server commands
+		commands.NewListenCommand(),      // Required for azd extension framework
 	)
 
 	if err := rootCmd.Execute(); err != nil {
