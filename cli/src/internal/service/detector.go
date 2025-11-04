@@ -603,6 +603,35 @@ func validatePythonEntrypoint(projectDir string, appFile string) error {
 	)
 }
 
+// NormalizeLanguage normalizes language names for consistent handling.
+// This is the public version used by other packages.
+func NormalizeLanguage(language string) string {
+	return normalizeLanguage(language)
+}
+
+// normalizeLanguageForDebug normalizes language names for debug configuration.
+// Returns lowercase identifiers used by debuggers and VS Code.
+func normalizeLanguageForDebug(language string) string {
+	normalized := normalizeLanguage(language)
+	lower := strings.ToLower(normalized)
+	switch lower {
+	case "javascript", "typescript":
+		return "node"
+	case "python":
+		return "python"
+	case ".net":
+		return "dotnet"
+	case "java":
+		return "java"
+	case "go":
+		return "go"
+	case "rust":
+		return "rust"
+	default:
+		return strings.ToLower(normalized)
+	}
+}
+
 func normalizeLanguage(language string) string {
 	lower := strings.ToLower(language)
 	switch lower {

@@ -36,6 +36,11 @@ func StartService(runtime *ServiceRuntime, env map[string]string, projectDir str
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
 	}
 
+	// Apply debug flags if debugging is enabled
+	if err := ApplyDebugFlags(runtime, cmd); err != nil {
+		return nil, fmt.Errorf("failed to apply debug flags: %w", err)
+	}
+
 	// Create pipes for stdout and stderr
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {

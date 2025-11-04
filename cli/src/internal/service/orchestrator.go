@@ -54,6 +54,16 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			}
 
 			// Register service in starting state
+			var debugInfo *registry.DebugInfo
+			if rt.Debug.Enabled {
+				debugInfo = &registry.DebugInfo{
+					Enabled:  true,
+					Port:     rt.Debug.Port,
+					Protocol: rt.Debug.Protocol,
+					URL:      rt.Debug.URL,
+				}
+			}
+
 			if err := reg.Register(&registry.ServiceRegistryEntry{
 				Name:       rt.Name,
 				ProjectDir: projectDir,
@@ -64,6 +74,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				Framework:  rt.Framework,
 				Status:     "starting",
 				Health:     "unknown",
+				Debug:      debugInfo,
 				StartTime:  time.Now(),
 			}); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to register service: %v", err))
