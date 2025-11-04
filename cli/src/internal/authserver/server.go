@@ -12,6 +12,11 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/security"
 )
 
+const (
+	// serverStartupWait is the time to wait after starting the server to check for errors
+	serverStartupWait = 100 * time.Millisecond
+)
+
 // Server represents the authentication server.
 type Server struct {
 	config     *Config
@@ -115,7 +120,7 @@ func (s *Server) Start() error {
 	select {
 	case err := <-errChan:
 		return fmt.Errorf("failed to start server: %w", err)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(serverStartupWait):
 		s.running = true
 		return nil
 	}
@@ -128,6 +133,11 @@ func (s *Server) Stop() error {
 
 	if !s.running {
 		return fmt.Errorf("server is not running")
+	}
+
+	// Stop handler resources
+	if s.handler != nil {
+		s.handler.Stop()
 	}
 
 	// Create a context with timeout for graceful shutdown

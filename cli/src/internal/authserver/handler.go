@@ -47,6 +47,13 @@ func NewHandler(config *Config) (*Handler, error) {
 	}, nil
 }
 
+// Stop stops the handler and cleans up resources.
+func (h *Handler) Stop() {
+	if h.rateLimiter != nil {
+		h.rateLimiter.Stop()
+	}
+}
+
 // SetupRoutes configures the HTTP routes.
 func (h *Handler) SetupRoutes(router *gin.Engine) {
 	// Middleware for authentication
@@ -197,9 +204,11 @@ func secureCompare(a, b string) bool {
 
 // RateLimiter implements simple rate limiting per client IP.
 type RateLimiter struct {
-	requests map[string]*clientLimit
-	mu       sync.RWMutex
-	limit    int
+	requests  map[string]*clientLimit
+	mu        sync.RWMutex
+	limit     int
+	stopChan  chan struct{}
+	stopOnce  sync.Once
 }
 
 type clientLimit struct {
@@ -212,18 +221,31 @@ func NewRateLimiter(requestsPerMinute int) *RateLimiter {
 	rl := &RateLimiter{
 		requests: make(map[string]*clientLimit),
 		limit:    requestsPerMinute,
+		stopChan: make(chan struct{}),
 	}
 	
 	// Cleanup old entries every minute
 	go func() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			rl.cleanup()
+		for {
+			select {
+			case <-ticker.C:
+				rl.cleanup()
+			case <-rl.stopChan:
+				return
+			}
 		}
 	}()
 	
 	return rl
+}
+
+// Stop stops the rate limiter cleanup goroutine.
+func (rl *RateLimiter) Stop() {
+	rl.stopOnce.Do(func() {
+		close(rl.stopChan)
+	})
 }
 
 // Allow checks if a request from the given IP should be allowed.
