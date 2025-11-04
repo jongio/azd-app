@@ -99,11 +99,17 @@ try {
         Write-Host "   Using handle.exe to find processes..." -ForegroundColor Gray
         try {
             $handleOutput = & handle.exe -accepteula $targetFile 2>&1
-            if ($handleOutput -match "pid: (\d+)") {
-                $pids = $handleOutput | ForEach-Object { if ($_ -match "pid: (\d+)") { $matches[1] } }
-                foreach ($pid in $pids) {
-                    Write-Host "   Killing process PID $pid..." -ForegroundColor Yellow
-                    Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            if ($handleOutput -match "process ID:\s+(\d+)|pid:\s+(\d+)") {
+                $processIds = $handleOutput | ForEach-Object { 
+                    if ($_ -match "process ID:\s+(\d+)") { 
+                        $matches[1] 
+                    } elseif ($_ -match "pid:\s+(\d+)") {
+                        $matches[1]
+                    }
+                }
+                foreach ($processId in $processIds) {
+                    Write-Host "   Killing process PID $processId..." -ForegroundColor Yellow
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
                 }
             }
         } catch {

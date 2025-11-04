@@ -37,7 +37,7 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 }
 
 # Check if authenticated
-$authStatus = gh auth status 2>&1
+gh auth status 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Not authenticated with GitHub. Run: gh auth login"
     exit 1
@@ -81,7 +81,7 @@ if ($tagExists) {
 }
 
 # Check if release already exists on GitHub
-$existingRelease = gh release view "cli-v$Version" 2>$null
+gh release view "cli-v$Version" 2>$null | Out-Null
 if ($LASTEXITCODE -eq 0) {
     Write-Error "❌ Release cli-v$Version already exists on GitHub."
     exit 1

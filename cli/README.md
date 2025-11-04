@@ -418,48 +418,22 @@ The dashboard build is automatically included in:
 
 ### Adding New Commands
 
-Use the command generator script:
+To add a new command, describe what you want to **GitHub Copilot** and it will generate the implementation for you.
 
-```powershell
-.\new-command.ps1 yourcommand
+**Important**: Always request both **unit tests** and **integration tests** for your command.
+
+Example prompt:
+```
+Add a new 'azd app validate' command that checks project configuration.
+Include unit tests and integration tests.
 ```
 
-This creates:
-1. A new command file in `src/cmd/app/commands/`
-2. Registers it in the root command
-
-Or manually:
-
-1. Create a new file in `src/cmd/app/commands/` (e.g., `yourcommand.go`)
-2. Implement the command following the pattern:
-
-```go
-package commands
-
-import (
-    "fmt"
-    "github.com/spf13/cobra"
-)
-
-func NewYourCommand() *cobra.Command {
-    return &cobra.Command{
-        Use:   "yourcommand",
-        Short: "Description of your command",
-        RunE: func(cmd *cobra.Command, args []string) error {
-            fmt.Println("Your command logic here")
-            return nil
-        },
-    }
-}
-```
-
-3. Register the command in `src/cmd/app/main.go`:
-
-```go
-rootCmd.AddCommand(commands.NewYourCommand())
-```
-
-4. Update `extension.yaml` to include the new command
+Copilot will:
+1. Create the command file in `src/cmd/app/commands/`
+2. Register it in `src/cmd/app/main.go`
+3. Update `extension.yaml`
+4. Generate unit tests in the same directory
+5. Generate integration tests in `src/internal/*/` directories as needed
 
 ## Testing
 

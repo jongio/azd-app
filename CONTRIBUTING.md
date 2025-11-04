@@ -4,6 +4,29 @@ Thank you for your interest in contributing to azd-app! This document provides g
 
 ## Getting Started
 
+### Prerequisites
+
+Before contributing, ensure you have the following installed:
+
+- **Go**: 1.25 or later
+- **Node.js**: 20.0.0 or later
+- **npm**: 10.0.0 or later  
+- **PowerShell**: 7.4 or later (recommended: 7.5.4 for full compatibility)
+- **TypeScript**: 5.9.3 (installed via npm when building dashboard)
+- **Azure Developer CLI (azd)**: Latest version
+
+You can verify your versions:
+```bash
+go version                  # Should be 1.25+
+node --version             # Should be v20.0.0+
+npm --version              # Should be 10.0.0+
+pwsh --version            # Should be 7.4+ or 7.5.4
+tsc --version             # Should be 5.9.3 (after npm install in dashboard/)
+azd version               # Should be latest
+```
+
+### Setup
+
 1. **Fork the repository** and clone your fork
 2. **Set up your development environment** based on the component you're working on:
 
@@ -13,11 +36,13 @@ Thank you for your interest in contributing to azd-app! This document provides g
 # Navigate to CLI directory
 cd cli
 
-# Install Go 1.21 or later
-go version
-
-# Install dependencies
+# Install Go dependencies
 go mod download
+
+# Install dashboard dependencies
+cd dashboard
+npm install
+cd ..
 
 # Build the extension
 go build -o bin/app.exe ./src/cmd/app
@@ -117,19 +142,16 @@ docs/                 # Documentation
 
 ## Adding a New Command
 
-1. Use the command generator:
-   ```bash
-   .\new-command.ps1 your-command
-   ```
+1. Create a new file in `src/cmd/app/commands/` (e.g., `your_command.go`)
 
-2. Implement the command logic in the generated file
+2. Implement the command following the existing patterns (see `run.go`, `reqs.go`, etc.)
 
-3. Register in `main.go`:
+3. Register the command in `src/cmd/app/commands/root.go`:
    ```go
    rootCmd.AddCommand(newYourCommand())
    ```
 
-4. Add tests in `cmd_your_command_test.go`
+4. Add tests in `src/cmd/app/commands/your_command_test.go`
 
 5. Update documentation
 
