@@ -290,6 +290,16 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 			if svc.Local.PID > 0 {
 				output.Label("  PID", fmt.Sprintf("%d", svc.Local.PID))
 			}
+			
+			// Debug info (if debugging is enabled)
+			if svc.Local.Debug != nil && svc.Local.Debug.Enabled {
+				debugLabel := fmt.Sprintf("enabled on port %d (%s)", svc.Local.Debug.Port, svc.Local.Debug.Protocol)
+				output.Label("  Debug", debugLabel)
+				if svc.Local.Debug.URL != "" {
+					output.Label("  Debug URL", svc.Local.Debug.URL)
+				}
+			}
+			
 			if svc.Local.StartTime != nil {
 				output.Label("  Started", formatTime(*svc.Local.StartTime))
 			}
