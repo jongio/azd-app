@@ -1,0 +1,242 @@
+### Title:
+Add Authentication Server for Secure Container-to-Container Communication
+
+### Body:
+
+# Authentication Server for Container Networks
+
+## Overview
+Implement a new `azd app auth` command group that enables secure communication amongst containers in a container network. This allows authenticating with Azure Developer CLI in one container (auth server) and having other containers securely obtain tokens from that container.
+
+## Problem Statement
+When running distributed applications across multiple containers, each container typically needs Azure credentials to access Azure resources. Currently, this requires:
+- Duplicating credentials across containers (insecure)
+- Complex credential mounting (brittle)
+- Manual token management (error-prone)
+
+This feature centralizes authentication in one container that acts as an OAuth2-style token server, distributing Azure tokens securely to other containers.
+
+## Proposed Solution
+### Command Structure
+#### Server Commands
+```bash
+azd app auth server start   # Start the authentication server
+azd app auth server stop    # Stop the authentication server
+azd app auth server status  # Check server status
+```
+#### Client Commands
+```bash
+azd app auth token get      # Fetch token from auth server
+```
+### Architecture
+```
+┌─────────────────────────────────────────┐
+│   Auth Server Container (azd + ext)    │
+│  ┌──────────────────────────────────┐  │
+│  │  azd app auth server             │  │
+│  │  - Uses azd auth login tokens    │  │
+│  │  - HTTP token endpoint           │  │
+│  │  - Token caching/refresh         │  │
+│  │  - JWT signing                   │  │
+│  └──────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+              ↑ HTTPS (internal network)
+              │
+    ┌─────────┴─────────┬─────────────┐
+    │                   │             │
+┌───┴────┐        ┌─────┴──┐    ┌────┴────┐
+│Client 1│        │Client 2│    │Client N │
+└────────┘        └────────┘    └─────────┘
+```
+## Technical Specification
+### Server Features
+1. **Token Distribution**
+   - Use existing azd auth login credentials
+   - Expose HTTP/HTTPS endpoint for token requests
+   - Return JWT-wrapped Azure tokens
+   - Support multiple token scopes
+
+2. **Security**
+   - TLS/HTTPS encryption for all communication
+   - Shared secret authentication (env var: `AZD_AUTH_SECRET`)
+   - Short-lived tokens (default: 15 minutes)
+   - Rate limiting (default: 10 requests/minute per client)
+   - JWT signing with HS256 algorithm
+   - Network binding options (specific interfaces)
+
+3. **Token Caching**
+   - Cache Azure tokens to minimize API calls
+   - Automatic token refresh before expiration
+   - In-memory cache with TTL
+
+4. **Endpoints**
+   - `GET /token?scope=<scope>` - Get Azure access token
+   - `GET /health` - Health check endpoint
+
+### Server Configuration Flags
+```bash
+--port          # Server port (default: 8080)
+--tls           # Enable TLS (default: true)
+--cert          # TLS certificate file path
+--key           # TLS key file path
+--secret        # Shared secret (or use AZD_AUTH_SECRET env var)
+--token-expiry  # Token expiry in seconds (default: 900)
+--bind          # Network interface to bind to
+```
+### Token Response Format
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "token_type": "Bearer",
+  "expires_in": 900,
+  "scope": "https://management.azure.com/.default"
+}
+```
+### Client Implementation
+The client component should:
+- Send authenticated requests to the auth server
+- Include shared secret in Authorization header
+- Parse and cache token responses locally
+- Handle token expiration and refresh
+- Support error handling and retries
+
+## File Structure
+```
+cli/src/
+├── cmd/app/
+│   └── commands/
+│       ├── auth.go              # Auth command group
+│       ├── auth_server.go       # Server subcommands (start/stop/status)
+│       └── auth_token.go        # Token/client subcommands (get)
+├── internal/
+│   ├── authserver/              # Auth server package
+│   │   ├── server.go            # HTTP server implementation
+│   │   ├── handler.go           # Token endpoint handlers
+│   │   ├── jwt.go               # JWT creation/validation
+│   │   └── config.go            # Server configuration
+│   └── authclient/              # Auth client package
+│       └── client.go            # Token fetching logic
+```
+## Dependencies
+New dependencies to add:
+- `github.com/Azure/azure-sdk-for-go/sdk/azidentity`
+- `github.com/Azure/azure-sdk-for-go/sdk/azcore`
+- `github.com/golang-jwt/jwt/v5`
+- `github.com/gin-gonic/gin`
+- `github.com/patrickmn/go-cache`
+
+## Usage Example
+### Docker Compose Setup
+```yaml
+version: '3.8'
+
+services:
+  auth-server:
+    image: myapp/auth-server
+    command: azd app auth server start
+    environment:
+      - AZD_AUTH_SECRET=${AUTH_SECRET}
+    networks:
+      - app-network
+    ports:
+      - "8080"  # Internal only
+    volumes:
+      - ${HOME}/.azd:/root/.azd:ro
+
+  api-service:
+    image: myapp/api
+    environment:
+      - AUTH_SERVER_URL=http://auth-server:8080
+      - AUTH_SECRET=${AUTH_SECRET}
+    networks:
+      - app-network
+    depends_on:
+      - auth-server
+
+networks:
+  app-network:
+    driver: bridge
+```
+### Command Usage
+```bash
+# In auth server container
+azd app auth server start --port 8080 --secret mysecret
+
+# In client containers
+export TOKEN=$(azd app auth token get --server http://auth-server:8080 --secret mysecret)
+
+# Use token with Azure CLI or SDKs
+az account get-access-token --output json
+```
+## Security Considerations
+1. **Network Isolation**: Auth server should only be accessible within the container network
+2. **Secret Management**: Use environment variables or secret managers for shared secrets
+3. **TLS Certificates**: Generate and mount TLS certificates for production use
+4. **Token Scope**: Limit token scopes to minimum required permissions
+5. **Audit Logging**: Log all token requests and authentication attempts
+6. **Rate Limiting**: Prevent abuse with configurable rate limits
+
+## Implementation Phases
+### Phase 1: Core Functionality (MVP)
+- [ ] Basic HTTP server with /token endpoint
+- [ ] Integration with azd auth credentials
+- [ ] JWT token generation
+- [ ] Shared secret authentication
+- [ ] Client command for token retrieval
+
+### Phase 2: Security Hardening
+- [ ] TLS/HTTPS support
+- [ ] Rate limiting
+- [ ] Token caching and refresh
+- [ ] Audit logging
+- [ ] Health check endpoint
+
+### Phase 3: Enhanced Features
+- [ ] Token revocation endpoint
+- [ ] mTLS support (client certificates)
+- [ ] Scope-based access control
+- [ ] Metrics and monitoring
+- [ ] Web dashboard integration
+
+## Testing Requirements
+- Unit tests for JWT creation/validation
+- Integration tests for server endpoints
+- Security validation tests
+- Docker Compose integration tests
+- Error handling and edge case tests
+
+## Documentation
+- Usage guide with examples
+- Security best practices
+- Docker/Kubernetes deployment examples
+- Troubleshooting guide
+- API reference
+
+## Related Technologies
+This implementation draws inspiration from:
+- OAuth2 token distribution patterns
+- Azure Container Apps Easy Auth
+- Kubernetes workload identity with sidecar proxies
+- Docker registry token authentication (CNCF Distribution spec)
+- OWASP microservices security patterns
+
+## Success Criteria
+- ✅ One command starts auth server in container
+- ✅ Client containers can fetch tokens securely
+- ✅ No Azure credentials needed in client containers
+- ✅ Tokens are short-lived and automatically refreshed
+- ✅ All communication is encrypted (TLS)
+- ✅ Easy to configure via environment variables
+- ✅ Works with existing azd auth login session
+
+## Questions for Discussion
+1. Should we support multiple authentication backends (azd, Azure CLI, service principals)?
+2. What's the preferred certificate management approach for TLS?
+3. Should we provide pre-built Docker images for the auth server?
+4. How should we handle token revocation scenarios?
+5. Should this integrate with the existing dashboard (`azd app run`)?
+
+---
+
+**Labels**: enhancement, security, containers
+**Milestone**: v0.2.0
