@@ -444,7 +444,12 @@ func Run() error {
 // Release creates a new release with automatic version bumping.
 func Release() error {
 	fmt.Println("Starting release process...")
-	return sh.RunV("pwsh", "-File", "scripts/release.ps1")
+	if err := sh.RunV("pwsh", "-File", "scripts/release.ps1"); err != nil {
+		return err
+	}
+
+	fmt.Println("\n🔍 Watching GitHub Actions workflow...")
+	return sh.RunV("gh", "run", "watch")
 }
 
 // ReleasePatch creates a patch release (bug fixes).
