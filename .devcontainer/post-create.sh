@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Configuration
+DASHBOARD_DIR="dashboard"
+ASPIRE_VERSION="9.5.2"
+
 echo "🚀 Setting up development environment..."
 
 # Ensure Go tools are in PATH (added by devcontainer but might not be set yet)
@@ -14,7 +18,6 @@ fi
 
 # Install Aspire CLI
 echo "📦 Installing Aspire CLI..."
-ASPIRE_VERSION="9.5.2"
 if dotnet tool list --global | grep -q "^aspire.cli"; then
     dotnet tool update --global aspire.cli --version $ASPIRE_VERSION
 else
@@ -42,12 +45,24 @@ go mod download
 # Build dashboard to create dist directory (required for embed directive)
 echo "🎨 Building dashboard..."
 if command -v npm &> /dev/null; then
-    DASHBOARD_DIR="dashboard"
     if [ -d "$DASHBOARD_DIR" ]; then
         CLI_DIR=$(pwd)
         cd "$DASHBOARD_DIR"
-        npm install --silent --no-progress
-        npm run build --silent
+        
+        # Install dependencies (show errors but reduce noise)
+        if ! npm install --quiet --no-progress 2>&1; then
+            echo "❌ Dashboard npm install failed"
+            cd "$CLI_DIR"
+            exit 1
+        fi
+        
+        # Build dashboard (show errors but reduce noise)
+        if ! npm run build --quiet 2>&1; then
+            echo "❌ Dashboard build failed"
+            cd "$CLI_DIR"
+            exit 1
+        fi
+        
         cd "$CLI_DIR"
     else
         echo "⚠️  Dashboard directory not found at $DASHBOARD_DIR, skipping dashboard build"
