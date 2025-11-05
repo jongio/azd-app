@@ -1,22 +1,105 @@
-name: Release Please
+name: Prepare Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      release-type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  release-please:
+  prepare-release:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: actions/checkout@v4
+      
+      - name: Get current version
+        id: current
+        run: |
+          VERSION=$(jq -r '.cli' .release-please-manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Calculate next version
+        id: next
+        run: |
+          CURRENT="${{ steps.current.outputs.version }}"
+          IFS='.' read -r major minor patch <<< "$CURRENT"
+          
+          case "${{ inputs.release-type }}" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+          
+          NEXT="$major.$minor.$patch"
+          echo "version=$NEXT" >> $GITHUB_OUTPUT
+      
+      - name: Update version files
+        run: |
+          VERSION="${{ steps.next.outputs.version }}"
+          
+          # Update manifest
+          jq --arg v "$VERSION" '.cli = $v' .release-please-manifest.json > tmp.json
+          mv tmp.json .release-please-manifest.json
+          
+          # Update extension.yaml
+          cd cli
+          sed -i "s/^version: .*/version: $VERSION/" extension.yaml
+      
+      - name: Generate changelog
+        run: |
+          VERSION="${{ steps.next.outputs.version }}"
+          PREV="${{ steps.current.outputs.version }}"
+          
+          cd cli
+          
+          # Get commits since last release
+          COMMITS=$(git log v${PREV}..HEAD --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || git log --pretty=format:"- %s (%h)" --no-merges -n 20)
+          
+          # Create new changelog entry
+          DATE=$(date +%Y-%m-%d)
+          {
+            echo "## [$VERSION] - $DATE"
+            echo ""
+            echo "$COMMITS"
+            echo ""
+            cat CHANGELOG.md
+          } > CHANGELOG.new.md
+          mv CHANGELOG.new.md CHANGELOG.md
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
         with:
-          # Use PAT to trigger CI workflows on the release PR
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          commit-message: "chore: prepare release ${{ steps.next.outputs.version }}"
+          title: "Release ${{ steps.next.outputs.version }}"
+          body: |
+            Prepare release ${{ steps.next.outputs.version }}
+            
+            This PR updates:
+            - Version in extension.yaml
+            - CHANGELOG.md
+            - Release manifest
+            
+            After merging, run the Release workflow to publish.
+          branch: release/${{ steps.next.outputs.version }}
+          delete-branch: true
