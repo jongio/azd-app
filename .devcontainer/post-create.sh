@@ -42,10 +42,16 @@ go mod download
 # Build dashboard to create dist directory (required for embed directive)
 echo "🎨 Building dashboard..."
 if command -v npm &> /dev/null; then
-    cd dashboard
-    npm install --silent --no-progress
-    npm run build --silent
-    cd ..
+    DASHBOARD_DIR="dashboard"
+    if [ -d "$DASHBOARD_DIR" ]; then
+        CLI_DIR=$(pwd)
+        cd "$DASHBOARD_DIR"
+        npm install --silent --no-progress
+        npm run build --silent
+        cd "$CLI_DIR"
+    else
+        echo "⚠️  Dashboard directory not found at $DASHBOARD_DIR, skipping dashboard build"
+    fi
 else
     echo "⚠️  npm not found, skipping dashboard build"
 fi
