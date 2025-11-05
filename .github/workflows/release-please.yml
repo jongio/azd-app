@@ -1,0 +1,126 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}.${{ steps.release.outputs.patch }}
+    
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: simple
+          package-name: azd-app-cli
+          path: cli
+          changelog-path: CHANGELOG.md
+          tag-name: azd-app-cli-v${{ steps.release.outputs.version }}
+          include-component-in-tag: false
+          bump-minor-pre-major: true
+          bump-patch-for-minor-pre-major: true
+
+  # Build and release when Release-Please creates a release
+  build-and-release:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package-lock.json
+
+      - name: Build dashboard
+        run: |
+          cd dashboard
+          npm ci
+          npm run build
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          install-only: true
+
+      - name: Build binaries with GoReleaser
+        run: |
+          cd ..
+          goreleaser release --clean --skip=publish
+        working-directory: cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release with azd x
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          
+          # Extract changelog for this version
+          awk -v version="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "## \\[" version "\\]") { found=1; next }
+            }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          
+          # Use azd x release to create the GitHub release
+          azd x release \
+            --version "$VERSION" \
+            --repo "${{ github.repository }}" \
+            --artifacts "dist/*.zip,dist/*.tar.gz,dist/checksums.txt" \
+            --notes-file release-notes.md \
+            --title "azd-app-cli v$VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update registry
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          
+          azd x publish \
+            --registry ../registry.json \
+            --version "$VERSION" \
+            --artifacts "dist/*.zip,dist/*.tar.gz" \
+            --repo "${{ github.repository }}"
+          
+          # Commit registry.json back to main
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add registry.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update registry.json for v$VERSION"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

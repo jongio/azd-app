@@ -4,29 +4,32 @@ This guide covers how to release new versions of the azd-app CLI extension.
 
 ---
 
-## Quick Start
+## Quick Start (Automated)
 
-```powershell
-# 1. Make sure you're on main and CI passes
-git checkout main && git pull
+```bash
+# 1. Create feature branch and make changes
+git checkout -b feat/dashboard-filtering
+git commit -m "feat: add dashboard filtering"
+git push origin feat/dashboard-filtering
 
-# 2. Create draft release using mage (recommended)
-cd cli
-mage release            # Interactive - prompts for version bump type
-mage releasepatch       # Patch version (bug fixes)
-mage releaseminor       # Minor version (new features)
-mage releasemajor       # Major version (breaking changes)
+# 2. Create PR and merge to main
+gh pr create --fill
+# After approval, "Squash and merge" with: "feat: add dashboard filtering"
 
-# Or use the script directly
-.\scripts\release.ps1
-.\scripts\release.ps1 -BumpType Minor
-.\scripts\release.ps1 -Version 1.2.3
+# 3. Release-Please creates a release PR automatically with:
+#    - Auto-generated changelog
+#    - Version bump in extension.yaml
+#    - All changes since last release
 
-# 3. Review and publish at:
-# https://github.com/jongio/azd-app/releases
+# 4. Review and merge the "chore: release" PR
+#    https://github.com/jongio/azd-app/pulls
+
+# 5. Release is created automatically and binaries are published!
 ```
 
 That's it! 🎉
+
+**See [Conventional Commits Guide](../../docs/conventional-commits.md) for commit message format.**
 
 ---
 
@@ -43,118 +46,84 @@ That's it! 🎉
 
 ## Overview
 
-We use a **semi-automated release process**:
+We use a **fully automated release process** powered by [Release-Please](https://github.com/googleapis/release-please):
 
-1. ✅ **CI validates every push** - Tests, linting, builds automatically
-2. 🚀 **Manual trigger creates draft** - One command creates everything
-3. 👀 **Human review before publishing** - Click "Publish release" when ready
-4. 🤖 **Checksums calculated automatically** - No manual work needed
+1. ✅ **Write conventional commits** - `feat:`, `fix:`, etc.
+2. 🤖 **Release-Please creates PR** - Auto-generated changelog + version bump
+3. 👀 **Review and merge** - Check the changes look good
+4. 🚀 **Release published automatically** - Binaries built and published
 
 **Key Points:**
+- No manual changelog editing required
+- Version bumps determined from commit messages
 - `main` branch is always deployable
-- Features are batched and released when ready
-- Draft releases can be tested before publishing
-- Checksums and registry.json are updated automatically
+- Everything triggered by merging the release PR
+- Built with GoReleaser + `azd x` commands
 
 ---
 
 ## Standard Release
 
-### Step 1: Prepare
+### Step 1: Develop on a Feature Branch
 
-1. **Ensure main is ready:**
-   ```powershell
-   git checkout main
-   git pull origin main
-   ```
+```bash
+# Create a feature branch
+git checkout -b feat/add-dashboard-filtering
 
-2. **Verify CI passes:**
-   - Check: https://github.com/jongio/azd-app/actions
+# Make your changes and commit using conventional format
+git add .
+git commit -m "feat: add dashboard filtering"
 
-3. **Update CHANGELOG.md** (recommended):
-   ```markdown
-   ## [1.2.3] - 2025-11-03
-   
-   ### Added
-   - New feature X
-   
-   ### Fixed
-   - Bug Z
-   ```
-
-### Step 2: Create Draft Release
-
-**Option A: Mage (Recommended)**
-
-```powershell
-cd cli
-
-# Interactive mode - prompts for version bump type
-mage release
-
-# Or specify directly
-mage releasepatch       # 0.1.0 → 0.1.1 (bug fixes)
-mage releaseminor       # 0.1.0 → 0.2.0 (new features)
-mage releasemajor       # 0.1.0 → 1.0.0 (breaking changes)
+# Push and create a PR
+git push origin feat/add-dashboard-filtering
+gh pr create --fill
 ```
 
-**Option B: PowerShell Script**
+### Step 2: Merge PR to Main
 
-```powershell
-cd cli
-
-# Interactive mode
-.\scripts\release.ps1
-
-# Or specify directly
-.\scripts\release.ps1 -BumpType Patch
-.\scripts\release.ps1 -BumpType Minor
-.\scripts\release.ps1 -BumpType Major
-
-# Or use custom version
-.\scripts\release.ps1 -Version 1.2.3
+```bash
+# After approval, merge the PR
+# Use "Squash and merge" with a conventional commit message:
+# - feat: add dashboard filtering (minor bump)
+# - fix: resolve Windows bug (patch bump)  
+# - feat!: redesign API (major bump with BREAKING CHANGE)
 ```
 
-**Option C: GitHub CLI**
+**Important:** The commit message when merging to `main` is what Release-Please uses.
 
-```powershell
-gh workflow run release-draft.yml -f "version=1.2.3"
-```
+**See [Conventional Commits Guide](../../docs/conventional-commits.md) for details.**
 
-**Option D: GitHub UI**
+### Step 3: Release-Please Creates a Release PR
 
-1. Go to: https://github.com/jongio/azd-app/actions/workflows/release-draft.yml
-2. Click "Run workflow"
-3. Enter version: `1.2.3`
-4. Click "Run workflow"
+After merging to `main`, Release-Please automatically:
+- ✅ Analyzes your commits since last release
+- ✅ Determines version bump (`feat` = minor, `fix` = patch, `!` = major)
+- ✅ Generates changelog from commit messages
+- ✅ Updates `extension.yaml` version
+- ✅ Creates a "chore: release X.Y.Z" PR
 
-### Step 3: Monitor Progress
+### Step 4: Review the Release PR
 
-```powershell
-gh run watch
-```
+1. Go to: https://github.com/jongio/azd-app/pulls
+2. Find the "chore: release X.Y.Z" PR
+3. Review the auto-generated changelog
+4. Check the version bump is correct
+5. Add any manual notes if needed
 
-The workflow automatically:
-- ✅ Updates `version.txt`
-- ✅ Builds binaries for all platforms
+### Step 5: Merge the Release PR
+
+Click **"Merge pull request"** - that's it!
+
+### Step 6: Automatic Build and Publish
+
+Once merged, the workflow automatically:
+- ✅ Builds binaries with GoReleaser (all platforms)
 - ✅ Calculates SHA256 checksums
-- ✅ Updates `registry.json` with version and checksums
-- ✅ Commits changes to main
-- ✅ Creates git tag `cli-v1.2.3`
-- ✅ Creates draft release with all assets
+- ✅ Creates GitHub release with `azd x release`
+- ✅ Updates `registry.json` with `azd x publish`
+- ✅ Commits registry changes to main
 
-### Step 4: Review Draft
-
-1. Go to: https://github.com/jongio/azd-app/releases
-2. Find your draft release
-3. Review release notes and attached binaries
-4. Optionally download and test binaries
-
-### Step 5: Publish
-
-Click **"Publish release"** in the GitHub UI.
-
-Done! Users can now install the new version.
+Done! Users can install the new version immediately.
 
 ---
 
@@ -180,77 +149,69 @@ git commit -m "fix: critical bug description"
 
 ### 3. Merge to Main
 
-```powershell
+```bash
 git checkout main
 git merge hotfix/v1.2.4
 git push origin main
 ```
 
-### Step 4: Release Hotfix
+### 4. Release-Please Handles the Rest
 
-```powershell
-cd cli
-mage release  # Or: .\scripts\release.ps1 -Version 1.2.4
-```
+After merging to main:
+- Release-Please will create a release PR
+- Review and merge it
+- Release is published automatically
 
-### 5. Publish and Clean Up
+### 5. Clean Up
 
-- Publish the draft release
-- Delete hotfix branch: `git branch -d hotfix/v1.2.4`
+Delete hotfix branch: `git branch -d hotfix/v1.2.4`
 
 ---
 
 ## Version Numbering
 
-We use [Semantic Versioning](https://semver.org/):
+We use [Semantic Versioning](https://semver.org/), determined automatically from commit messages:
 
-| Version Type | Format | When to Use | Example | Command |
-|--------------|--------|-------------|---------|---------|
-| **Patch** | 1.2.3 → 1.2.4 | Bug fixes only | Fixed crash on startup | `mage releasepatch` |
-| **Minor** | 1.2.3 → 1.3.0 | New features, backward compatible | Added `logs` command | `mage releaseminor` |
-| **Major** | 1.2.3 → 2.0.0 | Breaking changes | Changed CLI interface | `mage releasemajor` |
+| Commit Type | Example | Version Bump | Changelog Section |
+|-------------|---------|--------------|-------------------|
+| `feat:` | `feat: add logs command` | Minor (0.1.0 → 0.2.0) | ✅ Features |
+| `fix:` | `fix: resolve crash` | Patch (0.1.0 → 0.1.1) | ✅ Bug Fixes |
+| `feat!:` or `BREAKING CHANGE:` | `feat!: redesign API` | Major (0.1.0 → 1.0.0) | ✅ BREAKING CHANGES |
+| `perf:` | `perf: optimize queries` | Patch | ✅ Performance |
+| `docs:` | `docs: update README` | Patch | ✅ Documentation |
+| `chore:`, `test:`, `refactor:` | `chore: update deps` | Patch | ❌ (hidden) |
 
-**Note:** The release script automatically determines the next version based on the last git tag (`cli-v*`), not `version.txt` (which changes with local builds).
+**Release-Please automatically determines the version based on your commits since the last release.**
 
 ---
 
 ## FAQ
 
-### Can I delete a draft release?
+### Do I need to manually edit CHANGELOG.md?
 
-**Yes!** Draft releases can be deleted without consequence. Delete the tag too if recreating:
+**No!** Release-Please generates it automatically from your commit messages. Just use conventional commits format.
 
-```powershell
-# Delete draft in GitHub UI, then:
-git tag -d cli-v1.2.3
-git push origin :refs/tags/cli-v1.2.3
+### Can I edit the changelog before release?
+
+**Yes!** Edit the CHANGELOG.md in the release PR before merging. Your changes will be preserved.
+
+### What if I make a typo in a commit message?
+
+Before the release PR is created, you can amend commits. After the PR is created, you can edit CHANGELOG.md directly in the PR.
+
+### Can I skip a release?
+
+If Release-Please creates a PR but you don't want to release yet, just leave it open. It will accumulate more changes as you push more commits.
+
+### How do I trigger a major version (1.0.0)?
+
+Use `feat!:` or add `BREAKING CHANGE:` in the commit footer:
+
+```bash
+git commit -m "feat!: redesign CLI interface
+
+BREAKING CHANGE: command structure has changed"
 ```
-
-### What if I need to update a published release?
-
-You can edit release notes, but **don't change binaries**. Instead, create a new patch version.
-
-### How do I test before releasing?
-
-- CI builds on every push to main
-- Create a draft release, download binaries, test locally
-- Install locally: `azd extension install ./cli`
-- Delete the draft if issues found
-
-### Can I automate the publish step?
-
-Yes, but not recommended. Manual review prevents accidental releases. To enable, change `draft: true` to `draft: false` in `release-draft.yml`.
-
-### How do I roll back a release?
-
-You can't delete published releases, but you can:
-1. Mark it as pre-release in GitHub UI
-2. Release a fixed version immediately
-3. Add warnings to release notes
-
-### Do I need to manually update checksums?
-
-**No!** The release workflow calculates SHA256 checksums and updates `registry.json` automatically.
 
 ---
 
@@ -259,12 +220,21 @@ You can't delete published releases, but you can:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | Push to main, PRs | Run tests, lint, build |
-| `release-draft.yml` | Manual dispatch | Create draft release with binaries |
-| `release-publish.yml` | Release published | Post-release tasks |
-
----
-
+| `release-please.yml` | Push to main | Create release PR, build and publish on merge |
 ## Best Practices
+
+1. ✅ **Work on feature branches** - Never commit directly to `main`
+2. ✅ **Use conventional commits** - Enables automatic changelog generation
+3. ✅ **Squash merge PRs** - Keep main history clean with one commit per feature
+4. ✅ **Write descriptive PR merge messages** - They become your changelog
+5. ✅ **Review release PRs carefully** - This is your last chance to edit
+6. ✅ **Let CI validate everything** - Don't merge failing builds
+
+**See [Conventional Commits Guide](../../docs/conventional-commits.md) for commit message examples.**
+4. ✅ **Review release PRs carefully** - This is your last chance to edit
+5. ✅ **Let CI validate everything** - Don't merge failing builds
+
+**See [Conventional Commits Guide](../../docs/conventional-commits.md) for commit message examples.**
 
 1. ✅ **Always verify CI passes** - Don't release broken code
 2. ✅ **Update CHANGELOG.md** - Makes release notes meaningful  

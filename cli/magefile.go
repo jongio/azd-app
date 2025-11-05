@@ -8,33 +8,41 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
 
 const (
-	binaryName  = "app"
-	srcDir      = "src/cmd/app"
-	binDir      = "bin"
-	coverageDir = "coverage"
-	versionFile = "version.txt"
+	binaryName     = "app"
+	srcDir         = "src/cmd/app"
+	binDir         = "bin"
+	coverageDir    = "coverage"
+	extensionFile  = "extension.yaml"
 )
 
 // Default target runs all checks and builds.
 var Default = All
 
-// getVersion reads the current version from version.txt.
+// getVersion reads the current version from extension.yaml.
 func getVersion() (string, error) {
-	data, err := os.ReadFile(versionFile)
+	data, err := os.ReadFile(extensionFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read version file: %w", err)
+		return "", fmt.Errorf("failed to read extension.yaml: %w", err)
 	}
-	return strings.TrimSpace(string(data)), nil
+	
+	// Simple regex to extract version: line
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "version:") {
+			version := strings.TrimSpace(strings.TrimPrefix(line, "version:"))
+			return version, nil
+		}
+	}
+	return "", fmt.Errorf("version not found in extension.yaml")
 }
 
-// bumpVersion increments the patch version and writes it back.
+// bumpVersion increments the patch version and writes it back to extension.yaml.
 func bumpVersion() (string, error) {
 	version, err := getVersion()
 	if err != nil {
@@ -51,9 +59,17 @@ func bumpVersion() (string, error) {
 	patch++
 	newVersion := fmt.Sprintf("%d.%d.%d", major, minor, patch)
 
-	// Write back
-	if err := os.WriteFile(versionFile, []byte(newVersion+"\n"), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write version file: %w", err)
+	// Update extension.yaml
+	data, err := os.ReadFile(extensionFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read extension.yaml: %w", err)
+	}
+	
+	content := string(data)
+	updatedContent := strings.Replace(content, "version: "+version, "version: "+newVersion, 1)
+	
+	if err := os.WriteFile(extensionFile, []byte(updatedContent), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write extension.yaml: %w", err)
 	}
 
 	return newVersion, nil
@@ -65,7 +81,7 @@ func All() error {
 	return Build()
 }
 
-// Build compiles the app binary for the current platform with version info.
+// Build compiles the app binary for the current platform with version info using azd x build.
 func Build() error {
 	fmt.Println("Building", binaryName+"...")
 
@@ -75,20 +91,14 @@ func Build() error {
 		return err
 	}
 
-	output := filepath.Join(binDir, binaryName)
-	if runtime.GOOS == "windows" {
-		output += ".exe"
+	// Set environment variables for azd x build
+	env := map[string]string{
+		"EXTENSION_ID":      "jongio.azd.app",
+		"EXTENSION_VERSION": version,
 	}
 
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create bin directory: %w", err)
-	}
-
-	// Build with version injected via ldflags
-	buildTime := time.Now().Format(time.RFC3339)
-	ldflags := fmt.Sprintf("-X github.com/jongio/azd-app/cli/src/cmd/app/commands.Version=%s -X github.com/jongio/azd-app/cli/src/cmd/app/commands.BuildTime=%s", version, buildTime)
-
-	if err := sh.RunV("go", "build", "-ldflags", ldflags, "-o", output, "./"+srcDir); err != nil {
+	// Use azd x build which calls our build.ps1/build.sh script
+	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
@@ -96,40 +106,25 @@ func Build() error {
 	return nil
 }
 
-// BuildAll builds for all platforms using build.ps1.
+// BuildAll builds for all platforms using azd x build --all.
 func BuildAll() error {
 	fmt.Println("Building for all platforms...")
 
-	platforms := []struct {
-		goos   string
-		goarch string
-		ext    string
-	}{
-		{"windows", "amd64", ".exe"},
-		{"windows", "arm64", ".exe"},
-		{"linux", "amd64", ""},
-		{"linux", "arm64", ""},
-		{"darwin", "amd64", ""},
-		{"darwin", "arm64", ""},
+	// Bump version first
+	version, err := bumpVersion()
+	if err != nil {
+		return err
 	}
 
-	for _, p := range platforms {
-		platformDir := filepath.Join(binDir, fmt.Sprintf("%s-%s", p.goos, p.goarch))
-		if err := os.MkdirAll(platformDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create platform directory: %w", err)
-		}
+	// Set environment variables for azd x build
+	env := map[string]string{
+		"EXTENSION_ID":      "jongio.azd.app",
+		"EXTENSION_VERSION": version,
+	}
 
-		output := filepath.Join(platformDir, binaryName+p.ext)
-		fmt.Printf("Building for %s/%s...\n", p.goos, p.goarch)
-
-		env := map[string]string{
-			"GOOS":   p.goos,
-			"GOARCH": p.goarch,
-		}
-
-		if err := sh.RunWith(env, "go", "build", "-o", output, "./"+srcDir); err != nil {
-			return fmt.Errorf("build failed for %s/%s: %w", p.goos, p.goarch, err)
-		}
+	// Use azd x build --all which calls our build.ps1/build.sh script
+	if err := sh.RunWithV(env, "azd", "x", "build", "--all"); err != nil {
+		return fmt.Errorf("build failed: %w", err)
 	}
 
 	fmt.Println("✅ Build complete for all platforms!")
@@ -291,19 +286,24 @@ func Clean() error {
 	return nil
 }
 
-// Install builds and installs the extension locally.
+// Install builds and installs the extension locally using azd x build.
 func Install() error {
-	if err := Build(); err != nil {
-		return err
-	}
-
+	// Get version
 	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("Installing locally...")
-	if err := sh.RunV("pwsh", "-File", "scripts/install.ps1"); err != nil {
+	
+	// Set environment variables
+	env := map[string]string{
+		"EXTENSION_ID":      "jongio.azd.app",
+		"EXTENSION_VERSION": version,
+	}
+	
+	// azd x build automatically installs unless --skip-install is passed
+	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
@@ -311,10 +311,16 @@ func Install() error {
 	return nil
 }
 
-// Watch monitors files and rebuilds/reinstalls on changes (uses PowerShell script).
+// Watch monitors files and rebuilds/reinstalls on changes using azd x watch.
 func Watch() error {
-	fmt.Println("Starting file watcher...")
-	return sh.RunV("pwsh", "-File", "scripts/watch.ps1")
+	fmt.Println("Starting file watcher with azd x watch...")
+	
+	// Set environment variables
+	env := map[string]string{
+		"EXTENSION_ID": "jongio.azd.app",
+	}
+	
+	return sh.RunWithV(env, "azd", "x", "watch")
 }
 
 // Uninstall removes the locally installed extension.
@@ -458,33 +464,4 @@ func Run() error {
 	// Get absolute binary path since we changed directories
 	absBinaryPath := filepath.Join(originalDir, binaryPath)
 	return sh.RunV(absBinaryPath, command)
-}
-
-// Release creates a new release with automatic version bumping.
-func Release() error {
-	fmt.Println("Starting release process...")
-	if err := sh.RunV("pwsh", "-File", "scripts/release.ps1"); err != nil {
-		return err
-	}
-
-	fmt.Println("\n🔍 Watching GitHub Actions workflow...")
-	return sh.RunV("gh", "run", "watch")
-}
-
-// ReleasePatch creates a patch release (bug fixes).
-func ReleasePatch() error {
-	fmt.Println("Creating patch release...")
-	return sh.RunV("pwsh", "-File", "scripts/release.ps1", "-BumpType", "Patch")
-}
-
-// ReleaseMinor creates a minor release (new features).
-func ReleaseMinor() error {
-	fmt.Println("Creating minor release...")
-	return sh.RunV("pwsh", "-File", "scripts/release.ps1", "-BumpType", "Minor")
-}
-
-// ReleaseMajor creates a major release (breaking changes).
-func ReleaseMajor() error {
-	fmt.Println("Creating major release...")
-	return sh.RunV("pwsh", "-File", "scripts/release.ps1", "-BumpType", "Major")
 }

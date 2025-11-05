@@ -75,28 +75,25 @@ azd app reqs
 After making changes to your code:
 
 ```powershell
-# Recommended: Use mage for all tasks
-mage build                  # Build for current platform
+# Use mage for all development tasks
 mage install                # Build and install locally
+mage watch                  # Watch for changes and auto-rebuild
 mage test                   # Run unit tests
 mage lint                   # Run linter
 mage clean                  # Clean build artifacts
 
+# Or use azd x commands directly
+azd x build                 # Build and install
+azd x watch                 # Watch for changes
+
 # See all available commands
 mage -l
-
-# Advanced: Direct script usage (if needed)
-.\scripts\quick-install.ps1     # Fast rebuild without full azd extension build
-.\scripts\watch.ps1             # Watches for changes and rebuilds
-.\scripts\run-direct.ps1        # Run without installing as extension
 ```
 
 **Uninstalling Development Build:**
 
 ```powershell
 mage uninstall
-# Or use script directly
-.\scripts\install-local.ps1 -Uninstall
 ```
 
 ### Using Devcontainer
@@ -329,15 +326,7 @@ azd-app-extension/
 │       ├── python/
 │       ├── aspire-test/
 │       └── azure/
-├── scripts/                    # Development helper scripts
-│   ├── build.ps1               # Multi-platform build script
-│   ├── build.sh                # Unix build script
-│   ├── release.ps1             # Release automation script
-│   ├── install-local.ps1       # Local installation for testing
-│   ├── quick-install.ps1       # Fast rebuild during development
-│   ├── run-direct.ps1          # Run without installing as extension
-│   ├── watch.ps1               # Auto-rebuild on file changes
-│   └── test-integration.ps1    # Integration test runner
+
 ├── docs/                       # Documentation
 │   ├── quickstart.md
 │   ├── add-command-guide.md
@@ -404,16 +393,6 @@ mage dashboarddev       # Start dashboard dev server
 
 # Pre-flight checks
 mage preflight          # Run all checks before shipping
-```
-
-**Alternative: Direct Script Usage**
-
-Scripts are located in `scripts/` directory but **mage is the recommended way**:
-
-```bash
-.\scripts\quick-install.ps1     # Fast rebuild
-.\scripts\watch.ps1             # Auto-rebuild on changes
-.\scripts\run-direct.ps1        # Run without installing
 ```
 
 # Run integration tests (requires external tools)

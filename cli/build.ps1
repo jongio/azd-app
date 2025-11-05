@@ -82,8 +82,13 @@ $BUILD_DATE = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
 
 # Read version from version.txt if EXTENSION_VERSION not set
 if (-not $env:EXTENSION_VERSION) {
-    if (Test-Path "version.txt") {
-        $env:EXTENSION_VERSION = (Get-Content "version.txt" -Raw).Trim()
+    if (Test-Path "extension.yaml") {
+        $yamlContent = Get-Content "extension.yaml" -Raw
+        if ($yamlContent -match 'version:\s*(\S+)') {
+            $env:EXTENSION_VERSION = $matches[1]
+        } else {
+            $env:EXTENSION_VERSION = "0.0.0-dev"
+        }
     } else {
         $env:EXTENSION_VERSION = "0.0.0-dev"
     }
@@ -132,7 +137,7 @@ foreach ($PLATFORM in $PLATFORMS) {
     $ldflags = "-s -w -X '$APP_PATH.Version=$env:EXTENSION_VERSION' -X '$APP_PATH.BuildTime=$BUILD_DATE' -X '$APP_PATH.Commit=$COMMIT'"
 
     go build `
-        -ldflags=$ldflags `
+        "-ldflags=$ldflags" `
         -o $OUTPUT_NAME `
         ./src/cmd/app
 

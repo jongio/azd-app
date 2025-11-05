@@ -70,10 +70,13 @@ mkdir -p "$OUTPUT_DIR"
 COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Read version from version.txt if EXTENSION_VERSION not set
+# Read version from extension.yaml if EXTENSION_VERSION not set
 if [ -z "$EXTENSION_VERSION" ]; then
-    if [ -f "version.txt" ]; then
-        EXTENSION_VERSION=$(cat version.txt | tr -d '[:space:]')
+    if [ -f "extension.yaml" ]; then
+        EXTENSION_VERSION=$(grep -E '^version:' extension.yaml | awk '{print $2}' | tr -d '[:space:]')
+        if [ -z "$EXTENSION_VERSION" ]; then
+            EXTENSION_VERSION="0.0.0-dev"
+        fi
     else
         EXTENSION_VERSION="0.0.0-dev"
     fi

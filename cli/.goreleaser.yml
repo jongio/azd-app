@@ -1,0 +1,56 @@
+project_name: azd-app-cli
+
+before:
+  hooks:
+    # Dashboard is built separately in the workflow
+    - echo "Dashboard already built"
+
+builds:
+  - id: azd-app
+    main: ./src/cmd/app
+    binary: azd-app
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: azd-app-cli
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      azd-app-cli-{{ .Os }}-{{ .Arch }}
+    files:
+      - LICENSE
+      - README.md
+      - extension.yaml
+      - dashboard/dist/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Don't create a release - we use azd x release for that
+release:
+  disable: true
+
+# Don't publish anywhere - we use azd x publish for that  
+publishers:
+  - name: skip
+    cmd: echo "Skipping publish - using azd x publish"

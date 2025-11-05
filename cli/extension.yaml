@@ -5,11 +5,13 @@ namespace: app
 displayName: App Extension
 description: A collection of developer productivity commands for Azure Developer CLI
 usage: azd app <command> [options]
-version: 0.1.0
-entryPoint: app
+version: 0.1.13
+language: go
 
 capabilities:
   - custom-commands
+  - lifecycle-events
+  - mcp-server
 
 examples:
   - name: hi
@@ -23,11 +25,3 @@ tags:
   - developer
   - productivity
   - app
-
-platforms:
-  windows:
-    executable: app.exe
-  linux:
-    executable: app
-  darwin:
-    executable: app
