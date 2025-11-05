@@ -52,10 +52,9 @@ describe('LogsView', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'All Services' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'api' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'web' })).toBeInTheDocument()
     })
-
-    expect(screen.getByRole('option', { name: 'api' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'web' })).toBeInTheDocument()
   })
 
   it('should filter logs by service', async () => {
