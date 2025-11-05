@@ -5,6 +5,32 @@ All notable changes to the App Extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/jongio/azd-app/compare/v0.1.2...v0.2.0) (2025-11-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **reqs/docs:** azure.yaml reqs items now use "name" instead of "id". Run `azd app reqs --generate` to update existing projects.
+
+### Features
+
+* Enhance `azd app reqs --generate` command to auto-create missing `reqs` section in `azure.yaml` ([56cb705](https://github.com/jongio/azd-app/commit/56cb705bd23d6ab3ebc6f8a962064df4ea0c5d87))
+* enhance requirement merging in azure.yaml and update version to 0.1.5 ([20fbfda](https://github.com/jongio/azd-app/commit/20fbfda37667fd455de42b9bde840ed4007c483a))
+* Implement installation and uninstallation scripts for azd app extension with file watching capabilities ([f35d77a](https://github.com/jongio/azd-app/commit/f35d77a1f86f50c6660dae970a7532d6195cec71))
+* Initial release of azd-app CLI ([eef9202](https://github.com/jongio/azd-app/commit/eef92021c1b1eb75877dcf54ad6c4c12e43f8cfe))
+* **reqs/docs:** rename reqs item key 'id' to 'name' across CLI, tests, and docs ([dbaeb56](https://github.com/jongio/azd-app/commit/dbaeb56dbf78f54ab56de9c84ef0f74c5dbdfd92))
+* **testing/docs:** add extensive tests, mocks, vitest setup, docs, and Go unit tests ([be238cf](https://github.com/jongio/azd-app/commit/be238cf9c6bb11caf7f7f2617df23047f28be2a5))
+
+
+### Bug Fixes
+
+* correct last array line detection in YAML processing and bump version to 0.1.32 ([0172d10](https://github.com/jongio/azd-app/commit/0172d10f0529f678cc77562b50a0fe833c11aa31))
+* enhance changelog update logic to prevent duplicate entries and improve release note extraction ([09e4c53](https://github.com/jongio/azd-app/commit/09e4c53526269ed3ea0c95240bdd6260e0b169c4))
+* update artifact URLs and extension commands in workflows and README ([6bcd1fc](https://github.com/jongio/azd-app/commit/6bcd1fc1a718f1f87c176943a5020f029d63b251))
+* update changelog format to remove redundant Unreleased section ([e25de6b](https://github.com/jongio/azd-app/commit/e25de6b951a7eea1614cfc6eb3f18a18ee24cfeb))
+* update changelog section to reflect version 0.1.1 and add function to extract unreleased changelog content ([5036332](https://github.com/jongio/azd-app/commit/5036332d0fbbe105d6a4cefeaeb7be3ae8d31d35))
+* update CHANGELOG.md to reflect versioning changes and improve release process ([0e4269d](https://github.com/jongio/azd-app/commit/0e4269d9a79c53931fa46382d213d976ac97323f))
+
 ## [0.1.2] - 2025-11-04
 
 ### Added
