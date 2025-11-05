@@ -5,6 +5,17 @@ All notable changes to the App Extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1](https://github.com/jongio/azd-app/compare/v0.2.0...v0.2.1) (2025-11-05)
+
+
+### Bug Fixes
+
+* force new release-please PR with CI checks ([87e3a84](https://github.com/jongio/azd-app/commit/87e3a84f530c88e28af4a14dcb9c2f0e71e19e5e))
+* make build work without azd installed for CI ([117aa68](https://github.com/jongio/azd-app/commit/117aa6869e73031c036431d2c8088d68dbb5c9bb))
+* skip integration tests in coverage run ([7123ef2](https://github.com/jongio/azd-app/commit/7123ef29dd762cc25533bd882421f324b0f4f312))
+* wait for service options before selecting in test ([9d8b027](https://github.com/jongio/azd-app/commit/9d8b02751ed1ae992000974998f13c5864e8a139))
+* wait for service options to populate in test ([a917be0](https://github.com/jongio/azd-app/commit/a917be02bcec43397323e6aaac370d248678bf87))
+
 ## [0.2.0](https://github.com/jongio/azd-app/compare/v0.1.2...v0.2.0) (2025-11-05)
 
 
