@@ -3,6 +3,9 @@ set -e
 
 echo "🚀 Setting up development environment..."
 
+# Ensure Go tools are in PATH (added by devcontainer but might not be set yet)
+export PATH="$HOME/go/bin:$PATH"
+
 # Ensure mage is in PATH
 if ! command -v mage &> /dev/null; then
     echo "⚠️  mage not found in PATH, installing via go install..."
@@ -27,6 +30,17 @@ cd /workspaces/azd-app/cli || exit 1
 # Download Go dependencies
 echo "📦 Downloading Go dependencies..."
 go mod download
+
+# Build dashboard to create dist directory (required for embed directive)
+echo "🎨 Building dashboard..."
+if command -v npm &> /dev/null; then
+    cd dashboard
+    npm install --silent --no-progress
+    npm run build --silent
+    cd ..
+else
+    echo "⚠️  npm not found, skipping dashboard build"
+fi
 
 # Run quick tests to verify setup
 echo "🧪 Running quick tests..."
