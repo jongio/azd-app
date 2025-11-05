@@ -234,8 +234,8 @@ func TestCoverage() error {
 	coverageOut := filepath.Join(absCoverageDir, "coverage.out")
 	coverageHTML := filepath.Join(absCoverageDir, "coverage.html")
 
-	// Run tests with coverage
-	if err := sh.RunV("go", "test", "-v", "-coverprofile="+coverageOut, "./src/..."); err != nil {
+	// Run tests with coverage (use -short to skip integration tests)
+	if err := sh.RunV("go", "test", "-v", "-short", "-coverprofile="+coverageOut, "./src/..."); err != nil {
 		return fmt.Errorf("tests failed: %w", err)
 	}
 
