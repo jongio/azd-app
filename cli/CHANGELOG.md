@@ -5,6 +5,13 @@ All notable changes to the App Extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2](https://github.com/jongio/azd-app/compare/v0.2.1...v0.2.2) (2025-11-05)
+
+
+### Features
+
+* test release workflow ([b21b3d5](https://github.com/jongio/azd-app/commit/b21b3d570458c85018e077760626228d78b54ee4))
+
 ## [0.2.1](https://github.com/jongio/azd-app/compare/v0.2.0...v0.2.1) (2025-11-05)
 
 
