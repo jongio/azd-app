@@ -81,50 +81,75 @@ func All() error {
 	return Build()
 }
 
-// Build compiles the app binary for the current platform with version info using azd x build.
+// Build compiles the app binary for the current platform with version info.
 func Build() error {
 	fmt.Println("Building", binaryName+"...")
 
-	// Bump version
-	version, err := bumpVersion()
+	// Get version from extension.yaml (don't bump on every build)
+	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
-	// Set environment variables for azd x build
+	// Detect current platform
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+	platform := fmt.Sprintf("%s/%s", goos, goarch)
+
+	// Set environment variables for build script
 	env := map[string]string{
-		"EXTENSION_ID":      "jongio.azd.app",
-		"EXTENSION_VERSION": version,
+		"EXTENSION_ID":       "jongio.azd.app",
+		"EXTENSION_VERSION":  version,
+		"EXTENSION_PLATFORM": platform,
 	}
 
-	// Use azd x build which calls our build.ps1/build.sh script
-	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
-		return fmt.Errorf("build failed: %w", err)
+	// Call build script directly
+	var buildScript string
+	if runtime.GOOS == "windows" {
+		buildScript = "build.ps1"
+		if err := sh.RunWithV(env, "pwsh", "-File", buildScript); err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
+	} else {
+		buildScript = "build.sh"
+		if err := sh.RunWithV(env, "bash", buildScript); err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
 	}
 
 	fmt.Printf("✅ Build complete! Version: %s\n", version)
 	return nil
 }
 
-// BuildAll builds for all platforms using azd x build --all.
+// BuildAll builds for all platforms.
 func BuildAll() error {
 	fmt.Println("Building for all platforms...")
 
-	// Bump version first
-	version, err := bumpVersion()
+	// Get version from extension.yaml (don't bump on every build)
+	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
-	// Set environment variables for azd x build
+	// Set environment variables for build script
+	// When EXTENSION_PLATFORM is not set, the script builds for all platforms
 	env := map[string]string{
 		"EXTENSION_ID":      "jongio.azd.app",
 		"EXTENSION_VERSION": version,
 	}
 
-	// Use azd x build --all which calls our build.ps1/build.sh script
-	if err := sh.RunWithV(env, "azd", "x", "build", "--all"); err != nil {
-		return fmt.Errorf("build failed: %w", err)
+	// Call build script directly
+	var buildScript string
+	if runtime.GOOS == "windows" {
+		buildScript = "build.ps1"
+		if err := sh.RunWithV(env, "pwsh", "-File", buildScript); err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
+	} else {
+		buildScript = "build.sh"
+		if err := sh.RunWithV(env, "bash", buildScript); err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
 	}
 
 	fmt.Println("✅ Build complete for all platforms!")
@@ -287,7 +312,13 @@ func Clean() error {
 }
 
 // Install builds and installs the extension locally using azd x build.
+// Requires azd to be installed and available in PATH.
 func Install() error {
+	// Check if azd is available
+	if _, err := sh.Output("azd", "version"); err != nil {
+		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	}
+
 	// Get version
 	version, err := getVersion()
 	if err != nil {
@@ -312,7 +343,13 @@ func Install() error {
 }
 
 // Watch monitors files and rebuilds/reinstalls on changes using azd x watch.
+// Requires azd to be installed and available in PATH.
 func Watch() error {
+	// Check if azd is available
+	if _, err := sh.Output("azd", "version"); err != nil {
+		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	}
+
 	fmt.Println("Starting file watcher with azd x watch...")
 	
 	// Set environment variables
