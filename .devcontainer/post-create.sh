@@ -25,7 +25,15 @@ fi
 export PATH="$HOME/.dotnet/tools:$PATH"
 
 # Navigate to CLI directory for Go operations
-cd /workspaces/azd-app/cli || exit 1
+# Try devcontainer path first, then fallback to script location
+if [ -d "/workspaces/azd-app/cli" ]; then
+    cd /workspaces/azd-app/cli
+elif [ -f "$(dirname "$0")/../cli/go.mod" ]; then
+    cd "$(dirname "$0")/../cli"
+else
+    echo "❌ Could not find CLI directory"
+    exit 1
+fi
 
 # Download Go dependencies
 echo "📦 Downloading Go dependencies..."
