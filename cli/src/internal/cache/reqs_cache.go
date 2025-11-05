@@ -20,7 +20,7 @@ type ReqsCache struct {
 
 // CachedReqResult represents a cached req check result.
 type CachedReqResult struct {
-	ID         string `json:"id"`
+	Name       string `json:"name"`
 	Installed  bool   `json:"installed"`
 	Version    string `json:"version,omitempty"`
 	Required   string `json:"required"`

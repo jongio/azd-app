@@ -24,9 +24,9 @@ func TestRunReqsIntegration(t *testing.T) {
 			name: "valid_prerequisites",
 			azureYAML: `name: test-project
 reqs:
-  - id: node
+  - Name: node
     minVersion: 18.0.0
-  - id: azd
+  - Name: azd
     minVersion: 1.0.0
 `,
 			expectError: false,
@@ -35,7 +35,7 @@ reqs:
 			name: "missing_prerequisite",
 			azureYAML: `name: test-project
 reqs:
-  - id: nonexistent-tool-xyz-123
+  - Name: nonexistent-tool-xyz-123
     minVersion: 1.0.0
 `,
 			expectError:   true,
@@ -45,7 +45,7 @@ reqs:
 			name: "docker_with_running_check",
 			azureYAML: `name: test-project
 reqs:
-  - id: docker
+  - Name: docker
     minVersion: 20.0.0
     checkRunning: true
 `,
@@ -105,7 +105,7 @@ func TestCheckPrerequisiteIntegration(t *testing.T) {
 		{
 			name: "node_installed",
 			prereq: Prerequisite{
-				ID:         "node",
+				Name:       "node",
 				MinVersion: "14.0.0",
 			},
 			wantPass: true, // Assumes Node.js is installed
@@ -113,7 +113,7 @@ func TestCheckPrerequisiteIntegration(t *testing.T) {
 		{
 			name: "go_installed",
 			prereq: Prerequisite{
-				ID:         "go",
+				Name:       "go",
 				MinVersion: "1.20.0",
 			},
 			wantPass: true, // Assumes Go is installed
@@ -121,7 +121,7 @@ func TestCheckPrerequisiteIntegration(t *testing.T) {
 		{
 			name: "custom_tool_not_installed",
 			prereq: Prerequisite{
-				ID:         "nonexistent-tool-integration-test",
+				Name:       "nonexistent-tool-integration-test",
 				MinVersion: "1.0.0",
 			},
 			wantPass: false,
@@ -156,7 +156,7 @@ func TestCheckIsRunningIntegration(t *testing.T) {
 		{
 			name: "docker_running_check",
 			prereq: Prerequisite{
-				ID:           "docker",
+				Name:         "docker",
 				CheckRunning: true,
 			},
 			skipMsg: "Docker may not be installed or running",
@@ -164,7 +164,7 @@ func TestCheckIsRunningIntegration(t *testing.T) {
 		{
 			name: "custom_check_echo",
 			prereq: Prerequisite{
-				ID:                   "test-service",
+				Name:                 "test-service",
 				CheckRunning:         true,
 				RunningCheckCommand:  "cmd",
 				RunningCheckArgs:     []string{"/c", "echo", "active"},
@@ -182,7 +182,7 @@ func TestCheckIsRunningIntegration(t *testing.T) {
 				if !result {
 					t.Skip(tt.skipMsg)
 				}
-				t.Logf("Running check passed for %s", tt.prereq.ID)
+				t.Logf("Running check passed for %s", tt.prereq.Name)
 			} else {
 				result := checkIsRunning(tt.prereq)
 				if !result {

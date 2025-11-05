@@ -171,7 +171,7 @@ func TestGetCachedResultsValid(t *testing.T) {
 	// Create a valid cache file
 	results := []CachedReqResult{
 		{
-			ID:        "test-tool",
+			Name:      "test-tool",
 			Installed: true,
 			Version:   "1.0.0",
 			Required:  "1.0.0",
@@ -335,7 +335,7 @@ func TestSaveResults(t *testing.T) {
 	// Create test results
 	results := []CachedReqResult{
 		{
-			ID:         "test-tool",
+			Name:       "test-tool",
 			Installed:  true,
 			Version:    "1.0.0",
 			Required:   "1.0.0",
@@ -376,8 +376,8 @@ func TestSaveResults(t *testing.T) {
 		t.Fatalf("cache.Results length = %v, want 1", len(cache.Results))
 	}
 
-	if cache.Results[0].ID != "test-tool" {
-		t.Errorf("cache.Results[0].ID = %v, want test-tool", cache.Results[0].ID)
+	if cache.Results[0].Name != "test-tool" {
+		t.Errorf("cache.Results[0].Name = %v, want test-tool", cache.Results[0].Name)
 	}
 
 	if cache.AzureYamlHash == "" {

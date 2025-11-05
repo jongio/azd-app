@@ -239,7 +239,7 @@ For tools that require a running daemon (like Docker), the command can verify th
 
 ```yaml
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
     checkRunning: true
 ```
@@ -254,7 +254,7 @@ reqs:
 
 ```yaml
 reqs:
-  - id: postgres
+  - name: postgres
     minVersion: "15.0.0"
     checkRunning: true
     runningCheckCommand: "pg_isready"
@@ -427,11 +427,11 @@ When generating requirements:
 ```
 Existing azure.yaml:           Detected:              Result:
 reqs:                          - docker: 24.0.7       reqs:
-  - id: node                   - node: 20.11.0          - id: docker
+  - name: node                 - node: 20.11.0          - name: docker
     minVersion: "18.0.0"       - python: 3.12.0           minVersion: "24.0.7"
-                                                        - id: node
+                                                        - name: node
                                                           minVersion: "18.0.0"  (preserved)
-                                                        - id: python
+                                                        - name: python
                                                           minVersion: "3.12.0"
 ```
 
@@ -444,11 +444,11 @@ name: my-project
 
 reqs:
   # Basic requirement
-  - id: node
+  - name: node
     minVersion: "18.0.0"
   
   # With runtime check
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
     checkRunning: true
   
@@ -608,7 +608,7 @@ echo $PATH
 # Add tool to PATH or use custom command:
 # azure.yaml:
 reqs:
-  - id: node
+  - name: node
     command: "/usr/local/bin/node"
     args: ["--version"]
 ```
@@ -624,7 +624,7 @@ node --version  # Output: v20.11.0
 
 # Configure field correctly:
 reqs:
-  - id: node
+  - name: node
     versionField: 0      # Use full output
     versionPrefix: "v"   # Strip 'v' prefix
 ```
@@ -698,17 +698,17 @@ Detected tools:
 Dry-run mode: azure.yaml would be updated with:
 
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "24.0.7"
-  - id: git
+  - name: git
     minVersion: "2.43.0"
-  - id: node
+  - name: node
     minVersion: "20.0.0"
-  - id: pip
+  - name: pip
     minVersion: "24.0.0"
-  - id: pnpm
+  - name: pnpm
     minVersion: "8.15.0"
-  - id: python
+  - name: python
     minVersion: "3.12.0"
 ```
 
@@ -716,7 +716,7 @@ reqs:
 
 ```yaml
 reqs:
-  - id: postgresql
+  - name: postgresql
     command: "psql"
     args: ["--version"]
     versionField: 2

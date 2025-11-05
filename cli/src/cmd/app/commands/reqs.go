@@ -15,7 +15,7 @@ import (
 
 // Prerequisite represents a prerequisite from azure.yaml.
 type Prerequisite struct {
-	ID         string `yaml:"id"`
+	Name       string `yaml:"name"`
 	MinVersion string `yaml:"minVersion"`
 	// Custom tool configuration (optional)
 	Command       string   `yaml:"command,omitempty"`       // Override command to execute
@@ -37,7 +37,7 @@ type AzureYaml struct {
 
 // ReqResult represents the result of checking a requirement.
 type ReqResult struct {
-	ID         string `json:"id"`
+	Name       string `json:"name"`
 	Installed  bool   `json:"installed"`
 	Version    string `json:"version,omitempty"`
 	Required   string `json:"required"`
@@ -212,7 +212,7 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	installed, version := getInstalledVersion(prereq)
 
 	result := ReqResult{
-		ID:        prereq.ID,
+		Name:      prereq.Name,
 		Installed: installed,
 		Version:   version,
 		Required:  prereq.MinVersion,
@@ -222,7 +222,7 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	if !installed {
 		result.Message = "Not installed"
 		if !output.IsJSON() {
-			output.ItemError("%s: NOT INSTALLED (required: %s)", prereq.ID, prereq.MinVersion)
+			output.ItemError("%s: NOT INSTALLED (required: %s)", prereq.Name, prereq.MinVersion)
 		}
 		return result
 	}
@@ -230,7 +230,7 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	if version == "" {
 		result.Message = "Version unknown"
 		if !output.IsJSON() {
-			output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.ID, prereq.MinVersion)
+			output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.Name, prereq.MinVersion)
 		}
 		// Continue to check if it's running if needed
 	} else {
@@ -238,12 +238,12 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 		if !versionOk {
 			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
 			if !output.IsJSON() {
-				output.ItemError("%s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
+				output.ItemError("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
 			}
 			return result
 		}
 		if !output.IsJSON() {
-			output.ItemSuccess("%s: %s (required: %s)", prereq.ID, version, prereq.MinVersion)
+			output.ItemSuccess("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
 		}
 	}
 
@@ -292,7 +292,7 @@ func getInstalledVersion(prereq Prerequisite) (installed bool, version string) {
 		}
 	} else {
 		// Use registry-based configuration
-		tool := prereq.ID
+		tool := prereq.Name
 
 		// Resolve aliases to canonical name
 		if canonical, isAlias := toolAliases[tool]; isAlias {
@@ -305,7 +305,7 @@ func getInstalledVersion(prereq Prerequisite) (installed bool, version string) {
 		if !found {
 			// Fallback: try generic --version with tool ID as command
 			config = ToolConfig{
-				Command: prereq.ID,
+				Command: prereq.Name,
 				Args:    []string{"--version"},
 			}
 		}
@@ -407,7 +407,7 @@ func checkIsRunning(prereq Prerequisite) bool {
 
 	// Default checks for known tools
 	if command == "" {
-		switch prereq.ID {
+		switch prereq.Name {
 		case "docker":
 			command = "docker"
 			args = []string{"ps"}

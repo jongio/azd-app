@@ -11,7 +11,7 @@ func TestNormalizeVersion(t *testing.T) {
 	tests := []struct {
 		name             string
 		installedVersion string
-		toolID           string
+		toolName         string
 		expected         string
 	}{
 		// Node.js and similar (major only)
@@ -45,10 +45,10 @@ func TestNormalizeVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeVersion(tt.installedVersion, tt.toolID)
+			result := normalizeVersion(tt.installedVersion, tt.toolName)
 			if result != tt.expected {
 				t.Errorf("normalizeVersion(%q, %q) = %q, want %q",
-					tt.installedVersion, tt.toolID, result, tt.expected)
+					tt.installedVersion, tt.toolName, result, tt.expected)
 			}
 		})
 	}
@@ -497,8 +497,8 @@ reqs:
 		}
 
 		detected := []DetectedRequirement{
-			{ID: "node", MinVersion: "22.0.0"},
-			{ID: "npm", MinVersion: "11.0.0"},
+			{Name: "node", MinVersion: "22.0.0"},
+			{Name: "npm", MinVersion: "11.0.0"},
 		}
 
 		added, skipped, err := mergeReqs(testFile, detected)
@@ -518,9 +518,9 @@ reqs:
 		testFile := filepath.Join(tmpDir, "azure2.yaml")
 		content := `name: test
 reqs:
-  - id: node
+  - name: node
     minVersion: 20.0.0
-  - id: npm
+  - name: npm
     minVersion: 10.0.0
 `
 		if err := os.WriteFile(testFile, []byte(content), 0600); err != nil {
@@ -528,9 +528,9 @@ reqs:
 		}
 
 		detected := []DetectedRequirement{
-			{ID: "node", MinVersion: "22.0.0"},
-			{ID: "npm", MinVersion: "11.0.0"},
-			{ID: "git", MinVersion: "2.0.0"},
+			{Name: "node", MinVersion: "22.0.0"},
+			{Name: "npm", MinVersion: "11.0.0"},
+			{Name: "git", MinVersion: "2.0.0"},
 		}
 
 		added, skipped, err := mergeReqs(testFile, detected)
@@ -551,7 +551,7 @@ reqs:
 		maliciousPath := filepath.Join(tmpDir, "..", "..", "..", "etc", "passwd")
 
 		detected := []DetectedRequirement{
-			{ID: "node", MinVersion: "22.0.0"},
+			{Name: "node", MinVersion: "22.0.0"},
 		}
 
 		_, _, err := mergeReqs(maliciousPath, detected)
@@ -575,11 +575,11 @@ env:
 # Requirements section
 reqs:
   # Node.js runtime - keep at v20
-  - id: node
+  - name: node
     minVersion: "20.0.0"
   
   # Package manager
-  - id: npm
+  - name: npm
     minVersion: "10.0.0"
 
 # Services will go here
@@ -590,8 +590,8 @@ services: []
 		}
 
 		detected := []DetectedRequirement{
-			{ID: "node", MinVersion: "22.0.0"}, // Already exists (will be skipped)
-			{ID: "git", MinVersion: "2.0.0"},   // New requirement (will be added)
+			{Name: "node", MinVersion: "22.0.0"}, // Already exists (will be skipped)
+			{Name: "git", MinVersion: "2.0.0"},   // New requirement (will be added)
 		}
 
 		added, skipped, err := mergeReqs(testFile, detected)
@@ -648,7 +648,7 @@ services: []
 		}
 
 		// Check that git was added
-		if !strings.Contains(resultStr, "id: git") {
+		if !strings.Contains(resultStr, "name: git") {
 			t.Error("Expected git requirement to be added")
 		}
 
@@ -677,7 +677,7 @@ reqs: []
 
 		// Test merging
 		newReqs := []DetectedRequirement{
-			{ID: "node", MinVersion: "20.0.0", Source: "package.json"},
+			{Name: "node", MinVersion: "20.0.0", Source: "package.json"},
 		}
 
 		added, existing, err := mergeReqs(azurePath, newReqs)
@@ -696,7 +696,7 @@ reqs: []
 		}
 
 		resultStr := string(result)
-		if !strings.Contains(resultStr, "id: node") {
+		if !strings.Contains(resultStr, "name: node") {
 			t.Error("Expected node requirement to be added to empty array")
 		}
 		if existing != 0 {
@@ -715,7 +715,7 @@ reqs: []
 		// Write azure.yaml
 		azureYaml := `name: test-app
 reqs:
-  - id: node
+  - name: node
     minVersion: "20.0.0"
 `
 		azurePath := filepath.Join(tmpDir, "azure.yaml")
@@ -768,7 +768,7 @@ settings:
 
 # Tools
 reqs:
-  - id: node
+  - name: node
     minVersion: "20.0.0"
 
 # More config
@@ -787,7 +787,7 @@ services:
 
 		// Test merging
 		newReqs := []DetectedRequirement{
-			{ID: "docker", MinVersion: "20.0.0", Source: "Dockerfile"},
+			{Name: "docker", MinVersion: "20.0.0", Source: "Dockerfile"},
 		}
 
 		added, existing, err := mergeReqs(azurePath, newReqs)
@@ -820,8 +820,8 @@ services:
 			"deep:",
 			"value: 123",
 			"# Tools",
-			"id: node",
-			"id: docker",
+			"name: node",
+			"name: docker",
 			"# More config",
 			"services:",
 			"name: api",
@@ -902,8 +902,8 @@ func TestDetectNodePackageManager(t *testing.T) {
 			}
 
 			result := detectNodePackageManager(testDir)
-			if result.ID != tt.expectedID {
-				t.Errorf("Expected ID=%q, got %q", tt.expectedID, result.ID)
+			if result.Name != tt.expectedID {
+				t.Errorf("Expected ID=%q, got %q", tt.expectedID, result.Name)
 			}
 			if result.Source != tt.expectedSource {
 				t.Errorf("Expected Source=%q, got %q", tt.expectedSource, result.Source)
@@ -988,8 +988,8 @@ func TestDetectPythonPackageManager(t *testing.T) {
 			}
 
 			result := detectPythonPackageManager(testDir)
-			if result.ID != tt.expectedID {
-				t.Errorf("Expected ID=%q, got %q", tt.expectedID, result.ID)
+			if result.Name != tt.expectedID {
+				t.Errorf("Expected ID=%q, got %q", tt.expectedID, result.Name)
 			}
 			if result.Source != tt.expectedSource {
 				t.Errorf("Expected Source=%q, got %q", tt.expectedSource, result.Source)

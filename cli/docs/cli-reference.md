@@ -86,12 +86,12 @@ Define requirements in `azure.yaml`:
 ```yaml
 name: my-project
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
     checkRunning: true
-  - id: nodejs
+  - name: nodejs
     minVersion: "20.0.0"
-  - id: python
+  - name: python
     minVersion: "3.12.0"
 ```
 

@@ -3,13 +3,13 @@ metadata:
   template: fullstack-test
 
 reqs:
-  - id: node
-    minVersion: "18.0.0"
-  - id: npm
-    minVersion: "9.0.0"
-  - id: python
-    minVersion: "3.9.0"
-  - id: pip
+  - name: node
+    minVersion: 18.0.0
+  - name: npm
+    minVersion: 9.0.0
+  - name: python
+    minVersion: 3.9.0
+  - name: pip
     minVersion: "20.0.0"
 
 services:

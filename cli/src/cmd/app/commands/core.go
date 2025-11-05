@@ -142,7 +142,7 @@ func executeReqs() error {
 			results = make([]ReqResult, len(cachedResults.Results))
 			for i, cached := range cachedResults.Results {
 				results[i] = ReqResult{
-					ID:         cached.ID,
+					Name:       cached.Name,
 					Installed:  cached.Installed,
 					Version:    cached.Version,
 					Required:   cached.Required,
@@ -168,7 +168,7 @@ func executeReqs() error {
 			cacheResults := make([]cache.CachedReqResult, len(results))
 			for i, result := range results {
 				cacheResults[i] = cache.CachedReqResult{
-					ID:         result.ID,
+					Name:       result.Name,
 					Installed:  result.Installed,
 					Version:    result.Version,
 					Required:   result.Required,
@@ -480,17 +480,17 @@ func performReqsCheck(reqs []Prerequisite) ([]ReqResult, bool) {
 // printRequirementResult prints a single requirement result in human-readable format.
 func printRequirementResult(result ReqResult) {
 	if !result.Installed {
-		output.ItemError("%s: NOT INSTALLED (required: %s)", result.ID, result.Required)
+		output.ItemError("%s: NOT INSTALLED (required: %s)", result.Name, result.Required)
 		return
 	}
 
 	if result.Version == "" {
-		output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", result.ID, result.Required)
+		output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", result.Name, result.Required)
 	} else if !result.Satisfied && !result.CheckedRun {
-		output.ItemError("%s: %s (required: %s)", result.ID, result.Version, result.Required)
+		output.ItemError("%s: %s (required: %s)", result.Name, result.Version, result.Required)
 		return
 	} else {
-		output.ItemSuccess("%s: %s (required: %s)", result.ID, result.Version, result.Required)
+		output.ItemSuccess("%s: %s (required: %s)", result.Name, result.Version, result.Required)
 	}
 
 	// Check running status if applicable

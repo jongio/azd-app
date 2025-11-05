@@ -18,7 +18,7 @@ import (
 
 // DetectedRequirement represents a requirement found during project scanning.
 type DetectedRequirement struct {
-	ID               string // Tool identifier (e.g., "node", "docker")
+	Name             string // Tool identifier (e.g., "node", "docker")
 	InstalledVersion string // Currently installed version (e.g., "22.3.0")
 	MinVersion       string // Normalized minimum version (e.g., "22.0.0")
 	CheckRunning     bool   // Whether tool must be running
@@ -116,12 +116,12 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 		foundSources["Node.js"] = true
 
 		// Add Node.js
-		if req := detectNode(projectDir); req.ID != "" {
+		if req := detectNode(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 
 		// Add package manager
-		if req := detectNodePackageManager(projectDir); req.ID != "" {
+		if req := detectNodePackageManager(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 	}
@@ -131,12 +131,12 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 		foundSources["Python"] = true
 
 		// Add Python
-		if req := detectPython(projectDir); req.ID != "" {
+		if req := detectPython(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 
 		// Add package manager
-		if req := detectPythonPackageManager(projectDir); req.ID != "" {
+		if req := detectPythonPackageManager(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 	}
@@ -146,14 +146,14 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 		foundSources[".NET"] = true
 
 		// Add .NET SDK
-		if req := detectDotnet(projectDir); req.ID != "" {
+		if req := detectDotnet(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 
 		// Check for Aspire
 		if hasAspireProject(projectDir) {
 			foundSources[".NET Aspire"] = true
-			if req := detectAspire(projectDir); req.ID != "" {
+			if req := detectAspire(projectDir); req.Name != "" {
 				requirements = append(requirements, req)
 			}
 		}
@@ -162,21 +162,21 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 	// Detect Docker
 	if hasDockerConfig(projectDir) {
 		foundSources["Docker"] = true
-		if req := detectDocker(projectDir); req.ID != "" {
+		if req := detectDocker(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 	}
 
 	// Detect Azure tools
 	if hasAzureYaml(projectDir) {
-		if req := detectAzd(projectDir); req.ID != "" {
+		if req := detectAzd(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 	}
 
 	// Detect Git
 	if hasGit(projectDir) {
-		if req := detectGit(projectDir); req.ID != "" {
+		if req := detectGit(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
 		}
 	}
@@ -257,7 +257,7 @@ func hasGit(dir string) bool {
 // Tool detection functions
 func detectNode(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     "node",
+		Name:   "node",
 		Source: "package.json",
 	}
 
@@ -288,7 +288,7 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 
 func detectPython(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     "python",
+		Name:   "python",
 		Source: "requirements.txt or pyproject.toml",
 	}
 
@@ -332,7 +332,7 @@ func detectPythonPackageManager(projectDir string) DetectedRequirement {
 
 func detectDotnet(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     "dotnet",
+		Name:   "dotnet",
 		Source: ".csproj or .sln",
 	}
 
@@ -348,7 +348,7 @@ func detectDotnet(_ string) DetectedRequirement {
 
 func detectAspire(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     "aspire",
+		Name:   "aspire",
 		Source: "AppHost.cs",
 	}
 
@@ -364,7 +364,7 @@ func detectAspire(_ string) DetectedRequirement {
 
 func detectDocker(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:           "docker",
+		Name:         "docker",
 		Source:       "Dockerfile or docker-compose.yml",
 		CheckRunning: true,
 	}
@@ -381,7 +381,7 @@ func detectDocker(_ string) DetectedRequirement {
 
 func detectAzd(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     "azd",
+		Name:   "azd",
 		Source: "azure.yaml",
 	}
 
@@ -397,7 +397,7 @@ func detectAzd(_ string) DetectedRequirement {
 
 func detectGit(_ string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     "git",
+		Name:   "git",
 		Source: ".git directory",
 	}
 
@@ -412,33 +412,33 @@ func detectGit(_ string) DetectedRequirement {
 }
 
 // detectTool is a generic helper for detecting tools.
-func detectTool(toolID, source string) DetectedRequirement {
+func detectTool(toolName, source string) DetectedRequirement {
 	req := DetectedRequirement{
-		ID:     toolID,
+		Name:   toolName,
 		Source: source,
 	}
 
-	installedVersion, err := getToolVersion(toolID)
+	installedVersion, err := getToolVersion(toolName)
 	if err != nil {
 		return req
 	}
 
 	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, toolID)
+	req.MinVersion = normalizeVersion(installedVersion, toolName)
 	return req
 }
 
 // getToolVersion queries the system for the installed version of a tool.
-func getToolVersion(toolID string) (string, error) {
+func getToolVersion(toolName string) (string, error) {
 	// Check aliases first
-	if canonical, exists := toolAliases[toolID]; exists {
-		toolID = canonical
+	if canonical, exists := toolAliases[toolName]; exists {
+		toolName = canonical
 	}
 
 	// Look up tool configuration from registry
-	toolConfig, exists := toolRegistry[toolID]
+	toolConfig, exists := toolRegistry[toolName]
 	if !exists {
-		return "", fmt.Errorf("unknown tool: %s", toolID)
+		return "", fmt.Errorf("unknown tool: %s", toolName)
 	}
 
 	// Execute version command directly to capture output
@@ -446,7 +446,7 @@ func getToolVersion(toolID string) (string, error) {
 	cmd := exec.Command(toolConfig.Command, toolConfig.Args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("tool not installed: %s", toolID)
+		return "", fmt.Errorf("tool not installed: %s", toolName)
 	}
 
 	// Parse version from output
@@ -486,10 +486,10 @@ func extractVersionFromOutput(output, prefix string, field int) string {
 }
 
 // normalizeVersion converts installed version to minimum version constraint.
-func normalizeVersion(installedVersion string, toolID string) string {
+func normalizeVersion(installedVersion string, toolName string) string {
 	parts := strings.Split(installedVersion, ".")
 
-	switch toolID {
+	switch toolName {
 	case "node", "dotnet", "go", "rust", "docker", "git":
 		// Major version only: "22.3.0" -> "22.0.0"
 		if len(parts) >= 1 {
@@ -550,17 +550,17 @@ func displayDetectedDependencies(requirements []DetectedRequirement) {
 	for _, req := range requirements {
 		// Derive project type from source
 		if strings.Contains(req.Source, "package.json") {
-			pkgMgr := req.ID
-			if req.ID == "node" {
+			pkgMgr := req.Name
+			if req.Name == "node" {
 				// Look for package manager in other requirements
 				for _, r := range requirements {
-					if r.ID == "pnpm" || r.ID == "yarn" || r.ID == "npm" {
-						pkgMgr = r.ID
+					if r.Name == "pnpm" || r.Name == "yarn" || r.Name == "npm" {
+						pkgMgr = r.Name
 						break
 					}
 				}
 			}
-			if req.ID == "node" || req.ID == "npm" || req.ID == "pnpm" || req.ID == "yarn" {
+			if req.Name == "node" || req.Name == "npm" || req.Name == "pnpm" || req.Name == "yarn" {
 				sources[fmt.Sprintf("Node.js project (%s)", pkgMgr)] = true
 			}
 		} else if strings.Contains(req.Source, "AppHost.cs") {
@@ -572,16 +572,16 @@ func displayDetectedDependencies(requirements []DetectedRequirement) {
 		} else if strings.Contains(req.Source, "docker") || strings.Contains(req.Source, "Dockerfile") {
 			sources["Docker configuration"] = true
 		} else if strings.Contains(req.Source, "requirements.txt") || strings.Contains(req.Source, "pyproject.toml") {
-			pkgMgr := req.ID
-			if req.ID == "python" {
+			pkgMgr := req.Name
+			if req.Name == "python" {
 				for _, r := range requirements {
-					if r.ID == "poetry" || r.ID == "uv" || r.ID == "pip" || r.ID == "pipenv" {
-						pkgMgr = r.ID
+					if r.Name == "poetry" || r.Name == "uv" || r.Name == "pip" || r.Name == "pipenv" {
+						pkgMgr = r.Name
 						break
 					}
 				}
 			}
-			if req.ID == "python" || req.ID == "pip" || req.ID == "poetry" || req.ID == "uv" || req.ID == "pipenv" {
+			if req.Name == "python" || req.Name == "pip" || req.Name == "poetry" || req.Name == "uv" || req.Name == "pipenv" {
 				sources[fmt.Sprintf("Python project (%s)", pkgMgr)] = true
 			}
 		}
@@ -607,10 +607,10 @@ func displayDetectedReqs(reqs []DetectedRequirement) {
 				runningNote = ", must be running"
 			}
 			output.Item("%s (%s installed%s) → minVersion: \"%s\"",
-				req.ID, req.InstalledVersion, runningNote, req.MinVersion)
+				req.Name, req.InstalledVersion, runningNote, req.MinVersion)
 		} else {
 			hasUninstalled = true
-			output.Item("%s (NOT INSTALLED) → will be added to reqs", req.ID)
+			output.Item("%s (NOT INSTALLED) → will be added to reqs", req.Name)
 		}
 	}
 	output.Newline()
@@ -620,8 +620,8 @@ func displayDetectedReqs(reqs []DetectedRequirement) {
 		output.Newline()
 		for _, req := range reqs {
 			if req.InstalledVersion == "" {
-				output.ItemError("%s: NOT INSTALLED", req.ID)
-				switch req.ID {
+				output.ItemError("%s: NOT INSTALLED", req.Name)
+				switch req.Name {
 				case "pnpm":
 					output.Item("     Install: npm install -g pnpm")
 				case "poetry":
@@ -706,7 +706,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	var items []map[string]interface{}
 	for _, det := range detected {
 		item := map[string]interface{}{
-			"id":         det.ID,
+			"name":       det.Name,
 			"minVersion": det.MinVersion,
 		}
 		if det.CheckRunning {
@@ -718,7 +718,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	// Use yamlutil to append new requirements
 	opts := yamlutil.ArrayAppendOptions{
 		SectionKey: "reqs",
-		ItemIDKey:  "id",
+		ItemIDKey:  "name",
 		Items:      items,
 		FormatItem: formatReqItem,
 	}
@@ -741,10 +741,10 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 func formatReqItem(item map[string]interface{}, arrayIndent string) string {
 	var builder strings.Builder
 
-	// Array item with ID
+	// Array item with Name
 	builder.WriteString(arrayIndent)
-	builder.WriteString("- id: ")
-	builder.WriteString(item["id"].(string))
+	builder.WriteString("- name: ")
+	builder.WriteString(item["name"].(string))
 	builder.WriteString("\n")
 
 	// MinVersion (quoted)

@@ -4,17 +4,17 @@ metadata:
 
 reqs:
   # This will pass - Node.js is installed
-  - id: nodejs
+  - name: nodejs
     minVersion: "20.0.0"
     
   # This might fail - not many people have go installed
-  - id: go
+  - name: go
     minVersion: "1.20.0"
     
   # This will likely fail - very high version requirement
-  - id: python
+  - name: python
     minVersion: "99.0.0"
     
   # This should pass
-  - id: azd
+  - name: azd
     minVersion: "1.0.0"

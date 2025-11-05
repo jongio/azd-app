@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Improved overall code coverage with comprehensive test suites
+- **BREAKING CHANGE**: Renamed `reqs.req.id` to `reqs.req.name` in azure.yaml. Run `azd app reqs --generate` to update your project to work with `name` instead of `id`
 
 ## [0.1.1] - 2025-11-04
 

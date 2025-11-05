@@ -250,7 +250,7 @@ func TestGetInstalledVersion(t *testing.T) {
 		{
 			name: "custom tool - go",
 			prereq: Prerequisite{
-				ID:            "go",
+				Name:          "go",
 				Command:       "go",
 				Args:          []string{"version"},
 				VersionField:  2,
@@ -262,7 +262,7 @@ func TestGetInstalledVersion(t *testing.T) {
 		{
 			name: "nonexistent tool",
 			prereq: Prerequisite{
-				ID:      "nonexistent-tool-xyz",
+				Name:    "nonexistent-tool-xyz",
 				Command: "nonexistent-tool-xyz",
 				Args:    []string{"--version"},
 			},
@@ -278,11 +278,11 @@ func TestGetInstalledVersion(t *testing.T) {
 			// Just verify the function runs without panicking
 			// Actual version detection depends on what's installed on the test machine
 			if tt.expectInstalled && !installed {
-				t.Logf("Expected %s to be installed but it wasn't (this is OK if not on system)", tt.prereq.ID)
+				t.Logf("Expected %s to be installed but it wasn't (this is OK if not on system)", tt.prereq.Name)
 			}
 
 			if installed && tt.expectVersionNonEmpty && version == "" {
-				t.Errorf("Tool %s is installed but version is empty", tt.prereq.ID)
+				t.Errorf("Tool %s is installed but version is empty", tt.prereq.Name)
 			}
 		})
 	}
@@ -297,21 +297,21 @@ func TestToolAliases(t *testing.T) {
 		{
 			name: "nodejs alias resolves to node",
 			prereq: Prerequisite{
-				ID: "nodejs",
+				Name: "nodejs",
 			},
 			expected: "node",
 		},
 		{
 			name: "azure-cli alias resolves to az",
 			prereq: Prerequisite{
-				ID: "azure-cli",
+				Name: "azure-cli",
 			},
 			expected: "az",
 		},
 		{
 			name: "node uses node directly",
 			prereq: Prerequisite{
-				ID: "node",
+				Name: "node",
 			},
 			expected: "node",
 		},
@@ -320,19 +320,19 @@ func TestToolAliases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// This test just verifies aliases resolve without executing
-			tool := tt.prereq.ID
+			tool := tt.prereq.Name
 			if canonical, isAlias := toolAliases[tool]; isAlias {
 				tool = canonical
 			}
 
 			config, found := toolRegistry[tool]
 			if !found {
-				t.Errorf("Tool %s (from %s) not found in registry", tool, tt.prereq.ID)
+				t.Errorf("Tool %s (from %s) not found in registry", tool, tt.prereq.Name)
 				return
 			}
 
 			if config.Command != tt.expected {
-				t.Errorf("Tool %s resolved to command %s, want %s", tt.prereq.ID, config.Command, tt.expected)
+				t.Errorf("Tool %s resolved to command %s, want %s", tt.prereq.Name, config.Command, tt.expected)
 			}
 		})
 	}
@@ -451,7 +451,7 @@ func TestRunPrereqsWithValidPrereqs(t *testing.T) {
 	// Use a very old version requirement that should always pass
 	validYAML := `name: test
 reqs:
-  - id: nonexistent-tool-for-testing
+  - name: nonexistent-tool-for-testing
     minVersion: 0.0.1
     command: echo
     args: ["1.0.0"]
@@ -476,7 +476,7 @@ func TestCheckPrerequisite(t *testing.T) {
 		{
 			name: "tool not installed",
 			prereq: Prerequisite{
-				ID:         "nonexistent-xyz-123",
+				Name:       "nonexistent-xyz-123",
 				MinVersion: "1.0.0",
 				Command:    "nonexistent-xyz-123",
 				Args:       []string{"--version"},
@@ -523,9 +523,9 @@ func TestAzureYamlParsing(t *testing.T) {
 
 	yamlContent := `name: test-project
 reqs:
-  - id: node
+  - name: node
     minVersion: 18.0.0
-  - id: custom-tool
+  - name: custom-tool
     minVersion: 1.0.0
     command: my-tool
     args: ["version"]
@@ -553,8 +553,8 @@ reqs:
 	}
 
 	// Check first req (built-in)
-	if azureYaml.Reqs[0].ID != "node" {
-		t.Errorf("First req ID = %s, want node", azureYaml.Reqs[0].ID)
+	if azureYaml.Reqs[0].Name != "node" {
+		t.Errorf("First req ID = %s, want node", azureYaml.Reqs[0].Name)
 	}
 	if azureYaml.Reqs[0].MinVersion != "18.0.0" {
 		t.Errorf("First req MinVersion = %s, want 18.0.0", azureYaml.Reqs[0].MinVersion)
@@ -564,8 +564,8 @@ reqs:
 	}
 
 	// Check second req (custom)
-	if azureYaml.Reqs[1].ID != "custom-tool" {
-		t.Errorf("Second req ID = %s, want custom-tool", azureYaml.Reqs[1].ID)
+	if azureYaml.Reqs[1].Name != "custom-tool" {
+		t.Errorf("Second req ID = %s, want custom-tool", azureYaml.Reqs[1].Name)
 	}
 	if azureYaml.Reqs[1].Command != "my-tool" {
 		t.Errorf("Second req Command = %s, want my-tool", azureYaml.Reqs[1].Command)
@@ -588,7 +588,7 @@ func TestCheckIsRunning(t *testing.T) {
 		{
 			name: "docker with default check",
 			prereq: Prerequisite{
-				ID:           "docker",
+				Name:         "docker",
 				CheckRunning: true,
 			},
 			expected: false, // May not be running in test environment
@@ -599,7 +599,7 @@ func TestCheckIsRunning(t *testing.T) {
 			prereq: func() Prerequisite {
 				cmdName, cmdArgs := shellCommand("exit 0")
 				return Prerequisite{
-					ID:                   "custom-service",
+					Name:                 "custom-service",
 					CheckRunning:         true,
 					RunningCheckCommand:  cmdName,
 					RunningCheckArgs:     cmdArgs,
@@ -611,7 +611,7 @@ func TestCheckIsRunning(t *testing.T) {
 		{
 			name: "custom check expecting non-zero exit",
 			prereq: Prerequisite{
-				ID:                   "failing-service",
+				Name:                 "failing-service",
 				CheckRunning:         true,
 				RunningCheckCommand:  "nonexistent-command-xyz",
 				RunningCheckArgs:     []string{},
@@ -624,7 +624,7 @@ func TestCheckIsRunning(t *testing.T) {
 			prereq: func() Prerequisite {
 				cmdName, cmdArgs := shellCommand("echo hello world")
 				return Prerequisite{
-					ID:                   "echo-service",
+					Name:                 "echo-service",
 					CheckRunning:         true,
 					RunningCheckCommand:  cmdName,
 					RunningCheckArgs:     cmdArgs,
@@ -638,7 +638,7 @@ func TestCheckIsRunning(t *testing.T) {
 			prereq: func() Prerequisite {
 				cmdName, cmdArgs := shellCommand("echo hello world")
 				return Prerequisite{
-					ID:                   "echo-service",
+					Name:                 "echo-service",
 					CheckRunning:         true,
 					RunningCheckCommand:  cmdName,
 					RunningCheckArgs:     cmdArgs,
@@ -650,7 +650,7 @@ func TestCheckIsRunning(t *testing.T) {
 		{
 			name: "no running check configured, no default",
 			prereq: Prerequisite{
-				ID:           "unknown-tool",
+				Name:         "unknown-tool",
 				CheckRunning: true,
 			},
 			expected: true, // Should default to true when no check is configured
@@ -683,7 +683,7 @@ func TestCheckPrerequisiteWithRunningCheck(t *testing.T) {
 				versionCmd, versionArgs := shellCommand("echo 2.0.0")
 				runningCmd, runningArgs := shellCommand("echo running")
 				return Prerequisite{
-					ID:                   "test-tool",
+					Name:                 "test-tool",
 					MinVersion:           "1.0.0",
 					Command:              versionCmd,
 					Args:                 versionArgs,
@@ -701,7 +701,7 @@ func TestCheckPrerequisiteWithRunningCheck(t *testing.T) {
 				versionCmd, versionArgs := shellCommand("echo 2.0.0")
 				runningCmd, runningArgs := shellCommand("echo stopped")
 				return Prerequisite{
-					ID:                   "test-tool",
+					Name:                 "test-tool",
 					MinVersion:           "1.0.0",
 					Command:              versionCmd,
 					Args:                 versionArgs,
@@ -719,7 +719,7 @@ func TestCheckPrerequisiteWithRunningCheck(t *testing.T) {
 				versionCmd, versionArgs := shellCommand("echo 2.0.0")
 				runningCmd, runningArgs := shellCommand("echo running")
 				return Prerequisite{
-					ID:                   "test-tool",
+					Name:                 "test-tool",
 					MinVersion:           "3.0.0",
 					Command:              versionCmd,
 					Args:                 versionArgs,
@@ -749,10 +749,10 @@ func TestAzureYamlParsingWithRunningCheck(t *testing.T) {
 
 	yamlContent := `name: test-project
 reqs:
-  - id: docker
+  - name: docker
     minVersion: 20.0.0
     checkRunning: true
-  - id: custom-service
+  - name: custom-service
     minVersion: 1.0.0
     command: my-service
     args: ["--version"]

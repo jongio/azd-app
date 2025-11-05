@@ -8,25 +8,25 @@ metadata:
 # Requirements section - verifies tools are installed, meet version requirements, and optionally are running
 reqs:
   # Docker - requires version 20.0.0+ AND must be running
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
     checkRunning: true
     # Built-in check: runs "docker ps" to verify Docker daemon is running
     
   # Node.js - just version check
-  - id: nodejs
+  - name: nodejs
     minVersion: "20.0.0"
     
   # Python - just version check
-  - id: python
+  - name: python
     minVersion: "3.12.0"
     
   # Azure Developer CLI - just version check
-  - id: azd
+  - name: azd
     minVersion: "1.5.0"
     
   # Custom tool example with running check
-  # - id: postgresql
+  # - name: postgresql
   #   minVersion: "14.0.0"
   #   command: psql
   #   args: ["--version"]
@@ -36,7 +36,7 @@ reqs:
   #   runningCheckExitCode: 0
   
   # Custom service example with expected output
-  # - id: redis
+  # - name: redis
   #   minVersion: "6.0.0"
   #   command: redis-cli
   #   args: ["--version"]
