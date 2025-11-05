@@ -62,6 +62,38 @@ go build -o bin/app.exe ./src/cmd/app
 
 ## Development Workflow
 
+### Recommended VS Code Settings
+
+For the best development experience, add these settings to your `.vscode/settings.json`:
+
+```json
+{
+  "go.lintFlags": ["--fast"],
+  "go.lintTool": "golangci-lint",
+  "go.vetOnSave": "package",
+  "gopls": {
+    "analyses": {
+      "nilness": true,
+      "shadow": true,
+      "ST1003": true,
+      "unusedparams": true,
+      "unusedwrite": true,
+      "useany": true
+    },
+    "staticcheck": true
+  }
+}
+```
+
+These settings enable:
+- **nilness**: Catch potential nil pointer dereferences
+- **shadow**: Find variable shadowing issues
+- **ST1003**: Check for proper naming conventions
+- **unusedparams**: Detect unused function parameters
+- **unusedwrite**: Identify writes to variables that are never read
+- **useany**: Suggest using `any` instead of `interface{}`
+- **staticcheck**: Enable comprehensive static analysis
+
 ### 1. Create a Branch
 ```bash
 git checkout -b feature/your-feature-name

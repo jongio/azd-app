@@ -330,7 +330,7 @@ func TestPerformHealthCheck_ProcessType(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start test process: %v", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	runtime := ServiceRuntime{
 		Name: "test-service",

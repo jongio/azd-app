@@ -1,23 +1,4 @@
-linters-settings:
-  errcheck:
-    check-blank: false
-    exclude-functions:
-      - (io.Closer).Close
-      - (*database/sql.Rows).Close
-      - (*os.File).Close
-      - (io.ReadCloser).Close
-      - (*bufio.Writer).Flush
-      - (net.Listener).Close
-
 linters:
-  disable:
-    - dupl
-    - goconst
-    - godot
-    - goprintffuncname
-    - gocritic
-    - unparam
-    - gosimple
   enable:
     - errcheck
     - govet
@@ -25,22 +6,7 @@ linters:
     - unused
     - ineffassign
     - typecheck
-
-issues:
-  exclude-rules:
-    # Exclude test files from certain checks
-    - path: _test\.go
-      linters:
-        - errcheck
-    # Allow certain error checks to be skipped in defer
-    - text: "Error return value of .*(Close|Flush) is not checked"
-      linters:
-        - errcheck
-  exclude-dirs:
-    - vendor
-    - bin
-    - dashboard/dist
-    - dashboard/node_modules
+    - misspell
 
 run:
   timeout: 5m

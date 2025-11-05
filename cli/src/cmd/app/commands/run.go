@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -305,7 +306,7 @@ func runAspireMode(rootDir string) error {
 	output.Newline()
 
 	// Run dotnet and let it handle everything (inherits all azd env vars)
-	return executor.StartCommand("dotnet", args, aspireProject.Dir)
+	return executor.StartCommand(context.Background(), "dotnet", args, aspireProject.Dir)
 }
 
 // showDryRun displays what would be executed without starting services.

@@ -2,6 +2,7 @@ package portmanager
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -412,7 +413,9 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	}
 
 	// Execute the kill command
-	if err := executor.RunCommand(cmd[0], args[1:], "."); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := executor.RunCommand(ctx, cmd[0], args[1:], "."); err != nil {
 		// Ignore errors - port might not be in use
 		return nil
 	}

@@ -345,8 +345,8 @@ func TestRunPrereqsWithMissingFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := os.Chdir(originalDir); err != nil {
-			t.Logf("Warning: failed to restore directory: %v", err)
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
 		}
 	}()
 
@@ -369,8 +369,8 @@ func TestRunPrereqsWithInvalidYAML(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := os.Chdir(originalDir); err != nil {
-			t.Logf("Warning: failed to restore directory: %v", err)
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
 		}
 	}()
 
@@ -398,8 +398,8 @@ func TestRunPrereqsWithNoPrereqs(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := os.Chdir(originalDir); err != nil {
-			t.Logf("Warning: failed to restore directory: %v", err)
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
 		}
 	}()
 
@@ -437,8 +437,8 @@ func TestRunPrereqsWithValidPrereqs(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := os.Chdir(originalDir); err != nil {
-			t.Logf("Warning: failed to restore directory: %v", err)
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
 		}
 	}()
 

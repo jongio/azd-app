@@ -1,3 +1,4 @@
+// Package commands provides the command-line interface for the azd-app CLI.
 package commands
 
 import (
@@ -112,7 +113,7 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 	foundSources := make(map[string]bool)
 
 	// Detect Node.js projects
-	if hasPackageJson(projectDir) {
+	if hasPackageJSON(projectDir) {
 		foundSources["Node.js"] = true
 
 		// Add Node.js
@@ -185,7 +186,7 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 }
 
 // File detection helpers
-func hasPackageJson(dir string) bool {
+func hasPackageJSON(dir string) bool {
 	path := filepath.Join(dir, "package.json")
 	if err := security.ValidatePath(path); err != nil {
 		return false
@@ -231,7 +232,7 @@ func hasDockerConfig(dir string) bool {
 	}
 
 	// Check package.json for docker scripts
-	if hasPackageJson(dir) {
+	if hasPackageJSON(dir) {
 		if detector.HasDockerComposeScript(dir) {
 			return true
 		}

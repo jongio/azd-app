@@ -303,7 +303,9 @@ func TestReadServiceOutput(t *testing.T) {
 
 	go func() {
 		for _, line := range testLines {
-			pw.WriteString(line + "\n")
+			if _, err := pw.WriteString(line + "\n"); err != nil {
+				break
+			}
 		}
 		pw.Close()
 	}()

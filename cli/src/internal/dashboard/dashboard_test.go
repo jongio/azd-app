@@ -64,8 +64,10 @@ func TestGetServer_RelativePathResolved(t *testing.T) {
 
 	// Change to temp directory
 	oldDir, _ := os.Getwd()
-	os.Chdir(tempDir)
-	defer os.Chdir(oldDir)
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldDir) }()
 
 	srv1 := GetServer(".")
 	srv2 := GetServer(tempDir)
@@ -115,13 +117,15 @@ services:
 
 	// Create test registry with services
 	reg := registry.GetRegistry(tempDir)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:       "test-service",
 		ProjectDir: tempDir,
 		URL:        "http://localhost:3000",
 		Status:     "running",
 		Port:       3000,
-	})
+	}); err != nil {
+		t.Fatalf("failed to register service: %v", err)
+	}
 
 	// Create test request
 	req := httptest.NewRequest("GET", "/api/services", nil)
@@ -177,20 +181,24 @@ services:
 
 	// Create test registry
 	reg := registry.GetRegistry(tempDir)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:       "service1",
 		ProjectDir: tempDir,
 		URL:        "http://localhost:3000",
 		Status:     "running",
 		Port:       3000,
-	})
-	reg.Register(&registry.ServiceRegistryEntry{
+	}); err != nil {
+		t.Fatalf("failed to register service1: %v", err)
+	}
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:       "service2",
 		ProjectDir: tempDir,
 		URL:        "http://localhost:8080",
 		Status:     "starting",
 		Port:       8080,
-	})
+	}); err != nil {
+		t.Fatalf("failed to register service2: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/api/services", nil)
 	w := httptest.NewRecorder()
@@ -252,7 +260,9 @@ func TestStop_CleansUpServerMap(t *testing.T) {
 	}
 
 	// Stop server
-	srv.Stop()
+	if err := srv.Stop(); err != nil {
+		t.Errorf("Stop() failed: %v", err)
+	}
 
 	// Verify server is removed from map
 	serversMu.Lock()
@@ -342,13 +352,15 @@ func TestHandleFallback(t *testing.T) {
 
 	// Create test registry
 	reg := registry.GetRegistry(tempDir)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:       "test-service",
 		ProjectDir: tempDir,
 		URL:        "http://localhost:3000",
 		Status:     "running",
 		Port:       3000,
-	})
+	}); err != nil {
+		t.Fatalf("failed to register service: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -440,7 +452,9 @@ func TestStop_NotStarted(t *testing.T) {
 	srv := GetServer(tempDir)
 
 	// Call Stop without Start (should not panic)
-	srv.Stop()
+	if err := srv.Stop(); err != nil {
+		t.Errorf("Stop() failed: %v", err)
+	}
 
 	// Verify it was removed from map
 	serversMu.Lock()
@@ -486,7 +500,9 @@ func TestServer_MultipleStops(t *testing.T) {
 	srv := GetServer(tempDir)
 
 	// Only call Stop once - multiple stops cause panic
-	srv.Stop()
+	if err := srv.Stop(); err != nil {
+		t.Errorf("Stop() failed: %v", err)
+	}
 
 	// Verify removed from map
 	serversMu.Lock()

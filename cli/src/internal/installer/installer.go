@@ -1,6 +1,8 @@
+// Package installer handles dependency installation for various package managers.
 package installer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -25,7 +27,9 @@ func InstallNodeDependencies(project types.NodeProject) error {
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	if err := executor.RunCommand(project.PackageManager, []string{"install"}, project.Dir); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
+	defer cancel()
+	if err := executor.RunCommand(ctx, project.PackageManager, []string{"install"}, project.Dir); err != nil {
 		return fmt.Errorf("failed to run %s install: %w", project.PackageManager, err)
 	}
 
@@ -47,7 +51,9 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 	}
 
 	dir := filepath.Dir(project.Path)
-	if err := executor.RunCommand("dotnet", []string{"restore", project.Path}, dir); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
+	defer cancel()
+	if err := executor.RunCommand(ctx, "dotnet", []string{"restore", project.Path}, dir); err != nil {
 		return fmt.Errorf("failed to restore: %w", err)
 	}
 
@@ -116,10 +122,10 @@ func setupWithUv(projectDir string) error {
 			}
 
 			if installErr := installCmd.Run(); installErr != nil {
-				return fmt.Errorf("failed to install with uv: %v", installErr)
+				return fmt.Errorf("failed to install with uv: %w", installErr)
 			}
 		} else {
-			return fmt.Errorf("uv sync failed: %v", err)
+			return fmt.Errorf("uv sync failed: %w", err)
 		}
 	}
 
@@ -168,7 +174,7 @@ func setupWithPoetry(projectDir string) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install with poetry: %v", err)
+		return fmt.Errorf("failed to install with poetry: %w", err)
 	}
 
 	if !output.IsJSON() {
@@ -198,7 +204,7 @@ func setupWithPip(projectDir string) error {
 	cmd.Dir = projectDir
 	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to create venv: %v\n%s", err, cmdOutput)
+		return fmt.Errorf("failed to create venv: %w\n%s", err, cmdOutput)
 	}
 
 	if !output.IsJSON() {
@@ -221,7 +227,9 @@ func setupWithPip(projectDir string) error {
 		}
 
 		// Use safe executor for pip install
-		if err := executor.RunCommand(pipPath, []string{"install", "-r", "requirements.txt"}, projectDir); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
+		defer cancel()
+		if err := executor.RunCommand(ctx, pipPath, []string{"install", "-r", "requirements.txt"}, projectDir); err != nil {
 			return fmt.Errorf("failed to install requirements: %w", err)
 		}
 

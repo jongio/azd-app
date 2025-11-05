@@ -1,3 +1,4 @@
+// Package executor provides safe command execution with output monitoring and timeout handling.
 package executor
 
 import (
@@ -47,17 +48,19 @@ func RunWithTimeout(name string, args []string, dir string, timeout time.Duratio
 	return RunWithContext(ctx, name, args, dir)
 }
 
-// RunCommand executes a command safely with default timeout.
-func RunCommand(name string, args []string, dir string) error {
-	return RunWithTimeout(name, args, dir, DefaultTimeout)
+// RunCommand executes a command safely with context and default timeout.
+// The provided context must be non-nil.
+func RunCommand(ctx context.Context, name string, args []string, dir string) error {
+	return RunWithContext(ctx, name, args, dir)
 }
 
 // StartCommand starts a long-running command in the background and returns immediately.
 // The command inherits stdout/stderr/stdin from the parent process.
 // The command inherits all environment variables including azd context (AZD_SERVER, AZD_ACCESS_TOKEN, etc.).
 // Use this for starting servers, Aspire projects, or other long-running processes.
-func StartCommand(name string, args []string, dir string) error {
-	cmd := exec.Command(name, args...)
+// The provided context must be non-nil.
+func StartCommand(ctx context.Context, name string, args []string, dir string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -125,6 +128,7 @@ func (lw *lineWriter) Write(p []byte) (n int, err error) {
 		// Remove trailing newline and call handler
 		line = line[:len(line)-1]
 		if lw.handler != nil {
+			// Ignore handler errors as they should not interrupt output streaming
 			_ = lw.handler(line)
 		}
 	}
@@ -137,8 +141,9 @@ func (lw *lineWriter) Write(p []byte) (n int, err error) {
 // Output is still displayed to the user in real-time.
 // The command inherits all environment variables including azd context.
 // This function BLOCKS and waits for the command to complete or be interrupted.
-func StartCommandWithOutputMonitoring(name string, args []string, dir string, handler OutputLineHandler) error {
-	cmd := exec.Command(name, args...)
+// The provided context must be non-nil.
+func StartCommandWithOutputMonitoring(ctx context.Context, name string, args []string, dir string, handler OutputLineHandler) error {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdin = os.Stdin
 	cmd.Env = os.Environ() // Inherit all environment variables from parent process

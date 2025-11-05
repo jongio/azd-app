@@ -100,7 +100,7 @@ func captureStdout(f func()) string {
 	outChan := make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		outChan <- buf.String()
 	}()
 

@@ -183,7 +183,9 @@ func TestReleasePort(t *testing.T) {
 	}
 
 	// Release port
-	pm.ReleasePort("test-service")
+	if err := pm.ReleasePort("test-service"); err != nil {
+		t.Errorf("failed to release port: %v", err)
+	}
 
 	// Verify assignment is gone
 	if _, exists := pm.GetAssignment("test-service"); exists {
@@ -213,7 +215,9 @@ func TestGetAssignment(t *testing.T) {
 
 	// Create assignment
 	expectedPort := 9882
-	pm.AssignPort("test-service", expectedPort, false, false)
+	if _, err := pm.AssignPort("test-service", expectedPort, false, false); err != nil {
+		t.Fatalf("failed to assign port: %v", err)
+	}
 
 	// Get assignment
 	port, exists := pm.GetAssignment("test-service")
@@ -237,11 +241,15 @@ func TestCleanStaleAssignments(t *testing.T) {
 		Port:        9883,
 		LastUsed:    time.Now().Add(-25 * time.Hour), // 25 hours ago
 	}
-	pm.save()
+	if err := pm.save(); err != nil {
+		t.Fatalf("failed to save: %v", err)
+	}
 	pm.mu.Unlock()
 
 	// Create recent assignment
-	pm.AssignPort("active-service", 9884, false, false)
+	if _, err := pm.AssignPort("active-service", 9884, false, false); err != nil {
+		t.Fatalf("failed to assign port: %v", err)
+	}
 
 	// Clean stale ports (older than 7 days by default)
 	pm.CleanStalePorts()
@@ -331,7 +339,9 @@ func TestPortAssignmentFile(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign a port
-	pm.AssignPort("test-service", 9886, false, false)
+	if _, err := pm.AssignPort("test-service", 9886, false, false); err != nil {
+		t.Fatalf("failed to assign port: %v", err)
+	}
 
 	// Verify file was created
 	portsFile := filepath.Join(tempDir, ".azure", "ports.json")
@@ -451,7 +461,9 @@ func TestReleasePort_NonExistent(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Release a port that was never assigned (should not panic)
-	pm.ReleasePort("nonexistent-service")
+	if err := pm.ReleasePort("nonexistent-service"); err != nil {
+		t.Errorf("ReleasePort should not error for non-existent service: %v", err)
+	}
 
 	// Verify no crash and state is consistent
 	if _, exists := pm.GetAssignment("nonexistent-service"); exists {
@@ -470,7 +482,9 @@ func TestCleanStalePorts_VeryOldAssignment(t *testing.T) {
 		Port:        9891,
 		LastUsed:    time.Now().Add(-8 * 24 * time.Hour),
 	}
-	pm.save()
+	if err := pm.save(); err != nil {
+		t.Fatalf("failed to save: %v", err)
+	}
 	pm.mu.Unlock()
 
 	// Clean stale ports
@@ -524,8 +538,12 @@ func TestSaveAndLoad(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign some ports
-	pm.AssignPort("service1", 9900, false, false)
-	pm.AssignPort("service2", 9901, false, false)
+	if _, err := pm.AssignPort("service1", 9900, false, false); err != nil {
+		t.Fatalf("failed to assign port for service1: %v", err)
+	}
+	if _, err := pm.AssignPort("service2", 9901, false, false); err != nil {
+		t.Fatalf("failed to assign port for service2: %v", err)
+	}
 
 	// Save is called automatically, but let's explicitly verify
 	err := pm.save()
@@ -628,7 +646,9 @@ func TestReleasePort_UpdatesFile(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign and release
-	pm.AssignPort("temp-service", 9906, false, false)
+	if _, err := pm.AssignPort("temp-service", 9906, false, false); err != nil {
+		t.Fatalf("failed to assign port: %v", err)
+	}
 
 	// Verify assignment exists
 	if _, exists := pm.GetAssignment("temp-service"); !exists {
@@ -692,7 +712,9 @@ func TestGetPortManager_EmptyProjectDirUsesWorkingDir(t *testing.T) {
 	}
 
 	// Clean up
-	pm.ReleasePort("test-empty-dir")
+	if err := pm.ReleasePort("test-empty-dir"); err != nil {
+		t.Errorf("failed to release port: %v", err)
+	}
 }
 
 func TestAssignPort_PreferredPortOutOfRange(t *testing.T) {

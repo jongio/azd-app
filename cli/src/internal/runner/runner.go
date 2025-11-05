@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,7 +31,7 @@ func RunAspire(project types.AspireProject) error {
 	// AZD_ACCESS_TOKEN, and Azure environment values) are properly inherited.
 	// See: https://github.com/dotnet/aspire/blob/main/src/Aspire.Cli/DotNet/DotNetCliRunner.cs
 	args := []string{"run", "--project", project.ProjectFile}
-	return executor.StartCommand("dotnet", args, project.Dir)
+	return executor.StartCommand(context.Background(), "dotnet", args, project.Dir)
 }
 
 // RunPnpmScript runs pnpm with the specified script.
@@ -48,7 +49,7 @@ func RunPnpmScript(script string) error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	return executor.StartCommand("pnpm", []string{script}, cwd)
+	return executor.StartCommand(context.Background(), "pnpm", []string{script}, cwd)
 }
 
 // RunDockerCompose runs a docker compose script from package.json.
@@ -67,7 +68,7 @@ func RunDockerCompose(scriptName, scriptCmd string) error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	return executor.StartCommand("pnpm", []string{scriptName}, cwd)
+	return executor.StartCommand(context.Background(), "pnpm", []string{scriptName}, cwd)
 }
 
 // RunNode runs a Node.js project with the detected package manager and script.
@@ -87,7 +88,7 @@ func RunNode(project types.NodeProject, script string) error {
 	output.Item("Directory: %s", project.Dir)
 	output.Newline()
 
-	return executor.StartCommand(project.PackageManager, []string{"run", script}, project.Dir)
+	return executor.StartCommand(context.Background(), project.PackageManager, []string{"run", script}, project.Dir)
 }
 
 // findPythonEntryPoint searches for common Python entry point files.
@@ -222,7 +223,7 @@ func RunPython(project types.PythonProject) error {
 		return fmt.Errorf("unsupported package manager: %s", project.PackageManager)
 	}
 
-	return executor.StartCommand(cmd, args, project.Dir)
+	return executor.StartCommand(context.Background(), cmd, args, project.Dir)
 }
 
 // RunDotnet runs a .NET project with 'dotnet run'.
@@ -248,5 +249,5 @@ func RunDotnet(project types.DotnetProject) error {
 		dir, _ = os.Getwd()
 	}
 
-	return executor.StartCommand("dotnet", args, dir)
+	return executor.StartCommand(context.Background(), "dotnet", args, dir)
 }

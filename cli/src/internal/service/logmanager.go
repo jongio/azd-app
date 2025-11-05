@@ -1,9 +1,11 @@
+// Package service provides runtime detection and service orchestration capabilities.
 package service
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -196,13 +198,7 @@ func (lm *LogManager) ClearBuffer(serviceName string) error {
 
 // sortLogEntries sorts log entries by timestamp (ascending).
 func sortLogEntries(entries []LogEntry) {
-	// Simple bubble sort - fine for reasonable log sizes
-	// For larger datasets, consider using sort.Slice
-	for i := 0; i < len(entries); i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if entries[i].Timestamp.After(entries[j].Timestamp) {
-				entries[i], entries[j] = entries[j], entries[i]
-			}
-		}
-	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp.Before(entries[j].Timestamp)
+	})
 }

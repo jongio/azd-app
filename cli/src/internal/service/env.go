@@ -1,3 +1,4 @@
+// Package service provides runtime detection and service orchestration capabilities.
 package service
 
 import (

@@ -382,9 +382,9 @@ func TestRunInfoNoServices(t *testing.T) {
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
+		t.Fatalf("Failed to get working directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Failed to change to temp directory: %v", err)
@@ -412,7 +412,7 @@ func TestRunInfoWithServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Failed to change to temp directory: %v", err)
@@ -524,7 +524,7 @@ func TestRunInfoWithErrorService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Failed to change to temp directory: %v", err)

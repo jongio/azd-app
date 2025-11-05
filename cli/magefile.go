@@ -61,7 +61,7 @@ func bumpVersion() (string, error) {
 
 // All runs lint, test, and build in dependency order.
 func All() error {
-	mg.Deps(DashboardBuild, Fmt, Lint, Test)
+	mg.Deps(Fmt, DashboardBuild, Lint, Test)
 	return Build()
 }
 
@@ -204,7 +204,7 @@ func TestCoverage() error {
 	absCoverageDir := filepath.Join(cwd, coverageDir)
 
 	// Remove existing coverage directory to ensure clean state
-	os.RemoveAll(absCoverageDir)
+	_ = os.RemoveAll(absCoverageDir) // Ignore error if directory doesn't exist
 
 	// Create coverage directory
 	if err := os.MkdirAll(absCoverageDir, 0o755); err != nil {
@@ -244,6 +244,21 @@ func Lint() error {
 	if err := sh.RunV("golangci-lint", "run", "./..."); err != nil {
 		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
 		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+		return err
+	}
+	return nil
+}
+
+// LintAll runs golangci-lint with all linters enabled for comprehensive checking.
+// This is more strict than Lint() and may report many issues.
+func LintAll() error {
+	fmt.Println("Running comprehensive linting with all linters...")
+	// Enable all linters except some noisy ones (ignore config file to avoid conflicts)
+	excludeLinters := "exhaustruct,exhaustive,varnamelen,gochecknoglobals,gochecknoinits,wrapcheck,paralleltest,tparallel,nlreturn,wsl,funlen,cyclop,gocognit,maintidx,lll,tagliatelle"
+	if err := sh.RunV("golangci-lint", "run", "--no-config", "--enable-all", "--disable="+excludeLinters, "--max-issues-per-linter=0", "--max-same-issues=0", "./..."); err != nil {
+		fmt.Println("⚠️  Comprehensive linting found issues.")
+		fmt.Println("    Some findings may be opinionated. Review and fix critical issues.")
+		fmt.Println("    Ensure golangci-lint is installed: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
 		return err
 	}
 	return nil
@@ -313,26 +328,26 @@ func Uninstall() error {
 	return nil
 }
 
-// Preflight runs all checks before shipping: format, lint, security, tests, and coverage.
+// Preflight runs all checks before shipping: format, build, lint, security, tests, and coverage.
 func Preflight() error {
 	fmt.Println("🚀 Running preflight checks...")
 	fmt.Println()
 
 	checks := []struct {
 		name string
-		step int
 		fn   func() error
 	}{
-		{"Building and linting dashboard", 1, DashboardBuild},
-		{"Running dashboard tests", 2, DashboardTest},
-		{"Formatting code", 3, Fmt},
-		{"Running linter (golangci-lint with misspell)", 4, Lint},
-		{"Running security scan (gosec)", 5, runGosec},
-		{"Running all tests with coverage", 6, TestCoverage},
+		{"Formatting code", Fmt},
+		{"Building and linting dashboard", DashboardBuild},
+		{"Running dashboard tests", DashboardTest},
+		{"Building Go binary", Build},
+		{"Running standard linting", Lint},
+		{"Running security scan (gosec)", runGosec},
+		{"Running all tests with coverage", TestCoverage},
 	}
 
-	for _, check := range checks {
-		fmt.Printf("📋 Step %d/%d: %s...\n", check.step, len(checks), check.name)
+	for i, check := range checks {
+		fmt.Printf("📋 Step %d/%d: %s...\n", i+1, len(checks), check.name)
 		if err := check.fn(); err != nil {
 			return fmt.Errorf("%s failed: %w", check.name, err)
 		}
@@ -428,7 +443,11 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(originalDir)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", err)
+		}
+	}()
 
 	if err := os.Chdir(projectDir); err != nil {
 		return fmt.Errorf("failed to change to project directory: %w", err)

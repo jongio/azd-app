@@ -1,3 +1,4 @@
+// Package service provides runtime detection and service orchestration capabilities.
 package service
 
 import (
@@ -558,10 +559,7 @@ func detectFrameworkFromPackageJSON(projectDir string) string {
 
 func hasScript(projectDir string, scriptName string) bool {
 	packageJSONPath := filepath.Join(projectDir, "package.json")
-	if containsText(packageJSONPath, fmt.Sprintf(`"%s"`, scriptName)) {
-		return true
-	}
-	return false
+	return containsText(packageJSONPath, fmt.Sprintf(`"%s"`, scriptName))
 }
 
 func findPythonAppFile(projectDir string) string {

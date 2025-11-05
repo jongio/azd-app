@@ -45,9 +45,9 @@ services:
 	srv := dashboard.GetServer(tempDir)
 	url, err := srv.Start()
 	if err != nil {
-		t.Fatalf("failed to start dashboard: %v", err)
+		t.Fatalf("Failed to start dashboard: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Step 2: Connect WebSocket client
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
@@ -99,7 +99,7 @@ services:
 	}
 
 	// Step 5: Wait for and verify WebSocket broadcast
-	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	var updateMsg map[string]interface{}
 	if err := ws.ReadJSON(&updateMsg); err != nil {
 		t.Fatalf("failed to read broadcast message: %v", err)
@@ -186,7 +186,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to start dashboard: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Connect multiple WebSocket clients
 	numClients := 3
@@ -222,7 +222,7 @@ services:
 
 	// Verify all clients received the update
 	for i, ws := range clients {
-		ws.SetReadDeadline(time.Now().Add(3 * time.Second))
+		_ = ws.SetReadDeadline(time.Now().Add(3 * time.Second))
 		var updateMsg map[string]interface{}
 		if err := ws.ReadJSON(&updateMsg); err != nil {
 			t.Errorf("client %d failed to receive update: %v", i, err)
@@ -282,7 +282,7 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start dashboard: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Connect clients
 	numClients := 5
@@ -299,7 +299,7 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 
 		// Drain initial message
 		var msg map[string]interface{}
-		ws.ReadJSON(&msg)
+		_ = ws.ReadJSON(&msg)
 	}
 
 	// Perform concurrent environment updates and broadcasts
@@ -319,7 +319,7 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	// Goroutine 2: Trigger broadcasts
 	go func() {
 		for i := 0; i < numIterations; i++ {
-			srv.BroadcastServiceUpdate(tempDir)
+			_ = srv.BroadcastServiceUpdate(tempDir)
 			time.Sleep(10 * time.Millisecond)
 		}
 		done <- true
@@ -332,10 +332,10 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	// Verify all clients can still receive messages (no deadlocks)
 	os.Setenv("FINAL_VAR", "final_value")
 	serviceinfo.RefreshEnvironmentCache()
-	srv.BroadcastServiceUpdate(tempDir)
+	_ = srv.BroadcastServiceUpdate(tempDir)
 
 	for i, ws := range clients {
-		ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
 		var msg map[string]interface{}
 		// Read all pending messages
 		for {

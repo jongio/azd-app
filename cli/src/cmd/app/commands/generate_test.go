@@ -160,7 +160,7 @@ func TestFileExists(t *testing.T) {
 	}
 }
 
-func TestHasPackageJson(t *testing.T) {
+func TestHasPackageJSON(t *testing.T) {
 	// Create temporary directory
 	tmpDir, err := os.MkdirTemp("", "test-haspackagejson-*")
 	if err != nil {
@@ -198,9 +198,9 @@ func TestHasPackageJson(t *testing.T) {
 				t.Fatalf("Setup failed: %v", err)
 			}
 
-			result := hasPackageJson(testDir)
+			result := hasPackageJSON(testDir)
 			if result != tt.expected {
-				t.Errorf("hasPackageJson(%q) = %v, want %v", testDir, result, tt.expected)
+				t.Errorf("hasPackageJSON(%q) = %v, want %v", testDir, result, tt.expected)
 			}
 		})
 	}

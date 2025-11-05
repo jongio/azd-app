@@ -1,3 +1,4 @@
+// Package commands provides the command-line interface for the azd-app CLI.
 package commands
 
 import (

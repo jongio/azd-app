@@ -1,3 +1,4 @@
+// Package commands provides the command-line interface for the azd-app CLI.
 package commands
 
 import (
@@ -40,8 +41,8 @@ func init() {
 		Name:    "reqs",
 		Execute: executeReqs,
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to register reqs command: %v\n", err)
-		os.Exit(1)
+		// Log error but don't exit - let the app handle it gracefully
+		fmt.Fprintf(os.Stderr, "Warning: Failed to register reqs command: %v\n", err)
 	}
 
 	// deps depends on reqs
@@ -50,8 +51,7 @@ func init() {
 		Dependencies: []string{"reqs"},
 		Execute:      executeDeps,
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to register deps command: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Warning: Failed to register deps command: %v\n", err)
 	}
 
 	// run depends on deps (which depends on reqs)
@@ -60,8 +60,7 @@ func init() {
 		Dependencies: []string{"deps"},
 		Execute:      executeRun,
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to register run command: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "Warning: Failed to register run command: %v\n", err)
 	}
 }
 
@@ -241,10 +240,9 @@ func executeDeps() error {
 	}
 
 	hasProjects := false
-	var results []map[string]interface{}
+	var results []map[string]any
 
-	// Step 1: Find and install Node.js projects (search from azure.yaml directory)
-	//nolint:dupl // Similar code pattern repeated for each project type for clarity
+	// Step 1: Find and install Node.js projects
 	nodeProjects, err := detector.FindNodeProjects(searchRoot)
 	if err == nil && len(nodeProjects) > 0 {
 		hasProjects = true
@@ -252,20 +250,9 @@ func executeDeps() error {
 			output.Step("📦", "Found %s Node.js project(s)", output.Count(len(nodeProjects)))
 		}
 		for _, nodeProject := range nodeProjects {
-			result := map[string]interface{}{
-				"type":    "node",
-				"dir":     nodeProject.Dir,
-				"manager": nodeProject.PackageManager,
-			}
-			if err := installer.InstallNodeDependencies(nodeProject); err != nil {
-				if !output.IsJSON() {
-					output.ItemWarning("Failed to install for %s: %v", nodeProject.Dir, err)
-				}
-				result["success"] = false
-				result["error"] = err.Error()
-			} else {
-				result["success"] = true
-			}
+			result := installProjectDependencies("node", nodeProject.Dir, nodeProject.PackageManager, func() error {
+				return installer.InstallNodeDependencies(nodeProject)
+			})
 			results = append(results, result)
 		}
 		if !output.IsJSON() {
@@ -273,8 +260,7 @@ func executeDeps() error {
 		}
 	}
 
-	// Step 2: Find and install Python projects (search from azure.yaml directory)
-	//nolint:dupl // Similar code pattern repeated for each project type for clarity
+	// Step 2: Find and install Python projects
 	pythonProjects, err := detector.FindPythonProjects(searchRoot)
 	if err == nil && len(pythonProjects) > 0 {
 		hasProjects = true
@@ -282,20 +268,9 @@ func executeDeps() error {
 			output.Step("🐍", "Found %s Python project(s)", output.Count(len(pythonProjects)))
 		}
 		for _, pyProject := range pythonProjects {
-			result := map[string]interface{}{
-				"type":    "python",
-				"dir":     pyProject.Dir,
-				"manager": pyProject.PackageManager,
-			}
-			if err := installer.SetupPythonVirtualEnv(pyProject); err != nil {
-				if !output.IsJSON() {
-					output.ItemWarning("Failed to setup environment for %s: %v", pyProject.Dir, err)
-				}
-				result["success"] = false
-				result["error"] = err.Error()
-			} else {
-				result["success"] = true
-			}
+			result := installProjectDependencies("python", pyProject.Dir, pyProject.PackageManager, func() error {
+				return installer.SetupPythonVirtualEnv(pyProject)
+			})
 			results = append(results, result)
 		}
 		if !output.IsJSON() {
@@ -303,7 +278,7 @@ func executeDeps() error {
 		}
 	}
 
-	// Step 3: Find and install .NET projects (search from azure.yaml directory)
+	// Step 3: Find and install .NET projects
 	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
 	if err == nil && len(dotnetProjects) > 0 {
 		hasProjects = true
@@ -311,7 +286,7 @@ func executeDeps() error {
 			output.Step("🔷", "Found %s .NET project(s)", output.Count(len(dotnetProjects)))
 		}
 		for _, dotnetProject := range dotnetProjects {
-			result := map[string]interface{}{
+			result := map[string]any{
 				"type": "dotnet",
 				"path": dotnetProject.Path,
 			}
@@ -360,6 +335,25 @@ func executeDeps() error {
 
 	output.Success("Dependencies installed successfully!")
 	return nil
+}
+
+// installProjectDependencies is a helper to install dependencies for a project with consistent error handling.
+func installProjectDependencies(projectType, dir, manager string, installFunc func() error) map[string]any {
+	result := map[string]any{
+		"type":    projectType,
+		"dir":     dir,
+		"manager": manager,
+	}
+	if err := installFunc(); err != nil {
+		if !output.IsJSON() {
+			output.ItemWarning("Failed to install for %s: %v", dir, err)
+		}
+		result["success"] = false
+		result["error"] = err.Error()
+	} else {
+		result["success"] = true
+	}
+	return result
 }
 
 // executeRun is the function executed by the orchestrator for the run command.

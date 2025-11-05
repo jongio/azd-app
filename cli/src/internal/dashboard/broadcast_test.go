@@ -38,7 +38,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Connect WebSocket client
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
@@ -60,7 +60,7 @@ services:
 	}
 
 	// Read broadcast message
-	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var updateMsg map[string]interface{}
 	if err := ws.ReadJSON(&updateMsg); err != nil {
 		t.Fatalf("failed to read broadcast message: %v", err)
@@ -101,7 +101,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Connect multiple WebSocket clients
 	numClients := 3
@@ -130,7 +130,7 @@ services:
 
 	// Verify all clients received the update
 	for i, ws := range clients {
-		ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
 		var updateMsg map[string]interface{}
 		if err := ws.ReadJSON(&updateMsg); err != nil {
 			t.Errorf("client %d failed to receive broadcast: %v", i, err)
@@ -267,7 +267,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to start server: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Connect WebSocket
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
@@ -278,7 +278,7 @@ services:
 	defer ws.Close()
 
 	// Should receive initial services immediately on connect
-	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var msg map[string]interface{}
 	if err := ws.ReadJSON(&msg); err != nil {
 		t.Fatalf("failed to read initial message: %v", err)

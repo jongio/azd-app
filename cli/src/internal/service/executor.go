@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -92,7 +93,9 @@ func ReadServiceOutput(reader io.Reader, outputChan chan<- string) {
 
 // ExecuteCommand executes a command using the executor package.
 func ExecuteCommand(name string, args []string, dir string) error {
-	return executor.RunCommand(name, args, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
+	defer cancel()
+	return executor.RunCommand(ctx, name, args, dir)
 }
 
 // ValidateRuntime validates that a service runtime is properly configured.

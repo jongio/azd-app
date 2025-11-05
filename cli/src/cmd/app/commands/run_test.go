@@ -46,7 +46,9 @@ func TestRunCommandFlags(t *testing.T) {
 			runRuntime = "azd" // reset to default
 
 			// Parse flags
-			cmd.ParseFlags(tt.args)
+			if err := cmd.ParseFlags(tt.args); err != nil {
+				t.Fatalf("ParseFlags failed: %v", err)
+			}
 
 			// Check runtime value
 			if runRuntime != tt.wantRuntime {

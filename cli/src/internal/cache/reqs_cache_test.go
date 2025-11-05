@@ -17,7 +17,7 @@ func TestNewCacheManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	if err := os.Chdir(tempDir); err != nil {
 		t.Fatalf("failed to change directory: %v", err)
@@ -58,7 +58,7 @@ func TestNewCacheManagerExistingAzureDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	if err := os.Chdir(tempDir); err != nil {
 		t.Fatalf("failed to change directory: %v", err)

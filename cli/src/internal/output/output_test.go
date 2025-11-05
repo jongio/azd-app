@@ -49,36 +49,36 @@ func TestSetFormat(t *testing.T) {
 
 func TestGetFormat(t *testing.T) {
 	// Set to default
-	SetFormat("default")
+	_ = SetFormat("default")
 	if got := GetFormat(); got != FormatDefault {
 		t.Errorf("GetFormat() = %v, want %v", got, FormatDefault)
 	}
 
 	// Set to JSON
-	SetFormat("json")
+	_ = SetFormat("json")
 	if got := GetFormat(); got != FormatJSON {
 		t.Errorf("GetFormat() = %v, want %v", got, FormatJSON)
 	}
 
 	// Reset to default for other tests
-	SetFormat("default")
+	_ = SetFormat("default")
 }
 
 func TestIsJSON(t *testing.T) {
 	// Set to default
-	SetFormat("default")
+	_ = SetFormat("default")
 	if IsJSON() {
 		t.Errorf("IsJSON() = true, want false when format is default")
 	}
 
 	// Set to JSON
-	SetFormat("json")
+	_ = SetFormat("json")
 	if !IsJSON() {
 		t.Errorf("IsJSON() = false, want true when format is json")
 	}
 
 	// Reset to default for other tests
-	SetFormat("default")
+	_ = SetFormat("default")
 }
 
 func TestPrintJSON(t *testing.T) {
@@ -104,7 +104,9 @@ func TestPrintJSON(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	// Verify it's valid JSON
@@ -120,7 +122,7 @@ func TestPrintJSON(t *testing.T) {
 
 func TestPrintDefault(t *testing.T) {
 	// Set to default format
-	SetFormat("default")
+	_ = SetFormat("default")
 
 	// Capture stdout
 	oldStdout := os.Stdout
@@ -143,7 +145,9 @@ func TestPrintDefault(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	if !strings.Contains(output, "test output") {
@@ -153,8 +157,8 @@ func TestPrintDefault(t *testing.T) {
 
 func TestPrintDefaultInJSONMode(t *testing.T) {
 	// Set to JSON format
-	SetFormat("json")
-	defer SetFormat("default") // Reset
+	_ = SetFormat("json")
+	defer func() { _ = SetFormat("default") }() // Reset
 
 	called := false
 	PrintDefault(func() {
@@ -168,7 +172,7 @@ func TestPrintDefaultInJSONMode(t *testing.T) {
 
 func TestPrint(t *testing.T) {
 	// Test default format
-	SetFormat("default")
+	_ = SetFormat("default")
 
 	// Capture stdout
 	oldStdout := os.Stdout
@@ -195,16 +199,16 @@ func TestPrint(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 
 	// Reset for next test
-	SetFormat("default")
+	_ = SetFormat("default")
 }
 
 func TestPrintJSONMode(t *testing.T) {
 	// Set to JSON format
-	SetFormat("json")
-	defer SetFormat("default") // Reset
+	_ = SetFormat("json")
+	defer func() { _ = SetFormat("default") }() // Reset
 
 	// Capture stdout
 	oldStdout := os.Stdout
@@ -230,7 +234,9 @@ func TestPrintJSONMode(t *testing.T) {
 
 	// Read and verify JSON output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	var result map[string]string
@@ -349,7 +355,9 @@ func TestSuccessWithArgs(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	if !strings.Contains(output, "Test message 123") {
@@ -371,7 +379,9 @@ func TestErrorWithArgs(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
 	output := buf.String()
 
 	if !strings.Contains(output, "Error message 456") {

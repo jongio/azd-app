@@ -142,14 +142,18 @@ func TestRunCommand(t *testing.T) {
 		args = []string{"test"}
 	}
 
-	err := RunCommand(name, args, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := RunCommand(ctx, name, args, "")
 	if err != nil {
 		t.Errorf("RunCommand() error = %v, want nil", err)
 	}
 }
 
 func TestRunCommandInvalidCommand(t *testing.T) {
-	err := RunCommand("nonexistent-command-xyz-123", []string{}, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := RunCommand(ctx, "nonexistent-command-xyz-123", []string{}, "")
 	if err == nil {
 		t.Errorf("RunCommand() with invalid command should fail")
 	}
@@ -175,7 +179,9 @@ func TestStartCommand(t *testing.T) {
 	}
 
 	// Note: StartCommand starts in background, so we just verify it doesn't error
-	err := StartCommand(name, args, tempDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := StartCommand(ctx, name, args, tempDir)
 	if err != nil {
 		t.Errorf("StartCommand() error = %v, want nil", err)
 	}
@@ -185,7 +191,9 @@ func TestStartCommand(t *testing.T) {
 }
 
 func TestStartCommandInvalidCommand(t *testing.T) {
-	err := StartCommand("nonexistent-command-xyz-123", []string{}, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := StartCommand(ctx, "nonexistent-command-xyz-123", []string{}, "")
 	if err == nil {
 		t.Errorf("StartCommand() with invalid command should fail")
 	}
@@ -379,7 +387,9 @@ func TestStartCommandWithOutputMonitoring(t *testing.T) {
 		args = []string{"test output"}
 	}
 
-	err := StartCommandWithOutputMonitoring(name, args, "", handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := StartCommandWithOutputMonitoring(ctx, name, args, "", handler)
 	if err != nil {
 		t.Fatalf("StartCommandWithOutputMonitoring() error = %v, want nil", err)
 	}
@@ -408,7 +418,9 @@ func TestStartCommandWithOutputMonitoringInvalidCommand(t *testing.T) {
 		return nil
 	}
 
-	err := StartCommandWithOutputMonitoring("nonexistent-command-xyz-123", []string{}, "", handler)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := StartCommandWithOutputMonitoring(ctx, "nonexistent-command-xyz-123", []string{}, "", handler)
 	if err == nil {
 		t.Errorf("StartCommandWithOutputMonitoring() with invalid command should fail")
 	}

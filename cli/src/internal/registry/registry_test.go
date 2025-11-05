@@ -93,7 +93,9 @@ func TestUnregister(t *testing.T) {
 		StartTime: time.Now(),
 	}
 
-	registry.Register(entry)
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("failed to register: %v", err)
+	}
 
 	// Unregister it
 	err := registry.Unregister("test-service")
@@ -121,7 +123,9 @@ func TestUpdateStatus(t *testing.T) {
 		StartTime: time.Now(),
 	}
 
-	registry.Register(entry)
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("failed to register: %v", err)
+	}
 
 	// Update status
 	err := registry.UpdateStatus("test-service", "ready", "healthy")
@@ -176,7 +180,9 @@ func TestGetService(t *testing.T) {
 		StartTime: time.Now(),
 	}
 
-	registry.Register(entry)
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("failed to register: %v", err)
+	}
 
 	svc, exists := registry.GetService("test-service")
 	if !exists {
@@ -205,7 +211,9 @@ func TestListAll(t *testing.T) {
 			Port:      8080 + i,
 			StartTime: time.Now(),
 		}
-		registry.Register(entry)
+		if err := registry.Register(entry); err != nil {
+			t.Fatalf("failed to register service %d: %v", i, err)
+		}
 	}
 
 	// List all services
@@ -271,7 +279,9 @@ func TestClear(t *testing.T) {
 			Port:      8080 + i,
 			StartTime: time.Now(),
 		}
-		registry.Register(entry)
+		if err := registry.Register(entry); err != nil {
+			t.Fatalf("failed to register service %d: %v", i, err)
+		}
 	}
 
 	// Verify services were registered
@@ -304,7 +314,9 @@ func TestRegistryPersistence(t *testing.T) {
 		StartTime: time.Now(),
 	}
 
-	registry.Register(entry)
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("failed to register: %v", err)
+	}
 
 	// Verify file was created
 	if _, err := os.Stat(registryFile); os.IsNotExist(err) {
@@ -400,7 +412,9 @@ func TestConcurrentAccess(t *testing.T) {
 				Port:      8080 + idx,
 				StartTime: time.Now(),
 			}
-			registry.Register(entry)
+			if err := registry.Register(entry); err != nil {
+				t.Errorf("failed to register service %d: %v", idx, err)
+			}
 			done <- true
 		}(i)
 	}
