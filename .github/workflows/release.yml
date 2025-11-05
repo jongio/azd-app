@@ -1,15 +1,19 @@
 name: Release
 
 on:
-  release:
-    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.2.1)'
+        required: true
+        type: string
 
 defaults:
   run:
     working-directory: cli
 
 jobs:
-  build-and-upload:
+  build-and-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -39,6 +43,13 @@ jobs:
           npm ci
           npm run build
 
+      - name: Create git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -46,15 +57,14 @@ jobs:
           version: latest
           install-only: true
 
-      - name: Build binaries with GoReleaser
+      - name: Build binaries and create release
         run: goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update registry
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          VERSION="${{ inputs.version }}"
           
           # Check if azd is available
           if command -v azd &> /dev/null; then
@@ -70,7 +80,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add registry.json
             if ! git diff --cached --quiet; then
-              git commit -m "chore: update registry.json for $VERSION"
+              git commit -m "chore: update registry.json for v$VERSION"
               git push
             fi
           else
