@@ -3,7 +3,7 @@ namespace: app
 displayName: App Extension
 description: A collection of developer productivity commands for Azure Developer CLI
 usage: azd app <command> [options]
-version: 0.4.1
+version: 0.4.2
 language: go
 capabilities:
   - custom-commands
