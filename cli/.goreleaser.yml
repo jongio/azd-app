@@ -40,9 +40,13 @@ checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
-# Don't create a release - we use azd x release for that
 release:
-  disable: true
+  github:
+    owner: jongio
+    name: azd-app
+  name_template: "v{{.Version}}"
+  draft: false
+  prerelease: auto
 
 # Don't publish anywhere - we use azd x publish for that  
 publishers:
