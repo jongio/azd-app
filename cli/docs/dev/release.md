@@ -1,11 +1,165 @@
 # release process
 
-## overview
+## workflow overview
 
 releases are created through a manual two-step process:
 
 1. **prepare release** - create a PR with version bump and changelog
 2. **publish release** - build binaries and create github release
+
+## complete workflow
+
+### 1. user creates new branch
+**user does:**
+```bash
+git checkout -b feature/my-feature
+```
+
+**what happens:**
+- nothing automated, just local git operation
+
+---
+
+### 2. user modifies files in that branch
+**user does:**
+```bash
+# make changes
+git add .
+git commit -m "feat: add new command"
+git push origin feature/my-feature
+```
+
+**what happens:**
+- nothing automated, just commits to feature branch
+- no workflows run on feature branches
+
+---
+
+### 3. user creates PR to main
+**user does:**
+```bash
+gh pr create --title "Add new command" --body "Description"
+```
+or uses github web ui
+
+**what happens:**
+- **ci workflow triggers** (`ci.yml`)
+  - runs preflight checks
+  - runs tests on ubuntu/windows/macos
+  - runs linting
+  - runs build
+- all 6 checks must pass (branch protection)
+- codecov checks run (not required)
+
+---
+
+### 4. PR is merged
+**user does:**
+```bash
+gh pr merge 123
+```
+or clicks "squash and merge" on github
+
+**what happens:**
+- changes merge to main branch
+- **ci workflow runs again** on main (push event)
+- **no version changes**
+- **no release created**
+- **no pr created**
+
+---
+
+### 5. admin wants to do a release
+
+#### step 5a: prepare release
+**admin does:**
+```bash
+gh workflow run release-please.yml -f release-type=minor
+```
+or: github ui → actions → "prepare release" → run workflow → choose patch/minor/major
+
+**what happens:**
+- **prepare release workflow runs** (`release-please.yml`)
+  - reads current version from `.release-please-manifest.json` (e.g., 0.2.1)
+  - calculates next version based on choice:
+    - patch: 0.2.1 → 0.2.2
+    - minor: 0.2.1 → 0.3.0
+    - major: 0.2.1 → 1.0.0
+  - gets all commits since last release tag (e.g., `v0.2.1..HEAD`)
+  - creates new branch `release/0.3.0`
+  - updates files:
+    - `cli/extension.yaml` - sets version to 0.3.0
+    - `.release-please-manifest.json` - sets cli to "0.3.0"
+    - `cli/CHANGELOG.md` - adds section with commits
+  - creates PR with title "release 0.3.0"
+  - **ci workflow triggers** on the release PR
+    - runs all 6 checks (preflight, tests, lint, build)
+
+---
+
+#### step 5b: review and merge release PR
+**admin does:**
+1. review PR (check version, changelog)
+2. wait for ci to pass
+3. merge PR:
+```bash
+gh pr merge <pr-number> --squash
+```
+
+**what happens:**
+- release PR merges to main
+- **ci workflow runs** on main (push event)
+- version files now updated on main branch
+- **still no github release created**
+- **no binaries built yet**
+
+---
+
+#### step 5c: publish release
+**admin does:**
+```bash
+gh workflow run release.yml -f version=0.3.0
+```
+or: github ui → actions → "release" → run workflow → enter version number
+
+**what happens:**
+- **release workflow runs** (`release.yml`)
+  - checks out main branch
+  - creates git tag `v0.3.0`
+  - pushes tag to github
+  - builds dashboard:
+    - `npm ci` in cli/dashboard
+    - `npm run build`
+  - runs goreleaser:
+    - builds binaries for 6 platforms (linux/darwin/windows on amd64/arm64)
+    - creates checksums
+    - creates github release with tag `v0.3.0`
+    - uploads all binaries as release assets
+    - uses changelog from `cli/CHANGELOG.md` for release notes
+  - attempts to update `registry.json` (if azd available)
+  - commits and pushes registry.json to main
+
+**result:**
+- github release v0.3.0 exists with binaries
+- users can download/install the release
+- registry updated
+
+---
+
+## summary table
+
+| step | user action | workflow | creates pr? | creates release? |
+|------|-------------|----------|-------------|------------------|
+| 1-2 | create branch, commit | none | no | no |
+| 3 | create pr | ci runs | no | no |
+| 4 | merge pr | ci runs | no | no |
+| 5a | run "prepare release" | prepare release + ci | yes (release pr) | no |
+| 5b | merge release pr | ci runs | no | no |
+| 5c | run "release" | release | no | yes (with binaries) |
+
+**key insight:** merging regular prs does nothing special. only the admin manually triggers release preparation and publishing.
+
+---
 
 ## step-by-step workflow
 
