@@ -1,3 +1,16 @@
+## [0.3.1] - 2025-11-06
+
+- chore: update release workflow to create PR instead of direct push (ebf909c)
+- chore: add azd-app.sln to .gitignore (f5143c2)
+- chore: reset version to 0.3.0 (36b9ebf)
+- Test ci 2 (#23) (6d99c4f)
+- Prepare release v0.4.3 (#22) (01670c2)
+- docs: append additional line to testreleaseprocess.md (#21) (06d6981)
+- Test ci 2 (#19) (bca6166)
+- Prepare release 0.4.2 (#18) (77c954f)
+- Test ci 2 (#17) (62947ac)
+- Prepare release 0.4.1 (#16) (fd83ad8)
+
 ## [0.4.3] - 2025-11-06
 
 - docs: append additional line to testreleaseprocess.md (#21) (06d6981)
