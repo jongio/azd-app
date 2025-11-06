@@ -58,8 +58,11 @@ jobs:
           version: latest
           install-only: true
 
+      - name: Copy LICENSE to cli directory
+        run: cp LICENSE cli/LICENSE
+
       - name: Build binaries and create release
-        run: goreleaser release --clean
+        run: goreleaser release --clean -f .goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: cli

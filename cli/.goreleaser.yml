@@ -6,7 +6,6 @@ builds:
   - id: azd-app
     main: ./src/cmd/app
     binary: azd-app
-    dir: cli
     goos:
       - linux
       - darwin
@@ -33,9 +32,9 @@ archives:
         format: zip
     files:
       - LICENSE
-      - cli/README.md
-      - cli/extension.yaml
-      - cli/src/internal/dashboard/dist/**/*
+      - README.md
+      - extension.yaml
+      - src/internal/dashboard/dist/**/*
 
 checksum:
   name_template: 'checksums.txt'
