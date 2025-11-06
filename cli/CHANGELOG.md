@@ -1,3 +1,7 @@
+## [0.4.0] - 2025-11-06
+
+- Testing process implementation (#13) (c3e86b9)
+
 ## [0.3.0] - 2025-11-06
 
 - docs: document complete release workflow (7c3e375)
