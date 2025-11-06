@@ -59,6 +59,9 @@ yarn.lock
 .npm
 .yarn
 
+# Dashboard - preserve lockfile for reproducible builds
+!cli/dashboard/package-lock.json
+
 # .NET
 obj/
 *.pdb
