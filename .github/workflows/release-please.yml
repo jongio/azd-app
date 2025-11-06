@@ -90,16 +90,23 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          commit-message: "Prepare release ${{ steps.next.outputs.version }}"
-          title: "Release ${{ steps.next.outputs.version }}"
+          commit-message: "Prepare release v${{ steps.next.outputs.version }}"
+          title: "Prepare release v${{ steps.next.outputs.version }}"
           body: |
-            Prepare release ${{ steps.next.outputs.version }}
+            ## Release v${{ steps.next.outputs.version }}
+            
+            **Current version:** v${{ steps.current.outputs.version }}  
+            **New version:** v${{ steps.next.outputs.version }}  
+            **Release type:** ${{ inputs.release-type }}
             
             This PR updates:
-            - Version in extension.yaml
-            - CHANGELOG.md
-            - Release manifest
+            - Version in `cli/extension.yaml`
+            - `cli/CHANGELOG.md`
+            - `.release-please-manifest.json`
             
-            After merging, run the Release workflow to publish.
-          branch: release/${{ steps.next.outputs.version }}
+            ### Next Steps
+            1. Review the changes
+            2. Merge this PR
+            3. Run the **Release** workflow with version `${{ steps.next.outputs.version }}`
+          branch: release/v${{ steps.next.outputs.version }}
           delete-branch: true

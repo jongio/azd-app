@@ -59,7 +59,7 @@ jobs:
           install-only: true
 
       - name: Build binaries and create release
-        run: goreleaser release --clean
+        run: goreleaser release --clean -f .goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: cli
@@ -67,14 +67,20 @@ jobs:
       - name: Install azd CLI
         run: |
           curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd extensions
+        run: |
+          azd extension install microsoft.azd.extensions
+
       - name: Update registry
         run: |
           VERSION="${{ inputs.version }}"
           
           azd x publish \
-            --registry registry.json \
-            --version "$VERSION" \
-            --artifacts "cli/dist/*.zip,cli/dist/*.tar.gz" \
+            --cwd cli \
+            --registry ../registry.json \
+            --version "v$VERSION" \
+            --artifacts "dist/*.zip,dist/*.tar.gz" \
             --repo "${{ github.repository }}"
           
           # Commit registry.json back to main

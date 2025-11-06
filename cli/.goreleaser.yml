@@ -2,11 +2,6 @@ version: 2
 
 project_name: azd-app-cli
 
-before:
-  hooks:
-    # Dashboard is built separately in the workflow
-    - echo "Dashboard already built"
-
 builds:
   - id: azd-app
     main: ./src/cmd/app
@@ -30,7 +25,6 @@ builds:
 
 archives:
   - id: azd-app-cli
-    format: tar.gz
     name_template: >-
       azd-app-cli-{{ .Os }}-{{ .Arch }}
     format_overrides:
@@ -38,17 +32,21 @@ archives:
         format: zip
     files:
       - LICENSE
-      - cli/README.md
-      - cli/extension.yaml
-      - cli/dashboard/dist/**/*
+      - README.md
+      - extension.yaml
+      - src/internal/dashboard/dist/**/*
 
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
-# Don't create a release - we use azd x release for that
 release:
-  disable: true
+  github:
+    owner: jongio
+    name: azd-app
+  name_template: "v{{.Version}}"
+  draft: false
+  prerelease: auto
 
 # Don't publish anywhere - we use azd x publish for that  
 publishers:
