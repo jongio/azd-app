@@ -90,7 +90,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          commit-message: "chore: prepare release ${{ steps.next.outputs.version }}"
+          commit-message: "Prepare release ${{ steps.next.outputs.version }}"
           title: "Release ${{ steps.next.outputs.version }}"
           body: |
             Prepare release ${{ steps.next.outputs.version }}
