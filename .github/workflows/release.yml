@@ -69,6 +69,11 @@ jobs:
       - name: Install azd CLI
         run: |
           curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd extensions
+        run: |
+          azd extension install microsoft.azd.extensions
+
       - name: Update registry
         run: |
           VERSION="${{ inputs.version }}"
