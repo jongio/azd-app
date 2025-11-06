@@ -1,3 +1,7 @@
+## [0.4.3] - 2025-11-06
+
+- docs: append additional line to testreleaseprocess.md (#21) (06d6981)
+
 ## [0.4.2] - 2025-11-06
 
 - Test ci 2 (#17) (62947ac)
