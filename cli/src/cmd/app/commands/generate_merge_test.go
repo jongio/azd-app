@@ -38,7 +38,7 @@ services:
     port: 3000
     language: js
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
@@ -88,15 +88,15 @@ reqs:
 	}
 
 	// Verify docker req was preserved
-	if !strings.Contains(contentStr, "id: docker") {
+	if !strings.Contains(contentStr, "- name: docker") {
 		t.Error("Existing docker requirement was not preserved")
 	}
 
 	// Verify new reqs were added
-	if !strings.Contains(contentStr, "id: node") {
+	if !strings.Contains(contentStr, "- name: node") {
 		t.Error("node requirement should have been added")
 	}
-	if !strings.Contains(contentStr, "id: npm") {
+	if !strings.Contains(contentStr, "- name: npm") {
 		t.Error("npm requirement should have been added")
 	}
 }
@@ -125,9 +125,9 @@ func TestMergeReqsNoDuplicates(t *testing.T) {
 	// Create azure.yaml with node already in reqs
 	existingYaml := `name: test
 reqs:
-  - id: node
+  - name: node
     minVersion: "18.0.0"
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
@@ -154,22 +154,22 @@ reqs:
 
 	contentStr := string(content)
 
-	// Count occurrences of "id: node" - should only be 1
-	nodeCount := strings.Count(contentStr, "id: node")
+	// Count occurrences of "- name: node" - should only be 1
+	nodeCount := strings.Count(contentStr, "- name: node")
 	if nodeCount != 1 {
-		t.Errorf("Expected exactly 1 'id: node', found %d", nodeCount)
+		t.Errorf("Expected exactly 1 '- name: node', found %d", nodeCount)
 	}
 
-	// Count occurrences of "id: docker" - should only be 1
-	dockerCount := strings.Count(contentStr, "id: docker")
+	// Count occurrences of "- name: docker" - should only be 1
+	dockerCount := strings.Count(contentStr, "- name: docker")
 	if dockerCount != 1 {
-		t.Errorf("Expected exactly 1 'id: docker', found %d", dockerCount)
+		t.Errorf("Expected exactly 1 '- name: docker', found %d", dockerCount)
 	}
 
 	// Verify npm was added (and only once)
-	npmCount := strings.Count(contentStr, "id: npm")
+	npmCount := strings.Count(contentStr, "- name: npm")
 	if npmCount != 1 {
-		t.Errorf("Expected exactly 1 'id: npm', found %d", npmCount)
+		t.Errorf("Expected exactly 1 '- name: npm', found %d", npmCount)
 	}
 }
 
@@ -237,10 +237,10 @@ services:
 	}
 
 	// Verify new reqs were added
-	if !strings.Contains(contentStr, "id: node") {
+	if !strings.Contains(contentStr, "- name: node") {
 		t.Error("node requirement should have been added")
 	}
-	if !strings.Contains(contentStr, "id: npm") {
+	if !strings.Contains(contentStr, "- name: npm") {
 		t.Error("npm requirement should have been added")
 	}
 
@@ -274,11 +274,11 @@ func TestMergeReqsUserAddedCustomReq(t *testing.T) {
 	// Create azure.yaml with user-added custom requirements
 	existingYaml := `name: test
 reqs:
-  - id: my-custom-tool
+  - name: my-custom-tool
     minVersion: "1.0.0"
     command: my-tool
     args: ["--version"]
-  - id: another-custom-tool
+  - name: another-custom-tool
     minVersion: "2.5.0"
     checkRunning: true
 `
@@ -307,25 +307,25 @@ reqs:
 	contentStr := string(content)
 
 	// Verify custom tools were preserved
-	if !strings.Contains(contentStr, "id: my-custom-tool") {
+	if !strings.Contains(contentStr, "- name: my-custom-tool") {
 		t.Error("User-added custom tool 'my-custom-tool' was not preserved")
 	}
-	if !strings.Contains(contentStr, "id: another-custom-tool") {
+	if !strings.Contains(contentStr, "- name: another-custom-tool") {
 		t.Error("User-added custom tool 'another-custom-tool' was not preserved")
 	}
 
 	// Verify new detected reqs were added
-	if !strings.Contains(contentStr, "id: node") {
+	if !strings.Contains(contentStr, "- name: node") {
 		t.Error("node requirement should have been added")
 	}
-	if !strings.Contains(contentStr, "id: npm") {
+	if !strings.Contains(contentStr, "- name: npm") {
 		t.Error("npm requirement should have been added")
 	}
 
 	// Verify no duplicates
-	customCount := strings.Count(contentStr, "id: my-custom-tool")
+	customCount := strings.Count(contentStr, "- name: my-custom-tool")
 	if customCount != 1 {
-		t.Errorf("Expected exactly 1 'id: my-custom-tool', found %d", customCount)
+		t.Errorf("Expected exactly 1 '- name: my-custom-tool', found %d", customCount)
 	}
 }
 
@@ -353,7 +353,7 @@ func TestMergeReqsMultipleRuns(t *testing.T) {
 	// Create initial azure.yaml
 	existingYaml := `name: test
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
@@ -399,17 +399,17 @@ reqs:
 
 	// Verify no duplicates
 	contentStr := string(content2)
-	nodeCount := strings.Count(contentStr, "id: node")
-	npmCount := strings.Count(contentStr, "id: npm")
-	dockerCount := strings.Count(contentStr, "id: docker")
+	nodeCount := strings.Count(contentStr, "- name: node")
+	npmCount := strings.Count(contentStr, "- name: npm")
+	dockerCount := strings.Count(contentStr, "- name: docker")
 
 	if nodeCount != 1 {
-		t.Errorf("Expected exactly 1 'id: node', found %d", nodeCount)
+		t.Errorf("Expected exactly 1 '- name: node', found %d", nodeCount)
 	}
 	if npmCount != 1 {
-		t.Errorf("Expected exactly 1 'id: npm', found %d", npmCount)
+		t.Errorf("Expected exactly 1 '- name: npm', found %d", npmCount)
 	}
 	if dockerCount != 1 {
-		t.Errorf("Expected exactly 1 'id: docker', found %d", dockerCount)
+		t.Errorf("Expected exactly 1 '- name: docker', found %d", dockerCount)
 	}
 }

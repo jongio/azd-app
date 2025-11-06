@@ -2,7 +2,6 @@
 package installer
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/types"
@@ -27,9 +25,15 @@ func InstallNodeDependencies(project types.NodeProject) error {
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
-	defer cancel()
-	if err := executor.RunCommand(ctx, project.PackageManager, []string{"install"}, project.Dir); err != nil {
+	// Run install with streaming output
+	cmd := exec.Command(project.PackageManager, "install")
+	cmd.Dir = project.Dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ()
+
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to run %s install: %w", project.PackageManager, err)
 	}
 
@@ -50,10 +54,16 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 		output.Item("Restoring: %s", project.Path)
 	}
 
+	// Run restore with streaming output
 	dir := filepath.Dir(project.Path)
-	ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
-	defer cancel()
-	if err := executor.RunCommand(ctx, "dotnet", []string{"restore", project.Path}, dir); err != nil {
+	cmd := exec.Command("dotnet", "restore", project.Path)
+	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ()
+
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to restore: %w", err)
 	}
 
@@ -226,10 +236,15 @@ func setupWithPip(projectDir string) error {
 			pipPath = filepath.Join(venvPath, "bin", "pip")
 		}
 
-		// Use safe executor for pip install
-		ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
-		defer cancel()
-		if err := executor.RunCommand(ctx, pipPath, []string{"install", "-r", "requirements.txt"}, projectDir); err != nil {
+		// Run pip install with streaming output
+		pipCmd := exec.Command(pipPath, "install", "-r", "requirements.txt")
+		pipCmd.Dir = projectDir
+		pipCmd.Stdout = os.Stdout
+		pipCmd.Stderr = os.Stderr
+		pipCmd.Stdin = os.Stdin
+		pipCmd.Env = os.Environ()
+
+		if err := pipCmd.Run(); err != nil {
 			return fmt.Errorf("failed to install requirements: %w", err)
 		}
 

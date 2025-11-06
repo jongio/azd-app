@@ -530,23 +530,20 @@ Installing: ./src/web (pnpm)
 ```json
 {
   "success": true,
-  "services": [
+  "projects": [
     {
-      "name": "web",
       "type": "node",
       "dir": "./src/web",
       "manager": "pnpm",
       "success": true
     },
     {
-      "name": "api",
       "type": "python",
       "dir": "./src/api",
       "manager": "uv",
       "success": true
     },
     {
-      "name": "apphost",
       "type": "dotnet",
       "dir": "./src/apphost",
       "success": true

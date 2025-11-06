@@ -273,7 +273,8 @@ func TestGetInstalledVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			installed, version := getInstalledVersion(tt.prereq)
+			checker := NewPrerequisiteChecker()
+			installed, version := checker.getInstalledVersion(tt.prereq)
 
 			// Just verify the function runs without panicking
 			// Actual version detection depends on what's installed on the test machine
@@ -663,7 +664,8 @@ func TestCheckIsRunning(t *testing.T) {
 				t.Skip(tt.skip)
 			}
 
-			result := checkIsRunning(tt.prereq)
+			checker := NewPrerequisiteChecker()
+			result := checker.checkIsRunning(tt.prereq)
 			if result != tt.expected {
 				t.Errorf("checkIsRunning(%+v) = %v, want %v", tt.prereq, result, tt.expected)
 			}
