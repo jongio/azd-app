@@ -1,2 +1,3 @@
-# GoReleaser artifacts
+# Build artifacts
+bin/
 dist/

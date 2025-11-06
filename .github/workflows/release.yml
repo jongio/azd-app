@@ -3,32 +3,86 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (e.g., 0.2.1)'
+      bump:
+        description: 'Version bump type'
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  build-and-release:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-          cache-dependency-path: cli/go.sum
+      - name: Calculate next version
+        id: version
+        run: |
+          CURRENT=$(grep '^version:' cli/extension.yaml | awk '{print $2}')
+          IFS='.' read -r major minor patch <<< "$CURRENT"
+          
+          case "${{ inputs.bump }}" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+          
+          NEXT="$major.$minor.$patch"
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "next=$NEXT" >> $GITHUB_OUTPUT
+          echo "Bumping from $CURRENT to $NEXT"
+
+      - name: Update version files
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          
+          # Update extension.yaml
+          sed -i "s/^version: .*/version: $VERSION/" cli/extension.yaml
+          
+          # Update CHANGELOG.md
+          cd cli
+          PREV="${{ steps.version.outputs.current }}"
+          COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges v${PREV}..HEAD 2>/dev/null || git log --pretty=format:"- %s (%h)" --no-merges -n 10)
+          DATE=$(date +%Y-%m-%d)
+          
+          {
+            echo "## [$VERSION] - $DATE"
+            echo ""
+            echo "$COMMITS"
+            echo ""
+            cat CHANGELOG.md
+          } > CHANGELOG.new.md
+          mv CHANGELOG.new.md CHANGELOG.md
+          
+          # Commit version bump
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cli/extension.yaml cli/CHANGELOG.md
+          git commit -m "chore: bump version to $VERSION"
+          git push
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -37,58 +91,49 @@ jobs:
           cache: 'npm'
           cache-dependency-path: cli/dashboard/package-lock.json
 
+      - name: Install azd
+        run: curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd extensions
+        run: azd extension install microsoft.azd.extensions
+
       - name: Build dashboard
         run: |
           cd cli/dashboard
           npm ci
           npm run build
 
-      - name: Create git tag
+      - name: Build binaries
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
-        working-directory: cli
+          export EXTENSION_ID="jongio.azd.app"
+          export EXTENSION_VERSION="${{ steps.version.outputs.next }}"
+          azd x build --all --cwd cli
 
-      - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: latest
-          install-only: true
+      - name: Package
+        run: azd x pack --cwd cli
 
-      - name: Build binaries and create release
-        run: goreleaser release --clean -f .goreleaser.yml
+      - name: Release
+        run: |
+          azd x release \
+            --cwd cli \
+            --repo "${{ github.repository }}" \
+            --version "${{ steps.version.outputs.next }}" \
+            --confirm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        working-directory: cli
-
-      - name: Install azd CLI
-        run: |
-          curl -fsSL https://aka.ms/install-azd.sh | bash
-
-      - name: Install azd extensions
-        run: |
-          azd extension install microsoft.azd.extensions
 
       - name: Update registry
         run: |
-          VERSION="${{ inputs.version }}"
-          
           azd x publish \
             --cwd cli \
             --registry ../registry.json \
-            --version "v$VERSION" \
-            --artifacts "dist/*.zip,dist/*.tar.gz" \
-            --repo "${{ github.repository }}"
+            --version "${{ steps.version.outputs.next }}"
           
-          # Commit registry.json back to main
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add registry.json
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update registry.json for v$VERSION"
+            git commit -m "chore: update registry for v${{ steps.version.outputs.next }}"
             git push
           fi
         env:
