@@ -62,29 +62,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install azd CLI
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | bash
+        working-directory: .
+
       - name: Update registry
         run: |
           VERSION="${{ inputs.version }}"
           
-          # Check if azd is available
-          if command -v azd &> /dev/null; then
-            azd x publish \
-              --registry ../registry.json \
-              --version "$VERSION" \
-              --artifacts "dist/*.zip,dist/*.tar.gz" \
-              --repo "${{ github.repository }}"
-            
-            # Commit registry.json back to main
-            cd ..
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add registry.json
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: update registry.json for v$VERSION"
-              git push
-            fi
-          else
-            echo "azd not available, skipping registry update"
+          azd x publish \
+            --registry ../registry.json \
+            --version "$VERSION" \
+            --artifacts "dist/*.zip,dist/*.tar.gz" \
+            --repo "${{ github.repository }}"
+          
+          # Commit registry.json back to main
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add registry.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update registry.json for v$VERSION"
+            git push
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
