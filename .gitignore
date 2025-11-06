@@ -105,3 +105,4 @@ cli2/jongio.azd.app/internal/cmd/listen.go
 cli2/jongio.azd.app/internal/cmd/prompt.go
 cli2/jongio.azd.app/internal/cmd/root.go
 cli2/jongio.azd.app/internal/cmd/version.go
+azd-app.sln
