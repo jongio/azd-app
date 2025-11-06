@@ -2,11 +2,6 @@ version: 2
 
 project_name: azd-app-cli
 
-before:
-  hooks:
-    # Dashboard is built separately in the workflow
-    - cmd /c echo Dashboard already built
-
 builds:
   - id: azd-app
     main: ./src/cmd/app
