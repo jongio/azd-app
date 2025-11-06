@@ -1,5 +1,2 @@
-# Copied during release build - don't commit
-LICENSE
-
 # GoReleaser artifacts
 dist/
