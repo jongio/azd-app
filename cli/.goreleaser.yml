@@ -37,10 +37,10 @@ archives:
       - goos: windows
         format: zip
     files:
-      - ../LICENSE
-      - README.md
-      - extension.yaml
-      - dashboard/dist/**/*
+      - LICENSE
+      - cli/README.md
+      - cli/extension.yaml
+      - cli/dashboard/dist/**/*
 
 checksum:
   name_template: 'checksums.txt'
