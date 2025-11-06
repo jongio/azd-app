@@ -111,7 +111,9 @@ func TestGenerateIntegration(t *testing.T) {
 			reqCount := strings.Count(contentStr, "- name:")
 			if reqCount < tt.minReqs {
 				t.Errorf("Expected at least %d requirements, found %d", tt.minReqs, reqCount)
-			} // Verify all requirements have minVersion
+			}
+
+			// Verify all requirements have minVersion
 			if strings.Count(contentStr, "minVersion:") != reqCount {
 				t.Errorf("Not all requirements have minVersion specified")
 			}

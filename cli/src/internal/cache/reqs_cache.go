@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -43,6 +44,7 @@ type CacheManager struct {
 	cacheDir string
 	ttl      time.Duration
 	enabled  bool
+	statsMu  sync.Mutex
 	stats    CacheStats
 }
 
@@ -158,7 +160,9 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 
 	// Check if cache file exists
 	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
+		cm.statsMu.Lock()
 		cm.stats.Misses++
+		cm.statsMu.Unlock()
 		return nil, false, nil // No cache exists
 	} else if err != nil {
 		return nil, false, fmt.Errorf("failed to stat cache file: %w", err)
@@ -178,7 +182,9 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 
 	// Check cache version - invalidate if schema changed
 	if cache.Version != CacheVersion {
+		cm.statsMu.Lock()
 		cm.stats.Misses++
+		cm.statsMu.Unlock()
 		return nil, false, nil // Cache schema version mismatch
 	}
 
@@ -189,16 +195,22 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 	// 3. Cache is less than TTL age (use timestamp from cache JSON, not file ModTime)
 
 	if cache.AzureYamlHash != hash {
+		cm.statsMu.Lock()
 		cm.stats.Misses++
+		cm.statsMu.Unlock()
 		return nil, false, nil // azure.yaml has changed - cache is invalid
 	}
 
 	if time.Since(cache.Timestamp) > cm.ttl {
+		cm.statsMu.Lock()
 		cm.stats.Misses++
+		cm.statsMu.Unlock()
 		return nil, false, nil // Cache is too old
 	}
 
+	cm.statsMu.Lock()
 	cm.stats.Hits++
+	cm.statsMu.Unlock()
 	return &cache, true, nil
 }
 
@@ -256,12 +268,16 @@ func (cm *CacheManager) ClearCache() error {
 		return fmt.Errorf("failed to remove cache file: %w", err)
 	}
 	// Reset stats when clearing cache
+	cm.statsMu.Lock()
 	cm.stats = CacheStats{}
+	cm.statsMu.Unlock()
 	return nil
 }
 
 // GetStats returns cache hit/miss statistics.
 func (cm *CacheManager) GetStats() CacheStats {
+	cm.statsMu.Lock()
+	defer cm.statsMu.Unlock()
 	return cm.stats
 }
 

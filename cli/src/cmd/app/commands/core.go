@@ -347,7 +347,6 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 }
 
 // executeDeps is the core logic for the deps command.
-// executeDeps is the core logic for the deps command.
 func executeDeps() error {
 	if !output.IsJSON() {
 		output.Newline()
@@ -534,6 +533,12 @@ func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cache
 
 	// Perform fresh check
 	results, allSatisfied := performReqsCheck(reqs)
+
+	// Print fresh results in non-JSON mode
+	if !output.IsJSON() {
+		formatter := NewResultFormatter()
+		formatter.PrintAll(results)
+	}
 
 	// Save to cache if enabled
 	if cacheManager.IsEnabled() {
