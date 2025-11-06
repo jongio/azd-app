@@ -1,3 +1,16 @@
+## [0.3.2] - 2025-11-06
+
+- fix: add --repo flag to azd x publish for remote mode (ed2522c)
+- chore: update registry for v0.3.1 (f44bb9a)
+- chore: bump version to 0.3.1 (0a1d584)
+- chore: revert to simple direct push now that branch protection is removed (cc4754f)
+- chore: update release workflow to create PR instead of direct push (ebf909c)
+- chore: add azd-app.sln to .gitignore (f5143c2)
+- chore: reset version to 0.3.0 (36b9ebf)
+- Test ci 2 (#23) (6d99c4f)
+- Prepare release v0.4.3 (#22) (01670c2)
+- docs: append additional line to testreleaseprocess.md (#21) (06d6981)
+
 ## [0.3.1] - 2025-11-06
 
 - chore: revert to simple direct push now that branch protection is removed (cc4754f)
