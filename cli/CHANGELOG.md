@@ -1,3 +1,7 @@
+## [0.4.2] - 2025-11-06
+
+- Test ci 2 (#17) (62947ac)
+
 ## [0.4.1] - 2025-11-06
 
 - Update testreleaseprocess.md with additional information (#15) (e333643)
