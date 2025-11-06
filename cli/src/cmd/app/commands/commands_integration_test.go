@@ -176,15 +176,16 @@ func TestCheckIsRunningIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			checker := NewPrerequisiteChecker()
 			if tt.skipMsg != "" {
 				// Try the check but skip if it fails (expected in some environments)
-				result := checkIsRunning(tt.prereq)
+				result := checker.checkIsRunning(tt.prereq)
 				if !result {
 					t.Skip(tt.skipMsg)
 				}
 				t.Logf("Running check passed for %s", tt.prereq.Name)
 			} else {
-				result := checkIsRunning(tt.prereq)
+				result := checker.checkIsRunning(tt.prereq)
 				if !result {
 					t.Errorf("checkIsRunning() = false, want true")
 				}

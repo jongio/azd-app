@@ -128,7 +128,11 @@ func TestFindAzureDir(t *testing.T) {
 
 func TestGetCachedResultsNoCache(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
@@ -153,7 +157,11 @@ func TestGetCachedResultsNoCache(t *testing.T) {
 
 func TestGetCachedResultsValid(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
@@ -180,6 +188,7 @@ func TestGetCachedResultsValid(t *testing.T) {
 	}
 
 	cache := ReqsCache{
+		Version:       CacheVersion,
 		Timestamp:     time.Now(),
 		AzureYamlHash: hash,
 		Results:       results,
@@ -225,7 +234,11 @@ func TestGetCachedResultsValid(t *testing.T) {
 
 func TestGetCachedResultsInvalidHash(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
@@ -235,6 +248,7 @@ func TestGetCachedResultsInvalidHash(t *testing.T) {
 
 	// Create a cache file with wrong hash
 	cache := ReqsCache{
+		Version:       CacheVersion,
 		Timestamp:     time.Now(),
 		AzureYamlHash: "invalid-hash",
 		Results:       []CachedReqResult{},
@@ -268,7 +282,11 @@ func TestGetCachedResultsInvalidHash(t *testing.T) {
 
 func TestGetCachedResultsExpired(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
@@ -283,9 +301,10 @@ func TestGetCachedResultsExpired(t *testing.T) {
 		t.Fatalf("failed to calculate hash: %v", err)
 	}
 
-	// Create an old cache file
+	// Create an old cache file with timestamp 2 hours ago
 	cache := ReqsCache{
-		Timestamp:     time.Now(),
+		Version:       CacheVersion,
+		Timestamp:     time.Now().Add(-2 * time.Hour),
 		AzureYamlHash: hash,
 		Results:       []CachedReqResult{},
 		AllPassed:     true,
@@ -299,12 +318,6 @@ func TestGetCachedResultsExpired(t *testing.T) {
 	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
 	if err := os.WriteFile(cacheFile, cacheData, 0600); err != nil {
 		t.Fatalf("failed to write cache file: %v", err)
-	}
-
-	// Set file modification time to 2 hours ago
-	oldTime := time.Now().Add(-2 * time.Hour)
-	if err := os.Chtimes(cacheFile, oldTime, oldTime); err != nil {
-		t.Fatalf("failed to change file times: %v", err)
 	}
 
 	// Test getting expired cache
@@ -324,7 +337,11 @@ func TestGetCachedResultsExpired(t *testing.T) {
 
 func TestSaveResults(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
@@ -387,7 +404,11 @@ func TestSaveResults(t *testing.T) {
 
 func TestClearCache(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Create a cache file
 	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
@@ -409,7 +430,11 @@ func TestClearCache(t *testing.T) {
 
 func TestClearCacheNoFile(t *testing.T) {
 	tempDir := t.TempDir()
-	cm := &CacheManager{cacheDir: tempDir}
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
 
 	// Clear cache when no file exists (should not error)
 	err := cm.ClearCache()
@@ -468,5 +493,250 @@ func TestCalculateFileHashNonexistent(t *testing.T) {
 	_, err := calculateFileHash("/nonexistent/file.txt")
 	if err == nil {
 		t.Errorf("calculateFileHash() expected error for nonexistent file")
+	}
+}
+
+func TestCacheManagerWithOptions(t *testing.T) {
+	tempDir := t.TempDir()
+
+	tests := []struct {
+		name    string
+		opts    CacheOptions
+		wantErr bool
+	}{
+		{
+			name: "default options",
+			opts: CacheOptions{
+				Enabled: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "disabled cache",
+			opts: CacheOptions{
+				Enabled: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "custom cache dir",
+			opts: CacheOptions{
+				Enabled:  true,
+				CacheDir: tempDir,
+			},
+			wantErr: false,
+		},
+		{
+			name: "custom TTL",
+			opts: CacheOptions{
+				Enabled: true,
+				TTL:     30 * time.Minute,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cm, err := NewCacheManagerWithOptions(tt.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewCacheManagerWithOptions() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				// If error is expected, don't check cm fields
+				return
+			}
+			if cm == nil {
+				t.Error("NewCacheManagerWithOptions() returned nil")
+				return
+			}
+			if cm.enabled != tt.opts.Enabled {
+				t.Errorf("CacheManager.enabled = %v, want %v", cm.enabled, tt.opts.Enabled)
+			}
+		})
+	}
+}
+
+func TestCacheManagerDisabled(t *testing.T) {
+	tempDir := t.TempDir()
+	cm, err := NewCacheManagerWithOptions(CacheOptions{Enabled: false})
+	if err != nil {
+		t.Fatalf("NewCacheManagerWithOptions() error = %v", err)
+	}
+
+	if cm.IsEnabled() {
+		t.Error("CacheManager should be disabled")
+	}
+
+	// Create a test azure.yaml file
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	// GetCachedResults should return cache miss
+	cache, valid, err := cm.GetCachedResults(azureYamlPath)
+	if err != nil {
+		t.Errorf("GetCachedResults() error = %v", err)
+	}
+	if valid {
+		t.Error("GetCachedResults() should return invalid for disabled cache")
+	}
+	if cache != nil {
+		t.Error("GetCachedResults() should return nil for disabled cache")
+	}
+
+	// SaveResults should not error but do nothing
+	results := []CachedReqResult{{Name: "test", Installed: true}}
+	if err := cm.SaveResults(azureYamlPath, results, true); err != nil {
+		t.Errorf("SaveResults() error = %v", err)
+	}
+
+	// ClearCache should not error
+	if err := cm.ClearCache(); err != nil {
+		t.Errorf("ClearCache() error = %v", err)
+	}
+}
+
+func TestCacheStats(t *testing.T) {
+	tempDir := t.TempDir()
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
+
+	// Create a test azure.yaml file
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	// Initial stats should be zero
+	stats := cm.GetStats()
+	if stats.Hits != 0 || stats.Misses != 0 {
+		t.Errorf("Initial stats = %+v, want Hits: 0, Misses: 0", stats)
+	}
+
+	// Cache miss should increment misses
+	_, _, _ = cm.GetCachedResults(azureYamlPath)
+	stats = cm.GetStats()
+	if stats.Misses != 1 {
+		t.Errorf("After miss, Misses = %d, want 1", stats.Misses)
+	}
+
+	// Save and retrieve to get a hit
+	hash, _ := calculateFileHash(azureYamlPath)
+	cache := ReqsCache{
+		Version:       CacheVersion,
+		Timestamp:     time.Now(),
+		AzureYamlHash: hash,
+		Results:       []CachedReqResult{},
+		AllPassed:     true,
+	}
+	data, _ := json.Marshal(cache)
+	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
+	if err := os.WriteFile(cacheFile, data, 0600); err != nil {
+		t.Fatalf("failed to write cache file: %v", err)
+	}
+
+	_, _, _ = cm.GetCachedResults(azureYamlPath)
+	stats = cm.GetStats()
+	if stats.Hits != 1 {
+		t.Errorf("After hit, Hits = %d, want 1", stats.Hits)
+	}
+
+	// Clear cache should reset stats
+	if err := cm.ClearCache(); err != nil {
+		t.Fatalf("ClearCache() error = %v", err)
+	}
+	stats = cm.GetStats()
+	if stats.Hits != 0 || stats.Misses != 0 {
+		t.Errorf("After clear, stats = %+v, want Hits: 0, Misses: 0", stats)
+	}
+}
+
+func TestCacheVersionMismatch(t *testing.T) {
+	tempDir := t.TempDir()
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
+
+	// Create a test azure.yaml file
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	hash, _ := calculateFileHash(azureYamlPath)
+
+	// Create cache with old version
+	cache := ReqsCache{
+		Version:       "0.9", // Old version
+		Timestamp:     time.Now(),
+		AzureYamlHash: hash,
+		Results:       []CachedReqResult{},
+		AllPassed:     true,
+	}
+
+	data, _ := json.Marshal(cache)
+	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
+	if err := os.WriteFile(cacheFile, data, 0600); err != nil {
+		t.Fatalf("failed to write cache file: %v", err)
+	}
+
+	// Should return invalid due to version mismatch
+	gotCache, valid, err := cm.GetCachedResults(azureYamlPath)
+	if err != nil {
+		t.Fatalf("GetCachedResults() error = %v", err)
+	}
+	if valid {
+		t.Error("GetCachedResults() should be invalid for version mismatch")
+	}
+	if gotCache != nil {
+		t.Error("GetCachedResults() should return nil for version mismatch")
+	}
+
+	// Should increment misses
+	stats := cm.GetStats()
+	if stats.Misses != 1 {
+		t.Errorf("Stats.Misses = %d, want 1", stats.Misses)
+	}
+}
+
+func TestAtomicWrite(t *testing.T) {
+	tempDir := t.TempDir()
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
+
+	// Create a test azure.yaml file
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	results := []CachedReqResult{{Name: "test", Installed: true, Satisfied: true}}
+
+	// Save results
+	if err := cm.SaveResults(azureYamlPath, results, true); err != nil {
+		t.Fatalf("SaveResults() error = %v", err)
+	}
+
+	// Verify no temp file left behind
+	tempFile := filepath.Join(tempDir, "reqs_cache.json.tmp")
+	if _, err := os.Stat(tempFile); !os.IsNotExist(err) {
+		t.Error("Temporary file was not cleaned up")
+	}
+
+	// Verify cache file exists
+	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
+	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
+		t.Error("Cache file was not created")
 	}
 }

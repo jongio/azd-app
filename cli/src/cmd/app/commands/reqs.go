@@ -173,8 +173,8 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 				return runClearCache()
 			}
 
-			// Set global cache disable flag (defined in core.go)
-			setDisableCache(noCache)
+			// Configure cache based on flag
+			SetCacheEnabled(!noCache)
 
 			if generateMode {
 				// Get current working directory
@@ -194,7 +194,6 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 	}
 
 	cmd.Flags().BoolVarP(&generateMode, "generate", "g", false, "Generate reqs from detected project dependencies")
-	cmd.Flags().BoolVar(&generateMode, "gen", false, "Alias for --generate")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without modifying azure.yaml")
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Force fresh reqs check and bypass cached results")
 	cmd.Flags().BoolVar(&clearCache, "clear-cache", false, "Clear cached reqs results")
@@ -207,9 +206,23 @@ func runReqs() error {
 	return executeReqs()
 }
 
-// checkPrerequisiteWithResult checks a prerequisite and returns structured result.
-func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
-	installed, version := getInstalledVersion(prereq)
+// PrerequisiteChecker handles checking of prerequisites.
+type PrerequisiteChecker struct {
+	registry map[string]ToolConfig
+	aliases  map[string]string
+}
+
+// NewPrerequisiteChecker creates a new prerequisite checker.
+func NewPrerequisiteChecker() *PrerequisiteChecker {
+	return &PrerequisiteChecker{
+		registry: toolRegistry,
+		aliases:  toolAliases,
+	}
+}
+
+// Check checks a prerequisite and returns structured result.
+func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
+	installed, version := pc.getInstalledVersion(prereq)
 
 	result := ReqResult{
 		Name:      prereq.Name,
@@ -250,7 +263,7 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	// Check if the tool is running (if configured)
 	if prereq.CheckRunning {
 		result.CheckedRun = true
-		isRunning := checkIsRunning(prereq)
+		isRunning := pc.checkIsRunning(prereq)
 		result.Running = isRunning
 		if !isRunning {
 			result.Message = "Not running"
@@ -274,42 +287,9 @@ func checkPrerequisiteWithResult(prereq Prerequisite) ReqResult {
 	return result
 }
 
-func checkPrerequisite(prereq Prerequisite) bool {
-	result := checkPrerequisiteWithResult(prereq)
-	return result.Satisfied
-}
-
-func getInstalledVersion(prereq Prerequisite) (installed bool, version string) {
-	var config ToolConfig
-
-	// Check if custom configuration is provided in prerequisite
-	if prereq.Command != "" {
-		config = ToolConfig{
-			Command:       prereq.Command,
-			Args:          prereq.Args,
-			VersionPrefix: prereq.VersionPrefix,
-			VersionField:  prereq.VersionField,
-		}
-	} else {
-		// Use registry-based configuration
-		tool := prereq.Name
-
-		// Resolve aliases to canonical name
-		if canonical, isAlias := toolAliases[tool]; isAlias {
-			tool = canonical
-		}
-
-		// Look up tool configuration
-		found := false
-		config, found = toolRegistry[tool]
-		if !found {
-			// Fallback: try generic --version with tool ID as command
-			config = ToolConfig{
-				Command: prereq.Name,
-				Args:    []string{"--version"},
-			}
-		}
-	}
+// getInstalledVersion gets the installed version of a prerequisite.
+func (pc *PrerequisiteChecker) getInstalledVersion(prereq Prerequisite) (installed bool, version string) {
+	config := pc.getToolConfig(prereq)
 
 	// #nosec G204 -- Command and args come from toolRegistry or validated azure.yaml prerequisite configuration
 	cmd := exec.Command(config.Command, config.Args...)
@@ -324,79 +304,40 @@ func getInstalledVersion(prereq Prerequisite) (installed bool, version string) {
 	return true, version
 }
 
-func extractVersion(config ToolConfig, output string) string {
-	// Strip prefix if configured
-	if config.VersionPrefix != "" {
-		output = strings.TrimPrefix(output, config.VersionPrefix)
-	}
-
-	// Extract specific field if configured
-	if config.VersionField > 0 {
-		parts := strings.Fields(output)
-		if len(parts) > config.VersionField {
-			output = parts[config.VersionField]
+// getToolConfig gets the tool configuration for a prerequisite.
+func (pc *PrerequisiteChecker) getToolConfig(prereq Prerequisite) ToolConfig {
+	// Check if custom configuration is provided in prerequisite
+	if prereq.Command != "" {
+		return ToolConfig{
+			Command:       prereq.Command,
+			Args:          prereq.Args,
+			VersionPrefix: prereq.VersionPrefix,
+			VersionField:  prereq.VersionField,
 		}
 	}
 
-	// Handle azd special case (multi-line output)
-	if strings.Contains(output, "azd version") {
-		lines := strings.Split(output, "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "azd version") {
-				parts := strings.Fields(line)
-				for _, part := range parts {
-					if v := extractFirstVersion(part); v != "" && v != "version" {
-						return v
-					}
-				}
-			}
-		}
+	// Use registry-based configuration
+	tool := prereq.Name
+
+	// Resolve aliases to canonical name
+	if canonical, isAlias := pc.aliases[tool]; isAlias {
+		tool = canonical
 	}
 
-	return extractFirstVersion(output)
+	// Look up tool configuration
+	if config, found := pc.registry[tool]; found {
+		return config
+	}
+
+	// Fallback: try generic --version with tool ID as command
+	return ToolConfig{
+		Command: prereq.Name,
+		Args:    []string{"--version"},
+	}
 }
 
-func extractFirstVersion(s string) string {
-	// Match semantic version pattern (e.g., 1.2.3, 20.0.0, etc.)
-	re := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
-	matches := re.FindStringSubmatch(s)
-	if len(matches) > 1 {
-		return matches[1]
-	}
-
-	// Try simpler pattern (e.g., 1.2)
-	re = regexp.MustCompile(`(\d+\.\d+)`)
-	matches = re.FindStringSubmatch(s)
-	if len(matches) > 1 {
-		return matches[1]
-	}
-
-	return ""
-}
-
-func compareVersions(installed, required string) bool {
-	installedParts := parseVersion(installed)
-	requiredParts := parseVersion(required)
-
-	// Compare each part
-	for i := 0; i < len(requiredParts); i++ {
-		if i >= len(installedParts) {
-			// Installed version has fewer parts, assume 0
-			return false
-		}
-
-		if installedParts[i] > requiredParts[i] {
-			return true
-		} else if installedParts[i] < requiredParts[i] {
-			return false
-		}
-		// If equal, continue to next part
-	}
-
-	return true // All parts equal or installed version is longer
-}
-
-func checkIsRunning(prereq Prerequisite) bool {
+// checkIsRunning checks if a prerequisite tool is currently running.
+func (pc *PrerequisiteChecker) checkIsRunning(prereq Prerequisite) bool {
 	// If no custom running check is configured, use defaults based on tool ID
 	command := prereq.RunningCheckCommand
 	args := prereq.RunningCheckArgs
@@ -445,6 +386,97 @@ func checkIsRunning(prereq Prerequisite) bool {
 	return true
 }
 
+// Deprecated: Use PrerequisiteChecker.Check instead
+func checkPrerequisite(prereq Prerequisite) bool {
+	checker := NewPrerequisiteChecker()
+	result := checker.Check(prereq)
+	return result.Satisfied
+}
+
+// extractVersion extracts version from command output.
+func extractVersion(config ToolConfig, output string) string {
+	// Strip prefix if configured
+	if config.VersionPrefix != "" {
+		output = strings.TrimPrefix(output, config.VersionPrefix)
+	}
+
+	// Extract specific field if configured
+	if config.VersionField > 0 {
+		parts := strings.Fields(output)
+		if len(parts) > config.VersionField {
+			output = parts[config.VersionField]
+		}
+	}
+
+	// Handle azd special case (multi-line output)
+	if strings.Contains(output, "azd version") {
+		return extractAzdVersion(output)
+	}
+
+	return extractFirstVersion(output)
+}
+
+// extractAzdVersion extracts version from azd multi-line output.
+func extractAzdVersion(output string) string {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "azd version") {
+			parts := strings.Fields(line)
+			for _, part := range parts {
+				if v := extractFirstVersion(part); v != "" && v != "version" {
+					return v
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// extractFirstVersion finds the first semantic version in a string.
+func extractFirstVersion(s string) string {
+	// Match semantic version pattern (e.g., 1.2.3, 20.0.0, etc.)
+	re := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+
+	// Try simpler pattern (e.g., 1.2)
+	re = regexp.MustCompile(`(\d+\.\d+)`)
+	matches = re.FindStringSubmatch(s)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+
+	return ""
+}
+
+// compareVersions compares installed version against required version.
+// Returns true if installed >= required.
+func compareVersions(installed, required string) bool {
+	installedParts := parseVersion(installed)
+	requiredParts := parseVersion(required)
+
+	// Compare each part left to right
+	for i := 0; i < len(requiredParts); i++ {
+		if i >= len(installedParts) {
+			// Installed version has fewer parts, assume 0
+			return false
+		}
+
+		if installedParts[i] > requiredParts[i] {
+			return true
+		}
+		if installedParts[i] < requiredParts[i] {
+			return false
+		}
+		// Equal, continue to next part
+	}
+
+	return true // All parts equal or installed version is longer
+}
+
+// parseVersion parses a version string into numeric parts.
 func parseVersion(version string) []int {
 	parts := strings.Split(version, ".")
 	result := make([]int, 0, len(parts))

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import { useServices } from '@/hooks/useServices'
 import { mockServices, createMockFetchResponse, createMockWebSocketMessage } from '@/test/mocks'
 
@@ -110,12 +110,14 @@ describe('useServices', () => {
     }
 
     if (wsInstance && wsInstance.onmessage) {
-      wsInstance.onmessage(
-        createMockWebSocketMessage({
-          type: 'update',
-          service: updatedService,
-        })
-      )
+      act(() => {
+        wsInstance.onmessage(
+          createMockWebSocketMessage({
+            type: 'update',
+            service: updatedService,
+          })
+        )
+      })
     }
 
     await waitFor(() => {
@@ -166,12 +168,14 @@ describe('useServices', () => {
     }
 
     if (wsInstance && wsInstance.onmessage) {
-      wsInstance.onmessage(
-        createMockWebSocketMessage({
-          type: 'add',
-          service: newService,
-        })
-      )
+      act(() => {
+        wsInstance.onmessage(
+          createMockWebSocketMessage({
+            type: 'add',
+            service: newService,
+          })
+        )
+      })
     }
 
     await waitFor(() => {
@@ -211,12 +215,14 @@ describe('useServices', () => {
 
     // Remove a service
     if (wsInstance && wsInstance.onmessage) {
-      wsInstance.onmessage(
-        createMockWebSocketMessage({
-          type: 'remove',
-          service: mockServices[0],
-        })
-      )
+      act(() => {
+        wsInstance.onmessage(
+          createMockWebSocketMessage({
+            type: 'remove',
+            service: mockServices[0],
+          })
+        )
+      })
     }
 
     await waitFor(() => {
@@ -257,7 +263,9 @@ describe('useServices', () => {
 
     // Send malformed message
     if (wsInstance && wsInstance.onmessage) {
-      wsInstance.onmessage({ data: 'not-valid-json' })
+      act(() => {
+        wsInstance.onmessage({ data: 'not-valid-json' })
+      })
     }
 
     await waitFor(() => {
@@ -296,7 +304,9 @@ describe('useServices', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
 
     // Call refetch
-    result.current.refetch()
+    act(() => {
+      result.current.refetch()
+    })
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledTimes(2)

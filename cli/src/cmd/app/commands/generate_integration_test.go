@@ -102,18 +102,16 @@ func TestGenerateIntegration(t *testing.T) {
 
 			// Verify expected requirements are present
 			for _, req := range tt.expectedReqs {
-				if !strings.Contains(contentStr, "id: "+req) {
+				if !strings.Contains(contentStr, "- name: "+req) {
 					t.Errorf("Expected requirement %q not found in azure.yaml", req)
 				}
 			}
 
-			// Count requirements
-			reqCount := strings.Count(contentStr, "id:")
+			// Count requirements  - look for "- name:" which appears in reqs array
+			reqCount := strings.Count(contentStr, "- name:")
 			if reqCount < tt.minReqs {
 				t.Errorf("Expected at least %d requirements, found %d", tt.minReqs, reqCount)
-			}
-
-			// Verify all requirements have minVersion
+			} // Verify all requirements have minVersion
 			if strings.Count(contentStr, "minVersion:") != reqCount {
 				t.Errorf("Not all requirements have minVersion specified")
 			}
@@ -178,10 +176,10 @@ func TestGenerateMerge(t *testing.T) {
 	// Create existing azure.yaml with custom requirement
 	existingYaml := `name: test
 reqs:
-  - id: custom-tool
-    minVersion: 1.0.0
-  - id: node
-    minVersion: 18.0.0
+  - name: custom-tool
+    minVersion: "1.0.0"
+  - name: node
+    minVersion: "18.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
 	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0600); err != nil {
@@ -208,18 +206,18 @@ reqs:
 	contentStr := string(content)
 
 	// Verify custom-tool was preserved
-	if !strings.Contains(contentStr, "id: custom-tool") {
+	if !strings.Contains(contentStr, "- name: custom-tool") {
 		t.Errorf("Existing custom-tool requirement was not preserved")
 	}
 
 	// Verify node still exists (should be preserved, not added again)
-	nodeCount := strings.Count(contentStr, "id: node")
+	nodeCount := strings.Count(contentStr, "- name: node")
 	if nodeCount != 1 {
 		t.Errorf("Expected exactly 1 node requirement, found %d", nodeCount)
 	}
 
 	// Verify npm was added
-	if !strings.Contains(contentStr, "id: npm") {
+	if !strings.Contains(contentStr, "- name: npm") {
 		t.Errorf("npm requirement should have been added")
 	}
 }

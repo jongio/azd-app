@@ -14,11 +14,14 @@ import (
 )
 
 const (
-	binaryName     = "app"
-	srcDir         = "src/cmd/app"
-	binDir         = "bin"
-	coverageDir    = "coverage"
-	extensionFile  = "extension.yaml"
+	binaryName         = "app"
+	srcDir             = "src/cmd/app"
+	binDir             = "bin"
+	coverageDir        = "coverage"
+	extensionFile      = "extension.yaml"
+	dashboardDir       = "dashboard"
+	defaultTestTimeout = "10m"
+	extensionID        = "jongio.azd.app"
 )
 
 // Default target runs all checks and builds.
@@ -30,7 +33,7 @@ func getVersion() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read extension.yaml: %w", err)
 	}
-	
+
 	// Simple regex to extract version: line
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -40,39 +43,6 @@ func getVersion() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("version not found in extension.yaml")
-}
-
-// bumpVersion increments the patch version and writes it back to extension.yaml.
-func bumpVersion() (string, error) {
-	version, err := getVersion()
-	if err != nil {
-		return "", err
-	}
-
-	// Parse version (simple semver: major.minor.patch)
-	var major, minor, patch int
-	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
-		return "", fmt.Errorf("failed to parse version %s: %w", version, err)
-	}
-
-	// Increment patch
-	patch++
-	newVersion := fmt.Sprintf("%d.%d.%d", major, minor, patch)
-
-	// Update extension.yaml
-	data, err := os.ReadFile(extensionFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read extension.yaml: %w", err)
-	}
-	
-	content := string(data)
-	updatedContent := strings.Replace(content, "version: "+version, "version: "+newVersion, 1)
-	
-	if err := os.WriteFile(extensionFile, []byte(updatedContent), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write extension.yaml: %w", err)
-	}
-
-	return newVersion, nil
 }
 
 // All runs lint, test, and build in dependency order.
@@ -98,7 +68,7 @@ func Build() error {
 
 	// Set environment variables for build script
 	env := map[string]string{
-		"EXTENSION_ID":       "jongio.azd.app",
+		"EXTENSION_ID":       extensionID,
 		"EXTENSION_VERSION":  version,
 		"EXTENSION_PLATFORM": platform,
 	}
@@ -134,7 +104,7 @@ func BuildAll() error {
 	// Set environment variables for build script
 	// When EXTENSION_PLATFORM is not set, the script builds for all platforms
 	env := map[string]string{
-		"EXTENSION_ID":      "jongio.azd.app",
+		"EXTENSION_ID":      extensionID,
 		"EXTENSION_VERSION": version,
 	}
 
@@ -174,7 +144,7 @@ func TestIntegration() error {
 	// Handle timeout
 	timeout := os.Getenv("TEST_TIMEOUT")
 	if timeout == "" {
-		timeout = "10m"
+		timeout = defaultTestTimeout
 	}
 	args = append(args, "-timeout="+timeout)
 
@@ -326,13 +296,13 @@ func Install() error {
 	}
 
 	fmt.Println("Installing locally...")
-	
+
 	// Set environment variables
 	env := map[string]string{
-		"EXTENSION_ID":      "jongio.azd.app",
+		"EXTENSION_ID":      extensionID,
 		"EXTENSION_VERSION": version,
 	}
-	
+
 	// azd x build automatically installs unless --skip-install is passed
 	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
@@ -351,12 +321,12 @@ func Watch() error {
 	}
 
 	fmt.Println("Starting file watcher with azd x watch...")
-	
+
 	// Set environment variables
 	env := map[string]string{
-		"EXTENSION_ID": "jongio.azd.app",
+		"EXTENSION_ID": extensionID,
 	}
-	
+
 	return sh.RunWithV(env, "azd", "x", "watch")
 }
 
@@ -402,21 +372,29 @@ func Preflight() error {
 	return nil
 }
 
+// Security runs security scanning with gosec.
+func Security() error {
+	return runGosec()
+}
+
 // runGosec runs security scanning with gosec.
 func runGosec() error {
-	if err := sh.RunV("gosec", "-quiet", "./..."); err != nil {
+	fmt.Println("Running security scan...")
+	// Use -tests=false to skip test files (major speed improvement)
+	// Use -exclude-generated to skip generated code
+	// Keep -quiet to suppress verbose output
+	if err := sh.RunV("gosec", "-quiet", "-tests=false", "-exclude-generated", "./..."); err != nil {
 		fmt.Println("⚠️  Security scan failed. Ensure gosec is installed:")
 		fmt.Println("    go install github.com/securego/gosec/v2/cmd/gosec@latest")
 		return err
 	}
+	fmt.Println("✅ Security scan passed!")
 	return nil
 }
 
 // DashboardBuild builds the dashboard TypeScript/React code.
 func DashboardBuild() error {
 	fmt.Println("Building dashboard...")
-
-	dashboardDir := "dashboard"
 
 	// Install dependencies
 	fmt.Println("Installing dashboard dependencies...")
@@ -438,8 +416,6 @@ func DashboardBuild() error {
 func DashboardTest() error {
 	fmt.Println("Running dashboard tests...")
 
-	dashboardDir := "dashboard"
-
 	// Run tests
 	if err := sh.RunV("npm", "test", "--prefix", dashboardDir); err != nil {
 		return fmt.Errorf("dashboard tests failed: %w", err)
@@ -452,7 +428,7 @@ func DashboardTest() error {
 // DashboardDev runs the dashboard in development mode with hot reload.
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
-	return sh.RunV("npm", "run", "dev", "--prefix", "dashboard")
+	return sh.RunV("npm", "run", "dev", "--prefix", dashboardDir)
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).
@@ -487,8 +463,8 @@ func Run() error {
 		return err
 	}
 	defer func() {
-		if err := os.Chdir(originalDir); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", err)
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
 		}
 	}()
 

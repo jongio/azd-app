@@ -23,7 +23,6 @@ azd app reqs [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--generate` | `-g` | bool | `false` | Generate reqs from detected project dependencies |
-| `--gen` | | bool | `false` | Alias for --generate |
 | `--dry-run` | | bool | `false` | Preview changes without modifying azure.yaml |
 | `--no-cache` | | bool | `false` | Force fresh reqs check and bypass cached results |
 | `--clear-cache` | | bool | `false` | Clear cached reqs results |
@@ -499,10 +498,10 @@ reqs:
 
 ```json
 {
-  "success": false,
-  "results": [
+  "satisfied": false,
+  "reqs": [
     {
-      "id": "node",
+      "name": "node",
       "installed": true,
       "version": "20.11.0",
       "required": "18.0.0",
@@ -510,7 +509,7 @@ reqs:
       "message": "Satisfied"
     },
     {
-      "id": "docker",
+      "name": "docker",
       "installed": true,
       "version": "24.0.7",
       "required": "20.0.0",
@@ -520,7 +519,7 @@ reqs:
       "message": "Running"
     },
     {
-      "id": "python",
+      "name": "python",
       "installed": false,
       "required": "3.11.0",
       "satisfied": false,

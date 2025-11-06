@@ -23,12 +23,38 @@ import (
 // Global orchestrator instance shared across all commands.
 var cmdOrchestrator *orchestrator.Orchestrator
 
-// Global flag to disable cache (set by --no-cache flag)
-var disableCache bool
+// ExecutionContext holds runtime configuration for command execution.
+type ExecutionContext struct {
+	CacheEnabled bool
+}
 
-// setDisableCache sets the cache disable flag
-func setDisableCache(disable bool) {
-	disableCache = disable
+// ReqsResult represents the JSON output structure for reqs command.
+type ReqsResult struct {
+	Satisfied bool        `json:"satisfied"`
+	Reqs      []ReqResult `json:"reqs"`
+}
+
+// DepsResult represents the JSON output structure for deps command.
+type DepsResult struct {
+	Success  bool            `json:"success"`
+	Projects []InstallResult `json:"projects"`
+	Message  string          `json:"message,omitempty"`
+	Error    string          `json:"error,omitempty"`
+}
+
+const (
+	// msgNoProjectsDetected is used when no projects are found for dependency installation.
+	msgNoProjectsDetected = "No projects detected"
+)
+
+// Global execution context (temporary until proper context passing is implemented)
+var execContext = &ExecutionContext{
+	CacheEnabled: true, // Default: cache is enabled
+}
+
+// SetCacheEnabled configures whether caching should be enabled.
+func SetCacheEnabled(enabled bool) {
+	execContext.CacheEnabled = enabled
 }
 
 // init initializes the command orchestrator and registers all commands.
@@ -64,133 +90,87 @@ func init() {
 	}
 }
 
+// createCacheManager creates a cache manager with fallback to disabled cache on error.
+func createCacheManager(enabled bool) *cache.CacheManager {
+	cacheManager, err := cache.NewCacheManagerWithOptions(cache.CacheOptions{
+		Enabled: enabled,
+		TTL:     0, // Use default TTL
+	})
+	if err != nil {
+		// If cache fails to initialize, proceed without caching (fallback)
+		if !output.IsJSON() {
+			output.Warning("Cache initialization failed, proceeding without cache: %v", err)
+		}
+		// Return disabled cache manager (won't fail)
+		cacheManager, _ = cache.NewCacheManagerWithOptions(cache.CacheOptions{Enabled: false})
+	}
+	return cacheManager
+}
+
+// loadAzureYaml loads and validates the azure.yaml file.
+func loadAzureYaml() (string, *AzureYaml, error) {
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Find azure.yaml in current or parent directories
+	azureYamlPath, err := detector.FindAzureYaml(cwd)
+	if err != nil {
+		return "", nil, fmt.Errorf("error searching for azure.yaml: %w", err)
+	}
+
+	if azureYamlPath == "" {
+		return "", nil, fmt.Errorf("no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one")
+	}
+
+	// Validate path to azure.yaml
+	if err := security.ValidatePath(azureYamlPath); err != nil {
+		return "", nil, fmt.Errorf("invalid path: %w", err)
+	}
+
+	// #nosec G304 -- Path validated by security.ValidatePath above
+	data, err := os.ReadFile(azureYamlPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to read azure.yaml: %w", err)
+	}
+
+	var azureYaml AzureYaml
+	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
+		return "", nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
+	}
+
+	return azureYamlPath, &azureYaml, nil
+}
+
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
 	if !output.IsJSON() {
 		output.Section("🔍", "Checking reqs...")
 	}
 
-	// Get current working directory
-	cwd, err := os.Getwd()
+	// Load azure.yaml
+	azureYamlPath, azureYaml, err := loadAzureYaml()
 	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	// Find azure.yaml in current or parent directories
-	azureYamlPath, err := detector.FindAzureYaml(cwd)
-	if err != nil {
-		return fmt.Errorf("error searching for azure.yaml: %w", err)
-	}
-
-	if azureYamlPath == "" {
-		return fmt.Errorf("no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one")
-	}
-
-	// Validate path to azure.yaml
-	if err := security.ValidatePath(azureYamlPath); err != nil {
-		return fmt.Errorf("invalid path: %w", err)
-	}
-
-	// #nosec G304 -- Path validated by security.ValidatePath above
-	data, err := os.ReadFile(azureYamlPath)
-	if err != nil {
-		return fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	var azureYaml AzureYaml
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
-		return fmt.Errorf("failed to parse azure.yaml: %w", err)
+		return err
 	}
 
 	if len(azureYaml.Reqs) == 0 {
 		return fmt.Errorf("no reqs defined in azure.yaml - run 'azd app reqs --generate' to add them")
 	}
 
-	// Initialize cache manager (skip if caching is disabled)
-	var cacheManager *cache.CacheManager
-	if !disableCache {
-		var err error
-		cacheManager, err = cache.NewCacheManager()
-		if err != nil {
-			// If cache fails, proceed without caching (fallback)
-			if !output.IsJSON() {
-				output.Warning("Cache initialization failed, proceeding without cache: %v", err)
-			}
-			cacheManager = nil
-		}
-	} else if !output.IsJSON() {
-		output.Info("Cache disabled, performing fresh reqs check...")
-	}
+	// Initialize cache manager
+	cacheManager := createCacheManager(execContext.CacheEnabled)
 
-	var results []ReqResult
-	var allSatisfied bool
-
-	// Try to get cached results first (only if cache is available and enabled)
-	if cacheManager != nil {
-		cachedResults, valid, cacheErr := cacheManager.GetCachedResults(azureYamlPath)
-		if cacheErr != nil && !output.IsJSON() {
-			output.Warning("Failed to read cache: %v", cacheErr)
-		}
-		if valid && cachedResults != nil {
-			// Use cached results
-			if !output.IsJSON() {
-				output.Info("Using cached reqs check results...")
-			}
-
-			// Convert cached results to ReqResult format
-			results = make([]ReqResult, len(cachedResults.Results))
-			for i, cached := range cachedResults.Results {
-				results[i] = ReqResult{
-					Name:       cached.Name,
-					Installed:  cached.Installed,
-					Version:    cached.Version,
-					Required:   cached.Required,
-					Satisfied:  cached.Satisfied,
-					Running:    cached.Running,
-					CheckedRun: cached.CheckedRun,
-					Message:    cached.Message,
-				}
-			}
-			allSatisfied = cachedResults.AllPassed
-
-			// Print cached results in non-JSON mode
-			if !output.IsJSON() {
-				for _, result := range results {
-					printRequirementResult(result)
-				}
-			}
-		} else {
-			// Cache miss or invalid - perform fresh check
-			results, allSatisfied = performReqsCheck(azureYaml.Reqs)
-
-			// Save to cache
-			cacheResults := make([]cache.CachedReqResult, len(results))
-			for i, result := range results {
-				cacheResults[i] = cache.CachedReqResult{
-					Name:       result.Name,
-					Installed:  result.Installed,
-					Version:    result.Version,
-					Required:   result.Required,
-					Satisfied:  result.Satisfied,
-					Running:    result.Running,
-					CheckedRun: result.CheckedRun,
-					Message:    result.Message,
-				}
-			}
-			if saveErr := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); saveErr != nil && !output.IsJSON() {
-				output.Warning("Failed to save cache: %v", saveErr)
-			}
-		}
-	} else {
-		// No cache available - perform fresh check
-		results, allSatisfied = performReqsCheck(azureYaml.Reqs)
-	}
+	// Check requirements (with caching)
+	results, allSatisfied := checkRequirementsWithCache(azureYaml.Reqs, azureYamlPath, cacheManager)
 
 	// JSON output
 	if output.IsJSON() {
-		return output.PrintJSON(map[string]interface{}{
-			"satisfied": allSatisfied,
-			"reqs":      results,
+		return output.PrintJSON(ReqsResult{
+			Satisfied: allSatisfied,
+			Reqs:      results,
 		})
 	}
 
@@ -204,6 +184,169 @@ func executeReqs() error {
 	return nil
 }
 
+// DependencyInstaller handles installation of project dependencies.
+type DependencyInstaller struct {
+	searchRoot string
+}
+
+// NewDependencyInstaller creates a new dependency installer.
+func NewDependencyInstaller(searchRoot string) *DependencyInstaller {
+	return &DependencyInstaller{
+		searchRoot: searchRoot,
+	}
+}
+
+// InstallResult represents the result of installing dependencies for a project.
+type InstallResult struct {
+	Type    string `json:"type"`
+	Dir     string `json:"dir,omitempty"`
+	Path    string `json:"path,omitempty"`
+	Manager string `json:"manager,omitempty"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// InstallAll installs dependencies for all detected project types.
+func (di *DependencyInstaller) InstallAll() ([]InstallResult, error) {
+	var results []InstallResult
+	hasProjects := false
+
+	// Install Node.js dependencies
+	nodeResults, err := di.installNodeProjects()
+	if err == nil && len(nodeResults) > 0 {
+		hasProjects = true
+		results = append(results, nodeResults...)
+	}
+
+	// Install Python dependencies
+	pythonResults, err := di.installPythonProjects()
+	if err == nil && len(pythonResults) > 0 {
+		hasProjects = true
+		results = append(results, pythonResults...)
+	}
+
+	// Install .NET dependencies
+	dotnetResults, err := di.installDotnetProjects()
+	if err == nil && len(dotnetResults) > 0 {
+		hasProjects = true
+		results = append(results, dotnetResults...)
+	}
+
+	if !hasProjects {
+		return results, nil
+	}
+
+	return results, nil
+}
+
+// installNodeProjects installs dependencies for Node.js projects.
+func (di *DependencyInstaller) installNodeProjects() ([]InstallResult, error) {
+	nodeProjects, err := detector.FindNodeProjects(di.searchRoot)
+	if err != nil || len(nodeProjects) == 0 {
+		return nil, err
+	}
+
+	if !output.IsJSON() {
+		output.Step("📦", "Found %s Node.js project(s)", output.Count(len(nodeProjects)))
+	}
+
+	var results []InstallResult
+	for _, nodeProject := range nodeProjects {
+		result := di.installProject("node", nodeProject.Dir, nodeProject.PackageManager, func() error {
+			return installer.InstallNodeDependencies(nodeProject)
+		})
+		results = append(results, result)
+	}
+
+	if !output.IsJSON() {
+		output.Newline()
+	}
+
+	return results, nil
+}
+
+// installPythonProjects installs dependencies for Python projects.
+func (di *DependencyInstaller) installPythonProjects() ([]InstallResult, error) {
+	pythonProjects, err := detector.FindPythonProjects(di.searchRoot)
+	if err != nil || len(pythonProjects) == 0 {
+		return nil, err
+	}
+
+	if !output.IsJSON() {
+		output.Step("🐍", "Found %s Python project(s)", output.Count(len(pythonProjects)))
+	}
+
+	var results []InstallResult
+	for _, pyProject := range pythonProjects {
+		result := di.installProject("python", pyProject.Dir, pyProject.PackageManager, func() error {
+			return installer.SetupPythonVirtualEnv(pyProject)
+		})
+		results = append(results, result)
+	}
+
+	if !output.IsJSON() {
+		output.Newline()
+	}
+
+	return results, nil
+}
+
+// installDotnetProjects installs dependencies for .NET projects.
+func (di *DependencyInstaller) installDotnetProjects() ([]InstallResult, error) {
+	dotnetProjects, err := detector.FindDotnetProjects(di.searchRoot)
+	if err != nil || len(dotnetProjects) == 0 {
+		return nil, err
+	}
+
+	if !output.IsJSON() {
+		output.Step("🔷", "Found %s .NET project(s)", output.Count(len(dotnetProjects)))
+	}
+
+	var results []InstallResult
+	for _, dotnetProject := range dotnetProjects {
+		result := InstallResult{
+			Type: "dotnet",
+			Path: dotnetProject.Path,
+		}
+		if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
+			if !output.IsJSON() {
+				output.ItemWarning("Failed to restore %s: %v", dotnetProject.Path, err)
+			}
+			result.Success = false
+			result.Error = err.Error()
+		} else {
+			result.Success = true
+		}
+		results = append(results, result)
+	}
+
+	if !output.IsJSON() {
+		output.Newline()
+	}
+
+	return results, nil
+}
+
+// installProject installs dependencies for a single project.
+func (di *DependencyInstaller) installProject(projectType, dir, manager string, installFunc func() error) InstallResult {
+	result := InstallResult{
+		Type:    projectType,
+		Dir:     dir,
+		Manager: manager,
+	}
+	if err := installFunc(); err != nil {
+		if !output.IsJSON() {
+			output.ItemWarning("Failed to install for %s: %v", dir, err)
+		}
+		result.Success = false
+		result.Error = err.Error()
+	} else {
+		result.Success = true
+	}
+	return result
+}
+
+// executeDeps is the core logic for the deps command.
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
 	if !output.IsJSON() {
@@ -211,125 +354,41 @@ func executeDeps() error {
 		output.Section("🔍", "Installing dependencies")
 	}
 
-	// Get current working directory
-	cwd, err := os.Getwd()
+	// Determine search root
+	searchRoot, err := getSearchRoot()
 	if err != nil {
 		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"error": err.Error(),
-			})
+			return output.PrintJSON(DepsResult{Error: err.Error()})
 		}
-		return fmt.Errorf("failed to get current directory: %w", err)
+		return err
 	}
 
-	// Find azure.yaml to determine the search root
-	azureYamlPath, err := detector.FindAzureYaml(cwd)
+	// Install dependencies
+	installer := NewDependencyInstaller(searchRoot)
+	results, err := installer.InstallAll()
 	if err != nil {
+		return err
+	}
+
+	// Handle no projects case
+	if len(results) == 0 {
 		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"error": err.Error(),
+			return output.PrintJSON(DepsResult{
+				Success:  true,
+				Projects: []InstallResult{},
+				Message:  msgNoProjectsDetected,
 			})
 		}
-		return fmt.Errorf("error searching for azure.yaml: %w", err)
-	}
-
-	// Use azure.yaml directory as search root if found, otherwise use cwd
-	searchRoot := cwd
-	if azureYamlPath != "" {
-		searchRoot = filepath.Dir(azureYamlPath)
-	}
-
-	hasProjects := false
-	var results []map[string]any
-
-	// Step 1: Find and install Node.js projects
-	nodeProjects, err := detector.FindNodeProjects(searchRoot)
-	if err == nil && len(nodeProjects) > 0 {
-		hasProjects = true
-		if !output.IsJSON() {
-			output.Step("📦", "Found %s Node.js project(s)", output.Count(len(nodeProjects)))
-		}
-		for _, nodeProject := range nodeProjects {
-			result := installProjectDependencies("node", nodeProject.Dir, nodeProject.PackageManager, func() error {
-				return installer.InstallNodeDependencies(nodeProject)
-			})
-			results = append(results, result)
-		}
-		if !output.IsJSON() {
-			output.Newline()
-		}
-	}
-
-	// Step 2: Find and install Python projects
-	pythonProjects, err := detector.FindPythonProjects(searchRoot)
-	if err == nil && len(pythonProjects) > 0 {
-		hasProjects = true
-		if !output.IsJSON() {
-			output.Step("🐍", "Found %s Python project(s)", output.Count(len(pythonProjects)))
-		}
-		for _, pyProject := range pythonProjects {
-			result := installProjectDependencies("python", pyProject.Dir, pyProject.PackageManager, func() error {
-				return installer.SetupPythonVirtualEnv(pyProject)
-			})
-			results = append(results, result)
-		}
-		if !output.IsJSON() {
-			output.Newline()
-		}
-	}
-
-	// Step 3: Find and install .NET projects
-	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
-	if err == nil && len(dotnetProjects) > 0 {
-		hasProjects = true
-		if !output.IsJSON() {
-			output.Step("🔷", "Found %s .NET project(s)", output.Count(len(dotnetProjects)))
-		}
-		for _, dotnetProject := range dotnetProjects {
-			result := map[string]any{
-				"type": "dotnet",
-				"path": dotnetProject.Path,
-			}
-			if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
-				if !output.IsJSON() {
-					output.ItemWarning("Failed to restore %s: %v", dotnetProject.Path, err)
-				}
-				result["success"] = false
-				result["error"] = err.Error()
-			} else {
-				result["success"] = true
-			}
-			results = append(results, result)
-		}
-		if !output.IsJSON() {
-			output.Newline()
-		}
-	}
-
-	if !hasProjects {
-		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
-				"success":  true,
-				"projects": []interface{}{},
-				"message":  "No projects detected",
-			})
-		}
-		output.Info("No projects detected - skipping dependency installation")
+		output.Info(msgNoProjectsDetected + " - skipping dependency installation")
 		return nil
 	}
 
+	// Output results
 	if output.IsJSON() {
-		// Check if any project failed
-		allSuccess := true
-		for _, result := range results {
-			if success, ok := result["success"].(bool); ok && !success {
-				allSuccess = false
-				break
-			}
-		}
-		return output.PrintJSON(map[string]interface{}{
-			"success":  allSuccess,
-			"projects": results,
+		allSuccess := checkAllSuccess(results)
+		return output.PrintJSON(DepsResult{
+			Success:  allSuccess,
+			Projects: results,
 		})
 	}
 
@@ -337,23 +396,32 @@ func executeDeps() error {
 	return nil
 }
 
-// installProjectDependencies is a helper to install dependencies for a project with consistent error handling.
-func installProjectDependencies(projectType, dir, manager string, installFunc func() error) map[string]any {
-	result := map[string]any{
-		"type":    projectType,
-		"dir":     dir,
-		"manager": manager,
+// getSearchRoot determines the search root for finding projects.
+func getSearchRoot() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
-	if err := installFunc(); err != nil {
-		if !output.IsJSON() {
-			output.ItemWarning("Failed to install for %s: %v", dir, err)
+
+	azureYamlPath, err := detector.FindAzureYaml(cwd)
+	if err != nil {
+		return "", fmt.Errorf("error searching for azure.yaml: %w", err)
+	}
+
+	if azureYamlPath != "" {
+		return filepath.Dir(azureYamlPath), nil
+	}
+	return cwd, nil
+}
+
+// checkAllSuccess checks if all install results succeeded.
+func checkAllSuccess(results []InstallResult) bool {
+	for _, result := range results {
+		if !result.Success {
+			return false
 		}
-		result["success"] = false
-		result["error"] = err.Error()
-	} else {
-		result["success"] = true
 	}
-	return result
+	return true
 }
 
 // executeRun is the function executed by the orchestrator for the run command.
@@ -455,13 +523,101 @@ func _runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) e
 	return nil
 }
 
+// checkRequirementsWithCache checks requirements with cache support.
+func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool) {
+	// Try cache first if enabled
+	if cacheManager.IsEnabled() {
+		if results, allSatisfied, ok := tryGetCachedResults(azureYamlPath, cacheManager); ok {
+			return results, allSatisfied
+		}
+	}
+
+	// Perform fresh check
+	results, allSatisfied := performReqsCheck(reqs)
+
+	// Save to cache if enabled
+	if cacheManager.IsEnabled() {
+		saveToCache(azureYamlPath, results, allSatisfied, cacheManager)
+	}
+
+	return results, allSatisfied
+}
+
+// tryGetCachedResults attempts to retrieve and use cached results.
+func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool, bool) {
+	cachedResults, valid, err := cacheManager.GetCachedResults(azureYamlPath)
+	if err != nil && !output.IsJSON() {
+		output.Warning("Failed to read cache: %v", err)
+	}
+
+	if !valid || cachedResults == nil {
+		return nil, false, false // Cache miss
+	}
+
+	// Cache hit
+	if !output.IsJSON() {
+		output.Info("Using cached reqs check results...")
+	}
+
+	// Convert cached results
+	results := convertCachedResults(cachedResults.Results)
+
+	// Print cached results
+	if !output.IsJSON() {
+		formatter := NewResultFormatter()
+		formatter.PrintAll(results)
+	}
+
+	return results, cachedResults.AllPassed, true
+}
+
+// convertCachedResults converts cached results to ReqResult format.
+func convertCachedResults(cached []cache.CachedReqResult) []ReqResult {
+	results := make([]ReqResult, len(cached))
+	for i, c := range cached {
+		results[i] = ReqResult{
+			Name:       c.Name,
+			Installed:  c.Installed,
+			Version:    c.Version,
+			Required:   c.Required,
+			Satisfied:  c.Satisfied,
+			Running:    c.Running,
+			CheckedRun: c.CheckedRun,
+			Message:    c.Message,
+		}
+	}
+	return results
+}
+
+// saveToCache saves results to cache with error handling.
+func saveToCache(azureYamlPath string, results []ReqResult, allSatisfied bool, cacheManager *cache.CacheManager) {
+	cacheResults := make([]cache.CachedReqResult, len(results))
+	for i, result := range results {
+		cacheResults[i] = cache.CachedReqResult{
+			Name:       result.Name,
+			Installed:  result.Installed,
+			Version:    result.Version,
+			Required:   result.Required,
+			Satisfied:  result.Satisfied,
+			Running:    result.Running,
+			CheckedRun: result.CheckedRun,
+			Message:    result.Message,
+		}
+	}
+
+	if err := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); err != nil && !output.IsJSON() {
+		output.Warning("Failed to save cache: %v", err)
+	}
+}
+
 // performReqsCheck performs fresh reqs checking.
 func performReqsCheck(reqs []Prerequisite) ([]ReqResult, bool) {
+	checker := NewPrerequisiteChecker()
 	results := make([]ReqResult, 0, len(reqs))
 	allSatisfied := true
 
 	for _, prereq := range reqs {
-		result := checkPrerequisiteWithResult(prereq)
+		result := checker.Check(prereq)
 		results = append(results, result)
 		if !result.Satisfied {
 			allSatisfied = false
@@ -471,8 +627,16 @@ func performReqsCheck(reqs []Prerequisite) ([]ReqResult, bool) {
 	return results, allSatisfied
 }
 
-// printRequirementResult prints a single requirement result in human-readable format.
-func printRequirementResult(result ReqResult) {
+// ResultFormatter handles formatting of requirement check results.
+type ResultFormatter struct{}
+
+// NewResultFormatter creates a new result formatter.
+func NewResultFormatter() *ResultFormatter {
+	return &ResultFormatter{}
+}
+
+// Print formats and prints a single requirement result.
+func (rf *ResultFormatter) Print(result ReqResult) {
 	if !result.Installed {
 		output.ItemError("%s: NOT INSTALLED (required: %s)", result.Name, result.Required)
 		return
@@ -489,10 +653,22 @@ func printRequirementResult(result ReqResult) {
 
 	// Check running status if applicable
 	if result.CheckedRun {
-		if result.Running {
-			output.Item("- %s✓%s RUNNING", output.Green, output.Reset)
-		} else {
-			output.Item("- %s✗%s NOT RUNNING", output.Red, output.Reset)
-		}
+		rf.printRunningStatus(result.Running)
+	}
+}
+
+// printRunningStatus prints the running status indicator.
+func (rf *ResultFormatter) printRunningStatus(isRunning bool) {
+	if isRunning {
+		output.Item("- %s✓%s RUNNING", output.Green, output.Reset)
+	} else {
+		output.Item("- %s✗%s NOT RUNNING", output.Red, output.Reset)
+	}
+}
+
+// PrintAll formats and prints all requirement results.
+func (rf *ResultFormatter) PrintAll(results []ReqResult) {
+	for _, result := range results {
+		rf.Print(result)
 	}
 }
