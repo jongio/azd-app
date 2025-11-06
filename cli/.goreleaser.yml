@@ -1,3 +1,5 @@
+version: 2
+
 project_name: azd-app-cli
 
 before:
@@ -28,13 +30,14 @@ builds:
 
 archives:
   - id: azd-app-cli
+    format: tar.gz
+    name_template: >-
+      azd-app-cli-{{ .Os }}-{{ .Arch }}
     format_overrides:
       - goos: windows
         format: zip
-    name_template: >-
-      azd-app-cli-{{ .Os }}-{{ .Arch }}
     files:
-      - LICENSE
+      - ../LICENSE
       - README.md
       - extension.yaml
       - dashboard/dist/**/*
@@ -42,9 +45,6 @@ archives:
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
-
-snapshot:
-  name_template: "{{ incpatch .Version }}-next"
 
 # Don't create a release - we use azd x release for that
 release:
