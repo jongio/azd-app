@@ -1,3 +1,7 @@
+## [0.4.1] - 2025-11-06
+
+- Update testreleaseprocess.md with additional information (#15) (e333643)
+
 ## [0.4.0] - 2025-11-06
 
 - Testing process implementation (#13) (c3e86b9)
