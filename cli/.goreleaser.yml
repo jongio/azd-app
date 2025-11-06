@@ -5,12 +5,13 @@ project_name: azd-app-cli
 before:
   hooks:
     # Dashboard is built separately in the workflow
-    - echo "Dashboard already built"
+    - cmd /c echo Dashboard already built
 
 builds:
   - id: azd-app
     main: ./src/cmd/app
     binary: azd-app
+    dir: cli
     goos:
       - linux
       - darwin
@@ -30,7 +31,6 @@ builds:
 
 archives:
   - id: azd-app-cli
-    format: tar.gz
     name_template: >-
       azd-app-cli-{{ .Os }}-{{ .Arch }}
     format_overrides:
@@ -40,7 +40,7 @@ archives:
       - LICENSE
       - cli/README.md
       - cli/extension.yaml
-      - cli/dashboard/dist/**/*
+      - cli/src/internal/dashboard/dist/**/*
 
 checksum:
   name_template: 'checksums.txt'
