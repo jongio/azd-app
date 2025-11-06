@@ -1,3 +1,7 @@
+## [0.3.0] - 2025-11-06
+
+- docs: document complete release workflow (7c3e375)
+
 # Changelog
 
 All notable changes to the App Extension will be documented in this file.
