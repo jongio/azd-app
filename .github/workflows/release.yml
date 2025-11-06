@@ -78,7 +78,7 @@ jobs:
           azd x publish \
             --cwd cli \
             --registry ../registry.json \
-            --version "$VERSION" \
+            --version "v$VERSION" \
             --artifacts "dist/*.zip,dist/*.tar.gz" \
             --repo "${{ github.repository }}"
           
