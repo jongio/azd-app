@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     
     steps:
       - name: Checkout
@@ -55,11 +54,9 @@ jobs:
           echo "next=$NEXT" >> $GITHUB_OUTPUT
           echo "Bumping from $CURRENT to $NEXT"
 
-      - name: Create version bump branch and PR
-        id: pr
+      - name: Update version files
         run: |
           VERSION="${{ steps.version.outputs.next }}"
-          BRANCH="release/v$VERSION"
           
           # Update extension.yaml
           sed -i "s/^version: .*/version: $VERSION/" cli/extension.yaml
@@ -78,49 +75,14 @@ jobs:
             cat CHANGELOG.md
           } > CHANGELOG.new.md
           mv CHANGELOG.new.md CHANGELOG.md
-          cd ..
           
-          # Create branch and push
+          # Commit version bump
+          cd ..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
           git add cli/extension.yaml cli/CHANGELOG.md
           git commit -m "chore: bump version to $VERSION"
-          git push origin "$BRANCH"
-          
-          # Create PR
-          PR_URL=$(gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore: release v$VERSION" \
-            --body "Automated release for version $VERSION")
-          
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Auto-merge PR and wait
-        run: |
-          # Enable auto-merge
-          gh pr merge "${{ steps.pr.outputs.pr_url }}" --squash --auto
-          
-          # Wait for PR to be merged (checks will run)
-          echo "Waiting for CI checks and PR merge..."
-          for i in {1..60}; do
-            if gh pr view "${{ steps.pr.outputs.pr_url }}" --json state --jq .state | grep -q "MERGED"; then
-              echo "PR merged successfully!"
-              break
-            fi
-            echo "Waiting... ($i/60)"
-            sleep 10
-          done
-          
-          # Pull latest main
-          git checkout main
-          git pull origin main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git push
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
