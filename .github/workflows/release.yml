@@ -76,9 +76,10 @@ jobs:
           VERSION="${{ inputs.version }}"
           
           azd x publish \
-            --registry registry.json \
+            --cwd cli \
+            --registry ../registry.json \
             --version "$VERSION" \
-            --artifacts "cli/dist/*.zip,cli/dist/*.tar.gz" \
+            --artifacts "dist/*.zip,dist/*.tar.gz" \
             --repo "${{ github.repository }}"
           
           # Commit registry.json back to main
