@@ -3,6 +3,7 @@
 **Supercharge your local development with Azure Developer CLI.**
 
 [![CI](https://github.com/jongio/azd-app/actions/workflows/ci.yml/badge.svg)](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
+[![Release](https://github.com/jongio/azd-app/actions/workflows/release.yml/badge.svg)](https://github.com/jongio/azd-app/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/jongio/azd-app/branch/main/graph/badge.svg)](https://codecov.io/gh/jongio/azd-app)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app/cli?refresh=1)](https://goreportcard.com/report/github.com/jongio/azd-app/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
