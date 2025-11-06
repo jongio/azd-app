@@ -62,7 +62,7 @@ or clicks "squash and merge" on github
 
 **what happens:**
 - changes merge to main branch
-- **no ci workflow runs** (ci only runs on PRs)
+- **no ci workflow runs** (ci only runs on PRs, not pushes to main)
 - **no version changes**
 - **no release created**
 - **no pr created**
@@ -92,7 +92,7 @@ or: github ui → actions → "prepare release" → run workflow → choose patc
     - `.release-please-manifest.json` - sets cli to "0.3.0"
     - `cli/CHANGELOG.md` - adds section with commits
   - creates PR with title "release 0.3.0"
-  - **ci workflow triggers** on the release PR
+  - **ci workflow triggers** on the release PR (validates all merged changes work together)
     - runs all 6 checks (preflight, tests, lint, build)
 
 ---
@@ -122,7 +122,6 @@ gh workflow run release.yml -f version=0.3.0
 or: github ui → actions → "release" → run workflow → enter version number
 
 **what happens:**
-**what happens:**
 - **release workflow runs** (`release.yml`)
   - checks out main branch
   - creates git tag `v0.3.0`
@@ -139,6 +138,7 @@ or: github ui → actions → "release" → run workflow → enter version numbe
     - uses changelog from `cli/CHANGELOG.md` for release notes
   - updates `registry.json` with `azd x publish`
   - commits and pushes registry.json to main
+
 **result:**
 - github release v0.3.0 exists with binaries
 - users can download/install the release
@@ -147,15 +147,15 @@ or: github ui → actions → "release" → run workflow → enter version numbe
 ---
 
 ## summary table
+
 | step | user action | workflow | creates pr? | creates release? |
 |------|-------------|----------|-------------|------------------|
 | 1-2 | create branch, commit | none | no | no |
-| 3 | create pr | ci runs | no | no |
+| 3 | create pr | ci runs on pr | no | no |
 | 4 | merge pr | none | no | no |
-| 5a | run "prepare release" | prepare release + ci | yes (release pr) | no |
+| 5a | run "prepare release" | prepare release + ci on release pr | yes (release pr) | no |
 | 5b | merge release pr | none | no | no |
-| 5c | run "release" | release | no | yes (with binaries) |
-| 5c | run "release" | release | no | yes (with binaries) |
+| 5c | run "release" | release workflow | no | yes (with binaries) |
 
 **key insight:** merging regular prs does nothing special. only the admin manually triggers release preparation and publishing.
 
@@ -250,11 +250,11 @@ or: github ui → actions → "release" → run workflow → enter version numbe
   - upload all binaries as release assets
 - updates registry.json with azd x publish
 - pushes registry.json back to main
+
 **result:** 
 - github release created with binaries
 - users can download/install the new version
-- registry updated with new versionversion
-- registry updated (if azd available)
+- registry updated with new version
 
 ---
 
