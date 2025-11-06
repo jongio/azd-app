@@ -127,7 +127,8 @@ jobs:
           azd x publish \
             --cwd cli \
             --registry ../registry.json \
-            --version "${{ steps.version.outputs.next }}"
+            --version "${{ steps.version.outputs.next }}" \
+            --repo "${{ github.repository }}"
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
