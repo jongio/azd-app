@@ -1,3 +1,16 @@
+## [0.5.0] - 2025-11-07
+
+- Enhance port management and environment variable support in azure.yaml (#32) (24d0aac)
+- chore: update registry for v0.4.0 (77aafc6)
+- chore: bump version to 0.4.0 (013f4cc)
+- chore: update registry for v0.3.7 (a776022)
+- chore: bump version to 0.3.7 (cb0fe96)
+- Fix: update registry path in publish step to use GITHUB_WORKSPACE (8212e95)
+- chore: bump version to 0.3.6 (5128532)
+- ci: refactor CI workflows to consolidate checks and improve structure (dbadfee)
+- chore: add git pull --rebase before version bump in release workflow (2f7b676)
+- Fix: streamline build and packaging steps in release workflow (f8038f7)
+
 ## [0.4.0] - 2025-11-07
 
 - chore: update registry for v0.3.7 (a776022)
