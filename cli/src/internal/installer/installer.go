@@ -160,6 +160,7 @@ func setupWithUv(projectDir string) error {
 
 	cmd := exec.Command("uv", "sync", "--no-progress")
 	cmd.Dir = projectDir
+	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
 	if output.IsJSON() {
 		cmd.Stdout = io.Discard
@@ -178,6 +179,7 @@ func setupWithUv(projectDir string) error {
 			}
 			venvCmd := exec.Command("uv", "venv")
 			venvCmd.Dir = projectDir
+			venvCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
 			if output.IsJSON() {
 				venvCmd.Stdout = io.Discard
@@ -197,6 +199,7 @@ func setupWithUv(projectDir string) error {
 			}
 			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
 			installCmd.Dir = projectDir
+			installCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
 			if output.IsJSON() {
 				installCmd.Stdout = io.Discard
@@ -233,6 +236,7 @@ func setupWithPoetry(projectDir string) error {
 	// Check if virtual environment exists
 	checkCmd := exec.Command("poetry", "env", "info", "--path")
 	checkCmd.Dir = projectDir
+	checkCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 	cmdOutput, err := checkCmd.CombinedOutput()
 
 	if err == nil && len(cmdOutput) > 0 {
@@ -250,6 +254,7 @@ func setupWithPoetry(projectDir string) error {
 	// Install dependencies (use --no-root to avoid installing the package itself)
 	cmd := exec.Command("poetry", "install", "--no-root")
 	cmd.Dir = projectDir
+	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
 	if output.IsJSON() {
 		cmd.Stdout = io.Discard
@@ -282,6 +287,7 @@ func setupWithPip(projectDir string) error {
 		// Create virtual environment
 		cmd := exec.Command("python", "-m", "venv", ".venv")
 		cmd.Dir = projectDir
+		cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 		cmdOutput, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to create venv: %w\n%s", err, cmdOutput)
