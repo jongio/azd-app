@@ -379,7 +379,6 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		return fmt.Errorf("unsupported Python framework: %s", runtime.Framework)
 	}
 
-	return nil
 }
 
 // buildRunCommand builds the command and arguments to run the service.
