@@ -65,12 +65,6 @@ func TestIntegration_HealthMonitorWithRegistry(t *testing.T) {
 		t.Fatalf("Register() failed: %v", err)
 	}
 
-	// Clear any notifications from registration
-	select {
-	case <-notificationChan:
-	default:
-	}
-
 	// Set shorter interval for testing
 	monitor.interval = 500 * time.Millisecond
 

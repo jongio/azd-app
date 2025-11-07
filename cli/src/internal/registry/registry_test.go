@@ -501,12 +501,6 @@ func TestObserverNoNotificationWhenNoChange(t *testing.T) {
 		t.Fatalf("Register() failed: %v", err)
 	}
 
-	// Clear any notifications from registration
-	select {
-	case <-notificationChan:
-	default:
-	}
-
 	// Update with same status (should NOT trigger notification)
 	if err := registry.UpdateStatus("test-service", "running", "healthy"); err != nil {
 		t.Fatalf("UpdateStatus() failed: %v", err)
@@ -565,6 +559,92 @@ func TestMultipleObservers(t *testing.T) {
 			t.Errorf("Only %d/2 observers were notified", receivedCount)
 			return
 		}
+	}
+}
+
+// TestUnsubscribe tests that observers can be removed from the registry.
+func TestUnsubscribe(t *testing.T) {
+	tempDir := t.TempDir()
+	registry := GetRegistry(tempDir)
+
+	// Create test observers
+	chan1 := make(chan *ServiceRegistryEntry, 10)
+	chan2 := make(chan *ServiceRegistryEntry, 10)
+	observer1 := &testObserver{notifications: chan1}
+	observer2 := &testObserver{notifications: chan2}
+
+	// Subscribe both observers
+	registry.Subscribe(observer1)
+	registry.Subscribe(observer2)
+
+	// Register a service
+	entry := &ServiceRegistryEntry{
+		Name:   "test-service",
+		Status: "starting",
+		Health: "unknown",
+	}
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("Register() failed: %v", err)
+	}
+
+	// Update status (both should receive notification)
+	if err := registry.UpdateStatus("test-service", "running", "healthy"); err != nil {
+		t.Fatalf("UpdateStatus() failed: %v", err)
+	}
+
+	// Verify both received notification
+	timeout := time.After(1 * time.Second)
+	receivedCount := 0
+	for receivedCount < 2 {
+		select {
+		case <-chan1:
+			receivedCount++
+		case <-chan2:
+			receivedCount++
+		case <-timeout:
+			t.Fatalf("Expected 2 notifications, got %d", receivedCount)
+		}
+	}
+
+	// Unsubscribe observer1
+	registry.Unsubscribe(observer1)
+
+	// Clear channels
+	select {
+	case <-chan1:
+	default:
+	}
+	select {
+	case <-chan2:
+	default:
+	}
+
+	// Update status again (only observer2 should receive notification)
+	if err := registry.UpdateStatus("test-service", "running", "unhealthy"); err != nil {
+		t.Fatalf("UpdateStatus() failed: %v", err)
+	}
+
+	// Wait and check notifications
+	timeout = time.After(1 * time.Second)
+	receivedCount = 0
+	for receivedCount < 1 {
+		select {
+		case <-chan1:
+			t.Error("Observer1 received notification after unsubscribe")
+			return
+		case <-chan2:
+			receivedCount++
+		case <-timeout:
+			t.Fatal("Observer2 did not receive notification")
+		}
+	}
+
+	// Ensure observer1 didn't receive anything
+	select {
+	case <-chan1:
+		t.Error("Observer1 received notification after unsubscribe")
+	case <-time.After(200 * time.Millisecond):
+		// Expected - observer1 should not receive notification
 	}
 }
 

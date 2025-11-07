@@ -44,6 +44,14 @@ func TestStartStop(t *testing.T) {
 
 	// Stopping again should be safe (no error)
 	monitor.Stop()
+
+	// After stopping, should be able to start again
+	if err := monitor.Start(); err != nil {
+		t.Errorf("Start() should succeed after Stop(), got error: %v", err)
+	}
+
+	// Clean up
+	monitor.Stop()
 }
 
 func TestIsPortListening(t *testing.T) {
