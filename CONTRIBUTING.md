@@ -77,6 +77,51 @@ azd x build --skip-install=false
 azd x watch
 ```
 
+### Dashboard Development Workflow
+
+The dashboard is a React/TypeScript application built with Vite. For dashboard development:
+
+#### Option 1: Full Stack Development with Live Reload (Recommended)
+
+Run both watchers in separate terminals for the complete development experience:
+
+**Terminal 1 - Watch Go Backend:**
+```bash
+cd cli
+mage watch
+```
+
+**Terminal 2 - Watch Dashboard:**
+```bash
+cd cli
+mage dashboardWatch
+```
+
+This setup:
+- **Terminal 1**: Watches Go files, rebuilds the extension, and reinstalls when Go code changes
+- **Terminal 2**: Watches dashboard files and rebuilds the production bundle when frontend files change
+- Both watchers run independently for maximum flexibility
+
+#### Option 2: Dashboard Development with Mock Data
+
+For rapid UI iteration without a running backend:
+
+```bash
+cd cli/dashboard
+npm run dev
+```
+
+This starts the Vite dev server with hot module replacement (HMR) at `http://localhost:5173` and uses mock service data for the UI.
+
+#### Option 3: One-Time Dashboard Build
+
+If you just need to rebuild the dashboard once:
+
+```bash
+cd cli
+mage dashboardbuild
+```
+
 ### Recommended VS Code Settings
 
 For the best development experience, add these settings to your `.vscode/settings.json`:

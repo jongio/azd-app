@@ -315,19 +315,23 @@ func Install() error {
 
 // Watch monitors files and rebuilds/reinstalls on changes using azd x watch.
 // Requires azd to be installed and available in PATH.
+// Run 'mage dashboardWatch' in a separate terminal to watch dashboard files.
 func Watch() error {
 	// Check if azd is available
 	if _, err := sh.Output("azd", "version"); err != nil {
 		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
 	}
 
-	fmt.Println("Starting file watcher with azd x watch...")
+	fmt.Println("Watching Go files and rebuilding on changes...")
+	fmt.Println("💡 Tip: Run 'mage dashboardWatch' in another terminal to also watch dashboard files")
+	fmt.Println()
 
-	// Set environment variables
+	// Set environment variables for azd x watch
 	env := map[string]string{
 		"EXTENSION_ID": extensionID,
 	}
 
+	// Run azd x watch (blocks until Ctrl+C)
 	return sh.RunWithV(env, "azd", "x", "watch")
 }
 
@@ -461,6 +465,18 @@ func DashboardTest() error {
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
 	return sh.RunV("npm", "run", "dev", "--prefix", dashboardDir)
+}
+
+// DashboardWatch watches dashboard files and rebuilds on changes.
+// This monitors the dashboard source files and runs a production build whenever changes are detected.
+// Useful for testing dashboard changes with the real backend (vs DashboardDev which uses mock data).
+// Run this in a separate terminal alongside 'mage watch' for a complete dev experience.
+func DashboardWatch() error {
+	fmt.Println("Watching dashboard files and rebuilding on changes...")
+	fmt.Println("💡 Tip: Run 'mage watch' in another terminal to also watch Go files")
+	fmt.Println()
+
+	return sh.RunV("npm", "run", "build:watch", "--prefix", dashboardDir)
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).

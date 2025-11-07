@@ -163,6 +163,33 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 	return fmt.Errorf("service not found: %s", serviceName)
 }
 
+// UpdateStatusWithError updates the status, health, and error message of a service.
+func (r *ServiceRegistry) UpdateStatusWithError(serviceName, status, health, errorMsg string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if svc, exists := r.services[serviceName]; exists {
+		oldStatus, oldHealth, oldError := svc.Status, svc.Health, svc.Error
+		svc.Status = status
+		svc.Health = health
+		svc.Error = errorMsg
+		svc.LastChecked = time.Now()
+
+		if err := r.save(); err != nil {
+			return err
+		}
+
+		// Notify observers if status, health, or error message changed
+		if oldStatus != status || oldHealth != health || oldError != errorMsg {
+			// Create a copy to avoid sharing mutable state with observers
+			entryCopy := *svc
+			r.notifyObservers(&entryCopy)
+		}
+		return nil
+	}
+	return fmt.Errorf("service not found: %s", serviceName)
+}
+
 // GetService retrieves a service entry.
 func (r *ServiceRegistry) GetService(serviceName string) (*ServiceRegistryEntry, bool) {
 	r.mu.RLock()

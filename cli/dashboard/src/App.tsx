@@ -5,7 +5,7 @@ import { ServiceTable } from '@/components/ServiceTable'
 import { LogsView } from '@/components/LogsView'
 import { Sidebar } from '@/components/Sidebar'
 import type { Service } from '@/types'
-import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
+import { AlertCircle, Search, Filter, Github, HelpCircle, Settings, Wifi, WifiOff } from 'lucide-react'
 
 function App() {
   const [projectName, setProjectName] = useState<string>('')
@@ -14,7 +14,7 @@ function App() {
     const saved = localStorage.getItem('dashboard-view-preference')
     return (saved === 'cards' || saved === 'table') ? saved : 'table'
   })
-  const { services, loading, error } = useServices()
+  const { services, loading, error, connected, connecting } = useServices()
 
   // Scroll to top when view changes
   useEffect(() => {
@@ -167,6 +167,27 @@ function App() {
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6 bg-[#1a1a1a]">
+          {!connected && !loading && (
+            <div className="mb-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex items-center gap-3">
+              {connecting ? (
+                <>
+                  <Wifi className="w-5 h-5 text-yellow-500 animate-pulse" />
+                  <div>
+                    <p className="text-yellow-500 font-medium">Connecting to server...</p>
+                    <p className="text-yellow-500/80 text-sm mt-1">Attempting to establish connection</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-5 h-5 text-yellow-500" />
+                  <div>
+                    <p className="text-yellow-500 font-medium">Disconnected from server</p>
+                    <p className="text-yellow-500/80 text-sm mt-1">Will automatically reconnect when server is available</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {renderContent()}
         </main>
       </div>
