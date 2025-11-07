@@ -341,6 +341,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		}
 		// Use -m uvicorn to run as module from venv
 		runtime.Args = []string{"-m", "uvicorn", appFile + ":app", "--reload", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
+		return nil
 
 	case "Flask":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
@@ -354,6 +355,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 			runtime.Env["FLASK_APP"] = appFile
 		}
 		runtime.Env["FLASK_ENV"] = "development"
+		return nil
 
 	case "Streamlit":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
@@ -362,6 +364,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		}
 		// Use -m streamlit to run as module from venv
 		runtime.Args = []string{"-m", "streamlit", "run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}
+		return nil
 
 	case "Gradio", "Python":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
@@ -370,6 +373,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		}
 		// Run as regular Python script
 		runtime.Args = []string{appFile + ".py"}
+		return nil
 
 	default:
 		return fmt.Errorf("unsupported Python framework: %s", runtime.Framework)
