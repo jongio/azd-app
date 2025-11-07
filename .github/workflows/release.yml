@@ -12,15 +12,23 @@ on:
           - minor
           - major
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
+  checks:
+    name: Run Checks
+    uses: ./.github/workflows/shared-checks.yml
+    secrets: inherit
+
   release:
+    name: Release
     runs-on: ubuntu-latest
+    needs: checks
     permissions:
       contents: write
+    
+    defaults:
+      run:
+        shell: bash
+        working-directory: cli
     
     steps:
       - name: Checkout
@@ -28,10 +36,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package.json
+
       - name: Calculate next version
         id: version
         run: |
-          CURRENT=$(grep '^version:' cli/extension.yaml | awk '{print $2}')
+          CURRENT=$(grep '^version:' extension.yaml | awk '{print $2}')
           IFS='.' read -r major minor patch <<< "$CURRENT"
           
           case "${{ inputs.bump }}" in
@@ -59,10 +80,9 @@ jobs:
           VERSION="${{ steps.version.outputs.next }}"
           
           # Update extension.yaml
-          sed -i "s/^version: .*/version: $VERSION/" cli/extension.yaml
+          sed -i "s/^version: .*/version: $VERSION/" extension.yaml
           
           # Update CHANGELOG.md
-          cd cli
           PREV="${{ steps.version.outputs.current }}"
           COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges v${PREV}..HEAD 2>/dev/null || git log --pretty=format:"- %s (%h)" --no-merges -n 10)
           DATE=$(date +%Y-%m-%d)
@@ -84,39 +104,18 @@ jobs:
           git commit -m "chore: bump version to $VERSION"
           git push
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package-lock.json
-
-      - name: Install Mage
-        run: go install github.com/magefile/mage@latest
-
-      - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
-
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-      - name: Run preflight checks
-        run: mage preflight
-        working-directory: cli
-
       - name: Install azd
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
 
       - name: Install azd extensions
         run: azd extension install microsoft.azd.extensions
+
+      - name: Build dashboard (for embedding in binary)
+        run: |
+          cd dashboard
+          npm install
+          npm run build
+          cd ..
 
       - name: Build binaries
         run: |
@@ -134,7 +133,7 @@ jobs:
           
           # Extract only the section for this version from CHANGELOG.md
           # Get lines between ## [$VERSION] and the next ## [ line
-          awk "/^## \[$VERSION\]/,/^## \[/" cli/CHANGELOG.md | \
+          awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | \
             sed '/^## \['"$VERSION"'\]/d' | \
             sed '/^## \[/,$d' | \
             sed '/^$/d' > /tmp/release-notes.md

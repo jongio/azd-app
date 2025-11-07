@@ -231,7 +231,8 @@ func Coverage() error {
 // Lint runs golangci-lint on the codebase.
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
-	if err := sh.RunV("golangci-lint", "run", "./..."); err != nil {
+	// Use same command as CI to ensure consistency
+	if err := sh.RunV("golangci-lint", "run", "--timeout=5m"); err != nil {
 		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
 		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
 		return err
