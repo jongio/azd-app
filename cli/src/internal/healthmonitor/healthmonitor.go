@@ -70,6 +70,7 @@ func (hm *HealthMonitor) Stop() {
 	}
 
 	close(hm.stopChan)
+	hm.stopChan = make(chan struct{}) // Recreate channel for potential restart
 	hm.running = false
 }
 
@@ -176,15 +177,17 @@ func checkHTTPHealth(port int) (healthy bool, checked bool) {
 		if err != nil {
 			continue // Endpoint doesn't exist, try next
 		}
-		defer resp.Body.Close()
 
 		// If we got a 404, the endpoint doesn't exist - try next
 		if resp.StatusCode == http.StatusNotFound {
+			resp.Body.Close()
 			continue
 		}
 
 		// Found health endpoint (got a response other than 404)
-		return resp.StatusCode >= 200 && resp.StatusCode < 300, true
+		healthy := resp.StatusCode >= 200 && resp.StatusCode < 300
+		resp.Body.Close()
+		return healthy, true
 	}
 
 	// No health endpoint found

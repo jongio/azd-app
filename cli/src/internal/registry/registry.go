@@ -143,7 +143,9 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 
 		// Notify observers only if status actually changed
 		if oldStatus != status || oldHealth != health {
-			r.notifyObservers(svc)
+			// Create a copy to avoid sharing mutable state with observers
+			entryCopy := *svc
+			r.notifyObservers(&entryCopy)
 		}
 		return nil
 	}
@@ -252,6 +254,19 @@ func (r *ServiceRegistry) Subscribe(observer RegistryObserver) {
 	r.observerMu.Lock()
 	defer r.observerMu.Unlock()
 	r.observers = append(r.observers, observer)
+}
+
+// Unsubscribe removes an observer from the registry.
+func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) {
+	r.observerMu.Lock()
+	defer r.observerMu.Unlock()
+
+	for i, obs := range r.observers {
+		if obs == observer {
+			r.observers = append(r.observers[:i], r.observers[i+1:]...)
+			return
+		}
+	}
 }
 
 // notifyObservers notifies all observers of a service change.
