@@ -14,6 +14,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 
 	"github.com/spf13/cobra"
 )
@@ -171,12 +172,26 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 	usedPorts := make(map[int]bool)
 	runtimes := make([]*service.ServiceRuntime, 0, len(services))
 
+	// Find azure.yaml path for updates
+	azureYamlPath := filepath.Join(azureYamlDir, "azure.yaml")
+
 	for name, svc := range services {
 		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir, runtimeMode)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
 		}
 		usedPorts[runtime.Port] = true
+
+		// If we auto-assigned a port and user wants to save it, update azure.yaml
+		if runtime.ShouldUpdateAzureYaml {
+			if err := yamlutil.UpdateServicePort(azureYamlPath, name, runtime.Port); err != nil {
+				output.Warning("Failed to update azure.yaml for service %s: %v", name, err)
+				output.Info("   Please manually add 'ports: [\"%d\"]' to service '%s' in azure.yaml", runtime.Port, name)
+			} else {
+				output.Success("Updated azure.yaml: Added ports: [\"%d\"] for service '%s'", runtime.Port, name)
+			}
+		}
+
 		runtimes = append(runtimes, runtime)
 	}
 
@@ -273,6 +288,12 @@ func shutdownServices(result *service.OrchestrationResult, dashboardServer *dash
 	}
 
 	service.StopAllServices(result.Processes)
+
+	// Clean up port assignments on clean shutdown
+	// Note: Port assignments are kept in the file for persistence across runs,
+	// but we don't release them here to allow quick restarts with same ports.
+	// Stale ports are cleaned up automatically after 7 days of inactivity.
+
 	output.Success("All services stopped")
 	output.Newline()
 

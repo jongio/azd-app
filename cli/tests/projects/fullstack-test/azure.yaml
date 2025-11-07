@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
 name: fullstack-test
 metadata:
   template: fullstack-test
@@ -17,20 +19,20 @@ services:
     language: python
     project: ./api
     host: localhost
-    config:
-      port: 5000
-    env:
-      - name: FLASK_ENV
-        value: development
-      - name: FLASK_APP
-        value: app.py
+    ports:
+      - "5000"
+    # Docker Compose map format (recommended)
+    environment:
+      FLASK_ENV: development
+      FLASK_APP: app.py
   
   web:
     language: node
     project: ./web
     host: localhost
-    config:
-      port: 5001
-    env:
-      - name: API_URL
-        value: http://localhost:5000
+    ports:
+      - "5001"
+    # Docker Compose array of strings format
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://localhost:5000

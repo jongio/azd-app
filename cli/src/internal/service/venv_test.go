@@ -140,7 +140,8 @@ services:
 			svc := azureYaml.Services["api"]
 
 			// Detect runtime
-			runtimeInfo, err := service.DetectServiceRuntime("api", svc, map[int]bool{}, tmpDir, "azd")
+			// Mark port 8000 as used to avoid real port conflicts in tests
+			runtimeInfo, err := service.DetectServiceRuntime("api", svc, map[int]bool{8000: true}, tmpDir, "azd")
 			if err != nil {
 				t.Fatalf("Failed to detect runtime: %v", err)
 			}

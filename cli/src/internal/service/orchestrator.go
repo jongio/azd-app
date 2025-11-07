@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 )
 
@@ -98,15 +99,20 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				serviceEnv[k] = v
 			}
 
-			// Debug: Log environment variable counts and specific AZURE_AI variables
-			if logger != nil {
-				logger.LogService(rt.Name, fmt.Sprintf("Environment: %d total vars (%d AZURE_*/AZD_* vars)", len(serviceEnv), azureVarCount))
-				// Log specific AZURE_AI_* variables for debugging
-				for k := range serviceEnv {
-					if strings.HasPrefix(k, "AZURE_AI_") {
-						logger.LogService(rt.Name, fmt.Sprintf("  Found: %s", k))
-					}
+			// Final port availability check before starting service
+			// This catches race conditions where port became unavailable between detection and start
+			portMgr := portmanager.GetPortManager(projectDir)
+			if !portMgr.IsPortAvailable(rt.Port) {
+				mu.Lock()
+				err := fmt.Errorf("port %d is no longer available (taken by another process)", rt.Port)
+				startErrors[rt.Name] = err
+				result.Errors[rt.Name] = err
+				mu.Unlock()
+				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
+					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
+				logger.LogService(rt.Name, fmt.Sprintf("❌ Port %d conflict detected", rt.Port))
+				return
 			}
 
 			// Start service

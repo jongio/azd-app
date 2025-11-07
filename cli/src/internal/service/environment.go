@@ -51,15 +51,11 @@ func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath 
 	}
 
 	// Merge service-specific environment variables from azure.yaml - highest priority
-	for _, envVar := range service.Env {
-		value := envVar.Value
-		if envVar.Secret != "" {
-			value = envVar.Secret
-		}
-
+	serviceEnv := service.GetEnvironment()
+	for name, value := range serviceEnv {
 		// Perform variable substitution
 		value = substituteEnvVars(value, env)
-		env[envVar.Name] = value
+		env[name] = value
 	}
 
 	return env, nil
@@ -151,14 +147,22 @@ func substituteEnvVars(value string, env map[string]string) string {
 }
 
 // MaskSecrets masks secret values in environment variables for display.
+// Note: With the new Docker Compose-compatible format, secrets are handled inline
+// and we don't track which variables are secrets separately. This function is
+// kept for backward compatibility but may need updating if secret tracking is needed.
 func MaskSecrets(service Service, env map[string]string) map[string]string {
 	masked := make(map[string]string)
 
-	// Create a set of secret variable names
+	// Create a set of secret variable names from common patterns
 	secrets := make(map[string]bool)
-	for _, envVar := range service.Env {
-		if envVar.Secret != "" {
-			secrets[envVar.Name] = true
+	for key := range env {
+		keyUpper := strings.ToUpper(key)
+		// Mask common secret patterns
+		if strings.Contains(keyUpper, "SECRET") ||
+			strings.Contains(keyUpper, "PASSWORD") ||
+			strings.Contains(keyUpper, "TOKEN") ||
+			strings.Contains(keyUpper, "KEY") && !strings.Contains(keyUpper, "PUBLIC") {
+			secrets[key] = true
 		}
 	}
 

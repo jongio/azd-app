@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var outputFormat string
+var (
+	outputFormat string
+	debugMode    bool
+)
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -18,13 +21,17 @@ func main() {
 		Short: "App - Automate your development environment setup",
 		Long:  `App is an Azure Developer CLI extension that automatically detects and sets up your development environment across multiple languages and frameworks.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Set global output format from the flag
+			// Set global output format and debug mode
+			if debugMode {
+				os.Setenv("AZD_APP_DEBUG", "true")
+			}
 			return output.SetFormat(outputFormat)
 		},
 	}
 
 	// Add global flags
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "default", "Output format (default, json)")
+	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug logging")
 
 	// Register all commands
 	rootCmd.AddCommand(

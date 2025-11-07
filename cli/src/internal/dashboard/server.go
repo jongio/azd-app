@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -290,9 +291,32 @@ func (s *Server) Start() (string, error) {
 	preferredPort := 40000 + int(nBig.Int64())
 
 	// Assign port for dashboard service (isExplicit=false, cleanStale=false to avoid prompts)
-	port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
+	port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 	if err != nil {
 		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
+	}
+
+	// Double-check port is still available (race condition protection)
+	// This handles the case where another process binds between assignment and server start
+	testAddr := fmt.Sprintf(":%d", port)
+	testListener, err := net.Listen("tcp", testAddr)
+	if err != nil {
+		// Port became unavailable between assignment and binding
+		fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d became unavailable after assignment.\n", port)
+		fmt.Fprintf(os.Stderr, "Another instance may be starting simultaneously.\n")
+		fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
+
+		if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
+		}
+		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
+			return fmt.Sprintf("http://localhost:%d", port), nil
+		}
+		return "", fmt.Errorf("dashboard server failed to start: port conflicts")
+	}
+	// Close the test listener so the server can bind to it
+	if err := testListener.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to close test listener: %v\n", err)
 	}
 
 	s.port = port
@@ -315,7 +339,12 @@ func (s *Server) Start() (string, error) {
 	go func() {
 		select {
 		case err := <-errChan:
-			log.Printf("Dashboard server encountered error after startup: %v", err)
+			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+				log.Printf("Dashboard server encountered port conflict after startup: %v", err)
+				log.Printf("Another instance may be running. Check for other 'azd app run' processes.")
+			} else {
+				log.Printf("Dashboard server encountered error after startup: %v", err)
+			}
 		case <-s.stopChan:
 			return
 		}
@@ -327,6 +356,13 @@ func (s *Server) Start() (string, error) {
 	// Check if there was an immediate error (like port already in use)
 	select {
 	case err := <-errChan:
+		// Check if this is a port-in-use error
+		if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+			fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d is already in use.\n", port)
+			fmt.Fprintf(os.Stderr, "This might indicate another 'azd app run' instance is already running for this project.\n")
+			fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
+		}
+
 		// Port binding failed, try to find an alternative port
 		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
 			return fmt.Sprintf("http://localhost:%d", port), nil
@@ -347,15 +383,23 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
 	}
 
+	fmt.Fprintf(os.Stderr, "Searching for an available dashboard port...\n")
+
 	// Try to find a new port in the higher range with randomization
-	for attempt := 0; attempt < 10; attempt++ {
-		// Random port in 40000-49999 range
-		nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
-		if err != nil {
-			continue
+	for attempt := 0; attempt < 15; attempt++ {
+		var preferredPort int
+		if attempt < 5 {
+			// First 5 attempts: random ports in 40000-49999 range
+			nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
+			if err != nil {
+				continue
+			}
+			preferredPort = 40000 + int(nBig.Int64())
+		} else {
+			// After 5 failed random attempts, try sequential ports
+			preferredPort = 40000 + (attempt * 100)
 		}
-		preferredPort := 40000 + int(nBig.Int64())
-		port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
+		port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 		if err != nil {
 			continue
 		}
@@ -379,7 +423,11 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		go func() {
 			select {
 			case err := <-errChan:
-				log.Printf("Dashboard server encountered error after startup on port %d: %v", port, err)
+				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+					log.Printf("Dashboard server encountered port conflict on port %d: %v", port, err)
+				} else {
+					log.Printf("Dashboard server encountered error after startup on port %d: %v", port, err)
+				}
 			case <-s.stopChan:
 				return
 			}
@@ -396,11 +444,12 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			continue
 		default:
 			// Successfully started
+			fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
 			return port, nil
 		}
 	}
 
-	return 0, fmt.Errorf("failed to find available port for dashboard after 10 attempts")
+	return 0, fmt.Errorf("failed to find available port for dashboard after 15 attempts")
 }
 
 // BroadcastUpdate sends service updates to all connected WebSocket clients.

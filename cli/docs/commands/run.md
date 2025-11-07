@@ -713,7 +713,6 @@ STRIPE_API_KEY=sk_test_abc456
 # Application settings
 LOG_LEVEL=debug
 ENABLE_METRICS=true
-CORS_ORIGINS=http://localhost:3000
 ```
 
 ## Output Examples

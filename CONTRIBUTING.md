@@ -53,11 +53,22 @@ go build -o bin/app.exe ./src/cmd/app
 3. **Install locally for testing**:
    ```bash
    cd cli
-   # Install mage if not already installed
-   go install github.com/magefile/mage@latest
    
-   # Build and install
-   mage install
+   # First time setup: Uninstall any existing version and clean cache
+   azd extension uninstall jongio.azd.app
+   rm -r ~/.azd/extensions/jongio.azd.app  # On Windows: Remove-Item -Recurse -Force ~\.azd\extensions\jongio.azd.app
+   
+   # Build and install extension
+   azd x build --skip-install=false
+   
+   # Verify installation
+   azd app version
+   ```
+
+4. **Development workflow with watch mode**:
+   ```bash
+   # For active development, use watch mode to auto-rebuild on file changes
+   azd x watch
    ```
 
 ## Development Workflow
@@ -107,23 +118,16 @@ git checkout -b feature/your-feature-name
 
 ### 3. Test Your Changes
 ```bash
-# Run unit tests
-mage test
+# Build and install for testing
+azd x build --skip-install=false
 
-# Run with coverage
-mage testcoverage
+# Or use watch mode during active development
+azd x watch
 
-# Run all tests including integration
-mage testall
-
-# Run linter
-mage lint
-
-# Test locally
-mage install
+# Test the extension
 azd app <your-command>
 
-# Alternative: Use go directly
+# Run unit tests (legacy - use azd x build instead)
 go test ./...
 go test -cover ./...
 ```
