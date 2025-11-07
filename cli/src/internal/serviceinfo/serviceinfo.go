@@ -299,7 +299,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 					URL:      runningSvc.Debug.URL,
 				}
 			}
-			
+
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
 				Health:      runningSvc.Health,
