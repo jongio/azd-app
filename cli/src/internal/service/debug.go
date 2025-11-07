@@ -92,9 +92,9 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 		// For Go, we need to replace the command with dlv
 		originalArgs := cmd.Args[1:] // Save original args
 		cmd.Path = "dlv"
-		suspendFlag := "false"
+		continueFlag := "true"
 		if waitForDebugger {
-			suspendFlag = "true"
+			continueFlag = "false"
 		}
 		cmd.Args = []string{
 			"dlv", "debug",
@@ -102,7 +102,7 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 			"--listen", fmt.Sprintf(":%d", debugPort),
 			"--api-version=2",
 			"--accept-multiclient",
-			fmt.Sprintf("--continue=%s", suspendFlag),
+			fmt.Sprintf("--continue=%s", continueFlag),
 		}
 		// Append original args if any
 		cmd.Args = append(cmd.Args, originalArgs...)
