@@ -288,7 +288,7 @@ jobs:
           cd ..
           azd x publish \
             --cwd cli \
-            --registry registry.json \
+            --registry $GITHUB_WORKSPACE/registry.json \
             --version "${{ steps.version.outputs.next }}" \
             --repo "${{ github.repository }}"
           
