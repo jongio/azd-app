@@ -25,6 +25,7 @@ func TestIntegration_HealthMonitorWithRegistry(t *testing.T) {
 
 	// Subscribe observer to registry
 	reg.Subscribe(observer)
+	defer reg.Unsubscribe(observer)
 
 	// Start a test HTTP server with health endpoint
 	mux := http.NewServeMux()

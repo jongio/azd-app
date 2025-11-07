@@ -29,6 +29,12 @@ type ServiceRegistryEntry struct {
 }
 
 // RegistryObserver is an interface for observing registry changes.
+//
+// Concurrency/Threading Model:
+//   - OnServiceChanged will be called asynchronously from a separate goroutine.
+//   - Implementations must be thread-safe.
+//   - Observers must not call registry methods synchronously from OnServiceChanged to avoid potential deadlocks.
+//   - The entry parameter is a copy, not the original.
 type RegistryObserver interface {
 	OnServiceChanged(entry *ServiceRegistryEntry)
 }
@@ -285,6 +291,7 @@ func (r *ServiceRegistry) notifyObservers(entry *ServiceRegistryEntry) {
 
 	// Notify each observer in a separate goroutine to avoid blocking
 	// Passing the loop variable as a parameter ensures correct capture in each iteration
+	// (required for Go < 1.22; optional for Go 1.22+)
 	for _, obs := range observers {
 		go func(observer RegistryObserver) {
 			defer func() {

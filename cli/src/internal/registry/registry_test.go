@@ -442,6 +442,7 @@ func TestObserverPattern(t *testing.T) {
 
 	// Subscribe observer
 	registry.Subscribe(observer)
+	defer registry.Unsubscribe(observer)
 
 	// Register a service
 	entry := &ServiceRegistryEntry{
@@ -489,6 +490,7 @@ func TestObserverNoNotificationWhenNoChange(t *testing.T) {
 
 	// Subscribe observer
 	registry.Subscribe(observer)
+	defer registry.Unsubscribe(observer)
 
 	// Register a service
 	entry := &ServiceRegistryEntry{
@@ -528,7 +530,9 @@ func TestMultipleObservers(t *testing.T) {
 
 	// Subscribe both observers
 	registry.Subscribe(observer1)
+	defer registry.Unsubscribe(observer1)
 	registry.Subscribe(observer2)
+	defer registry.Unsubscribe(observer2)
 
 	// Register a service
 	entry := &ServiceRegistryEntry{
@@ -646,6 +650,9 @@ func TestUnsubscribe(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		// Expected - observer1 should not receive notification
 	}
+	
+	// Clean up observer2
+	registry.Unsubscribe(observer2)
 }
 
 // testObserver is a test implementation of RegistryObserver.
