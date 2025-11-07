@@ -100,6 +100,7 @@ jobs:
           cd ..
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
           git add cli/extension.yaml cli/CHANGELOG.md
           git commit -m "chore: bump version to $VERSION"
           git push
