@@ -395,8 +395,6 @@ mage dashboarddev       # Start dashboard dev server
 mage preflight          # Run all checks before shipping
 ```
 
-```
-
 ### Running Tests
 
 ```bash
