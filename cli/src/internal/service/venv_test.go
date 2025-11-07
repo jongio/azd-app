@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -159,7 +160,7 @@ services:
 					t.Errorf("Expected absolute path to venv python, got %q", runtimeInfo.Command)
 				}
 				// Verify it contains the venv directory
-				if tt.venvName != "" && !filepath.IsAbs(runtimeInfo.Command) {
+				if tt.venvName != "" && !strings.Contains(runtimeInfo.Command, tt.venvName) {
 					t.Errorf("Expected path to contain venv directory %q, got %q", tt.venvName, runtimeInfo.Command)
 				}
 			} else {
