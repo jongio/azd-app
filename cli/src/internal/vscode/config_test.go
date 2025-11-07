@@ -214,9 +214,13 @@ func TestEnsureDebugConfig(t *testing.T) {
 	}
 
 	// Test creating config for the first time
-	err = EnsureDebugConfig(tmpDir, services, false)
+	isFirstTime, err := EnsureDebugConfig(tmpDir, services, false)
 	if err != nil {
 		t.Fatalf("EnsureDebugConfig failed: %v", err)
+	}
+
+	if !isFirstTime {
+		t.Error("Expected isFirstTime to be true on first run")
 	}
 
 	// Check that .vscode directory was created
@@ -253,9 +257,13 @@ func TestEnsureDebugConfig(t *testing.T) {
 	}
 
 	// Test that second run doesn't overwrite (unless force=true)
-	err = EnsureDebugConfig(tmpDir, services, false)
+	isFirstTime, err = EnsureDebugConfig(tmpDir, services, false)
 	if err != nil {
 		t.Fatalf("Second EnsureDebugConfig failed: %v", err)
+	}
+
+	if isFirstTime {
+		t.Error("Expected isFirstTime to be false on second run")
 	}
 
 	// Config should still be the same
@@ -271,9 +279,13 @@ func TestEnsureDebugConfig(t *testing.T) {
 		{Name: "web", Language: "dotnet", Port: 5005},
 	}
 
-	err = EnsureDebugConfig(tmpDir, services2, true)
+	isFirstTime, err = EnsureDebugConfig(tmpDir, services2, true)
 	if err != nil {
 		t.Fatalf("Force regeneration failed: %v", err)
+	}
+
+	if !isFirstTime {
+		t.Error("Expected isFirstTime to be true on force regeneration")
 	}
 
 	// Verify the config was updated

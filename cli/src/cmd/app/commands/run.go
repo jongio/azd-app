@@ -495,9 +495,6 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 
 // generateDebugConfig generates VS Code debug configurations.
 func generateDebugConfig(runtimes []*service.ServiceRuntime, projectDir string) error {
-	// Check if first time or forced regeneration
-	isFirstTime := runRegenerateDebugConfig
-
 	// Collect service debug info
 	services := []vscode.ServiceDebugInfo{}
 	for _, rt := range runtimes {
@@ -514,15 +511,9 @@ func generateDebugConfig(runtimes []*service.ServiceRuntime, projectDir string) 
 		return nil // No debug services
 	}
 
-	// Check if this is the first time running in debug mode
-	vscodeDir := filepath.Join(projectDir, ".vscode")
-	launchPath := filepath.Join(vscodeDir, "launch.json")
-	if _, err := os.Stat(launchPath); os.IsNotExist(err) {
-		isFirstTime = true
-	}
-
-	// Generate config
-	if err := vscode.EnsureDebugConfig(projectDir, services, runRegenerateDebugConfig); err != nil {
+	// Generate config and get whether it was first time
+	isFirstTime, err := vscode.EnsureDebugConfig(projectDir, services, runRegenerateDebugConfig)
+	if err != nil {
 		return err
 	}
 

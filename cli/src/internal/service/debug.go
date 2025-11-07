@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // Debug port mappings for each language
@@ -90,8 +91,12 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 
 	case "go":
 		// For Go, we need to replace the command with dlv
+		dlvPath, err := exec.LookPath("dlv")
+		if err != nil {
+			return fmt.Errorf("could not find 'dlv' debugger in PATH: %w", err)
+		}
 		originalArgs := cmd.Args[1:] // Save original args
-		cmd.Path = "dlv"
+		cmd.Path = dlvPath
 		continueFlag := "true"
 		if waitForDebugger {
 			continueFlag = "false"
@@ -124,9 +129,9 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 		// Check if JAVA_TOOL_OPTIONS already exists
 		javaToolOptions := jdwpFlag
 		for i, env := range cmd.Env {
-			if len(env) >= 18 && env[:18] == "JAVA_TOOL_OPTIONS=" {
+			if strings.HasPrefix(env, "JAVA_TOOL_OPTIONS=") {
 				// Append to existing JAVA_TOOL_OPTIONS
-				javaToolOptions = env[18:] + " " + jdwpFlag
+				javaToolOptions = env[len("JAVA_TOOL_OPTIONS="):] + " " + jdwpFlag
 				cmd.Env[i] = "JAVA_TOOL_OPTIONS=" + javaToolOptions
 				return nil
 			}

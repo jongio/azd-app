@@ -96,7 +96,8 @@ func GetDebugPort(language string, offset int) int {
 }
 
 // EnsureDebugConfig generates VS Code debug configurations if they don't exist.
-func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force bool) error {
+// Returns true if configurations were generated (first time or regenerated).
+func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force bool) (bool, error) {
 	vscodeDir := filepath.Join(projectDir, ".vscode")
 	launchPath := filepath.Join(vscodeDir, "launch.json")
 	tasksPath := filepath.Join(vscodeDir, "tasks.json")
@@ -104,28 +105,28 @@ func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force boo
 	// Skip if already exists (unless --regenerate-debug-config)
 	if !force {
 		if _, err := os.Stat(launchPath); err == nil {
-			return nil
+			return false, nil
 		}
 	}
 
 	if err := os.MkdirAll(vscodeDir, 0755); err != nil {
-		return fmt.Errorf("failed to create .vscode directory: %w", err)
+		return false, fmt.Errorf("failed to create .vscode directory: %w", err)
 	}
 
 	// Generate launch.json
 	launch := generateLaunchJSON(services)
 	if err := writeLaunchJSON(launchPath, launch); err != nil {
-		return err
+		return false, err
 	}
 
 	// Generate tasks.json
 	tasks := generateTasksJSON()
 	if err := writeTasksJSON(tasksPath, tasks); err != nil {
-		return err
+		return false, err
 	}
 
 	output.Success("✅ Debug configuration created!")
-	return nil
+	return true, nil
 }
 
 // generateLaunchJSON creates the launch.json configuration.
