@@ -490,7 +490,6 @@ func (s *Server) broadcastServiceInfo(services []*serviceinfo.ServiceInfo) {
 	}
 }
 
-
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
@@ -604,6 +603,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 // Stop stops the dashboard server and releases its port assignment.
 func (s *Server) Stop() error {
 	close(s.stopChan)
+
+	// Unsubscribe from registry to prevent memory leaks
+	reg := registry.GetRegistry(s.projectDir)
+	reg.Unsubscribe(s)
 
 	// Release port assignment
 	portMgr := portmanager.GetPortManager(s.projectDir)
