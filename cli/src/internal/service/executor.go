@@ -14,38 +14,23 @@ import (
 
 // StartService starts a service and returns the process handle.
 func StartService(runtime *ServiceRuntime, env map[string]string, projectDir string) (*ServiceProcess, error) {
+	if runtime.Command == "" {
+		return nil, fmt.Errorf("no command specified for service %s", runtime.Name)
+	}
+
 	process := &ServiceProcess{
 		Name:    runtime.Name,
 		Runtime: *runtime,
 		Ready:   false,
 	}
 
-	// Build command
-	if runtime.Command == "" {
-		return nil, fmt.Errorf("no command specified for service %s", runtime.Name)
-	}
-
-	// Create command
-	args := runtime.Args
-	// #nosec G204 -- Command and args come from azure.yaml service configuration, validated by service package
-	cmd := exec.Command(runtime.Command, args...)
-	cmd.Dir = runtime.WorkingDir
-
-	// Set environment variables
-	cmd.Env = os.Environ()
-	for key, value := range env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
-	}
-
-	// Create pipes for stdout and stderr
-	stdoutPipe, err := cmd.StdoutPipe()
+	cmd, err := createServiceCommand(runtime, env)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+		return nil, err
 	}
 
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+	if err := setupProcessPipes(cmd, process); err != nil {
+		return nil, err
 	}
 
 	// Start process
@@ -54,8 +39,6 @@ func StartService(runtime *ServiceRuntime, env map[string]string, projectDir str
 	}
 
 	process.Process = cmd.Process
-	process.Stdout = stdoutPipe
-	process.Stderr = stderrPipe
 	process.Port = runtime.Port
 
 	// Start log collection
@@ -64,8 +47,44 @@ func StartService(runtime *ServiceRuntime, env map[string]string, projectDir str
 	return process, nil
 }
 
+// createServiceCommand creates an exec.Cmd for the service.
+func createServiceCommand(runtime *ServiceRuntime, env map[string]string) (*exec.Cmd, error) {
+	// #nosec G204 -- Command and args come from azure.yaml service configuration, validated by service package
+	cmd := exec.Command(runtime.Command, runtime.Args...)
+	cmd.Dir = runtime.WorkingDir
+
+	// Set environment variables
+	cmd.Env = os.Environ()
+	for key, value := range env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	return cmd, nil
+}
+
+// setupProcessPipes creates and attaches stdout/stderr pipes to the process.
+func setupProcessPipes(cmd *exec.Cmd, process *ServiceProcess) error {
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	process.Stdout = stdoutPipe
+	process.Stderr = stderrPipe
+
+	return nil
+}
+
 // StopService stops a running service.
 func StopService(process *ServiceProcess) error {
+	if process == nil {
+		return fmt.Errorf("process is nil")
+	}
 	if process.Process == nil {
 		return fmt.Errorf("process not started")
 	}
@@ -100,19 +119,14 @@ func ExecuteCommand(name string, args []string, dir string) error {
 
 // ValidateRuntime validates that a service runtime is properly configured.
 func ValidateRuntime(runtime *ServiceRuntime) error {
-	if runtime.Name == "" {
+	switch {
+	case runtime.Name == "":
 		return fmt.Errorf("service name is required")
-	}
-
-	if runtime.WorkingDir == "" {
+	case runtime.WorkingDir == "":
 		return fmt.Errorf("working directory is required for service %s", runtime.Name)
-	}
-
-	if runtime.Command == "" {
+	case runtime.Command == "":
 		return fmt.Errorf("run command is required for service %s", runtime.Name)
-	}
-
-	if runtime.Language == "" {
+	case runtime.Language == "":
 		return fmt.Errorf("language is required for service %s", runtime.Name)
 	}
 

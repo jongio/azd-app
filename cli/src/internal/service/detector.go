@@ -90,52 +90,46 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 
 // detectLanguage determines the programming language used by the service.
 func detectLanguage(projectDir string, host string) (string, error) {
-	// Check for language indicators in priority order
+	// Define language detection rules in priority order
+	languageRules := []struct {
+		name      string
+		checkFunc func() bool
+	}{
+		{"TypeScript", func() bool {
+			return fileExists(projectDir, "package.json") && fileExists(projectDir, "tsconfig.json")
+		}},
+		{"JavaScript", func() bool {
+			return fileExists(projectDir, "package.json")
+		}},
+		{"Python", func() bool {
+			return fileExists(projectDir, "requirements.txt") ||
+				fileExists(projectDir, "pyproject.toml") ||
+				fileExists(projectDir, "poetry.lock") ||
+				fileExists(projectDir, "uv.lock")
+		}},
+		{".NET", func() bool {
+			return hasFileWithExt(projectDir, ".csproj") ||
+				hasFileWithExt(projectDir, ".sln") ||
+				hasFileWithExt(projectDir, ".fsproj")
+		}},
+		{"Java", func() bool {
+			return fileExists(projectDir, "pom.xml") ||
+				fileExists(projectDir, "build.gradle") ||
+				fileExists(projectDir, "build.gradle.kts")
+		}},
+		{"Go", func() bool { return fileExists(projectDir, "go.mod") }},
+		{"Rust", func() bool { return fileExists(projectDir, "Cargo.toml") }},
+		{"PHP", func() bool { return fileExists(projectDir, "composer.json") }},
+		{"Docker", func() bool {
+			return fileExists(projectDir, "Dockerfile") || fileExists(projectDir, "docker-compose.yml")
+		}},
+	}
 
-	// Node.js/TypeScript
-	if fileExists(projectDir, "package.json") {
-		if fileExists(projectDir, "tsconfig.json") {
-			return "TypeScript", nil
+	// Check each rule in order
+	for _, rule := range languageRules {
+		if rule.checkFunc() {
+			return rule.name, nil
 		}
-		return "JavaScript", nil
-	}
-
-	// Python
-	if fileExists(projectDir, "requirements.txt") || fileExists(projectDir, "pyproject.toml") ||
-		fileExists(projectDir, "poetry.lock") || fileExists(projectDir, "uv.lock") {
-		return "Python", nil
-	}
-
-	// .NET
-	if hasFileWithExt(projectDir, ".csproj") || hasFileWithExt(projectDir, ".sln") ||
-		hasFileWithExt(projectDir, ".fsproj") {
-		return ".NET", nil
-	}
-
-	// Java
-	if fileExists(projectDir, "pom.xml") || fileExists(projectDir, "build.gradle") ||
-		fileExists(projectDir, "build.gradle.kts") {
-		return "Java", nil
-	}
-
-	// Go
-	if fileExists(projectDir, "go.mod") {
-		return "Go", nil
-	}
-
-	// Rust
-	if fileExists(projectDir, "Cargo.toml") {
-		return "Rust", nil
-	}
-
-	// PHP
-	if fileExists(projectDir, "composer.json") {
-		return "PHP", nil
-	}
-
-	// Docker
-	if fileExists(projectDir, "Dockerfile") || fileExists(projectDir, "docker-compose.yml") {
-		return "Docker", nil
 	}
 
 	// Fallback: use host type as hint
@@ -172,41 +166,36 @@ func detectFrameworkAndPackageManager(projectDir string, language string) (strin
 
 // detectNodeFramework detects Node.js/TypeScript framework.
 func detectNodeFramework(projectDir string) (string, string, error) {
-	// Detect package manager
 	packageManager := detector.DetectNodePackageManagerWithBoundary(projectDir, projectDir)
 
-	// Detect framework
-	if fileExists(projectDir, "next.config.js") || fileExists(projectDir, "next.config.ts") ||
-		fileExists(projectDir, "next.config.mjs") {
-		return "Next.js", packageManager, nil
+	// Framework detection rules in priority order
+	frameworkRules := []struct {
+		name      string
+		checkFunc func() bool
+	}{
+		{"Next.js", func() bool {
+			return fileExists(projectDir, "next.config.js") ||
+				fileExists(projectDir, "next.config.ts") ||
+				fileExists(projectDir, "next.config.mjs")
+		}},
+		{"Angular", func() bool { return fileExists(projectDir, "angular.json") }},
+		{"Nuxt", func() bool {
+			return fileExists(projectDir, "nuxt.config.ts") || fileExists(projectDir, "nuxt.config.js")
+		}},
+		{"React", func() bool {
+			return fileExists(projectDir, "vite.config.ts") || fileExists(projectDir, "vite.config.js")
+		}},
+		{"SvelteKit", func() bool { return fileExists(projectDir, "svelte.config.js") }},
+		{"Remix", func() bool { return fileExists(projectDir, "remix.config.js") }},
+		{"Astro", func() bool { return fileExists(projectDir, "astro.config.mjs") }},
+		{"NestJS", func() bool { return fileExists(projectDir, "nest-cli.json") }},
 	}
 
-	if fileExists(projectDir, "angular.json") {
-		return "Angular", packageManager, nil
-	}
-
-	if fileExists(projectDir, "nuxt.config.ts") || fileExists(projectDir, "nuxt.config.js") {
-		return "Nuxt", packageManager, nil
-	}
-
-	if fileExists(projectDir, "vite.config.ts") || fileExists(projectDir, "vite.config.js") {
-		return "React", packageManager, nil // Vite is commonly used with React
-	}
-
-	if fileExists(projectDir, "svelte.config.js") {
-		return "SvelteKit", packageManager, nil
-	}
-
-	if fileExists(projectDir, "remix.config.js") {
-		return "Remix", packageManager, nil
-	}
-
-	if fileExists(projectDir, "astro.config.mjs") {
-		return "Astro", packageManager, nil
-	}
-
-	if fileExists(projectDir, "nest-cli.json") {
-		return "NestJS", packageManager, nil
+	// Check each framework rule
+	for _, rule := range frameworkRules {
+		if rule.checkFunc() {
+			return rule.name, packageManager, nil
+		}
 	}
 
 	// Check package.json for framework hints
@@ -220,28 +209,25 @@ func detectNodeFramework(projectDir string) (string, string, error) {
 
 // detectPythonFramework detects Python framework.
 func detectPythonFramework(projectDir string) (string, string, error) {
-	// Detect package manager
 	packageManager := detector.DetectPythonPackageManager(projectDir)
 
-	// Detect framework
-	if fileExists(projectDir, "manage.py") {
-		return "Django", packageManager, nil
+	// Framework detection rules in priority order
+	frameworkRules := []struct {
+		name      string
+		checkFunc func() bool
+	}{
+		{"Django", func() bool { return fileExists(projectDir, "manage.py") }},
+		{"FastAPI", func() bool { return containsImport(projectDir, "FastAPI") }},
+		{"Flask", func() bool { return containsImport(projectDir, "Flask") }},
+		{"Streamlit", func() bool { return containsImport(projectDir, "streamlit") }},
+		{"Gradio", func() bool { return containsImport(projectDir, "gradio") }},
 	}
 
-	if containsImport(projectDir, "FastAPI") {
-		return "FastAPI", packageManager, nil
-	}
-
-	if containsImport(projectDir, "Flask") {
-		return "Flask", packageManager, nil
-	}
-
-	if containsImport(projectDir, "streamlit") {
-		return "Streamlit", packageManager, nil
-	}
-
-	if containsImport(projectDir, "gradio") {
-		return "Gradio", packageManager, nil
+	// Check each framework rule
+	for _, rule := range frameworkRules {
+		if rule.checkFunc() {
+			return rule.name, packageManager, nil
+		}
 	}
 
 	// Default to generic Python
@@ -277,13 +263,12 @@ func detectJavaFramework(projectDir string) (string, string, error) {
 		packageManager = "gradle"
 	}
 
-	// Check for Spring Boot
-	if fileExists(projectDir, "pom.xml") {
-		if containsText(filepath.Join(projectDir, "pom.xml"), "spring-boot") {
-			return "Spring Boot", packageManager, nil
-		}
+	// Check for Spring Boot in pom.xml
+	if fileExists(projectDir, "pom.xml") && containsText(filepath.Join(projectDir, "pom.xml"), "spring-boot") {
+		return "Spring Boot", packageManager, nil
 	}
 
+	// Check for frameworks in build.gradle
 	if fileExists(projectDir, "build.gradle") {
 		buildGradle := filepath.Join(projectDir, "build.gradle")
 		if containsText(buildGradle, "spring-boot") {
@@ -306,9 +291,110 @@ func detectPHPFramework(projectDir string) (string, string, error) {
 	return "PHP", "composer", nil
 }
 
+// getPythonVenvPath returns the path to the Python interpreter in the virtual environment.
+// Returns empty string if no venv is found.
+func getPythonVenvPath(projectDir string) string {
+	// Check for .venv first (most common), then venv (alternative)
+	venvPaths := []string{
+		filepath.Join(projectDir, ".venv", "Scripts", "python.exe"), // Windows
+		filepath.Join(projectDir, ".venv", "bin", "python"),         // Linux/macOS
+		filepath.Join(projectDir, "venv", "Scripts", "python.exe"),  // Windows (alternative)
+		filepath.Join(projectDir, "venv", "bin", "python"),          // Linux/macOS (alternative)
+	}
+
+	for _, path := range venvPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	return ""
+}
+
+// resolvePythonEntrypoint resolves and validates the Python entrypoint file.
+// Returns the entrypoint filename, with fallback to auto-detection if not provided.
+func resolvePythonEntrypoint(projectDir, entrypoint string) (string, error) {
+	appFile := entrypoint
+	if appFile == "" {
+		appFile = findPythonAppFile(projectDir)
+	}
+	if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
+		return "", err
+	}
+	return appFile, nil
+}
+
+// buildPythonCommand configures a Python service runtime with the appropriate command and arguments.
+func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonCmd string) error {
+	runtime.Command = pythonCmd
+
+	switch runtime.Framework {
+	case "Django":
+		// Django uses manage.py, no entrypoint validation needed
+		runtime.Args = []string{"manage.py", "runserver", fmt.Sprintf("0.0.0.0:%d", runtime.Port)}
+		return nil
+
+	case "FastAPI":
+		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		if err != nil {
+			return err
+		}
+		// Use -m uvicorn to run as module from venv
+		runtime.Args = []string{"-m", "uvicorn", appFile + ":app", "--reload", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
+
+	case "Flask":
+		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		if err != nil {
+			return err
+		}
+		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
+		if entrypoint != "" {
+			runtime.Env["FLASK_APP"] = entrypoint
+		} else {
+			runtime.Env["FLASK_APP"] = appFile
+		}
+		runtime.Env["FLASK_ENV"] = "development"
+
+	case "Streamlit":
+		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		if err != nil {
+			return err
+		}
+		// Use -m streamlit to run as module from venv
+		runtime.Args = []string{"-m", "streamlit", "run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}
+
+	case "Gradio", "Python":
+		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		if err != nil {
+			return err
+		}
+		// Run as regular Python script
+		runtime.Args = []string{appFile + ".py"}
+
+	default:
+		return fmt.Errorf("unsupported Python framework: %s", runtime.Framework)
+	}
+
+	return nil
+}
+
 // buildRunCommand builds the command and arguments to run the service.
 // If entrypoint is provided (from azure.yaml), it takes precedence over auto-detection.
 func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint string, runtimeMode string) error {
+	// Handle Python frameworks with venv support
+	pythonFrameworks := map[string]struct{}{
+		"Django": {}, "FastAPI": {}, "Flask": {},
+		"Streamlit": {}, "Gradio": {}, "Python": {},
+	}
+
+	if _, isPython := pythonFrameworks[runtime.Framework]; isPython {
+		pythonCmd := "python"
+		if venvPython := getPythonVenvPath(projectDir); venvPython != "" {
+			pythonCmd = venvPython
+		}
+		return buildPythonCommand(runtime, projectDir, entrypoint, pythonCmd)
+	}
+
 	switch runtime.Framework {
 	case "Next.js", "React", "Vue", "Svelte", "SvelteKit", "Remix", "Astro", "Nuxt":
 		runtime.Command = runtime.PackageManager
@@ -322,7 +408,7 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 		runtime.Command = runtime.PackageManager
 		runtime.Args = []string{"run", "start:dev"}
 
-	case "Express":
+	case "Express", "Node.js":
 		runtime.Command = runtime.PackageManager
 		// Try dev first, fall back to start
 		if hasScript(projectDir, "dev") {
@@ -330,121 +416,20 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 		} else {
 			runtime.Args = []string{"run", "start"}
 		}
-
-	case "Node.js":
-		runtime.Command = runtime.PackageManager
-		// Try dev first, fall back to start
-		if hasScript(projectDir, "dev") {
-			runtime.Args = []string{"run", "dev"}
-		} else {
-			runtime.Args = []string{"run", "start"}
-		}
-
-	case "Django":
-		runtime.Command = "python"
-		runtime.Args = []string{"manage.py", "runserver", fmt.Sprintf("0.0.0.0:%d", runtime.Port)}
-
-	case "FastAPI":
-		runtime.Command = "uvicorn"
-		// Use entrypoint if provided, otherwise find the app file
-		appFile := entrypoint
-		if appFile == "" {
-			appFile = findPythonAppFile(projectDir)
-		}
-		// Validate that the entrypoint file exists
-		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
-			return err
-		}
-		runtime.Args = []string{appFile + ":app", "--reload", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
-
-	case "Flask":
-		runtime.Command = "python"
-		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
-		// Use entrypoint if provided, otherwise find the app file
-		var appFile string
-		if entrypoint != "" {
-			appFile = entrypoint
-			runtime.Env["FLASK_APP"] = entrypoint
-		} else {
-			appFile = findPythonAppFile(projectDir)
-			runtime.Env["FLASK_APP"] = appFile
-		}
-		// Validate that the entrypoint file exists
-		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
-			return err
-		}
-		runtime.Env["FLASK_ENV"] = "development"
-
-	case "Streamlit":
-		runtime.Command = "streamlit"
-		// Use entrypoint if provided, otherwise find the app file
-		appFile := entrypoint
-		if appFile == "" {
-			appFile = findPythonAppFile(projectDir)
-		}
-		// Validate that the entrypoint file exists
-		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
-			return err
-		}
-		runtime.Args = []string{"run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}
-
-	case "Python":
-		runtime.Command = "python"
-		// Use entrypoint if provided, otherwise find the app file
-		appFile := entrypoint
-		if appFile == "" {
-			appFile = findPythonAppFile(projectDir)
-		}
-		// Validate that the entrypoint file exists
-		if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
-			return err
-		}
-		runtime.Args = []string{appFile + ".py"}
 
 	case "Aspire":
-		runtime.Command = "dotnet"
-		// Find AppHost.csproj
-		csprojFiles, _ := filepath.Glob(filepath.Join(projectDir, "*.csproj"))
-		if len(csprojFiles) > 0 {
-			// In aspire mode, use dotnet run to get native Aspire dashboard
-			// In azd mode, run individual services separately
-			if runtimeMode == "aspire" {
-				runtime.Args = []string{"run", "--project", csprojFiles[0]}
-			} else {
-				// In azd mode, we run services individually, not the AppHost
-				runtime.Args = []string{"run", "--project", csprojFiles[0], "--no-launch-profile"}
-			}
-		} else {
-			runtime.Args = []string{"run"}
-		}
+		return buildDotNetCommand(runtime, projectDir, runtimeMode, true)
 
 	case "ASP.NET Core", ".NET":
-		runtime.Command = "dotnet"
-		// Find .csproj file
-		csprojFiles, _ := filepath.Glob(filepath.Join(projectDir, "*.csproj"))
-		if len(csprojFiles) > 0 {
-			runtime.Args = []string{"run", "--project", csprojFiles[0]}
-		} else {
-			runtime.Args = []string{"run"}
-		}
+		return buildDotNetCommand(runtime, projectDir, runtimeMode, false)
 
 	case "Spring Boot":
-		if runtime.PackageManager == "maven" {
-			runtime.Command = "mvn"
-			runtime.Args = []string{"spring-boot:run"}
-		} else {
-			runtime.Command = "gradle"
-			runtime.Args = []string{"bootRun"}
-		}
+		buildJavaCommand(runtime, true)
+		return nil
 
 	case "Java":
-		if runtime.PackageManager == "maven" {
-			runtime.Command = "mvn"
-			runtime.Args = []string{"exec:java"}
-		} else {
-			runtime.Command = "gradle"
-			runtime.Args = []string{"run"}
-		}
+		buildJavaCommand(runtime, false)
+		return nil
 
 	case "Go":
 		runtime.Command = "go"
@@ -469,24 +454,63 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 	return nil
 }
 
+// buildDotNetCommand configures a .NET service runtime command.
+func buildDotNetCommand(runtime *ServiceRuntime, projectDir, runtimeMode string, isAspire bool) error {
+	runtime.Command = "dotnet"
+
+	csprojFiles, _ := filepath.Glob(filepath.Join(projectDir, "*.csproj"))
+	if len(csprojFiles) > 0 {
+		if isAspire && runtimeMode == "aspire" {
+			// In aspire mode, use dotnet run to get native Aspire dashboard
+			runtime.Args = []string{"run", "--project", csprojFiles[0]}
+		} else if isAspire {
+			// In azd mode, run individual services separately
+			runtime.Args = []string{"run", "--project", csprojFiles[0], "--no-launch-profile"}
+		} else {
+			runtime.Args = []string{"run", "--project", csprojFiles[0]}
+		}
+	} else {
+		runtime.Args = []string{"run"}
+	}
+	return nil
+}
+
+// buildJavaCommand configures a Java service runtime command.
+func buildJavaCommand(runtime *ServiceRuntime, isSpringBoot bool) {
+	if runtime.PackageManager == "maven" {
+		runtime.Command = "mvn"
+		if isSpringBoot {
+			runtime.Args = []string{"spring-boot:run"}
+		} else {
+			runtime.Args = []string{"exec:java"}
+		}
+	} else {
+		runtime.Command = "gradle"
+		if isSpringBoot {
+			runtime.Args = []string{"bootRun"}
+		} else {
+			runtime.Args = []string{"run"}
+		}
+	}
+}
+
 // configureHealthCheck sets up health check configuration based on framework.
 func configureHealthCheck(runtime *ServiceRuntime) {
-	switch runtime.Framework {
-	case "Aspire":
-		runtime.HealthCheck.Path = "/"
-		runtime.HealthCheck.LogMatch = "Now listening on"
-	case "Next.js":
-		runtime.HealthCheck.Path = "/"
-		runtime.HealthCheck.LogMatch = "ready on"
-	case "Django":
-		runtime.HealthCheck.Path = "/"
-		runtime.HealthCheck.LogMatch = "Starting development server"
-	case "Spring Boot":
-		runtime.HealthCheck.Path = "/actuator/health"
-		runtime.HealthCheck.LogMatch = "Started"
-	case "FastAPI":
-		runtime.HealthCheck.Path = "/docs"
-	default:
+	healthConfigs := map[string]struct {
+		path     string
+		logMatch string
+	}{
+		"Aspire":      {"/", "Now listening on"},
+		"Next.js":     {"/", "ready on"},
+		"Django":      {"/", "Starting development server"},
+		"Spring Boot": {"/actuator/health", "Started"},
+		"FastAPI":     {"/docs", ""},
+	}
+
+	if config, exists := healthConfigs[runtime.Framework]; exists {
+		runtime.HealthCheck.Path = config.path
+		runtime.HealthCheck.LogMatch = config.logMatch
+	} else {
 		runtime.HealthCheck.Path = "/"
 	}
 }
