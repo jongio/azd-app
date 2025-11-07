@@ -84,6 +84,12 @@ jobs:
           git commit -m "chore: bump version to $VERSION"
           git push
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -91,17 +97,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: cli/dashboard/package-lock.json
 
+      - name: Install Mage
+        run: go install github.com/magefile/mage@latest
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Run preflight checks
+        run: mage preflight
+        working-directory: cli
+
       - name: Install azd
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
 
       - name: Install azd extensions
         run: azd extension install microsoft.azd.extensions
-
-      - name: Build dashboard
-        run: |
-          cd cli/dashboard
-          npm ci
-          npm run build
 
       - name: Build binaries
         run: |
@@ -112,12 +127,29 @@ jobs:
       - name: Package
         run: azd x pack --cwd cli
 
+      - name: Extract release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          
+          # Extract only the section for this version from CHANGELOG.md
+          # Get lines between ## [$VERSION] and the next ## [ line
+          awk "/^## \[$VERSION\]/,/^## \[/" cli/CHANGELOG.md | \
+            sed '/^## \['"$VERSION"'\]/d' | \
+            sed '/^## \[/,$d' | \
+            sed '/^$/d' > /tmp/release-notes.md
+          
+          # Show what we extracted
+          echo "Release notes for v$VERSION:"
+          cat /tmp/release-notes.md
+
       - name: Release
         run: |
           azd x release \
             --cwd cli \
             --repo "${{ github.repository }}" \
             --version "${{ steps.version.outputs.next }}" \
+            --notes-file /tmp/release-notes.md \
             --confirm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
