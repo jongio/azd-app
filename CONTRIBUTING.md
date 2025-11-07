@@ -62,6 +62,21 @@ go build -o bin/app.exe ./src/cmd/app
 
 ## Development Workflow
 
+### Resetting to Local Development
+
+If you've previously installed the extension from the registry and want to switch back to using your local development version:
+
+```bash
+# Uninstall the registry extension
+azd extension uninstall jongio.azd.app
+
+# Build and install your local version
+azd x build --skip-install=false
+
+# Start watching for changes
+azd x watch
+```
+
 ### Recommended VS Code Settings
 
 For the best development experience, add these settings to your `.vscode/settings.json`:
