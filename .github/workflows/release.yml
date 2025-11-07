@@ -121,10 +121,10 @@ jobs:
         run: |
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.next }}"
-          azd x build --all --cwd cli
+          azd x build --all
 
       - name: Package
-        run: azd x pack --cwd cli
+        run: azd x pack
 
       - name: Extract release notes
         id: release_notes
@@ -144,6 +144,7 @@ jobs:
 
       - name: Release
         run: |
+          cd ..
           azd x release \
             --cwd cli \
             --repo "${{ github.repository }}" \
@@ -155,9 +156,10 @@ jobs:
 
       - name: Update registry
         run: |
+          cd ..
           azd x publish \
             --cwd cli \
-            --registry ../registry.json \
+            --registry registry.json \
             --version "${{ steps.version.outputs.next }}" \
             --repo "${{ github.repository }}"
           
