@@ -1,3 +1,16 @@
+## [0.3.7] - 2025-11-07
+
+- Fix: update registry path in publish step to use GITHUB_WORKSPACE (8212e95)
+- chore: bump version to 0.3.6 (5128532)
+- ci: refactor CI workflows to consolidate checks and improve structure (dbadfee)
+- chore: add git pull --rebase before version bump in release workflow (2f7b676)
+- Fix: streamline build and packaging steps in release workflow (f8038f7)
+- chore: bump version to 0.3.5 (9aabd2a)
+- ci: refactor CI workflows to use shared checks and streamline build process (a6e4e4a)
+- chore: bump version to 0.3.4 (55d8898)
+- Fix: Python services use venv instead of system Python (#28) (66268c9)
+- ci: reorganize release workflow — run tool installs & preflight earlier, extract release notes, and remove dashboard build step (ecf77d5)
+
 ## [0.3.6] - 2025-11-07
 
 - ci: refactor CI workflows to consolidate checks and improve structure (dbadfee)
