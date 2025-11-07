@@ -113,7 +113,7 @@ func TestIntegration_HealthMonitorWithRegistry(t *testing.T) {
 
 	// Now simulate service crash by closing the server
 	server.Close()
-	listener.Close()
+	// Note: listener cleanup handled by defer
 	time.Sleep(100 * time.Millisecond) // Give port time to be released
 
 	// Wait for health monitor to detect the crashed service

@@ -145,6 +145,9 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 		if oldStatus != status || oldHealth != health {
 			// Create a copy to avoid sharing mutable state with observers
 			entryCopy := *svc
+			// NOTE: notifyObservers is called while holding the mu write lock.
+			// This is safe because notifyObservers only copies the observer list,
+			// and dispatches notifications asynchronously in separate goroutines.
 			r.notifyObservers(&entryCopy)
 		}
 		return nil
@@ -261,12 +264,14 @@ func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) {
 	r.observerMu.Lock()
 	defer r.observerMu.Unlock()
 
-	for i, obs := range r.observers {
-		if obs == observer {
-			r.observers = append(r.observers[:i], r.observers[i+1:]...)
-			return
+	// Filter out the observer by creating a new slice
+	newObservers := r.observers[:0]
+	for _, obs := range r.observers {
+		if obs != observer {
+			newObservers = append(newObservers, obs)
 		}
 	}
+	r.observers = newObservers
 }
 
 // notifyObservers notifies all observers of a service change.
@@ -277,12 +282,16 @@ func (r *ServiceRegistry) notifyObservers(entry *ServiceRegistryEntry) {
 	r.observerMu.RUnlock()
 
 	// Notify each observer in a separate goroutine to avoid blocking
-	// The loop variable is captured correctly by value in the function call
+	// Passing the loop variable as a parameter ensures correct capture in each iteration
 	for _, obs := range observers {
 		go func(observer RegistryObserver) {
 			defer func() {
-				if r := recover(); r != nil {
-					fmt.Fprintf(os.Stderr, "Observer panic: %v\n", r)
+				if rec := recover(); rec != nil {
+					fmt.Fprintf(
+						os.Stderr,
+						"Observer panic: %v (observer type: %T, service: %s)\n",
+						rec, observer, entry.Name,
+					)
 				}
 			}()
 			observer.OnServiceChanged(entry)

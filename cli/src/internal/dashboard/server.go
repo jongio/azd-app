@@ -472,15 +472,21 @@ func (s *Server) OnServiceChanged(entry *registry.ServiceRegistryEntry) {
 
 // broadcastServiceInfo sends service info to all WebSocket clients.
 func (s *Server) broadcastServiceInfo(services []*serviceinfo.ServiceInfo) {
+	// Copy client references while holding the read lock briefly
 	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
+	clients := make([]*clientConn, 0, len(s.clients))
+	for client := range s.clients {
+		clients = append(clients, client)
+	}
+	s.clientsMu.RUnlock()
 
 	message := map[string]interface{}{
 		"type":     "services",
 		"services": services,
 	}
 
-	for client := range s.clients {
+	// Write to connections without holding the lock
+	for _, client := range clients {
 		client.writeMu.Lock()
 		err := client.conn.WriteJSON(message)
 		client.writeMu.Unlock()

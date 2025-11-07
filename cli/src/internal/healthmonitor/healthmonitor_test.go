@@ -242,10 +242,18 @@ func TestCheckServicePortNotListening(t *testing.T) {
 	monitor := GetMonitor(tempDir)
 	reg := registry.GetRegistry(tempDir)
 
+	// Find an unused port by opening a listener and closing it
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Failed to find an unused port: %v", err)
+	}
+	unusedPort := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
 	// Register a service with a port that's not listening
 	entry := &registry.ServiceRegistryEntry{
 		Name:   "test-service",
-		Port:   59999, // Unlikely to be in use
+		Port:   unusedPort,
 		Status: "starting",
 		Health: "unknown",
 	}

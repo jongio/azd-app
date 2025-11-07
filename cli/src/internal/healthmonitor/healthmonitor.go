@@ -25,6 +25,8 @@ type HealthMonitor struct {
 var (
 	monitors   = make(map[string]*HealthMonitor)
 	monitorsMu sync.Mutex
+	// Shared HTTP client for health checks
+	httpClient = &http.Client{Timeout: 2 * time.Second}
 )
 
 // GetMonitor returns the health monitor for a project (singleton per project).
@@ -120,9 +122,10 @@ func (hm *HealthMonitor) checkService(service *registry.ServiceRegistryEntry) (s
 		if err == nil {
 			statuses, err := p.Status()
 			if err == nil && len(statuses) > 0 {
-				// Check if process is zombie or dead
+				// Check if process is zombie (Z state indicates dead process)
+				// Note: D (uninterruptible sleep) is a normal I/O wait state and not checked
 				for _, st := range statuses {
-					if st == "Z" || st == "D" { // Z=zombie, D=dead/uninterruptible sleep
+					if st == "Z" { // Z=zombie
 						return "error", "unhealthy"
 					}
 				}
@@ -169,11 +172,9 @@ func isPortListening(port int) bool {
 func checkHTTPHealth(port int) (healthy bool, checked bool) {
 	endpoints := []string{"/health", "/healthz", "/api/health"}
 
-	client := &http.Client{Timeout: 2 * time.Second}
-
 	for _, endpoint := range endpoints {
 		url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
-		resp, err := client.Get(url)
+		resp, err := httpClient.Get(url)
 		if err != nil {
 			continue // Endpoint doesn't exist, try next
 		}
