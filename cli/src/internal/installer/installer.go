@@ -25,13 +25,68 @@ func InstallNodeDependencies(project types.NodeProject) error {
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	// Run install with streaming output
-	cmd := exec.Command(project.PackageManager, "install")
+	// Check if dependencies are already installed and up-to-date
+	nodeModulesPath := filepath.Join(project.Dir, "node_modules")
+	if _, err := os.Stat(nodeModulesPath); err == nil {
+		// node_modules exists, check if it's up-to-date
+		if isDependenciesUpToDate(project.Dir, project.PackageManager) {
+			if !output.IsJSON() {
+				output.ItemSuccess("Dependencies already up-to-date (skipping install)")
+			}
+			return nil
+		}
+	}
+
+	// On Windows, package managers like npm, pnpm, yarn are .cmd files (batch scripts)
+	// not binary executables. exec.Command() requires the shell to properly resolve
+	// these .cmd files and handle path escaping, especially for deeply nested node_modules
+	// that can exceed Windows' default 260-character path limit.
+	//
+	// Using cmd.exe /c ensures:
+	// 1. Proper .cmd file resolution (npm.cmd, pnpm.cmd, yarn.cmd)
+	// 2. Correct environment variable expansion
+	// 3. Better handling of Windows path length issues
+	var cmd *exec.Cmd
+	var args []string
+
+	// Add non-interactive flags to prevent prompts
+	switch project.PackageManager {
+	case "npm":
+		args = []string{"install", "--no-audit", "--no-fund", "--prefer-offline"}
+	case "pnpm":
+		args = []string{"install", "--prefer-offline"}
+	case "yarn":
+		args = []string{"install", "--non-interactive", "--prefer-offline"}
+	default:
+		args = []string{"install"}
+	}
+
+	if runtime.GOOS == "windows" {
+		// Use cmd.exe /c to properly invoke .cmd files
+		cmdArgs := append([]string{"/c", project.PackageManager}, args...)
+		cmd = exec.Command("cmd.exe", cmdArgs...)
+	} else {
+		cmd = exec.Command(project.PackageManager, args...)
+	}
+
 	cmd.Dir = project.Dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+
+	// In JSON mode, suppress command output
+	if output.IsJSON() {
+		cmd.Stdout = io.Discard
+		cmd.Stderr = io.Discard
+	} else {
+		// Stream output directly to see progress
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	// Don't set Stdin - we don't want interactive prompts
 	cmd.Env = os.Environ()
+
+	// Add NPM_CONFIG_PROGRESS for npm to ensure progress is shown
+	if project.PackageManager == "npm" && !output.IsJSON() {
+		cmd.Env = append(cmd.Env, "NPM_CONFIG_PROGRESS=true", "NPM_CONFIG_LOGLEVEL=verbose")
+	}
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to run %s install: %w", project.PackageManager, err)
@@ -60,7 +115,7 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	// Don't set Stdin - we don't want interactive prompts
 	cmd.Env = os.Environ()
 
 	if err := cmd.Run(); err != nil {
@@ -100,10 +155,10 @@ func setupWithUv(projectDir string) error {
 	// uv automatically manages virtual environments
 	// Just sync the project
 	if !output.IsJSON() {
-		output.Item("Syncing with uv...")
+		output.Item("Installing dependencies into .venv (uv)...")
 	}
 
-	cmd := exec.Command("uv", "sync")
+	cmd := exec.Command("uv", "sync", "--no-progress")
 	cmd.Dir = projectDir
 
 	if output.IsJSON() {
@@ -115,12 +170,32 @@ func setupWithUv(projectDir string) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		// If uv sync fails, try uv pip install
+		// If uv sync fails, try uv pip install with explicit venv creation
 		if _, statErr := os.Stat(filepath.Join(projectDir, "requirements.txt")); statErr == nil {
+			// Create virtual environment first
 			if !output.IsJSON() {
-				output.Item("Installing with uv pip...")
+				output.Item("Creating virtual environment at .venv (uv)...")
 			}
-			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt")
+			venvCmd := exec.Command("uv", "venv")
+			venvCmd.Dir = projectDir
+
+			if output.IsJSON() {
+				venvCmd.Stdout = io.Discard
+				venvCmd.Stderr = io.Discard
+			} else {
+				venvCmd.Stdout = os.Stdout
+				venvCmd.Stderr = os.Stderr
+			}
+
+			if venvErr := venvCmd.Run(); venvErr != nil {
+				return fmt.Errorf("failed to create venv with uv: %w", venvErr)
+			}
+
+			// Install dependencies
+			if !output.IsJSON() {
+				output.Item("Installing dependencies into .venv (uv pip)...")
+			}
+			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
 			installCmd.Dir = projectDir
 
 			if output.IsJSON() {
@@ -162,13 +237,14 @@ func setupWithPoetry(projectDir string) error {
 
 	if err == nil && len(cmdOutput) > 0 {
 		if !output.IsJSON() {
-			output.ItemSuccess("Poetry environment exists")
+			venvPath := string(cmdOutput)
+			output.ItemSuccess("Poetry environment exists at %s", venvPath)
 		}
 		return nil
 	}
 
 	if !output.IsJSON() {
-		output.Item("Installing dependencies with poetry...")
+		output.Item("Installing dependencies into poetry venv...")
 	}
 
 	// Install dependencies (use --no-root to avoid installing the package itself)
@@ -197,38 +273,40 @@ func setupWithPoetry(projectDir string) error {
 func setupWithPip(projectDir string) error {
 	venvPath := filepath.Join(projectDir, ".venv")
 
-	// Check if venv already exists
-	if _, err := os.Stat(venvPath); err == nil {
+	// Check if venv already exists, create if not
+	if _, err := os.Stat(venvPath); err != nil {
+		if !output.IsJSON() {
+			output.Item("Creating virtual environment at .venv...")
+		}
+
+		// Create virtual environment
+		cmd := exec.Command("python", "-m", "venv", ".venv")
+		cmd.Dir = projectDir
+		cmdOutput, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to create venv: %w\n%s", err, cmdOutput)
+		}
+
+		if !output.IsJSON() {
+			output.ItemSuccess("Created .venv")
+		}
+	} else {
 		if !output.IsJSON() {
 			output.ItemSuccess("Virtual environment exists")
 		}
-		return nil
-	}
-
-	if !output.IsJSON() {
-		output.Item("Creating virtual environment...")
-	}
-
-	// Create virtual environment
-	cmd := exec.Command("python", "-m", "venv", ".venv")
-	cmd.Dir = projectDir
-	cmdOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to create venv: %w\n%s", err, cmdOutput)
-	}
-
-	if !output.IsJSON() {
-		output.ItemSuccess("Created .venv")
 	}
 
 	// Check if requirements.txt exists and install dependencies
 	requirementsPath := filepath.Join(projectDir, "requirements.txt")
 	if _, err := os.Stat(requirementsPath); err == nil {
 		if !output.IsJSON() {
-			output.Item("Installing dependencies...")
+			output.Item("Installing dependencies into .venv (pip)...")
 		}
 
 		// Determine the pip path based on OS
+		// Using the pip executable directly from the venv ensures packages
+		// are installed into the correct virtual environment without needing
+		// to activate it (activation is only needed for interactive shells)
 		var pipPath string
 		if runtime.GOOS == "windows" {
 			pipPath = filepath.Join(venvPath, "Scripts", "pip.exe")
@@ -236,12 +314,18 @@ func setupWithPip(projectDir string) error {
 			pipPath = filepath.Join(venvPath, "bin", "pip")
 		}
 
-		// Run pip install with streaming output
-		pipCmd := exec.Command(pipPath, "install", "-r", "requirements.txt")
+		// Run pip install with streaming output and optimizations
+		pipCmd := exec.Command(pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
 		pipCmd.Dir = projectDir
-		pipCmd.Stdout = os.Stdout
-		pipCmd.Stderr = os.Stderr
-		pipCmd.Stdin = os.Stdin
+
+		if output.IsJSON() {
+			pipCmd.Stdout = io.Discard
+			pipCmd.Stderr = io.Discard
+		} else {
+			pipCmd.Stdout = os.Stdout
+			pipCmd.Stderr = os.Stderr
+		}
+		// Don't set Stdin - we don't want interactive prompts
 		pipCmd.Env = os.Environ()
 
 		if err := pipCmd.Run(); err != nil {
@@ -254,4 +338,59 @@ func setupWithPip(projectDir string) error {
 	}
 
 	return nil
+}
+
+// isDependenciesUpToDate checks if node_modules is up-to-date with the lock file
+func isDependenciesUpToDate(projectDir string, packageManager string) bool {
+	nodeModulesPath := filepath.Join(projectDir, "node_modules")
+
+	// Determine which lock file to check based on package manager
+	var lockFile string
+	var internalLockFile string
+	switch packageManager {
+	case "npm":
+		lockFile = "package-lock.json"
+		internalLockFile = filepath.Join("node_modules", ".package-lock.json")
+	case "pnpm":
+		lockFile = "pnpm-lock.yaml"
+		// pnpm uses a virtual store, check .pnpm directory exists and is newer
+		internalLockFile = filepath.Join("node_modules", ".pnpm")
+	case "yarn":
+		lockFile = "yarn.lock"
+		// Yarn doesn't use an internal lock file in node_modules
+		internalLockFile = ""
+	default:
+		return false
+	}
+
+	lockFilePath := filepath.Join(projectDir, lockFile)
+
+	// Check if lock file exists
+	lockFileInfo, err := os.Stat(lockFilePath)
+	if err != nil {
+		return false
+	}
+
+	// Check if node_modules exists
+	if _, err := os.Stat(nodeModulesPath); err != nil {
+		return false
+	}
+
+	// For npm and pnpm, check the internal lock file in node_modules
+	if internalLockFile != "" {
+		internalLockPath := filepath.Join(projectDir, internalLockFile)
+		internalLockInfo, err := os.Stat(internalLockPath)
+		if err != nil {
+			// Internal lock file doesn't exist, needs install
+			return false
+		}
+
+		// Compare timestamps - if internal lock is older than main lock, need to reinstall
+		if internalLockInfo.ModTime().Before(lockFileInfo.ModTime()) {
+			return false
+		}
+	}
+
+	// Dependencies appear to be up-to-date
+	return true
 }
