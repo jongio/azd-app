@@ -336,6 +336,10 @@ func (s *Server) Start() (string, error) {
 		// Server started successfully
 	}
 
+	// Subscribe to registry changes for real-time updates
+	reg := registry.GetRegistry(s.projectDir)
+	reg.Subscribe(s)
+
 	url := fmt.Sprintf("http://localhost:%d", port)
 	return url, nil
 }
@@ -451,6 +455,41 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 
 	return nil
 }
+
+// OnServiceChanged implements the RegistryObserver interface.
+// This is called automatically when a service's status changes in the registry.
+func (s *Server) OnServiceChanged(entry *registry.ServiceRegistryEntry) {
+	// Fetch fresh service info (merges azure.yaml + registry + env)
+	services, err := serviceinfo.GetServiceInfo(s.projectDir)
+	if err != nil {
+		log.Printf("Failed to get service info for broadcast: %v", err)
+		return
+	}
+
+	// Broadcast to all connected WebSocket clients
+	s.broadcastServiceInfo(services)
+}
+
+// broadcastServiceInfo sends service info to all WebSocket clients.
+func (s *Server) broadcastServiceInfo(services []*serviceinfo.ServiceInfo) {
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	message := map[string]interface{}{
+		"type":     "services",
+		"services": services,
+	}
+
+	for client := range s.clients {
+		client.writeMu.Lock()
+		err := client.conn.WriteJSON(message)
+		client.writeMu.Unlock()
+		if err != nil {
+			log.Printf("WebSocket send error: %v", err)
+		}
+	}
+}
+
 
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {

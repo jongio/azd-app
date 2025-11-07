@@ -430,3 +430,150 @@ func TestConcurrentAccess(t *testing.T) {
 		t.Errorf("ListAll() length = %v, want 10", len(services))
 	}
 }
+
+// TestObserverPattern tests the observer pattern for registry changes.
+func TestObserverPattern(t *testing.T) {
+	tempDir := t.TempDir()
+	registry := GetRegistry(tempDir)
+
+	// Create a test observer
+	notificationChan := make(chan *ServiceRegistryEntry, 10)
+	observer := &testObserver{notifications: notificationChan}
+
+	// Subscribe observer
+	registry.Subscribe(observer)
+
+	// Register a service
+	entry := &ServiceRegistryEntry{
+		Name:       "test-service",
+		ProjectDir: tempDir,
+		PID:        12345,
+		Port:       8080,
+		Status:     "starting",
+		Health:     "unknown",
+	}
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("Register() failed: %v", err)
+	}
+
+	// Update status (should trigger notification)
+	if err := registry.UpdateStatus("test-service", "running", "healthy"); err != nil {
+		t.Fatalf("UpdateStatus() failed: %v", err)
+	}
+
+	// Wait for notification
+	select {
+	case notification := <-notificationChan:
+		if notification.Name != "test-service" {
+			t.Errorf("Notification service name = %v, want test-service", notification.Name)
+		}
+		if notification.Status != "running" {
+			t.Errorf("Notification status = %v, want running", notification.Status)
+		}
+		if notification.Health != "healthy" {
+			t.Errorf("Notification health = %v, want healthy", notification.Health)
+		}
+	case <-time.After(1 * time.Second):
+		t.Error("Observer was not notified within timeout")
+	}
+}
+
+// TestObserverNoNotificationWhenNoChange tests that observers are not notified when status doesn't change.
+func TestObserverNoNotificationWhenNoChange(t *testing.T) {
+	tempDir := t.TempDir()
+	registry := GetRegistry(tempDir)
+
+	// Create a test observer
+	notificationChan := make(chan *ServiceRegistryEntry, 10)
+	observer := &testObserver{notifications: notificationChan}
+
+	// Subscribe observer
+	registry.Subscribe(observer)
+
+	// Register a service
+	entry := &ServiceRegistryEntry{
+		Name:       "test-service",
+		ProjectDir: tempDir,
+		Status:     "running",
+		Health:     "healthy",
+	}
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("Register() failed: %v", err)
+	}
+
+	// Clear any notifications from registration
+	select {
+	case <-notificationChan:
+	default:
+	}
+
+	// Update with same status (should NOT trigger notification)
+	if err := registry.UpdateStatus("test-service", "running", "healthy"); err != nil {
+		t.Fatalf("UpdateStatus() failed: %v", err)
+	}
+
+	// Verify no notification was sent
+	select {
+	case <-notificationChan:
+		t.Error("Observer was notified when status didn't change")
+	case <-time.After(100 * time.Millisecond):
+		// Expected - no notification
+	}
+}
+
+// TestMultipleObservers tests that multiple observers receive notifications.
+func TestMultipleObservers(t *testing.T) {
+	tempDir := t.TempDir()
+	registry := GetRegistry(tempDir)
+
+	// Create multiple test observers
+	chan1 := make(chan *ServiceRegistryEntry, 10)
+	chan2 := make(chan *ServiceRegistryEntry, 10)
+	observer1 := &testObserver{notifications: chan1}
+	observer2 := &testObserver{notifications: chan2}
+
+	// Subscribe both observers
+	registry.Subscribe(observer1)
+	registry.Subscribe(observer2)
+
+	// Register a service
+	entry := &ServiceRegistryEntry{
+		Name:   "test-service",
+		Status: "starting",
+		Health: "unknown",
+	}
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("Register() failed: %v", err)
+	}
+
+	// Update status
+	if err := registry.UpdateStatus("test-service", "running", "healthy"); err != nil {
+		t.Fatalf("UpdateStatus() failed: %v", err)
+	}
+
+	// Both observers should receive notification
+	timeout := time.After(1 * time.Second)
+	receivedCount := 0
+
+	for receivedCount < 2 {
+		select {
+		case <-chan1:
+			receivedCount++
+		case <-chan2:
+			receivedCount++
+		case <-timeout:
+			t.Errorf("Only %d/2 observers were notified", receivedCount)
+			return
+		}
+	}
+}
+
+// testObserver is a test implementation of RegistryObserver.
+type testObserver struct {
+	notifications chan *ServiceRegistryEntry
+}
+
+func (o *testObserver) OnServiceChanged(entry *ServiceRegistryEntry) {
+	o.notifications <- entry
+}
+
