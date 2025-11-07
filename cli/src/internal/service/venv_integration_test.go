@@ -25,7 +25,7 @@ func TestPythonVenvIntegration(t *testing.T) {
 
 	// Check if Python is available
 	pythonCmd := "python"
-	
+
 	// Try to find Python executable
 	if _, err := exec.LookPath("python3"); err == nil {
 		pythonCmd = "python3"
@@ -251,7 +251,7 @@ func TestPythonVenvFallback(t *testing.T) {
 	if _, err := exec.LookPath("python3"); err == nil {
 		pythonCmd = "python3"
 	}
-	
+
 	verifyCmd := exec.Command(pythonCmd, "--version")
 	if err := verifyCmd.Run(); err != nil {
 		t.Skipf("Python not available or not functional: %v", err)

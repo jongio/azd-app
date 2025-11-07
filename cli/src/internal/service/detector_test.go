@@ -104,8 +104,8 @@ func TestEntrypointOverride(t *testing.T) {
 					t.Errorf("Expected command 'python', got %q", runtime.Command)
 				}
 				// Should auto-detect app.py
-				if runtime.Env["FLASK_APP"] != "app" {
-					t.Errorf("Expected FLASK_APP='app', got %q", runtime.Env["FLASK_APP"])
+				if runtime.Env["FLASK_APP"] != "app.py" {
+					t.Errorf("Expected FLASK_APP='app.py', got %q", runtime.Env["FLASK_APP"])
 				}
 				return nil
 			},

@@ -53,11 +53,21 @@ func createServiceCommand(runtime *ServiceRuntime, env map[string]string) (*exec
 	cmd := exec.Command(runtime.Command, runtime.Args...)
 	cmd.Dir = runtime.WorkingDir
 
-	// Set environment variables
-	cmd.Env = os.Environ()
+	// Build environment variable list ensuring azd context is preserved.
+	// Start with os.Environ() which includes all azd context variables
+	// (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*, etc.) inherited from the parent process.
+	// The 'env' map parameter contains service-specific and merged environment variables
+	// that should override the base environment when there are conflicts.
+
+	// Convert env map to slice format for exec.Cmd
+	envSlice := make([]string, 0, len(env))
 	for key, value := range env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+		envSlice = append(envSlice, fmt.Sprintf("%s=%s", key, value))
 	}
+
+	// The env map already includes os.Environ() variables through ResolveEnvironment,
+	// so we can use it directly. This ensures azd context variables are preserved.
+	cmd.Env = envSlice
 
 	return cmd, nil
 }
@@ -128,9 +138,9 @@ func ValidateRuntime(runtime *ServiceRuntime) error {
 		return fmt.Errorf("run command is required for service %s", runtime.Name)
 	case runtime.Language == "":
 		return fmt.Errorf("language is required for service %s", runtime.Name)
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 // GetProcessStatus returns the status of a service process.

@@ -13,6 +13,20 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/security"
 )
 
+const (
+	// Virtual environment directory names
+	venvDirPrimary   = ".venv"
+	venvDirSecondary = "venv"
+
+	// Virtual environment subdirectories
+	venvBinDirWindows = "Scripts"
+	venvBinDirUnix    = "bin"
+
+	// Python executable names
+	pythonExeWindows = "python.exe"
+	pythonExeUnix    = "python"
+)
+
 // DetectServiceRuntime determines how to run a service based on its configuration and project structure.
 func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string, runtimeMode string) (*ServiceRuntime, error) {
 	projectDir := service.Project
@@ -296,10 +310,10 @@ func detectPHPFramework(projectDir string) (string, string, error) {
 func getPythonVenvPath(projectDir string) string {
 	// Check for .venv first (most common), then venv (alternative)
 	venvPaths := []string{
-		filepath.Join(projectDir, ".venv", "Scripts", "python.exe"), // Windows
-		filepath.Join(projectDir, ".venv", "bin", "python"),         // Linux/macOS
-		filepath.Join(projectDir, "venv", "Scripts", "python.exe"),  // Windows (alternative)
-		filepath.Join(projectDir, "venv", "bin", "python"),          // Linux/macOS (alternative)
+		filepath.Join(projectDir, venvDirPrimary, venvBinDirWindows, pythonExeWindows),   // Windows
+		filepath.Join(projectDir, venvDirPrimary, venvBinDirUnix, pythonExeUnix),         // Linux/macOS
+		filepath.Join(projectDir, venvDirSecondary, venvBinDirWindows, pythonExeWindows), // Windows (alternative)
+		filepath.Join(projectDir, venvDirSecondary, venvBinDirUnix, pythonExeUnix),       // Linux/macOS (alternative)
 	}
 
 	for _, path := range venvPaths {
@@ -330,29 +344,38 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 
 	switch runtime.Framework {
 	case "Django":
-		// Django uses manage.py, no entrypoint validation needed
+		// Django uses manage.py - validate it exists
+		managePyPath := filepath.Join(projectDir, "manage.py")
+		if err := security.ValidatePath(managePyPath); err != nil {
+			return fmt.Errorf("Django: invalid manage.py path: %w", err)
+		}
+		if _, err := os.Stat(managePyPath); err != nil {
+			return fmt.Errorf("Django: manage.py not found at %s", managePyPath)
+		}
 		runtime.Args = []string{"manage.py", "runserver", fmt.Sprintf("0.0.0.0:%d", runtime.Port)}
 		return nil
 
 	case "FastAPI":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return err
+			return fmt.Errorf("FastAPI: %w", err)
 		}
 		// Use -m uvicorn to run as module from venv
+		// FastAPI uses module:app format, no .py extension needed
 		runtime.Args = []string{"-m", "uvicorn", appFile + ":app", "--reload", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
 		return nil
 
 	case "Flask":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return err
+			return fmt.Errorf("Flask: %w", err)
 		}
 		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
+		// Flask needs the .py extension in FLASK_APP
 		if entrypoint != "" {
 			runtime.Env["FLASK_APP"] = entrypoint
 		} else {
-			runtime.Env["FLASK_APP"] = appFile
+			runtime.Env["FLASK_APP"] = appFile + ".py"
 		}
 		runtime.Env["FLASK_ENV"] = "development"
 		return nil
@@ -360,7 +383,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 	case "Streamlit":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return err
+			return fmt.Errorf("Streamlit: %w", err)
 		}
 		// Use -m streamlit to run as module from venv
 		runtime.Args = []string{"-m", "streamlit", "run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}
@@ -369,7 +392,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 	case "Gradio", "Python":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", runtime.Framework, err)
 		}
 		// Run as regular Python script
 		runtime.Args = []string{appFile + ".py"}
@@ -378,7 +401,6 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 	default:
 		return fmt.Errorf("unsupported Python framework: %s", runtime.Framework)
 	}
-
 }
 
 // buildRunCommand builds the command and arguments to run the service.
@@ -590,10 +612,11 @@ func hasScript(projectDir string, scriptName string) bool {
 }
 
 func findPythonAppFile(projectDir string) string {
-	// Try common entry points
-	for _, filename := range []string{"main", "app", "src/main", "src/app"} {
-		if fileExists(projectDir, filename+".py") || fileExists(projectDir, filepath.Join("src", filename+".py")) {
-			return filename
+	// Try common entry points (without .py extension)
+	for _, filename := range []string{"main.py", "app.py", "src/main.py", "src/app.py"} {
+		if fileExists(projectDir, filename) {
+			// Return without .py extension for consistency
+			return strings.TrimSuffix(filename, ".py")
 		}
 	}
 	return "main"
