@@ -42,7 +42,6 @@ func TestIntegration_HealthMonitorWithRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
-	defer listener.Close()
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
