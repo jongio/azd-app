@@ -76,6 +76,10 @@ obj/
 .env
 .env.local
 
+# Test artifacts - ignore .azure directories outside tests/
+.azure/
+!tests/**/.azure/
+
 # Test fixtures - preserve lock files and manifests in tests/
 !tests/projects/**/package.json
 !tests/projects/**/package-lock.json

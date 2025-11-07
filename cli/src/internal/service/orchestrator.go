@@ -21,6 +21,11 @@ type OrchestrationResult struct {
 }
 
 // OrchestrateServices starts services in dependency order with parallel execution.
+// The envVars parameter contains additional environment variables (e.g., from --env-file).
+// All services automatically inherit azd context from os.Environ() including:
+// - AZD_SERVER: gRPC server address for azd extension framework communication
+// - AZD_ACCESS_TOKEN: Authentication token for azd APIs
+// - AZURE_*: All Azure environment variables from azd env
 func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, logger *ServiceLogger) (*OrchestrationResult, error) {
 	result := &OrchestrationResult{
 		Processes: make(map[string]*ServiceProcess),
@@ -71,13 +76,37 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			}
 
 			// Resolve environment variables for this service
+			// Start with os.Environ() to inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 			serviceEnv := make(map[string]string)
+			azureVarCount := 0
+			for _, e := range os.Environ() {
+				pair := strings.SplitN(e, "=", 2)
+				if len(pair) == 2 {
+					serviceEnv[pair[0]] = pair[1]
+					// Count AZURE_* and AZD_* variables for debugging
+					if strings.HasPrefix(pair[0], "AZURE_") || strings.HasPrefix(pair[0], "AZD_") {
+						azureVarCount++
+					}
+				}
+			}
+			// Merge custom environment variables from --env-file
 			for k, v := range envVars {
 				serviceEnv[k] = v
 			}
-			// Merge runtime-specific env
+			// Merge runtime-specific env (highest priority)
 			for k, v := range rt.Env {
 				serviceEnv[k] = v
+			}
+
+			// Debug: Log environment variable counts and specific AZURE_AI variables
+			if logger != nil {
+				logger.LogService(rt.Name, fmt.Sprintf("Environment: %d total vars (%d AZURE_*/AZD_* vars)", len(serviceEnv), azureVarCount))
+				// Log specific AZURE_AI_* variables for debugging
+				for k := range serviceEnv {
+					if strings.HasPrefix(k, "AZURE_AI_") {
+						logger.LogService(rt.Name, fmt.Sprintf("  Found: %s", k))
+					}
+				}
 			}
 
 			// Start service
