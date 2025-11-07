@@ -287,26 +287,37 @@ func isProcessRunning(pid int) bool {
 	return err == nil
 }
 
-// Subscribe adds an observer to the registry.
+// Subscribe adds an observer to the registry. Duplicate subscriptions are prevented.
 func (r *ServiceRegistry) Subscribe(observer RegistryObserver) {
 	r.observerMu.Lock()
 	defer r.observerMu.Unlock()
+	
+	// Prevent duplicate subscriptions
+	for _, obs := range r.observers {
+		if obs == observer {
+			return
+		}
+	}
 	r.observers = append(r.observers, observer)
 }
 
 // Unsubscribe removes an observer from the registry.
-func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) {
+// Returns true if the observer was found and removed, false otherwise.
+func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) bool {
 	r.observerMu.Lock()
 	defer r.observerMu.Unlock()
 
-	// Filter out the observer by creating a new slice
+	removed := false
 	newObservers := make([]RegistryObserver, 0, len(r.observers))
 	for _, obs := range r.observers {
-		if obs != observer {
-			newObservers = append(newObservers, obs)
+		if obs == observer {
+			removed = true
+			continue
 		}
+		newObservers = append(newObservers, obs)
 	}
 	r.observers = newObservers
+	return removed
 }
 
 // notifyObservers notifies all observers of a service change.

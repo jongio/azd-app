@@ -611,7 +611,14 @@ func TestUnsubscribe(t *testing.T) {
 	}
 
 	// Unsubscribe observer1
-	registry.Unsubscribe(observer1)
+	if !registry.Unsubscribe(observer1) {
+		t.Error("Unsubscribe(observer1) returned false, expected true")
+	}
+	
+	// Verify unsubscribing again returns false
+	if registry.Unsubscribe(observer1) {
+		t.Error("Unsubscribe(observer1) returned true on second call, expected false")
+	}
 
 	// Clear channels
 	select {
@@ -652,7 +659,59 @@ func TestUnsubscribe(t *testing.T) {
 	}
 	
 	// Clean up observer2
-	registry.Unsubscribe(observer2)
+	if !registry.Unsubscribe(observer2) {
+		t.Error("Unsubscribe(observer2) returned false, expected true")
+	}
+}
+
+// TestDuplicateSubscription tests that duplicate subscriptions are prevented.
+func TestDuplicateSubscription(t *testing.T) {
+	tempDir := t.TempDir()
+	registry := GetRegistry(tempDir)
+
+	// Create test observer
+	notificationChan := make(chan *ServiceRegistryEntry, 10)
+	observer := &testObserver{notifications: notificationChan}
+
+	// Subscribe observer twice
+	registry.Subscribe(observer)
+	registry.Subscribe(observer) // This should be ignored
+	defer registry.Unsubscribe(observer)
+
+	// Register a service
+	entry := &ServiceRegistryEntry{
+		Name:   "test-service",
+		Status: "starting",
+		Health: "unknown",
+	}
+	if err := registry.Register(entry); err != nil {
+		t.Fatalf("Register() failed: %v", err)
+	}
+
+	// Update status
+	if err := registry.UpdateStatus("test-service", "running", "healthy"); err != nil {
+		t.Fatalf("UpdateStatus() failed: %v", err)
+	}
+
+	// Should receive exactly one notification, not two
+	timeout := time.After(1 * time.Second)
+	receivedCount := 0
+	
+	for {
+		select {
+		case <-notificationChan:
+			receivedCount++
+			if receivedCount > 1 {
+				t.Error("Received more than one notification - duplicate subscription was not prevented")
+				return
+			}
+		case <-timeout:
+			if receivedCount != 1 {
+				t.Errorf("Expected 1 notification, got %d", receivedCount)
+			}
+			return
+		}
+	}
 }
 
 // testObserver is a test implementation of RegistryObserver.

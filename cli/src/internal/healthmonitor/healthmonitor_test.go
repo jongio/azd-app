@@ -193,12 +193,14 @@ func TestCheckHTTPHealthNoEndpoint(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Check HTTP health
+	// The new behavior tries "/" as a fallback and considers 404 as healthy
+	// (server is responding, just no content at that endpoint)
 	healthy, checked := checkHTTPHealth(port)
-	if checked {
-		t.Error("checkHTTPHealth() found health endpoint when none exists")
+	if !checked {
+		t.Error("checkHTTPHealth() should check the root endpoint as fallback")
 	}
-	if healthy {
-		t.Error("checkHTTPHealth() returned healthy when no endpoint found")
+	if !healthy {
+		t.Error("checkHTTPHealth() should return healthy for 404 on root (server responding)")
 	}
 }
 
@@ -228,12 +230,15 @@ func TestCheckServiceWithPort(t *testing.T) {
 	}
 
 	// Check service (port is listening, so should be running/healthy)
-	status, health := monitor.checkService(entry)
+	status, health, errorMsg := monitor.checkService(entry)
 	if status != "running" {
 		t.Errorf("checkService() status = %v, want running", status)
 	}
 	if health != "healthy" {
 		t.Errorf("checkService() health = %v, want healthy", health)
+	}
+	if errorMsg != "" {
+		t.Errorf("checkService() errorMsg = %v, want empty", errorMsg)
 	}
 }
 
@@ -250,23 +255,24 @@ func TestCheckServicePortNotListening(t *testing.T) {
 	unusedPort := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
-	// Register a service with a port that's not listening
+	// Register a service with a port that's not listening and no PID
 	entry := &registry.ServiceRegistryEntry{
 		Name:   "test-service",
 		Port:   unusedPort,
 		Status: "starting",
 		Health: "unknown",
+		PID:    0, // No process
 	}
 	if err := reg.Register(entry); err != nil {
 		t.Fatalf("Register() failed: %v", err)
 	}
 
-	// Check service (port not listening, so should be starting/unknown)
-	status, health := monitor.checkService(entry)
-	if status != "starting" {
-		t.Errorf("checkService() status = %v, want starting", status)
+	// Check service (no process and port not listening, so should be error/unhealthy)
+	status, health, _ := monitor.checkService(entry)
+	if status != "error" {
+		t.Errorf("checkService() status = %v, want error", status)
 	}
-	if health != "unknown" {
-		t.Errorf("checkService() health = %v, want unknown", health)
+	if health != "unhealthy" {
+		t.Errorf("checkService() health = %v, want unhealthy", health)
 	}
 }
