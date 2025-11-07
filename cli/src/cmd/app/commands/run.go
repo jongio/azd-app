@@ -12,6 +12,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
+	"github.com/jongio/azd-app/cli/src/internal/healthmonitor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 
@@ -228,6 +229,14 @@ func loadEnvironmentVariables() (map[string]string, error) {
 
 // monitorServicesUntilShutdown starts the dashboard and waits for shutdown signal.
 func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string) error {
+	// Start health monitor before dashboard
+	healthMon := healthmonitor.GetMonitor(cwd)
+	if err := healthMon.Start(); err != nil {
+		output.Warning("Health monitoring unavailable: %v", err)
+	} else {
+		defer healthMon.Stop()
+	}
+
 	dashboardServer := startDashboard(cwd)
 
 	output.Info("💡 Press Ctrl+C to stop all services")

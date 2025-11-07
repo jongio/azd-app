@@ -28,11 +28,18 @@ type ServiceRegistryEntry struct {
 	Error       string    `json:"error,omitempty"`
 }
 
+// RegistryObserver is an interface for observing registry changes.
+type RegistryObserver interface {
+	OnServiceChanged(entry *ServiceRegistryEntry)
+}
+
 // ServiceRegistry manages the registry of running services for a project.
 type ServiceRegistry struct {
-	mu       sync.RWMutex
-	services map[string]*ServiceRegistryEntry // key: serviceName
-	filePath string
+	mu         sync.RWMutex
+	services   map[string]*ServiceRegistryEntry // key: serviceName
+	filePath   string
+	observers  []RegistryObserver
+	observerMu sync.RWMutex
 }
 
 var (
@@ -69,8 +76,9 @@ func GetRegistry(projectDir string) *ServiceRegistry {
 	registryFile := filepath.Join(registryDir, "services.json")
 
 	registry := &ServiceRegistry{
-		services: make(map[string]*ServiceRegistryEntry),
-		filePath: registryFile,
+		services:  make(map[string]*ServiceRegistryEntry),
+		filePath:  registryFile,
+		observers: make([]RegistryObserver, 0),
 	}
 
 	// Ensure directory exists
@@ -124,10 +132,20 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 	defer r.mu.Unlock()
 
 	if svc, exists := r.services[serviceName]; exists {
+		oldStatus, oldHealth := svc.Status, svc.Health
 		svc.Status = status
 		svc.Health = health
 		svc.LastChecked = time.Now()
-		return r.save()
+
+		if err := r.save(); err != nil {
+			return err
+		}
+
+		// Notify observers only if status actually changed
+		if oldStatus != status || oldHealth != health {
+			r.notifyObservers(svc)
+		}
+		return nil
 	}
 	return fmt.Errorf("service not found: %s", serviceName)
 }
@@ -227,6 +245,34 @@ func isProcessRunning(pid int) bool {
 	// On Unix systems, Signal(0) is a standard way to check if process exists
 	err = process.Signal(syscall.Signal(0))
 	return err == nil
+}
+
+// Subscribe adds an observer to the registry.
+func (r *ServiceRegistry) Subscribe(observer RegistryObserver) {
+	r.observerMu.Lock()
+	defer r.observerMu.Unlock()
+	r.observers = append(r.observers, observer)
+}
+
+// notifyObservers notifies all observers of a service change.
+func (r *ServiceRegistry) notifyObservers(entry *ServiceRegistryEntry) {
+	r.observerMu.RLock()
+	observers := make([]RegistryObserver, len(r.observers))
+	copy(observers, r.observers)
+	r.observerMu.RUnlock()
+
+	// Notify in background to avoid blocking
+	for _, observer := range observers {
+		observer := observer
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Fprintf(os.Stderr, "Observer panic: %v\n", r)
+				}
+			}()
+			observer.OnServiceChanged(entry)
+		}()
+	}
 }
 
 // Clear removes all entries from the registry.
