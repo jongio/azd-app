@@ -334,6 +334,16 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 		Dir:     dir,
 		Manager: manager,
 	}
+
+	// Show which project we're installing
+	if !output.IsJSON() {
+		relDir := dir
+		if rel, err := filepath.Rel(di.searchRoot, dir); err == nil && rel != "." {
+			relDir = rel
+		}
+		output.Item("Installing %s (%s)", relDir, manager)
+	}
+
 	if err := installFunc(); err != nil {
 		if !output.IsJSON() {
 			output.ItemWarning("Failed to install for %s: %v", dir, err)

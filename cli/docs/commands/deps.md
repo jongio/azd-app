@@ -611,6 +611,50 @@ services:
     project: ./src/web
 ```
 
+### Issue: npm TAR_ENTRY_ERROR on Windows
+
+**Symptoms**:
+```
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory
+```
+
+**Causes**:
+1. **Windows path length limits** - Deeply nested `node_modules` can exceed the 260-character limit
+2. **File system interference** - Antivirus or security software blocking file access
+
+**Solutions**:
+
+**1. Enable Windows Long Path Support (Recommended)**:
+```powershell
+# Run PowerShell as Administrator
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+
+# Restart your terminal or machine
+```
+
+**2. Use a shorter project path**:
+```powershell
+# Instead of: C:\Users\username\Documents\Projects\my-long-project-name
+# Use: C:\p\myapp
+```
+
+**3. Clear npm cache and retry**:
+```powershell
+npm cache clean --force
+Remove-Item -Recurse -Force node_modules
+azd app deps
+```
+
+**4. Temporarily disable antivirus** during installation (if safe to do so)
+
+**5. Switch to pnpm** (better Windows support):
+```bash
+npm install -g pnpm
+# pnpm uses symlinks and handles long paths better
+# Then delete package-lock.json and run azd app deps
+```
+
 ### Issue: Wrong package manager detected
 
 **Cause**: Multiple lock files exist
