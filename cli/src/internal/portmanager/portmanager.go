@@ -177,7 +177,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 				processInfo = fmt.Sprintf(" by PID %d", info.PID)
 			}
 		}
-		
+
 		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' requires port %d (configured in azure.yaml)\n", serviceName, preferredPort)
 		fmt.Fprintf(os.Stderr, "This port is currently in use%s.\n\n", processInfo)
 		fmt.Fprintf(os.Stderr, "Options:\n")
@@ -276,7 +276,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Port %d is NOT available (in use)\n", serviceName, assignment.Port)
 		}
-		
+
 		// Try to get process info to help user
 		processInfo := ""
 		if info, err := pm.getProcessInfoOnPort(assignment.Port); err == nil {
@@ -286,7 +286,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 				processInfo = fmt.Sprintf(" (PID %d)", info.PID)
 			}
 		}
-		
+
 		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' port %d is already in use%s\n", serviceName, assignment.Port, processInfo)
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", assignment.Port)
@@ -370,7 +370,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Preferred port %d is NOT available (in use)\n", serviceName, preferredPort)
 		}
-		
+
 		// Try to get process info to help user
 		processInfo := ""
 		if info, err := pm.getProcessInfoOnPort(preferredPort); err == nil {
@@ -380,7 +380,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 				processInfo = fmt.Sprintf(" (PID %d)", info.PID)
 			}
 		}
-		
+
 		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' preferred port %d is already in use%s\n", serviceName, preferredPort, processInfo)
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", preferredPort)
@@ -636,33 +636,6 @@ func (pm *PortManager) getProcessName(pid int) (string, error) {
 	}
 
 	return name, nil
-}
-
-// promptAndKillProcessOnPort prompts the user before killing a process on the specified port.
-func (pm *PortManager) promptAndKillProcessOnPort(serviceName string, port int) error {
-	// Get process info
-	pid, err := pm.getProcessOnPort(port)
-	if err != nil {
-		// If we can't get PID, fall back to generic message
-		fmt.Printf("Port %d for service '%s' is in use. Stop existing process? (y/N): ", port, serviceName)
-	} else {
-		fmt.Printf("Port %d for service '%s' is in use by process %d. Stop existing process? (y/N): ", port, serviceName, pid)
-	}
-
-	// Read user input
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response != "y" && response != "yes" {
-		return fmt.Errorf("user declined to kill process on port %d", port)
-	}
-
-	// User confirmed - kill the process
-	return pm.killProcessOnPort(port)
 }
 
 // killProcessOnPort kills any process listening on the specified port.

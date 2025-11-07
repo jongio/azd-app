@@ -174,7 +174,7 @@ services:
 	}
 
 	if resolvedWithConflict["NODE_ENV"] != "production" {
-		t.Errorf("azure.yaml should override Azure env: got NODE_ENV = %q, want %q", 
+		t.Errorf("azure.yaml should override Azure env: got NODE_ENV = %q, want %q",
 			resolvedWithConflict["NODE_ENV"], "production")
 	}
 }
@@ -219,10 +219,10 @@ services:
 
 	// Verify special characters are preserved
 	expected := map[string]string{
-		"DATABASE_URL":       "postgresql://user:p@ssw0rd@localhost:5432/db",
-		"REDIS_URL":          "redis://:my!secret@localhost:6379/0",
-		"API_KEY":            "abc123!@#$%^&*()",
-		"CONNECTION_STRING":  "Server=localhost;User=admin;Password=pass=123",
+		"DATABASE_URL":      "postgresql://user:p@ssw0rd@localhost:5432/db",
+		"REDIS_URL":         "redis://:my!secret@localhost:6379/0",
+		"API_KEY":           "abc123!@#$%^&*()",
+		"CONNECTION_STRING": "Server=localhost;User=admin;Password=pass=123",
 	}
 
 	for key, expectedValue := range expected {

@@ -200,9 +200,9 @@ func TestExplicitPortPriority(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		service     service.Service
-		wantPort    int
+		name         string
+		service      service.Service
+		wantPort     int
 		wantExplicit bool
 	}{
 		{

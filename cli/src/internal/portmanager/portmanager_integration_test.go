@@ -49,7 +49,7 @@ func TestPortAvailability_RealBinding(t *testing.T) {
 
 	// Close the listener
 	listener.Close()
-	
+
 	// Give the OS a moment to release the port
 	time.Sleep(100 * time.Millisecond)
 
@@ -154,7 +154,7 @@ func TestPortAssignment_MultipleServices(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to assign port for %s: %v", serviceName, err)
 		}
-		
+
 		// Verify port is in valid range
 		if port < 3000 || port > 65535 {
 			t.Errorf("Assigned port %d for %s is out of range", port, serviceName)
@@ -217,7 +217,7 @@ func TestDashboardPortBinding(t *testing.T) {
 // TestPortConflict_SimultaneousInstances simulates two instances trying to use same ports.
 func TestPortConflict_SimultaneousInstances(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// First instance
 	pm1 := GetPortManager(tempDir)
 	port1, _, err := pm1.AssignPort("service1", 0, false, false)
@@ -238,9 +238,9 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 	managerCacheMu.Lock()
 	delete(managerCache, tempDir)
 	managerCacheMu.Unlock()
-	
+
 	pm2 := GetPortManager(tempDir)
-	
+
 	// Second instance should detect port is in use
 	if pm2.isPortAvailable(port1) {
 		t.Errorf("Second instance should detect port %d is already in use", port1)
@@ -258,16 +258,16 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 // TestPortManager_SaveLoad verifies port assignments persist correctly.
 func TestPortManager_SaveLoad(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Create manager and assign some ports
 	pm1 := GetPortManager(tempDir)
-	
+
 	assignments := map[string]int{
 		"service1": 3001,
 		"service2": 3002,
 		"service3": 3003,
 	}
-	
+
 	for serviceName, preferredPort := range assignments {
 		port, _, err := pm1.AssignPort(serviceName, preferredPort, false, false)
 		if err != nil {
@@ -283,9 +283,9 @@ func TestPortManager_SaveLoad(t *testing.T) {
 	managerCacheMu.Lock()
 	delete(managerCache, tempDir)
 	managerCacheMu.Unlock()
-	
+
 	pm2 := GetPortManager(tempDir)
-	
+
 	// Verify all assignments were loaded
 	for serviceName, expectedPort := range assignments {
 		loadedPort, exists := pm2.GetAssignment(serviceName)
@@ -304,10 +304,10 @@ func TestPortManager_DebugMode(t *testing.T) {
 	// Enable debug mode
 	os.Setenv("AZD_APP_DEBUG", "true")
 	defer os.Unsetenv("AZD_APP_DEBUG")
-	
+
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
-	
+
 	// Find an available port
 	testPort := 0
 	for port := 45400; port < 45500; port++ {
@@ -316,29 +316,29 @@ func TestPortManager_DebugMode(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if testPort == 0 {
 		t.Fatal("Could not find an available test port")
 	}
-	
+
 	// This should produce debug output (manually verify in test output)
 	t.Logf("Testing port availability for port %d (check for debug output)", testPort)
 	available := pm.isPortAvailable(testPort)
-	
+
 	if !available {
 		t.Errorf("Port %d should be available", testPort)
 	}
-	
+
 	// Bind and test again
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
 	if err != nil {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 	defer listener.Close()
-	
+
 	t.Logf("Testing port availability for port %d while bound (should show bind failure in debug)", testPort)
 	available = pm.isPortAvailable(testPort)
-	
+
 	if available {
 		t.Errorf("Port %d should NOT be available while bound", testPort)
 	}

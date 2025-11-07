@@ -181,7 +181,7 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 			return nil, fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
 		}
 		usedPorts[runtime.Port] = true
-		
+
 		// If we auto-assigned a port and user wants to save it, update azure.yaml
 		if runtime.ShouldUpdateAzureYaml {
 			if err := yamlutil.UpdateServicePort(azureYamlPath, name, runtime.Port); err != nil {
@@ -191,7 +191,7 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 				output.Success("Updated azure.yaml: Added ports: [\"%d\"] for service '%s'", runtime.Port, name)
 			}
 		}
-		
+
 		runtimes = append(runtimes, runtime)
 	}
 

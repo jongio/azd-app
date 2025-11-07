@@ -18,15 +18,15 @@ type AzureYaml struct {
 
 // Service represents a service definition in azure.yaml.
 type Service struct {
-	Host       string                 `yaml:"host"`
-	Language   string                 `yaml:"language,omitempty"`
-	Project    string                 `yaml:"project,omitempty"`
-	Entrypoint string                 `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
-	Image      string                 `yaml:"image,omitempty"`
-	Docker     *DockerConfig          `yaml:"docker,omitempty"`
-	Ports       []string    `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
-	Environment Environment `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
-	Uses        []string    `yaml:"uses,omitempty"`
+	Host        string        `yaml:"host"`
+	Language    string        `yaml:"language,omitempty"`
+	Project     string        `yaml:"project,omitempty"`
+	Entrypoint  string        `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
+	Image       string        `yaml:"image,omitempty"`
+	Docker      *DockerConfig `yaml:"docker,omitempty"`
+	Ports       []string      `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
+	Environment Environment   `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
+	Uses        []string      `yaml:"uses,omitempty"`
 }
 
 // DockerConfig represents Docker build configuration.
@@ -43,9 +43,9 @@ type DockerConfig struct {
 
 // EnvVar represents an environment variable.
 // Supports Docker Compose-compatible formats:
-//   1. Object format: {name: "KEY", value: "val"}
-//   2. String format: "KEY=value"
-//   3. Map format: KEY: value (handled by Environment type)
+//  1. Object format: {name: "KEY", value: "val"}
+//  2. String format: "KEY=value"
+//  3. Map format: KEY: value (handled by Environment type)
 type EnvVar struct {
 	Name   string `yaml:"name"`
 	Value  string `yaml:"value,omitempty"`
@@ -54,9 +54,9 @@ type EnvVar struct {
 
 // Environment represents environment variables in Docker Compose-compatible formats.
 // Supports three input formats:
-//   1. Map format: {KEY: value, KEY2: value2}
-//   2. Array of strings: ["KEY=value", "KEY2=value2"]
-//   3. Array of objects: [{name: "KEY", value: "val"}]
+//  1. Map format: {KEY: value, KEY2: value2}
+//  2. Array of strings: ["KEY=value", "KEY2=value2"]
+//  3. Array of objects: [{name: "KEY", value: "val"}]
 type Environment map[string]string
 
 // UnmarshalYAML implements custom YAML unmarshaling for Docker Compose compatibility.
@@ -379,13 +379,13 @@ func (s *Service) GetPortMappings() ([]PortMapping, bool) {
 	if len(s.Ports) == 0 {
 		return nil, false
 	}
-	
+
 	mappings := make([]PortMapping, 0, len(s.Ports))
 	hasExplicitPort := false
-	
+
 	// Determine if this is a Docker/containerized service
 	isDocker := s.Docker != nil
-	
+
 	for _, portSpec := range s.Ports {
 		mapping := ParsePortSpec(portSpec, isDocker)
 		if mapping.HostPort > 0 {
@@ -393,7 +393,7 @@ func (s *Service) GetPortMappings() ([]PortMapping, bool) {
 		}
 		mappings = append(mappings, mapping)
 	}
-	
+
 	return mappings, hasExplicitPort
 }
 
@@ -425,6 +425,6 @@ func (s *Service) GetPrimaryPort() (int, int, bool) {
 	if len(mappings) == 0 {
 		return 0, 0, false
 	}
-	
+
 	return mappings[0].HostPort, mappings[0].ContainerPort, isExplicit
 }

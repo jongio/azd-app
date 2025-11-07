@@ -305,7 +305,7 @@ func (s *Server) Start() (string, error) {
 		fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d became unavailable after assignment.\n", port)
 		fmt.Fprintf(os.Stderr, "Another instance may be starting simultaneously.\n")
 		fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
-		
+
 		if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
 		}
@@ -362,7 +362,7 @@ func (s *Server) Start() (string, error) {
 			fmt.Fprintf(os.Stderr, "This might indicate another 'azd app run' instance is already running for this project.\n")
 			fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
 		}
-		
+
 		// Port binding failed, try to find an alternative port
 		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
 			return fmt.Sprintf("http://localhost:%d", port), nil
@@ -384,7 +384,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 	}
 
 	fmt.Fprintf(os.Stderr, "Searching for an available dashboard port...\n")
-	
+
 	// Try to find a new port in the higher range with randomization
 	for attempt := 0; attempt < 15; attempt++ {
 		var preferredPort int

@@ -89,24 +89,24 @@ func updateServicePortsInText(content, serviceName string, port int) (string, er
 			lines[portsLineIdx] = fmt.Sprintf("%sports: [\"%d\"]", lineIndent, port)
 			return strings.Join(lines, "\n"), nil
 		}
-		
+
 		// Update existing multi-line ports array - replace first port value
 		// Find the first array item after ports:
 		for i := portsLineIdx + 1; i < len(lines); i++ {
 			line := lines[i]
 			trimmed := strings.TrimSpace(line)
 			lineIndent := getIndentation(line)
-			
+
 			// Skip empty lines and comments
 			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 				continue
 			}
-			
+
 			// If we've left the ports array, break
 			if len(lineIndent) <= len(portsIndent) {
 				break
 			}
-			
+
 			// If this is an array item, update it
 			if strings.HasPrefix(trimmed, "-") {
 				lines[i] = portValueLine
@@ -122,7 +122,7 @@ func updateServicePortsInText(content, serviceName string, port int) (string, er
 	} else {
 		// Insert new ports field after service name
 		insertIdx := serviceInfo.lineIdx + 1
-		
+
 		// Insert the ports lines
 		result := make([]string, 0, len(lines)+2)
 		result = append(result, lines[:insertIdx]...)

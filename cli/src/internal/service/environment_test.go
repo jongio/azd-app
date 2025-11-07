@@ -110,7 +110,7 @@ environment:
   - HAS_VALUE=something
 `,
 			want: Environment{
-				"EMPTY_VAR":  "",
+				"EMPTY_VAR": "",
 				"HAS_VALUE": "something",
 			},
 			wantErr: false,

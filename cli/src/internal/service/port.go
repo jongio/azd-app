@@ -55,7 +55,7 @@ import (
 //	// Result: BindIP="127.0.0.1", HostPort=3000, ContainerPort=8080
 func ParsePortSpec(spec string, isDocker bool) PortMapping {
 	spec = strings.TrimSpace(spec)
-	
+
 	// Handle protocol suffix (e.g., "8080/udp")
 	protocol := "tcp"
 	if strings.Contains(spec, "/") {
@@ -65,7 +65,7 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 			protocol = strings.ToLower(parts[1])
 		}
 	}
-	
+
 	// Handle IPv6 addresses in brackets [::1]:3000:8080
 	var bindIP string
 	if strings.HasPrefix(spec, "[") {
@@ -73,15 +73,13 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 		if closeBracket > 0 {
 			bindIP = spec[1:closeBracket] // Extract IPv6 without brackets
 			spec = spec[closeBracket+1:]  // Keep the rest ":3000:8080"
-			if strings.HasPrefix(spec, ":") {
-				spec = spec[1:] // Remove leading colon
-			}
+			spec = strings.TrimPrefix(spec, ":")
 		}
 	}
-	
+
 	// Split by colons to handle different formats
 	parts := strings.Split(spec, ":")
-	
+
 	// If we extracted an IPv6 address, we're in ip:host:container format
 	if bindIP != "" {
 		if len(parts) == 2 {
@@ -95,7 +93,7 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 			}
 		}
 	}
-	
+
 	// Handle IPv6 without brackets (e.g., "::1:3000:8080")
 	// If we have more than 3 parts and the first parts contain only hex digits, colons, or are empty,
 	// it's likely an IPv6 address
@@ -104,10 +102,10 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 		// Last two parts should be port numbers
 		lastIdx := len(parts) - 1
 		secondLastIdx := len(parts) - 2
-		
+
 		hostPort, hostErr := strconv.Atoi(parts[secondLastIdx])
 		containerPort, containerErr := strconv.Atoi(parts[lastIdx])
-		
+
 		if hostErr == nil && containerErr == nil {
 			// Everything before the last two parts is the IP
 			ipPart := strings.Join(parts[:secondLastIdx], ":")
@@ -119,12 +117,12 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 			}
 		}
 	}
-	
+
 	switch len(parts) {
 	case 1:
 		// "8080" - single port
 		port, _ := strconv.Atoi(parts[0])
-		
+
 		if isDocker {
 			// Docker: container port only, host auto-assigned (Docker Compose behavior)
 			return PortMapping{
@@ -133,14 +131,14 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 				Protocol:      protocol,
 			}
 		}
-		
+
 		// Non-Docker: same port for both host and app
 		return PortMapping{
 			HostPort:      port,
 			ContainerPort: port,
 			Protocol:      protocol,
 		}
-		
+
 	case 2:
 		// "3000:8080" - host:container
 		host, _ := strconv.Atoi(parts[0])
@@ -150,7 +148,7 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 			ContainerPort: container,
 			Protocol:      protocol,
 		}
-		
+
 	case 3:
 		// "127.0.0.1:3000:8080" - ip:host:container
 		host, _ := strconv.Atoi(parts[1])
@@ -162,7 +160,7 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 			Protocol:      protocol,
 		}
 	}
-	
+
 	// Invalid format - return empty
 	return PortMapping{Protocol: protocol}
 }
