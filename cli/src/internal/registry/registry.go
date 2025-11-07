@@ -148,6 +148,8 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 			// NOTE: notifyObservers is called while holding the mu write lock.
 			// This is safe because notifyObservers only copies the observer list,
 			// and dispatches notifications asynchronously in separate goroutines.
+			// IMPORTANT: Observers must not call registry methods synchronously
+			// from OnServiceChanged to avoid deadlocks.
 			r.notifyObservers(&entryCopy)
 		}
 		return nil
@@ -265,7 +267,7 @@ func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) {
 	defer r.observerMu.Unlock()
 
 	// Filter out the observer by creating a new slice
-	newObservers := r.observers[:0]
+	newObservers := make([]RegistryObserver, 0, len(r.observers))
 	for _, obs := range r.observers {
 		if obs != observer {
 			newObservers = append(newObservers, obs)
