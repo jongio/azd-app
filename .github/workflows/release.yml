@@ -213,7 +213,23 @@ jobs:
           
           # Update CHANGELOG.md
           PREV="${{ steps.version.outputs.current }}"
-          COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges v${PREV}..HEAD 2>/dev/null || git log --pretty=format:"- %s (%h)" --no-merges -n 10)
+          
+          # Get commits since the last version tag, or since the last release commit if no tag exists
+          if git rev-parse "v${PREV}" >/dev/null 2>&1; then
+            # Tag exists, get commits since that tag
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges v${PREV}..HEAD)
+          else
+            # No tag exists, try to find the last version bump commit
+            LAST_VERSION_COMMIT=$(git log --grep="^chore: bump version to" --format="%H" -n 1)
+            if [ -n "$LAST_VERSION_COMMIT" ]; then
+              # Get commits since the last version bump (excluding it)
+              COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges ${LAST_VERSION_COMMIT}..HEAD)
+            else
+              # This is likely the first release, get all commits
+              COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+            fi
+          fi
+          
           DATE=$(date +%Y-%m-%d)
           
           {
@@ -232,6 +248,10 @@ jobs:
           git add cli/extension.yaml cli/CHANGELOG.md
           git commit -m "chore: bump version to $VERSION"
           git push
+          
+          # Create and push version tag for future releases
+          git tag -a "v${VERSION}" -m "Release version ${VERSION}"
+          git push origin "v${VERSION}"
 
       - name: Install azd
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
