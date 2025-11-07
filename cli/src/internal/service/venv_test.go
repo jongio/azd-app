@@ -159,9 +159,11 @@ services:
 				if !filepath.IsAbs(runtimeInfo.Command) {
 					t.Errorf("Expected absolute path to venv python, got %q", runtimeInfo.Command)
 				}
-				// Verify it contains the venv directory
-				if tt.venvName != "" && !strings.Contains(runtimeInfo.Command, tt.venvName) {
-					t.Errorf("Expected path to contain venv directory %q, got %q", tt.venvName, runtimeInfo.Command)
+				// Verify it contains the venv directory if venvName is specified
+				if tt.venvName != "" {
+					if !strings.Contains(runtimeInfo.Command, tt.venvName) {
+						t.Errorf("Expected path to contain venv directory %q, got %q", tt.venvName, runtimeInfo.Command)
+					}
 				}
 			} else {
 				// Should use system python
