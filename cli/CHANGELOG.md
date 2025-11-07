@@ -1,3 +1,16 @@
+## [0.3.3] - 2025-11-07
+
+- feat: improve dependency installer robustness, add tests, and document npm TAR_ENTRY_ERROR (#26) (968fb3c)
+- refactor: improve type safety, fix tests, and optimize build system (#25) (820359f)
+- chore: add Release workflow badge to README (af6fba5)
+- chore: update registry for v0.3.2 (c789016)
+- chore: bump version to 0.3.2 (9e67028)
+- fix: add --repo flag to azd x publish for remote mode (ed2522c)
+- chore: update registry for v0.3.1 (f44bb9a)
+- chore: bump version to 0.3.1 (0a1d584)
+- chore: revert to simple direct push now that branch protection is removed (cc4754f)
+- chore: update release workflow to create PR instead of direct push (ebf909c)
+
 ## [0.3.2] - 2025-11-06
 
 - fix: add --repo flag to azd x publish for remote mode (ed2522c)
