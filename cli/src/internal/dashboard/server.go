@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -295,6 +296,29 @@ func (s *Server) Start() (string, error) {
 		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
 	}
 
+	// Double-check port is still available (race condition protection)
+	// This handles the case where another process binds between assignment and server start
+	testAddr := fmt.Sprintf(":%d", port)
+	testListener, err := net.Listen("tcp", testAddr)
+	if err != nil {
+		// Port became unavailable between assignment and binding
+		fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d became unavailable after assignment.\n", port)
+		fmt.Fprintf(os.Stderr, "Another instance may be starting simultaneously.\n")
+		fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
+		
+		if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
+		}
+		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
+			return fmt.Sprintf("http://localhost:%d", port), nil
+		}
+		return "", fmt.Errorf("dashboard server failed to start: port conflicts")
+	}
+	// Close the test listener so the server can bind to it
+	if err := testListener.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to close test listener: %v\n", err)
+	}
+
 	s.port = port
 	s.server = &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
@@ -315,7 +339,12 @@ func (s *Server) Start() (string, error) {
 	go func() {
 		select {
 		case err := <-errChan:
-			log.Printf("Dashboard server encountered error after startup: %v", err)
+			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+				log.Printf("Dashboard server encountered port conflict after startup: %v", err)
+				log.Printf("Another instance may be running. Check for other 'azd app run' processes.")
+			} else {
+				log.Printf("Dashboard server encountered error after startup: %v", err)
+			}
 		case <-s.stopChan:
 			return
 		}
@@ -327,6 +356,13 @@ func (s *Server) Start() (string, error) {
 	// Check if there was an immediate error (like port already in use)
 	select {
 	case err := <-errChan:
+		// Check if this is a port-in-use error
+		if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+			fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d is already in use.\n", port)
+			fmt.Fprintf(os.Stderr, "This might indicate another 'azd app run' instance is already running for this project.\n")
+			fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
+		}
+		
 		// Port binding failed, try to find an alternative port
 		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
 			return fmt.Sprintf("http://localhost:%d", port), nil
@@ -347,6 +383,8 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
 	}
 
+	fmt.Fprintf(os.Stderr, "Searching for an available dashboard port...\n")
+	
 	// Try to find a new port in the higher range with randomization
 	for attempt := 0; attempt < 15; attempt++ {
 		var preferredPort int
@@ -385,7 +423,11 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		go func() {
 			select {
 			case err := <-errChan:
-				log.Printf("Dashboard server encountered error after startup on port %d: %v", port, err)
+				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+					log.Printf("Dashboard server encountered port conflict on port %d: %v", port, err)
+				} else {
+					log.Printf("Dashboard server encountered error after startup on port %d: %v", port, err)
+				}
 			case <-s.stopChan:
 				return
 			}
@@ -402,6 +444,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			continue
 		default:
 			// Successfully started
+			fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
 			return port, nil
 		}
 	}

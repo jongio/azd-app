@@ -17,8 +17,42 @@ import (
 )
 
 // ParsePortSpec parses a Docker Compose style port specification.
-// Supports: "8080", "3000:8080", "127.0.0.1:3000:8080", "8080/udp", "3000-3005:8000-8005", "[::1]:3000:8080", "::1:3000:8080"
-// isDocker indicates if this is for a Docker service (affects interpretation of single port).
+//
+// Supported formats:
+//   - "8080"                    - Single port (behavior depends on isDocker)
+//   - "3000:8080"               - Host port 3000 maps to container port 8080
+//   - "127.0.0.1:3000:8080"    - Bind to specific IP, host port 3000, container port 8080
+//   - "8080/udp"                - Single port with UDP protocol
+//   - "3000:8080/tcp"           - Port mapping with explicit TCP protocol
+//   - "[::1]:3000:8080"         - IPv6 address binding (brackets required)
+//   - "::1:3000:8080"           - IPv6 address binding (alternative format)
+//
+// Parameters:
+//   - spec: The port specification string
+//   - isDocker: If true, single ports like "8080" mean container-only (host auto-assigned).
+//     If false, single ports mean both host and container use the same port.
+//
+// Returns:
+//   - PortMapping with HostPort, ContainerPort, BindIP, and Protocol fields.
+//     HostPort of 0 means auto-assign (only in Docker mode with single port spec).
+//
+// Examples:
+//
+//	// Non-Docker service: "8080" means listen on port 8080
+//	mapping := ParsePortSpec("8080", false)
+//	// Result: HostPort=8080, ContainerPort=8080
+//
+//	// Docker service: "8080" means expose container port 8080, auto-assign host port
+//	mapping := ParsePortSpec("8080", true)
+//	// Result: HostPort=0 (auto), ContainerPort=8080
+//
+//	// Explicit mapping: host 3000 -> container 8080
+//	mapping := ParsePortSpec("3000:8080", true)
+//	// Result: HostPort=3000, ContainerPort=8080
+//
+//	// Bind to localhost only
+//	mapping := ParsePortSpec("127.0.0.1:3000:8080", false)
+//	// Result: BindIP="127.0.0.1", HostPort=3000, ContainerPort=8080
 func ParsePortSpec(spec string, isDocker bool) PortMapping {
 	spec = strings.TrimSpace(spec)
 	
@@ -134,9 +168,43 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 }
 
 // DetectPort attempts to detect the port for a service using multiple strategies.
-// Returns (port, isExplicit, error).
-// isExplicit is true when the port comes from azure.yaml ports array - these are mandatory.
-// Priority: service.ports > framework config files > environment variables > framework defaults > dynamic assignment.
+//
+// Port Detection Priority (highest to lowest):
+//  1. Explicit ports in azure.yaml (service.Ports field) - MANDATORY, never changed
+//  2. Framework-specific config files (package.json, launchSettings.json, etc.)
+//  3. Environment variables (SERVICE_NAME_PORT, PORT, HTTP_PORT, etc.)
+//  4. Framework default ports (Next.js=3000, Django=8000, Spring Boot=8080, etc.)
+//  5. Dynamic port assignment (finds first available port starting from 3000)
+//
+// Parameters:
+//   - serviceName: Name of the service (used for service-specific env vars)
+//   - service: Service configuration from azure.yaml
+//   - projectDir: Absolute path to the service's project directory
+//   - framework: Detected framework name (e.g., "Next.js", "Django")
+//   - usedPorts: Map of ports already assigned to other services
+//
+// Returns:
+//   - port: The detected port number
+//   - isExplicit: True if port came from azure.yaml (priority 1), false otherwise.
+//     Explicit ports are mandatory and trigger user prompts if unavailable.
+//   - error: Non-nil if port detection completely failed
+//
+// Examples:
+//
+//	// Service with explicit port in azure.yaml
+//	service := Service{Ports: ["3000"]}
+//	port, isExplicit, _ := DetectPort("web", service, "/app/web", "Next.js", nil)
+//	// Result: port=3000, isExplicit=true
+//
+//	// Service with no explicit port, uses framework default
+//	service := Service{}
+//	port, isExplicit, _ := DetectPort("api", service, "/app/api", "Django", nil)
+//	// Result: port=8000 (Django default), isExplicit=false
+//
+//	// Service with framework default already in use
+//	usedPorts := map[int]bool{8000: true}
+//	port, isExplicit, _ := DetectPort("api", service, "/app/api", "Django", usedPorts)
+//	// Result: port=3000 (next available), isExplicit=false
 func DetectPort(serviceName string, service Service, projectDir string, framework string, usedPorts map[int]bool) (int, bool, error) {
 	// Priority 1: Explicit ports in azure.yaml (MANDATORY - never change these)
 	if hostPort, _, isExplicit := service.GetPrimaryPort(); isExplicit {

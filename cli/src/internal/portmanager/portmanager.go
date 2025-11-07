@@ -61,11 +61,23 @@ func GetPortManager(projectDir string) *PortManager {
 		absPath = projectDir
 	}
 
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] GetPortManager called with: %s\n", projectDir)
+		fmt.Fprintf(os.Stderr, "[DEBUG] Normalized to: %s\n", absPath)
+	}
+
 	managerCacheMu.Lock()
 	defer managerCacheMu.Unlock()
 
 	if mgr, exists := managerCache[absPath]; exists {
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Returning cached port manager for: %s\n", absPath)
+		}
 		return mgr
+	}
+
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Creating NEW port manager for: %s\n", absPath)
 	}
 
 	portsDir := filepath.Join(absPath, ".azure")
@@ -96,9 +108,32 @@ func GetPortManager(projectDir string) *PortManager {
 }
 
 // AssignPort assigns or retrieves a port for a service.
-// If isExplicit is true, the port came from azure.yaml config and MUST be used (never changed).
-// If cleanStale is true, it will prompt user before killing processes on assigned ports.
-// Returns (port, wasAutoAssigned, error) where wasAutoAssigned indicates if a random port was chosen.
+//
+// Parameters:
+//   - serviceName: The unique name of the service (must not be empty)
+//   - preferredPort: The desired port number. For explicit ports, must be 1-65535.
+//   - isExplicit: If true, the port came from azure.yaml config and MUST be used (never changed).
+//     If the explicit port is unavailable, the user will be prompted to either kill the
+//     existing process or choose a different port.
+//   - cleanStale: If true, will prompt user before killing processes on assigned ports.
+//
+// Returns:
+//   - port: The assigned port number (guaranteed to be in the valid range 3000-65535)
+//   - wasAutoAssigned: True if the user was prompted and chose to auto-assign a different port.
+//     This signals that azure.yaml should be updated with the new port.
+//   - error: Non-nil if the assignment failed (validation error, user cancelled, no ports available)
+//
+// Port range: 3000-65535
+//   - Minimum 3000: Avoids well-known ports (0-1023) and registered ports (1024-2999)
+//     which often require admin privileges and conflict with system services.
+//   - Maximum 65535: Standard TCP/IP limit for port numbers.
+//
+// Behavior:
+//   - EXPLICIT MODE (isExplicit=true): Port is mandatory. If unavailable, prompts user.
+//   - FLEXIBLE MODE (isExplicit=false): Port is preferred but can be changed automatically.
+//     If unavailable, finds an alternative port without user interaction.
+//
+// The assigned port is persisted to .azure/ports.json for consistency across runs.
 func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExplicit bool, cleanStale bool) (int, bool, error) {
 	// Validate inputs
 	if serviceName == "" {
@@ -133,8 +168,18 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		}
 
 		// Port is in use - prompt user with options
+		// Try to get process info to help user
+		processInfo := ""
+		if info, err := pm.getProcessInfoOnPort(preferredPort); err == nil {
+			if info.Name != "" {
+				processInfo = fmt.Sprintf(" by %s (PID %d)", info.Name, info.PID)
+			} else {
+				processInfo = fmt.Sprintf(" by PID %d", info.PID)
+			}
+		}
+		
 		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' requires port %d (configured in azure.yaml)\n", serviceName, preferredPort)
-		fmt.Fprintf(os.Stderr, "This port is currently in use.\n\n")
+		fmt.Fprintf(os.Stderr, "This port is currently in use%s.\n\n", processInfo)
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", preferredPort)
 		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
@@ -206,27 +251,110 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		}
 	}
 
-	// FLEXIBLE PORT MODE: Port can be changed if needed, no prompting unless cleanStale is true
+	// FLEXIBLE PORT MODE: Port can be changed if needed, prompt user when conflicts detected
 
 	// Check if we already have an assignment
 	if assignment, exists := pm.assignments[serviceName]; exists {
 		assignment.LastUsed = time.Now()
 
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Checking assigned port %d...\n", serviceName, assignment.Port)
+		}
+
 		// Check if assigned port is available
 		if pm.isPortAvailable(assignment.Port) {
+			if os.Getenv("AZD_APP_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Port %d is available\n", serviceName, assignment.Port)
+			}
 			if err := pm.save(); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
 			}
 			return assignment.Port, false, nil
 		}
 
-		// Previously assigned port is now in use - find alternative automatically (no prompt for flexible ports)
-		fmt.Fprintf(os.Stderr, "⚠️  Previous port %d for '%s' is in use, assigning new port...\n", assignment.Port, serviceName)
+		// Previously assigned port is now in use - prompt user
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Port %d is NOT available (in use)\n", serviceName, assignment.Port)
+		}
+		
+		// Try to get process info to help user
+		processInfo := ""
+		if info, err := pm.getProcessInfoOnPort(assignment.Port); err == nil {
+			if info.Name != "" {
+				processInfo = fmt.Sprintf(" (PID %d: %s)", info.PID, info.Name)
+			} else {
+				processInfo = fmt.Sprintf(" (PID %d)", info.PID)
+			}
+		}
+		
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' port %d is already in use%s\n", serviceName, assignment.Port, processInfo)
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", assignment.Port)
+		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
+		fmt.Fprintf(os.Stderr, "  3) Cancel\n\n")
+		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return 0, false, fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		response = strings.TrimSpace(response)
+		switch response {
+		case "1":
+			// Kill process
+			if err := pm.killProcessOnPort(assignment.Port); err != nil {
+				return 0, false, fmt.Errorf("failed to free port %d: %w", assignment.Port, err)
+			}
+
+			// Verify port is now available
+			if !pm.isPortAvailable(assignment.Port) {
+				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", assignment.Port)
+			}
+
+			// Keep the same port assignment
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
+			fmt.Fprintf(os.Stderr, "✓ Port %d freed and ready for service '%s'\n\n", assignment.Port, serviceName)
+			return assignment.Port, false, nil
+
+		case "2":
+			// Find alternative port
+			fmt.Fprintf(os.Stderr, "\nFinding available port for '%s'...\n", serviceName)
+			port, err := pm.findAvailablePort()
+			if err != nil {
+				return 0, false, err
+			}
+
+			pm.assignments[serviceName] = &PortAssignment{
+				ServiceName: serviceName,
+				Port:        port,
+				LastUsed:    time.Now(),
+			}
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
+
+			fmt.Fprintf(os.Stderr, "✓ Assigned port %d to service '%s'\n\n", port, serviceName)
+			return port, false, nil
+
+		default:
+			return 0, false, fmt.Errorf("operation cancelled by user")
+		}
 	}
 
 	// Try preferred port first (if provided)
 	if preferredPort >= pm.portRange.start && preferredPort <= pm.portRange.end {
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Checking preferred port %d...\n", serviceName, preferredPort)
+		}
+
 		if pm.isPortAvailable(preferredPort) {
+			if os.Getenv("AZD_APP_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Preferred port %d is available\n", serviceName, preferredPort)
+			}
 			pm.assignments[serviceName] = &PortAssignment{
 				ServiceName: serviceName,
 				Port:        preferredPort,
@@ -238,8 +366,65 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 			return preferredPort, false, nil
 		}
 
-		// Preferred port unavailable - find alternative automatically
-		fmt.Fprintf(os.Stderr, "ℹ️  Preferred port %d for '%s' is in use, finding alternative...\n", preferredPort, serviceName)
+		// Preferred port unavailable - prompt user
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Service '%s': Preferred port %d is NOT available (in use)\n", serviceName, preferredPort)
+		}
+		
+		// Try to get process info to help user
+		processInfo := ""
+		if info, err := pm.getProcessInfoOnPort(preferredPort); err == nil {
+			if info.Name != "" {
+				processInfo = fmt.Sprintf(" (PID %d: %s)", info.PID, info.Name)
+			} else {
+				processInfo = fmt.Sprintf(" (PID %d)", info.PID)
+			}
+		}
+		
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' preferred port %d is already in use%s\n", serviceName, preferredPort, processInfo)
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", preferredPort)
+		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
+		fmt.Fprintf(os.Stderr, "  3) Cancel\n\n")
+		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return 0, false, fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		response = strings.TrimSpace(response)
+		switch response {
+		case "1":
+			// Kill process
+			if err := pm.killProcessOnPort(preferredPort); err != nil {
+				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
+			}
+
+			// Verify port is now available
+			if !pm.isPortAvailable(preferredPort) {
+				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
+			}
+
+			pm.assignments[serviceName] = &PortAssignment{
+				ServiceName: serviceName,
+				Port:        preferredPort,
+				LastUsed:    time.Now(),
+			}
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
+			fmt.Fprintf(os.Stderr, "✓ Port %d freed and assigned to service '%s'\n\n", preferredPort, serviceName)
+			return preferredPort, false, nil
+
+		case "2":
+			// Find alternative port (fall through to auto-assign below)
+			fmt.Fprintf(os.Stderr, "\nFinding available port for '%s'...\n", serviceName)
+
+		default:
+			return 0, false, fmt.Errorf("operation cancelled by user")
+		}
 	}
 
 	// Find an available port automatically
@@ -258,9 +443,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 	}
 
 	// Notify user about auto-assigned port
-	fmt.Fprintf(os.Stderr, "\n✓ Auto-assigned port %d to service '%s'\n", port, serviceName)
-	fmt.Fprintf(os.Stderr, "⚠️  Update your application code to listen on port %d\n", port)
-	fmt.Fprintf(os.Stderr, "💡 Tip: Add 'ports: [\"%d\"]' to service '%s' in azure.yaml for consistency\n\n", port, serviceName)
+	fmt.Fprintf(os.Stderr, "✓ Auto-assigned port %d to service '%s'\n\n", port, serviceName)
 
 	return port, false, nil
 }
@@ -301,6 +484,12 @@ func (pm *PortManager) CleanStalePorts() {
 	}
 }
 
+// IsPortAvailable checks if a port is available for binding.
+// This is a public wrapper around the internal port checking logic.
+func (pm *PortManager) IsPortAvailable(port int) bool {
+	return pm.isPortAvailable(port)
+}
+
 // isPortAvailable checks if a port is available.
 func (pm *PortManager) isPortAvailable(port int) bool {
 	if pm.portChecker != nil {
@@ -311,13 +500,20 @@ func (pm *PortManager) isPortAvailable(port int) bool {
 
 // defaultIsPortAvailable is the default implementation that actually binds to check port availability.
 func (pm *PortManager) defaultIsPortAvailable(port int) bool {
-	addr := fmt.Sprintf("localhost:%d", port)
+	// Bind to all interfaces (same as how services bind) to properly detect port conflicts
+	addr := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Port %d bind test failed: %v\n", port, err)
+		}
 		return false
 	}
 	if err := listener.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to close listener: %v\n", err)
+	}
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Port %d bind test succeeded (port is available)\n", port)
 	}
 	return true
 }
@@ -341,6 +537,23 @@ func (pm *PortManager) findAvailablePort() (int, error) {
 	}
 
 	return 0, fmt.Errorf("no available ports in range %d-%d", pm.portRange.start, pm.portRange.end)
+}
+
+// getProcessInfo retrieves information about the process using a port.
+type ProcessInfo struct {
+	PID  int
+	Name string
+}
+
+// getProcessInfoOnPort retrieves the PID and name of the process listening on the specified port.
+func (pm *PortManager) getProcessInfoOnPort(port int) (*ProcessInfo, error) {
+	pid, err := pm.getProcessOnPort(port)
+	if err != nil {
+		return nil, err
+	}
+
+	name, _ := pm.getProcessName(pid) // Ignore error, we'll use PID only if name lookup fails
+	return &ProcessInfo{PID: pid, Name: name}, nil
 }
 
 // getProcessOnPort retrieves the PID of the process listening on the specified port.
@@ -387,6 +600,42 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 	}
 
 	return pid, nil
+}
+
+// getProcessName retrieves the process name for a given PID.
+func (pm *PortManager) getProcessName(pid int) (string, error) {
+	var cmd string
+	var args []string
+
+	if runtime.GOOS == "windows" {
+		// Windows: use tasklist to get process name
+		cmd = "powershell"
+		psScript := fmt.Sprintf(`
+			$proc = Get-Process -Id %d -ErrorAction SilentlyContinue
+			if ($proc) {
+				Write-Output $proc.ProcessName
+			}
+		`, pid)
+		args = []string{"-Command", psScript}
+	} else {
+		// Unix: use ps to get process name
+		cmd = "sh"
+		args = []string{"-c", fmt.Sprintf("ps -p %d -o comm=", pid)}
+	}
+
+	// Execute command to get process name
+	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), pid is validated int
+	output, err := exec.Command(cmd, args...).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get process name for PID %d: %w", pid, err)
+	}
+
+	name := strings.TrimSpace(string(output))
+	if name == "" {
+		return "", fmt.Errorf("no process name found for PID %d", pid)
+	}
+
+	return name, nil
 }
 
 // promptAndKillProcessOnPort prompts the user before killing a process on the specified port.
