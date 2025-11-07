@@ -8,9 +8,7 @@ import (
 
 func TestDetectPort_ExplicitFromAzureYaml(t *testing.T) {
 	service := Service{
-		Config: map[string]interface{}{
-			"port": 3000,
-		},
+		Ports: []string{"3000"},
 	}
 
 	port, isExplicit, err := DetectPort("test-service", service, ".", "Next.js", nil)
@@ -23,15 +21,14 @@ func TestDetectPort_ExplicitFromAzureYaml(t *testing.T) {
 	}
 
 	if !isExplicit {
-		t.Error("Expected isExplicit to be true for azure.yaml config")
+		t.Error("Expected isExplicit to be true for azure.yaml ports field")
 	}
 }
 
-func TestDetectPort_ExplicitFromAzureYaml_Float(t *testing.T) {
+func TestDetectPort_ExplicitFromAzureYaml_HostContainer(t *testing.T) {
+	// Test host:container port mapping
 	service := Service{
-		Config: map[string]interface{}{
-			"port": 3000.0, // YAML unmarshals numbers as float64
-		},
+		Ports: []string{"3000:8080"},
 	}
 
 	port, isExplicit, err := DetectPort("test-service", service, ".", "Next.js", nil)
@@ -44,35 +41,12 @@ func TestDetectPort_ExplicitFromAzureYaml_Float(t *testing.T) {
 	}
 
 	if !isExplicit {
-		t.Error("Expected isExplicit to be true for azure.yaml config")
-	}
-}
-
-func TestDetectPort_ExplicitFromAzureYaml_String(t *testing.T) {
-	service := Service{
-		Config: map[string]interface{}{
-			"port": "8080",
-		},
-	}
-
-	port, isExplicit, err := DetectPort("test-service", service, ".", "Django", nil)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if port != 8080 {
-		t.Errorf("Expected port 8080, got %d", port)
-	}
-
-	if !isExplicit {
-		t.Error("Expected isExplicit to be true for azure.yaml config")
+		t.Error("Expected isExplicit to be true for azure.yaml ports field")
 	}
 }
 
 func TestDetectPort_NoExplicitConfig(t *testing.T) {
-	service := Service{
-		Config: nil, // No config
-	}
+	service := Service{}
 
 	usedPorts := make(map[int]bool)
 	port, isExplicit, err := DetectPort("test-service", service, ".", "Next.js", usedPorts)
@@ -90,9 +64,7 @@ func TestDetectPort_NoExplicitConfig(t *testing.T) {
 }
 
 func TestDetectPort_EmptyConfig(t *testing.T) {
-	service := Service{
-		Config: map[string]interface{}{}, // Empty config
-	}
+	service := Service{}
 
 	usedPorts := make(map[int]bool)
 	port, isExplicit, err := DetectPort("test-service", service, ".", "React", usedPorts)
@@ -200,11 +172,9 @@ func TestDetectPort_ExplicitOverridesFrameworkConfig(t *testing.T) {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
-	// But azure.yaml config has explicit port 4000
+	// But azure.yaml has explicit port 4000
 	service := Service{
-		Config: map[string]interface{}{
-			"port": 4000,
-		},
+		Ports: []string{"4000"},
 	}
 
 	port, isExplicit, err := DetectPort("test-service", service, tempDir, "Next.js", nil)
@@ -239,29 +209,6 @@ func TestDetectPort_UsedPortsRespected(t *testing.T) {
 
 	if isExplicit {
 		t.Error("Expected isExplicit to be false")
-	}
-}
-
-func TestDetectPort_InvalidStringPort(t *testing.T) {
-	service := Service{
-		Config: map[string]interface{}{
-			"port": "invalid",
-		},
-	}
-
-	// Should fall back to other detection methods
-	port, isExplicit, err := DetectPort("test-service", service, ".", "Next.js", nil)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if port == 0 {
-		t.Error("Expected non-zero port")
-	}
-
-	// Invalid string port doesn't count as explicit
-	if isExplicit {
-		t.Error("Expected isExplicit to be false for invalid string port")
 	}
 }
 

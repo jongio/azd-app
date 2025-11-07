@@ -4,6 +4,7 @@ package service
 import (
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -17,15 +18,15 @@ type AzureYaml struct {
 
 // Service represents a service definition in azure.yaml.
 type Service struct {
-	Host       string                 `yaml:"host"`
-	Language   string                 `yaml:"language,omitempty"`
-	Project    string                 `yaml:"project,omitempty"`
-	Entrypoint string                 `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
-	Image      string                 `yaml:"image,omitempty"`
-	Docker     *DockerConfig          `yaml:"docker,omitempty"`
-	Config     map[string]interface{} `yaml:"config,omitempty"`
-	Env        []EnvVar               `yaml:"env,omitempty"`
-	Uses       []string               `yaml:"uses,omitempty"`
+	Host        string        `yaml:"host"`
+	Language    string        `yaml:"language,omitempty"`
+	Project     string        `yaml:"project,omitempty"`
+	Entrypoint  string        `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
+	Image       string        `yaml:"image,omitempty"`
+	Docker      *DockerConfig `yaml:"docker,omitempty"`
+	Ports       []string      `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
+	Environment Environment   `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
+	Uses        []string      `yaml:"uses,omitempty"`
 }
 
 // DockerConfig represents Docker build configuration.
@@ -41,10 +42,73 @@ type DockerConfig struct {
 }
 
 // EnvVar represents an environment variable.
+// Supports Docker Compose-compatible formats:
+//  1. Object format: {name: "KEY", value: "val"}
+//  2. String format: "KEY=value"
+//  3. Map format: KEY: value (handled by Environment type)
 type EnvVar struct {
 	Name   string `yaml:"name"`
 	Value  string `yaml:"value,omitempty"`
 	Secret string `yaml:"secret,omitempty"`
+}
+
+// Environment represents environment variables in Docker Compose-compatible formats.
+// Supports three input formats:
+//  1. Map format: {KEY: value, KEY2: value2}
+//  2. Array of strings: ["KEY=value", "KEY2=value2"]
+//  3. Array of objects: [{name: "KEY", value: "val"}]
+type Environment map[string]string
+
+// UnmarshalYAML implements custom YAML unmarshaling for Docker Compose compatibility.
+func (e *Environment) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	if *e == nil {
+		*e = make(Environment)
+	}
+
+	// Try map format first (most common): KEY: value
+	var envMap map[string]string
+	if err := unmarshal(&envMap); err == nil {
+		for k, v := range envMap {
+			(*e)[k] = v
+		}
+		return nil
+	}
+
+	// Try array format: ["KEY=value"] or [{name: "KEY", value: "val"}]
+	var envArray []interface{}
+	if err := unmarshal(&envArray); err != nil {
+		return err
+	}
+
+	for _, item := range envArray {
+		switch v := item.(type) {
+		case string:
+			// String format: "KEY=value"
+			parts := strings.SplitN(v, "=", 2)
+			if len(parts) == 2 {
+				(*e)[parts[0]] = parts[1]
+			} else if len(parts) == 1 {
+				// KEY without value means empty string
+				(*e)[parts[0]] = ""
+			}
+		case map[string]interface{}:
+			// Object format: {name: "KEY", value: "val", secret: "secret"}
+			name, hasName := v["name"].(string)
+			if !hasName {
+				continue
+			}
+			// Prefer secret over value if both are present
+			if secret, hasSecret := v["secret"].(string); hasSecret {
+				(*e)[name] = secret
+			} else if value, hasValue := v["value"].(string); hasValue {
+				(*e)[name] = value
+			} else {
+				(*e)[name] = ""
+			}
+		}
+	}
+
+	return nil
 }
 
 // Resource represents a resource definition in azure.yaml.
@@ -54,19 +118,36 @@ type Resource struct {
 	Existing bool     `yaml:"existing,omitempty"`
 }
 
+// GetEnvironment returns the environment variables for the service.
+func (s *Service) GetEnvironment() map[string]string {
+	if s.Environment == nil {
+		return make(map[string]string)
+	}
+	return s.Environment
+}
+
 // ServiceRuntime contains the detected runtime information for a service.
 type ServiceRuntime struct {
-	Name           string
-	Language       string
-	Framework      string
-	PackageManager string
-	Command        string
-	Args           []string
-	WorkingDir     string
-	Port           int
-	Protocol       string
-	Env            map[string]string
-	HealthCheck    HealthCheckConfig
+	Name                  string
+	Language              string
+	Framework             string
+	PackageManager        string
+	Command               string
+	Args                  []string
+	WorkingDir            string
+	Port                  int
+	Protocol              string
+	Env                   map[string]string
+	HealthCheck           HealthCheckConfig
+	ShouldUpdateAzureYaml bool // True if user wants port added to azure.yaml
+}
+
+// PortMapping represents a port mapping (Docker Compose style).
+type PortMapping struct {
+	HostPort      int    // Port on host machine (0 = auto-assign)
+	ContainerPort int    // Port inside container (for Docker) or app port (for non-Docker)
+	BindIP        string // IP to bind to (e.g., "127.0.0.1"), empty = all interfaces
+	Protocol      string // "tcp" or "udp", defaults to "tcp"
 }
 
 // HealthCheckConfig defines how to check if a service is ready.
@@ -290,4 +371,60 @@ var DefaultPorts = map[string]int{
 	"go":         8080,
 	"rust":       8000,
 	"php":        8000,
+}
+
+// GetPortMappings returns all port mappings for a service.
+// Returns (mappings, isExplicit) where isExplicit indicates if any port was explicitly configured.
+func (s *Service) GetPortMappings() ([]PortMapping, bool) {
+	if len(s.Ports) == 0 {
+		return nil, false
+	}
+
+	mappings := make([]PortMapping, 0, len(s.Ports))
+	hasExplicitPort := false
+
+	// Determine if this is a Docker/containerized service
+	isDocker := s.Docker != nil
+
+	for _, portSpec := range s.Ports {
+		mapping := ParsePortSpec(portSpec, isDocker)
+		if mapping.HostPort > 0 {
+			hasExplicitPort = true
+		}
+		mappings = append(mappings, mapping)
+	}
+
+	return mappings, hasExplicitPort
+}
+
+// GetPrimaryPort returns the first (primary) port mapping.
+//
+// Returns:
+//   - hostPort: The port on the host machine (0 = auto-assign for Docker)
+//   - containerPort: The port inside the container or app
+//   - isExplicit: True if a host port was explicitly specified (not auto-assigned)
+//
+// Examples:
+//
+//	// Non-Docker service with single port
+//	service := Service{Ports: ["8080"]}
+//	host, container, isExplicit := service.GetPrimaryPort()
+//	// Result: host=8080, container=8080, isExplicit=true
+//
+//	// Docker service with explicit mapping
+//	service := Service{Docker: &DockerConfig{}, Ports: ["3000:8080"]}
+//	host, container, isExplicit := service.GetPrimaryPort()
+//	// Result: host=3000, container=8080, isExplicit=true
+//
+//	// Docker service with container-only port (auto-assign host)
+//	service := Service{Docker: &DockerConfig{}, Ports: ["8080"]}
+//	host, container, isExplicit := service.GetPrimaryPort()
+//	// Result: host=0, container=8080, isExplicit=false
+func (s *Service) GetPrimaryPort() (int, int, bool) {
+	mappings, isExplicit := s.GetPortMappings()
+	if len(mappings) == 0 {
+		return 0, 0, false
+	}
+
+	return mappings[0].HostPort, mappings[0].ContainerPort, isExplicit
 }

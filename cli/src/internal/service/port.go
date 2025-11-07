@@ -16,25 +16,197 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DetectPort attempts to detect the port for a service using multiple strategies.
-// Returns (port, isExplicit, error).
-// isExplicit is true when the port comes from azure.yaml config - these ports are mandatory and cannot be changed.
-// Priority: azure.yaml config > framework config files > environment variables > framework defaults > dynamic assignment.
-func DetectPort(serviceName string, service Service, projectDir string, framework string, usedPorts map[int]bool) (int, bool, error) {
-	// Priority 1: Explicit port in azure.yaml config (MANDATORY - never change these)
-	if service.Config != nil {
-		if portVal, exists := service.Config["port"]; exists {
-			switch v := portVal.(type) {
-			case int:
-				return v, true, nil // isExplicit = true
-			case float64:
-				return int(v), true, nil // isExplicit = true
-			case string:
-				if port, err := strconv.Atoi(v); err == nil {
-					return port, true, nil // isExplicit = true
-				}
+// ParsePortSpec parses a Docker Compose style port specification.
+//
+// Supported formats:
+//   - "8080"                    - Single port (behavior depends on isDocker)
+//   - "3000:8080"               - Host port 3000 maps to container port 8080
+//   - "127.0.0.1:3000:8080"    - Bind to specific IP, host port 3000, container port 8080
+//   - "8080/udp"                - Single port with UDP protocol
+//   - "3000:8080/tcp"           - Port mapping with explicit TCP protocol
+//   - "[::1]:3000:8080"         - IPv6 address binding (brackets required)
+//   - "::1:3000:8080"           - IPv6 address binding (alternative format)
+//
+// Parameters:
+//   - spec: The port specification string
+//   - isDocker: If true, single ports like "8080" mean container-only (host auto-assigned).
+//     If false, single ports mean both host and container use the same port.
+//
+// Returns:
+//   - PortMapping with HostPort, ContainerPort, BindIP, and Protocol fields.
+//     HostPort of 0 means auto-assign (only in Docker mode with single port spec).
+//
+// Examples:
+//
+//	// Non-Docker service: "8080" means listen on port 8080
+//	mapping := ParsePortSpec("8080", false)
+//	// Result: HostPort=8080, ContainerPort=8080
+//
+//	// Docker service: "8080" means expose container port 8080, auto-assign host port
+//	mapping := ParsePortSpec("8080", true)
+//	// Result: HostPort=0 (auto), ContainerPort=8080
+//
+//	// Explicit mapping: host 3000 -> container 8080
+//	mapping := ParsePortSpec("3000:8080", true)
+//	// Result: HostPort=3000, ContainerPort=8080
+//
+//	// Bind to localhost only
+//	mapping := ParsePortSpec("127.0.0.1:3000:8080", false)
+//	// Result: BindIP="127.0.0.1", HostPort=3000, ContainerPort=8080
+func ParsePortSpec(spec string, isDocker bool) PortMapping {
+	spec = strings.TrimSpace(spec)
+
+	// Handle protocol suffix (e.g., "8080/udp")
+	protocol := "tcp"
+	if strings.Contains(spec, "/") {
+		parts := strings.Split(spec, "/")
+		spec = parts[0]
+		if len(parts) > 1 {
+			protocol = strings.ToLower(parts[1])
+		}
+	}
+
+	// Handle IPv6 addresses in brackets [::1]:3000:8080
+	var bindIP string
+	if strings.HasPrefix(spec, "[") {
+		closeBracket := strings.Index(spec, "]")
+		if closeBracket > 0 {
+			bindIP = spec[1:closeBracket] // Extract IPv6 without brackets
+			spec = spec[closeBracket+1:]  // Keep the rest ":3000:8080"
+			spec = strings.TrimPrefix(spec, ":")
+		}
+	}
+
+	// Split by colons to handle different formats
+	parts := strings.Split(spec, ":")
+
+	// If we extracted an IPv6 address, we're in ip:host:container format
+	if bindIP != "" {
+		if len(parts) == 2 {
+			host, _ := strconv.Atoi(parts[0])
+			container, _ := strconv.Atoi(parts[1])
+			return PortMapping{
+				BindIP:        bindIP,
+				HostPort:      host,
+				ContainerPort: container,
+				Protocol:      protocol,
 			}
 		}
+	}
+
+	// Handle IPv6 without brackets (e.g., "::1:3000:8080")
+	// If we have more than 3 parts and the first parts contain only hex digits, colons, or are empty,
+	// it's likely an IPv6 address
+	if len(parts) > 3 {
+		// Try to parse as IPv6:host:container
+		// Last two parts should be port numbers
+		lastIdx := len(parts) - 1
+		secondLastIdx := len(parts) - 2
+
+		hostPort, hostErr := strconv.Atoi(parts[secondLastIdx])
+		containerPort, containerErr := strconv.Atoi(parts[lastIdx])
+
+		if hostErr == nil && containerErr == nil {
+			// Everything before the last two parts is the IP
+			ipPart := strings.Join(parts[:secondLastIdx], ":")
+			return PortMapping{
+				BindIP:        ipPart,
+				HostPort:      hostPort,
+				ContainerPort: containerPort,
+				Protocol:      protocol,
+			}
+		}
+	}
+
+	switch len(parts) {
+	case 1:
+		// "8080" - single port
+		port, _ := strconv.Atoi(parts[0])
+
+		if isDocker {
+			// Docker: container port only, host auto-assigned (Docker Compose behavior)
+			return PortMapping{
+				HostPort:      0, // 0 = auto-assign
+				ContainerPort: port,
+				Protocol:      protocol,
+			}
+		}
+
+		// Non-Docker: same port for both host and app
+		return PortMapping{
+			HostPort:      port,
+			ContainerPort: port,
+			Protocol:      protocol,
+		}
+
+	case 2:
+		// "3000:8080" - host:container
+		host, _ := strconv.Atoi(parts[0])
+		container, _ := strconv.Atoi(parts[1])
+		return PortMapping{
+			HostPort:      host,
+			ContainerPort: container,
+			Protocol:      protocol,
+		}
+
+	case 3:
+		// "127.0.0.1:3000:8080" - ip:host:container
+		host, _ := strconv.Atoi(parts[1])
+		container, _ := strconv.Atoi(parts[2])
+		return PortMapping{
+			BindIP:        parts[0],
+			HostPort:      host,
+			ContainerPort: container,
+			Protocol:      protocol,
+		}
+	}
+
+	// Invalid format - return empty
+	return PortMapping{Protocol: protocol}
+}
+
+// DetectPort attempts to detect the port for a service using multiple strategies.
+//
+// Port Detection Priority (highest to lowest):
+//  1. Explicit ports in azure.yaml (service.Ports field) - MANDATORY, never changed
+//  2. Framework-specific config files (package.json, launchSettings.json, etc.)
+//  3. Environment variables (SERVICE_NAME_PORT, PORT, HTTP_PORT, etc.)
+//  4. Framework default ports (Next.js=3000, Django=8000, Spring Boot=8080, etc.)
+//  5. Dynamic port assignment (finds first available port starting from 3000)
+//
+// Parameters:
+//   - serviceName: Name of the service (used for service-specific env vars)
+//   - service: Service configuration from azure.yaml
+//   - projectDir: Absolute path to the service's project directory
+//   - framework: Detected framework name (e.g., "Next.js", "Django")
+//   - usedPorts: Map of ports already assigned to other services
+//
+// Returns:
+//   - port: The detected port number
+//   - isExplicit: True if port came from azure.yaml (priority 1), false otherwise.
+//     Explicit ports are mandatory and trigger user prompts if unavailable.
+//   - error: Non-nil if port detection completely failed
+//
+// Examples:
+//
+//	// Service with explicit port in azure.yaml
+//	service := Service{Ports: ["3000"]}
+//	port, isExplicit, _ := DetectPort("web", service, "/app/web", "Next.js", nil)
+//	// Result: port=3000, isExplicit=true
+//
+//	// Service with no explicit port, uses framework default
+//	service := Service{}
+//	port, isExplicit, _ := DetectPort("api", service, "/app/api", "Django", nil)
+//	// Result: port=8000 (Django default), isExplicit=false
+//
+//	// Service with framework default already in use
+//	usedPorts := map[int]bool{8000: true}
+//	port, isExplicit, _ := DetectPort("api", service, "/app/api", "Django", usedPorts)
+//	// Result: port=3000 (next available), isExplicit=false
+func DetectPort(serviceName string, service Service, projectDir string, framework string, usedPorts map[int]bool) (int, bool, error) {
+	// Priority 1: Explicit ports in azure.yaml (MANDATORY - never change these)
+	if hostPort, _, isExplicit := service.GetPrimaryPort(); isExplicit {
+		return hostPort, true, nil // isExplicit = true
 	}
 
 	// Priority 2: Framework-specific configuration files

@@ -21,6 +21,7 @@ App automatically detects and manages dependencies for:
 - 📦 **Multi-Language Support**: Works with Node.js, Python, and .NET projects
 - 🚀 **One-Command Setup**: Install all dependencies with a single command
 - 🎯 **Environment-Aware**: Creates and manages virtual environments for Python
+- 🐳 **Docker Compose Compatible**: Environment variable syntax matches Docker Compose exactly
 - ⚡ **Fast Iteration**: Minimal test dependencies for quick validation
 
 ## Installation
@@ -256,6 +257,27 @@ azd app run --env-file .env.local
 - `--env-file`: Load environment variables from .env file
 - `--verbose, -v`: Enable verbose logging
 - `--dry-run`: Show what would be run without starting services
+
+**Environment Variables:**
+
+Services can define environment variables in `azure.yaml` using Docker Compose-compatible syntax:
+
+```yaml
+services:
+  api:
+    # Map format (recommended)
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+  
+  web:
+    # Array of strings (Docker Compose style)
+    environment:
+      - API_URL=http://localhost:5000
+      - DEBUG=true
+```
+
+See [Environment Variables Documentation](docs/environment-variables.md) for all supported formats and advanced usage.
 
 **Runtime Modes:**
 - **azd** (default): Runs services through azd's built-in dashboard, works with all project types
