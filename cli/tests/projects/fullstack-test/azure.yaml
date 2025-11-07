@@ -17,8 +17,8 @@ services:
     language: python
     project: ./api
     host: localhost
-    config:
-      port: 5000
+    ports:
+      - "5000"
     env:
       - name: FLASK_ENV
         value: development
@@ -29,8 +29,8 @@ services:
     language: node
     project: ./web
     host: localhost
-    config:
-      port: 5001
+    ports:
+      - "5001"
     env:
       - name: API_URL
         value: http://localhost:5000

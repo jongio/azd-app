@@ -84,11 +84,12 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 
 	// Use port manager to assign port (with automatic cleanup of stale processes)
 	portMgr := portmanager.GetPortManager(projectDir)
-	port, err := portMgr.AssignPort(serviceName, preferredPort, isExplicit, true) // isExplicit, cleanStale
+	port, shouldUpdateAzureYaml, err := portMgr.AssignPort(serviceName, preferredPort, isExplicit, true) // isExplicit, cleanStale
 	if err != nil {
 		return nil, fmt.Errorf("failed to assign port: %w", err)
 	}
 	runtime.Port = port
+	runtime.ShouldUpdateAzureYaml = shouldUpdateAzureYaml // Track if user wants azure.yaml updated
 	usedPorts[port] = true
 
 	// Build command and args based on framework (AFTER port assignment)

@@ -290,7 +290,7 @@ func (s *Server) Start() (string, error) {
 	preferredPort := 40000 + int(nBig.Int64())
 
 	// Assign port for dashboard service (isExplicit=false, cleanStale=false to avoid prompts)
-	port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
+	port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 	if err != nil {
 		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
 	}
@@ -348,14 +348,20 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 	}
 
 	// Try to find a new port in the higher range with randomization
-	for attempt := 0; attempt < 10; attempt++ {
-		// Random port in 40000-49999 range
-		nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
-		if err != nil {
-			continue
+	for attempt := 0; attempt < 15; attempt++ {
+		var preferredPort int
+		if attempt < 5 {
+			// First 5 attempts: random ports in 40000-49999 range
+			nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
+			if err != nil {
+				continue
+			}
+			preferredPort = 40000 + int(nBig.Int64())
+		} else {
+			// After 5 failed random attempts, try sequential ports
+			preferredPort = 40000 + (attempt * 100)
 		}
-		preferredPort := 40000 + int(nBig.Int64())
-		port, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
+		port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
 		if err != nil {
 			continue
 		}
@@ -400,7 +406,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		}
 	}
 
-	return 0, fmt.Errorf("failed to find available port for dashboard after 10 attempts")
+	return 0, fmt.Errorf("failed to find available port for dashboard after 15 attempts")
 }
 
 // BroadcastUpdate sends service updates to all connected WebSocket clients.

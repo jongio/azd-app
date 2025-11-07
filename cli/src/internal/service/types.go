@@ -23,7 +23,7 @@ type Service struct {
 	Entrypoint string                 `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
 	Image      string                 `yaml:"image,omitempty"`
 	Docker     *DockerConfig          `yaml:"docker,omitempty"`
-	Config     map[string]interface{} `yaml:"config,omitempty"`
+	Ports      []string               `yaml:"ports,omitempty"` // Docker Compose style: ["8080"] or ["3000:8080"]
 	Env        []EnvVar               `yaml:"env,omitempty"`
 	Uses       []string               `yaml:"uses,omitempty"`
 }
@@ -56,17 +56,26 @@ type Resource struct {
 
 // ServiceRuntime contains the detected runtime information for a service.
 type ServiceRuntime struct {
-	Name           string
-	Language       string
-	Framework      string
-	PackageManager string
-	Command        string
-	Args           []string
-	WorkingDir     string
-	Port           int
-	Protocol       string
-	Env            map[string]string
-	HealthCheck    HealthCheckConfig
+	Name                  string
+	Language              string
+	Framework             string
+	PackageManager        string
+	Command               string
+	Args                  []string
+	WorkingDir            string
+	Port                  int
+	Protocol              string
+	Env                   map[string]string
+	HealthCheck           HealthCheckConfig
+	ShouldUpdateAzureYaml bool // True if user wants port added to azure.yaml
+}
+
+// PortMapping represents a port mapping (Docker Compose style).
+type PortMapping struct {
+	HostPort      int    // Port on host machine (0 = auto-assign)
+	ContainerPort int    // Port inside container (for Docker) or app port (for non-Docker)
+	BindIP        string // IP to bind to (e.g., "127.0.0.1"), empty = all interfaces
+	Protocol      string // "tcp" or "udp", defaults to "tcp"
 }
 
 // HealthCheckConfig defines how to check if a service is ready.
@@ -290,4 +299,39 @@ var DefaultPorts = map[string]int{
 	"go":         8080,
 	"rust":       8000,
 	"php":        8000,
+}
+
+// GetPortMappings returns all port mappings for a service.
+// Returns (mappings, isExplicit) where isExplicit indicates if any port was explicitly configured.
+func (s *Service) GetPortMappings() ([]PortMapping, bool) {
+	if len(s.Ports) == 0 {
+		return nil, false
+	}
+	
+	mappings := make([]PortMapping, 0, len(s.Ports))
+	hasExplicitPort := false
+	
+	// Determine if this is a Docker/containerized service
+	isDocker := s.Docker != nil
+	
+	for _, portSpec := range s.Ports {
+		mapping := ParsePortSpec(portSpec, isDocker)
+		if mapping.HostPort > 0 {
+			hasExplicitPort = true
+		}
+		mappings = append(mappings, mapping)
+	}
+	
+	return mappings, hasExplicitPort
+}
+
+// GetPrimaryPort returns the first (primary) port mapping.
+// Returns (hostPort, containerPort, isExplicit).
+func (s *Service) GetPrimaryPort() (int, int, bool) {
+	mappings, isExplicit := s.GetPortMappings()
+	if len(mappings) == 0 {
+		return 0, 0, false
+	}
+	
+	return mappings[0].HostPort, mappings[0].ContainerPort, isExplicit
 }

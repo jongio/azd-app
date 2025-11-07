@@ -98,15 +98,24 @@ func GetPortManager(projectDir string) *PortManager {
 // AssignPort assigns or retrieves a port for a service.
 // If isExplicit is true, the port came from azure.yaml config and MUST be used (never changed).
 // If cleanStale is true, it will prompt user before killing processes on assigned ports.
-func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExplicit bool, cleanStale bool) (int, error) {
+// Returns (port, wasAutoAssigned, error) where wasAutoAssigned indicates if a random port was chosen.
+func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExplicit bool, cleanStale bool) (int, bool, error) {
+	// Validate inputs
+	if serviceName == "" {
+		return 0, false, fmt.Errorf("serviceName cannot be empty")
+	}
+	if isExplicit && (preferredPort <= 0 || preferredPort > 65535) {
+		return 0, false, fmt.Errorf("explicit port must be between 1-65535, got %d", preferredPort)
+	}
+
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	// EXPLICIT PORT MODE: Port from azure.yaml - MUST be used, never changed
+	// EXPLICIT PORT MODE: Port from azure.yaml - MUST be used, prompt if in use
 	if isExplicit {
 		// Validate port is in range
 		if preferredPort < pm.portRange.start || preferredPort > pm.portRange.end {
-			return 0, fmt.Errorf("explicit port %d for service '%s' is outside valid range %d-%d",
+			return 0, false, fmt.Errorf("explicit port %d for service '%s' is outside valid range %d-%d",
 				preferredPort, serviceName, pm.portRange.start, pm.portRange.end)
 		}
 
@@ -120,69 +129,103 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 			if err := pm.save(); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
 			}
-			return preferredPort, nil
+			return preferredPort, false, nil
 		}
 
-		// Port is in use - MUST prompt and kill (or fail)
-		fmt.Fprintf(os.Stderr, "⚠️  Service '%s' requires port %d (configured in azure.yaml)\n", serviceName, preferredPort)
-		if err := pm.promptAndKillProcessOnPort(serviceName, preferredPort); err != nil {
-			return 0, fmt.Errorf("port %d is required for service '%s' but is in use and cannot be freed: %w",
-				preferredPort, serviceName, err)
+		// Port is in use - prompt user with options
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' requires port %d (configured in azure.yaml)\n", serviceName, preferredPort)
+		fmt.Fprintf(os.Stderr, "This port is currently in use.\n\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", preferredPort)
+		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
+		fmt.Fprintf(os.Stderr, "  3) Cancel\n\n")
+		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return 0, false, fmt.Errorf("failed to read user input: %w", err)
 		}
 
-		// Verify port is now available
-		if !pm.isPortAvailable(preferredPort) {
-			return 0, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
-		}
+		response = strings.TrimSpace(response)
+		switch response {
+		case "1":
+			// Kill process
+			if err := pm.killProcessOnPort(preferredPort); err != nil {
+				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
+			}
 
-		pm.assignments[serviceName] = &PortAssignment{
-			ServiceName: serviceName,
-			Port:        preferredPort,
-			LastUsed:    time.Now(),
+			// Verify port is now available
+			if !pm.isPortAvailable(preferredPort) {
+				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
+			}
+
+			pm.assignments[serviceName] = &PortAssignment{
+				ServiceName: serviceName,
+				Port:        preferredPort,
+				LastUsed:    time.Now(),
+			}
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
+			return preferredPort, false, nil
+
+		case "2":
+			// Assign random port
+			fmt.Fprintf(os.Stderr, "\nFinding available port for '%s'...\n", serviceName)
+			port, err := pm.findAvailablePort()
+			if err != nil {
+				return 0, false, err
+			}
+
+			pm.assignments[serviceName] = &PortAssignment{
+				ServiceName: serviceName,
+				Port:        port,
+				LastUsed:    time.Now(),
+			}
+			if err := pm.save(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
+			}
+
+			fmt.Fprintf(os.Stderr, "\n✓ Assigned port %d to service '%s'\n", port, serviceName)
+			fmt.Fprintf(os.Stderr, "\n⚠️  IMPORTANT: Update your application code to use port %d\n", port)
+			fmt.Fprintf(os.Stderr, "Would you like to update azure.yaml to use port %d for future runs? (y/N): ", port)
+
+			updateResponse, err := reader.ReadString('\n')
+			if err == nil {
+				updateResponse = strings.TrimSpace(strings.ToLower(updateResponse))
+				if updateResponse == "y" || updateResponse == "yes" {
+					return port, true, nil // Signal caller to update azure.yaml
+				}
+			}
+
+			return port, false, nil
+
+		default:
+			return 0, false, fmt.Errorf("operation cancelled by user")
 		}
-		if err := pm.save(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
-		}
-		return preferredPort, nil
 	}
 
-	// FLEXIBLE PORT MODE: Port can be changed if needed
+	// FLEXIBLE PORT MODE: Port can be changed if needed, no prompting unless cleanStale is true
 
 	// Check if we already have an assignment
 	if assignment, exists := pm.assignments[serviceName]; exists {
 		assignment.LastUsed = time.Now()
 
-		// Check if port is already available
+		// Check if assigned port is available
 		if pm.isPortAvailable(assignment.Port) {
 			if err := pm.save(); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
 			}
-			return assignment.Port, nil
+			return assignment.Port, false, nil
 		}
 
-		// Port is in use - prompt user if cleanStale is enabled
-		if cleanStale {
-			if err := pm.promptAndKillProcessOnPort(serviceName, assignment.Port); err != nil {
-				// User declined or error occurred, find a new port
-				fmt.Fprintf(os.Stderr, "Finding alternative port for %s...\n", serviceName)
-			} else {
-				// Successfully cleaned port
-				if pm.isPortAvailable(assignment.Port) {
-					if err := pm.save(); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
-					}
-					return assignment.Port, nil
-				}
-			}
-		}
-
-		// Port is still in use, need to find a new one
-		fmt.Fprintf(os.Stderr, "Warning: Assigned port %d for %s is in use, finding new port\n", assignment.Port, serviceName)
+		// Previously assigned port is now in use - find alternative automatically (no prompt for flexible ports)
+		fmt.Fprintf(os.Stderr, "⚠️  Previous port %d for '%s' is in use, assigning new port...\n", assignment.Port, serviceName)
 	}
 
-	// Try preferred port first
+	// Try preferred port first (if provided)
 	if preferredPort >= pm.portRange.start && preferredPort <= pm.portRange.end {
-		// Check if port is available
 		if pm.isPortAvailable(preferredPort) {
 			pm.assignments[serviceName] = &PortAssignment{
 				ServiceName: serviceName,
@@ -192,35 +235,17 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 			if err := pm.save(); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
 			}
-			return preferredPort, nil
+			return preferredPort, false, nil
 		}
 
-		// Port is in use - prompt user if cleanStale is enabled
-		if cleanStale {
-			if err := pm.promptAndKillProcessOnPort(serviceName, preferredPort); err == nil {
-				// Successfully cleaned port
-				if pm.isPortAvailable(preferredPort) {
-					pm.assignments[serviceName] = &PortAssignment{
-						ServiceName: serviceName,
-						Port:        preferredPort,
-						LastUsed:    time.Now(),
-					}
-					if err := pm.save(); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
-					}
-					return preferredPort, nil
-				}
-			}
-		}
-
-		// Preferred port unavailable, will find alternative below
-		fmt.Fprintf(os.Stderr, "Preferred port %d for %s is in use, finding alternative...\n", preferredPort, serviceName)
+		// Preferred port unavailable - find alternative automatically
+		fmt.Fprintf(os.Stderr, "ℹ️  Preferred port %d for '%s' is in use, finding alternative...\n", preferredPort, serviceName)
 	}
 
-	// Find an available port
+	// Find an available port automatically
 	port, err := pm.findAvailablePort()
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	pm.assignments[serviceName] = &PortAssignment{
@@ -231,7 +256,13 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 	if err := pm.save(); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to save port assignment: %v\n", err)
 	}
-	return port, nil
+
+	// Notify user about auto-assigned port
+	fmt.Fprintf(os.Stderr, "\n✓ Auto-assigned port %d to service '%s'\n", port, serviceName)
+	fmt.Fprintf(os.Stderr, "⚠️  Update your application code to listen on port %d\n", port)
+	fmt.Fprintf(os.Stderr, "💡 Tip: Add 'ports: [\"%d\"]' to service '%s' in azure.yaml for consistency\n\n", port, serviceName)
+
+	return port, false, nil
 }
 
 // ReleasePort removes a port assignment.
