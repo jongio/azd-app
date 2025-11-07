@@ -133,25 +133,30 @@ func (hm *HealthMonitor) checkService(service *registry.ServiceRegistryEntry) (s
 		}
 	}
 
-	// Check 2: Port listening?
-	portListening := isPortListening(service.Port)
+	// Check 2: Port listening? Only check if port > 0
+	portListening := true
+	if service.Port > 0 {
+		portListening = isPortListening(service.Port)
+	}
 	
 	// If service was running before (status="running") but port is no longer listening
-	if service.Status == "running" && !portListening {
+	if service.Port > 0 && service.Status == "running" && !portListening {
 		return "error", "unhealthy" // Service crashed or stopped
 	}
 	
 	// If port is not listening and service is still starting
-	if !portListening {
+	if service.Port > 0 && !portListening {
 		return "starting", "unknown" // Not ready yet
 	}
 
-	// Check 3: HTTP health (optional)
-	if httpHealthy, ok := checkHTTPHealth(service.Port); ok {
-		if httpHealthy {
-			return "running", "healthy"
+	// Check 3: HTTP health (optional) - only for services with ports
+	if service.Port > 0 {
+		if httpHealthy, ok := checkHTTPHealth(service.Port); ok {
+			if httpHealthy {
+				return "running", "healthy"
+			}
+			return "running", "unhealthy" // Responding but unhealthy
 		}
-		return "running", "unhealthy" // Responding but unhealthy
 	}
 
 	// Fall back: process + port = healthy
