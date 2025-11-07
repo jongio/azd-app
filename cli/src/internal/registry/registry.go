@@ -261,17 +261,17 @@ func (r *ServiceRegistry) notifyObservers(entry *ServiceRegistryEntry) {
 	copy(observers, r.observers)
 	r.observerMu.RUnlock()
 
-	// Notify in background to avoid blocking
-	for _, observer := range observers {
-		observer := observer
-		go func() {
+	// Notify each observer in a separate goroutine to avoid blocking
+	// The loop variable is captured correctly by value in the function call
+	for _, obs := range observers {
+		go func(observer RegistryObserver) {
 			defer func() {
 				if r := recover(); r != nil {
 					fmt.Fprintf(os.Stderr, "Observer panic: %v\n", r)
 				}
 			}()
 			observer.OnServiceChanged(entry)
-		}()
+		}(obs)
 	}
 }
 

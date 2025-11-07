@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -96,7 +97,10 @@ func (hm *HealthMonitor) checkAllServices() {
 
 		// Update registry if changed (triggers observers automatically)
 		if status != service.Status || health != service.Health {
-			_ = hm.registry.UpdateStatus(service.Name, status, health)
+			if err := hm.registry.UpdateStatus(service.Name, status, health); err != nil {
+				// Log error but continue checking other services
+				fmt.Fprintf(os.Stderr, "Health monitor: failed to update status for %s: %v\n", service.Name, err)
+			}
 		}
 	}
 }
