@@ -262,7 +262,7 @@ func TestExecuteHook_FailureWithContinue(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Use a command that will fail on both Windows and POSIX
 	failCmd := "exit 1"
 	if runtime.GOOS == "windows" {
@@ -288,7 +288,7 @@ func TestExecuteHook_FailureWithoutContinue(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Use a command that will fail on both Windows and POSIX
 	failCmd := "exit 1"
 	if runtime.GOOS == "windows" {

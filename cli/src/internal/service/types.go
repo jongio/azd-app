@@ -438,12 +438,12 @@ type Hooks struct {
 
 // Hook represents a lifecycle hook configuration.
 type Hook struct {
-	Run             string        `yaml:"run"`                        // Script or command to execute
-	Shell           string        `yaml:"shell,omitempty"`            // Shell to use (sh, bash, pwsh, etc.)
-	ContinueOnError bool          `yaml:"continueOnError,omitempty"`  // Continue if hook fails
-	Interactive     bool          `yaml:"interactive,omitempty"`      // Requires user interaction
-	Windows         *PlatformHook `yaml:"windows,omitempty"`          // Windows-specific override
-	Posix           *PlatformHook `yaml:"posix,omitempty"`            // POSIX (Linux/macOS)-specific override
+	Run             string        `yaml:"run"`                       // Script or command to execute
+	Shell           string        `yaml:"shell,omitempty"`           // Shell to use (sh, bash, pwsh, etc.)
+	ContinueOnError bool          `yaml:"continueOnError,omitempty"` // Continue if hook fails
+	Interactive     bool          `yaml:"interactive,omitempty"`     // Requires user interaction
+	Windows         *PlatformHook `yaml:"windows,omitempty"`         // Windows-specific override
+	Posix           *PlatformHook `yaml:"posix,omitempty"`           // POSIX (Linux/macOS)-specific override
 }
 
 // PlatformHook represents platform-specific hook configuration.
@@ -453,4 +453,3 @@ type PlatformHook struct {
 	ContinueOnError *bool  `yaml:"continueOnError,omitempty"` // Pointer to allow override to false
 	Interactive     *bool  `yaml:"interactive,omitempty"`     // Pointer to allow override to false
 }
-
