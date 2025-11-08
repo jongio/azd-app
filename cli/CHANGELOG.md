@@ -1,3 +1,16 @@
+## [0.5.1] - 2025-11-08
+
+- Add packageManager field support for Node.js package manager detection (#34) (bdbb25e)
+- chore: update registry for v0.5.0 (1c76011)
+- chore: bump version to 0.5.0 (c19e7cd)
+- Enhance port management and environment variable support in azure.yaml (#32) (24d0aac)
+- chore: update registry for v0.4.0 (77aafc6)
+- chore: bump version to 0.4.0 (013f4cc)
+- chore: update registry for v0.3.7 (a776022)
+- chore: bump version to 0.3.7 (cb0fe96)
+- Fix: update registry path in publish step to use GITHUB_WORKSPACE (8212e95)
+- chore: bump version to 0.3.6 (5128532)
+
 ## [0.5.0] - 2025-11-07
 
 - Enhance port management and environment variable support in azure.yaml (#32) (24d0aac)
