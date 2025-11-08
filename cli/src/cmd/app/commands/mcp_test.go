@@ -232,3 +232,51 @@ func TestMCPToolsNoDuplication(t *testing.T) {
 		}
 	}
 }
+
+func TestRunServicesToolDefinition(t *testing.T) {
+tool := newRunServicesTool()
+
+if tool.Tool.Name != "run_services" {
+t.Errorf("Expected tool name 'run_services', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("run_services tool should have a handler")
+}
+
+if tool.Tool.Description == "" {
+t.Error("run_services tool should have a description")
+}
+}
+
+func TestInstallDependenciesToolDefinition(t *testing.T) {
+tool := newInstallDependenciesTool()
+
+if tool.Tool.Name != "install_dependencies" {
+t.Errorf("Expected tool name 'install_dependencies', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("install_dependencies tool should have a handler")
+}
+
+if tool.Tool.Description == "" {
+t.Error("install_dependencies tool should have a description")
+}
+}
+
+func TestCheckRequirementsToolDefinition(t *testing.T) {
+tool := newCheckRequirementsTool()
+
+if tool.Tool.Name != "check_requirements" {
+t.Errorf("Expected tool name 'check_requirements', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("check_requirements tool should have a handler")
+}
+
+if tool.Tool.Description == "" {
+t.Error("check_requirements tool should have a description")
+}
+}

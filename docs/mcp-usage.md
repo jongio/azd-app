@@ -139,11 +139,13 @@ GitHub Copilot's MCP integration is coming soon. Check back for updates.
 
 ## Available Tools
 
-The MCP server provides three main tools focused on **runtime observability** of your running applications. These complement (not duplicate) azd's MCP tools which focus on project creation and infrastructure generation.
+The MCP server provides six tools that enable AI assistants to both monitor and operate on your azd app projects. These complement (not duplicate) azd's MCP tools which focus on project creation and infrastructure generation.
 
-### Our Tools (Runtime Observability)
+### Our Tools
 
-Our tools help you monitor and debug running applications:
+Our tools help you monitor, debug, and operate running applications:
+
+#### Observability Tools (Read-Only)
 
 ### 1. get_services
 
@@ -181,6 +183,64 @@ Get project metadata from azure.yaml.
 **Returns:**
 - Project name and directory
 - List of configured services
+
+#### Operational Tools (Actions)
+
+### 4. run_services
+
+Start development services defined in azure.yaml, Aspire, or docker compose.
+
+**Parameters:**
+- `projectDir` (optional): Project directory path
+- `runtime` (optional): Runtime mode ('azd', 'aspire', 'pnpm', 'docker-compose')
+
+**Returns:**
+- Status and PID of started services
+- Message to use get_services for status updates
+
+**Example:**
+```
+AI: "Start the application services"
+→ Calls run_services tool
+→ Returns: { status: "started", pid: 12345, message: "..." }
+```
+
+### 5. install_dependencies
+
+Install dependencies for all detected projects (Node.js, Python, .NET).
+
+**Parameters:**
+- `projectDir` (optional): Project directory path
+
+**Returns:**
+- Installation status and output
+- List of installed dependencies
+
+**Example:**
+```
+AI: "Install all project dependencies"
+→ Calls install_dependencies tool
+→ Returns: { status: "completed", output: "npm install complete..." }
+```
+
+### 6. check_requirements
+
+Check if all required prerequisites are installed and meet version requirements.
+
+**Parameters:**
+- `projectDir` (optional): Project directory path
+
+**Returns:**
+- Detailed status of each requirement
+- Version information
+- Missing or outdated tools
+
+**Example:**
+```
+AI: "Check if I have all the required tools installed"
+→ Calls check_requirements tool
+→ Returns: { requirements: [...], allMet: true }
+```
 
 ### azd's MCP Tools (Project Creation & Infrastructure)
 

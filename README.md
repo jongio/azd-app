@@ -76,13 +76,17 @@ Visual Studio Code extension for enhanced azd workflows and project management.
 Model Context Protocol server for AI-assisted development with Azure Developer CLI.
 
 - **Implementation**: Native Go implementation using `mark3labs/mcp-go`
-- **AI Integration**: Exposes service info and logs to AI assistants
-- **Tools**: get_services, get_service_logs, get_project_info
+- **AI Integration**: Enables AI assistants to monitor and operate on running applications
+- **Tools**: 6 tools (3 observability + 3 operational)
+  - **Observability**: get_services, get_service_logs, get_project_info
+  - **Operations**: run_services, install_dependencies, check_requirements
 - **Features**:
-  - Real-time service status and health information
+  - Real-time service status and health monitoring
   - Log streaming with filtering capabilities
+  - Start/stop services through AI commands
+  - Automatic dependency installation
+  - Prerequisite checking and validation
   - Azure deployment information access
-  - Project metadata and configuration
   - Zero external dependencies (no Node.js required)
 
 👉 [Usage Guide: Using with AI Assistants](./docs/mcp-usage.md)
