@@ -145,6 +145,16 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 		return nil, fmt.Errorf("no services to test")
 	}
 
+	// Initialize coverage aggregator if coverage is enabled
+	var coverageAggregator *CoverageAggregator
+	if o.config != nil && o.config.CoverageThreshold > 0 {
+		outputDir := o.config.OutputDir
+		if outputDir == "" {
+			outputDir = "./coverage"
+		}
+		coverageAggregator = NewCoverageAggregator(o.config.CoverageThreshold, outputDir)
+	}
+
 	// Execute tests for each service
 	for _, service := range services {
 		testResult, err := o.executeServiceTests(service, testType)
@@ -170,6 +180,28 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 		if !testResult.Success {
 			result.Success = false
 		}
+
+		// Add coverage if available
+		if coverageAggregator != nil && testResult.Coverage != nil {
+			_ = coverageAggregator.AddCoverage(service.Name, testResult.Coverage)
+		}
+	}
+
+	// Aggregate coverage and check threshold
+	if coverageAggregator != nil {
+		result.Coverage = coverageAggregator.Aggregate()
+		
+		// Check threshold
+		meetsThreshold, percentage := coverageAggregator.CheckThreshold()
+		if !meetsThreshold {
+			result.Success = false
+			result.Error = fmt.Sprintf("Coverage %.1f%% is below threshold %.1f%%", percentage, o.config.CoverageThreshold)
+		}
+
+		// Generate coverage reports in multiple formats
+		_ = coverageAggregator.GenerateReport("json")
+		_ = coverageAggregator.GenerateReport("html")
+		_ = coverageAggregator.GenerateReport("cobertura")
 	}
 
 	return result, nil
