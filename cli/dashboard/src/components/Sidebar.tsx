@@ -1,4 +1,4 @@
-import { Activity, Terminal, FileText, GitBranch, BarChart3 } from 'lucide-react'
+import { Activity, Terminal, FileText, GitBranch, BarChart3, Settings2, Zap } from 'lucide-react'
 
 interface SidebarProps {
   activeView: string
@@ -9,9 +9,11 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const navItems = [
     { id: 'resources', label: 'Resources', icon: Activity },
     { id: 'console', label: 'Console', icon: Terminal },
+    { id: 'metrics', label: 'Metrics', icon: BarChart3 },
+    { id: 'environment', label: 'Environment', icon: Settings2 },
+    { id: 'actions', label: 'Actions', icon: Zap },
     { id: 'structured', label: 'Structured', icon: FileText },
     { id: 'traces', label: 'Traces', icon: GitBranch },
-    { id: 'metrics', label: 'Metrics', icon: BarChart3 },
   ]
 
   return (

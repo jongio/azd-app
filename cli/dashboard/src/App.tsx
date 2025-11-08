@@ -4,6 +4,9 @@ import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceTable } from '@/components/ServiceTable'
 import { LogsView } from '@/components/LogsView'
 import { Sidebar } from '@/components/Sidebar'
+import { EnvironmentPanel } from '@/components/EnvironmentPanel'
+import { QuickActions } from '@/components/QuickActions'
+import { PerformanceMetrics } from '@/components/PerformanceMetrics'
 import type { Service } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
 
@@ -132,6 +135,42 @@ function App() {
             <h1 className="text-2xl font-semibold text-foreground">Console</h1>
           </div>
           <LogsView />
+        </>
+      )
+    }
+
+    if (activeView === 'environment') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-foreground">Environment Variables</h1>
+          </div>
+          <EnvironmentPanel services={services} />
+        </>
+      )
+    }
+
+    if (activeView === 'actions') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-foreground">Quick Actions</h1>
+          </div>
+          <QuickActions services={services} onAction={(action, serviceName) => {
+            console.log('Action triggered:', action, serviceName)
+            // Implement action handlers here
+          }} />
+        </>
+      )
+    }
+
+    if (activeView === 'metrics') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-foreground">Performance Metrics</h1>
+          </div>
+          <PerformanceMetrics services={services} />
         </>
       )
     }
