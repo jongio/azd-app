@@ -2,8 +2,13 @@ package serviceinfo
 
 import (
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
 func TestRefreshEnvironmentCache(t *testing.T) {
@@ -397,4 +402,252 @@ func splitEnv(env string) []string {
 		}
 	}
 	return []string{env}
+}
+
+func TestDetectFramework(t *testing.T) {
+	tests := []struct {
+		name     string
+		language string
+		expected string
+	}{
+		{
+			name:     "node language",
+			language: "node",
+			expected: "express",
+		},
+		{
+			name:     "python language",
+			language: "python",
+			expected: "flask",
+		},
+		{
+			name:     "dotnet language",
+			language: "dotnet",
+			expected: "aspnetcore",
+		},
+		{
+			name:     "unknown language returns language itself",
+			language: "java",
+			expected: "java",
+		},
+		{
+			name:     "empty language",
+			language: "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service.Service{Language: tt.language}
+			result := detectFramework(svc)
+			if result != tt.expected {
+				t.Errorf("detectFramework(%v) = %q, want %q", svc, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMergeServiceInfo(t *testing.T) {
+	now := time.Now()
+	
+	tests := []struct {
+		name            string
+		azureYaml       *service.AzureYaml
+		runningServices []*registry.ServiceRegistryEntry
+		azureServices   map[string]AzureServiceInfo
+		expectedCount   int
+		checkService    string
+		expectRunning   bool
+	}{
+		{
+			name: "merge azure.yaml with running service",
+			azureYaml: &service.AzureYaml{
+				Services: map[string]service.Service{
+					"api": {Language: "node", Project: "./api"},
+				},
+			},
+			runningServices: []*registry.ServiceRegistryEntry{
+				{
+					Name:      "api",
+					Status:    "running",
+					Health:    "healthy",
+					Port:      3000,
+					StartTime: now,
+				},
+			},
+			azureServices: map[string]AzureServiceInfo{},
+			expectedCount: 1,
+			checkService:  "api",
+			expectRunning: true,
+		},
+		{
+			name: "service in azure.yaml but not running",
+			azureYaml: &service.AzureYaml{
+				Services: map[string]service.Service{
+					"web": {Language: "python", Project: "./web"},
+				},
+			},
+			runningServices: []*registry.ServiceRegistryEntry{},
+			azureServices:   map[string]AzureServiceInfo{},
+			expectedCount:   1,
+			checkService:    "web",
+			expectRunning:   false,
+		},
+		{
+			name: "case insensitive service matching",
+			azureYaml: &service.AzureYaml{
+				Services: map[string]service.Service{
+					"API": {Language: "node"},
+				},
+			},
+			runningServices: []*registry.ServiceRegistryEntry{
+				{Name: "api", Status: "running", Port: 3000},
+			},
+			azureServices: map[string]AzureServiceInfo{},
+			expectedCount: 1,
+			checkService:  "API",
+			expectRunning: true,
+		},
+		{
+			name:            "empty inputs",
+			azureYaml:       &service.AzureYaml{Services: make(map[string]service.Service)},
+			runningServices: []*registry.ServiceRegistryEntry{},
+			azureServices:   map[string]AzureServiceInfo{},
+			expectedCount:   0,
+		},
+		{
+			name: "with azure service info",
+			azureYaml: &service.AzureYaml{
+				Services: map[string]service.Service{
+					"api": {Language: "node"},
+				},
+			},
+			runningServices: []*registry.ServiceRegistryEntry{},
+			azureServices: map[string]AzureServiceInfo{
+				"api": {URL: "https://api.azurewebsites.net"},
+			},
+			expectedCount: 1,
+			checkService:  "api",
+			expectRunning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := mergeServiceInfo(tt.azureYaml, tt.runningServices, tt.azureServices)
+			
+			if len(result) != tt.expectedCount {
+				t.Errorf("mergeServiceInfo() returned %d services, want %d", len(result), tt.expectedCount)
+			}
+			
+			if tt.checkService != "" {
+				found := false
+				for _, svc := range result {
+					if svc.Name == tt.checkService {
+						found = true
+						if tt.expectRunning {
+							if svc.Local == nil || svc.Local.Status != "running" {
+								t.Errorf("service %q should be running", tt.checkService)
+							}
+						} else {
+							if svc.Local != nil && svc.Local.Status == "running" {
+								t.Errorf("service %q should not be running", tt.checkService)
+							}
+						}
+					}
+				}
+				if !found {
+					t.Errorf("service %q not found in results", tt.checkService)
+				}
+			}
+		})
+	}
+}
+
+func TestParseAzureYaml(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupDir  func(t *testing.T) string
+		wantError bool
+	}{
+		{
+			name: "valid azure.yaml",
+			setupDir: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				yamlContent := `name: test-app
+services:
+  api:
+    language: node
+    project: ./api
+`
+				if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(yamlContent), 0600); err != nil {
+					t.Fatalf("failed to create azure.yaml: %v", err)
+				}
+				return tmpDir
+			},
+			wantError: false,
+		},
+		{
+			name: "missing azure.yaml returns empty structure",
+			setupDir: func(t *testing.T) string {
+				return t.TempDir()
+			},
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := tt.setupDir(t)
+			result, err := parseAzureYaml(dir)
+			
+			if tt.wantError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if result == nil {
+				t.Error("parseAzureYaml() returned nil result")
+			}
+		})
+	}
+}
+
+func TestGetServiceInfo(t *testing.T) {
+	tmpDir := t.TempDir()
+	
+	// Create a simple azure.yaml
+	yamlContent := `name: test
+services:
+  api:
+    language: node
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(yamlContent), 0600); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+	
+	services, err := GetServiceInfo(tmpDir)
+	if err != nil {
+		t.Errorf("GetServiceInfo() error = %v", err)
+	}
+	
+	if len(services) == 0 {
+		t.Error("GetServiceInfo() returned no services")
+	}
+	
+	// Should find the api service
+	found := false
+	for _, svc := range services {
+		if svc.Name == "api" {
+			found = true
+			if svc.Language != "node" {
+				t.Errorf("api service language = %q, want %q", svc.Language, "node")
+			}
+		}
+	}
+	if !found {
+		t.Error("api service not found in results")
+	}
 }
