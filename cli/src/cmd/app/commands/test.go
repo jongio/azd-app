@@ -2,8 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/spf13/cobra"
 )
 
@@ -97,15 +99,41 @@ func runTests(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to execute command dependencies: %w", err)
 	}
 
+	// Find azure.yaml
+	azureYamlPath, err := testing.FindAzureYaml()
+	if err != nil {
+		return fmt.Errorf("azure.yaml not found: %w", err)
+	}
+
+	if azureYamlPath == "" {
+		return fmt.Errorf("azure.yaml not found - create one to define services for testing")
+	}
+
+	// Create test configuration
+	config := &testing.TestConfig{
+		Parallel:          testParallel,
+		FailFast:          testFailFast,
+		CoverageThreshold: float64(testThreshold),
+		OutputDir:         testOutputDir,
+		Verbose:           testVerbose,
+	}
+
+	// Create orchestrator
+	orchestrator := testing.NewTestOrchestrator(config)
+
+	// Load services from azure.yaml
+	if err := orchestrator.LoadServicesFromAzureYaml(azureYamlPath); err != nil {
+		return fmt.Errorf("failed to load services: %w", err)
+	}
+
 	if !output.IsJSON() {
-		output.Step("🧪", "Running tests...")
+		output.Step("🧪", "Running %s tests...", testType)
 		if testDryRun {
-			output.Item("Dry run mode - no tests will be executed")
+			output.Item("Dry run mode - showing configuration")
 		}
 	}
 
-	// TODO: Implement actual test execution
-	// For now, just show what would be done
+	// Dry run - just show configuration
 	if testDryRun {
 		if !output.IsJSON() {
 			output.Step("📋", "Test configuration:")
@@ -124,6 +152,68 @@ func runTests(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// Placeholder implementation
-	return fmt.Errorf("test command not yet fully implemented - currently in Phase 1 (type definitions and command structure)")
+	// Parse service filter
+	var serviceFilter []string
+	if testServiceFilter != "" {
+		serviceFilter = strings.Split(testServiceFilter, ",")
+		for i := range serviceFilter {
+			serviceFilter[i] = strings.TrimSpace(serviceFilter[i])
+		}
+	}
+
+	// Execute tests
+	result, err := orchestrator.ExecuteTests(testType, serviceFilter)
+	if err != nil {
+		return fmt.Errorf("test execution failed: %w", err)
+	}
+
+	// Display results
+	displayTestResults(result)
+
+	// Check if tests passed
+	if !result.Success {
+		return fmt.Errorf("tests failed")
+	}
+
+	if testCoverage && testThreshold > 0 {
+		// TODO: Check coverage threshold
+		if !output.IsJSON() {
+			output.Item("Coverage threshold check not yet implemented")
+		}
+	}
+
+	return nil
+}
+
+// displayTestResults displays test results in the console.
+func displayTestResults(result *testing.AggregateResult) {
+	if output.IsJSON() {
+		// TODO: Output JSON format
+		return
+	}
+
+	output.Section("📊", "Test Results")
+
+	for _, svcResult := range result.Services {
+		if svcResult.Success {
+			output.Success("✓ %s: %d passed, %d total (%.2fs)",
+				svcResult.Service, svcResult.Passed, svcResult.Total, svcResult.Duration)
+		} else {
+			output.Error("✗ %s: %d passed, %d failed, %d total (%.2fs)",
+				svcResult.Service, svcResult.Passed, svcResult.Failed, svcResult.Total, svcResult.Duration)
+			if svcResult.Error != "" {
+				output.Item("Error: %s", svcResult.Error)
+			}
+		}
+	}
+
+	output.Section("━", "Summary")
+	if result.Success {
+		output.Success("✓ All tests passed!")
+	} else {
+		output.Error("✗ Tests failed")
+	}
+	output.Item("Total: %d passed, %d failed, %d skipped, %d total",
+		result.Passed, result.Failed, result.Skipped, result.Total)
+	output.Item("Duration: %.2fs", result.Duration)
 }
