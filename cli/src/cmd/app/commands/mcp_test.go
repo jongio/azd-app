@@ -280,3 +280,75 @@ if tool.Tool.Description == "" {
 t.Error("check_requirements tool should have a description")
 }
 }
+
+func TestStopServicesToolDefinition(t *testing.T) {
+tool := newStopServicesTool()
+
+if tool.Tool.Name != "stop_services" {
+t.Errorf("Expected tool name 'stop_services', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("stop_services tool should have a handler")
+}
+}
+
+func TestRestartServiceToolDefinition(t *testing.T) {
+tool := newRestartServiceTool()
+
+if tool.Tool.Name != "restart_service" {
+t.Errorf("Expected tool name 'restart_service', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("restart_service tool should have a handler")
+}
+}
+
+func TestGetEnvironmentVariablesToolDefinition(t *testing.T) {
+tool := newGetEnvironmentVariablesTool()
+
+if tool.Tool.Name != "get_environment_variables" {
+t.Errorf("Expected tool name 'get_environment_variables', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("get_environment_variables tool should have a handler")
+}
+}
+
+func TestSetEnvironmentVariableToolDefinition(t *testing.T) {
+tool := newSetEnvironmentVariableTool()
+
+if tool.Tool.Name != "set_environment_variable" {
+t.Errorf("Expected tool name 'set_environment_variable', got '%s'", tool.Tool.Name)
+}
+
+if tool.Handler == nil {
+t.Error("set_environment_variable tool should have a handler")
+}
+}
+
+func TestAzureYamlResourceDefinition(t *testing.T) {
+resource := newAzureYamlResource()
+
+if resource.Resource.Name != "azure.yaml" {
+t.Errorf("Expected resource name 'azure.yaml', got '%s'", resource.Resource.Name)
+}
+
+if resource.Handler == nil {
+t.Error("azure.yaml resource should have a handler")
+}
+}
+
+func TestServiceConfigResourceDefinition(t *testing.T) {
+resource := newServiceConfigResource()
+
+if resource.Resource.Name != "service-configs" {
+t.Errorf("Expected resource name 'service-configs', got '%s'", resource.Resource.Name)
+}
+
+if resource.Handler == nil {
+t.Error("service-configs resource should have a handler")
+}
+}

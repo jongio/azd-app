@@ -137,11 +137,19 @@ Both services are deployed and accessible.
 
 GitHub Copilot's MCP integration is coming soon. Check back for updates.
 
-## Available Tools
+## Available Tools and Resources
 
-The MCP server provides six tools that enable AI assistants to both monitor and operate on your azd app projects. These complement (not duplicate) azd's MCP tools which focus on project creation and infrastructure generation.
+The MCP server provides **10 tools** and **2 resources** that enable AI assistants to both monitor and operate on your azd app projects. These complement (not duplicate) azd's MCP tools which focus on project creation and infrastructure generation.
 
-### Our Tools
+### System Instructions
+
+The MCP server includes built-in guidance for AI assistants on best practices:
+- Always check current state with `get_services` before starting/stopping services
+- Use `check_requirements` before installing dependencies
+- Use `get_service_logs` to diagnose issues
+- Read the `azure.yaml` resource to understand project structure
+
+### Tools
 
 Our tools help you monitor, debug, and operate running applications:
 
@@ -205,7 +213,29 @@ AI: "Start the application services"
 → Returns: { status: "started", pid: 12345, message: "..." }
 ```
 
-### 5. install_dependencies
+### 5. stop_services
+
+Stop all running development services.
+
+**Parameters:**
+- `projectDir` (optional): Project directory path
+
+**Returns:**
+- Guidance on how to stop services
+- Tip to use get_services to find PIDs
+
+### 6. restart_service
+
+Restart a specific service.
+
+**Parameters:**
+- `serviceName` (required): Name of the service to restart
+- `projectDir` (optional): Project directory path
+
+**Returns:**
+- Guidance on how to restart the service
+
+### 7. install_dependencies
 
 Install dependencies for all detected projects (Node.js, Python, .NET).
 
@@ -223,7 +253,7 @@ AI: "Install all project dependencies"
 → Returns: { status: "completed", output: "npm install complete..." }
 ```
 
-### 6. check_requirements
+### 8. check_requirements
 
 Check if all required prerequisites are installed and meet version requirements.
 
@@ -240,6 +270,89 @@ Check if all required prerequisites are installed and meet version requirements.
 AI: "Check if I have all the required tools installed"
 → Calls check_requirements tool
 → Returns: { requirements: [...], allMet: true }
+```
+
+#### Configuration Tools
+
+### 9. get_environment_variables
+
+Get environment variables configured for services.
+
+**Parameters:**
+- `serviceName` (optional): Filter by service name
+- `projectDir` (optional): Project directory path
+
+**Returns:**
+- Environment variables for all services or filtered service
+- Variable names and values
+
+**Example:**
+```
+AI: "What environment variables are set for the API service?"
+→ Calls get_environment_variables with serviceName="api"
+→ Returns: { "api": { "PORT": "3000", "NODE_ENV": "development" } }
+```
+
+### 10. set_environment_variable
+
+Get guidance on how to set environment variables for services.
+
+**Parameters:**
+- `name` (required): Environment variable name
+- `value` (required): Environment variable value
+- `serviceName` (optional): Service to apply to
+
+**Returns:**
+- Guidance on three methods to set environment variables:
+  1. Update azure.yaml
+  2. Use .env file
+  3. Export in shell
+
+**Example:**
+```
+AI: "Set DATABASE_URL environment variable"
+→ Calls set_environment_variable
+→ Returns: { guidance with three options for setting the variable }
+```
+
+### Resources
+
+The MCP server exposes project configuration as readable resources:
+
+#### 1. azure.yaml
+
+**URI:** `azure://project/azure.yaml`
+**Type:** YAML document
+
+The project's azure.yaml configuration file. AI assistants can read this to understand:
+- Project structure
+- Service definitions
+- Dependencies
+- Runtime configurations
+
+**Example Usage:**
+```
+AI: "What services are defined in this project?"
+→ Reads azure.yaml resource
+→ Analyzes service definitions
+→ Lists services with their configurations
+```
+
+#### 2. service-configs
+
+**URI:** `azure://project/services/configs`
+**Type:** JSON document
+
+Consolidated service configurations including:
+- Service metadata (name, language, framework)
+- Environment variables
+- Project paths
+
+**Example Usage:**
+```
+AI: "Show me the configuration for all services"
+→ Reads service-configs resource
+→ Returns structured JSON of all service configs
 ```
 
 ### azd's MCP Tools (Project Creation & Infrastructure)
