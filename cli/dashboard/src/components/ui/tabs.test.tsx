@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import React from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 describe('Tabs', () => {
@@ -327,7 +328,6 @@ describe('Tabs', () => {
         )
       }
       
-      const { default: React } = await import('react')
       render(<TestComponent />)
       
       expect(screen.getByText('Content 1')).toBeInTheDocument()
