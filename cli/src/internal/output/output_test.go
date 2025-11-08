@@ -388,3 +388,166 @@ func TestErrorWithArgs(t *testing.T) {
 		t.Errorf("Error() output = %q, want to contain 'Error message 456'", output)
 	}
 }
+
+func TestStatus(t *testing.T) {
+	tests := []struct {
+		status string
+		want   string
+	}{
+		{"success", "success"},
+		{"running", "running"},
+		{"error", "error"},
+		{"warning", "warning"},
+		{"unknown", "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			result := Status(tt.status)
+			if !strings.Contains(result, tt.want) {
+				t.Errorf("Status(%s) = %q, want to contain %q", tt.status, result, tt.want)
+			}
+		})
+	}
+}
+
+func TestProgressBar(t *testing.T) {
+	tests := []struct {
+		name    string
+		current int
+		total   int
+		width   int
+		wantLen int
+	}{
+		{"empty", 0, 10, 10, 0},
+		{"half", 5, 10, 10, 18}, // "[█████░░░░░] 50%"
+		{"full", 10, 10, 10, 19}, // "[██████████] 100%"
+		{"zero total", 5, 0, 10, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ProgressBar(tt.current, tt.total, tt.width)
+			if tt.total == 0 {
+				if result != "" {
+					t.Errorf("ProgressBar() with zero total = %q, want empty string", result)
+				}
+			} else if len(result) == 0 && tt.wantLen > 0 {
+				t.Errorf("ProgressBar() = empty, want non-empty")
+			}
+		})
+	}
+}
+
+func TestTable(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	headers := []string{"Name", "Status"}
+	rows := []TableRow{
+		{"Name": "Service1", "Status": "running"},
+		{"Name": "Service2", "Status": "stopped"},
+	}
+
+	Table(headers, rows)
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	// Check if table contains expected content
+	if !strings.Contains(output, "Name") {
+		t.Errorf("Table() output = %q, want to contain 'Name'", output)
+	}
+	if !strings.Contains(output, "Service1") {
+		t.Errorf("Table() output = %q, want to contain 'Service1'", output)
+	}
+}
+
+func TestTableEmpty(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	headers := []string{"Name", "Status"}
+	var rows []TableRow
+
+	Table(headers, rows)
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	// Empty table should produce no output
+	if output != "" {
+		t.Errorf("Table() with empty rows = %q, want empty output", output)
+	}
+}
+
+func TestLabelColored(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	LabelColored("Status", "running", Green)
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	if !strings.Contains(output, "Status") {
+		t.Errorf("LabelColored() output = %q, want to contain 'Status'", output)
+	}
+	if !strings.Contains(output, "running") {
+		t.Errorf("LabelColored() output = %q, want to contain 'running'", output)
+	}
+}
+
+func TestItemInfo(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	ItemInfo("Test info item")
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	if !strings.Contains(output, "Test info item") {
+		t.Errorf("ItemInfo() output = %q, want to contain 'Test info item'", output)
+	}
+}

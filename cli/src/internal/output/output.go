@@ -43,6 +43,17 @@ const (
 	BrightCyan    = "\033[96m"
 )
 
+// Unicode symbols for modern CLI output
+const (
+	SymbolCheck   = "✓"
+	SymbolCross   = "✗"
+	SymbolWarning = "⚠"
+	SymbolInfo    = "ℹ"
+	SymbolArrow   = "→"
+	SymbolDot     = "•"
+	SymbolSpinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" // Spinner frames
+)
+
 // Global output format setting
 var globalFormat Format = FormatDefault
 
@@ -110,25 +121,25 @@ func Section(icon, text string) {
 // Success prints a success message with green checkmark
 func Success(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s✓%s %s\n", BrightGreen, Reset, msg)
+	fmt.Printf("%s%s%s %s\n", BrightGreen, SymbolCheck, Reset, msg)
 }
 
 // Error prints an error message with red X
 func Error(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s✗%s %s\n", BrightRed, Reset, msg)
+	fmt.Printf("%s%s%s %s\n", BrightRed, SymbolCross, Reset, msg)
 }
 
 // Warning prints a warning message with yellow triangle
 func Warning(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s⚠%s  %s\n", BrightYellow, Reset, msg)
+	fmt.Printf("%s%s%s  %s\n", BrightYellow, SymbolWarning, Reset, msg)
 }
 
 // Info prints an info message with blue info icon
 func Info(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%sℹ%s  %s\n", BrightBlue, Reset, msg)
+	fmt.Printf("%s%s%s  %s\n", BrightBlue, SymbolInfo, Reset, msg)
 }
 
 // Step prints a step message with an icon
@@ -146,24 +157,30 @@ func Item(format string, args ...interface{}) {
 // ItemSuccess prints an indented success item
 func ItemSuccess(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s✓%s %s\n", Green, Reset, msg)
+	fmt.Printf("   %s%s%s %s\n", Green, SymbolCheck, Reset, msg)
 }
 
 // ItemError prints an indented error item
 func ItemError(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s✗%s %s\n", Red, Reset, msg)
+	fmt.Printf("   %s%s%s %s\n", Red, SymbolCross, Reset, msg)
 }
 
 // ItemWarning prints an indented warning item
 func ItemWarning(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s⚠%s  %s\n", Yellow, Reset, msg)
+	fmt.Printf("   %s%s%s  %s\n", Yellow, SymbolWarning, Reset, msg)
+}
+
+// ItemInfo prints an indented info item
+func ItemInfo(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Printf("   %s%s%s  %s\n", Cyan, SymbolInfo, Reset, msg)
 }
 
 // Divider prints a horizontal divider
 func Divider() {
-	fmt.Printf("\n%s%s%s\n", Dim, strings.Repeat("-", 75), Reset)
+	fmt.Printf("\n%s%s%s\n", Dim, strings.Repeat("─", 75), Reset)
 }
 
 // Newline prints a blank line
@@ -174,6 +191,11 @@ func Newline() {
 // Label prints a label and value pair
 func Label(label, value string) {
 	fmt.Printf("   %s%-12s%s %s\n", Dim, label+":", Reset, value)
+}
+
+// LabelColored prints a label and colored value pair
+func LabelColored(label, value, color string) {
+	fmt.Printf("   %s%-12s%s %s%s%s\n", Dim, label+":", Reset, color, value, Reset)
 }
 
 // Highlight prints highlighted text
@@ -203,3 +225,76 @@ func URL(url string) string {
 func Count(n int) string {
 	return Bold + fmt.Sprintf("%d", n) + Reset
 }
+
+// Status prints a status badge with appropriate color
+func Status(status string) string {
+	switch strings.ToLower(status) {
+	case "success", "ok", "running", "healthy":
+		return BrightGreen + status + Reset
+	case "warning", "pending", "starting":
+		return BrightYellow + status + Reset
+	case "error", "failed", "unhealthy":
+		return BrightRed + status + Reset
+	case "info", "unknown":
+		return BrightBlue + status + Reset
+	default:
+		return status
+	}
+}
+
+// ProgressBar prints a simple progress bar
+func ProgressBar(current, total int, width int) string {
+	if total == 0 {
+		return ""
+	}
+	percent := float64(current) / float64(total)
+	filled := int(percent * float64(width))
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+	return fmt.Sprintf("[%s] %d%%", bar, int(percent*100))
+}
+
+// Table prints a simple table
+type TableRow map[string]string
+
+func Table(headers []string, rows []TableRow) {
+	if len(rows) == 0 {
+		return
+	}
+
+	// Calculate column widths
+	widths := make(map[string]int)
+	for _, header := range headers {
+		widths[header] = len(header)
+	}
+	for _, row := range rows {
+		for _, header := range headers {
+			if len(row[header]) > widths[header] {
+				widths[header] = len(row[header])
+			}
+		}
+	}
+
+	// Print header
+	fmt.Print("   ")
+	for _, header := range headers {
+		fmt.Printf("%s%-*s%s  ", Bold, widths[header], header, Reset)
+	}
+	fmt.Println()
+
+	// Print separator
+	fmt.Print("   ")
+	for _, header := range headers {
+		fmt.Print(strings.Repeat("─", widths[header]) + "  ")
+	}
+	fmt.Println()
+
+	// Print rows
+	for _, row := range rows {
+		fmt.Print("   ")
+		for _, header := range headers {
+			fmt.Printf("%-*s  ", widths[header], row[header])
+		}
+		fmt.Println()
+	}
+}
+

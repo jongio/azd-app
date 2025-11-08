@@ -11,6 +11,12 @@ var Version = "dev"
 // BuildTime is set at build time via -ldflags.
 var BuildTime = "unknown"
 
+// VersionInfo represents version information for JSON output.
+type VersionInfo struct {
+	Version   string `json:"version"`
+	BuildTime string `json:"buildTime"`
+}
+
 // NewVersionCommand creates the version command.
 func NewVersionCommand() *cobra.Command {
 	return &cobra.Command{
@@ -18,6 +24,15 @@ func NewVersionCommand() *cobra.Command {
 		Short: "Show version information",
 		Long:  `Display the version of the azd app extension.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// JSON output
+			if output.IsJSON() {
+				return output.PrintJSON(VersionInfo{
+					Version:   Version,
+					BuildTime: BuildTime,
+				})
+			}
+
+			// Default output
 			output.Header("azd app extension")
 			output.Label("Version", Version)
 			output.Label("Built", BuildTime)
