@@ -20,6 +20,7 @@ const (
 	coverageDir        = "coverage"
 	extensionFile      = "extension.yaml"
 	dashboardDir       = "dashboard"
+	mcpDir             = "../mcp"
 	defaultTestTimeout = "10m"
 	extensionID        = "jongio.azd.app"
 )
@@ -47,7 +48,7 @@ func getVersion() (string, error) {
 
 // All runs lint, test, and build in dependency order.
 func All() error {
-	mg.Deps(Fmt, DashboardBuild, Lint, Test)
+	mg.Deps(Fmt, DashboardBuild, MCPBuild, Lint, Test)
 	return Build()
 }
 
@@ -354,6 +355,7 @@ func Preflight() error {
 		{"Formatting code", Fmt},
 		{"Building and linting dashboard", DashboardBuild},
 		{"Running dashboard tests", DashboardTest},
+		{"Building MCP server", MCPBuild},
 		{"Building Go binary", Build},
 		{"Running standard linting", Lint},
 		{"Running quick security scan", runQuickSecurity},
@@ -461,6 +463,26 @@ func DashboardTest() error {
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
 	return sh.RunV("npm", "run", "dev", "--prefix", dashboardDir)
+}
+
+// MCPBuild builds the MCP server TypeScript code.
+func MCPBuild() error {
+	fmt.Println("Building MCP server...")
+
+	// Install dependencies
+	fmt.Println("Installing MCP server dependencies...")
+	if err := sh.RunWith(map[string]string{"npm_config_update_notifier": "false"}, "npm", "install", "--prefix", mcpDir); err != nil {
+		return fmt.Errorf("npm install failed: %w", err)
+	}
+
+	// Run TypeScript compilation
+	fmt.Println("Building MCP server...")
+	if err := sh.RunV("npm", "run", "build", "--prefix", mcpDir); err != nil {
+		return fmt.Errorf("MCP server build failed: %w", err)
+	}
+
+	fmt.Println("✅ MCP server build complete!")
+	return nil
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).
