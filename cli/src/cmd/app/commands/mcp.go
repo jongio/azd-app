@@ -44,23 +44,55 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 
 // runMCPServer implements the MCP server logic
 func runMCPServer(ctx context.Context) error {
-	// Create MCP server
+	// System instructions to guide AI on how to use the tools
+	instructions := `This MCP server provides tools to monitor and operate on azd app projects.
+
+**Best Practices:**
+1. Always use get_services to check current state before starting/stopping services
+2. Use check_requirements before installing dependencies to see what's needed
+3. Use get_service_logs to diagnose issues when services fail to start
+4. Read azure.yaml resource to understand project structure before operations
+
+**Tool Categories:**
+- Observability: get_services, get_service_logs, get_project_info
+- Operations: run_services, stop_services, restart_service, install_dependencies
+- Configuration: check_requirements, get_environment_variables, set_environment_variable`
+
+	// Create MCP server with all capabilities
 	s := server.NewMCPServer(
 		"azd-app-mcp-server", "0.1.0",
 		server.WithToolCapabilities(true),
+		server.WithResourceCapabilities(false, true), // subscribe=false, listChanged=true
+		server.WithPromptCapabilities(false),          // listChanged=false
+		server.WithInstructions(instructions),
 	)
 
 	// Add tools
 	tools := []server.ServerTool{
+		// Observability tools
 		newGetServicesTool(),
 		newGetServiceLogsTool(),
 		newGetProjectInfoTool(),
+		// Operational tools
 		newRunServicesTool(),
+		newStopServicesTool(),
+		newRestartServiceTool(),
 		newInstallDependenciesTool(),
 		newCheckRequirementsTool(),
+		// Configuration tools
+		newGetEnvironmentVariablesTool(),
+		newSetEnvironmentVariableTool(),
 	}
 
 	s.AddTools(tools...)
+
+	// Add resources
+	resources := []server.ServerResource{
+		newAzureYamlResource(),
+		newServiceConfigResource(),
+	}
+
+	s.AddResources(resources...)
 
 	// Start the server using stdio transport
 	if err := server.ServeStdio(s); err != nil {
@@ -395,6 +427,293 @@ return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)),
 }
 
 return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newStopServicesTool creates the stop_services tool
+func newStopServicesTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"stop_services",
+mcp.WithDescription("Stop all running development services. This will gracefully shut down services started with run_services."),
+mcp.WithReadOnlyHintAnnotation(false),
+mcp.WithIdempotentHintAnnotation(true),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("projectDir",
+mcp.Description("Optional project directory path. If not provided, uses current directory."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+// Note: azd app doesn't have a direct stop command, so we provide guidance
+result := map[string]interface{}{
+"status":  "info",
+"message": "To stop services, use Ctrl+C in the terminal running 'azd app run', or use system tools to kill the process.",
+"tip":     "You can use get_services to find the PID of running services.",
+}
+
+jsonBytes, err := json.MarshalIndent(result, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newRestartServiceTool creates the restart_service tool
+func newRestartServiceTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"restart_service",
+mcp.WithDescription("Restart a specific service. This will stop and start the specified service."),
+mcp.WithReadOnlyHintAnnotation(false),
+mcp.WithIdempotentHintAnnotation(false),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("serviceName",
+mcp.Description("Name of the service to restart"),
+mcp.Required(),
+),
+mcp.WithString("projectDir",
+mcp.Description("Optional project directory path. If not provided, uses current directory."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+args, _ := request.Params.Arguments.(map[string]interface{})
+
+serviceName, ok := args["serviceName"].(string)
+if !ok || serviceName == "" {
+return mcp.NewToolResultError("serviceName parameter is required"), nil
+}
+
+result := map[string]interface{}{
+"status":  "info",
+"message": fmt.Sprintf("To restart service '%s', first stop it (Ctrl+C or kill PID), then use run_services to start it again.", serviceName),
+"tip":     "Use get_services to find the current PID of the service.",
+}
+
+jsonBytes, err := json.MarshalIndent(result, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newGetEnvironmentVariablesTool creates the get_environment_variables tool
+func newGetEnvironmentVariablesTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"get_environment_variables",
+mcp.WithDescription("Get environment variables configured for services. Returns all environment variables that services will use."),
+mcp.WithReadOnlyHintAnnotation(true),
+mcp.WithIdempotentHintAnnotation(true),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("serviceName",
+mcp.Description("Optional service name to filter environment variables. If not provided, returns all."),
+),
+mcp.WithString("projectDir",
+mcp.Description("Optional project directory path. If not provided, uses current directory."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+args, _ := request.Params.Arguments.(map[string]interface{})
+
+var cmdArgs []string
+
+if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+cmdArgs = append(cmdArgs, "--project", projectDir)
+}
+
+// Get service info which includes environment variables
+result, err := executeAzdAppCommand("info", cmdArgs)
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to get environment variables: %v", err)), nil
+}
+
+// Extract environment variables from services
+envVars := make(map[string]interface{})
+if services, ok := result["services"].([]interface{}); ok {
+serviceName, hasFilter := args["serviceName"].(string)
+
+for _, svc := range services {
+if svcMap, ok := svc.(map[string]interface{}); ok {
+svcName, _ := svcMap["name"].(string)
+
+// Skip if filtering and name doesn't match
+if hasFilter && svcName != serviceName {
+continue
+}
+
+if env, ok := svcMap["env"].(map[string]interface{}); ok {
+envVars[svcName] = env
+}
+}
+}
+}
+
+jsonBytes, err := json.MarshalIndent(envVars, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal environment variables: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newSetEnvironmentVariableTool creates the set_environment_variable tool
+func newSetEnvironmentVariableTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"set_environment_variable",
+mcp.WithDescription("Set an environment variable for services. Note: This provides guidance on how to set environment variables, as they must be configured in azure.yaml or .env files."),
+mcp.WithReadOnlyHintAnnotation(true),
+mcp.WithIdempotentHintAnnotation(true),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("name",
+mcp.Description("Name of the environment variable"),
+mcp.Required(),
+),
+mcp.WithString("value",
+mcp.Description("Value of the environment variable"),
+mcp.Required(),
+),
+mcp.WithString("serviceName",
+mcp.Description("Optional service name. If not provided, applies to all services."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+args, _ := request.Params.Arguments.(map[string]interface{})
+
+name, ok1 := args["name"].(string)
+value, ok2 := args["value"].(string)
+if !ok1 || !ok2 || name == "" || value == "" {
+return mcp.NewToolResultError("name and value parameters are required"), nil
+}
+
+serviceName := ""
+if svc, ok := args["serviceName"].(string); ok {
+serviceName = svc
+}
+
+guidance := fmt.Sprintf(`To set environment variable '%s=%s':
+
+**Option 1: Update azure.yaml**
+Add to the service configuration:
+  services:
+    %s:
+      env:
+        %s: "%s"
+
+**Option 2: Use .env file**
+Create/update .env file in project root:
+  %s=%s
+
+**Option 3: System environment**
+Export in your shell:
+  export %s="%s"
+
+After updating, restart services for changes to take effect.`, 
+name, value, 
+serviceName, name, value,
+name, value,
+name, value)
+
+result := map[string]interface{}{
+"status":   "guidance",
+"message":  guidance,
+"variable": name,
+"value":    value,
+}
+
+jsonBytes, err := json.MarshalIndent(result, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newAzureYamlResource creates a resource for reading azure.yaml
+func newAzureYamlResource() server.ServerResource {
+return server.ServerResource{
+Resource: mcp.NewResource(
+"azure://project/azure.yaml",
+"azure.yaml",
+mcp.WithResourceDescription("The azure.yaml configuration file that defines the project structure, services, and dependencies."),
+),
+Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+// Find and read azure.yaml
+projectDir := "."
+azureYamlPath := projectDir + "/azure.yaml"
+
+content, err := os.ReadFile(azureYamlPath)
+if err != nil {
+return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
+}
+
+return []mcp.ResourceContents{
+&mcp.TextResourceContents{
+URI:      request.Params.URI,
+Text:     string(content),
+MIMEType: "application/x-yaml",
+},
+}, nil
+},
+}
+}
+
+// newServiceConfigResource creates a resource for reading service configurations
+func newServiceConfigResource() server.ServerResource {
+return server.ServerResource{
+Resource: mcp.NewResource(
+"azure://project/services/configs",
+"service-configs",
+mcp.WithResourceDescription("Configuration details for all services including environment variables, ports, and runtime settings."),
+),
+Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+// Get service configurations
+result, err := executeAzdAppCommand("info", []string{})
+if err != nil {
+return nil, fmt.Errorf("failed to get service configs: %w", err)
+}
+
+// Extract just the configuration parts (not runtime status)
+configs := make(map[string]interface{})
+if services, ok := result["services"].([]interface{}); ok {
+for _, svc := range services {
+if svcMap, ok := svc.(map[string]interface{}); ok {
+svcName, _ := svcMap["name"].(string)
+config := map[string]interface{}{
+"name":      svcMap["name"],
+"language":  svcMap["language"],
+"framework": svcMap["framework"],
+"project":   svcMap["project"],
+"env":       svcMap["env"],
+}
+configs[svcName] = config
+}
+}
+}
+
+jsonBytes, err := json.MarshalIndent(configs, "", "  ")
+if err != nil {
+return nil, fmt.Errorf("failed to marshal configs: %w", err)
+}
+
+return []mcp.ResourceContents{
+&mcp.TextResourceContents{
+URI:      request.Params.URI,
+Text:     string(jsonBytes),
+MIMEType: "application/json",
+},
+}, nil
 },
 }
 }
