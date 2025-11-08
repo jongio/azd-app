@@ -7,7 +7,7 @@ The `deps` command automatically detects project types and installs all dependen
 ## Purpose
 
 - **Auto-Detection**: Automatically identify project types in your workspace
-- **Package Manager Selection**: Choose the correct package manager based on lock files
+- **Package Manager Selection**: Choose the correct package manager based on package.json packageManager field or lock files
 - **Multi-Project Support**: Handle multiple projects with different languages
 - **Dependency Installation**: Install all required dependencies
 - **Virtual Environment Setup**: Create Python virtual environments automatically
@@ -98,10 +98,11 @@ This command has no additional flags. It automatically detects and installs depe
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  Detection Priority:                                         │
-│  1. pnpm-lock.yaml → pnpm                                    │
-│  2. yarn.lock → yarn                                         │
-│  3. package-lock.json → npm                                  │
-│  4. package.json → npm (default)                             │
+│  1. packageManager field in package.json (e.g., "pnpm@8.15") │
+│  2. pnpm-lock.yaml → pnpm                                    │
+│  3. yarn.lock → yarn                                         │
+│  4. package-lock.json → npm                                  │
+│  5. package.json → npm (default)                             │
 └─────────────────────────────────────────────────────────────┘
                             ↓
                     ┌───────┴────────┐
@@ -657,12 +658,16 @@ npm install -g pnpm
 
 ### Issue: Wrong package manager detected
 
-**Cause**: Multiple lock files exist
+**Cause**: Multiple lock files exist or packageManager field in package.json is incorrect
 
 **Solution**:
 ```bash
-# Clean up conflicting lock files
+# Option 1: Set explicit packageManager in package.json (recommended)
 cd src/web
+# Edit package.json and add:
+# "packageManager": "pnpm@8.15.0"
+
+# Option 2: Clean up conflicting lock files
 rm package-lock.json  # If using pnpm
 # Keep only one lock file type
 ```
