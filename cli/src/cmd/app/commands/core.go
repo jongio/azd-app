@@ -88,6 +88,15 @@ func init() {
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Failed to register run command: %v\n", err)
 	}
+
+	// test depends on reqs (test tools should be installed)
+	if err := cmdOrchestrator.Register(&orchestrator.Command{
+		Name:         "test",
+		Dependencies: []string{"reqs"},
+		Execute:      executeTest,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to register test command: %v\n", err)
+	}
 }
 
 // createCacheManager creates a cache manager with fallback to disabled cache on error.
@@ -440,6 +449,17 @@ func executeRun() error {
 		output.Section("🚀", "Starting services (reqs and deps already checked)...")
 	}
 	// The actual run logic is handled by the run command's RunE function
+	// This is just a marker to ensure the dependency chain is executed
+	return nil
+}
+
+// executeTest is the function executed by the orchestrator for the test command.
+// This ensures reqs are run before executing tests.
+func executeTest() error {
+	if !output.IsJSON() {
+		output.Section("🧪", "Preparing to run tests (reqs already checked)...")
+	}
+	// The actual test logic is handled by the test command's RunE function
 	// This is just a marker to ensure the dependency chain is executed
 	return nil
 }

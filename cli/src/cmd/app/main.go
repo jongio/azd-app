@@ -38,6 +38,7 @@ func main() {
 		commands.NewReqsCommand(),
 		commands.NewRunCommand(),
 		commands.NewDepsCommand(),
+		commands.NewTestCommand(),
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
 		commands.NewVersionCommand(),
