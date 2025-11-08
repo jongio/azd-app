@@ -5,14 +5,16 @@ import (
 	"os"
 
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
+	"github.com/jongio/azd-app/cli/src/internal/logging"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	outputFormat string
-	debugMode    bool
+	outputFormat    string
+	debugMode       bool
+	structuredLogs  bool
 )
 
 func main() {
@@ -25,6 +27,19 @@ func main() {
 			if debugMode {
 				os.Setenv("AZD_APP_DEBUG", "true")
 			}
+			
+			// Configure logging
+			logging.SetupLogger(debugMode, structuredLogs)
+			
+			// Log startup in debug mode
+			if debugMode {
+				logging.Debug("Starting azd app extension", 
+					"version", commands.Version,
+					"command", cmd.Name(),
+					"args", args,
+				)
+			}
+			
 			return output.SetFormat(outputFormat)
 		},
 	}
@@ -32,6 +47,7 @@ func main() {
 	// Add global flags
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "default", "Output format (default, json)")
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().BoolVar(&structuredLogs, "structured-logs", false, "Enable structured JSON logging to stderr")
 
 	// Register all commands
 	rootCmd.AddCommand(
