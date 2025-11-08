@@ -93,7 +93,7 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 		// For Go, we need to replace the command with dlv
 		dlvPath, err := exec.LookPath("dlv")
 		if err != nil {
-			return fmt.Errorf("could not find 'dlv' debugger in PATH: %w", err)
+			return fmt.Errorf("could not find 'dlv' debugger in PATH. Install it with: go install github.com/go-delve/delve/cmd/dlv@latest. Original error: %w", err)
 		}
 		originalArgs := cmd.Args[1:] // Save original args
 		cmd.Path = dlvPath
