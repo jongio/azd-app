@@ -139,7 +139,11 @@ GitHub Copilot's MCP integration is coming soon. Check back for updates.
 
 ## Available Tools
 
-The MCP server provides three main tools:
+The MCP server provides three main tools focused on **runtime observability** of your running applications. These complement (not duplicate) azd's MCP tools which focus on project creation and infrastructure generation.
+
+### Our Tools (Runtime Observability)
+
+Our tools help you monitor and debug running applications:
 
 ### 1. get_services
 
@@ -177,6 +181,20 @@ Get project metadata from azure.yaml.
 **Returns:**
 - Project name and directory
 - List of configured services
+
+### azd's MCP Tools (Project Creation & Infrastructure)
+
+For reference, azd's built-in MCP tools focus on different capabilities:
+- **architecture_planning**: Plan Azure service selection and architecture design
+- **discovery_analysis**: Analyze codebases to discover application components
+- **azure_yaml_generation**: Generate azure.yaml configuration files
+- **infrastructure_generation**: Generate Bicep/Terraform infrastructure code
+- **docker_generation**: Create Dockerfiles for containerization
+- **project_validation**: Validate azd project structure
+- **error_troubleshooting**: Help diagnose azd command errors
+- And more...
+
+**Key Difference**: azd's MCP tools help you **create and configure** new projects, while our tools help you **monitor and debug** running applications. They work together seamlessly!
 
 ## Troubleshooting
 
