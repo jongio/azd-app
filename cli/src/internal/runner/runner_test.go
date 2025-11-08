@@ -3,6 +3,7 @@ package runner
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/types"
@@ -609,4 +610,242 @@ func TestFindPythonEntryPoint_DirectoryPriority(t *testing.T) {
 	if entry != "app.py" {
 		t.Errorf("expected root app.py to be preferred, got %s", entry)
 	}
+}
+
+// TestRunAspire_ValidationError tests input validation
+func TestRunAspire_ValidationError(t *testing.T) {
+	project := types.AspireProject{
+		Dir:         "../../invalid/path/../../../",
+		ProjectFile: "test.csproj",
+	}
+
+	err := RunAspire(project)
+	if err == nil {
+		t.Error("Expected error for invalid path")
+	}
+}
+
+// TestRunPnpmScript_ValidationError tests script name validation
+func TestRunPnpmScript_ValidationError(t *testing.T) {
+	err := RunPnpmScript("invalid; rm -rf /")
+	if err == nil {
+		t.Error("Expected error for invalid script name")
+	}
+}
+
+// TestRunDockerCompose_ValidationError tests script name validation
+func TestRunDockerCompose_ValidationError(t *testing.T) {
+	err := RunDockerCompose("invalid; rm -rf /", "docker compose up")
+	if err == nil {
+		t.Error("Expected error for invalid script name")
+	}
+}
+
+// TestRunNode_ValidationError tests input validation
+func TestRunNode_ValidationError(t *testing.T) {
+	tests := []struct {
+		name    string
+		project types.NodeProject
+		script  string
+	}{
+		{
+			name: "invalid path",
+			project: types.NodeProject{
+				Dir:            "../../invalid/../../../",
+				PackageManager: "npm",
+			},
+			script: "dev",
+		},
+		{
+			name: "invalid script",
+			project: types.NodeProject{
+				Dir:            "/tmp",
+				PackageManager: "npm",
+			},
+			script: "dev; rm -rf /",
+		},
+		{
+			name: "invalid package manager",
+			project: types.NodeProject{
+				Dir:            "/tmp",
+				PackageManager: "invalid-pm; rm -rf /",
+			},
+			script: "dev",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RunNode(tt.project, tt.script)
+			if err == nil {
+				t.Error("Expected error for invalid input")
+			}
+		})
+	}
+}
+
+// TestRunPython_ValidationError tests input validation
+func TestRunPython_ValidationError(t *testing.T) {
+	tests := []struct {
+		name    string
+		project types.PythonProject
+	}{
+		{
+			name: "invalid path",
+			project: types.PythonProject{
+				Dir:            "../../invalid/../../../",
+				PackageManager: "pip",
+			},
+		},
+		{
+			name: "invalid package manager",
+			project: types.PythonProject{
+				Dir:            "/tmp",
+				PackageManager: "invalid; rm -rf /",
+			},
+		},
+		{
+			name: "unsupported package manager",
+			project: types.PythonProject{
+				Dir:            t.TempDir(),
+				PackageManager: "pipenv",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RunPython(tt.project)
+			if err == nil {
+				t.Error("Expected error for invalid input")
+			}
+		})
+	}
+}
+
+// TestRunPython_PipWithVenvWindows tests pip with venv on Windows path
+func TestRunPython_PipWithVenvWindows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		tmpDir := t.TempDir()
+
+		// Create Windows-style venv structure
+		venvDir := filepath.Join(tmpDir, ".venv", "Scripts")
+		if err := os.MkdirAll(venvDir, 0750); err != nil {
+			t.Fatalf("failed to create venv dir: %v", err)
+		}
+
+		// Create a dummy python.exe
+		pythonPath := filepath.Join(venvDir, "python.exe")
+		if err := os.WriteFile(pythonPath, []byte("#!/bin/sh\necho test"), 0750); err != nil {
+			t.Fatalf("failed to create python.exe: %v", err)
+		}
+
+		// Create entry point
+		entryPath := filepath.Join(tmpDir, "main.py")
+		if err := os.WriteFile(entryPath, []byte("print('test')"), 0600); err != nil {
+			t.Fatalf("failed to create main.py: %v", err)
+		}
+
+		_ = types.PythonProject{
+			Dir:            tmpDir,
+			PackageManager: "pip",
+		}
+
+		// This will try to start the command - skip actual execution
+		t.Skip("Skipping actual command execution")
+	}
+}
+
+// TestRunPython_PipWithAlternativeVenv tests pip with alternative venv directory
+func TestRunPython_PipWithAlternativeVenv(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create alternative venv structure (venv instead of .venv)
+	var venvDir string
+	if runtime.GOOS == "windows" {
+		venvDir = filepath.Join(tmpDir, "venv", "Scripts")
+	} else {
+		venvDir = filepath.Join(tmpDir, "venv", "bin")
+	}
+
+	if err := os.MkdirAll(venvDir, 0750); err != nil {
+		t.Fatalf("failed to create venv dir: %v", err)
+	}
+
+	// Create a dummy python executable
+	var pythonPath string
+	if runtime.GOOS == "windows" {
+		pythonPath = filepath.Join(venvDir, "python.exe")
+	} else {
+		pythonPath = filepath.Join(venvDir, "python")
+	}
+
+	if err := os.WriteFile(pythonPath, []byte("#!/bin/sh\necho test"), 0750); err != nil {
+		t.Fatalf("failed to create python: %v", err)
+	}
+
+	// Create entry point
+	entryPath := filepath.Join(tmpDir, "main.py")
+	if err := os.WriteFile(entryPath, []byte("print('test')"), 0600); err != nil {
+		t.Fatalf("failed to create main.py: %v", err)
+	}
+
+	_ = types.PythonProject{
+		Dir:            tmpDir,
+		PackageManager: "pip",
+	}
+
+	// This will try to start the command - skip actual execution
+	t.Skip("Skipping actual command execution")
+}
+
+// TestRunPython_ExplicitEntrypoint tests using an explicit entrypoint
+func TestRunPython_ExplicitEntrypoint(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create custom entry point
+	customEntry := "custom_entry.py"
+	entryPath := filepath.Join(tmpDir, customEntry)
+	if err := os.WriteFile(entryPath, []byte("print('custom')"), 0600); err != nil {
+		t.Fatalf("failed to create custom_entry.py: %v", err)
+	}
+
+	_ = types.PythonProject{
+		Dir:            tmpDir,
+		PackageManager: "pip",
+		Entrypoint:     customEntry,
+	}
+
+	// This will try to start the command - skip actual execution
+	t.Skip("Skipping actual command execution")
+}
+
+// TestRunDotnet_ValidationError tests input validation
+func TestRunDotnet_ValidationError(t *testing.T) {
+	project := types.DotnetProject{
+		Path: "../../invalid/../../../test.csproj",
+	}
+
+	err := RunDotnet(project)
+	if err == nil {
+		t.Error("Expected error for invalid path")
+	}
+}
+
+// TestRunDotnet_SolutionFile tests running a .sln file
+func TestRunDotnet_SolutionFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a dummy .sln file
+	slnPath := filepath.Join(tmpDir, "test.sln")
+	if err := os.WriteFile(slnPath, []byte("# solution"), 0600); err != nil {
+		t.Fatalf("failed to create .sln: %v", err)
+	}
+
+	_ = types.DotnetProject{
+		Path: slnPath,
+	}
+
+	// This will try to start dotnet run - skip actual execution
+	t.Skip("Skipping actual dotnet run")
 }

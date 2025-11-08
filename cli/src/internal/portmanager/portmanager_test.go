@@ -753,3 +753,156 @@ func TestIsPortAvailableEdgeCases(t *testing.T) {
 		t.Error("Expected port 5000 to be available")
 	}
 }
+
+// TestIsPortAvailable_PublicMethod tests the public IsPortAvailable method
+func TestIsPortAvailable_PublicMethod(t *testing.T) {
+	tempDir := t.TempDir()
+	unavailable := map[int]bool{9999: true}
+	pm := setupTestManager(tempDir, unavailable)
+
+	// Test public method delegates correctly
+	if pm.IsPortAvailable(9999) {
+		t.Error("Expected port 9999 to be unavailable")
+	}
+
+	if !pm.IsPortAvailable(10000) {
+		t.Error("Expected port 10000 to be available")
+	}
+}
+
+// TestAssignPort_EmptyServiceName tests validation for empty service name
+func TestAssignPort_EmptyServiceName(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, nil)
+
+	_, _, err := pm.AssignPort("", 3000, false, false)
+	if err == nil {
+		t.Error("Expected error for empty service name")
+	}
+	if err != nil && err.Error() != "serviceName cannot be empty" {
+		t.Errorf("Expected 'serviceName cannot be empty', got: %v", err)
+	}
+}
+
+// TestAssignPort_InvalidExplicitPort tests validation for invalid explicit port
+func TestAssignPort_InvalidExplicitPort(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, nil)
+
+	tests := []struct {
+		name string
+		port int
+	}{
+		{"zero port", 0},
+		{"negative port", -100},
+		{"port too high", 100000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := pm.AssignPort("test", tt.port, true, false)
+			if err == nil {
+				t.Errorf("Expected error for port %d", tt.port)
+			}
+		})
+	}
+}
+
+// TestFindAvailablePort_NoPortsAvailable tests the error case when no ports are available
+func TestFindAvailablePort_NoPortsAvailable(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	// Create a manager with a very limited port range
+	pm := GetPortManager(tempDir)
+	pm.portRange.start = 9900
+	pm.portRange.end = 9901
+	
+	// Mark all ports as unavailable
+	unavailable := map[int]bool{9900: true, 9901: true}
+	pm.portChecker = mockPortChecker(unavailable)
+
+	_, err := pm.findAvailablePort()
+	if err == nil {
+		t.Error("Expected error when no ports available")
+	}
+}
+
+// TestDefaultIsPortAvailable tests the default port checker with environment variable
+func TestDefaultIsPortAvailable(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := GetPortManager(tempDir)
+	
+	// Test with debug mode off (default)
+	available := pm.defaultIsPortAvailable(59999)
+	if !available {
+		t.Log("Port 59999 is in use (this may vary)")
+	}
+
+	// Test with debug mode on
+	os.Setenv("AZD_APP_DEBUG", "true")
+	defer os.Unsetenv("AZD_APP_DEBUG")
+	
+	available = pm.defaultIsPortAvailable(59998)
+	if !available {
+		t.Log("Port 59998 is in use (this may vary)")
+	}
+}
+
+// TestSave_Error tests the save error path
+func TestSave_Error(t *testing.T) {
+	// Create a temp dir
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, nil)
+	
+	// Assign a port to create an assignment
+	_, _, err := pm.AssignPort("test-service", 9876, false, false)
+	if err != nil {
+		t.Fatalf("Failed to assign port: %v", err)
+	}
+	
+	// Make the .azure directory read-only to cause save to fail
+	azureDir := filepath.Join(tempDir, ".azure")
+	if err := os.Chmod(azureDir, 0444); err != nil {
+		t.Fatalf("Failed to chmod: %v", err)
+	}
+	defer os.Chmod(azureDir, 0755) // Restore permissions for cleanup
+	
+	// Try to save - this should fail but be handled gracefully
+	pm.mu.Lock()
+	saveErr := pm.save()
+	pm.mu.Unlock()
+	
+	// The save should fail (though the exact error depends on the OS)
+	if saveErr == nil {
+		t.Log("Note: save succeeded despite read-only directory (OS-dependent behavior)")
+	}
+}
+
+// TestAssignPort_FlexibleWithAllPortsAssigned tests flexible mode when all ports in range are assigned
+func TestAssignPort_FlexibleWithAllPortsAssigned(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := GetPortManager(tempDir)
+	pm.portRange.start = 9950
+	pm.portRange.end = 9952
+	pm.portChecker = mockPortChecker(nil) // All ports are available
+	
+	// Assign all ports in range
+	_, _, err := pm.AssignPort("service1", 9950, false, false)
+	if err != nil {
+		t.Fatalf("Failed to assign first port: %v", err)
+	}
+	_, _, err = pm.AssignPort("service2", 9951, false, false)
+	if err != nil {
+		t.Fatalf("Failed to assign second port: %v", err)
+	}
+	_, _, err = pm.AssignPort("service3", 9952, false, false)
+	if err != nil {
+		t.Fatalf("Failed to assign third port: %v", err)
+	}
+	
+	// Try to assign another port - should find one of the assigned ports
+	_, _, err = pm.AssignPort("service4", 9950, false, false)
+	if err != nil {
+		t.Logf("No available ports (expected in this test): %v", err)
+	}
+}

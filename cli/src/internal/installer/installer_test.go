@@ -410,3 +410,167 @@ func TestSetupWithUv_NoUvInstalled(t *testing.T) {
 	// Just verify it doesn't panic
 	t.Logf("setupWithUv result: %v", err)
 }
+
+// TestIsDependenciesUpToDate tests the isDependenciesUpToDate function
+func TestIsDependenciesUpToDate(t *testing.T) {
+	tests := []struct {
+		name           string
+		packageManager string
+		setup          func(dir string) error
+		expected       bool
+	}{
+		{
+			name:           "npm - no node_modules",
+			packageManager: "npm",
+			setup: func(dir string) error {
+				// Create package-lock.json only
+				return os.WriteFile(filepath.Join(dir, "package-lock.json"), []byte("{}"), 0600)
+			},
+			expected: false,
+		},
+		{
+			name:           "npm - no lock file",
+			packageManager: "npm",
+			setup: func(dir string) error {
+				// Create node_modules only
+				return os.MkdirAll(filepath.Join(dir, "node_modules"), 0750)
+			},
+			expected: false,
+		},
+		{
+			name:           "npm - missing internal lock",
+			packageManager: "npm",
+			setup: func(dir string) error {
+				// Create both lock file and node_modules, but no internal lock
+				if err := os.WriteFile(filepath.Join(dir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+					return err
+				}
+				return os.MkdirAll(filepath.Join(dir, "node_modules"), 0750)
+			},
+			expected: false,
+		},
+		{
+			name:           "npm - up to date",
+			packageManager: "npm",
+			setup: func(dir string) error {
+				// Create lock file
+				if err := os.WriteFile(filepath.Join(dir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+					return err
+				}
+				// Create node_modules
+				if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0750); err != nil {
+					return err
+				}
+				// Create internal lock file (newer than lock file)
+				return os.WriteFile(filepath.Join(dir, "node_modules", ".package-lock.json"), []byte("{}"), 0600)
+			},
+			expected: true,
+		},
+		{
+			name:           "pnpm - missing .pnpm directory",
+			packageManager: "pnpm",
+			setup: func(dir string) error {
+				// Create lock file and node_modules, but no .pnpm directory
+				if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600); err != nil {
+					return err
+				}
+				return os.MkdirAll(filepath.Join(dir, "node_modules"), 0750)
+			},
+			expected: false,
+		},
+		{
+			name:           "pnpm - up to date",
+			packageManager: "pnpm",
+			setup: func(dir string) error {
+				// Create lock file
+				if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600); err != nil {
+					return err
+				}
+				// Create node_modules
+				if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0750); err != nil {
+					return err
+				}
+				// Create .pnpm directory
+				return os.MkdirAll(filepath.Join(dir, "node_modules", ".pnpm"), 0750)
+			},
+			expected: true,
+		},
+		{
+			name:           "yarn - no lock file",
+			packageManager: "yarn",
+			setup: func(dir string) error {
+				// Create node_modules only
+				return os.MkdirAll(filepath.Join(dir, "node_modules"), 0750)
+			},
+			expected: false,
+		},
+		{
+			name:           "yarn - up to date",
+			packageManager: "yarn",
+			setup: func(dir string) error {
+				// Create lock file
+				if err := os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0600); err != nil {
+					return err
+				}
+				// Create node_modules
+				return os.MkdirAll(filepath.Join(dir, "node_modules"), 0750)
+			},
+			expected: true,
+		},
+		{
+			name:           "unknown package manager",
+			packageManager: "unknown",
+			setup:          func(dir string) error { return nil },
+			expected:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			if err := tt.setup(tmpDir); err != nil {
+				t.Fatalf("setup failed: %v", err)
+			}
+
+			result := isDependenciesUpToDate(tmpDir, tt.packageManager)
+			if result != tt.expected {
+				t.Errorf("isDependenciesUpToDate() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestInstallNodeDependencies_UpToDate tests the early return when dependencies are up-to-date
+func TestInstallNodeDependencies_UpToDate(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create package.json
+	packageJSON := `{"name": "test", "version": "1.0.0"}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+		t.Fatalf("failed to create package.json: %v", err)
+	}
+
+	// Create npm lock file
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+		t.Fatalf("failed to create package-lock.json: %v", err)
+	}
+
+	// Create node_modules and internal lock
+	if err := os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0750); err != nil {
+		t.Fatalf("failed to create node_modules: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "node_modules", ".package-lock.json"), []byte("{}"), 0600); err != nil {
+		t.Fatalf("failed to create internal lock: %v", err)
+	}
+
+	project := types.NodeProject{
+		Dir:            tmpDir,
+		PackageManager: "npm",
+	}
+
+	// Should return nil without error since dependencies are up-to-date
+	err := InstallNodeDependencies(project)
+	if err != nil {
+		t.Errorf("InstallNodeDependencies() error = %v, want nil", err)
+	}
+}
