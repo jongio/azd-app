@@ -93,7 +93,7 @@ func TestLoggingFunctions(t *testing.T) {
 					t.Errorf("%s() panicked: %v", tt.name, r)
 				}
 			}()
-			
+
 			buf.Reset()
 			tt.logFunc(tt.message)
 			// Just verify that the function executed without panicking
@@ -141,18 +141,18 @@ func TestSetLevelPreservesHandlerType(t *testing.T) {
 	if !isStructured {
 		t.Error("Expected isStructured to be true after SetupLogger(false, true)")
 	}
-	
+
 	SetLevel(LevelDebug)
 	if !isStructured {
 		t.Error("Expected isStructured to remain true after SetLevel")
 	}
-	
+
 	// Test that SetLevel preserves text handler
 	SetupLogger(false, false)
 	if isStructured {
 		t.Error("Expected isStructured to be false after SetupLogger(false, false)")
 	}
-	
+
 	SetLevel(LevelWarn)
 	if isStructured {
 		t.Error("Expected isStructured to remain false after SetLevel")
@@ -161,14 +161,14 @@ func TestSetLevelPreservesHandlerType(t *testing.T) {
 
 func TestSetOutputPreservesHandlerType(t *testing.T) {
 	var buf bytes.Buffer
-	
+
 	// Test that SetOutput preserves structured (JSON) handler
 	SetupLogger(false, true)
 	SetOutput(&buf)
 	if !isStructured {
 		t.Error("Expected isStructured to remain true after SetOutput")
 	}
-	
+
 	// Test that SetOutput preserves text handler
 	SetupLogger(false, false)
 	SetOutput(&buf)
@@ -176,4 +176,3 @@ func TestSetOutputPreservesHandlerType(t *testing.T) {
 		t.Error("Expected isStructured to remain false after SetOutput")
 	}
 }
-

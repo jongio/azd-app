@@ -297,4 +297,3 @@ func Table(headers []string, rows []TableRow) {
 		fmt.Println()
 	}
 }
-

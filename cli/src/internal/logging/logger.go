@@ -103,7 +103,7 @@ func SetLevel(level Level) {
 // SetOutput sets the output destination for logs.
 func SetOutput(w io.Writer) {
 	outputWriter = w
-	
+
 	var slogLevel slog.Level
 	switch currentLevel {
 	case LevelDebug:
@@ -117,7 +117,7 @@ func SetOutput(w io.Writer) {
 	default:
 		slogLevel = slog.LevelInfo
 	}
-	
+
 	opts := &slog.HandlerOptions{Level: slogLevel}
 	var handler slog.Handler
 	if isStructured {
