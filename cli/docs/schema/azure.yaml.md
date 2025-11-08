@@ -5,7 +5,7 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 ## Schema Reference
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.0/azure.yaml.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
 ```
 
 ## What azd app Adds
@@ -217,7 +217,7 @@ reqs:
 ## Complete Example
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.0/azure.yaml.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
 
 name: todo-app
 

@@ -505,15 +505,7 @@ func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
 	}
 
 	// Convert service.Hook to executor.Hook
-	hook := &executor.Hook{
-		Run:             azureYaml.Hooks.Prerun.Run,
-		Shell:           azureYaml.Hooks.Prerun.Shell,
-		ContinueOnError: azureYaml.Hooks.Prerun.ContinueOnError,
-		Interactive:     azureYaml.Hooks.Prerun.Interactive,
-		Windows:         convertPlatformHook(azureYaml.Hooks.Prerun.Windows),
-		Posix:           convertPlatformHook(azureYaml.Hooks.Prerun.Posix),
-	}
-
+	hook := convertHook(azureYaml.Hooks.Prerun)
 	config := executor.ResolveHookConfig(hook)
 	if config == nil {
 		return nil
@@ -529,21 +521,28 @@ func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
 	}
 
 	// Convert service.Hook to executor.Hook
-	hook := &executor.Hook{
-		Run:             azureYaml.Hooks.Postrun.Run,
-		Shell:           azureYaml.Hooks.Postrun.Shell,
-		ContinueOnError: azureYaml.Hooks.Postrun.ContinueOnError,
-		Interactive:     azureYaml.Hooks.Postrun.Interactive,
-		Windows:         convertPlatformHook(azureYaml.Hooks.Postrun.Windows),
-		Posix:           convertPlatformHook(azureYaml.Hooks.Postrun.Posix),
-	}
-
+	hook := convertHook(azureYaml.Hooks.Postrun)
 	config := executor.ResolveHookConfig(hook)
 	if config == nil {
 		return nil
 	}
 
 	return executor.ExecuteHook(context.Background(), "postrun", *config, workingDir)
+}
+
+// convertHook converts service.Hook to executor.Hook to avoid circular imports.
+func convertHook(h *service.Hook) *executor.Hook {
+	if h == nil {
+		return nil
+	}
+	return &executor.Hook{
+		Run:             h.Run,
+		Shell:           h.Shell,
+		ContinueOnError: h.ContinueOnError,
+		Interactive:     h.Interactive,
+		Windows:         convertPlatformHook(h.Windows),
+		Posix:           convertPlatformHook(h.Posix),
+	}
 }
 
 // convertPlatformHook converts service.PlatformHook to executor.PlatformHook.
@@ -558,3 +557,4 @@ func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
 		Interactive:     ph.Interactive,
 	}
 }
+

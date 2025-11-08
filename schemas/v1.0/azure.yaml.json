@@ -38,24 +38,6 @@
       "type": "object",
       "description": "Additional metadata for the application",
       "additionalProperties": true
-    },
-    "hooks": {
-      "type": "object",
-      "title": "Command level hooks",
-      "description": "Hooks for azd app commands. Paths should be relative to the project path.",
-      "additionalProperties": false,
-      "properties": {
-        "prerun": {
-          "title": "pre run hook",
-          "description": "Runs before the `run` command",
-          "$ref": "#/definitions/hooks"
-        },
-        "postrun": {
-          "title": "post run hook",
-          "description": "Runs after the `run` command",
-          "$ref": "#/definitions/hooks"
-        }
-      }
     }
   },
   "definitions": {
@@ -274,108 +256,6 @@
           "description": "Expected exit code for running check (default: 0)"
         }
       }
-    },
-    "hooks": {
-      "$ref": "#/definitions/hook"
-    },
-    "hook": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "shell": {
-          "type": "string",
-          "title": "Type of shell to execute scripts",
-          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent (e.g., pwsh/powershell/cmd on Windows, bash/sh on POSIX).",
-          "enum": [
-            "sh",
-            "bash",
-            "pwsh",
-            "powershell",
-            "cmd"
-          ]
-        },
-        "run": {
-          "type": "string",
-          "title": "Script or command to execute",
-          "description": "When specifying an inline script you also must specify the `shell` to use. This is automatically inferred when using paths."
-        },
-        "continueOnError": {
-          "type": "boolean",
-          "default": false,
-          "title": "Whether or not a script error will halt the azd command",
-          "description": "Optional. When set to true will continue to run the command even after a script error has occurred. (Default: false)"
-        },
-        "interactive": {
-          "type": "boolean",
-          "default": false,
-          "title": "Whether the script will run in interactive mode",
-          "description": "Optional. When set to true will bind the script to stdin, stdout & stderr of the running console. (Default: false)"
-        },
-        "windows": {
-          "title": "The hook configuration used for Windows environments",
-          "description": "When specified overrides the hook configuration when executed in Windows environments",
-          "default": null,
-          "$ref": "#/definitions/hook"
-        },
-        "posix": {
-          "title": "The hook configuration used for POSIX (Linux & MacOS) environments",
-          "description": "When specified overrides the hook configuration when executed in POSIX environments",
-          "default": null,
-          "$ref": "#/definitions/hook"
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "allOf": [
-              {
-                "required": [
-                  "windows"
-                ]
-              },
-              {
-                "required": [
-                  "posix"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "properties": {
-              "run": false,
-              "shell": false,
-              "interactive": false,
-              "continueOnError": false
-            }
-          }
-        },
-        {
-          "if": {
-            "anyOf": [
-              {
-                "required": [
-                  "interactive"
-                ]
-              },
-              {
-                "required": [
-                  "continueOnError"
-                ]
-              },
-              {
-                "required": [
-                  "shell"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "required": [
-              "run"
-            ]
-          }
-        }
-      ]
     }
   },
   "examples": [
@@ -426,18 +306,7 @@
           "name": "docker",
           "checkRunning": true
         }
-      ],
-      "hooks": {
-        "prerun": {
-          "run": "./scripts/prerun.sh",
-          "shell": "sh",
-          "continueOnError": false
-        },
-        "postrun": {
-          "run": "echo 'All services are ready!'",
-          "shell": "sh"
-        }
-      }
+      ]
     }
   ]
 }
