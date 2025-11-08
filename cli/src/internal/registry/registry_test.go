@@ -441,11 +441,18 @@ func TestCleanStale(t *testing.T) {
 		Name:        "old-service",
 		Port:        9000,
 		StartTime:   time.Now().Add(-2 * time.Hour),
-		LastChecked: time.Now().Add(-2 * time.Hour), // Old timestamp
+		LastChecked: time.Now(), // Register will set this to now
 	}
 	if err := registry.Register(oldEntry); err != nil {
 		t.Fatalf("failed to register old service: %v", err)
 	}
+	
+	// Manually update LastChecked to an old time after registration
+	registry.mu.Lock()
+	if svc, exists := registry.services["old-service"]; exists {
+		svc.LastChecked = time.Now().Add(-2 * time.Hour)
+	}
+	registry.mu.Unlock()
 
 	// Add a recent service
 	recentEntry := &ServiceRegistryEntry{
