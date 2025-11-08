@@ -254,6 +254,15 @@ services:
 
 This command depends on `deps` and `reqs`, which will automatically run before starting services.
 
+### Hooks
+
+The `run` command supports lifecycle hooks that execute before and after services start:
+
+- **prerun**: Executes before starting any services (e.g., database migrations, setup tasks)
+- **postrun**: Executes after all services are ready (e.g., notifications, opening browsers)
+
+**→ [See Hooks Documentation](hooks.md)** for complete hook configuration and examples.
+
 **→ [See full run command specification](commands/run.md)** for orchestration flows, runtime modes, and detailed documentation.
 
 ---
