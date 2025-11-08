@@ -520,7 +520,7 @@ func generateDebugConfig(runtimes []*service.ServiceRuntime, projectDir string) 
 	// Show helpful message on first time
 	if isFirstTime {
 		output.Newline()
-		output.Success("🛠️  Generated .vscode/launch.json and tasks.json")
+		output.Success("✅ Generated .vscode/launch.json and tasks.json")
 		output.Newline()
 	}
 
@@ -531,13 +531,24 @@ func generateDebugConfig(runtimes []*service.ServiceRuntime, projectDir string) 
 func showDebugInfo(runtimes []*service.ServiceRuntime) {
 	output.Newline()
 
+	// Calculate max service name length for debug-enabled services
+	maxNameLen := 0
+	for _, rt := range runtimes {
+		if rt.Debug.Enabled {
+			if len(rt.Name) > maxNameLen {
+				maxNameLen = len(rt.Name)
+			}
+		}
+	}
+
 	// Show debug ports
 	hasDebugServices := false
 	for _, rt := range runtimes {
 		if rt.Debug.Enabled {
 			hasDebugServices = true
 			debugAddr := fmt.Sprintf("localhost:%d", rt.Debug.Port)
-			output.ItemSuccess("   ✅ %s%-15s%s running (debug: %s)", output.Cyan, rt.Name, output.Reset, debugAddr)
+			format := fmt.Sprintf("   ✅ %%s%%-%ds%%s running (debug: %%s)", maxNameLen)
+			output.ItemSuccess(format, output.Cyan, rt.Name, output.Reset, debugAddr)
 		}
 	}
 

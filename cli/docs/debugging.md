@@ -63,11 +63,11 @@ When you press **F5** in VS Code, the dropdown shows:
 - **Requirements**: `dlv` (Delve) must be installed
 
 ### .NET
-- **Debug Port**: 5005 (base), 5006+ for additional services
+- **Debug Port**: Not used (attach by process name)
 - **Protocol**: CoreCLR
-- **Attach Method**: By process name
+- **Attach Method**: By process name (no debug port required)
 - **Debugger**: VS Code C# extension
-- **Notes**: No special startup flags needed; attach by process name
+- **Notes**: No special startup flags needed; attach by process name. Debug port assignment happens but is not used for .NET debugging.
 
 ### Java
 - **Debug Port**: 5005 (base), 5006+ for additional services

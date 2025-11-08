@@ -102,9 +102,20 @@ func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force boo
 	launchPath := filepath.Join(vscodeDir, "launch.json")
 	tasksPath := filepath.Join(vscodeDir, "tasks.json")
 
-	// Skip if already exists (unless --regenerate-debug-config)
+	// Skip if both files already exist (unless --regenerate-debug-config)
 	if !force {
+		launchExists := false
+		tasksExists := false
+		
 		if _, err := os.Stat(launchPath); err == nil {
+			launchExists = true
+		}
+		if _, err := os.Stat(tasksPath); err == nil {
+			tasksExists = true
+		}
+		
+		// Only skip if both files exist
+		if launchExists && tasksExists {
 			return false, nil
 		}
 	}
@@ -134,15 +145,12 @@ func generateLaunchJSON(services []ServiceDebugInfo) LaunchConfig {
 	configs := []DebugConfiguration{}
 	compoundConfigNames := []string{}
 
-	// Count services per language for port assignment
-	languageCounts := make(map[string]int)
-
 	// Generate individual attach configs for each service
 	for _, svc := range services {
 		// Normalize language for debug
 		normalizedLang := service.NormalizeLanguageForDebug(svc.Language)
-		debugPort := GetDebugPort(normalizedLang, languageCounts[normalizedLang])
-		languageCounts[normalizedLang]++
+		// Use the port that was already assigned in run.go
+		debugPort := svc.Port
 
 		configName := fmt.Sprintf("🔌 %s (%s)", svc.Name, normalizedLang)
 		compoundConfigNames = append(compoundConfigNames, configName)
