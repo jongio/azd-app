@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -26,6 +27,9 @@ const (
 )
 
 var (
+	// ErrInterruptSignal is returned when the user interrupts the run command with SIGINT or SIGTERM
+	errInterruptSignal = errors.New("received interrupt signal")
+
 	runServiceFilter string
 	runEnvFile       string
 	runVerbose       bool
@@ -250,6 +254,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	// Actor 1: Dashboard server
 	dashboardServer := dashboard.GetServer(cwd)
 	{
+		ctx, cancel := context.WithCancel(context.Background())
 		g.Add(
 			// Execute: Start and run the dashboard
 			func() error {
@@ -258,7 +263,8 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 					output.Warning("Dashboard unavailable: %v", err)
 					// Don't fail the entire run if dashboard fails
 					// Just block until interrupted
-					select {}
+					<-ctx.Done()
+					return ctx.Err()
 				}
 
 				output.Newline()
@@ -268,10 +274,12 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 				output.Newline()
 
 				// Block until interrupted
-				select {}
+				<-ctx.Done()
+				return ctx.Err()
 			},
 			// Interrupt: Stop the dashboard
 			func(error) {
+				cancel()
 				if err := dashboardServer.Stop(); err != nil {
 					output.Warning("Failed to stop dashboard: %v", err)
 				}
@@ -307,9 +315,10 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 			func() error {
 				sigChan := make(chan os.Signal, 1)
 				signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+				defer signal.Stop(sigChan)
 				select {
 				case <-sigChan:
-					return fmt.Errorf("received interrupt signal")
+					return errInterruptSignal
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -331,7 +340,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	// Stale ports are cleaned up automatically after 7 days of inactivity.
 
 	// If the error is just from signal interrupt, that's expected
-	if err != nil && err.Error() == "received interrupt signal" {
+	if errors.Is(err, errInterruptSignal) {
 		return nil
 	}
 

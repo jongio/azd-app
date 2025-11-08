@@ -202,22 +202,48 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 	wg.Wait()
 }
 
-// WaitForServices waits for all services to exit.
+// WaitForServices waits for the first service to exit.
+// Returns immediately when any service process exits, which triggers shutdown of all services.
 func WaitForServices(processes map[string]*ServiceProcess) error {
-	// Wait for any service to exit
-	for name, process := range processes {
+	// Count valid processes with running Process objects
+	validProcessCount := 0
+	for _, process := range processes {
 		if process.Process != nil {
-			state, err := process.Process.Wait()
-			if err != nil {
-				return fmt.Errorf("service %s exited with error: %w", name, err)
-			}
-			if !state.Success() {
-				return fmt.Errorf("service %s exited with non-zero status: %s", name, state.String())
-			}
+			validProcessCount++
 		}
 	}
 
-	return nil
+	// If no valid processes, return immediately
+	if validProcessCount == 0 {
+		return nil
+	}
+
+	// Create error channel to collect exit status from any service
+	errCh := make(chan error, validProcessCount)
+
+	// Start a goroutine for each service to wait for it to exit
+	for name, process := range processes {
+		if process.Process == nil {
+			continue
+		}
+
+		go func(serviceName string, proc *ServiceProcess) {
+			state, err := proc.Process.Wait()
+			if err != nil {
+				errCh <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
+				return
+			}
+			if !state.Success() {
+				errCh <- fmt.Errorf("service %s exited with non-zero status: %s", serviceName, state.String())
+				return
+			}
+			// Service exited cleanly
+			errCh <- fmt.Errorf("service %s exited", serviceName)
+		}(name, process)
+	}
+
+	// Return when the first process exits (either with error or success)
+	return <-errCh
 }
 
 // GetServiceURLs generates URLs for all running services.
