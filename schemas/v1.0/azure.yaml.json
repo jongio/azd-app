@@ -288,7 +288,10 @@
           "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent (e.g., pwsh/powershell/cmd on Windows, bash/sh on POSIX).",
           "enum": [
             "sh",
-            "pwsh"
+            "bash",
+            "pwsh",
+            "powershell",
+            "cmd"
           ]
         },
         "run": {
