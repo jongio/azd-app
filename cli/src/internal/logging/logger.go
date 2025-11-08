@@ -26,6 +26,10 @@ var (
 	globalLogger *slog.Logger
 	// currentLevel is the current log level
 	currentLevel = LevelInfo
+	// isStructured tracks whether structured JSON logging is enabled
+	isStructured = false
+	// outputWriter tracks the current output destination
+	outputWriter io.Writer = os.Stderr
 )
 
 func init() {
@@ -46,6 +50,10 @@ func SetupLogger(debug, structured bool) {
 		currentLevel = LevelInfo
 	}
 
+	// Track the handler type for later use
+	isStructured = structured
+	outputWriter = os.Stderr
+
 	var handler slog.Handler
 	opts := &slog.HandlerOptions{
 		Level: level,
@@ -53,10 +61,10 @@ func SetupLogger(debug, structured bool) {
 
 	if structured {
 		// JSON structured logging
-		handler = slog.NewJSONHandler(os.Stderr, opts)
+		handler = slog.NewJSONHandler(outputWriter, opts)
 	} else {
 		// Text logging for human consumption
-		handler = slog.NewTextHandler(os.Stderr, opts)
+		handler = slog.NewTextHandler(outputWriter, opts)
 	}
 
 	globalLogger = slog.New(handler)
@@ -80,16 +88,43 @@ func SetLevel(level Level) {
 		slogLevel = slog.LevelInfo
 	}
 
+	// Preserve the handler type (structured vs text) when changing levels
 	opts := &slog.HandlerOptions{Level: slogLevel}
-	handler := slog.NewTextHandler(os.Stderr, opts)
+	var handler slog.Handler
+	if isStructured {
+		handler = slog.NewJSONHandler(outputWriter, opts)
+	} else {
+		handler = slog.NewTextHandler(outputWriter, opts)
+	}
 	globalLogger = slog.New(handler)
 	slog.SetDefault(globalLogger)
 }
 
 // SetOutput sets the output destination for logs.
 func SetOutput(w io.Writer) {
-	opts := &slog.HandlerOptions{Level: slog.LevelDebug}
-	handler := slog.NewTextHandler(w, opts)
+	outputWriter = w
+	
+	var slogLevel slog.Level
+	switch currentLevel {
+	case LevelDebug:
+		slogLevel = slog.LevelDebug
+	case LevelInfo:
+		slogLevel = slog.LevelInfo
+	case LevelWarn:
+		slogLevel = slog.LevelWarn
+	case LevelError:
+		slogLevel = slog.LevelError
+	default:
+		slogLevel = slog.LevelInfo
+	}
+	
+	opts := &slog.HandlerOptions{Level: slogLevel}
+	var handler slog.Handler
+	if isStructured {
+		handler = slog.NewJSONHandler(outputWriter, opts)
+	} else {
+		handler = slog.NewTextHandler(outputWriter, opts)
+	}
 	globalLogger = slog.New(handler)
 	slog.SetDefault(globalLogger)
 }
