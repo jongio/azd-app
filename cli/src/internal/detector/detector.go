@@ -237,8 +237,8 @@ func getPackageManagerFromPackageJson(projectDir string) string {
 		return ""
 	}
 
-	// Split by '@' to extract the package manager name
-	// Handle scoped packages and version correctly
+	// Split by '@' to extract the package manager name from "name@version" format
+	// (e.g., "npm@8.19.2" -> "npm")
 	parts := strings.Split(pkg.PackageManager, "@")
 
 	// The package manager name is the first part
