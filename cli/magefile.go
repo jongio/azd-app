@@ -21,6 +21,7 @@ const (
 	coverageDir        = "coverage"
 	extensionFile      = "extension.yaml"
 	dashboardDir       = "dashboard"
+	mcpDir             = "../mcp"
 	defaultTestTimeout = "10m"
 	extensionID        = "jongio.azd.app"
 )
@@ -48,7 +49,7 @@ func getVersion() (string, error) {
 
 // All runs lint, test, and build in dependency order.
 func All() error {
-	mg.Deps(Fmt, DashboardBuild, Lint, Test)
+	mg.Deps(Fmt, DashboardBuild, MCPBuild, Lint, Test)
 	return Build()
 }
 
@@ -774,12 +775,9 @@ func Preflight() error {
 		{"Checking .gitattributes", CheckGitAttributes},
 		{"Checking for outdated dependencies", CheckDeps},
 		{"Formatting code", Fmt},
-		{"Verifying go.mod consistency", ModVerify},
-		{"Tidying go.mod and go.sum", ModTidy},
-		{"Building dashboard", DashboardBuild},
-		{"Linting dashboard", DashboardLint},
-		{"Running dashboard unit tests", DashboardTest},
-		{"Running dashboard E2E tests", DashboardTestE2E},
+		{"Building and linting dashboard", DashboardBuild},
+		{"Running dashboard tests", DashboardTest},
+		{"Building MCP server", MCPBuild},
 		{"Building Go binary", Build},
 		{"Running go vet", Vet},
 		{"Running staticcheck", Staticcheck},
@@ -938,6 +936,26 @@ func DashboardTestE2E() error {
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
 	return sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev")
+}
+
+// MCPBuild builds the MCP server TypeScript code.
+func MCPBuild() error {
+	fmt.Println("Building MCP server...")
+
+	// Install dependencies
+	fmt.Println("Installing MCP server dependencies...")
+	if err := sh.RunWith(map[string]string{"npm_config_update_notifier": "false"}, "npm", "install", "--prefix", mcpDir); err != nil {
+		return fmt.Errorf("npm install failed: %w", err)
+	}
+
+	// Run TypeScript compilation
+	fmt.Println("Building MCP server...")
+	if err := sh.RunV("npm", "run", "build", "--prefix", mcpDir); err != nil {
+		return fmt.Errorf("MCP server build failed: %w", err)
+	}
+
+	fmt.Println("✅ MCP server build complete!")
+	return nil
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).

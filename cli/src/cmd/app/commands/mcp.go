@@ -45,7 +45,7 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 
 	// Look for the MCP server in the extension directory
 	// The MCP server should be bundled with the extension
-	mcpServerPath := filepath.Join(exeDir, "mcp", "dist", "index.js")
+	mcpServerPath := filepath.Join(exeDir, "mcp", "dist", "index.bundle.js")
 
 	// Check if the MCP server exists
 	if _, err := os.Stat(mcpServerPath); os.IsNotExist(err) {

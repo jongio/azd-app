@@ -90,6 +90,13 @@ jobs:
           pnpm run build
           cd ..
 
+      - name: Build MCP server
+        run: |
+          cd ../mcp
+          npm install
+          npm run build
+          cd ../cli
+
       - name: Install Aspire CLI
         shell: pwsh
         run: |
@@ -180,6 +187,13 @@ jobs:
           pnpm run build
           cd ..
 
+      - name: Build MCP server
+        run: |
+          cd ../mcp
+          npm install
+          npm run build
+          cd ../cli
+
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
@@ -221,6 +235,13 @@ jobs:
           pnpm install
           pnpm run build
           cd ..
+
+      - name: Build MCP server
+        run: |
+          cd ../mcp
+          npm install
+          npm run build
+          cd ../cli
 
       - name: Build for multiple platforms
         run: |

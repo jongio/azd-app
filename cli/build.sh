@@ -57,6 +57,51 @@ else
     echo "  ✓ Dashboard up to date"
 fi
 
+# Build MCP server
+MCP_DIST_PATH="../mcp/dist"
+MCP_SRC_PATH="../mcp/src"
+
+SHOULD_BUILD_MCP=false
+
+if [ ! -d "$MCP_DIST_PATH" ]; then
+    SHOULD_BUILD_MCP=true
+    echo "MCP server not built yet"
+elif [ -d "$MCP_SRC_PATH" ]; then
+    DIST_TIME=$(stat -c %Y "$MCP_DIST_PATH" 2>/dev/null || stat -f %m "$MCP_DIST_PATH" 2>/dev/null)
+    NEWEST_SRC=$(find "$MCP_SRC_PATH" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 || find "$MCP_SRC_PATH" -type f -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
+    
+    if [ -n "$NEWEST_SRC" ] && [ "${NEWEST_SRC%.*}" -gt "$DIST_TIME" ]; then
+        SHOULD_BUILD_MCP=true
+        echo "MCP server source changed, rebuild needed"
+    fi
+fi
+
+if [ "$SHOULD_BUILD_MCP" = true ]; then
+    echo "Building MCP server..."
+    pushd ../mcp > /dev/null
+    
+    if [ ! -d "node_modules" ]; then
+        echo "  Installing MCP server dependencies..."
+        npm install --silent
+        if [ $? -ne 0 ]; then
+            echo "ERROR: npm install failed for MCP server"
+            exit 1
+        fi
+    fi
+
+    echo "  Building MCP server..."
+    npm run build --silent
+    if [ $? -ne 0 ]; then
+        echo "ERROR: MCP server build failed"
+        exit 1
+    fi
+    echo "  ✓ MCP server built successfully"
+    
+    popd > /dev/null
+else
+    echo "  ✓ MCP server up to date"
+fi
+
 # Create a safe version of EXTENSION_ID replacing dots with dashes
 EXTENSION_ID_SAFE="${EXTENSION_ID//./-}"
 
