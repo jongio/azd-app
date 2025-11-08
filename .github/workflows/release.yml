@@ -246,13 +246,6 @@ jobs:
           npm run build
           cd ..
 
-      - name: Build MCP server
-        run: |
-          cd ../mcp
-          npm install
-          npm run build
-          cd ../cli
-
       - name: Build binaries
         run: |
           export EXTENSION_ID="jongio.azd.app"
