@@ -753,7 +753,7 @@ func MergeCoverage(coverageFiles []*CoberturaCoverage) (*AggregateCoverage, erro
                 
                 if existing, ok := merged.Aggregate.Files[filePath]; ok {
                     // File already covered, merge coverage
-                    existing = mergFileCoverage(existing, class)
+                    existing = mergeFileCoverage(existing, class)
                 } else {
                     // New file
                     merged.Aggregate.Files[filePath] = convertClassToFileCoverage(class)
