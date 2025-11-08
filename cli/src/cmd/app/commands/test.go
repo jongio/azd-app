@@ -1,0 +1,129 @@
+package commands
+
+import (
+	"fmt"
+
+	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/spf13/cobra"
+)
+
+var (
+	testType           string
+	testCoverage       bool
+	testServiceFilter  string
+	testWatch          bool
+	testUpdateSnapshots bool
+	testFailFast       bool
+	testParallel       bool
+	testThreshold      int
+	testVerbose        bool
+	testDryRun         bool
+	testOutputFormat   string
+	testOutputDir      string
+)
+
+// NewTestCommand creates the test command.
+func NewTestCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Run tests for all services with coverage aggregation",
+		Long:  `Automatically detects and runs tests for Node.js (Jest/Vitest/Mocha), Python (pytest/unittest), and .NET (xUnit/NUnit/MSTest) projects with unified coverage reporting`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Try to get the output flag from parent or self
+			var formatValue string
+			if flag := cmd.InheritedFlags().Lookup("output"); flag != nil {
+				formatValue = flag.Value.String()
+			} else if flag := cmd.Flags().Lookup("output"); flag != nil {
+				formatValue = flag.Value.String()
+			}
+			if formatValue != "" {
+				return output.SetFormat(formatValue)
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTests(cmd, args)
+		},
+	}
+
+	// Add flags
+	cmd.Flags().StringVarP(&testType, "type", "t", "all", "Test type to run: unit, integration, e2e, or all")
+	cmd.Flags().BoolVarP(&testCoverage, "coverage", "c", false, "Generate code coverage reports")
+	cmd.Flags().StringVarP(&testServiceFilter, "service", "s", "", "Run tests for specific service(s) (comma-separated)")
+	cmd.Flags().BoolVarP(&testWatch, "watch", "w", false, "Watch mode - re-run tests on file changes")
+	cmd.Flags().BoolVarP(&testUpdateSnapshots, "update-snapshots", "u", false, "Update test snapshots")
+	cmd.Flags().BoolVar(&testFailFast, "fail-fast", false, "Stop on first test failure")
+	cmd.Flags().BoolVarP(&testParallel, "parallel", "p", true, "Run tests for services in parallel")
+	cmd.Flags().IntVar(&testThreshold, "threshold", 0, "Minimum coverage threshold (0-100)")
+	cmd.Flags().BoolVarP(&testVerbose, "verbose", "v", false, "Enable verbose test output")
+	cmd.Flags().BoolVar(&testDryRun, "dry-run", false, "Show what would be tested without running tests")
+	cmd.Flags().StringVar(&testOutputFormat, "output-format", "default", "Output format: default, json, junit, github")
+	cmd.Flags().StringVar(&testOutputDir, "output-dir", "./test-results", "Directory for test reports and coverage")
+
+	return cmd
+}
+
+// runTests executes tests for all services.
+func runTests(_ *cobra.Command, _ []string) error {
+	// Validate test type
+	validTypes := map[string]bool{
+		"unit":        true,
+		"integration": true,
+		"e2e":         true,
+		"all":         true,
+	}
+	if !validTypes[testType] {
+		return fmt.Errorf("invalid test type: %s (must be unit, integration, e2e, or all)", testType)
+	}
+
+	// Validate threshold
+	if testThreshold < 0 || testThreshold > 100 {
+		return fmt.Errorf("invalid coverage threshold: %d (must be between 0 and 100)", testThreshold)
+	}
+
+	// Validate output format
+	validFormats := map[string]bool{
+		"default": true,
+		"json":    true,
+		"junit":   true,
+		"github":  true,
+	}
+	if !validFormats[testOutputFormat] {
+		return fmt.Errorf("invalid output format: %s (must be default, json, junit, or github)", testOutputFormat)
+	}
+
+	// Execute dependencies first (reqs)
+	if err := cmdOrchestrator.Run("test"); err != nil {
+		return fmt.Errorf("failed to execute command dependencies: %w", err)
+	}
+
+	if !output.IsJSON() {
+		output.Step("🧪", "Running tests...")
+		if testDryRun {
+			output.Item("Dry run mode - no tests will be executed")
+		}
+	}
+
+	// TODO: Implement actual test execution
+	// For now, just show what would be done
+	if testDryRun {
+		if !output.IsJSON() {
+			output.Step("📋", "Test configuration:")
+			output.Item("Type: %s", testType)
+			output.Item("Coverage: %v", testCoverage)
+			if testServiceFilter != "" {
+				output.Item("Services: %s", testServiceFilter)
+			}
+			if testThreshold > 0 {
+				output.Item("Coverage threshold: %d%%", testThreshold)
+			}
+			output.Item("Parallel: %v", testParallel)
+			output.Item("Output format: %s", testOutputFormat)
+			output.Item("Output directory: %s", testOutputDir)
+		}
+		return nil
+	}
+
+	// Placeholder implementation
+	return fmt.Errorf("test command not yet fully implemented - currently in Phase 1 (type definitions and command structure)")
+}
