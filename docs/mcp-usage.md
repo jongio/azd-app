@@ -205,10 +205,10 @@ azd app run
 **Error:** MCP server times out or disconnects
 
 **Solution:**
-1. Check that Node.js is installed (`node --version`)
-2. Restart Claude Desktop
-3. Check Claude Desktop logs for errors
-4. Try running `azd app mcp serve` manually to test
+1. Restart Claude Desktop
+2. Check Claude Desktop logs for errors
+3. Try running `azd app mcp serve` manually to test
+4. Ensure the azd app extension is properly installed
 
 ### Permission Errors
 

@@ -468,13 +468,6 @@ jobs:
           pnpm run build
           cd ..
 
-      - name: Build MCP server
-        run: |
-          cd ../mcp
-          npm install
-          npm run build
-          cd ../cli
-
       - name: Build binaries
         working-directory: cli
         run: |
