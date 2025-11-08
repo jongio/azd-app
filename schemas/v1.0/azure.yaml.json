@@ -293,7 +293,7 @@
         },
         "run": {
           "type": "string",
-          "title": "Required. The inline script or relative path of your scripts from the project or service path",
+          "title": "Script or command to execute",
           "description": "When specifying an inline script you also must specify the `shell` to use. This is automatically inferred when using paths."
         },
         "continueOnError": {
