@@ -720,6 +720,10 @@ type testObserver struct {
 }
 
 func (o *testObserver) OnServiceChanged(entry *ServiceRegistryEntry) {
-	o.notifications <- entry
+	select {
+	case o.notifications <- entry:
+	default:
+		// Channel full, drop notification
+	}
 }
 

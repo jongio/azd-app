@@ -303,6 +303,8 @@ func (r *ServiceRegistry) Subscribe(observer RegistryObserver) {
 
 // Unsubscribe removes an observer from the registry.
 // Returns true if the observer was found and removed, false otherwise.
+// Note: The same observer reference must be used for both Subscribe and Unsubscribe operations.
+// Interface comparison checks both type and underlying value (memory address for pointers).
 func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) bool {
 	r.observerMu.Lock()
 	defer r.observerMu.Unlock()
