@@ -55,6 +55,9 @@ func runMCPServer(ctx context.Context) error {
 		newGetServicesTool(),
 		newGetServiceLogsTool(),
 		newGetProjectInfoTool(),
+		newRunServicesTool(),
+		newInstallDependenciesTool(),
+		newCheckRequirementsTool(),
 	}
 
 	s.AddTools(tools...)
@@ -258,4 +261,140 @@ func newGetProjectInfoTool() server.ServerTool {
 			return mcp.NewToolResultText(string(jsonBytes)), nil
 		},
 	}
+}
+
+// newRunServicesTool creates the run_services tool
+func newRunServicesTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"run_services",
+mcp.WithDescription("Start development services defined in azure.yaml, Aspire, or docker compose. This command will start the application in the background and return information about the started services."),
+mcp.WithReadOnlyHintAnnotation(false),
+mcp.WithIdempotentHintAnnotation(false),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("projectDir",
+mcp.Description("Optional project directory path. If not provided, uses current directory."),
+),
+mcp.WithString("runtime",
+mcp.Description("Optional runtime mode: 'azd' (default), 'aspire', 'pnpm', or 'docker-compose'."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+args, _ := request.Params.Arguments.(map[string]interface{})
+
+var cmdArgs []string
+
+if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+cmdArgs = append(cmdArgs, "--project", projectDir)
+}
+
+if runtime, ok := args["runtime"].(string); ok && runtime != "" {
+cmdArgs = append(cmdArgs, "--runtime", runtime)
+}
+
+// Note: azd app run is interactive and long-running, so we run it in a non-blocking way
+// and return information about the command being executed
+cmd := exec.Command("azd", append([]string{"app", "run"}, cmdArgs...)...)
+
+// Start the command but don't wait for it
+if err := cmd.Start(); err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to start services: %v", err)), nil
+}
+
+result := map[string]interface{}{
+"status":  "started",
+"message": "Services are starting in the background. Use get_services to check their status.",
+"pid":     cmd.Process.Pid,
+}
+
+jsonBytes, err := json.MarshalIndent(result, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newInstallDependenciesTool creates the install_dependencies tool
+func newInstallDependenciesTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"install_dependencies",
+mcp.WithDescription("Install dependencies for all detected projects (Node.js, Python, .NET). Automatically detects package managers (npm/pnpm/yarn, uv/poetry/pip, dotnet) and installs dependencies."),
+mcp.WithReadOnlyHintAnnotation(false),
+mcp.WithIdempotentHintAnnotation(true),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("projectDir",
+mcp.Description("Optional project directory path. If not provided, uses current directory."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+args, _ := request.Params.Arguments.(map[string]interface{})
+
+var cmdArgs []string
+
+if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+cmdArgs = append(cmdArgs, "--project", projectDir)
+}
+
+// Execute deps command
+cmd := exec.Command("azd", append([]string{"app", "deps"}, cmdArgs...)...)
+output, err := cmd.CombinedOutput()
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to install dependencies: %v\nOutput: %s", err, string(output))), nil
+}
+
+result := map[string]interface{}{
+"status":  "completed",
+"message": "Dependencies installed successfully",
+"output":  string(output),
+}
+
+jsonBytes, err := json.MarshalIndent(result, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
+}
+
+// newCheckRequirementsTool creates the check_requirements tool
+func newCheckRequirementsTool() server.ServerTool {
+return server.ServerTool{
+Tool: mcp.NewTool(
+"check_requirements",
+mcp.WithDescription("Check if all required prerequisites (tools, CLIs, SDKs) defined in azure.yaml are installed and meet minimum version requirements. Returns detailed status of each requirement."),
+mcp.WithReadOnlyHintAnnotation(true),
+mcp.WithIdempotentHintAnnotation(true),
+mcp.WithDestructiveHintAnnotation(false),
+mcp.WithString("projectDir",
+mcp.Description("Optional project directory path. If not provided, uses current directory."),
+),
+),
+Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+args, _ := request.Params.Arguments.(map[string]interface{})
+
+var cmdArgs []string
+
+if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+cmdArgs = append(cmdArgs, "--project", projectDir)
+}
+
+result, err := executeAzdAppCommand("reqs", cmdArgs)
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to check requirements: %v", err)), nil
+}
+
+jsonBytes, err := json.MarshalIndent(result, "", "  ")
+if err != nil {
+return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+}
+
+return mcp.NewToolResultText(string(jsonBytes)), nil
+},
+}
 }
