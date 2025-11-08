@@ -5,7 +5,7 @@ This implementation adds `prerun` and `postrun` hook support to the `azd app run
 
 ## Architecture
 
-### 1. Schema Layer (`schemas/v1.1/azure.yaml.json`)
+### 1. Schema Layer (`schemas/v1.0/azure.yaml.json`)
 - Added `hooks` property to root schema
 - Defined `hook` and `platformHook` definitions
 - Supports properties:

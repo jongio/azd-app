@@ -38,20 +38,6 @@
       "type": "object",
       "description": "Additional metadata for the application",
       "additionalProperties": true
-    },
-    "hooks": {
-      "type": "object",
-      "description": "Lifecycle hooks for run command - similar to azd's preprovision/postprovision hooks",
-      "properties": {
-        "prerun": {
-          "$ref": "#/definitions/hook",
-          "description": "Hook to execute before starting services"
-        },
-        "postrun": {
-          "$ref": "#/definitions/hook",
-          "description": "Hook to execute after all services are ready"
-        }
-      }
     }
   },
   "definitions": {
@@ -272,65 +258,6 @@
           "description": "Expected exit code for running check (default: 0)"
         }
       }
-    },
-    "hook": {
-      "type": "object",
-      "description": "A lifecycle hook definition - runs scripts before/after commands",
-      "properties": {
-        "run": {
-          "type": "string",
-          "description": "The script or command to execute. Can be inline command or path to script file.",
-          "examples": ["./scripts/prerun.sh", "echo 'Starting services'", "npm run db:migrate"]
-        },
-        "shell": {
-          "type": "string",
-          "description": "The shell to use for executing the script",
-          "default": "sh",
-          "examples": ["sh", "bash", "pwsh", "powershell", "cmd"]
-        },
-        "continueOnError": {
-          "type": "boolean",
-          "description": "Whether to continue execution if the hook fails",
-          "default": false
-        },
-        "interactive": {
-          "type": "boolean",
-          "description": "Whether the script requires user interaction",
-          "default": false
-        },
-        "windows": {
-          "$ref": "#/definitions/platformHook",
-          "description": "Windows-specific hook configuration (overrides parent)"
-        },
-        "posix": {
-          "$ref": "#/definitions/platformHook",
-          "description": "POSIX (Linux/macOS)-specific hook configuration (overrides parent)"
-        }
-      },
-      "required": ["run"]
-    },
-    "platformHook": {
-      "type": "object",
-      "description": "Platform-specific hook override",
-      "properties": {
-        "run": {
-          "type": "string",
-          "description": "Platform-specific script or command"
-        },
-        "shell": {
-          "type": "string",
-          "description": "Platform-specific shell"
-        },
-        "continueOnError": {
-          "type": "boolean",
-          "description": "Platform-specific error handling"
-        },
-        "interactive": {
-          "type": "boolean",
-          "description": "Platform-specific interactive mode"
-        }
-      },
-      "required": ["run"]
     }
   },
   "examples": [
@@ -381,18 +308,7 @@
           "name": "docker",
           "checkRunning": true
         }
-      ],
-      "hooks": {
-        "prerun": {
-          "run": "./scripts/prerun.sh",
-          "shell": "sh",
-          "continueOnError": false
-        },
-        "postrun": {
-          "run": "echo 'All services are ready!'",
-          "shell": "sh"
-        }
-      }
+      ]
     }
   ]
 }
