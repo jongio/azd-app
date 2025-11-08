@@ -191,8 +191,7 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 	case "python", "py":
 		runner = NewPythonTestRunner(service.Dir, config)
 	case "csharp", "dotnet", "fsharp", "cs", "fs":
-		// TODO: Implement .NET runner
-		return nil, fmt.Errorf(".NET test runner not yet implemented")
+		runner = NewDotnetTestRunner(service.Dir, config)
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", service.Language)
 	}
