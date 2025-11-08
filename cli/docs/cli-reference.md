@@ -41,6 +41,7 @@ azd app deps --structured-logs
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
+| `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -267,6 +268,161 @@ The `run` command supports lifecycle hooks that execute before and after service
 
 ---
 
+## `azd app health`
+
+Monitor the health status of running services with support for point-in-time checks or real-time streaming.
+
+### Usage
+
+```bash
+azd app health [flags]
+```
+
+### Examples
+
+```bash
+# Quick health check of all services
+azd app health
+
+# Check health of specific service(s)
+azd app health --service web,api
+
+# Stream health updates in real-time
+azd app health --stream
+
+# Stream with custom interval
+azd app health --stream --interval 3s
+
+# Output as JSON for automation
+azd app health --output json
+
+# Verbose health check details
+azd app health --verbose
+
+# Custom health endpoint path
+azd app health --endpoint /api/status
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Monitor specific service(s) only (comma-separated) |
+| `--stream` | | bool | `false` | Enable streaming mode for real-time updates |
+| `--interval` | `-i` | duration | `5s` | Interval between health checks in streaming mode |
+| `--output` | `-o` | string | `text` | Output format: 'text', 'json', 'table' |
+| `--endpoint` | | string | `/health` | Default health endpoint path to check |
+| `--timeout` | | duration | `5s` | Timeout for each health check |
+| `--all` | | bool | `false` | Show health for all projects on this machine |
+| `--verbose` | `-v` | bool | `false` | Show detailed health check information |
+
+### Features
+
+- ✅ **HTTP Health Checks**: Automatically detect and use `/health` endpoints
+- ✅ **Port Checks**: Fall back to TCP port checks for non-HTTP services
+- ✅ **Process Checks**: Verify process is running as last resort
+- ✅ **Streaming Mode**: Real-time continuous monitoring with configurable intervals
+- ✅ **Static Mode**: Point-in-time health snapshot
+- ✅ **Smart Detection**: Try common health paths (/health, /healthz, /ready, /alive)
+- ✅ **Multiple Formats**: Text, JSON, or table output
+
+### Health Check Strategy
+
+The command uses a cascading strategy:
+
+1. **HTTP Health Endpoint** (Preferred)
+   - Check explicit `healthCheck.endpoint` in azure.yaml
+   - Try common paths: `/health`, `/healthz`, `/ready`, `/alive`, `/ping`
+   - Accept 2xx and 3xx status codes as healthy
+
+2. **TCP Port Check** (Fallback)
+   - Verify service is listening on configured port
+   - Useful for databases, non-HTTP services
+
+3. **Process Check** (Last Resort)
+   - Verify process is still running
+   - Least reliable, only confirms existence
+
+### Health Status Values
+
+| Status | Meaning | Criteria |
+|--------|---------|----------|
+| `healthy` | Service fully operational | HTTP 2xx/3xx, port listening, or process running |
+| `degraded` | Service running with issues | HTTP returns degraded status |
+| `unhealthy` | Service not functioning | HTTP 4xx/5xx, port not listening, process dead |
+| `starting` | Service initializing | Recently started, not yet ready |
+| `unknown` | Cannot determine health | No health check available or check error |
+
+### Configuration
+
+Define health checks in `azure.yaml`:
+
+```yaml
+services:
+  api:
+    language: python
+    project: ./api
+    ports:
+      - "8080"
+    healthCheck:
+      type: http              # http, port, process
+      endpoint: /api/health   # HTTP endpoint path
+      timeout: 5s             # Timeout for each check
+      interval: 10s           # Interval for streaming mode
+      headers:                # Optional HTTP headers
+        Authorization: Bearer token
+```
+
+### Output Formats
+
+#### Text (default)
+```
+Health Check (2024-11-08 10:30:00)
+=====================================
+
+✓ web                          healthy      (http)
+  Response Time: 45ms
+
+✓ api                          healthy      (http)
+  Response Time: 23ms
+
+Summary: 2 healthy, 0 degraded, 0 unhealthy
+Overall Status: HEALTHY
+```
+
+#### JSON
+```json
+{
+  "timestamp": "2024-11-08T10:30:00Z",
+  "services": [
+    {
+      "serviceName": "web",
+      "status": "healthy",
+      "checkType": "http",
+      "responseTime": 45
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "healthy": 1,
+    "overall": "healthy"
+  }
+}
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | All services healthy |
+| `1` | One or more services unhealthy or degraded |
+| `2` | Error performing health checks |
+| `130` | Interrupted (Ctrl+C in streaming mode) |
+
+**→ [See full health command specification](commands/health.md)** for health check strategies, streaming mode details, and comprehensive documentation.
+
+---
+
 ## `azd app logs`
 
 View logs from running services with filtering and follow support.
@@ -482,6 +638,7 @@ Some commands automatically run prerequisite commands:
 
 ```
 run → deps → reqs
+health → (no dependencies)
 logs → (no dependencies)
 info → (no dependencies)
 reqs → (no dependencies)
@@ -524,6 +681,9 @@ azd app logs --follow
 
 # Check service status
 azd app info
+
+# Monitor health in real-time
+azd app health --stream
 ```
 
 ### Debugging Issues
@@ -534,6 +694,9 @@ azd app reqs --no-cache
 
 # Preview what would run
 azd app run --dry-run --verbose
+
+# Check health status
+azd app health --verbose
 
 # View error logs
 azd app logs --level error
