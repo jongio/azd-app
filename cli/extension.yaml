@@ -20,3 +20,6 @@ tags:
   - developer
   - productivity
   - app
+mcp:
+  serve:
+    args: ["mcp", "serve"]

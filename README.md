@@ -70,9 +70,19 @@ An Azure Developer CLI (azd) extension that automates development environment se
 Visual Studio Code extension for enhanced azd workflows and project management.
 
 ### MCP Server
-**Status:** 🚧 Coming Soon
+**Status:** ✅ Active
 
 Model Context Protocol server for AI-assisted development with Azure Developer CLI.
+
+- **AI Integration**: Exposes service info and logs to AI assistants
+- **Tools**: get_services, get_service_logs, get_project_info
+- **Features**:
+  - Real-time service status and health information
+  - Log streaming with filtering capabilities
+  - Azure deployment information access
+  - Project metadata and configuration
+
+👉 [MCP Server Documentation](./mcp/README.md)
 
 ---
 
