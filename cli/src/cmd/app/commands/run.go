@@ -15,6 +15,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
+	"github.com/oklog/run"
 
 	"github.com/spf13/cobra"
 )
@@ -242,62 +243,99 @@ func loadEnvironmentVariables() (map[string]string, error) {
 }
 
 // monitorServicesUntilShutdown starts the dashboard and waits for shutdown signal.
+// Uses oklog/run to coordinate the lifecycle of services and dashboard with graceful shutdown.
 func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string) error {
-	dashboardServer := startDashboard(cwd)
+	var g run.Group
 
-	output.Info("💡 Press Ctrl+C to stop all services")
-	output.Newline()
-
-	waitForShutdownSignal()
-
-	return shutdownServices(result, dashboardServer)
-}
-
-// startDashboard starts the azd dashboard server.
-func startDashboard(cwd string) *dashboard.Server {
+	// Actor 1: Dashboard server
 	dashboardServer := dashboard.GetServer(cwd)
-	dashboardURL, err := dashboardServer.Start()
-	if err != nil {
-		output.Warning("Dashboard unavailable: %v", err)
-		return nil
+	{
+		g.Add(
+			// Execute: Start and run the dashboard
+			func() error {
+				dashboardURL, err := dashboardServer.Start()
+				if err != nil {
+					output.Warning("Dashboard unavailable: %v", err)
+					// Don't fail the entire run if dashboard fails
+					// Just block until interrupted
+					select {}
+				}
+
+				output.Newline()
+				output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
+				output.Newline()
+				output.Info("💡 Press Ctrl+C to stop all services")
+				output.Newline()
+
+				// Block until interrupted
+				select {}
+			},
+			// Interrupt: Stop the dashboard
+			func(error) {
+				if err := dashboardServer.Stop(); err != nil {
+					output.Warning("Failed to stop dashboard: %v", err)
+				}
+			},
+		)
 	}
 
-	output.Newline()
-	output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
-	output.Newline()
-	return dashboardServer
-}
-
-// waitForShutdownSignal blocks until SIGINT or SIGTERM is received.
-func waitForShutdownSignal() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
-}
-
-// shutdownServices stops all services and the dashboard.
-func shutdownServices(result *service.OrchestrationResult, dashboardServer *dashboard.Server) error {
-	output.Newline()
-	output.Newline()
-	output.Warning("🛑 Shutting down services...")
-
-	if dashboardServer != nil {
-		if err := dashboardServer.Stop(); err != nil {
-			output.Warning("Failed to stop dashboard: %v", err)
-		}
+	// Actor 2: Service process monitoring
+	// Monitor all service processes and propagate errors if any exit unexpectedly
+	{
+		g.Add(
+			// Execute: Wait for any service to exit
+			func() error {
+				return service.WaitForServices(result.Processes)
+			},
+			// Interrupt: Stop all services
+			func(error) {
+				output.Newline()
+				output.Newline()
+				output.Warning("🛑 Shutting down services...")
+				service.StopAllServices(result.Processes)
+				output.Success("All services stopped")
+				output.Newline()
+			},
+		)
 	}
 
-	service.StopAllServices(result.Processes)
+	// Actor 3: Signal handler for graceful shutdown
+	{
+		ctx, cancel := context.WithCancel(context.Background())
+		g.Add(
+			// Execute: Wait for interrupt signal
+			func() error {
+				sigChan := make(chan os.Signal, 1)
+				signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+				select {
+				case <-sigChan:
+					return fmt.Errorf("received interrupt signal")
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			},
+			// Interrupt: Cancel the context
+			func(error) {
+				cancel()
+			},
+		)
+	}
+
+	// Run all actors - this blocks until one of them returns an error or is interrupted
+	// All actors are stopped gracefully via their interrupt functions
+	err := g.Run()
 
 	// Clean up port assignments on clean shutdown
 	// Note: Port assignments are kept in the file for persistence across runs,
 	// but we don't release them here to allow quick restarts with same ports.
 	// Stale ports are cleaned up automatically after 7 days of inactivity.
 
-	output.Success("All services stopped")
-	output.Newline()
+	// If the error is just from signal interrupt, that's expected
+	if err != nil && err.Error() == "received interrupt signal" {
+		return nil
+	}
 
-	return nil
+	return err
 }
 
 // runAspireMode runs Aspire AppHost directly using dotnet run.

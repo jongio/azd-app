@@ -6,6 +6,7 @@ require (
 	github.com/azure/azure-dev v0.0.0-20251101010333-7307c9bd2022
 	github.com/gorilla/websocket v1.5.3
 	github.com/magefile/mage v1.15.0
+	github.com/oklog/run v1.1.0
 	github.com/spf13/cobra v1.10.1
 	gopkg.in/yaml.v3 v3.0.1
 )
