@@ -219,7 +219,7 @@ func WaitForServices(processes map[string]*ServiceProcess) error {
 	}
 
 	// Create error channel to collect exit status from any service
-	errCh := make(chan error, validProcessCount)
+	errCh := make(chan error, 1)
 
 	// Start a goroutine for each service to wait for it to exit
 	for name, process := range processes {
