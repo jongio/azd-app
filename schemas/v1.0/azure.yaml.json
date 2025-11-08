@@ -276,18 +276,7 @@
       }
     },
     "hooks": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/hook"
-        },
-        {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/hook"
-          }
-        }
-      ]
+      "$ref": "#/definitions/hook"
     },
     "hook": {
       "type": "object",
