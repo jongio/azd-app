@@ -545,13 +545,13 @@ func TestDetectNodePackageManagerWithPackageManagerField(t *testing.T) {
 // TestDetectNodePackageManager tests the convenience wrapper function
 func TestDetectNodePackageManager(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create package.json with packageManager field
 	packageJSON := `{"name": "test", "packageManager": "pnpm@8.0.0"}`
 	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
-	
+
 	result := DetectNodePackageManager(tmpDir)
 	if result != "pnpm" {
 		t.Errorf("DetectNodePackageManager() = %q, want %q", result, "pnpm")
@@ -586,17 +586,17 @@ func TestFindDockerComposeScript(t *testing.T) {
 			expected:    "",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			
+
 			if tt.packageJSON != "" {
 				if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(tt.packageJSON), 0600); err != nil {
 					t.Fatalf("failed to create package.json: %v", err)
 				}
 			}
-			
+
 			result := FindDockerComposeScript(tmpDir)
 			if result != tt.expected {
 				t.Errorf("FindDockerComposeScript() = %q, want %q", result, tt.expected)
@@ -608,7 +608,7 @@ func TestFindDockerComposeScript(t *testing.T) {
 // TestFindAzureYaml tests finding azure.yaml in directory tree
 func TestFindAzureYaml(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	t.Run("azure.yaml in same directory", func(t *testing.T) {
 		// Create azure.yaml in tmp dir
 		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
@@ -616,7 +616,7 @@ func TestFindAzureYaml(t *testing.T) {
 			t.Fatalf("failed to create azure.yaml: %v", err)
 		}
 		defer os.Remove(azureYamlPath)
-		
+
 		result, err := FindAzureYaml(tmpDir)
 		if err != nil {
 			t.Errorf("FindAzureYaml() error = %v", err)
@@ -625,21 +625,21 @@ func TestFindAzureYaml(t *testing.T) {
 			t.Errorf("FindAzureYaml() = %q, want %q", result, azureYamlPath)
 		}
 	})
-	
+
 	t.Run("azure.yaml in parent directory", func(t *testing.T) {
 		// Create subdirectory
 		subDir := filepath.Join(tmpDir, "subdir")
 		if err := os.MkdirAll(subDir, 0750); err != nil {
 			t.Fatalf("failed to create subdir: %v", err)
 		}
-		
+
 		// Create azure.yaml in parent
 		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
 		if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0600); err != nil {
 			t.Fatalf("failed to create azure.yaml: %v", err)
 		}
 		defer os.Remove(azureYamlPath)
-		
+
 		result, err := FindAzureYaml(subDir)
 		if err != nil {
 			t.Errorf("FindAzureYaml() error = %v", err)
@@ -648,11 +648,11 @@ func TestFindAzureYaml(t *testing.T) {
 			t.Errorf("FindAzureYaml() = %q, want %q", result, azureYamlPath)
 		}
 	})
-	
+
 	t.Run("no azure.yaml found", func(t *testing.T) {
 		// Use a directory without azure.yaml
 		noYamlDir := t.TempDir()
-		
+
 		_, err := FindAzureYaml(noYamlDir)
 		if err == nil {
 			t.Error("FindAzureYaml() expected error when no azure.yaml found")

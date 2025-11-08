@@ -435,7 +435,7 @@ func TestConcurrentAccess(t *testing.T) {
 func TestCleanStale(t *testing.T) {
 	tempDir := t.TempDir()
 	registry := GetRegistry(tempDir)
-	
+
 	// Add a service with old LastChecked time
 	oldEntry := &ServiceRegistryEntry{
 		Name:        "old-service",
@@ -446,7 +446,7 @@ func TestCleanStale(t *testing.T) {
 	if err := registry.Register(oldEntry); err != nil {
 		t.Fatalf("failed to register old service: %v", err)
 	}
-	
+
 	// Add a recent service
 	recentEntry := &ServiceRegistryEntry{
 		Name:        "recent-service",
@@ -457,16 +457,16 @@ func TestCleanStale(t *testing.T) {
 	if err := registry.Register(recentEntry); err != nil {
 		t.Fatalf("failed to register recent service: %v", err)
 	}
-	
+
 	// Call cleanStale
 	registry.cleanStale()
-	
+
 	// Verify old entry was removed
 	_, exists := registry.GetService("old-service")
 	if exists {
 		t.Error("Expected old service to be removed")
 	}
-	
+
 	// Verify recent entry remains
 	_, exists = registry.GetService("recent-service")
 	if !exists {
@@ -481,7 +481,7 @@ func TestIsProcessRunning(t *testing.T) {
 	if !isProcessRunning(currentPID) {
 		t.Error("Current process should be reported as running")
 	}
-	
+
 	// Test with invalid PID (should not be running)
 	invalidPID := 999999
 	if isProcessRunning(invalidPID) {

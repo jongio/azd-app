@@ -143,8 +143,8 @@ func TestGetDependents(t *testing.T) {
 	}
 
 	tests := []struct {
-		name              string
-		serviceName       string
+		name               string
+		serviceName        string
 		expectedDependents int
 	}{
 		{
@@ -217,19 +217,19 @@ func TestFilterGraphByServices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := FilterGraphByServices(graph, tt.serviceNames)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("expected error but got nil")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if len(result.Nodes) != tt.expectedNodes {
 				t.Errorf("FilterGraphByServices() returned %d nodes, want %d", len(result.Nodes), tt.expectedNodes)
 			}
@@ -276,19 +276,19 @@ func TestBuildDependencyGraph(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			graph, err := BuildDependencyGraph(tt.services, tt.resources)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("expected error but got nil")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if graph == nil {
 				t.Error("expected non-nil graph")
 			}
@@ -347,7 +347,7 @@ func TestDetectCycles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := DetectCycles(tt.graph)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("expected error for cycle detection")
 			}

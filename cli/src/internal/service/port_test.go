@@ -326,33 +326,33 @@ func TestIsPortAvailable(t *testing.T) {
 	// Test with a port that should be available
 	// Use a high port number to avoid conflicts
 	testPort := 59999
-	
+
 	if !IsPortAvailable(testPort) {
 		t.Logf("Port %d is in use (this may vary by system)", testPort)
 	}
-	
+
 	// Note: Port 0 is a special case - it asks the OS to assign a free port
-	// The OS will bind it successfully, so it appears "available" 
+	// The OS will bind it successfully, so it appears "available"
 	// This is expected behavior, not a bug
 }
 
 // TestDetectPortFromSpringConfig tests Spring Boot configuration detection
 func TestDetectPortFromSpringConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create directory structure for Spring Boot project
 	resourcesDir := filepath.Join(tmpDir, "src", "main", "resources")
 	if err := os.MkdirAll(resourcesDir, 0750); err != nil {
 		t.Fatalf("failed to create resources dir: %v", err)
 	}
-	
+
 	t.Run("application.properties", func(t *testing.T) {
 		propsPath := filepath.Join(resourcesDir, "application.properties")
 		content := "server.port=8090\nserver.name=myapp\n"
 		if err := os.WriteFile(propsPath, []byte(content), 0600); err != nil {
 			t.Fatalf("failed to create application.properties: %v", err)
 		}
-		
+
 		port, err := detectPortFromSpringConfig(tmpDir)
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -360,18 +360,18 @@ func TestDetectPortFromSpringConfig(t *testing.T) {
 		if port != 8090 {
 			t.Errorf("Expected port 8090, got %d", port)
 		}
-		
+
 		// Clean up
 		os.Remove(propsPath)
 	})
-	
+
 	t.Run("application.yml", func(t *testing.T) {
 		ymlPath := filepath.Join(resourcesDir, "application.yml")
 		content := "server:\n  port: 8091\n"
 		if err := os.WriteFile(ymlPath, []byte(content), 0600); err != nil {
 			t.Fatalf("failed to create application.yml: %v", err)
 		}
-		
+
 		port, err := detectPortFromSpringConfig(tmpDir)
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -379,11 +379,11 @@ func TestDetectPortFromSpringConfig(t *testing.T) {
 		if port != 8091 {
 			t.Errorf("Expected port 8091, got %d", port)
 		}
-		
+
 		// Clean up
 		os.Remove(ymlPath)
 	})
-	
+
 	t.Run("no config", func(t *testing.T) {
 		_, err := detectPortFromSpringConfig(tmpDir)
 		if err == nil {

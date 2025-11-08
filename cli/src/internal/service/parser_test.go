@@ -6,10 +6,10 @@ import (
 
 func TestGetServiceProjectDir(t *testing.T) {
 	tests := []struct {
-		name        string
-		service     Service
-		workingDir  string
-		expected    string
+		name       string
+		service    Service
+		workingDir string
+		expected   string
 	}{
 		{
 			name: "service with project specified",
@@ -28,8 +28,8 @@ func TestGetServiceProjectDir(t *testing.T) {
 			expected:   "/working/dir",
 		},
 		{
-			name: "service with empty project uses working dir",
-			service: Service{},
+			name:       "service with empty project uses working dir",
+			service:    Service{},
 			workingDir: "/another/working/dir",
 			expected:   "/another/working/dir",
 		},

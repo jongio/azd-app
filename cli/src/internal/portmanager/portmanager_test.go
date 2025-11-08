@@ -811,12 +811,12 @@ func TestAssignPort_InvalidExplicitPort(t *testing.T) {
 // TestFindAvailablePort_NoPortsAvailable tests the error case when no ports are available
 func TestFindAvailablePort_NoPortsAvailable(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Create a manager with a very limited port range
 	pm := GetPortManager(tempDir)
 	pm.portRange.start = 9900
 	pm.portRange.end = 9901
-	
+
 	// Mark all ports as unavailable
 	unavailable := map[int]bool{9900: true, 9901: true}
 	pm.portChecker = mockPortChecker(unavailable)
@@ -831,7 +831,7 @@ func TestFindAvailablePort_NoPortsAvailable(t *testing.T) {
 func TestDefaultIsPortAvailable(t *testing.T) {
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
-	
+
 	// Test with debug mode off (default)
 	available := pm.defaultIsPortAvailable(59999)
 	if !available {
@@ -841,7 +841,7 @@ func TestDefaultIsPortAvailable(t *testing.T) {
 	// Test with debug mode on
 	os.Setenv("AZD_APP_DEBUG", "true")
 	defer os.Unsetenv("AZD_APP_DEBUG")
-	
+
 	available = pm.defaultIsPortAvailable(59998)
 	if !available {
 		t.Log("Port 59998 is in use (this may vary)")
@@ -853,25 +853,25 @@ func TestSave_Error(t *testing.T) {
 	// Create a temp dir
 	tempDir := t.TempDir()
 	pm := setupTestManager(tempDir, nil)
-	
+
 	// Assign a port to create an assignment
 	_, _, err := pm.AssignPort("test-service", 9876, false, false)
 	if err != nil {
 		t.Fatalf("Failed to assign port: %v", err)
 	}
-	
+
 	// Make the .azure directory read-only to cause save to fail
 	azureDir := filepath.Join(tempDir, ".azure")
 	if err := os.Chmod(azureDir, 0444); err != nil {
 		t.Fatalf("Failed to chmod: %v", err)
 	}
 	defer os.Chmod(azureDir, 0755) // Restore permissions for cleanup
-	
+
 	// Try to save - this should fail but be handled gracefully
 	pm.mu.Lock()
 	saveErr := pm.save()
 	pm.mu.Unlock()
-	
+
 	// The save should fail (though the exact error depends on the OS)
 	if saveErr == nil {
 		t.Log("Note: save succeeded despite read-only directory (OS-dependent behavior)")
@@ -885,7 +885,7 @@ func TestAssignPort_FlexibleWithAllPortsAssigned(t *testing.T) {
 	pm.portRange.start = 9950
 	pm.portRange.end = 9952
 	pm.portChecker = mockPortChecker(nil) // All ports are available
-	
+
 	// Assign all ports in range
 	_, _, err := pm.AssignPort("service1", 9950, false, false)
 	if err != nil {
@@ -899,7 +899,7 @@ func TestAssignPort_FlexibleWithAllPortsAssigned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to assign third port: %v", err)
 	}
-	
+
 	// Try to assign another port - should find one of the assigned ports
 	_, _, err = pm.AssignPort("service4", 9950, false, false)
 	if err != nil {

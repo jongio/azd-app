@@ -450,7 +450,7 @@ func TestDetectFramework(t *testing.T) {
 
 func TestMergeServiceInfo(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
 		name            string
 		azureYaml       *service.AzureYaml
@@ -536,11 +536,11 @@ func TestMergeServiceInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := mergeServiceInfo(tt.azureYaml, tt.runningServices, tt.azureServices)
-			
+
 			if len(result) != tt.expectedCount {
 				t.Errorf("mergeServiceInfo() returned %d services, want %d", len(result), tt.expectedCount)
 			}
-			
+
 			if tt.checkService != "" {
 				found := false
 				for _, svc := range result {
@@ -601,7 +601,7 @@ services:
 		t.Run(tt.name, func(t *testing.T) {
 			dir := tt.setupDir(t)
 			result, err := parseAzureYaml(dir)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("expected error but got nil")
 			}
@@ -617,7 +617,7 @@ services:
 
 func TestGetServiceInfo(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create a simple azure.yaml
 	yamlContent := `name: test
 services:
@@ -627,16 +627,16 @@ services:
 	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(yamlContent), 0600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
-	
+
 	services, err := GetServiceInfo(tmpDir)
 	if err != nil {
 		t.Errorf("GetServiceInfo() error = %v", err)
 	}
-	
+
 	if len(services) == 0 {
 		t.Error("GetServiceInfo() returned no services")
 	}
-	
+
 	// Should find the api service
 	found := false
 	for _, svc := range services {
