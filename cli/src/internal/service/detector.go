@@ -371,12 +371,15 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 			return fmt.Errorf("Flask: %w", err)
 		}
 		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
-		// Flask needs the .py extension in FLASK_APP
+		// Flask needs the .py extension in FLASK_APP - normalize to ensure consistent handling
+		var flaskApp string
 		if entrypoint != "" {
-			runtime.Env["FLASK_APP"] = entrypoint
+			flaskApp = entrypoint
 		} else {
-			runtime.Env["FLASK_APP"] = appFile + ".py"
+			flaskApp = appFile
 		}
+		// Ensure .py extension is present
+		runtime.Env["FLASK_APP"] = strings.TrimSuffix(flaskApp, ".py") + ".py"
 		runtime.Env["FLASK_ENV"] = "development"
 		return nil
 
