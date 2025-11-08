@@ -189,8 +189,7 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 	case "js", "javascript", "typescript", "ts":
 		runner = NewNodeTestRunner(service.Dir, config)
 	case "python", "py":
-		// TODO: Implement Python runner
-		return nil, fmt.Errorf("Python test runner not yet implemented")
+		runner = NewPythonTestRunner(service.Dir, config)
 	case "csharp", "dotnet", "fsharp", "cs", "fs":
 		// TODO: Implement .NET runner
 		return nil, fmt.Errorf(".NET test runner not yet implemented")

@@ -41,20 +41,20 @@ This package provides test execution and coverage aggregation for multi-language
   - Command structure tested
   - Validation logic tested
 
-### Phase 2: Language Runners (PARTIAL ✅)
+### Phase 2: Language Runners (COMPLETE ✅)
 
 **Completed:**
 - ✅ Node.js test runner with Jest/Vitest/Mocha support
-- ✅ Framework auto-detection
-- ✅ Test output parsing
+- ✅ Python test runner with pytest/unittest support
+- ✅ Framework auto-detection for both languages
+- ✅ Test output parsing for all frameworks
 
 **Remaining:**
-- ⏳ Python test runner (pytest/unittest)
 - ⏳ .NET test runner (xUnit/NUnit/MSTest)
 
 ### Phases 3-5: Not Yet Started
 
-- ⏳ Coverage aggregation
+- ⏳ Coverage aggregation and format conversion
 - ⏳ Advanced features (watch mode, setup/teardown)
 - ⏳ Final documentation and integration tests
 
@@ -62,7 +62,7 @@ See [implementation plan](../../docs/design/implementation-plan.md) for details.
 
 ## Current Functionality
 
-The test command is functional for Node.js projects. You can:
+The test command is functional for Node.js and Python projects. You can:
 
 ```bash
 # View help and all available flags
@@ -95,20 +95,34 @@ name: my-app
 reqs:
   - id: node
     minVersion: "18.0.0"
+  - id: python
+    minVersion: "3.9.0"
 services:
   web:
     language: js
     project: ./web
+  api:
+    language: python
+    project: ./api
 ```
 
-Ensure your project has a test script in `package.json`:
+Ensure your projects have test scripts:
 
+**Node.js** (`package.json`):
 ```json
 {
   "scripts": {
     "test": "jest"
   }
 }
+```
+
+**Python** (tests directory with pytest):
+```
+api/
+  tests/
+    test_api.py
+  pyproject.toml
 ```
 
 Then run:
@@ -126,7 +140,7 @@ TestOrchestrator ✅
   │     │      │        │
 Node  Python  .NET   Coverage
 Runner Runner Runner  Aggregator
-  ✅     ⏳      ⏳       ⏳
+  ✅     ✅      ⏳       ⏳
 ```
 
 ## Framework Detection
@@ -136,9 +150,11 @@ Runner Runner Runner  Aggregator
 - Falls back to checking `package.json` dependencies
 - Defaults to `npm test`
 
-### Python ⏳
-- Will check for `pytest.ini`, `pyproject.toml`
-- Default to pytest
+### Python ✅
+- Checks for `pytest.ini`, `pyproject.toml`, `setup.cfg`
+- Detects package manager (uv, poetry, pip)
+- Supports pytest markers for test type filtering
+- Falls back to unittest if pytest not detected
 
 ### .NET ⏳
 - Will scan for `*.Tests.csproj` files
