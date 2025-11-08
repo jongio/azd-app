@@ -1,4 +1,3 @@
-// Package executor provides safe command execution with output monitoring and timeout handling.
 package executor
 
 import (
@@ -162,7 +161,9 @@ func ResolveHookConfig(hook *Hook) *HookConfig {
 	return config
 }
 
-// Hook represents a lifecycle hook configuration (imported from service types).
+// Hook represents a lifecycle hook configuration.
+// Note: This type is duplicated from service.Hook to avoid circular imports.
+// The service package imports executor, so executor cannot import service.
 type Hook struct {
 	Run             string
 	Shell           string
@@ -172,10 +173,12 @@ type Hook struct {
 	Posix           *PlatformHook
 }
 
-// PlatformHook represents platform-specific hook configuration (imported from service types).
+// PlatformHook represents platform-specific hook configuration.
+// Note: This type is duplicated from service.PlatformHook to avoid circular imports.
 type PlatformHook struct {
 	Run             string
 	Shell           string
 	ContinueOnError *bool
 	Interactive     *bool
 }
+
