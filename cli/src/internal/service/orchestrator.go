@@ -238,7 +238,7 @@ func WaitForServices(processes map[string]*ServiceProcess) error {
 				return
 			}
 			// Service exited cleanly
-			errCh <- fmt.Errorf("service %s exited", serviceName)
+			errCh <- nil
 		}(name, process)
 	}
 
