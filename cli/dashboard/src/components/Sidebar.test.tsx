@@ -80,12 +80,12 @@ describe('Sidebar', () => {
     expect(consoleButton).toHaveClass('text-gray-500')
   })
 
-  it('should render all 7 navigation items', () => {
+  it('should render all 8 navigation items', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(7)
+    expect(buttons).toHaveLength(8)
   })
 
   it('should update active state when activeView prop changes', () => {

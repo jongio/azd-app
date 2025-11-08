@@ -7,6 +7,8 @@ import { Sidebar } from '@/components/Sidebar'
 import { EnvironmentPanel } from '@/components/EnvironmentPanel'
 import { QuickActions } from '@/components/QuickActions'
 import { PerformanceMetrics } from '@/components/PerformanceMetrics'
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
+import { ServiceDependencies } from '@/components/ServiceDependencies'
 import type { Service } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
 
@@ -17,6 +19,7 @@ function App() {
     const saved = localStorage.getItem('dashboard-view-preference')
     return (saved === 'cards' || saved === 'table') ? saved : 'table'
   })
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
   const { services, loading, error } = useServices()
 
   // Scroll to top when view changes
@@ -47,6 +50,39 @@ function App() {
         document.title = `${data.name}`
       })
       .catch(err => console.error('Failed to fetch project name:', err))
+  }, [])
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Number keys for navigation
+      if (e.key === '1') setActiveView('resources')
+      else if (e.key === '2') setActiveView('console')
+      else if (e.key === '3') setActiveView('metrics')
+      else if (e.key === '4') setActiveView('environment')
+      else if (e.key === '5') setActiveView('actions')
+      else if (e.key === '6') setActiveView('dependencies')
+      
+      // Other shortcuts
+      else if (e.key === 't' || e.key === 'T') setViewMode(prev => prev === 'table' ? 'cards' : 'table')
+      else if (e.key === '?' && !e.shiftKey) setShowKeyboardShortcuts(true)
+      else if (e.key === 'Escape') setShowKeyboardShortcuts(false)
+      
+      // Search focus
+      else if (e.key === '/' || (e.ctrlKey && e.key === 'f')) {
+        e.preventDefault()
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+        searchInput?.focus()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const renderContent = () => {
@@ -175,6 +211,17 @@ function App() {
       )
     }
 
+    if (activeView === 'dependencies') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-semibold text-foreground">Service Dependencies</h1>
+          </div>
+          <ServiceDependencies services={services} />
+        </>
+      )
+    }
+
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
@@ -197,7 +244,11 @@ function App() {
             <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
               <Github className="w-4 h-4 text-gray-400 hover:text-gray-300" />
             </button>
-            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
+            <button 
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="p-2 hover:bg-white/5 rounded-md transition-colors"
+              title="Keyboard shortcuts (?)"
+            >
               <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-300" />
             </button>
             <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
@@ -209,6 +260,12 @@ function App() {
           {renderContent()}
         </main>
       </div>
+      
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts 
+        isOpen={showKeyboardShortcuts} 
+        onClose={() => setShowKeyboardShortcuts(false)} 
+      />
     </div>
   )
 }
