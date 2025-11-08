@@ -9,7 +9,7 @@ import { QuickActions } from '@/components/QuickActions'
 import { PerformanceMetrics } from '@/components/PerformanceMetrics'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
 import { ServiceDependencies } from '@/components/ServiceDependencies'
-import { ServiceDetailModal } from '@/components/ServiceDetailModal'
+import { ServiceDetailPanel } from '@/components/ServiceDetailPanel'
 import type { Service } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
 
@@ -273,14 +273,12 @@ function App() {
         onClose={() => setShowKeyboardShortcuts(false)} 
       />
       
-      {/* Service Detail Modal */}
-      {selectedService && (
-        <ServiceDetailModal
-          service={selectedService}
-          isOpen={true}
-          onClose={() => setSelectedService(null)}
-        />
-      )}
+      {/* Service Detail Panel */}
+      <ServiceDetailPanel
+        service={selectedService}
+        isOpen={selectedService !== null}
+        onClose={() => setSelectedService(null)}
+      />
     </div>
   )
 }
