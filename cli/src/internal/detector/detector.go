@@ -169,7 +169,7 @@ func FindNodeProjects(rootDir string) ([]types.NodeProject, error) {
 }
 
 // DetectNodePackageManager determines whether to use pnpm, yarn, or npm.
-// Priority: pnpm-lock.yaml or pnpm-workspace.yaml > yarn.lock > package-lock.json > npm (default).
+// Priority: packageManager field in package.json > lock files > npm (default).
 func DetectNodePackageManager(projectDir string) string {
 	// Use unbounded search (for backward compatibility with tests)
 	return DetectNodePackageManagerWithBoundary(projectDir, "")
@@ -177,6 +177,7 @@ func DetectNodePackageManager(projectDir string) string {
 
 // DetectNodePackageManagerWithBoundary determines package manager by checking only the project directory.
 // Does not search up the directory tree to avoid interference from parent workspace configurations.
+// Priority: packageManager field in package.json > lock files > npm (default).
 func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string) string {
 	// Clean the paths to absolute
 	absDir, err := filepath.Abs(projectDir)
@@ -184,7 +185,12 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 		absDir = projectDir
 	}
 
-	// Check ONLY the project directory itself for lock files
+	// First, check for packageManager field in package.json (highest priority)
+	if pkgMgr := getPackageManagerFromPackageJson(absDir); pkgMgr != "" {
+		return pkgMgr
+	}
+
+	// Fall back to lock file detection
 	// Priority: pnpm-lock.yaml > yarn.lock > package-lock.json > npm (default)
 	if _, err := os.Stat(filepath.Join(absDir, "pnpm-lock.yaml")); err == nil {
 		return "pnpm"
@@ -198,6 +204,57 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 
 	// Default to npm if no lock files found
 	return "npm"
+}
+
+// getPackageManagerFromPackageJson reads package.json and extracts the packageManager field.
+// The packageManager field format is: "name@version" (e.g., "pnpm@8.15.0", "yarn@4.1.0", "npm@10.5.0")
+// Returns the package manager name (without version) if found, empty string otherwise.
+func getPackageManagerFromPackageJson(projectDir string) string {
+	packageJsonPath := filepath.Join(projectDir, "package.json")
+
+	// Validate path before reading
+	if err := security.ValidatePath(packageJsonPath); err != nil {
+		return ""
+	}
+
+	// #nosec G304 -- Path validated by security.ValidatePath
+	data, err := os.ReadFile(packageJsonPath)
+	if err != nil {
+		return ""
+	}
+
+	var pkg struct {
+		PackageManager string `json:"packageManager"`
+	}
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return ""
+	}
+
+	// The packageManager field is in the format "name@version"
+	// We need to extract just the name part
+	if pkg.PackageManager == "" {
+		return ""
+	}
+
+	// Split by '@' to extract the package manager name
+	// Handle scoped packages and version correctly
+	parts := strings.Split(pkg.PackageManager, "@")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// The package manager name is the first part
+	pkgMgrName := parts[0]
+
+	// Validate it's a supported package manager
+	switch pkgMgrName {
+	case "npm", "yarn", "pnpm":
+		return pkgMgrName
+	default:
+		// Unsupported package manager, fall back to lock file detection
+		return ""
+	}
 }
 
 // FindDotnetProjects searches for .csproj and .sln files.
