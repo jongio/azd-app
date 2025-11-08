@@ -4,7 +4,7 @@ This package provides test execution and coverage aggregation for multi-language
 
 ## Implementation Status
 
-### Phase 1: Core Infrastructure (IN PROGRESS)
+### Phase 1: Core Infrastructure (COMPLETE ✅)
 
 **Completed:**
 - ✅ Type definitions (`types.go`)
@@ -15,33 +15,67 @@ This package provides test execution and coverage aggregation for multi-language
   - `AggregateResult` - Combined results
   - `AggregateCoverage` - Aggregated coverage
 
-- ✅ Basic test command (`commands/test.go`)
+- ✅ Test command (`commands/test.go`)
   - All flags defined and working
   - Input validation (test type, threshold, output format)
   - Integration with command orchestrator
   - Dry-run mode
+  - Full test execution workflow
+
+- ✅ Test orchestrator (`orchestrator.go`)
+  - Loads services from azure.yaml
+  - Framework auto-detection (Node.js, Python, .NET)
+  - Test execution management
+  - Result aggregation
+  - Service filtering
+
+- ✅ Node.js test runner (`node_runner.go`)
+  - Framework detection (Jest, Vitest, Mocha)
+  - Test command generation
+  - Test execution
+  - Output parsing
+  - Result extraction
 
 - ✅ Unit tests
   - Type definitions tested
   - Command structure tested
   - Validation logic tested
 
-**Next Steps:**
-- [ ] Test orchestrator implementation
-- [ ] Framework auto-detection
-- [ ] Service test execution
+### Phase 2: Language Runners (PARTIAL ✅)
 
-### Phases 2-5: Not Yet Started
+**Completed:**
+- ✅ Node.js test runner with Jest/Vitest/Mocha support
+- ✅ Framework auto-detection
+- ✅ Test output parsing
+
+**Remaining:**
+- ⏳ Python test runner (pytest/unittest)
+- ⏳ .NET test runner (xUnit/NUnit/MSTest)
+
+### Phases 3-5: Not Yet Started
+
+- ⏳ Coverage aggregation
+- ⏳ Advanced features (watch mode, setup/teardown)
+- ⏳ Final documentation and integration tests
 
 See [implementation plan](../../docs/design/implementation-plan.md) for details.
 
 ## Current Functionality
 
-The test command is currently in Phase 1 implementation. You can:
+The test command is functional for Node.js projects. You can:
 
 ```bash
 # View help and all available flags
 azd app test --help
+
+# Run tests for all services (requires azure.yaml)
+azd app test
+
+# Run specific test type
+azd app test --type unit
+
+# Run tests for specific service
+azd app test --service web
 
 # Dry-run to see what would be tested
 azd app test --dry-run --type unit --coverage --threshold 80
@@ -52,37 +86,63 @@ azd app test --type invalid     # ✗ Error: invalid test type
 azd app test --threshold 150    # ✗ Error: threshold must be 0-100
 ```
 
-## Usage
+## Usage Example
 
-Once fully implemented (Phases 2-5), the command will:
+Create an `azure.yaml` with your services:
+
+```yaml
+name: my-app
+reqs:
+  - id: node
+    minVersion: "18.0.0"
+services:
+  web:
+    language: js
+    project: ./web
+```
+
+Ensure your project has a test script in `package.json`:
+
+```json
+{
+  "scripts": {
+    "test": "jest"
+  }
+}
+```
+
+Then run:
 
 ```bash
-# Run all tests
 azd app test
-
-# Run with coverage
-azd app test --coverage --threshold 80
-
-# Run specific test type
-azd app test --type unit
-
-# Watch mode
-azd app test --watch --type unit
-
-# CI/CD integration
-azd app test --coverage --output-format junit
 ```
 
 ## Architecture
 
 ```
-TestOrchestrator (TODO: Phase 1)
+TestOrchestrator ✅
      ↓
   ┌──┴──┬──────┬────────┐
   │     │      │        │
-Node  Python  .NET   Coverage (TODO: Phases 2-3)
+Node  Python  .NET   Coverage
 Runner Runner Runner  Aggregator
+  ✅     ⏳      ⏳       ⏳
 ```
+
+## Framework Detection
+
+### Node.js ✅
+- Checks for `jest.config.*`, `vitest.config.*`, `.mocharc.*`
+- Falls back to checking `package.json` dependencies
+- Defaults to `npm test`
+
+### Python ⏳
+- Will check for `pytest.ini`, `pyproject.toml`
+- Default to pytest
+
+### .NET ⏳
+- Will scan for `*.Tests.csproj` files
+- Check package references for xUnit/NUnit/MSTest
 
 ## Contributing
 
