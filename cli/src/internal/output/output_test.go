@@ -419,7 +419,7 @@ func TestProgressBar(t *testing.T) {
 		width   int
 		wantLen int
 	}{
-		{"empty", 0, 10, 10, 0},
+		{"empty", 0, 10, 10, 15}, // "[░░░░░░░░░░] 0%" (length 15)
 		{"half", 5, 10, 10, 18}, // "[█████░░░░░] 50%"
 		{"full", 10, 10, 10, 19}, // "[██████████] 100%"
 		{"zero total", 5, 0, 10, 0},
