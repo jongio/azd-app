@@ -46,23 +46,21 @@ This package provides test execution and coverage aggregation for multi-language
 **Completed:**
 - ✅ Node.js test runner with Jest/Vitest/Mocha support
 - ✅ Python test runner with pytest/unittest support
-- ✅ Framework auto-detection for both languages
+- ✅ .NET test runner with xUnit/NUnit/MSTest support
+- ✅ Framework auto-detection for all languages
 - ✅ Test output parsing for all frameworks
 
-**Remaining:**
-- ⏳ .NET test runner (xUnit/NUnit/MSTest)
+### Phases 3-5: Future Enhancements
 
-### Phases 3-5: Not Yet Started
-
-- ⏳ Coverage aggregation and format conversion
-- ⏳ Advanced features (watch mode, setup/teardown)
-- ⏳ Final documentation and integration tests
+- ⏳ Coverage aggregation and format conversion (optional)
+- ⏳ Advanced features (watch mode, setup/teardown) (optional)
+- ⏳ Final documentation and integration tests (optional)
 
 See [implementation plan](../../docs/design/implementation-plan.md) for details.
 
 ## Current Functionality
 
-The test command is functional for Node.js and Python projects. You can:
+The test command is fully functional for Node.js, Python, and .NET projects. You can:
 
 ```bash
 # View help and all available flags
@@ -97,6 +95,8 @@ reqs:
     minVersion: "18.0.0"
   - id: python
     minVersion: "3.9.0"
+  - id: dotnet
+    minVersion: "8.0.0"
 services:
   web:
     language: js
@@ -104,6 +104,9 @@ services:
   api:
     language: python
     project: ./api
+  gateway:
+    language: csharp
+    project: ./gateway
 ```
 
 Ensure your projects have test scripts:
@@ -125,6 +128,13 @@ api/
   pyproject.toml
 ```
 
+**.NET** (test project):
+```
+gateway/
+  Gateway.Tests/
+    Gateway.Tests.csproj
+```
+
 Then run:
 
 ```bash
@@ -140,7 +150,7 @@ TestOrchestrator ✅
   │     │      │        │
 Node  Python  .NET   Coverage
 Runner Runner Runner  Aggregator
-  ✅     ✅      ⏳       ⏳
+  ✅     ✅      ✅       ⏳
 ```
 
 ## Framework Detection
@@ -156,9 +166,11 @@ Runner Runner Runner  Aggregator
 - Supports pytest markers for test type filtering
 - Falls back to unittest if pytest not detected
 
-### .NET ⏳
-- Will scan for `*.Tests.csproj` files
-- Check package references for xUnit/NUnit/MSTest
+### .NET ✅
+- Scans for `*.Tests.csproj` files
+- Supports test filtering with `--filter` argument
+- Works with xUnit, NUnit, and MSTest frameworks
+- Supports code coverage with coverlet
 
 ## Contributing
 
