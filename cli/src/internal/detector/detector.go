@@ -240,9 +240,6 @@ func getPackageManagerFromPackageJson(projectDir string) string {
 	// Split by '@' to extract the package manager name
 	// Handle scoped packages and version correctly
 	parts := strings.Split(pkg.PackageManager, "@")
-	if len(parts) == 0 {
-		return ""
-	}
 
 	// The package manager name is the first part
 	pkgMgrName := parts[0]
