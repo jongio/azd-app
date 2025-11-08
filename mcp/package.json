@@ -1,0 +1,30 @@
+{
+  "name": "azd-app-mcp-server",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for Azure Developer CLI App extension",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "azd-app-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "azure",
+    "azd",
+    "developer-tools"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

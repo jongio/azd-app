@@ -68,6 +68,7 @@ func main() {
 		commands.NewVersionCommand(),
 		commands.NewNotificationsCommand(),
 		commands.NewListenCommand(), // Required for azd extension framework
+		commands.NewMCPCommand(),    // Model Context Protocol server
 	)
 
 	if err := rootCmd.Execute(); err != nil {
