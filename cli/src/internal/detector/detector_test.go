@@ -392,3 +392,152 @@ func TestFindAppHost(t *testing.T) {
 		t.Error("FindAppHost() ProjectFile is empty, expected .csproj path")
 	}
 }
+
+func TestGetPackageManagerFromPackageJson(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name:     "packageManager field with npm",
+			content:  `{"name": "test", "packageManager": "npm@10.5.0"}`,
+			expected: "npm",
+		},
+		{
+			name:     "packageManager field with yarn",
+			content:  `{"name": "test", "packageManager": "yarn@4.1.0"}`,
+			expected: "yarn",
+		},
+		{
+			name:     "packageManager field with pnpm",
+			content:  `{"name": "test", "packageManager": "pnpm@8.15.0"}`,
+			expected: "pnpm",
+		},
+		{
+			name:     "no packageManager field",
+			content:  `{"name": "test", "version": "1.0.0"}`,
+			expected: "",
+		},
+		{
+			name:     "empty packageManager field",
+			content:  `{"name": "test", "packageManager": ""}`,
+			expected: "",
+		},
+		{
+			name:     "unsupported package manager",
+			content:  `{"name": "test", "packageManager": "bun@1.0.0"}`,
+			expected: "",
+		},
+		{
+			name:     "invalid JSON",
+			content:  `{invalid json}`,
+			expected: "",
+		},
+		{
+			name:     "packageManager without version",
+			content:  `{"name": "test", "packageManager": "pnpm"}`,
+			expected: "pnpm",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory
+			tmpDir, err := os.MkdirTemp("", "detector-test-*")
+			if err != nil {
+				t.Fatalf("failed to create temp dir: %v", err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+
+			// Create package.json
+			packageJsonPath := filepath.Join(tmpDir, "package.json")
+			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0600); err != nil {
+				t.Fatalf("failed to create package.json: %v", err)
+			}
+
+			// Test detection
+			result := getPackageManagerFromPackageJson(tmpDir)
+			if result != tt.expected {
+				t.Errorf("getPackageManagerFromPackageJson() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDetectNodePackageManagerWithPackageManagerField(t *testing.T) {
+	tests := []struct {
+		name        string
+		packageJson string
+		lockFiles   []string
+		expected    string
+	}{
+		{
+			name:        "packageManager field takes priority over lock files",
+			packageJson: `{"name": "test", "packageManager": "yarn@4.1.0"}`,
+			lockFiles:   []string{"pnpm-lock.yaml", "package-lock.json"},
+			expected:    "yarn",
+		},
+		{
+			name:        "fallback to pnpm lock file when no packageManager field",
+			packageJson: `{"name": "test"}`,
+			lockFiles:   []string{"pnpm-lock.yaml"},
+			expected:    "pnpm",
+		},
+		{
+			name:        "fallback to yarn lock file when no packageManager field",
+			packageJson: `{"name": "test"}`,
+			lockFiles:   []string{"yarn.lock"},
+			expected:    "yarn",
+		},
+		{
+			name:        "fallback to npm lock file when no packageManager field",
+			packageJson: `{"name": "test"}`,
+			lockFiles:   []string{"package-lock.json"},
+			expected:    "npm",
+		},
+		{
+			name:        "default to npm when no packageManager field and no lock files",
+			packageJson: `{"name": "test"}`,
+			lockFiles:   []string{},
+			expected:    "npm",
+		},
+		{
+			name:        "packageManager field with pnpm overrides yarn lock",
+			packageJson: `{"name": "test", "packageManager": "pnpm@8.15.0"}`,
+			lockFiles:   []string{"yarn.lock"},
+			expected:    "pnpm",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory
+			tmpDir, err := os.MkdirTemp("", "detector-test-*")
+			if err != nil {
+				t.Fatalf("failed to create temp dir: %v", err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+
+			// Create package.json
+			packageJsonPath := filepath.Join(tmpDir, "package.json")
+			if err := os.WriteFile(packageJsonPath, []byte(tt.packageJson), 0600); err != nil {
+				t.Fatalf("failed to create package.json: %v", err)
+			}
+
+			// Create lock files
+			for _, lockFile := range tt.lockFiles {
+				lockPath := filepath.Join(tmpDir, lockFile)
+				if err := os.WriteFile(lockPath, []byte(""), 0600); err != nil {
+					t.Fatalf("failed to create lock file %s: %v", lockFile, err)
+				}
+			}
+
+			// Test detection
+			result := DetectNodePackageManagerWithBoundary(tmpDir, "")
+			if result != tt.expected {
+				t.Errorf("DetectNodePackageManagerWithBoundary() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
