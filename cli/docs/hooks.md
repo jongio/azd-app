@@ -326,4 +326,4 @@ Hooks inherit all environment variables from the parent process, including:
 
 ## Schema Reference
 
-See the [azure.yaml schema](../schemas/v1.1/azure.yaml.json) for the complete hook configuration specification.
+See the [azure.yaml schema](../schemas/v1.0/azure.yaml.json) for the complete hook configuration specification.
