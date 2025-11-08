@@ -27,8 +27,13 @@ func TestEntrypointOverride(t *testing.T) {
 				"custom_main.py":   "from fastapi import FastAPI\napp = FastAPI()",
 			},
 			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "uvicorn" {
-					t.Errorf("Expected command 'uvicorn', got %q", runtime.Command)
+				// Should use python (or venv python), not uvicorn directly
+				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
+					t.Errorf("Expected python command, got %q", runtime.Command)
+				}
+				// Check that -m uvicorn is used
+				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "uvicorn" {
+					t.Errorf("Expected '-m uvicorn' in args, got: %v", runtime.Args)
 				}
 				// Check that custom_main is used in args
 				argsStr := strings.Join(runtime.Args, " ")
@@ -47,8 +52,13 @@ func TestEntrypointOverride(t *testing.T) {
 				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
 			},
 			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "uvicorn" {
-					t.Errorf("Expected command 'uvicorn', got %q", runtime.Command)
+				// Should use python (or venv python), not uvicorn directly
+				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
+					t.Errorf("Expected python command, got %q", runtime.Command)
+				}
+				// Check that -m uvicorn is used
+				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "uvicorn" {
+					t.Errorf("Expected '-m uvicorn' in args, got: %v", runtime.Args)
 				}
 				// Should auto-detect main.py
 				argsStr := strings.Join(runtime.Args, " ")
@@ -94,8 +104,8 @@ func TestEntrypointOverride(t *testing.T) {
 					t.Errorf("Expected command 'python', got %q", runtime.Command)
 				}
 				// Should auto-detect app.py
-				if runtime.Env["FLASK_APP"] != "app" {
-					t.Errorf("Expected FLASK_APP='app', got %q", runtime.Env["FLASK_APP"])
+				if runtime.Env["FLASK_APP"] != "app.py" {
+					t.Errorf("Expected FLASK_APP='app.py', got %q", runtime.Env["FLASK_APP"])
 				}
 				return nil
 			},
@@ -110,8 +120,13 @@ func TestEntrypointOverride(t *testing.T) {
 				"dashboard.py":     "import streamlit as st",
 			},
 			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "streamlit" {
-					t.Errorf("Expected command 'streamlit', got %q", runtime.Command)
+				// Should use python (or venv python), not streamlit directly
+				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
+					t.Errorf("Expected python command, got %q", runtime.Command)
+				}
+				// Check that -m streamlit is used
+				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "streamlit" {
+					t.Errorf("Expected '-m streamlit' in args, got: %v", runtime.Args)
 				}
 				// Check that dashboard.py is used in args
 				argsStr := strings.Join(runtime.Args, " ")
@@ -130,8 +145,13 @@ func TestEntrypointOverride(t *testing.T) {
 				"main.py":          "import streamlit as st",
 			},
 			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "streamlit" {
-					t.Errorf("Expected command 'streamlit', got %q", runtime.Command)
+				// Should use python (or venv python), not streamlit directly
+				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
+					t.Errorf("Expected python command, got %q", runtime.Command)
+				}
+				// Check that -m streamlit is used
+				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "streamlit" {
+					t.Errorf("Expected '-m streamlit' in args, got: %v", runtime.Args)
 				}
 				// Should auto-detect main.py
 				argsStr := strings.Join(runtime.Args, " ")
@@ -191,8 +211,13 @@ func TestEntrypointOverride(t *testing.T) {
 				"src/main.py":      "from fastapi import FastAPI\napp = FastAPI()",
 			},
 			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "uvicorn" {
-					t.Errorf("Expected command 'uvicorn', got %q", runtime.Command)
+				// Should use python (or venv python), not uvicorn directly
+				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
+					t.Errorf("Expected python command, got %q", runtime.Command)
+				}
+				// Check that -m uvicorn is used
+				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "uvicorn" {
+					t.Errorf("Expected '-m uvicorn' in args, got: %v", runtime.Args)
 				}
 				// Check that src/main:app is used in args
 				argsStr := strings.Join(runtime.Args, " ")

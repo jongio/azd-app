@@ -95,6 +95,7 @@ describe('App', () => {
       loading: true,
       error: null,
       connected: false,
+      connecting: false,
       refetch: vi.fn(),
     })
 
@@ -113,6 +114,7 @@ describe('App', () => {
       loading: false,
       error: errorMessage,
       connected: false,
+      connecting: false,
       refetch: vi.fn(),
     })
 
@@ -131,6 +133,7 @@ describe('App', () => {
       loading: false,
       error: null,
       connected: true,
+      connecting: false,
       refetch: vi.fn(),
     })
 

@@ -1,4 +1,4 @@
-import { Activity, Server, CheckCircle, XCircle, Clock, AlertCircle, StopCircle, ExternalLink, Code, Layers } from 'lucide-react'
+import { Activity, Server, CheckCircle, XCircle, Clock, AlertCircle, StopCircle, ExternalLink, Code, Layers, TriangleAlert } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { Service } from '@/types'
 
@@ -184,14 +184,30 @@ export function ServiceCard({ service }: ServiceCardProps) {
           </div>
         )}
 
-        {/* Error State */}
+        {/* Error/Warning State */}
         {service.error && (
-          <div className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
+          <div className={`mt-3 p-3 rounded-xl border ${
+            service.error.startsWith('⚠️') 
+              ? 'bg-yellow-500/10 border-yellow-500/30' 
+              : 'bg-destructive/10 border-destructive/30'
+          }`}>
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+              {service.error.startsWith('⚠️') ? (
+                <TriangleAlert className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+              )}
               <div>
-                <p className="text-xs font-medium text-destructive mb-1">Error Detected</p>
-                <p className="text-xs text-destructive/80">{service.error}</p>
+                <p className={`text-xs font-medium mb-1 ${
+                  service.error.startsWith('⚠️') ? 'text-yellow-500' : 'text-destructive'
+                }`}>
+                  {service.error.startsWith('⚠️') ? 'Warning Detected' : 'Error Detected'}
+                </p>
+                <p className={`text-xs ${
+                  service.error.startsWith('⚠️') ? 'text-yellow-500/80' : 'text-destructive/80'
+                }`}>
+                  {service.error.replace(/^[⚠️⛔]\s*/, '')}
+                </p>
               </div>
             </div>
           </div>

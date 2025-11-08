@@ -1,3 +1,55 @@
+## [0.3.7] - 2025-11-07
+
+- Fix: update registry path in publish step to use GITHUB_WORKSPACE (8212e95)
+- chore: bump version to 0.3.6 (5128532)
+- ci: refactor CI workflows to consolidate checks and improve structure (dbadfee)
+- chore: add git pull --rebase before version bump in release workflow (2f7b676)
+- Fix: streamline build and packaging steps in release workflow (f8038f7)
+- chore: bump version to 0.3.5 (9aabd2a)
+- ci: refactor CI workflows to use shared checks and streamline build process (a6e4e4a)
+- chore: bump version to 0.3.4 (55d8898)
+- Fix: Python services use venv instead of system Python (#28) (66268c9)
+- ci: reorganize release workflow — run tool installs & preflight earlier, extract release notes, and remove dashboard build step (ecf77d5)
+
+## [0.3.6] - 2025-11-07
+
+- ci: refactor CI workflows to consolidate checks and improve structure (dbadfee)
+- chore: add git pull --rebase before version bump in release workflow (2f7b676)
+- Fix: streamline build and packaging steps in release workflow (f8038f7)
+- chore: bump version to 0.3.5 (9aabd2a)
+- ci: refactor CI workflows to use shared checks and streamline build process (a6e4e4a)
+- chore: bump version to 0.3.4 (55d8898)
+- Fix: Python services use venv instead of system Python (#28) (66268c9)
+- ci: reorganize release workflow — run tool installs & preflight earlier, extract release notes, and remove dashboard build step (ecf77d5)
+- chore: update registry for v0.3.3 (55ca088)
+- chore: bump version to 0.3.3 (53fdcc5)
+
+## [0.3.5] - 2025-11-07
+
+- ci: refactor CI workflows to use shared checks and streamline build process (a6e4e4a)
+- chore: bump version to 0.3.4 (55d8898)
+- Fix: Python services use venv instead of system Python (#28) (66268c9)
+- ci: reorganize release workflow — run tool installs & preflight earlier, extract release notes, and remove dashboard build step (ecf77d5)
+- chore: update registry for v0.3.3 (55ca088)
+- chore: bump version to 0.3.3 (53fdcc5)
+- feat: improve dependency installer robustness, add tests, and document npm TAR_ENTRY_ERROR (#26) (968fb3c)
+- refactor: improve type safety, fix tests, and optimize build system (#25) (820359f)
+- chore: add Release workflow badge to README (af6fba5)
+- chore: update registry for v0.3.2 (c789016)
+
+## [0.3.4] - 2025-11-07
+
+- Fix: Python services use venv instead of system Python (#28) (66268c9)
+- ci: reorganize release workflow — run tool installs & preflight earlier, extract release notes, and remove dashboard build step (ecf77d5)
+- chore: update registry for v0.3.3 (55ca088)
+- chore: bump version to 0.3.3 (53fdcc5)
+- feat: improve dependency installer robustness, add tests, and document npm TAR_ENTRY_ERROR (#26) (968fb3c)
+- refactor: improve type safety, fix tests, and optimize build system (#25) (820359f)
+- chore: add Release workflow badge to README (af6fba5)
+- chore: update registry for v0.3.2 (c789016)
+- chore: bump version to 0.3.2 (9e67028)
+- fix: add --repo flag to azd x publish for remote mode (ed2522c)
+
 ## [0.3.3] - 2025-11-07
 
 - feat: improve dependency installer robustness, add tests, and document npm TAR_ENTRY_ERROR (#26) (968fb3c)

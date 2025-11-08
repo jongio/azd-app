@@ -28,11 +28,24 @@ type ServiceRegistryEntry struct {
 	Error       string    `json:"error,omitempty"`
 }
 
+// RegistryObserver is an interface for observing registry changes.
+//
+// Concurrency/Threading Model:
+//   - OnServiceChanged will be called asynchronously from a separate goroutine.
+//   - Implementations must be thread-safe.
+//   - Observers must not call registry methods synchronously from OnServiceChanged to avoid potential deadlocks.
+//   - The entry parameter is a copy, not the original.
+type RegistryObserver interface {
+	OnServiceChanged(entry *ServiceRegistryEntry)
+}
+
 // ServiceRegistry manages the registry of running services for a project.
 type ServiceRegistry struct {
-	mu       sync.RWMutex
-	services map[string]*ServiceRegistryEntry // key: serviceName
-	filePath string
+	mu         sync.RWMutex
+	services   map[string]*ServiceRegistryEntry // key: serviceName
+	filePath   string
+	observers  []RegistryObserver
+	observerMu sync.RWMutex
 }
 
 var (
@@ -69,8 +82,9 @@ func GetRegistry(projectDir string) *ServiceRegistry {
 	registryFile := filepath.Join(registryDir, "services.json")
 
 	registry := &ServiceRegistry{
-		services: make(map[string]*ServiceRegistryEntry),
-		filePath: registryFile,
+		services:  make(map[string]*ServiceRegistryEntry),
+		filePath:  registryFile,
+		observers: make([]RegistryObserver, 0),
 	}
 
 	// Ensure directory exists
@@ -124,10 +138,54 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 	defer r.mu.Unlock()
 
 	if svc, exists := r.services[serviceName]; exists {
+		oldStatus, oldHealth := svc.Status, svc.Health
 		svc.Status = status
 		svc.Health = health
 		svc.LastChecked = time.Now()
-		return r.save()
+
+		if err := r.save(); err != nil {
+			return err
+		}
+
+		// Notify observers only if status actually changed
+		if oldStatus != status || oldHealth != health {
+			// Create a copy to avoid sharing mutable state with observers
+			entryCopy := *svc
+			// NOTE: notifyObservers is called while holding the mu write lock.
+			// This is safe because notifyObservers only copies the observer list,
+			// and dispatches notifications asynchronously in separate goroutines.
+			// IMPORTANT: Observers must not call registry methods synchronously
+			// from OnServiceChanged to avoid deadlocks.
+			r.notifyObservers(&entryCopy)
+		}
+		return nil
+	}
+	return fmt.Errorf("service not found: %s", serviceName)
+}
+
+// UpdateStatusWithError updates the status, health, and error message of a service.
+func (r *ServiceRegistry) UpdateStatusWithError(serviceName, status, health, errorMsg string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if svc, exists := r.services[serviceName]; exists {
+		oldStatus, oldHealth, oldError := svc.Status, svc.Health, svc.Error
+		svc.Status = status
+		svc.Health = health
+		svc.Error = errorMsg
+		svc.LastChecked = time.Now()
+
+		if err := r.save(); err != nil {
+			return err
+		}
+
+		// Notify observers if status, health, or error message changed
+		if oldStatus != status || oldHealth != health || oldError != errorMsg {
+			// Create a copy to avoid sharing mutable state with observers
+			entryCopy := *svc
+			r.notifyObservers(&entryCopy)
+		}
+		return nil
 	}
 	return fmt.Errorf("service not found: %s", serviceName)
 }
@@ -227,6 +285,67 @@ func isProcessRunning(pid int) bool {
 	// On Unix systems, Signal(0) is a standard way to check if process exists
 	err = process.Signal(syscall.Signal(0))
 	return err == nil
+}
+
+// Subscribe adds an observer to the registry. Duplicate subscriptions are prevented.
+func (r *ServiceRegistry) Subscribe(observer RegistryObserver) {
+	r.observerMu.Lock()
+	defer r.observerMu.Unlock()
+	
+	// Prevent duplicate subscriptions
+	for _, obs := range r.observers {
+		if obs == observer {
+			return
+		}
+	}
+	r.observers = append(r.observers, observer)
+}
+
+// Unsubscribe removes an observer from the registry.
+// Returns true if the observer was found and removed, false otherwise.
+// Note: The same observer reference must be used for both Subscribe and Unsubscribe operations.
+// Interface comparison checks both type and underlying value (memory address for pointers).
+func (r *ServiceRegistry) Unsubscribe(observer RegistryObserver) bool {
+	r.observerMu.Lock()
+	defer r.observerMu.Unlock()
+
+	removed := false
+	newObservers := make([]RegistryObserver, 0, len(r.observers))
+	for _, obs := range r.observers {
+		if obs == observer {
+			removed = true
+			continue
+		}
+		newObservers = append(newObservers, obs)
+	}
+	r.observers = newObservers
+	return removed
+}
+
+// notifyObservers notifies all observers of a service change.
+func (r *ServiceRegistry) notifyObservers(entry *ServiceRegistryEntry) {
+	r.observerMu.RLock()
+	observers := make([]RegistryObserver, len(r.observers))
+	copy(observers, r.observers)
+	r.observerMu.RUnlock()
+
+	// Notify each observer in a separate goroutine to avoid blocking
+	// Passing the loop variable as a parameter ensures correct capture in each iteration
+	// (required for Go < 1.22; optional for Go 1.22+)
+	for _, obs := range observers {
+		go func(observer RegistryObserver) {
+			defer func() {
+				if rec := recover(); rec != nil {
+					fmt.Fprintf(
+						os.Stderr,
+						"Observer panic: %v (observer type: %T, service: %s)\n",
+						rec, observer, entry.Name,
+					)
+				}
+			}()
+			observer.OnServiceChanged(entry)
+		}(obs)
+	}
 }
 
 // Clear removes all entries from the registry.

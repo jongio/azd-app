@@ -12,6 +12,7 @@ export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
   // Get status and health from local (with fallbacks)
   const status = service.local?.status || service.status || 'not-running'
   const health = service.local?.health || service.health || 'unknown'
+  const error = service.error // Error message from health monitor
   
   const formatStartTime = (timeStr?: string) => {
     if (!timeStr) return '-'
@@ -52,7 +53,20 @@ export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
 
       {/* State Column */}
       <TableCell>
-        <StatusCell status={status} health={health} />
+        <div className="flex flex-col gap-1">
+          <StatusCell status={status} health={health} />
+          {error && (
+            <span 
+              className={`text-xs truncate max-w-[200px] ${
+                error.startsWith('⚠️') ? 'text-yellow-500/70' : 'text-destructive/70'
+              }`} 
+              title={error.replace(/^[⚠️⛔]\s*/, '')}
+            >
+              {error.startsWith('⚠️') ? '⚠️ ' : error.startsWith('⛔') ? '⛔ ' : ''}
+              {error.replace(/^[⚠️⛔]\s*/, '')}
+            </span>
+          )}
+        </div>
       </TableCell>
 
       {/* Start Time Column */}

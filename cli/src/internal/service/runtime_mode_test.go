@@ -158,8 +158,13 @@ func TestDetectServiceRuntimeWithMode(t *testing.T) {
 				if runtime.Framework != "FastAPI" {
 					return fmt.Errorf("expected FastAPI, got %s", runtime.Framework)
 				}
-				if runtime.Command != "uvicorn" {
-					return fmt.Errorf("expected uvicorn command, got %s", runtime.Command)
+				// Should use python (or venv python), not uvicorn directly
+				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
+					return fmt.Errorf("expected python command, got %s", runtime.Command)
+				}
+				// Should have -m uvicorn in args
+				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "uvicorn" {
+					return fmt.Errorf("expected '-m uvicorn' in args, got %v", runtime.Args)
 				}
 				return nil
 			},

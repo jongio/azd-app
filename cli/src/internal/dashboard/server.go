@@ -336,6 +336,10 @@ func (s *Server) Start() (string, error) {
 		// Server started successfully
 	}
 
+	// Subscribe to registry changes for real-time updates
+	reg := registry.GetRegistry(s.projectDir)
+	reg.Subscribe(s)
+
 	url := fmt.Sprintf("http://localhost:%d", port)
 	return url, nil
 }
@@ -452,6 +456,46 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 	return nil
 }
 
+// OnServiceChanged implements the RegistryObserver interface.
+// This is called automatically when a service's status changes in the registry.
+func (s *Server) OnServiceChanged(entry *registry.ServiceRegistryEntry) {
+	// Fetch fresh service info (merges azure.yaml + registry + env)
+	services, err := serviceinfo.GetServiceInfo(s.projectDir)
+	if err != nil {
+		log.Printf("Failed to get service info for broadcast: %v", err)
+		return
+	}
+
+	// Broadcast to all connected WebSocket clients
+	s.broadcastServiceInfo(services)
+}
+
+// broadcastServiceInfo sends service info to all WebSocket clients.
+func (s *Server) broadcastServiceInfo(services []*serviceinfo.ServiceInfo) {
+	// Copy client references while holding the read lock briefly
+	s.clientsMu.RLock()
+	clients := make([]*clientConn, 0, len(s.clients))
+	for client := range s.clients {
+		clients = append(clients, client)
+	}
+	s.clientsMu.RUnlock()
+
+	message := map[string]interface{}{
+		"type":     "services",
+		"services": services,
+	}
+
+	// Write to connections without holding the lock
+	for _, client := range clients {
+		client.writeMu.Lock()
+		err := client.conn.WriteJSON(message)
+		client.writeMu.Unlock()
+		if err != nil {
+			log.Printf("WebSocket send error: %v", err)
+		}
+	}
+}
+
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
@@ -565,6 +609,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 // Stop stops the dashboard server and releases its port assignment.
 func (s *Server) Stop() error {
 	close(s.stopChan)
+
+	// Unsubscribe from registry to prevent memory leaks
+	reg := registry.GetRegistry(s.projectDir)
+	reg.Unsubscribe(s)
 
 	// Release port assignment
 	portMgr := portmanager.GetPortManager(s.projectDir)

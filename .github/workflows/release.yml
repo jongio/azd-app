@@ -15,12 +15,149 @@ on:
 defaults:
   run:
     shell: bash
+    working-directory: cli
 
 jobs:
-  release:
+  preflight:
+    name: Preflight Checks
     runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install Mage
+        run: go install github.com/magefile/mage@latest
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run preflight checks
+        run: mage preflight
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.25']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Build dashboard
+        run: |
+          cd dashboard
+          npm install
+          npm run build
+          cd ..
+
+      - name: Install Aspire CLI
+        shell: pwsh
+        run: |
+          $version = "9.5.2"
+          if (dotnet tool list --global | Select-String -Pattern "^aspire.cli\s") {
+            dotnet tool update --global aspire.cli --version $version
+          }
+          else {
+            dotnet tool install --global aspire.cli --version $version
+          }
+          if ($IsWindows) {
+            $toolPath = "$env:USERPROFILE\.dotnet\tools"
+          }
+          else {
+            $toolPath = "$env:HOME/.dotnet/tools"
+          }
+          if (-not (Test-Path $toolPath)) {
+            throw "Dotnet tool path not found: $toolPath"
+          }
+          $toolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        shell: bash
+        run: |
+          mkdir -p ../coverage
+          go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Build dashboard assets
+        run: |
+          cd dashboard
+          npm install
+          npm run build
+          cd ..
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Run golangci-lint
+        run: golangci-lint run --timeout=5m
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [preflight, test, lint]
     permissions:
       contents: write
+    
+    defaults:
+      run:
+        shell: bash
+        working-directory: cli
     
     steps:
       - name: Checkout
@@ -28,10 +165,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package.json
+
       - name: Calculate next version
         id: version
         run: |
-          CURRENT=$(grep '^version:' cli/extension.yaml | awk '{print $2}')
+          CURRENT=$(grep '^version:' extension.yaml | awk '{print $2}')
           IFS='.' read -r major minor patch <<< "$CURRENT"
           
           case "${{ inputs.bump }}" in
@@ -59,10 +209,9 @@ jobs:
           VERSION="${{ steps.version.outputs.next }}"
           
           # Update extension.yaml
-          sed -i "s/^version: .*/version: $VERSION/" cli/extension.yaml
+          sed -i "s/^version: .*/version: $VERSION/" extension.yaml
           
           # Update CHANGELOG.md
-          cd cli
           PREV="${{ steps.version.outputs.current }}"
           COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges v${PREV}..HEAD 2>/dev/null || git log --pretty=format:"- %s (%h)" --no-merges -n 10)
           DATE=$(date +%Y-%m-%d)
@@ -84,48 +233,27 @@ jobs:
           git commit -m "chore: bump version to $VERSION"
           git push
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package-lock.json
-
-      - name: Install Mage
-        run: go install github.com/magefile/mage@latest
-
-      - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
-
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
-      - name: Run preflight checks
-        run: mage preflight
-        working-directory: cli
-
       - name: Install azd
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
 
       - name: Install azd extensions
         run: azd extension install microsoft.azd.extensions
 
+      - name: Build dashboard (for embedding in binary)
+        run: |
+          cd dashboard
+          npm install
+          npm run build
+          cd ..
+
       - name: Build binaries
         run: |
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.next }}"
-          azd x build --all --cwd cli
+          azd x build --all
 
       - name: Package
-        run: azd x pack --cwd cli
+        run: azd x pack
 
       - name: Extract release notes
         id: release_notes
@@ -134,7 +262,7 @@ jobs:
           
           # Extract only the section for this version from CHANGELOG.md
           # Get lines between ## [$VERSION] and the next ## [ line
-          awk "/^## \[$VERSION\]/,/^## \[/" cli/CHANGELOG.md | \
+          awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | \
             sed '/^## \['"$VERSION"'\]/d' | \
             sed '/^## \[/,$d' | \
             sed '/^$/d' > /tmp/release-notes.md
@@ -145,6 +273,7 @@ jobs:
 
       - name: Release
         run: |
+          cd ..
           azd x release \
             --cwd cli \
             --repo "${{ github.repository }}" \
@@ -156,9 +285,10 @@ jobs:
 
       - name: Update registry
         run: |
+          cd ..
           azd x publish \
             --cwd cli \
-            --registry ../registry.json \
+            --registry $GITHUB_WORKSPACE/registry.json \
             --version "${{ steps.version.outputs.next }}" \
             --repo "${{ github.repository }}"
           

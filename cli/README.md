@@ -395,33 +395,49 @@ mage dashboarddev       # Start dashboard dev server
 mage preflight          # Run all checks before shipping
 ```
 
-# Run integration tests (requires external tools)
-mage testIntegration
+### Running Tests
 
-# Run all tests (unit + integration)
-mage testAll
+```bash
+# Run unit tests only (fast)
+go test ./src/internal/service/...
 
-# Run tests with coverage
-mage testCoverage
+# Run unit tests with verbose output
+go test -v ./src/internal/service/...
 
-# Run linter
-mage lint
+# Run integration tests (requires Python, creates real venvs, slower)
+go test -tags=integration -v ./src/internal/service/...
 
-# Format code
-mage fmt
+# Run all tests via mage
+mage test              # Unit tests only
+mage testIntegration   # Integration tests only  
+mage testAll           # Unit + integration tests
+mage testCoverage      # Tests with coverage report
 
-# Clean build artifacts
-mage clean
-
-# Install locally
-mage install
-
-# Run everything (lint, test, build)
-mage all
-
-# Run preflight checks before committing/releasing
-# This includes: dashboard build, formatting, linting, security scan, all tests, and coverage
+# Run preflight checks (includes all tests)
 mage preflight
+```
+
+**Integration Tests:**
+
+Integration tests create real Python virtual environments and install actual packages. They:
+- Verify venv detection works with real filesystems
+- Test that Python packages are correctly installed in venvs
+- Validate cross-platform path handling (Windows vs Linux/macOS)
+- Ensure subprocess spawning inherits the correct environment
+
+Requirements:
+- Python 3.8+ installed and available in PATH
+- Internet connection (for pip install)
+- ~2 minutes execution time
+
+**Running specific integration tests:**
+
+```bash
+# Run only FastAPI integration test
+go test -tags=integration -v ./src/internal/service/... -run TestPythonVenvIntegration/FastAPI
+
+# Run venv fallback test
+go test -tags=integration -v ./src/internal/service/... -run TestPythonVenvFallback
 ```
 
 **Dashboard Development:**

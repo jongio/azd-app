@@ -42,6 +42,7 @@ export function useServices() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
+  const [connecting, setConnecting] = useState(false)
   const [useMock, setUseMock] = useState(false)
 
   const fetchServices = useCallback(async () => {
@@ -52,10 +53,12 @@ export function useServices() {
       setServices(data || [])
       setError(null)
       setUseMock(false)
+      setConnected(true)
     } catch (err) {
       console.log('Backend not available, using mock data')
       setServices(MOCK_SERVICES)
       setUseMock(true)
+      setConnected(false)
       setError(null) // Don't show error when using mock data
     } finally {
       setLoading(false)
@@ -65,54 +68,80 @@ export function useServices() {
   useEffect(() => {
     fetchServices()
 
-    // Set up WebSocket connection
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`)
+    let ws: WebSocket | null = null
+    let reconnectTimeout: number | null = null
 
-    ws.onopen = () => {
-      setConnected(true)
-    }
+    const connect = () => {
+      setConnecting(true)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`)
 
-    ws.onmessage = (event) => {
-      try {
-        const update = JSON.parse(event.data)
-        if (update.type === 'update' || update.type === 'add') {
-          setServices(prev => {
-            const index = prev.findIndex(
-              s => s.name === update.service.name
+      ws.onopen = () => {
+        setConnected(true)
+        setConnecting(false)
+        console.log('WebSocket connected')
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const update = JSON.parse(event.data)
+          if (update.type === 'services') {
+            // Full service list update from backend
+            setServices(update.services || [])
+            setUseMock(false)
+          } else if (update.type === 'update' || update.type === 'add') {
+            setServices(prev => {
+              const index = prev.findIndex(
+                s => s.name === update.service.name
+              )
+              if (index >= 0) {
+                const updated = [...prev]
+                updated[index] = update.service
+                return updated
+              }
+              return [...prev, update.service]
+            })
+          } else if (update.type === 'remove') {
+            setServices(prev =>
+              prev.filter(
+                s => s.name !== update.service.name
+              )
             )
-            if (index >= 0) {
-              const updated = [...prev]
-              updated[index] = update.service
-              return updated
-            }
-            return [...prev, update.service]
-          })
-        } else if (update.type === 'remove') {
-          setServices(prev =>
-            prev.filter(
-              s => s.name !== update.service.name
-            )
-          )
+          }
+        } catch (err) {
+          console.error('Failed to parse WebSocket message:', err)
         }
-      } catch (err) {
-        console.error('Failed to parse WebSocket message:', err)
+      }
+
+      ws.onerror = () => {
+        setConnected(false)
+        setConnecting(false)
+        console.log('WebSocket error')
+      }
+
+      ws.onclose = () => {
+        setConnected(false)
+        setConnecting(false)
+        console.log('WebSocket disconnected, attempting to reconnect...')
+        
+        // Attempt to reconnect after 3 seconds
+        reconnectTimeout = setTimeout(() => {
+          connect()
+        }, 3000)
       }
     }
 
-    ws.onerror = () => {
-      setConnected(false)
-      console.log('WebSocket not available (this is normal in dev mode)')
-    }
-
-    ws.onclose = () => {
-      setConnected(false)
-    }
+    connect()
 
     return () => {
-      ws.close()
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
+      }
+      if (ws) {
+        ws.close()
+      }
     }
   }, [fetchServices])
 
-  return { services, loading, error, connected: connected || useMock, refetch: fetchServices }
+  return { services, loading, error, connected: connected || useMock, connecting, refetch: fetchServices }
 }

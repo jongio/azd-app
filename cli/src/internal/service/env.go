@@ -12,11 +12,16 @@ import (
 )
 
 // ResolveEnvironment merges environment variables from multiple sources.
-// Priority: service-specific env > .env file > azure environment > OS environment.
+// Priority (highest to lowest): service-specific env > .env file > azure environment > OS environment.
+// This function ensures that azd context variables (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
+// are preserved and passed to all child processes, as required by the azd extension framework.
 func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, error) {
 	env := make(map[string]string)
 
-	// Start with OS environment
+	// Start with OS environment - this includes azd context variables when running as an azd extension:
+	// - AZD_SERVER: gRPC server address for azd communication
+	// - AZD_ACCESS_TOKEN: Authentication token for azd API
+	// - AZURE_*: All Azure environment variables from azd env
 	for _, e := range os.Environ() {
 		pair := strings.SplitN(e, "=", 2)
 		if len(pair) == 2 {
@@ -24,12 +29,12 @@ func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath 
 		}
 	}
 
-	// Merge Azure environment variables (from azd context)
+	// Merge Azure environment variables (from azd context) - these override OS env
 	for k, v := range azureEnv {
 		env[k] = v
 	}
 
-	// Load and merge .env file if specified
+	// Load and merge .env file if specified - these override Azure env
 	if dotEnvPath != "" {
 		dotEnv, err := LoadDotEnv(dotEnvPath)
 		if err != nil {
@@ -40,12 +45,12 @@ func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath 
 		}
 	}
 
-	// Merge auto-generated service URLs
+	// Merge auto-generated service URLs - these override .env file
 	for k, v := range serviceURLs {
 		env[k] = v
 	}
 
-	// Merge service-specific environment variables from azure.yaml
+	// Merge service-specific environment variables from azure.yaml - highest priority
 	for _, envVar := range service.Env {
 		value := envVar.Value
 		if envVar.Secret != "" {
