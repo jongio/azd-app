@@ -17,7 +17,7 @@ export function ServiceDetailPanel({ service, isOpen, onClose }: ServiceDetailPa
   // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isOpen && !e.defaultPrevented) {
         onClose()
       }
     }

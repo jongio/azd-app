@@ -40,6 +40,13 @@ func StreamLogs(ctx context.Context, opts LogStreamOptions, logChan chan<- LogEn
 
 // streamContainerAppLogs streams logs from Azure Container Apps.
 func streamContainerAppLogs(ctx context.Context, opts LogStreamOptions, logChan chan<- LogEntry) error {
+	// Validate inputs to prevent command injection
+	if strings.ContainsAny(opts.ResourceGroup, ";|&$`\n\r") ||
+		strings.ContainsAny(opts.ResourceName, ";|&$`\n\r") ||
+		(opts.ContainerName != "" && strings.ContainsAny(opts.ContainerName, ";|&$`\n\r")) {
+		return fmt.Errorf("invalid characters in resource identifiers")
+	}
+
 	// Build Azure CLI command
 	args := []string{
 		"containerapp", "logs", "show",
@@ -101,6 +108,12 @@ func streamContainerAppLogs(ctx context.Context, opts LogStreamOptions, logChan 
 
 // streamAppServiceLogs streams logs from Azure App Service.
 func streamAppServiceLogs(ctx context.Context, opts LogStreamOptions, logChan chan<- LogEntry) error {
+	// Validate inputs to prevent command injection
+	if strings.ContainsAny(opts.ResourceGroup, ";|&$`\n\r") ||
+		strings.ContainsAny(opts.ResourceName, ";|&$`\n\r") {
+		return fmt.Errorf("invalid characters in resource identifiers")
+	}
+
 	// Build Azure CLI command
 	args := []string{
 		"webapp", "log", "tail",

@@ -53,11 +53,11 @@ export function EnvironmentPanel({ services }: EnvironmentPanelProps) {
     setTimeout(() => setCopiedKey(null), 2000)
   }
 
-  const maskValue = (value: string) => {
+  const maskValue = (key: string, value: string) => {
     if (showValues) return value
-    // Mask sensitive-looking values (containing "key", "secret", "password", "token")
-    const key = value.toLowerCase()
-    if (key.includes('key') || key.includes('secret') || key.includes('password') || key.includes('token')) {
+    // Mask sensitive-looking values based on the key name
+    const keyLower = key.toLowerCase()
+    if (keyLower.includes('key') || keyLower.includes('secret') || keyLower.includes('password') || keyLower.includes('token')) {
       return '•'.repeat(Math.min(value.length, 20))
     }
     return value.length > 40 ? value.substring(0, 40) + '...' : value
@@ -148,7 +148,7 @@ export function EnvironmentPanel({ services }: EnvironmentPanelProps) {
                     </td>
                     <td className="px-4 py-3">
                       <code className="text-sm font-mono text-muted-foreground">
-                        {maskValue(env.value)}
+                        {maskValue(env.key, env.value)}
                       </code>
                     </td>
                     <td className="px-4 py-3">

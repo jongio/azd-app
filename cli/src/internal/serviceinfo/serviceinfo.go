@@ -170,6 +170,15 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 	return envVars
 }
 
+// setGlobalAzureMetadata sets global Azure metadata on the service info
+func setGlobalAzureMetadata(info *AzureServiceInfo, resourceGroup, location, subscriptionId, logAnalyticsId, containerAppEnvId string) {
+	info.ResourceGroup = resourceGroup
+	info.Location = location
+	info.SubscriptionId = subscriptionId
+	info.LogAnalyticsId = logAnalyticsId
+	info.ContainerAppEnvId = containerAppEnvId
+}
+
 // extractAzureServiceInfo extracts Azure service information from environment variables.
 func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceInfo {
 	azureServices := make(map[string]AzureServiceInfo)
@@ -201,11 +210,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 				info := azureServices[serviceName]
 				info.URL = value
 				// Set global metadata for this service
-				info.ResourceGroup = resourceGroup
-				info.Location = location
-				info.SubscriptionId = subscriptionId
-				info.LogAnalyticsId = logAnalyticsId
-				info.ContainerAppEnvId = containerAppEnvId
+				setGlobalAzureMetadata(&info, resourceGroup, location, subscriptionId, logAnalyticsId, containerAppEnvId)
 				azureServices[serviceName] = info
 			}
 			continue
@@ -223,11 +228,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 					info := azureServices[serviceName]
 					info.URL = value
 					// Set global metadata for this service
-					info.ResourceGroup = resourceGroup
-					info.Location = location
-					info.SubscriptionId = subscriptionId
-					info.LogAnalyticsId = logAnalyticsId
-					info.ContainerAppEnvId = containerAppEnvId
+					setGlobalAzureMetadata(&info, resourceGroup, location, subscriptionId, logAnalyticsId, containerAppEnvId)
 					azureServices[serviceName] = info
 				}
 			}
@@ -243,11 +244,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 				info := azureServices[serviceName]
 				info.ResourceName = value
 				// Set global metadata for this service
-				info.ResourceGroup = resourceGroup
-				info.Location = location
-				info.SubscriptionId = subscriptionId
-				info.LogAnalyticsId = logAnalyticsId
-				info.ContainerAppEnvId = containerAppEnvId
+				setGlobalAzureMetadata(&info, resourceGroup, location, subscriptionId, logAnalyticsId, containerAppEnvId)
 				azureServices[serviceName] = info
 			}
 			continue
@@ -264,11 +261,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 					info := azureServices[serviceName]
 					info.ResourceName = value
 					// Set global metadata for this service
-					info.ResourceGroup = resourceGroup
-					info.Location = location
-					info.SubscriptionId = subscriptionId
-					info.LogAnalyticsId = logAnalyticsId
-					info.ContainerAppEnvId = containerAppEnvId
+					setGlobalAzureMetadata(&info, resourceGroup, location, subscriptionId, logAnalyticsId, containerAppEnvId)
 					azureServices[serviceName] = info
 				}
 			}

@@ -72,11 +72,16 @@ function App() {
       
       // Other shortcuts
       else if (e.key === 't' || e.key === 'T') setViewMode(prev => prev === 'table' ? 'cards' : 'table')
-      else if (e.key === '?' && !e.shiftKey) setShowKeyboardShortcuts(true)
+      else if (e.key === '?') setShowKeyboardShortcuts(true)
       else if (e.key === 'Escape') setShowKeyboardShortcuts(false)
       
       // Search focus
-      else if (e.key === '/' || (e.ctrlKey && e.key === 'f')) {
+      else if (e.key === '/' && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault()
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+        searchInput?.focus()
+      }
+      else if (e.ctrlKey && e.key === 'f') {
         e.preventDefault()
         const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
         searchInput?.focus()

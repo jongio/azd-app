@@ -663,12 +663,23 @@ func (s *Server) handleAzureLogStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if Azure CLI is available
+	if err := azurelib.CheckAzureCLI(); err != nil {
+		if err := conn.WriteJSON(map[string]string{"error": err.Error()}); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
+		}
+		return
+	}
+
 	// Determine resource type
 	resourceType := azure.ResourceType
 	if resourceType == "" {
 		// Try to infer from resource name or URL
-		if strings.Contains(strings.ToLower(azure.ResourceName), "containerapp") {
+		resourceNameLower := strings.ToLower(azure.ResourceName)
+		if strings.Contains(resourceNameLower, "containerapp") {
 			resourceType = "containerapp"
+		} else if strings.Contains(resourceNameLower, "func") {
+			resourceType = "function"
 		} else {
 			resourceType = "appservice"
 		}
@@ -682,6 +693,7 @@ func (s *Server) handleAzureLogStream(w http.ResponseWriter, r *http.Request) {
 	errChan := make(chan error, 1)
 
 	go func() {
+		defer close(logChan) // Ensure channel is closed when done
 		opts := azurelib.LogStreamOptions{
 			ResourceGroup: azure.ResourceGroup,
 			ResourceName:  azure.ResourceName,
@@ -691,14 +703,21 @@ func (s *Server) handleAzureLogStream(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := azurelib.StreamLogs(ctx, opts, logChan); err != nil {
-			errChan <- err
+			select {
+			case errChan <- err:
+			case <-ctx.Done():
+			}
 		}
 	}()
 
 	// Stream logs to WebSocket
 	for {
 		select {
-		case entry := <-logChan:
+		case entry, ok := <-logChan:
+			if !ok {
+				// Channel closed, streaming complete
+				return
+			}
 			// Convert Azure log entry to dashboard log entry format
 			logEntry := service.LogEntry{
 				Service:   serviceName,
