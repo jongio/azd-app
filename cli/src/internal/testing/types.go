@@ -153,8 +153,12 @@ type AggregateResult struct {
 	Total int
 	// Duration is the total test execution time
 	Duration float64
+	// Coverage is the aggregated coverage data
+	Coverage *AggregateCoverage
 	// Success indicates whether all tests passed
 	Success bool
+	// Error message if test execution failed
+	Error string
 }
 
 // AggregateCoverage represents aggregated coverage across all services.
