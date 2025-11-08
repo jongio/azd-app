@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"crypto/rand"
 	"embed"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	azurelib "github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -115,6 +117,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/services", s.handleGetServices)
 	s.mux.HandleFunc("/api/logs", s.handleGetLogs)
 	s.mux.HandleFunc("/api/logs/stream", s.handleLogStream)
+	s.mux.HandleFunc("/api/azure/logs/stream", s.handleAzureLogStream)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 
 	// Serve static files
@@ -609,6 +612,120 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 
 	// Keep connection alive until client disconnects or server stops
 	<-done
+}
+
+// handleAzureLogStream streams logs from Azure services via WebSocket.
+func (s *Server) handleAzureLogStream(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("service")
+	if serviceName == "" {
+		http.Error(w, "service parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Upgrade connection to WebSocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("WebSocket upgrade failed: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	// Get service info to determine Azure resource details
+	services, err := serviceinfo.GetServiceInfo(s.projectDir)
+	if err != nil {
+		if err := conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Failed to get service info: %v", err)}); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
+		}
+		return
+	}
+
+	// Find the service
+	var targetService *serviceinfo.ServiceInfo
+	for _, svc := range services {
+		if strings.EqualFold(svc.Name, serviceName) {
+			targetService = svc
+			break
+		}
+	}
+
+	if targetService == nil || targetService.Azure == nil {
+		if err := conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found or has no Azure deployment", serviceName)}); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
+		}
+		return
+	}
+
+	azure := targetService.Azure
+	if azure.ResourceName == "" || azure.ResourceGroup == "" {
+		if err := conn.WriteJSON(map[string]string{"error": "Azure resource information incomplete"}); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
+		}
+		return
+	}
+
+	// Determine resource type
+	resourceType := azure.ResourceType
+	if resourceType == "" {
+		// Try to infer from resource name or URL
+		if strings.Contains(strings.ToLower(azure.ResourceName), "containerapp") {
+			resourceType = "containerapp"
+		} else {
+			resourceType = "appservice"
+		}
+	}
+
+	// Stream logs from Azure
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	logChan := make(chan azurelib.LogEntry, 100)
+	errChan := make(chan error, 1)
+
+	go func() {
+		opts := azurelib.LogStreamOptions{
+			ResourceGroup: azure.ResourceGroup,
+			ResourceName:  azure.ResourceName,
+			ResourceType:  resourceType,
+			Follow:        true,
+			TailLines:     100,
+		}
+
+		if err := azurelib.StreamLogs(ctx, opts, logChan); err != nil {
+			errChan <- err
+		}
+	}()
+
+	// Stream logs to WebSocket
+	for {
+		select {
+		case entry := <-logChan:
+			// Convert Azure log entry to dashboard log entry format
+			logEntry := service.LogEntry{
+				Service:   serviceName,
+				Message:   entry.Message,
+				Timestamp: entry.Timestamp,
+				IsStderr:  entry.Level == "error",
+			}
+
+			if err := conn.WriteJSON(logEntry); err != nil {
+				log.Printf("WebSocket write error: %v", err)
+				return
+			}
+
+		case err := <-errChan:
+			log.Printf("Azure log streaming error: %v", err)
+			if err := conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Log streaming failed: %v", err)}); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
+			}
+			return
+
+		case <-s.stopChan:
+			return
+
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // Stop stops the dashboard server and releases its port assignment.

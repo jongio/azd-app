@@ -1,4 +1,4 @@
-import { Server, MoreVertical, FileText, ExternalLink } from 'lucide-react'
+import { Server, Info, FileText, ExternalLink } from 'lucide-react'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { StatusCell } from '@/components/StatusCell'
 import type { Service } from '@/types'
@@ -6,9 +6,10 @@ import type { Service } from '@/types'
 interface ServiceTableRowProps {
   service: Service
   onViewLogs?: (serviceName: string) => void
+  onViewDetails?: (service: Service) => void
 }
 
-export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
+export function ServiceTableRow({ service, onViewLogs, onViewDetails }: ServiceTableRowProps) {
   // Get status and health from local (with fallbacks)
   const status = service.local?.status || service.status || 'not-running'
   const health = service.local?.health || service.health || 'unknown'
@@ -116,10 +117,11 @@ export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
             <FileText className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </button>
           <button
+            onClick={() => onViewDetails?.(service)}
             className="p-2 rounded-lg hover:bg-white/10 transition-colors group"
-            title="More Options"
+            title="View Details"
           >
-            <MoreVertical className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            <Info className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </button>
         </div>
       </TableCell>

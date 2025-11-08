@@ -9,6 +9,7 @@ import { QuickActions } from '@/components/QuickActions'
 import { PerformanceMetrics } from '@/components/PerformanceMetrics'
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts'
 import { ServiceDependencies } from '@/components/ServiceDependencies'
+import { ServiceDetailModal } from '@/components/ServiceDetailModal'
 import type { Service } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
 
@@ -20,6 +21,7 @@ function App() {
     return (saved === 'cards' || saved === 'table') ? saved : 'table'
   })
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
   const { services, loading, error } = useServices()
 
   // Scroll to top when view changes
@@ -151,7 +153,11 @@ function App() {
             </div>
           ) : (
             viewMode === 'table' ? (
-              <ServiceTable services={services} onViewLogs={() => setActiveView('console')} />
+              <ServiceTable 
+                services={services} 
+                onViewLogs={() => setActiveView('console')} 
+                onViewDetails={(service) => setSelectedService(service)}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {services.map((service: Service) => (
@@ -266,6 +272,15 @@ function App() {
         isOpen={showKeyboardShortcuts} 
         onClose={() => setShowKeyboardShortcuts(false)} 
       />
+      
+      {/* Service Detail Modal */}
+      {selectedService && (
+        <ServiceDetailModal
+          service={selectedService}
+          isOpen={true}
+          onClose={() => setSelectedService(null)}
+        />
+      )}
     </div>
   )
 }

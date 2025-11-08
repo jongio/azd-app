@@ -89,9 +89,15 @@ type LocalServiceInfo struct {
 
 // AzureServiceInfo contains Azure-specific service information.
 type AzureServiceInfo struct {
-	URL          string `json:"url,omitempty"`
-	ResourceName string `json:"resourceName,omitempty"`
-	ImageName    string `json:"imageName,omitempty"`
+	URL                 string            `json:"url,omitempty"`
+	ResourceName        string            `json:"resourceName,omitempty"`
+	ResourceType        string            `json:"resourceType,omitempty"`        // "containerapp", "appservice", "function", etc.
+	ResourceGroup       string            `json:"resourceGroup,omitempty"`
+	Location            string            `json:"location,omitempty"`
+	SubscriptionId      string            `json:"subscriptionId,omitempty"`
+	ImageName           string            `json:"imageName,omitempty"`
+	LogAnalyticsId      string            `json:"logAnalyticsId,omitempty"`      // Log Analytics workspace ID for log streaming
+	ContainerAppEnvId   string            `json:"containerAppEnvId,omitempty"`   // Container App Environment resource ID
 }
 
 // GetServiceInfo returns comprehensive service information for a project directory.
@@ -168,6 +174,13 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceInfo {
 	azureServices := make(map[string]AzureServiceInfo)
 
+	// Extract global Azure metadata
+	resourceGroup := envVars["AZURE_RESOURCE_GROUP"]
+	location := envVars["AZURE_LOCATION"]
+	subscriptionId := envVars["AZURE_SUBSCRIPTION_ID"]
+	logAnalyticsId := envVars["AZURE_LOG_ANALYTICS_WORKSPACE_ID"]
+	containerAppEnvId := envVars["AZURE_CONTAINER_APP_ENV_ID"]
+
 	for key, value := range envVars {
 		keyUpper := strings.ToUpper(key)
 
@@ -187,6 +200,12 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 			if serviceName != "" {
 				info := azureServices[serviceName]
 				info.URL = value
+				// Set global metadata for this service
+				info.ResourceGroup = resourceGroup
+				info.Location = location
+				info.SubscriptionId = subscriptionId
+				info.LogAnalyticsId = logAnalyticsId
+				info.ContainerAppEnvId = containerAppEnvId
 				azureServices[serviceName] = info
 			}
 			continue
@@ -203,6 +222,12 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 				if existing, exists := azureServices[serviceName]; !exists || existing.URL == "" {
 					info := azureServices[serviceName]
 					info.URL = value
+					// Set global metadata for this service
+					info.ResourceGroup = resourceGroup
+					info.Location = location
+					info.SubscriptionId = subscriptionId
+					info.LogAnalyticsId = logAnalyticsId
+					info.ContainerAppEnvId = containerAppEnvId
 					azureServices[serviceName] = info
 				}
 			}
@@ -217,6 +242,12 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 			if serviceName != "" {
 				info := azureServices[serviceName]
 				info.ResourceName = value
+				// Set global metadata for this service
+				info.ResourceGroup = resourceGroup
+				info.Location = location
+				info.SubscriptionId = subscriptionId
+				info.LogAnalyticsId = logAnalyticsId
+				info.ContainerAppEnvId = containerAppEnvId
 				azureServices[serviceName] = info
 			}
 			continue
@@ -232,6 +263,12 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 				if existing, exists := azureServices[serviceName]; !exists || existing.ResourceName == "" {
 					info := azureServices[serviceName]
 					info.ResourceName = value
+					// Set global metadata for this service
+					info.ResourceGroup = resourceGroup
+					info.Location = location
+					info.SubscriptionId = subscriptionId
+					info.LogAnalyticsId = logAnalyticsId
+					info.ContainerAppEnvId = containerAppEnvId
 					azureServices[serviceName] = info
 				}
 			}
@@ -246,6 +283,19 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 			if serviceName != "" {
 				info := azureServices[serviceName]
 				info.ImageName = value
+				azureServices[serviceName] = info
+			}
+		}
+
+		// Pattern: SERVICE_{SERVICE_NAME}_RESOURCE_TYPE -> Resource type
+		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_RESOURCE_TYPE") {
+			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
+			serviceName = strings.TrimSuffix(serviceName, "_RESOURCE_TYPE")
+			serviceName = strings.ToLower(serviceName)
+
+			if serviceName != "" {
+				info := azureServices[serviceName]
+				info.ResourceType = value
 				azureServices[serviceName] = info
 			}
 		}
