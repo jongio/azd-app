@@ -790,7 +790,7 @@ azd app version  # shows: azd app extension version 0.5.0
    git log <last-version-commit>..HEAD
    
    # tier 3: use all commits (first release only)
-   git log --all
+   git log --pretty=format:"- %s (%h)" --no-merges
    ```
 
 3. **fixed release notes extraction**: replaced broken awk range pattern with proper state machine
