@@ -430,3 +430,61 @@ func TestConcurrentAccess(t *testing.T) {
 		t.Errorf("ListAll() length = %v, want 10", len(services))
 	}
 }
+
+// TestCleanStale tests the cleanStale function
+func TestCleanStale(t *testing.T) {
+	tempDir := t.TempDir()
+	registry := GetRegistry(tempDir)
+	
+	// Add a service with old LastChecked time
+	oldEntry := &ServiceRegistryEntry{
+		Name:        "old-service",
+		Port:        9000,
+		StartTime:   time.Now().Add(-2 * time.Hour),
+		LastChecked: time.Now().Add(-2 * time.Hour), // Old timestamp
+	}
+	if err := registry.Register(oldEntry); err != nil {
+		t.Fatalf("failed to register old service: %v", err)
+	}
+	
+	// Add a recent service
+	recentEntry := &ServiceRegistryEntry{
+		Name:        "recent-service",
+		Port:        9001,
+		StartTime:   time.Now(),
+		LastChecked: time.Now(),
+	}
+	if err := registry.Register(recentEntry); err != nil {
+		t.Fatalf("failed to register recent service: %v", err)
+	}
+	
+	// Call cleanStale
+	registry.cleanStale()
+	
+	// Verify old entry was removed
+	_, exists := registry.GetService("old-service")
+	if exists {
+		t.Error("Expected old service to be removed")
+	}
+	
+	// Verify recent entry remains
+	_, exists = registry.GetService("recent-service")
+	if !exists {
+		t.Error("Recent service should still exist")
+	}
+}
+
+// TestIsProcessRunning tests the isProcessRunning function
+func TestIsProcessRunning(t *testing.T) {
+	// Test with current process (should be running)
+	currentPID := os.Getpid()
+	if !isProcessRunning(currentPID) {
+		t.Error("Current process should be reported as running")
+	}
+	
+	// Test with invalid PID (should not be running)
+	invalidPID := 999999
+	if isProcessRunning(invalidPID) {
+		t.Log("PID 999999 is running (unexpected but possible)")
+	}
+}
