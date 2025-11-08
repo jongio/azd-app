@@ -83,7 +83,8 @@ Model Context Protocol server for AI-assisted development with Azure Developer C
   - Azure deployment information access
   - Project metadata and configuration
 
-👉 [MCP Server Documentation](./mcp/README.md)
+👉 [MCP Server Documentation](./mcp/README.md)  
+👉 [Usage Guide: Using with AI Assistants](./docs/mcp-usage.md)
 
 ---
 
@@ -159,7 +160,7 @@ For detailed installation and usage instructions, see the [CLI documentation](./
 azd-app/
 ├── cli/              # Azure Developer CLI Extension (Go)
 ├── vsc/              # VS Code Extension (TypeScript) - Coming Soon
-├── mcp/              # MCP Server (TypeScript) - Coming Soon
+├── mcp/              # MCP Server (TypeScript)
 ├── docs/             # Documentation
 └── .github/          # CI/CD workflows
 ```
@@ -173,8 +174,8 @@ Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 ### Development Setup
 
 1. **CLI Extension**: See [cli/README.md](./cli/README.md#for-development--testing)
-2. **VS Code Extension**: Coming soon
-3. **MCP Server**: Coming soon
+2. **MCP Server**: See [mcp/README.md](./mcp/README.md#development)
+3. **VS Code Extension**: Coming soon
 
 ---
 
