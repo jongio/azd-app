@@ -167,8 +167,21 @@ next_version = "$major.$minor.$patch"
 the workflow generates changelog from git commits:
 
 ```bash
-# get commits since last tag
-git log v0.4.2..head --pretty=format:"- %s (%h)"
+# get commits since last tag (or last version bump commit if no tag exists)
+if git rev-parse "v0.4.2" >/dev/null 2>&1; then
+  # tag exists, get commits since that tag
+  git log v0.4.2..HEAD --pretty=format:"- %s (%h)" --no-merges
+else
+  # no tag exists, try to find the last version bump commit
+  LAST_VERSION_COMMIT=$(git log --grep="^chore: bump version to" --format="%H" -n 1)
+  if [ -n "$LAST_VERSION_COMMIT" ]; then
+    # get commits since the last version bump (excluding it)
+    git log ${LAST_VERSION_COMMIT}..HEAD --pretty=format:"- %s (%h)" --no-merges
+  else
+    # this is likely the first release, get all commits
+    git log --pretty=format:"- %s (%h)" --no-merges
+  fi
+fi
 
 # output example:
 - feat: add new command (abc123)
@@ -185,7 +198,13 @@ cat > cli/changelog.md <<eof
 
 $(cat cli/changelog.md)
 eof
+
+# after committing the version bump, create and push a git tag
+git tag -a "v0.4.3" -m "Release version 0.4.3"
+git push origin "v0.4.3"
 ```
+
+**note:** the workflow now creates git tags after each release. this ensures future releases can accurately determine which commits to include by using `git log v<previous>..HEAD`. if no tag exists (e.g., for older releases before this fix), the workflow falls back to finding the last "chore: bump version to" commit instead.
 
 ### automatic file updates
 
@@ -742,3 +761,50 @@ azd app version  # shows: azd app extension version 0.5.0
 ### that's it! 🎉
 
 **just click and release!**
+
+---
+
+## recent fixes (november 2025)
+
+### release notes accuracy fix
+
+**problem**: release notes were showing the full changelog instead of only commits for that specific version.
+
+**root causes**:
+1. no git tags were being created during releases
+2. commit extraction always failed to find tags, falling back to "last 10 commits"
+3. each changelog version section accumulated the full commit history
+4. release notes extraction had a bug where the awk pattern matched both start and end on the same line
+
+**fix applied**:
+1. **git tag creation**: workflow now creates and pushes annotated tags (`v0.4.3`) after each version bump
+   - future releases can use `git log v<previous>..HEAD` to get accurate commit ranges
+   - fallback logic uses last "chore: bump version to" commit if tag doesn't exist
+   
+2. **improved commit extraction**: three-tier approach
+   ```bash
+   # tier 1: use version tag if it exists (preferred)
+   git log v0.4.2..HEAD
+   
+   # tier 2: use last version bump commit if no tag
+   git log <last-version-commit>..HEAD
+   
+   # tier 3: use all commits (first release only)
+   git log --pretty=format:"- %s (%h)" --no-merges
+   ```
+
+3. **fixed release notes extraction**: replaced broken awk range pattern with proper state machine
+   ```bash
+   # old (broken): matched start and end on same line
+   awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md
+   
+   # new (fixed): proper state tracking
+   awk 'BEGIN { in_section = 0 }
+        /^## \['$VERSION'\]/ { in_section = 1; next }
+        /^## \[/ { in_section = 0 }
+        in_section && NF > 0 { print }'
+   ```
+
+**result**: future releases will have accurate, version-specific release notes showing only commits since the previous version.
+
+**migration**: no action needed. the fix applies automatically to all future releases. existing malformed changelog entries will remain as-is but won't affect future releases.
