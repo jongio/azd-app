@@ -275,7 +275,7 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 	// Note: This requires the Service type to have a HealthCheck field
 	// which should be added in future when Docker Compose integration is implemented.
 	// For now, we check if any health-related configuration exists.
-	
+
 	// Check if service has explicit health configuration (future enhancement)
 	// When Service type includes healthcheck field from Docker Compose format:
 	// type Service struct {
@@ -287,7 +287,7 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 	//         StartPeriod time.Duration `yaml:"start_period"`
 	//     } `yaml:"healthcheck"`
 	// }
-	
+
 	// Return nil for now - caller handles gracefully
 	return nil
 }
