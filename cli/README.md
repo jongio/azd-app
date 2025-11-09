@@ -118,7 +118,7 @@ The devcontainer includes:
 - Mage, golangci-lint, and all development tools
 - Your Azure credentials automatically mounted
 
-See [.devcontainer/README.md](.devcontainer/README.md) for details.
+See [../.devcontainer/README.md](../.devcontainer/README.md) for details.
 
 ### Prerequisites
 
@@ -316,7 +316,7 @@ resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 envName := os.Getenv("AZURE_ENV_NAME")
 ```
 
-See [docs/azd-context.md](docs/azd-context.md) for comprehensive documentation on accessing azd context and environment variables.
+See [docs/dev/azd-context-inheritance.md](docs/dev/azd-context-inheritance.md) for comprehensive documentation on accessing azd context and environment variables.
 
 ## Development
 
@@ -356,11 +356,25 @@ azd-app-extension/
 │       └── azure/
 
 ├── docs/                       # Documentation
-│   ├── quickstart.md
-│   ├── add-command-guide.md
-│   ├── command-dependency-chain.md
-│   ├── azd-context.md
-│   └── reqs-command.md
+│   ├── cli-reference.md
+│   ├── environment-variables.md
+│   ├── environment-variables-quick-reference.md
+│   ├── commands/
+│   │   ├── reqs.md
+│   │   ├── deps.md
+│   │   ├── run.md
+│   │   ├── logs.md
+│   │   ├── info.md
+│   │   └── version.md
+│   ├── dev/
+│   │   ├── azd-context-inheritance.md
+│   │   ├── environment-variables.md
+│   │   ├── testing.md
+│   │   └── release.md
+│   ├── design/
+│   │   └── ports.md
+│   └── schema/
+│       └── azure.yaml.md
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml              # CI pipeline
@@ -529,7 +543,7 @@ azd app deps
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 
 ### Code Quality Requirements
 
@@ -566,7 +580,7 @@ See [LICENSE](LICENSE) for details.
 
 - **Issues**: [GitHub Issues](https://github.com/jongio/azd-app-extension/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jongio/azd-app-extension/discussions)
-- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Contributing**: See [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ## Acknowledgments
 

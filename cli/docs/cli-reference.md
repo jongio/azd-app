@@ -6,7 +6,7 @@ Complete reference for all `azd app` commands and flags.
 
 All commands automatically inherit azd environment context when run through `azd app <command>`. This includes Azure subscription information, resource groups, and environment-specific variables.
 
-See [azd-context.md](azd-context.md) for details on accessing azd environment variables.
+See [dev/azd-context-inheritance.md](dev/azd-context-inheritance.md) for details on accessing azd environment variables.
 
 ### Global Flags
 
@@ -453,7 +453,7 @@ When running through `azd app <command>`, these variables are automatically avai
 - `AZD_SERVER`: gRPC server address for azd communication
 - `AZD_ACCESS_TOKEN`: Authentication token for azd API
 
-See [azd-context.md](azd-context.md) for complete details.
+See [dev/azd-context-inheritance.md](dev/azd-context-inheritance.md) for complete details.
 
 ### Extension-Specific
 
