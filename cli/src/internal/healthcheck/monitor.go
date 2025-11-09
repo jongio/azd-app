@@ -18,6 +18,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	// maxConcurrentChecks limits parallel health check execution
+	maxConcurrentChecks = 10
+	
+	// maxResponseBodySize limits the size of health check response bodies to prevent memory issues
+	maxResponseBodySize = 1024 * 1024 // 1MB
+	
+	// defaultPortCheckTimeout is the timeout for TCP port checks
+	defaultPortCheckTimeout = 2 * time.Second
+)
+
+// Common health check endpoint paths to try
+var commonHealthPaths = []string{
+	"/health",
+	"/healthz",
+	"/ready",
+	"/alive",
+	"/ping",
+}
+
 // HealthStatus represents the health state of a service.
 type HealthStatus string
 
@@ -140,9 +160,8 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 		result HealthCheckResult
 	}, len(services))
 
-	// Limit concurrency
-	maxConcurrent := 10
-	semaphore := make(chan struct{}, maxConcurrent)
+	// Limit concurrency to prevent overwhelming the system
+	semaphore := make(chan struct{}, maxConcurrentChecks)
 
 	for i, svc := range services {
 		go func(index int, svc serviceInfo) {
@@ -403,12 +422,13 @@ type httpHealthCheckResult struct {
 
 func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
 	// Try common health endpoints
-	endpoints := []string{
-		c.defaultEndpoint,
-		"/healthz",
-		"/ready",
-		"/alive",
-		"/ping",
+	endpoints := []string{c.defaultEndpoint}
+	
+	// Add other common paths if they're different from default
+	for _, path := range commonHealthPaths {
+		if path != c.defaultEndpoint {
+			endpoints = append(endpoints, path)
+		}
 	}
 
 	for _, endpoint := range endpoints {
@@ -450,7 +470,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 
 		// Try to parse response body for additional details
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024)) // Max 1MB
+			body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
 			if err == nil {
 				var details map[string]interface{}
 				if err := json.Unmarshal(body, &details); err == nil {
@@ -479,7 +499,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 
 func (c *HealthChecker) checkPort(ctx context.Context, port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
+	conn, err := net.DialTimeout("tcp", address, defaultPortCheckTimeout)
 	if err != nil {
 		return false
 	}
