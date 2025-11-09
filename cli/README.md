@@ -28,28 +28,34 @@ App automatically detects and manages dependencies for:
 
 ### For End Users
 
-First, add the extension registry:
+First, enable azd extensions:
 
 ```bash
-azd config set extension.registry https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd config set alpha.extension.enabled on
+```
+
+Then add the extension registry:
+
+```bash
+azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
 ```
 
 Then install the extension:
 
 ```bash
-azd extension install app
+azd extension install jongio.azd.app
 ```
 
 Or install from a specific version:
 
 ```bash
-azd extension install app --version 0.1.0
+azd extension install jongio.azd.app --version 0.5.1
 ```
 
 To uninstall:
 
 ```bash
-azd extension uninstall app
+azd extension uninstall jongio.azd.app
 ```
 
 ### For Development & Testing
@@ -173,9 +179,9 @@ The generated `azure.yaml`:
 ```yaml
 name: my-project
 reqs:
-  - id: node
+  - name: node
     minVersion: 22.0.0
-  - id: pnpm
+  - name: pnpm
     minVersion: 10.0.0
 ```
 
@@ -191,12 +197,12 @@ reqs:
 ```yaml
 name: my-project
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
     checkRunning: true
-  - id: nodejs
+  - name: nodejs
     minVersion: "20.0.0"
-  - id: python
+  - name: python
     minVersion: "3.12.0"
 ```
 

@@ -56,7 +56,6 @@ azd app reqs --clear-cache
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--generate` | `-g` | bool | `false` | Generate reqs from detected project dependencies |
-| `--gen` | | bool | `false` | Alias for --generate |
 | `--dry-run` | | bool | `false` | Preview changes without modifying azure.yaml |
 | `--no-cache` | | bool | `false` | Force fresh reqs check and bypass cached results |
 | `--clear-cache` | | bool | `false` | Clear cached reqs results |
