@@ -49,7 +49,7 @@ func (r *NodeTestRunner) RunTests(testType string, coverage bool) (*TestResult, 
 	// Execute the command
 	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
-	
+
 	// Parse the output to extract results
 	r.parseTestOutput(string(output), result)
 

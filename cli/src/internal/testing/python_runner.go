@@ -45,7 +45,7 @@ func (r *PythonTestRunner) RunTests(testType string, coverage bool) (*TestResult
 	// Execute the command
 	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
-	
+
 	// Parse the output to extract results
 	r.parseTestOutput(string(output), result)
 
@@ -215,7 +215,7 @@ func (r *PythonTestRunner) parseCommand(cmdStr string) (string, []string) {
 // parseTestOutput parses test output to extract results.
 func (r *PythonTestRunner) parseTestOutput(output string, result *TestResult) {
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
@@ -261,21 +261,24 @@ func (r *PythonTestRunner) parsePytestSummary(line string, result *TestResult) {
 		}
 	}
 
-	// Parse test counts
-	if strings.Contains(line, "passed") {
-		if num := extractNumber(strings.Split(line, "passed")[0]); num >= 0 {
+	// Parse test counts using regex for more accurate parsing
+	passedRe := regexp.MustCompile(`(\d+)\s+passed`)
+	if match := passedRe.FindStringSubmatch(line); len(match) > 1 {
+		if num, err := strconv.Atoi(match[1]); err == nil {
 			result.Passed = num
 		}
 	}
 
-	if strings.Contains(line, "failed") {
-		if num := extractNumber(strings.Split(line, "failed")[0]); num >= 0 {
+	failedRe := regexp.MustCompile(`(\d+)\s+failed`)
+	if match := failedRe.FindStringSubmatch(line); len(match) > 1 {
+		if num, err := strconv.Atoi(match[1]); err == nil {
 			result.Failed = num
 		}
 	}
 
-	if strings.Contains(line, "skipped") {
-		if num := extractNumber(strings.Split(line, "skipped")[0]); num >= 0 {
+	skippedRe := regexp.MustCompile(`(\d+)\s+skipped`)
+	if match := skippedRe.FindStringSubmatch(line); len(match) > 1 {
+		if num, err := strconv.Atoi(match[1]); err == nil {
 			result.Skipped = num
 		}
 	}

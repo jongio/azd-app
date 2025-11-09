@@ -40,7 +40,7 @@ func (r *DotnetTestRunner) RunTests(testType string, coverage bool) (*TestResult
 	// Execute the command
 	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
-	
+
 	// Parse the output to extract results
 	r.parseTestOutput(string(output), result)
 
@@ -176,7 +176,7 @@ func (r *DotnetTestRunner) parseCommand(cmdStr string) (string, []string) {
 // parseTestOutput parses test output to extract results.
 func (r *DotnetTestRunner) parseTestOutput(output string, result *TestResult) {
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 

@@ -108,7 +108,7 @@ func (a *CoverageAggregator) GenerateReport(format string) error {
 // generateJSONReport generates a JSON coverage report
 func (a *CoverageAggregator) generateJSONReport(aggregate *AggregateCoverage) error {
 	outputPath := filepath.Join(a.outputDir, "coverage.json")
-	
+
 	data, err := json.MarshalIndent(aggregate, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal coverage data: %w", err)
@@ -123,12 +123,12 @@ func (a *CoverageAggregator) generateJSONReport(aggregate *AggregateCoverage) er
 
 // CoberturaPackage represents a package in Cobertura format
 type CoberturaPackage struct {
-	XMLName    xml.Name          `xml:"package"`
-	Name       string            `xml:"name,attr"`
-	LineRate   float64           `xml:"line-rate,attr"`
-	BranchRate float64           `xml:"branch-rate,attr"`
-	Complexity float64           `xml:"complexity,attr"`
-	Classes    []CoberturaClass  `xml:"classes>class"`
+	XMLName    xml.Name         `xml:"package"`
+	Name       string           `xml:"name,attr"`
+	LineRate   float64          `xml:"line-rate,attr"`
+	BranchRate float64          `xml:"branch-rate,attr"`
+	Complexity float64          `xml:"complexity,attr"`
+	Classes    []CoberturaClass `xml:"classes>class"`
 }
 
 // CoberturaClass represents a class in Cobertura format
@@ -242,7 +242,7 @@ func (a *CoverageAggregator) generateHTMLReport(aggregate *AggregateCoverage) er
 
 	for service, coverage := range aggregate.Services {
 		percentage := coverage.Lines.Percent
-		
+
 		html += fmt.Sprintf(`        <tr>
             <td>%s</td>
             <td>%d</td>
