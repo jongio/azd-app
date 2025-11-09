@@ -28,28 +28,34 @@ App automatically detects and manages dependencies for:
 
 ### For End Users
 
-First, add the extension registry:
+First, enable azd extensions:
 
 ```bash
-azd config set extension.registry https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd config set alpha.extension.enabled on
+```
+
+Then add the extension registry:
+
+```bash
+azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
 ```
 
 Then install the extension:
 
 ```bash
-azd extension install app
+azd extension install jongio.azd.app
 ```
 
 Or install from a specific version:
 
 ```bash
-azd extension install app --version 0.1.0
+azd extension install jongio.azd.app --version 0.5.1
 ```
 
 To uninstall:
 
 ```bash
-azd extension uninstall app
+azd extension uninstall jongio.azd.app
 ```
 
 ### For Development & Testing
@@ -112,7 +118,7 @@ The devcontainer includes:
 - Mage, golangci-lint, and all development tools
 - Your Azure credentials automatically mounted
 
-See [.devcontainer/README.md](.devcontainer/README.md) for details.
+See [../.devcontainer/README.md](../.devcontainer/README.md) for details.
 
 ### Prerequisites
 
@@ -173,9 +179,9 @@ The generated `azure.yaml`:
 ```yaml
 name: my-project
 reqs:
-  - id: node
+  - name: node
     minVersion: 22.0.0
-  - id: pnpm
+  - name: pnpm
     minVersion: 10.0.0
 ```
 
@@ -191,12 +197,12 @@ reqs:
 ```yaml
 name: my-project
 reqs:
-  - id: docker
+  - name: docker
     minVersion: "20.0.0"
     checkRunning: true
-  - id: nodejs
+  - name: nodejs
     minVersion: "20.0.0"
-  - id: python
+  - name: python
     minVersion: "3.12.0"
 ```
 
@@ -310,7 +316,7 @@ resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 envName := os.Getenv("AZURE_ENV_NAME")
 ```
 
-See [docs/azd-context.md](docs/azd-context.md) for comprehensive documentation on accessing azd context and environment variables.
+See [docs/dev/azd-context-inheritance.md](docs/dev/azd-context-inheritance.md) for comprehensive documentation on accessing azd context and environment variables.
 
 ## Development
 
@@ -350,11 +356,25 @@ azd-app-extension/
 │       └── azure/
 
 ├── docs/                       # Documentation
-│   ├── quickstart.md
-│   ├── add-command-guide.md
-│   ├── command-dependency-chain.md
-│   ├── azd-context.md
-│   └── reqs-command.md
+│   ├── cli-reference.md
+│   ├── environment-variables.md
+│   ├── environment-variables-quick-reference.md
+│   ├── commands/
+│   │   ├── reqs.md
+│   │   ├── deps.md
+│   │   ├── run.md
+│   │   ├── logs.md
+│   │   ├── info.md
+│   │   └── version.md
+│   ├── dev/
+│   │   ├── azd-context-inheritance.md
+│   │   ├── environment-variables.md
+│   │   ├── testing.md
+│   │   └── release.md
+│   ├── design/
+│   │   └── ports.md
+│   └── schema/
+│       └── azure.yaml.md
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml              # CI pipeline
@@ -523,7 +543,7 @@ azd app deps
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 
 ### Code Quality Requirements
 
@@ -560,7 +580,7 @@ See [LICENSE](LICENSE) for details.
 
 - **Issues**: [GitHub Issues](https://github.com/jongio/azd-app-extension/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jongio/azd-app-extension/discussions)
-- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Contributing**: See [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ## Acknowledgments
 
