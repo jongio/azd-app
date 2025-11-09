@@ -280,7 +280,7 @@ type HealthCheckResult struct {
 
 ## Configuration in azure.yaml
 
-Services can specify health check configuration:
+Services can specify health check configuration using **Docker Compose-compatible format**:
 
 ```yaml
 services:
@@ -289,32 +289,67 @@ services:
     project: ./api
     ports:
       - "8080"
-    healthCheck:
-      type: http              # http, port, process
-      endpoint: /api/health   # HTTP endpoint path
-      interval: 5s            # Check interval in streaming mode
-      timeout: 3s             # Timeout for each check
-      startPeriod: 30s        # Grace period after startup
-      retries: 3              # Number of retries before marking unhealthy
-      headers:                # Optional HTTP headers
-        Authorization: Bearer token123
-        X-Health-Check: "true"
+    healthcheck:              # Docker Compose compatible key
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      # Alternative test formats:
+      # test: curl -f http://localhost:8080/api/health || exit 1
+      # test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s           # Time between checks (default: 30s)
+      timeout: 5s             # Maximum time for check (default: 30s)
+      retries: 3              # Consecutive failures before unhealthy (default: 3)
+      start_period: 40s       # Grace period for container initialization (default: 0s)
+      start_interval: 5s      # Interval during start period (default: 5s)
   
   worker:
     language: python
     project: ./worker
-    healthCheck:
-      type: process           # Worker has no HTTP interface
-      interval: 10s
+    # No healthcheck defined - will use process check as fallback
   
   redis:
     language: other
     project: ./redis
     ports:
       - "6379"
-    healthCheck:
-      type: port              # Simple TCP check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+  
+  db:
+    language: other
+    project: ./db
+    ports:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
 ```
+
+**Docker Compose Compatibility**: The `healthcheck` configuration matches Docker Compose specification exactly, making it easy to transition between local development and containerized deployments.
+
+**Test Command Formats**:
+- `["CMD", "executable", "arg1", "arg2"]` - Direct command execution
+- `["CMD-SHELL", "shell-command"]` - Shell command execution
+- `"shell-command"` - String format (automatically wrapped with CMD-SHELL)
+- `["NONE"]` - Disable health check
+
+**Legacy Format** (still supported for backward compatibility):
+```yaml
+services:
+  api:
+    healthCheck:              # Legacy camelCase key
+      type: http
+      endpoint: /api/health
+      interval: 5s
+      timeout: 3s
+      startPeriod: 30s
+      retries: 3
+```
+
 
 ## Output Formats
 
@@ -446,7 +481,7 @@ Machine-readable format:
 
 ### JSON Stream Format (Streaming Mode)
 
-Newline-delimited JSON for continuous monitoring:
+**For CLI (piped/non-TTY)**: Newline-delimited JSON (NDJSON)
 
 ```json
 {"timestamp":"2024-11-08T10:30:00Z","services":[{"serviceName":"web","status":"healthy","responseTime":45}]}
@@ -454,7 +489,83 @@ Newline-delimited JSON for continuous monitoring:
 {"timestamp":"2024-11-08T10:30:10Z","services":[{"serviceName":"web","status":"healthy","responseTime":47}]}
 ```
 
-Each line is a complete JSON object representing one health check cycle.
+Each line is a complete JSON object representing one health check cycle. Works with standard Unix tools:
+
+```bash
+azd app health --stream --output json | jq '.services[] | select(.status != "healthy")'
+```
+
+### Server-Sent Events (SSE) Format (Dashboard API)
+
+**For Dashboard and MCP Integration**: Server-Sent Events provide real-time updates via HTTP
+
+```
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+
+data: {"timestamp":"2024-11-08T10:30:00Z","services":[...]}
+
+data: {"timestamp":"2024-11-08T10:30:05Z","services":[...]}
+
+event: health-change
+data: {"service":"api","oldStatus":"healthy","newStatus":"unhealthy"}
+
+event: heartbeat
+data: {"timestamp":"2024-11-08T10:30:10Z"}
+```
+
+**Benefits**:
+- Browser native support (`EventSource` API)
+- Auto-reconnection built-in
+- Event types for different message kinds
+- Simpler than WebSocket (HTTP-based)
+- Works through proxies and firewalls
+
+**Dashboard API Endpoint**:
+```bash
+GET /api/health/stream
+```
+
+### WebSocket Format (Optional - Advanced Use Cases)
+
+**For Advanced Dashboard Features**: WebSocket provides bidirectional communication
+
+```javascript
+// Client side
+const ws = new WebSocket('ws://localhost:4280/health/stream');
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'health') {
+    // Update health display
+  }
+};
+
+// Can send commands to server
+ws.send(JSON.stringify({
+  type: 'filter',
+  services: ['api', 'web']
+}));
+```
+
+**Server sends**:
+```json
+{"type":"health","timestamp":"2024-11-08T10:30:00Z","services":[...]}
+{"type":"status-change","service":"api","status":"unhealthy"}
+{"type":"heartbeat","timestamp":"2024-11-08T10:30:05Z"}
+```
+
+**Use Cases**:
+- Pause/resume monitoring from dashboard
+- Filter services in real-time
+- Request on-demand health checks
+- Lower latency than SSE
+
+**Dashboard API Endpoint**:
+```bash
+ws://localhost:4280/health/ws
+```
 
 ## Streaming Mode
 
@@ -929,3 +1040,51 @@ This is a **specification document only**. Implementation will come after this d
 - **Predictive Alerts**: ML-based prediction of upcoming failures
 - **Distributed Tracing**: Correlate health with distributed traces
 - **Custom Health Checks**: Plugin system for custom health check logic
+
+### MCP (Model Context Protocol) Integration
+
+Health monitoring will be integrated with the MCP server (coming in separate PR) to provide AI-assisted development features:
+
+**MCP Tool: `health_check`**
+```json
+{
+  "name": "health_check",
+  "description": "Check health status of services",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "service": {
+        "type": "string",
+        "description": "Optional service name to check"
+      },
+      "stream": {
+        "type": "boolean",
+        "description": "Enable streaming mode"
+      }
+    }
+  }
+}
+```
+
+**MCP Resource: `health://status`**
+```json
+{
+  "uri": "health://status",
+  "name": "Health Status",
+  "description": "Real-time health status of all services",
+  "mimeType": "application/json"
+}
+```
+
+**Integration Points**:
+- AI can query service health status
+- AI can diagnose unhealthy services
+- AI can correlate health with logs and errors
+- AI can suggest fixes based on health patterns
+- Real-time health updates via Server-Sent Events
+
+**Use Cases**:
+- "What services are unhealthy?" → AI queries health status
+- "Why is the API failing?" → AI checks health + logs + recent changes
+- "Monitor health while I develop" → AI streams health updates
+- "Alert me if any service becomes unhealthy" → AI monitors via SSE
