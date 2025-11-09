@@ -271,7 +271,7 @@ func generateTasksJSON() TasksConfig {
 			{
 				Label:        "azd: Start Services (Debug)",
 				Type:         "shell",
-				Command:      "azd app run --debug",
+				Command:      "azd app debug",
 				IsBackground: true,
 				ProblemMatcher: ProblemMatcher{
 					Pattern: Pattern{

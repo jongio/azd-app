@@ -1,4 +1,4 @@
 # Build artifacts
 bin/
 dist/
-app
+/app
