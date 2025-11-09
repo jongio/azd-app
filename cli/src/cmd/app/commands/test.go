@@ -14,18 +14,18 @@ import (
 )
 
 var (
-	testType           string
-	testCoverage       bool
-	testServiceFilter  string
-	testWatch          bool
+	testType            string
+	testCoverage        bool
+	testServiceFilter   string
+	testWatch           bool
 	testUpdateSnapshots bool
-	testFailFast       bool
-	testParallel       bool
-	testThreshold      int
-	testVerbose        bool
-	testDryRun         bool
-	testOutputFormat   string
-	testOutputDir      string
+	testFailFast        bool
+	testParallel        bool
+	testThreshold       int
+	testVerbose         bool
+	testDryRun          bool
+	testOutputFormat    string
+	testOutputDir       string
 )
 
 // NewTestCommand creates the test command.

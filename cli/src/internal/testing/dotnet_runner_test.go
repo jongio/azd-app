@@ -277,3 +277,68 @@ func TestFindTestProjects(t *testing.T) {
 		t.Error("Expected to find UnitTests.csproj")
 	}
 }
+
+// TestDotnetRunnerRunTests_Integration tests the full RunTests workflow
+func TestDotnetRunnerRunTests_Integration(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a simple .csproj file
+	csprojFile := filepath.Join(tmpDir, "Test.csproj")
+	content := `<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup>
+<TargetFramework>net8.0</TargetFramework>
+</PropertyGroup>
+<ItemGroup>
+<PackageReference Include="xunit" Version="2.4.2" />
+</ItemGroup>
+</Project>`
+	if err := os.WriteFile(csprojFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create csproj file: %v", err)
+	}
+
+	config := &ServiceTestConfig{
+		Framework: "xunit",
+	}
+
+	runner := NewDotnetTestRunner(tmpDir, config)
+	result, err := runner.RunTests("unit", false)
+
+	// The command might fail if dotnet isn't installed, that's ok
+	if err != nil {
+		t.Logf("RunTests returned error (expected in test env): %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+}
+
+// TestDotnetRunnerBuildTestCommand_AllTypes tests different test types
+func TestDotnetRunnerBuildTestCommand_AllTypes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name     string
+		testType string
+	}{
+		{name: "Unit tests", testType: "unit"},
+		{name: "Integration tests", testType: "integration"},
+		{name: "E2E tests", testType: "e2e"},
+	}
+
+	config := &ServiceTestConfig{Framework: "xunit"}
+	runner := NewDotnetTestRunner(tmpDir, config)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			command, args := runner.buildTestCommand(tt.testType, false)
+
+			if command == "" {
+				t.Error("Expected non-empty command")
+			}
+			if len(args) == 0 {
+				t.Error("Expected non-empty args")
+			}
+		})
+	}
+}
