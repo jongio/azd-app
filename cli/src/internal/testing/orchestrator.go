@@ -4,6 +4,7 @@ package testing
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -215,6 +216,35 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 		return nil, fmt.Errorf("failed to detect test config: %w", err)
 	}
 
+	// Get test type config for setup/teardown
+	var typeConfig *TestTypeConfig
+	switch testType {
+	case "unit":
+		typeConfig = config.Unit
+	case "integration":
+		typeConfig = config.Integration
+	case "e2e":
+		typeConfig = config.E2E
+	}
+
+	// Execute setup commands
+	if typeConfig != nil && len(typeConfig.Setup) > 0 {
+		if err := o.executeCommands(service.Dir, typeConfig.Setup, "setup"); err != nil {
+			return nil, fmt.Errorf("setup failed: %w", err)
+		}
+	}
+
+	// Ensure teardown runs even if tests fail
+	var result *TestResult
+	var testErr error
+	defer func() {
+		if typeConfig != nil && len(typeConfig.Teardown) > 0 {
+			if err := o.executeCommands(service.Dir, typeConfig.Teardown, "teardown"); err != nil {
+				fmt.Printf("Warning: teardown failed for %s: %v\n", service.Name, err)
+			}
+		}
+	}()
+
 	// Create appropriate test runner based on language
 	var runner TestRunner
 	switch strings.ToLower(service.Language) {
@@ -234,9 +264,9 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 		coverageEnabled = true
 	}
 
-	result, err := runner.RunTests(testType, coverageEnabled)
-	if err != nil {
-		return nil, err
+	result, testErr = runner.RunTests(testType, coverageEnabled)
+	if testErr != nil {
+		return nil, testErr
 	}
 
 	result.Service = service.Name
@@ -246,6 +276,15 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 // TestRunner interface for language-specific test runners.
 type TestRunner interface {
 	RunTests(testType string, coverage bool) (*TestResult, error)
+}
+
+// GetServicePaths returns the paths of all services for file watching.
+func (o *TestOrchestrator) GetServicePaths() ([]string, error) {
+	paths := make([]string, 0, len(o.services))
+	for _, service := range o.services {
+		paths = append(paths, service.Dir)
+	}
+	return paths, nil
 }
 
 // Helper functions
@@ -373,3 +412,27 @@ func FindAzureYaml() (string, error) {
 
 	return detector.FindAzureYaml(cwd)
 }
+
+// executeCommands executes a list of commands in the specified directory.
+func (o *TestOrchestrator) executeCommands(dir string, commands []string, stage string) error {
+	for i, cmd := range commands {
+		fmt.Printf("Running %s command %d/%d: %s\n", stage, i+1, len(commands), cmd)
+		
+		// Execute command using os/exec
+		if err := runCommand(dir, cmd); err != nil {
+			return fmt.Errorf("command '%s' failed: %w", cmd, err)
+		}
+	}
+	return nil
+}
+
+// runCommand executes a shell command in the specified directory.
+func runCommand(dir, cmd string) error {
+	// #nosec G204 -- Commands are from user's azure.yaml configuration
+	exec := exec.Command("sh", "-c", cmd)
+	exec.Dir = dir
+	exec.Stdout = os.Stdout
+	exec.Stderr = os.Stderr
+	return exec.Run()
+}
+
