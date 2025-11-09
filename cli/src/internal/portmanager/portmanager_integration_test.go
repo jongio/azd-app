@@ -35,8 +35,8 @@ func TestPortAvailability_RealBinding(t *testing.T) {
 		t.Fatalf("Port %d should be available", testPort)
 	}
 
-	// Bind to the port (all interfaces - same as services do)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
+	// Bind to the port (localhost only to avoid firewall prompts)
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	if err != nil {
 		t.Fatalf("Failed to bind to port %d: %v", testPort, err)
 	}
@@ -80,17 +80,16 @@ func TestPortAvailability_LocalhostVsAllInterfaces(t *testing.T) {
 
 	t.Logf("Using test port: %d", testPort)
 
-	// Bind to all interfaces (0.0.0.0) - this is what services do
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
+	// Bind to localhost to avoid firewall prompts
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	if err != nil {
-		t.Fatalf("Failed to bind to all interfaces on port %d: %v", testPort, err)
+		t.Fatalf("Failed to bind to localhost on port %d: %v", testPort, err)
 	}
 	defer listener.Close()
 
 	// The port manager should detect this port is in use
-	// because it also binds to all interfaces (not just localhost)
 	if pm.isPortAvailable(testPort) {
-		t.Errorf("Port %d should NOT be available - bound to all interfaces but check didn't detect it", testPort)
+		t.Errorf("Port %d should NOT be available - bound to localhost but check didn't detect it", testPort)
 		t.Error("This suggests the port availability check is using a different bind address than services")
 	}
 }
@@ -125,7 +124,7 @@ func TestAssignPort_Integration_WithRealConflict(t *testing.T) {
 	}
 
 	// Now bind to that port to simulate it being in use
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	if err != nil {
 		t.Fatalf("Failed to bind to port %d: %v", testPort, err)
 	}
@@ -192,8 +191,8 @@ func TestDashboardPortBinding(t *testing.T) {
 
 	t.Logf("Using test port: %d", testPort)
 
-	// Simulate dashboard binding (uses ":port" format)
-	listener1, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
+	// Simulate dashboard binding (now uses localhost)
+	listener1, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	if err != nil {
 		t.Fatalf("Failed to simulate dashboard binding: %v", err)
 	}
@@ -227,7 +226,7 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 	t.Logf("First instance got port: %d", port1)
 
 	// Bind to simulate service running
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port1))
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port1))
 	if err != nil {
 		t.Fatalf("Failed to bind port %d: %v", port1, err)
 	}
@@ -330,7 +329,7 @@ func TestPortManager_DebugMode(t *testing.T) {
 	}
 
 	// Bind and test again
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", testPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
 	if err != nil {
 		t.Fatalf("Failed to bind: %v", err)
 	}

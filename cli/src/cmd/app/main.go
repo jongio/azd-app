@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	outputFormat    string
-	debugMode       bool
-	structuredLogs  bool
+	outputFormat   string
+	debugMode      bool
+	structuredLogs bool
 )
 
 func main() {
@@ -30,19 +30,19 @@ func main() {
 				// Configure slog to show debug messages
 				slog.SetLogLoggerLevel(slog.LevelDebug)
 			}
-			
+
 			// Configure logging
 			logging.SetupLogger(debugMode, structuredLogs)
-			
+
 			// Log startup in debug mode
 			if debugMode {
-				logging.Debug("Starting azd app extension", 
+				logging.Debug("Starting azd app extension",
 					"version", commands.Version,
 					"command", cmd.Name(),
 					"args", args,
 				)
 			}
-			
+
 			return output.SetFormat(outputFormat)
 		},
 	}

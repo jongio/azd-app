@@ -300,7 +300,7 @@ func (s *Server) Start() (string, error) {
 
 	// Double-check port is still available (race condition protection)
 	// This handles the case where another process binds between assignment and server start
-	testAddr := fmt.Sprintf(":%d", port)
+	testAddr := fmt.Sprintf("127.0.0.1:%d", port)
 	testListener, err := net.Listen("tcp", testAddr)
 	if err != nil {
 		// Port became unavailable between assignment and binding
@@ -323,7 +323,7 @@ func (s *Server) Start() (string, error) {
 
 	s.port = port
 	s.server = &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
+		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
 		Handler:           s.mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -413,7 +413,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 
 		s.port = port
 		s.server = &http.Server{
-			Addr:              fmt.Sprintf(":%d", port),
+			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
 			Handler:           s.mux,
 			ReadHeaderTimeout: 10 * time.Second,
 		}
