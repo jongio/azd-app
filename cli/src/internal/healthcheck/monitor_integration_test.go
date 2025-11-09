@@ -15,7 +15,7 @@ import (
 
 func TestNewHealthMonitor(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	config := MonitorConfig{
 		ProjectDir:      tempDir,
 		DefaultEndpoint: "/health",
@@ -292,7 +292,7 @@ func TestIsProcessRunning(t *testing.T) {
 	// Test with current process (should be running)
 	currentPID := os.Getpid()
 	result := isProcessRunning(currentPID)
-	
+
 	// On some systems, this might not work reliably, so we just verify it doesn't panic
 	// and returns a boolean
 	_ = result
