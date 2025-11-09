@@ -648,11 +648,11 @@ func TestFindAzureYaml(t *testing.T) {
 			t.Errorf("FindAzureYaml() = %q, want %q", result, azureYamlPath)
 		}
 	})
-	
+
 	t.Run("no azure.yaml found", func(t *testing.T) {
 		// Use a directory without azure.yaml
 		noYamlDir := t.TempDir()
-		
+
 		result, err := FindAzureYaml(noYamlDir)
 		if err != nil {
 			t.Errorf("FindAzureYaml() unexpected error: %v", err)

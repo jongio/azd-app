@@ -446,7 +446,7 @@ func TestCleanStale(t *testing.T) {
 	if err := registry.Register(oldEntry); err != nil {
 		t.Fatalf("failed to register old service: %v", err)
 	}
-	
+
 	// Manually update LastChecked to an old time after registration
 	registry.mu.Lock()
 	if svc, exists := registry.services["old-service"]; exists {
