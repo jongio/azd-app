@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -725,6 +726,50 @@ t.Errorf("Handler returned Go error: %v", err)
 
 if result == nil {
 t.Fatal("Handler returned nil result")
+}
+})
+}
+}
+
+func TestGetProjectDir(t *testing.T) {
+// Save original value
+originalProjectDir := os.Getenv("PROJECT_DIR")
+defer func() {
+if originalProjectDir != "" {
+os.Setenv("PROJECT_DIR", originalProjectDir)
+} else {
+os.Unsetenv("PROJECT_DIR")
+}
+}()
+
+tests := []struct {
+name     string
+envValue string
+expected string
+}{
+{
+name:     "With PROJECT_DIR set",
+envValue: "/custom/project/path",
+expected: "/custom/project/path",
+},
+{
+name:     "Without PROJECT_DIR set",
+envValue: "",
+expected: ".",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+if tt.envValue != "" {
+os.Setenv("PROJECT_DIR", tt.envValue)
+} else {
+os.Unsetenv("PROJECT_DIR")
+}
+
+result := getProjectDir()
+if result != tt.expected {
+t.Errorf("Expected %s, got %s", tt.expected, result)
 }
 })
 }
