@@ -15,6 +15,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// minHealthInterval is the minimum allowed interval between health checks
+	minHealthInterval = 1 * time.Second
+	
+	// minHealthTimeout is the minimum allowed timeout for health checks
+	minHealthTimeout = 1 * time.Second
+	
+	// maxHealthTimeout is the maximum allowed timeout for health checks
+	maxHealthTimeout = 60 * time.Second
+	
+	// defaultHealthInterval is the default interval for streaming mode
+	defaultHealthInterval = 5 * time.Second
+	
+	// defaultHealthTimeout is the default timeout for health checks
+	defaultHealthTimeout = 5 * time.Second
+	
+	// defaultHealthEndpoint is the default health check endpoint path
+	defaultHealthEndpoint = "/health"
+)
+
 var (
 	healthService  string
 	healthStream   bool
@@ -39,10 +59,10 @@ to port or process checks.`,
 
 	cmd.Flags().StringVarP(&healthService, "service", "s", "", "Monitor specific service(s) only (comma-separated)")
 	cmd.Flags().BoolVar(&healthStream, "stream", false, "Enable streaming mode for real-time updates")
-	cmd.Flags().DurationVarP(&healthInterval, "interval", "i", 5*time.Second, "Interval between health checks in streaming mode")
+	cmd.Flags().DurationVarP(&healthInterval, "interval", "i", defaultHealthInterval, "Interval between health checks in streaming mode")
 	cmd.Flags().StringVarP(&healthOutput, "output", "o", "text", "Output format: 'text', 'json', 'table'")
-	cmd.Flags().StringVar(&healthEndpoint, "endpoint", "/health", "Default health endpoint path to check")
-	cmd.Flags().DurationVar(&healthTimeout, "timeout", 5*time.Second, "Timeout for each health check")
+	cmd.Flags().StringVar(&healthEndpoint, "endpoint", defaultHealthEndpoint, "Default health endpoint path to check")
+	cmd.Flags().DurationVar(&healthTimeout, "timeout", defaultHealthTimeout, "Timeout for each health check")
 	cmd.Flags().BoolVar(&healthAll, "all", false, "Show health for all projects on this machine")
 	cmd.Flags().BoolVarP(&healthVerbose, "verbose", "v", false, "Show detailed health check information")
 
@@ -51,14 +71,8 @@ to port or process checks.`,
 
 func runHealth(cmd *cobra.Command, args []string) error {
 	// Validate flags
-	if healthInterval < time.Second {
-		return fmt.Errorf("interval must be at least 1 second")
-	}
-	if healthTimeout < time.Second || healthTimeout > 60*time.Second {
-		return fmt.Errorf("timeout must be between 1s and 60s")
-	}
-	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
-		return fmt.Errorf("output must be 'text', 'json', or 'table'")
+	if err := validateHealthFlags(); err != nil {
+		return err
 	}
 
 	// Get current working directory for project context
@@ -79,31 +93,57 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	}
 
 	// Parse service filter
-	var serviceFilter []string
-	if healthService != "" {
-		serviceFilter = strings.Split(healthService, ",")
-		for i, s := range serviceFilter {
-			serviceFilter[i] = strings.TrimSpace(s)
-		}
-	}
+	serviceFilter := parseServiceFilter(healthService)
 
 	// Set up context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Handle interrupt signals for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		cancel()
-	}()
+	setupSignalHandler(cancel)
 
 	if healthStream {
 		return runStreamingMode(ctx, monitor, serviceFilter)
 	}
 
 	return runStaticMode(ctx, monitor, serviceFilter)
+}
+
+// validateHealthFlags validates the health command flags
+func validateHealthFlags() error {
+	if healthInterval < minHealthInterval {
+		return fmt.Errorf("interval must be at least %v", minHealthInterval)
+	}
+	if healthTimeout < minHealthTimeout || healthTimeout > maxHealthTimeout {
+		return fmt.Errorf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout)
+	}
+	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
+		return fmt.Errorf("output must be 'text', 'json', or 'table'")
+	}
+	return nil
+}
+
+// parseServiceFilter parses the comma-separated service filter
+func parseServiceFilter(serviceStr string) []string {
+	if serviceStr == "" {
+		return nil
+	}
+	
+	services := strings.Split(serviceStr, ",")
+	for i, s := range services {
+		services[i] = strings.TrimSpace(s)
+	}
+	return services
+}
+
+// setupSignalHandler sets up signal handling for graceful shutdown
+func setupSignalHandler(cancel context.CancelFunc) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		cancel()
+	}()
 }
 
 func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serviceFilter []string) error {
