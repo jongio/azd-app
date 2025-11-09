@@ -47,9 +47,9 @@
 	// Use 'postStartCommand' to run commands each time the container starts.
 	// "postStartCommand": "",
 
-	// Add Go bin to PATH
+	// Add Go bin and dotnet tools to PATH
 	"remoteEnv": {
-		"PATH": "${containerEnv:PATH}:/home/vscode/go/bin:/home/vscode/.dotnet/tools"
+		"PATH": "${containerEnv:PATH}:/usr/local/go/bin:/home/vscode/go/bin:/home/vscode/.dotnet/tools"
 	},
 
 	"customizations": {

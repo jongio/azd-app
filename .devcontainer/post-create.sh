@@ -21,12 +21,25 @@ fi
 # Add dotnet tools to PATH for this session
 export PATH="$HOME/.dotnet/tools:$PATH"
 
+# Determine the CLI directory path (works in both devcontainer and CI)
+# In devcontainer it's /workspaces/azd-app/cli
+# In GitHub Actions it might be different
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CLI_DIR="$REPO_ROOT/cli"
+
 # Navigate to CLI directory for Go operations
-cd /workspaces/azd-app/cli || exit 1
+cd "$CLI_DIR" || exit 1
 
 # Download Go dependencies
 echo "📦 Downloading Go dependencies..."
 go mod download
+
+# Build dashboard assets (required for tests)
+echo "🎨 Building dashboard assets..."
+cd dashboard
+npm install
+npm run build
+cd ..
 
 # Run quick tests to verify setup
 echo "🧪 Running quick tests..."
