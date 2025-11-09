@@ -1,3 +1,4 @@
 # Build artifacts
 bin/
 dist/
+azd-app
