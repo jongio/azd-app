@@ -55,28 +55,31 @@ Tests for exponential backoff implementation in health checks.
 - HTTP health checks retry with backoff
 
 ### 3. `run_test.go` (additions)
-Tests for startup timeout and service monitoring in the run command.
+Tests for service monitoring and lifecycle management in the run command.
 
 #### Test Coverage
 
 **Unit Tests (fast, run with `-short`)**
-- `TestStartupTimeout_ContextWrapping` - Validates startup context timeout (30s)
+- `TestRunCommandFlags` - Validates command-line flag parsing
+- `TestRunCommandRuntimeValidation` - Tests runtime mode validation (azd/aspire)
+- `TestRunCommandFlagDefaults` - Verifies default flag values
 
 **Integration Tests (requires actual processes)**
-- `TestMonitorServicesUntilShutdown_StartupTimeout` - Tests 30s startup timeout
+- `TestMonitorServicesUntilShutdown_StartupTimeout` - Tests service startup and quick interrupt
 - `TestMonitorServicesUntilShutdown_SignalHandling` - Verifies SIGINT/SIGTERM handling
 - `TestMonitorServicesUntilShutdown_MultipleServices` - Tests monitoring multiple services
 - `TestShutdownAllServices_WithContext` - Validates context-based shutdown coordination
 - `TestShutdownAllServices_ContextTimeout` - Tests shutdown respects context deadline
 - `TestProcessExit_CausesMonitoringToStop` - Verifies monitoring stops when process exits
+- `TestMonitorServices_RunsIndefinitely` - Confirms services run without automatic timeout
 
 #### Key Behaviors Tested
-- 30-second startup timeout prevents hanging
+- Services run indefinitely until signaled (no artificial startup timeout)
 - Context cancellation propagates correctly
-- Signal handling (SIGINT/SIGTERM) triggers shutdown
+- Signal handling (SIGINT/SIGTERM) triggers coordinated shutdown
 - Multiple services monitored concurrently with errgroup
-- Graceful shutdown with 10-second timeout
-- Process exit detection
+- Graceful shutdown with configurable timeout (default 10s)
+- Process exit detection triggers shutdown of all services
 
 ## Running Tests
 
