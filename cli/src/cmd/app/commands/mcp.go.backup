@@ -313,6 +313,8 @@ func newGetProjectInfoTool() server.ServerTool {
 			return marshalToolResult(projectInfo)
 		},
 
+			return mcp.NewToolResultText(string(jsonBytes)), nil
+		},
 	}
 }
 
