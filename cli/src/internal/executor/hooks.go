@@ -181,4 +181,3 @@ type PlatformHook struct {
 	ContinueOnError *bool
 	Interactive     *bool
 }
-
