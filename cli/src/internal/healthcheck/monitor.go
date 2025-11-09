@@ -21,10 +21,10 @@ import (
 const (
 	// maxConcurrentChecks limits parallel health check execution
 	maxConcurrentChecks = 10
-	
+
 	// maxResponseBodySize limits the size of health check response bodies to prevent memory issues
 	maxResponseBodySize = 1024 * 1024 // 1MB
-	
+
 	// defaultPortCheckTimeout is the timeout for TCP port checks
 	defaultPortCheckTimeout = 2 * time.Second
 )
@@ -84,12 +84,12 @@ type HealthReport struct {
 
 // HealthSummary provides overall health statistics.
 type HealthSummary struct {
-	Total      int          `json:"total"`
-	Healthy    int          `json:"healthy"`
-	Degraded   int          `json:"degraded"`
-	Unhealthy  int          `json:"unhealthy"`
-	Unknown    int          `json:"unknown"`
-	Overall    HealthStatus `json:"overall"`
+	Total     int          `json:"total"`
+	Healthy   int          `json:"healthy"`
+	Degraded  int          `json:"degraded"`
+	Unhealthy int          `json:"unhealthy"`
+	Unknown   int          `json:"unknown"`
+	Overall   HealthStatus `json:"overall"`
 }
 
 // MonitorConfig holds configuration for the health monitor.
@@ -271,9 +271,24 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 }
 
 func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
-	// Check for Docker Compose style healthcheck
-	// This would need to be added to the Service type
-	// For now, return nil - will be enhanced when Service type is updated
+	// Docker Compose style healthcheck parsing
+	// Note: This requires the Service type to have a HealthCheck field
+	// which should be added in future when Docker Compose integration is implemented.
+	// For now, we check if any health-related configuration exists.
+	
+	// Check if service has explicit health configuration (future enhancement)
+	// When Service type includes healthcheck field from Docker Compose format:
+	// type Service struct {
+	//     HealthCheck struct {
+	//         Test        []string      `yaml:"test"`
+	//         Interval    time.Duration `yaml:"interval"`
+	//         Timeout     time.Duration `yaml:"timeout"`
+	//         Retries     int           `yaml:"retries"`
+	//         StartPeriod time.Duration `yaml:"start_period"`
+	//     } `yaml:"healthcheck"`
+	// }
+	
+	// Return nil for now - caller handles gracefully
 	return nil
 }
 
@@ -423,7 +438,7 @@ type httpHealthCheckResult struct {
 func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
 	// Try common health endpoints
 	endpoints := []string{c.defaultEndpoint}
-	
+
 	// Add other common paths if they're different from default
 	for _, path := range commonHealthPaths {
 		if path != c.defaultEndpoint {
