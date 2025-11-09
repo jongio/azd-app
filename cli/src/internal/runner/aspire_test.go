@@ -27,6 +27,11 @@ func TestAspireOutputCapture(t *testing.T) {
 		t.Skip("Test disabled on Windows - process cleanup issues with Aspire child processes")
 	}
 
+	// Check if aspire command is available
+	if _, err := exec.LookPath("aspire"); err != nil {
+		t.Skip("aspire binary not found in PATH, skipping test")
+	}
+
 	// Find the test Aspire project
 	testProjectPath := filepath.Join("..", "..", "..", "tests", "projects", "aspire-test", "TestAppHost")
 
