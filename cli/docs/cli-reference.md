@@ -6,7 +6,29 @@ Complete reference for all `azd app` commands and flags.
 
 All commands automatically inherit azd environment context when run through `azd app <command>`. This includes Azure subscription information, resource groups, and environment-specific variables.
 
-See [azd-context.md](azd-context.md) for details on accessing azd environment variables.
+See [dev/azd-context-inheritance.md](dev/azd-context-inheritance.md) for details on accessing azd environment variables.
+
+### Global Flags
+
+These flags are available for all commands:
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format (default, json) |
+| `--debug` | | bool | `false` | Enable debug logging |
+| `--structured-logs` | | bool | `false` | Enable structured JSON logging to stderr |
+
+**Examples:**
+```bash
+# Output in JSON format
+azd app reqs --output json
+
+# Enable debug logging
+azd app run --debug
+
+# Enable structured logs for log aggregation
+azd app deps --structured-logs
+```
 
 ## Commands Overview
 
@@ -56,7 +78,6 @@ azd app reqs --clear-cache
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--generate` | `-g` | bool | `false` | Generate reqs from detected project dependencies |
-| `--gen` | | bool | `false` | Alias for --generate |
 | `--dry-run` | | bool | `false` | Preview changes without modifying azure.yaml |
 | `--no-cache` | | bool | `false` | Force fresh reqs check and bypass cached results |
 | `--clear-cache` | | bool | `false` | Clear cached reqs results |
@@ -400,7 +421,7 @@ azd app version
 
 Displays the current version of the extension:
 ```
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 **→ [See full version command specification](commands/version.md)** for version format details.
@@ -432,7 +453,7 @@ When running through `azd app <command>`, these variables are automatically avai
 - `AZD_SERVER`: gRPC server address for azd communication
 - `AZD_ACCESS_TOKEN`: Authentication token for azd API
 
-See [azd-context.md](azd-context.md) for complete details.
+See [dev/azd-context-inheritance.md](dev/azd-context-inheritance.md) for complete details.
 
 ### Extension-Specific
 

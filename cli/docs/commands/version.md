@@ -46,7 +46,7 @@ The version follows **semantic versioning** (semver):
 ```
 MAJOR.MINOR.PATCH
 
-Example: 0.1.0
+Example: 0.5.1
   │    │   │
   │    │   └─ Patch: Bug fixes
   │    └───── Minor: New features (backward compatible)
@@ -59,7 +59,7 @@ Example: 0.1.0
 
 ```bash
 $ azd app version
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 ### JSON Output (future)
@@ -67,7 +67,7 @@ azd app extension version 0.1.0
 ```bash
 $ azd app version --output json
 {
-  "version": "0.1.0",
+  "version": "0.5.1",
   "commit": "abc1234",
   "buildDate": "2024-11-04T10:00:00Z"
 }
@@ -79,7 +79,7 @@ $ azd app version --output json
 
 ```bash
 $ azd app version
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 ### 2. Verify Installation
@@ -89,7 +89,7 @@ $ which azd-app
 /usr/local/bin/azd-app
 
 $ azd app version
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 ### 3. Troubleshooting
@@ -98,7 +98,7 @@ When reporting issues, include version information:
 
 ```bash
 $ azd app version
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 
 # Include in bug report
 ```
@@ -114,7 +114,7 @@ azd version 1.5.0
 
 # Check azd app version
 $ azd app version
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 ## Version Compatibility
@@ -146,7 +146,7 @@ The extension is designed to be compatible with:
 
 ```bash
 $ azd app version
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 ### Example 2: In Scripts
@@ -170,5 +170,5 @@ echo "Using azd app version: $VERSION"
 ```bash
 $ azd version && azd app version
 azd version 1.5.0
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```

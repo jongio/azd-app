@@ -316,7 +316,7 @@ project-root/
   "timestamp": "2024-11-04T10:30:00Z",
   "results": [
     {
-      "id": "node",
+      "name": "node",
       "installed": true,
       "version": "20.11.0",
       "required": "18.0.0",
@@ -326,7 +326,7 @@ project-root/
       "message": "Satisfied"
     },
     {
-      "id": "docker",
+      "name": "docker",
       "installed": true,
       "version": "24.0.7",
       "required": "20.0.0",
@@ -452,7 +452,7 @@ reqs:
     checkRunning: true
   
   # Custom tool configuration
-  - id: postgres
+  - name: postgres
     minVersion: "15.0.0"
     command: "psql"
     args: ["--version"]
@@ -467,7 +467,7 @@ reqs:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | ✅ | Unique tool identifier |
+| `name` | string | ✅ | Unique tool identifier |
 | `minVersion` | string | ✅ | Minimum version (semantic) |
 | `command` | string | ❌ | Override command to execute |
 | `args` | []string | ❌ | Override command arguments |
