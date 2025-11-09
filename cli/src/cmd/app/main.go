@@ -25,7 +25,7 @@ func main() {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Set global output format and debug mode
 			if debugMode {
-				os.Setenv("AZD_APP_DEBUG", "true")
+				_ = os.Setenv("AZD_APP_DEBUG", "true") // #nosec G104 -- Debug flag, failure is non-critical
 			}
 
 			// Configure logging
