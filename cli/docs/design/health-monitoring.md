@@ -510,6 +510,8 @@ func (s *StreamManager) displayServiceRow(result HealthCheckResult, uptime float
 
 ### azure.yaml Health Check Configuration
 
+**Docker Compose Compatible Format** (Recommended):
+
 ```yaml
 services:
   api:
@@ -518,35 +520,113 @@ services:
     ports:
       - "8080"
     
-    # Health check configuration
+    # Docker Compose compatible healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      # Alternative formats:
+      # test: curl -f http://localhost:8080/api/health || exit 1
+      # test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s           # Time between checks (default: 30s)
+      timeout: 5s             # Maximum time for check (default: 30s)
+      retries: 3              # Consecutive failures before unhealthy (default: 3)
+      start_period: 40s       # Grace period for initialization (default: 0s)
+      start_interval: 5s      # Interval during start period (default: 5s)
+  
+  db:
+    language: other
+    project: ./db
+    ports:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+```
+
+**Legacy Format** (Still Supported):
+
+```yaml
+services:
+  api:
+    language: python
+    project: ./api
+    ports:
+      - "8080"
+    
+    # Legacy healthCheck format
     healthCheck:
-      # Type of health check
-      type: http  # http, port, process
+      type: http              # http, port, process
+      endpoint: /api/health   # Path to health endpoint
+      method: GET             # HTTP method (GET, POST, HEAD)
+      expectedStatus: 200     # Expected HTTP status code
       
-      # HTTP-specific settings
-      endpoint: /api/health  # Path to health endpoint
-      method: GET            # HTTP method (GET, POST, HEAD)
-      expectedStatus: 200    # Expected HTTP status code
-      
-      # Headers to include in HTTP requests
+      # Headers for HTTP requests
       headers:
         Authorization: "Bearer ${HEALTH_CHECK_TOKEN}"
         X-Health-Check: "true"
       
       # Timing configuration
-      timeout: 5s           # Timeout for each check
-      interval: 10s         # Interval between checks (streaming mode)
-      startPeriod: 30s      # Grace period after service start
+      timeout: 5s             # Timeout for each check
+      interval: 10s           # Interval between checks (streaming mode)
+      startPeriod: 30s        # Grace period after service start
       
       # Retry configuration
-      retries: 3            # Number of retries before marking unhealthy
-      retryInterval: 1s     # Time between retries
+      retries: 3              # Number of retries before marking unhealthy
+      retryInterval: 1s       # Time between retries
       
       # Alerting thresholds
       alerts:
         responseTime: 1000ms      # Alert if response time exceeds this
         failureThreshold: 3       # Alert after N consecutive failures
         degradedThreshold: 500ms  # Mark as degraded if response time exceeds this
+```
+
+**Docker Compose Compatibility Benefits**:
+- Seamless transition between local and containerized development
+- Reuse existing Docker Compose configurations
+- Industry-standard format
+- Easy to understand for developers familiar with Docker
+
+**Test Command Parsing**:
+```go
+// Parse Docker Compose test command
+func parseHealthCheckTest(test interface{}) (*HealthCheck, error) {
+    switch v := test.(type) {
+    case string:
+        // String format: "curl -f http://localhost || exit 1"
+        return &HealthCheck{
+            Type:    HealthCheckTypeHTTP,
+            Command: []string{"sh", "-c", v},
+        }, nil
+    case []interface{}:
+        // Array format: ["CMD", "curl", "-f", "http://localhost"]
+        if len(v) == 0 {
+            return nil, errors.New("empty test command")
+        }
+        
+        firstArg := v[0].(string)
+        if firstArg == "NONE" {
+            return &HealthCheck{Disabled: true}, nil
+        }
+        
+        if firstArg == "CMD" {
+            return &HealthCheck{
+                Type:    HealthCheckTypeCommand,
+                Command: toStringSlice(v[1:]),
+            }, nil
+        }
+        
+        if firstArg == "CMD-SHELL" {
+            return &HealthCheck{
+                Type:    HealthCheckTypeShell,
+                Command: []string{"sh", "-c", v[1].(string)},
+            }, nil
+        }
+    }
+    return nil, errors.New("invalid test format")
+}
 ```
 
 ## Output Formatting
@@ -670,12 +750,93 @@ func (h *HealthHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(report)
 }
 
-func (h *HealthHandler) StreamHealth(w http.ResponseWriter, r *http.Request) {
+// Server-Sent Events (SSE) for real-time streaming
+func (h *HealthHandler) StreamHealthSSE(w http.ResponseWriter, r *http.Request) {
     // Set up Server-Sent Events
     w.Header().Set("Content-Type", "text/event-stream")
     w.Header().Set("Cache-Control", "no-cache")
     w.Header().Set("Connection", "keep-alive")
+    w.Header().Set("Access-Control-Allow-Origin", "*")
     
+    // Heartbeat to detect disconnects
+    heartbeat := time.NewTicker(30 * time.Second)
+    defer heartbeat.Stop()
+    
+    // Health check interval
+    ticker := time.NewTicker(5 * time.Second)
+    defer ticker.Stop()
+    
+    // Track previous state for change detection
+    var prevReport *HealthReport
+    
+    for {
+        select {
+        case <-r.Context().Done():
+            return
+            
+        case <-heartbeat.C:
+            // Send heartbeat event
+            fmt.Fprintf(w, "event: heartbeat\n")
+            fmt.Fprintf(w, "data: {\"timestamp\":\"%s\"}\n\n", time.Now().Format(time.RFC3339))
+            w.(http.Flusher).Flush()
+            
+        case <-ticker.C:
+            report, err := h.monitor.Check(r.Context())
+            if err != nil {
+                continue
+            }
+            
+            // Send full health update
+            data, _ := json.Marshal(report)
+            fmt.Fprintf(w, "event: health\n")
+            fmt.Fprintf(w, "data: %s\n\n", data)
+            w.(http.Flusher).Flush()
+            
+            // Detect and send status changes
+            if prevReport != nil {
+                changes := detectStatusChanges(prevReport, report)
+                for _, change := range changes {
+                    changeData, _ := json.Marshal(change)
+                    fmt.Fprintf(w, "event: status-change\n")
+                    fmt.Fprintf(w, "data: %s\n\n", changeData)
+                    w.(http.Flusher).Flush()
+                }
+            }
+            
+            prevReport = report
+        }
+    }
+}
+
+// WebSocket for bidirectional communication (advanced)
+func (h *HealthHandler) StreamHealthWS(w http.ResponseWriter, r *http.Request) {
+    upgrader := websocket.Upgrader{
+        ReadBufferSize:  1024,
+        WriteBufferSize: 1024,
+        CheckOrigin: func(r *http.Request) bool {
+            return true // Configure based on security requirements
+        },
+    }
+    
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer conn.Close()
+    
+    // Handle client messages (filters, pause/resume, etc.)
+    go func() {
+        for {
+            var msg ClientMessage
+            if err := conn.ReadJSON(&msg); err != nil {
+                return
+            }
+            h.handleClientMessage(msg)
+        }
+    }()
+    
+    // Send health updates
     ticker := time.NewTicker(5 * time.Second)
     defer ticker.Stop()
     
@@ -689,13 +850,67 @@ func (h *HealthHandler) StreamHealth(w http.ResponseWriter, r *http.Request) {
                 continue
             }
             
-            data, _ := json.Marshal(report)
-            fmt.Fprintf(w, "data: %s\n\n", data)
-            w.(http.Flusher).Flush()
+            msg := WebSocketMessage{
+                Type:      "health",
+                Timestamp: time.Now(),
+                Data:      report,
+            }
+            
+            if err := conn.WriteJSON(msg); err != nil {
+                return
+            }
         }
     }
 }
+
+type WebSocketMessage struct {
+    Type      string      `json:"type"`
+    Timestamp time.Time   `json:"timestamp"`
+    Data      interface{} `json:"data"`
+}
+
+type ClientMessage struct {
+    Type     string   `json:"type"`
+    Services []string `json:"services,omitempty"`
+    Paused   bool     `json:"paused,omitempty"`
+}
+
+func detectStatusChanges(prev, curr *HealthReport) []StatusChange {
+    var changes []StatusChange
+    
+    prevMap := make(map[string]HealthStatus)
+    for _, svc := range prev.Services {
+        prevMap[svc.ServiceName] = svc.Status
+    }
+    
+    for _, svc := range curr.Services {
+        if prevStatus, exists := prevMap[svc.ServiceName]; exists {
+            if prevStatus != svc.Status {
+                changes = append(changes, StatusChange{
+                    Service:   svc.ServiceName,
+                    OldStatus: prevStatus,
+                    NewStatus: svc.Status,
+                    Timestamp: curr.Timestamp,
+                })
+            }
+        }
+    }
+    
+    return changes
+}
+
+type StatusChange struct {
+    Service   string       `json:"service"`
+    OldStatus HealthStatus `json:"oldStatus"`
+    NewStatus HealthStatus `json:"newStatus"`
+    Timestamp time.Time    `json:"timestamp"`
+}
 ```
+
+**API Endpoints**:
+- `GET /api/health` - Single health check snapshot
+- `GET /api/health/stream` - Server-Sent Events stream
+- `GET /api/health/ws` - WebSocket stream (advanced)
 
 ## Performance Considerations
 
@@ -848,6 +1063,35 @@ func newMockServiceInfo(name string, port int) ServiceInfo {
    - Language-specific health checkers
    - Business logic validation
 
+6. **MCP (Model Context Protocol) Integration**
+   - Health monitoring as MCP tool
+   - Real-time health updates via SSE
+   - AI-assisted diagnostics and troubleshooting
+   - Integration with AI coding assistants
+   - Automatic correlation with logs and errors
+   - Natural language health queries
+   
+   **MCP Tool Example**:
+   ```json
+   {
+     "name": "health_check",
+     "description": "Check service health status",
+     "inputSchema": {
+       "type": "object",
+       "properties": {
+         "service": {"type": "string"},
+         "stream": {"type": "boolean"}
+       }
+     }
+   }
+   ```
+   
+   **Use Cases**:
+   - AI detects unhealthy service and suggests fixes
+   - AI monitors health during development
+   - AI correlates health with code changes
+   - AI alerts on degradation patterns
+
 ## References
 
 - Existing health check implementation: `cli/src/internal/service/health.go`
@@ -855,3 +1099,7 @@ func newMockServiceInfo(name string, port int) ServiceInfo {
 - Service info: `cli/src/internal/serviceinfo/`
 - Output formatting: `cli/src/internal/output/`
 - Command documentation: `cli/docs/commands/health.md`
+- Docker Compose healthcheck: https://docs.docker.com/compose/compose-file/05-services/#healthcheck
+- Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events
+- WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- MCP Specification: https://modelcontextprotocol.io
