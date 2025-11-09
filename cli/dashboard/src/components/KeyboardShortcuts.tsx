@@ -1,4 +1,5 @@
 import { X, Command, Search, Terminal, Activity } from 'lucide-react'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 interface KeyboardShortcutsProps {
   isOpen: boolean
@@ -50,6 +51,8 @@ function KeyBadge({ keys }: { keys: string[] }) {
 }
 
 export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
+  useEscapeKey(isOpen, onClose, false)
+  
   if (!isOpen) return null
 
   const categories = ['Navigation', 'Actions', 'Views'] as const

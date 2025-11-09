@@ -1,8 +1,11 @@
 import { X, Server, Cloud, Settings2, ExternalLink, Copy } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { Service } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useClipboard } from '@/hooks/useClipboard'
+import { getServiceStatus, getServiceHealth, isServiceHealthy } from '@/lib/serviceUtils'
 
 interface ServiceDetailPanelProps {
   service: Service | null
@@ -12,30 +15,16 @@ interface ServiceDetailPanelProps {
 
 export function ServiceDetailPanel({ service, isOpen, onClose }: ServiceDetailPanelProps) {
   const [activeTab, setActiveTab] = useState('overview')
-  const [copiedField, setCopiedField] = useState<string | null>(null)
-
+  const { copyToClipboard, copiedField } = useClipboard()
+  
   // Close on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !e.defaultPrevented) {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
-  }, [isOpen, onClose])
+  useEscapeKey(isOpen, onClose)
 
   if (!service) return null
 
-  const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 2000)
-  }
-
-  const status = service.local?.status || service.status || 'not-running'
-  const health = service.local?.health || service.health || 'unknown'
-  const isHealthy = (status === 'ready' || status === 'running') && health === 'healthy'
+  const status = getServiceStatus(service)
+  const health = getServiceHealth(service)
+  const isHealthy = isServiceHealthy(service)
 
   return (
     <>

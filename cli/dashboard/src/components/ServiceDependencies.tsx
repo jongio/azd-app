@@ -1,5 +1,6 @@
 import { Network, ArrowRight, Circle } from 'lucide-react'
 import type { Service } from '@/types'
+import { groupServicesBy, getStatusColor } from '@/lib/serviceUtils'
 
 interface ServiceDependenciesProps {
   services: Service[]
@@ -7,22 +8,7 @@ interface ServiceDependenciesProps {
 
 export function ServiceDependencies({ services }: ServiceDependenciesProps) {
   // Group services by language/framework for visualization
-  const groupedServices = services.reduce((acc, service) => {
-    const key = service.language || 'Unknown'
-    if (!acc[key]) acc[key] = []
-    acc[key].push(service)
-    return acc
-  }, {} as Record<string, Service[]>)
-
-  const getStatusColor = (service: Service) => {
-    const status = service.local?.status || service.status || 'not-running'
-    const health = service.local?.health || service.health || 'unknown'
-    
-    if ((status === 'ready' || status === 'running') && health === 'healthy') return 'bg-success'
-    if (status === 'starting') return 'bg-warning'
-    if (status === 'error' || health === 'unhealthy') return 'bg-destructive'
-    return 'bg-muted-foreground'
-  }
+  const groupedServices = groupServicesBy(services, 'language')
 
   return (
     <div className="space-y-6">
