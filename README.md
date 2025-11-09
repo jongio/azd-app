@@ -38,7 +38,7 @@ azd app deps
 azd app run
 
 # Or start with debugging enabled
-azd app run --debug
+azd app debug
 # Press F5 in VS Code to attach debugger to all services!
 ```
 

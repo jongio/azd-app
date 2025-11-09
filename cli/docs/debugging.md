@@ -4,7 +4,7 @@ Enable seamless debugging for all services orchestrated by `azd app run` with ze
 
 ## Overview
 
-The `azd app run --debug` command automatically:
+The `azd app debug` command automatically:
 - Configures debug ports for each service based on language
 - Generates VS Code launch and task configurations
 - Starts services with debuggers enabled
@@ -15,7 +15,7 @@ The `azd app run --debug` command automatically:
 ### First-Time Setup
 
 ```bash
-$ azd app run --debug
+$ azd app debug
 🔍 Detected services: api (python), web (node)
 🛠️  Generated .vscode/launch.json and tasks.json...
 ✅ Debug configuration created!
@@ -35,7 +35,7 @@ $ azd app run --debug
 
 When you press **F5** in VS Code, the dropdown shows:
 
-1. **🚀 Debug ALL Services** ← Starts `azd app run --debug` then attaches to all
+1. **🚀 Debug ALL Services** ← Starts `azd app debug` then attaches to all
 2. **🔌 Attach to ALL (already running)** ← Just attaches (if services already running)
 3. 🔌 api (python) ← Individual service
 4. 🔌 web (node) ← Individual service
@@ -83,25 +83,25 @@ When you press **F5** in VS Code, the dropdown shows:
 
 ## Command Reference
 
-### `azd app run --debug`
+### `azd app debug`
 
 Start services with debuggers enabled.
 
 ```bash
-azd app run --debug
+azd app debug
 ```
 
 **Options:**
-- `--debug` - Enable debug mode for all services
+- `--service, -s` - Debug specific service(s) only
 - `--wait-for-debugger` - Pause services until debugger attaches
-- `--regenerate-debug-config` - Force regenerate VS Code configurations
+- `--regenerate-config` - Force regenerate VS Code configurations
 
 ### Wait for Debugger
 
 Use `--wait-for-debugger` to pause service startup until a debugger connects. Useful for debugging initialization code.
 
 ```bash
-azd app run --debug --wait-for-debugger
+azd app debug --wait-for-debugger
 ```
 
 **Effect by Language:**
@@ -115,7 +115,7 @@ azd app run --debug --wait-for-debugger
 Force regenerate `.vscode/launch.json` and `tasks.json` when services change:
 
 ```bash
-azd app run --debug --regenerate-debug-config
+azd app debug --regenerate-config
 ```
 
 ## Generated VS Code Configuration
@@ -171,7 +171,7 @@ The tool generates a `tasks.json` with a background task that:
 {
   "label": "azd: Start Services (Debug)",
   "type": "shell",
-  "command": "azd app run --debug",
+  "command": "azd app debug",
   "isBackground": true,
   "problemMatcher": {
     "pattern": {
@@ -280,7 +280,7 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 1. Verify service is running: `azd app info`
 2. Check debug port in output
 3. Ensure VS Code has correct language extension installed
-4. Try regenerating config: `azd app run --debug --regenerate-debug-config`
+4. Try regenerating config: `azd app debug --regenerate-config`
 
 ### Breakpoints Not Hit
 
@@ -299,7 +299,7 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 ### Debug Specific Services Only
 
 ```bash
-azd app run --debug --service api,worker
+azd app debug --service api,worker
 ```
 
 ### Dry Run to See Debug Configuration
@@ -307,7 +307,7 @@ azd app run --debug --service api,worker
 Preview debug setup without starting services:
 
 ```bash
-azd app run --debug --dry-run
+azd app debug --dry-run
 ```
 
 Output:
@@ -403,7 +403,7 @@ A: For most languages, no. For Python, you need `debugpy`. For Go, you need `dlv
 
 **Q: Can I debug in production?**
 
-A: No, this feature is for local development only. Do not use `--debug` flag in production.
+A: No, this feature is for local development only. Do not use the `debug` command in production.
 
 **Q: Does this work with Docker services?**
 
@@ -421,7 +421,7 @@ A: Yes, debug servers listen on `0.0.0.0`, allowing remote connections. However,
 
 A: Use the individual attach configurations in VS Code, or use `--service` flag:
 ```bash
-azd app run --debug --service api
+azd app debug --service api
 ```
 
 ## See Also
