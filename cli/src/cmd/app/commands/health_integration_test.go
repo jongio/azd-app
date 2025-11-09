@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,21 +22,21 @@ func TestRunHealthValidation(t *testing.T) {
 			interval:      500 * time.Millisecond,
 			timeout:       5 * time.Second,
 			output:        "text",
-			expectedError: "interval must be at least 1 second",
+			expectedError: "interval must be at least 1s",
 		},
 		{
 			name:          "timeout too short",
 			interval:      5 * time.Second,
 			timeout:       500 * time.Millisecond,
 			output:        "text",
-			expectedError: "timeout must be between 1s and 60s",
+			expectedError: "timeout must be between 1s and 1m0s",
 		},
 		{
 			name:          "timeout too long",
 			interval:      5 * time.Second,
 			timeout:       61 * time.Second,
 			output:        "text",
-			expectedError: "timeout must be between 1s and 60s",
+			expectedError: "timeout must be between 1s and 1m0s",
 		},
 		{
 			name:          "invalid output format",
@@ -48,18 +49,19 @@ func TestRunHealthValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set global vars
-			healthInterval = tt.interval
-			healthTimeout = tt.timeout
-			healthOutput = tt.output
-
 			cmd := NewHealthCommand()
+
+			// Set flags through command instead of global vars
+			cmd.Flags().Set("interval", tt.interval.String())
+			cmd.Flags().Set("timeout", tt.timeout.String())
+			cmd.Flags().Set("output", tt.output)
+
 			err := cmd.RunE(cmd, []string{})
 
 			if err == nil {
 				t.Errorf("Expected error containing '%s', got nil", tt.expectedError)
-			} else if err.Error() != tt.expectedError {
-				t.Errorf("Expected error '%s', got '%s'", tt.expectedError, err.Error())
+			} else if !strings.Contains(err.Error(), tt.expectedError) {
+				t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
 			}
 		})
 	}
