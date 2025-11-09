@@ -227,7 +227,7 @@ app.get('/api/generate-logs', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`🚀 Web server started on http://localhost:${PORT}`);
   console.log(`   Connecting to API at ${API_URL}`);
 });

@@ -7,48 +7,55 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
-// PerformHealthCheck verifies that a service is ready.
+// Backoff configuration constants
+const (
+	// Health check backoff settings
+	HealthCheckMaxInterval = 5 * time.Second
+	BackoffMultiplier      = 2.0
+
+	// Port check specific settings
+	PortCheckInitialInterval = 100 * time.Millisecond
+	PortCheckMaxInterval     = 2 * time.Second
+)
+
+// PerformHealthCheck verifies that a service is ready with exponential backoff.
 func PerformHealthCheck(process *ServiceProcess) error {
 	config := process.Runtime.HealthCheck
 
-	startTime := time.Now()
-	ticker := time.NewTicker(config.Interval)
-	defer ticker.Stop()
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = config.Timeout
+	b.InitialInterval = config.Interval
+	b.MaxInterval = HealthCheckMaxInterval
+	b.Multiplier = BackoffMultiplier
 
-	timeout := time.After(config.Timeout)
+	operation := func() error {
+		var err error
 
-	for {
-		select {
-		case <-timeout:
-			elapsed := time.Since(startTime)
-			return fmt.Errorf("health check timed out after %v", elapsed.Round(time.Second))
-
-		case <-ticker.C:
-			var err error
-
-			switch config.Type {
-			case "http":
-				err = HTTPHealthCheck(process.Port, config.Path)
-			case "port":
-				err = PortHealthCheck(process.Port)
-			case "process":
-				err = ProcessHealthCheck(process)
-			default:
-				// Default to HTTP health check
-				err = HTTPHealthCheck(process.Port, config.Path)
-			}
-
-			if err == nil {
-				// Health check succeeded
-				process.Ready = true
-				return nil
-			}
-
-			// Health check failed, will retry after interval
+		switch config.Type {
+		case "http":
+			err = HTTPHealthCheck(process.Port, config.Path)
+		case "port":
+			err = PortHealthCheck(process.Port)
+		case "process":
+			err = ProcessHealthCheck(process)
+		default:
+			// Default to HTTP health check
+			err = HTTPHealthCheck(process.Port, config.Path)
 		}
+
+		if err == nil {
+			// Health check succeeded
+			process.Ready = true
+		}
+
+		return err
 	}
+
+	return backoff.Retry(operation, b)
 }
 
 // HTTPHealthCheck attempts HTTP requests to verify service is ready.
@@ -123,26 +130,20 @@ func ProcessHealthCheck(process *ServiceProcess) error {
 	return nil
 }
 
-// WaitForPort waits for a port to become available (listening).
+// WaitForPort waits for a port to become available (listening) with exponential backoff.
+// Uses exponential backoff starting at 100ms, doubling each retry, up to the timeout.
 func WaitForPort(port int, timeout time.Duration) error {
-	startTime := time.Now()
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = timeout
+	b.InitialInterval = PortCheckInitialInterval
+	b.MaxInterval = PortCheckMaxInterval
+	b.Multiplier = BackoffMultiplier
 
-	timeoutChan := time.After(timeout)
-
-	for {
-		select {
-		case <-timeoutChan:
-			elapsed := time.Since(startTime)
-			return fmt.Errorf("port %d not available after %v", port, elapsed.Round(time.Second))
-
-		case <-ticker.C:
-			if err := PortHealthCheck(port); err == nil {
-				return nil
-			}
-		}
+	operation := func() error {
+		return PortHealthCheck(port)
 	}
+
+	return backoff.Retry(operation, b)
 }
 
 // TryHTTPHealthCheck performs a single HTTP health check attempt without retries.

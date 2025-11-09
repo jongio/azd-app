@@ -2,12 +2,15 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
@@ -15,6 +18,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -241,62 +245,154 @@ func loadEnvironmentVariables() (map[string]string, error) {
 	return envVars, nil
 }
 
-// monitorServicesUntilShutdown starts the dashboard and waits for shutdown signal.
+// monitorServicesUntilShutdown starts the dashboard and monitors services using errgroup.
+// Uses context-based cancellation for coordinated lifecycle management:
+//   - Dashboard runs in its own goroutine
+//   - Each service process runs in its own goroutine
+//   - Signal handler (Ctrl+C/SIGTERM) cancels the context
+//   - First error or signal cancels all goroutines
+//   - Graceful shutdown with timeout on exit
 func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string) error {
-	dashboardServer := startDashboard(cwd)
+	// Create context that cancels on SIGINT/SIGTERM
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
-	output.Info("💡 Press Ctrl+C to stop all services")
-	output.Newline()
-
-	waitForShutdownSignal()
-
-	return shutdownServices(result, dashboardServer)
-}
-
-// startDashboard starts the azd dashboard server.
-func startDashboard(cwd string) *dashboard.Server {
+	g, ctx := errgroup.WithContext(ctx)
 	dashboardServer := dashboard.GetServer(cwd)
-	dashboardURL, err := dashboardServer.Start()
-	if err != nil {
-		output.Warning("Dashboard unavailable: %v", err)
-		return nil
+
+	// Goroutine 1: Dashboard server
+	g.Go(func() error {
+		dashboardURL, err := dashboardServer.Start()
+		if err != nil {
+			output.Warning("Dashboard unavailable: %v", err)
+			// Don't fail if dashboard fails - services can run without it
+			<-ctx.Done()
+			return nil // Don't propagate dashboard start errors
+		}
+
+		output.Newline()
+		output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
+		output.Newline()
+		output.Info("💡 Press Ctrl+C to stop all services")
+		output.Newline()
+
+		// Block until context is cancelled
+		<-ctx.Done()
+		return nil // Dashboard shutdown is handled in cleanup
+	})
+
+	// Goroutine 2+: One goroutine per service to wait for exit
+	for name, process := range result.Processes {
+		serviceName := name
+		proc := process
+
+		if proc.Process == nil {
+			continue
+		}
+
+		g.Go(func() error {
+			// Wait for either process exit or context cancellation
+			waitDone := make(chan error, 1)
+			go func() {
+				state, err := proc.Process.Wait()
+				if err != nil {
+					waitDone <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
+					return
+				}
+				if !state.Success() {
+					exitCode := state.ExitCode()
+					waitDone <- fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())
+					return
+				}
+				waitDone <- nil
+			}()
+
+			select {
+			case err := <-waitDone:
+				// Service exited (triggers cancellation of other goroutines)
+				return err
+			case <-ctx.Done():
+				// Context cancelled (signal or another service failed)
+				return nil // Don't propagate context cancellation as error
+			}
+		})
 	}
 
-	output.Newline()
-	output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
-	output.Newline()
-	return dashboardServer
-}
+	// Wait for first error, signal, or all services to exit
+	err := g.Wait()
 
-// waitForShutdownSignal blocks until SIGINT or SIGTERM is received.
-func waitForShutdownSignal() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
-}
+	// Perform cleanup shutdown with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
 
-// shutdownServices stops all services and the dashboard.
-func shutdownServices(result *service.OrchestrationResult, dashboardServer *dashboard.Server) error {
 	output.Newline()
 	output.Newline()
 	output.Warning("🛑 Shutting down services...")
 
-	if dashboardServer != nil {
-		if err := dashboardServer.Stop(); err != nil {
-			output.Warning("Failed to stop dashboard: %v", err)
-		}
+	// Stop dashboard
+	if stopErr := dashboardServer.Stop(); stopErr != nil {
+		output.Warning("Failed to stop dashboard: %v", stopErr)
 	}
 
-	service.StopAllServices(result.Processes)
+	// Stop all services with graceful timeout
+	if stopErr := shutdownAllServices(shutdownCtx, result.Processes); stopErr != nil {
+		output.Warning("Some services failed to stop cleanly: %v", stopErr)
+	}
+
+	output.Success("All services stopped")
+	output.Newline()
 
 	// Clean up port assignments on clean shutdown
 	// Note: Port assignments are kept in the file for persistence across runs,
 	// but we don't release them here to allow quick restarts with same ports.
 	// Stale ports are cleaned up automatically after 7 days of inactivity.
 
-	output.Success("All services stopped")
-	output.Newline()
+	// Check if error was from signal (expected) or service crash (unexpected)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		return err
+	}
 
+	return nil
+}
+
+// shutdownAllServices stops all services with graceful timeout.
+func shutdownAllServices(ctx context.Context, processes map[string]*service.ServiceProcess) error {
+	var shutdownErrors []error
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for name, process := range processes {
+		wg.Add(1)
+		go func(serviceName string, proc *service.ServiceProcess) {
+			defer wg.Done()
+
+			if proc.Process == nil {
+				return
+			}
+
+			// Determine timeout from context
+			deadline, ok := ctx.Deadline()
+			timeout := 5 * time.Second
+			if ok {
+				timeout = time.Until(deadline)
+				if timeout < time.Second {
+					timeout = time.Second
+				}
+			}
+
+			if err := service.StopServiceGraceful(proc, timeout); err != nil {
+				mu.Lock()
+				shutdownErrors = append(shutdownErrors, fmt.Errorf("%s: %w", serviceName, err))
+				mu.Unlock()
+			}
+		}(name, process)
+	}
+
+	wg.Wait()
+
+	if len(shutdownErrors) > 0 {
+		return fmt.Errorf("failed to stop %d service(s): %w", len(shutdownErrors), errors.Join(shutdownErrors...))
+	}
 	return nil
 }
 

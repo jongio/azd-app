@@ -131,21 +131,5 @@ func TestStopAllServices(t *testing.T) {
 	StopAllServices(processes2)
 }
 
-func TestWaitForServices(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-
-	// Test with already ready services
-	processes := map[string]*ServiceProcess{
-		"api": {
-			Name:  "api",
-			Ready: true,
-		},
-	}
-
-	err := WaitForServices(processes)
-	if err != nil {
-		t.Errorf("WaitForServices() with ready services should not error, got %v", err)
-	}
-}
+// TestWaitForServices removed - WaitForServices function removed in favor of errgroup-based coordination
+// Each service is now monitored in its own goroutine within monitorServicesUntilShutdown

@@ -3,6 +3,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -43,6 +44,9 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	// Start all services in parallel
 	projectDir, _ := os.Getwd()
 	reg := registry.GetRegistry(projectDir)
+
+	slog.Debug("starting service orchestration",
+		slog.Int("service_count", len(runtimes)))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -122,12 +126,23 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				startErrors[rt.Name] = err
 				result.Errors[rt.Name] = err
 				mu.Unlock()
+				slog.Error("failed to start service",
+					slog.String("service", rt.Name),
+					slog.Int("port", rt.Port),
+					slog.String("error", err.Error()))
 				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("Failed to start: %v", err))
 				return
 			}
+
+			slog.Debug("service started",
+				slog.String("service", rt.Name),
+				slog.Int("port", rt.Port),
+				slog.Int("pid", process.Process.Pid),
+				slog.String("language", rt.Language),
+				slog.String("framework", rt.Framework))
 
 			// Update registry with PID
 			if entry, exists := reg.GetService(rt.Name); exists {
@@ -158,6 +173,10 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	// Wait for all services to finish starting
 	wg.Wait()
 
+	slog.Debug("service orchestration complete",
+		slog.Int("started", len(result.Processes)),
+		slog.Int("failed", len(startErrors)))
+
 	// Check if any services failed to start
 	if len(startErrors) > 0 {
 		StopAllServices(result.Processes)
@@ -171,7 +190,8 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	return result, nil
 }
 
-// StopAllServices stops all running services.
+// StopAllServices stops all running services with graceful shutdown.
+// Uses StopServiceGraceful with a 5-second timeout per service.
 func StopAllServices(processes map[string]*ServiceProcess) {
 	var wg sync.WaitGroup
 	projectDir, _ := os.Getwd()
@@ -187,7 +207,8 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 				output.Error("Warning: failed to update status for %s: %v", serviceName, err)
 			}
 
-			if err := StopService(proc); err != nil {
+			// Stop service with graceful timeout
+			if err := StopServiceGraceful(proc, 5*time.Second); err != nil {
 				// Log error but continue stopping other services
 				output.Error("Error stopping service %s: %v", serviceName, err)
 			}
@@ -200,24 +221,6 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 	}
 
 	wg.Wait()
-}
-
-// WaitForServices waits for all services to exit.
-func WaitForServices(processes map[string]*ServiceProcess) error {
-	// Wait for any service to exit
-	for name, process := range processes {
-		if process.Process != nil {
-			state, err := process.Process.Wait()
-			if err != nil {
-				return fmt.Errorf("service %s exited with error: %w", name, err)
-			}
-			if !state.Success() {
-				return fmt.Errorf("service %s exited with non-zero status: %s", name, state.String())
-			}
-		}
-	}
-
-	return nil
 }
 
 // GetServiceURLs generates URLs for all running services.

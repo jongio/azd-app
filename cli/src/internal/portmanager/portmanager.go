@@ -500,8 +500,8 @@ func (pm *PortManager) isPortAvailable(port int) bool {
 
 // defaultIsPortAvailable is the default implementation that actually binds to check port availability.
 func (pm *PortManager) defaultIsPortAvailable(port int) bool {
-	// Bind to all interfaces (same as how services bind) to properly detect port conflicts
-	addr := fmt.Sprintf(":%d", port)
+	// Bind to localhost to avoid Windows Firewall prompts
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		if os.Getenv("AZD_APP_DEBUG") == "true" {

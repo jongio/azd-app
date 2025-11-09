@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
@@ -12,9 +13,9 @@ import (
 )
 
 var (
-	outputFormat    string
-	debugMode       bool
-	structuredLogs  bool
+	outputFormat   string
+	debugMode      bool
+	structuredLogs bool
 )
 
 func main() {
@@ -26,20 +27,22 @@ func main() {
 			// Set global output format and debug mode
 			if debugMode {
 				os.Setenv("AZD_APP_DEBUG", "true")
+				// Configure slog to show debug messages
+				slog.SetLogLoggerLevel(slog.LevelDebug)
 			}
-			
+
 			// Configure logging
 			logging.SetupLogger(debugMode, structuredLogs)
-			
+
 			// Log startup in debug mode
 			if debugMode {
-				logging.Debug("Starting azd app extension", 
+				logging.Debug("Starting azd app extension",
 					"version", commands.Version,
 					"command", cmd.Name(),
 					"args", args,
 				)
 			}
-			
+
 			return output.SetFormat(outputFormat)
 		},
 	}

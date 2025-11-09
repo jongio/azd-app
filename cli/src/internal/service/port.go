@@ -481,7 +481,7 @@ func findAvailablePort(startPort int, usedPorts map[int]bool) (int, error) {
 		}
 
 		// Try to bind to the port to check if it's available
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err == nil {
 			if closeErr := listener.Close(); closeErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to close listener: %v\n", closeErr)
@@ -495,7 +495,7 @@ func findAvailablePort(startPort int, usedPorts map[int]bool) (int, error) {
 
 // IsPortAvailable checks if a port is available.
 func IsPortAvailable(port int) bool {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return false
 	}
