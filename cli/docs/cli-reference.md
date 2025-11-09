@@ -421,7 +421,7 @@ azd app version
 
 Displays the current version of the extension:
 ```
-azd app extension version 0.1.0
+azd app extension version 0.5.1
 ```
 
 **→ [See full version command specification](commands/version.md)** for version format details.
