@@ -5,7 +5,7 @@ This devcontainer provides a complete development environment for the App Extens
 ## What's Included
 
 ### Languages & Runtimes
-- **Go 1.23** - Primary development language
+- **Go 1.25** - Primary development language
 - **Node.js LTS** - For Node.js project testing
 - **Python 3.12** - For Python project testing
 - **.NET 8.0** - For .NET and Aspire project testing
@@ -19,6 +19,7 @@ All tools are installed declaratively via [devcontainer features](https://contai
 - **PowerShell** - For running scripts
 - **golangci-lint** - Linter with 22 enabled linters
 - **Mage** - Cross-platform build tool
+- **Aspire CLI** - .NET Aspire orchestration tool (installed via post-create script)
 
 ### Package Managers
 All package managers are installed automatically via devcontainer features:
@@ -61,8 +62,15 @@ For complex testing scenarios with multiple containers, you may need to increase
 
 The devcontainer uses the following lifecycle commands:
 
-- **onCreateCommand**: Runs once when the container is created (downloads Go dependencies, runs verification tests)
+- **onCreateCommand**: Runs once when the container is created
+  - Installs mage (Go build tool) if not found
+  - Installs .NET Aspire CLI (version 9.5.2)
+  - Downloads Go module dependencies
+  - Builds dashboard assets (required for embedded dashboard tests)
+  - Runs quick verification tests
 - **postStartCommand**: Runs each time the container starts (currently not configured)
+
+The script is designed to work in both devcontainer and CI environments by dynamically determining the workspace path.
 
 See [Dev Container specification](https://containers.dev/implementors/json_reference/#lifecycle-scripts) for more details.
 
@@ -72,12 +80,14 @@ The devcontainer will automatically:
 1. Install all language runtimes via devcontainer features
 2. Install development tools (golangci-lint, mage, uv) via devcontainer features
 3. Install package managers (pnpm, yarn, poetry) via devcontainer features
-4. Download Go modules (via `onCreateCommand`)
-5. Run verification tests (via `onCreateCommand`)
+4. Install Aspire CLI for .NET Aspire project testing
+5. Download Go modules (via `onCreateCommand`)
+6. Build dashboard assets required for testing (via `onCreateCommand`)
+7. Run verification tests (via `onCreateCommand`)
 
-Most installations happen declaratively through devcontainer features, making the setup more reliable and faster. The `onCreateCommand` only handles project-specific setup (Go dependencies and tests).
+Most installations happen declaratively through devcontainer features, making the setup more reliable and faster. The `onCreateCommand` only handles project-specific setup (Go dependencies, dashboard build, and tests).
 
-This process happens once during container creation and takes about 2-3 minutes.
+This process happens once during container creation and takes about 3-5 minutes.
 
 ### Azure Credentials
 
@@ -127,7 +137,31 @@ mage coverage
 ### Container fails to start
 
 - Ensure Docker is running
-- Check Docker has enough resources (4GB RAM recommended)
+- Check Docker has enough resources (8GB RAM, 4 CPU cores recommended)
+- Review creation logs in `.devcontainer/log.md` (if in Codespaces)
+
+### Dashboard build fails
+
+If the dashboard build fails during container creation:
+```bash
+cd cli/dashboard
+npm install
+npm run build
+```
+
+### Tests fail during container creation
+
+The container runs quick tests during creation. Common issues:
+
+1. **Missing dist directory**: Run the dashboard build (see above)
+2. **Aspire not found**: The Aspire CLI should be installed automatically. If missing:
+   ```bash
+   dotnet tool install --global aspire.cli --version 9.5.2
+   ```
+3. **Go modules not downloaded**: 
+   ```bash
+   cd cli && go mod download
+   ```
 
 ### Azure CLI not authenticated
 
