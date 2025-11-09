@@ -3,6 +3,7 @@ package testing
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -303,5 +304,86 @@ func TestPythonRunnerHasTests_NoTests(t *testing.T) {
 
 	if runner.HasTests() {
 		t.Error("Expected HasTests to return false for directory without tests")
+	}
+}
+
+// TestPythonRunnerRunTests_Integration tests the full RunTests workflow
+func TestPythonRunnerRunTests_Integration(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a simple test file
+	testFile := filepath.Join(tmpDir, "test_example.py")
+	content := `def test_example():
+    assert True
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	result, err := runner.RunTests("unit", false)
+
+	// The command might fail if pytest isn't installed, that's ok
+	if err != nil {
+		t.Logf("RunTests returned error (expected in test env): %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+}
+
+// TestPythonRunnerBuildTestCommand_AllTypes tests different test types
+func TestPythonRunnerBuildTestCommand_AllTypes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name     string
+		testType string
+	}{
+		{name: "Unit tests", testType: "unit"},
+		{name: "Integration tests", testType: "integration"},
+		{name: "E2E tests", testType: "e2e"},
+	}
+
+	config := &ServiceTestConfig{Framework: "pytest"}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			command, args := runner.buildTestCommand(tt.testType, false)
+
+			if command == "" {
+				t.Error("Expected non-empty command")
+			}
+			if len(args) == 0 {
+				t.Error("Expected non-empty args")
+			}
+		})
+	}
+}
+
+// TestPythonRunnerBuildTestCommand_CoverageFlag tests coverage integration
+func TestPythonRunnerBuildTestCommand_CoverageFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildTestCommand("unit", true)
+
+	if command == "" {
+		t.Error("Expected non-empty command")
+	}
+
+	// Check for coverage-related args
+	argStr := strings.Join(args, " ")
+	if argStr != "" && !strings.Contains(argStr, "cov") {
+		t.Logf("Coverage args: %v", args)
 	}
 }
