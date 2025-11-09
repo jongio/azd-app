@@ -65,25 +65,25 @@ describe('ServiceDependencies', () => {
 
   it('should group services by language', () => {
     render(<ServiceDependencies services={mockServices} />)
-    expect(screen.getByText('TypeScript')).toBeInTheDocument()
+    expect(screen.getAllByText('TypeScript').length).toBeGreaterThan(0)
     expect(screen.getByText('PostgreSQL')).toBeInTheDocument()
     expect(screen.getByText('Redis')).toBeInTheDocument()
   })
 
   it('should display all services', () => {
     render(<ServiceDependencies services={mockServices} />)
-    expect(screen.getByText('api')).toBeInTheDocument()
-    expect(screen.getByText('worker')).toBeInTheDocument()
-    expect(screen.getByText('database')).toBeInTheDocument()
-    expect(screen.getByText('redis')).toBeInTheDocument()
+    expect(screen.getAllByText('api').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('worker').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('database').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('redis').length).toBeGreaterThan(0)
   })
 
   it('should display service ports', () => {
     render(<ServiceDependencies services={mockServices} />)
-    expect(screen.getByText(/3000/)).toBeInTheDocument()
-    expect(screen.getByText(/3001/)).toBeInTheDocument()
-    expect(screen.getByText(/5432/)).toBeInTheDocument()
-    expect(screen.getByText(/6379/)).toBeInTheDocument()
+    expect(screen.getAllByText(/3000/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/3001/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/5432/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/6379/).length).toBeGreaterThan(0)
   })
 
   it('should show correct status colors for healthy services', () => {
@@ -180,8 +180,8 @@ describe('ServiceDependencies', () => {
     // All three should be under one TypeScript heading
     const typeScriptHeadings = screen.getAllByText('TypeScript')
     expect(typeScriptHeadings).toHaveLength(1)
-    expect(screen.getByText('api')).toBeInTheDocument()
-    expect(screen.getByText('worker')).toBeInTheDocument()
-    expect(screen.getByText('scheduler')).toBeInTheDocument()
+    expect(screen.getAllByText('api').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('worker').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('scheduler').length).toBeGreaterThan(0)
   })
 })

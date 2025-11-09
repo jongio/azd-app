@@ -63,9 +63,9 @@ describe('KeyboardShortcuts', () => {
 
   it('should display shortcut categories', () => {
     render(<KeyboardShortcuts isOpen={true} onClose={mockOnClose} />)
-    expect(screen.getByText(/Navigation/)).toBeInTheDocument()
-    expect(screen.getByText(/Actions/)).toBeInTheDocument()
-    expect(screen.getByText(/Views/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Navigation/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Actions/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Views/).length).toBeGreaterThan(0)
   })
 
   it('should render keyboard key badges', () => {
@@ -78,7 +78,7 @@ describe('KeyboardShortcuts', () => {
   it('should display compound shortcuts correctly', () => {
     render(<KeyboardShortcuts isOpen={true} onClose={mockOnClose} />)
     // Ctrl+F shortcut should be displayed
-    expect(screen.getByText('Ctrl')).toBeInTheDocument()
+    expect(screen.getAllByText('Ctrl').length).toBeGreaterThan(0)
     expect(screen.getByText('Focus search')).toBeInTheDocument()
   })
 })

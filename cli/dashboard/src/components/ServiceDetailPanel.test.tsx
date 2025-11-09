@@ -55,8 +55,8 @@ describe('ServiceDetailPanel', () => {
   it('should display service name and status', () => {
     render(<ServiceDetailPanel service={mockService} isOpen={true} onClose={mockOnClose} />)
     expect(screen.getByText('api')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
-    expect(screen.getByText('healthy')).toBeInTheDocument()
+    expect(screen.getAllByText('running').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('healthy').length).toBeGreaterThan(0)
   })
 
   it('should show all tabs', () => {

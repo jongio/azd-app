@@ -719,10 +719,17 @@ func (s *Server) handleAzureLogStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Convert Azure log entry to dashboard log entry format
+			// Parse the timestamp string to time.Time
+			timestamp, err := time.Parse(time.RFC3339, entry.Timestamp)
+			if err != nil {
+				// If parsing fails, use current time
+				timestamp = time.Now()
+			}
+			
 			logEntry := service.LogEntry{
 				Service:   serviceName,
 				Message:   entry.Message,
-				Timestamp: entry.Timestamp,
+				Timestamp: timestamp,
 				IsStderr:  entry.Level == "error",
 			}
 
