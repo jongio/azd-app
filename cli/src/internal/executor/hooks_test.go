@@ -2,8 +2,11 @@ package executor
 
 import (
 	"context"
+	"os"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetDefaultShell(t *testing.T) {
@@ -27,11 +30,11 @@ func TestGetDefaultShell(t *testing.T) {
 
 func TestPrepareHookCommand(t *testing.T) {
 	tests := []struct {
-		name      string
-		shell     string
-		script    string
-		wantArg1  string
-		wantArg2  string
+		name     string
+		shell    string
+		script   string
+		wantArg1 string
+		wantArg2 string
 	}{
 		{
 			name:     "sh shell",
@@ -388,3 +391,150 @@ func TestExecuteHook_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestExecuteHook_InvalidShell(t *testing.T) {
+if testing.Short() {
+t.Skip("Skipping hook execution test in short mode")
+}
+
+ctx := context.Background()
+config := HookConfig{
+Run:   "echo test",
+Shell: "nonexistent-shell-xyz",
+}
+
+err := ExecuteHook(ctx, "test", config, ".")
+if err == nil {
+t.Error("Expected error for nonexistent shell")
+}
+}
+
+func TestExecuteHook_InvalidWorkingDir(t *testing.T) {
+if testing.Short() {
+t.Skip("Skipping hook execution test in short mode")
+}
+
+ctx := context.Background()
+config := HookConfig{
+Run:   "echo test",
+Shell: getDefaultShell(),
+}
+
+err := ExecuteHook(ctx, "test", config, "/nonexistent/directory/path")
+if err == nil {
+t.Error("Expected error for invalid working directory")
+}
+}
+
+func TestExecuteHook_LongRunning(t *testing.T) {
+if testing.Short() {
+t.Skip("Skipping hook execution test in short mode")
+}
+
+ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+defer cancel()
+
+var sleepCmd string
+if runtime.GOOS == "windows" {
+sleepCmd = "timeout /t 10 /nobreak"
+} else {
+sleepCmd = "sleep 10"
+}
+
+config := HookConfig{
+Run:   sleepCmd,
+Shell: getDefaultShell(),
+}
+
+err := ExecuteHook(ctx, "test", config, ".")
+if err == nil {
+t.Error("Expected timeout error for long-running command")
+}
+}
+
+func TestResolveHookConfig_BothPlatformOverrides(t *testing.T) {
+continueOnError := true
+hook := &Hook{
+Run:   "echo base",
+Shell: "sh",
+Windows: &PlatformHook{
+Run:             "echo windows",
+Shell:           "pwsh",
+ContinueOnError: &continueOnError,
+},
+Posix: &PlatformHook{
+Run:             "echo posix",
+Shell:           "bash",
+ContinueOnError: &continueOnError,
+},
+}
+
+config := ResolveHookConfig(hook)
+if config == nil {
+t.Fatal("Expected non-nil config")
+}
+
+// Should use appropriate platform override
+if runtime.GOOS == "windows" {
+if config.Run != "echo windows" {
+t.Errorf("Expected Windows override, got: %s", config.Run)
+}
+if config.Shell != "pwsh" {
+t.Errorf("Expected Windows shell pwsh, got: %s", config.Shell)
+}
+} else {
+if config.Run != "echo posix" {
+t.Errorf("Expected POSIX override, got: %s", config.Run)
+}
+if config.Shell != "bash" {
+t.Errorf("Expected POSIX shell bash, got: %s", config.Shell)
+}
+}
+
+if !config.ContinueOnError {
+t.Error("Expected ContinueOnError=true from platform override")
+}
+}
+
+func TestPrepareHookCommand_EnvironmentInheritance(t *testing.T) {
+// Set a test environment variable
+testKey := "TEST_HOOK_ENV_VAR"
+testValue := "test_value_123"
+os.Setenv(testKey, testValue)
+defer os.Unsetenv(testKey)
+
+ctx := context.Background()
+cmd := prepareHookCommand(ctx, "sh", "echo test", "/tmp")
+
+// Check that environment is inherited
+found := false
+for _, env := range cmd.Env {
+if strings.HasPrefix(env, testKey+"=") {
+found = true
+if !strings.Contains(env, testValue) {
+t.Errorf("Expected env var to contain %s, got: %s", testValue, env)
+}
+break
+}
+}
+
+if !found {
+t.Errorf("Expected environment variable %s to be inherited", testKey)
+}
+}
+
+func TestExecuteHook_DefaultShell(t *testing.T) {
+if testing.Short() {
+t.Skip("Skipping hook execution test in short mode")
+}
+
+ctx := context.Background()
+config := HookConfig{
+Run:   "echo test",
+Shell: "", // Empty shell should use default
+}
+
+err := ExecuteHook(ctx, "test", config, ".")
+if err != nil {
+t.Errorf("Expected successful execution with default shell, got: %v", err)
+}
+}
