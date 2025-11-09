@@ -8,6 +8,28 @@ All commands automatically inherit azd environment context when run through `azd
 
 See [azd-context.md](azd-context.md) for details on accessing azd environment variables.
 
+### Global Flags
+
+These flags are available for all commands:
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format (default, json) |
+| `--debug` | | bool | `false` | Enable debug logging |
+| `--structured-logs` | | bool | `false` | Enable structured JSON logging to stderr |
+
+**Examples:**
+```bash
+# Output in JSON format
+azd app reqs --output json
+
+# Enable debug logging
+azd app run --debug
+
+# Enable structured logs for log aggregation
+azd app deps --structured-logs
+```
+
 ## Commands Overview
 
 | Command | Description | Detailed Spec |
