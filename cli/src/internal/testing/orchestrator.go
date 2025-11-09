@@ -191,7 +191,7 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 	// Aggregate coverage and check threshold
 	if coverageAggregator != nil {
 		result.Coverage = coverageAggregator.Aggregate()
-		
+
 		// Check threshold
 		meetsThreshold, percentage := coverageAggregator.CheckThreshold()
 		if !meetsThreshold {
@@ -293,14 +293,14 @@ func (o *TestOrchestrator) GetServicePaths() ([]string, error) {
 func detectNodeTestFramework(dir string) (string, error) {
 	// Check for configuration files
 	configFiles := map[string]string{
-		"jest.config.js":     "jest",
-		"jest.config.ts":     "jest",
-		"jest.config.json":   "jest",
-		"vitest.config.js":   "vitest",
-		"vitest.config.ts":   "vitest",
-		".mocharc.js":        "mocha",
-		".mocharc.json":      "mocha",
-		".mocharc.yaml":      "mocha",
+		"jest.config.js":   "jest",
+		"jest.config.ts":   "jest",
+		"jest.config.json": "jest",
+		"vitest.config.js": "vitest",
+		"vitest.config.ts": "vitest",
+		".mocharc.js":      "mocha",
+		".mocharc.json":    "mocha",
+		".mocharc.yaml":    "mocha",
 	}
 
 	for file, framework := range configFiles {
@@ -417,7 +417,7 @@ func FindAzureYaml() (string, error) {
 func (o *TestOrchestrator) executeCommands(dir string, commands []string, stage string) error {
 	for i, cmd := range commands {
 		fmt.Printf("Running %s command %d/%d: %s\n", stage, i+1, len(commands), cmd)
-		
+
 		// Execute command using os/exec
 		if err := runCommand(dir, cmd); err != nil {
 			return fmt.Errorf("command '%s' failed: %w", cmd, err)
@@ -435,4 +435,3 @@ func runCommand(dir, cmd string) error {
 	exec.Stderr = os.Stderr
 	return exec.Run()
 }
-
