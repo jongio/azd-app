@@ -9,14 +9,6 @@ if ! command -v mage &> /dev/null; then
     go install github.com/magefile/mage@latest
 fi
 
-# Install golangci-lint v1.64.8 to match local development
-echo "📦 Installing golangci-lint v1.64.8..."
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-
-# Install gosec for security scanning
-echo "📦 Installing gosec for security scanning..."
-go install github.com/securego/gosec/v2/cmd/gosec@latest
-
 # Install Aspire CLI
 echo "📦 Installing Aspire CLI..."
 ASPIRE_VERSION="9.5.2"
