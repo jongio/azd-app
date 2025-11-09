@@ -24,7 +24,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.25']
+        go-version: ['1.23']
     
     steps:
       - name: Checkout code
@@ -143,7 +143,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
@@ -182,7 +182,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.23'
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
