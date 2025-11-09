@@ -517,22 +517,74 @@ func TestShutdownAllServices_ContextTimeout(t *testing.T) {
 	}
 }
 
-func TestStartupTimeout_ContextWrapping(t *testing.T) {
-	// Test that startup timeout context wraps signal context correctly
-	startupCtx, startupCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer startupCancel()
-
-	// This should timeout after 2 seconds
-	select {
-	case <-startupCtx.Done():
-		// Expected
-	case <-time.After(3 * time.Second):
-		t.Error("Startup context should have timed out after 2 seconds")
+func TestMonitorServices_RunsIndefinitely(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running service test in short mode")
 	}
 
-	if startupCtx.Err() != context.DeadlineExceeded {
-		t.Errorf("Startup context error = %v, want DeadlineExceeded", startupCtx.Err())
+	tmpDir := t.TempDir()
+
+	// Create a simple batch script that runs for a long time
+	scriptPath := filepath.Join(tmpDir, "long-running.bat")
+	scriptContent := "@echo off\necho Starting long-running service\n:loop\nping 127.0.0.1 -n 2 > nul\ngoto loop"
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0700); err != nil {
+		t.Fatalf("Failed to create test script: %v", err)
 	}
+
+	// Start a service that runs for a long time
+	runtime := &service.ServiceRuntime{
+		Name:       "long-running",
+		WorkingDir: tmpDir,
+		Command:    "cmd",
+		Args:       []string{"/C", scriptPath},
+		Language:   "shell",
+		Port:       9050,
+	}
+
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		_ = logMgr.RemoveBuffer(runtime.Name)
+		if process.Process != nil {
+			_ = service.StopServiceGraceful(process, 1*time.Second)
+		}
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: map[string]*service.ServiceProcess{
+			"long-running": process,
+		},
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	// Monitor should run indefinitely until we signal to stop
+	// Send interrupt after 5 seconds to verify it runs past any startup timeout
+	go func() {
+		time.Sleep(5 * time.Second)
+		if process.Process != nil {
+			_ = process.Process.Signal(os.Interrupt)
+		}
+	}()
+
+	startTime := time.Now()
+	_ = monitorServicesUntilShutdown(result, tmpDir)
+	elapsed := time.Since(startTime)
+
+	// Should have run for approximately 5 seconds (not stop at 30 seconds or earlier)
+	if elapsed < 4*time.Second {
+		t.Errorf("monitorServicesUntilShutdown() stopped too early at %v, expected ~5s", elapsed)
+	}
+	if elapsed > 10*time.Second {
+		t.Errorf("monitorServicesUntilShutdown() took too long at %v, expected ~5s", elapsed)
+	}
+
+	t.Logf("✓ Service ran for %v without automatic timeout", elapsed)
 }
 
 func TestProcessExit_CausesMonitoringToStop(t *testing.T) {

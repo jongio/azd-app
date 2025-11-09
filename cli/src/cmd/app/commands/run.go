@@ -252,14 +252,9 @@ func loadEnvironmentVariables() (map[string]string, error) {
 //   - Signal handler (Ctrl+C/SIGTERM) cancels the context
 //   - First error or signal cancels all goroutines
 //   - Graceful shutdown with timeout on exit
-//   - Startup timeout prevents hanging on service failures
 func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string) error {
-	// Create context with startup timeout to prevent hanging
-	startupCtx, startupCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer startupCancel()
-
 	// Create context that cancels on SIGINT/SIGTERM
-	ctx, cancel := signal.NotifyContext(startupCtx, os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	g, ctx := errgroup.WithContext(ctx)
