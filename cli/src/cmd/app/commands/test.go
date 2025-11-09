@@ -1,8 +1,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/testing"
@@ -161,6 +165,11 @@ func runTests(_ *cobra.Command, _ []string) error {
 		}
 	}
 
+	// Watch mode
+	if testWatch {
+		return runWatchMode(orchestrator, testType, serviceFilter)
+	}
+
 	// Execute tests
 	result, err := orchestrator.ExecuteTests(testType, serviceFilter)
 	if err != nil {
@@ -176,13 +185,51 @@ func runTests(_ *cobra.Command, _ []string) error {
 	}
 
 	if testCoverage && testThreshold > 0 {
-		// TODO: Check coverage threshold
-		if !output.IsJSON() {
-			output.Item("Coverage threshold check not yet implemented")
+		if result.Coverage != nil {
+			overall := result.Coverage.Aggregate.Lines.Percent
+			if overall < float64(testThreshold) {
+				return fmt.Errorf("coverage %.1f%% is below threshold of %d%%", overall, testThreshold)
+			}
 		}
 	}
 
 	return nil
+}
+
+// runWatchMode runs tests in watch mode
+func runWatchMode(orchestrator *testing.TestOrchestrator, testType string, serviceFilter []string) error {
+	// Get service paths to watch
+	paths, err := orchestrator.GetServicePaths()
+	if err != nil {
+		return fmt.Errorf("failed to get service paths: %w", err)
+	}
+
+	// Create watcher
+	watcher := testing.NewFileWatcher(paths)
+
+	// Setup signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		cancel()
+	}()
+
+	// Watch and run tests
+	return watcher.Watch(ctx, func() error {
+		result, err := orchestrator.ExecuteTests(testType, serviceFilter)
+		if err != nil {
+			// Don't fail in watch mode, just show error
+			fmt.Printf("❌ Test execution failed: %v\n", err)
+			return nil
+		}
+
+		displayTestResults(result)
+		return nil
+	})
 }
 
 // displayTestResults displays test results in the console.
