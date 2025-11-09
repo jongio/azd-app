@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -164,6 +165,15 @@ func validateRequiredParam(args map[string]interface{}, key string) error {
 		return fmt.Errorf("%s parameter is required", key)
 	}
 	return nil
+}
+
+// getProjectDir gets the project directory from PROJECT_DIR environment variable or defaults to current directory
+func getProjectDir() string {
+	projectDir := os.Getenv("PROJECT_DIR")
+	if projectDir == "" {
+		projectDir = "."
+	}
+	return projectDir
 }
 
 // newGetServicesTool creates the get_services tool
@@ -337,11 +347,11 @@ args, _ := request.Params.Arguments.(map[string]interface{})
 
 var cmdArgs []string
 
-if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+if projectDir, ok := getStringParam(args, "projectDir"); ok {
 cmdArgs = append(cmdArgs, "--project", projectDir)
 }
 
-if runtime, ok := args["runtime"].(string); ok && runtime != "" {
+if runtime, ok := getStringParam(args, "runtime"); ok {
 cmdArgs = append(cmdArgs, "--runtime", runtime)
 }
 
@@ -352,6 +362,11 @@ cmd := exec.Command("azd", append([]string{"app", "run"}, cmdArgs...)...)
 // Start the command but don't wait for it
 if err := cmd.Start(); err != nil {
 return mcp.NewToolResultError(fmt.Sprintf("Failed to start services: %v", err)), nil
+}
+
+// Safely check process before accessing PID
+if cmd.Process == nil {
+return mcp.NewToolResultError("Process information unavailable after starting services"), nil
 }
 
 result := map[string]interface{}{
@@ -388,7 +403,7 @@ args, _ := request.Params.Arguments.(map[string]interface{})
 
 var cmdArgs []string
 
-if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+if projectDir, ok := getStringParam(args, "projectDir"); ok {
 cmdArgs = append(cmdArgs, "--project", projectDir)
 }
 
@@ -433,7 +448,7 @@ args, _ := request.Params.Arguments.(map[string]interface{})
 
 var cmdArgs []string
 
-if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+if projectDir, ok := getStringParam(args, "projectDir"); ok {
 cmdArgs = append(cmdArgs, "--project", projectDir)
 }
 
@@ -545,7 +560,7 @@ args, _ := request.Params.Arguments.(map[string]interface{})
 
 var cmdArgs []string
 
-if projectDir, ok := args["projectDir"].(string); ok && projectDir != "" {
+if projectDir, ok := getStringParam(args, "projectDir"); ok {
 cmdArgs = append(cmdArgs, "--project", projectDir)
 }
 
@@ -625,18 +640,18 @@ guidance := fmt.Sprintf(`To set environment variable '%s=%s':
 
 **Option 1: Update azure.yaml**
 Add to the service configuration:
-  services:
-    %s:
-      env:
-        %s: "%s"
+services:
+  %s:
+    env:
+      %s: "%s"
 
 **Option 2: Use .env file**
 Create/update .env file in project root:
-  %s=%s
+%s=%s
 
 **Option 3: System environment**
 Export in your shell:
-  export %s="%s"
+export %s="%s"
 
 After updating, restart services for changes to take effect.`, 
 name, value, 
@@ -670,9 +685,8 @@ Resource: mcp.NewResource(
 mcp.WithResourceDescription("The azure.yaml configuration file that defines the project structure, services, and dependencies."),
 ),
 Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-// Find and read azure.yaml
-projectDir := "."
-azureYamlPath := projectDir + "/azure.yaml"
+// Find and read azure.yaml from project directory
+azureYamlPath := filepath.Join(getProjectDir(), "azure.yaml")
 
 content, err := os.ReadFile(azureYamlPath)
 if err != nil {
@@ -699,8 +713,14 @@ Resource: mcp.NewResource(
 mcp.WithResourceDescription("Configuration details for all services including environment variables, ports, and runtime settings."),
 ),
 Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-// Get service configurations
-result, err := executeAzdAppCommand("info", []string{})
+// Get service configurations from project directory
+var cmdArgs []string
+projectDir := getProjectDir()
+if projectDir != "." {
+cmdArgs = append(cmdArgs, "--project", projectDir)
+}
+
+result, err := executeAzdAppCommand("info", cmdArgs)
 if err != nil {
 return nil, fmt.Errorf("failed to get service configs: %w", err)
 }
