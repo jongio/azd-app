@@ -18,19 +18,19 @@ import (
 const (
 	// minHealthInterval is the minimum allowed interval between health checks
 	minHealthInterval = 1 * time.Second
-	
+
 	// minHealthTimeout is the minimum allowed timeout for health checks
 	minHealthTimeout = 1 * time.Second
-	
+
 	// maxHealthTimeout is the maximum allowed timeout for health checks
 	maxHealthTimeout = 60 * time.Second
-	
+
 	// defaultHealthInterval is the default interval for streaming mode
 	defaultHealthInterval = 5 * time.Second
-	
+
 	// defaultHealthTimeout is the default timeout for health checks
 	defaultHealthTimeout = 5 * time.Second
-	
+
 	// defaultHealthEndpoint is the default health check endpoint path
 	defaultHealthEndpoint = "/health"
 )
@@ -128,7 +128,7 @@ func parseServiceFilter(serviceStr string) []string {
 	if serviceStr == "" {
 		return nil
 	}
-	
+
 	services := strings.Split(serviceStr, ",")
 	for i, s := range services {
 		services[i] = strings.TrimSpace(s)
