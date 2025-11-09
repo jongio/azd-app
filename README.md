@@ -21,6 +21,7 @@ azd app fills that gap with intelligent automation:
 - ✅ **Verify prerequisites** - Check all required tools are installed
 - 📦 **Install dependencies** - Recursively install across all projects and languages  
 - 🚀 **Run locally** - Start your entire application with one command
+- 🧪 **Run tests** - Execute tests across all services with unified coverage reporting
 - 📊 **Live dashboard** - Monitor services, view URLs, stream logs
 - 🔄 **Multi-language support** - Node.js, Python, .NET, Aspire, and more
 
@@ -32,6 +33,9 @@ azd app reqs
 
 # Install all dependencies automatically
 azd app deps
+
+# Run tests with coverage
+azd app test --coverage
 
 # Start your application with live dashboard
 azd app run
@@ -56,6 +60,7 @@ An Azure Developer CLI (azd) extension that automates development environment se
   - Smart project and dependency detection
   - Prerequisite checking with caching
   - Automatic dependency installation
+  - **Multi-language testing** (Node.js, Python, .NET) with coverage aggregation
   - Service orchestration from azure.yaml
   - Live web dashboard with service monitoring
   - Real-time log streaming
@@ -122,11 +127,13 @@ azd extension install jongio.azd.app
 cd your-azd-project
 azd app reqs  # Check prerequisites
 azd app deps  # Install dependencies
+azd app test  # Run tests with coverage
 azd app run   # Start services with dashboard
 
 # Option 2: Create a new sample project
 azd init -t hello-azd
 azd up
+azd app test --coverage --threshold 80
 azd app run
 
 # View service information
