@@ -10,17 +10,17 @@ import (
 
 // FileWatcher monitors files for changes and triggers test re-runs
 type FileWatcher struct {
-	paths       []string
+	paths          []string
 	ignorePatterns []string
-	lastCheck   map[string]time.Time
-	pollInterval time.Duration
+	lastCheck      map[string]time.Time
+	pollInterval   time.Duration
 }
 
 // NewFileWatcher creates a new file watcher for the given paths
 func NewFileWatcher(paths []string) *FileWatcher {
 	return &FileWatcher{
-		paths:       paths,
-		lastCheck:   make(map[string]time.Time),
+		paths:        paths,
+		lastCheck:    make(map[string]time.Time),
 		pollInterval: 500 * time.Millisecond,
 		ignorePatterns: []string{
 			"node_modules",
@@ -46,7 +46,7 @@ func (w *FileWatcher) Watch(ctx context.Context, callback func() error) error {
 	}
 
 	// Initialize file modification times
-	if err := w.scanFiles(); err != nil{
+	if err := w.scanFiles(); err != nil {
 		return fmt.Errorf("failed to scan files: %w", err)
 	}
 
