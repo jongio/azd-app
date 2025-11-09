@@ -84,8 +84,8 @@ func TestCalculateSummary(t *testing.T) {
 			},
 		},
 		{
-			name:     "empty",
-			results:  []HealthCheckResult{},
+			name:    "empty",
+			results: []HealthCheckResult{},
 			expected: HealthSummary{
 				Total:   0,
 				Overall: HealthStatusUnknown,
