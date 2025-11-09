@@ -557,4 +557,3 @@ func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
 		Interactive:     ph.Interactive,
 	}
 }
-
