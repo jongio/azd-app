@@ -244,3 +244,105 @@ func TestNodeRunnerHasTests_NoTests(t *testing.T) {
 		t.Error("Expected HasTests to return false for directory without tests")
 	}
 }
+
+// TestNodeRunnerRunTests_Integration tests the full RunTests workflow
+func TestNodeRunnerRunTests_Integration(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a simple package.json
+	packageJSON := filepath.Join(tmpDir, "package.json")
+	content := `{
+"name": "test-project",
+"scripts": {
+"test": "echo 'Tests: 5 passed, 5 total'"
+}
+}`
+	if err := os.WriteFile(packageJSON, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create package.json: %v", err)
+	}
+
+	config := &ServiceTestConfig{
+		Framework: "jest",
+	}
+
+	runner := NewNodeTestRunner(tmpDir, config)
+	result, err := runner.RunTests("unit", false)
+
+	// The command should execute (even if it's just echo)
+	if err != nil {
+		// It's ok if it fails due to npm not being available
+		t.Logf("RunTests returned error (expected in test env): %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+}
+
+// TestNodeRunnerBuildTestCommand_Coverage tests coverage flag
+func TestNodeRunnerBuildTestCommand_Coverage(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "jest",
+	}
+
+	runner := NewNodeTestRunner(tmpDir, config)
+	command, args := runner.buildTestCommand("unit", true)
+
+	if command != "npm" {
+		t.Errorf("Expected command 'npm', got '%s'", command)
+	}
+
+	// Check that coverage flag is present
+	found := false
+	for _, arg := range args {
+		if arg == "--coverage" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected --coverage flag in args")
+	}
+}
+
+// TestNodeRunnerBuildTestCommand_AllTypes tests different test types
+func TestNodeRunnerBuildTestCommand_AllTypes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name     string
+		testType string
+		config   *ServiceTestConfig
+	}{
+		{
+			name:     "Unit tests",
+			testType: "unit",
+			config:   &ServiceTestConfig{Framework: "jest"},
+		},
+		{
+			name:     "Integration tests",
+			testType: "integration",
+			config:   &ServiceTestConfig{Framework: "jest"},
+		},
+		{
+			name:     "E2E tests",
+			testType: "e2e",
+			config:   &ServiceTestConfig{Framework: "jest"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := NewNodeTestRunner(tmpDir, tt.config)
+			command, args := runner.buildTestCommand(tt.testType, false)
+
+			if command == "" {
+				t.Error("Expected non-empty command")
+			}
+			if len(args) == 0 {
+				t.Error("Expected non-empty args")
+			}
+		})
+	}
+}
