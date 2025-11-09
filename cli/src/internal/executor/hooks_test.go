@@ -25,6 +25,86 @@ func TestGetDefaultShell(t *testing.T) {
 	}
 }
 
+func TestPrepareHookCommand(t *testing.T) {
+	tests := []struct {
+		name      string
+		shell     string
+		script    string
+		wantArg1  string
+		wantArg2  string
+	}{
+		{
+			name:     "sh shell",
+			shell:    "sh",
+			script:   "echo test",
+			wantArg1: "-c",
+			wantArg2: "echo test",
+		},
+		{
+			name:     "bash shell",
+			shell:    "bash",
+			script:   "ls -la",
+			wantArg1: "-c",
+			wantArg2: "ls -la",
+		},
+		{
+			name:     "pwsh shell",
+			shell:    "pwsh",
+			script:   "Get-ChildItem",
+			wantArg1: "-Command",
+			wantArg2: "Get-ChildItem",
+		},
+		{
+			name:     "powershell shell",
+			shell:    "powershell",
+			script:   "Write-Host test",
+			wantArg1: "-Command",
+			wantArg2: "Write-Host test",
+		},
+		{
+			name:     "cmd shell",
+			shell:    "cmd",
+			script:   "dir",
+			wantArg1: "/c",
+			wantArg2: "dir",
+		},
+		{
+			name:     "zsh shell (posix)",
+			shell:    "zsh",
+			script:   "echo zsh",
+			wantArg1: "-c",
+			wantArg2: "echo zsh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			cmd := prepareHookCommand(ctx, tt.shell, tt.script, "/tmp")
+
+			if cmd.Dir != "/tmp" {
+				t.Errorf("Expected Dir='/tmp', got: %s", cmd.Dir)
+			}
+
+			if len(cmd.Args) < 3 {
+				t.Fatalf("Expected at least 3 args, got: %v", cmd.Args)
+			}
+
+			if cmd.Args[1] != tt.wantArg1 {
+				t.Errorf("Expected arg[1]=%q, got: %q", tt.wantArg1, cmd.Args[1])
+			}
+
+			if cmd.Args[2] != tt.wantArg2 {
+				t.Errorf("Expected arg[2]=%q, got: %q", tt.wantArg2, cmd.Args[2])
+			}
+
+			if cmd.Env == nil {
+				t.Error("Expected cmd.Env to be set")
+			}
+		})
+	}
+}
+
 func TestResolveHookConfig_Nil(t *testing.T) {
 	config := ResolveHookConfig(nil)
 	if config != nil {
@@ -56,6 +136,25 @@ func TestResolveHookConfig_BaseOnly(t *testing.T) {
 	}
 	if config.Interactive {
 		t.Error("Expected Interactive=false")
+	}
+}
+
+func TestResolveHookConfig_EmptyShell(t *testing.T) {
+	hook := &Hook{
+		Run:   "echo test",
+		Shell: "", // Empty shell should work
+	}
+
+	config := ResolveHookConfig(hook)
+	if config == nil {
+		t.Fatal("Expected non-nil config")
+	}
+
+	if config.Run != "echo test" {
+		t.Errorf("Expected Run='echo test', got: %s", config.Run)
+	}
+	if config.Shell != "" {
+		t.Errorf("Expected Shell='', got: %s", config.Shell)
 	}
 }
 
@@ -162,68 +261,30 @@ func TestResolveHookConfig_PartialPlatformOverride(t *testing.T) {
 	}
 }
 
-func TestPrepareHookCommand_Sh(t *testing.T) {
-	ctx := context.Background()
-	cmd := prepareHookCommand(ctx, "sh", "echo test", "/tmp")
-
-	if cmd.Dir != "/tmp" {
-		t.Errorf("Expected Dir='/tmp', got: %s", cmd.Dir)
+func TestResolveHookConfig_EmptyPlatformOverride(t *testing.T) {
+	hook := &Hook{
+		Run:   "echo base",
+		Shell: "sh",
 	}
 
-	// Check command structure
-	if len(cmd.Args) < 3 {
-		t.Fatalf("Expected at least 3 args, got: %v", cmd.Args)
+	// Set platform override but with empty values
+	if runtime.GOOS == "windows" {
+		hook.Windows = &PlatformHook{}
+	} else {
+		hook.Posix = &PlatformHook{}
 	}
-	if cmd.Args[1] != "-c" {
-		t.Errorf("Expected second arg='-c', got: %s", cmd.Args[1])
-	}
-	if cmd.Args[2] != "echo test" {
-		t.Errorf("Expected third arg='echo test', got: %s", cmd.Args[2])
-	}
-}
 
-func TestPrepareHookCommand_Bash(t *testing.T) {
-	ctx := context.Background()
-	cmd := prepareHookCommand(ctx, "bash", "ls -la", "/home")
+	config := ResolveHookConfig(hook)
+	if config == nil {
+		t.Fatal("Expected non-nil config")
+	}
 
-	if len(cmd.Args) < 3 {
-		t.Fatalf("Expected at least 3 args, got: %v", cmd.Args)
+	// Should use base values when override is empty
+	if config.Run != "echo base" {
+		t.Errorf("Expected Run='echo base', got: %s", config.Run)
 	}
-	if cmd.Args[1] != "-c" {
-		t.Errorf("Expected second arg='-c', got: %s", cmd.Args[1])
-	}
-	if cmd.Args[2] != "ls -la" {
-		t.Errorf("Expected third arg='ls -la', got: %s", cmd.Args[2])
-	}
-}
-
-func TestPrepareHookCommand_PowerShell(t *testing.T) {
-	ctx := context.Background()
-	cmd := prepareHookCommand(ctx, "pwsh", "Get-ChildItem", "/tmp")
-
-	if len(cmd.Args) < 3 {
-		t.Fatalf("Expected at least 3 args, got: %v", cmd.Args)
-	}
-	if cmd.Args[1] != "-Command" {
-		t.Errorf("Expected second arg='-Command', got: %s", cmd.Args[1])
-	}
-	if cmd.Args[2] != "Get-ChildItem" {
-		t.Errorf("Expected third arg='Get-ChildItem', got: %s", cmd.Args[2])
-	}
-}
-
-func TestPrepareHookCommand_Cmd(t *testing.T) {
-	ctx := context.Background()
-	cmd := prepareHookCommand(ctx, "cmd", "dir", "C:\\")
-
-	if len(cmd.Args) < 3 {
-		t.Fatalf("Expected at least 3 args, got: %v", cmd.Args)
-	}
-	if cmd.Args[1] != "/c" {
-		t.Errorf("Expected second arg='/c', got: %s", cmd.Args[1])
-	}
-	if cmd.Args[2] != "dir" {
-		t.Errorf("Expected third arg='dir', got: %s", cmd.Args[2])
+	if config.Shell != "sh" {
+		t.Errorf("Expected Shell='sh', got: %s", config.Shell)
 	}
 }
 
@@ -307,3 +368,23 @@ func TestExecuteHook_FailureWithoutContinue(t *testing.T) {
 		t.Error("Expected error with continueOnError=false")
 	}
 }
+
+func TestExecuteHook_ContextCancellation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping hook execution test in short mode")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	config := HookConfig{
+		Run:   "sleep 10",
+		Shell: getDefaultShell(),
+	}
+
+	err := ExecuteHook(ctx, "test", config, ".")
+	if err == nil {
+		t.Error("Expected error from cancelled context")
+	}
+}
+
