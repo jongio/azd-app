@@ -3,7 +3,6 @@
 	// README at: https://github.com/devcontainers/templates/tree/main/src/go
 	"name": "App Extension for Azure Developer CLI",
 	"image": "mcr.microsoft.com/devcontainers/go:1.25-bookworm",
-	
 	"features": {
 		"ghcr.io/devcontainers/features/azure-cli:1": {
 			"version": "latest"
@@ -29,29 +28,23 @@
 		"ghcr.io/devcontainers/features/powershell:1": {
 			"version": "latest"
 		},
-		"ghcr.io/guiyomh/features/golangci-lint:0": {},
 		"ghcr.io/guiyomh/features/mage:0": {},
 		"ghcr.io/devcontainers-extra/features/uv:1": {}
 	},
-
 	// Configure resource requirements for this devcontainer
 	"hostRequirements": {
 		"cpus": 4,
 		"memory": "8gb",
 		"storage": "32gb"
 	},
-
 	// Use 'onCreateCommand' to run commands when creating the container.
 	"onCreateCommand": "bash .devcontainer/post-create.sh",
-
 	// Use 'postStartCommand' to run commands each time the container starts.
 	// "postStartCommand": "",
-
 	// Add Go bin and dotnet tools to PATH
 	"remoteEnv": {
 		"PATH": "${containerEnv:PATH}:/usr/local/go/bin:/home/vscode/go/bin:/home/vscode/.dotnet/tools"
 	},
-
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -77,10 +70,8 @@
 			}
 		}
 	},
-
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	"remoteUser": "vscode",
-
 	// Mount Azure and azd configuration directories for authenticated access
 	"mounts": [
 		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.azure,target=/home/vscode/.azure,type=bind,consistency=cached",
