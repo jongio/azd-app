@@ -45,7 +45,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	projectDir, _ := os.Getwd()
 	reg := registry.GetRegistry(projectDir)
 
-	slog.Info("starting service orchestration",
+	slog.Debug("starting service orchestration",
 		slog.Int("service_count", len(runtimes)))
 
 	var mu sync.Mutex
@@ -134,17 +134,17 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("Failed to start: %v", err))
-				return
-			}
+			return
+		}
 
-			slog.Info("service started",
-				slog.String("service", rt.Name),
-				slog.Int("port", rt.Port),
-				slog.Int("pid", process.Process.Pid),
-				slog.String("language", rt.Language),
-				slog.String("framework", rt.Framework))
+		slog.Debug("service started",
+			slog.String("service", rt.Name),
+			slog.Int("port", rt.Port),
+			slog.Int("pid", process.Process.Pid),
+			slog.String("language", rt.Language),
+			slog.String("framework", rt.Framework))
 
-			// Update registry with PID
+		// Update registry with PID
 			if entry, exists := reg.GetService(rt.Name); exists {
 				entry.PID = process.Process.Pid
 				if err := reg.Register(entry); err != nil {
@@ -173,7 +173,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	// Wait for all services to finish starting
 	wg.Wait()
 
-	slog.Info("service orchestration complete",
+	slog.Debug("service orchestration complete",
 		slog.Int("started", len(result.Processes)),
 		slog.Int("failed", len(startErrors)))
 

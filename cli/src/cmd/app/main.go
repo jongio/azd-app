@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
@@ -26,6 +27,8 @@ func main() {
 			// Set global output format and debug mode
 			if debugMode {
 				os.Setenv("AZD_APP_DEBUG", "true")
+				// Configure slog to show debug messages
+				slog.SetLogLoggerLevel(slog.LevelDebug)
 			}
 			
 			// Configure logging
