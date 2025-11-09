@@ -53,6 +53,8 @@ type Server struct {
 	clients    map[*clientConn]bool
 	clientsMu  sync.RWMutex
 	stopChan   chan struct{}
+	started    bool       // Track if server was successfully started
+	startedMu  sync.Mutex // Protect started flag
 }
 
 // GetServer returns the dashboard server instance for the specified project.
@@ -353,6 +355,11 @@ func (s *Server) Start() (string, error) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 
+	// Mark as started
+	s.startedMu.Lock()
+	s.started = true
+	s.startedMu.Unlock()
+
 	// Check if there was an immediate error (like port already in use)
 	select {
 	case err := <-errChan:
@@ -612,7 +619,24 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 }
 
 // Stop stops the dashboard server and releases its port assignment.
+// Safe to call multiple times - will only stop if server was successfully started.
 func (s *Server) Stop() error {
+	// Check if server was ever started
+	s.startedMu.Lock()
+	wasStarted := s.started
+	s.started = false // Mark as stopped
+	s.startedMu.Unlock()
+
+	// Always clean up from servers map, even if never started
+	serversMu.Lock()
+	_, key := normalizeProjectPath(s.projectDir)
+	delete(servers, key)
+	serversMu.Unlock()
+
+	if !wasStarted {
+		return nil // Server was never started, nothing more to stop
+	}
+
 	close(s.stopChan)
 
 	// Release port assignment
@@ -620,12 +644,6 @@ func (s *Server) Stop() error {
 	if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to release dashboard port: %v\n", err)
 	}
-
-	// Remove from servers map
-	serversMu.Lock()
-	_, key := normalizeProjectPath(s.projectDir)
-	delete(servers, key)
-	serversMu.Unlock()
 
 	if s.server != nil {
 		return s.server.Close()

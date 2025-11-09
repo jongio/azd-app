@@ -3,6 +3,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -43,6 +44,9 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	// Start all services in parallel
 	projectDir, _ := os.Getwd()
 	reg := registry.GetRegistry(projectDir)
+
+	slog.Info("starting service orchestration",
+		slog.Int("service_count", len(runtimes)))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -122,12 +126,23 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				startErrors[rt.Name] = err
 				result.Errors[rt.Name] = err
 				mu.Unlock()
+				slog.Error("failed to start service",
+					slog.String("service", rt.Name),
+					slog.Int("port", rt.Port),
+					slog.String("error", err.Error()))
 				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("Failed to start: %v", err))
 				return
 			}
+
+			slog.Info("service started",
+				slog.String("service", rt.Name),
+				slog.Int("port", rt.Port),
+				slog.Int("pid", process.Process.Pid),
+				slog.String("language", rt.Language),
+				slog.String("framework", rt.Framework))
 
 			// Update registry with PID
 			if entry, exists := reg.GetService(rt.Name); exists {
@@ -158,6 +173,10 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	// Wait for all services to finish starting
 	wg.Wait()
 
+	slog.Info("service orchestration complete",
+		slog.Int("started", len(result.Processes)),
+		slog.Int("failed", len(startErrors)))
+
 	// Check if any services failed to start
 	if len(startErrors) > 0 {
 		StopAllServices(result.Processes)
@@ -171,7 +190,8 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	return result, nil
 }
 
-// StopAllServices stops all running services.
+// StopAllServices stops all running services with graceful shutdown.
+// Uses StopServiceGraceful with a 5-second timeout per service.
 func StopAllServices(processes map[string]*ServiceProcess) {
 	var wg sync.WaitGroup
 	projectDir, _ := os.Getwd()
@@ -187,7 +207,8 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 				output.Error("Warning: failed to update status for %s: %v", serviceName, err)
 			}
 
-			if err := StopService(proc); err != nil {
+			// Stop service with graceful timeout
+			if err := StopServiceGraceful(proc, 5*time.Second); err != nil {
 				// Log error but continue stopping other services
 				output.Error("Error stopping service %s: %v", serviceName, err)
 			}
@@ -200,50 +221,6 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 	}
 
 	wg.Wait()
-}
-
-// WaitForServices waits for the first service to exit.
-// Returns immediately when any service process exits, which triggers shutdown of all services.
-func WaitForServices(processes map[string]*ServiceProcess) error {
-	// Count valid processes with running Process objects
-	validProcessCount := 0
-	for _, process := range processes {
-		if process.Process != nil {
-			validProcessCount++
-		}
-	}
-
-	// If no valid processes, return immediately
-	if validProcessCount == 0 {
-		return nil
-	}
-
-	// Create error channel to collect exit status from any service
-	errCh := make(chan error, 1)
-
-	// Start a goroutine for each service to wait for it to exit
-	for name, process := range processes {
-		if process.Process == nil {
-			continue
-		}
-
-		go func(serviceName string, proc *ServiceProcess) {
-			state, err := proc.Process.Wait()
-			if err != nil {
-				errCh <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
-				return
-			}
-			if !state.Success() {
-				errCh <- fmt.Errorf("service %s exited with non-zero status: %s", serviceName, state.String())
-				return
-			}
-			// Service exited cleanly
-			errCh <- nil
-		}(name, process)
-	}
-
-	// Return when the first process exits (either with error or success)
-	return <-errCh
 }
 
 // GetServiceURLs generates URLs for all running services.

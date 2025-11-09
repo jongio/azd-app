@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"time"
@@ -90,8 +91,16 @@ func setupProcessPipes(cmd *exec.Cmd, process *ServiceProcess) error {
 	return nil
 }
 
-// StopService stops a running service.
+// StopService stops a running service by sending termination signals.
+// Deprecated: Use StopServiceGraceful for better timeout control.
 func StopService(process *ServiceProcess) error {
+	return StopServiceGraceful(process, 5*time.Second)
+}
+
+// StopServiceGraceful stops a service with graceful shutdown timeout.
+// Sends SIGINT, waits for timeout, then force kills if still running.
+// Returns nil if process stops successfully within timeout.
+func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 	if process == nil {
 		return fmt.Errorf("process is nil")
 	}
@@ -99,17 +108,55 @@ func StopService(process *ServiceProcess) error {
 		return fmt.Errorf("process not started")
 	}
 
+	slog.Info("stopping service",
+		slog.String("service", process.Name),
+		slog.Int("pid", process.Process.Pid),
+		slog.Int("port", process.Port),
+		slog.Duration("timeout", timeout))
+
 	// Try graceful shutdown first
 	if err := process.Process.Signal(os.Interrupt); err != nil {
-		// If interrupt fails, force kill
+		slog.Warn("graceful shutdown signal failed, forcing kill",
+			slog.String("service", process.Name),
+			slog.String("error", err.Error()))
+		// If signal fails (process already dead or doesn't support signals), try kill
 		if killErr := process.Process.Kill(); killErr != nil {
 			return fmt.Errorf("failed to kill process: %w", killErr)
 		}
+		// Wait for process to exit
+		_, _ = process.Process.Wait()
+		slog.Info("service stopped (forced)",
+			slog.String("service", process.Name))
+		return nil
 	}
 
-	// Wait for process to exit
-	_, err := process.Process.Wait()
-	return err
+	// Wait for graceful shutdown with timeout
+	done := make(chan error, 1)
+	go func() {
+		_, err := process.Process.Wait()
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		// Process exited within timeout
+		slog.Info("service stopped gracefully",
+			slog.String("service", process.Name))
+		return err
+	case <-time.After(timeout):
+		// Timeout expired, force kill
+		slog.Warn("graceful shutdown timeout, forcing kill",
+			slog.String("service", process.Name),
+			slog.Duration("timeout", timeout))
+		if err := process.Process.Kill(); err != nil {
+			return fmt.Errorf("failed to force kill process after timeout: %w", err)
+		}
+		// Wait for kill to complete
+		_, waitErr := process.Process.Wait()
+		slog.Info("service stopped (forced after timeout)",
+			slog.String("service", process.Name))
+		return waitErr
+	}
 }
 
 // ReadServiceOutput reads and forwards output from a service.

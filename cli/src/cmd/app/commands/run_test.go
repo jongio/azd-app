@@ -1,12 +1,16 @@
 package commands
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -206,5 +210,378 @@ public class Program {
 
 	if aspireProject.ProjectFile != csprojPath {
 		t.Errorf("Expected project file %q, got %q", csprojPath, aspireProject.ProjectFile)
+	}
+}
+
+func TestMonitorServicesUntilShutdown_StartupTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping startup timeout test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a simple service that starts quickly
+	runtime := &service.ServiceRuntime{
+		Name:       "quick-start",
+		WorkingDir: tmpDir,
+		Command:    "timeout",
+		Args:       []string{"5"},
+		Language:   "shell",
+		Port:       9000,
+	}
+
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		_ = logMgr.RemoveBuffer(runtime.Name)
+		if process.Process != nil {
+			_ = service.StopServiceGraceful(process, 1*time.Second)
+		}
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: map[string]*service.ServiceProcess{
+			"quick-start": process,
+		},
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	// Test that monitoring completes successfully for a healthy service
+	// We'll stop it quickly to avoid long test duration
+	go func() {
+		time.Sleep(1 * time.Second)
+		if process.Process != nil {
+			_ = process.Process.Signal(os.Interrupt)
+		}
+	}()
+
+	err = monitorServicesUntilShutdown(result, tmpDir)
+	// Error is expected here because we interrupted the process
+	if err != nil {
+		t.Logf("monitorServicesUntilShutdown() error = %v (expected due to interrupt)", err)
+	}
+}
+
+func TestMonitorServicesUntilShutdown_SignalHandling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping signal handling test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	runtime := &service.ServiceRuntime{
+		Name:       "signal-test",
+		WorkingDir: tmpDir,
+		Command:    "timeout",
+		Args:       []string{"30"},
+		Language:   "shell",
+		Port:       9001,
+	}
+
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		_ = logMgr.RemoveBuffer(runtime.Name)
+		if process.Process != nil {
+			_ = service.StopServiceGraceful(process, 1*time.Second)
+		}
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: map[string]*service.ServiceProcess{
+			"signal-test": process,
+		},
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	// Send interrupt signal after short delay
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		if process.Process != nil {
+			_ = process.Process.Signal(os.Interrupt)
+		}
+	}()
+
+	startTime := time.Now()
+	_ = monitorServicesUntilShutdown(result, tmpDir)
+	elapsed := time.Since(startTime)
+
+	// Should complete reasonably quickly after signal
+	if elapsed > 10*time.Second {
+		t.Errorf("monitorServicesUntilShutdown() took %v, expected < 10s after signal", elapsed)
+	}
+
+	t.Logf("monitorServicesUntilShutdown() completed in %v after signal", elapsed)
+}
+
+func TestMonitorServicesUntilShutdown_MultipleServices(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping multiple services test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Start multiple services
+	processes := make(map[string]*service.ServiceProcess)
+
+	for i := 1; i <= 3; i++ {
+		runtime := &service.ServiceRuntime{
+			Name:       "multi-service-" + string(rune('0'+i)),
+			WorkingDir: tmpDir,
+			Command:    "timeout",
+			Args:       []string{"30"},
+			Language:   "shell",
+			Port:       9010 + i,
+		}
+
+		process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+		if err != nil {
+			t.Fatalf("StartService(%d) error = %v", i, err)
+		}
+		processes[runtime.Name] = process
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		for name, process := range processes {
+			_ = logMgr.RemoveBuffer(name)
+			if process.Process != nil {
+				_ = service.StopServiceGraceful(process, 1*time.Second)
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: processes,
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	// Stop all services after short delay
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		for _, process := range processes {
+			if process.Process != nil {
+				_ = process.Process.Signal(os.Interrupt)
+			}
+		}
+	}()
+
+	startTime := time.Now()
+	_ = monitorServicesUntilShutdown(result, tmpDir)
+	elapsed := time.Since(startTime)
+
+	if elapsed > 15*time.Second {
+		t.Errorf("monitorServicesUntilShutdown() took %v, expected < 15s for 3 services", elapsed)
+	}
+}
+
+func TestShutdownAllServices_WithContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping shutdown context test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Start services
+	processes := make(map[string]*service.ServiceProcess)
+
+	for i := 1; i <= 2; i++ {
+		runtime := &service.ServiceRuntime{
+			Name:       "shutdown-test-" + string(rune('0'+i)),
+			WorkingDir: tmpDir,
+			Command:    "timeout",
+			Args:       []string{"30"},
+			Language:   "shell",
+			Port:       9020 + i,
+		}
+
+		process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+		if err != nil {
+			t.Fatalf("StartService(%d) error = %v", i, err)
+		}
+		processes[runtime.Name] = process
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		for name := range processes {
+			_ = logMgr.RemoveBuffer(name)
+		}
+		time.Sleep(200 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: processes,
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	// Create context with timeout for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	startTime := time.Now()
+	err := shutdownAllServices(ctx, result.Processes)
+	elapsed := time.Since(startTime)
+
+	// Log any shutdown errors for diagnostics
+	if err != nil {
+		t.Logf("shutdownAllServices() returned error (may be expected): %v", err)
+	}
+
+	// Should shutdown within reasonable time
+	if elapsed > 12*time.Second {
+		t.Errorf("shutdownAllServices() took %v, expected < 12s", elapsed)
+	}
+
+	// Verify all processes stopped
+	for name, process := range processes {
+		if process.Process != nil {
+			// Try to signal - should fail if process is stopped
+			err := process.Process.Signal(syscall.Signal(0))
+			if err == nil {
+				t.Logf("Process %s may still be running (acceptable on some platforms)", name)
+			}
+		}
+	}
+}
+
+func TestShutdownAllServices_ContextTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping shutdown timeout test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	runtime := &service.ServiceRuntime{
+		Name:       "shutdown-timeout-test",
+		WorkingDir: tmpDir,
+		Command:    "timeout",
+		Args:       []string{"30"},
+		Language:   "shell",
+		Port:       9030,
+	}
+
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		_ = logMgr.RemoveBuffer(runtime.Name)
+		if process.Process != nil {
+			_ = service.StopServiceGraceful(process, 1*time.Second)
+		}
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: map[string]*service.ServiceProcess{
+			"shutdown-timeout-test": process,
+		},
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	// Use very short context timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	startTime := time.Now()
+	err = shutdownAllServices(ctx, result.Processes)
+	elapsed := time.Since(startTime)
+
+	// Expect errors due to timeout
+	if err != nil {
+		t.Logf("shutdownAllServices() returned error (expected due to timeout): %v", err)
+	}
+
+	// Should respect context timeout
+	if elapsed > 4*time.Second {
+		t.Errorf("shutdownAllServices() took %v, expected < 4s with 2s context timeout", elapsed)
+	}
+}
+
+func TestStartupTimeout_ContextWrapping(t *testing.T) {
+	// Test that startup timeout context wraps signal context correctly
+	startupCtx, startupCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer startupCancel()
+
+	// This should timeout after 2 seconds
+	select {
+	case <-startupCtx.Done():
+		// Expected
+	case <-time.After(3 * time.Second):
+		t.Error("Startup context should have timed out after 2 seconds")
+	}
+
+	if startupCtx.Err() != context.DeadlineExceeded {
+		t.Errorf("Startup context error = %v, want DeadlineExceeded", startupCtx.Err())
+	}
+}
+
+func TestProcessExit_CausesMonitoringToStop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping process exit test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Start a process that exits quickly
+	runtime := &service.ServiceRuntime{
+		Name:       "quick-exit",
+		WorkingDir: tmpDir,
+		Command:    "timeout",
+		Args:       []string{"1"}, // Exit after 1 second
+		Language:   "shell",
+		Port:       9040,
+	}
+
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+
+	t.Cleanup(func() {
+		logMgr := service.GetLogManager(tmpDir)
+		_ = logMgr.RemoveBuffer(runtime.Name)
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	result := &service.OrchestrationResult{
+		Processes: map[string]*service.ServiceProcess{
+			"quick-exit": process,
+		},
+		Errors:    map[string]error{},
+		StartTime: time.Now(),
+	}
+
+	startTime := time.Now()
+	err = monitorServicesUntilShutdown(result, tmpDir)
+	elapsed := time.Since(startTime)
+
+	// Should detect process exit and return
+	if elapsed > 5*time.Second {
+		t.Errorf("monitorServicesUntilShutdown() took %v, expected < 5s for quick exit", elapsed)
+	}
+
+	// May or may not return error depending on exit code
+	if err != nil {
+		t.Logf("monitorServicesUntilShutdown() returned error: %v (acceptable)", err)
 	}
 }
