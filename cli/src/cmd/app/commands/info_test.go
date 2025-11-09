@@ -132,7 +132,7 @@ func TestFormatTime(t *testing.T) {
 	}
 }
 
-func TestFormatDuration(t *testing.T) {
+func TestInfoFormatDuration(t *testing.T) {
 	tests := []struct {
 		name     string
 		duration time.Duration
@@ -167,15 +167,15 @@ func TestFormatDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatDuration(tt.duration)
+			result := formatInfoDuration(tt.duration)
 			if result != tt.expected {
-				t.Errorf("formatDuration(%v) = %q, want %q", tt.duration, result, tt.expected)
+				t.Errorf("formatInfoDuration(%v) = %q, want %q", tt.duration, result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestGetStatusIcon(t *testing.T) {
+func TestInfoGetStatusIcon(t *testing.T) {
 	tests := []struct {
 		name     string
 		status   string
@@ -222,9 +222,9 @@ func TestGetStatusIcon(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getStatusIcon(tt.status, tt.health)
+			result := getInfoStatusIcon(tt.status, tt.health)
 			if result == "" {
-				t.Errorf("getStatusIcon(%q, %q) returned empty string", tt.status, tt.health)
+				t.Errorf("getInfoStatusIcon(%q, %q) returned empty string", tt.status, tt.health)
 			}
 		})
 	}
