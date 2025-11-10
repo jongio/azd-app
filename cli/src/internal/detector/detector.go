@@ -232,8 +232,8 @@ func GetPackageManagerFromPackageJSON(projectDir string) string {
 	}
 
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		// Log invalid JSON for debugging purposes
-		log.Printf("[DEBUG] Failed to parse package.json at %s: %v", packageJsonPath, err)
+		// Log invalid JSON for debugging purposes without exposing full path
+		log.Printf("[DEBUG] Failed to parse package.json: invalid JSON format")
 		return ""
 	}
 

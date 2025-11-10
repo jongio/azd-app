@@ -97,7 +97,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 				time.Sleep(2 * time.Second)
 				if runtime.GOOS == "windows" {
 					// On Windows, we may need to force kill
-					// cSpell:ignore taskkill
+					// cspell:ignore taskkill
 					_ = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", runCmd.Process.Pid)).Run()
 				}
 				_ = runCmd.Process.Kill()
