@@ -24,7 +24,7 @@ services:
     environment:
       NODE_ENV: development
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: "http://localhost:3000/health"
       interval: 10s
       timeout: 5s
       retries: 3
@@ -42,7 +42,7 @@ services:
       FLASK_ENV: development
       FLASK_APP: app.py
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/healthz || exit 1"]
+      test: "http://localhost:5000/healthz"
       interval: 15s
       timeout: 3s
       retries: 2
@@ -80,7 +80,7 @@ services:
       NODE_ENV: development
       ADMIN_TOKEN: test-token-123
     healthcheck:
-      test: ["CMD", "curl", "-H", "Authorization: Bearer test-token-123", "-f", "http://localhost:4000/api/health"]
+      test: "http://localhost:4000/api/health"
       interval: 5s
       timeout: 2s
       retries: 1

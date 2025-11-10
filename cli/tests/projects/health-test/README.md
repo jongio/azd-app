@@ -39,82 +39,100 @@ This project contains 5 services with different health check configurations:
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Automated Test Script
+
+**Linux/macOS:**
+```bash
+./quick-start.sh
+```
+
+**Windows:**
+```powershell
+.\quick-start.ps1
+```
+
+### Running E2E Integration Tests
+
+The project includes comprehensive end-to-end integration tests that verify the health command works correctly across all platforms.
+
+**Run E2E tests locally:**
+
+```bash
+# From cli directory
+cd cli
+
+# Run all E2E health tests
+mage testE2E
+
+# Or use go test directly
+go test -v -tags=integration -timeout=15m ./src/cmd/app/commands -run TestHealthCommandE2E
+
+# Run specific E2E test
+go test -v -tags=integration ./src/cmd/app/commands -run TestHealthCommandE2E_FullWorkflow
+```
+
+**E2E tests include:**
+- ✅ Full workflow test (install deps, start services, health checks)
+- ✅ JSON output validation
+- ✅ Table output formatting
+- ✅ Service filtering
+- ✅ Verbose mode
+- ✅ Streaming mode
+- ✅ Error handling (no services, invalid params)
+- ✅ Cross-platform process checking
+
+**CI/CD:**
+- E2E tests run automatically on every PR affecting health command
+- Tests run on Ubuntu, Windows, and macOS
+- Manual workflow dispatch available: `.github/workflows/health-e2e.yml`
+
+### Manual Setup
+
+### 1. Start All Services
 
 ```bash
 cd cli/tests/projects/health-test
 
-# Install web service
-cd web && npm install && cd ..
-
-# Install admin service
-cd admin && npm install && cd ..
-
-# Install database service
-cd database && npm install && cd ..
-
-# Install API service
-cd api && pip install -r requirements.txt && cd ..
-
-# Install worker service
-cd worker && pip install -r requirements.txt && cd ..
+# Use azd app run to start all services automatically
+azd app run
 ```
 
-### 2. Start All Services
+This will:
+- Automatically detect all services from `azure.yaml`
+- Install dependencies for each service
+- Start all services in the background
+- Monitor health status
+- Display service URLs and status
+
+**Note**: The old `start-all.sh` and `stop-all.sh` scripts are deprecated. Use `azd app run` and Ctrl+C to stop.
+
+### 2. Test Health Monitoring
+
+In a separate terminal (while `azd app run` is running):
 
 ```bash
-# Terminal 1: Web service
-cd web && npm start
-
-# Terminal 2: API service
-cd api && python app.py
-
-# Terminal 3: Database service
-cd database && npm start
-
-# Terminal 4: Worker service
-cd worker && python worker.py
-
-# Terminal 5: Admin service
-cd admin && npm start
-```
-
-Or use the provided helper script:
-```bash
-chmod +x start-all.sh
-./start-all.sh
-```
-
-### 3. Test Health Monitoring
-
-```bash
-# Build azd app CLI first (from repository root)
-cd ../../..
-go build -o azd-app ./src/cmd/app
-
-# Run health checks (from health-test directory)
-cd tests/projects/health-test
+cd cli/tests/projects/health-test
 
 # Static health check (all services)
-../../../azd-app health
+azd app health
 
 # Streaming mode with real-time updates
-../../../azd-app health --stream
+azd app health --stream
 
 # JSON output for automation
-../../../azd-app health --output json
+azd app health --output json
 
 # Table format
-../../../azd-app health --output table
+azd app health --output table
 
 # Filter specific services
-../../../azd-app health --service web,api
+azd app health --service web,api
 
 # Verbose mode
-../../../azd-app health --verbose
+azd app health --verbose
 
 # Stream with JSON output (works great with jq)
-../../../azd-app health --stream --output json | jq '.services[] | select(.status != "healthy")'
+azd app health --stream --output json | jq '.services[] | select(.status != "healthy")'
 ```
 
 ## Expected Health Check Behaviors
@@ -148,24 +166,28 @@ cd tests/projects/health-test
 
 ### 1. All Services Healthy
 ```bash
-# Start all services, wait 30s for startup
-../../../azd-app health
+# Start all services with azd app run in one terminal
+azd app run
+
+# In another terminal, check health
+azd app health
 # Exit code: 0
 ```
 
 ### 2. One Service Unhealthy
 ```bash
-# Stop the web service
-# Kill web service process
+# Stop one service from the registry
+azd app info  # Get the PID
+kill <PID>     # Kill specific service
 
-../../../azd-app health
+azd app health
 # Exit code: 1 (one or more unhealthy)
-# Output shows web as "unhealthy"
+# Output shows service as "unhealthy"
 ```
 
 ### 3. Streaming Mode
 ```bash
-../../../azd-app health --stream
+azd app health --stream
 # Live updates every 5 seconds
 # Press Ctrl+C to stop
 # Exit code: 130 (interrupted)
@@ -173,16 +195,16 @@ cd tests/projects/health-test
 
 ### 4. Service Starting (Grace Period)
 ```bash
-# Start services one by one
+# Watch services start with azd app run
 # During start_period, failures don't count
-../../../azd-app health --verbose
+azd app health --verbose
 # Shows "starting" status during grace period
 ```
 
 ### 5. Performance Testing
 ```bash
 # All services should respond quickly
-../../../azd-app health --verbose
+azd app health --verbose
 # Check response times in verbose output
 # Web: <50ms, API: <100ms, DB: <10ms, Worker: <5ms, Admin: <30ms
 ```
@@ -207,34 +229,36 @@ nc -zv localhost 5432
 curl -H "Authorization: Bearer test-token-123" http://localhost:4000/api/health
 
 # Check logs
-../../../azd-app health --verbose
+azd app logs --service <service-name>
+azd app health --verbose
 ```
 
 ### Registry Issues
 ```bash
-# Check registry
+# Check registry and service info
+azd app info
 cat .azure/services.json
 
 # Clear registry
 rm -rf .azure
 
 # Re-run services
-./start-all.sh
+azd app run
 ```
 
 ## Manual Testing Checklist
 
-- [ ] Install all dependencies successfully
-- [ ] Start all 5 services without errors
+- [ ] Run `azd app run` - all 5 services start successfully
 - [ ] Run `azd app health` - all services show healthy
+- [ ] Run `azd app info` - verify all services registered
 - [ ] Stop web service - health check shows web as unhealthy
-- [ ] Restart web service - health check shows web as healthy again
+- [ ] Restart with `azd app run` - health check shows all healthy again
 - [ ] Run `azd app health --stream` - see live updates every 5s
 - [ ] Test JSON output with jq filtering
 - [ ] Test table format output
 - [ ] Test service filtering (--service web,api)
 - [ ] Test verbose mode shows response times
-- [ ] Kill all services - health check shows all unhealthy
+- [ ] Press Ctrl+C on `azd app run` - all services stop
 - [ ] Performance check - all checks complete in <5s total
 
 ## Coverage Validation

@@ -270,7 +270,17 @@ The `run` command supports lifecycle hooks that execute before and after service
 
 ## `azd app health`
 
-Monitor the health status of running services with support for point-in-time checks or real-time streaming.
+Monitor the health status of running services with production-grade reliability and observability features.
+
+**⭐ NEW: Production Features**
+- Circuit breaker pattern to prevent cascading failures
+- Rate limiting per service to avoid overwhelming endpoints
+- Result caching to reduce redundant checks
+- Prometheus metrics exposition for observability
+- Structured logging (JSON, pretty, or text)
+- Environment-specific profiles (dev, prod, ci, staging)
+
+See [health-production-features.md](health-production-features.md) for comprehensive documentation.
 
 ### Usage
 
@@ -280,6 +290,7 @@ azd app health [flags]
 
 ### Examples
 
+**Basic Usage:**
 ```bash
 # Quick health check of all services
 azd app health
@@ -288,22 +299,35 @@ azd app health
 azd app health --service web,api
 
 # Stream health updates in real-time
-azd app health --stream
-
-# Stream with custom interval
-azd app health --stream --interval 3s
+azd app health --stream --interval 10s
 
 # Output as JSON for automation
 azd app health --output json
+```
 
-# Verbose health check details
-azd app health --verbose
+**Production Features:**
+```bash
+# Use production profile (circuit breaker + metrics + caching)
+azd app health --profile production --stream
 
-# Custom health endpoint path
-azd app health --endpoint /api/status
+# Development mode with verbose logging
+azd app health --profile development --log-level debug
+
+# Custom production config
+azd app health \
+  --circuit-breaker \
+  --rate-limit 10 \
+  --cache-ttl 5s \
+  --metrics \
+  --log-format json
+
+# Generate sample profiles
+azd app health --save-profiles
 ```
 
 ### Flags
+
+**Basic Flags:**
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
@@ -316,8 +340,25 @@ azd app health --endpoint /api/status
 | `--all` | | bool | `false` | Show health for all projects on this machine |
 | `--verbose` | `-v` | bool | `false` | Show detailed health check information |
 
+**Production Flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--profile` | string | | Health profile: development, production, ci, staging, or custom |
+| `--log-level` | string | `info` | Log level: debug, info, warn, error |
+| `--log-format` | string | `pretty` | Log format: json, pretty, text |
+| `--save-profiles` | bool | `false` | Save sample health profiles to .azd/health-profiles.yaml |
+| `--metrics` | bool | `false` | Enable Prometheus metrics exposition |
+| `--metrics-port` | int | `9090` | Port for Prometheus metrics endpoint |
+| `--circuit-breaker` | bool | `false` | Enable circuit breaker pattern |
+| `--circuit-break-count` | int | `5` | Number of failures before opening circuit |
+| `--circuit-break-timeout` | duration | `60s` | Circuit breaker timeout duration |
+| `--rate-limit` | int | `0` | Max health checks per second per service (0 = unlimited) |
+| `--cache-ttl` | duration | `0` | Cache TTL for health results (0 = no caching) |
+
 ### Features
 
+**Basic Features:**
 - ✅ **HTTP Health Checks**: Automatically detect and use `/health` endpoints
 - ✅ **Port Checks**: Fall back to TCP port checks for non-HTTP services
 - ✅ **Process Checks**: Verify process is running as last resort
@@ -325,6 +366,14 @@ azd app health --endpoint /api/status
 - ✅ **Static Mode**: Point-in-time health snapshot
 - ✅ **Smart Detection**: Try common health paths (/health, /healthz, /ready, /alive)
 - ✅ **Multiple Formats**: Text, JSON, or table output
+
+**Production Features (NEW):**
+- 🔥 **Circuit Breaker**: Prevents cascading failures with automatic recovery
+- 🚦 **Rate Limiting**: Per-service token bucket rate limiter
+- ⚡ **Result Caching**: TTL-based caching to reduce load
+- 📊 **Prometheus Metrics**: 6 metrics for full observability
+- 📝 **Structured Logging**: JSON/pretty/text with configurable levels
+- 🎯 **Health Profiles**: Environment-specific configurations
 
 ### Health Check Strategy
 

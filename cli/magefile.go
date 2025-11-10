@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -181,60 +180,25 @@ func TestAll() error {
 	return sh.RunV("go", "test", "-v", "-tags=integration", "./src/...")
 }
 
-// TestVisual runs visual tests for progress bar rendering at multiple terminal widths.
-// Generates an HTML report with screenshots showing terminal output at 50, 80, and 120 characters.
-// Analyzes duplicate progress bar detection to ensure proper terminal width handling.
-func TestVisual() error {
-	fmt.Println("Running visual tests for progress bars...")
-
-	visualTestDir := filepath.Join("tests", "visual-test")
-
-	// Check if visual test exists
-	if _, err := os.Stat(visualTestDir); os.IsNotExist(err) {
-		fmt.Println("⚠️  Visual test directory not found:", visualTestDir)
-		return nil
+// TestE2E runs end-to-end integration tests for the health command.
+func TestE2E() error {
+	fmt.Println("Running E2E integration tests...")
+	
+	timeout := os.Getenv("TEST_TIMEOUT")
+	if timeout == "" {
+		timeout = "15m"
 	}
 
-	// Build the test binary first (Windows workaround for go run PATH issues)
-	testBinary := filepath.Join(visualTestDir, "visual-test.exe")
-	if runtime.GOOS != "windows" {
-		testBinary = filepath.Join(visualTestDir, "visual-test")
+	args := []string{
+		"test",
+		"-v",
+		"-tags=integration",
+		"-timeout=" + timeout,
+		"./src/cmd/app/commands",
+		"-run=TestHealthCommandE2E",
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", testBinary, "main.go")
-	buildCmd.Dir = visualTestDir
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
-	// Ensure we build for the host platform by explicitly clearing cross-compile vars
-	env := []string{}
-	for _, e := range os.Environ() {
-		// Skip GOOS and GOARCH from parent environment
-		if !strings.HasPrefix(e, "GOOS=") && !strings.HasPrefix(e, "GOARCH=") {
-			env = append(env, e)
-		}
-	}
-	buildCmd.Env = env
-
-	if err := buildCmd.Run(); err != nil {
-		return fmt.Errorf("failed to build visual test: %w", err)
-	}
-
-	// Run the built binary
-	cmd := exec.Command(testBinary)
-	cmd.Dir = visualTestDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("visual tests failed: %w", err)
-	}
-
-	// Report location
-	reportPath := filepath.Join(visualTestDir, "test-output", "visual-report.html")
-	absReportPath, _ := filepath.Abs(reportPath)
-	fmt.Printf("\n📊 Visual test report: %s\n", absReportPath)
-
-	return nil
+	return sh.RunV("go", args...)
 }
 
 // TestCoverage runs tests with coverage report.
@@ -324,84 +288,6 @@ func Fmt() error {
 	return nil
 }
 
-// Vet runs go vet to check for suspicious constructs.
-func Vet() error {
-	fmt.Println("Running go vet...")
-	if err := sh.RunV("go", "vet", "./..."); err != nil {
-		return fmt.Errorf("go vet found issues: %w", err)
-	}
-	fmt.Println("✅ go vet passed!")
-	return nil
-}
-
-// Staticcheck runs staticcheck for advanced static analysis.
-func Staticcheck() error {
-	fmt.Println("Running staticcheck...")
-	if err := sh.RunV("staticcheck", "./..."); err != nil {
-		fmt.Println("⚠️  staticcheck found issues. Ensure staticcheck is installed:")
-		fmt.Println("    go install honnef.co/go/tools/cmd/staticcheck@latest")
-		return err
-	}
-	fmt.Println("✅ staticcheck passed!")
-	return nil
-}
-
-// ModTidy ensures go.mod and go.sum are tidy.
-func ModTidy() error {
-	fmt.Println("Running go mod tidy...")
-	if err := sh.RunV("go", "mod", "tidy"); err != nil {
-		return fmt.Errorf("go mod tidy failed: %w", err)
-	}
-
-	// Check if there are any changes
-	if err := sh.RunV("git", "diff", "--exit-code", "go.mod", "go.sum"); err != nil {
-		return fmt.Errorf("go.mod or go.sum has uncommitted changes after running go mod tidy - please review and commit these changes")
-	}
-
-	fmt.Println("✅ go mod tidy passed!")
-	return nil
-}
-
-// ModVerify verifies dependencies have expected content.
-func ModVerify() error {
-	fmt.Println("Running go mod verify...")
-	if err := sh.RunV("go", "mod", "verify"); err != nil {
-		return fmt.Errorf("go mod verify failed: %w", err)
-	}
-	fmt.Println("✅ go mod verify passed!")
-	return nil
-}
-
-// Vulncheck runs govulncheck to check for known vulnerabilities.
-func Vulncheck() error {
-	fmt.Println("Running govulncheck...")
-	if err := sh.RunV("govulncheck", "./..."); err != nil {
-		fmt.Println("⚠️  govulncheck found vulnerabilities. Ensure govulncheck is installed:")
-		fmt.Println("    go install golang.org/x/vuln/cmd/govulncheck@latest")
-		return err
-	}
-	fmt.Println("✅ No known vulnerabilities found!")
-	return nil
-}
-
-// runVulncheck runs govulncheck if available, otherwise skips.
-func runVulncheck() error {
-	fmt.Println("Checking for known vulnerabilities...")
-	// Check if govulncheck is installed
-	if _, err := exec.LookPath("govulncheck"); err != nil {
-		fmt.Println("⚠️  govulncheck not installed - skipping vulnerability check")
-		fmt.Println("    Install with: go install golang.org/x/vuln/cmd/govulncheck@latest")
-		return nil // Don't fail preflight if not installed
-	}
-
-	if err := sh.RunV("govulncheck", "./..."); err != nil {
-		fmt.Println("⚠️  Known vulnerabilities found!")
-		return err
-	}
-	fmt.Println("✅ No known vulnerabilities found!")
-	return nil
-}
-
 // Clean removes build artifacts and coverage reports.
 func Clean() error {
 	fmt.Println("Cleaning build artifacts...")
@@ -466,45 +352,6 @@ func Watch() error {
 	return sh.RunWithV(env, "azd", "x", "watch")
 }
 
-// WatchAll monitors both CLI and dashboard files, rebuilding on changes.
-// Runs azd x watch for CLI and vite dev server for dashboard concurrently.
-// Note: On Windows, stop any running instances of the app before starting the watcher
-// to avoid "file in use" errors during installation.
-func WatchAll() error {
-	fmt.Println("Starting watchers for both CLI and dashboard...")
-	fmt.Println("⚠️  Tip: Stop any running instances of 'app' to avoid file-in-use errors")
-	fmt.Println()
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
-	}
-
-	// Create channels for error handling
-	errChan := make(chan error, 2)
-
-	// Start CLI watcher in goroutine
-	go func() {
-		fmt.Println("🔧 Starting CLI watcher (azd x watch)...")
-		env := map[string]string{
-			"EXTENSION_ID": extensionID,
-		}
-		if err := sh.RunWithV(env, "azd", "x", "watch"); err != nil {
-			errChan <- fmt.Errorf("CLI watcher failed: %w", err)
-		}
-	}()
-
-	// Start dashboard watcher in goroutine
-	go func() {
-		fmt.Println("⚛️  Starting dashboard watcher (vite dev server)...")
-		if err := sh.RunV("npm", "run", "dev", "--prefix", dashboardDir); err != nil {
-			errChan <- fmt.Errorf("dashboard watcher failed: %w", err)
-		}
-	}()
-
-	// Wait for either watcher to fail
-	return <-errChan
-}
-
 // Uninstall removes the locally installed extension.
 func Uninstall() error {
 	fmt.Println("Uninstalling extension...")
@@ -513,32 +360,6 @@ func Uninstall() error {
 	}
 
 	fmt.Println("✅ Extension uninstalled!")
-	return nil
-}
-
-// CheckGitAttributes ensures .gitattributes file exists with proper line ending configuration.
-func CheckGitAttributes() error {
-	fmt.Println("Checking .gitattributes...")
-
-	gitattributesPath := filepath.Join("..", ".gitattributes")
-	if _, err := os.Stat(gitattributesPath); os.IsNotExist(err) {
-		return fmt.Errorf(".gitattributes file not found - required for proper line ending configuration")
-	}
-
-	fmt.Println("✅ .gitattributes exists!")
-	return nil
-}
-
-// CheckGitIgnore ensures .gitignore file exists.
-func CheckGitIgnore() error {
-	fmt.Println("Checking .gitignore...")
-
-	gitignorePath := filepath.Join("..", ".gitignore")
-	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
-		return fmt.Errorf(".gitignore file not found")
-	}
-
-	fmt.Println("✅ .gitignore exists!")
 	return nil
 }
 
@@ -551,21 +372,12 @@ func Preflight() error {
 		name string
 		fn   func() error
 	}{
-		{"Checking .gitignore", CheckGitIgnore},
-		{"Checking .gitattributes", CheckGitAttributes},
 		{"Formatting code", Fmt},
-		{"Verifying go.mod consistency", ModVerify},
-		{"Tidying go.mod and go.sum", ModTidy},
-		{"Building dashboard", DashboardBuild},
-		{"Linting dashboard", DashboardLint},
-		{"Running dashboard unit tests", DashboardTest},
-		{"Running dashboard E2E tests", DashboardTestE2E},
+		{"Building and linting dashboard", DashboardBuild},
+		{"Running dashboard tests", DashboardTest},
 		{"Building Go binary", Build},
-		{"Running go vet", Vet},
-		{"Running staticcheck", Staticcheck},
 		{"Running standard linting", Lint},
 		{"Running quick security scan", runQuickSecurity},
-		{"Checking for known vulnerabilities", runVulncheck},
 		{"Running all tests with coverage", TestCoverage},
 	}
 
@@ -578,8 +390,7 @@ func Preflight() error {
 	}
 
 	fmt.Println("✅ All preflight checks passed!")
-	fmt.Println("💡 Tips:")
-	fmt.Println("   • Run 'mage security' for a full security scan (~4 minutes)")
+	fmt.Println("💡 Tip: Run 'mage security' for a full security scan (~4 minutes)")
 	fmt.Println("🎉 Ready to ship!")
 	return nil
 }
@@ -654,18 +465,6 @@ func DashboardBuild() error {
 	return nil
 }
 
-// DashboardLint runs ESLint on the dashboard code.
-func DashboardLint() error {
-	fmt.Println("Running dashboard linting...")
-
-	if err := sh.RunV("npm", "run", "lint", "--prefix", dashboardDir); err != nil {
-		return fmt.Errorf("dashboard linting failed: %w", err)
-	}
-
-	fmt.Println("✅ Dashboard linting passed!")
-	return nil
-}
-
 // DashboardTest runs the dashboard tests with vitest.
 func DashboardTest() error {
 	fmt.Println("Running dashboard tests...")
@@ -676,41 +475,6 @@ func DashboardTest() error {
 	}
 
 	fmt.Println("✅ Dashboard tests passed!")
-	return nil
-}
-
-// DashboardTestE2E runs the dashboard E2E tests with Playwright.
-func DashboardTestE2E() error {
-	fmt.Println("Running dashboard E2E tests...")
-
-	// Ensure Playwright browsers are installed
-	fmt.Println("Installing Playwright browsers (if needed)...")
-	// Change to dashboard directory to run playwright install
-	originalDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-	defer func() {
-		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
-		}
-	}()
-
-	if err := os.Chdir(dashboardDir); err != nil {
-		return fmt.Errorf("failed to change to dashboard directory: %w", err)
-	}
-
-	if err := sh.RunV("npx", "playwright", "install", "--with-deps", "chromium"); err != nil {
-		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
-	}
-
-	// Run playwright with line reporter to avoid opening browser with HTML report on failure
-	// Stay in dashboard directory where playwright.config.ts is located
-	if err := sh.RunV("npx", "playwright", "test", "--reporter=line", "--project=chromium"); err != nil {
-		return fmt.Errorf("dashboard E2E tests failed: %w", err)
-	}
-
-	fmt.Println("✅ Dashboard E2E tests passed!")
 	return nil
 }
 

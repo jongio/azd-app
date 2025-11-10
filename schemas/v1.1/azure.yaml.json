@@ -38,28 +38,6 @@
       "type": "object",
       "description": "Additional metadata for the application",
       "additionalProperties": true
-    },
-    "hooks": {
-      "type": "object",
-      "title": "Command level hooks",
-      "description": "Hooks for azd app commands. Paths should be relative to the project path.",
-      "additionalProperties": false,
-      "properties": {
-        "prerun": {
-          "title": "pre run hook",
-          "description": "Runs before the `run` command",
-          "$ref": "#/definitions/hook"
-        },
-        "postrun": {
-          "title": "post run hook",
-          "description": "Runs after the `run` command",
-          "$ref": "#/definitions/hook"
-        }
-      }
-    },
-    "logs": {
-      "$ref": "#/definitions/logsConfig",
-      "description": "Project-level logging configuration"
     }
   },
   "definitions": {
@@ -73,9 +51,7 @@
         },
         "language": {
           "type": "string",
-          "description": "The programming language of the service (from original schema)",
-          "enum": ["js", "ts", "py", "python", "csharp", "dotnet", "go", "java", "rust", "ruby", "php", "aspire"],
-          "examples": ["TypeScript", "Python", "csharp"]
+          "description": "The programming language of the service (from original schema)"
         },
         "project": {
           "type": "string",
@@ -125,9 +101,9 @@
             "type": "string"
           }
         },
-        "logs": {
-          "$ref": "#/definitions/logsConfig",
-          "description": "Service-level logging configuration"
+        "healthcheck": {
+          "$ref": "#/definitions/healthcheck",
+          "description": "Docker Compose-compatible healthcheck configuration - azd app addition for health monitoring"
         }
       }
     },
@@ -226,6 +202,56 @@
         }
       }
     },
+    "healthcheck": {
+      "type": "object",
+      "description": "Docker Compose-compatible health check configuration",
+      "properties": {
+        "test": {
+          "type": ["string", "array"],
+          "description": "The test to perform. For cross-platform compatibility, use HTTP URL string (e.g., 'http://localhost:8080/health'). Can also be shell command string or array (CMD or CMD-SHELL format).",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "http://localhost:8080/health",
+            "curl -f http://localhost/health || exit 1",
+            ["CMD", "curl", "-f", "http://localhost/health"],
+            ["CMD-SHELL", "curl -f http://localhost/health || exit 1"],
+            ["NONE"]
+          ]
+        },
+        "interval": {
+          "type": "string",
+          "description": "Time between health checks (e.g., 30s, 1m)",
+          "pattern": "^\\d+[smh]$",
+          "default": "30s"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Maximum time for health check to complete (e.g., 30s, 1m)",
+          "pattern": "^\\d+[smh]$",
+          "default": "30s"
+        },
+        "retries": {
+          "type": "integer",
+          "description": "Number of consecutive failures before marking unhealthy",
+          "minimum": 1,
+          "default": 3
+        },
+        "start_period": {
+          "type": "string",
+          "description": "Grace period for container initialization (e.g., 0s, 40s)",
+          "pattern": "^\\d+[smh]$",
+          "default": "0s"
+        },
+        "start_interval": {
+          "type": "string",
+          "description": "Time between health checks during start period (e.g., 5s)",
+          "pattern": "^\\d+[smh]$",
+          "default": "5s"
+        }
+      }
+    },
     "requirement": {
       "type": "object",
       "description": "A prerequisite tool or dependency requirement - azd app addition",
@@ -284,169 +310,6 @@
           "description": "Expected exit code for running check (default: 0)"
         }
       }
-    },
-    "shellType": {
-      "type": "string",
-      "description": "Supported shell types for executing hook scripts",
-      "enum": [
-        "sh",
-        "bash",
-        "pwsh",
-        "powershell",
-        "cmd"
-      ]
-    },
-    "hook": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "shell": {
-          "$ref": "#/definitions/shellType",
-          "title": "Type of shell to execute scripts",
-          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent (e.g., pwsh/powershell/cmd on Windows, bash/sh on POSIX)."
-        },
-        "run": {
-          "type": "string",
-          "title": "Script or command to execute",
-          "description": "When specifying an inline script you also must specify the `shell` to use. This is automatically inferred when using paths. Hooks receive environment variables: AZD_APP_PROJECT_DIR (project directory path), AZD_APP_PROJECT_NAME (project name), AZD_APP_SERVICE_COUNT (number of services)."
-        },
-        "continueOnError": {
-          "type": "boolean",
-          "default": false,
-          "title": "Whether or not a script error will halt the azd command",
-          "description": "Optional. When set to true will continue to run the command even after a script error has occurred. (Default: false)"
-        },
-        "interactive": {
-          "type": "boolean",
-          "default": false,
-          "title": "Whether the script will run in interactive mode",
-          "description": "Optional. When set to true will bind the script to stdin, stdout & stderr of the running console. (Default: false)"
-        },
-        "windows": {
-          "title": "The hook configuration used for Windows environments",
-          "description": "When specified overrides the hook configuration when executed in Windows environments",
-          "default": null,
-          "$ref": "#/definitions/platformHookOverride"
-        },
-        "posix": {
-          "title": "The hook configuration used for POSIX (Linux & MacOS) environments",
-          "description": "When specified overrides the hook configuration when executed in POSIX environments",
-          "default": null,
-          "$ref": "#/definitions/platformHookOverride"
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "allOf": [
-              {
-                "required": [
-                  "windows"
-                ]
-              },
-              {
-                "required": [
-                  "posix"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "properties": {
-              "run": false,
-              "shell": false,
-              "interactive": false,
-              "continueOnError": false
-            }
-          }
-        },
-        {
-          "if": {
-            "anyOf": [
-              {
-                "required": [
-                  "interactive"
-                ]
-              },
-              {
-                "required": [
-                  "continueOnError"
-                ]
-              },
-              {
-                "required": [
-                  "shell"
-                ]
-              }
-            ]
-          },
-          "then": {
-            "required": [
-              "run"
-            ]
-          }
-        }
-      ]
-    },
-    "platformHookOverride": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Platform-specific hook override that cannot contain nested platform overrides",
-      "properties": {
-        "shell": {
-          "$ref": "#/definitions/shellType",
-          "title": "Type of shell to execute scripts",
-          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent."
-        },
-        "run": {
-          "type": "string",
-          "title": "Script or command to execute",
-          "description": "When specifying an inline script you also must specify the `shell` to use. Hooks receive environment variables: AZD_APP_PROJECT_DIR, AZD_APP_PROJECT_NAME, AZD_APP_SERVICE_COUNT."
-        },
-        "continueOnError": {
-          "type": "boolean",
-          "default": false,
-          "title": "Whether or not a script error will halt the azd command"
-        },
-        "interactive": {
-          "type": "boolean",
-          "default": false,
-          "title": "Whether the script will run in interactive mode"
-        }
-      }
-    },
-    "logsConfig": {
-      "type": "object",
-      "description": "Logging configuration for the project or service",
-      "additionalProperties": false,
-      "properties": {
-        "filters": {
-          "$ref": "#/definitions/logFilterConfig",
-          "description": "Filter configuration to suppress noisy log output"
-        }
-      }
-    },
-    "logFilterConfig": {
-      "type": "object",
-      "description": "Log filtering configuration to suppress noisy output patterns",
-      "additionalProperties": false,
-      "properties": {
-        "exclude": {
-          "type": "array",
-          "description": "Regex patterns to filter out (suppress) from log output. Patterns are case-insensitive.",
-          "items": {
-            "type": "string"
-          },
-          "examples": [
-            ["npm warn", "Debugger listening", "ExperimentalWarning"]
-          ]
-        },
-        "includeBuiltins": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether to include built-in filter patterns for common noise (Electron DevTools errors, npm warnings, etc.). Defaults to true."
-        }
-      }
     }
   },
   "examples": [
@@ -476,6 +339,13 @@
               "secret": "POSTGRES_CONNECTION_STRING"
             }
           ],
+          "healthcheck": {
+            "test": "http://localhost:8000/health",
+            "interval": "10s",
+            "timeout": "5s",
+            "retries": 3,
+            "start_period": "30s"
+          },
           "uses": ["db"]
         }
       },
@@ -497,18 +367,7 @@
           "name": "docker",
           "checkRunning": true
         }
-      ],
-      "hooks": {
-        "prerun": {
-          "run": "./scripts/prerun.sh",
-          "shell": "sh",
-          "continueOnError": false
-        },
-        "postrun": {
-          "run": "echo 'All services are ready!'",
-          "shell": "sh"
-        }
-      }
+      ]
     }
   ]
 }
