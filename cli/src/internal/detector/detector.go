@@ -191,8 +191,11 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 	}
 
 	// Fall back to lock file detection
-	// Priority: pnpm-lock.yaml > yarn.lock > package-lock.json > npm (default)
+	// Priority: pnpm-lock.yaml > pnpm-workspace.yaml > yarn.lock > package-lock.json > npm (default)
 	if _, err := os.Stat(filepath.Join(absDir, "pnpm-lock.yaml")); err == nil {
+		return "pnpm"
+	}
+	if _, err := os.Stat(filepath.Join(absDir, "pnpm-workspace.yaml")); err == nil {
 		return "pnpm"
 	}
 	if _, err := os.Stat(filepath.Join(absDir, "yarn.lock")); err == nil {

@@ -2,6 +2,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -273,18 +274,67 @@ func detectNode(_ string) DetectedRequirement {
 }
 
 func detectNodePackageManager(projectDir string) DetectedRequirement {
-	// Priority: pnpm > yarn > npm
-	if fileExists(projectDir, "pnpm-lock.yaml") || fileExists(projectDir, "pnpm-workspace.yaml") {
-		return detectTool("pnpm", "pnpm-lock.yaml")
+	// Priority: packageManager field in package.json > lock files > npm (default)
+
+	// First, check for packageManager field in package.json (highest priority)
+	packageManager := detector.DetectNodePackageManagerWithBoundary(projectDir, projectDir)
+
+	// Check if packageManager field was explicitly set in package.json
+	hasPackageManagerField := hasPackageManagerFieldInPackageJson(projectDir)
+
+	// Determine the source based on what was detected
+	var source string
+
+	if hasPackageManagerField {
+		// packageManager field was set, so it took priority
+		source = "package.json (packageManager field)"
+	} else {
+		// Fall back to lock file or default detection
+		switch packageManager {
+		case "pnpm":
+			if fileExists(projectDir, "pnpm-lock.yaml") {
+				source = "pnpm-lock.yaml"
+			} else if fileExists(projectDir, "pnpm-workspace.yaml") {
+				source = "pnpm-workspace.yaml"
+			} else {
+				source = "package.json"
+			}
+		case "yarn":
+			if fileExists(projectDir, "yarn.lock") {
+				source = "yarn.lock"
+			} else {
+				source = "package.json"
+			}
+		case "npm":
+			if fileExists(projectDir, "package-lock.json") {
+				source = "package-lock.json"
+			} else {
+				source = "package.json"
+			}
+		default:
+			source = "package.json"
+		}
 	}
-	if fileExists(projectDir, "yarn.lock") {
-		return detectTool("yarn", "yarn.lock")
+
+	return detectTool(packageManager, source)
+}
+
+func hasPackageManagerFieldInPackageJson(projectDir string) bool {
+	packageJSONPath := filepath.Join(projectDir, "package.json")
+	data, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		return false
 	}
-	if fileExists(projectDir, "package-lock.json") {
-		return detectTool("npm", "package-lock.json")
+
+	var pkg struct {
+		PackageManager string `json:"packageManager"`
 	}
-	// Default to npm
-	return detectTool("npm", "package.json")
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return false
+	}
+
+	return pkg.PackageManager != ""
 }
 
 func detectPython(_ string) DetectedRequirement {
