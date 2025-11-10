@@ -1,6 +1,7 @@
 {
   "name": "test-pnpm-project",
   "version": "1.0.0",
+  "packageManager": "pnpm@8.15.0",
   "scripts": {
     "dev": "echo 'Running with pnpm'"
   },

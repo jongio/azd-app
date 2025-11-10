@@ -1,0 +1,11 @@
+{
+  "name": "test-no-packagemanager",
+  "version": "1.0.0",
+  "description": "Test project with no packageManager field and no lock files",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

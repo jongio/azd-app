@@ -851,6 +851,45 @@ func TestDetectNodePackageManager(t *testing.T) {
 		expectedSource string
 	}{
 		{
+			name: "packageManager field takes priority over lock files - pnpm",
+			setup: func(dir string) error {
+				pkgJSON := `{"name": "test", "packageManager": "pnpm@8.15.0"}`
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+					return err
+				}
+				// Create yarn.lock to test priority
+				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0600)
+			},
+			expectedID:     "pnpm",
+			expectedSource: "package.json (packageManager field)",
+		},
+		{
+			name: "packageManager field takes priority over lock files - yarn",
+			setup: func(dir string) error {
+				pkgJSON := `{"name": "test", "packageManager": "yarn@4.1.0"}`
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+					return err
+				}
+				// Create pnpm-lock.yaml to test priority
+				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
+			},
+			expectedID:     "yarn",
+			expectedSource: "package.json (packageManager field)",
+		},
+		{
+			name: "packageManager field takes priority over lock files - npm",
+			setup: func(dir string) error {
+				pkgJSON := `{"name": "test", "packageManager": "npm@10.5.0"}`
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+					return err
+				}
+				// Create yarn.lock to test priority
+				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0600)
+			},
+			expectedID:     "npm",
+			expectedSource: "package.json (packageManager field)",
+		},
+		{
 			name: "detects pnpm from lock file",
 			setup: func(dir string) error {
 				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
@@ -864,7 +903,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 				return os.WriteFile(filepath.Join(dir, "pnpm-workspace.yaml"), []byte(""), 0600)
 			},
 			expectedID:     "pnpm",
-			expectedSource: "pnpm-lock.yaml",
+			expectedSource: "pnpm-workspace.yaml",
 		},
 		{
 			name: "detects yarn from lock file",
@@ -885,6 +924,30 @@ func TestDetectNodePackageManager(t *testing.T) {
 		{
 			name:           "defaults to npm",
 			setup:          func(dir string) error { return nil },
+			expectedID:     "npm",
+			expectedSource: "package.json",
+		},
+		{
+			name: "unsupported package manager in packageManager field falls back to lock files",
+			setup: func(dir string) error {
+				// Set packageManager to an unsupported manager (e.g., "bun")
+				pkgJSON := `{"name": "test", "packageManager": "bun@1.0.0"}`
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+					return err
+				}
+				// Create pnpm-lock.yaml - should fall back to this
+				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
+			},
+			expectedID:     "pnpm",
+			expectedSource: "pnpm-lock.yaml",
+		},
+		{
+			name: "unsupported package manager with no lock files defaults to npm",
+			setup: func(dir string) error {
+				// Set packageManager to an unsupported manager with no lock files
+				pkgJSON := `{"name": "test", "packageManager": "bun@1.0.0"}`
+				return os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600)
+			},
 			expectedID:     "npm",
 			expectedSource: "package.json",
 		},

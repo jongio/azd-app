@@ -1,0 +1,12 @@
+{
+  "name": "test-package-manager-override",
+  "version": "1.0.0",
+  "description": "Test packageManager field overrides lock files",
+  "packageManager": "yarn@4.1.0",
+  "scripts": {
+    "dev": "echo 'Should use yarn even though pnpm-lock.yaml exists'"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}

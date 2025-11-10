@@ -257,158 +257,60 @@ func hasGit(dir string) bool {
 
 // Tool detection functions
 func detectNode(_ string) DetectedRequirement {
-	req := DetectedRequirement{
-		Name:   "node",
-		Source: "package.json",
-	}
-
-	installedVersion, err := getToolVersion("node")
-	if err != nil {
-		return req
-	}
-
-	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "node")
-	return req
+	return detectToolWithSource("node", "package.json", false)
 }
 
 func detectNodePackageManager(projectDir string) DetectedRequirement {
-	// Priority: pnpm > yarn > npm
-	if fileExists(projectDir, "pnpm-lock.yaml") || fileExists(projectDir, "pnpm-workspace.yaml") {
-		return detectTool("pnpm", "pnpm-lock.yaml")
-	}
-	if fileExists(projectDir, "yarn.lock") {
-		return detectTool("yarn", "yarn.lock")
-	}
-	if fileExists(projectDir, "package-lock.json") {
-		return detectTool("npm", "package-lock.json")
-	}
-	// Default to npm
-	return detectTool("npm", "package.json")
+	// Use detector to get both package manager and source in one call
+	info := detector.DetectNodePackageManagerWithSource(projectDir)
+	return detectTool(info.Name, info.Source)
 }
 
 func detectPython(_ string) DetectedRequirement {
-	req := DetectedRequirement{
-		Name:   "python",
-		Source: "requirements.txt or pyproject.toml",
-	}
-
-	installedVersion, err := getToolVersion("python")
-	if err != nil {
-		return req
-	}
-
-	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "python")
-	return req
+	return detectToolWithSource("python", "requirements.txt or pyproject.toml", false)
 }
 
 func detectPythonPackageManager(projectDir string) DetectedRequirement {
-	// Priority: uv > poetry > pipenv > pip
-	if fileExists(projectDir, "uv.lock") {
-		return detectTool("uv", "uv.lock")
-	}
-
-	if fileExists(projectDir, "pyproject.toml") {
-		content := readFileContent(filepath.Join(projectDir, "pyproject.toml"))
-		if strings.Contains(content, "[tool.uv]") {
-			return detectTool("uv", "pyproject.toml")
-		}
-		if strings.Contains(content, "[tool.poetry]") {
-			return detectTool("poetry", "pyproject.toml")
-		}
-	}
-
-	if fileExists(projectDir, "poetry.lock") {
-		return detectTool("poetry", "poetry.lock")
-	}
-
-	if fileExists(projectDir, "Pipfile") || fileExists(projectDir, "Pipfile.lock") {
-		return detectTool("pipenv", "Pipfile")
-	}
-
-	// Default to pip
-	return detectTool("pip", "requirements.txt")
+	// Use detector to get both package manager and source in one call
+	info := detector.DetectPythonPackageManagerWithSource(projectDir)
+	return detectTool(info.Name, info.Source)
 }
 
 func detectDotnet(_ string) DetectedRequirement {
-	req := DetectedRequirement{
-		Name:   "dotnet",
-		Source: ".csproj or .sln",
-	}
-
-	installedVersion, err := getToolVersion("dotnet")
-	if err != nil {
-		return req
-	}
-
-	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "dotnet")
-	return req
+	return detectToolWithSource("dotnet", ".csproj or .sln", false)
 }
 
 func detectAspire(_ string) DetectedRequirement {
-	req := DetectedRequirement{
-		Name:   "aspire",
-		Source: "AppHost.cs",
-	}
-
-	installedVersion, err := getToolVersion("aspire")
-	if err != nil {
-		return req
-	}
-
-	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "aspire")
-	return req
+	return detectToolWithSource("aspire", "AppHost.cs", false)
 }
 
 func detectDocker(_ string) DetectedRequirement {
-	req := DetectedRequirement{
-		Name:         "docker",
-		Source:       "Dockerfile or docker-compose.yml",
-		CheckRunning: true,
-	}
-
-	installedVersion, err := getToolVersion("docker")
-	if err != nil {
-		return req
-	}
-
-	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "docker")
-	return req
+	return detectToolWithSource("docker", "Dockerfile or docker-compose.yml", true)
 }
 
 func detectAzd(_ string) DetectedRequirement {
-	req := DetectedRequirement{
-		Name:   "azd",
-		Source: "azure.yaml",
-	}
-
-	installedVersion, err := getToolVersion("azd")
-	if err != nil {
-		return req
-	}
-
-	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "azd")
-	return req
+	return detectToolWithSource("azd", "azure.yaml", false)
 }
 
 func detectGit(_ string) DetectedRequirement {
+	return detectToolWithSource("git", ".git directory", false)
+}
+
+// detectToolWithSource is a helper for detecting tools with specified source and checkRunning flag.
+func detectToolWithSource(toolName, source string, checkRunning bool) DetectedRequirement {
 	req := DetectedRequirement{
-		Name:   "git",
-		Source: ".git directory",
+		Name:         toolName,
+		Source:       source,
+		CheckRunning: checkRunning,
 	}
 
-	installedVersion, err := getToolVersion("git")
+	installedVersion, err := getToolVersion(toolName)
 	if err != nil {
 		return req
 	}
 
 	req.InstalledVersion = installedVersion
-	req.MinVersion = normalizeVersion(installedVersion, "git")
+	req.MinVersion = normalizeVersion(installedVersion, toolName)
 	return req
 }
 
@@ -531,18 +433,6 @@ func fileExists(dir, filename string) bool {
 	}
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func readFileContent(path string) string {
-	if err := security.ValidatePath(path); err != nil {
-		return ""
-	}
-	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return string(data)
 }
 
 // Display functions

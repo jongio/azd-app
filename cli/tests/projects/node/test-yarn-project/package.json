@@ -1,0 +1,12 @@
+{
+  "name": "test-yarn-project",
+  "version": "1.0.0",
+  "description": "Test yarn project",
+  "packageManager": "yarn@4.1.0",
+  "scripts": {
+    "dev": "echo 'Running with yarn'"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

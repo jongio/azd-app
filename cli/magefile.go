@@ -267,6 +267,16 @@ func Fmt() error {
 	return nil
 }
 
+// Vet runs go vet to check for suspicious constructs.
+func Vet() error {
+	fmt.Println("Running go vet...")
+	if err := sh.RunV("go", "vet", "./..."); err != nil {
+		return fmt.Errorf("go vet found issues: %w", err)
+	}
+	fmt.Println("✅ go vet passed!")
+	return nil
+}
+
 // Clean removes build artifacts and coverage reports.
 func Clean() error {
 	fmt.Println("Cleaning build artifacts...")
@@ -355,6 +365,7 @@ func Preflight() error {
 		{"Building and linting dashboard", DashboardBuild},
 		{"Running dashboard tests", DashboardTest},
 		{"Building Go binary", Build},
+		{"Running go vet", Vet},
 		{"Running standard linting", Lint},
 		{"Running quick security scan", runQuickSecurity},
 		{"Running all tests with coverage", TestCoverage},

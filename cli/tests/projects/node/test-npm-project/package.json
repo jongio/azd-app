@@ -2,6 +2,7 @@
   "name": "test-npm-project",
   "version": "1.0.0",
   "description": "Test npm project",
+  "packageManager": "npm@10.5.0",
   "scripts": {
     "start": "node index.js"
   },
