@@ -435,18 +435,6 @@ func fileExists(dir, filename string) bool {
 	return err == nil
 }
 
-func readFileContent(path string) string {
-	if err := security.ValidatePath(path); err != nil {
-		return ""
-	}
-	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
 // Display functions
 func displayDetectedDependencies(requirements []DetectedRequirement) {
 	sources := make(map[string]bool)

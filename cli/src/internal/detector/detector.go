@@ -88,7 +88,7 @@ func DetectPythonPackageManager(projectDir string) string {
 }
 
 // DetectPythonPackageManagerWithSource determines which package manager to use and returns detection source.
-// Priority order: uv > poetry > pip.
+// Priority order: uv > poetry > pipenv > pip.
 func DetectPythonPackageManagerWithSource(projectDir string) PackageManagerInfo {
 	// Check for uv (uv.lock)
 	if _, err := os.Stat(filepath.Join(projectDir, "uv.lock")); err == nil {
@@ -114,6 +114,14 @@ func DetectPythonPackageManagerWithSource(projectDir string) PackageManagerInfo 
 				return PackageManagerInfo{Name: "uv", Source: "pyproject.toml"}
 			}
 		}
+	}
+
+	// Check for pipenv (Pipfile or Pipfile.lock)
+	if _, err := os.Stat(filepath.Join(projectDir, "Pipfile")); err == nil {
+		return PackageManagerInfo{Name: "pipenv", Source: "Pipfile"}
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, "Pipfile.lock")); err == nil {
+		return PackageManagerInfo{Name: "pipenv", Source: "Pipfile.lock"}
 	}
 
 	// Default to pip
