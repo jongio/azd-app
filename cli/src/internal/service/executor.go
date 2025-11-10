@@ -103,7 +103,8 @@ func StopService(process *ServiceProcess) error {
 }
 
 // StopServiceGraceful stops a service with graceful shutdown timeout.
-// Sends SIGINT, waits for timeout, then force kills if still running.
+// On Unix: Sends SIGINT, waits for timeout, then force kills if still running.
+// On Windows: Immediately kills the process (graceful signals don't work reliably).
 // Returns nil if process stops successfully within timeout.
 func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 	if process == nil {
@@ -119,59 +120,8 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		slog.Int("port", process.Port),
 		slog.Duration("timeout", timeout))
 
-	// Try graceful shutdown first
-	if err := process.Process.Signal(os.Interrupt); err != nil {
-		slog.Warn("graceful shutdown signal failed, forcing kill",
-			slog.String("service", process.Name),
-			slog.String("error", err.Error()))
-		// If signal fails (process already dead or doesn't support signals), try kill
-		if killErr := process.Process.Kill(); killErr != nil {
-			// On Windows, "invalid argument" often means the process already exited
-			// We can safely ignore this error
-			slog.Info("service already stopped or kill failed",
-				slog.String("service", process.Name),
-				slog.String("error", killErr.Error()))
-			return nil
-		}
-		// Wait for process to exit
-		_, _ = process.Process.Wait()
-		slog.Info("service stopped (forced)",
-			slog.String("service", process.Name))
-		return nil
-	}
-
-	// Wait for graceful shutdown with timeout
-	done := make(chan error, 1)
-	go func() {
-		_, err := process.Process.Wait()
-		done <- err
-	}()
-
-	select {
-	case err := <-done:
-		// Process exited within timeout
-		slog.Info("service stopped gracefully",
-			slog.String("service", process.Name))
-		return err
-	case <-time.After(timeout):
-		// Timeout expired, force kill
-		slog.Warn("graceful shutdown timeout, forcing kill",
-			slog.String("service", process.Name),
-			slog.Duration("timeout", timeout))
-		if err := process.Process.Kill(); err != nil {
-			// On Windows, "invalid argument" often means the process already exited
-			// We can safely ignore this error
-			slog.Info("service already stopped or kill failed",
-				slog.String("service", process.Name),
-				slog.String("error", err.Error()))
-			return nil
-		}
-		// Wait for kill to complete
-		_, waitErr := process.Process.Wait()
-		slog.Info("service stopped (forced after timeout)",
-			slog.String("service", process.Name))
-		return waitErr
-	}
+	// Use platform-specific graceful shutdown
+	return stopProcessGraceful(process.Process, process.Name, timeout)
 }
 
 // ReadServiceOutput reads and forwards output from a service.
