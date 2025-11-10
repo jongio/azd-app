@@ -457,9 +457,9 @@ func TestGetPackageManagerFromPackageJson(t *testing.T) {
 			}
 
 			// Test detection
-			result := getPackageManagerFromPackageJson(tmpDir)
+			result := GetPackageManagerFromPackageJson(tmpDir)
 			if result != tt.expected {
-				t.Errorf("getPackageManagerFromPackageJson() = %q, want %q", result, tt.expected)
+				t.Errorf("GetPackageManagerFromPackageJson() = %q, want %q", result, tt.expected)
 			}
 		})
 	}

@@ -186,7 +186,7 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 	}
 
 	// First, check for packageManager field in package.json (highest priority)
-	if pkgMgr := getPackageManagerFromPackageJson(absDir); pkgMgr != "" {
+	if pkgMgr := GetPackageManagerFromPackageJson(absDir); pkgMgr != "" {
 		return pkgMgr
 	}
 
@@ -209,10 +209,10 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 	return "npm"
 }
 
-// getPackageManagerFromPackageJson reads package.json and extracts the packageManager field.
+// GetPackageManagerFromPackageJson reads package.json and extracts the packageManager field.
 // The packageManager field format is: "name@version" (e.g., "pnpm@8.15.0", "yarn@4.1.0", "npm@10.5.0")
 // Returns the package manager name (without version) if found, empty string otherwise.
-func getPackageManagerFromPackageJson(projectDir string) string {
+func GetPackageManagerFromPackageJson(projectDir string) string {
 	packageJsonPath := filepath.Join(projectDir, "package.json")
 
 	// Validate path before reading

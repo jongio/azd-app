@@ -2,7 +2,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -280,7 +279,7 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 	packageManager := detector.DetectNodePackageManagerWithBoundary(projectDir, projectDir)
 
 	// Check if packageManager field was explicitly set in package.json
-	hasPackageManagerField := hasPackageManagerFieldInPackageJson(projectDir)
+	hasPackageManagerField := detector.GetPackageManagerFromPackageJson(projectDir) != ""
 
 	// Determine the source based on what was detected
 	var source string
@@ -317,24 +316,6 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 	}
 
 	return detectTool(packageManager, source)
-}
-
-func hasPackageManagerFieldInPackageJson(projectDir string) bool {
-	packageJSONPath := filepath.Join(projectDir, "package.json")
-	data, err := os.ReadFile(packageJSONPath)
-	if err != nil {
-		return false
-	}
-
-	var pkg struct {
-		PackageManager string `json:"packageManager"`
-	}
-
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return false
-	}
-
-	return pkg.PackageManager != ""
 }
 
 func detectPython(_ string) DetectedRequirement {
