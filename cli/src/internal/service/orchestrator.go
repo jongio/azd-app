@@ -171,6 +171,23 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			url := fmt.Sprintf("http://localhost:%d", process.Port)
 			output.ItemSuccess("%s%-15s%s → %s", output.Cyan, rt.Name, output.Reset, url)
 
+			// If debug mode is enabled, wait for debug port to be ready
+			if rt.Debug.Enabled {
+				debugURL := fmt.Sprintf("localhost:%d", rt.Debug.Port)
+				logger.LogService(rt.Name, fmt.Sprintf("Waiting for debug port %s...", debugURL))
+				
+				if err := WaitForPort(rt.Debug.Port, 60*time.Second); err != nil {
+					mu.Lock()
+					startErrors[rt.Name] = fmt.Errorf("debug port %d not ready: %w", rt.Debug.Port, err)
+					mu.Unlock()
+					if err := reg.UpdateStatus(rt.Name, "failed", "debug port not ready"); err != nil {
+						logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
+					}
+					return
+				}
+				logger.LogService(rt.Name, fmt.Sprintf("Debug port %s ready", debugURL))
+			}
+
 			if err := reg.UpdateStatus(rt.Name, "running", "healthy"); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 			}

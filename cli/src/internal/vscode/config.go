@@ -26,6 +26,7 @@ type DebugConfiguration struct {
 	PathMappings []PathMapping          `json:"pathMappings,omitempty"`
 	Cwd          string                 `json:"cwd,omitempty"`
 	Program      string                 `json:"program,omitempty"`
+	JustMyCode   *bool                  `json:"justMyCode,omitempty"`
 }
 
 // PathMapping represents a path mapping for remote debugging.
@@ -101,6 +102,7 @@ func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force boo
 	vscodeDir := filepath.Join(projectDir, ".vscode")
 	launchPath := filepath.Join(vscodeDir, "launch.json")
 	tasksPath := filepath.Join(vscodeDir, "tasks.json")
+	extensionsPath := filepath.Join(vscodeDir, "extensions.json")
 
 	// Skip if both files already exist (unless --regenerate-debug-config)
 	if !force {
@@ -133,6 +135,11 @@ func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force boo
 	// Generate tasks.json
 	tasks := generateTasksJSON()
 	if err := writeTasksJSON(tasksPath, tasks); err != nil {
+		return false, err
+	}
+
+	// Generate or update extensions.json with required debugger extensions
+	if err := ensureExtensionsJSON(extensionsPath, services); err != nil {
 		return false, err
 	}
 
@@ -214,19 +221,15 @@ func createDebugConfig(serviceName, language string, debugPort int) DebugConfigu
 		}
 
 	case "python":
+		justMyCode := true
 		return DebugConfiguration{
-			Type:    "debugpy",
-			Request: "attach",
-			Name:    configName,
+			Type:       "debugpy",
+			Request:    "attach",
+			Name:       configName,
+			JustMyCode: &justMyCode,
 			Connect: map[string]interface{}{
 				"host": "localhost",
 				"port": debugPort,
-			},
-			PathMappings: []PathMapping{
-				{
-					LocalRoot:  "${workspaceFolder}",
-					RemoteRoot: ".",
-				},
 			},
 		}
 
@@ -311,6 +314,65 @@ func writeTasksJSON(path string, config TasksConfig) error {
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write tasks.json: %w", err)
+	}
+
+	return nil
+}
+
+// ExtensionsConfig represents the extensions.json file.
+type ExtensionsConfig struct {
+	Recommendations []string `json:"recommendations"`
+}
+
+// debugExtensionMap maps languages to their required VS Code debug extensions.
+var debugExtensionMap = map[string]string{
+	"node":   "ms-vscode.js-debug",
+	"python": "ms-python.python",
+	"go":     "golang.go",
+	"dotnet": "ms-dotnettools.csharp",
+	"java":   "vscjava.vscode-java-debug",
+}
+
+// ensureExtensionsJSON creates or updates extensions.json with required debugger extensions.
+func ensureExtensionsJSON(path string, services []ServiceDebugInfo) error {
+	// Collect unique extensions needed
+	extensionsMap := make(map[string]bool)
+	
+	for _, svc := range services {
+		normalizedLang := service.NormalizeLanguageForDebug(svc.Language)
+		if ext, ok := debugExtensionMap[normalizedLang]; ok {
+			extensionsMap[ext] = true
+		}
+	}
+
+	// Read existing extensions.json if it exists
+	var existing ExtensionsConfig
+	if data, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(data, &existing); err == nil {
+			// Add existing recommendations
+			for _, ext := range existing.Recommendations {
+				extensionsMap[ext] = true
+			}
+		}
+	}
+
+	// Convert to sorted list
+	recommendations := make([]string, 0, len(extensionsMap))
+	for ext := range extensionsMap {
+		recommendations = append(recommendations, ext)
+	}
+
+	config := ExtensionsConfig{
+		Recommendations: recommendations,
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal extensions.json: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write extensions.json: %w", err)
 	}
 
 	return nil

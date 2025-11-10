@@ -285,41 +285,33 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	for name, process := range result.Processes {
 		serviceName := name
 		proc := process
+		projDir := cwd // Capture for goroutine
 
 		if proc.Process == nil {
 			continue
 		}
 
 		g.Go(func() error {
-			// Wait for either process exit or context cancellation
-			waitDone := make(chan error, 1)
-			go func() {
-				state, err := proc.Process.Wait()
-				if err != nil {
-					waitDone <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
-					return
-				}
-				if !state.Success() {
-					exitCode := state.ExitCode()
-					waitDone <- fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())
-					return
-				}
-				waitDone <- nil
-			}()
-
+			state, err := proc.Process.Wait()
+			
+			// If context was cancelled, we initiated shutdown - don't report as error
 			select {
-			case err := <-waitDone:
-				// Check if shutdown was initiated - if so, don't treat process exit as error
-				select {
-				case <-ctx.Done():
-					return nil
-				default:
-					return err
-				}
 			case <-ctx.Done():
-				// Context cancelled (signal or another service failed)
-				return nil // Don't propagate context cancellation as error
+				return nil
+			default:
 			}
+			
+			// Process exited before shutdown - check if it was successful
+			if err != nil {
+				showServiceLogs(serviceName, projDir, 50)
+				return fmt.Errorf("service %s exited with error: %w", serviceName, err)
+			}
+			if !state.Success() {
+				exitCode := state.ExitCode()
+				showServiceLogs(serviceName, projDir, 50)
+				return fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())
+			}
+			return nil
 		})
 	}
 

@@ -2,8 +2,17 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
+)
+
+var (
+	// Cache debugpy installation status per Python interpreter
+	debugpyChecked = make(map[string]bool)
+	debugpyMutex   sync.Mutex
 )
 
 // Debug port mappings for each language
@@ -77,10 +86,39 @@ func ApplyDebugFlags(runtime *ServiceRuntime, cmd *exec.Cmd) error {
 		if waitForDebugger {
 			flag = fmt.Sprintf("--inspect-brk=0.0.0.0:%d", debugPort)
 		}
-		// Insert debug flag after node executable
-		cmd.Args = append([]string{cmd.Args[0], flag}, cmd.Args[1:]...)
+		
+		// Check if command is a package manager (npm, pnpm, yarn, bun, etc.)
+		// For package managers, use NODE_OPTIONS env var instead of command args
+		cmdName := strings.ToLower(filepath.Base(cmd.Path))
+		isPackageManager := strings.Contains(cmdName, "npm") || 
+			strings.Contains(cmdName, "pnpm") || 
+			strings.Contains(cmdName, "yarn") || 
+			strings.Contains(cmdName, "bun")
+		
+		if isPackageManager {
+			// Use NODE_OPTIONS environment variable for package managers
+			nodeOptions := flag
+			for i, env := range cmd.Env {
+				if strings.HasPrefix(env, "NODE_OPTIONS=") {
+					// Append to existing NODE_OPTIONS
+					nodeOptions = env[len("NODE_OPTIONS="):] + " " + flag
+					cmd.Env[i] = "NODE_OPTIONS=" + nodeOptions
+					return nil
+				}
+			}
+			// Add new NODE_OPTIONS
+			cmd.Env = append(cmd.Env, "NODE_OPTIONS="+nodeOptions)
+		} else {
+			// Direct node execution - insert debug flag after node executable
+			cmd.Args = append([]string{cmd.Args[0], flag}, cmd.Args[1:]...)
+		}
 
 	case "python":
+		// Ensure debugpy is available (auto-install if needed)
+		if err := ensureDebugpyAvailable(cmd.Path); err != nil {
+			return fmt.Errorf("failed to ensure debugpy is available: %w", err)
+		}
+		
 		// For Python, we need to use debugpy module
 		debugArgs := []string{"-m", "debugpy", "--listen", fmt.Sprintf("0.0.0.0:%d", debugPort)}
 		if waitForDebugger {
@@ -178,4 +216,38 @@ func getDebugURL(language string, port int) string {
 	default:
 		return fmt.Sprintf("tcp://localhost:%d", port)
 	}
+}
+
+// ensureDebugpyAvailable checks if debugpy is installed and auto-installs it if needed.
+// Uses a cache to avoid checking on every invocation.
+func ensureDebugpyAvailable(pythonPath string) error {
+	debugpyMutex.Lock()
+	defer debugpyMutex.Unlock()
+
+	// Check cache first
+	if debugpyChecked[pythonPath] {
+		return nil
+	}
+
+	// Check if debugpy is already installed
+	checkCmd := exec.Command(pythonPath, "-m", "debugpy", "--version")
+	if err := checkCmd.Run(); err == nil {
+		// Already installed, cache result
+		debugpyChecked[pythonPath] = true
+		return nil
+	}
+
+	// Not installed, auto-install it
+	slog.Info("debugpy not found, installing automatically for Python debugging", 
+		slog.String("python", pythonPath))
+	
+	installCmd := exec.Command(pythonPath, "-m", "pip", "install", "--quiet", "debugpy")
+	output, err := installCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to auto-install debugpy: %w\nOutput: %s\n\nPlease install manually: pip install debugpy", err, string(output))
+	}
+
+	slog.Info("debugpy installed successfully")
+	debugpyChecked[pythonPath] = true
+	return nil
 }
