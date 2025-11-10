@@ -927,6 +927,30 @@ func TestDetectNodePackageManager(t *testing.T) {
 			expectedID:     "npm",
 			expectedSource: "package.json",
 		},
+		{
+			name: "unsupported package manager in packageManager field falls back to lock files",
+			setup: func(dir string) error {
+				// Set packageManager to an unsupported manager (e.g., "bun")
+				pkgJSON := `{"name": "test", "packageManager": "bun@1.0.0"}`
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+					return err
+				}
+				// Create pnpm-lock.yaml - should fall back to this
+				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
+			},
+			expectedID:     "pnpm",
+			expectedSource: "pnpm-lock.yaml",
+		},
+		{
+			name: "unsupported package manager with no lock files defaults to npm",
+			setup: func(dir string) error {
+				// Set packageManager to an unsupported manager with no lock files
+				pkgJSON := `{"name": "test", "packageManager": "bun@1.0.0"}`
+				return os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600)
+			},
+			expectedID:     "npm",
+			expectedSource: "package.json",
+		},
 	}
 
 	for _, tt := range tests {

@@ -2,6 +2,7 @@ package detector
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -186,7 +187,7 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 	}
 
 	// First, check for packageManager field in package.json (highest priority)
-	if pkgMgr := GetPackageManagerFromPackageJson(absDir); pkgMgr != "" {
+	if pkgMgr := GetPackageManagerFromPackageJSON(absDir); pkgMgr != "" {
 		return pkgMgr
 	}
 
@@ -209,10 +210,10 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 	return "npm"
 }
 
-// GetPackageManagerFromPackageJson reads package.json and extracts the packageManager field.
+// GetPackageManagerFromPackageJSON reads package.json and extracts the packageManager field.
 // The packageManager field format is: "name@version" (e.g., "pnpm@8.15.0", "yarn@4.1.0", "npm@10.5.0")
 // Returns the package manager name (without version) if found, empty string otherwise.
-func GetPackageManagerFromPackageJson(projectDir string) string {
+func GetPackageManagerFromPackageJSON(projectDir string) string {
 	packageJsonPath := filepath.Join(projectDir, "package.json")
 
 	// Validate path before reading
@@ -231,6 +232,8 @@ func GetPackageManagerFromPackageJson(projectDir string) string {
 	}
 
 	if err := json.Unmarshal(data, &pkg); err != nil {
+		// Log invalid JSON for debugging purposes
+		log.Printf("[DEBUG] Failed to parse package.json at %s: %v", packageJsonPath, err)
 		return ""
 	}
 

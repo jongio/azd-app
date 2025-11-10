@@ -7,8 +7,12 @@ This directory contains test projects used to validate the App Extension command
 ```
 test-projects/
 ├── node/               # Node.js test projects
-│   ├── test-node-project/    (npm with dependencies)
-│   └── test-npm-project/     (simple npm project)
+│   ├── test-node-project/              # Basic Node.js project (npm default)
+│   ├── test-npm-project/               # npm project with packageManager field
+│   ├── test-pnpm-project/              # pnpm project with packageManager field
+│   ├── test-yarn-project/              # yarn project with packageManager field
+│   ├── test-no-packagemanager/         # No packageManager field, defaults to npm
+│   └── test-package-manager-override/  # packageManager field overrides lock files
 ├── python/             # Python test projects
 │   ├── test-poetry-project/  (poetry)
 │   ├── test-python-project/  (pip)
@@ -24,6 +28,22 @@ test-projects/
     ├── azure-backup.yaml
     └── azure-fail.yaml
 ```
+
+## Node.js Test Projects
+
+The Node.js test projects validate package manager detection with the following priority:
+1. **packageManager field** in package.json (highest priority)
+2. **Lock files** (pnpm-lock.yaml > pnpm-workspace.yaml > yarn.lock > package-lock.json)
+3. **Default to npm** if neither is found
+
+### Test Coverage
+
+- **test-npm-project**: Tests npm with explicit `packageManager: "npm@10.5.0"` field
+- **test-pnpm-project**: Tests pnpm with explicit `packageManager: "pnpm@8.15.0"` field
+- **test-yarn-project**: Tests yarn with explicit `packageManager: "yarn@4.1.0"` field
+- **test-no-packagemanager**: Tests default npm behavior when no packageManager field exists
+- **test-package-manager-override**: Tests that `packageManager: "yarn@4.1.0"` overrides existing `pnpm-lock.yaml`
+- **test-node-project**: Basic Node.js project setup
 
 ## Usage
 

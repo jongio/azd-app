@@ -194,8 +194,8 @@ func TestHasPackageJson(t *testing.T) {
 	}
 
 	// Create package.json
-	packageJsonPath := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packageJsonPath, []byte(`{"name":"test"}`), 0600); err != nil {
+	packageJSONPath := filepath.Join(tmpDir, "package.json")
+	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
@@ -393,7 +393,7 @@ func TestFindAppHost(t *testing.T) {
 	}
 }
 
-func TestGetPackageManagerFromPackageJson(t *testing.T) {
+func TestGetPackageManagerFromPackageJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
@@ -457,9 +457,9 @@ func TestGetPackageManagerFromPackageJson(t *testing.T) {
 			}
 
 			// Test detection
-			result := GetPackageManagerFromPackageJson(tmpDir)
+			result := GetPackageManagerFromPackageJSON(tmpDir)
 			if result != tt.expected {
-				t.Errorf("GetPackageManagerFromPackageJson() = %q, want %q", result, tt.expected)
+				t.Errorf("GetPackageManagerFromPackageJSON() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
@@ -520,8 +520,8 @@ func TestDetectNodePackageManagerWithPackageManagerField(t *testing.T) {
 			defer func() { _ = os.RemoveAll(tmpDir) }()
 
 			// Create package.json
-			packageJsonPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJsonPath, []byte(tt.packageJson), 0600); err != nil {
+			packageJSONPath := filepath.Join(tmpDir, "package.json")
+			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJson), 0600); err != nil {
 				t.Fatalf("failed to create package.json: %v", err)
 			}
 

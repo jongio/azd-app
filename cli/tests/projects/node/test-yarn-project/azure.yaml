@@ -10,4 +10,4 @@ reqs:
   - name: node
     minVersion: "22.0.0"
   - name: yarn
-    minVersion: ""
+    minVersion: "1.22.0"

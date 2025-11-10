@@ -279,7 +279,7 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 	packageManager := detector.DetectNodePackageManagerWithBoundary(projectDir, projectDir)
 
 	// Check if packageManager field was explicitly set in package.json
-	hasPackageManagerField := detector.GetPackageManagerFromPackageJson(projectDir) != ""
+	hasPackageManagerField := detector.GetPackageManagerFromPackageJSON(projectDir) != ""
 
 	// Determine the source based on what was detected
 	var source string
@@ -288,30 +288,24 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 		// packageManager field was set, so it took priority
 		source = "package.json (packageManager field)"
 	} else {
-		// Fall back to lock file or default detection
-		switch packageManager {
-		case "pnpm":
-			if fileExists(projectDir, "pnpm-lock.yaml") {
-				source = "pnpm-lock.yaml"
-			} else if fileExists(projectDir, "pnpm-workspace.yaml") {
-				source = "pnpm-workspace.yaml"
-			} else {
-				source = "package.json"
+		// Map package manager to its lock files in priority order
+		lockFiles := map[string][]string{
+			"pnpm": {"pnpm-lock.yaml", "pnpm-workspace.yaml"},
+			"yarn": {"yarn.lock"},
+			"npm":  {"package-lock.json"},
+		}
+
+		// Default to package.json
+		source = "package.json"
+
+		// Check for lock files in priority order
+		if files, ok := lockFiles[packageManager]; ok {
+			for _, file := range files {
+				if fileExists(projectDir, file) {
+					source = file
+					break
+				}
 			}
-		case "yarn":
-			if fileExists(projectDir, "yarn.lock") {
-				source = "yarn.lock"
-			} else {
-				source = "package.json"
-			}
-		case "npm":
-			if fileExists(projectDir, "package-lock.json") {
-				source = "package-lock.json"
-			} else {
-				source = "package.json"
-			}
-		default:
-			source = "package.json"
 		}
 	}
 
