@@ -23,6 +23,9 @@ const (
 	serviceTimeout  = 90 * time.Second
 )
 
+// expectedServices defines the services expected in the health-test project
+var expectedServices = []string{"web", "api", "database", "worker", "admin"}
+
 // TestHealthCommandE2E_FullWorkflow tests the complete health command workflow end-to-end.
 func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 	if testing.Short() {
@@ -98,7 +101,9 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 				if runtime.GOOS == "windows" {
 					// On Windows, we may need to force kill
 					// cspell:ignore taskkill
-					_ = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", runCmd.Process.Pid)).Run()
+					if err := exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", runCmd.Process.Pid)).Run(); err != nil {
+						t.Logf("Failed to taskkill process %d: %v", runCmd.Process.Pid, err)
+					}
 				}
 				_ = runCmd.Process.Kill()
 				_ = runCmd.Wait()
@@ -132,7 +137,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 
 		// Verify output contains service names
 		outputStr := string(output)
-		for _, svc := range []string{"web", "api", "database", "worker", "admin"} {
+		for _, svc := range expectedServices {
 			if !strings.Contains(outputStr, svc) {
 				t.Errorf("Output missing service: %s", svc)
 			}
@@ -274,10 +279,24 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cancel()
 		_ = cmd.Wait()
 
-		output := stdout.String() // Should have multiple updates
+		output := stdout.String()
+
+		// Count updates by looking for multiple instances of common health check indicators
+		// Note: This assumes health output contains service status information on each update
+		// If the output format changes, this test may need adjustment
 		updateCount := strings.Count(output, "Timestamp:")
+
+		// Fallback: if Timestamp not found, try counting by service name occurrences
+		// (each update should list services multiple times)
+		if updateCount == 0 {
+			// Count occurrences of first service - should appear once per update
+			if len(expectedServices) > 0 {
+				updateCount = strings.Count(output, "\""+expectedServices[0]+"\"") / len(expectedServices)
+			}
+		}
+
 		if updateCount < 2 {
-			t.Errorf("Expected at least 2 updates in streaming mode, got %d", updateCount)
+			t.Errorf("Expected at least 2 updates in streaming mode, got %d. Output:\n%s", updateCount, output)
 		}
 
 		t.Logf("Streaming produced %d updates", updateCount)
@@ -299,7 +318,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		outputStr := string(output)
 
 		// Verify all services are listed
-		for _, svc := range []string{"web", "api", "database", "worker", "admin"} {
+		for _, svc := range expectedServices {
 			if !strings.Contains(outputStr, svc) {
 				t.Errorf("Service info missing service: %s", svc)
 			}

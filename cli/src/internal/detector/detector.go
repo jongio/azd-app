@@ -83,14 +83,21 @@ func FindPythonProjects(rootDir string) ([]types.PythonProject, error) {
 // DetectPythonPackageManager determines which package manager to use.
 // Priority order: uv > poetry > pip.
 func DetectPythonPackageManager(projectDir string) string {
+	info := DetectPythonPackageManagerWithSource(projectDir)
+	return info.Name
+}
+
+// DetectPythonPackageManagerWithSource determines which package manager to use and returns detection source.
+// Priority order: uv > poetry > pip.
+func DetectPythonPackageManagerWithSource(projectDir string) PackageManagerInfo {
 	// Check for uv (uv.lock)
 	if _, err := os.Stat(filepath.Join(projectDir, "uv.lock")); err == nil {
-		return "uv"
+		return PackageManagerInfo{Name: "uv", Source: "uv.lock"}
 	}
 
 	// Check for poetry (poetry.lock)
 	if _, err := os.Stat(filepath.Join(projectDir, "poetry.lock")); err == nil {
-		return "poetry"
+		return PackageManagerInfo{Name: "poetry", Source: "poetry.lock"}
 	}
 
 	// Check pyproject.toml for tool configuration
@@ -101,16 +108,16 @@ func DetectPythonPackageManager(projectDir string) string {
 		if data, err := os.ReadFile(pyprojectPath); err == nil {
 			content := string(data)
 			if strings.Contains(content, "[tool.poetry]") {
-				return "poetry"
+				return PackageManagerInfo{Name: "poetry", Source: "pyproject.toml"}
 			}
 			if strings.Contains(content, "[tool.uv]") {
-				return "uv"
+				return PackageManagerInfo{Name: "uv", Source: "pyproject.toml"}
 			}
 		}
 	}
 
 	// Default to pip
-	return "pip"
+	return PackageManagerInfo{Name: "pip", Source: "requirements.txt"}
 }
 
 // FindNodeProjects searches for package.json files.
@@ -169,6 +176,12 @@ func FindNodeProjects(rootDir string) ([]types.NodeProject, error) {
 	return nodeProjects, err
 }
 
+// PackageManagerInfo contains the detected package manager and its detection source.
+type PackageManagerInfo struct {
+	Name   string // Package manager name (npm, yarn, pnpm)
+	Source string // Source of detection (e.g., "package.json (packageManager field)", "pnpm-lock.yaml")
+}
+
 // DetectNodePackageManager determines whether to use pnpm, yarn, or npm.
 // Priority: packageManager field in package.json > lock files > npm (default).
 func DetectNodePackageManager(projectDir string) string {
@@ -176,10 +189,24 @@ func DetectNodePackageManager(projectDir string) string {
 	return DetectNodePackageManagerWithBoundary(projectDir, "")
 }
 
+// DetectNodePackageManagerWithSource returns both the package manager and detection source.
+// Priority: packageManager field in package.json > lock files > npm (default).
+func DetectNodePackageManagerWithSource(projectDir string) PackageManagerInfo {
+	return DetectNodePackageManagerWithBoundaryAndSource(projectDir, projectDir)
+}
+
 // DetectNodePackageManagerWithBoundary determines package manager by checking only the project directory.
 // Does not search up the directory tree to avoid interference from parent workspace configurations.
 // Priority: packageManager field in package.json > lock files > npm (default).
 func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string) string {
+	info := DetectNodePackageManagerWithBoundaryAndSource(projectDir, boundaryDir)
+	return info.Name
+}
+
+// DetectNodePackageManagerWithBoundaryAndSource determines package manager and source by checking only the project directory.
+// Does not search up the directory tree to avoid interference from parent workspace configurations.
+// Priority: packageManager field in package.json > lock files > npm (default).
+func DetectNodePackageManagerWithBoundaryAndSource(projectDir string, boundaryDir string) PackageManagerInfo {
 	// Clean the paths to absolute
 	absDir, err := filepath.Abs(projectDir)
 	if err != nil {
@@ -188,26 +215,29 @@ func DetectNodePackageManagerWithBoundary(projectDir string, boundaryDir string)
 
 	// First, check for packageManager field in package.json (highest priority)
 	if pkgMgr := GetPackageManagerFromPackageJSON(absDir); pkgMgr != "" {
-		return pkgMgr
+		return PackageManagerInfo{
+			Name:   pkgMgr,
+			Source: "package.json (packageManager field)",
+		}
 	}
 
 	// Fall back to lock file detection
 	// Priority: pnpm-lock.yaml > pnpm-workspace.yaml > yarn.lock > package-lock.json > npm (default)
 	if _, err := os.Stat(filepath.Join(absDir, "pnpm-lock.yaml")); err == nil {
-		return "pnpm"
+		return PackageManagerInfo{Name: "pnpm", Source: "pnpm-lock.yaml"}
 	}
 	if _, err := os.Stat(filepath.Join(absDir, "pnpm-workspace.yaml")); err == nil {
-		return "pnpm"
+		return PackageManagerInfo{Name: "pnpm", Source: "pnpm-workspace.yaml"}
 	}
 	if _, err := os.Stat(filepath.Join(absDir, "yarn.lock")); err == nil {
-		return "yarn"
+		return PackageManagerInfo{Name: "yarn", Source: "yarn.lock"}
 	}
 	if _, err := os.Stat(filepath.Join(absDir, "package-lock.json")); err == nil {
-		return "npm"
+		return PackageManagerInfo{Name: "npm", Source: "package-lock.json"}
 	}
 
 	// Default to npm if no lock files found
-	return "npm"
+	return PackageManagerInfo{Name: "npm", Source: "package.json"}
 }
 
 // GetPackageManagerFromPackageJSON reads package.json and extracts the packageManager field.
@@ -232,8 +262,8 @@ func GetPackageManagerFromPackageJSON(projectDir string) string {
 	}
 
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		// Log invalid JSON for debugging purposes without exposing full path
-		log.Printf("[DEBUG] Failed to parse package.json: invalid JSON format")
+		// Log invalid JSON for debugging purposes, including full project directory path
+		log.Printf("[DEBUG] Failed to parse package.json in project '%s': invalid JSON format", projectDir)
 		return ""
 	}
 
