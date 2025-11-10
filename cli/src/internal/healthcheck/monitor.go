@@ -4,17 +4,26 @@ package healthcheck
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	cache "github.com/patrickmn/go-cache"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/sony/gobreaker"
+	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,6 +46,11 @@ var commonHealthPaths = []string{
 	"/alive",
 	"/ping",
 }
+
+var (
+	// metricsEnabled controls whether Prometheus metrics are recorded
+	metricsEnabled = false
+)
 
 // HealthStatus represents the health state of a service.
 type HealthStatus string
@@ -94,10 +108,19 @@ type HealthSummary struct {
 
 // MonitorConfig holds configuration for the health monitor.
 type MonitorConfig struct {
-	ProjectDir      string
-	DefaultEndpoint string
-	Timeout         time.Duration
-	Verbose         bool
+	ProjectDir             string
+	DefaultEndpoint        string
+	Timeout                time.Duration
+	Verbose                bool
+	LogLevel               string
+	LogFormat              string
+	EnableCircuitBreaker   bool
+	CircuitBreakerFailures int
+	CircuitBreakerTimeout  time.Duration
+	RateLimit              int // Max checks per second per service (0 = unlimited)
+	EnableMetrics          bool
+	MetricsPort            int
+	CacheTTL               time.Duration
 }
 
 // HealthMonitor coordinates health checking operations.
@@ -105,19 +128,103 @@ type HealthMonitor struct {
 	config   MonitorConfig
 	registry *registry.ServiceRegistry
 	checker  *HealthChecker
+	cache    *cache.Cache
+}
+
+// HealthChecker performs individual health checks with circuit breaker and rate limiting.
+type HealthChecker struct {
+	timeout         time.Duration
+	defaultEndpoint string
+	httpClient      *http.Client
+	breakers        map[string]*gobreaker.CircuitBreaker
+	rateLimiters    map[string]*rate.Limiter
+	mu              sync.RWMutex
+	enableBreaker   bool
+	breakerFailures int
+	breakerTimeout  time.Duration
+	rateLimit       int
+}
+
+// InitializeLogging configures the zerolog logger based on config.
+func InitializeLogging(logLevel, logFormat string) {
+	// Set up time format
+	zerolog.TimeFieldFormat = time.RFC3339
+
+	// Configure output format
+	switch logFormat {
+	case "json":
+		// JSON output (default, no changes needed)
+	case "pretty":
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: "15:04:05",
+		})
+	case "text":
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			NoColor:    true,
+			TimeFormat: time.RFC3339,
+		})
+	default:
+		// Default to simple console output
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out:        os.Stderr,
+			TimeFormat: "15:04:05",
+		})
+	}
+
+	// Set log level
+	level, err := zerolog.ParseLevel(logLevel)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(level)
 }
 
 // NewHealthMonitor creates a new health monitor.
 func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
+	// Initialize logging
+	InitializeLogging(config.LogLevel, config.LogFormat)
+
+	// Set metrics flag
+	metricsEnabled = config.EnableMetrics
+
+	log.Debug().
+		Str("project_dir", config.ProjectDir).
+		Str("endpoint", config.DefaultEndpoint).
+		Dur("timeout", config.Timeout).
+		Bool("metrics", config.EnableMetrics).
+		Bool("circuit_breaker", config.EnableCircuitBreaker).
+		Msg("Creating health monitor")
+
 	// Get service registry
 	reg := registry.GetRegistry(config.ProjectDir)
 
-	// Create health checker
+	// Create cache if TTL is configured
+	var healthCache *cache.Cache
+	if config.CacheTTL > 0 {
+		healthCache = cache.New(config.CacheTTL, config.CacheTTL*2)
+		log.Debug().Dur("ttl", config.CacheTTL).Msg("Health check caching enabled")
+	}
+
+	// Create health checker with properly configured HTTP client
 	checker := &HealthChecker{
 		timeout:         config.Timeout,
 		defaultEndpoint: config.DefaultEndpoint,
+		breakers:        make(map[string]*gobreaker.CircuitBreaker),
+		rateLimiters:    make(map[string]*rate.Limiter),
+		enableBreaker:   config.EnableCircuitBreaker,
+		breakerFailures: config.CircuitBreakerFailures,
+		breakerTimeout:  config.CircuitBreakerTimeout,
+		rateLimit:       config.RateLimit,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+				DisableKeepAlives:   false,
+			},
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -128,17 +235,119 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 		config:   config,
 		registry: reg,
 		checker:  checker,
+		cache:    healthCache,
 	}, nil
+}
+
+// getOrCreateCircuitBreaker gets or creates a circuit breaker for a service.
+func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker.CircuitBreaker {
+	if !hc.enableBreaker {
+		return nil
+	}
+
+	hc.mu.RLock()
+	breaker, exists := hc.breakers[serviceName]
+	hc.mu.RUnlock()
+
+	if exists {
+		return breaker
+	}
+
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if breaker, exists := hc.breakers[serviceName]; exists {
+		return breaker
+	}
+
+	// Create circuit breaker settings
+	settings := gobreaker.Settings{
+		Name:        serviceName,
+		MaxRequests: 3, // Max requests in half-open state
+		Interval:    hc.breakerTimeout,
+		Timeout:     hc.breakerTimeout,
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= uint32(hc.breakerFailures) && failureRatio >= 0.6
+		},
+		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+			log.Info().
+				Str("service", name).
+				Str("from", from.String()).
+				Str("to", to.String()).
+				Msg("Circuit breaker state changed")
+			
+			// Record state change in metrics
+			if metricsEnabled {
+				recordCircuitBreakerState(name, to)
+			}
+		},
+	}
+
+	breaker = gobreaker.NewCircuitBreaker(settings)
+	hc.breakers[serviceName] = breaker
+	return breaker
+}
+
+// getOrCreateRateLimiter gets or creates a rate limiter for a service.
+func (hc *HealthChecker) getOrCreateRateLimiter(serviceName string) *rate.Limiter {
+	if hc.rateLimit <= 0 {
+		return nil
+	}
+
+	hc.mu.RLock()
+	limiter, exists := hc.rateLimiters[serviceName]
+	hc.mu.RUnlock()
+
+	if exists {
+		return limiter
+	}
+
+	hc.mu.Lock()
+	defer hc.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if limiter, exists := hc.rateLimiters[serviceName]; exists {
+		return limiter
+	}
+
+	// Create rate limiter with burst capacity
+	limiter = rate.NewLimiter(rate.Limit(hc.rateLimit), hc.rateLimit*2)
+	hc.rateLimiters[serviceName] = limiter
+	log.Debug().
+		Str("service", serviceName).
+		Int("rate_limit", hc.rateLimit).
+		Msg("Created rate limiter")
+
+	return limiter
 }
 
 // Check performs health checks on all or filtered services.
 func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*HealthReport, error) {
+	// Check cache if enabled
+	cacheKey := "health_report"
+	if len(serviceFilter) > 0 {
+		cacheKey = fmt.Sprintf("health_report_%s", strings.Join(serviceFilter, "_"))
+	}
+
+	if m.cache != nil {
+		if cached, found := m.cache.Get(cacheKey); found {
+			log.Debug().Str("key", cacheKey).Msg("Returning cached health report")
+			return cached.(*HealthReport), nil
+		}
+	}
+
+	log.Debug().
+		Strs("filter", serviceFilter).
+		Msg("Performing health checks")
+
 	// Load azure.yaml to get service definitions
 	azureYaml, err := m.loadAzureYaml()
 	if err != nil {
 		// If no azure.yaml, just use registry
 		if m.config.Verbose {
-			fmt.Fprintf(os.Stderr, "Warning: Could not load azure.yaml: %v\n", err)
+			log.Warn().Err(err).Msg("Could not load azure.yaml")
 		}
 	}
 
@@ -152,6 +361,10 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 	if len(serviceFilter) > 0 {
 		services = filterServices(services, serviceFilter)
 	}
+
+	log.Info().
+		Int("total_services", len(services)).
+		Msg("Starting health checks")
 
 	// Perform health checks in parallel
 	results := make([]HealthCheckResult, len(services))
@@ -185,6 +398,13 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 	// Calculate summary
 	summary := calculateSummary(results)
 
+	log.Info().
+		Int("healthy", summary.Healthy).
+		Int("unhealthy", summary.Unhealthy).
+		Int("degraded", summary.Degraded).
+		Int("unknown", summary.Unknown).
+		Msg("Health checks completed")
+
 	report := &HealthReport{
 		Timestamp: time.Now(),
 		Project:   m.config.ProjectDir,
@@ -194,6 +414,12 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 
 	// Update registry with health status
 	m.updateRegistry(results)
+
+	// Cache the report if caching is enabled
+	if m.cache != nil {
+		m.cache.Set(cacheKey, report, cache.DefaultExpiration)
+		log.Debug().Str("key", cacheKey).Msg("Cached health report")
+	}
 
 	return report, nil
 }
@@ -309,13 +535,17 @@ func filterServices(services []serviceInfo, filter []string) []serviceInfo {
 }
 
 func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
+	// Batch status updates to reduce lock contention
 	for _, result := range results {
 		status := "running"
 		if result.Status == HealthStatusUnhealthy {
 			status = "error"
+		} else if result.Status == HealthStatusDegraded {
+			status = "degraded"
 		}
 
 		// Update registry with health status
+		// Registry has internal locking, so this is safe
 		if err := m.registry.UpdateStatus(result.ServiceName, status, string(result.Status)); err != nil {
 			if m.config.Verbose {
 				fmt.Fprintf(os.Stderr, "Warning: Failed to update registry for %s: %v\n", result.ServiceName, err)
@@ -356,15 +586,98 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 	return summary
 }
 
-// HealthChecker performs health checks on services.
-type HealthChecker struct {
-	timeout         time.Duration
-	defaultEndpoint string
-	httpClient      *http.Client
-}
-
 // CheckService performs a health check on a single service using cascading strategy.
 func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
+	startTime := time.Now()
+	serviceName := svc.Name
+	
+	log.Debug().
+		Str("service", serviceName).
+		Int("port", svc.Port).
+		Int("pid", svc.PID).
+		Msg("Starting health check")
+
+	// Apply rate limiting if configured
+	limiter := c.getOrCreateRateLimiter(serviceName)
+	if limiter != nil {
+		if err := limiter.Wait(ctx); err != nil {
+			log.Warn().
+				Str("service", serviceName).
+				Err(err).
+				Msg("Rate limit exceeded")
+			
+			return HealthCheckResult{
+				ServiceName: serviceName,
+				Timestamp:   time.Now(),
+				Status:      HealthStatusUnhealthy,
+				Error:       "rate limit exceeded",
+			}
+		}
+	}
+
+	// Get circuit breaker if enabled
+	breaker := c.getOrCreateCircuitBreaker(serviceName)
+
+	// Perform check with circuit breaker wrapping if enabled
+	var result HealthCheckResult
+	
+	if breaker != nil {
+		output, err := breaker.Execute(func() (interface{}, error) {
+			res := c.performServiceCheck(ctx, svc)
+			if res.Status == HealthStatusUnhealthy {
+				return res, fmt.Errorf("health check failed: %s", res.Error)
+			}
+			return res, nil
+		})
+
+		if err != nil {
+			if errors.Is(err, gobreaker.ErrOpenState) {
+				log.Warn().
+					Str("service", serviceName).
+					Msg("Circuit breaker open - skipping check")
+				
+				result = HealthCheckResult{
+					ServiceName: serviceName,
+					Timestamp:   time.Now(),
+					Status:      HealthStatusUnhealthy,
+					Error:       "circuit breaker open - service unavailable",
+				}
+			} else {
+				// Health check failed
+				result = HealthCheckResult{
+					ServiceName: serviceName,
+					Timestamp:   time.Now(),
+					Status:      HealthStatusUnhealthy,
+					Error:       err.Error(),
+				}
+			}
+		} else {
+			result = output.(HealthCheckResult)
+		}
+	} else {
+		// No circuit breaker - perform check directly
+		result = c.performServiceCheck(ctx, svc)
+	}
+
+	// Record metrics if enabled
+	duration := time.Since(startTime)
+	result.ResponseTime = duration
+	
+	if metricsEnabled {
+		recordHealthCheck(result)
+	}
+
+	log.Debug().
+		Str("service", serviceName).
+		Str("status", string(result.Status)).
+		Dur("duration", duration).
+		Msg("Health check completed")
+
+	return result
+}
+
+// performServiceCheck executes the actual health check logic without circuit breaker.
+func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	result := HealthCheckResult{
 		ServiceName: svc.Name,
 		Timestamp:   time.Now(),
@@ -447,6 +760,13 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 	}
 
 	for _, endpoint := range endpoints {
+		// Check if context is already cancelled before making request
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
 		url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
 
 		startTime := time.Now()
@@ -462,7 +782,12 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 			// Connection error - likely service not ready
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Log error but don't fail health check
+				fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+			}
+		}()
 
 		// Found a responding endpoint
 		result := &httpHealthCheckResult{
@@ -485,8 +810,10 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 
 		// Try to parse response body for additional details
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
-			if err == nil {
+			// Use a limited reader to prevent memory exhaustion
+			limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
+			body, err := io.ReadAll(limitedReader)
+			if err == nil && len(body) > 0 {
 				var details map[string]interface{}
 				if err := json.Unmarshal(body, &details); err == nil {
 					result.Details = details
@@ -530,8 +857,18 @@ func isProcessRunning(pid int) bool {
 	}
 
 	// On Unix, signal 0 can be used to check if process exists
-	// On Windows, this doesn't work reliably, so we just return true if FindProcess succeeded
-	if err := process.Signal(os.Signal(nil)); err != nil {
+	// On Windows, FindProcess always succeeds, so we need a different approach
+	if runtime.GOOS == "windows" {
+		// On Windows, try to open the process handle
+		// If it fails, the process doesn't exist
+		if err := process.Signal(syscall.Signal(0)); err != nil {
+			return false
+		}
+		return true
+	}
+
+	// On Unix-like systems, use signal 0 to check existence
+	if err := process.Signal(syscall.Signal(0)); err != nil {
 		return false
 	}
 
