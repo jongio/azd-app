@@ -106,14 +106,14 @@ func EnsureDebugConfig(projectDir string, services []ServiceDebugInfo, force boo
 	if !force {
 		launchExists := false
 		tasksExists := false
-		
+
 		if _, err := os.Stat(launchPath); err == nil {
 			launchExists = true
 		}
 		if _, err := os.Stat(tasksPath); err == nil {
 			tasksExists = true
 		}
-		
+
 		// Only skip if both files exist
 		if launchExists && tasksExists {
 			return false, nil
