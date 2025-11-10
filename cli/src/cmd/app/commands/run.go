@@ -309,8 +309,13 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 
 			select {
 			case err := <-waitDone:
-				// Service exited (triggers cancellation of other goroutines)
-				return err
+				// Check if shutdown was initiated - if so, don't treat process exit as error
+				select {
+				case <-ctx.Done():
+					return nil
+				default:
+					return err
+				}
 			case <-ctx.Done():
 				// Context cancelled (signal or another service failed)
 				return nil // Don't propagate context cancellation as error

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
-	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/vscode"
@@ -320,7 +319,13 @@ func monitorDebugServicesUntilShutdown(result *service.OrchestrationResult, cwd 
 
 			select {
 			case err := <-waitDone:
-				return err
+				// Check if shutdown was initiated - if so, don't treat process exit as error
+				select {
+				case <-ctx.Done():
+					return nil
+				default:
+					return err
+				}
 			case <-ctx.Done():
 				return nil
 			}
@@ -351,6 +356,7 @@ func monitorDebugServicesUntilShutdown(result *service.OrchestrationResult, cwd 
 	output.Success("All services stopped")
 	output.Newline()
 
+	// Only return error if it wasn't a clean shutdown (Ctrl+C)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
