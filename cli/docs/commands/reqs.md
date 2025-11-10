@@ -26,6 +26,7 @@ azd app reqs [flags]
 | `--dry-run` | | bool | `false` | Preview changes without modifying azure.yaml |
 | `--no-cache` | | bool | `false` | Force fresh reqs check and bypass cached results |
 | `--clear-cache` | | bool | `false` | Clear cached reqs results |
+| `--fix` | | bool | `false` | Attempt to fix PATH issues for missing tools |
 
 ## Execution Flow
 
@@ -146,6 +147,54 @@ azd app reqs [flags]
                     │  - Versions     │
                     └─────────────────┘
 ```
+
+### Fix Mode Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 azd app reqs --fix                           │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Run Initial Requirements Check                              │
+│  - Identify failed prerequisites                             │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+                    ┌───────┴────────┐
+                    │                │
+           All Satisfied?         Some Failed
+                    │                │
+                    ↓                ↓
+            ┌─────────────┐   ┌──────────────────────┐
+            │ Report      │   │ Refresh System PATH  │
+            │ Success     │   │  - Windows: Read from│
+            │             │   │    Machine + User env│
+            └─────────────┘   │  - Unix: Current PATH│
+                              └──────────────────────┘
+                                       │
+                                       ↓
+                              ┌──────────────────────────┐
+                              │ For Each Failed Tool:    │
+                              │  1. Search in PATH       │
+                              │  2. Search common dirs   │
+                              │  3. Re-verify version    │
+                              └──────────────────────────┘
+                                       │
+                                       ↓
+                              ┌──────────────────────────┐
+                              │ Re-check All Reqs        │
+                              │  - After PATH refresh    │
+                              └──────────────────────────┘
+                                       │
+                                       ↓
+                              ┌──────────────────────────┐
+                              │ Report Results:          │
+                              │  - Fixed count           │
+                              │  - Still missing         │
+                              │  - Install suggestions   │
+                              └──────────────────────────┘
+```
+
 
 ## Prerequisite Checking Details
 
@@ -577,6 +626,19 @@ azd app reqs --clear-cache
 azd app reqs --no-cache
 ```
 
+### 5. Fixing PATH Issues
+
+```bash
+# When tools are installed but not detected
+azd app reqs --fix
+
+# The fix command will:
+# 1. Refresh environment PATH from system settings
+# 2. Search for missing tools in common locations
+# 3. Re-verify requirements after PATH update
+# 4. Provide installation instructions for truly missing tools
+```
+
 ## Integration with Other Commands
 
 The `reqs` command is the **foundation** of the command dependency chain:
@@ -597,9 +659,15 @@ This ensures prerequisites are always validated before:
 
 ### Issue: "Tool not found" but it's installed
 
-**Cause**: Tool not in PATH
+**Cause**: Tool not in PATH or PATH needs refresh
 
-**Solution**:
+**Solution 1: Use --fix flag**:
+```bash
+# Automatically refresh PATH and search for tools
+azd app reqs --fix
+```
+
+**Solution 2: Manual PATH configuration**:
 ```bash
 # Check PATH
 echo $PATH
@@ -733,4 +801,99 @@ $ azd app reqs
 
 ✓ postgresql: 15.4.0 (required: 15.0.0)
   - ✓ RUNNING
+```
+
+### Example 4: Fix PATH Issues
+
+```bash
+# Initial check shows tools missing
+$ azd app reqs
+
+✓ Checking prerequisites
+
+✗ node: NOT INSTALLED (required: 20.0.0)
+✗ docker: NOT INSTALLED (required: 20.10.0)
+✓ python: 3.12.0 (required: 3.11.0)
+
+✗ Some prerequisites are not satisfied
+
+# Run fix to resolve PATH issues
+$ azd app reqs --fix
+
+🔧 Attempting to fix requirement issues...
+   ✗ node: NOT INSTALLED (required: 20.0.0)
+   ✗ docker: NOT INSTALLED (required: 20.10.0)
+
+🔄 Refreshing environment PATH...
+   ✓ PATH refreshed successfully
+
+🔍 Searching for node...
+   ✓ Found: C:\Program Files\nodejs\node.exe
+   ✓ Version verified successfully
+
+🔍 Searching for docker...
+   ✓ Found: C:\Program Files\Docker\Docker\resources\bin\docker.exe
+   ✓ Version verified successfully
+
+📋 Re-checking requirements...
+   ✓ node: 24.11.0 (required: 20.0.0)
+   ✓ docker: 28.5.1 (required: 20.10.0)
+   ✓ python: 3.12.0 (required: 3.11.0)
+
+✓ Fixed 2 of 2 issues!
+
+✓ All requirements now satisfied!
+
+# JSON output mode
+$ azd app reqs --fix --output json
+{
+  "success": true,
+  "fixed": 2,
+  "total": 2,
+  "allSatisfied": true,
+  "fixes": [
+    {
+      "name": "node",
+      "fixed": true,
+      "found": true,
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "message": "Found and verified: C:\\Program Files\\nodejs\\node.exe",
+      "satisfied": true
+    },
+    {
+      "name": "docker",
+      "fixed": true,
+      "found": true,
+      "path": "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+      "message": "Found and verified: C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+      "satisfied": true
+    }
+  ],
+  "results": [
+    {
+      "name": "node",
+      "installed": true,
+      "version": "24.11.0",
+      "required": "20.0.0",
+      "satisfied": true,
+      "message": "Satisfied"
+    },
+    {
+      "name": "docker",
+      "installed": true,
+      "version": "28.5.1",
+      "required": "20.10.0",
+      "satisfied": true,
+      "message": "Satisfied"
+    },
+    {
+      "name": "python",
+      "installed": true,
+      "version": "3.12.0",
+      "required": "3.11.0",
+      "satisfied": true,
+      "message": "Satisfied"
+    }
+  ]
+}
 ```
