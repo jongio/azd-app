@@ -56,6 +56,7 @@ func main() {
 	rootCmd.AddCommand(
 		commands.NewReqsCommand(),
 		commands.NewRunCommand(),
+		commands.NewDebugCommand(),
 		commands.NewDepsCommand(),
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),

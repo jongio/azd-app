@@ -21,6 +21,7 @@ azd app fills that gap with intelligent automation:
 - ✅ **Verify prerequisites** - Check all required tools are installed
 - 📦 **Install dependencies** - Recursively install across all projects and languages  
 - 🚀 **Run locally** - Start your entire application with one command
+- 🐛 **Zero-friction debugging** - F5 debugging with auto-generated VS Code configs
 - 📊 **Live dashboard** - Monitor services, view URLs, stream logs
 - 🔄 **Multi-language support** - Node.js, Python, .NET, Aspire, and more
 
@@ -35,6 +36,10 @@ azd app deps
 
 # Start your application with live dashboard
 azd app run
+
+# Or start with debugging enabled
+azd app debug
+# Press F5 in VS Code to attach debugger to all services!
 ```
 
 That's it. No configuration needed. azd app detects your project structure and does the right thing.

@@ -126,6 +126,15 @@ func (s *Service) GetEnvironment() map[string]string {
 	return s.Environment
 }
 
+// DebugConfig represents debug configuration for a service.
+type DebugConfig struct {
+	Enabled         bool   // Whether debugging is enabled
+	Port            int    // Debug port
+	Protocol        string // "inspector", "debugpy", "delve", "coreclr", "jdwp", "lldb"
+	URL             string // Debug URL (e.g., "ws://localhost:9229")
+	WaitForDebugger bool   // Wait for debugger to attach before starting
+}
+
 // ServiceRuntime contains the detected runtime information for a service.
 type ServiceRuntime struct {
 	Name                  string
@@ -139,6 +148,7 @@ type ServiceRuntime struct {
 	Protocol              string
 	Env                   map[string]string
 	HealthCheck           HealthCheckConfig
+	Debug                 DebugConfig
 	ShouldUpdateAzureYaml bool // True if user wants port added to azure.yaml
 }
 
