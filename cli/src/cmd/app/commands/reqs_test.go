@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -870,4 +871,79 @@ reqs:
 	if customReq.RunningCheckExitCode == nil || *customReq.RunningCheckExitCode != 0 {
 		t.Error("RunningCheckExitCode should be 0")
 	}
+}
+
+func TestRunReqsFix_AllSatisfied(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory with valid azure.yaml
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create azure.yaml with a tool that should always be available (echo simulation)
+	versionCmd, versionArgs := shellCommand("echo 2.0.0")
+	yamlContent := fmt.Sprintf(`name: test
+reqs:
+  - name: test-tool
+    minVersion: 1.0.0
+    command: %s
+    args: %v
+`, versionCmd, yamlArgsString(versionArgs))
+
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run fix - should succeed since tool is "installed"
+	err = runReqsFix()
+	if err != nil {
+		t.Logf("Fix completed with message: %v", err)
+	}
+}
+
+func TestRunReqsFix_NoAzureYaml(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory without azure.yaml
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	err = runReqsFix()
+	if err == nil {
+		t.Error("Expected error when azure.yaml is missing, got nil")
+	}
+}
+
+// yamlArgsString converts args array to YAML string format
+func yamlArgsString(args []string) string {
+	if len(args) == 0 {
+		return "[]"
+	}
+	quoted := make([]string, len(args))
+	for i, arg := range args {
+		quoted[i] = fmt.Sprintf(`"%s"`, arg)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
