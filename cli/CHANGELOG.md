@@ -1,3 +1,13 @@
+## [0.5.2] - 2025-11-10
+
+- This PR refactors package manager detection for Node.js and Python to eliminate code duplication and provide better traceability of how package managers are detected. (#50) (396d4d5)
+- Align documentation with implementation (#45) (1dee2d9)
+- Improve process lifecycle management with context-based coordination and graceful shutdown (#40) (bc1e67f)
+- Fix release notes showing full changelog instead of version-specific commits (#33) (127c069)
+- Redesign console output for better UX and readability (#42) (74c6e7b)
+- Achieve 98.52% test coverage for dashboard with comprehensive unit and e2e tests (#36) (71d4da2)
+- chore: update registry for v0.5.1 (fb0fdd5)
+
 ## [0.5.1] - 2025-11-08
 
 - Add packageManager field support for Node.js package manager detection (#34) (bdbb25e)
