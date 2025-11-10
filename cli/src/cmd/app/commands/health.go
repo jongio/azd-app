@@ -36,14 +36,25 @@ const (
 )
 
 var (
-	healthService  string
-	healthStream   bool
-	healthInterval time.Duration
-	healthOutput   string
-	healthEndpoint string
-	healthTimeout  time.Duration
-	healthAll      bool
-	healthVerbose  bool
+	healthService            string
+	healthStream             bool
+	healthInterval           time.Duration
+	healthOutput             string
+	healthEndpoint           string
+	healthTimeout            time.Duration
+	healthAll                bool
+	healthVerbose            bool
+	healthProfile            string
+	healthLogLevel           string
+	healthLogFormat          string
+	healthEnableMetrics      bool
+	healthMetricsPort        int
+	healthCircuitBreaker     bool
+	healthCircuitBreakCount  int
+	healthCircuitBreakTime   time.Duration
+	healthRateLimit          int
+	healthCacheTTL           time.Duration
+	healthProfileSave        bool
 )
 
 // NewHealthCommand creates the health command.
@@ -53,10 +64,35 @@ func NewHealthCommand() *cobra.Command {
 		Short: "Monitor health status of services",
 		Long: `Check the health status of running services with support for point-in-time snapshots 
 or real-time streaming. Automatically detects /health endpoints and falls back 
-to port or process checks.`,
+to port or process checks.
+
+Production Features:
+  - Circuit breaker pattern to prevent cascading failures
+  - Rate limiting per service to avoid overwhelming endpoints
+  - Result caching to reduce redundant checks
+  - Prometheus metrics exposition for observability
+  - Structured logging (JSON, pretty, or text)
+  - Environment-specific profiles (dev, prod, ci, staging)
+
+Examples:
+  # Quick check with defaults
+  azd app health
+  
+  # Production mode with all features
+  azd app health --profile production --metrics --circuit-breaker
+  
+  # Development mode with verbose logging
+  azd app health --profile development --log-level debug --log-format pretty
+  
+  # Custom configuration
+  azd app health --rate-limit 10 --cache-ttl 30s --timeout 10s
+  
+  # Stream with metrics
+  azd app health --stream --interval 10s --metrics --metrics-port 9090`,
 		RunE: runHealth,
 	}
 
+	// Basic flags
 	cmd.Flags().StringVarP(&healthService, "service", "s", "", "Monitor specific service(s) only (comma-separated)")
 	cmd.Flags().BoolVar(&healthStream, "stream", false, "Enable streaming mode for real-time updates")
 	cmd.Flags().DurationVarP(&healthInterval, "interval", "i", defaultHealthInterval, "Interval between health checks in streaming mode")
@@ -65,6 +101,25 @@ to port or process checks.`,
 	cmd.Flags().DurationVar(&healthTimeout, "timeout", defaultHealthTimeout, "Timeout for each health check")
 	cmd.Flags().BoolVar(&healthAll, "all", false, "Show health for all projects on this machine")
 	cmd.Flags().BoolVarP(&healthVerbose, "verbose", "v", false, "Show detailed health check information")
+
+	// Profile and logging flags
+	cmd.Flags().StringVar(&healthProfile, "profile", "", "Health profile to use (development, production, ci, staging, or custom)")
+	cmd.Flags().StringVar(&healthLogLevel, "log-level", "info", "Log level: debug, info, warn, error")
+	cmd.Flags().StringVar(&healthLogFormat, "log-format", "pretty", "Log format: json, pretty, text")
+	cmd.Flags().BoolVar(&healthProfileSave, "save-profiles", false, "Save sample health profiles to .azd/health-profiles.yaml")
+
+	// Metrics flags
+	cmd.Flags().BoolVar(&healthEnableMetrics, "metrics", false, "Enable Prometheus metrics exposition")
+	cmd.Flags().IntVar(&healthMetricsPort, "metrics-port", 9090, "Port for Prometheus metrics endpoint")
+
+	// Circuit breaker flags
+	cmd.Flags().BoolVar(&healthCircuitBreaker, "circuit-breaker", false, "Enable circuit breaker pattern")
+	cmd.Flags().IntVar(&healthCircuitBreakCount, "circuit-break-count", 5, "Number of failures before opening circuit")
+	cmd.Flags().DurationVar(&healthCircuitBreakTime, "circuit-break-timeout", 60*time.Second, "Circuit breaker timeout duration")
+
+	// Rate limiting and caching flags
+	cmd.Flags().IntVar(&healthRateLimit, "rate-limit", 0, "Max health checks per second per service (0 = unlimited)")
+	cmd.Flags().DurationVar(&healthCacheTTL, "cache-ttl", 0, "Cache TTL for health results (0 = no caching)")
 
 	return cmd
 }
@@ -81,15 +136,96 @@ func runHealth(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Create health monitor
-	monitor, err := healthcheck.NewHealthMonitor(healthcheck.MonitorConfig{
-		ProjectDir:      projectDir,
-		DefaultEndpoint: healthEndpoint,
-		Timeout:         healthTimeout,
-		Verbose:         healthVerbose,
-	})
+	// Handle profile saving
+	if healthProfileSave {
+		if err := healthcheck.SaveSampleProfiles(projectDir); err != nil {
+			return fmt.Errorf("failed to save sample profiles: %w", err)
+		}
+		fmt.Println("Sample health profiles saved to .azd/health-profiles.yaml")
+		fmt.Println("You can customize these profiles or create new ones.")
+		return nil
+	}
+
+	// Load health profiles
+	profiles, err := healthcheck.LoadHealthProfiles(projectDir)
+	if err != nil && healthProfile != "" {
+		// Only error if a specific profile was requested
+		return fmt.Errorf("failed to load health profiles: %w", err)
+	}
+
+	// Start with default config
+	config := healthcheck.MonitorConfig{
+		ProjectDir:             projectDir,
+		DefaultEndpoint:        healthEndpoint,
+		Timeout:                healthTimeout,
+		Verbose:                healthVerbose,
+		LogLevel:               healthLogLevel,
+		LogFormat:              healthLogFormat,
+		EnableCircuitBreaker:   healthCircuitBreaker,
+		CircuitBreakerFailures: healthCircuitBreakCount,
+		CircuitBreakerTimeout:  healthCircuitBreakTime,
+		RateLimit:              healthRateLimit,
+		EnableMetrics:          healthEnableMetrics,
+		MetricsPort:            healthMetricsPort,
+		CacheTTL:               healthCacheTTL,
+	}
+
+	// Apply profile if specified
+	if healthProfile != "" && profiles != nil {
+		profile, err := profiles.GetProfile(healthProfile)
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+
+		// Apply profile settings (CLI flags take precedence)
+		if !cmd.Flags().Changed("timeout") && profile.Timeout > 0 {
+			config.Timeout = profile.Timeout
+		}
+		if !cmd.Flags().Changed("log-level") && profile.LogLevel != "" {
+			config.LogLevel = profile.LogLevel
+		}
+		if !cmd.Flags().Changed("log-format") && profile.LogFormat != "" {
+			config.LogFormat = profile.LogFormat
+		}
+		if !cmd.Flags().Changed("circuit-breaker") {
+			config.EnableCircuitBreaker = profile.CircuitBreaker
+		}
+		if !cmd.Flags().Changed("circuit-break-count") && profile.CircuitBreakerFailures > 0 {
+			config.CircuitBreakerFailures = profile.CircuitBreakerFailures
+		}
+		if !cmd.Flags().Changed("circuit-break-timeout") && profile.CircuitBreakerTimeout > 0 {
+			config.CircuitBreakerTimeout = profile.CircuitBreakerTimeout
+		}
+		if !cmd.Flags().Changed("rate-limit") && profile.RateLimit > 0 {
+			config.RateLimit = profile.RateLimit
+		}
+		if !cmd.Flags().Changed("metrics") {
+			config.EnableMetrics = profile.Metrics
+		}
+		if !cmd.Flags().Changed("metrics-port") && profile.MetricsPort > 0 {
+			config.MetricsPort = profile.MetricsPort
+		}
+		if !cmd.Flags().Changed("cache-ttl") && profile.CacheTTL > 0 {
+			config.CacheTTL = profile.CacheTTL
+		}
+
+		fmt.Printf("Using health profile: %s\n", healthProfile)
+	}
+
+	// Create health monitor with enriched config
+	monitor, err := healthcheck.NewHealthMonitor(config)
 	if err != nil {
 		return fmt.Errorf("failed to create health monitor: %w", err)
+	}
+
+	// Start metrics server if enabled
+	if config.EnableMetrics {
+		go func() {
+			if err := healthcheck.ServeMetrics(config.MetricsPort); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Metrics server failed: %v\n", err)
+			}
+		}()
+		fmt.Printf("Prometheus metrics available at http://localhost:%d/metrics\n", config.MetricsPort)
 	}
 
 	// Parse service filter
@@ -117,6 +253,9 @@ func validateHealthFlags() error {
 	if healthTimeout < minHealthTimeout || healthTimeout > maxHealthTimeout {
 		return fmt.Errorf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout)
 	}
+	if healthStream && healthInterval <= healthTimeout {
+		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
+	}
 	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
 		return fmt.Errorf("output must be 'text', 'json', or 'table'")
 	}
@@ -142,7 +281,11 @@ func setupSignalHandler(cancel context.CancelFunc) {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
+		// Cancel context
 		cancel()
+		// Stop listening for more signals
+		signal.Stop(sigChan)
+		close(sigChan)
 	}()
 }
 

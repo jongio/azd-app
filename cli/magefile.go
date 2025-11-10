@@ -237,6 +237,27 @@ func TestVisual() error {
 	return nil
 }
 
+// TestE2E runs end-to-end integration tests for the health command.
+func TestE2E() error {
+	fmt.Println("Running E2E integration tests...")
+	
+	timeout := os.Getenv("TEST_TIMEOUT")
+	if timeout == "" {
+		timeout = "15m"
+	}
+
+	args := []string{
+		"test",
+		"-v",
+		"-tags=integration",
+		"-timeout=" + timeout,
+		"./src/cmd/app/commands",
+		"-run=TestHealthCommandE2E",
+	}
+
+	return sh.RunV("go", args...)
+}
+
 // TestCoverage runs tests with coverage report.
 func TestCoverage() error {
 	fmt.Println("Running tests with coverage...")
