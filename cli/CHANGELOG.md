@@ -1,3 +1,9 @@
+## [0.5.3] - 2025-11-11
+
+- refactor: update event handling to subscribe to postprovision events for real-time dashboard updates (751c9c1)
+- feat: implement process isolation and improve Windows shutdown handling (#51) (7f28b37)
+- chore: update registry for v0.5.2 (65b5574)
+
 ## [0.5.2] - 2025-11-10
 
 - This PR refactors package manager detection for Node.js and Python to eliminate code duplication and provide better traceability of how package managers are detected. (#50) (396d4d5)
