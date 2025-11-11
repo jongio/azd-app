@@ -30,10 +30,11 @@ func NewListenCommand() *cobra.Command {
 			}
 			defer azdClient.Close()
 
-			// Create an extension host and subscribe to environment update events
+			// Create an extension host and subscribe to postprovision events
 			// This allows us to push real-time updates to the dashboard when azd provision completes
+			// Note: We don't filter by Host or Language, so this will apply to all services
 			host := azdext.NewExtensionHost(azdClient).
-				WithServiceEventHandler("environment updated", handleEnvironmentUpdate, nil)
+				WithServiceEventHandler("postprovision", handlePostProvision, &azdext.ServiceEventOptions{})
 
 			// Start the extension host
 			// This blocks until azd closes the connection
@@ -47,10 +48,10 @@ func NewListenCommand() *cobra.Command {
 	}
 }
 
-// handleEnvironmentUpdate is called when azd environment variables are updated (e.g., after provision).
+// handlePostProvision is called after azd provision completes for each service.
 // This handler refreshes the dashboard to show the latest environment values.
-func handleEnvironmentUpdate(ctx context.Context, args *azdext.ServiceEventArgs) error {
-	log.Printf("[azd-app] Environment updated event received for service: %s", args.Service.GetName())
+func handlePostProvision(ctx context.Context, args *azdext.ServiceEventArgs) error {
+	log.Printf("[azd-app] Post-provision event received for service: %s", args.Service.GetName())
 
 	// The environment variables are now updated in the process by azd
 	// We just need to trigger a refresh of the cached environment and broadcast to dashboards
