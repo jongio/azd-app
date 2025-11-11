@@ -1,3 +1,7 @@
+## [0.5.4] - 2025-11-11
+
+- fix: update working directory for release and registry steps in workflow (28d041c)
+
 ## [0.5.3] - 2025-11-11
 
 - refactor: update event handling to subscribe to postprovision events for real-time dashboard updates (751c9c1)
