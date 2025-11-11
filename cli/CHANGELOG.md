@@ -1,3 +1,9 @@
+## [0.5.6] - 2025-11-11
+
+- fix: adjust working directory for release and update registry steps (ff7d70b)
+- fix: update working directory references in release steps (60557c1)
+- chore: update registry for v0.5.5 (999aa42)
+
 ## [0.5.5] - 2025-11-11
 
 - fix: update working directory for release steps in workflow (e0a4224)
