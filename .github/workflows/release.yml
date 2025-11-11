@@ -294,8 +294,8 @@ jobs:
           cat /tmp/release-notes.md
 
       - name: Release
+        working-directory: .
         run: |
-          cd ..
           azd x release \
             --cwd cli \
             --repo "${{ github.repository }}" \
@@ -306,8 +306,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update registry
+        working-directory: .
         run: |
-          cd ..
           azd x publish \
             --cwd cli \
             --registry $GITHUB_WORKSPACE/registry.json \
