@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -194,6 +195,60 @@ func TestStopService_NotStarted(t *testing.T) {
 	if !strings.Contains(err.Error(), "process not started") {
 		t.Errorf("StopService() error = %v, want error containing 'process not started'", err)
 	}
+}
+
+func TestStopServiceGraceful_Windows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific test")
+	}
+
+	if testing.Short() {
+		t.Skip("skipping process test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Start a simple long-running process
+	runtime := &ServiceRuntime{
+		Name:       "test-stop",
+		WorkingDir: tmpDir,
+		Command:    "timeout",
+		Args:       []string{"30"}, // Will run for 30 seconds
+		Language:   "shell",
+		Port:       8081,
+	}
+
+	process, err := StartService(runtime, nil, tmpDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+	defer func() {
+		// Cleanup
+		logMgr := GetLogManager(tmpDir)
+		_ = logMgr.RemoveBuffer(runtime.Name)
+	}()
+
+	// Give process a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify process is running
+	if process.Process == nil {
+		t.Fatal("Process not started")
+	}
+
+	// Test graceful stop - on Windows this should use Kill() directly without signal errors
+	err = StopServiceGraceful(process, 2*time.Second)
+
+	// Should succeed without "not supported by windows" or "invalid argument" errors
+	if err != nil && strings.Contains(err.Error(), "not supported") {
+		t.Errorf("StopServiceGraceful() should not fail with 'not supported' on Windows: %v", err)
+	}
+	if err != nil && strings.Contains(err.Error(), "invalid argument") {
+		t.Errorf("StopServiceGraceful() should not fail with 'invalid argument' on Windows: %v", err)
+	}
+
+	// Process should be stopped
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestExecuteCommand(t *testing.T) {

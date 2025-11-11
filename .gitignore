@@ -14,6 +14,8 @@ bin/
 *.out
 *.coverage
 coverage
+*_coverage
+*_coverage.out
 src/coverage
 
 # Go workspace file
