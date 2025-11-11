@@ -1,3 +1,8 @@
+## [0.5.5] - 2025-11-11
+
+- fix: update working directory for release steps in workflow (e0a4224)
+- fix: adjust working directory for release and registry steps in workflow (be95ccc)
+
 ## [0.5.4] - 2025-11-11
 
 - fix: update working directory for release and registry steps in workflow (28d041c)
