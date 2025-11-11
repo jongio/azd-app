@@ -125,9 +125,13 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		}
 		// Wait for process to exit
 		_, waitErr := process.Process.Wait()
+		// Ignore "Access is denied" - process already exited on Windows
+		if waitErr != nil && !isAccessDeniedError(waitErr) {
+			return waitErr
+		}
 		slog.Info("service stopped",
 			slog.String("service", process.Name))
-		return waitErr
+		return nil
 	}
 
 	// On Unix/Linux/macOS, try graceful shutdown with SIGINT first
@@ -255,4 +259,17 @@ func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuff
 		}
 		buffer.Add(entry)
 	}
+}
+
+// isAccessDeniedError checks if an error is a Windows "Access is denied" error.
+// This error occurs when Wait() is called after Kill() on Windows because the
+// process has already exited and its handle is no longer valid.
+func isAccessDeniedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for Windows-specific "Access is denied" error message
+	return runtime.GOOS == "windows" &&
+		(err.Error() == "Access is denied" ||
+			err.Error() == "TerminateProcess: Access is denied.")
 }
