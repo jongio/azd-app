@@ -18,7 +18,6 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -245,29 +244,45 @@ func loadEnvironmentVariables() (map[string]string, error) {
 	return envVars, nil
 }
 
-// monitorServicesUntilShutdown starts the dashboard and monitors services using errgroup.
-// Uses context-based cancellation for coordinated lifecycle management:
-//   - Dashboard runs in its own goroutine
-//   - Each service process runs in its own goroutine
-//   - Signal handler (Ctrl+C/SIGTERM) cancels the context
-//   - First error or signal cancels all goroutines
-//   - Graceful shutdown with timeout on exit
+// monitorServicesUntilShutdown monitors all services with full process isolation.
+//
+// Process Isolation Design:
+//   - Each service runs in an independent goroutine with panic recovery
+//   - Service crashes/exits are logged but DON'T stop other services or the dashboard
+//   - Only user signals (Ctrl+C/SIGTERM) trigger coordinated shutdown of all services
+//   - Dashboard runs independently and survives individual service failures
+//
+// Lifecycle:
+//  1. Start monitoring goroutines (one per service + dashboard)
+//  2. Wait for user signal (Ctrl+C) or all services to naturally exit
+//  3. On signal: initiate graceful shutdown with 10-second timeout
+//  4. Stop all remaining services and dashboard
+//
+// This uses sync.WaitGroup (not errgroup) because we want all goroutines to complete
+// independently rather than failing fast on first error.
 func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string) error {
-	// Create context that cancels on SIGINT/SIGTERM
+	// Create context that cancels on SIGINT/SIGTERM only
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	g, ctx := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
 	dashboardServer := dashboard.GetServer(cwd)
 
 	// Goroutine 1: Dashboard server
-	g.Go(func() error {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				output.Error("Dashboard panic recovered: %v", r)
+			}
+		}()
+
 		dashboardURL, err := dashboardServer.Start()
 		if err != nil {
 			output.Warning("Dashboard unavailable: %v", err)
-			// Don't fail if dashboard fails - services can run without it
 			<-ctx.Done()
-			return nil // Don't propagate dashboard start errors
+			return
 		}
 
 		output.Newline()
@@ -278,48 +293,20 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 
 		// Block until context is cancelled
 		<-ctx.Done()
-		return nil // Dashboard shutdown is handled in cleanup
-	})
+	}()
 
-	// Goroutine 2+: One goroutine per service to wait for exit
+	// Goroutine 2+: One goroutine per service to monitor its lifecycle
 	for name, process := range result.Processes {
-		serviceName := name
-		proc := process
-
-		if proc.Process == nil {
+		if process.Process == nil {
 			continue
 		}
 
-		g.Go(func() error {
-			// Wait for either process exit or context cancellation
-			waitDone := make(chan error, 1)
-			go func() {
-				state, err := proc.Process.Wait()
-				if err != nil {
-					waitDone <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
-					return
-				}
-				if !state.Success() {
-					exitCode := state.ExitCode()
-					waitDone <- fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())
-					return
-				}
-				waitDone <- nil
-			}()
-
-			select {
-			case err := <-waitDone:
-				// Service exited (triggers cancellation of other goroutines)
-				return err
-			case <-ctx.Done():
-				// Context cancelled (signal or another service failed)
-				return nil // Don't propagate context cancellation as error
-			}
-		})
+		wg.Add(1)
+		go monitorServiceProcess(ctx, &wg, name, process)
 	}
 
-	// Wait for first error, signal, or all services to exit
-	err := g.Wait()
+	// Wait for signal (context cancellation) or all services to complete
+	wg.Wait()
 
 	// Perform cleanup shutdown with timeout
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -347,15 +334,60 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	// but we don't release them here to allow quick restarts with same ports.
 	// Stale ports are cleaned up automatically after 7 days of inactivity.
 
-	// Check if error was from signal (expected) or service crash (unexpected)
-	if err != nil && !errors.Is(err, context.Canceled) {
-		return err
-	}
-
+	// Always return nil due to process isolation design:
+	// Individual service crashes are logged but don't cause the run command to fail.
+	// Only return errors for infrastructure issues (dashboard, shutdown timeout, etc.)
 	return nil
 }
 
+// monitorServiceProcess monitors a single service process for exit or cancellation.
+// This function runs in its own goroutine with panic recovery to ensure one service
+// crash doesn't affect others (process isolation).
+func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName string, proc *service.ServiceProcess) {
+	defer wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			output.Error("Service monitor panic recovered for %s: %v", serviceName, r)
+		}
+	}()
+
+	// Wait for either process exit or context cancellation
+	// Use buffered channel to prevent goroutine leak
+	waitDone := make(chan error, 1)
+	go func() {
+		state, err := proc.Process.Wait()
+		if err != nil {
+			waitDone <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
+			return
+		}
+		if !state.Success() {
+			exitCode := state.ExitCode()
+			waitDone <- fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())
+			return
+		}
+		waitDone <- nil
+	}()
+
+	select {
+	case err := <-waitDone:
+		// Service exited - log it but don't cancel context (process isolation)
+		if err != nil {
+			output.Error("⚠️  %v", err)
+			output.Warning("Service %s stopped. Other services continue running.", serviceName)
+			output.Info("Press Ctrl+C to stop all services")
+		} else {
+			output.Info("Service %s exited cleanly", serviceName)
+		}
+		// Intentionally don't cancel context - other services should continue
+	case <-ctx.Done():
+		// Context cancelled by signal - proceed to graceful shutdown
+		return
+	}
+}
+
 // shutdownAllServices stops all services with graceful timeout.
+// Runs all shutdowns in parallel goroutines and waits for all to complete.
+// Returns aggregated errors from any services that failed to stop cleanly.
 func shutdownAllServices(ctx context.Context, processes map[string]*service.ServiceProcess) error {
 	var shutdownErrors []error
 	var mu sync.Mutex

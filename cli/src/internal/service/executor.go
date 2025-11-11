@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
@@ -114,7 +115,22 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		slog.Int("port", process.Port),
 		slog.Duration("timeout", timeout))
 
-	// Try graceful shutdown first
+	// On Windows, graceful shutdown via signals is not well-supported.
+	// Skip signal attempt and use Kill() directly, which Windows handles properly.
+	if runtime.GOOS == "windows" {
+		slog.Debug("using Kill() for Windows process termination",
+			slog.String("service", process.Name))
+		if err := process.Process.Kill(); err != nil {
+			return fmt.Errorf("failed to kill process: %w", err)
+		}
+		// Wait for process to exit
+		_, waitErr := process.Process.Wait()
+		slog.Info("service stopped",
+			slog.String("service", process.Name))
+		return waitErr
+	}
+
+	// On Unix/Linux/macOS, try graceful shutdown with SIGINT first
 	if err := process.Process.Signal(os.Interrupt); err != nil {
 		slog.Warn("graceful shutdown signal failed, forcing kill",
 			slog.String("service", process.Name),

@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -210,8 +211,14 @@ func TestCoverage() error {
 	}
 
 	// Generate HTML report
-	if err := sh.RunV("go", "tool", "cover", "-html="+coverageOut, "-o", coverageHTML); err != nil {
+	// Note: Go 1.25+ changed cover tool syntax, use output redirection
+	coverCmd := exec.Command("go", "tool", "cover", "-html="+coverageOut)
+	coverOutput, err := coverCmd.Output()
+	if err != nil {
 		return fmt.Errorf("failed to generate HTML coverage: %w", err)
+	}
+	if err := os.WriteFile(coverageHTML, coverOutput, 0o644); err != nil {
+		return fmt.Errorf("failed to write HTML coverage file: %w", err)
 	}
 
 	// Display coverage summary
