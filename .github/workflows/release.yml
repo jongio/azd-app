@@ -154,11 +154,6 @@ jobs:
     permissions:
       contents: write
     
-    defaults:
-      run:
-        shell: bash
-        working-directory: cli
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,6 +175,7 @@ jobs:
 
       - name: Calculate next version
         id: version
+        working-directory: cli
         run: |
           CURRENT=$(grep '^version:' extension.yaml | awk '{print $2}')
           IFS='.' read -r major minor patch <<< "$CURRENT"
@@ -205,6 +201,7 @@ jobs:
           echo "Bumping from $CURRENT to $NEXT"
 
       - name: Update version files
+        working-directory: cli
         run: |
           VERSION="${{ steps.version.outputs.next }}"
           
@@ -254,12 +251,15 @@ jobs:
           git push origin "v${VERSION}"
 
       - name: Install azd
+        working-directory: cli
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
 
       - name: Install azd extensions
+        working-directory: cli
         run: azd extension install microsoft.azd.extensions
 
       - name: Build dashboard (for embedding in binary)
+        working-directory: cli
         run: |
           cd dashboard
           npm install
@@ -267,16 +267,19 @@ jobs:
           cd ..
 
       - name: Build binaries
+        working-directory: cli
         run: |
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.next }}"
           azd x build --all
 
       - name: Package
+        working-directory: cli
         run: azd x pack
 
       - name: Extract release notes
         id: release_notes
+        working-directory: cli
         run: |
           VERSION="${{ steps.version.outputs.next }}"
           
@@ -294,6 +297,7 @@ jobs:
           cat /tmp/release-notes.md
 
       - name: Release
+        working-directory: cli
         run: |
           azd x release \
             --repo "${{ github.repository }}" \
@@ -304,9 +308,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update registry
+        working-directory: cli
         run: |
           azd x publish \
-            --registry $GITHUB_WORKSPACE/registry.json \
+            --registry ../registry.json \
             --version "${{ steps.version.outputs.next }}" \
             --repo "${{ github.repository }}"
           
