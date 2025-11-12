@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -418,11 +417,8 @@ reqs: []
 	}
 
 	err = runReqs()
-	if err == nil {
-		t.Error("Expected error with empty reqs (backwards compatibility removed), got nil")
-	}
-	if !strings.Contains(err.Error(), "no reqs defined in azure.yaml") {
-		t.Errorf("Expected error about no reqs defined, got: %v", err)
+	if err != nil {
+		t.Errorf("Expected no error with empty reqs section, got: %v", err)
 	}
 }
 

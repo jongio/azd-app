@@ -156,8 +156,16 @@ func executeReqs() error {
 		return err
 	}
 
+	// If no reqs section exists, skip checks gracefully
 	if len(azureYaml.Reqs) == 0 {
-		return fmt.Errorf("no reqs defined in azure.yaml - run 'azd app reqs --generate' to add them")
+		if output.IsJSON() {
+			return output.PrintJSON(ReqsResult{
+				Satisfied: true,
+				Reqs:      []ReqResult{},
+			})
+		}
+		output.Info("No reqs section found in azure.yaml - skipping checks")
+		return nil
 	}
 
 	// Initialize cache manager
