@@ -164,7 +164,7 @@ func executeReqs() error {
 				Reqs:      []ReqResult{},
 			})
 		}
-		output.Info("No reqs section found in azure.yaml - skipping checks")
+		output.Info("No reqs defined in azure.yaml - skipping checks. Run 'azd app reqs --generate' to add requirement checks.")
 		return nil
 	}
 
