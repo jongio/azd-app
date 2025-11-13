@@ -231,6 +231,20 @@ jobs:
         working-directory: cli
         run: azd x pack
 
+      - name: Prepare artifacts for azd x release
+        run: |
+          BASE_VERSION="${{ steps.version.outputs.base_version }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # azd x pack puts files in base version directory (0.5.7)
+          # azd x release looks for them in PR version directory (0.5.7-pr55)
+          # Copy files to the expected location
+          mkdir -p ~/.azd/registry/jongio.azd.app/${VERSION}
+          cp ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/* ~/.azd/registry/jongio.azd.app/${VERSION}/
+          
+          echo "Artifacts available at:"
+          ls -la ~/.azd/registry/jongio.azd.app/${VERSION}/
+
       - name: Create PR pre-release
         working-directory: cli
         env:
