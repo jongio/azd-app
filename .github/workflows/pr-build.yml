@@ -306,43 +306,96 @@ jobs:
           
           # azd x publish reads from the local cache (BASE_VERSION) 
           # but we need to update URLs to use the TAG in the release
-          # So we'll manually create the registry JSON
+          # Registry format must match the official azd extension registry structure
           cat > ../pr-registry.json <<EOF
           {
-            "extensions": {
-              "jongio.azd.app": {
-                "versions": {
-                  "$VERSION": {
-                    "platforms": {
-                      "darwin-amd64": {
-                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-darwin-amd64.zip",
-                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-darwin-amd64.zip | awk '{print $1}')"
+            "extensions": [
+              {
+                "id": "jongio.azd.app",
+                "namespace": "app",
+                "displayName": "App Extension",
+                "description": "A collection of developer productivity commands for Azure Developer CLI",
+                "versions": [
+                  {
+                    "version": "$VERSION",
+                    "capabilities": [
+                      "custom-commands",
+                      "lifecycle-events",
+                      "mcp-server"
+                    ],
+                    "usage": "azd app <command> [options]",
+                    "examples": [
+                      {
+                        "name": "hi",
+                        "description": "Say hello and display extension info",
+                        "usage": "azd app hi"
                       },
-                      "darwin-arm64": {
-                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-darwin-arm64.zip",
-                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-darwin-arm64.zip | awk '{print $1}')"
-                      },
-                      "linux-amd64": {
-                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-linux-amd64.tar.gz",
-                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-linux-amd64.tar.gz | awk '{print $1}')"
-                      },
-                      "linux-arm64": {
-                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-linux-arm64.tar.gz",
-                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-linux-arm64.tar.gz | awk '{print $1}')"
-                      },
-                      "windows-amd64": {
-                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-windows-amd64.zip",
-                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-windows-amd64.zip | awk '{print $1}')"
-                      },
-                      "windows-arm64": {
-                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-windows-arm64.zip",
-                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-windows-arm64.zip | awk '{print $1}')"
+                      {
+                        "name": "reqs",
+                        "description": "Verify all prerequisites are installed",
+                        "usage": "azd app reqs"
                       }
-                    }
+                    ],
+                    "artifacts": {
+                      "darwin/amd64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-darwin-amd64.zip | awk '{print $1}')"
+                        },
+                        "entryPoint": "jongio-azd-app-darwin-amd64",
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-darwin-amd64.zip"
+                      },
+                      "darwin/arm64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-darwin-arm64.zip | awk '{print $1}')"
+                        },
+                        "entryPoint": "jongio-azd-app-darwin-arm64",
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-darwin-arm64.zip"
+                      },
+                      "linux/amd64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-linux-amd64.tar.gz | awk '{print $1}')"
+                        },
+                        "entryPoint": "jongio-azd-app-linux-amd64",
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-linux-amd64.tar.gz"
+                      },
+                      "linux/arm64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-linux-arm64.tar.gz | awk '{print $1}')"
+                        },
+                        "entryPoint": "jongio-azd-app-linux-arm64",
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-linux-arm64.tar.gz"
+                      },
+                      "windows/amd64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-windows-amd64.zip | awk '{print $1}')"
+                        },
+                        "entryPoint": "jongio-azd-app-windows-amd64.exe",
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-windows-amd64.zip"
+                      },
+                      "windows/arm64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-windows-arm64.zip | awk '{print $1}')"
+                        },
+                        "entryPoint": "jongio-azd-app-windows-arm64.exe",
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-windows-arm64.zip"
+                      }
+                    },
+                    "entryPoint": "app"
                   }
-                }
+                ],
+                "tags": [
+                  "developer",
+                  "productivity",
+                  "app"
+                ]
               }
-            }
+            ]
           }
           EOF
           
