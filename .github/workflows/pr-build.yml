@@ -291,6 +291,8 @@ jobs:
           
           echo "Generated PR registry:"
           cat /tmp/pr-registry.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload PR registry to release
         run: |
