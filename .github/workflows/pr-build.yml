@@ -244,16 +244,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          TAG="azd-ext-jongio-azd-app_${VERSION}"
           PR_NUM="${{ steps.pr.outputs.number }}"
           
-          # Create pre-release using azd x release (same as release.yml but with --prerelease)
-          azd x release \
+          # Delete existing release if it exists (idempotent for re-runs)
+          gh release delete "$TAG" --repo "${{ github.repository }}" --yes 2>/dev/null || true
+          
+          # Create pre-release with all binaries (same pattern as release.yml but with --prerelease)
+          gh release create "$TAG" \
             --repo "${{ github.repository }}" \
-            --version "$VERSION" \
             --title "PR #${PR_NUM} Preview (v${VERSION})" \
             --notes "PR #${PR_NUM} preview build. Test using the one-line installer from the PR comment." \
             --prerelease \
-            --confirm
+            ~/.azd/registry/jongio.azd.app/${VERSION}/*
 
       - name: Update registry
         working-directory: cli
