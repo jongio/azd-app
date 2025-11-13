@@ -218,9 +218,6 @@ jobs:
           ${{ steps.pr.outputs.sha }}
           EOF
           
-          # Create GitHub pre-release using gh CLI (azd x release doesn't support custom tags)
-          cd cli
-          
           # Create tag
           git tag "$TAG"
           git push origin "$TAG"
