@@ -284,6 +284,74 @@ func Vet() error {
 	return nil
 }
 
+// Staticcheck runs staticcheck for advanced static analysis.
+func Staticcheck() error {
+	fmt.Println("Running staticcheck...")
+	if err := sh.RunV("staticcheck", "./..."); err != nil {
+		fmt.Println("⚠️  staticcheck found issues. Ensure staticcheck is installed:")
+		fmt.Println("    go install honnef.co/go/tools/cmd/staticcheck@latest")
+		return err
+	}
+	fmt.Println("✅ staticcheck passed!")
+	return nil
+}
+
+// ModTidy ensures go.mod and go.sum are tidy.
+func ModTidy() error {
+	fmt.Println("Running go mod tidy...")
+	if err := sh.RunV("go", "mod", "tidy"); err != nil {
+		return fmt.Errorf("go mod tidy failed: %w", err)
+	}
+
+	// Check if there are any changes
+	if err := sh.RunV("git", "diff", "--exit-code", "go.mod", "go.sum"); err != nil {
+		return fmt.Errorf("go.mod or go.sum has uncommitted changes after running go mod tidy - please review and commit these changes")
+	}
+
+	fmt.Println("✅ go mod tidy passed!")
+	return nil
+}
+
+// ModVerify verifies dependencies have expected content.
+func ModVerify() error {
+	fmt.Println("Running go mod verify...")
+	if err := sh.RunV("go", "mod", "verify"); err != nil {
+		return fmt.Errorf("go mod verify failed: %w", err)
+	}
+	fmt.Println("✅ go mod verify passed!")
+	return nil
+}
+
+// Vulncheck runs govulncheck to check for known vulnerabilities.
+func Vulncheck() error {
+	fmt.Println("Running govulncheck...")
+	if err := sh.RunV("govulncheck", "./..."); err != nil {
+		fmt.Println("⚠️  govulncheck found vulnerabilities. Ensure govulncheck is installed:")
+		fmt.Println("    go install golang.org/x/vuln/cmd/govulncheck@latest")
+		return err
+	}
+	fmt.Println("✅ No known vulnerabilities found!")
+	return nil
+}
+
+// runVulncheck runs govulncheck if available, otherwise skips.
+func runVulncheck() error {
+	fmt.Println("Checking for known vulnerabilities...")
+	// Check if govulncheck is installed
+	if _, err := exec.LookPath("govulncheck"); err != nil {
+		fmt.Println("⚠️  govulncheck not installed - skipping vulnerability check")
+		fmt.Println("    Install with: go install golang.org/x/vuln/cmd/govulncheck@latest")
+		return nil // Don't fail preflight if not installed
+	}
+
+	if err := sh.RunV("govulncheck", "./..."); err != nil {
+		fmt.Println("⚠️  Known vulnerabilities found!")
+		return err
+	}
+	fmt.Println("✅ No known vulnerabilities found!")
+	return nil
+}
+
 // Clean removes build artifacts and coverage reports.
 func Clean() error {
 	fmt.Println("Cleaning build artifacts...")
@@ -369,12 +437,16 @@ func Preflight() error {
 		fn   func() error
 	}{
 		{"Formatting code", Fmt},
+		{"Verifying go.mod consistency", ModVerify},
+		{"Tidying go.mod and go.sum", ModTidy},
 		{"Building and linting dashboard", DashboardBuild},
 		{"Running dashboard tests", DashboardTest},
 		{"Building Go binary", Build},
 		{"Running go vet", Vet},
+		{"Running staticcheck", Staticcheck},
 		{"Running standard linting", Lint},
 		{"Running quick security scan", runQuickSecurity},
+		{"Checking for known vulnerabilities", runVulncheck},
 		{"Running all tests with coverage", TestCoverage},
 	}
 
@@ -387,7 +459,8 @@ func Preflight() error {
 	}
 
 	fmt.Println("✅ All preflight checks passed!")
-	fmt.Println("💡 Tip: Run 'mage security' for a full security scan (~4 minutes)")
+	fmt.Println("💡 Tips:")
+	fmt.Println("   • Run 'mage security' for a full security scan (~4 minutes)")
 	fmt.Println("🎉 Ready to ship!")
 	return nil
 }
