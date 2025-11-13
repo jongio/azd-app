@@ -1,72 +1,73 @@
-# process isolation implementation
+git fetch --all
+git rebase # Process Isolation Implementation
 
-## overview
+## Overview
 
-fixed two critical issues with `azd app run`:
-1. **windows process shutdown errors**: "graceful shutdown signal failed, forcing kill" error="invalid argument" / "not supported by windows"
-2. **service crash propagation**: individual service crashes were terminating the entire `azd app run` process and all other services
+Fixed two critical issues with `azd app run`:
+1. **Windows process shutdown errors**: "graceful shutdown signal failed, forcing kill" error="invalid argument" / "not supported by windows"
+2. **Service crash propagation**: individual service crashes were terminating the entire `azd app run` process and all other services
 
-## changes made
+## Changes Made
 
-### 1. windows process termination fix
+### 1. Windows Process Termination Fix
 **file**: `cli/src/internal/service/executor.go`
 
-**problem**: windows doesn't support `os.interrupt` signal properly, causing "not supported by windows" errors
+**problem**: Windows doesn't support `os.Interrupt` signal properly, causing "not supported by windows" errors
 
 **solution**: platform-specific process termination
-- unix/linux/macos: use graceful `sigint` shutdown with timeout
-- windows: use direct `kill()` instead of signals
+- Unix/Linux/macOS: use graceful `SIGINT` shutdown with timeout
+- Windows: use direct `Kill()` instead of signals
 
 ```go
-// windows doesn't support os.interrupt properly, so kill directly
-if runtime.goos == "windows" {
-    return process.process.kill()
+// Windows doesn't support os.Interrupt properly, so kill directly
+if runtime.GOOS == "windows" {
+    return process.Process.Kill()
 }
-// unix/linux/macos can gracefully handle interrupt signal
-if err := process.process.signal(os.interrupt); err != nil {
-    return fmt.errorf("failed to send interrupt signal: %w", err)
+// Unix/Linux/macOS can gracefully handle interrupt signal
+if err := process.Process.Signal(os.Interrupt); err != nil {
+    return fmt.Errorf("failed to send interrupt signal: %w", err)
 }
 ```
 
 **test coverage**:
-- `testservicegraceful_windows()` - validates no "not supported" errors on windows
-- `testservicegraceful_success()` - validates graceful shutdown with timeout (all platforms)
-- `testservicegraceful_forcedkillaftertimeout()` - validates timeout behavior
+- `TestStopServiceGraceful_Windows()` - validates no "not supported" errors on Windows
+- `TestStopServiceGraceful_Success()` - validates graceful shutdown with timeout (all platforms)
+- `TestStopServiceGraceful_ForcedKillAfterTimeout()` - validates timeout behavior
 
-### 2. process isolation implementation
+### 2. Process Isolation Implementation
 **file**: `cli/src/cmd/app/commands/run.go`
 
-**problem**: `errgroup.group` causes fail-fast behavior - first service error cancels all services
+**problem**: `errgroup.Group` causes fail-fast behavior - first service error cancels all services
 
-**solution**: replaced `errgroup` with `sync.waitgroup` for true process isolation
+**solution**: replaced `errgroup` with `sync.WaitGroup` for true process isolation
 
 **architecture**:
 ```
-monitorservicesuntilshutdown()
-├── sync.waitgroup - coordinates independent goroutines
-├── context with signal.notifycontext - handles ctrl+c
+monitorServicesUntilShutdown()
+├── sync.WaitGroup - coordinates independent goroutines
+├── context with signal.NotifyContext - handles ctrl+c
 └── for each service:
     └── goroutine with:
         ├── defer/recover - catches panics
-        ├── monitorserviceprocess() - monitors one service
+        ├── monitorServiceProcess() - monitors one service
         └── no error propagation - crashes logged but don't affect others
 ```
 
 **key functions**:
 
-1. **monitorservicesuntilshutdown()** - orchestrates all service monitoring
-   - uses `sync.waitgroup` instead of `errgroup`
-   - creates context with signal.notifycontext for ctrl+c handling
+1. **monitorServicesUntilShutdown()** - orchestrates all service monitoring
+   - uses `sync.WaitGroup` instead of `errgroup`
+   - creates context with signal.NotifyContext for ctrl+c handling
    - spawns independent goroutine per service
    - waits for shutdown signal, not for processes to exit
 
-2. **monitorserviceprocess()** - monitors individual service (extracted helper)
+2. **monitorServiceProcess()** - monitors individual service (extracted helper)
    - handles service output streaming
    - logs service exit (clean or crash)
    - doesn't propagate errors or cancel context
    - enables unit testing of monitoring logic
 
-3. **shutdownallservices()** - gracefully stops all services
+3. **shutdownAllServices()** - gracefully stops all services
    - enhanced documentation
    - concurrent shutdown using goroutines
    - waits for all to complete
@@ -74,63 +75,63 @@ monitorservicesuntilshutdown()
 
 **panic recovery**:
 ```go
-go func(name string, process *service.serviceprocess) {
-    defer wg.done()
+go func(name string, process *service.ServiceProcess) {
+    defer wg.Done()
     defer func() {
         if r := recover(); r != nil {
-            slog.error("panic in service monitor", "service", name, "panic", r)
+            slog.Error("panic in service monitor", "service", name, "panic", r)
         }
     }()
-    monitorserviceprocess(ctx, name, process)
+    monitorServiceProcess(ctx, name, process)
 }(name, process)
 ```
 
-### 3. comprehensive test coverage
+### 3. Comprehensive Test Coverage
 **file**: `cli/src/cmd/app/commands/run_test.go`
 
 **new tests**:
-1. `testmonitorserviceprocess_cleanexit()` - validates clean service exit handling
-2. `testmonitorserviceprocess_crashexit()` - validates crash doesn't propagate
-3. `testmonitorserviceprocess_contextcancellation()` - validates ctrl+c handling
+1. `TestMonitorServiceProcess_CleanExit()` - validates clean service exit handling
+2. `TestMonitorServiceProcess_CrashExit()` - validates crash doesn't propagate
+3. `TestMonitorServiceProcess_ContextCancellation()` - validates ctrl+c handling
 
 **updated tests**:
-- `testprocessexit_doesnotstopotherservices()` - validates full isolation
-- `testmonitorservicesuntilshutdown_startuptimeout()` - updated for new behavior
-- `testmonitorservicesuntilshutdown_multipleservices()` - fixed cleanup timing
+- `TestProcessExit_DoesNotStopOtherServices()` - validates full isolation
+- `TestMonitorServicesUntilShutdown_StartupTimeout()` - updated for new behavior
+- `TestMonitorServicesUntilShutdown_MultipleServices()` - fixed cleanup timing
 
 **coverage**: 41.3% of commands package statements
 
-### 4. flaky test fixes
+### 4. Flaky Test Fixes
 **file**: `cli/src/internal/service/graceful_shutdown_test.go`
 
-**problem**: `teststopservicegraceful_success` occasionally failed with "terminateprocess: access is denied"
+**problem**: `TestStopServiceGraceful_Success` occasionally failed with "TerminateProcess: Access is denied"
 
-**solution**: accept "access is denied" as valid (process already exited)
+**solution**: accept "Access is denied" as valid (process already exited)
 ```go
-if err != nil && !strings.contains(err.error(), "access is denied") {
-    t.errorf("stopservicegraceful() error = %v, want nil or 'access is denied'", err)
+if err != nil && !strings.Contains(err.Error(), "Access is denied") {
+    t.Errorf("StopServiceGraceful() error = %v, want nil or 'Access is denied'", err)
 }
 ```
 
 **validation**: ran test 5 times consecutively - all passed
 
-## behavioral changes
+## Behavioral Changes
 
-### before
+### Before
 - any service crash → entire `azd app run` terminates
 - all services stop when one service exits
 - dashboard stops when any service fails
 - windows processes fail to shutdown cleanly
 - error: "graceful shutdown signal failed, forcing kill"
 
-### after
+### After
 - service crashes are isolated → other services continue running
 - monitoring waits for ctrl+c, not for process exit
 - dashboard continues running even if all services crash
 - windows processes shutdown cleanly without signal errors
 - user must press ctrl+c to stop all services
 
-### user experience
+### User Experience
 **before**:
 ```
 starting service api...
@@ -153,11 +154,11 @@ starting service web...
 <user can fix api and restart it independently>
 ```
 
-## implementation patterns
+## Implementation Patterns
 
-### idiomatic go
+### Idiomatic Go
 this implementation follows standard go patterns used in:
-- `net/http.server` - uses sync.waitgroup for connection handling
+- `net/http.Server` - uses sync.WaitGroup for connection handling
 - `database/sql` - connection pools with independent goroutines
 - `sync` package - canonical pattern for independent concurrent tasks
 
@@ -167,34 +168,34 @@ this implementation follows standard go patterns used in:
 - parallel computations where all must succeed
 - examples: batch processing, multi-source data fetching
 
-**sync.waitgroup** is designed for:
+**sync.WaitGroup** is designed for:
 - independent concurrent tasks
 - service orchestration where isolation is needed
 - examples: http servers, database connection pools, our use case
 
-## verification
+## Verification
 
-### test results
+### Test Results
 ```
 commands package: pass (42.793s, 41.3% coverage)
 service package:  pass (16.821s)
 build:            success
 ```
 
-### manual validation
+### Manual Validation
 1. windows shutdown: no more "invalid argument" errors
 2. process isolation: one service crash doesn't affect others
 3. ctrl+c handling: clean shutdown of all services
 4. dashboard persistence: continues running through service crashes
 
-## files modified
+## Files Modified
 1. `cli/src/internal/service/executor.go` - windows process termination
 2. `cli/src/internal/service/executor_test.go` - windows termination test
 3. `cli/src/cmd/app/commands/run.go` - process isolation architecture
 4. `cli/src/cmd/app/commands/run_test.go` - comprehensive test coverage
 5. `cli/src/internal/service/graceful_shutdown_test.go` - flaky test fix
 
-## next steps (optional)
+## Next Steps (Optional)
 1. integration tests for multi-service scenarios
 2. performance benchmarks for large service counts
 3. service restart logic (currently requires manual restart)
