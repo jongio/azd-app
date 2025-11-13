@@ -242,13 +242,23 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
           
+          # List and upload all archives
+          ARCHIVES_DIR=~/.azd/registry/jongio.azd.app/${VERSION}
+          if [ ! -d "$ARCHIVES_DIR" ]; then
+            echo "Error: Archives directory not found: $ARCHIVES_DIR"
+            exit 1
+          fi
+          
+          echo "Archives found:"
+          ls -la "$ARCHIVES_DIR"
+          
           # Create release with all archives
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "PR #${PR_NUM} Preview: ${VERSION}" \
             --notes-file /tmp/pr-release-notes.md \
             --prerelease \
-            ~/.azd/registry/jongio.azd.app/${VERSION}/*
+            "$ARCHIVES_DIR"/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
