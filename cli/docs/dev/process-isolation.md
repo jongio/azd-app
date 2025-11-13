@@ -1,4 +1,5 @@
-# Process Isolation Implementation
+git fetch --all
+git rebase # Process Isolation Implementation
 
 ## Overview
 
