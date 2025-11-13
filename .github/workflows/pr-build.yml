@@ -1,11 +1,11 @@
 name: PR Build
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [ main ]
-    paths:
-      - 'cli/**'
-      - '.github/workflows/pr-build.yml'
   pull_request_target:
     branches: [ main ]
     types: [labeled]
@@ -25,11 +25,16 @@ jobs:
   check-permission:
     name: Check Build Permission
     runs-on: ubuntu-latest
-    # Skip this check for workflow_dispatch or if PR has 'safe-to-build' label
+    # Only run if:
+    # 1. CI workflow succeeded, OR
+    # Only run if:
+    # 1. CI workflow succeeded, OR
+    # 2. Manual trigger via workflow_dispatch, OR
+    # 3. PR labeled with 'safe-to-build'
     if: |
       github.event_name == 'workflow_dispatch' || 
       github.event_name == 'pull_request_target' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR')
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       allowed: ${{ steps.check.outputs.allowed }}
       pr_number: ${{ steps.check.outputs.pr_number }}
@@ -63,24 +68,44 @@ jobs:
               return;
             }
             
+            // workflow_run - triggered after CI passes
+            if (context.eventName === 'workflow_run') {
+              // Get the PR associated with the workflow run
+              const { data: prs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                head: `${context.repo.owner}:${context.payload.workflow_run.head_branch}`
+              });
+              
+              if (prs.length > 0) {
+                const pr = prs[0];
+                const association = pr.author_association;
+                
+                // Check if trusted contributor
+                const trustedAssociations = ['OWNER', 'MEMBER', 'COLLABORATOR', 'CONTRIBUTOR'];
+                if (trustedAssociations.includes(association)) {
+                  allowed = true;
+                  prNumber = pr.number;
+                  prSha = pr.head.sha;
+                } else {
+                  // For first-time contributors, check if they have the label
+                  const hasLabel = pr.labels.some(label => label.name === 'safe-to-build');
+                  if (hasLabel) {
+                    allowed = true;
+                    prNumber = pr.number;
+                    prSha = pr.head.sha;
+                  }
+                }
+              }
+            }
+            
             // pull_request_target with 'safe-to-build' label
             if (context.eventName === 'pull_request_target') {
               const hasLabel = context.payload.pull_request.labels.some(
                 label => label.name === 'safe-to-build'
               );
               if (hasLabel) {
-                allowed = true;
-                prNumber = context.payload.pull_request.number;
-                prSha = context.payload.pull_request.head.sha;
-              }
-            }
-            
-            // Regular pull_request from trusted contributor
-            if (context.eventName === 'pull_request') {
-              const association = context.payload.pull_request.author_association;
-              // OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR are trusted
-              const trustedAssociations = ['OWNER', 'MEMBER', 'COLLABORATOR', 'CONTRIBUTOR'];
-              if (trustedAssociations.includes(association)) {
                 allowed = true;
                 prNumber = context.payload.pull_request.number;
                 prSha = context.payload.pull_request.head.sha;
@@ -94,22 +119,6 @@ jobs:
             if (!allowed) {
               core.notice('Build skipped - requires maintainer approval. Add "safe-to-build" label to proceed.');
             }
-
-      - name: Comment on PR (first-time contributor)
-        if: steps.check.outputs.allowed == 'false' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: `👋 Thank you for your contribution! 
-              
-              A preview build requires approval from a maintainer for first-time contributors.
-              
-              **For maintainers:** Add the \`safe-to-build\` label to this PR to generate a preview build.`
-            });
 
   build-pr:
     name: Build PR Preview
