@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/output"
 	"gopkg.in/yaml.v3"
 )
 
@@ -393,36 +393,99 @@ func TestRunPrereqsWithInvalidYAML(t *testing.T) {
 }
 
 func TestRunPrereqsWithNoPrereqs(t *testing.T) {
-	// Save current directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
-			t.Logf("Warning: failed to restore directory: %v", chdirErr)
-		}
-	}()
-
-	// Create temporary directory with empty reqs
-	tempDir := t.TempDir()
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatal(err)
-	}
-
-	emptyYAML := `name: test
+	tests := []struct {
+		name           string
+		yamlContent    string
+		useJSONOutput  bool
+		expectedError  bool
+		validateOutput func(t *testing.T)
+	}{
+		{
+			name: "empty reqs array - default output",
+			yamlContent: `name: test
 reqs: []
-`
-	if err := os.WriteFile("azure.yaml", []byte(emptyYAML), 0600); err != nil {
-		t.Fatal(err)
+`,
+			useJSONOutput: false,
+			expectedError: false,
+		},
+		{
+			name: "no reqs section - default output",
+			yamlContent: `name: test
+services:
+  - name: web
+`,
+			useJSONOutput: false,
+			expectedError: false,
+		},
+		{
+			name: "empty reqs array - JSON output",
+			yamlContent: `name: test
+reqs: []
+`,
+			useJSONOutput: true,
+			expectedError: false,
+		},
+		{
+			name: "no reqs section - JSON output",
+			yamlContent: `name: test
+services:
+  - name: api
+`,
+			useJSONOutput: true,
+			expectedError: false,
+		},
 	}
 
-	err = runReqs()
-	if err == nil {
-		t.Error("Expected error with empty reqs (backwards compatibility removed), got nil")
-	}
-	if !strings.Contains(err.Error(), "no reqs defined in azure.yaml") {
-		t.Errorf("Expected error about no reqs defined, got: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save current directory
+			originalDir, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+					t.Logf("Warning: failed to restore directory: %v", chdirErr)
+				}
+			}()
+
+			// Create temporary directory
+			tempDir := t.TempDir()
+			if err := os.Chdir(tempDir); err != nil {
+				t.Fatal(err)
+			}
+
+			// Write azure.yaml
+			if err := os.WriteFile("azure.yaml", []byte(tt.yamlContent), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			// Set output format
+			if tt.useJSONOutput {
+				if err := output.SetFormat("json"); err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					_ = output.SetFormat("default")
+				}()
+			}
+
+			// Run the command
+			err = runReqs()
+
+			// Verify error expectation
+			if tt.expectedError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectedError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+
+			// Additional validation if provided
+			if tt.validateOutput != nil {
+				tt.validateOutput(t)
+			}
+		})
 	}
 }
 
