@@ -223,23 +223,22 @@ jobs:
       - name: Build binaries
         working-directory: cli
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Temporarily update extension.yaml with PR version BEFORE building
+          sed -i "s/^version: .*/version: ${VERSION}/" extension.yaml
+          
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
           azd x build --all
+          
+          # Restore original extension.yaml
+          git restore extension.yaml
 
       - name: Package
         working-directory: cli
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          
-          # Temporarily update extension.yaml with PR version
-          sed -i "s/^version: .*/version: ${VERSION}/" extension.yaml
-          
-          # Package with PR version
           azd x pack
-          
-          # Restore original extension.yaml
-          git restore extension.yaml
 
       - name: Create PR pre-release
         env:
