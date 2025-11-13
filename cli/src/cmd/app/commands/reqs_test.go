@@ -465,7 +465,9 @@ services:
 				if err := output.SetFormat("json"); err != nil {
 					t.Fatal(err)
 				}
-				defer output.SetFormat("default")
+				defer func() {
+					_ = output.SetFormat("default")
+				}()
 			}
 
 			// Run the command
