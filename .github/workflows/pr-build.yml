@@ -220,79 +220,60 @@ jobs:
           npm ci
           npm run build
 
-      - name: Build binaries
+      - name: Update extension.yaml with PR version
         working-directory: cli
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
-          # Temporarily update extension.yaml with PR version BEFORE building
+          # Temporarily update version (won't commit)
           sed -i "s/^version: .*/version: ${VERSION}/" extension.yaml
-          
+
+      - name: Build binaries
+        working-directory: cli
+        run: |
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
           azd x build --all
 
       - name: Package
         working-directory: cli
-        run: |
-          # Pack with the modified extension.yaml (still has PR version)
-          azd x pack
-          
-          # Now restore original extension.yaml
-          git restore extension.yaml
+        run: azd x pack
 
       - name: Create PR pre-release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          PR_NUM="${{ steps.pr.outputs.number }}"
-          
-          # Delete existing release if it exists
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
-          fi
-          
-          # Create pre-release with all binaries using gh CLI
-          # Pre-releases are public but shown separately on releases page
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "PR #${PR_NUM} Preview (v${VERSION})" \
-            --notes "PR #${PR_NUM} preview build. Test this build using the one-line installer from the PR comment." \
-            --prerelease \
-            ~/.azd/registry/jongio.azd.app/${VERSION}/*
-
-      - name: Generate PR registry
         working-directory: cli
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PR_NUM="${{ steps.pr.outputs.number }}"
+          
+          # Create pre-release using azd x release (same as release.yml but with --prerelease)
+          azd x release \
+            --repo "${{ github.repository }}" \
+            --version "$VERSION" \
+            --title "PR #${PR_NUM} Preview (v${VERSION})" \
+            --notes "PR #${PR_NUM} preview build. Test using the one-line installer from the PR comment." \
+            --prerelease \
+            --confirm
+
+      - name: Update registry
+        working-directory: cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
-          # Wait a moment for release to be fully created
-          sleep 5
-          
-          # Create empty registry file (azd x publish will update it)
+          # Generate registry (saves to /tmp/pr-registry.json for the install scripts)
           echo '{"extensions":[]}' > /tmp/pr-registry.json
-          
-          # Generate registry using azd x publish with PR version
           azd x publish \
             --registry /tmp/pr-registry.json \
             --version "$VERSION" \
             --repo "${{ github.repository }}"
           
-          echo "Generated PR registry with version ${VERSION}:"
-          cat /tmp/pr-registry.json
-
-      - name: Upload PR registry to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          
-          # Add registry to the release
+          # Upload registry to the release so install scripts can download it
+          TAG="azd-ext-jongio-azd-app_${VERSION}"
           gh release upload "$TAG" --repo "${{ github.repository }}" /tmp/pr-registry.json --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate installation instructions
         id: instructions
@@ -323,73 +304,26 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/install-pr.sh | bash -s $PR_NUM $VERSION
           \`\`\`
           
-          ### Manual Installation
+          ### Uninstall
           
-          <details>
-          <summary>Click to expand manual installation steps</summary>
-          
-          **1. Download the PR build artifacts** from the [workflow run](https://github.com/$REPO/actions/runs/${{ github.run_id }})
-          
-          **2. Extract the artifacts:**
-          \`\`\`bash
-          unzip pr-$PR_NUM-build.zip
-          \`\`\`
-          
-          **3. Add as a custom registry source:**
-          \`\`\`bash
-          azd config set alpha.extension.enabled on
-          azd extension source add -n pr-$PR_NUM -t file -l "\$(pwd)/pr-registry.json"
-          \`\`\`
-          
-          **4. Install the preview:**
-          \`\`\`bash
-          azd extension install jongio.azd.app --version $VERSION
-          \`\`\`
-          
-          **5. Verify installation:**
-          \`\`\`bash
-          azd app version  # Should show: azd app extension version $VERSION
-          azd app hi
-          azd app reqs
-          \`\`\`
-          
-          </details>
-          
-          ### Restore Stable Version
-          
-          When you're done testing, restore the stable version:
+          When you're done testing:
           
           **PowerShell (Windows):**
           \`\`\`powershell
-          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/restore-stable.ps1) }"
+          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/uninstall-pr.ps1) } -PrNumber $PR_NUM"
           \`\`\`
           
           **Bash (macOS/Linux):**
           \`\`\`bash
-          curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/restore-stable.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/uninstall-pr.sh | bash -s $PR_NUM
           \`\`\`
-          
-          <details>
-          <summary>Click to expand manual cleanup steps</summary>
-          
-          \`\`\`bash
-          azd extension uninstall jongio.azd.app
-          azd extension source remove pr-$PR_NUM
-          rm pr-registry.json
-          azd extension source add -n app -t url -l "https://raw.githubusercontent.com/$REPO/refs/heads/main/registry.json"
-          azd extension install jongio.azd.app
-          \`\`\`
-          
-          </details>
           
           ---
           
           **Build Info:**
           - **Version:** \`$VERSION\`
           - **Commit:** \`$SHORT_COMMIT\`
-          - **Binaries:** [Download from workflow artifacts](https://github.com/$REPO/actions/runs/${{ github.run_id }})
-          - **Registry:** [Download from release](https://github.com/$REPO/releases/tag/$TAG)
-          - **Retention:** 90 days (artifacts), indefinite (registry)
+          - **Release:** [View pre-release](https://github.com/$REPO/releases/tag/$TAG)
           
           **What to Test:**
           Please review the PR description and test the changes described there.
