@@ -372,6 +372,9 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
           
+          # Delete existing release if it exists
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          
           # Create a lightweight tag and release with just the registry file
           # This allows one-line install scripts to work without gh auth
           # Binaries are distributed via artifacts to avoid cluttering releases
