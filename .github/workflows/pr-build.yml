@@ -272,8 +272,6 @@ jobs:
           # Upload registry to the release so install scripts can download it
           TAG="azd-ext-jongio-azd-app_${VERSION}"
           gh release upload "$TAG" --repo "${{ github.repository }}" /tmp/pr-registry.json --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate installation instructions
         id: instructions
