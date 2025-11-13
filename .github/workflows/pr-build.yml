@@ -304,13 +304,24 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           
-          # Use azd x publish to generate the registry file
-          # It will read from the local cache and create proper registry format
+          # Use azd x publish to generate the registry file with proper format
           azd x publish \
             --registry ../pr-registry.json \
             --version "$VERSION" \
-            --repo "${{ github.repository }}" \
-            --tag "$TAG"
+            --repo "${{ github.repository }}"
+          
+          # Update the URLs in the registry to use our custom PR tag instead of the default tag
+          # azd x publish generates URLs like: releases/download/azd-ext-jongio-azd-app_VERSION/...
+          # We need: releases/download/TAG/...
+          DEFAULT_TAG="azd-ext-jongio-azd-app_${VERSION}"
+          
+          # Use jq to update all URLs in the artifacts
+          jq --arg old_tag "$DEFAULT_TAG" --arg new_tag "$TAG" '
+            .extensions[0].versions[0].artifacts |= 
+            with_entries(.value.url |= gsub($old_tag; $new_tag))
+          ' ../pr-registry.json > ../pr-registry-updated.json
+          
+          mv ../pr-registry-updated.json ../pr-registry.json
           
           echo "Generated PR registry:"
           cat ../pr-registry.json
