@@ -272,6 +272,9 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
+          # Wait a moment for release to be fully created
+          sleep 5
+          
           # Generate registry using azd x publish (same as release.yml)
           azd x publish \
             --registry /tmp/pr-registry.json \
