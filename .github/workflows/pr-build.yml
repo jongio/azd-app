@@ -229,7 +229,9 @@ jobs:
 
       - name: Package
         working-directory: cli
-        run: azd x pack
+        run: |
+          export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
+          azd x pack
 
       - name: Prepare artifacts for azd x release
         run: |
@@ -278,13 +280,13 @@ jobs:
           # Create empty registry file (azd x publish will update it)
           echo '{"extensions":[]}' > /tmp/pr-registry.json
           
-          # Generate registry using azd x publish (same as release.yml)
+          # Generate registry using azd x publish with PR version
           azd x publish \
             --registry /tmp/pr-registry.json \
             --version "$VERSION" \
             --repo "${{ github.repository }}"
           
-          echo "Generated PR registry:"
+          echo "Generated PR registry with version ${VERSION}:"
           cat /tmp/pr-registry.json
 
       - name: Upload PR registry to release
