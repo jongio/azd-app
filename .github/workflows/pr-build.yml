@@ -231,158 +231,49 @@ jobs:
         working-directory: cli
         run: azd x pack
 
-      - name: Prepare artifacts for upload
-        run: |
-          BASE_VERSION="${{ steps.version.outputs.base_version }}"
-          VERSION="${{ steps.version.outputs.version }}"
-          
-          # Create artifacts directory
-          mkdir -p /tmp/pr-artifacts
-          
-          # Copy all archives to artifacts directory
-          cp ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/* /tmp/pr-artifacts/
-          
-          # Create PR registry manually with correct version
-          cat > /tmp/pr-artifacts/pr-registry.json <<'EOF'
-          {
-            "extensions": [
-              {
-                "id": "jongio.azd.app",
-                "namespace": "app",
-                "displayName": "App Extension (PR Build)",
-                "description": "PR preview build - A collection of developer productivity commands for Azure Developer CLI",
-                "versions": [
-                  {
-                    "version": "VERSION_PLACEHOLDER",
-                    "capabilities": [
-                      "custom-commands",
-                      "lifecycle-events",
-                      "mcp-server"
-                    ],
-                    "usage": "azd app <command> [options]",
-                    "examples": [
-                      {
-                        "name": "hi",
-                        "description": "Say hello and display extension info",
-                        "usage": "azd app hi"
-                      },
-                      {
-                        "name": "reqs",
-                        "description": "Verify all prerequisites are installed",
-                        "usage": "azd app reqs"
-                      }
-                    ],
-                    "artifacts": {
-                      "darwin/amd64": {
-                        "checksum": {
-                          "algorithm": "sha256",
-                          "value": "DARWIN_AMD64_CHECKSUM"
-                        },
-                        "entryPoint": "jongio-azd-app-darwin-amd64",
-                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-darwin-amd64.zip"
-                      },
-                      "darwin/arm64": {
-                        "checksum": {
-                          "algorithm": "sha256",
-                          "value": "DARWIN_ARM64_CHECKSUM"
-                        },
-                        "entryPoint": "jongio-azd-app-darwin-arm64",
-                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-darwin-arm64.zip"
-                      },
-                      "linux/amd64": {
-                        "checksum": {
-                          "algorithm": "sha256",
-                          "value": "LINUX_AMD64_CHECKSUM"
-                        },
-                        "entryPoint": "jongio-azd-app-linux-amd64",
-                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-linux-amd64.tar.gz"
-                      },
-                      "linux/arm64": {
-                        "checksum": {
-                          "algorithm": "sha256",
-                          "value": "LINUX_ARM64_CHECKSUM"
-                        },
-                        "entryPoint": "jongio-azd-app-linux-arm64",
-                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-linux-arm64.tar.gz"
-                      },
-                      "windows/amd64": {
-                        "checksum": {
-                          "algorithm": "sha256",
-                          "value": "WINDOWS_AMD64_CHECKSUM"
-                        },
-                        "entryPoint": "jongio-azd-app-windows-amd64.exe",
-                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-windows-amd64.zip"
-                      },
-                      "windows/arm64": {
-                        "checksum": {
-                          "algorithm": "sha256",
-                          "value": "WINDOWS_ARM64_CHECKSUM"
-                        },
-                        "entryPoint": "jongio-azd-app-windows-arm64.exe",
-                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-windows-arm64.zip"
-                      }
-                    },
-                    "entryPoint": "app"
-                  }
-                ],
-                "tags": [
-                  "developer",
-                  "productivity",
-                  "app",
-                  "pr-build"
-                ]
-              }
-            ]
-          }
-          EOF
-          
-          # Replace version placeholder
-          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" /tmp/pr-artifacts/pr-registry.json
-          
-          # Calculate checksums and update registry
-          DARWIN_AMD64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-darwin-amd64.zip | awk '{print $1}')
-          DARWIN_ARM64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-darwin-arm64.zip | awk '{print $1}')
-          LINUX_AMD64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-linux-amd64.tar.gz | awk '{print $1}')
-          LINUX_ARM64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-linux-arm64.tar.gz | awk '{print $1}')
-          WINDOWS_AMD64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-windows-amd64.zip | awk '{print $1}')
-          WINDOWS_ARM64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-windows-arm64.zip | awk '{print $1}')
-          
-          sed -i "s/DARWIN_AMD64_CHECKSUM/${DARWIN_AMD64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
-          sed -i "s/DARWIN_ARM64_CHECKSUM/${DARWIN_ARM64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
-          sed -i "s/LINUX_AMD64_CHECKSUM/${LINUX_AMD64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
-          sed -i "s/LINUX_ARM64_CHECKSUM/${LINUX_ARM64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
-          sed -i "s/WINDOWS_AMD64_CHECKSUM/${WINDOWS_AMD64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
-          sed -i "s/WINDOWS_ARM64_CHECKSUM/${WINDOWS_ARM64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
-          
-          echo "Generated PR registry with version ${VERSION}:"
-          cat /tmp/pr-artifacts/pr-registry.json
-
-      - name: Upload PR build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-${{ steps.pr.outputs.number }}-build
-          path: /tmp/pr-artifacts/*
-          retention-days: 90
-
-      - name: Create lightweight release for registry only
+      - name: Create PR pre-release
+        working-directory: cli
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
           
           # Delete existing release if it exists
-          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release delete "$TAG" --repo "${{ github.repository }}" --yes 2>/dev/null || true
           
-          # Create a lightweight tag and release with just the registry file
-          # This allows one-line install scripts to work without gh auth
-          # Binaries are distributed via artifacts to avoid cluttering releases
-          gh release create "$TAG" \
-            --title "PR #${PR_NUM} Registry (v${VERSION})" \
-            --notes "Registry file for PR #${PR_NUM} build ${VERSION}. Download full build artifacts from [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
+          # Create pre-release with all binaries using azd x release
+          # Pre-releases are public but shown separately on releases page
+          azd x release \
+            --repo "${{ github.repository }}" \
+            --version "$VERSION" \
+            --notes "PR #${PR_NUM} preview build. Test this build using the one-line installer from the PR comment." \
             --prerelease \
-            /tmp/pr-artifacts/pr-registry.json
+            --confirm
+
+      - name: Generate PR registry
+        working-directory: cli
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Generate registry using azd x publish (same as release.yml)
+          azd x publish \
+            --registry /tmp/pr-registry.json \
+            --version "$VERSION" \
+            --repo "${{ github.repository }}"
+          
+          echo "Generated PR registry:"
+          cat /tmp/pr-registry.json
+
+      - name: Upload PR registry to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          
+          # Add registry to the release
+          gh release upload "$TAG" --repo "${{ github.repository }}" /tmp/pr-registry.json --clobber
 
       - name: Generate installation instructions
         id: instructions
