@@ -366,6 +366,8 @@ jobs:
           REPO="${{ github.repository }}"
           COMMIT="${{ steps.pr.outputs.sha }}"
           SHORT_COMMIT=$(echo $COMMIT | cut -c1-7)
+          # Use the branch where the scripts actually exist
+          BRANCH="${{ github.ref_name }}"
           
           cat > ../instructions.md <<EOF
           ## 🚀 Test This PR
@@ -376,12 +378,12 @@ jobs:
           
           **PowerShell (Windows):**
           \`\`\`powershell
-          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/main/cli/scripts/install-pr.ps1) } -PrNumber $PR_NUM -Version $VERSION"
+          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/install-pr.ps1) } -PrNumber $PR_NUM -Version $VERSION"
           \`\`\`
           
           **Bash (macOS/Linux):**
           \`\`\`bash
-          curl -fsSL https://raw.githubusercontent.com/$REPO/main/cli/scripts/install-pr.sh | bash -s $PR_NUM $VERSION
+          curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/install-pr.sh | bash -s $PR_NUM $VERSION
           \`\`\`
           
           ### Manual Installation
@@ -420,12 +422,12 @@ jobs:
           
           **PowerShell (Windows):**
           \`\`\`powershell
-          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/main/cli/scripts/restore-stable.ps1) }"
+          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/restore-stable.ps1) }"
           \`\`\`
           
           **Bash (macOS/Linux):**
           \`\`\`bash
-          curl -fsSL https://raw.githubusercontent.com/$REPO/main/cli/scripts/restore-stable.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/$REPO/$BRANCH/cli/scripts/restore-stable.sh | bash
           \`\`\`
           
           <details>
