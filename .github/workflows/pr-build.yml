@@ -246,9 +246,8 @@ jobs:
           ls -la ~/.azd/registry/jongio.azd.app/${VERSION}/
 
       - name: Create PR pre-release
-        working-directory: cli
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
@@ -257,14 +256,14 @@ jobs:
           # Delete existing release if it exists
           gh release delete "$TAG" --repo "${{ github.repository }}" --yes 2>/dev/null || true
           
-          # Create pre-release with all binaries using azd x release
+          # Create pre-release with all binaries using gh CLI
           # Pre-releases are public but shown separately on releases page
-          azd x release \
+          gh release create "$TAG" \
             --repo "${{ github.repository }}" \
-            --version "$VERSION" \
+            --title "PR #${PR_NUM} Preview (v${VERSION})" \
             --notes "PR #${PR_NUM} preview build. Test this build using the one-line installer from the PR comment." \
             --prerelease \
-            --confirm
+            ~/.azd/registry/jongio.azd.app/${VERSION}/*
 
       - name: Generate PR registry
         working-directory: cli
