@@ -302,12 +302,52 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
+          BASE_VERSION="${{ steps.version.outputs.base_version }}"
           
-          azd x publish \
-            --registry ../pr-registry.json \
-            --version "$VERSION" \
-            --repo "${{ github.repository }}" \
-            --tag "$TAG"
+          # azd x publish reads from the local cache (BASE_VERSION) 
+          # but we need to update URLs to use the TAG in the release
+          # So we'll manually create the registry JSON
+          cat > ../pr-registry.json <<EOF
+          {
+            "extensions": {
+              "jongio.azd.app": {
+                "versions": {
+                  "$VERSION": {
+                    "platforms": {
+                      "darwin-amd64": {
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-darwin-amd64.zip",
+                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-darwin-amd64.zip | awk '{print $1}')"
+                      },
+                      "darwin-arm64": {
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-darwin-arm64.zip",
+                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-darwin-arm64.zip | awk '{print $1}')"
+                      },
+                      "linux-amd64": {
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-linux-amd64.tar.gz",
+                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-linux-amd64.tar.gz | awk '{print $1}')"
+                      },
+                      "linux-arm64": {
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-linux-arm64.tar.gz",
+                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-linux-arm64.tar.gz | awk '{print $1}')"
+                      },
+                      "windows-amd64": {
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-windows-amd64.zip",
+                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-windows-amd64.zip | awk '{print $1}')"
+                      },
+                      "windows-arm64": {
+                        "url": "https://github.com/${{ github.repository }}/releases/download/${TAG}/jongio-azd-app-windows-arm64.zip",
+                        "sha256": "$(sha256sum ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/jongio-azd-app-windows-arm64.zip | awk '{print $1}')"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          EOF
+          
+          echo "Generated PR registry:"
+          cat ../pr-registry.json
 
       - name: Upload PR registry to release
         run: |
