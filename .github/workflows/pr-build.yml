@@ -1,0 +1,432 @@
+name: PR Build
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/pr-build.yml'
+  pull_request_target:
+    branches: [ main ]
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build'
+        required: false
+        type: number
+
+defaults:
+  run:
+    working-directory: cli
+
+jobs:
+  # Check if build should run
+  check-permission:
+    name: Check Build Permission
+    runs-on: ubuntu-latest
+    # Skip this check for workflow_dispatch or if PR has 'safe-to-build' label
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR')
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
+      pr_sha: ${{ steps.check.outputs.pr_sha }}
+    
+    steps:
+      - name: Check if build is allowed
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let allowed = false;
+            let prNumber = null;
+            let prSha = null;
+            
+            // Workflow dispatch - always allowed
+            if (context.eventName === 'workflow_dispatch') {
+              allowed = true;
+              prNumber = context.payload.inputs.pr_number;
+              if (prNumber) {
+                const pr = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber
+                });
+                prSha = pr.data.head.sha;
+              }
+              core.setOutput('allowed', 'true');
+              core.setOutput('pr_number', prNumber || '');
+              core.setOutput('pr_sha', prSha || '');
+              return;
+            }
+            
+            // pull_request_target with 'safe-to-build' label
+            if (context.eventName === 'pull_request_target') {
+              const hasLabel = context.payload.pull_request.labels.some(
+                label => label.name === 'safe-to-build'
+              );
+              if (hasLabel) {
+                allowed = true;
+                prNumber = context.payload.pull_request.number;
+                prSha = context.payload.pull_request.head.sha;
+              }
+            }
+            
+            // Regular pull_request from trusted contributor
+            if (context.eventName === 'pull_request') {
+              const association = context.payload.pull_request.author_association;
+              // OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR are trusted
+              const trustedAssociations = ['OWNER', 'MEMBER', 'COLLABORATOR', 'CONTRIBUTOR'];
+              if (trustedAssociations.includes(association)) {
+                allowed = true;
+                prNumber = context.payload.pull_request.number;
+                prSha = context.payload.pull_request.head.sha;
+              }
+            }
+            
+            core.setOutput('allowed', allowed ? 'true' : 'false');
+            core.setOutput('pr_number', prNumber || '');
+            core.setOutput('pr_sha', prSha || '');
+            
+            if (!allowed) {
+              core.notice('Build skipped - requires maintainer approval. Add "safe-to-build" label to proceed.');
+            }
+
+      - name: Comment on PR (first-time contributor)
+        if: steps.check.outputs.allowed == 'false' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `👋 Thank you for your contribution! 
+              
+              A preview build requires approval from a maintainer for first-time contributors.
+              
+              **For maintainers:** Add the \`safe-to-build\` label to this PR to generate a preview build.`
+            });
+
+  build-pr:
+    name: Build PR Preview
+    runs-on: ubuntu-latest
+    needs: check-permission
+    if: needs.check-permission.outputs.allowed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Get PR details
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ needs.check-permission.outputs.pr_number }}' || context.payload.pull_request.number;
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            
+            core.setOutput('number', prNumber);
+            core.setOutput('sha', pr.data.head.sha);
+            core.setOutput('ref', pr.data.head.ref);
+            core.setOutput('title', pr.data.title);
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Calculate PR version
+        id: version
+        run: |
+          BASE_VERSION=$(grep '^version:' extension.yaml | awk '{print $2}')
+          PR_NUMBER="${{ steps.pr.outputs.number }}"
+          PR_VERSION="${BASE_VERSION}-pr${PR_NUMBER}"
+          echo "version=$PR_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=pr-${PR_NUMBER}-v${PR_VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: $PR_VERSION"
+
+      - name: Install azd
+        run: curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd extensions
+        run: azd extension install microsoft.azd.extensions
+
+      - name: Build dashboard
+        run: |
+          cd dashboard
+          npm ci
+          npm run build
+          cd ..
+
+      - name: Build binaries
+        run: |
+          export EXTENSION_ID="jongio.azd.app"
+          export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
+          azd x build --all
+
+      - name: Package
+        run: azd x pack
+
+      - name: Create PR pre-release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          PR_NUM="${{ steps.pr.outputs.number }}"
+          
+          # Use azd x release to create GitHub pre-release
+          cd ..
+          
+          # Create release notes
+          cat > /tmp/pr-release-notes.md <<EOF
+          # Preview Build for PR #${PR_NUM}
+          
+          This is an automated preview build for testing changes in PR #${PR_NUM}.
+          
+          ## Installation Instructions
+          
+          See the comment on the PR for detailed installation instructions.
+          
+          ## Changes in this PR
+          
+          ${{ steps.pr.outputs.title }}
+          
+          ## Commit
+          
+          ${{ steps.pr.outputs.sha }}
+          EOF
+          
+          cd cli
+          azd x release \
+            --repo "${{ github.repository }}" \
+            --version "$VERSION" \
+            --tag "$TAG" \
+            --prerelease \
+            --notes-file /tmp/pr-release-notes.md \
+            --confirm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate PR registry
+        id: registry
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          
+          azd x publish \
+            --registry ../pr-registry.json \
+            --version "$VERSION" \
+            --repo "${{ github.repository }}" \
+            --tag "$TAG"
+
+      - name: Upload PR registry to release
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          
+          gh release upload "$TAG" ../pr-registry.json --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate installation instructions
+        id: instructions
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PR_NUM="${{ steps.pr.outputs.number }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          COMMIT="${{ steps.pr.outputs.sha }}"
+          SHORT_COMMIT=$(echo $COMMIT | cut -c1-7)
+          
+          cat > ../instructions.md <<EOF
+          ## 🚀 Test This PR
+          
+          A preview build (\`$VERSION\`) is ready for testing!
+          
+          ### One-Line Install (Recommended)
+          
+          **PowerShell (Windows):**
+          \`\`\`powershell
+          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/main/cli/scripts/install-pr.ps1) } -PrNumber $PR_NUM -Version $VERSION"
+          \`\`\`
+          
+          **Bash (macOS/Linux):**
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/$REPO/main/cli/scripts/install-pr.sh | bash -s $PR_NUM $VERSION
+          \`\`\`
+          
+          ### Manual Installation
+          
+          <details>
+          <summary>Click to expand manual installation steps</summary>
+          
+          **1. Download the registry file:**
+          \`\`\`bash
+          curl -L -o pr-registry.json https://github.com/$REPO/releases/download/$TAG/pr-registry.json
+          \`\`\`
+          
+          **2. Add as a custom registry source:**
+          \`\`\`bash
+          azd config set alpha.extension.enabled on
+          azd extension source add -n pr-$PR_NUM -t file -l "\$(pwd)/pr-registry.json"
+          \`\`\`
+          
+          **3. Install the preview:**
+          \`\`\`bash
+          azd extension install jongio.azd.app --version $VERSION
+          \`\`\`
+          
+          **4. Verify installation:**
+          \`\`\`bash
+          azd app version  # Should show: azd app extension version $VERSION
+          azd app hi
+          azd app reqs
+          \`\`\`
+          
+          </details>
+          
+          ### Restore Stable Version
+          
+          When you're done testing, restore the stable version:
+          
+          **PowerShell (Windows):**
+          \`\`\`powershell
+          iex "& { \$(irm https://raw.githubusercontent.com/$REPO/main/cli/scripts/restore-stable.ps1) }"
+          \`\`\`
+          
+          **Bash (macOS/Linux):**
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/$REPO/main/cli/scripts/restore-stable.sh | bash
+          \`\`\`
+          
+          <details>
+          <summary>Click to expand manual cleanup steps</summary>
+          
+          \`\`\`bash
+          azd extension uninstall jongio.azd.app
+          azd extension source remove pr-$PR_NUM
+          rm pr-registry.json
+          azd extension source add -n app -t url -l "https://raw.githubusercontent.com/$REPO/refs/heads/main/registry.json"
+          azd extension install jongio.azd.app
+          \`\`\`
+          
+          </details>
+          
+          ---
+          
+          **Build Info:**
+          - **Version:** \`$VERSION\`
+          - **Commit:** \`$SHORT_COMMIT\`
+          - **Release:** [$TAG](https://github.com/$REPO/releases/tag/$TAG)
+          
+          **What to Test:**
+          Please review the PR description and test the changes described there.
+          EOF
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const instructions = fs.readFileSync('instructions.md', 'utf8');
+            const prNumber = '${{ steps.pr.outputs.number }}';
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🚀 Test This PR')
+            );
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: instructions
+              });
+              console.log('Updated existing comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: instructions
+              });
+              console.log('Created new comment');
+            }
+
+  # Cleanup job that runs when PR is closed or merged
+  cleanup:
+    name: Cleanup PR Builds
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Delete PR pre-release and tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNum = context.issue.number;
+            
+            try {
+              // List all releases
+              const releases = await github.rest.repos.listReleases({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              
+              // Find and delete PR releases
+              for (const release of releases.data) {
+                if (release.tag_name.includes(`pr-${prNum}-`)) {
+                  console.log(`Deleting release: ${release.tag_name}`);
+                  
+                  await github.rest.repos.deleteRelease({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    release_id: release.id,
+                  });
+                  
+                  // Delete the tag too
+                  try {
+                    await github.rest.git.deleteRef({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      ref: `tags/${release.tag_name}`,
+                    });
+                    console.log(`Deleted tag: ${release.tag_name}`);
+                  } catch (error) {
+                    console.log(`Tag ${release.tag_name} may have already been deleted`);
+                  }
+                }
+              }
+            } catch (error) {
+              console.log(`Cleanup completed with warnings: ${error.message}`);
+            }
