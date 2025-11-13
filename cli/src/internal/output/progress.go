@@ -24,8 +24,6 @@ const (
 	refreshInterval         = 250 * time.Millisecond
 	estimatedTotalBytes     = 10 * 1024 * 1024 // 10MB typical npm install
 	estimatedCompletionTime = 30.0             // seconds
-	progressCapRunning      = 95.0             // Don't show 100% until actually complete
-	progressCapTimeEstimate = 90.0             // Cap time-based estimates lower
 	bytesPerIncrement       = 1024             // 1KB per write
 )
 
@@ -38,6 +36,16 @@ const (
 	maxDescWidth  = 25 // Maximum description width
 	minBarWidth   = 20
 	maxBarWidth   = 40
+)
+
+// Progress calculation constants
+// These caps prevent showing 100% before tasks actually complete,
+// avoiding user confusion when progress reaches 100% but task is still running.
+const (
+	// Cap running progress to 95% - only Complete() sets 100%
+	progressCapRunning = 95.0
+	// Cap time-based estimates lower since they're less accurate
+	progressCapTimeEstimate = 90.0
 )
 
 // ProgressSpinner represents a progress tracker for a single task.
@@ -57,7 +65,7 @@ type ProgressSpinner struct {
 type MultiProgress struct {
 	bars          map[string]*ProgressSpinner
 	barOrder      []string // Maintain insertion order
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	stopChan      chan struct{}
 	stopped       bool
 	lastLineCount int
@@ -148,24 +156,29 @@ func (mp *MultiProgress) Stop() {
 
 // render renders all active progress bars.
 func (mp *MultiProgress) render() {
-	mp.mu.Lock()
-	defer mp.mu.Unlock()
-
+	// Use read lock to get bars snapshot, avoiding deadlock with individual bar locks
+	mp.mu.RLock()
 	if mp.stopped {
+		mp.mu.RUnlock()
 		return
 	}
 
+	// Copy bar references while holding read lock
+	bars := make([]*ProgressSpinner, 0, len(mp.barOrder))
+	for _, id := range mp.barOrder {
+		if bar, exists := mp.bars[id]; exists {
+			bars = append(bars, bar)
+		}
+	}
+	mp.mu.RUnlock()
+
+	// Move cursor and process bars without holding mp.mu
 	mp.moveCursorToStart()
 
 	lineCount := 0
 	now := time.Now()
 
-	for _, id := range mp.barOrder {
-		bar, exists := mp.bars[id]
-		if !exists {
-			continue
-		}
-
+	for _, bar := range bars {
 		bar.mu.Lock()
 
 		elapsed := mp.calculateElapsed(bar, now)
@@ -189,7 +202,10 @@ func (mp *MultiProgress) render() {
 
 	mp.clearExtraLines(lineCount)
 
+	// Update lastLineCount with mutex since we released it earlier
+	mp.mu.Lock()
 	mp.lastLineCount = lineCount
+	mp.mu.Unlock()
 }
 
 // renderFinal renders the final state of all progress bars (called once on Stop).

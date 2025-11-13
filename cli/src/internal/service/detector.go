@@ -348,10 +348,10 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		// Django uses manage.py - validate it exists
 		managePyPath := filepath.Join(projectDir, "manage.py")
 		if err := security.ValidatePath(managePyPath); err != nil {
-			return fmt.Errorf("django: invalid manage.py path: %w", err)
+			return fmt.Errorf("Django: invalid manage.py path: %w", err)
 		}
 		if _, err := os.Stat(managePyPath); err != nil {
-			return fmt.Errorf("django: manage.py not found at %s", managePyPath)
+			return fmt.Errorf("Django: manage.py not found at %s", managePyPath)
 		}
 		runtime.Args = []string{"manage.py", "runserver", fmt.Sprintf("0.0.0.0:%d", runtime.Port)}
 		return nil
@@ -359,7 +359,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 	case "FastAPI":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return fmt.Errorf("fastAPI: %w", err)
+			return fmt.Errorf("FastAPI: %w", err)
 		}
 		// Use -m uvicorn to run as module from venv
 		// FastAPI uses module:app format, no .py extension needed
@@ -369,7 +369,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 	case "Flask":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return fmt.Errorf("flask: %w", err)
+			return fmt.Errorf("Flask: %w", err)
 		}
 		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
 		// Flask needs the .py extension in FLASK_APP
@@ -384,7 +384,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 	case "Streamlit":
 		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
 		if err != nil {
-			return fmt.Errorf("streamlit: %w", err)
+			return fmt.Errorf("Streamlit: %w", err)
 		}
 		// Use -m streamlit to run as module from venv
 		runtime.Args = []string{"-m", "streamlit", "run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}

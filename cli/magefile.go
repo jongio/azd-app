@@ -305,7 +305,7 @@ func ModTidy() error {
 
 	// Check if there are any changes
 	if err := sh.RunV("git", "diff", "--exit-code", "go.mod", "go.sum"); err != nil {
-		return fmt.Errorf("go.mod or go.sum has uncommitted changes after tidy - commit them first")
+		return fmt.Errorf("go.mod or go.sum has uncommitted changes after running go mod tidy - please review and commit these changes")
 	}
 
 	fmt.Println("✅ go mod tidy passed!")
@@ -328,6 +328,24 @@ func Vulncheck() error {
 	if err := sh.RunV("govulncheck", "./..."); err != nil {
 		fmt.Println("⚠️  govulncheck found vulnerabilities. Ensure govulncheck is installed:")
 		fmt.Println("    go install golang.org/x/vuln/cmd/govulncheck@latest")
+		return err
+	}
+	fmt.Println("✅ No known vulnerabilities found!")
+	return nil
+}
+
+// runVulncheck runs govulncheck if available, otherwise skips.
+func runVulncheck() error {
+	fmt.Println("Checking for known vulnerabilities...")
+	// Check if govulncheck is installed
+	if _, err := exec.LookPath("govulncheck"); err != nil {
+		fmt.Println("⚠️  govulncheck not installed - skipping vulnerability check")
+		fmt.Println("    Install with: go install golang.org/x/vuln/cmd/govulncheck@latest")
+		return nil // Don't fail preflight if not installed
+	}
+
+	if err := sh.RunV("govulncheck", "./..."); err != nil {
+		fmt.Println("⚠️  Known vulnerabilities found!")
 		return err
 	}
 	fmt.Println("✅ No known vulnerabilities found!")
@@ -420,6 +438,7 @@ func Preflight() error {
 	}{
 		{"Formatting code", Fmt},
 		{"Verifying go.mod consistency", ModVerify},
+		{"Tidying go.mod and go.sum", ModTidy},
 		{"Building and linting dashboard", DashboardBuild},
 		{"Running dashboard tests", DashboardTest},
 		{"Building Go binary", Build},
@@ -427,6 +446,7 @@ func Preflight() error {
 		{"Running staticcheck", Staticcheck},
 		{"Running standard linting", Lint},
 		{"Running quick security scan", runQuickSecurity},
+		{"Checking for known vulnerabilities", runVulncheck},
 		{"Running all tests with coverage", TestCoverage},
 	}
 
@@ -441,8 +461,6 @@ func Preflight() error {
 	fmt.Println("✅ All preflight checks passed!")
 	fmt.Println("💡 Tips:")
 	fmt.Println("   • Run 'mage security' for a full security scan (~4 minutes)")
-	fmt.Println("   • Run 'mage vulncheck' to check for known vulnerabilities")
-	fmt.Println("   • Run 'mage modtidy' before committing to ensure go.mod is clean")
 	fmt.Println("🎉 Ready to ship!")
 	return nil
 }

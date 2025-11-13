@@ -374,9 +374,27 @@ func executeDeps() error {
 	}
 
 	// Detect all projects
-	nodeProjects, _ := detector.FindNodeProjects(searchRoot)
-	pythonProjects, _ := detector.FindPythonProjects(searchRoot)
-	dotnetProjects, _ := detector.FindDotnetProjects(searchRoot)
+	nodeProjects, err := detector.FindNodeProjects(searchRoot)
+	if err != nil {
+		if output.IsJSON() {
+			return output.PrintJSON(DepsResult{Error: fmt.Sprintf("failed to detect Node.js projects: %v", err)})
+		}
+		return fmt.Errorf("failed to detect Node.js projects: %w", err)
+	}
+	pythonProjects, err := detector.FindPythonProjects(searchRoot)
+	if err != nil {
+		if output.IsJSON() {
+			return output.PrintJSON(DepsResult{Error: fmt.Sprintf("failed to detect Python projects: %v", err)})
+		}
+		return fmt.Errorf("failed to detect Python projects: %w", err)
+	}
+	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
+	if err != nil {
+		if output.IsJSON() {
+			return output.PrintJSON(DepsResult{Error: fmt.Sprintf("failed to detect .NET projects: %v", err)})
+		}
+		return fmt.Errorf("failed to detect .NET projects: %w", err)
+	}
 
 	totalProjects := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
 
@@ -416,6 +434,10 @@ func executeDeps() error {
 
 		// Check for failures
 		if parallelInstaller.HasFailures() {
+			failedProjects := parallelInstaller.FailedProjects()
+			if len(failedProjects) > 0 {
+				return fmt.Errorf("failed to install %d of %d projects: %v", len(failedProjects), parallelInstaller.TotalProjects(), failedProjects)
+			}
 			return fmt.Errorf("some installations failed")
 		}
 

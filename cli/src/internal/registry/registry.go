@@ -172,12 +172,10 @@ func (r *ServiceRegistry) load() error {
 		return err
 	}
 
-	services := make(map[string]*ServiceRegistryEntry)
-	if err := json.Unmarshal(data, &services); err != nil {
+	if err := json.Unmarshal(data, &r.services); err != nil {
 		return fmt.Errorf("failed to unmarshal registry: %w", err)
 	}
 
-	r.services = services
 	return nil
 }
 

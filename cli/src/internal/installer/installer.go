@@ -419,11 +419,18 @@ func isDependenciesUpToDate(projectDir string, packageManager string) bool {
 	// Check if lock file exists
 	lockFileInfo, err := os.Stat(lockFilePath)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			// Log unexpected errors but proceed conservatively
+			fmt.Fprintf(os.Stderr, "Warning: Failed to check lock file %s: %v\n", lockFilePath, err)
+		}
 		return false
 	}
 
 	// Check if node_modules exists
 	if _, err := os.Stat(nodeModulesPath); err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to check node_modules: %v\n", err)
+		}
 		return false
 	}
 
@@ -432,7 +439,10 @@ func isDependenciesUpToDate(projectDir string, packageManager string) bool {
 		internalLockPath := filepath.Join(projectDir, internalLockFile)
 		internalLockInfo, err := os.Stat(internalLockPath)
 		if err != nil {
-			// Internal lock file doesn't exist, needs install
+			if !os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to check internal lock file: %v\n", err)
+			}
+			// Internal lock file doesn't exist or can't be accessed, needs install
 			return false
 		}
 

@@ -809,29 +809,70 @@ func TestFormatErrorLine(t *testing.T) {
 // TestProgressConcurrency tests concurrent access to progress bars
 func TestProgressConcurrency(t *testing.T) {
 	mp := NewMultiProgress()
-	bar := mp.AddBar("test", "Concurrent test")
+	bar1 := mp.AddBar("test1", "Concurrent test 1")
+	bar2 := mp.AddBar("test2", "Concurrent test 2")
 
-	// Start multiple goroutines accessing the same bar
+	// Test concurrent writes to the same bar
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func() {
-			bar.Increment()
-			bar.AddBytes(100)
+			bar1.Increment()
+			bar1.AddBytes(100)
 			done <- true
 		}()
 	}
 
-	// Wait for all goroutines
+	// Wait for write goroutines
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
 	// Should have 10 increments + 10*100 bytes
 	expectedBytes := int64(10*bytesPerIncrement + 1000)
-	if bar.bytesWritten != expectedBytes {
+	if bar1.bytesWritten != expectedBytes {
 		t.Errorf("bytesWritten after concurrent access = %d, want %d",
-			bar.bytesWritten, expectedBytes)
+			bar1.bytesWritten, expectedBytes)
 	}
+
+	// Test concurrent status updates
+	statusDone := make(chan bool)
+	for i := 0; i < 5; i++ {
+		go func(id int) {
+			if id%2 == 0 {
+				bar2.Start()
+			} else {
+				bar2.Complete()
+			}
+			statusDone <- true
+		}(i)
+	}
+
+	for i := 0; i < 5; i++ {
+		<-statusDone
+	}
+
+	// Verify bar2 ended in a valid state
+	if bar2.status != TaskStatusRunning && bar2.status != TaskStatusSuccess {
+		t.Errorf("bar2 status = %q, expected running or success", bar2.status)
+	}
+
+	// Test concurrent rendering doesn't deadlock
+	renderDone := make(chan bool)
+	go func() {
+		for i := 0; i < 20; i++ {
+			bar1.Start()
+			bar1.Complete()
+		}
+		renderDone <- true
+	}()
+
+	// Render should be able to acquire RLock while status updates happen
+	for i := 0; i < 50; i++ {
+		mp.render()
+		time.Sleep(1 * time.Millisecond)
+	}
+
+	<-renderDone
 }
 
 // TestProgressStatusTransitions tests valid status transitions

@@ -3,7 +3,6 @@ package installer
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
@@ -56,10 +55,10 @@ func (pi *ParallelInstaller) AddTask(task ProjectInstallTask) {
 
 // AddNodeProject adds a Node.js project installation task.
 func (pi *ParallelInstaller) AddNodeProject(project types.NodeProject) {
-	serviceName := getServiceName(project.Dir)
+	projectName := getProjectName(project.Dir)
 	task := ProjectInstallTask{
 		ID:          project.Dir,
-		Description: serviceName + " (" + project.PackageManager + ")",
+		Description: projectName + " (" + project.PackageManager + ")",
 		Type:        "node",
 		Dir:         project.Dir,
 		Manager:     project.PackageManager,
@@ -70,10 +69,10 @@ func (pi *ParallelInstaller) AddNodeProject(project types.NodeProject) {
 
 // AddPythonProject adds a Python project installation task.
 func (pi *ParallelInstaller) AddPythonProject(project types.PythonProject) {
-	serviceName := getServiceName(project.Dir)
+	projectName := getProjectName(project.Dir)
 	task := ProjectInstallTask{
 		ID:          project.Dir,
-		Description: serviceName + " (" + project.PackageManager + ")",
+		Description: projectName + " (" + project.PackageManager + ")",
 		Type:        "python",
 		Dir:         project.Dir,
 		Manager:     project.PackageManager,
@@ -84,10 +83,10 @@ func (pi *ParallelInstaller) AddPythonProject(project types.PythonProject) {
 
 // AddDotnetProject adds a .NET project installation task.
 func (pi *ParallelInstaller) AddDotnetProject(project types.DotnetProject) {
-	serviceName := getServiceName(project.Path)
+	projectName := getProjectName(project.Path)
 	task := ProjectInstallTask{
 		ID:          project.Path,
-		Description: serviceName + " (dotnet)",
+		Description: projectName + " (dotnet)",
 		Type:        "dotnet",
 		Path:        project.Path,
 		Manager:     "dotnet",
@@ -307,13 +306,30 @@ func (pi *ParallelInstaller) HasFailures() bool {
 	return false
 }
 
-// getServiceName extracts the service name from a full path.
-// For example: "C:\\code\\project\\api" -> "api"
-func getServiceName(path string) string {
-	// Get the last component of the path
-	parts := strings.Split(filepath.Clean(path), string(filepath.Separator))
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
+// FailedProjects returns a list of project descriptions that failed installation.
+func (pi *ParallelInstaller) FailedProjects() []string {
+	var failed []string
+	for _, result := range pi.results {
+		if !result.Success {
+			failed = append(failed, result.Task.Description)
+		}
 	}
-	return path
+	return failed
+}
+
+// TotalProjects returns the total number of projects that were processed.
+func (pi *ParallelInstaller) TotalProjects() int {
+	return len(pi.results)
+}
+
+// getProjectName extracts the project name from a full path.
+// For example: "C:\\code\\project\\api" -> "api"
+func getProjectName(path string) string {
+	cleanPath := filepath.Clean(path)
+	baseName := filepath.Base(cleanPath)
+	// Handle edge cases where Base returns "." or path separator
+	if baseName == "." || baseName == string(filepath.Separator) || baseName == "" {
+		return path // Fallback to original path
+	}
+	return baseName
 }
