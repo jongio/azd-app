@@ -244,6 +244,12 @@ jobs:
           PR_NUM="${{ steps.pr.outputs.number }}"
           BASE_VERSION="${{ steps.version.outputs.base_version }}"
           
+          # Delete existing release and tag if they exist
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Deleting existing release: $TAG"
+            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
+          fi
+          
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
           # Preview Build for PR #${PR_NUM}
