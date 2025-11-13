@@ -188,14 +188,16 @@ jobs:
       - name: Package
         run: azd x pack
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Create PR pre-release
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
-          
-          # Use azd x release to create GitHub pre-release
-          cd ..
           
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
@@ -216,14 +218,20 @@ jobs:
           ${{ steps.pr.outputs.sha }}
           EOF
           
+          # Create GitHub pre-release using gh CLI (azd x release doesn't support custom tags)
           cd cli
-          azd x release \
+          
+          # Create tag
+          git tag "$TAG"
+          git push origin "$TAG"
+          
+          # Create release with all archives
+          gh release create "$TAG" \
             --repo "${{ github.repository }}" \
-            --version "$VERSION" \
-            --tag "$TAG" \
-            --prerelease \
+            --title "PR #${PR_NUM} Preview: ${VERSION}" \
             --notes-file /tmp/pr-release-notes.md \
-            --confirm
+            --prerelease \
+            ~/.azd/registry/jongio.azd.app/${VERSION}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
