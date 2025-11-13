@@ -195,14 +195,17 @@ jobs:
 
       - name: Calculate PR version
         id: version
+        working-directory: cli
         run: |
           BASE_VERSION=$(grep '^version:' extension.yaml | awk '{print $2}')
           PR_NUMBER="${{ steps.pr.outputs.number }}"
           PR_VERSION="${BASE_VERSION}-pr${PR_NUMBER}"
+          # Use the standard azd extension tag format so azd x publish generates correct URLs
+          STANDARD_TAG="azd-ext-jongio-azd-app_${PR_VERSION}"
           echo "version=$PR_VERSION" >> $GITHUB_OUTPUT
           echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
-          echo "tag=pr-${PR_NUMBER}-v${PR_VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: $PR_VERSION"
+          echo "tag=$STANDARD_TAG" >> $GITHUB_OUTPUT
+          echo "Building version: $PR_VERSION with tag: $STANDARD_TAG"
 
       - name: Install azd
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
@@ -211,24 +214,22 @@ jobs:
         run: azd extension install microsoft.azd.extensions
 
       - name: Build dashboard
+        working-directory: cli
         run: |
           cd dashboard
           npm ci
           npm run build
-          cd ..
 
       - name: Build binaries
+        working-directory: cli
         run: |
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
           azd x build --all
 
       - name: Package
-        run: |
-          azd x pack
-          echo "Checking for packed files..."
-          find ~ -name "*.tar.gz" -o -name "*.zip" | grep -i "azd" || true
-          ls -la ~/.azd/registry/ || echo "No ~/.azd/registry directory"
+        working-directory: cli
+        run: azd x pack
 
       - name: Configure Git
         run: |
@@ -236,21 +237,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Create PR pre-release
+        working-directory: cli
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
-          
-          # Delete existing release and tag if they exist
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Deleting existing release: $TAG"
-            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
-          fi
-          
-          if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-            echo "Deleting existing tag: $TAG"
-            git push origin --delete "$TAG" || true
-          fi
           
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
@@ -271,29 +262,13 @@ jobs:
           ${{ steps.pr.outputs.sha }}
           EOF
           
-          # Create tag
-          git tag "$TAG"
-          git push origin "$TAG"
-          
-          # List and upload all archives
-          # Note: azd x pack uses the base version from extension.yaml, not the PR version
-          BASE_VERSION="${{ steps.version.outputs.base_version }}"
-          ARCHIVES_DIR=~/.azd/registry/jongio.azd.app/${BASE_VERSION}
-          if [ ! -d "$ARCHIVES_DIR" ]; then
-            echo "Error: Archives directory not found: $ARCHIVES_DIR"
-            exit 1
-          fi
-          
-          echo "Archives found:"
-          ls -la "$ARCHIVES_DIR"
-          
-          # Create release with all archives
-          gh release create "$TAG" \
+          # Use azd x release to create the release with archives (just like normal release flow)
+          azd x release \
             --repo "${{ github.repository }}" \
-            --title "PR #${PR_NUM} Preview: ${VERSION}" \
+            --version "$VERSION" \
             --notes-file /tmp/pr-release-notes.md \
             --prerelease \
-            "$ARCHIVES_DIR"/*
+            --confirm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -302,35 +277,22 @@ jobs:
         working-directory: cli
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
           
-          # Use azd x publish to generate the registry file with proper format
+          # Use azd x publish to generate the registry (just like normal release flow)
+          # Save to a temporary location first
           azd x publish \
-            --registry ../pr-registry.json \
+            --registry /tmp/pr-registry.json \
             --version "$VERSION" \
             --repo "${{ github.repository }}"
           
-          # Update the URLs in the registry to use our custom PR tag instead of the default tag
-          # azd x publish generates URLs like: releases/download/azd-ext-jongio-azd-app_VERSION/...
-          # We need: releases/download/TAG/...
-          DEFAULT_TAG="azd-ext-jongio-azd-app_${VERSION}"
-          
-          # Use jq to update all URLs in the artifacts
-          jq --arg old_tag "$DEFAULT_TAG" --arg new_tag "$TAG" '
-            .extensions[0].versions[0].artifacts |= 
-            with_entries(.value.url |= gsub($old_tag; $new_tag))
-          ' ../pr-registry.json > ../pr-registry-updated.json
-          
-          mv ../pr-registry-updated.json ../pr-registry.json
-          
           echo "Generated PR registry:"
-          cat ../pr-registry.json
+          cat /tmp/pr-registry.json
 
       - name: Upload PR registry to release
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           
-          gh release upload "$TAG" ../pr-registry.json --clobber
+          gh release upload "$TAG" /tmp/pr-registry.json --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
