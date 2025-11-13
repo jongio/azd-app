@@ -195,7 +195,11 @@ jobs:
           azd x build --all
 
       - name: Package
-        run: azd x pack
+        run: |
+          azd x pack
+          echo "Checking for packed files..."
+          find ~ -name "*.tar.gz" -o -name "*.zip" | grep -i "azd" || true
+          ls -la ~/.azd/registry/ || echo "No ~/.azd/registry directory"
 
       - name: Configure Git
         run: |
