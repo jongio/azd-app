@@ -244,6 +244,10 @@ jobs:
           PR_NUM="${{ steps.pr.outputs.number }}"
           BASE_VERSION="${{ steps.version.outputs.base_version }}"
           
+          # Debug: Check what files are actually there
+          echo "Checking for archives in $HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}/"
+          ls -la "$HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}/" || echo "Directory not found"
+          
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
           # Preview Build for PR #${PR_NUM}
