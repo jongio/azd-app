@@ -27,7 +27,7 @@ PR_NUMBER=$1
 VERSION=$2
 REPO="jongio/azd-app"
 EXTENSION_ID="jongio.azd.app"
-TAG="pr-${PR_NUMBER}-v${VERSION}"
+TAG="azd-ext-${EXTENSION_ID}_${VERSION}"
 REGISTRY_URL="https://github.com/${REPO}/releases/download/${TAG}/pr-registry.json"
 REGISTRY_PATH="./pr-registry.json"
 
@@ -45,6 +45,7 @@ fi
 # Step 2: Uninstall existing extension
 echo -e "${GRAY}🗑️  Uninstalling existing extension (if any)...${NC}"
 azd extension uninstall $EXTENSION_ID 2>/dev/null || true
+echo -e "${GRAY}   ✓${NC}"
 
 # Step 3: Download PR registry
 echo -e "${GRAY}📥 Downloading PR registry...${NC}"

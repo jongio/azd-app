@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = "jongio/azd-app"
 $extensionId = "jongio.azd.app"
-$tag = "pr-$PrNumber-v$Version"
+$tag = "azd-ext-$extensionId`_$Version"
 $registryUrl = "https://github.com/$repo/releases/download/$tag/pr-registry.json"
 
 Write-Host "🚀 Installing azd app PR #$PrNumber (version $Version)" -ForegroundColor Cyan
@@ -41,8 +41,9 @@ if ($LASTEXITCODE -ne 0) {
 
 # Step 2: Uninstall existing extension
 Write-Host "🗑️  Uninstalling existing extension (if any)..." -ForegroundColor Gray
-azd extension uninstall $extensionId 2>$null
+azd extension uninstall $extensionId 2>&1 | Out-Null
 # Ignore errors - extension might not be installed
+Write-Host "   ✓" -ForegroundColor DarkGray
 
 # Step 3: Download PR registry
 Write-Host "📥 Downloading PR registry..." -ForegroundColor Gray
