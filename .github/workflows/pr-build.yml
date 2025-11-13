@@ -200,6 +200,7 @@ jobs:
           PR_NUMBER="${{ steps.pr.outputs.number }}"
           PR_VERSION="${BASE_VERSION}-pr${PR_NUMBER}"
           echo "version=$PR_VERSION" >> $GITHUB_OUTPUT
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
           echo "tag=pr-${PR_NUMBER}-v${PR_VERSION}" >> $GITHUB_OUTPUT
           echo "Building version: $PR_VERSION"
 
@@ -275,7 +276,9 @@ jobs:
           git push origin "$TAG"
           
           # List and upload all archives
-          ARCHIVES_DIR=~/.azd/registry/jongio.azd.app/${VERSION}
+          # Note: azd x pack uses the base version from extension.yaml, not the PR version
+          BASE_VERSION="${{ steps.version.outputs.base_version }}"
+          ARCHIVES_DIR=~/.azd/registry/jongio.azd.app/${BASE_VERSION}
           if [ ! -d "$ARCHIVES_DIR" ]; then
             echo "Error: Archives directory not found: $ARCHIVES_DIR"
             exit 1
