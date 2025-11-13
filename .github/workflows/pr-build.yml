@@ -267,6 +267,8 @@ jobs:
 
       - name: Generate PR registry
         working-directory: cli
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
