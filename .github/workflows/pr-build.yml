@@ -231,84 +231,155 @@ jobs:
         working-directory: cli
         run: azd x pack
 
-      - name: Configure Git
+      - name: Prepare artifacts for upload
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BASE_VERSION="${{ steps.version.outputs.base_version }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Create artifacts directory
+          mkdir -p /tmp/pr-artifacts
+          
+          # Copy all archives to artifacts directory
+          cp ~/.azd/registry/jongio.azd.app/${BASE_VERSION}/* /tmp/pr-artifacts/
+          
+          # Create PR registry manually with correct version
+          cat > /tmp/pr-artifacts/pr-registry.json <<'EOF'
+          {
+            "extensions": [
+              {
+                "id": "jongio.azd.app",
+                "namespace": "app",
+                "displayName": "App Extension (PR Build)",
+                "description": "PR preview build - A collection of developer productivity commands for Azure Developer CLI",
+                "versions": [
+                  {
+                    "version": "VERSION_PLACEHOLDER",
+                    "capabilities": [
+                      "custom-commands",
+                      "lifecycle-events",
+                      "mcp-server"
+                    ],
+                    "usage": "azd app <command> [options]",
+                    "examples": [
+                      {
+                        "name": "hi",
+                        "description": "Say hello and display extension info",
+                        "usage": "azd app hi"
+                      },
+                      {
+                        "name": "reqs",
+                        "description": "Verify all prerequisites are installed",
+                        "usage": "azd app reqs"
+                      }
+                    ],
+                    "artifacts": {
+                      "darwin/amd64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "DARWIN_AMD64_CHECKSUM"
+                        },
+                        "entryPoint": "jongio-azd-app-darwin-amd64",
+                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-darwin-amd64.zip"
+                      },
+                      "darwin/arm64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "DARWIN_ARM64_CHECKSUM"
+                        },
+                        "entryPoint": "jongio-azd-app-darwin-arm64",
+                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-darwin-arm64.zip"
+                      },
+                      "linux/amd64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "LINUX_AMD64_CHECKSUM"
+                        },
+                        "entryPoint": "jongio-azd-app-linux-amd64",
+                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-linux-amd64.tar.gz"
+                      },
+                      "linux/arm64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "LINUX_ARM64_CHECKSUM"
+                        },
+                        "entryPoint": "jongio-azd-app-linux-arm64",
+                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-linux-arm64.tar.gz"
+                      },
+                      "windows/amd64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "WINDOWS_AMD64_CHECKSUM"
+                        },
+                        "entryPoint": "jongio-azd-app-windows-amd64.exe",
+                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-windows-amd64.zip"
+                      },
+                      "windows/arm64": {
+                        "checksum": {
+                          "algorithm": "sha256",
+                          "value": "WINDOWS_ARM64_CHECKSUM"
+                        },
+                        "entryPoint": "jongio-azd-app-windows-arm64.exe",
+                        "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/jongio-azd-app-windows-arm64.zip"
+                      }
+                    },
+                    "entryPoint": "app"
+                  }
+                ],
+                "tags": [
+                  "developer",
+                  "productivity",
+                  "app",
+                  "pr-build"
+                ]
+              }
+            ]
+          }
+          EOF
+          
+          # Replace version placeholder
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" /tmp/pr-artifacts/pr-registry.json
+          
+          # Calculate checksums and update registry
+          DARWIN_AMD64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-darwin-amd64.zip | awk '{print $1}')
+          DARWIN_ARM64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-darwin-arm64.zip | awk '{print $1}')
+          LINUX_AMD64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-linux-amd64.tar.gz | awk '{print $1}')
+          LINUX_ARM64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-linux-arm64.tar.gz | awk '{print $1}')
+          WINDOWS_AMD64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-windows-amd64.zip | awk '{print $1}')
+          WINDOWS_ARM64_SHA=$(sha256sum /tmp/pr-artifacts/jongio-azd-app-windows-arm64.zip | awk '{print $1}')
+          
+          sed -i "s/DARWIN_AMD64_CHECKSUM/${DARWIN_AMD64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
+          sed -i "s/DARWIN_ARM64_CHECKSUM/${DARWIN_ARM64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
+          sed -i "s/LINUX_AMD64_CHECKSUM/${LINUX_AMD64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
+          sed -i "s/LINUX_ARM64_CHECKSUM/${LINUX_ARM64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
+          sed -i "s/WINDOWS_AMD64_CHECKSUM/${WINDOWS_AMD64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
+          sed -i "s/WINDOWS_ARM64_CHECKSUM/${WINDOWS_ARM64_SHA}/g" /tmp/pr-artifacts/pr-registry.json
+          
+          echo "Generated PR registry with version ${VERSION}:"
+          cat /tmp/pr-artifacts/pr-registry.json
 
-      - name: Create PR pre-release
-        working-directory: cli
+      - name: Upload PR build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ steps.pr.outputs.number }}-build
+          path: /tmp/pr-artifacts/*
+          retention-days: 90
+
+      - name: Create lightweight release for registry only
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
-          BASE_VERSION="${{ steps.version.outputs.base_version }}"
           
-          # Delete existing release and tag if they exist
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Deleting existing release: $TAG"
-            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
-          fi
-          
-          # Create release notes
-          cat > /tmp/pr-release-notes.md <<EOF
-          # Preview Build for PR #${PR_NUM}
-          
-          This is an automated preview build for testing changes in PR #${PR_NUM}.
-          
-          ## Installation Instructions
-          
-          See the comment on the PR for detailed installation instructions.
-          
-          ## Changes in this PR
-          
-          ${{ steps.pr.outputs.title }}
-          
-          ## Commit
-          
-          ${{ steps.pr.outputs.sha }}
-          EOF
-          
-          # Create release using gh CLI (like we did before) with standard tag format
-          # This ensures azd x publish can generate correct registry URLs
-          ARTIFACTS_PATH="$HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}"
-          
+          # Create a lightweight tag and release with just the registry file
+          # This allows one-line install scripts to work without gh auth
+          # Binaries are distributed via artifacts to avoid cluttering releases
           gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "PR #${PR_NUM} Preview: ${VERSION}" \
-            --notes-file /tmp/pr-release-notes.md \
+            --title "PR #${PR_NUM} Registry (v${VERSION})" \
+            --notes "Registry file for PR #${PR_NUM} build ${VERSION}. Download full build artifacts from [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
             --prerelease \
-            "${ARTIFACTS_PATH}"/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate PR registry
-        id: registry
-        working-directory: cli
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          
-          # Create empty registry file first (azd x publish updates existing file, doesn't create new)
-          echo '{"extensions":[]}' > /tmp/pr-registry.json
-          
-          # Use azd x publish to generate the registry (just like normal release flow)
-          azd x publish \
-            --registry /tmp/pr-registry.json \
-            --version "$VERSION" \
-            --repo "${{ github.repository }}"
-          
-          echo "Generated PR registry:"
-          cat /tmp/pr-registry.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload PR registry to release
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          
-          gh release upload "$TAG" /tmp/pr-registry.json --clobber
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            /tmp/pr-artifacts/pr-registry.json
 
       - name: Generate installation instructions
         id: instructions
@@ -344,23 +415,25 @@ jobs:
           <details>
           <summary>Click to expand manual installation steps</summary>
           
-          **1. Download the registry file:**
+          **1. Download the PR build artifacts** from the [workflow run](https://github.com/$REPO/actions/runs/${{ github.run_id }})
+          
+          **2. Extract the artifacts:**
           \`\`\`bash
-          curl -L -o pr-registry.json https://github.com/$REPO/releases/download/$TAG/pr-registry.json
+          unzip pr-$PR_NUM-build.zip
           \`\`\`
           
-          **2. Add as a custom registry source:**
+          **3. Add as a custom registry source:**
           \`\`\`bash
           azd config set alpha.extension.enabled on
           azd extension source add -n pr-$PR_NUM -t file -l "\$(pwd)/pr-registry.json"
           \`\`\`
           
-          **3. Install the preview:**
+          **4. Install the preview:**
           \`\`\`bash
           azd extension install jongio.azd.app --version $VERSION
           \`\`\`
           
-          **4. Verify installation:**
+          **5. Verify installation:**
           \`\`\`bash
           azd app version  # Should show: azd app extension version $VERSION
           azd app hi
@@ -401,7 +474,9 @@ jobs:
           **Build Info:**
           - **Version:** \`$VERSION\`
           - **Commit:** \`$SHORT_COMMIT\`
-          - **Release:** [$TAG](https://github.com/$REPO/releases/tag/$TAG)
+          - **Binaries:** [Download from workflow artifacts](https://github.com/$REPO/actions/runs/${{ github.run_id }})
+          - **Registry:** [Download from release](https://github.com/$REPO/releases/tag/$TAG)
+          - **Retention:** 90 days (artifacts), indefinite (registry)
           
           **What to Test:**
           Please review the PR description and test the changes described there.
@@ -446,52 +521,27 @@ jobs:
               console.log('Created new comment');
             }
 
-  # Cleanup job that runs when PR is closed or merged
+  # Cleanup job - removes registry releases when PR closes
   cleanup:
-    name: Cleanup PR Builds
+    name: Cleanup PR Registry
     runs-on: ubuntu-latest
     if: github.event.action == 'closed' && github.event_name == 'pull_request_target'
     permissions:
       contents: write
     
     steps:
-      - name: Delete PR pre-release and tag
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const prNum = context.issue.number;
-            
-            try {
-              // List all releases
-              const releases = await github.rest.repos.listReleases({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-              });
-              
-              // Find and delete PR releases
-              for (const release of releases.data) {
-                if (release.tag_name.includes(`pr-${prNum}-`)) {
-                  console.log(`Deleting release: ${release.tag_name}`);
-                  
-                  await github.rest.repos.deleteRelease({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    release_id: release.id,
-                  });
-                  
-                  // Delete the tag too
-                  try {
-                    await github.rest.git.deleteRef({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      ref: `tags/${release.tag_name}`,
-                    });
-                    console.log(`Deleted tag: ${release.tag_name}`);
-                  } catch (error) {
-                    console.log(`Tag ${release.tag_name} may have already been deleted`);
-                  }
-                }
-              }
-            } catch (error) {
-              console.log(`Cleanup completed with warnings: ${error.message}`);
-            }
+      - name: Delete PR registry release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUM=${{ github.event.pull_request.number }}
+          
+          # Find and delete releases matching this PR
+          gh release list --repo ${{ github.repository }} --json tagName,name --limit 100 | \
+            jq -r ".[] | select(.tagName | contains(\"-pr${PR_NUM}\")) | .tagName" | \
+            while read tag; do
+              echo "Deleting release: $tag"
+              gh release delete "$tag" --repo ${{ github.repository }} --yes || true
+              # Delete tag
+              git push --delete origin "$tag" 2>/dev/null || true
+            done
