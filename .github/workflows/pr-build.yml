@@ -244,10 +244,6 @@ jobs:
           PR_NUM="${{ steps.pr.outputs.number }}"
           BASE_VERSION="${{ steps.version.outputs.base_version }}"
           
-          # Debug: Check what files are actually there
-          echo "Checking for archives in $HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}/"
-          ls -la "$HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}/" || echo "Directory not found"
-          
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
           # Preview Build for PR #${PR_NUM}
@@ -267,16 +263,16 @@ jobs:
           ${{ steps.pr.outputs.sha }}
           EOF
           
-          # Use azd x release to create the release with archives (just like normal release flow)
-          # Note: azd x pack stores archives in BASE_VERSION directory, so we need to specify artifacts path
+          # Create release using gh CLI (like we did before) with standard tag format
+          # This ensures azd x publish can generate correct registry URLs
           ARTIFACTS_PATH="$HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}"
-          azd x release \
+          
+          gh release create "$TAG" \
             --repo "${{ github.repository }}" \
-            --version "$VERSION" \
+            --title "PR #${PR_NUM} Preview: ${VERSION}" \
             --notes-file /tmp/pr-release-notes.md \
             --prerelease \
-            --artifacts "${ARTIFACTS_PATH}/*.zip,${ARTIFACTS_PATH}/*.tar.gz" \
-            --confirm
+            "${ARTIFACTS_PATH}"/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
