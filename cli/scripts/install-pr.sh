@@ -27,7 +27,7 @@ PR_NUMBER=$1
 VERSION=$2
 REPO="jongio/azd-app"
 EXTENSION_ID="jongio.azd.app"
-TAG="azd-ext-${EXTENSION_ID}_${VERSION}"
+TAG="azd-ext-jongio-azd-app_${VERSION}"
 REGISTRY_URL="https://github.com/${REPO}/releases/download/${TAG}/pr-registry.json"
 REGISTRY_PATH="./pr-registry.json"
 

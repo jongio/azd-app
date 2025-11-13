@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = "jongio/azd-app"
 $extensionId = "jongio.azd.app"
-$tag = "azd-ext-$extensionId`_$Version"
+$tag = "azd-ext-jongio-azd-app_${Version}"
 $registryUrl = "https://github.com/$repo/releases/download/$tag/pr-registry.json"
 
 Write-Host "🚀 Installing azd app PR #$PrNumber (version $Version)" -ForegroundColor Cyan
