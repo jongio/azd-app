@@ -231,14 +231,15 @@ jobs:
           export EXTENSION_ID="jongio.azd.app"
           export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
           azd x build --all
-          
-          # Restore original extension.yaml
-          git restore extension.yaml
 
       - name: Package
         working-directory: cli
         run: |
+          # Pack with the modified extension.yaml (still has PR version)
           azd x pack
+          
+          # Now restore original extension.yaml
+          git restore extension.yaml
 
       - name: Create PR pre-release
         env:
