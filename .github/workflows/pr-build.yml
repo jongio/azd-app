@@ -275,6 +275,9 @@ jobs:
           # Wait a moment for release to be fully created
           sleep 5
           
+          # Create empty registry file (azd x publish will update it)
+          echo '{"extensions":[]}' > /tmp/pr-registry.json
+          
           # Generate registry using azd x publish (same as release.yml)
           azd x publish \
             --registry /tmp/pr-registry.json \
