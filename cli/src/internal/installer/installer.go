@@ -16,6 +16,11 @@ import (
 
 // InstallNodeDependencies installs dependencies using the detected package manager.
 func InstallNodeDependencies(project types.NodeProject) error {
+	return installNodeDependenciesWithWriter(project, nil)
+}
+
+// installNodeDependenciesWithWriter installs dependencies with optional writer for progress tracking.
+func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter io.Writer) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Dir); err != nil {
 		return fmt.Errorf("invalid project directory: %w", err)
@@ -30,7 +35,7 @@ func InstallNodeDependencies(project types.NodeProject) error {
 	if _, err := os.Stat(nodeModulesPath); err == nil {
 		// node_modules exists, check if it's up-to-date
 		if isDependenciesUpToDate(project.Dir, project.PackageManager) {
-			if !output.IsJSON() {
+			if !output.IsJSON() && progressWriter == nil {
 				output.ItemSuccess("Dependencies already up-to-date (skipping install)")
 			}
 			return nil
@@ -71,12 +76,17 @@ func InstallNodeDependencies(project types.NodeProject) error {
 
 	cmd.Dir = project.Dir
 
-	// In JSON mode, suppress command output
-	if output.IsJSON() {
+	// Configure output based on mode
+	if progressWriter != nil {
+		// Parallel mode: send output to progress writer
+		cmd.Stdout = progressWriter
+		cmd.Stderr = progressWriter
+	} else if output.IsJSON() {
+		// JSON mode: suppress output
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 	} else {
-		// Stream output directly to see progress
+		// Default mode: stream output directly
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
@@ -84,7 +94,7 @@ func InstallNodeDependencies(project types.NodeProject) error {
 	cmd.Env = os.Environ()
 
 	// Add NPM_CONFIG_PROGRESS for npm to ensure progress is shown
-	if project.PackageManager == "npm" && !output.IsJSON() {
+	if project.PackageManager == "npm" && progressWriter == nil && !output.IsJSON() {
 		cmd.Env = append(cmd.Env, "NPM_CONFIG_PROGRESS=true", "NPM_CONFIG_LOGLEVEL=verbose")
 	}
 
@@ -92,7 +102,7 @@ func InstallNodeDependencies(project types.NodeProject) error {
 		return fmt.Errorf("failed to run %s install: %w", project.PackageManager, err)
 	}
 
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.ItemSuccess("Installed dependencies")
 	}
 	return nil
@@ -100,12 +110,17 @@ func InstallNodeDependencies(project types.NodeProject) error {
 
 // RestoreDotnetProject runs dotnet restore on a project.
 func RestoreDotnetProject(project types.DotnetProject) error {
+	return restoreDotnetProjectWithWriter(project, nil)
+}
+
+// restoreDotnetProjectWithWriter runs dotnet restore with optional progress writer.
+func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter io.Writer) error {
 	// Validate path
 	if err := security.ValidatePath(project.Path); err != nil {
 		return fmt.Errorf("invalid project path: %w", err)
 	}
 
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.Item("Restoring: %s", project.Path)
 	}
 
@@ -113,8 +128,18 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 	dir := filepath.Dir(project.Path)
 	cmd := exec.Command("dotnet", "restore", project.Path)
 	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	// Configure output
+	if progressWriter != nil {
+		cmd.Stdout = progressWriter
+		cmd.Stderr = progressWriter
+	} else if output.IsJSON() {
+		cmd.Stdout = io.Discard
+		cmd.Stderr = io.Discard
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	// Don't set Stdin - we don't want interactive prompts
 	cmd.Env = os.Environ()
 
@@ -122,7 +147,7 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 		return fmt.Errorf("failed to restore: %w", err)
 	}
 
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.ItemSuccess("Restored packages")
 	}
 	return nil
@@ -130,31 +155,36 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 
 // SetupPythonVirtualEnv creates a virtual environment and installs dependencies.
 func SetupPythonVirtualEnv(project types.PythonProject) error {
+	return setupPythonVirtualEnvWithWriter(project, nil)
+}
+
+// setupPythonVirtualEnvWithWriter creates a virtual environment with optional progress writer.
+func setupPythonVirtualEnvWithWriter(project types.PythonProject, progressWriter io.Writer) error {
 	switch project.PackageManager {
 	case "uv":
-		return setupWithUv(project.Dir)
+		return setupWithUv(project.Dir, progressWriter)
 	case "poetry":
-		return setupWithPoetry(project.Dir)
+		return setupWithPoetry(project.Dir, progressWriter)
 	case "pip":
-		return setupWithPip(project.Dir)
+		return setupWithPip(project.Dir, progressWriter)
 	default:
 		return fmt.Errorf("unknown package manager: %s", project.PackageManager)
 	}
 }
 
 // setupWithUv sets up a Python project using uv.
-func setupWithUv(projectDir string) error {
+func setupWithUv(projectDir string, progressWriter io.Writer) error {
 	// Check if uv is installed
 	if _, err := exec.LookPath("uv"); err != nil {
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.ItemWarning("uv not found, falling back to pip")
 		}
-		return setupWithPip(projectDir)
+		return setupWithPip(projectDir, progressWriter)
 	}
 
 	// uv automatically manages virtual environments
 	// Just sync the project
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.Item("Installing dependencies into .venv (uv)...")
 	}
 
@@ -162,7 +192,10 @@ func setupWithUv(projectDir string) error {
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
-	if output.IsJSON() {
+	if progressWriter != nil {
+		cmd.Stdout = progressWriter
+		cmd.Stderr = progressWriter
+	} else if output.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 	} else {
@@ -174,14 +207,17 @@ func setupWithUv(projectDir string) error {
 		// If uv sync fails, try uv pip install with explicit venv creation
 		if _, statErr := os.Stat(filepath.Join(projectDir, "requirements.txt")); statErr == nil {
 			// Create virtual environment first
-			if !output.IsJSON() {
+			if !output.IsJSON() && progressWriter == nil {
 				output.Item("Creating virtual environment at .venv (uv)...")
 			}
 			venvCmd := exec.Command("uv", "venv")
 			venvCmd.Dir = projectDir
 			venvCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
-			if output.IsJSON() {
+			if progressWriter != nil {
+				venvCmd.Stdout = progressWriter
+				venvCmd.Stderr = progressWriter
+			} else if output.IsJSON() {
 				venvCmd.Stdout = io.Discard
 				venvCmd.Stderr = io.Discard
 			} else {
@@ -194,14 +230,17 @@ func setupWithUv(projectDir string) error {
 			}
 
 			// Install dependencies
-			if !output.IsJSON() {
+			if !output.IsJSON() && progressWriter == nil {
 				output.Item("Installing dependencies into .venv (uv pip)...")
 			}
 			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
 			installCmd.Dir = projectDir
 			installCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
-			if output.IsJSON() {
+			if progressWriter != nil {
+				installCmd.Stdout = progressWriter
+				installCmd.Stderr = progressWriter
+			} else if output.IsJSON() {
 				installCmd.Stdout = io.Discard
 				installCmd.Stderr = io.Discard
 			} else {
@@ -217,20 +256,20 @@ func setupWithUv(projectDir string) error {
 		}
 	}
 
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.ItemSuccess("Environment ready (uv)")
 	}
 	return nil
 }
 
 // setupWithPoetry sets up a Python project using poetry.
-func setupWithPoetry(projectDir string) error {
+func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	// Check if poetry is installed
 	if _, err := exec.LookPath("poetry"); err != nil {
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.ItemWarning("poetry not found, falling back to pip")
 		}
-		return setupWithPip(projectDir)
+		return setupWithPip(projectDir, progressWriter)
 	}
 
 	// Check if virtual environment exists
@@ -240,14 +279,14 @@ func setupWithPoetry(projectDir string) error {
 	cmdOutput, err := checkCmd.CombinedOutput()
 
 	if err == nil && len(cmdOutput) > 0 {
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			venvPath := string(cmdOutput)
 			output.ItemSuccess("Poetry environment exists at %s", venvPath)
 		}
 		return nil
 	}
 
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.Item("Installing dependencies into poetry venv...")
 	}
 
@@ -256,7 +295,10 @@ func setupWithPoetry(projectDir string) error {
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
-	if output.IsJSON() {
+	if progressWriter != nil {
+		cmd.Stdout = progressWriter
+		cmd.Stderr = progressWriter
+	} else if output.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 	} else {
@@ -268,19 +310,19 @@ func setupWithPoetry(projectDir string) error {
 		return fmt.Errorf("failed to install with poetry: %w", err)
 	}
 
-	if !output.IsJSON() {
+	if !output.IsJSON() && progressWriter == nil {
 		output.ItemSuccess("Dependencies installed (poetry)")
 	}
 	return nil
 }
 
 // setupWithPip sets up a Python project using pip and venv.
-func setupWithPip(projectDir string) error {
+func setupWithPip(projectDir string, progressWriter io.Writer) error {
 	venvPath := filepath.Join(projectDir, ".venv")
 
 	// Check if venv already exists, create if not
 	if _, err := os.Stat(venvPath); err != nil {
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.Item("Creating virtual environment at .venv...")
 		}
 
@@ -293,11 +335,11 @@ func setupWithPip(projectDir string) error {
 			return fmt.Errorf("failed to create venv: %w\n%s", err, cmdOutput)
 		}
 
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.ItemSuccess("Created .venv")
 		}
 	} else {
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.ItemSuccess("Virtual environment exists")
 		}
 	}
@@ -305,7 +347,7 @@ func setupWithPip(projectDir string) error {
 	// Check if requirements.txt exists and install dependencies
 	requirementsPath := filepath.Join(projectDir, "requirements.txt")
 	if _, err := os.Stat(requirementsPath); err == nil {
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.Item("Installing dependencies into .venv (pip)...")
 		}
 
@@ -324,7 +366,10 @@ func setupWithPip(projectDir string) error {
 		pipCmd := exec.Command(pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
 		pipCmd.Dir = projectDir
 
-		if output.IsJSON() {
+		if progressWriter != nil {
+			pipCmd.Stdout = progressWriter
+			pipCmd.Stderr = progressWriter
+		} else if output.IsJSON() {
 			pipCmd.Stdout = io.Discard
 			pipCmd.Stderr = io.Discard
 		} else {
@@ -338,7 +383,7 @@ func setupWithPip(projectDir string) error {
 			return fmt.Errorf("failed to install requirements: %w", err)
 		}
 
-		if !output.IsJSON() {
+		if !output.IsJSON() && progressWriter == nil {
 			output.ItemSuccess("Dependencies installed (pip)")
 		}
 	}

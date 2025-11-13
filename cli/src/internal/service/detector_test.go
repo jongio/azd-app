@@ -476,7 +476,7 @@ func TestEntrypointMissingFile(t *testing.T) {
 				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
 			},
 			shouldError:  true,
-			errorContain: "Python entrypoint file not found: missing_file",
+			errorContain: "python entrypoint file not found: missing_file",
 		},
 		{
 			name:       "Flask missing entrypoint file",
@@ -487,7 +487,7 @@ func TestEntrypointMissingFile(t *testing.T) {
 				"app.py":           "from flask import Flask\napp = Flask(__name__)",
 			},
 			shouldError:  true,
-			errorContain: "Python entrypoint file not found: nonexistent",
+			errorContain: "python entrypoint file not found: nonexistent",
 		},
 		{
 			name:       "Streamlit missing entrypoint file",
@@ -498,7 +498,7 @@ func TestEntrypointMissingFile(t *testing.T) {
 				"main.py":          "import streamlit as st",
 			},
 			shouldError:  true,
-			errorContain: "Python entrypoint file not found: dashboard_missing",
+			errorContain: "python entrypoint file not found: dashboard_missing",
 		},
 		{
 			name:       "Python missing auto-detected file",
@@ -509,7 +509,7 @@ func TestEntrypointMissingFile(t *testing.T) {
 				// No main.py or app.py
 			},
 			shouldError:  true,
-			errorContain: "Python entrypoint file not found: main",
+			errorContain: "python entrypoint file not found: main",
 		},
 		{
 			name:       "FastAPI existing file should not error",

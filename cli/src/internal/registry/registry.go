@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -181,52 +179,6 @@ func (r *ServiceRegistry) load() error {
 
 	r.services = services
 	return nil
-}
-
-// cleanStale removes entries for processes that are no longer running.
-//
-//nolint:unused // Kept for future use - will be used for automatic cleanup
-func (r *ServiceRegistry) cleanStale() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	// On Windows, process checking is unreliable, so we use a timeout-based approach
-	// Remove entries that haven't been checked in over 1 hour
-	timeout := time.Hour
-	now := time.Now()
-
-	for key, entry := range r.services {
-		// If last checked is zero or very old, remove it
-		if entry.LastChecked.IsZero() || now.Sub(entry.LastChecked) > timeout {
-			delete(r.services, key)
-			continue
-		}
-
-		// On non-Windows systems, we can do actual process checking
-		if runtime.GOOS != "windows" && entry.PID > 0 {
-			if !isProcessRunning(entry.PID) {
-				delete(r.services, key)
-			}
-		}
-	}
-
-	// Save after cleanup
-	_ = r.save()
-}
-
-// isProcessRunning checks if a process with the given PID is running.
-// This only works reliably on Unix systems.
-//
-//nolint:unused // Kept for future use - will be used by cleanStale
-func isProcessRunning(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// On Unix systems, Signal(0) is a standard way to check if process exists
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
 }
 
 // Clear removes all entries from the registry.

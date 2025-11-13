@@ -11,9 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	depsVerbose bool
+)
+
 // NewDepsCommand creates the deps command.
 func NewDepsCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "deps",
 		Short: "Install dependencies for all detected projects",
 		Long:  `Automatically detects and installs dependencies for Node.js (npm/pnpm/yarn), Python (uv/poetry/pip), and .NET projects`,
@@ -35,6 +39,10 @@ func NewDepsCommand() *cobra.Command {
 			return cmdOrchestrator.Run("deps")
 		},
 	}
+
+	cmd.Flags().BoolVarP(&depsVerbose, "verbose", "v", false, "Show full installation output")
+
+	return cmd
 }
 
 // installNodeServiceDepsWithResult installs Node.js dependencies and returns structured result.

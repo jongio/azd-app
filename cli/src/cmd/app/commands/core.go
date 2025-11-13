@@ -360,7 +360,8 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 func executeDeps() error {
 	if !output.IsJSON() {
 		output.Newline()
-		output.Section("🔍", "Installing dependencies")
+		output.Section("📦", "Installing Dependencies")
+		output.Newline()
 	}
 
 	// Determine search root
@@ -372,15 +373,15 @@ func executeDeps() error {
 		return err
 	}
 
-	// Install dependencies
-	installer := NewDependencyInstaller(searchRoot)
-	results, err := installer.InstallAll()
-	if err != nil {
-		return err
-	}
+	// Detect all projects
+	nodeProjects, _ := detector.FindNodeProjects(searchRoot)
+	pythonProjects, _ := detector.FindPythonProjects(searchRoot)
+	dotnetProjects, _ := detector.FindDotnetProjects(searchRoot)
+
+	totalProjects := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
 
 	// Handle no projects case
-	if len(results) == 0 {
+	if totalProjects == 0 {
 		if output.IsJSON() {
 			return output.PrintJSON(DepsResult{
 				Success:  true,
@@ -388,21 +389,51 @@ func executeDeps() error {
 				Message:  msgNoProjectsDetected,
 			})
 		}
-		output.Info(msgNoProjectsDetected + " - skipping dependency installation")
+		output.Info(msgNoProjectsDetected)
 		return nil
 	}
 
-	// Output results
-	if output.IsJSON() {
-		allSuccess := checkAllSuccess(results)
-		return output.PrintJSON(DepsResult{
-			Success:  allSuccess,
-			Projects: results,
-		})
+	// Use parallel installer for concurrent installation with progress bars
+	if !output.IsJSON() {
+		parallelInstaller := installer.NewParallelInstaller()
+		parallelInstaller.Verbose = depsVerbose
+
+		// Add all projects to the parallel installer
+		for _, project := range nodeProjects {
+			parallelInstaller.AddNodeProject(project)
+		}
+		for _, project := range pythonProjects {
+			parallelInstaller.AddPythonProject(project)
+		}
+		for _, project := range dotnetProjects {
+			parallelInstaller.AddDotnetProject(project)
+		}
+
+		// Run all installations in parallel
+		if err := parallelInstaller.Run(); err != nil {
+			return err
+		}
+
+		// Check for failures
+		if parallelInstaller.HasFailures() {
+			return fmt.Errorf("some installations failed")
+		}
+
+		return nil
 	}
 
-	output.Success("Dependencies installed successfully!")
-	return nil
+	// JSON mode: use sequential installer
+	depInstaller := NewDependencyInstaller(searchRoot)
+	results, err := depInstaller.InstallAll()
+	if err != nil {
+		return err
+	}
+
+	allSuccess := checkAllSuccess(results)
+	return output.PrintJSON(DepsResult{
+		Success:  allSuccess,
+		Projects: results,
+	})
 }
 
 // getSearchRoot determines the search root for finding projects.
