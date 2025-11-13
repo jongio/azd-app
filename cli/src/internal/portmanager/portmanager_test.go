@@ -34,7 +34,7 @@ func TestAssignPort_Explicit_Available(t *testing.T) {
 	pm := setupTestManager(tempDir, nil) // All ports available
 
 	// Assign explicit port that should be available
-	port, _, err := pm.AssignPort("test-service", 9876, true, false)
+	port, _, err := pm.AssignPort("test-service", 9876, true)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestAssignPort_Explicit_OutOfRange(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Try to assign explicit port outside valid range
-	_, _, err := pm.AssignPort("test-service", 100, true, false)
+	_, _, err := pm.AssignPort("test-service", 100, true)
 	if err == nil {
 		t.Fatal("Expected error for port outside range, got nil")
 	}
@@ -76,7 +76,7 @@ func TestAssignPort_Flexible_Available(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign flexible port
-	port, _, err := pm.AssignPort("test-service", 9877, false, false)
+	port, _, err := pm.AssignPort("test-service", 9877, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestAssignPort_Flexible_FindsAlternative(t *testing.T) {
 	// port if neither is actually running and listening on that port.
 
 	// Assign first service on preferred port
-	port1, _, err := pm.AssignPort("service1", 9878, false, false)
+	port1, _, err := pm.AssignPort("service1", 9878, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestAssignPort_Flexible_FindsAlternative(t *testing.T) {
 	// Try to assign second service with same preferred port (flexible)
 	// Because service1 isn't actually running, the port is available
 	// So service2 also gets 9878 (current behavior)
-	port2, _, err := pm.AssignPort("service2", 9878, false, false)
+	port2, _, err := pm.AssignPort("service2", 9878, false)
 	if err != nil {
 		t.Fatalf("Expected no error for flexible port, got: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestAssignPort_Persistence(t *testing.T) {
 
 	// First port manager instance
 	pm1 := setupTestManager(tempDir, nil)
-	port1, _, err := pm1.AssignPort("test-service", 9879, false, false)
+	port1, _, err := pm1.AssignPort("test-service", 9879, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -151,13 +151,13 @@ func TestAssignPort_SameServiceTwice(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign port first time
-	port1, _, err := pm.AssignPort("test-service", 9880, false, false)
+	port1, _, err := pm.AssignPort("test-service", 9880, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
 	// Assign again - should return same port
-	port2, _, err := pm.AssignPort("test-service", 8888, false, false)
+	port2, _, err := pm.AssignPort("test-service", 8888, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestReleasePort(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign port
-	port, _, err := pm.AssignPort("test-service", 9881, false, false)
+	port, _, err := pm.AssignPort("test-service", 9881, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestReleasePort(t *testing.T) {
 	}
 
 	// Verify can assign same port to different service
-	newPort, _, err := pm.AssignPort("other-service", port, false, false)
+	newPort, _, err := pm.AssignPort("other-service", port, false)
 	if err != nil {
 		t.Fatalf("Expected no error after release, got: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestGetAssignment(t *testing.T) {
 
 	// Create assignment
 	expectedPort := 9882
-	if _, _, err := pm.AssignPort("test-service", expectedPort, false, false); err != nil {
+	if _, _, err := pm.AssignPort("test-service", expectedPort, false); err != nil {
 		t.Fatalf("failed to assign port: %v", err)
 	}
 
@@ -247,12 +247,14 @@ func TestCleanStaleAssignments(t *testing.T) {
 	pm.mu.Unlock()
 
 	// Create recent assignment
-	if _, _, err := pm.AssignPort("active-service", 9884, false, false); err != nil {
+	if _, _, err := pm.AssignPort("active-service", 9884, false); err != nil {
 		t.Fatalf("failed to assign port: %v", err)
 	}
 
 	// Clean stale ports (older than 7 days by default)
-	pm.CleanStalePorts()
+	if err := pm.CleanStalePorts(); err != nil {
+		t.Fatalf("CleanStalePorts failed: %v", err)
+	}
 
 	// Stale assignment won't be cleaned (25 hours < 7 days)
 	// This test documents the behavior rather than testing cleanup
@@ -326,8 +328,8 @@ func TestPortManagerDifferentProjects(t *testing.T) {
 	}
 
 	// Can assign same port to different projects
-	port1, _, _ := pm1.AssignPort("service", 9885, false, false)
-	port2, _, _ := pm2.AssignPort("service", 9885, false, false)
+	port1, _, _ := pm1.AssignPort("service", 9885, false)
+	port2, _, _ := pm2.AssignPort("service", 9885, false)
 
 	if port1 != 9885 || port2 != 9885 {
 		t.Error("Expected both projects to use same port number independently")
@@ -339,7 +341,7 @@ func TestPortAssignmentFile(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign a port
-	if _, _, err := pm.AssignPort("test-service", 9886, false, false); err != nil {
+	if _, _, err := pm.AssignPort("test-service", 9886, false); err != nil {
 		t.Fatalf("failed to assign port: %v", err)
 	}
 
@@ -375,7 +377,7 @@ func TestMultipleServicesAssignment(t *testing.T) {
 
 	// Assign all services
 	for name, preferredPort := range services {
-		port, _, err := pm.AssignPort(name, preferredPort, false, false)
+		port, _, err := pm.AssignPort(name, preferredPort, false)
 		if err != nil {
 			t.Fatalf("Failed to assign port for %s: %v", name, err)
 		}
@@ -404,7 +406,7 @@ func TestAssignPort_HighPortNumber(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Try to assign a very high port number (at edge of range)
-	port, _, err := pm.AssignPort("test-service", 65535, true, false)
+	port, _, err := pm.AssignPort("test-service", 65535, true)
 	if err != nil {
 		t.Fatalf("Expected no error for port 65535, got: %v", err)
 	}
@@ -419,7 +421,7 @@ func TestAssignPort_LowValidPort(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Try to assign port at lower bound of valid range
-	port, _, err := pm.AssignPort("test-service", 3000, true, false)
+	port, _, err := pm.AssignPort("test-service", 3000, true)
 	if err != nil {
 		t.Fatalf("Expected no error for port 3000, got: %v", err)
 	}
@@ -435,7 +437,7 @@ func TestAssignPort_ExplicitTooHigh(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Try to assign explicit port above 65535
-	_, _, err := pm.AssignPort("test-service", 70000, true, false)
+	_, _, err := pm.AssignPort("test-service", 70000, true)
 	if err == nil {
 		t.Error("Expected error for port > 65535")
 	}
@@ -446,7 +448,7 @@ func TestAssignPort_ZeroPort(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Try flexible assignment with port 0 (should find available port)
-	port, _, err := pm.AssignPort("test-service", 0, false, false)
+	port, _, err := pm.AssignPort("test-service", 0, false)
 	if err != nil {
 		t.Fatalf("Expected no error for port 0, got: %v", err)
 	}
@@ -488,7 +490,9 @@ func TestCleanStalePorts_VeryOldAssignment(t *testing.T) {
 	pm.mu.Unlock()
 
 	// Clean stale ports
-	pm.CleanStalePorts()
+	if err := pm.CleanStalePorts(); err != nil {
+		t.Fatalf("CleanStalePorts failed: %v", err)
+	}
 
 	// Very old assignment should be cleaned
 	if _, exists := pm.GetAssignment("ancient-service"); exists {
@@ -505,7 +509,7 @@ func TestPortManager_EmptyProjectDir(t *testing.T) {
 	}
 
 	// Should be able to assign ports
-	port, _, err := pm.AssignPort("test", 9892, false, false)
+	port, _, err := pm.AssignPort("test", 9892, false)
 	if err != nil {
 		t.Fatalf("Expected to assign port, got error: %v", err)
 	}
@@ -538,10 +542,10 @@ func TestSaveAndLoad(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign some ports
-	if _, _, err := pm.AssignPort("service1", 9900, false, false); err != nil {
+	if _, _, err := pm.AssignPort("service1", 9900, false); err != nil {
 		t.Fatalf("failed to assign port for service1: %v", err)
 	}
-	if _, _, err := pm.AssignPort("service2", 9901, false, false); err != nil {
+	if _, _, err := pm.AssignPort("service2", 9901, false); err != nil {
 		t.Fatalf("failed to assign port for service2: %v", err)
 	}
 
@@ -593,7 +597,7 @@ func TestLoadCorruptedFile(t *testing.T) {
 	}
 
 	// Should be able to assign ports despite corrupt file
-	port, _, err := pm.AssignPort("test", 9902, false, false)
+	port, _, err := pm.AssignPort("test", 9902, false)
 	if err != nil {
 		t.Fatalf("Should be able to assign port: %v", err)
 	}
@@ -608,7 +612,7 @@ func TestAssignPort_ExplicitMode(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Explicit mode with available port
-	port, _, err := pm.AssignPort("explicit-service", 9903, true, false)
+	port, _, err := pm.AssignPort("explicit-service", 9903, true)
 	if err != nil {
 		t.Fatalf("Failed to assign explicit port: %v", err)
 	}
@@ -623,14 +627,14 @@ func TestAssignPort_FlexibleReassignment(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign port 9904 to service1
-	port1, _, err := pm.AssignPort("service1", 9904, false, false)
+	port1, _, err := pm.AssignPort("service1", 9904, false)
 	if err != nil {
 		t.Fatalf("Failed initial assignment: %v", err)
 	}
 
 	// Now assign service1 again with different preferred port (flexible mode)
 	// It should keep 9904 if available
-	port2, _, err := pm.AssignPort("service1", 9905, false, false)
+	port2, _, err := pm.AssignPort("service1", 9905, false)
 	if err != nil {
 		t.Fatalf("Failed reassignment: %v", err)
 	}
@@ -646,7 +650,7 @@ func TestReleasePort_UpdatesFile(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign and release
-	if _, _, err := pm.AssignPort("temp-service", 9906, false, false); err != nil {
+	if _, _, err := pm.AssignPort("temp-service", 9906, false); err != nil {
 		t.Fatalf("failed to assign port: %v", err)
 	}
 
@@ -672,7 +676,7 @@ func TestManagerCache(t *testing.T) {
 
 	// Clear cache
 	managerCacheMu.Lock()
-	managerCache = make(map[string]*PortManager)
+	managerCache = make(map[string]*cacheEntry)
 	managerCacheMu.Unlock()
 
 	// Get manager twice - should return same instance
@@ -693,6 +697,45 @@ func TestManagerCache(t *testing.T) {
 	}
 }
 
+func TestManagerCacheEviction(t *testing.T) {
+	// Clear cache
+	managerCacheMu.Lock()
+	managerCache = make(map[string]*cacheEntry)
+	managerCacheMu.Unlock()
+
+	// Create more managers than cache size (50)
+	// We'll create 55 to test eviction
+	tempDirs := make([]string, 55)
+	for i := 0; i < 55; i++ {
+		tempDirs[i] = t.TempDir()
+		_ = GetPortManager(tempDirs[i])
+		// Small sleep to ensure different timestamps
+		time.Sleep(1 * time.Millisecond)
+	}
+
+	// Cache should have evicted oldest entries
+	managerCacheMu.RLock()
+	cacheSize := len(managerCache)
+	managerCacheMu.RUnlock()
+
+	if cacheSize > maxCacheSize {
+		t.Errorf("Cache size %d exceeds maximum %d", cacheSize, maxCacheSize)
+	}
+
+	// First entries should have been evicted
+	managerCacheMu.RLock()
+	_, existsOld := managerCache[tempDirs[0]]
+	_, existsNew := managerCache[tempDirs[54]]
+	managerCacheMu.RUnlock()
+
+	if existsOld {
+		t.Error("Expected oldest entry to be evicted")
+	}
+	if !existsNew {
+		t.Error("Expected newest entry to be in cache")
+	}
+}
+
 func TestGetPortManager_EmptyProjectDirUsesWorkingDir(t *testing.T) {
 	// This test verifies that empty string falls back to working directory
 	pm := setupTestManager("", nil)
@@ -702,7 +745,7 @@ func TestGetPortManager_EmptyProjectDirUsesWorkingDir(t *testing.T) {
 	}
 
 	// Should be able to use it
-	port, _, err := pm.AssignPort("test-empty-dir", 9907, false, false)
+	port, _, err := pm.AssignPort("test-empty-dir", 9907, false)
 	if err != nil {
 		t.Fatalf("Failed to assign port: %v", err)
 	}
@@ -722,7 +765,7 @@ func TestAssignPort_PreferredPortOutOfRange(t *testing.T) {
 	pm := setupTestManager(tempDir, nil)
 
 	// Try flexible mode with out-of-range preferred port
-	port, _, err := pm.AssignPort("service", 100, false, false)
+	port, _, err := pm.AssignPort("service", 100, false)
 	if err != nil {
 		t.Fatalf("Expected to find alternative port, got error: %v", err)
 	}
@@ -751,5 +794,73 @@ func TestIsPortAvailableEdgeCases(t *testing.T) {
 	// Port 5000 should be available (not in unavailable map)
 	if !pm.isPortAvailable(5000) {
 		t.Error("Expected port 5000 to be available")
+	}
+}
+
+func TestConfigurablePortRange(t *testing.T) {
+	tests := []struct {
+		name      string
+		startEnv  string
+		endEnv    string
+		wantStart int
+		wantEnd   int
+	}{
+		{
+			name:      "default range",
+			startEnv:  "",
+			endEnv:    "",
+			wantStart: 3000,
+			wantEnd:   65535,
+		},
+		{
+			name:      "custom range",
+			startEnv:  "5000",
+			endEnv:    "6000",
+			wantStart: 5000,
+			wantEnd:   6000,
+		},
+		{
+			name:      "invalid start falls back to default",
+			startEnv:  "invalid",
+			endEnv:    "",
+			wantStart: 3000,
+			wantEnd:   65535,
+		},
+		{
+			name:      "out of range start falls back to default",
+			startEnv:  "70000",
+			endEnv:    "",
+			wantStart: 3000,
+			wantEnd:   65535,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables
+			if tt.startEnv != "" {
+				os.Setenv(envPortRangeStart, tt.startEnv)
+				defer os.Unsetenv(envPortRangeStart)
+			}
+			if tt.endEnv != "" {
+				os.Setenv(envPortRangeEnd, tt.endEnv)
+				defer os.Unsetenv(envPortRangeEnd)
+			}
+
+			// Clear cache to force new manager creation
+			managerCacheMu.Lock()
+			managerCache = make(map[string]*cacheEntry)
+			managerCacheMu.Unlock()
+
+			tempDir := t.TempDir()
+			pm := GetPortManager(tempDir)
+
+			if pm.portRange.start != tt.wantStart {
+				t.Errorf("Start port = %d, want %d", pm.portRange.start, tt.wantStart)
+			}
+			if pm.portRange.end != tt.wantEnd {
+				t.Errorf("End port = %d, want %d", pm.portRange.end, tt.wantEnd)
+			}
+		})
 	}
 }

@@ -67,7 +67,7 @@ func TestAssignPort_ValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			port, _, err := pm.AssignPort(tt.serviceName, tt.port, tt.isExplicit, false)
+			port, _, err := pm.AssignPort(tt.serviceName, tt.port, tt.isExplicit)
 
 			if tt.wantErr {
 				if err == nil {
@@ -94,7 +94,7 @@ func TestAssignPort_ServiceNameWithSpecialChars(t *testing.T) {
 
 	// Test that service names are properly handled in JSON
 	serviceName := "test-service-with-dash_and_underscore"
-	port, _, err := pm.AssignPort(serviceName, 3000, false, false)
+	port, _, err := pm.AssignPort(serviceName, 3000, false)
 	if err != nil {
 		t.Fatalf("Failed to assign port: %v", err)
 	}

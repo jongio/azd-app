@@ -115,7 +115,7 @@ func TestAssignPort_Integration_WithRealConflict(t *testing.T) {
 	t.Logf("Using test port: %d", testPort)
 
 	// Assign port when available - should succeed
-	assignedPort, _, err := pm.AssignPort("test-service", testPort, false, false)
+	assignedPort, _, err := pm.AssignPort("test-service", testPort, false)
 	if err != nil {
 		t.Fatalf("Failed to assign available port: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestPortAssignment_MultipleServices(t *testing.T) {
 
 	for _, serviceName := range services {
 		// Use preferred port 0 to auto-assign
-		port, _, err := pm.AssignPort(serviceName, 0, false, false)
+		port, _, err := pm.AssignPort(serviceName, 0, false)
 		if err != nil {
 			t.Fatalf("Failed to assign port for %s: %v", serviceName, err)
 		}
@@ -219,7 +219,7 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 
 	// First instance
 	pm1 := GetPortManager(tempDir)
-	port1, _, err := pm1.AssignPort("service1", 0, false, false)
+	port1, _, err := pm1.AssignPort("service1", 0, false)
 	if err != nil {
 		t.Fatalf("First instance failed to assign port: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestPortManager_SaveLoad(t *testing.T) {
 	}
 
 	for serviceName, preferredPort := range assignments {
-		port, _, err := pm1.AssignPort(serviceName, preferredPort, false, false)
+		port, _, err := pm1.AssignPort(serviceName, preferredPort, false)
 		if err != nil {
 			t.Fatalf("Failed to assign port for %s: %v", serviceName, err)
 		}
