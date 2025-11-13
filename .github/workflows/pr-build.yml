@@ -8,7 +8,7 @@ on:
     branches: [ main ]
   pull_request_target:
     branches: [ main ]
-    types: [labeled]
+    types: [labeled, closed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -399,7 +399,7 @@ jobs:
   cleanup:
     name: Cleanup PR Builds
     runs-on: ubuntu-latest
-    if: github.event.action == 'closed'
+    if: github.event.action == 'closed' && github.event_name == 'pull_request_target'
     permissions:
       contents: write
     
