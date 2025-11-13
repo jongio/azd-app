@@ -643,7 +643,7 @@ func validatePythonEntrypoint(projectDir string, appFile string) error {
 	// File doesn't exist - provide helpful error message
 	expectedPath := filepath.Join(projectDir, appFile+".py")
 	return fmt.Errorf(
-		"Python entrypoint file not found: %s\n"+
+		"python entrypoint file not found: %s\n"+
 			"Expected file: %s\n"+
 			"Please ensure the file exists or specify the correct entrypoint in azure.yaml using:\n"+
 			"  entrypoint: <filename>",

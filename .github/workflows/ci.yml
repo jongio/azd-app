@@ -40,8 +40,14 @@ jobs:
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
       - name: Install gosec
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
       - name: Run preflight checks
         run: mage preflight
@@ -106,7 +112,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../coverage
-          go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+          # Race detector not supported on macOS without additional setup
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            go test -short -v -coverprofile=../coverage/coverage.out ./...
+          else
+            go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+          fi
 
       - name: Upload coverage to Codecov
         if: github.repository == 'jongio/azd-app'

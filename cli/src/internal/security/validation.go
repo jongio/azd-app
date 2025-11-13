@@ -23,7 +23,7 @@ func ValidatePath(path string) error {
 
 	// Check for path traversal attempts before resolving
 	if strings.Contains(path, "..") {
-		return fmt.Errorf("%w: path contains ..", ErrPathTraversal)
+		return fmt.Errorf("%w: path contains parent directory reference", ErrPathTraversal)
 	}
 
 	// Convert to absolute path
@@ -37,7 +37,7 @@ func ValidatePath(path string) error {
 
 	// After cleaning, check again for ..
 	if strings.Contains(cleanPath, "..") {
-		return fmt.Errorf("%w: cleaned path contains ..", ErrPathTraversal)
+		return fmt.Errorf("%w: cleaned path contains parent directory reference", ErrPathTraversal)
 	}
 
 	return nil
