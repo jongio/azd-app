@@ -9,6 +9,11 @@ on:
   pull_request_target:
     branches: [ main ]
     types: [labeled, closed]
+  push:
+    branches: [ prbuild ]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/pr-build.yml'
   workflow_dispatch:
     inputs:
       pr_number:
@@ -30,10 +35,12 @@ jobs:
     # Only run if:
     # 1. CI workflow succeeded, OR
     # 2. Manual trigger via workflow_dispatch, OR
-    # 3. PR labeled with 'safe-to-build'
+    # 3. PR labeled with 'safe-to-build', OR
+    # 4. Push to prbuild branch (for testing)
     if: |
       github.event_name == 'workflow_dispatch' || 
       github.event_name == 'pull_request_target' ||
+      github.event_name == 'push' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       allowed: ${{ steps.check.outputs.allowed }}
@@ -61,6 +68,27 @@ jobs:
                   pull_number: prNumber
                 });
                 prSha = pr.data.head.sha;
+              }
+              core.setOutput('allowed', 'true');
+              core.setOutput('pr_number', prNumber || '');
+              core.setOutput('pr_sha', prSha || '');
+              return;
+            }
+            
+            // push event (for testing on prbuild branch)
+            if (context.eventName === 'push') {
+              allowed = true;
+              // Find PR for this branch
+              const { data: prs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`
+              });
+              
+              if (prs.length > 0) {
+                prNumber = prs[0].number;
+                prSha = prs[0].head.sha;
               }
               core.setOutput('allowed', 'true');
               core.setOutput('pr_number', prNumber || '');
