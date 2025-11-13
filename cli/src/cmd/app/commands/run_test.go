@@ -267,6 +267,24 @@ func TestMonitorServicesUntilShutdown_StartupTimeout(t *testing.T) {
 		done <- monitorServicesUntilShutdown(result, tmpDir)
 	}()
 
+	// Ensure cleanup if test exits early
+	defer func() {
+		// If monitoring is still running, send interrupt to clean up
+		select {
+		case <-done:
+			// Already completed
+		default:
+			// Send interrupt to terminate monitoring goroutine
+			proc, _ := os.FindProcess(os.Getpid())
+			_ = proc.Signal(os.Interrupt)
+			// Wait briefly for cleanup
+			select {
+			case <-done:
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+	}()
+
 	// Monitoring should continue even after service exits (process isolation)
 	// Force completion after 2 seconds by stopping the process
 	select {
@@ -826,6 +844,24 @@ func TestProcessExit_DoesNotStopOtherServices(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		done <- monitorServicesUntilShutdown(result, tmpDir)
+	}()
+
+	// Ensure cleanup if test exits
+	defer func() {
+		// If monitoring is still running, send interrupt to clean up
+		select {
+		case <-done:
+			// Already completed
+		default:
+			// Send interrupt to terminate monitoring goroutine cleanly
+			proc, _ := os.FindProcess(os.Getpid())
+			_ = proc.Signal(os.Interrupt)
+			// Wait briefly for cleanup to complete
+			select {
+			case <-done:
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
 	}()
 
 	// Wait to verify monitoring continues after quick-exit stops (~1s)
