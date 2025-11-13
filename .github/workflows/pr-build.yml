@@ -288,8 +288,10 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
+          # Create empty registry file first (azd x publish updates existing file, doesn't create new)
+          echo '{"extensions":[]}' > /tmp/pr-registry.json
+          
           # Use azd x publish to generate the registry (just like normal release flow)
-          # Save to a temporary location first
           azd x publish \
             --registry /tmp/pr-registry.json \
             --version "$VERSION" \
