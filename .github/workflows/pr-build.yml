@@ -208,6 +208,17 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
           
+          # Delete existing release and tag if they exist
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Deleting existing release: $TAG"
+            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
+          fi
+          
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "Deleting existing tag: $TAG"
+            git push origin --delete "$TAG" || true
+          fi
+          
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
           # Preview Build for PR #${PR_NUM}
