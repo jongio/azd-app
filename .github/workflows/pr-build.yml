@@ -250,7 +250,9 @@ jobs:
           PR_NUM="${{ steps.pr.outputs.number }}"
           
           # Delete existing release if it exists
-          gh release delete "$TAG" --repo "${{ github.repository }}" --yes 2>/dev/null || true
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
+          fi
           
           # Create pre-release with all binaries using gh CLI
           # Pre-releases are public but shown separately on releases page
