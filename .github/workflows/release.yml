@@ -117,7 +117,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../coverage
-          go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+          # Race detector not supported on macOS without additional setup
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            go test -short -v -coverprofile=../coverage/coverage.out ./...
+          else
+            go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+          fi
 
   lint:
     name: Lint
