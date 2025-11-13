@@ -265,12 +265,13 @@ jobs:
           
           # Use azd x release to create the release with archives (just like normal release flow)
           # Note: azd x pack stores archives in BASE_VERSION directory, so we need to specify artifacts path
+          ARTIFACTS_PATH="$HOME/.azd/registry/jongio.azd.app/${BASE_VERSION}"
           azd x release \
             --repo "${{ github.repository }}" \
             --version "$VERSION" \
             --notes-file /tmp/pr-release-notes.md \
             --prerelease \
-            --artifacts "~/.azd/registry/jongio.azd.app/${BASE_VERSION}/*.zip,~/.azd/registry/jongio.azd.app/${BASE_VERSION}/*.tar.gz" \
+            --artifacts "${ARTIFACTS_PATH}/*.zip,${ARTIFACTS_PATH}/*.tar.gz" \
             --confirm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
