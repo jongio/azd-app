@@ -242,6 +242,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           PR_NUM="${{ steps.pr.outputs.number }}"
+          BASE_VERSION="${{ steps.version.outputs.base_version }}"
           
           # Create release notes
           cat > /tmp/pr-release-notes.md <<EOF
@@ -263,11 +264,13 @@ jobs:
           EOF
           
           # Use azd x release to create the release with archives (just like normal release flow)
+          # Note: azd x pack stores archives in BASE_VERSION directory, so we need to specify artifacts path
           azd x release \
             --repo "${{ github.repository }}" \
             --version "$VERSION" \
             --notes-file /tmp/pr-release-notes.md \
             --prerelease \
+            --artifacts "~/.azd/registry/jongio.azd.app/${BASE_VERSION}/*.zip,~/.azd/registry/jongio.azd.app/${BASE_VERSION}/*.tar.gz" \
             --confirm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
