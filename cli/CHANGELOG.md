@@ -1,3 +1,11 @@
+## [0.5.7] - 2025-11-13
+
+- Improve Windows process termination and enhance service lifecycle management (#52) (335b313)
+- Handle missing reqs section gracefully (#53) (680342a)
+- Implement multi-progress tracking and enhance security checks (#54) (f2c3abd)
+- fix: update dependencies in go.mod and go.sum for compatibility (b7d991d)
+- chore: update registry for v0.5.6 (9389816)
+
 ## [0.5.6] - 2025-11-11
 
 - fix: adjust working directory for release and update registry steps (ff7d70b)
