@@ -36,25 +36,25 @@ const (
 )
 
 var (
-	healthService            string
-	healthStream             bool
-	healthInterval           time.Duration
-	healthOutput             string
-	healthEndpoint           string
-	healthTimeout            time.Duration
-	healthAll                bool
-	healthVerbose            bool
-	healthProfile            string
-	healthLogLevel           string
-	healthLogFormat          string
-	healthEnableMetrics      bool
-	healthMetricsPort        int
-	healthCircuitBreaker     bool
-	healthCircuitBreakCount  int
-	healthCircuitBreakTime   time.Duration
-	healthRateLimit          int
-	healthCacheTTL           time.Duration
-	healthProfileSave        bool
+	healthService           string
+	healthStream            bool
+	healthInterval          time.Duration
+	healthOutput            string
+	healthEndpoint          string
+	healthTimeout           time.Duration
+	healthAll               bool
+	healthVerbose           bool
+	healthProfile           string
+	healthLogLevel          string
+	healthLogFormat         string
+	healthEnableMetrics     bool
+	healthMetricsPort       int
+	healthCircuitBreaker    bool
+	healthCircuitBreakCount int
+	healthCircuitBreakTime  time.Duration
+	healthRateLimit         int
+	healthCacheTTL          time.Duration
+	healthProfileSave       bool
 )
 
 // NewHealthCommand creates the health command.
