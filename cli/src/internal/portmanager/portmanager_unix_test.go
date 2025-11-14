@@ -83,7 +83,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 		t.Skipf("netcat did not bind to port %d after 1 second (may be timing issue)", port)
 	}
 
-	// Get the PID to verify it's our process
+	// Get the PID to verify getProcessOnPort works correctly
 	pid, err := pm.getProcessOnPort(port)
 	if err != nil {
 		t.Fatalf("Failed to get process on port: %v", err)
@@ -91,7 +91,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 
 	if pid != cmd.Process.Pid {
 		t.Logf("Warning: PID mismatch. Expected %d, got %d", cmd.Process.Pid, pid)
-		// This might happen in containerized environments, but continue test
+		// This might happen if lsof returns parent shell PID instead of netcat PID
 	}
 
 	t.Logf("Process listening on port %d with PID %d", port, pid)
@@ -103,28 +103,20 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 		t.Fatalf("killProcessOnPort failed: %v", err)
 	}
 
-	// Wait for process to be killed with retry logic
-	// The kill command is async and may take time to complete
-	processDead := false
+	// Wait for the port to become available (more reliable than checking process status)
+	// The port becoming available proves the process was killed
+	portAvailable := false
 	for i := 0; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
 		
-		// Check if process still exists
-		checkCmd := exec.Command("sh", "-c", fmt.Sprintf("ps -p %d >/dev/null 2>&1", pid))
-		if err := checkCmd.Run(); err != nil {
-			// Process is dead (ps returned non-zero exit code)
-			processDead = true
+		if pm.isPortAvailable(port) {
+			portAvailable = true
 			break
 		}
 	}
 
-	if !processDead {
-		t.Errorf("Process %d should be dead but is still running after 2 seconds", pid)
-	}
-
-	// Verify the port is now available
-	if !pm.isPortAvailable(port) {
-		t.Errorf("Port %d should be available after killing process", port)
+	if !portAvailable {
+		t.Errorf("Port %d should be available after killing process (waited 2 seconds)", port)
 	}
 }
 
