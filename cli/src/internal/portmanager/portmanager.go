@@ -31,7 +31,7 @@ const (
 	// killProcessTimeout allows processes time to shutdown before force-kill.
 	// 5 seconds is generous for most processes to handle SIGKILL.
 	killProcessTimeout = 5 * time.Second
-	
+
 	// processCleanupWait gives the OS time to release port resources after kill.
 	// 500ms accounts for TIME_WAIT state and process cleanup on most systems.
 	processCleanupWait = 500 * time.Millisecond
@@ -664,7 +664,7 @@ func (pm *PortManager) findAvailablePort() (int, error) {
 	for attempt := 0; attempt < maxPortScanAttempts && attempt < rangeSize; attempt++ {
 		// Wrap around the range using modulo arithmetic
 		port := pm.portRange.start + ((startOffset + attempt) % rangeSize)
-		
+
 		if assignedPorts[port] {
 			continue
 		}

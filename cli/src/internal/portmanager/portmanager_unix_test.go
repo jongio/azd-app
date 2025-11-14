@@ -3,7 +3,6 @@
 package portmanager
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -26,7 +25,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 		t.Fatalf("Failed to get available port: %v", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	
+
 	// Keep listener open to simulate a process holding the port
 	// This is more reliable than using external netcat command
 	t.Logf("Started test listener on port %d with PID %d", port, os.Getpid())
@@ -52,13 +51,13 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 
 	// Close the listener before testing kill (we can't kill ourselves)
 	listener.Close()
-	
+
 	// Give OS time to release the port from TIME_WAIT state
 	// Use deadline-based approach instead of fixed sleep
 	const maxWait = 2 * time.Second
 	deadline := time.Now().Add(maxWait)
 	portReleased := false
-	
+
 	for time.Now().Before(deadline) {
 		if pm.isPortAvailable(port) {
 			portReleased = true
