@@ -1,3 +1,9 @@
+## [0.5.8] - 2025-11-14
+
+- Add Codecov integration and fix line endings for Go modules (#56) (a41b4b9)
+- Add PR Build Distribution System (#55) (24168f8)
+- chore: update registry for v0.5.7 (191107e)
+
 ## [0.5.7] - 2025-11-13
 
 - Improve Windows process termination and enhance service lifecycle management (#52) (335b313)
