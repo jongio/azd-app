@@ -103,19 +103,28 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 		t.Fatalf("killProcessOnPort failed: %v", err)
 	}
 
-	// Wait for process to be killed
-	time.Sleep(500 * time.Millisecond)
+	// Wait for process to be killed with retry logic
+	// The kill command is async and may take time to complete
+	processDead := false
+	for i := 0; i < 20; i++ {
+		time.Sleep(100 * time.Millisecond)
+		
+		// Check if process still exists
+		checkCmd := exec.Command("sh", "-c", fmt.Sprintf("ps -p %d >/dev/null 2>&1", pid))
+		if err := checkCmd.Run(); err != nil {
+			// Process is dead (ps returned non-zero exit code)
+			processDead = true
+			break
+		}
+	}
+
+	if !processDead {
+		t.Errorf("Process %d should be dead but is still running after 2 seconds", pid)
+	}
 
 	// Verify the port is now available
 	if !pm.isPortAvailable(port) {
 		t.Errorf("Port %d should be available after killing process", port)
-	}
-
-	// Verify the process is actually dead
-	// Use ps to check if PID still exists
-	checkCmd := exec.Command("sh", "-c", fmt.Sprintf("ps -p %d >/dev/null 2>&1", pid))
-	if err := checkCmd.Run(); err == nil {
-		t.Errorf("Process %d should be dead but is still running", pid)
 	}
 }
 
