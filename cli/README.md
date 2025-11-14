@@ -285,6 +285,22 @@ services:
 
 See [Environment Variables Documentation](docs/environment-variables.md) for all supported formats and advanced usage.
 
+**Lifecycle Hooks:**
+
+Execute custom scripts before and after starting services using hooks:
+
+```yaml
+hooks:
+  prerun:
+    run: ./scripts/setup-db.sh
+    shell: bash
+  postrun:
+    run: echo "All services ready!"
+    shell: sh
+```
+
+See [Hooks Documentation](docs/hooks.md) for complete hook configuration and examples.
+
 **Runtime Modes:**
 - **azd** (default): Runs services through azd's built-in dashboard, works with all project types
 - **aspire**: Uses native .NET Aspire dashboard via `dotnet run` (only for Aspire projects)
