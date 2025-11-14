@@ -17,10 +17,7 @@ import (
 // works on BSD/macOS without GNU-specific extensions like xargs -r.
 // This test addresses issue #47: macOS port conflict resolution not working.
 func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix-specific test")
-	}
-
+	// Note: No need for Windows check - file has //go:build !windows constraint
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
 
@@ -48,7 +45,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 	}
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill()
 		}
 	}()
 
@@ -99,10 +96,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 // TestUnixGetProcessOnPort_NoBSDExtensions verifies that getProcessOnPort
 // uses standard Unix commands without GNU/BSD-specific extensions.
 func TestUnixGetProcessOnPort_NoBSDExtensions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix-specific test")
-	}
-
+	// Note: No need for Windows check - file has //go:build !windows constraint
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
 
@@ -136,9 +130,7 @@ func TestUnixGetProcessOnPort_NoBSDExtensions(t *testing.T) {
 // TestUnixKillCommand_NoXargs verifies that the kill command doesn't use xargs.
 // This is a regression test for issue #47.
 func TestUnixKillCommand_NoXargs(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix-specific test")
-	}
+	// Note: No need for Windows check - file has //go:build !windows constraint
 
 	// This test verifies the implementation doesn't regress to using xargs
 	// by checking the command that would be generated
