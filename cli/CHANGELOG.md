@@ -1,3 +1,7 @@
+## [0.5.10] - 2025-11-14
+
+- feat: enhance release workflow to create version bump PR and enable auto-merge (cd8f008)
+
 ## [0.5.9] - 2025-11-14
 
 - fix: ensure clean release branch creation by deleting existing branches from previous runs (546c40c)
