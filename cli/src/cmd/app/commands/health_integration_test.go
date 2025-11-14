@@ -52,9 +52,9 @@ func TestRunHealthValidation(t *testing.T) {
 			cmd := NewHealthCommand()
 
 			// Set flags through command instead of global vars
-			cmd.Flags().Set("interval", tt.interval.String())
-			cmd.Flags().Set("timeout", tt.timeout.String())
-			cmd.Flags().Set("output", tt.output)
+			_ = cmd.Flags().Set("interval", tt.interval.String())
+			_ = cmd.Flags().Set("timeout", tt.timeout.String())
+			_ = cmd.Flags().Set("output", tt.output)
 
 			err := cmd.RunE(cmd, []string{})
 

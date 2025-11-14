@@ -277,7 +277,7 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 				Str("from", from.String()).
 				Str("to", to.String()).
 				Msg("Circuit breaker state changed")
-			
+
 			// Record state change in metrics
 			if metricsEnabled {
 				recordCircuitBreakerState(name, to)
@@ -587,10 +587,10 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 }
 
 // CheckService performs a health check on a single service using cascading strategy.
-func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
+func (hc *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	startTime := time.Now()
 	serviceName := svc.Name
-	
+
 	log.Debug().
 		Str("service", serviceName).
 		Int("port", svc.Port).
@@ -598,14 +598,14 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 		Msg("Starting health check")
 
 	// Apply rate limiting if configured
-	limiter := c.getOrCreateRateLimiter(serviceName)
+	limiter := hc.getOrCreateRateLimiter(serviceName)
 	if limiter != nil {
 		if err := limiter.Wait(ctx); err != nil {
 			log.Warn().
 				Str("service", serviceName).
 				Err(err).
 				Msg("Rate limit exceeded")
-			
+
 			return HealthCheckResult{
 				ServiceName: serviceName,
 				Timestamp:   time.Now(),
@@ -616,14 +616,14 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 	}
 
 	// Get circuit breaker if enabled
-	breaker := c.getOrCreateCircuitBreaker(serviceName)
+	breaker := hc.getOrCreateCircuitBreaker(serviceName)
 
 	// Perform check with circuit breaker wrapping if enabled
 	var result HealthCheckResult
-	
+
 	if breaker != nil {
 		output, err := breaker.Execute(func() (interface{}, error) {
-			res := c.performServiceCheck(ctx, svc)
+			res := hc.performServiceCheck(ctx, svc)
 			if res.Status == HealthStatusUnhealthy {
 				return res, fmt.Errorf("health check failed: %s", res.Error)
 			}
@@ -635,7 +635,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 				log.Warn().
 					Str("service", serviceName).
 					Msg("Circuit breaker open - skipping check")
-				
+
 				result = HealthCheckResult{
 					ServiceName: serviceName,
 					Timestamp:   time.Now(),
@@ -656,13 +656,13 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 		}
 	} else {
 		// No circuit breaker - perform check directly
-		result = c.performServiceCheck(ctx, svc)
+		result = hc.performServiceCheck(ctx, svc)
 	}
 
 	// Record metrics if enabled
 	duration := time.Since(startTime)
 	result.ResponseTime = duration
-	
+
 	if metricsEnabled {
 		recordHealthCheck(result)
 	}
@@ -677,7 +677,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 }
 
 // performServiceCheck executes the actual health check logic without circuit breaker.
-func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo) HealthCheckResult {
+func (hc *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	result := HealthCheckResult{
 		ServiceName: svc.Name,
 		Timestamp:   time.Now(),
@@ -692,7 +692,7 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 
 	// 1. Try HTTP health check
 	if svc.Port > 0 {
-		if httpResult := c.tryHTTPHealthCheck(ctx, svc.Port); httpResult != nil {
+		if httpResult := hc.tryHTTPHealthCheck(ctx, svc.Port); httpResult != nil {
 			result.CheckType = HealthCheckTypeHTTP
 			result.Endpoint = httpResult.Endpoint
 			result.ResponseTime = httpResult.ResponseTime
@@ -709,7 +709,7 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 	if svc.Port > 0 {
 		result.CheckType = HealthCheckTypePort
 		result.Port = svc.Port
-		if c.checkPort(ctx, svc.Port) {
+		if hc.checkPort(ctx, svc.Port) {
 			result.Status = HealthStatusHealthy
 		} else {
 			result.Status = HealthStatusUnhealthy
@@ -748,13 +748,13 @@ type httpHealthCheckResult struct {
 	Error        string
 }
 
-func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
+func (hc *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
 	// Try common health endpoints
-	endpoints := []string{c.defaultEndpoint}
+	endpoints := []string{hc.defaultEndpoint}
 
 	// Add other common paths if they're different from default
 	for _, path := range commonHealthPaths {
-		if path != c.defaultEndpoint {
+		if path != hc.defaultEndpoint {
 			endpoints = append(endpoints, path)
 		}
 	}
@@ -775,7 +775,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 			continue
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := hc.httpClient.Do(req)
 		responseTime := time.Since(startTime)
 
 		if err != nil {
@@ -839,7 +839,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 	return nil
 }
 
-func (c *HealthChecker) checkPort(ctx context.Context, port int) bool {
+func (hc *HealthChecker) checkPort(ctx context.Context, port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
 	conn, err := net.DialTimeout("tcp", address, defaultPortCheckTimeout)
 	if err != nil {

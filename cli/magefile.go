@@ -240,7 +240,7 @@ func TestVisual() error {
 // TestE2E runs end-to-end integration tests for the health command.
 func TestE2E() error {
 	fmt.Println("Running E2E integration tests...")
-	
+
 	timeout := os.Getenv("TEST_TIMEOUT")
 	if timeout == "" {
 		timeout = "15m"
