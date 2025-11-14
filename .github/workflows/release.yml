@@ -278,6 +278,10 @@ jobs:
           VERSION="${{ steps.version.outputs.next }}"
           BRANCH="release/v${VERSION}"
           
+          # Delete branch if it already exists (from previous failed runs)
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+          git branch -D "$BRANCH" 2>/dev/null || true
+          
           # Create and switch to release branch
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
