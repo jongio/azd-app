@@ -937,6 +937,199 @@ func TestRunReqsFix_NoAzureYaml(t *testing.T) {
 	}
 }
 
+func TestRunReqsFix_PartialSuccess(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create azure.yaml with one satisfiable tool and one that will fail
+	versionCmd, versionArgs := shellCommand("echo 2.0.0")
+	yamlContent := fmt.Sprintf(`name: test
+reqs:
+  - name: working-tool
+    minVersion: 1.0.0
+    command: %s
+    args: %v
+  - name: nonexistent-tool-xyz-999
+    minVersion: 1.0.0
+`, versionCmd, yamlArgsString(versionArgs))
+
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run fix - should partially succeed
+	err = runReqsFix()
+	if err == nil {
+		t.Error("Expected error when some requirements can't be fixed, got nil")
+	}
+}
+
+func TestRunReqsFix_NoFailedRequirements(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create azure.yaml with no reqs
+	yamlContent := `name: test
+reqs: []
+`
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run fix - should fail with appropriate message
+	err = runReqsFix()
+	if err == nil {
+		t.Error("Expected error when no reqs defined, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "no reqs defined") {
+		t.Errorf("Expected error about no reqs, got: %v", err)
+	}
+}
+
+func TestRunReqsFix_JSONOutput(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create azure.yaml with a working tool
+	versionCmd, versionArgs := shellCommand("echo 2.0.0")
+	yamlContent := fmt.Sprintf(`name: test
+reqs:
+  - name: test-tool
+    minVersion: 1.0.0
+    command: %s
+    args: %v
+`, versionCmd, yamlArgsString(versionArgs))
+
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set JSON output format
+	if err := output.SetFormat("json"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = output.SetFormat("default")
+	}()
+
+	// Run fix - verify it doesn't panic with JSON output
+	err = runReqsFix()
+	// Don't check error, just verify no panic occurred
+	t.Logf("Fix with JSON output completed: %v", err)
+}
+
+func TestRunReqsFix_VersionCheckFailsAfterFind(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create azure.yaml with a tool that returns a version but doesn't meet minimum
+	versionCmd, versionArgs := shellCommand("echo 0.5.0")
+	yamlContent := fmt.Sprintf(`name: test
+reqs:
+  - name: outdated-tool
+    minVersion: 1.0.0
+    command: %s
+    args: %v
+`, versionCmd, yamlArgsString(versionArgs))
+
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run fix - should fail because version doesn't meet requirement
+	err = runReqsFix()
+	if err == nil {
+		t.Error("Expected error when version check fails, got nil")
+	}
+}
+
+func TestRunReqsFix_InvalidYAML(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Logf("Warning: failed to restore directory: %v", chdirErr)
+		}
+	}()
+
+	// Create temporary directory
+	tempDir := t.TempDir()
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create invalid azure.yaml
+	invalidYAML := `this is not: valid: yaml: [[[`
+	if err := os.WriteFile("azure.yaml", []byte(invalidYAML), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run fix - should fail with parse error
+	err = runReqsFix()
+	if err == nil {
+		t.Error("Expected error when azure.yaml is invalid, got nil")
+	}
+}
+
 // yamlArgsString converts args array to YAML string format
 func yamlArgsString(args []string) string {
 	if len(args) == 0 {
