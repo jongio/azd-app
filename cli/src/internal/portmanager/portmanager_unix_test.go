@@ -29,6 +29,9 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
+	// Give the OS time to release the port from TIME_WAIT state
+	time.Sleep(50 * time.Millisecond)
+
 	// Start a dummy process that listens on the port
 	// Use 'nc' (netcat) which is available on all Unix systems including macOS
 	var cmd *exec.Cmd
@@ -49,12 +52,19 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 		}
 	}()
 
-	// Wait for netcat to start listening
-	time.Sleep(100 * time.Millisecond)
+	// Wait for netcat to start listening with retries
+	var portInUse bool
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		if !pm.isPortAvailable(port) {
+			portInUse = true
+			break
+		}
+	}
 
 	// Verify the port is in use
-	if pm.isPortAvailable(port) {
-		t.Fatalf("Port %d should be in use by netcat", port)
+	if !portInUse {
+		t.Fatalf("Port %d should be in use by netcat after 1 second", port)
 	}
 
 	// Get the PID to verify it's our process
