@@ -221,6 +221,7 @@ jobs:
     needs: [preflight, test, lint, build]
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -268,10 +269,23 @@ jobs:
           echo "next=$NEXT" >> $GITHUB_OUTPUT
           echo "Bumping from $CURRENT to $NEXT"
 
-      - name: Update version files
+      - name: Update version files and create PR
+        id: version_pr
         working-directory: cli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.next }}"
+          BRANCH="release/v${VERSION}"
+          
+          # Delete branch if it already exists (from previous failed runs)
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+          git branch -D "$BRANCH" 2>/dev/null || true
+          
+          # Create and switch to release branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           
           # Update extension.yaml
           sed -i "s/^version: .*/version: $VERSION/" extension.yaml
@@ -306,15 +320,96 @@ jobs:
           } > CHANGELOG.new.md
           mv CHANGELOG.new.md CHANGELOG.md
           
-          # Commit version bump
+          # Commit and push to branch
+          git add extension.yaml CHANGELOG.md
+          git commit -m "chore: bump version to $VERSION"
+          git push origin "$BRANCH"
+          
+          # Create PR
           cd ..
+          PR_URL=$(gh pr create \
+            --title "chore: Release v${VERSION}" \
+            --body "Automated version bump to ${VERSION} for release." \
+            --base main \
+            --head "$BRANCH")
+          
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          
+          # Extract PR number
+          PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Enable auto-merge and wait for merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.version_pr.outputs.pr_number }}"
+          
+          echo "Enabling auto-merge for PR #${PR_NUMBER}..."
+          gh pr merge "$PR_NUMBER" --auto --squash
+          
+          echo "Waiting for PR to be merged..."
+          
+          # Wait for PR to merge (with timeout)
+          TIMEOUT=600  # 10 minutes
+          ELAPSED=0
+          INTERVAL=15
+          
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            # Check PR state and status checks
+            PR_DATA=$(gh pr view "$PR_NUMBER" --json state,mergeable,statusCheckRollup)
+            STATE=$(echo "$PR_DATA" | jq -r '.state')
+            MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable')
+            
+            echo "PR state: $STATE, Mergeable: $MERGEABLE"
+            
+            if [ "$STATE" = "MERGED" ]; then
+              echo "PR merged successfully!"
+              break
+            fi
+            
+            # Check if all checks are complete
+            PENDING_CHECKS=$(echo "$PR_DATA" | jq '[.statusCheckRollup[] | select(.status == "IN_PROGRESS" or .status == "QUEUED" or .status == "PENDING")] | length')
+            TOTAL_CHECKS=$(echo "$PR_DATA" | jq '.statusCheckRollup | length')
+            
+            echo "Checks: $((TOTAL_CHECKS - PENDING_CHECKS))/$TOTAL_CHECKS complete"
+            
+            if [ "$PENDING_CHECKS" -eq 0 ] && [ "$TOTAL_CHECKS" -gt 0 ]; then
+              # All checks done, check for failures
+              FAILED_CHECKS=$(echo "$PR_DATA" | jq -r '.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED") | .name')
+              if [ -n "$FAILED_CHECKS" ]; then
+                echo "ERROR: Some checks failed:"
+                echo "$FAILED_CHECKS"
+                exit 1
+              fi
+              
+              if [ "$MERGEABLE" = "MERGEABLE" ]; then
+                echo "All checks passed and PR is mergeable. GitHub should auto-merge shortly..."
+              fi
+            fi
+            
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+          
+          if [ "$STATE" != "MERGED" ]; then
+            echo "ERROR: PR did not merge within timeout"
+            echo "Final state: $STATE, Mergeable: $MERGEABLE"
+            exit 1
+          fi
+
+      - name: Checkout main and create tag
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          
+          # Switch to main and pull latest
+          git checkout main
+          git pull origin main
+          
+          # Create and push version tag
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add cli/extension.yaml cli/CHANGELOG.md
-          git commit -m "chore: bump version to $VERSION"
-          git push
-          
-          # Create and push version tag for future releases
           git tag -a "v${VERSION}" -m "Release version ${VERSION}"
           git push origin "v${VERSION}"
 
