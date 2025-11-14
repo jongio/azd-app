@@ -346,8 +346,29 @@ jobs:
         run: |
           PR_NUMBER="${{ steps.version_pr.outputs.pr_number }}"
           
+          echo "Waiting for CI checks to be queued..."
+          sleep 10
+          
           echo "Enabling auto-merge for PR #${PR_NUMBER}..."
-          gh pr merge "$PR_NUMBER" --auto --squash
+          
+          # Retry auto-merge a few times in case checks aren't ready yet
+          MAX_RETRIES=3
+          RETRY=0
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            if gh pr merge "$PR_NUMBER" --auto --squash 2>&1; then
+              echo "Auto-merge enabled successfully!"
+              break
+            else
+              RETRY=$((RETRY + 1))
+              if [ $RETRY -lt $MAX_RETRIES ]; then
+                echo "Failed to enable auto-merge, retrying in 10 seconds... (attempt $RETRY/$MAX_RETRIES)"
+                sleep 10
+              else
+                echo "Failed to enable auto-merge after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
           
           echo "Waiting for PR to be merged..."
           
