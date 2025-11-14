@@ -453,8 +453,10 @@ func TestAssignPort_ZeroPort(t *testing.T) {
 		t.Fatalf("Expected no error for port 0, got: %v", err)
 	}
 
-	if port < 3000 || port > 9999 {
-		t.Errorf("Expected assigned port in range 3000-9999, got %d", port)
+	// With randomized port allocation, port can be anywhere in valid range
+	// Default range is 3000-65535
+	if port < 3000 || port > 65535 {
+		t.Errorf("Expected assigned port in valid range 3000-65535, got %d", port)
 	}
 }
 
@@ -532,8 +534,10 @@ func TestFindAvailablePort_Exhaustion(t *testing.T) {
 		t.Fatalf("Expected to find available port, got: %v", err)
 	}
 
-	if port < 3000 || port > 9999 {
-		t.Errorf("Port %d is outside expected range", port)
+	// With randomized port allocation, port can be anywhere in valid range
+	// Default range is 3000-65535
+	if port < 3000 || port > 65535 {
+		t.Errorf("Port %d is outside valid range 3000-65535", port)
 	}
 }
 

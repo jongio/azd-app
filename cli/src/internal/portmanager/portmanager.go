@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -21,14 +22,25 @@ import (
 
 const (
 	// Port scan limits
+	// maxPortScanAttempts limits port scanning to prevent excessive delays.
+	// 100 attempts in a 3000-65535 range gives ~0.15% coverage which is sufficient
+	// for finding available ports while avoiding full range scans.
 	maxPortScanAttempts = 100
 
 	// Timeouts
+	// killProcessTimeout allows processes time to shutdown before force-kill.
+	// 5 seconds is generous for most processes to handle SIGKILL.
 	killProcessTimeout = 5 * time.Second
+	
+	// processCleanupWait gives the OS time to release port resources after kill.
+	// 500ms accounts for TIME_WAIT state and process cleanup on most systems.
 	processCleanupWait = 500 * time.Millisecond
 
 	// Cache limits
-	maxCacheSize = 50 // Maximum number of port managers to cache
+	// maxCacheSize prevents unbounded memory growth in long-running processes.
+	// 50 projects × ~1KB each = ~50KB max overhead, which is negligible.
+	// LRU eviction ensures active projects stay cached.
+	maxCacheSize = 50
 
 	// Environment variables for configuration
 	envPortRangeStart = "AZD_PORT_RANGE_START"
@@ -67,7 +79,18 @@ var (
 	managerCacheMu sync.RWMutex
 )
 
-// GetPortManager returns the port manager instance for the given project directory.
+// GetPortManager returns a cached port manager instance for the given project directory.
+// If projectDir is empty, uses the current working directory.
+//
+// Thread-safety: This function is safe for concurrent use across goroutines.
+// The returned PortManager uses internal locking for most operations.
+//
+// Caching: Port managers are cached per absolute path with an LRU policy (max 50 entries).
+// Multiple calls with the same projectDir (after normalization) return the same instance.
+// The cache is per-process; different azd processes do not share cached instances.
+//
+// Note: The cache helps with performance in long-running processes but does not provide
+// cross-process synchronization. File-based persistence handles multi-process coordination.
 func GetPortManager(projectDir string) *PortManager {
 	if projectDir == "" {
 		cwd, err := os.Getwd()
@@ -122,8 +145,8 @@ func GetPortManager(projectDir string) *PortManager {
 	// Set default port checker (can be overridden in tests)
 	manager.portChecker = manager.defaultIsPortAvailable
 
-	// Ensure directory exists
-	if err := os.MkdirAll(portsDir, 0750); err != nil {
+	// Ensure directory exists with strict permissions matching the file (0700)
+	if err := os.MkdirAll(portsDir, 0700); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Failed to create ports directory: %v\n", err)
 	}
 
@@ -209,9 +232,16 @@ func getPortRangeEnd() int {
 //
 // The assigned port is persisted to .azure/ports.json for consistency across runs.
 //
-// Note: There is a potential TOCTOU (Time-Of-Check-Time-Of-Use) race condition between
-// checking port availability and binding to it. Another process could bind to the port
-// in between. Callers should handle port binding failures gracefully.
+// Thread-safety:
+// This function uses internal locking but TEMPORARILY RELEASES THE LOCK when prompting
+// for user input to prevent deadlocks. During this window, other goroutines can modify
+// the port assignments. DO NOT call this function concurrently for the same serviceName.
+// Concurrent calls for different services are safe.
+//
+// TOCTOU Race Condition:
+// There is a Time-Of-Check-Time-Of-Use race between checking port availability and the
+// caller binding to it. Another process could bind to the port in the interim. Callers
+// MUST handle port binding failures gracefully and may retry by calling AssignPort again.
 func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExplicit bool) (int, bool, error) {
 	// Validate inputs
 	if serviceName == "" {
@@ -573,7 +603,17 @@ func (pm *PortManager) IsPortAvailable(port int) bool {
 	return pm.isPortAvailable(port)
 }
 
-// isPortAvailable checks if a port is available.
+// isPortAvailable checks if a port is available by attempting to bind to it.
+//
+// IMPORTANT - TOCTOU Race Condition:
+// This check is inherently racy. Between checking and using the port, another process
+// can bind to it. Callers should:
+// 1. Call this to find a candidate port
+// 2. Attempt to bind to the port immediately
+// 3. Handle bind failures gracefully (possibly by calling AssignPort again)
+//
+// This is a fundamental limitation of port allocation and cannot be fully eliminated
+// without holding the port open, which would prevent the caller from using it.
 func (pm *PortManager) isPortAvailable(port int) bool {
 	if pm.portChecker != nil {
 		return pm.portChecker(port)
@@ -591,14 +631,17 @@ func (pm *PortManager) defaultIsPortAvailable(port int) bool {
 		return false
 	}
 	if err := listener.Close(); err != nil {
-		slog.Warn("failed to close listener", "port", port, "error", err)
+		// This is a benign error - port availability was confirmed
+		slog.Debug("failed to close listener during availability check", "port", port, "error", err)
 	}
 	slog.Debug("port is available", "port", port)
 	return true
 }
 
 // findAvailablePort finds an available port in the port range.
-// Uses random selection with bounded attempts to avoid exhaustive scanning.
+// Uses randomized starting point with bounded attempts to:
+// 1. Reduce collision probability when multiple services start simultaneously
+// 2. Avoid exhaustive scanning of the entire port range
 func (pm *PortManager) findAvailablePort() (int, error) {
 	// Build map of assigned ports to avoid duplicates
 	assignedPorts := make(map[int]bool)
@@ -606,14 +649,25 @@ func (pm *PortManager) findAvailablePort() (int, error) {
 		assignedPorts[assignment.Port] = true
 	}
 
-	// Try sequential search from start port with limited attempts
-	// This balances predictability with performance
-	attempts := 0
-	for port := pm.portRange.start; port <= pm.portRange.end && attempts < maxPortScanAttempts; port++ {
+	// Calculate port range size
+	rangeSize := pm.portRange.end - pm.portRange.start + 1
+	if rangeSize <= 0 {
+		return 0, fmt.Errorf("invalid port range: %d-%d", pm.portRange.start, pm.portRange.end)
+	}
+
+	// Randomize starting point to reduce collisions
+	// Use time-based seed for simple randomization without crypto/rand overhead
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	startOffset := rng.Intn(rangeSize)
+
+	// Try maxPortScanAttempts ports starting from random position
+	for attempt := 0; attempt < maxPortScanAttempts && attempt < rangeSize; attempt++ {
+		// Wrap around the range using modulo arithmetic
+		port := pm.portRange.start + ((startOffset + attempt) % rangeSize)
+		
 		if assignedPorts[port] {
 			continue
 		}
-		attempts++
 		if pm.isPortAvailable(port) {
 			return port, nil
 		}
@@ -754,7 +808,8 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	// Execute the kill command
 	ctx, cancel := context.WithTimeout(context.Background(), killProcessTimeout)
 	defer cancel()
-	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), pid is validated int from strconv.Atoi
+	// #nosec G204 -- Command injection safe: cmd is hard-coded ("powershell" or "sh"),
+	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
 	if err := executor.RunCommand(ctx, cmd[0], args[1:], "."); err != nil {
 		// Log error but don't fail - process might have already exited
 		fmt.Fprintf(os.Stderr, "Warning: kill command failed for PID %d: %v\n", pid, err)
@@ -776,12 +831,29 @@ func (pm *PortManager) load() error {
 	return json.Unmarshal(data, &pm.assignments)
 }
 
-// save writes port assignments to disk.
+// save writes port assignments to disk using atomic write (temp file + rename).
+// This prevents file corruption when multiple processes write concurrently.
 func (pm *PortManager) save() error {
+	// Use MarshalIndent for human-readable output - the file is small (<1KB typically)
+	// and saved infrequently, so the performance impact is negligible
 	data, err := json.MarshalIndent(pm.assignments, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal port assignments: %w", err)
 	}
 
-	return os.WriteFile(pm.filePath, data, 0600)
+	// Atomic write: write to temp file, then rename
+	// This ensures the file is never in a partially-written state
+	tmpFile := pm.filePath + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0600); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Rename is atomic on POSIX systems (and Windows with proper flags)
+	if err := os.Rename(tmpFile, pm.filePath); err != nil {
+		// Clean up temp file on failure
+		_ = os.Remove(tmpFile)
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
 }
