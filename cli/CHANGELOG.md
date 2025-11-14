@@ -1,3 +1,13 @@
+## [0.5.9] - 2025-11-14
+
+- fix: ensure clean release branch creation by deleting existing branches from previous runs (546c40c)
+- fix: improve auto-merge step in release workflow for clarity and functionality (10a9e2a)
+- feat: enhance release workflow to create PR for version bump and enable auto-merge (e058587)
+- Add build job to GitHub Actions for multi-platform binaries (f786e0f)
+- Fix macOS port conflict resolution - xargs -r not available on BSD (#49) (892fd38)
+- Add `--fix` flag to `azd app reqs` for automatic PATH resolution (#48) (b29c225)
+- chore: update registry for v0.5.8 (135adef)
+
 ## [0.5.8] - 2025-11-14
 
 - Add Codecov integration and fix line endings for Go modules (#56) (a41b4b9)
