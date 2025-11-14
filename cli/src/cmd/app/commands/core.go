@@ -130,6 +130,11 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 		return "", nil, fmt.Errorf("invalid path: %w", err)
 	}
 
+	// Validate file permissions for security
+	if err := security.ValidateFilePermissions(azureYamlPath); err != nil {
+		return "", nil, fmt.Errorf("insecure file permissions on azure.yaml: %w", err)
+	}
+
 	// #nosec G304 -- Path validated by security.ValidatePath above
 	data, err := os.ReadFile(azureYamlPath)
 	if err != nil {

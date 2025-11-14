@@ -42,7 +42,7 @@ func TestRunAspireIntegration(t *testing.T) {
 
 	// Run Aspire in the background
 	go func() {
-		err := RunAspire(types.AspireProject{
+		err := RunAspire(ctx, types.AspireProject{
 			Dir:         absPath,
 			ProjectFile: filepath.Join(absPath, "TestAppHost.csproj"),
 		})
@@ -96,7 +96,7 @@ func TestRunPnpmScriptIntegration(t *testing.T) {
 			}
 
 			// Note: This will try to run pnpm, which may not be installed
-			err := RunPnpmScript(tt.script)
+			err := RunPnpmScript(context.Background(), tt.script)
 			if err != nil {
 				t.Logf("RunPnpmScript() error = %v (may be expected if pnpm is not installed)", err)
 				t.Skip("Skipping due to missing pnpm")
@@ -140,7 +140,7 @@ services:
 	}
 
 	// Note: This requires Docker to be installed and running
-	err := RunDockerCompose(tempDir, "start")
+	err := RunDockerCompose(context.Background(), tempDir, "start")
 	if err != nil {
 		t.Logf("RunDockerCompose() error = %v (may be expected if Docker is not running)", err)
 		t.Skip("Skipping due to Docker not available")

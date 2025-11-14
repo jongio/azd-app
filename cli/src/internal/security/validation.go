@@ -3,7 +3,9 @@ package security
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -71,6 +73,29 @@ func SanitizeScriptName(name string) error {
 		if strings.Contains(name, char) {
 			return fmt.Errorf("script name contains dangerous character: %s", char)
 		}
+	}
+
+	return nil
+}
+
+// ValidateFilePermissions checks if a file has secure permissions.
+// On Unix systems, it ensures the file is not world-writable.
+// On Windows, this check is skipped as Windows uses ACLs differently.
+func ValidateFilePermissions(path string) error {
+	// Skip permission check on Windows as it uses ACLs
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Check if file is world-writable (insecure)
+	if info.Mode().Perm()&0002 != 0 {
+		return fmt.Errorf("file %s is world-writable (permissions: %04o), please run: chmod 644 %s",
+			path, info.Mode().Perm(), path)
 	}
 
 	return nil

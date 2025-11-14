@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -337,8 +338,9 @@ func TestSetupPythonVirtualEnv_UnknownPackageManager(t *testing.T) {
 		t.Error("expected error for unknown package manager")
 	}
 
-	if err != nil && err.Error() != "unknown package manager: unknown-manager" {
-		t.Errorf("unexpected error message: %v", err)
+	expectedMsg := fmt.Sprintf("unknown package manager 'unknown-manager' for Python project in %s", tmpDir)
+	if err != nil && err.Error() != expectedMsg {
+		t.Errorf("unexpected error message:\ngot:  %v\nwant: %v", err, expectedMsg)
 	}
 }
 

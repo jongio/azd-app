@@ -83,6 +83,10 @@ obj/
 .azure/
 !tests/**/.azure/
 
+# But ignore runtime artifacts within test .azure directories
+tests/**/.azure/logs/
+tests/**/.azure/cache/
+
 # Test fixtures - preserve lock files and manifests in tests/
 !tests/projects/**/package.json
 !tests/projects/**/package-lock.json
