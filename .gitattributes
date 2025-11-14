@@ -22,7 +22,6 @@ LICENSE text eol=lf
 
 # Lock files (preserve as-is)
 *.lock binary
-go.sum binary
 
 # Binary files
 *.exe binary
