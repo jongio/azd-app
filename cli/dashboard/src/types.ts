@@ -11,7 +11,13 @@ export interface LocalServiceInfo {
 export interface AzureServiceInfo {
   url?: string
   resourceName?: string
+  resourceType?: string  // "containerapp", "appservice", "function", etc.
+  resourceGroup?: string
+  location?: string
+  subscriptionId?: string
   imageName?: string
+  logAnalyticsId?: string
+  containerAppEnvId?: string
 }
 
 export interface Service {
