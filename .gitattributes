@@ -3,6 +3,8 @@
 
 # Source code
 *.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
 *.json text eol=lf
@@ -20,7 +22,6 @@ LICENSE text eol=lf
 
 # Lock files (preserve as-is)
 *.lock binary
-go.sum binary
 
 # Binary files
 *.exe binary
