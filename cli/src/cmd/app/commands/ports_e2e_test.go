@@ -86,7 +86,7 @@ func TestExplicitPort_WithPortManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			port, _, err := pm.AssignPort(tt.serviceName, tt.port, tt.isExplicit, false)
+			port, _, err := pm.AssignPort(tt.serviceName, tt.port, tt.isExplicit)
 
 			if tt.shouldError {
 				if err == nil {
@@ -123,7 +123,7 @@ func TestMultipleServices_MixedPorts(t *testing.T) {
 	assignedPorts := make(map[string]int)
 
 	for _, svc := range services {
-		port, _, err := pm.AssignPort(svc.name, svc.port, svc.isExplicit, false)
+		port, _, err := pm.AssignPort(svc.name, svc.port, svc.isExplicit)
 		if err != nil {
 			t.Fatalf("Failed to assign port for %s: %v", svc.name, err)
 		}

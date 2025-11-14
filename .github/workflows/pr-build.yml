@@ -5,7 +5,7 @@ on:
     workflows: ["CI"]
     types:
       - completed
-    branches: [ main ]
+    # Removed branches filter - run for all branches to catch PR updates
   pull_request_target:
     branches: [ main ]
     types: [labeled, closed]

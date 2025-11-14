@@ -12,6 +12,31 @@ This document tracks improvements identified during code review, organized by pr
 
 ## ⚠️ MEDIUM PRIORITY
 
+### Registry File Permissions Inconsistency
+
+**Status:** Deferred  
+**Priority:** Medium  
+**Effort:** Low (10 min)
+
+**Description**
+ServiceRegistry creates `.azure/` directory with 0750 permissions but writes files with 0600.
+PortManager creates `.azure/` with 0700. Inconsistent directory permissions.
+
+**Location**: 
+- `registry/registry.go:76` - `os.MkdirAll(registryDir, 0750)`
+- `portmanager/portmanager.go:153` - `os.MkdirAll(portsDir, 0700)`
+
+**Recommendation**
+Standardize to 0700 for directory and 0600 for files for consistency.
+
+**Rationale for Deferral**
+- Both permissions are secure (owner-only access)
+- 0750 vs 0700 has minimal security difference
+- No actual security vulnerability
+- Low user impact
+
+---
+
 ### Dashboard Port Assignment Race Condition
 
 **Status:** Deferred  
@@ -37,34 +62,7 @@ TOCTOU race condition between port availability check and HTTP server binding in
 - Consider using SO_REUSEADDR socket option
 - Monitor telemetry for retry frequency
 
----
 
-### Improve Error Context with Command Output
-
-**Status:** Deferred  
-**Priority:** Medium  
-**Effort:** Low (30 min)
-
-**Description**
-Capture stdout/stderr in installer error messages for better debugging.
-
-**Current State**
-- Some functions already capture output (e.g., `setupWithPip`)
-- Others only report error without output (e.g., `installNodeDependenciesWithWriter`)
-
-**Implementation**
-```go
-output, err := cmd.CombinedOutput()
-if err != nil {
-    return fmt.Errorf("failed to install: %w\nOutput: %s", err, string(output))
-}
-```
-
-**Locations**
-- `installer/installer.go:102` (Node dependencies)
-- `installer/installer.go:148` (dotnet restore)
-
-**Impact**: Improves debuggability of installation failures
 
 ---
 
@@ -98,36 +96,7 @@ func getServiceStartTimeout() time.Duration {
 - No user requests for configurability
 - Can be added when needed
 
----
 
-### Enhance Panic Recovery Logging
-
-**Status:** Deferred  
-**Priority:** Low  
-**Effort:** Low (15 min)
-
-**Description**
-Add stack traces to panic recovery in parallel installer.
-
-**Location**: `installer/parallel.go:130-144`
-
-**Implementation**
-```go
-import "runtime/debug"
-
-defer func() {
-    if r := recover(); r != nil {
-        stack := string(debug.Stack())
-        resultsChan <- ProjectInstallResult{
-            Error: fmt.Errorf("panic: %v\nStack: %s", r, stack),
-        }
-    }
-}()
-```
-
-**Impact**: Easier debugging of panics in parallel operations
-
----
 
 ### Dynamic Python Version Detection on Windows
 
@@ -154,9 +123,48 @@ Replace hardcoded Python paths with dynamic detection in `pathutil/pathutil.go:1
 - Python 3.13+ users will hit this eventually
 - Low frequency issue (most Python installs add to PATH correctly)
 
----
+**Note**: Should update to include Python 3.13, 3.14 when they release.
+
+
 
 ## 📝 LOW PRIORITY
+
+### Add Stack Traces to Panic Recovery
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Low (20 min)
+
+**Description**
+Enhance panic recovery handlers with stack traces for easier debugging.
+
+**Locations**: 
+- `installer/parallel.go:133-138`
+- `commands/run.go:276-279, 349-352`
+
+**Implementation**
+```go
+import "runtime/debug"
+
+defer func() {
+    if r := recover(); r != nil {
+        stack := string(debug.Stack())
+        output.Error("Panic: %v\nStack: %s", r, stack)
+    }
+}()
+```
+
+**Benefits**
+- Faster root cause analysis
+- Better production debugging
+- No performance impact (only on panic)
+
+**Rationale for Deferral**
+- Panics are rare in production
+- Current recovery prevents crashes
+- Can add when needed for specific issues
+
+---
 
 ### Replace PowerShell with Windows API Calls
 
@@ -188,16 +196,18 @@ Replace PowerShell process kill with native Windows API for better performance a
 
 ---
 
-### Improve Detector Logging Verbosity Control
+### Migrate to Structured Logging (slog)
 
 **Status:** Deferred  
 **Priority:** Low  
-**Effort:** Low (15 min)
+**Effort:** Low (30 min)
 
 **Description**
-Use structured debug logging instead of `log.Printf` in detector to avoid log spam.
+Migrate from `log.Printf` to structured logging with `slog` package for better observability.
 
-**Location**: `detector/detector.go:48, 397`
+**Locations**: 
+- `detector/detector.go:48, 397` - path traversal errors
+- Other log.Printf calls throughout codebase
 
 **Current State**
 ```go
@@ -206,12 +216,20 @@ log.Printf("skipping path %s due to error: %v", path, err)
 
 **Improvement**
 ```go
-slog.Debug("skipping path due to error",
+slog.Debug("skipping path during detection",
     slog.String("path", path),
     slog.String("error", err.Error()))
 ```
 
-**Impact**: Reduces log noise in large codebases with many permission-denied directories
+**Benefits**
+- Structured logs easier to parse/filter
+- Better observability in production
+- Log level control (debug/info/warn/error)
+
+**Rationale for Deferral**
+- Current logging is functional
+- Low priority enhancement
+- Can migrate incrementally
 
 ---
 
@@ -307,7 +325,39 @@ Implement functional options pattern for internal packages (e.g., installer, run
 
 ## 📋 DOCUMENTATION NEEDS
 
-*All current documentation needs have been completed.*
+### Security Review Documentation
+
+**Status:** ✅ Completed (Nov 14, 2025)  
+**Priority:** Documentation  
+
+**Description**
+Completed comprehensive security review of codebase covering:
+- Command injection prevention
+- Path traversal protection  
+- Race condition analysis
+- Resource leak detection
+- Error handling and panic recovery
+- File permissions and atomic writes
+
+**Findings**
+- ✅ No critical or high priority security vulnerabilities found
+- ✅ Strong security practices throughout codebase
+- ✅ Proper input validation and sanitization
+- ✅ Appropriate use of mutexes and locking
+- Several medium/low priority improvements documented
+
+**Files Reviewed**
+- dashboard/server.go - WebSocket security, TOCTOU handling
+- portmanager/portmanager.go - Port allocation, process management
+- installer/installer.go, parallel.go - Dependency installation
+- runner/runner.go - Service execution
+- executor/executor.go - Command execution
+- security/validation.go - Input validation
+- detector/detector.go - Project detection
+- pathutil/pathutil.go - PATH management
+- orchestrator/orchestrator.go - Dependency orchestration
+- registry/registry.go - Service registry
+- service/logbuffer.go - Log management
 
 ---
 

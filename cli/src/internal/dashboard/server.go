@@ -301,8 +301,8 @@ func (s *Server) Start() (string, error) {
 	}
 	preferredPort := 40000 + int(nBig.Int64())
 
-	// Assign port for dashboard service (isExplicit=false, cleanStale=false to avoid prompts)
-	port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
+	// Assign port for dashboard service (isExplicit=false)
+	port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false)
 	if err != nil {
 		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
 	}
@@ -415,7 +415,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			// After 5 failed random attempts, try sequential ports
 			preferredPort = 40000 + (attempt * 100)
 		}
-		port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false, false)
+		port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false)
 		if err != nil {
 			continue
 		}
