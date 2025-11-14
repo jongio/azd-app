@@ -260,3 +260,162 @@ func TestIsatty(t *testing.T) {
 	result := isatty()
 	_ = result // Result depends on environment
 }
+
+// TestParseServiceFilter tests service filter parsing
+func TestParseServiceFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+		},
+		{
+			name:     "single service",
+			input:    "api",
+			expected: []string{"api"},
+		},
+		{
+			name:     "multiple services",
+			input:    "api,web,db",
+			expected: []string{"api", "web", "db"},
+		},
+		{
+			name:     "services with spaces",
+			input:    "api, web , db",
+			expected: []string{"api", "web", "db"},
+		},
+		{
+			name:     "services with extra spaces",
+			input:    "  api  ,  web  ,  db  ",
+			expected: []string{"api", "web", "db"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseServiceFilter(tt.input)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d services, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, svc := range result {
+				if svc != tt.expected[i] {
+					t.Errorf("Expected service[%d] = '%s', got '%s'", i, tt.expected[i], svc)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateHealthFlags tests flag validation
+func TestValidateHealthFlags(t *testing.T) {
+	tests := []struct {
+		name      string
+		output    string
+		wantError bool
+	}{
+		{
+			name:      "default is valid",
+			output:    "text",
+			wantError: false,
+		},
+		{
+			name:      "json output is valid",
+			output:    "json",
+			wantError: false,
+		},
+		{
+			name:      "table output is valid",
+			output:    "table",
+			wantError: false,
+		},
+		{
+			name:      "text output is valid",
+			output:    "text",
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original values
+			origOutput := healthOutput
+			origInterval := healthInterval
+			origTimeout := healthTimeout
+
+			// Set test values with valid interval and timeout
+			healthOutput = tt.output
+			healthInterval = 5 * time.Second
+			healthTimeout = 5 * time.Second
+
+			// Run validation
+			err := validateHealthFlags()
+
+			// Restore original values
+			healthOutput = origOutput
+			healthInterval = origInterval
+			healthTimeout = origTimeout
+
+			// Check result
+			if tt.wantError && err == nil {
+				t.Error("Expected error, got nil")
+			} else if !tt.wantError && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+		})
+	}
+} // TestDisplayStreamChanges tests the stream changes display
+func TestDisplayStreamChanges(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name          string
+		prev          *healthcheck.HealthReport
+		curr          *healthcheck.HealthReport
+		expectChanges bool
+	}{
+		{
+			name: "no changes",
+			prev: &healthcheck.HealthReport{
+				Services: []healthcheck.HealthCheckResult{
+					{ServiceName: "api", Status: healthcheck.HealthStatusHealthy},
+				},
+			},
+			curr: &healthcheck.HealthReport{
+				Services: []healthcheck.HealthCheckResult{
+					{ServiceName: "api", Status: healthcheck.HealthStatusHealthy},
+				},
+				Timestamp: now,
+			},
+			expectChanges: false,
+		},
+		{
+			name: "status changed",
+			prev: &healthcheck.HealthReport{
+				Services: []healthcheck.HealthCheckResult{
+					{ServiceName: "api", Status: healthcheck.HealthStatusHealthy},
+				},
+			},
+			curr: &healthcheck.HealthReport{
+				Services: []healthcheck.HealthCheckResult{
+					{ServiceName: "api", Status: healthcheck.HealthStatusUnhealthy},
+				},
+				Timestamp: now,
+			},
+			expectChanges: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Should not panic
+			displayStreamChanges(tt.prev, tt.curr)
+		})
+	}
+}
