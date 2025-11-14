@@ -23,11 +23,27 @@ type OrchestrationResult struct {
 }
 
 // OrchestrateServices starts services in dependency order with parallel execution.
-// The envVars parameter contains additional environment variables (e.g., from --env-file).
+//
+// This function orchestrates the startup of multiple services concurrently while ensuring
+// proper environment variable inheritance and process isolation.
+//
+// Parameters:
+//   - runtimes: Slice of ServiceRuntime definitions containing service metadata
+//   - envVars: Additional environment variables (e.g., from --env-file)
+//   - logger: ServiceLogger for structured logging of orchestration events
+//
+// Environment Inheritance:
 // All services automatically inherit azd context from os.Environ() including:
-// - AZD_SERVER: gRPC server address for azd extension framework communication
-// - AZD_ACCESS_TOKEN: Authentication token for azd APIs
-// - AZURE_*: All Azure environment variables from azd env
+//   - AZD_SERVER: gRPC server address for azd extension framework communication
+//   - AZD_ACCESS_TOKEN: Authentication token for azd APIs
+//   - AZURE_*: All Azure environment variables from azd env
+//
+// Returns:
+//   - OrchestrationResult: Contains started processes, errors, and timing information
+//   - error: Non-nil if any service fails to start; all services are stopped on error
+//
+// Process Isolation:
+// Each service runs in a separate goroutine with panic recovery to prevent cascading failures.
 func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, logger *ServiceLogger) (*OrchestrationResult, error) {
 	result := &OrchestrationResult{
 		Processes: make(map[string]*ServiceProcess),
@@ -170,8 +186,25 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 		}(runtime)
 	}
 
-	// Wait for all services to finish starting
-	wg.Wait()
+	// Wait for all services to finish starting with timeout
+	// Use context with timeout to prevent indefinite blocking
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	// Wait for completion or timeout (5 minutes default)
+	select {
+	case <-done:
+		// All services started successfully
+	case <-time.After(DefaultServiceStartTimeout):
+		slog.Warn("service orchestration timeout",
+			slog.Duration("timeout", DefaultServiceStartTimeout),
+			slog.Int("started", len(result.Processes)))
+		StopAllServices(result.Processes)
+		return result, fmt.Errorf("service orchestration timed out after %v", DefaultServiceStartTimeout)
+	}
 
 	slog.Debug("service orchestration complete",
 		slog.Int("started", len(result.Processes)),
@@ -191,7 +224,20 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 }
 
 // StopAllServices stops all running services with graceful shutdown.
-// Uses StopServiceGraceful with a 5-second timeout per service.
+//
+// This function coordinates the shutdown of multiple services concurrently,
+// ensuring each service has an opportunity for graceful termination before
+// forceful termination.
+//
+// Parameters:
+//   - processes: Map of service names to ServiceProcess instances
+//
+// Behavior:
+//   - Each service is stopped in parallel via goroutine
+//   - Graceful shutdown timeout: 5 seconds per service
+//   - Services are unregistered from the service registry
+//   - Errors are logged but don't prevent other services from stopping
+//   - Function blocks until all services have stopped
 func StopAllServices(processes map[string]*ServiceProcess) {
 	var wg sync.WaitGroup
 	projectDir, _ := os.Getwd()
@@ -236,7 +282,18 @@ func GetServiceURLs(processes map[string]*ServiceProcess) map[string]string {
 	return urls
 }
 
-// ValidateOrchestration validates that all services are ready.
+// ValidateOrchestration validates that all services started successfully and are ready.
+//
+// This function checks the orchestration result to ensure:
+//   - No errors occurred during service startup
+//   - All services transitioned to ready state
+//
+// Parameters:
+//   - result: OrchestrationResult from OrchestrateServices
+//
+// Returns:
+//   - nil if all services are ready
+//   - error describing the validation failure
 func ValidateOrchestration(result *OrchestrationResult) error {
 	if len(result.Errors) > 0 {
 		return fmt.Errorf("orchestration failed with %d errors", len(result.Errors))

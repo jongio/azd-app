@@ -39,7 +39,16 @@ var (
 	serversMu sync.Mutex
 	upgrader  = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			return true // Allow all origins for local development
+			origin := r.Header.Get("Origin")
+			// Allow connections from localhost only to prevent CSWSH attacks
+			// Empty origin is allowed for direct WebSocket connections (non-browser clients)
+			if origin == "" {
+				return true
+			}
+			return strings.HasPrefix(origin, "http://localhost:") ||
+				strings.HasPrefix(origin, "http://127.0.0.1:") ||
+				strings.HasPrefix(origin, "https://localhost:") ||
+				strings.HasPrefix(origin, "https://127.0.0.1:")
 		},
 	}
 )

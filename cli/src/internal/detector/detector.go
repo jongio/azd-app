@@ -19,7 +19,22 @@ const (
 )
 
 // FindPythonProjects searches for Python projects and detects their package manager.
-// Only searches within rootDir and does not traverse outside it.
+//
+// This function recursively searches for Python project indicators within the specified
+// root directory and identifies the appropriate package manager for each project.
+//
+// Parameters:
+//   - rootDir: Root directory to search (absolute or relative path)
+//
+// Returns:
+//   - []types.PythonProject: Slice of detected Python projects with package manager info
+//   - error: Non-nil if directory traversal fails
+//
+// Detection Strategy:
+//   - Searches for requirements.txt, pyproject.toml, poetry.lock, or uv.lock
+//   - Skips common directories: node_modules, .git, bin, obj, venv, .venv, __pycache__
+//   - Does not traverse outside rootDir (prevents directory traversal)
+//   - Package manager detection order: uv > poetry > pip
 func FindPythonProjects(rootDir string) ([]types.PythonProject, error) {
 	var pythonProjects []types.PythonProject
 	seen := make(map[string]bool)
@@ -31,8 +46,11 @@ func FindPythonProjects(rootDir string) ([]types.PythonProject, error) {
 	}
 
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		// Standard error handling: log and skip problematic paths
+		// This prevents permission errors from terminating the search
 		if err != nil {
-			return nil // Skip errors
+			log.Printf("skipping path %s due to error: %v", path, err)
+			return nil // Skip errors but continue walking
 		}
 
 		// Ensure we don't traverse outside rootDir
@@ -373,8 +391,10 @@ func FindAppHost(rootDir string) (*types.AspireProject, error) {
 	}
 
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		// Standard error handling: log and skip problematic paths
 		if err != nil {
-			return nil // Skip errors
+			log.Printf("skipping path %s due to error: %v", path, err)
+			return nil // Skip errors but continue walking
 		}
 
 		// Ensure we don't traverse outside rootDir
