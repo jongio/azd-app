@@ -152,7 +152,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
 	if !output.IsJSON() {
-		output.Section("🔍", "Checking reqs...")
+		output.Section(output.IconSearch, "Checking reqs...")
 	}
 
 	// Load azure.yaml
@@ -190,6 +190,7 @@ func executeReqs() error {
 	// Default output
 	output.Newline()
 	if !allSatisfied {
+		output.Info("%s If you recently installed any missing tools, run 'azd app reqs --fix' to refresh PATH", output.IconBulb)
 		return fmt.Errorf("requirement check failed")
 	}
 

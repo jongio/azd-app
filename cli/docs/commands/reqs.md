@@ -667,6 +667,17 @@ This ensures prerequisites are always validated before:
 azd app reqs --fix
 ```
 
+**Important: PATH Refresh Behavior**
+
+**Windows**: The `--fix` command refreshes PATH from the Windows registry, but changes only affect the current `azd app` process and its child processes. If you've recently installed a tool and added it to your system PATH, you may need to:
+1. Close all terminal windows
+2. Open a new terminal
+3. Run `azd app reqs --fix` again
+
+This limitation exists because Windows processes inherit environment variables at startup and cannot reload system-wide PATH changes dynamically.
+
+**Unix/macOS**: The `--fix` command uses the current session's PATH. If you've modified shell profile files (`.bashrc`, `.zshrc`, etc.), you must restart your terminal for changes to take effect.
+
 **Solution 2: Manual PATH configuration**:
 ```bash
 # Check PATH

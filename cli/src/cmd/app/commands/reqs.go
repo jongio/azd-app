@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
@@ -196,6 +198,8 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 			}
 
 			if fixMode {
+				// Disable cache for fix mode to ensure fresh checks
+				SetCacheEnabled(false)
 				return runReqsFix()
 			}
 
@@ -536,11 +540,11 @@ type FixResult struct {
 // runReqsFix attempts to fix PATH issues for missing tools.
 func runReqsFix() error {
 	if !output.IsJSON() {
-		output.Section("🔧", "Attempting to fix requirement issues...")
+		output.Section(output.IconTool, "Attempting to fix requirement issues...")
 	}
 
 	// Load azure.yaml
-	_, azureYaml, err := loadAzureYaml()
+	azureYamlPath, azureYaml, err := loadAzureYaml()
 	if err != nil {
 		return err
 	}
@@ -573,7 +577,7 @@ func runReqsFix() error {
 	// Step 2: Refresh PATH
 	if !output.IsJSON() {
 		output.Newline()
-		output.Step("🔄", "Refreshing environment PATH...")
+		output.Step(output.IconRefresh, "Refreshing environment PATH...")
 	}
 
 	_, err = pathutil.RefreshPATH()
@@ -594,7 +598,7 @@ func runReqsFix() error {
 	for _, prereq := range failedReqs {
 		if !output.IsJSON() {
 			output.Newline()
-			output.Step("🔍", "Searching for %s...", prereq.Name)
+			output.Step(output.IconSearch, "Searching for %s...", prereq.Name)
 		}
 
 		fixResult := FixResult{
@@ -641,7 +645,7 @@ func runReqsFix() error {
 				if !output.IsJSON() {
 					output.ItemWarning("Found: %s", toolPath)
 					output.ItemWarning("Tool is installed but not in current PATH")
-					output.Info("   💡 Restart your terminal to update PATH")
+					output.Info("   %s Restart your terminal to update PATH", output.IconBulb)
 				}
 			} else {
 				// Not found anywhere
@@ -649,7 +653,7 @@ func runReqsFix() error {
 				fixResult.Message = fmt.Sprintf("Not found - %s", suggestion)
 				if !output.IsJSON() {
 					output.ItemError("Not found in system PATH")
-					output.Info("   💡 %s", suggestion)
+					output.Info("   %s %s", output.IconBulb, suggestion)
 				}
 			}
 		}
@@ -657,10 +661,28 @@ func runReqsFix() error {
 		fixResults = append(fixResults, fixResult)
 	}
 
-	// Step 4: Re-check all requirements
+	// Step 4: Invalidate cache so next check gets fresh results
+	if fixedCount > 0 {
+		// Use same azure.yaml path for cache clearing
+		cacheDir := filepath.Join(filepath.Dir(azureYamlPath), ".azure", "cache")
+		cacheManager, err := cache.NewCacheManagerWithOptions(cache.CacheOptions{
+			Enabled:  true,
+			CacheDir: cacheDir,
+		})
+		if err == nil {
+			if err := cacheManager.ClearCache(); err != nil {
+				// Log but don't fail on cache clear error
+				if !output.IsJSON() {
+					output.Warning("Failed to clear cache: %v", err)
+				}
+			}
+		}
+	}
+
+	// Step 5: Re-check all requirements
 	if !output.IsJSON() {
 		output.Newline()
-		output.Section("📋", "Re-checking requirements...")
+		output.Section(output.IconCheck, "Re-checking requirements...")
 	}
 
 	checker := NewPrerequisiteChecker()
@@ -697,7 +719,7 @@ func runReqsFix() error {
 
 	if !allSatisfied {
 		output.Newline()
-		output.Info("💡 Next steps:")
+		output.Info("%s Next steps:", output.IconBulb)
 		output.Item("1. Run suggested install commands above")
 		output.Item("2. Restart your terminal to refresh PATH")
 		output.Item("3. Run 'azd app reqs' again to verify")
@@ -706,5 +728,17 @@ func runReqsFix() error {
 
 	output.Newline()
 	output.Success("All requirements now satisfied!")
+	output.Newline()
+	output.Info("ℹ️  Note: Tools may not be available in THIS terminal session")
+
+	// Provide platform-specific refresh instructions
+	if runtime.GOOS == "windows" {
+		output.Info("   To refresh PATH in your current PowerShell session, run:")
+		output.Info("   %s$env:PATH = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")%s", output.Dim, output.Reset)
+		output.Info("   Or simply restart your terminal")
+	} else {
+		output.Info("   To use the tools immediately, restart your terminal or source your shell profile")
+	}
+
 	return nil
 }
