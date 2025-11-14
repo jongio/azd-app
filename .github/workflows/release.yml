@@ -336,18 +336,18 @@ jobs:
           PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Wait for CI and auto-merge
+      - name: Enable auto-merge and wait for merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ steps.version_pr.outputs.pr_number }}"
           
-          echo "Waiting for CI checks to complete on PR #${PR_NUMBER}..."
-          
-          # Enable auto-merge
+          echo "Enabling auto-merge for PR #${PR_NUMBER}..."
           gh pr merge "$PR_NUMBER" --auto --squash
           
-          # Wait for PR to be merged (with timeout)
+          echo "Waiting for PR to be merged..."
+          
+          # Wait for PR to merge (with timeout)
           TIMEOUT=600  # 10 minutes
           ELAPSED=0
           INTERVAL=10
@@ -360,7 +360,7 @@ jobs:
               break
             fi
             
-            echo "PR state: $STATE. Waiting..."
+            echo "PR state: $STATE. Waiting for checks to complete..."
             sleep $INTERVAL
             ELAPSED=$((ELAPSED + INTERVAL))
           done
