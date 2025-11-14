@@ -221,7 +221,6 @@ jobs:
     needs: [preflight, test, lint, build]
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout
@@ -269,23 +268,10 @@ jobs:
           echo "next=$NEXT" >> $GITHUB_OUTPUT
           echo "Bumping from $CURRENT to $NEXT"
 
-      - name: Update version files and create PR
-        id: version_pr
+      - name: Update version files
         working-directory: cli
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.next }}"
-          BRANCH="release/v${VERSION}"
-          
-          # Delete branch if it already exists (from previous failed runs)
-          git push origin --delete "$BRANCH" 2>/dev/null || true
-          git branch -D "$BRANCH" 2>/dev/null || true
-          
-          # Create and switch to release branch
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
           
           # Update extension.yaml
           sed -i "s/^version: .*/version: $VERSION/" extension.yaml
@@ -320,71 +306,15 @@ jobs:
           } > CHANGELOG.new.md
           mv CHANGELOG.new.md CHANGELOG.md
           
-          # Commit and push to branch
-          git add extension.yaml CHANGELOG.md
-          git commit -m "chore: bump version to $VERSION"
-          git push origin "$BRANCH"
-          
-          # Create PR
+          # Commit version bump
           cd ..
-          PR_URL=$(gh pr create \
-            --title "chore: Release v${VERSION}" \
-            --body "Automated version bump to ${VERSION} for release." \
-            --base main \
-            --head "$BRANCH")
-          
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
-          
-          # Extract PR number
-          PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-
-      - name: Enable auto-merge and wait for merge
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ steps.version_pr.outputs.pr_number }}"
-          
-          echo "Enabling auto-merge for PR #${PR_NUMBER}..."
-          gh pr merge "$PR_NUMBER" --auto --squash
-          
-          echo "Waiting for PR to be merged..."
-          
-          # Wait for PR to merge (with timeout)
-          TIMEOUT=600  # 10 minutes
-          ELAPSED=0
-          INTERVAL=10
-          
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
-            
-            if [ "$STATE" = "MERGED" ]; then
-              echo "PR merged successfully!"
-              break
-            fi
-            
-            echo "PR state: $STATE. Waiting for checks to complete..."
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-          
-          if [ "$STATE" != "MERGED" ]; then
-            echo "ERROR: PR did not merge within timeout"
-            exit 1
-          fi
-
-      - name: Checkout main and create tag
-        run: |
-          VERSION="${{ steps.version.outputs.next }}"
-          
-          # Switch to main and pull latest
-          git checkout main
-          git pull origin main
-          
-          # Create and push version tag
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cli/extension.yaml cli/CHANGELOG.md
+          git commit -m "chore: bump version to $VERSION"
+          git push
+          
+          # Create and push version tag for future releases
           git tag -a "v${VERSION}" -m "Release version ${VERSION}"
           git push origin "v${VERSION}"
 
