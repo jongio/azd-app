@@ -87,8 +87,8 @@ func GetPortManager(projectDir string) *PortManager {
 		assignments: make(map[string]*PortAssignment),
 		filePath:    portsFile,
 	}
-	manager.portRange.start = 3000
-	manager.portRange.end = 65535 // Allow full dynamic port range
+	manager.portRange.start = PortRangeStart
+	manager.portRange.end = PortRangeEnd // Allow full dynamic port range
 
 	// Set default port checker (can be overridden in tests)
 	manager.portChecker = manager.defaultIsPortAvailable
@@ -468,12 +468,12 @@ func (pm *PortManager) GetAssignment(serviceName string) (int, bool) {
 	return 0, false
 }
 
-// CleanStalePorts removes assignments for ports that haven't been used in over 7 days.
+// CleanStalePorts removes assignments for ports that haven't been used in over StalePortCleanupAge.
 func (pm *PortManager) CleanStalePorts() {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	cutoff := time.Now().Add(-7 * 24 * time.Hour)
+	cutoff := time.Now().Add(-StalePortCleanupAge)
 	for name, assignment := range pm.assignments {
 		if assignment.LastUsed.Before(cutoff) {
 			delete(pm.assignments, name)
@@ -640,42 +640,91 @@ func (pm *PortManager) getProcessName(pid int) (string, error) {
 
 // killProcessOnPort kills any process listening on the specified port.
 func (pm *PortManager) killProcessOnPort(port int) error {
-	var cmd []string
-	var args []string
-
 	if runtime.GOOS == "windows" {
-		// Windows: use netstat and taskkill
-		cmd = []string{"powershell", "-Command"}
-		psScript := fmt.Sprintf(`
-			$connections = netstat -ano | Select-String ":%d " | Select-String "LISTENING"
-			foreach ($line in $connections) {
-				$parts = $line -split '\s+' | Where-Object { $_ }
-				$procId = $parts[-1]
-				if ($procId -match '^\d+$') {
-					Write-Host "Killing process $procId on port %d"
-					Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
-				}
-			}
-		`, port, port)
-		args = append(cmd, psScript)
-	} else {
-		// Unix: use lsof and kill
-		cmd = []string{"sh", "-c"}
-		shScript := fmt.Sprintf("lsof -ti:%d | xargs -r kill -9", port)
-		args = append(cmd, shScript)
+		return pm.killProcessOnPortWindows(port)
 	}
+	return pm.killProcessOnPortUnix(port)
+}
 
-	// Execute the kill command
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// killProcessOnPortWindows kills processes on Windows using netstat and Stop-Process.
+func (pm *PortManager) killProcessOnPortWindows(port int) error {
+	portStr := strconv.Itoa(port)
+
+	// Use PowerShell with proper argument passing (no string interpolation)
+	// -Command takes a ScriptBlock that we construct safely
+	psScript := `
+		param($Port)
+		$portPattern = ":$Port "
+		$connections = netstat -ano | Select-String $portPattern | Select-String "LISTENING"
+		foreach ($line in $connections) {
+			$parts = $line -split '\s+' | Where-Object { $_ }
+			$procId = $parts[-1]
+			if ($procId -match '^\d+$') {
+				Write-Host "Killing process $procId on port $Port"
+				Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+			}
+		}
+	`
+
+	// Execute PowerShell with parameter binding
+	ctx, cancel := context.WithTimeout(context.Background(), ProcessKillTimeout)
 	defer cancel()
-	if err := executor.RunCommand(ctx, cmd[0], args[1:], "."); err != nil {
+
+	if err := executor.RunCommand(ctx, "powershell", []string{"-Command", psScript, "-Port", portStr}, "."); err != nil {
 		// Ignore errors - port might not be in use
 		return nil
 	}
 
-	// Wait a moment for process to die
-	time.Sleep(500 * time.Millisecond)
-	return nil
+	// Verify port is actually freed with retry loop
+	return pm.verifyPortFreed(port)
+}
+
+// killProcessOnPortUnix kills processes on Unix using lsof and kill.
+func (pm *PortManager) killProcessOnPortUnix(port int) error {
+	portStr := strconv.Itoa(port)
+
+	// Use proper argument array instead of shell string interpolation
+	// lsof -ti:PORT returns PIDs, one per line
+	ctx, cancel := context.WithTimeout(context.Background(), ProcessKillTimeout)
+	defer cancel()
+
+	// Get PIDs listening on the port
+	output, err := exec.CommandContext(ctx, "lsof", "-ti:"+portStr).Output()
+	if err != nil {
+		// lsof exits with 1 if no processes found - this is not an error
+		return nil
+	}
+
+	pids := strings.Fields(strings.TrimSpace(string(output)))
+	if len(pids) == 0 {
+		return nil
+	}
+
+	// Kill each process
+	for _, pid := range pids {
+		// Validate PID is numeric to prevent injection
+		if _, err := strconv.Atoi(pid); err != nil {
+			continue
+		}
+		_ = exec.CommandContext(ctx, "kill", "-9", pid).Run()
+	}
+
+	// Verify port is actually freed with retry loop
+	return pm.verifyPortFreed(port)
+}
+
+// verifyPortFreed verifies that a port is freed after kill attempt with retry logic.
+// This prevents TOCTOU race conditions where another process could bind to the port.
+func (pm *PortManager) verifyPortFreed(port int) error {
+	for i := 0; i < ProcessKillMaxRetries; i++ {
+		if pm.isPortAvailable(port) {
+			return nil
+		}
+		time.Sleep(ProcessKillGracePeriod)
+	}
+
+	// Port still not available after retries
+	return fmt.Errorf("port %d still in use after kill attempt and %d retries", port, ProcessKillMaxRetries)
 }
 
 // load reads port assignments from disk.

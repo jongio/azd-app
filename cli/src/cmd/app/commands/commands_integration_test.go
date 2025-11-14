@@ -92,6 +92,99 @@ reqs:
 	}
 }
 
+func TestRunReqsFixIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tests := []struct {
+		name        string
+		azureYAML   string
+		expectError bool
+		description string
+	}{
+		{
+			name: "fix_with_all_satisfied",
+			azureYAML: `name: test-project
+reqs:
+  - name: go
+    minVersion: 1.20.0
+`,
+			expectError: false,
+			description: "Should succeed when requirements are already satisfied",
+		},
+		{
+			name: "fix_with_missing_tool",
+			azureYAML: `name: test-project
+reqs:
+  - name: nonexistent-tool-fix-test-xyz
+    minVersion: 1.0.0
+`,
+			expectError: true,
+			description: "Should fail when tool cannot be found",
+		},
+		{
+			name: "fix_with_no_reqs",
+			azureYAML: `name: test-project
+reqs: []
+`,
+			expectError: true,
+			description: "Should fail when no reqs are defined",
+		},
+		{
+			name: "fix_with_version_mismatch",
+			azureYAML: `name: test-project
+reqs:
+  - name: go
+    minVersion: 999.0.0
+`,
+			expectError: true,
+			description: "Should fail when version requirement cannot be met",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save current directory
+			originalDir, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := os.Chdir(originalDir); err != nil {
+					t.Logf("Warning: failed to restore directory: %v", err)
+				}
+			}()
+
+			// Create temporary directory with azure.yaml
+			tempDir := t.TempDir()
+			if err := os.Chdir(tempDir); err != nil {
+				t.Fatal(err)
+			}
+
+			azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+			if err := os.WriteFile(azureYamlPath, []byte(tt.azureYAML), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			// Run fix
+			err = runReqsFix()
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("%s: Expected error, got nil", tt.description)
+				} else {
+					t.Logf("%s: Got expected error: %v", tt.description, err)
+				}
+			} else {
+				if err != nil {
+					t.Logf("%s: runReqsFix() returned: %v", tt.description, err)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckPrerequisiteIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")

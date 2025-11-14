@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -126,7 +127,20 @@ func (pi *ParallelInstaller) Run() error {
 
 	for _, task := range pi.tasks {
 		wg.Add(1)
-		go pi.runTask(task, &wg, resultsChan)
+		go func(t ProjectInstallTask) {
+			// Recover from panics to prevent crash
+			defer func() {
+				if r := recover(); r != nil {
+					resultsChan <- ProjectInstallResult{
+						Task:    t,
+						Success: false,
+						Error:   fmt.Errorf("panic during installation: %v", r),
+					}
+					wg.Done()
+				}
+			}()
+			pi.runTask(t, &wg, resultsChan)
+		}(task)
 	}
 
 	// Wait for all tasks to complete

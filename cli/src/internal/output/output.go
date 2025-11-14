@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -54,8 +55,87 @@ const (
 	SymbolSpinner = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" // Spinner frames
 )
 
+// ASCII fallback symbols for terminals that don't support Unicode
+const (
+	ASCIICheck   = "[+]"
+	ASCIICross   = "[-]"
+	ASCIIWarning = "[!]"
+	ASCIIInfo    = "[i]"
+	ASCIIArrow   = "->"
+	ASCIIDot     = "*"
+)
+
+// Emoji icons with ASCII fallbacks
+var (
+	IconSearch  = "🔍"
+	IconTool    = "🔧"
+	IconRefresh = "🔄"
+	IconPackage = "📦"
+	IconPython  = "🐍"
+	IconDotnet  = "🔷"
+	IconDocker  = "🐳"
+	IconCheck   = "📋"
+	IconBulb    = "💡"
+	IconRocket  = "🚀"
+	IconWarning = "⚠️"
+	IconError   = "❌"
+)
+
 // Global output format setting
 var globalFormat Format = FormatDefault
+
+// supportsUnicode detects if the terminal supports Unicode/emojis
+var supportsUnicode = detectUnicodeSupport()
+
+// detectUnicodeSupport checks if the terminal can display Unicode properly
+func detectUnicodeSupport() bool {
+	// Check Windows version and console
+	if runtime.GOOS == "windows" {
+		// Windows Terminal, VS Code terminal, and modern PowerShell support Unicode
+		term := os.Getenv("TERM_PROGRAM")
+		wtSession := os.Getenv("WT_SESSION")
+
+		// Check for Windows Terminal
+		if wtSession != "" {
+			return true
+		}
+
+		// Check for VS Code
+		if term == "vscode" {
+			return true
+		}
+
+		// Check for ConEmu
+		if os.Getenv("ConEmuPID") != "" {
+			return true
+		}
+
+		// PowerShell (any version) generally supports Unicode emojis
+		// Check if running in PowerShell
+		if os.Getenv("PSModulePath") != "" || os.Getenv("POWERSHELL_DISTRIBUTION_CHANNEL") != "" {
+			return true
+		}
+
+		// Check TERM environment variable
+		if os.Getenv("TERM") != "" {
+			return true
+		}
+
+		// Default to ASCII for old Windows Console/CMD
+		return false
+	}
+
+	// Unix-like systems generally support Unicode
+	return true
+}
+
+// getIcon returns the appropriate icon based on Unicode support
+func getIcon(unicode, ascii string) string {
+	if supportsUnicode {
+		return unicode
+	}
+	return ascii
+}
 
 // SetFormat sets the global output format.
 func SetFormat(format string) error {
@@ -115,37 +195,43 @@ func Header(text string) {
 
 // Section prints a section header
 func Section(icon, text string) {
-	fmt.Printf("\n%s%s %s%s\n", Cyan, icon, text, Reset)
+	displayIcon := getIcon(icon, "[>]")
+	fmt.Printf("\n%s%s %s%s\n", Cyan, displayIcon, text, Reset)
 }
 
 // Success prints a success message with green checkmark
 func Success(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s%s%s %s\n", BrightGreen, SymbolCheck, Reset, msg)
+	check := getIcon(SymbolCheck, ASCIICheck)
+	fmt.Printf("%s%s%s %s\n", BrightGreen, check, Reset, msg)
 }
 
 // Error prints an error message with red X
 func Error(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s%s%s %s\n", BrightRed, SymbolCross, Reset, msg)
+	cross := getIcon(SymbolCross, ASCIICross)
+	fmt.Printf("%s%s%s %s\n", BrightRed, cross, Reset, msg)
 }
 
 // Warning prints a warning message with yellow triangle
 func Warning(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s%s%s  %s\n", BrightYellow, SymbolWarning, Reset, msg)
+	warning := getIcon(SymbolWarning, ASCIIWarning)
+	fmt.Printf("%s%s%s  %s\n", BrightYellow, warning, Reset, msg)
 }
 
 // Info prints an info message with blue info icon
 func Info(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s%s%s  %s\n", BrightBlue, SymbolInfo, Reset, msg)
+	info := getIcon(SymbolInfo, ASCIIInfo)
+	fmt.Printf("%s%s%s  %s\n", BrightBlue, info, Reset, msg)
 }
 
 // Step prints a step message with an icon
 func Step(icon, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("%s%s%s %s\n", Cyan, icon, Reset, msg)
+	displayIcon := getIcon(icon, "[*]")
+	fmt.Printf("%s%s%s %s\n", Cyan, displayIcon, Reset, msg)
 }
 
 // Item prints an indented item
@@ -157,25 +243,29 @@ func Item(format string, args ...interface{}) {
 // ItemSuccess prints an indented success item
 func ItemSuccess(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s%s%s %s\n", Green, SymbolCheck, Reset, msg)
+	check := getIcon(SymbolCheck, ASCIICheck)
+	fmt.Printf("   %s%s%s %s\n", Green, check, Reset, msg)
 }
 
 // ItemError prints an indented error item
 func ItemError(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s%s%s %s\n", Red, SymbolCross, Reset, msg)
+	cross := getIcon(SymbolCross, ASCIICross)
+	fmt.Printf("   %s%s%s %s\n", Red, cross, Reset, msg)
 }
 
 // ItemWarning prints an indented warning item
 func ItemWarning(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s%s%s  %s\n", Yellow, SymbolWarning, Reset, msg)
+	warning := getIcon(SymbolWarning, ASCIIWarning)
+	fmt.Printf("   %s%s%s  %s\n", Yellow, warning, Reset, msg)
 }
 
 // ItemInfo prints an indented info item
 func ItemInfo(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Printf("   %s%s%s  %s\n", Cyan, SymbolInfo, Reset, msg)
+	info := getIcon(SymbolInfo, ASCIIInfo)
+	fmt.Printf("   %s%s%s  %s\n", Cyan, info, Reset, msg)
 }
 
 // Divider prints a horizontal divider

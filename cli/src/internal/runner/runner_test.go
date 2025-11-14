@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,7 +63,7 @@ func TestRunPnpmScript(t *testing.T) {
 			// Skip actual pnpm execution in tests
 			t.Skip("Skipping actual pnpm execution in unit tests")
 
-			err := RunPnpmScript(tt.script)
+			err := RunPnpmScript(context.Background(), tt.script)
 			if err != nil {
 				t.Errorf("RunPnpmScript() error = %v", err)
 			}
@@ -93,7 +94,7 @@ func TestRunDockerCompose(t *testing.T) {
 			// Skip actual docker compose execution in tests
 			t.Skip("Skipping actual docker compose execution in unit tests")
 
-			err := RunDockerCompose(tt.scriptName, tt.scriptCmd)
+			err := RunDockerCompose(context.Background(), tt.scriptName, tt.scriptCmd)
 			if err != nil {
 				t.Errorf("RunDockerCompose() error = %v", err)
 			}
@@ -116,19 +117,19 @@ func TestRunnerFunctionSignatures(t *testing.T) {
 		}
 
 		// Just verify it compiles and has the right signature
-		_ = RunAspire(project)
+		_ = RunAspire(context.Background(), project)
 		// We expect this to fail since the directory doesn't exist
 		// but that's okay - we're just testing the signature
 	})
 
 	t.Run("RunPnpmScript signature", func(t *testing.T) {
-		_ = RunPnpmScript("dev")
+		_ = RunPnpmScript(context.Background(), "dev")
 		// We expect this to fail if pnpm isn't installed
 		// but that's okay - we're just testing the signature
 	})
 
 	t.Run("RunDockerCompose signature", func(t *testing.T) {
-		_ = RunDockerCompose("start", "docker compose up")
+		_ = RunDockerCompose(context.Background(), "start", "docker compose up")
 		// We expect this to fail if pnpm isn't installed
 		// but that's okay - we're just testing the signature
 	})
@@ -177,7 +178,7 @@ func TestRunNode(t *testing.T) {
 			// Skip actual execution since we're testing validation
 			t.Skip("Skipping actual execution in unit tests")
 
-			err := RunNode(tt.project, tt.script)
+			err := RunNode(context.Background(), tt.project, tt.script)
 			if tt.expectError && err == nil {
 				t.Error("expected error but got none")
 			}
@@ -346,9 +347,9 @@ func TestRunPython(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Skip actual execution since we're testing structure
-			t.Skip("Skipping actual execution in unit tests")
+			t.Skip("Skipping actual Python execution in unit tests")
 
-			_ = RunPython(tt.project)
+			_ = RunPython(context.Background(), tt.project)
 		})
 	}
 }
@@ -377,7 +378,7 @@ func TestRunDotnet(t *testing.T) {
 			// Skip actual execution since we're testing structure
 			t.Skip("Skipping actual execution in unit tests")
 
-			_ = RunDotnet(tt.project)
+			_ = RunDotnet(context.Background(), tt.project)
 		})
 	}
 }
@@ -388,21 +389,21 @@ func TestRunAspire_InvalidPath(t *testing.T) {
 		ProjectFile: "AppHost.csproj",
 	}
 
-	err := RunAspire(project)
+	err := RunAspire(context.Background(), project)
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}
 }
 
 func TestRunPnpmScript_InvalidScript(t *testing.T) {
-	err := RunPnpmScript("dev; rm -rf /")
+	err := RunPnpmScript(context.Background(), "dev; rm -rf /")
 	if err == nil {
 		t.Error("expected error for invalid script name")
 	}
 }
 
 func TestRunDockerCompose_InvalidScript(t *testing.T) {
-	err := RunDockerCompose("start; malicious", "docker compose up")
+	err := RunDockerCompose(context.Background(), "start; malicious", "docker compose up")
 	if err == nil {
 		t.Error("expected error for invalid script name")
 	}
@@ -414,7 +415,7 @@ func TestRunNode_InvalidPath(t *testing.T) {
 		PackageManager: "npm",
 	}
 
-	err := RunNode(project, "dev")
+	err := RunNode(context.Background(), project, "dev")
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}
@@ -428,7 +429,7 @@ func TestRunNode_InvalidScript(t *testing.T) {
 		PackageManager: "npm",
 	}
 
-	err := RunNode(project, "dev; rm -rf /")
+	err := RunNode(context.Background(), project, "dev; rm -rf /")
 	if err == nil {
 		t.Error("expected error for invalid script name")
 	}
@@ -442,7 +443,7 @@ func TestRunNode_InvalidPackageManager(t *testing.T) {
 		PackageManager: "invalid-pm; rm -rf /",
 	}
 
-	err := RunNode(project, "dev")
+	err := RunNode(context.Background(), project, "dev")
 	if err == nil {
 		t.Error("expected error for invalid package manager")
 	}
@@ -454,7 +455,7 @@ func TestRunPython_InvalidPath(t *testing.T) {
 		PackageManager: "pip",
 	}
 
-	err := RunPython(project)
+	err := RunPython(context.Background(), project)
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}
@@ -474,7 +475,7 @@ func TestRunPython_InvalidPackageManager(t *testing.T) {
 		PackageManager: "invalid-pm; rm -rf /",
 	}
 
-	err := RunPython(project)
+	err := RunPython(context.Background(), project)
 	if err == nil {
 		t.Error("expected error for invalid package manager")
 	}
@@ -494,7 +495,7 @@ func TestRunPython_NoEntryPoint(t *testing.T) {
 		PackageManager: "pip",
 	}
 
-	err := RunPython(project)
+	err := RunPython(context.Background(), project)
 	if err == nil {
 		t.Error("expected error when no entry point found")
 	}
@@ -521,7 +522,7 @@ func TestRunPython_WithExplicitEntrypoint(t *testing.T) {
 
 	// This should not error on validation
 	// (it will error on execution if python isn't installed, but that's ok)
-	_ = RunPython(project)
+	_ = RunPython(context.Background(), project)
 }
 
 func TestRunPython_UnsupportedPackageManager(t *testing.T) {
@@ -539,7 +540,7 @@ func TestRunPython_UnsupportedPackageManager(t *testing.T) {
 	}
 
 	// Should fail validation before execution
-	err := RunPython(project)
+	err := RunPython(context.Background(), project)
 	if err == nil {
 		t.Error("expected error for unsupported package manager")
 	}
@@ -550,7 +551,7 @@ func TestRunDotnet_InvalidPath(t *testing.T) {
 		Path: "../../../invalid/path.csproj",
 	}
 
-	err := RunDotnet(project)
+	err := RunDotnet(context.Background(), project)
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}

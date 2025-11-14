@@ -42,7 +42,7 @@ func NewRunCommand() *cobra.Command {
 		Short: "Run the development environment (services from azure.yaml, Aspire, pnpm, or docker compose)",
 		Long:  `Automatically detects and runs services defined in azure.yaml, or falls back to: Aspire (AppHost.cs), pnpm dev/start scripts, or docker compose from package.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWithServices(cmd, args)
+			return runWithServices(cmd.Context(), cmd, args)
 		},
 	}
 
@@ -57,7 +57,7 @@ func NewRunCommand() *cobra.Command {
 }
 
 // runWithServices runs services from azure.yaml.
-func runWithServices(_ *cobra.Command, _ []string) error {
+func runWithServices(ctx context.Context, _ *cobra.Command, _ []string) error {
 	if err := validateRuntimeMode(runRuntime); err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func runWithServices(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	return runServicesFromAzureYaml(azureYamlPath, runRuntime)
+	return runServicesFromAzureYaml(ctx, azureYamlPath, runRuntime)
 }
 
 // validateRuntimeMode validates the runtime mode parameter.
@@ -103,20 +103,20 @@ func findAzureYaml() (string, error) {
 }
 
 // runServicesFromAzureYaml orchestrates services defined in azure.yaml.
-func runServicesFromAzureYaml(azureYamlPath string, runtimeMode string) error {
+func runServicesFromAzureYaml(ctx context.Context, azureYamlPath string, runtimeMode string) error {
 	azureYamlDir := filepath.Dir(azureYamlPath)
 
 	// Aspire mode: run AppHost directly
 	if runtimeMode == runtimeModeAspire {
-		return runAspireMode(azureYamlDir)
+		return runAspireMode(ctx, azureYamlDir)
 	}
 
 	// AZD mode: orchestrate services individually
-	return runAzdMode(azureYamlPath, azureYamlDir)
+	return runAzdMode(ctx, azureYamlPath, azureYamlDir)
 }
 
 // runAzdMode runs services in azd mode with individual service orchestration.
-func runAzdMode(azureYamlPath, azureYamlDir string) error {
+func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -429,7 +429,7 @@ func shutdownAllServices(ctx context.Context, processes map[string]*service.Serv
 }
 
 // runAspireMode runs Aspire AppHost directly using dotnet run.
-func runAspireMode(rootDir string) error {
+func runAspireMode(ctx context.Context, rootDir string) error {
 	// Find Aspire AppHost project
 	aspireProject, err := detector.FindAppHost(rootDir)
 	if err != nil {
@@ -455,7 +455,7 @@ func runAspireMode(rootDir string) error {
 	output.Newline()
 
 	// Run dotnet and let it handle everything (inherits all azd env vars)
-	return executor.StartCommand(context.Background(), "dotnet", args, aspireProject.Dir)
+	return executor.StartCommand(ctx, "dotnet", args, aspireProject.Dir)
 }
 
 // showDryRun displays what would be executed without starting services.

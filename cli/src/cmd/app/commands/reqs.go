@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/pathutil"
 
 	"github.com/spf13/cobra"
 )
@@ -142,6 +145,7 @@ func NewReqsCommand() *cobra.Command {
 	var dryRun bool
 	var noCache bool
 	var clearCache bool
+	var fixMode bool
 
 	cmd := &cobra.Command{
 		Use:   "reqs",
@@ -151,6 +155,9 @@ are installed and meet the minimum version reqs.
 
 With --generate, it scans your project to detect dependencies and automatically
 generates the reqs section in azure.yaml based on what's installed on your machine.
+
+With --fix, it attempts to resolve PATH issues by refreshing the environment and
+searching for installed tools that aren't accessible in the current session.
 
 The command caches results in .azure/cache/ to improve performance on subsequent runs.
 Use --no-cache to force a fresh check and bypass cached results.`,
@@ -189,6 +196,13 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 				}
 				return runGenerate(config)
 			}
+
+			if fixMode {
+				// Disable cache for fix mode to ensure fresh checks
+				SetCacheEnabled(false)
+				return runReqsFix()
+			}
+
 			return cmdOrchestrator.Run("reqs")
 		},
 	}
@@ -197,6 +211,7 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without modifying azure.yaml")
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Force fresh reqs check and bypass cached results")
 	cmd.Flags().BoolVar(&clearCache, "clear-cache", false, "Clear cached reqs results")
+	cmd.Flags().BoolVar(&fixMode, "fix", false, "Attempt to fix PATH issues for missing tools")
 
 	return cmd
 }
@@ -509,5 +524,221 @@ func runClearCache() error {
 	}
 
 	output.Success("Reqs cache cleared successfully")
+	return nil
+}
+
+// FixResult represents the result of attempting to fix a requirement.
+type FixResult struct {
+	Name      string `json:"name"`
+	Fixed     bool   `json:"fixed"`
+	Found     bool   `json:"found"`
+	Path      string `json:"path,omitempty"`
+	Message   string `json:"message"`
+	Satisfied bool   `json:"satisfied"`
+}
+
+// runReqsFix attempts to fix PATH issues for missing tools.
+func runReqsFix() error {
+	if !output.IsJSON() {
+		output.Section(output.IconTool, "Attempting to fix requirement issues...")
+	}
+
+	// Load azure.yaml
+	azureYamlPath, azureYaml, err := loadAzureYaml()
+	if err != nil {
+		return err
+	}
+
+	if len(azureYaml.Reqs) == 0 {
+		return fmt.Errorf("no reqs defined in azure.yaml - run 'azd app reqs --generate' to add them")
+	}
+
+	// Step 1: Run initial check to identify issues
+	initialChecker := NewPrerequisiteChecker()
+	var failedReqs []Prerequisite
+	for _, prereq := range azureYaml.Reqs {
+		result := initialChecker.Check(prereq)
+		if !result.Satisfied {
+			failedReqs = append(failedReqs, prereq)
+		}
+	}
+
+	if len(failedReqs) == 0 {
+		if output.IsJSON() {
+			return output.PrintJSON(map[string]interface{}{
+				"success": true,
+				"message": "All requirements already satisfied",
+			})
+		}
+		output.Success("All requirements already satisfied!")
+		return nil
+	}
+
+	// Step 2: Refresh PATH
+	if !output.IsJSON() {
+		output.Newline()
+		output.Step(output.IconRefresh, "Refreshing environment PATH...")
+	}
+
+	_, err = pathutil.RefreshPATH()
+	if err != nil {
+		if !output.IsJSON() {
+			output.Warning("Failed to refresh PATH: %v", err)
+		}
+	} else {
+		if !output.IsJSON() {
+			output.ItemSuccess("PATH refreshed successfully")
+		}
+	}
+
+	// Step 3: Try to find and fix each failed requirement
+	fixResults := make([]FixResult, 0, len(failedReqs))
+	fixedCount := 0
+
+	for _, prereq := range failedReqs {
+		if !output.IsJSON() {
+			output.Newline()
+			output.Step(output.IconSearch, "Searching for %s...", prereq.Name)
+		}
+
+		fixResult := FixResult{
+			Name:  prereq.Name,
+			Fixed: false,
+			Found: false,
+		}
+
+		// Get the command name to search for
+		config := initialChecker.getToolConfig(prereq)
+		toolCommand := config.Command
+
+		// Try to find tool in current PATH (after refresh)
+		toolPath := pathutil.FindToolInPath(toolCommand)
+		if toolPath != "" {
+			fixResult.Found = true
+			fixResult.Path = toolPath
+
+			// Re-check if it works now
+			result := initialChecker.Check(prereq)
+			if result.Satisfied {
+				fixResult.Fixed = true
+				fixResult.Satisfied = true
+				fixResult.Message = fmt.Sprintf("Found and verified: %s", toolPath)
+				fixedCount++
+				if !output.IsJSON() {
+					output.ItemSuccess("Found: %s", toolPath)
+					output.ItemSuccess("Version verified successfully")
+				}
+			} else {
+				fixResult.Message = fmt.Sprintf("Found at %s but version check failed: %s", toolPath, result.Message)
+				if !output.IsJSON() {
+					output.ItemWarning("Found: %s", toolPath)
+					output.ItemWarning("Version check failed: %s", result.Message)
+				}
+			}
+		} else {
+			// Tool not found in PATH, try searching common locations
+			toolPath = pathutil.SearchToolInSystemPath(toolCommand)
+			if toolPath != "" {
+				fixResult.Found = true
+				fixResult.Path = toolPath
+				fixResult.Message = fmt.Sprintf("Found at %s but not in PATH - restart terminal may be needed", toolPath)
+				if !output.IsJSON() {
+					output.ItemWarning("Found: %s", toolPath)
+					output.ItemWarning("Tool is installed but not in current PATH")
+					output.Info("   %s Restart your terminal to update PATH", output.IconBulb)
+				}
+			} else {
+				// Not found anywhere
+				suggestion := pathutil.GetInstallSuggestion(toolCommand)
+				fixResult.Message = fmt.Sprintf("Not found - %s", suggestion)
+				if !output.IsJSON() {
+					output.ItemError("Not found in system PATH")
+					output.Info("   %s %s", output.IconBulb, suggestion)
+				}
+			}
+		}
+
+		fixResults = append(fixResults, fixResult)
+	}
+
+	// Step 4: Invalidate cache so next check gets fresh results
+	if fixedCount > 0 {
+		// Use same azure.yaml path for cache clearing
+		cacheDir := filepath.Join(filepath.Dir(azureYamlPath), ".azure", "cache")
+		cacheManager, err := cache.NewCacheManagerWithOptions(cache.CacheOptions{
+			Enabled:  true,
+			CacheDir: cacheDir,
+		})
+		if err == nil {
+			if err := cacheManager.ClearCache(); err != nil {
+				// Log but don't fail on cache clear error
+				if !output.IsJSON() {
+					output.Warning("Failed to clear cache: %v", err)
+				}
+			}
+		}
+	}
+
+	// Step 5: Re-check all requirements
+	if !output.IsJSON() {
+		output.Newline()
+		output.Section(output.IconCheck, "Re-checking requirements...")
+	}
+
+	checker := NewPrerequisiteChecker()
+	allResults := make([]ReqResult, 0, len(azureYaml.Reqs))
+	allSatisfied := true
+
+	for _, prereq := range azureYaml.Reqs {
+		result := checker.Check(prereq)
+		allResults = append(allResults, result)
+		if !result.Satisfied {
+			allSatisfied = false
+		}
+	}
+
+	// JSON output
+	if output.IsJSON() {
+		return output.PrintJSON(map[string]interface{}{
+			"success":      fixedCount > 0,
+			"fixed":        fixedCount,
+			"total":        len(failedReqs),
+			"allSatisfied": allSatisfied,
+			"fixes":        fixResults,
+			"results":      allResults,
+		})
+	}
+
+	// Default output - summary
+	output.Newline()
+	if fixedCount > 0 {
+		output.Success("Fixed %d of %d issues!", fixedCount, len(failedReqs))
+	} else {
+		output.Warning("Could not automatically fix any issues")
+	}
+
+	if !allSatisfied {
+		output.Newline()
+		output.Info("%s Next steps:", output.IconBulb)
+		output.Item("1. Run suggested install commands above")
+		output.Item("2. Restart your terminal to refresh PATH")
+		output.Item("3. Run 'azd app reqs' again to verify")
+		return fmt.Errorf("not all requirements satisfied")
+	}
+
+	output.Newline()
+	output.Success("All requirements now satisfied!")
+	output.Newline()
+	output.Info("ℹ️  Note: Tools may not be available in THIS terminal session")
+
+	// Provide platform-specific refresh instructions
+	if runtime.GOOS == "windows" {
+		output.Info("   To refresh PATH in your current PowerShell session, run:")
+		output.Info("   %s$env:PATH = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")%s", output.Dim, output.Reset)
+		output.Info("   Or simply restart your terminal")
+	} else {
+		output.Info("   To use the tools immediately, restart your terminal or source your shell profile")
+	}
+
 	return nil
 }

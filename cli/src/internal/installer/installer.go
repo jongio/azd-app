@@ -99,7 +99,8 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to run %s install: %w", project.PackageManager, err)
+		return fmt.Errorf("failed to install %s dependencies in %s (command: %v %v): %w",
+			project.PackageManager, project.Dir, cmd.Path, cmd.Args, err)
 	}
 
 	if !output.IsJSON() && progressWriter == nil {
@@ -144,7 +145,7 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 	cmd.Env = os.Environ()
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to restore: %w", err)
+		return fmt.Errorf("failed to restore .NET project %s in directory %s: %w", project.Path, dir, err)
 	}
 
 	if !output.IsJSON() && progressWriter == nil {
@@ -168,7 +169,7 @@ func setupPythonVirtualEnvWithWriter(project types.PythonProject, progressWriter
 	case "pip":
 		return setupWithPip(project.Dir, progressWriter)
 	default:
-		return fmt.Errorf("unknown package manager: %s", project.PackageManager)
+		return fmt.Errorf("unknown package manager '%s' for Python project in %s", project.PackageManager, project.Dir)
 	}
 }
 
@@ -226,7 +227,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			}
 
 			if venvErr := venvCmd.Run(); venvErr != nil {
-				return fmt.Errorf("failed to create venv with uv: %w", venvErr)
+				return fmt.Errorf("failed to create virtual environment with uv in %s: %w", projectDir, venvErr)
 			}
 
 			// Install dependencies
@@ -249,10 +250,10 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			}
 
 			if installErr := installCmd.Run(); installErr != nil {
-				return fmt.Errorf("failed to install with uv: %w", installErr)
+				return fmt.Errorf("failed to install dependencies with uv in %s: %w", projectDir, installErr)
 			}
 		} else {
-			return fmt.Errorf("uv sync failed: %w", err)
+			return fmt.Errorf("uv sync failed in %s: %w", projectDir, err)
 		}
 	}
 
@@ -307,7 +308,7 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install with poetry: %w", err)
+		return fmt.Errorf("failed to install dependencies with poetry in %s: %w", projectDir, err)
 	}
 
 	if !output.IsJSON() && progressWriter == nil {
@@ -332,7 +333,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 		cmdOutput, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("failed to create venv: %w\n%s", err, cmdOutput)
+			return fmt.Errorf("failed to create virtual environment in %s: %w\nOutput: %s", projectDir, err, cmdOutput)
 		}
 
 		if !output.IsJSON() && progressWriter == nil {
@@ -380,7 +381,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		pipCmd.Env = os.Environ()
 
 		if err := pipCmd.Run(); err != nil {
-			return fmt.Errorf("failed to install requirements: %w", err)
+			return fmt.Errorf("failed to install requirements in %s: %w", projectDir, err)
 		}
 
 		if !output.IsJSON() && progressWriter == nil {

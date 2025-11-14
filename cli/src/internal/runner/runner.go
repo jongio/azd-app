@@ -14,7 +14,7 @@ import (
 )
 
 // RunAspire runs aspire run for an Aspire project.
-func RunAspire(project types.AspireProject) error {
+func RunAspire(ctx context.Context, project types.AspireProject) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Dir); err != nil {
 		return fmt.Errorf("invalid project directory: %w", err)
@@ -31,11 +31,11 @@ func RunAspire(project types.AspireProject) error {
 	// AZD_ACCESS_TOKEN, and Azure environment values) are properly inherited.
 	// See: https://github.com/dotnet/aspire/blob/main/src/Aspire.Cli/DotNet/DotNetCliRunner.cs
 	args := []string{"run", "--project", project.ProjectFile}
-	return executor.StartCommand(context.Background(), "dotnet", args, project.Dir)
+	return executor.StartCommand(ctx, "dotnet", args, project.Dir)
 }
 
 // RunPnpmScript runs pnpm with the specified script.
-func RunPnpmScript(script string) error {
+func RunPnpmScript(ctx context.Context, script string) error {
 	// Validate script name
 	if err := security.SanitizeScriptName(script); err != nil {
 		return fmt.Errorf("invalid script name: %w", err)
@@ -49,11 +49,11 @@ func RunPnpmScript(script string) error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	return executor.StartCommand(context.Background(), "pnpm", []string{script}, cwd)
+	return executor.StartCommand(ctx, "pnpm", []string{script}, cwd)
 }
 
 // RunDockerCompose runs a docker compose script from package.json.
-func RunDockerCompose(scriptName, scriptCmd string) error {
+func RunDockerCompose(ctx context.Context, scriptName, scriptCmd string) error {
 	// Validate script name
 	if err := security.SanitizeScriptName(scriptName); err != nil {
 		return fmt.Errorf("invalid script name: %w", err)
@@ -68,11 +68,11 @@ func RunDockerCompose(scriptName, scriptCmd string) error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	return executor.StartCommand(context.Background(), "pnpm", []string{scriptName}, cwd)
+	return executor.StartCommand(ctx, "pnpm", []string{scriptName}, cwd)
 }
 
 // RunNode runs a Node.js project with the detected package manager and script.
-func RunNode(project types.NodeProject, script string) error {
+func RunNode(ctx context.Context, project types.NodeProject, script string) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Dir); err != nil {
 		return fmt.Errorf("invalid project directory: %w", err)
@@ -88,7 +88,7 @@ func RunNode(project types.NodeProject, script string) error {
 	output.Item("Directory: %s", project.Dir)
 	output.Newline()
 
-	return executor.StartCommand(context.Background(), project.PackageManager, []string{"run", script}, project.Dir)
+	return executor.StartCommand(ctx, project.PackageManager, []string{"run", script}, project.Dir)
 }
 
 // findPythonEntryPoint searches for common Python entry point files.
@@ -143,7 +143,7 @@ func findPythonEntryPoint(projectDir string) (string, error) {
 
 // RunPython runs a Python project with the detected package manager.
 // If an entrypoint is specified in the PythonProject, it takes precedence over auto-detection.
-func RunPython(project types.PythonProject) error {
+func RunPython(ctx context.Context, project types.PythonProject) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Dir); err != nil {
 		return fmt.Errorf("invalid project directory: %w", err)
@@ -223,11 +223,11 @@ func RunPython(project types.PythonProject) error {
 		return fmt.Errorf("unsupported package manager: %s", project.PackageManager)
 	}
 
-	return executor.StartCommand(context.Background(), cmd, args, project.Dir)
+	return executor.StartCommand(ctx, cmd, args, project.Dir)
 }
 
 // RunDotnet runs a .NET project with 'dotnet run'.
-func RunDotnet(project types.DotnetProject) error {
+func RunDotnet(ctx context.Context, project types.DotnetProject) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Path); err != nil {
 		return fmt.Errorf("invalid project path: %w", err)
@@ -249,5 +249,5 @@ func RunDotnet(project types.DotnetProject) error {
 		dir, _ = os.Getwd()
 	}
 
-	return executor.StartCommand(context.Background(), "dotnet", args, dir)
+	return executor.StartCommand(ctx, "dotnet", args, dir)
 }

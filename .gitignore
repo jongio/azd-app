@@ -14,6 +14,7 @@ bin/
 *.out
 *.coverage
 coverage
+coverage-*
 *_coverage
 *_coverage.out
 src/coverage
@@ -81,6 +82,10 @@ obj/
 # Test artifacts - ignore .azure directories outside tests/
 .azure/
 !tests/**/.azure/
+
+# But ignore runtime artifacts within test .azure directories
+tests/**/.azure/logs/
+tests/**/.azure/cache/
 
 # Test fixtures - preserve lock files and manifests in tests/
 !tests/projects/**/package.json
