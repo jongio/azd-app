@@ -14,6 +14,7 @@ import (
 )
 
 func TestRecordHealthCheck(t *testing.T) {
+	t.Parallel()
 	// Reset metrics before test
 	healthCheckDuration.Reset()
 	healthCheckTotal.Reset()
@@ -118,6 +119,7 @@ func TestRecordCircuitBreakerState(t *testing.T) {
 }
 
 func TestGetErrorType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		errMsg   string

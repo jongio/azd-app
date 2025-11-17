@@ -11,6 +11,7 @@ import (
 
 // TestInvalidCircuitBreakerConfig tests that invalid circuit breaker configuration is rejected
 func TestInvalidCircuitBreakerConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		config      MonitorConfig
@@ -92,7 +93,7 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error containing %q, but got no error", tt.errorMsg)
-				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+				} else if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tt.errorMsg)) {
 					t.Errorf("Expected error containing %q, but got: %v", tt.errorMsg, err)
 				}
 			} else {
@@ -109,6 +110,7 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 
 // TestInvalidRateLimitConfig tests that invalid rate limit configuration is rejected
 func TestInvalidRateLimitConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		rateLimit   int
@@ -146,7 +148,7 @@ func TestInvalidRateLimitConfig(t *testing.T) {
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error containing %q, but got no error", tt.errorMsg)
-				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+				} else if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tt.errorMsg)) {
 					t.Errorf("Expected error containing %q, but got: %v", tt.errorMsg, err)
 				}
 			} else {
@@ -304,6 +306,7 @@ func TestHTTPCheckResponseBodyCleanup(t *testing.T) {
 
 // TestCaseInsensitiveErrorCategorization tests error type detection is case-insensitive
 func TestCaseInsensitiveErrorCategorization(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		errorMsg     string
 		expectedType string

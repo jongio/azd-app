@@ -3,6 +3,7 @@ package healthcheck
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,16 +116,19 @@ func TestCircuitBreakerRecovery(t *testing.T) {
 
 	// Fix the service
 	mock.SimulateHealthy()
-	t.Log("Service is now healthy, waiting for circuit breaker timeout (3s)...")
+	t.Log("Service is now healthy, waiting for circuit breaker timeout...")
 
 	// Wait for circuit breaker timeout to allow half-open state
-	time.Sleep(4 * time.Second)
+	// Use polling instead of fixed sleep for better reliability
+	time.Sleep(3500 * time.Millisecond) // Wait slightly longer than timeout
 
 	// Circuit should attempt half-open state and then close
+	// Poll for recovery with timeout
 	recovered := false
-	for i := 0; i < 5; i++ {
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
 		result = monitor.checker.CheckService(context.Background(), svc)
-		t.Logf("Recovery attempt %d: Status=%s, Error=%s", i+1, result.Status, result.Error)
+		t.Logf("Recovery check: Status=%s, Error=%s", result.Status, result.Error)
 
 		if result.Status == HealthStatusHealthy {
 			recovered = true
@@ -134,7 +138,7 @@ func TestCircuitBreakerRecovery(t *testing.T) {
 	}
 
 	if !recovered {
-		t.Error("Circuit breaker did not recover when service became healthy")
+		t.Error("Circuit breaker did not recover when service became healthy within timeout")
 	} else {
 		t.Log("Circuit breaker successfully recovered!")
 	}
@@ -235,7 +239,10 @@ func TestRateLimiterCancellation(t *testing.T) {
 	// Second request with expired context should fail
 	result = monitor.checker.CheckService(ctx, svc)
 	if result.Status != HealthStatusUnhealthy {
-		t.Logf("Request with canceled context: Status=%s, Error=%s", result.Status, result.Error)
+		t.Errorf("Expected unhealthy status with canceled context, got %s", result.Status)
+	}
+	if result.Error != "" && !strings.Contains(strings.ToLower(result.Error), "context") && !strings.Contains(strings.ToLower(result.Error), "cancel") {
+		t.Logf("Note: Error doesn't mention context cancellation: %s", result.Error)
 	}
 }
 
@@ -299,17 +306,27 @@ func TestCachingIntegration(t *testing.T) {
 			firstRequestCount, secondRequestCount)
 	}
 
-	// Wait for cache to expire
-	time.Sleep(2500 * time.Millisecond)
+	// Wait for cache to expire (2s TTL + small buffer)
+	time.Sleep(2200 * time.Millisecond)
 
-	// Third check - cache expired, should hit server again
-	_, err = monitor.Check(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("Third check failed: %v", err)
+	// Poll until cache expires and new request is made
+	var thirdRequestCount int
+	deadline := time.Now().Add(2 * time.Second)
+	cacheExpired := false
+	for time.Now().Before(deadline) {
+		_, err = monitor.Check(context.Background(), nil)
+		if err != nil {
+			t.Fatalf("Check failed during cache expiry wait: %v", err)
+		}
+		thirdRequestCount = mock.GetRequestCount()
+		if thirdRequestCount > secondRequestCount {
+			cacheExpired = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
-	thirdRequestCount := mock.GetRequestCount()
-	if thirdRequestCount <= secondRequestCount {
+	if !cacheExpired {
 		t.Errorf("Expected cache to expire and make new requests, got %d (was %d)",
 			thirdRequestCount, secondRequestCount)
 	}

@@ -3,11 +3,13 @@ package healthcheck
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestLoadHealthProfiles(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Test loading when no profile file exists (should return defaults)
@@ -95,6 +97,7 @@ func TestLoadHealthProfilesFromFile(t *testing.T) {
 }
 
 func TestGetDefaultProfiles(t *testing.T) {
+	t.Parallel()
 	profiles := getDefaultProfiles()
 
 	if profiles == nil {
@@ -167,6 +170,7 @@ func TestGetDefaultProfiles(t *testing.T) {
 }
 
 func TestGetProfile(t *testing.T) {
+	t.Parallel()
 	profiles := getDefaultProfiles()
 
 	// Test getting existing profile
@@ -183,6 +187,8 @@ func TestGetProfile(t *testing.T) {
 	_, err = profiles.GetProfile("nonexistent")
 	if err == nil {
 		t.Error("Expected error for non-existent profile")
+	} else if !strings.Contains(strings.ToLower(err.Error()), "not found") && !strings.Contains(strings.ToLower(err.Error()), "nonexistent") {
+		t.Errorf("Expected error to mention 'not found' or profile name, got: %v", err)
 	}
 
 	if err != nil && err.Error() == "" {
@@ -229,6 +235,8 @@ func TestSaveSampleProfiles(t *testing.T) {
 	err = SaveSampleProfiles(tempDir)
 	if err == nil {
 		t.Error("Expected error when saving to existing file")
+	} else if !strings.Contains(strings.ToLower(err.Error()), "exist") && !strings.Contains(strings.ToLower(err.Error()), "already") {
+		t.Logf("Note: Error doesn't clearly indicate file exists: %v", err)
 	}
 }
 
@@ -255,6 +263,8 @@ func TestLoadHealthProfilesInvalidYAML(t *testing.T) {
 	_, err := LoadHealthProfiles(tempDir)
 	if err == nil {
 		t.Error("Expected error when loading invalid YAML")
+	} else if !strings.Contains(strings.ToLower(err.Error()), "yaml") && !strings.Contains(strings.ToLower(err.Error()), "unmarshal") && !strings.Contains(strings.ToLower(err.Error()), "parse") {
+		t.Logf("Note: Error doesn't clearly indicate YAML parsing issue: %v", err)
 	}
 }
 

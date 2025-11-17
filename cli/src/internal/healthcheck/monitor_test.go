@@ -10,6 +10,7 @@ import (
 )
 
 func TestHealthStatus(t *testing.T) {
+	t.Parallel()
 	statuses := []HealthStatus{
 		HealthStatusHealthy,
 		HealthStatusDegraded,
@@ -26,6 +27,7 @@ func TestHealthStatus(t *testing.T) {
 }
 
 func TestHealthCheckType(t *testing.T) {
+	t.Parallel()
 	types := []HealthCheckType{
 		HealthCheckTypeHTTP,
 		HealthCheckTypePort,
@@ -40,6 +42,7 @@ func TestHealthCheckType(t *testing.T) {
 }
 
 func TestCalculateSummary(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		results  []HealthCheckResult
@@ -214,6 +217,7 @@ func TestPortCheck(t *testing.T) {
 }
 
 func TestFilterServices(t *testing.T) {
+	t.Parallel()
 	services := []serviceInfo{
 		{Name: "web"},
 		{Name: "api"},
