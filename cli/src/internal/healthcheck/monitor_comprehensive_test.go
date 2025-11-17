@@ -131,9 +131,15 @@ func TestTryHTTPHealthCheckContextCancellation(t *testing.T) {
 
 	result := checker.tryHTTPHealthCheck(ctx, port)
 
-	// Should return nil when context is cancelled
-	if result != nil {
-		t.Error("Expected nil result when context is cancelled")
+	// Should return error result when context is cancelled (not nil)
+	if result == nil {
+		t.Error("Expected error result when context is cancelled, got nil")
+	}
+	if result.Status != HealthStatusUnhealthy {
+		t.Errorf("Expected status unhealthy, got %s", result.Status)
+	}
+	if result.Error == "" {
+		t.Error("Expected error message for cancelled context")
 	}
 }
 

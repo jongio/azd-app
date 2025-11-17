@@ -49,7 +49,12 @@ func LoadHealthProfiles(projectDir string) (*HealthProfiles, error) {
 		return nil, fmt.Errorf("failed to parse health profiles: %w", err)
 	}
 
-	// Merge with defaults for any missing profiles
+	// Initialize map if nil
+	if profiles.Profiles == nil {
+		profiles.Profiles = make(map[string]HealthProfile)
+	}
+
+	// Add missing default profiles (preserves custom profiles)
 	defaults := getDefaultProfiles()
 	for name, profile := range defaults.Profiles {
 		if _, exists := profiles.Profiles[name]; !exists {

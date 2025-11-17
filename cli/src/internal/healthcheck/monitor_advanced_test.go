@@ -400,20 +400,24 @@ func TestGetOrCreateRateLimiterDisabled(t *testing.T) {
 }
 
 // TestParseHealthCheckConfig tests Docker Compose healthcheck parsing.
+// NOTE: This function was removed as it always returned nil.
+// When Docker Compose healthcheck parsing is implemented, this test should be re-enabled.
 func TestParseHealthCheckConfig(t *testing.T) {
+	t.Skip("parseHealthCheckConfig was removed - will be implemented when Docker Compose support is added")
+	
 	// Currently returns nil as Docker Compose integration is future enhancement
 	// This test verifies it doesn't crash
 
-	svc := service.Service{
-		Language: "nodejs",
-	}
-
-	config := parseHealthCheckConfig(svc)
-
-	// Should return nil for now (not implemented yet)
-	if config != nil {
-		t.Log("Health check config parsing implemented")
-	}
+	// svc := service.Service{
+	// 	Language: "nodejs",
+	// }
+	//
+	// config := parseHealthCheckConfig(svc)
+	//
+	// // Should return nil for now (not implemented yet)
+	// if config != nil {
+	// 	t.Log("Health check config parsing implemented")
+	// }
 }
 
 // TestBuildServiceListWithHealthCheckConfig tests service list building with health check configuration.

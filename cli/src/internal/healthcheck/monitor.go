@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -23,18 +23,25 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sony/gobreaker"
+	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	// maxConcurrentChecks limits parallel health check execution
+	// maxConcurrentChecks limits parallel health check execution to prevent resource exhaustion.
+	// Set to 10 based on typical system limits (1024 open files / ~100 services = ~10 concurrent).
+	// This prevents overwhelming the system while still allowing reasonable parallelism.
 	maxConcurrentChecks = 10
 
-	// maxResponseBodySize limits the size of health check response bodies to prevent memory issues
+	// maxResponseBodySize prevents memory exhaustion from malicious or broken health endpoints.
+	// 1MB allows for detailed health responses (including metrics, dependencies, etc.)
+	// while protecting against unbounded memory growth from streaming or large responses.
 	maxResponseBodySize = 1024 * 1024 // 1MB
 
-	// defaultPortCheckTimeout is the timeout for TCP port checks
+	// defaultPortCheckTimeout is independent of health check timeout because port checks
+	// should fail fast - if a port isn't listening, we know immediately (no startup delay).
+	// 2 seconds allows for slow network but prevents hanging on dead ports.
 	defaultPortCheckTimeout = 2 * time.Second
 )
 
@@ -48,8 +55,8 @@ var commonHealthPaths = []string{
 }
 
 var (
-	// metricsEnabled controls whether Prometheus metrics are recorded
-	metricsEnabled = false
+	// metricsEnabled controls whether Prometheus metrics are recorded (use atomic operations)
+	metricsEnabledFlag int32
 )
 
 // HealthStatus represents the health state of a service.
@@ -125,10 +132,14 @@ type MonitorConfig struct {
 
 // HealthMonitor coordinates health checking operations.
 type HealthMonitor struct {
-	config   MonitorConfig
-	registry *registry.ServiceRegistry
-	checker  *HealthChecker
-	cache    *cache.Cache
+	config        MonitorConfig
+	registry      *registry.ServiceRegistry
+	checker       *HealthChecker
+	cache         *cache.Cache
+	wg            sync.WaitGroup
+	cleanupTicker *time.Ticker
+	cleanupDone   chan struct{}
+	closeOnce     sync.Once
 }
 
 // HealthChecker performs individual health checks with circuit breaker and rate limiting.
@@ -143,6 +154,7 @@ type HealthChecker struct {
 	breakerFailures int
 	breakerTimeout  time.Duration
 	rateLimit       int
+	sfGroup         singleflight.Group // Prevents cache stampede
 }
 
 // InitializeLogging configures the zerolog logger based on config.
@@ -183,11 +195,29 @@ func InitializeLogging(logLevel, logFormat string) {
 
 // NewHealthMonitor creates a new health monitor.
 func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
+	// Validate configuration
+	if config.EnableCircuitBreaker {
+		if config.CircuitBreakerFailures < 1 {
+			return nil, fmt.Errorf("circuit breaker failures must be at least 1, got %d", config.CircuitBreakerFailures)
+		}
+		if config.CircuitBreakerTimeout <= 0 {
+			return nil, fmt.Errorf("circuit breaker timeout must be positive, got %v", config.CircuitBreakerTimeout)
+		}
+	}
+
+	if config.RateLimit < 0 {
+		return nil, fmt.Errorf("rate limit must be non-negative, got %d", config.RateLimit)
+	}
+
 	// Initialize logging
 	InitializeLogging(config.LogLevel, config.LogFormat)
 
-	// Set metrics flag
-	metricsEnabled = config.EnableMetrics
+	// Set metrics flag atomically
+	if config.EnableMetrics {
+		atomic.StoreInt32(&metricsEnabledFlag, 1)
+	} else {
+		atomic.StoreInt32(&metricsEnabledFlag, 0)
+	}
 
 	log.Debug().
 		Str("project_dir", config.ProjectDir).
@@ -231,12 +261,21 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 		},
 	}
 
-	return &HealthMonitor{
-		config:   config,
-		registry: reg,
-		checker:  checker,
-		cache:    healthCache,
-	}, nil
+	monitor := &HealthMonitor{
+		config:      config,
+		registry:    reg,
+		checker:     checker,
+		cache:       healthCache,
+		cleanupDone: make(chan struct{}),
+	}
+
+	// Start connection cleanup goroutine
+	if config.Timeout > 0 {
+		monitor.cleanupTicker = time.NewTicker(30 * time.Second)
+		go monitor.cleanupConnections()
+	}
+
+	return monitor, nil
 }
 
 // getOrCreateCircuitBreaker gets or creates a circuit breaker for a service.
@@ -272,14 +311,23 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 			return counts.Requests >= uint32(hc.breakerFailures) && failureRatio >= 0.6
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error().
+						Interface("panic", r).
+						Str("service", name).
+						Msg("Panic in circuit breaker state change handler")
+				}
+			}()
+			
 			log.Info().
 				Str("service", name).
 				Str("from", from.String()).
 				Str("to", to.String()).
 				Msg("Circuit breaker state changed")
 
-			// Record state change in metrics
-			if metricsEnabled {
+			// Record state change in metrics with atomic check
+			if atomic.LoadInt32(&metricsEnabledFlag) == 1 {
 				recordCircuitBreakerState(name, to)
 			}
 		},
@@ -290,30 +338,64 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 	return breaker
 }
 
+// cleanupConnections periodically closes idle HTTP connections.
+func (m *HealthMonitor) cleanupConnections() {
+	for {
+		select {
+		case <-m.cleanupTicker.C:
+			if transport, ok := m.checker.httpClient.Transport.(*http.Transport); ok {
+				transport.CloseIdleConnections()
+				log.Debug().Msg("Closed idle HTTP connections")
+			}
+		case <-m.cleanupDone:
+			return
+		}
+	}
+}
+
+// Close cleans up resources used by the health monitor.
+func (m *HealthMonitor) Close() error {
+	m.closeOnce.Do(func() {
+		if m.cleanupTicker != nil {
+			m.cleanupTicker.Stop()
+		}
+		if m.cleanupDone != nil {
+			close(m.cleanupDone)
+		}
+		if transport, ok := m.checker.httpClient.Transport.(*http.Transport); ok {
+			transport.CloseIdleConnections()
+		}
+		// Stop metrics server if running
+		if m.config.EnableMetrics {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := StopMetricsServer(ctx); err != nil {
+				log.Warn().Err(err).Msg("Failed to stop metrics server")
+			}
+		}
+		// Wait for any pending health checks
+		m.wg.Wait()
+	})
+	return nil
+}
+
 // getOrCreateRateLimiter gets or creates a rate limiter for a service.
 func (hc *HealthChecker) getOrCreateRateLimiter(serviceName string) *rate.Limiter {
-	if hc.rateLimit <= 0 {
+	if hc.rateLimit == 0 {
 		return nil
 	}
 
-	hc.mu.RLock()
-	limiter, exists := hc.rateLimiters[serviceName]
-	hc.mu.RUnlock()
-
-	if exists {
-		return limiter
-	}
-
+	// Use single lock to prevent race condition
 	hc.mu.Lock()
 	defer hc.mu.Unlock()
 
-	// Double-check after acquiring write lock
 	if limiter, exists := hc.rateLimiters[serviceName]; exists {
 		return limiter
 	}
 
-	// Create rate limiter with burst capacity
-	limiter = rate.NewLimiter(rate.Limit(hc.rateLimit), hc.rateLimit*2)
+	// Create rate limiter. Set burst equal to rate limit to prevent initial burst.
+	// This ensures consistent rate limiting from the first request.
+	limiter := rate.NewLimiter(rate.Limit(hc.rateLimit), hc.rateLimit)
 	hc.rateLimiters[serviceName] = limiter
 	log.Debug().
 		Str("service", serviceName).
@@ -371,28 +453,99 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 	resultChan := make(chan struct {
 		index  int
 		result HealthCheckResult
-	}, len(services))
+	}, len(services)) // Buffered to prevent goroutine leaks
 
 	// Limit concurrency to prevent overwhelming the system
 	semaphore := make(chan struct{}, maxConcurrentChecks)
 
 	for i, svc := range services {
+		m.wg.Add(1)
 		go func(index int, svc serviceInfo) {
+			defer m.wg.Done()
+
+			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
+			// Recover from panics to prevent goroutine leaks
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error().
+						Interface("panic", r).
+						Str("service", svc.Name).
+						Msg("Health check panic recovered")
+
+					// Send error result even on panic
+					select {
+					case resultChan <- struct {
+						index  int
+						result HealthCheckResult
+					}{index, HealthCheckResult{
+						ServiceName: svc.Name,
+						Status:      HealthStatusUnhealthy,
+						Error:       fmt.Sprintf("panic: %v", r),
+						Timestamp:   time.Now(),
+					}}:
+					case <-ctx.Done():
+						// Context cancelled, don't block
+					}
+				}
+			}()
+
 			result := m.checker.CheckService(ctx, svc)
-			resultChan <- struct {
+
+			// Send result with context check
+			select {
+			case resultChan <- struct {
 				index  int
 				result HealthCheckResult
-			}{index, result}
+			}{index, result}:
+			case <-ctx.Done():
+				// Context cancelled, don't block on send
+				return
+			}
 		}(i, svc)
 	}
 
-	// Collect results
-	for i := 0; i < len(services); i++ {
-		res := <-resultChan
-		results[res.index] = res.result
+	// Wait for all goroutines to complete with timeout
+	done := make(chan struct{})
+	go func() {
+		m.wg.Wait()
+		close(done)
+	}()
+
+	// Collect results with timeout protection
+	collected := 0
+	collectionTimeout := time.After(m.config.Timeout * 2) // Allow 2x timeout for collection
+
+CollectLoop:
+	for collected < len(services) {
+		select {
+		case res := <-resultChan:
+			results[res.index] = res.result
+			collected++
+		case <-done:
+			// All goroutines finished, collect remaining results
+			for collected < len(services) {
+				select {
+				case res := <-resultChan:
+					results[res.index] = res.result
+					collected++
+				default:
+					// No more results available
+					break CollectLoop
+				}
+			}
+		case <-collectionTimeout:
+			log.Warn().
+				Int("expected", len(services)).
+				Int("collected", collected).
+				Msg("Health check collection timed out")
+			break CollectLoop
+		case <-ctx.Done():
+			log.Debug().Msg("Context cancelled during result collection")
+			break CollectLoop
+		}
 	}
 
 	// Calculate summary
@@ -473,15 +626,16 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 
 	// Enhance with azure.yaml data if available
 	if azureYaml != nil {
-		for name, svc := range azureYaml.Services {
+		for name := range azureYaml.Services {
 			info, exists := serviceMap[name]
 			if !exists {
 				// Service defined in azure.yaml but not in registry
 				info = serviceInfo{Name: name}
 			}
 
-			// Parse healthcheck config (Docker Compose format)
-			info.HealthCheck = parseHealthCheckConfig(svc)
+			// TODO: Parse Docker Compose healthcheck when Service type includes healthcheck field.
+			// For now, healthcheck configuration is not extracted from azure.yaml.
+			info.HealthCheck = nil
 
 			serviceMap[name] = info
 		}
@@ -494,28 +648,6 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 	}
 
 	return services
-}
-
-func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
-	// Docker Compose style healthcheck parsing
-	// Note: This requires the Service type to have a HealthCheck field
-	// which should be added in future when Docker Compose integration is implemented.
-	// For now, we check if any health-related configuration exists.
-
-	// Check if service has explicit health configuration (future enhancement)
-	// When Service type includes healthcheck field from Docker Compose format:
-	// type Service struct {
-	//     HealthCheck struct {
-	//         Test        []string      `yaml:"test"`
-	//         Interval    time.Duration `yaml:"interval"`
-	//         Timeout     time.Duration `yaml:"timeout"`
-	//         Retries     int           `yaml:"retries"`
-	//         StartPeriod time.Duration `yaml:"start_period"`
-	//     } `yaml:"healthcheck"`
-	// }
-
-	// Return nil for now - caller handles gracefully
-	return nil
 }
 
 func filterServices(services []serviceInfo, filter []string) []serviceInfo {
@@ -547,9 +679,10 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 		// Update registry with health status
 		// Registry has internal locking, so this is safe
 		if err := m.registry.UpdateStatus(result.ServiceName, status, string(result.Status)); err != nil {
-			if m.config.Verbose {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to update registry for %s: %v\n", result.ServiceName, err)
-			}
+			log.Warn().
+				Err(err).
+				Str("service", result.ServiceName).
+				Msg("Failed to update registry")
 		}
 	}
 }
@@ -588,6 +721,19 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 
 // CheckService performs a health check on a single service using cascading strategy.
 func (hc *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
+	serviceName := svc.Name
+	
+	// Use singleflight to deduplicate concurrent requests for the same service
+	// This prevents cache stampede when multiple goroutines request the same service health check
+	result, _, _ := hc.sfGroup.Do(serviceName, func() (interface{}, error) {
+		return hc.performHealthCheck(ctx, svc), nil
+	})
+	
+	return result.(HealthCheckResult)
+}
+
+// performHealthCheck executes the actual health check (called by singleflight)
+func (hc *HealthChecker) performHealthCheck(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	startTime := time.Now()
 	serviceName := svc.Name
 
@@ -663,7 +809,7 @@ func (hc *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Heal
 	duration := time.Since(startTime)
 	result.ResponseTime = duration
 
-	if metricsEnabled {
+	if atomic.LoadInt32(&metricsEnabledFlag) == 1 {
 		recordHealthCheck(result)
 	}
 
@@ -760,80 +906,99 @@ func (hc *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *http
 	}
 
 	for _, endpoint := range endpoints {
-		// Check if context is already cancelled before making request
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
-
-		startTime := time.Now()
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			continue
-		}
-
-		resp, err := hc.httpClient.Do(req)
-		responseTime := time.Since(startTime)
-
-		if err != nil {
-			// Connection error - likely service not ready
-			continue
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				// Log error but don't fail health check
-				fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+		// Wrap in anonymous function to ensure defer runs after each iteration
+		result := func() *httpHealthCheckResult {
+			// Check if context is already cancelled before making request
+			select {
+			case <-ctx.Done():
+				// Return error result on cancellation, not nil
+				return &httpHealthCheckResult{
+					Status: HealthStatusUnhealthy,
+					Error:  "context cancelled",
+				}
+			default:
 			}
-		}()
 
-		// Found a responding endpoint
-		result := &httpHealthCheckResult{
-			Endpoint:     url,
-			ResponseTime: responseTime,
-			StatusCode:   resp.StatusCode,
-		}
+			url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
 
-		// Determine status based on HTTP status code
-		switch {
-		case resp.StatusCode >= 200 && resp.StatusCode < 300:
-			result.Status = HealthStatusHealthy
-		case resp.StatusCode >= 300 && resp.StatusCode < 400:
-			result.Status = HealthStatusHealthy // Redirects OK
-		case resp.StatusCode >= 500:
-			result.Status = HealthStatusUnhealthy
-		default:
-			result.Status = HealthStatusDegraded
-		}
+			startTime := time.Now()
+			req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+			if err != nil {
+				return nil // Try next endpoint
+			}
 
-		// Try to parse response body for additional details
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			// Use a limited reader to prevent memory exhaustion
-			limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
-			body, err := io.ReadAll(limitedReader)
-			if err == nil && len(body) > 0 {
-				var details map[string]interface{}
-				if err := json.Unmarshal(body, &details); err == nil {
-					result.Details = details
+			// Add user agent for identification
+			req.Header.Set("User-Agent", "azd-health-monitor/1.0")
 
-					// Check for explicit status in response
-					if status, ok := details["status"].(string); ok {
-						switch strings.ToLower(status) {
-						case "healthy", "ok", "up":
-							result.Status = HealthStatusHealthy
-						case "degraded", "warning":
-							result.Status = HealthStatusDegraded
-						case "unhealthy", "down", "error":
-							result.Status = HealthStatusUnhealthy
+			resp, err := hc.httpClient.Do(req)
+			responseTime := time.Since(startTime)
+
+			if err != nil {
+				// Close response body even on error if response exists
+				if resp != nil && resp.Body != nil {
+					resp.Body.Close()
+				}
+				// Connection error - likely service not ready
+				return nil // Try next endpoint
+			}
+
+			// Defer will execute at end of THIS iteration
+			defer func(body io.ReadCloser) {
+				// Drain and close to allow connection reuse
+				io.Copy(io.Discard, body)
+				body.Close()
+			}(resp.Body)
+
+			// Found a responding endpoint
+			result := &httpHealthCheckResult{
+				Endpoint:     url,
+				ResponseTime: responseTime,
+				StatusCode:   resp.StatusCode,
+			}
+
+			// Determine status based on HTTP status code
+			switch {
+			case resp.StatusCode >= 200 && resp.StatusCode < 300:
+				result.Status = HealthStatusHealthy
+			case resp.StatusCode >= 300 && resp.StatusCode < 400:
+				result.Status = HealthStatusHealthy // Redirects OK
+			case resp.StatusCode >= 500:
+				result.Status = HealthStatusUnhealthy
+			default:
+				result.Status = HealthStatusDegraded
+			}
+
+			// Try to parse response body for additional details
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				// Use a limited reader to prevent memory exhaustion
+				limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
+				body, err := io.ReadAll(limitedReader)
+				if err == nil && len(body) > 0 {
+					var details map[string]interface{}
+					if err := json.Unmarshal(body, &details); err == nil {
+						result.Details = details
+
+						// Check for explicit status in response
+						if status, ok := details["status"].(string); ok {
+							switch strings.ToLower(status) {
+							case "healthy", "ok", "up":
+								result.Status = HealthStatusHealthy
+							case "degraded", "warning":
+								result.Status = HealthStatusDegraded
+							case "unhealthy", "down", "error":
+								result.Status = HealthStatusUnhealthy
+							}
 						}
 					}
 				}
 			}
-		}
 
-		return result
+			return result
+		}()
+
+		if result != nil {
+			return result
+		}
 	}
 
 	return nil
@@ -841,11 +1006,17 @@ func (hc *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *http
 
 func (hc *HealthChecker) checkPort(ctx context.Context, port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, defaultPortCheckTimeout)
+	
+	// Create dialer that respects context
+	dialer := &net.Dialer{
+		Timeout: defaultPortCheckTimeout,
+	}
+	
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	defer conn.Close()
 	return true
 }
 
@@ -856,18 +1027,10 @@ func isProcessRunning(pid int) bool {
 		return false
 	}
 
-	// On Unix, signal 0 can be used to check if process exists
-	// On Windows, FindProcess always succeeds, so we need a different approach
-	if runtime.GOOS == "windows" {
-		// On Windows, try to open the process handle
-		// If it fails, the process doesn't exist
-		if err := process.Signal(syscall.Signal(0)); err != nil {
-			return false
-		}
-		return true
-	}
-
-	// On Unix-like systems, use signal 0 to check existence
+	// Signal 0 checks if process exists without actually sending a signal.
+	// On Unix: This is a standard way to check process existence.
+	// On Windows: FindProcess always succeeds, but Signal(0) can still detect dead processes.
+	// Note: This is not officially documented on Windows but works in practice.
 	if err := process.Signal(syscall.Signal(0)); err != nil {
 		return false
 	}

@@ -33,6 +33,14 @@ const (
 
 	// defaultHealthEndpoint is the default health check endpoint path
 	defaultHealthEndpoint = "/health"
+	
+	// minIntervalBuffer is the minimum buffer between interval and timeout in streaming mode
+	minIntervalBuffer = 2 * time.Second
+)
+
+var (
+	// ErrUnhealthyServices indicates one or more services are unhealthy (exit code 1)
+	ErrUnhealthyServices = fmt.Errorf("one or more services are unhealthy")
 )
 
 var (
@@ -176,6 +184,11 @@ func runHealth(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
+		
+		// Validate profile before applying
+		if err := validateProfile(profile); err != nil {
+			return fmt.Errorf("invalid profile %q: %w", healthProfile, err)
+		}
 
 		// Apply profile settings (CLI flags take precedence)
 		if !cmd.Flags().Changed("timeout") && profile.Timeout > 0 {
@@ -217,6 +230,11 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create health monitor: %w", err)
 	}
+	defer func() {
+		if closeErr := monitor.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to close health monitor: %v\n", closeErr)
+		}
+	}()
 
 	// Start metrics server if enabled
 	if config.EnableMetrics {
@@ -236,7 +254,8 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	// Handle interrupt signals for graceful shutdown
-	setupSignalHandler(cancel)
+	cleanupSignalHandler := setupSignalHandler(cancel)
+	defer cleanupSignalHandler()
 
 	if healthStream {
 		return runStreamingMode(ctx, monitor, serviceFilter)
@@ -253,11 +272,47 @@ func validateHealthFlags() error {
 	if healthTimeout < minHealthTimeout || healthTimeout > maxHealthTimeout {
 		return fmt.Errorf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout)
 	}
-	if healthStream && healthInterval <= healthTimeout {
-		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
+	if healthStream && healthInterval < healthTimeout+minIntervalBuffer {
+		return fmt.Errorf("interval (%v) must be at least %v greater than timeout (%v) in streaming mode to prevent overlap", 
+			healthInterval, minIntervalBuffer, healthTimeout)
 	}
 	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
 		return fmt.Errorf("output must be 'text', 'json', or 'table'")
+	}
+	if healthEnableMetrics {
+		if healthMetricsPort < 1 || healthMetricsPort > 65535 {
+			return fmt.Errorf("metrics-port must be between 1 and 65535, got %d", healthMetricsPort)
+		}
+	}
+	if healthCircuitBreaker {
+		if healthCircuitBreakCount < 1 {
+			return fmt.Errorf("circuit-break-count must be at least 1, got %d", healthCircuitBreakCount)
+		}
+	}
+	if healthRateLimit < 0 {
+		return fmt.Errorf("rate-limit must be non-negative, got %d", healthRateLimit)
+	}
+	return nil
+}
+
+// validateProfile validates a health profile configuration
+func validateProfile(p healthcheck.HealthProfile) error {
+	if p.Timeout > 0 {
+		if p.Timeout < minHealthTimeout || p.Timeout > maxHealthTimeout {
+			return fmt.Errorf("timeout must be between %v and %v, got %v", minHealthTimeout, maxHealthTimeout, p.Timeout)
+		}
+	}
+	if p.CircuitBreaker && p.CircuitBreakerFailures < 1 {
+		return fmt.Errorf("circuitBreakerFailures must be at least 1, got %d", p.CircuitBreakerFailures)
+	}
+	if p.CircuitBreaker && p.CircuitBreakerTimeout <= 0 {
+		return fmt.Errorf("circuitBreakerTimeout must be positive when circuit breaker is enabled, got %v", p.CircuitBreakerTimeout)
+	}
+	if p.RateLimit < 0 {
+		return fmt.Errorf("rateLimit must be non-negative, got %d", p.RateLimit)
+	}
+	if p.Metrics && (p.MetricsPort < 1 || p.MetricsPort > 65535) {
+		return fmt.Errorf("metricsPort must be between 1 and 65535, got %d", p.MetricsPort)
 	}
 	return nil
 }
@@ -275,18 +330,34 @@ func parseServiceFilter(serviceStr string) []string {
 	return services
 }
 
-// setupSignalHandler sets up signal handling for graceful shutdown
-func setupSignalHandler(cancel context.CancelFunc) {
+// setupSignalHandler sets up signal handling for graceful shutdown and returns cleanup function
+func setupSignalHandler(cancel context.CancelFunc) func() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+
 	go func() {
-		<-sigChan
-		// Cancel context
-		cancel()
-		// Stop listening for more signals
+		defer close(stopped)
+		
+		select {
+		case <-sigChan:
+			// Signal received, cancel context
+			cancel()
+		case <-done:
+			// Cleanup requested
+		}
+		
+		// Stop signal notification after we're done
 		signal.Stop(sigChan)
-		close(sigChan)
 	}()
+
+	// Return cleanup function that waits for goroutine exit
+	return func() {
+		close(done)
+		<-stopped
+	}
 }
 
 func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serviceFilter []string) error {
@@ -301,9 +372,10 @@ func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serv
 		return err
 	}
 
-	// Return exit code based on health status
+	// Return error if any services are unhealthy (exit code 1)
+	// The error is used for exit code only, message already displayed
 	if report.Summary.Unhealthy > 0 {
-		return fmt.Errorf("") // Exit with code 1 but no message
+		return ErrUnhealthyServices
 	}
 
 	return nil
@@ -351,6 +423,10 @@ func runStreamingMode(ctx context.Context, monitor *healthcheck.HealthMonitor, s
 }
 
 func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor, serviceFilter []string, checkCount *int, prevReport **healthcheck.HealthReport, isTTY bool) error {
+	if checkCount == nil || prevReport == nil {
+		return fmt.Errorf("internal error: nil pointer passed to performStreamCheck")
+	}
+	
 	report, err := monitor.Check(ctx, serviceFilter)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
@@ -382,6 +458,12 @@ func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor,
 }
 
 func displayHealthReport(report *healthcheck.HealthReport) error {
+	if len(report.Services) == 0 {
+		fmt.Println("No services found to monitor.")
+		fmt.Println("Make sure you have an azure.yaml with services defined.")
+		return nil
+	}
+	
 	switch healthOutput {
 	case "json":
 		return displayJSONReport(report)
@@ -611,7 +693,7 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	if maxLen <= 3 {
+	if maxLen < 3 {
 		return s[:maxLen]
 	}
 	return s[:maxLen-3] + "..."

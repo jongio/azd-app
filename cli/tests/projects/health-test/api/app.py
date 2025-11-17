@@ -6,8 +6,7 @@ app = Flask(__name__)
 start_time = time.time()
 request_count = 0
 
-@app.route('/healthz')
-def health():
+def get_health_response():
     global request_count
     request_count += 1
     uptime = int(time.time() - start_time)
@@ -21,6 +20,14 @@ def health():
         'requestCount': request_count,
         'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     })
+
+@app.route('/health')
+def health():
+    return get_health_response()
+
+@app.route('/healthz')
+def healthz():
+    return get_health_response()
 
 @app.route('/')
 def index():

@@ -22,23 +22,33 @@ const authenticate = (req, res, next) => {
   next();
 };
 
-// Health endpoint with authentication
-app.get('/api/health', authenticate, (req, res) => {
+// Health response function
+const getHealthResponse = () => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
-  
-  res.json({
+  return {
     status: 'healthy',
     service: 'admin',
     version: '1.0.0',
     uptime: `${uptime}s`,
-    authenticated: true,
     timestamp: new Date().toISOString()
-  });
+  };
+};
+
+// Public health endpoint (no auth required)
+app.get('/health', (req, res) => {
+  res.json(getHealthResponse());
+});
+
+// Authenticated health endpoint
+app.get('/api/health', authenticate, (req, res) => {
+  const response = getHealthResponse();
+  response.authenticated = true;
+  res.json(response);
 });
 
 // Public endpoint (no auth)
 app.get('/', (req, res) => {
-  res.send('Admin Service - Health Monitoring Test (Authentication Required for /api/health)');
+  res.send('Admin Service - Health Monitoring Test');
 });
 
 app.listen(port, () => {

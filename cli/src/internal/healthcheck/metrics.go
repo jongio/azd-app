@@ -1,7 +1,11 @@
 package healthcheck
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -113,26 +117,29 @@ func recordCircuitBreakerState(serviceName string, state gobreaker.State) {
 	}).Set(stateValue)
 }
 
-// getErrorType categorizes error messages for better metrics.
+// getErrorType categorizes errors for metrics.
 func getErrorType(errMsg string) string {
+	// Convert to lowercase for case-insensitive matching
+	errLower := strings.ToLower(errMsg)
+	
 	switch {
-	case containsAny(errMsg, "timeout", "deadline", "timed out"):
+	case containsAny(errLower, "timeout", "deadline", "timed out"):
 		return "timeout"
-	case containsAny(errMsg, "connection refused", "no connection", "unreachable"):
+	case containsAny(errLower, "connection refused", "no connection", "unreachable"):
 		return "connection_refused"
-	case containsAny(errMsg, "circuit breaker", "circuit open", "too many failures"):
+	case containsAny(errLower, "circuit breaker", "circuit open", "too many failures"):
 		return "circuit_breaker"
-	case containsAny(errMsg, "context canceled", "canceled"):
+	case containsAny(errLower, "context canceled", "canceled"):
 		return "canceled"
-	case containsAny(errMsg, "500", "503", "502", "504"):
+	case containsAny(errLower, "500", "503", "502", "504"):
 		return "server_error"
-	case containsAny(errMsg, "401", "403"):
+	case containsAny(errLower, "401", "403"):
 		return "auth_error"
-	case containsAny(errMsg, "404"):
+	case containsAny(errLower, "404"):
 		return "not_found"
-	case containsAny(errMsg, "process", "PID"):
+	case containsAny(errLower, "process", "pid"):
 		return "process_error"
-	case containsAny(errMsg, "port"):
+	case containsAny(errLower, "port"):
 		return "port_error"
 	default:
 		return "unknown"
@@ -142,16 +149,20 @@ func getErrorType(errMsg string) string {
 // containsAny checks if a string contains any of the given substrings.
 func containsAny(s string, substrs ...string) bool {
 	for _, substr := range substrs {
-		if len(s) >= len(substr) {
-			for i := 0; i <= len(s)-len(substr); i++ {
-				if s[i:i+len(substr)] == substr {
-					return true
-				}
-			}
+		if strings.Contains(s, substr) {
+			return true
 		}
 	}
 	return false
 }
+
+// MetricsServer holds the metrics HTTP server instance.
+type MetricsServer struct {
+	server *http.Server
+	mu     sync.Mutex
+}
+
+var globalMetricsServer *MetricsServer
 
 // ServeMetrics starts a Prometheus metrics HTTP server.
 func ServeMetrics(port int) error {
@@ -164,13 +175,7 @@ func ServeMetrics(port int) error {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	addr := ":" + string(rune(port/10000%10+'0')) +
-		string(rune(port/1000%10+'0')) +
-		string(rune(port/100%10+'0')) +
-		string(rune(port/10%10+'0')) +
-		string(rune(port%10+'0'))
-
-	log.Info().Int("port", port).Str("endpoint", "/metrics").Msg("Starting Prometheus metrics server")
+	addr := fmt.Sprintf(":%d", port)
 
 	server := &http.Server{
 		Addr:         addr,
@@ -180,5 +185,29 @@ func ServeMetrics(port int) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	return server.ListenAndServe()
+	globalMetricsServer = &MetricsServer{server: server}
+
+	log.Info().Int("port", port).Str("endpoint", "/metrics").Msg("Starting Prometheus metrics server")
+
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+// StopMetricsServer gracefully shuts down the metrics server.
+func StopMetricsServer(ctx context.Context) error {
+	if globalMetricsServer == nil {
+		return nil
+	}
+
+	globalMetricsServer.mu.Lock()
+	defer globalMetricsServer.mu.Unlock()
+
+	if globalMetricsServer.server != nil {
+		log.Info().Msg("Shutting down metrics server")
+		return globalMetricsServer.server.Shutdown(ctx)
+	}
+	return nil
 }

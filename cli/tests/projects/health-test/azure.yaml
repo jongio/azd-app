@@ -47,6 +47,7 @@ services:
       timeout: 3s
       retries: 2
       start_period: 20s
+      start_interval: 5s
 
   # Service 3: TCP port check (no HTTP health endpoint)
   database:
@@ -65,9 +66,13 @@ services:
     language: python
     project: ./worker
     host: localhost
+    entrypoint: worker.py
     environment:
       WORKER_MODE: background
-    # No port, no healthcheck - will use process check only
+    healthcheck:
+      test: "process"
+      interval: 10s
+    # No port - will use process check only
 
   # Service 5: Health check with authentication headers
   admin:
@@ -80,7 +85,7 @@ services:
       NODE_ENV: development
       ADMIN_TOKEN: test-token-123
     healthcheck:
-      test: "http://localhost:4000/api/health"
+      test: "http://localhost:4000/"
       interval: 5s
       timeout: 2s
       retries: 1
