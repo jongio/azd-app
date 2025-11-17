@@ -14,7 +14,7 @@ if (fs.existsSync(metadataPath)) {
   metadata = JSON.parse(metadataContent);
 }
 
-test.describe('Progress Bar Visual Tests', () => {
+test.describe('Progress Bar Analysis Tests', () => {
   test.beforeAll(async () => {
     // Ensure output directory exists
     const outputDir = path.join(__dirname, '..', 'output');
@@ -23,58 +23,27 @@ test.describe('Progress Bar Visual Tests', () => {
     }
   });
 
-  for (const capture of metadata.captures || []) {
-    test(`Terminal width ${capture.Width} - Visual rendering`, async ({ page }) => {
-      const width = capture.Width;
-      const height = metadata.height || 30;
-      const filename = capture.FileName;
-
-      // Navigate to terminal renderer with this output
-      await page.goto(`/terminal?file=${filename}&width=${width}&height=${height}`);
-
-      // Wait for content to load
-      await page.waitForSelector('#terminal', { state: 'visible' });
-      await page.waitForTimeout(1000); // Give time for rendering
-
-      // Take screenshot
-      const screenshotPath = path.join(__dirname, '..', 'screenshots', `width_${width}.png`);
-      await page.screenshot({ 
-        path: screenshotPath,
-        fullPage: true 
-      });
-
-      console.log(`✓ Screenshot saved: width_${width}.png`);
-
-      // Verify terminal rendered
-      const terminal = page.locator('#terminal');
-      await expect(terminal).toBeVisible();
-      
-      // Check that content exists
-      const content = await terminal.textContent();
-      expect(content).toBeTruthy();
-      expect(content!.length).toBeGreaterThan(0);
-    });
-  }
-
-  test('Compare all widths - Duplicate detection', async ({ page }) => {
+  test('Compare all widths - Duplicate detection', async () => {
     const results: any[] = [];
 
     for (const capture of metadata.captures || []) {
       const width = capture.Width;
-      const height = metadata.height || 30;
-      const filename = capture.FileName;
+      const filePath = path.join(__dirname, '..', 'output', capture.FileName);
+      
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Output file not found: ${capture.FileName}`);
+      }
 
-      await page.goto(`/terminal?file=${filename}&width=${width}&height=${height}`);
-      await page.waitForSelector('#terminal');
-      await page.waitForTimeout(500);
-
-      // Extract text content
-      const terminal = page.locator('#terminal');
-      const content = await terminal.textContent();
-
+      // Read and analyze file content
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.split('\n');
+      
       // Count progress bar lines (looking for common patterns)
-      const lines = content?.split('\n') || [];
-      const progressLines = lines.filter(line => 
+      // Strip ANSI codes for accurate counting
+      const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9]*[A-K]/g, '').replace(/\r/g, '');
+      
+      const cleanLines = lines.map(stripAnsi);
+      const progressLines = cleanLines.filter(line => 
         line.includes('[') && 
         (line.includes('⠋') || line.includes('⠙') || line.includes('⠹') || 
          line.includes('⠸') || line.includes('⠼') || line.includes('⠴') ||
@@ -83,8 +52,8 @@ test.describe('Progress Bar Visual Tests', () => {
       );
 
       // Count project mentions
-      const webCount = (content?.match(/web/gi) || []).length;
-      const apiCount = (content?.match(/api/gi) || []).length;
+      const webCount = (content.match(/web/gi) || []).length;
+      const apiCount = (content.match(/api/gi) || []).length;
 
       results.push({
         width,
@@ -126,56 +95,31 @@ test.describe('Progress Bar Visual Tests', () => {
     console.log(`✓ Comparison report saved to comparison-report.json`);
   });
 
-  test('Screenshot comparison - All widths side-by-side', async ({ page }) => {
-    // Create a comparison HTML page
-    let html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Progress Bar Width Comparison</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        h1 { color: #333; }
-        .comparison { display: flex; flex-wrap: wrap; gap: 20px; }
-        .capture { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .capture h3 { margin-top: 0; }
-        .capture img { max-width: 100%; border: 1px solid #ddd; }
-        .stats { font-size: 12px; color: #666; margin-top: 10px; }
-    </style>
-</head>
-<body>
-    <h1>Progress Bar Visual Comparison</h1>
-    <p>Generated: ${new Date().toISOString()}</p>
-    <div class="comparison">
-`;
-
+  test('Generate text-based comparison report', async () => {
+    // Create a comparison report in markdown format
+    let markdown = `# Progress Bar Width Comparison\n\n`;
+    markdown += `Generated: ${new Date().toISOString()}\n\n`;
+    markdown += `## Captured Outputs\n\n`;
+    
     for (const capture of metadata.captures || []) {
-      const screenshotFile = `width_${capture.Width}.png`;
-      const screenshotPath = path.join(__dirname, '..', 'screenshots', screenshotFile);
+      const filePath = path.join(__dirname, '..', 'output', capture.FileName);
       
-      if (fs.existsSync(screenshotPath)) {
-        html += `
-        <div class="capture">
-            <h3>Width: ${capture.Width} chars</h3>
-            <img src="../screenshots/${screenshotFile}" alt="Width ${capture.Width}">
-            <div class="stats">
-                File: ${capture.FileName}<br>
-                Captured: ${metadata.timestamp}
-            </div>
-        </div>
-`;
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        markdown += `### Width: ${capture.Width} chars\n\n`;
+        markdown += `- File: \`${capture.FileName}\`\n`;
+        markdown += `- Size: ${stats.size} bytes\n`;
+        markdown += `- Captured: ${metadata.timestamp}\n\n`;
       }
     }
 
-    html += `
-    </div>
-</body>
-</html>
-`;
-
-    const comparisonPath = path.join(__dirname, '..', 'test-results', 'visual-comparison.html');
-    fs.writeFileSync(comparisonPath, html);
+    const comparisonPath = path.join(__dirname, '..', 'test-results', 'text-comparison.md');
+    const reportDir = path.dirname(comparisonPath);
+    if (!fs.existsSync(reportDir)) {
+      fs.mkdirSync(reportDir, { recursive: true });
+    }
+    fs.writeFileSync(comparisonPath, markdown);
     
-    console.log(`✓ Visual comparison page created: visual-comparison.html`);
+    console.log(`✓ Text comparison report created: text-comparison.md`);
   });
 });

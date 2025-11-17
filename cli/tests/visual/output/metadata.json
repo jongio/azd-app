@@ -1,26 +1,26 @@
 {
-  "height": 30,
   "widths": [
     50,
     80,
     120
   ],
+  "height": 30,
   "captures": [
     {
-      "FileName": "width_50_155441.txt",
-      "Width": 50,
-      "File": "C:\\code\\azd-app\\cli\\tests\\visual\\output\\width_50_155441.txt"
+      "FileName": "width_50_075015.txt",
+      "File": "C:\\code\\azd-app\\cli\\tests\\visual\\output\\width_50_075015.txt",
+      "Width": 50
     },
     {
-      "FileName": "width_80_155456.txt",
-      "Width": 80,
-      "File": "C:\\code\\azd-app\\cli\\tests\\visual\\output\\width_80_155456.txt"
+      "FileName": "width_80_075039.txt",
+      "File": "C:\\code\\azd-app\\cli\\tests\\visual\\output\\width_80_075039.txt",
+      "Width": 80
     },
     {
-      "FileName": "width_120_155509.txt",
-      "Width": 120,
-      "File": "C:\\code\\azd-app\\cli\\tests\\visual\\output\\width_120_155509.txt"
+      "FileName": "width_120_075055.txt",
+      "File": "C:\\code\\azd-app\\cli\\tests\\visual\\output\\width_120_075055.txt",
+      "Width": 120
     }
   ],
-  "timestamp": "2025-11-15 15:55:23"
+  "timestamp": "2025-11-17 07:51:09"
 }

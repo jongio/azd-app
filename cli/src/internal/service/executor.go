@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
@@ -95,7 +96,7 @@ func setupProcessPipes(cmd *exec.Cmd, process *ServiceProcess) error {
 // StopService stops a running service by sending termination signals.
 // Deprecated: Use StopServiceGraceful for better timeout control.
 func StopService(process *ServiceProcess) error {
-	return StopServiceGraceful(process, 5*time.Second)
+	return StopServiceGraceful(process, DefaultStopTimeout)
 }
 
 // StopServiceGraceful stops a service with graceful shutdown timeout.
@@ -189,7 +190,7 @@ func ReadServiceOutput(reader io.Reader, outputChan chan<- string) {
 
 // ExecuteCommand executes a command using the executor package.
 func ExecuteCommand(name string, args []string, dir string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), executor.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultCommandTimeout)
 	defer cancel()
 	return executor.RunCommand(ctx, name, args, dir)
 }
@@ -269,7 +270,11 @@ func isAccessDeniedError(err error) bool {
 		return false
 	}
 	// Check for Windows-specific "Access is denied" error message
-	return runtime.GOOS == "windows" &&
-		(err.Error() == "Access is denied" ||
-			err.Error() == "TerminateProcess: Access is denied.")
+	// Use string matching as Windows syscall errors don't implement errors.Is
+	if runtime.GOOS == "windows" {
+		errStr := err.Error()
+		return strings.Contains(errStr, "Access is denied") ||
+			strings.Contains(errStr, "TerminateProcess: Access is denied")
+	}
+	return false
 }

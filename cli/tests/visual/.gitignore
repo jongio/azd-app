@@ -6,10 +6,6 @@ package-lock.json
 output/*.txt
 !output/.gitkeep
 
-# Screenshots
-screenshots/*.png
-!screenshots/.gitkeep
-
 # Test results
 test-results/
 playwright-report/

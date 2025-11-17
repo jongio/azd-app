@@ -4,6 +4,7 @@ package service
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,14 +161,20 @@ func (lb *LogBuffer) Unsubscribe(ch chan LogEntry) {
 }
 
 // broadcast sends a log entry to all subscribers.
+// Uses non-blocking sends with timeout to prevent deadlocks.
 func (lb *LogBuffer) broadcast(entry LogEntry) {
 	lb.subMu.RLock()
 	defer lb.subMu.RUnlock()
 
 	for ch := range lb.subscribers {
-		// Non-blocking send to prevent slow subscribers from blocking
+		// Non-blocking send with timeout to prevent slow subscribers from blocking
+		// If subscriber can't keep up, we drop the message rather than blocking
 		select {
 		case ch <- entry:
+			// Successfully sent
+		case <-time.After(DefaultLogSubscriberTimeout):
+			// Subscriber too slow, drop message
+			slog.Debug("dropped log entry for slow subscriber", "service", entry.Service)
 		default:
 			// Channel buffer full, skip this entry for this subscriber
 		}

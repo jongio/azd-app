@@ -404,7 +404,7 @@ func shutdownAllServices(ctx context.Context, processes map[string]*service.Serv
 
 			// Determine timeout from context
 			deadline, ok := ctx.Deadline()
-			timeout := 5 * time.Second
+			timeout := service.DefaultStopTimeout
 			if ok {
 				timeout = time.Until(deadline)
 				if timeout < time.Second {

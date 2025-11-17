@@ -75,19 +75,19 @@ func HTTPHealthCheck(port int, path string) error {
 	// Try HEAD request first (lightweight)
 	resp, err := client.Head(url)
 	if err == nil {
-		defer resp.Body.Close()
+		defer SafeClose(resp.Body, "HEAD response body")
 		// Accept any 2xx or 3xx status code
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			return nil
 		}
 	}
 
-	// Try GET request as fallback
+	// If HEAD fails or returns error code, try GET
 	resp, err = client.Get(url)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer SafeClose(resp.Body, "GET response body")
 
 	// Accept any 2xx or 3xx status code
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {

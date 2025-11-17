@@ -178,6 +178,15 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Configure WebSocket with standard timeouts
+	if err := configureWebSocket(conn); err != nil {
+		log.Printf("Failed to configure WebSocket: %v", err)
+		if closeErr := conn.Close(); closeErr != nil {
+			log.Printf("Failed to close connection: %v", closeErr)
+		}
+		return
+	}
+
 	// Wrap connection with mutex for safe concurrent writes
 	client := &clientConn{conn: conn}
 
@@ -212,10 +221,18 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Start health monitoring
+	monitor := newWSHealthMonitor(conn, &client.writeMu)
+	healthErrors := monitor.start()
+	defer monitor.stop()
+
 	// Keep connection alive and listen for client messages
 	for {
 		select {
 		case <-s.stopChan:
+			return
+		case <-healthErrors:
+			// Health monitor detected a problem, close connection
 			return
 		default:
 			_, _, err := conn.ReadMessage()
