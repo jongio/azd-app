@@ -260,7 +260,7 @@ func TestTruncateEdgeCases(t *testing.T) {
 		{"empty string", "", 5, ""},
 		{"exactly max", "hello", 5, "hello"},
 		{"one over", "hello!", 5, "he..."},
-		{"maxLen 3 - shows ellipsis", "hello", 3, "..."},  // Fixed: maxLen=3 should show ellipsis when truncating
+		{"maxLen 3 - shows ellipsis", "hello", 3, "..."}, // Fixed: maxLen=3 should show ellipsis when truncating
 		{"maxLen 1", "hello", 1, "h"},
 		{"maxLen 0", "hello", 0, ""},
 	}

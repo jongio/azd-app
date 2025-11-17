@@ -33,7 +33,7 @@ const (
 
 	// defaultHealthEndpoint is the default health check endpoint path
 	defaultHealthEndpoint = "/health"
-	
+
 	// minIntervalBuffer is the minimum buffer between interval and timeout in streaming mode
 	minIntervalBuffer = 2 * time.Second
 )
@@ -184,7 +184,7 @@ func runHealth(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		
+
 		// Validate profile before applying
 		if err := validateProfile(profile); err != nil {
 			return fmt.Errorf("invalid profile %q: %w", healthProfile, err)
@@ -273,7 +273,7 @@ func validateHealthFlags() error {
 		return fmt.Errorf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout)
 	}
 	if healthStream && healthInterval < healthTimeout+minIntervalBuffer {
-		return fmt.Errorf("interval (%v) must be at least %v greater than timeout (%v) in streaming mode to prevent overlap", 
+		return fmt.Errorf("interval (%v) must be at least %v greater than timeout (%v) in streaming mode to prevent overlap",
 			healthInterval, minIntervalBuffer, healthTimeout)
 	}
 	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
@@ -340,7 +340,7 @@ func setupSignalHandler(cancel context.CancelFunc) func() {
 
 	go func() {
 		defer close(stopped)
-		
+
 		select {
 		case <-sigChan:
 			// Signal received, cancel context
@@ -348,7 +348,7 @@ func setupSignalHandler(cancel context.CancelFunc) func() {
 		case <-done:
 			// Cleanup requested
 		}
-		
+
 		// Stop signal notification after we're done
 		signal.Stop(sigChan)
 	}()
@@ -426,7 +426,7 @@ func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor,
 	if checkCount == nil || prevReport == nil {
 		return fmt.Errorf("internal error: nil pointer passed to performStreamCheck")
 	}
-	
+
 	report, err := monitor.Check(ctx, serviceFilter)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
@@ -463,7 +463,7 @@ func displayHealthReport(report *healthcheck.HealthReport) error {
 		fmt.Println("Make sure you have an azure.yaml with services defined.")
 		return nil
 	}
-	
+
 	switch healthOutput {
 	case "json":
 		return displayJSONReport(report)

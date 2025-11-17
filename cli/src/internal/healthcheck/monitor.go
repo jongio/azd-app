@@ -319,7 +319,7 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 						Msg("Panic in circuit breaker state change handler")
 				}
 			}()
-			
+
 			log.Info().
 				Str("service", name).
 				Str("from", from.String()).
@@ -722,13 +722,13 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 // CheckService performs a health check on a single service using cascading strategy.
 func (hc *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	serviceName := svc.Name
-	
+
 	// Use singleflight to deduplicate concurrent requests for the same service
 	// This prevents cache stampede when multiple goroutines request the same service health check
 	result, _, _ := hc.sfGroup.Do(serviceName, func() (interface{}, error) {
 		return hc.performHealthCheck(ctx, svc), nil
 	})
-	
+
 	return result.(HealthCheckResult)
 }
 
@@ -945,7 +945,7 @@ func (hc *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *http
 			// Defer will execute at end of THIS iteration
 			defer func(body io.ReadCloser) {
 				// Drain and close to allow connection reuse
-				io.Copy(io.Discard, body)
+				_, _ = io.Copy(io.Discard, body) // Ignore error as this is best-effort cleanup
 				body.Close()
 			}(resp.Body)
 
@@ -1006,12 +1006,12 @@ func (hc *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *http
 
 func (hc *HealthChecker) checkPort(ctx context.Context, port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
-	
+
 	// Create dialer that respects context
 	dialer := &net.Dialer{
 		Timeout: defaultPortCheckTimeout,
 	}
-	
+
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false

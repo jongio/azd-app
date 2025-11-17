@@ -21,14 +21,14 @@ import (
 // setupSignalHandler is a test helper (copied from commands package for testing)
 func setupSignalHandler(cancel context.CancelFunc) func() {
 	done := make(chan struct{})
-	
+
 	go func() {
 		<-done
 		if cancel != nil {
 			cancel()
 		}
 	}()
-	
+
 	return func() {
 		close(done)
 	}
@@ -61,12 +61,14 @@ func TestGoroutineLeakFix(t *testing.T) {
 	// Create test registry with services
 	reg := registry.GetRegistry(tempDir)
 	for i := 0; i < 5; i++ {
-		reg.Register(&registry.ServiceRegistryEntry{
+		if err := reg.Register(&registry.ServiceRegistryEntry{
 			Name:      fmt.Sprintf("service-%d", i),
 			Port:      8000 + i,
 			PID:       1000 + i,
 			StartTime: time.Now(),
-		})
+		}); err != nil {
+			t.Fatalf("Failed to register service: %v", err)
+		}
 	}
 
 	// Run multiple health checks
@@ -96,7 +98,7 @@ func TestGoroutineLeakFix(t *testing.T) {
 		t.Errorf("Goroutine leak detected: started with %d, ended with %d, leaked %d goroutines",
 			initialGoroutines, finalGoroutines, leaked)
 	} else {
-		t.Logf("No significant goroutine leak: %d -> %d (diff: %d)", 
+		t.Logf("No significant goroutine leak: %d -> %d (diff: %d)",
 			initialGoroutines, finalGoroutines, leaked)
 	}
 }
@@ -118,12 +120,14 @@ func TestPanicRecoveryInHealthCheck(t *testing.T) {
 
 	// Create a mock service that will cause panic
 	reg := registry.GetRegistry(tempDir)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:      "panic-service",
 		Port:      0, // Invalid port
 		PID:       0, // Invalid PID
 		StartTime: time.Now(),
-	})
+	}); err != nil {
+		t.Fatalf("Failed to register service: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -171,11 +175,13 @@ func TestCircuitBreakerRaceCondition(t *testing.T) {
 	// Register service
 	reg := registry.GetRegistry(tempDir)
 	_, port, _ := parseServerURL(failServer.URL)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:      "test-service",
 		Port:      port,
 		StartTime: time.Now(),
-	})
+	}); err != nil {
+		t.Fatalf("Failed to register service: %v", err)
+	}
 
 	// Run concurrent health checks to trigger race detector
 	var wg sync.WaitGroup
@@ -213,7 +219,7 @@ func TestRateLimiterRaceCondition(t *testing.T) {
 	// Create healthy server
 	healthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy"}`)) // Ignore error in test mock
 	}))
 	defer healthServer.Close()
 
@@ -233,11 +239,13 @@ func TestRateLimiterRaceCondition(t *testing.T) {
 	// Register service
 	reg := registry.GetRegistry(tempDir)
 	_, port, _ := parseServerURL(healthServer.URL)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:      "test-service",
 		Port:      port,
 		StartTime: time.Now(),
-	})
+	}); err != nil {
+		t.Fatalf("Failed to register service: %v", err)
+	}
 
 	// Run concurrent health checks
 	var wg sync.WaitGroup
@@ -247,7 +255,7 @@ func TestRateLimiterRaceCondition(t *testing.T) {
 			defer wg.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
-			monitor.Check(ctx, []string{"test-service"})
+			_, _ = monitor.Check(ctx, []string{"test-service"}) // Ignore result, testing rate limiter
 		}()
 	}
 
@@ -318,11 +326,13 @@ func TestContextCancellationHandling(t *testing.T) {
 	// Register service
 	reg := registry.GetRegistry(tempDir)
 	_, port, _ := parseServerURL(slowServer.URL)
-	reg.Register(&registry.ServiceRegistryEntry{
+	if err := reg.Register(&registry.ServiceRegistryEntry{
 		Name:      "slow-service",
 		Port:      port,
 		StartTime: time.Now(),
-	})
+	}); err != nil {
+		t.Fatalf("Failed to register service: %v", err)
+	}
 
 	// Create context with short timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -336,6 +346,11 @@ func TestContextCancellationHandling(t *testing.T) {
 	// Should complete quickly (within 2 seconds including collection timeout)
 	if elapsed > 3*time.Second {
 		t.Errorf("Health check took too long: %v", elapsed)
+	}
+
+	// Log error if present (expected on timeout)
+	if err != nil {
+		t.Logf("Expected error on timeout: %v", err)
 	}
 
 	// Should have a result even on timeout
@@ -368,12 +383,14 @@ func TestResultCollectionTimeout(t *testing.T) {
 	// Register multiple services with invalid ports
 	reg := registry.GetRegistry(tempDir)
 	for i := 0; i < 10; i++ {
-		reg.Register(&registry.ServiceRegistryEntry{
+		if err := reg.Register(&registry.ServiceRegistryEntry{
 			Name:      fmt.Sprintf("service-%d", i),
 			Port:      9999 + i, // Ports likely not listening
 			PID:       1,
 			StartTime: time.Now(),
-		})
+		}); err != nil {
+			t.Fatalf("Failed to register service: %v", err)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -444,11 +461,11 @@ func TestSignalHandlerCleanup(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		_, cancel := context.WithCancel(context.Background())
 		cleanup := setupSignalHandler(cancel)
-		
+
 		// Immediately cleanup
 		cleanup()
 		cancel()
-		
+
 		time.Sleep(10 * time.Millisecond)
 	}
 
@@ -471,32 +488,32 @@ func TestCacheStampedePrevention(t *testing.T) {
 	// Create server that counts requests
 	requestCount := int32(0)
 	checkExecutionCount := int32(0) // Count actual health check executions
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&requestCount, 1)
 		time.Sleep(50 * time.Millisecond) // Simulate slow response
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy"}`)) // Ignore error in test mock
 	}))
 	defer server.Close()
 
 	// Create a custom health checker to track executions
 	host, port, err := parseServerURL(server.URL)
-	
+
 	if err != nil {
 		t.Fatalf("Failed to parse server URL %s: %v", server.URL, err)
 	}
-	
+
 	t.Logf("Test server running at %s:%d", host, port)
-	
+
 	checker := &HealthChecker{
 		timeout:         2 * time.Second,
 		defaultEndpoint: "/health",
 		httpClient: &http.Client{
 			Timeout: 2 * time.Second,
 			Transport: &http.Transport{
-				MaxIdleConns:       100,
-				IdleConnTimeout:    90 * time.Second,
+				MaxIdleConns:    100,
+				IdleConnTimeout: 90 * time.Second,
 			},
 		},
 		breakers:     make(map[string]*gobreaker.CircuitBreaker),
@@ -514,13 +531,13 @@ func TestCacheStampedePrevention(t *testing.T) {
 		go func(index int) {
 			defer wg.Done()
 			ctx := context.Background()
-			
+
 			svc := serviceInfo{
 				Name:      "test-service",
 				Port:      port,
 				StartTime: time.Now(),
 			}
-			
+
 			// This should be deduplicated by singleflight
 			results[index] = checker.CheckService(ctx, svc)
 			atomic.AddInt32(&checkExecutionCount, 1)

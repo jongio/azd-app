@@ -121,7 +121,7 @@ func recordCircuitBreakerState(serviceName string, state gobreaker.State) {
 func getErrorType(errMsg string) string {
 	// Convert to lowercase for case-insensitive matching
 	errLower := strings.ToLower(errMsg)
-	
+
 	switch {
 	case containsAny(errLower, "timeout", "deadline", "timed out"):
 		return "timeout"

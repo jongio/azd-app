@@ -126,7 +126,7 @@ func TestValidateProfile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateProfile(tt.profile)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error containing %q, but got no error", tt.errorSubstr)
@@ -146,26 +146,26 @@ func TestValidateProfile(t *testing.T) {
 func TestSignalHandlerCleanup(t *testing.T) {
 	// Get initial goroutine count
 	initialCount := countGoroutines()
-	
+
 	// Set up and tear down signal handler multiple times
 	for i := 0; i < 10; i++ {
 		_, cancel := context.WithCancel(context.Background())
 		cleanup := setupSignalHandler(cancel)
-		
+
 		// Immediately cleanup without sending signal
 		cleanup()
 		cancel()
-		
+
 		// Give goroutines time to exit
 		time.Sleep(10 * time.Millisecond)
 	}
-	
+
 	// Give goroutines extra time to fully exit
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Check final goroutine count
 	finalCount := countGoroutines()
-	
+
 	// Allow for some variation but should not grow significantly
 	if finalCount > initialCount+2 {
 		t.Errorf("Goroutine leak detected: started with %d, ended with %d goroutines", initialCount, finalCount)
@@ -179,13 +179,13 @@ func TestPerformStreamCheckNilPointers(t *testing.T) {
 		Timeout:    2 * time.Second,
 	})
 	defer monitor.Close()
-	
+
 	// Test with nil checkCount
 	err := performStreamCheck(context.Background(), monitor, nil, nil, new(*healthcheck.HealthReport), false)
 	if err == nil {
 		t.Error("Expected error with nil checkCount, got nil")
 	}
-	
+
 	// Test with nil prevReport
 	var count int
 	err = performStreamCheck(context.Background(), monitor, nil, &count, nil, false)
@@ -211,7 +211,7 @@ func TestTruncateFunctionEdgeCases(t *testing.T) {
 		{"longer needs truncate", "testing", 5, "te..."},
 		{"unicode string", "hello 世界", 8, "hello 世..."},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := truncate(tt.input, tt.maxLen)
@@ -238,7 +238,7 @@ func TestDisplayHealthReportEmptyServices(t *testing.T) {
 			Overall: healthcheck.HealthStatusUnknown,
 		},
 	}
-	
+
 	// Should not panic and should handle gracefully
 	err := displayHealthReport(report)
 	if err != nil {
@@ -259,7 +259,7 @@ func TestStreamingIntervalValidation(t *testing.T) {
 		healthTimeout = origTimeout
 		healthOutput = origOutput
 	}()
-	
+
 	tests := []struct {
 		name        string
 		stream      bool
@@ -303,16 +303,16 @@ func TestStreamingIntervalValidation(t *testing.T) {
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			healthStream = tt.stream
 			healthInterval = tt.interval
 			healthTimeout = tt.timeout
 			healthOutput = "text" // Set valid output format
-			
+
 			err := validateHealthFlags()
-			
+
 			if tt.expectError && err == nil {
 				t.Error("Expected validation error, got nil")
 			}
@@ -331,25 +331,25 @@ func TestLoadProfilesWithNilMap(t *testing.T) {
 	if err := os.MkdirAll(azdDir, 0755); err != nil {
 		t.Fatalf("Failed to create .azd directory: %v", err)
 	}
-	
+
 	// Write minimal yaml that might result in nil map
 	profilePath := filepath.Join(azdDir, "health-profiles.yaml")
 	content := `profiles:`
 	if err := os.WriteFile(profilePath, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to write profile file: %v", err)
 	}
-	
+
 	// Should not panic
 	profiles, err := healthcheck.LoadHealthProfiles(tempDir)
 	if err != nil {
 		t.Errorf("LoadHealthProfiles failed: %v", err)
 	}
-	
+
 	// Should have default profiles merged in
 	if profiles == nil || profiles.Profiles == nil {
 		t.Error("Expected profiles map to be initialized")
 	}
-	
+
 	// Should have at least the default profiles
 	if _, exists := profiles.Profiles["development"]; !exists {
 		t.Error("Expected development profile to be present")
@@ -361,12 +361,12 @@ func TestErrUnhealthyServices(t *testing.T) {
 	if ErrUnhealthyServices == nil {
 		t.Error("ErrUnhealthyServices should not be nil")
 	}
-	
+
 	errMsg := ErrUnhealthyServices.Error()
 	if errMsg == "" {
 		t.Error("ErrUnhealthyServices should have a message")
 	}
-	
+
 	if !strings.Contains(errMsg, "unhealthy") {
 		t.Errorf("ErrUnhealthyServices message should contain 'unhealthy', got: %s", errMsg)
 	}

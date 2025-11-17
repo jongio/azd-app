@@ -20,10 +20,10 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 		{
 			name: "circuit breaker failures less than 1",
 			config: MonitorConfig{
-				ProjectDir:              t.TempDir(),
-				EnableCircuitBreaker:    true,
-				CircuitBreakerFailures:  0,
-				CircuitBreakerTimeout:   5 * time.Second,
+				ProjectDir:             t.TempDir(),
+				EnableCircuitBreaker:   true,
+				CircuitBreakerFailures: 0,
+				CircuitBreakerTimeout:  5 * time.Second,
 			},
 			expectError: true,
 			errorMsg:    "circuit breaker failures must be at least 1",
@@ -31,10 +31,10 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 		{
 			name: "circuit breaker failures negative",
 			config: MonitorConfig{
-				ProjectDir:              t.TempDir(),
-				EnableCircuitBreaker:    true,
-				CircuitBreakerFailures:  -5,
-				CircuitBreakerTimeout:   5 * time.Second,
+				ProjectDir:             t.TempDir(),
+				EnableCircuitBreaker:   true,
+				CircuitBreakerFailures: -5,
+				CircuitBreakerTimeout:  5 * time.Second,
 			},
 			expectError: true,
 			errorMsg:    "circuit breaker failures must be at least 1",
@@ -42,10 +42,10 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 		{
 			name: "circuit breaker timeout zero",
 			config: MonitorConfig{
-				ProjectDir:              t.TempDir(),
-				EnableCircuitBreaker:    true,
-				CircuitBreakerFailures:  3,
-				CircuitBreakerTimeout:   0,
+				ProjectDir:             t.TempDir(),
+				EnableCircuitBreaker:   true,
+				CircuitBreakerFailures: 3,
+				CircuitBreakerTimeout:  0,
 			},
 			expectError: true,
 			errorMsg:    "circuit breaker timeout must be positive",
@@ -53,10 +53,10 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 		{
 			name: "circuit breaker timeout negative",
 			config: MonitorConfig{
-				ProjectDir:              t.TempDir(),
-				EnableCircuitBreaker:    true,
-				CircuitBreakerFailures:  3,
-				CircuitBreakerTimeout:   -5 * time.Second,
+				ProjectDir:             t.TempDir(),
+				EnableCircuitBreaker:   true,
+				CircuitBreakerFailures: 3,
+				CircuitBreakerTimeout:  -5 * time.Second,
 			},
 			expectError: true,
 			errorMsg:    "circuit breaker timeout must be positive",
@@ -64,22 +64,22 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 		{
 			name: "valid circuit breaker config",
 			config: MonitorConfig{
-				ProjectDir:              t.TempDir(),
-				EnableCircuitBreaker:    true,
-				CircuitBreakerFailures:  3,
-				CircuitBreakerTimeout:   5 * time.Second,
-				Timeout:                 2 * time.Second,
+				ProjectDir:             t.TempDir(),
+				EnableCircuitBreaker:   true,
+				CircuitBreakerFailures: 3,
+				CircuitBreakerTimeout:  5 * time.Second,
+				Timeout:                2 * time.Second,
 			},
 			expectError: false,
 		},
 		{
 			name: "circuit breaker disabled - no validation",
 			config: MonitorConfig{
-				ProjectDir:              t.TempDir(),
-				EnableCircuitBreaker:    false,
-				CircuitBreakerFailures:  0,
-				CircuitBreakerTimeout:   0,
-				Timeout:                 2 * time.Second,
+				ProjectDir:             t.TempDir(),
+				EnableCircuitBreaker:   false,
+				CircuitBreakerFailures: 0,
+				CircuitBreakerTimeout:  0,
+				Timeout:                2 * time.Second,
 			},
 			expectError: false,
 		},
@@ -88,7 +88,7 @@ func TestInvalidCircuitBreakerConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			monitor, err := NewHealthMonitor(tt.config)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error containing %q, but got no error", tt.errorMsg)
@@ -142,7 +142,7 @@ func TestInvalidRateLimitConfig(t *testing.T) {
 			}
 
 			monitor, err := NewHealthMonitor(config)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error containing %q, but got no error", tt.errorMsg)
@@ -208,10 +208,10 @@ func TestMetricsServerShutdown(t *testing.T) {
 	// Verify server is stopped (connection should fail or be refused)
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	
+
 	req, _ := http.NewRequestWithContext(ctx, "GET", "http://localhost:9091/health", nil)
 	_, err = http.DefaultClient.Do(req)
-	
+
 	// We expect an error because the server should be stopped
 	if err == nil {
 		t.Error("Expected connection error after server shutdown, but connection succeeded")
@@ -233,7 +233,7 @@ func TestPortCheckContextCancellation(t *testing.T) {
 
 	// Create a context that we'll cancel immediately
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Start port check in goroutine
 	done := make(chan bool)
 	go func() {
@@ -264,7 +264,7 @@ func TestHTTPCheckResponseBodyCleanup(t *testing.T) {
 		// Only /healthz succeeds
 		if r.URL.Path == "/healthz" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"healthy"}`))
+			_, _ = w.Write([]byte(`{"status":"healthy"}`)) // Ignore error in test mock
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
