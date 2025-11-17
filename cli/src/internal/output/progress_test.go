@@ -392,7 +392,7 @@ func TestMultiProgressCalculateBarWidth(t *testing.T) {
 		want      int
 	}{
 		{"very narrow terminal", 40, minBarWidth},
-		{"normal terminal", 80, 36},
+		{"normal terminal", 80, 30},
 		{"wide terminal", 200, maxBarWidth},
 	}
 

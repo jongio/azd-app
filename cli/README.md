@@ -356,25 +356,24 @@ azd-app-extension/
 │       └── azure/
 
 ├── docs/                       # Documentation
-│   ├── cli-reference.md
-│   ├── environment-variables.md
-│   ├── environment-variables-quick-reference.md
-│   ├── commands/
+│   ├── cli-reference.md       # User-facing: CLI reference
+│   ├── environment-variables.md # User-facing: Environment variable configuration
+│   ├── ports.md               # User-facing: Port configuration
+│   ├── commands/              # User-facing: Command documentation
 │   │   ├── reqs.md
 │   │   ├── deps.md
 │   │   ├── run.md
 │   │   ├── logs.md
 │   │   ├── info.md
 │   │   └── version.md
-│   ├── dev/
+│   ├── schema/                # User-facing: Schema documentation
+│   │   └── azure.yaml.md
+│   ├── dev/                   # Developer-only: Internal implementation docs
 │   │   ├── azd-context-inheritance.md
-│   │   ├── environment-variables.md
 │   │   ├── testing.md
 │   │   └── release.md
-│   ├── design/
-│   │   └── ports.md
-│   └── schema/
-│       └── azure.yaml.md
+│   └── design/                # Developer-only: Design documents
+│       └── ports.md
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml              # CI pipeline

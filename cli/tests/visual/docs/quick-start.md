@@ -132,7 +132,7 @@ npm test
 - **Review screenshots** in `screenshots/` folder
 - **Open visual comparison** - `test-results/visual-comparison.html`
 - **Check analysis** - Look at pass/fail ratios
-- **Read full docs** - See [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Read full docs** - See [README.md](../README.md) and [architecture.md](architecture.md)
 
 ## Troubleshooting
 
