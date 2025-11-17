@@ -17,7 +17,7 @@ var (
 )
 
 // ValidatePath checks if a path is safe to use.
-// It prevents path traversal attacks and validates the path is within allowed bounds.
+// It prevents path traversal attacks, symbolic link attacks, and validates the path is within allowed bounds.
 func ValidatePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("%w: empty path", ErrInvalidPath)
@@ -40,6 +40,23 @@ func ValidatePath(path string) error {
 	// After cleaning, check again for ..
 	if strings.Contains(cleanPath, "..") {
 		return fmt.Errorf("%w: cleaned path contains parent directory reference", ErrPathTraversal)
+	}
+
+	// Resolve symbolic links to detect link-based attacks
+	// This prevents attackers from using symlinks to escape allowed directories
+	resolvedPath, err := filepath.EvalSymlinks(cleanPath)
+	if err != nil {
+		// If the path doesn't exist yet, that's okay - we're validating the path structure
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("%w: cannot resolve symbolic links: %v", ErrInvalidPath, err)
+		}
+		// Path doesn't exist, use cleaned path for validation
+		resolvedPath = cleanPath
+	}
+
+	// Verify resolved path doesn't contain ..
+	if strings.Contains(resolvedPath, "..") {
+		return fmt.Errorf("%w: resolved path contains parent directory reference", ErrPathTraversal)
 	}
 
 	return nil

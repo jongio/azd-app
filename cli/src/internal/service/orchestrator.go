@@ -254,7 +254,7 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 			}
 
 			// Stop service with graceful timeout
-			if err := StopServiceGraceful(proc, 5*time.Second); err != nil {
+			if err := StopServiceGraceful(proc, DefaultStopTimeout); err != nil {
 				// Log error but continue stopping other services
 				output.Error("Error stopping service %s: %v", serviceName, err)
 			}

@@ -41,6 +41,11 @@ func main() {
 					"command", cmd.Name(),
 					"args", args,
 				)
+				// Print build info in debug mode (before command output)
+				if !output.IsJSON() {
+					fmt.Fprintf(os.Stderr, "%s[DEBUG]%s Build: %s (built on %s, commit: %.8s)\n",
+						output.Dim, output.Reset, commands.Version, commands.BuildTime, commands.Commit)
+				}
 			}
 
 			return output.SetFormat(outputFormat)

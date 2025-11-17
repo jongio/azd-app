@@ -8,6 +8,10 @@ All commands automatically inherit azd environment context when run through `azd
 
 See [dev/azd-context-inheritance.md](dev/azd-context-inheritance.md) for details on accessing azd environment variables.
 
+### Terminal Display
+
+Progress bars automatically adapt to terminal width. Narrow terminals (<70 columns) use compact mode to prevent line wrapping.
+
 ### Global Flags
 
 These flags are available for all commands:

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"sync"
@@ -128,8 +129,10 @@ func (lw *lineWriter) Write(p []byte) (n int, err error) {
 		// Remove trailing newline and call handler
 		line = line[:len(line)-1]
 		if lw.handler != nil {
-			// Ignore handler errors as they should not interrupt output streaming
-			_ = lw.handler(line)
+			// Log handler errors but don't interrupt output streaming
+			if handlerErr := lw.handler(line); handlerErr != nil {
+				slog.Warn("output handler error", "error", handlerErr)
+			}
 		}
 	}
 

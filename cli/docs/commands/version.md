@@ -59,17 +59,18 @@ Example: 0.5.1
 
 ```bash
 $ azd app version
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 ```
 
-### JSON Output (future)
+### JSON Output
 
 ```bash
 $ azd app version --output json
 {
   "version": "0.5.1",
-  "commit": "abc1234",
-  "buildDate": "2024-11-04T10:00:00Z"
+  "buildTime": "2024-11-04T10:00:00Z"
 }
 ```
 
@@ -79,7 +80,9 @@ $ azd app version --output json
 
 ```bash
 $ azd app version
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 ```
 
 ### 2. Verify Installation
@@ -89,7 +92,9 @@ $ which azd-app
 /usr/local/bin/azd-app
 
 $ azd app version
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 ```
 
 ### 3. Troubleshooting
@@ -98,7 +103,9 @@ When reporting issues, include version information:
 
 ```bash
 $ azd app version
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 
 # Include in bug report
 ```
@@ -114,7 +121,9 @@ azd version 1.5.0
 
 # Check azd app version
 $ azd app version
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 ```
 
 ## Version Compatibility
@@ -146,7 +155,9 @@ The extension is designed to be compatible with:
 
 ```bash
 $ azd app version
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 ```
 
 ### Example 2: In Scripts
@@ -170,5 +181,7 @@ echo "Using azd app version: $VERSION"
 ```bash
 $ azd version && azd app version
 azd version 1.5.0
-azd app extension version 0.5.1
+azd app extension
+Version: 0.5.1
+Built: 2024-11-04T10:00:00Z
 ```

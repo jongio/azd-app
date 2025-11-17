@@ -2,9 +2,12 @@ package output
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/term"
 )
 
 // TaskStatus represents the status of a single task.
@@ -21,6 +24,7 @@ const (
 // Progress display constants
 const (
 	defaultTermWidth        = 80
+	minTermWidthForBar      = 70 // Below this width, use compact mode (compacted bar needs ~65 cols)
 	refreshInterval         = 250 * time.Millisecond
 	estimatedTotalBytes     = 10 * 1024 * 1024 // 10MB typical npm install
 	estimatedCompletionTime = 30.0             // seconds
@@ -30,12 +34,12 @@ const (
 // Progress bar layout constants
 const (
 	iconWidth     = 2  // icon + space
-	percentWidth  = 6  // " 100% "
-	timeWidth     = 7  // " 999.9s"
-	layoutPadding = 4  // spaces
-	maxDescWidth  = 25 // Maximum description width
-	minBarWidth   = 20
-	maxBarWidth   = 40
+	percentWidth  = 5  // "100% "
+	timeWidth     = 6  // "999.9s"
+	layoutPadding = 3  // spaces
+	maxDescWidth  = 20 // Maximum description width (more compact)
+	minBarWidth   = 15
+	maxBarWidth   = 30 // Compact bar width
 )
 
 // Progress calculation constants
@@ -74,12 +78,43 @@ type MultiProgress struct {
 
 // NewMultiProgress creates a new multi-progress manager.
 func NewMultiProgress() *MultiProgress {
-	return &MultiProgress{
+	// Detect terminal width - try COLUMNS env var first (set by terminals)
+	width := defaultTermWidth
+	widthSource := "default"
+
+	// Check COLUMNS environment variable (most reliable for actual terminal width)
+	if colsStr := os.Getenv("COLUMNS"); colsStr != "" {
+		if cols, err := fmt.Sscanf(colsStr, "%d", &width); err == nil && cols == 1 && width > 0 {
+			widthSource = "COLUMNS env var"
+		} else {
+			width = defaultTermWidth
+		}
+	} else {
+		// Fallback to term.GetSize if COLUMNS not set
+		if w, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && w > 0 {
+			width = w
+			widthSource = "term.GetSize()"
+		}
+	}
+
+	mp := &MultiProgress{
 		bars:      make(map[string]*ProgressSpinner),
 		barOrder:  []string{},
 		stopChan:  make(chan struct{}),
-		termWidth: defaultTermWidth,
+		termWidth: width,
 	}
+
+	// Debug: show detected terminal width and source
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		mode := "full"
+		if mp.termWidth < minTermWidthForBar {
+			mode = "compact"
+		}
+		fmt.Fprintf(os.Stderr, "[DEBUG] Terminal width: %d columns from %s (using %s mode)\n",
+			mp.termWidth, widthSource, mode)
+	}
+
+	return mp
 }
 
 // AddBar adds a new progress bar with the given description.
@@ -239,6 +274,11 @@ func (mp *MultiProgress) renderFinal() {
 
 // buildProgressLine constructs a single progress bar line
 func (mp *MultiProgress) buildProgressLine(bar *ProgressSpinner, progressPct, elapsed float64) string {
+	// Use compact mode for narrow terminals to prevent wrapping and duplication
+	if mp.termWidth < minTermWidthForBar {
+		return mp.buildCompactLine(bar, progressPct, elapsed)
+	}
+
 	barWidth := mp.calculateBarWidth()
 	icon, color := mp.getStatusIconAndColor(bar.status, time.Now())
 	barContent := mp.formatBarContent(bar.status, barWidth, progressPct)
@@ -246,6 +286,32 @@ func (mp *MultiProgress) buildProgressLine(bar *ProgressSpinner, progressPct, el
 	timeStr := mp.formatElapsedTime(bar.status, elapsed)
 
 	return mp.assembleProgressLine(icon, color, desc, barContent, progressPct, timeStr, bar.status)
+}
+
+// buildCompactLine creates a compact single-line display for narrow terminals
+func (mp *MultiProgress) buildCompactLine(bar *ProgressSpinner, progressPct, elapsed float64) string {
+	icon, color := mp.getStatusIconAndColor(bar.status, time.Now())
+
+	// Calculate max description width based on terminal width
+	// Format: "icon desc pct time" = 2 + desc + 5 + 6 = 13 + desc
+	maxDesc := mp.termWidth - 15
+	if maxDesc < 10 {
+		maxDesc = 10 // Minimum description length
+	}
+
+	desc := truncateString(bar.description, maxDesc)
+	timeStr := mp.formatElapsedTime(bar.status, elapsed)
+
+	if bar.status == TaskStatusPending {
+		return fmt.Sprintf("%s%s%s %s", color, icon, Reset, desc)
+	}
+
+	// Compact format: icon desc pct time (no progress bar)
+	return fmt.Sprintf("%s%s%s %s %3.0f%% %s",
+		color, icon, Reset,
+		desc,
+		progressPct,
+		Dim+timeStr+Reset)
 }
 
 // calculateBarWidth determines the width of the progress bar

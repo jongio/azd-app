@@ -21,7 +21,12 @@ azd app deps
 
 ### Flags
 
-This command has no additional flags. It automatically detects and installs dependencies for all projects.
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--verbose` | `-v` | bool | `false` | Show full installation output |
+| `--clean` | | bool | `false` | Remove existing dependencies before installing (clears node_modules, .venv, etc.) |
+| `--no-cache` | | bool | `false` | Force fresh dependency installation and bypass cached results |
+| `--force` | `-f` | bool | `false` | Force clean reinstall (combines --clean and --no-cache) |
 
 ## Execution Flow
 
