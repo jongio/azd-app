@@ -3,10 +3,11 @@ package portmanager
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/big"
 	"net"
 	"os"
 	"os/exec"
@@ -639,9 +640,10 @@ func (pm *PortManager) defaultIsPortAvailable(port int) bool {
 }
 
 // findAvailablePort finds an available port in the port range.
-// Uses randomized starting point with bounded attempts to:
+// Uses cryptographically secure randomized starting point with bounded attempts to:
 // 1. Reduce collision probability when multiple services start simultaneously
 // 2. Avoid exhaustive scanning of the entire port range
+// 3. Prevent predictable port allocation patterns
 func (pm *PortManager) findAvailablePort() (int, error) {
 	// Build map of assigned ports to avoid duplicates
 	assignedPorts := make(map[int]bool)
@@ -655,10 +657,15 @@ func (pm *PortManager) findAvailablePort() (int, error) {
 		return 0, fmt.Errorf("invalid port range: %d-%d", pm.portRange.start, pm.portRange.end)
 	}
 
-	// Randomize starting point to reduce collisions
-	// Use time-based seed for simple randomization without crypto/rand overhead
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	startOffset := rng.Intn(rangeSize)
+	// Randomize starting point using crypto/rand for security
+	// This prevents predictable port allocation patterns that could be exploited
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(rangeSize)))
+	if err != nil {
+		// Fallback to sequential search from start if crypto/rand fails
+		slog.Warn("failed to generate secure random offset, using sequential search", "error", err)
+		nBig = big.NewInt(0)
+	}
+	startOffset := int(nBig.Int64())
 
 	// Try maxPortScanAttempts ports starting from random position
 	for attempt := 0; attempt < maxPortScanAttempts && attempt < rangeSize; attempt++ {
@@ -788,7 +795,8 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "Killing process %d on port %d\n", pid, port)
+	// Log without exposing too much system info to prevent information disclosure
+	slog.Info("terminating process on port", "port", port, "pid", pid)
 
 	var cmd []string
 	var args []string
@@ -812,7 +820,7 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
 	if err := executor.RunCommand(ctx, cmd[0], args[1:], "."); err != nil {
 		// Log error but don't fail - process might have already exited
-		fmt.Fprintf(os.Stderr, "Warning: kill command failed for PID %d: %v\n", pid, err)
+		slog.Debug("kill command completed with error", "pid", pid, "error", err)
 		return nil
 	}
 

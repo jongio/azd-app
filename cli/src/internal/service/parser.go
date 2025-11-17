@@ -60,7 +60,12 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 
 // FilterServices returns only the services specified in the filter.
 // If filter is empty, returns all services.
+// Returns empty map if azureYaml is nil.
 func FilterServices(azureYaml *AzureYaml, filter []string) map[string]Service {
+	if azureYaml == nil || azureYaml.Services == nil {
+		return make(map[string]Service)
+	}
+
 	if len(filter) == 0 {
 		return azureYaml.Services
 	}

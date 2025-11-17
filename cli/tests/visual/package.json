@@ -1,0 +1,15 @@
+{
+  "name": "azd-progress-bar-analysis",
+  "version": "1.0.0",
+  "description": "Analysis tests for azd progress bar duplication detection",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  },
+  "dependencies": {}
+}

@@ -103,6 +103,7 @@ tests/**/.azure/cache/
 tests/projects/node/test-pnpm-project/azure.yaml
 tests/projects/python/test-uv-project/azure.yaml
 tests/projects/aspire-test/azure.yaml
+
 cli2/jongio.azd.app/build.ps1
 cli2/jongio.azd.app/build.sh
 cli2/jongio.azd.app/changelog.md

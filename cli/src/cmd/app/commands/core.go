@@ -16,6 +16,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/types"
 
 	"gopkg.in/yaml.v3"
 )
@@ -151,10 +152,6 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
-	if !output.IsJSON() {
-		output.Section(output.IconSearch, "Checking reqs...")
-	}
-
 	// Load azure.yaml
 	azureYamlPath, azureYaml, err := loadAzureYaml()
 	if err != nil {
@@ -169,7 +166,6 @@ func executeReqs() error {
 				Reqs:      []ReqResult{},
 			})
 		}
-		output.Info("No reqs defined in azure.yaml - skipping checks. Run 'azd app reqs --generate' to add requirement checks.")
 		return nil
 	}
 
@@ -373,9 +369,7 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
 	if !output.IsJSON() {
-		output.Newline()
 		output.Section("📦", "Installing Dependencies")
-		output.Newline()
 	}
 
 	// Determine search root
@@ -423,6 +417,13 @@ func executeDeps() error {
 		}
 		output.Info(msgNoProjectsDetected)
 		return nil
+	}
+
+	// Clean dependencies if requested
+	if depsClean {
+		if err := cleanDependencies(nodeProjects, pythonProjects, dotnetProjects); err != nil {
+			return fmt.Errorf("failed to clean dependencies: %w", err)
+		}
 	}
 
 	// Use parallel installer for concurrent installation with progress bars
@@ -608,14 +609,8 @@ func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cache
 		}
 	}
 
-	// Perform fresh check
+	// Perform fresh check (output is shown inline during checks)
 	results, allSatisfied := performReqsCheck(reqs)
-
-	// Print fresh results in non-JSON mode
-	if !output.IsJSON() {
-		formatter := NewResultFormatter()
-		formatter.PrintAll(results)
-	}
 
 	// Save to cache if enabled
 	if cacheManager.IsEnabled() {
@@ -753,4 +748,107 @@ func (rf *ResultFormatter) PrintAll(results []ReqResult) {
 	for _, result := range results {
 		rf.Print(result)
 	}
+}
+
+// cleanDependencies removes existing dependency directories for all detected projects.
+func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
+	if !output.IsJSON() {
+		output.Newline()
+		output.Section("🧹", "Cleaning Dependencies")
+		output.Newline()
+	}
+
+	var errors []error
+
+	// Clean Node.js projects
+	for _, project := range nodeProjects {
+		nodeModulesPath := filepath.Join(project.Dir, "node_modules")
+		if _, err := os.Stat(nodeModulesPath); err == nil {
+			if !output.IsJSON() {
+				output.Item("Removing %s", nodeModulesPath)
+			}
+			if err := os.RemoveAll(nodeModulesPath); err != nil {
+				errors = append(errors, fmt.Errorf("failed to remove %s: %w", nodeModulesPath, err))
+				if !output.IsJSON() {
+					output.ItemError("Failed: %v", err)
+				}
+			} else {
+				if !output.IsJSON() {
+					output.ItemSuccess("Removed successfully")
+				}
+			}
+		}
+	}
+
+	// Clean Python projects
+	for _, project := range pythonProjects {
+		venvPath := filepath.Join(project.Dir, ".venv")
+		if _, err := os.Stat(venvPath); err == nil {
+			if !output.IsJSON() {
+				output.Item("Removing %s", venvPath)
+			}
+			if err := os.RemoveAll(venvPath); err != nil {
+				errors = append(errors, fmt.Errorf("failed to remove %s: %w", venvPath, err))
+				if !output.IsJSON() {
+					output.ItemError("Failed: %v", err)
+				}
+			} else {
+				if !output.IsJSON() {
+					output.ItemSuccess("Removed successfully")
+				}
+			}
+		}
+	}
+
+	// Clean .NET projects (obj and bin directories)
+	for _, project := range dotnetProjects {
+		projectDir := filepath.Dir(project.Path)
+
+		// Remove obj directory
+		objPath := filepath.Join(projectDir, "obj")
+		if _, err := os.Stat(objPath); err == nil {
+			if !output.IsJSON() {
+				output.Item("Removing %s", objPath)
+			}
+			if err := os.RemoveAll(objPath); err != nil {
+				errors = append(errors, fmt.Errorf("failed to remove %s: %w", objPath, err))
+				if !output.IsJSON() {
+					output.ItemError("Failed: %v", err)
+				}
+			} else {
+				if !output.IsJSON() {
+					output.ItemSuccess("Removed successfully")
+				}
+			}
+		}
+
+		// Remove bin directory
+		binPath := filepath.Join(projectDir, "bin")
+		if _, err := os.Stat(binPath); err == nil {
+			if !output.IsJSON() {
+				output.Item("Removing %s", binPath)
+			}
+			if err := os.RemoveAll(binPath); err != nil {
+				errors = append(errors, fmt.Errorf("failed to remove %s: %w", binPath, err))
+				if !output.IsJSON() {
+					output.ItemError("Failed: %v", err)
+				}
+			} else {
+				if !output.IsJSON() {
+					output.ItemSuccess("Removed successfully")
+				}
+			}
+		}
+	}
+
+	if !output.IsJSON() && len(errors) == 0 {
+		output.Newline()
+		output.Success("Dependencies cleaned successfully")
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("encountered %d error(s) while cleaning dependencies", len(errors))
+	}
+
+	return nil
 }

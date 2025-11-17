@@ -1,5 +1,54 @@
 # Environment Variables in azure.yaml
 
+## Quick Reference
+
+### Three Ways to Define Environment Variables
+
+#### 1. Map Format ⭐ Recommended
+```yaml
+services:
+  api:
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+```
+
+#### 2. Array of Strings
+```yaml
+services:
+  api:
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+```
+
+#### 3. Array of Objects
+```yaml
+services:
+  api:
+    environment:
+      - name: API_KEY
+        value: my-key
+      - name: SECRET
+        secret: super-secret
+```
+
+### Variable Substitution Example
+```yaml
+environment:
+  DB_HOST: localhost
+  DB_PORT: "5432"
+  DATABASE_URL: postgresql://${DB_HOST}:${DB_PORT}/db
+```
+
+### Priority Order
+1. 🥇 Service environment (azure.yaml)
+2. 🥈 .env file
+3. 🥉 Azure environment
+4. OS environment
+
+---
+
 ## Overview
 
 The `azure.yaml` file supports Docker Compose-compatible environment variable configuration. You can define environment variables for your services using the `environment` field with multiple formats that match Docker Compose's flexibility.

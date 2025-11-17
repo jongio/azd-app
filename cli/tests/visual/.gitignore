@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Test outputs
+output/*.txt
+!output/.gitkeep
+
+# Test results
+test-results/
+playwright-report/
+test-artifacts/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

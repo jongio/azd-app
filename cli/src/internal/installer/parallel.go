@@ -115,10 +115,7 @@ func (pi *ParallelInstaller) Run() error {
 		pi.multiProg.AddBar(task.ID, task.Description)
 	}
 
-	// Reserve space for progress bars
-	output.EnsureInitialLines(len(pi.tasks))
-
-	// Start rendering progress bars
+	// Start rendering progress bars (mpb handles space automatically)
 	pi.multiProg.Start()
 
 	// Run all tasks in parallel
