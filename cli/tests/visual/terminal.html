@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Renderer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #1e1e1e;
+            font-family: 'Consolas', 'Courier New', monospace;
+            overflow: hidden;
+        }
+        
+        #terminal {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre;
+            font-family: 'Consolas', 'Courier New', monospace;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        
+        /* ANSI color support */
+        .ansi-black { color: #000000; }
+        .ansi-red { color: #cd3131; }
+        .ansi-green { color: #0dbc79; }
+        .ansi-yellow { color: #e5e510; }
+        .ansi-blue { color: #2472c8; }
+        .ansi-magenta { color: #bc3fbc; }
+        .ansi-cyan { color: #11a8cd; }
+        .ansi-white { color: #e5e5e5; }
+        
+        .ansi-bright-black { color: #666666; }
+        .ansi-bright-red { color: #f14c4c; }
+        .ansi-bright-green { color: #23d18b; }
+        .ansi-bright-yellow { color: #f5f543; }
+        .ansi-bright-blue { color: #3b8eea; }
+        .ansi-bright-magenta { color: #d670d6; }
+        .ansi-bright-cyan { color: #29b8db; }
+        .ansi-bright-white { color: #ffffff; }
+        
+        .ansi-bold { font-weight: bold; }
+        .ansi-dim { opacity: 0.6; }
+        
+        /* Background colors */
+        .ansi-bg-black { background-color: #000000; }
+        .ansi-bg-red { background-color: #cd3131; }
+        .ansi-bg-green { background-color: #0dbc79; }
+        .ansi-bg-yellow { background-color: #e5e510; }
+        .ansi-bg-blue { background-color: #2472c8; }
+        .ansi-bg-magenta { background-color: #bc3fbc; }
+        .ansi-bg-cyan { background-color: #11a8cd; }
+        .ansi-bg-white { background-color: #e5e5e5; }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+    
+    <script type="module">
+        // ANSI to HTML converter
+        function ansiToHtml(text) {
+            const lines = text.split('\n');
+            const html = [];
+            
+            for (let line of lines) {
+                let converted = line;
+                
+                // Replace ANSI color codes with HTML
+                // Reset
+                converted = converted.replace(/\x1b\[0m/g, '</span>');
+                converted = converted.replace(/\x1b\[m/g, '</span>');
+                
+                // Bold
+                converted = converted.replace(/\x1b\[1m/g, '<span class="ansi-bold">');
+                // Dim
+                converted = converted.replace(/\x1b\[2m/g, '<span class="ansi-dim">');
+                
+                // Foreground colors (30-37)
+                converted = converted.replace(/\x1b\[30m/g, '<span class="ansi-black">');
+                converted = converted.replace(/\x1b\[31m/g, '<span class="ansi-red">');
+                converted = converted.replace(/\x1b\[32m/g, '<span class="ansi-green">');
+                converted = converted.replace(/\x1b\[33m/g, '<span class="ansi-yellow">');
+                converted = converted.replace(/\x1b\[34m/g, '<span class="ansi-blue">');
+                converted = converted.replace(/\x1b\[35m/g, '<span class="ansi-magenta">');
+                converted = converted.replace(/\x1b\[36m/g, '<span class="ansi-cyan">');
+                converted = converted.replace(/\x1b\[37m/g, '<span class="ansi-white">');
+                
+                // Bright colors (90-97)
+                converted = converted.replace(/\x1b\[90m/g, '<span class="ansi-bright-black">');
+                converted = converted.replace(/\x1b\[91m/g, '<span class="ansi-bright-red">');
+                converted = converted.replace(/\x1b\[92m/g, '<span class="ansi-bright-green">');
+                converted = converted.replace(/\x1b\[93m/g, '<span class="ansi-bright-yellow">');
+                converted = converted.replace(/\x1b\[94m/g, '<span class="ansi-bright-blue">');
+                converted = converted.replace(/\x1b\[95m/g, '<span class="ansi-bright-magenta">');
+                converted = converted.replace(/\x1b\[96m/g, '<span class="ansi-bright-cyan">');
+                converted = converted.replace(/\x1b\[97m/g, '<span class="ansi-bright-white">');
+                
+                // Remove cursor movement codes (but keep output)
+                converted = converted.replace(/\x1b\[\d+A/g, ''); // Cursor up
+                converted = converted.replace(/\x1b\[\d+B/g, ''); // Cursor down
+                converted = converted.replace(/\x1b\[\d+C/g, ''); // Cursor forward
+                converted = converted.replace(/\x1b\[\d+D/g, ''); // Cursor back
+                converted = converted.replace(/\x1b\[2K/g, ''); // Clear line
+                converted = converted.replace(/\r/g, ''); // Carriage return
+                
+                html.push(converted);
+            }
+            
+            return html.join('\n');
+        }
+        
+        // Load terminal output from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const outputFile = urlParams.get('file');
+        const termWidth = parseInt(urlParams.get('width') || '80');
+        const termHeight = parseInt(urlParams.get('height') || '24');
+        
+        // Set terminal size
+        const terminal = document.getElementById('terminal');
+        const charWidth = 8.4; // Approximate character width in pixels
+        const lineHeight = 21; // Approximate line height in pixels
+        terminal.style.width = `${termWidth * charWidth}px`;
+        terminal.style.height = `${termHeight * lineHeight}px`;
+        
+        if (outputFile) {
+            fetch(`/output/${outputFile}`)
+                .then(res => res.text())
+                .then(text => {
+                    terminal.innerHTML = ansiToHtml(text);
+                })
+                .catch(err => {
+                    terminal.textContent = `Error loading output: ${err.message}`;
+                });
+        } else {
+            terminal.textContent = 'No output file specified. Use ?file=filename.txt&width=80&height=24';
+        }
+    </script>
+</body>
+</html>

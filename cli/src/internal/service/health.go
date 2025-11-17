@@ -104,10 +104,12 @@ func PortHealthCheck(port int) error {
 	if err != nil {
 		return fmt.Errorf("port %d not listening: %w", port, err)
 	}
-	if err := conn.Close(); err != nil {
-		// Log but don't fail health check on close error
-		log.Printf("Warning: failed to close health check connection: %v", err)
-	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			// Log but don't fail health check on close error
+			log.Printf("Warning: failed to close health check connection: %v", closeErr)
+		}
+	}()
 	return nil
 }
 
@@ -159,8 +161,10 @@ func IsPortListening(port int) bool {
 	if err != nil {
 		return false
 	}
-	if err := conn.Close(); err != nil {
-		log.Printf("Warning: failed to close connection during port check: %v", err)
-	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close connection during port check: %v", closeErr)
+		}
+	}()
 	return true
 }

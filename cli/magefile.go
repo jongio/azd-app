@@ -181,6 +181,62 @@ func TestAll() error {
 	return sh.RunV("go", "test", "-v", "-tags=integration", "./src/...")
 }
 
+// TestVisual runs visual tests for progress bar rendering at multiple terminal widths.
+// Generates an HTML report with screenshots showing terminal output at 50, 80, and 120 characters.
+// Analyzes duplicate progress bar detection to ensure proper terminal width handling.
+func TestVisual() error {
+	fmt.Println("Running visual tests for progress bars...")
+
+	visualTestDir := filepath.Join("tests", "visual-test")
+
+	// Check if visual test exists
+	if _, err := os.Stat(visualTestDir); os.IsNotExist(err) {
+		fmt.Println("⚠️  Visual test directory not found:", visualTestDir)
+		return nil
+	}
+
+	// Build the test binary first (Windows workaround for go run PATH issues)
+	testBinary := filepath.Join(visualTestDir, "visual-test.exe")
+	if runtime.GOOS != "windows" {
+		testBinary = filepath.Join(visualTestDir, "visual-test")
+	}
+
+	buildCmd := exec.Command("go", "build", "-o", testBinary, "main.go")
+	buildCmd.Dir = visualTestDir
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	// Ensure we build for the host platform by explicitly clearing cross-compile vars
+	env := []string{}
+	for _, e := range os.Environ() {
+		// Skip GOOS and GOARCH from parent environment
+		if !strings.HasPrefix(e, "GOOS=") && !strings.HasPrefix(e, "GOARCH=") {
+			env = append(env, e)
+		}
+	}
+	buildCmd.Env = env
+
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build visual test: %w", err)
+	}
+
+	// Run the built binary
+	cmd := exec.Command(testBinary)
+	cmd.Dir = visualTestDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("visual tests failed: %w", err)
+	}
+
+	// Report location
+	reportPath := filepath.Join(visualTestDir, "test-output", "visual-report.html")
+	absReportPath, _ := filepath.Abs(reportPath)
+	fmt.Printf("\n📊 Visual test report: %s\n", absReportPath)
+
+	return nil
+}
+
 // TestCoverage runs tests with coverage report.
 func TestCoverage() error {
 	fmt.Println("Running tests with coverage...")
@@ -217,7 +273,8 @@ func TestCoverage() error {
 	if err != nil {
 		return fmt.Errorf("failed to generate HTML coverage: %w", err)
 	}
-	if err := os.WriteFile(coverageHTML, coverOutput, 0o644); err != nil {
+	// Use restrictive permissions (0600) to protect potentially sensitive coverage data
+	if err := os.WriteFile(coverageHTML, coverOutput, 0o600); err != nil {
 		return fmt.Errorf("failed to write HTML coverage file: %w", err)
 	}
 

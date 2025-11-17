@@ -557,12 +557,14 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 
 	// Upgrade connection to WebSocket
-	conn, err := upgrader.Upgrade(w, r, nil)
+	rawConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade failed: %v", err)
 		return
 	}
-	defer conn.Close()
+	// Wrap connection with mutex for safe concurrent writes
+	conn := &clientConn{conn: rawConn}
+	defer rawConn.Close()
 
 	logManager := service.GetLogManager(s.projectDir)
 
@@ -573,7 +575,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		// Subscribe to specific service
 		buffer, exists := logManager.GetBuffer(serviceName)
 		if !exists {
-			if err := conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)}); err != nil {
+			conn.writeMu.Lock()
+			err := conn.conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)})
+			conn.writeMu.Unlock()
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
 			}
 			return
@@ -611,7 +616,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			select {
 			case entry := <-mergedChan:
-				if err := conn.WriteJSON(entry); err != nil {
+				conn.writeMu.Lock()
+				err := conn.conn.WriteJSON(entry)
+				conn.writeMu.Unlock()
+				if err != nil {
 					log.Printf("WebSocket write error: %v", err)
 					close(done)
 					return

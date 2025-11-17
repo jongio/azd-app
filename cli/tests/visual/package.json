@@ -1,0 +1,19 @@
+{
+  "name": "azd-visual-tests",
+  "version": "1.0.0",
+  "description": "Visual testing for azd progress bars with screenshot capture",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "show-report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "ansi-to-html": "^0.7.2",
+    "strip-ansi": "^7.1.0"
+  },
+  "dependencies": {}
+}

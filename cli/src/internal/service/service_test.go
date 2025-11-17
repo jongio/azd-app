@@ -260,8 +260,14 @@ func TestFilterServices_EmptyFilter(t *testing.T) {
 
 func TestFilterServices_NilYaml(t *testing.T) {
 	// FilterServices should handle nil yaml without panicking
-	// But based on the panic, it seems this is a bug - we should skip this test
-	t.Skip("FilterServices doesn't handle nil yaml - actual bug in implementation")
+	// This was a bug that caused panics - now fixed with nil check
+	result := service.FilterServices(nil, []string{"test"})
+	if result == nil {
+		t.Error("Expected non-nil map, got nil")
+	}
+	if len(result) != 0 {
+		t.Errorf("Expected empty map for nil yaml, got %d services", len(result))
+	}
 }
 
 func TestBuildDependencyGraph_ComplexDependencies(t *testing.T) {

@@ -13,6 +13,9 @@ import (
 
 var (
 	depsVerbose bool
+	depsClean   bool
+	depsNoCache bool
+	depsForce   bool
 )
 
 // NewDepsCommand creates the deps command.
@@ -35,12 +38,25 @@ func NewDepsCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle --force flag (combines --clean and --no-cache)
+			if depsForce {
+				depsClean = true
+				depsNoCache = true
+			}
+
+			// Configure cache based on flag
+			if depsNoCache {
+				SetCacheEnabled(false)
+			}
 			// Use orchestrator to run deps (which will automatically run reqs first)
 			return cmdOrchestrator.Run("deps")
 		},
 	}
 
 	cmd.Flags().BoolVarP(&depsVerbose, "verbose", "v", false, "Show full installation output")
+	cmd.Flags().BoolVar(&depsClean, "clean", false, "Remove existing dependencies before installing (clears node_modules, .venv, etc.)")
+	cmd.Flags().BoolVar(&depsNoCache, "no-cache", false, "Force fresh dependency installation and bypass cached results")
+	cmd.Flags().BoolVarP(&depsForce, "force", "f", false, "Force clean reinstall (combines --clean and --no-cache)")
 
 	return cmd
 }
