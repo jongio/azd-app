@@ -1,3 +1,8 @@
+## [0.5.11] - 2025-11-17
+
+- Add visual testing framework and refactor progress bar analysis (#63) (ca3f5bc)
+- chore: update registry for v0.5.10 (641db6d)
+
 ## [0.5.10] - 2025-11-14
 
 - fix: add retry logic for enabling auto-merge in release workflow (9c48f56)
