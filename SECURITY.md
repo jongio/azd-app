@@ -58,8 +58,6 @@ azd-app implements several security measures:
 - **Timeout Protection**: Commands have timeouts to prevent hung processes
 - **Error Handling**: Comprehensive error handling with proper cleanup
 
-For more details, see [docs/dev/security-status.md](cli/docs/dev/security-status.md).
-
 ## Security Scanning
 
 We use the following tools to maintain security:

@@ -217,7 +217,7 @@ reqs:
 ✅ All requirements are satisfied!
 ```
 
-See [docs/reqs-command.md](docs/reqs-command.md) for detailed documentation.
+See [docs/commands/reqs.md](docs/commands/reqs.md) for detailed documentation.
 
 ### `azd app deps`
 
@@ -504,8 +504,8 @@ The dashboard build is automatically included in:
 - CI/CD workflows - Dashboard is built and validated in all pipelines
 
 **Learn more about Mage:**
-- [Mage Build Tool Guide](docs/mage-build-tool.md) - Complete guide to using Mage in this project
-- [Integration Tests](docs/integration-tests.md) - Running and writing integration tests
+- [Mage Documentation](https://magefile.org/) - Official Mage documentation
+- [Integration Tests](docs/dev/integration-tests.md) - Running and writing integration tests
 
 ### Adding New Commands
 
@@ -563,8 +563,7 @@ See [LICENSE](LICENSE) for details.
 ### Documentation
 
 - **[CLI Reference](docs/cli-reference.md)**: Complete command reference with all flags and options
-- **[Release Process](docs/release-process.md)**: Guide for publishing new versions
-- **[Quick Release](docs/release-quick.md)**: Quick reference for releases
+- **[Release Process](docs/dev/release.md)**: Guide for publishing new versions
 - **[Development Guides](docs/dev/)**: Internal development documentation
 
 ### External Resources

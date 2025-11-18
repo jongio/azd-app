@@ -140,10 +140,10 @@ Or use the curl one-liner which doesn't require local file permissions.
 
 ## Manual Installation
 
-If you prefer not to use scripts, see [testing-pr-builds.md](../cli/docs/dev/testing-pr-builds.md) for manual installation instructions.
+If you prefer not to use scripts, see [testing-pr-builds.md](../docs/dev/testing-pr-builds.md) for manual installation instructions.
 
 ## Documentation
 
-- [Testing PR Builds Guide](../cli/docs/dev/testing-pr-builds.md)
-- [PR Build Quick Reference](../cli/docs/dev/pr-build-quick-ref.md)
-- [PR Install Scripts Overview](../cli/docs/dev/pr-install-scripts.md)
+- [Testing PR Builds Guide](../docs/dev/testing-pr-builds.md)
+- [PR Build Quick Reference](../docs/dev/pr-build-quick-ref.md)
+- [PR Install Scripts Overview](../docs/dev/pr-install-scripts.md)
