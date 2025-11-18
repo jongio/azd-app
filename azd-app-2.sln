@@ -1,0 +1,38 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "cli", "cli", "{342A349A-D343-8551-4064-2E2800C39E13}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EE511CEF-3381-3748-4108-0DAB842F5770}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "projects", "projects", "{AB86BDC6-3069-EF89-4C31-B880F45FD89E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "aspire-test", "aspire-test", "{E38D2F3E-6E11-A365-B850-B2DB98DAD108}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestAppHost", "cli\tests\projects\aspire-test\TestAppHost\TestAppHost.csproj", "{2266D51C-316F-F61D-7F45-B6CE9FE8DA6E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2266D51C-316F-F61D-7F45-B6CE9FE8DA6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2266D51C-316F-F61D-7F45-B6CE9FE8DA6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2266D51C-316F-F61D-7F45-B6CE9FE8DA6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2266D51C-316F-F61D-7F45-B6CE9FE8DA6E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EE511CEF-3381-3748-4108-0DAB842F5770} = {342A349A-D343-8551-4064-2E2800C39E13}
+		{AB86BDC6-3069-EF89-4C31-B880F45FD89E} = {EE511CEF-3381-3748-4108-0DAB842F5770}
+		{E38D2F3E-6E11-A365-B850-B2DB98DAD108} = {AB86BDC6-3069-EF89-4C31-B880F45FD89E}
+		{2266D51C-316F-F61D-7F45-B6CE9FE8DA6E} = {E38D2F3E-6E11-A365-B850-B2DB98DAD108}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FDEA9A33-A221-4FAD-966F-B73B8C657EB5}
+	EndGlobalSection
+EndGlobal
