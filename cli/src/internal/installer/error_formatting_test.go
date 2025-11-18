@@ -73,7 +73,7 @@ func TestFormatNodeInstallError(t *testing.T) {
 			// Create a mock command that will fail
 			cmd := exec.Command("nonexistent-command-xyz-123")
 			cmd.Args = []string{tt.packageManager, "install"}
-			
+
 			// Create a mock error - we can't create ExitError directly,
 			// so we use a generic error and rely on the function handling both types
 			cmdErr := fmt.Errorf("exit status %d", tt.exitCode)
@@ -131,7 +131,7 @@ func TestFormatPythonInstallError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := exec.Command("nonexistent-command-xyz-123")
 			cmd.Args = []string{tt.tool}
-			
+
 			cmdErr := fmt.Errorf("exit status %d", tt.exitCode)
 
 			err := formatPythonInstallError(tt.tool, tt.projectDir, cmd, cmdErr, tt.stderr)
@@ -182,7 +182,7 @@ Success!`,
 			want:   "",
 		},
 		{
-			name: "truncate_very_long_stderr",
+			name:   "truncate_very_long_stderr",
 			stderr: strings.Repeat("Error: some error message\n", 1000),
 			tool:   "npm",
 			want:   "", // Will be truncated during extraction

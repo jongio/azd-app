@@ -342,11 +342,11 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		cmd := exec.Command("python", "-m", "venv", ".venv")
 		cmd.Dir = projectDir
 		cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
-		
+
 		var stderrBuf bytes.Buffer
 		cmd.Stderr = &stderrBuf
 		cmd.Stdout = io.Discard
-		
+
 		if err := cmd.Run(); err != nil {
 			return formatPythonInstallError("python -m venv", projectDir, cmd, err, stderrBuf.String())
 		}
