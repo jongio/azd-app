@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/jongio/azd-app/schemas/v1.1/azure.yaml.json",
+  "$id": "https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.0/azure.yaml.json",
   "title": "Azure Developer CLI (azd app) Configuration",
   "description": "Schema for azure.yaml configuration file used by azd app for local development orchestration",
   "type": "object",

@@ -128,6 +128,11 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
+	// Execute prerun hook before starting services
+	if err := executePrerunHook(azureYaml, azureYamlDir); err != nil {
+		return err
+	}
+
 	// Check if there are services defined
 	if !service.HasServices(azureYaml) {
 		return showNoServicesMessage()
@@ -150,7 +155,7 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Execute and monitor services
-	return executeAndMonitorServices(runtimes, cwd)
+	return executeAndMonitorServices(runtimes, cwd, azureYaml, azureYamlDir)
 }
 
 // showNoServicesMessage displays a message when no services are defined.
@@ -202,7 +207,7 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 }
 
 // executeAndMonitorServices starts services and monitors them until interrupted.
-func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) error {
+func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
 	// Create logger
 	logger := service.NewServiceLogger(runVerbose)
 	logger.LogStartup(len(runtimes))
@@ -226,6 +231,11 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 	}
 
 	logger.LogReady()
+
+	// Execute postrun hook after all services are ready
+	if err := executePostrunHook(azureYaml, azureYamlDir); err != nil {
+		output.Warning("Postrun hook failed but services are running: %v", err)
+	}
 
 	// Start dashboard and wait for shutdown
 	return monitorServicesUntilShutdown(result, cwd)
@@ -473,4 +483,64 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 	}
 
 	return nil
+}
+
+// executePrerunHook executes the prerun hook if configured.
+func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
+	if azureYaml.Hooks == nil || azureYaml.Hooks.Prerun == nil {
+		return nil // No prerun hook configured
+	}
+
+	// Convert service.Hook to executor.Hook
+	hook := convertHook(azureYaml.Hooks.Prerun)
+	config := executor.ResolveHookConfig(hook)
+	if config == nil {
+		return nil
+	}
+
+	return executor.ExecuteHook(context.Background(), "prerun", *config, workingDir)
+}
+
+// executePostrunHook executes the postrun hook if configured.
+func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
+	if azureYaml.Hooks == nil || azureYaml.Hooks.Postrun == nil {
+		return nil // No postrun hook configured
+	}
+
+	// Convert service.Hook to executor.Hook
+	hook := convertHook(azureYaml.Hooks.Postrun)
+	config := executor.ResolveHookConfig(hook)
+	if config == nil {
+		return nil
+	}
+
+	return executor.ExecuteHook(context.Background(), "postrun", *config, workingDir)
+}
+
+// convertHook converts service.Hook to executor.Hook to avoid circular imports.
+func convertHook(h *service.Hook) *executor.Hook {
+	if h == nil {
+		return nil
+	}
+	return &executor.Hook{
+		Run:             h.Run,
+		Shell:           h.Shell,
+		ContinueOnError: h.ContinueOnError,
+		Interactive:     h.Interactive,
+		Windows:         convertPlatformHook(h.Windows),
+		Posix:           convertPlatformHook(h.Posix),
+	}
+}
+
+// convertPlatformHook converts service.PlatformHook to executor.PlatformHook.
+func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
+	if ph == nil {
+		return nil
+	}
+	return &executor.PlatformHook{
+		Run:             ph.Run,
+		Shell:           ph.Shell,
+		ContinueOnError: ph.ContinueOnError,
+		Interactive:     ph.Interactive,
+	}
 }
