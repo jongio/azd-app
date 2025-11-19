@@ -14,10 +14,10 @@ import (
 
 // FunctionEndpoint represents a discovered function endpoint.
 type FunctionEndpoint struct {
-	Name       string
+	Name        string
 	TriggerType string
-	Methods    []string
-	Route      string
+	Methods     []string
+	Route       string
 }
 
 // FunctionsOutputParser parses Azure Functions Core Tools output to extract endpoints.
@@ -39,13 +39,13 @@ func NewFunctionsOutputParser(verbose bool) *FunctionsOutputParser {
 var (
 	// HTTP trigger patterns from func start output
 	httpTriggerPattern = regexp.MustCompile(`^\s*(\w+):\s+\[(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|.*?)\]\s+http://[^/]+/(.*)$`)
-	
+
 	// Alternative pattern for simpler output
 	simpleHttpPattern = regexp.MustCompile(`^\s*(\w+):\s+http://[^/]+/(.*)$`)
-	
+
 	// Non-HTTP trigger patterns
-	timerTriggerPattern     = regexp.MustCompile(`^\s*(\w+):\s+\[timerTrigger\]`)
-	queueTriggerPattern     = regexp.MustCompile(`^\s*(\w+):\s+\[queueTrigger\]`)
+	timerTriggerPattern      = regexp.MustCompile(`^\s*(\w+):\s+\[timerTrigger\]`)
+	queueTriggerPattern      = regexp.MustCompile(`^\s*(\w+):\s+\[queueTrigger\]`)
 	serviceBusTriggerPattern = regexp.MustCompile(`^\s*(\w+):\s+\[serviceBusTrigger\]`)
 )
 
@@ -138,7 +138,7 @@ func (p *FunctionsOutputParser) addEndpoint(serviceName string, endpoint Functio
 func (p *FunctionsOutputParser) GetEndpoints(serviceName string) []FunctionEndpoint {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	return p.endpoints[serviceName]
 }
 
@@ -146,7 +146,7 @@ func (p *FunctionsOutputParser) GetEndpoints(serviceName string) []FunctionEndpo
 func (p *FunctionsOutputParser) HasEndpoints(serviceName string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	return len(p.endpoints[serviceName]) > 0
 }
 
@@ -164,7 +164,7 @@ func (p *FunctionsOutputParser) DisplayEndpoints(serviceName string, port int) {
 
 	fmt.Printf("\n")
 	output.Item("%sFunctions:%s", output.Cyan, output.Reset)
-	
+
 	for _, endpoint := range endpoints {
 		switch endpoint.TriggerType {
 		case "HTTP":
@@ -174,25 +174,24 @@ func (p *FunctionsOutputParser) DisplayEndpoints(serviceName string, port int) {
 				output.Green, endpoint.Name, output.Reset,
 				output.Yellow, methods, output.Reset,
 				output.Blue, url, output.Reset)
-			
 
 		case "Timer":
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] (triggered on schedule)\n",
 				output.Green, endpoint.Name, output.Reset,
 				output.Yellow, "Timer", output.Reset)
-			
+
 		case "Queue":
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] (triggered by queue messages)\n",
 				output.Green, endpoint.Name, output.Reset,
 				output.Yellow, "Queue", output.Reset)
-			
+
 		case "ServiceBus":
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] (triggered by Service Bus)\n",
 				output.Green, endpoint.Name, output.Reset,
 				output.Yellow, "ServiceBus", output.Reset)
 		}
 	}
-	
+
 	fmt.Printf("\n")
 }
 

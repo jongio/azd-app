@@ -291,10 +291,10 @@ func TestFindNodeProjects_YarnWorkspaces(t *testing.T) {
 
 func TestHasNpmWorkspaces_PnpmWorkspaceYaml(t *testing.T) {
 	tests := []struct {
-		name            string
+		name              string
 		pnpmWorkspaceYAML string
-		packageJSON     string
-		expectedResult  bool
+		packageJSON       string
+		expectedResult    bool
 	}{
 		{
 			name: "pnpm-workspace.yaml exists",

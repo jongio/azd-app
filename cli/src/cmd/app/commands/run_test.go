@@ -888,4 +888,3 @@ func TestProcessExit_DoesNotStopOtherServices(t *testing.T) {
 		t.Log("   (This is expected - monitoring waits for Ctrl+C, not for processes to finish)")
 	}
 }
-

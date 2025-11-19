@@ -20,14 +20,14 @@ func writeJSON(w http.ResponseWriter, data interface{}) error {
 func writeJSONError(w http.ResponseWriter, statusCode int, message string, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	response := map[string]string{
 		"error": message,
 	}
 	if err != nil {
 		response["details"] = err.Error()
 	}
-	
+
 	_ = json.NewEncoder(w).Encode(response)
 }
 
@@ -35,7 +35,7 @@ func writeJSONError(w http.ResponseWriter, statusCode int, message string, err e
 func (c *clientConn) writeWebSocketJSON(data interface{}) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
-	
+
 	if err := c.conn.WriteJSON(data); err != nil {
 		return fmt.Errorf("failed to write to WebSocket: %w", err)
 	}

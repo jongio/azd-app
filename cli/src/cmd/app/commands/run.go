@@ -232,7 +232,7 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 	if result.FunctionsParser != nil {
 		// Give functions a moment to finish startup logging
 		time.Sleep(2 * time.Second)
-		
+
 		for name, process := range result.Processes {
 			if result.FunctionsParser.HasEndpoints(name) {
 				result.FunctionsParser.DisplayEndpoints(name, process.Port)

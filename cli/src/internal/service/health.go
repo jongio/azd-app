@@ -22,9 +22,9 @@ const (
 	PortCheckMaxInterval     = 2 * time.Second
 
 	// HTTP client settings
-	HTTPClientTimeout     = 5 * time.Second
-	ConnectionTimeout     = 2 * time.Second
-	PortCheckTimeout      = 1 * time.Second
+	HTTPClientTimeout = 5 * time.Second
+	ConnectionTimeout = 2 * time.Second
+	PortCheckTimeout  = 1 * time.Second
 )
 
 // PerformHealthCheck verifies that a service is ready with exponential backoff.

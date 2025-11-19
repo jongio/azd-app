@@ -663,7 +663,7 @@ func (pm *PortManager) verifyPortCleanup(port int) bool {
 			slog.Debug("retrying port cleanup verification", "port", port, "attempt", attempt+1)
 			time.Sleep(portCleanupRetryWait)
 		}
-		
+
 		if pm.isPortAvailable(port) {
 			if attempt > 0 {
 				slog.Debug("port became available after retry", "port", port, "attempts", attempt+1)
@@ -671,7 +671,7 @@ func (pm *PortManager) verifyPortCleanup(port int) bool {
 			return true
 		}
 	}
-	
+
 	slog.Debug("port still in use after all retry attempts", "port", port, "attempts", portCleanupRetries)
 	return false
 }
@@ -862,17 +862,17 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 
 	// Wait a moment for process to die
 	time.Sleep(processCleanupWait)
-	
+
 	// Verify the process was actually killed
 	// This is critical for protected/system processes that cannot be terminated
 	if stillRunningPid, err := pm.getProcessOnPort(port); err == nil && stillRunningPid == pid {
 		processName, _ := pm.getProcessName(pid)
-		slog.Warn("process could not be terminated - likely a protected system process", 
+		slog.Warn("process could not be terminated - likely a protected system process",
 			"port", port, "pid", pid, "name", processName)
-		return fmt.Errorf("process %d (%s) could not be terminated - it may be a protected system process or require administrator privileges", 
+		return fmt.Errorf("process %d (%s) could not be terminated - it may be a protected system process or require administrator privileges",
 			pid, processName)
 	}
-	
+
 	return nil
 }
 

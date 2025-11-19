@@ -606,7 +606,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	mergedChan := make(chan service.LogEntry, 100)
 	stopMerge := make(chan struct{})
 	var wg sync.WaitGroup
-	
+
 	for _, ch := range subscriptions {
 		wg.Add(1)
 		go func(ch chan service.LogEntry) {
@@ -628,7 +628,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 			}
 		}(ch)
 	}
-	
+
 	// Close merged channel when all goroutines finish
 	go func() {
 		wg.Wait()

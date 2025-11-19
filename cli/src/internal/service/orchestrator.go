@@ -16,11 +16,11 @@ import (
 
 // OrchestrationResult contains the results of service orchestration.
 type OrchestrationResult struct {
-	Processes        map[string]*ServiceProcess
-	Errors           map[string]error
-	StartTime        time.Time
-	ReadyTime        time.Time
-	FunctionsParser  *FunctionsOutputParser // Parser for Functions endpoints
+	Processes       map[string]*ServiceProcess
+	Errors          map[string]error
+	StartTime       time.Time
+	ReadyTime       time.Time
+	FunctionsParser *FunctionsOutputParser // Parser for Functions endpoints
 }
 
 // OrchestrateServices starts services in dependency order with parallel execution.

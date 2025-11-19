@@ -243,8 +243,8 @@ func StartLogCollection(process *ServiceProcess, projectDir string, parser *Func
 	}
 
 	// Check if this is a Functions service
-	isFunctionsService := strings.Contains(process.Runtime.Framework, "Functions") || 
-						   strings.Contains(process.Runtime.Framework, "Logic Apps")
+	isFunctionsService := strings.Contains(process.Runtime.Framework, "Functions") ||
+		strings.Contains(process.Runtime.Framework, "Logic Apps")
 
 	// Start goroutines to collect stdout and stderr
 	if isFunctionsService && parser != nil {
@@ -276,7 +276,7 @@ func collectFunctionsStreamLogs(reader io.ReadCloser, serviceName string, buffer
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Add to log buffer
 		entry := LogEntry{
 			Service:   serviceName,
@@ -286,7 +286,7 @@ func collectFunctionsStreamLogs(reader io.ReadCloser, serviceName string, buffer
 			Level:     inferLogLevel(line),
 		}
 		buffer.Add(entry)
-		
+
 		// Also parse for function endpoints
 		parser.ParseLine(serviceName, line)
 	}

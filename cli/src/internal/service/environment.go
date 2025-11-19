@@ -67,8 +67,8 @@ func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath 
 // Also injects azd env values for Logic Apps connection configuration.
 func InjectFunctionsWorkerRuntime(env map[string]string, runtime *ServiceRuntime) map[string]string {
 	// Only inject for Logic Apps Standard and Azure Functions
-	isFunctions := strings.Contains(runtime.Framework, "Logic Apps") || 
-				   strings.Contains(runtime.Framework, "Functions")
+	isFunctions := strings.Contains(runtime.Framework, "Logic Apps") ||
+		strings.Contains(runtime.Framework, "Functions")
 
 	if !isFunctions {
 		return env
@@ -119,7 +119,6 @@ func loadLocalSettings(path string) map[string]string {
 
 	return config.Values
 }
-
 
 // GenerateServiceURLs creates auto-generated environment variables for service URLs.
 func GenerateServiceURLs(processes map[string]*ServiceProcess) map[string]string {
