@@ -34,8 +34,16 @@ const (
 	killProcessTimeout = 5 * time.Second
 
 	// processCleanupWait gives the OS time to release port resources after kill.
-	// 500ms accounts for TIME_WAIT state and process cleanup on most systems.
-	processCleanupWait = 500 * time.Millisecond
+	// 1 second initial wait + retries accounts for TIME_WAIT state and process cleanup,
+	// especially for Windows system processes that may take longer to release ports.
+	processCleanupWait = 1 * time.Second
+
+	// portCleanupRetries is the number of retry attempts when verifying port cleanup.
+	// Each retry waits an additional 500ms, giving up to 3 seconds total for cleanup.
+	portCleanupRetries = 4
+
+	// portCleanupRetryWait is the additional wait time between retry attempts.
+	portCleanupRetryWait = 500 * time.Millisecond
 
 	// Cache limits
 	// maxCacheSize prevents unbounded memory growth in long-running processes.
@@ -313,8 +321,8 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
 			}
 
-			// Verify port is now available
-			if !pm.isPortAvailable(preferredPort) {
+			// Verify port is now available with retries
+			if !pm.verifyPortCleanup(preferredPort) {
 				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
 			}
 
@@ -420,11 +428,15 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		case "1":
 			// Kill process
 			if err := pm.killProcessOnPort(assignedPort); err != nil {
+				fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
+				fmt.Fprintf(os.Stderr, "\nTip: Choose option 2 to find a different available port\n\n")
 				return 0, false, fmt.Errorf("failed to free port %d: %w", assignedPort, err)
 			}
 
-			// Verify port is now available
-			if !pm.isPortAvailable(assignedPort) {
+			// Verify port is now available with retries
+			if !pm.verifyPortCleanup(assignedPort) {
+				fmt.Fprintf(os.Stderr, "\n⚠️  Port %d is still in use after cleanup\n", assignedPort)
+				fmt.Fprintf(os.Stderr, "Tip: Choose option 2 to find a different available port\n\n")
 				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", assignedPort)
 			}
 
@@ -512,11 +524,15 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		case "1":
 			// Kill process
 			if err := pm.killProcessOnPort(preferredPort); err != nil {
+				fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
+				fmt.Fprintf(os.Stderr, "\nTip: Choose option 2 to use a different port automatically\n\n")
 				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
 			}
 
-			// Verify port is now available
-			if !pm.isPortAvailable(preferredPort) {
+			// Verify port is now available with retries
+			if !pm.verifyPortCleanup(preferredPort) {
+				fmt.Fprintf(os.Stderr, "\n⚠️  Port %d is still in use after cleanup\n", preferredPort)
+				fmt.Fprintf(os.Stderr, "Tip: Choose option 2 to use a different port automatically\n\n")
 				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
 			}
 
@@ -637,6 +653,27 @@ func (pm *PortManager) defaultIsPortAvailable(port int) bool {
 	}
 	slog.Debug("port is available", "port", port)
 	return true
+}
+
+// verifyPortCleanup verifies that a port is available after cleanup, with retries.
+// This is necessary on Windows where port release can take longer, especially for system processes.
+func (pm *PortManager) verifyPortCleanup(port int) bool {
+	for attempt := 0; attempt < portCleanupRetries; attempt++ {
+		if attempt > 0 {
+			slog.Debug("retrying port cleanup verification", "port", port, "attempt", attempt+1)
+			time.Sleep(portCleanupRetryWait)
+		}
+		
+		if pm.isPortAvailable(port) {
+			if attempt > 0 {
+				slog.Debug("port became available after retry", "port", port, "attempts", attempt+1)
+			}
+			return true
+		}
+	}
+	
+	slog.Debug("port still in use after all retry attempts", "port", port, "attempts", portCleanupRetries)
+	return false
 }
 
 // findAvailablePort finds an available port in the port range.
@@ -821,11 +858,21 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	if err := executor.RunCommand(ctx, cmd[0], args[1:], "."); err != nil {
 		// Log error but don't fail - process might have already exited
 		slog.Debug("kill command completed with error", "pid", pid, "error", err)
-		return nil
 	}
 
 	// Wait a moment for process to die
 	time.Sleep(processCleanupWait)
+	
+	// Verify the process was actually killed
+	// This is critical for protected/system processes that cannot be terminated
+	if stillRunningPid, err := pm.getProcessOnPort(port); err == nil && stillRunningPid == pid {
+		processName, _ := pm.getProcessName(pid)
+		slog.Warn("process could not be terminated - likely a protected system process", 
+			"port", port, "pid", pid, "name", processName)
+		return fmt.Errorf("process %d (%s) could not be terminated - it may be a protected system process or require administrator privileges", 
+			pid, processName)
+	}
+	
 	return nil
 }
 

@@ -168,8 +168,9 @@ func NewReqsCommand() *cobra.Command {
 	var fixMode bool
 
 	cmd := &cobra.Command{
-		Use:   "reqs",
-		Short: "Check for required reqs",
+		Use:          "reqs",
+		Short:        "Check for required reqs",
+		SilenceUsage: true,
 		Long: `The reqs command verifies that all required reqs defined in azure.yaml
 are installed and meet the minimum version reqs.
 
