@@ -149,6 +149,7 @@ func DetectPythonPackageManagerWithSource(projectDir string) PackageManagerInfo 
 
 // FindNodeProjects searches for package.json files.
 // Only searches within rootDir and does not traverse outside it.
+// Detects npm/yarn/pnpm workspace configurations and marks workspace relationships.
 func FindNodeProjects(rootDir string) ([]types.NodeProject, error) {
 	var nodeProjects []types.NodeProject
 	seen := make(map[string]bool)
@@ -159,6 +160,10 @@ func FindNodeProjects(rootDir string) ([]types.NodeProject, error) {
 		return nodeProjects, err
 	}
 
+	// Track workspace root directories
+	workspaceRoots := make(map[string]bool)
+
+	// First pass: find all package.json files and identify workspace roots
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -195,15 +200,40 @@ func FindNodeProjects(rootDir string) ([]types.NodeProject, error) {
 			}
 
 			packageManager := DetectNodePackageManagerWithBoundary(dir, rootDir)
+			isWorkspaceRoot := HasNpmWorkspaces(dir)
+
 			nodeProjects = append(nodeProjects, types.NodeProject{
-				Dir:            dir,
-				PackageManager: packageManager,
+				Dir:             dir,
+				PackageManager:  packageManager,
+				IsWorkspaceRoot: isWorkspaceRoot,
 			})
 			seen[dir] = true
+
+			// Track workspace roots
+			if isWorkspaceRoot {
+				workspaceRoots[dir] = true
+			}
 		}
 
 		return nil
 	})
+
+	// Second pass: identify workspace children and link them to their workspace root
+	for i := range nodeProjects {
+		if !nodeProjects[i].IsWorkspaceRoot {
+			// Check if this project is within a workspace root
+			projectDir := nodeProjects[i].Dir
+			for workspaceRoot := range workspaceRoots {
+				// Check if projectDir is within workspaceRoot
+				relPath, err := filepath.Rel(workspaceRoot, projectDir)
+				if err == nil && !strings.HasPrefix(relPath, "..") && relPath != "." {
+					// This project is a child of the workspace
+					nodeProjects[i].WorkspaceRoot = workspaceRoot
+					break
+				}
+			}
+		}
+	}
 
 	return nodeProjects, err
 }
@@ -276,15 +306,15 @@ func DetectNodePackageManagerWithBoundaryAndSource(projectDir string, boundaryDi
 // The packageManager field format is: "name@version" (e.g., "pnpm@8.15.0", "yarn@4.1.0", "npm@10.5.0")
 // Returns the package manager name (without version) if found, empty string otherwise.
 func GetPackageManagerFromPackageJSON(projectDir string) string {
-	packageJsonPath := filepath.Join(projectDir, "package.json")
+	packageJSONPath := filepath.Join(projectDir, "package.json")
 
 	// Validate path before reading
-	if err := security.ValidatePath(packageJsonPath); err != nil {
+	if err := security.ValidatePath(packageJSONPath); err != nil {
 		return ""
 	}
 
 	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(packageJsonPath)
+	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return ""
 	}
@@ -714,16 +744,65 @@ func HasPackageJson(dir string) bool {
 	return err == nil
 }
 
+// HasNpmWorkspaces checks if package.json defines npm/yarn/pnpm workspaces.
+// Returns true if the workspaces field is present and not empty, or if pnpm-workspace.yaml exists.
+func HasNpmWorkspaces(dir string) bool {
+	// Check for pnpm-workspace.yaml first (pnpm-specific workspace configuration)
+	pnpmWorkspacePath := filepath.Join(dir, "pnpm-workspace.yaml")
+	if err := security.ValidatePath(pnpmWorkspacePath); err == nil {
+		if _, err := os.Stat(pnpmWorkspacePath); err == nil {
+			return true
+		}
+	}
+
+	packageJSONPath := filepath.Join(dir, "package.json")
+	// Validate path before reading
+	if err := security.ValidatePath(packageJSONPath); err != nil {
+		return false
+	}
+	// #nosec G304 -- Path validated by security.ValidatePath
+	data, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		return false
+	}
+
+	var pkg struct {
+		Workspaces interface{} `json:"workspaces"`
+	}
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return false
+	}
+
+	// Check if workspaces field exists and is not empty
+	if pkg.Workspaces == nil {
+		return false
+	}
+
+	// workspaces can be either an array or an object with packages field
+	switch v := pkg.Workspaces.(type) {
+	case []interface{}:
+		return len(v) > 0
+	case map[string]interface{}:
+		if packages, ok := v["packages"].([]interface{}); ok {
+			return len(packages) > 0
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 // DetectPnpmScript checks for dev or start scripts in package.json.
 // Returns the script name ("dev" or "start") if found, empty string otherwise.
 func DetectPnpmScript(dir string) string {
-	packageJsonPath := filepath.Join(dir, "package.json")
+	packageJSONPath := filepath.Join(dir, "package.json")
 	// Validate path before reading
-	if err := security.ValidatePath(packageJsonPath); err != nil {
+	if err := security.ValidatePath(packageJSONPath); err != nil {
 		return ""
 	}
 	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(packageJsonPath)
+	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return ""
 	}
@@ -749,13 +828,13 @@ func DetectPnpmScript(dir string) string {
 
 // HasDockerComposeScript checks if package.json has docker compose command.
 func HasDockerComposeScript(dir string) bool {
-	packageJsonPath := filepath.Join(dir, "package.json")
+	packageJSONPath := filepath.Join(dir, "package.json")
 	// Validate path before reading
-	if err := security.ValidatePath(packageJsonPath); err != nil {
+	if err := security.ValidatePath(packageJSONPath); err != nil {
 		return false
 	}
 	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(packageJsonPath)
+	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return false
 	}
@@ -780,13 +859,13 @@ func HasDockerComposeScript(dir string) bool {
 
 // FindDockerComposeScript finds the script name containing docker compose.
 func FindDockerComposeScript(dir string) string {
-	packageJsonPath := filepath.Join(dir, "package.json")
+	packageJSONPath := filepath.Join(dir, "package.json")
 	// Validate path before reading
-	if err := security.ValidatePath(packageJsonPath); err != nil {
+	if err := security.ValidatePath(packageJSONPath); err != nil {
 		return ""
 	}
 	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(packageJsonPath)
+	data, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return ""
 	}

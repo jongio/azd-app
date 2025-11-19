@@ -1,4 +1,3 @@
-// Package installer handles dependency installation for various package managers.
 package installer
 
 import (
@@ -10,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
@@ -60,8 +60,16 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	switch project.PackageManager {
 	case "npm":
 		args = []string{"install", "--no-audit", "--no-fund", "--prefer-offline"}
+		// If this is a workspace root, use --workspaces flag to install all workspace packages
+		if project.IsWorkspaceRoot {
+			args = append(args, "--workspaces")
+		}
 	case "pnpm":
 		args = []string{"install", "--prefer-offline"}
+		// If this is a workspace root, use --recursive flag to install all workspace packages
+		if project.IsWorkspaceRoot {
+			args = append(args, "--recursive")
+		}
 	case "yarn":
 		args = []string{"install", "--non-interactive", "--prefer-offline"}
 	default:
@@ -103,7 +111,9 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 		cmd.Env = append(cmd.Env, "NPM_CONFIG_PROGRESS=true", "NPM_CONFIG_LOGLEVEL=verbose")
 	}
 
-	if err := cmd.Run(); err != nil {
+	// Run with retry logic for Windows file locking errors
+	err := runWithRetry(cmd, &stderrBuf, 3)
+	if err != nil {
 		return formatNodeInstallError(project.PackageManager, project.Dir, cmd, err, stderrBuf.String())
 	}
 
@@ -752,4 +762,61 @@ func getPythonSuggestion(tool string, exitCode int, stderr string) string {
 	}
 
 	return ""
+}
+
+// runWithRetry executes a command with retry logic for Windows file locking errors.
+// This is a safety net for race conditions in npm workspaces on Windows where
+// concurrent npm processes may compete for the same files.
+func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error {
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Run the command
+		err := cmd.Run()
+
+		// If successful, return
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+
+		// Check if this is a file locking error that we should retry
+		stderr := stderrBuf.String()
+		if isFileLockingError(stderr) && attempt < maxRetries {
+			// Calculate exponential backoff delay
+			delay := time.Duration(1<<uint(attempt-1)) * time.Second
+			if !output.IsJSON() {
+				output.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
+			}
+			time.Sleep(delay)
+
+			// Reset stderr buffer for next attempt
+			stderrBuf.Reset()
+
+			// Recreate the command for the next attempt (exec.Cmd can only be run once)
+			newCmd := exec.Command(cmd.Path, cmd.Args[1:]...)
+			newCmd.Dir = cmd.Dir
+			newCmd.Env = cmd.Env
+			newCmd.Stdout = cmd.Stdout
+			newCmd.Stderr = io.MultiWriter(cmd.Stderr, stderrBuf)
+			newCmd.Stdin = cmd.Stdin
+			cmd = newCmd
+			continue
+		}
+
+		// Not a file locking error or max retries reached
+		return err
+	}
+
+	return lastErr
+}
+
+// isFileLockingError checks if the error message indicates a Windows file locking issue.
+// Common errors include EBUSY (file busy) and ENOTEMPTY (directory not empty).
+func isFileLockingError(stderr string) bool {
+	lowerStderr := strings.ToLower(stderr)
+	return strings.Contains(lowerStderr, "ebusy") ||
+		strings.Contains(lowerStderr, "enotempty") ||
+		strings.Contains(lowerStderr, "eperm") && runtime.GOOS == "windows"
 }

@@ -9,8 +9,10 @@ type PythonProject struct {
 
 // NodeProject represents a detected Node.js project.
 type NodeProject struct {
-	Dir            string
-	PackageManager string // "npm", "pnpm", or "yarn"
+	Dir             string
+	PackageManager  string // "npm", "pnpm", or "yarn"
+	IsWorkspaceRoot bool   // True if this project defines npm/yarn/pnpm workspaces
+	WorkspaceRoot   string // Path to the workspace root if this is a workspace child
 }
 
 // DotnetProject represents a detected .NET project.

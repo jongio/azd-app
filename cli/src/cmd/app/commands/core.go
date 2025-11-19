@@ -17,6 +17,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-app/cli/src/internal/workspace"
 
 	"gopkg.in/yaml.v3"
 )
@@ -448,8 +449,13 @@ func executeDeps() error {
 		parallelInstaller := installer.NewParallelInstaller()
 		parallelInstaller.Verbose = depsVerbose
 
-		// Add all projects to the parallel installer
-		for _, project := range nodeProjects {
+		// Handle npm/yarn/pnpm workspace scenarios using workspace handler
+		// When a workspace root exists, only install at the root level to avoid race conditions
+		// on Windows where parallel npm installs compete for the same node_modules directory
+		workspaceHandler := workspace.NewHandler()
+		filteredNodeProjects := workspaceHandler.FilterNodeProjects(nodeProjects)
+
+		for _, project := range filteredNodeProjects {
 			parallelInstaller.AddNodeProject(project)
 		}
 		for _, project := range pythonProjects {
