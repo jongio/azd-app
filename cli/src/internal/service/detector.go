@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/fileutil"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 )
@@ -58,6 +59,11 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 			Timeout:  60 * time.Second,
 			Interval: 2 * time.Second,
 		},
+	}
+
+	// Special handling for Azure Functions (all variants including Logic Apps)
+	if service.Host == "function" {
+		return buildFunctionsRuntime(serviceName, service, projectDir, usedPorts, azureYamlDir)
 	}
 
 	// Detect language (use explicit language if provided)
@@ -443,6 +449,10 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 			runtime.Args = []string{"run", "start"}
 		}
 
+	case "Logic Apps Standard":
+		// Command already set in detectLogicAppRuntime
+		return nil
+
 	case "Aspire":
 		return buildDotNetCommand(runtime, projectDir, runtimeMode, true)
 
@@ -526,11 +536,12 @@ func configureHealthCheck(runtime *ServiceRuntime) {
 		path     string
 		logMatch string
 	}{
-		"Aspire":      {"/", "Now listening on"},
-		"Next.js":     {"/", "ready on"},
-		"Django":      {"/", "Starting development server"},
-		"Spring Boot": {"/actuator/health", "Started"},
-		"FastAPI":     {"/docs", ""},
+		"Logic Apps Standard": {"/runtime/webhooks/workflow/api/management/workflows", "Host started"},
+		"Aspire":              {"/", "Now listening on"},
+		"Next.js":             {"/", "ready on"},
+		"Django":              {"/", "Starting development server"},
+		"Spring Boot":         {"/actuator/health", "Started"},
+		"FastAPI":             {"/docs", ""},
 	}
 
 	if config, exists := healthConfigs[runtime.Framework]; exists {
@@ -542,32 +553,21 @@ func configureHealthCheck(runtime *ServiceRuntime) {
 }
 
 // Helper functions
+// Note: fileExists, hasFileWithExt, containsText moved to internal/fileutil package
 
+// fileExists is a convenience wrapper for fileutil.FileExists
 func fileExists(dir string, filename string) bool {
-	path := filepath.Join(dir, filename)
-	if err := security.ValidatePath(path); err != nil {
-		return false
-	}
-	_, err := os.Stat(path)
-	return err == nil
+	return fileutil.FileExists(dir, filename)
 }
 
+// hasFileWithExt is a convenience wrapper for fileutil.HasFileWithExt
 func hasFileWithExt(dir string, ext string) bool {
-	pattern := filepath.Join(dir, "*"+ext)
-	matches, err := filepath.Glob(pattern)
-	return err == nil && len(matches) > 0
+	return fileutil.HasFileWithExt(dir, ext)
 }
 
+// containsText is a convenience wrapper for fileutil.ContainsText
 func containsText(filePath string, text string) bool {
-	if err := security.ValidatePath(filePath); err != nil {
-		return false
-	}
-	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(data), text)
+	return fileutil.ContainsText(filePath, text)
 }
 
 func containsImport(projectDir string, importName string) bool {
@@ -675,6 +675,8 @@ func normalizeLanguage(language string) string {
 		return "PHP"
 	case "docker":
 		return "Docker"
+	case "logicapp", "logicapps", "logic-app", "logic-apps":
+		return "Logic Apps"
 	default:
 		return language
 	}

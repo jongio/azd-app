@@ -1,0 +1,8 @@
+name: functions-python-v1
+metadata:
+  template: functions-python-v1@0.0.1
+services:
+  api:
+    project: .
+    language: python
+    host: function

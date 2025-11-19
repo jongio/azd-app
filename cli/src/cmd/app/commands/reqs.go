@@ -131,12 +131,32 @@ var toolRegistry = map[string]ToolConfig{
 		Command: "az",
 		Args:    []string{"version", "--output", "tsv", "--query", "\"azure-cli\""},
 	},
+	"func": {
+		Command: "func",
+		Args:    []string{"--version"},
+	},
+	"java": {
+		Command:      "java",
+		Args:         []string{"-version"},
+		VersionField: 2, // "java version "17.0.1" ..." or "openjdk version "17.0.1" ..." -> take field 2
+	},
+	"mvn": {
+		Command:      "mvn",
+		Args:         []string{"--version"},
+		VersionField: 2, // "Apache Maven 3.9.0 ..." -> take field 2
+	},
+	"gradle": {
+		Command:      "gradle",
+		Args:         []string{"--version"},
+		VersionField: 1, // "Gradle 8.5" -> take field 1
+	},
 }
 
 // toolAliases maps alternative names to canonical tool names.
 var toolAliases = map[string]string{
-	"nodejs":    "node",
-	"azure-cli": "az",
+	"nodejs":                     "node",
+	"azure-cli":                  "az",
+	"azure-functions-core-tools": "func",
 }
 
 // NewReqsCommand creates the reqs command.

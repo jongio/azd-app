@@ -23,3 +23,15 @@ type AspireProject struct {
 	Dir         string
 	ProjectFile string // Path to AppHost.csproj
 }
+
+// LogicAppProject represents a detected Logic Apps Standard project.
+type LogicAppProject struct {
+	Dir string // Directory containing workflows folder
+}
+
+// FunctionAppProject represents a detected Azure Functions project.
+type FunctionAppProject struct {
+	Dir      string // Directory containing host.json
+	Variant  string // Type of Functions app: "logicapps", "nodejs", "python", "dotnet", "java"
+	Language string // Programming language detected for the project
+}

@@ -14,7 +14,7 @@ describe('ServiceCard', () => {
     render(<ServiceCard service={mockServices[0]} />)
 
     expect(screen.getByText('api')).toBeInTheDocument()
-    expect(screen.getByText('ready')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
     expect(screen.getByText('healthy')).toBeInTheDocument()
     expect(screen.getByText('flask')).toBeInTheDocument()
     expect(screen.getByText('python')).toBeInTheDocument()
@@ -47,7 +47,7 @@ describe('ServiceCard', () => {
   it('should render service with error status', () => {
     render(<ServiceCard service={mockServiceWithError} />)
 
-    expect(screen.getByText('error')).toBeInTheDocument()
+    expect(screen.getByText('Error')).toBeInTheDocument()
     expect(screen.getByText('unhealthy')).toBeInTheDocument()
     expect(screen.getByText('Error Detected')).toBeInTheDocument()
     expect(screen.getByText('Failed to start: Port already in use')).toBeInTheDocument()
@@ -56,7 +56,7 @@ describe('ServiceCard', () => {
   it('should render service with stopped status', () => {
     render(<ServiceCard service={mockServiceStopped} />)
 
-    expect(screen.getByText('stopped')).toBeInTheDocument()
+    expect(screen.getByText('Stopped')).toBeInTheDocument()
     expect(screen.getByText('unknown')).toBeInTheDocument()
   })
 
@@ -64,7 +64,7 @@ describe('ServiceCard', () => {
     render(<ServiceCard service={mockServices[2]} />)
 
     expect(screen.getByText('database')).toBeInTheDocument()
-    expect(screen.getByText('starting')).toBeInTheDocument()
+    expect(screen.getByText('Starting')).toBeInTheDocument()
   })
 
   it('should display start time when available', () => {
@@ -94,7 +94,7 @@ describe('ServiceCard', () => {
     render(<ServiceCard service={legacyService} />)
 
     expect(screen.getByText('legacy-service')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
     expect(screen.getByText('healthy')).toBeInTheDocument()
   })
 
@@ -157,7 +157,7 @@ describe('ServiceCard', () => {
     render(<ServiceCard service={minimalService} />)
 
     expect(screen.getByText('minimal')).toBeInTheDocument()
-    expect(screen.getByText('ready')).toBeInTheDocument()
+    expect(screen.getByText('Running')).toBeInTheDocument()
   })
 
   it('should format relative time correctly for recent timestamps', () => {

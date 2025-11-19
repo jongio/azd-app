@@ -1,0 +1,16 @@
+{
+  "managedApiConnections": {},
+  "serviceProviderConnections": {
+    "AzureOpenAI": {
+      "parameterValues": {
+        "azureOpenAIResourceName": "{AI_FOUNDRY_NAME}",
+        "azureOpenAIApiKey": "",
+        "azureOpenAIAuthenticationType": "ManagedServiceIdentity"
+      },
+      "serviceProvider": {
+        "id": "/serviceProviders/AzureOpenAI"
+      },
+      "displayName": "AI Foundry Connection"
+    }
+  }
+}
