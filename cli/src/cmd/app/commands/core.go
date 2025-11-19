@@ -408,6 +408,19 @@ func executeDeps() error {
 
 	// Handle no projects case
 	if totalProjects == 0 {
+		// Check if there are Logic Apps projects (which don't need dependency installation)
+		functionApps, _ := detector.FindFunctionApps(searchRoot)
+		hasLogicAppsOnly := false
+		if len(functionApps) > 0 {
+			hasLogicAppsOnly = true
+			for _, app := range functionApps {
+				if app.Variant != "logicapps" {
+					hasLogicAppsOnly = false
+					break
+				}
+			}
+		}
+
 		if output.IsJSON() {
 			return output.PrintJSON(DepsResult{
 				Success:  true,
@@ -415,7 +428,11 @@ func executeDeps() error {
 				Message:  msgNoProjectsDetected,
 			})
 		}
-		output.Info(msgNoProjectsDetected)
+
+		// Only show "No projects detected" if it's not a Logic Apps-only workspace
+		if !hasLogicAppsOnly {
+			output.Info(msgNoProjectsDetected)
+		}
 		return nil
 	}
 

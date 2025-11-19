@@ -99,8 +99,8 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install %s dependencies in %s (command: %v %v): %w",
-			project.PackageManager, project.Dir, cmd.Path, cmd.Args, err)
+		return fmt.Errorf("failed to install %s dependencies in %s: %w",
+			project.PackageManager, project.Dir, err)
 	}
 
 	if !output.IsJSON() && progressWriter == nil {

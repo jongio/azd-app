@@ -16,10 +16,11 @@ import (
 
 // OrchestrationResult contains the results of service orchestration.
 type OrchestrationResult struct {
-	Processes map[string]*ServiceProcess
-	Errors    map[string]error
-	StartTime time.Time
-	ReadyTime time.Time
+	Processes        map[string]*ServiceProcess
+	Errors           map[string]error
+	StartTime        time.Time
+	ReadyTime        time.Time
+	FunctionsParser  *FunctionsOutputParser // Parser for Functions endpoints
 }
 
 // OrchestrateServices starts services in dependency order with parallel execution.
@@ -56,6 +57,10 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 	for _, rt := range runtimes {
 		runtimeMap[rt.Name] = rt
 	}
+
+	// Create Functions output parser
+	functionsParser := NewFunctionsOutputParser(false)
+	result.FunctionsParser = functionsParser
 
 	// Start all services in parallel
 	projectDir, _ := os.Getwd()
@@ -119,6 +124,10 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				serviceEnv[k] = v
 			}
 
+			// Inject FUNCTIONS_WORKER_RUNTIME for Logic Apps if missing
+			// This prevents func CLI from prompting interactively
+			serviceEnv = InjectFunctionsWorkerRuntime(serviceEnv, rt)
+
 			// Final port availability check before starting service
 			// This catches race conditions where port became unavailable between detection and start
 			portMgr := portmanager.GetPortManager(projectDir)
@@ -136,7 +145,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			}
 
 			// Start service
-			process, err := StartService(rt, serviceEnv, projectDir)
+			process, err := StartService(rt, serviceEnv, projectDir, functionsParser)
 			if err != nil {
 				mu.Lock()
 				startErrors[rt.Name] = err

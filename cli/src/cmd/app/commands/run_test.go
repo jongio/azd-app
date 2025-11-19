@@ -231,7 +231,7 @@ func TestMonitorServicesUntilShutdown_StartupTimeout(t *testing.T) {
 		Port:       9000,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -317,7 +317,7 @@ func TestMonitorServicesUntilShutdown_SignalHandling(t *testing.T) {
 		Port:       9001,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -379,7 +379,7 @@ func TestMonitorServicesUntilShutdown_MultipleServices(t *testing.T) {
 			Port:       9010 + i,
 		}
 
-		process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+		process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 		if err != nil {
 			t.Fatalf("StartService(%d) error = %v", i, err)
 		}
@@ -435,7 +435,7 @@ func TestShutdownAllServices_WithContext(t *testing.T) {
 			Port:       9020 + i,
 		}
 
-		process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+		process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 		if err != nil {
 			t.Fatalf("StartService(%d) error = %v", i, err)
 		}
@@ -502,7 +502,7 @@ func TestShutdownAllServices_ContextTimeout(t *testing.T) {
 		Port:       9030,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -571,7 +571,7 @@ func TestMonitorServices_RunsIndefinitely(t *testing.T) {
 		Port:       9050,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -635,7 +635,7 @@ func TestMonitorServiceProcess_CleanExit(t *testing.T) {
 		Port:       9100,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -689,7 +689,7 @@ func TestMonitorServiceProcess_CrashExit(t *testing.T) {
 		Port:       9101,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -741,7 +741,7 @@ func TestMonitorServiceProcess_ContextCancellation(t *testing.T) {
 		Port:       9102,
 	}
 
-	process, err := service.StartService(runtime, map[string]string{}, tmpDir)
+	process, err := service.StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -811,12 +811,12 @@ func TestProcessExit_DoesNotStopOtherServices(t *testing.T) {
 		Port:       9041,
 	}
 
-	quickProcess, err := service.StartService(quickRuntime, map[string]string{}, tmpDir)
+	quickProcess, err := service.StartService(quickRuntime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService(quick-exit) error = %v", err)
 	}
 
-	longProcess, err := service.StartService(longRuntime, map[string]string{}, tmpDir)
+	longProcess, err := service.StartService(longRuntime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService(long-running) error = %v", err)
 	}
@@ -888,3 +888,4 @@ func TestProcessExit_DoesNotStopOtherServices(t *testing.T) {
 		t.Log("   (This is expected - monitoring waits for Ctrl+C, not for processes to finish)")
 	}
 }
+

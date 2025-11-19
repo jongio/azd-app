@@ -251,6 +251,10 @@ services:
 }
 
 func TestWebSocketConnection_ReceivesInitialServices(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping port assignment test in short mode - requires user interaction")
+	}
+
 	// Create a temporary project directory
 	tempDir := t.TempDir()
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")

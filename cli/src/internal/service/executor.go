@@ -16,7 +16,7 @@ import (
 )
 
 // StartService starts a service and returns the process handle.
-func StartService(runtime *ServiceRuntime, env map[string]string, projectDir string) (*ServiceProcess, error) {
+func StartService(runtime *ServiceRuntime, env map[string]string, projectDir string, parser *FunctionsOutputParser) (*ServiceProcess, error) {
 	if runtime.Command == "" {
 		return nil, fmt.Errorf("no command specified for service %s", runtime.Name)
 	}
@@ -45,7 +45,7 @@ func StartService(runtime *ServiceRuntime, env map[string]string, projectDir str
 	process.Port = runtime.Port
 
 	// Start log collection
-	StartLogCollection(process, projectDir)
+	StartLogCollection(process, projectDir, parser)
 
 	return process, nil
 }
@@ -231,7 +231,7 @@ func GetProcessStatus(process *ServiceProcess) string {
 }
 
 // StartLogCollection starts collecting logs from a service process.
-func StartLogCollection(process *ServiceProcess, projectDir string) {
+func StartLogCollection(process *ServiceProcess, projectDir string, parser *FunctionsOutputParser) {
 	// Get or create log manager for this project
 	logManager := GetLogManager(projectDir)
 
@@ -242,9 +242,18 @@ func StartLogCollection(process *ServiceProcess, projectDir string) {
 		return
 	}
 
+	// Check if this is a Functions service
+	isFunctionsService := strings.Contains(process.Runtime.Framework, "Functions") || 
+						   strings.Contains(process.Runtime.Framework, "Logic Apps")
+
 	// Start goroutines to collect stdout and stderr
-	go collectStreamLogs(process.Stdout, process.Name, buffer, false)
-	go collectStreamLogs(process.Stderr, process.Name, buffer, true)
+	if isFunctionsService && parser != nil {
+		go collectFunctionsStreamLogs(process.Stdout, process.Name, buffer, parser, false)
+		go collectFunctionsStreamLogs(process.Stderr, process.Name, buffer, parser, true)
+	} else {
+		go collectStreamLogs(process.Stdout, process.Name, buffer, false)
+		go collectStreamLogs(process.Stderr, process.Name, buffer, true)
+	}
 }
 
 // collectStreamLogs reads from a stream and adds entries to the log buffer.
@@ -259,6 +268,27 @@ func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuff
 			Level:     inferLogLevel(scanner.Text()),
 		}
 		buffer.Add(entry)
+	}
+}
+
+// collectFunctionsStreamLogs reads from a stream, adds entries to the log buffer, and parses Functions output.
+func collectFunctionsStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuffer, parser *FunctionsOutputParser, isStderr bool) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
+		
+		// Add to log buffer
+		entry := LogEntry{
+			Service:   serviceName,
+			Message:   line,
+			Timestamp: time.Now(),
+			IsStderr:  isStderr,
+			Level:     inferLogLevel(line),
+		}
+		buffer.Add(entry)
+		
+		// Also parse for function endpoints
+		parser.ParseLine(serviceName, line)
 	}
 }
 

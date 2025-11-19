@@ -227,6 +227,18 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 
 	logger.LogReady()
 
+	// Display Functions/Logic Apps endpoints if any were discovered
+	if result.FunctionsParser != nil {
+		// Give functions a moment to finish startup logging
+		time.Sleep(2 * time.Second)
+		
+		for name, process := range result.Processes {
+			if result.FunctionsParser.HasEndpoints(name) {
+				result.FunctionsParser.DisplayEndpoints(name, process.Port)
+			}
+		}
+	}
+
 	// Start dashboard and wait for shutdown
 	return monitorServicesUntilShutdown(result, cwd)
 }
