@@ -1,0 +1,6 @@
+name: functions-invalid-corrupt-host
+services:
+  api:
+    project: .
+    language: js
+    host: function

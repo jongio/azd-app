@@ -17,6 +17,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-app/cli/src/internal/workspace"
 
 	"gopkg.in/yaml.v3"
 )
@@ -408,6 +409,19 @@ func executeDeps() error {
 
 	// Handle no projects case
 	if totalProjects == 0 {
+		// Check if there are Logic Apps projects (which don't need dependency installation)
+		functionApps, _ := detector.FindFunctionApps(searchRoot)
+		hasLogicAppsOnly := false
+		if len(functionApps) > 0 {
+			hasLogicAppsOnly = true
+			for _, app := range functionApps {
+				if app.Variant != "logicapps" {
+					hasLogicAppsOnly = false
+					break
+				}
+			}
+		}
+
 		if output.IsJSON() {
 			return output.PrintJSON(DepsResult{
 				Success:  true,
@@ -415,7 +429,11 @@ func executeDeps() error {
 				Message:  msgNoProjectsDetected,
 			})
 		}
-		output.Info(msgNoProjectsDetected)
+
+		// Only show "No projects detected" if it's not a Logic Apps-only workspace
+		if !hasLogicAppsOnly {
+			output.Info(msgNoProjectsDetected)
+		}
 		return nil
 	}
 
@@ -431,8 +449,13 @@ func executeDeps() error {
 		parallelInstaller := installer.NewParallelInstaller()
 		parallelInstaller.Verbose = depsVerbose
 
-		// Add all projects to the parallel installer
-		for _, project := range nodeProjects {
+		// Handle npm/yarn/pnpm workspace scenarios using workspace handler
+		// When a workspace root exists, only install at the root level to avoid race conditions
+		// on Windows where parallel npm installs compete for the same node_modules directory
+		workspaceHandler := workspace.NewHandler()
+		filteredNodeProjects := workspaceHandler.FilterNodeProjects(nodeProjects)
+
+		for _, project := range filteredNodeProjects {
 			parallelInstaller.AddNodeProject(project)
 		}
 		for _, project := range pythonProjects {

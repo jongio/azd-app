@@ -231,6 +231,7 @@ azd app run -s web -v --runtime aspire
 - **.NET Aspire**: Projects with AppHost.cs
 - **Node.js**: pnpm dev/start scripts
 - **Docker Compose**: Container orchestration
+- **Logic Apps Standard**: Azure Logic Apps workflows (see [Logic Apps Support](commands/logicapps-support.md))
 
 ### Service Configuration
 

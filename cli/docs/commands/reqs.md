@@ -226,6 +226,19 @@ The command uses a built-in registry for known tools:
 | docker | docker | --version | 2 | |
 | git | git | --version | 2 | |
 | go | go | version | 2 | |
+| func | func | --version | 0 | |
+| az | az | version | 0 | |
+| azd | azd | version | 0 | |
+
+**Tool Aliases**:
+
+Some tools have alternative names that are automatically resolved:
+
+| Alias | Resolves To |
+|-------|-------------|
+| nodejs | node |
+| azure-cli | az |
+| azure-functions-core-tools | func |
 
 **Version Field Explanation**:
 - `0`: Use entire output
@@ -494,6 +507,10 @@ reqs:
   # Basic requirement
   - name: node
     minVersion: "18.0.0"
+  
+  # Azure Functions Core Tools
+  - name: func
+    minVersion: "4.0.0"
   
   # With runtime check
   - name: docker

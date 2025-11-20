@@ -16,9 +16,11 @@ import (
 // a connection with azd for extension framework operations.
 func NewListenCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:    "listen",
-		Short:  "Starts the extension and listens for events",
-		Hidden: true, // Hidden from help - only invoked by azd internally
+		Use:          "listen",
+		Short:        "Start the extension server (required by azd framework)",
+		Long:         `Internal command used by the azd CLI to communicate with this extension via JSON-RPC over stdio.`,
+		Hidden:       true,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create a context with the AZD access token
 			ctx := azdext.WithAccessToken(cmd.Context())

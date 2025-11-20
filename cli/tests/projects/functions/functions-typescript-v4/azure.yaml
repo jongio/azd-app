@@ -1,0 +1,8 @@
+name: functions-typescript-v4
+metadata:
+  template: functions-typescript-v4@0.0.1
+services:
+  api:
+    project: .
+    language: ts
+    host: function

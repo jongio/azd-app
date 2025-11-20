@@ -251,3 +251,70 @@ func RunDotnet(ctx context.Context, project types.DotnetProject) error {
 
 	return executor.StartCommand(ctx, "dotnet", args, dir)
 }
+
+// RunFunctionApp runs an Azure Functions project (any variant) with Azure Functions Core Tools.
+// This is the unified runner for all Azure Functions variants including Logic Apps Standard.
+func RunFunctionApp(ctx context.Context, project types.FunctionAppProject, port int) error {
+	// Validate inputs
+	if err := security.ValidatePath(project.Dir); err != nil {
+		return fmt.Errorf("invalid project directory: %w", err)
+	}
+
+	// Validate required files exist
+	hostJsonPath := filepath.Join(project.Dir, "host.json")
+	if _, err := os.Stat(hostJsonPath); os.IsNotExist(err) {
+		return fmt.Errorf("Azure Functions project missing host.json: run 'func init' to initialize the project")
+	}
+
+	// Variant-specific validation
+	switch project.Variant {
+	case "logicapps":
+		workflowsPath := filepath.Join(project.Dir, "workflows")
+		if info, err := os.Stat(workflowsPath); err != nil || !info.IsDir() {
+			return fmt.Errorf("Logic Apps project missing workflows/ directory")
+		}
+	}
+
+	// Get display name for variant
+	variantDisplayName := getVariantDisplayName(project.Variant)
+
+	output.Info("Starting %s project...", variantDisplayName)
+	output.Item("Directory: %s", project.Dir)
+	output.Item("Language: %s", project.Language)
+	output.Item("Port: %d", port)
+	output.Newline()
+
+	// Run Azure Functions Core Tools
+	args := []string{"start", "--port", fmt.Sprintf("%d", port)}
+	return executor.StartCommand(ctx, "func", args, project.Dir)
+}
+
+// getVariantDisplayName returns a user-friendly display name for a Functions variant.
+func getVariantDisplayName(variant string) string {
+	switch variant {
+	case "logicapps":
+		return "Logic Apps Standard"
+	case "nodejs":
+		return "Node.js Functions"
+	case "python":
+		return "Python Functions"
+	case "dotnet":
+		return ".NET Functions"
+	case "java":
+		return "Java Functions"
+	default:
+		return "Azure Functions"
+	}
+}
+
+// RunLogicApp runs an Azure Logic Apps Standard project with Azure Functions Core Tools.
+// DEPRECATED: Use RunFunctionApp instead, which supports all Azure Functions variants.
+func RunLogicApp(ctx context.Context, project types.LogicAppProject, port int) error {
+	// Convert to FunctionAppProject and use unified runner
+	functionAppProject := types.FunctionAppProject{
+		Dir:      project.Dir,
+		Variant:  "logicapps",
+		Language: "Logic Apps",
+	}
+	return RunFunctionApp(ctx, functionAppProject, port)
+}

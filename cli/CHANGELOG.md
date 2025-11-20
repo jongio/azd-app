@@ -1,3 +1,15 @@
+## [Unreleased]
+
+### Fixed
+- Fix npm workspace race condition on Windows - Detect npm/yarn/pnpm workspaces and run single install at root instead of parallel installs to avoid EBUSY/ENOTEMPTY file locking errors
+- Add retry logic with exponential backoff for Windows file locking errors as safety net
+
+### Changed
+- Update `NodeProject` type to include workspace detection fields (`IsWorkspaceRoot`, `WorkspaceRoot`)
+- Modify `FindNodeProjects` to detect workspace configurations and establish parent-child relationships
+- Update parallel installer to skip child workspace projects when workspace root exists
+- Use `npm install --workspaces` flag for workspace root installations
+
 ## [0.5.11] - 2025-11-17
 
 - Add visual testing framework and refactor progress bar analysis (#63) (ca3f5bc)

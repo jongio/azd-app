@@ -61,6 +61,7 @@ func runGenerate(config GenerateConfig) error {
 		output.Item("  • .NET (.csproj, .sln)")
 		output.Item("  • .NET Aspire (AppHost.cs)")
 		output.Item("  • Docker Compose (docker-compose.yml or package.json scripts)")
+		output.Item("  • Logic Apps Standard (workflows/ folder)")
 		output.Newline()
 		output.Item("Make sure you're in a valid project directory.")
 		return fmt.Errorf("no dependencies detected")
@@ -165,6 +166,85 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 		foundSources["Docker"] = true
 		if req := detectDocker(projectDir); req.Name != "" {
 			requirements = append(requirements, req)
+		}
+	}
+
+	// Detect Azure Functions projects (all variants including Logic Apps)
+	functionApps, _ := detector.FindFunctionApps(projectDir)
+	if len(functionApps) > 0 {
+		// Count variants for display
+		variantCounts := make(map[string]int)
+		for _, app := range functionApps {
+			variantCounts[app.Variant]++
+		}
+
+		// Add source for each unique variant
+		for variant := range variantCounts {
+			switch variant {
+			case "logicapps":
+				foundSources["Logic Apps Standard"] = true
+			case "nodejs":
+				foundSources["Node.js Functions"] = true
+			case "python":
+				foundSources["Python Functions"] = true
+			case "dotnet":
+				foundSources[".NET Functions"] = true
+			case "java":
+				foundSources["Java Functions"] = true
+			}
+		}
+
+		// Azure Functions Core Tools (required for all variants)
+		if req := detectAzureFunctionsCoreTools(projectDir); req.Name != "" {
+			requirements = append(requirements, req)
+		}
+
+		// Add language-specific requirements for each project
+		languagesAdded := make(map[string]bool)
+		for _, app := range functionApps {
+			// Skip if we've already added requirements for this language
+			languageKey := fmt.Sprintf("%s-%s", app.Variant, app.Language)
+			if languagesAdded[languageKey] {
+				continue
+			}
+			languagesAdded[languageKey] = true
+
+			// Add variant-specific requirements
+			switch app.Variant {
+			case "nodejs":
+				// Node.js already detected above if package.json exists
+				// But we should ensure it's added for Functions projects
+				if !hasPackageJSON(projectDir) {
+					if req := detectNode(projectDir); req.Name != "" {
+						requirements = append(requirements, req)
+					}
+				}
+			case "python":
+				// Python already detected above if requirements.txt exists
+				// But we should ensure it's added for Functions projects
+				if !hasPythonProject(projectDir) {
+					if req := detectPython(projectDir); req.Name != "" {
+						requirements = append(requirements, req)
+					}
+				}
+			case "dotnet":
+				// .NET already detected above if .csproj exists
+				// But we should ensure it's added for Functions projects
+				if !hasDotnetProject(projectDir) {
+					if req := detectDotnet(projectDir); req.Name != "" {
+						requirements = append(requirements, req)
+					}
+				}
+			case "java":
+				// Add Java requirements (JDK and Maven/Gradle)
+				if req := detectJava(projectDir); req.Name != "" {
+					requirements = append(requirements, req)
+				}
+				// Detect build tool (Maven or Gradle)
+				if req := detectJavaBuildTool(app.Dir); req.Name != "" {
+					requirements = append(requirements, req)
+				}
+			}
 		}
 	}
 
@@ -286,6 +366,38 @@ func detectAspire(_ string) DetectedRequirement {
 
 func detectDocker(_ string) DetectedRequirement {
 	return detectToolWithSource("docker", "Dockerfile or docker-compose.yml", true)
+}
+
+func detectAzureFunctionsCoreTools(_ string) DetectedRequirement {
+	return detectToolWithSource("func", "Azure Functions or Logic Apps project", false)
+}
+
+func detectJava(_ string) DetectedRequirement {
+	return detectToolWithSource("java", "Java Functions project", false)
+}
+
+func detectJavaBuildTool(projectDir string) DetectedRequirement {
+	// Check for Maven
+	pomPath := filepath.Join(projectDir, "pom.xml")
+	if err := security.ValidatePath(pomPath); err == nil {
+		if _, err := os.Stat(pomPath); err == nil {
+			return detectToolWithSource("mvn", "pom.xml", false)
+		}
+	}
+
+	// Check for Gradle
+	gradleFiles := []string{"build.gradle", "build.gradle.kts"}
+	for _, gradleFile := range gradleFiles {
+		gradlePath := filepath.Join(projectDir, gradleFile)
+		if err := security.ValidatePath(gradlePath); err == nil {
+			if _, err := os.Stat(gradlePath); err == nil {
+				return detectToolWithSource("gradle", gradleFile, false)
+			}
+		}
+	}
+
+	// Default to Maven if no build file found
+	return DetectedRequirement{}
 }
 
 func detectAzd(_ string) DetectedRequirement {

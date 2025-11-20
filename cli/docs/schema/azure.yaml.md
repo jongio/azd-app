@@ -55,7 +55,7 @@ Defines a service with `azd app` local development extensions.
 ### Standard azd Fields
 
 - **`host`**: Deployment target (`containerapp`, `appservice`, `function`, etc.)
-- **`language`**: Programming language (auto-detected if omitted)
+- **`language`**: Programming language or framework (`python`, `node`, `dotnet`, `aspire`, etc.) - auto-detected if omitted (Note: Logic Apps are auto-detected only, do not specify)
 - **`project`**: Relative path to service directory
 - **`image`**: Pre-built Docker image name
 - **`docker`**: Docker build configuration (see [DockerConfig](#dockerconfig-object))
@@ -264,6 +264,212 @@ resources:
     type: Microsoft.Storage/storageAccounts
 ```
 
+## Logic Apps Standard Example
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: logicapp-ai-agent
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+
+services:
+  logicapp:
+    project: .
+    host: function
+    # language auto-detected - do NOT specify
+    ports: ["7071"]
+    environment:
+      WORKFLOWS_SUBSCRIPTION_ID: "your-subscription-id"
+      WORKFLOWS_RESOURCE_GROUP_NAME: "your-resource-group"
+```
+
+## Azure Functions Examples
+
+### Multi-Language Azure Functions
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: functions-multi-lang
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+  - name: node
+    minVersion: "18.0.0"
+  - name: python
+    minVersion: "3.9"
+  - name: dotnet
+    minVersion: "6.0"
+
+services:
+  # Logic Apps Standard
+  workflows:
+    project: ./logicapp
+    host: function
+    ports: ["7071"]
+  
+  # Node.js Functions (v4 programming model)
+  api:
+    project: ./functions-nodejs
+    host: function
+    ports: ["7072"]
+    environment:
+      DATABASE_URL: "postgresql://localhost:5432/db"
+  
+  # Python Functions (v2 programming model)
+  worker:
+    project: ./functions-python
+    host: function
+    ports: ["7073"]
+    environment:
+      - name: STORAGE_CONNECTION_STRING
+        value: "UseDevelopmentStorage=true"
+  
+  # .NET Functions (Isolated Worker)
+  processor:
+    project: ./functions-dotnet
+    host: function
+    ports: ["7074"]
+```
+
+### Python Azure Functions (v2 Model)
+
+```yaml
+name: python-functions
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+  - name: python
+    minVersion: "3.9"
+
+services:
+  api:
+    project: ./functions-api
+    host: function
+    # language auto-detected as Python
+    ports: ["7071"]
+    environment:
+      DATABASE_URL: "postgresql://localhost:5432/mydb"
+      LOG_LEVEL: "INFO"
+```
+
+**Project Structure**:
+```
+functions-api/
+├── host.json
+├── requirements.txt
+├── function_app.py           # v2 decorators
+└── local.settings.json
+```
+
+### TypeScript Azure Functions (v4 Model)
+
+```yaml
+name: typescript-functions
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+  - name: node
+    minVersion: "18.0.0"
+
+services:
+  webhooks:
+    project: ./functions-webhooks
+    host: function
+    # language auto-detected as TypeScript
+    ports: ["7071"]
+    environment:
+      API_KEY: "dev-key-123"
+      WEBHOOK_SECRET: "secret-abc"
+```
+
+**Project Structure**:
+```
+functions-webhooks/
+├── host.json
+├── package.json
+├── tsconfig.json
+└── src/
+    └── functions/
+        ├── httpTrigger.ts
+        └── timerTrigger.ts
+```
+
+### .NET Azure Functions (Isolated Worker)
+
+```yaml
+name: dotnet-functions
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+  - name: dotnet
+    minVersion: "8.0"
+
+services:
+  processor:
+    project: ./functions-processor
+    host: function
+    # language auto-detected as .NET
+    ports: ["7071"]
+    environment:
+      ServiceBusConnection: "Endpoint=sb://..."
+      CosmosDbConnection: "AccountEndpoint=https://..."
+```
+
+**Project Structure**:
+```
+functions-processor/
+├── host.json
+├── local.settings.json
+├── FunctionApp.csproj        # Isolated Worker
+├── Program.cs
+└── Functions.cs
+```
+
+### Java Azure Functions (Maven)
+
+```yaml
+name: java-functions
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+  - name: java
+    minVersion: "11.0"
+  - name: mvn
+    minVersion: "3.6.0"
+
+services:
+  backend:
+    project: ./functions-java
+    host: function
+    # language auto-detected as Java
+    ports: ["7071"]
+    environment:
+      DATABASE_URL: "jdbc:postgresql://localhost:5432/db"
+```
+
+**Project Structure**:
+```
+functions-java/
+├── host.json
+├── local.settings.json
+├── pom.xml                   # azure-functions-maven-plugin
+└── src/
+    └── main/
+        └── java/
+            └── com/example/
+                ├── Function.java
+                └── TimerFunction.java
+```
+
 ## Port Management
 
 ### Port Assignment
@@ -331,5 +537,7 @@ services:
 ## See Also
 
 - [azd app CLI Reference](../cli-reference.md)
+- [Port Configuration Guide](../features/ports.md)
 - [Port Management Design](../design/ports.md)
+- [Azure Functions Support](../azure-functions.md) - Comprehensive Azure Functions documentation
 

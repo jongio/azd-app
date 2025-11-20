@@ -7,7 +7,7 @@ The `run` command starts your development environment by orchestrating services 
 ## Purpose
 
 - **Service Orchestration**: Start multiple services in correct dependency order
-- **Multi-Runtime Support**: Support Node.js, Python, .NET, and container-based services
+- **Multi-Runtime Support**: Support Node.js, Python, .NET, Azure Functions, Logic Apps, and container-based services
 - **Development Dashboard**: Provide real-time service monitoring and log viewing
 - **Port Management**: Automatically assign and manage service ports
 - **Environment Variables**: Inject Azure and service-specific environment variables
@@ -197,6 +197,12 @@ For each service in `azure.yaml`, the runtime detection process:
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  Determine Execution Strategy                                │
+│                                                              │
+│  Azure Functions (host: function)                            │
+│    → Detect variant (Logic Apps, Node.js, Python, .NET,     │
+│       Java)                                                  │
+│    → Assign port (default 7071)                             │
+│    → Run with: func start --port <port>                     │
 │                                                              │
 │  Node.js (language: js)                                      │
 │    → Check package.json for dev/start script                │
@@ -935,6 +941,7 @@ dotnet workload list
 - [`azd app deps`](./deps.md) - Install dependencies (runs automatically)
 - [`azd app logs`](./logs.md) - View service logs
 - [`azd app info`](./info.md) - Show running service information
+- [Azure Functions Support](../azure-functions.md) - Detailed Azure Functions documentation
 
 ## Examples
 
@@ -966,7 +973,39 @@ api              → http://localhost:3001
 📊 Dashboard: http://localhost:4280
 ```
 
-### Example 2: Aspire Microservices
+### Example 2: Azure Functions Multi-Language App
+
+```yaml
+# azure.yaml
+name: functions-app
+services:
+  workflows:
+    project: ./logicapp
+    host: function
+  api:
+    project: ./functions-python
+    host: function
+  processor:
+    project: ./functions-dotnet
+    host: function
+```
+
+```bash
+$ azd app run
+
+✓ Prerequisites check passed
+✓ Dependencies installed
+
+🚀 Starting services
+
+workflows        → http://localhost:7071  [Logic Apps Standard]
+api              → http://localhost:7072  [Azure Functions (Python)]
+processor        → http://localhost:7073  [Azure Functions (.NET)]
+
+📊 Dashboard: http://localhost:4280
+```
+
+### Example 3: Aspire Microservices
 
 ```bash
 $ azd app run --runtime aspire
@@ -984,7 +1023,7 @@ Resources:
   redis         → localhost:6379
 ```
 
-### Example 3: Development with Custom Config
+### Example 4: Development with Custom Config
 
 ```bash
 # .env.local
