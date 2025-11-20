@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Download, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
+import type { Service } from '@/types'
 import Convert from 'ansi-to-html'
 
 // Constants
@@ -49,8 +50,8 @@ export function LogsView() {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
         }
-        const data = await res.json()
-        const serviceNames = data.map((s: any) => s.name)
+        const data = await res.json() as Service[]
+        const serviceNames = data.map((s) => s.name)
         setServices(serviceNames)
       } catch (err) {
         console.error('Failed to fetch services:', err)

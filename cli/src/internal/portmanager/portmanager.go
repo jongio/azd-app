@@ -1,3 +1,4 @@
+// Package portmanager provides port allocation, management, and process monitoring capabilities.
 package portmanager
 
 import (
@@ -720,7 +721,7 @@ func (pm *PortManager) findAvailablePort() (int, error) {
 	return 0, fmt.Errorf("no available ports found after %d attempts in range %d-%d", maxPortScanAttempts, pm.portRange.start, pm.portRange.end)
 }
 
-// getProcessInfo retrieves information about the process using a port.
+// ProcessInfo contains information about a process using a port.
 type ProcessInfo struct {
 	PID  int
 	Name string

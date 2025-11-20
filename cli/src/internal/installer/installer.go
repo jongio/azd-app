@@ -1,3 +1,4 @@
+// Package installer provides dependency installation capabilities for Node.js, Python, and .NET projects.
 package installer
 
 import (
