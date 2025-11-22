@@ -13,9 +13,10 @@ async def http_trigger(req: func.HttpRequest) -> func.HttpResponse:
     if not name:
         try:
             req_body = req.get_json()
-            name = req_body.get('name')
         except ValueError:
             pass
+        else:
+            name = req_body.get('name')
 
     if not name:
         name = 'World'
