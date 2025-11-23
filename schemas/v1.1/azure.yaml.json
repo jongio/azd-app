@@ -277,26 +277,30 @@
         }
       }
     },
+    "shellType": {
+      "type": "string",
+      "description": "Supported shell types for executing hook scripts",
+      "enum": [
+        "sh",
+        "bash",
+        "pwsh",
+        "powershell",
+        "cmd"
+      ]
+    },
     "hook": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "shell": {
-          "type": "string",
+          "$ref": "#/definitions/shellType",
           "title": "Type of shell to execute scripts",
-          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent (e.g., pwsh/powershell/cmd on Windows, bash/sh on POSIX).",
-          "enum": [
-            "sh",
-            "bash",
-            "pwsh",
-            "powershell",
-            "cmd"
-          ]
+          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent (e.g., pwsh/powershell/cmd on Windows, bash/sh on POSIX)."
         },
         "run": {
           "type": "string",
           "title": "Script or command to execute",
-          "description": "When specifying an inline script you also must specify the `shell` to use. This is automatically inferred when using paths."
+          "description": "When specifying an inline script you also must specify the `shell` to use. This is automatically inferred when using paths. Hooks receive environment variables: AZD_APP_PROJECT_DIR (project directory path), AZD_APP_PROJECT_NAME (project name), AZD_APP_SERVICE_COUNT (number of services)."
         },
         "continueOnError": {
           "type": "boolean",
@@ -382,21 +386,14 @@
       "description": "Platform-specific hook override that cannot contain nested platform overrides",
       "properties": {
         "shell": {
-          "type": "string",
+          "$ref": "#/definitions/shellType",
           "title": "Type of shell to execute scripts",
-          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent.",
-          "enum": [
-            "sh",
-            "bash",
-            "pwsh",
-            "powershell",
-            "cmd"
-          ]
+          "description": "Optional. The type of shell to use for the hook. The default shell is platform-dependent."
         },
         "run": {
           "type": "string",
           "title": "Script or command to execute",
-          "description": "When specifying an inline script you also must specify the `shell` to use."
+          "description": "When specifying an inline script you also must specify the `shell` to use. Hooks receive environment variables: AZD_APP_PROJECT_DIR, AZD_APP_PROJECT_NAME, AZD_APP_SERVICE_COUNT."
         },
         "continueOnError": {
           "type": "boolean",

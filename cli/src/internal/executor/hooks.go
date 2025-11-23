@@ -23,10 +23,11 @@ const (
 
 // HookConfig represents the configuration for executing a hook.
 type HookConfig struct {
-	Run             string // Script or command to execute
-	Shell           string // Shell to use (sh, bash, pwsh, etc.)
-	ContinueOnError bool   // Continue if hook fails
-	Interactive     bool   // Requires user interaction
+	Run             string   // Script or command to execute
+	Shell           string   // Shell to use (sh, bash, pwsh, etc.)
+	ContinueOnError bool     // Continue if hook fails
+	Interactive     bool     // Requires user interaction
+	Env             []string // Additional environment variables (KEY=VALUE format)
 }
 
 // ExecuteHook executes a lifecycle hook with the given configuration.
@@ -50,8 +51,8 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 		output.Newline()
 	}
 
-	// Prepare command
-	cmd := prepareHookCommand(ctx, shell, config.Run, workingDir)
+	// Prepare command with environment variables
+	cmd := prepareHookCommand(ctx, shell, config.Run, workingDir, config.Env)
 
 	// Configure stdio
 	configureCommandIO(cmd, config.Interactive)
@@ -76,7 +77,8 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 }
 
 // prepareHookCommand prepares the command based on the shell and script.
-func prepareHookCommand(ctx context.Context, shell, script, workingDir string) *exec.Cmd {
+// envVars is an optional list of additional environment variables to pass to the hook (in KEY=VALUE format)
+func prepareHookCommand(ctx context.Context, shell, script, workingDir string, envVars []string) *exec.Cmd {
 	var cmd *exec.Cmd
 
 	// Determine shell arguments based on shell type
@@ -94,7 +96,14 @@ func prepareHookCommand(ctx context.Context, shell, script, workingDir string) *
 	}
 
 	cmd.Dir = workingDir
-	cmd.Env = os.Environ() // Inherit all environment variables
+	
+	// Start with inherited environment variables
+	cmd.Env = os.Environ()
+	
+	// Append additional hook-specific environment variables
+	if len(envVars) > 0 {
+		cmd.Env = append(cmd.Env, envVars...)
+	}
 
 	return cmd
 }

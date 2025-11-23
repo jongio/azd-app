@@ -500,17 +500,17 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 
 // executePrerunHook executes the prerun hook if configured.
 func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	return executeHook(azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
+	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
 }
 
 // executePostrunHook executes the postrun hook if configured.
 func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	return executeHook(azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
+	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
 }
 
 // executeHook executes a lifecycle hook with the given name and configuration.
 // This is a common helper function to avoid duplication between prerun and postrun hooks.
-func executeHook(hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
+func executeHook(azureYaml *service.AzureYaml, hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
 	if hooks == nil || hook == nil {
 		return nil // No hook configured
 	}
@@ -522,7 +522,28 @@ func executeHook(hooks *service.Hooks, hook *service.Hook, hookName, workingDir 
 		return nil
 	}
 
+	// Build environment variables for the hook
+	// Following azd pattern: pass project directory and any other context
+	hookEnvVars := buildHookEnvironmentVariables(azureYaml, workingDir)
+	config.Env = hookEnvVars
+
 	return executor.ExecuteHook(context.Background(), hookName, *config, workingDir)
+}
+
+// buildHookEnvironmentVariables builds environment variables to pass to hooks
+// Following the pattern from azure/azure-dev
+func buildHookEnvironmentVariables(azureYaml *service.AzureYaml, workingDir string) []string {
+	envVars := []string{
+		fmt.Sprintf("AZD_APP_PROJECT_DIR=%s", workingDir),
+		fmt.Sprintf("AZD_APP_PROJECT_NAME=%s", azureYaml.Name),
+	}
+
+	// Add count of services for context
+	if azureYaml.Services != nil {
+		envVars = append(envVars, fmt.Sprintf("AZD_APP_SERVICE_COUNT=%d", len(azureYaml.Services)))
+	}
+
+	return envVars
 }
 
 // convertHook converts service.Hook to executor.Hook to avoid circular imports.
