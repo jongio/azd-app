@@ -5,9 +5,10 @@ import type { Service } from '@/types'
 interface ServiceTableProps {
   services: Service[]
   onViewLogs?: (serviceName: string) => void
+  onViewDetails?: (service: Service) => void
 }
 
-export function ServiceTable({ services, onViewLogs }: ServiceTableProps) {
+export function ServiceTable({ services, onViewLogs, onViewDetails }: ServiceTableProps) {
   return (
     <div className="bg-[#1a1a1a] rounded-lg overflow-hidden border border-white/10">
       <Table>
@@ -19,7 +20,7 @@ export function ServiceTable({ services, onViewLogs }: ServiceTableProps) {
             <TableHead className="min-w-[200px]">Source</TableHead>
             <TableHead className="min-w-[200px]">Local URL</TableHead>
             <TableHead className="min-w-[200px]">Azure URL</TableHead>
-            <TableHead className="w-[100px] text-right">Actions</TableHead>
+            <TableHead className="w-[140px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -28,6 +29,7 @@ export function ServiceTable({ services, onViewLogs }: ServiceTableProps) {
               key={service.name} 
               service={service}
               onViewLogs={onViewLogs}
+              onViewDetails={onViewDetails}
             />
           ))}
         </TableBody>
