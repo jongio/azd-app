@@ -1,0 +1,8 @@
+name: functions-nodejs-v4
+metadata:
+  template: functions-nodejs-v4@0.0.1
+services:
+  api:
+    project: .
+    language: js
+    host: function

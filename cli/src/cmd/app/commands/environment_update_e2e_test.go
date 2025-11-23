@@ -64,12 +64,23 @@ services:
 	}
 
 	// Verify initial state - no Azure info yet
-	services := initialMsg["services"].([]interface{})
+	services, ok := initialMsg["services"].([]interface{})
+	if !ok {
+		t.Fatalf("services field is not an array: %T", initialMsg["services"])
+	}
 	for _, svc := range services {
-		svcMap := svc.(map[string]interface{})
+		svcMap, ok := svc.(map[string]interface{})
+		if !ok {
+			t.Errorf("service is not a map: %T", svc)
+			continue
+		}
 		if svcMap["name"] == "api" {
 			if azure, ok := svcMap["azure"]; ok && azure != nil {
-				azureMap := azure.(map[string]interface{})
+				azureMap, ok := azure.(map[string]interface{})
+				if !ok {
+					t.Errorf("azure field is not a map: %T", azure)
+					continue
+				}
 				if azureMap["url"] != nil && azureMap["url"] != "" {
 					t.Error("Azure URL should be empty before provision")
 				}
@@ -110,15 +121,26 @@ services:
 		t.Errorf("message type = %v, want %q", updateMsg["type"], "services")
 	}
 
-	updatedServices := updateMsg["services"].([]interface{})
+	updatedServices, ok := updateMsg["services"].([]interface{})
+	if !ok {
+		t.Fatalf("services field is not an array: %T", updateMsg["services"])
+	}
 
 	// Verify services have Azure information
 	foundAPI := false
 	foundWeb := false
 
 	for _, svc := range updatedServices {
-		svcMap := svc.(map[string]interface{})
-		name := svcMap["name"].(string)
+		svcMap, ok := svc.(map[string]interface{})
+		if !ok {
+			t.Errorf("service is not a map: %T", svc)
+			continue
+		}
+		name, ok := svcMap["name"].(string)
+		if !ok {
+			t.Errorf("service name is not a string: %T", svcMap["name"])
+			continue
+		}
 
 		if name == "api" {
 			foundAPI = true

@@ -109,7 +109,7 @@ func TestStartService_InvalidCommand(t *testing.T) {
 		Language:   "shell",
 	}
 
-	_, err := StartService(runtime, nil, ".")
+	_, err := StartService(runtime, nil, ".", nil)
 	if err == nil {
 		t.Error("StartService() expected error for empty command")
 	}
@@ -127,7 +127,7 @@ func TestStartService_NonexistentCommand(t *testing.T) {
 		Language:   "shell",
 	}
 
-	_, err := StartService(runtime, nil, ".")
+	_, err := StartService(runtime, nil, ".", nil)
 	if err == nil {
 		t.Error("StartService() expected error for nonexistent command")
 	}
@@ -149,7 +149,7 @@ func TestStartService_Success(t *testing.T) {
 		Port:       8080,
 	}
 
-	process, err := StartService(runtime, map[string]string{"TEST_VAR": "value"}, tmpDir)
+	process, err := StartService(runtime, map[string]string{"TEST_VAR": "value"}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -218,7 +218,7 @@ func TestStopServiceGraceful_Windows(t *testing.T) {
 		Port:       8081,
 	}
 
-	process, err := StartService(runtime, nil, tmpDir)
+	process, err := StartService(runtime, nil, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}

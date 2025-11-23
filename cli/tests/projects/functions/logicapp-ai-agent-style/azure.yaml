@@ -1,0 +1,9 @@
+name: logicapp-ai-agent-test
+metadata:
+  template: logicapp-ai-agent-style@0.0.1
+
+services:
+  workflows:
+    project: ./src
+    language: csharp
+    host: function

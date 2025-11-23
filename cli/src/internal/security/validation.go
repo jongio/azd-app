@@ -31,7 +31,7 @@ func ValidatePath(path string) error {
 	// Convert to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("%w: cannot resolve path: %v", ErrInvalidPath, err)
+		return fmt.Errorf("%w: cannot resolve path: %w", ErrInvalidPath, err)
 	}
 
 	// Clean the path
@@ -48,7 +48,7 @@ func ValidatePath(path string) error {
 	if err != nil {
 		// If the path doesn't exist yet, that's okay - we're validating the path structure
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("%w: cannot resolve symbolic links: %v", ErrInvalidPath, err)
+			return fmt.Errorf("%w: cannot resolve symbolic links: %w", ErrInvalidPath, err)
 		}
 		// Path doesn't exist, use cleaned path for validation
 		resolvedPath = cleanPath

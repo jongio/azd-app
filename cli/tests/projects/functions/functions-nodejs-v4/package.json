@@ -1,0 +1,16 @@
+{
+  "name": "functions-nodejs-v4",
+  "version": "1.0.0",
+  "description": "Azure Functions Node.js v4 programming model test project",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.0.0"
+  }
+}

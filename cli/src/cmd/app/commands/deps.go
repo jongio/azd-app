@@ -21,9 +21,10 @@ var (
 // NewDepsCommand creates the deps command.
 func NewDepsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deps",
-		Short: "Install dependencies for all detected projects",
-		Long:  `Automatically detects and installs dependencies for Node.js (npm/pnpm/yarn), Python (uv/poetry/pip), and .NET projects`,
+		Use:          "deps",
+		Short:        "Install dependencies for all detected projects",
+		Long:         `Automatically detects and installs dependencies for Node.js (npm/pnpm/yarn), Python (uv/poetry/pip), and .NET projects`,
+		SilenceUsage: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Try to get the output flag from parent or self
 			var formatValue string

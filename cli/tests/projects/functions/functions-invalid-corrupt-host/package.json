@@ -1,0 +1,8 @@
+{
+  "name": "functions-invalid-corrupt-host",
+  "version": "1.0.0",
+  "description": "Invalid project - corrupted host.json",
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  }
+}

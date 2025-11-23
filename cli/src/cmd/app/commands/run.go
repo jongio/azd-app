@@ -38,9 +38,10 @@ var (
 // NewRunCommand creates the run command.
 func NewRunCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "run",
-		Short: "Run the development environment (services from azure.yaml, Aspire, pnpm, or docker compose)",
-		Long:  `Automatically detects and runs services defined in azure.yaml, or falls back to: Aspire (AppHost.cs), pnpm dev/start scripts, or docker compose from package.json`,
+		Use:          "run",
+		Short:        "Run the development environment (services from azure.yaml, Aspire, pnpm, or docker compose)",
+		Long:         `Automatically detects and runs services defined in azure.yaml, or falls back to: Aspire (AppHost.cs), pnpm dev/start scripts, or docker compose from package.json`,
+		SilenceUsage: true, // Don't print usage on errors - it makes error messages hard to read
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runWithServices(cmd.Context(), cmd, args)
 		},
@@ -226,6 +227,18 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 	}
 
 	logger.LogReady()
+
+	// Display Functions/Logic Apps endpoints if any were discovered
+	if result.FunctionsParser != nil {
+		// Give functions a moment to finish startup logging
+		time.Sleep(2 * time.Second)
+
+		for name, process := range result.Processes {
+			if result.FunctionsParser.HasEndpoints(name) {
+				result.FunctionsParser.DisplayEndpoints(name, process.Port)
+			}
+		}
+	}
 
 	// Start dashboard and wait for shutdown
 	return monitorServicesUntilShutdown(result, cwd)

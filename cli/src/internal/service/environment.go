@@ -3,6 +3,7 @@ package service
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -59,6 +60,64 @@ func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath 
 	}
 
 	return env, nil
+}
+
+// InjectFunctionsWorkerRuntime adds FUNCTIONS_WORKER_RUNTIME and other required settings
+// for Logic Apps and Azure Functions. This prevents func CLI from prompting interactively.
+// Also injects azd env values for Logic Apps connection configuration.
+func InjectFunctionsWorkerRuntime(env map[string]string, runtime *ServiceRuntime) map[string]string {
+	// Only inject for Logic Apps Standard and Azure Functions
+	isFunctions := strings.Contains(runtime.Framework, "Logic Apps") ||
+		strings.Contains(runtime.Framework, "Functions")
+
+	if !isFunctions {
+		return env
+	}
+
+	// Check if there's a local.settings.json to read settings from
+	localSettingsPath := filepath.Join(runtime.WorkingDir, "local.settings.json")
+	if settings := loadLocalSettings(localSettingsPath); settings != nil {
+		// Inject missing settings from local.settings.json
+		for key, value := range settings {
+			if _, exists := env[key]; !exists {
+				env[key] = value
+			}
+		}
+	}
+
+	// Inject FUNCTIONS_WORKER_RUNTIME if still missing
+	if _, exists := env["FUNCTIONS_WORKER_RUNTIME"]; !exists {
+		// Default based on framework type
+		if strings.Contains(runtime.Framework, "Logic Apps") {
+			env["FUNCTIONS_WORKER_RUNTIME"] = "node"
+		}
+	}
+
+	// Inject AzureWebJobsStorage if missing (required for local dev)
+	if _, exists := env["AzureWebJobsStorage"]; !exists {
+		env["AzureWebJobsStorage"] = "UseDevelopmentStorage=true"
+	}
+
+	return env
+}
+
+// loadLocalSettings reads all Values from local.settings.json.
+func loadLocalSettings(path string) map[string]string {
+	// #nosec G304 -- Path is constructed from validated runtime.WorkingDir
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+
+	var config struct {
+		Values map[string]string `json:"Values"`
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil
+	}
+
+	return config.Values
 }
 
 // GenerateServiceURLs creates auto-generated environment variables for service URLs.

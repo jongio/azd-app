@@ -1,0 +1,6 @@
+name: functions-invalid-no-functions
+services:
+  api:
+    project: .
+    language: js
+    host: function

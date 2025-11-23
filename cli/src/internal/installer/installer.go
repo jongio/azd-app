@@ -1,13 +1,16 @@
-// Package installer handles dependency installation for various package managers.
+// Package installer provides dependency installation capabilities for Node.js, Python, and .NET projects.
 package installer
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
@@ -58,8 +61,16 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	switch project.PackageManager {
 	case "npm":
 		args = []string{"install", "--no-audit", "--no-fund", "--prefer-offline"}
+		// If this is a workspace root, use --workspaces flag to install all workspace packages
+		if project.IsWorkspaceRoot {
+			args = append(args, "--workspaces")
+		}
 	case "pnpm":
 		args = []string{"install", "--prefer-offline"}
+		// If this is a workspace root, use --recursive flag to install all workspace packages
+		if project.IsWorkspaceRoot {
+			args = append(args, "--recursive")
+		}
 	case "yarn":
 		args = []string{"install", "--non-interactive", "--prefer-offline"}
 	default:
@@ -76,19 +87,22 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 
 	cmd.Dir = project.Dir
 
+	// Capture stderr for error reporting, even in progress mode
+	var stderrBuf bytes.Buffer
+
 	// Configure output based on mode
 	if progressWriter != nil {
-		// Parallel mode: send output to progress writer
+		// Parallel mode: send output to progress writer, but also capture stderr
 		cmd.Stdout = progressWriter
-		cmd.Stderr = progressWriter
+		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
 	} else if output.IsJSON() {
-		// JSON mode: suppress output
+		// JSON mode: suppress output but capture stderr for errors
 		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
+		cmd.Stderr = &stderrBuf
 	} else {
-		// Default mode: stream output directly
+		// Default mode: stream output directly but also capture stderr
 		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 	}
 	// Don't set Stdin - we don't want interactive prompts
 	cmd.Env = os.Environ()
@@ -98,9 +112,10 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 		cmd.Env = append(cmd.Env, "NPM_CONFIG_PROGRESS=true", "NPM_CONFIG_LOGLEVEL=verbose")
 	}
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install %s dependencies in %s (command: %v %v): %w",
-			project.PackageManager, project.Dir, cmd.Path, cmd.Args, err)
+	// Run with retry logic for Windows file locking errors
+	err := runWithRetry(cmd, &stderrBuf, 3)
+	if err != nil {
+		return formatNodeInstallError(project.PackageManager, project.Dir, cmd, err, stderrBuf.String())
 	}
 
 	if !output.IsJSON() && progressWriter == nil {
@@ -130,22 +145,25 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 	cmd := exec.Command("dotnet", "restore", project.Path)
 	cmd.Dir = dir
 
+	// Capture stderr for error reporting
+	var stderrBuf bytes.Buffer
+
 	// Configure output
 	if progressWriter != nil {
 		cmd.Stdout = progressWriter
-		cmd.Stderr = progressWriter
+		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
 	} else if output.IsJSON() {
 		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
+		cmd.Stderr = &stderrBuf
 	} else {
 		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 	}
 	// Don't set Stdin - we don't want interactive prompts
 	cmd.Env = os.Environ()
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to restore .NET project %s in directory %s: %w", project.Path, dir, err)
+		return formatDotnetRestoreError(project.Path, dir, cmd, err, stderrBuf.String())
 	}
 
 	if !output.IsJSON() && progressWriter == nil {
@@ -193,15 +211,16 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
+	var stderrBuf bytes.Buffer
 	if progressWriter != nil {
 		cmd.Stdout = progressWriter
-		cmd.Stderr = progressWriter
+		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
 	} else if output.IsJSON() {
 		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
+		cmd.Stderr = &stderrBuf
 	} else {
 		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 	}
 
 	if err := cmd.Run(); err != nil {
@@ -215,19 +234,20 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			venvCmd.Dir = projectDir
 			venvCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
+			var venvStderrBuf bytes.Buffer
 			if progressWriter != nil {
 				venvCmd.Stdout = progressWriter
-				venvCmd.Stderr = progressWriter
+				venvCmd.Stderr = io.MultiWriter(progressWriter, &venvStderrBuf)
 			} else if output.IsJSON() {
 				venvCmd.Stdout = io.Discard
-				venvCmd.Stderr = io.Discard
+				venvCmd.Stderr = &venvStderrBuf
 			} else {
 				venvCmd.Stdout = os.Stdout
-				venvCmd.Stderr = os.Stderr
+				venvCmd.Stderr = io.MultiWriter(os.Stderr, &venvStderrBuf)
 			}
 
 			if venvErr := venvCmd.Run(); venvErr != nil {
-				return fmt.Errorf("failed to create virtual environment with uv in %s: %w", projectDir, venvErr)
+				return formatPythonInstallError("uv venv", projectDir, venvCmd, venvErr, venvStderrBuf.String())
 			}
 
 			// Install dependencies
@@ -238,22 +258,23 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			installCmd.Dir = projectDir
 			installCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
+			var installStderrBuf bytes.Buffer
 			if progressWriter != nil {
 				installCmd.Stdout = progressWriter
-				installCmd.Stderr = progressWriter
+				installCmd.Stderr = io.MultiWriter(progressWriter, &installStderrBuf)
 			} else if output.IsJSON() {
 				installCmd.Stdout = io.Discard
-				installCmd.Stderr = io.Discard
+				installCmd.Stderr = &installStderrBuf
 			} else {
 				installCmd.Stdout = os.Stdout
-				installCmd.Stderr = os.Stderr
+				installCmd.Stderr = io.MultiWriter(os.Stderr, &installStderrBuf)
 			}
 
 			if installErr := installCmd.Run(); installErr != nil {
-				return fmt.Errorf("failed to install dependencies with uv in %s: %w", projectDir, installErr)
+				return formatPythonInstallError("uv pip install", projectDir, installCmd, installErr, installStderrBuf.String())
 			}
 		} else {
-			return fmt.Errorf("uv sync failed in %s: %w", projectDir, err)
+			return formatPythonInstallError("uv sync", projectDir, cmd, err, stderrBuf.String())
 		}
 	}
 
@@ -296,19 +317,20 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
+	var stderrBuf bytes.Buffer
 	if progressWriter != nil {
 		cmd.Stdout = progressWriter
-		cmd.Stderr = progressWriter
+		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
 	} else if output.IsJSON() {
 		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
+		cmd.Stderr = &stderrBuf
 	} else {
 		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install dependencies with poetry in %s: %w", projectDir, err)
+		return formatPythonInstallError("poetry install", projectDir, cmd, err, stderrBuf.String())
 	}
 
 	if !output.IsJSON() && progressWriter == nil {
@@ -331,9 +353,13 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		cmd := exec.Command("python", "-m", "venv", ".venv")
 		cmd.Dir = projectDir
 		cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
-		cmdOutput, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("failed to create virtual environment in %s: %w\nOutput: %s", projectDir, err, cmdOutput)
+
+		var stderrBuf bytes.Buffer
+		cmd.Stderr = &stderrBuf
+		cmd.Stdout = io.Discard
+
+		if err := cmd.Run(); err != nil {
+			return formatPythonInstallError("python -m venv", projectDir, cmd, err, stderrBuf.String())
 		}
 
 		if !output.IsJSON() && progressWriter == nil {
@@ -367,21 +393,22 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		pipCmd := exec.Command(pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
 		pipCmd.Dir = projectDir
 
+		var stderrBuf bytes.Buffer
 		if progressWriter != nil {
 			pipCmd.Stdout = progressWriter
-			pipCmd.Stderr = progressWriter
+			pipCmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
 		} else if output.IsJSON() {
 			pipCmd.Stdout = io.Discard
-			pipCmd.Stderr = io.Discard
+			pipCmd.Stderr = &stderrBuf
 		} else {
 			pipCmd.Stdout = os.Stdout
-			pipCmd.Stderr = os.Stderr
+			pipCmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 		}
 		// Don't set Stdin - we don't want interactive prompts
 		pipCmd.Env = os.Environ()
 
 		if err := pipCmd.Run(); err != nil {
-			return fmt.Errorf("failed to install requirements in %s: %w", projectDir, err)
+			return formatPythonInstallError("pip install", projectDir, pipCmd, err, stderrBuf.String())
 		}
 
 		if !output.IsJSON() && progressWriter == nil {
@@ -455,4 +482,342 @@ func isDependenciesUpToDate(projectDir string, packageManager string) bool {
 
 	// Dependencies appear to be up-to-date
 	return true
+}
+
+// formatNodeInstallError creates a detailed error message for node package manager failures
+func formatNodeInstallError(packageManager, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
+	var exitCode int
+	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+		exitCode = exitErr.ExitCode()
+	} else {
+		// If not an ExitError, check if the error message contains exit status
+		errMsg := cmdErr.Error()
+		if strings.Contains(errMsg, "exit status") {
+			// Try to extract exit code from error message
+			var code int
+			if _, err := fmt.Sscanf(errMsg, "exit status %d", &code); err == nil {
+				exitCode = code
+			}
+		}
+	}
+
+	// Build base error message
+	errMsg := fmt.Sprintf("failed to run %s install", packageManager)
+
+	// Add exit code context
+	switch exitCode {
+	case 1:
+		errMsg += " (command failed with errors)"
+	case 127:
+		errMsg += fmt.Sprintf(" (%s not found - please install %s)", packageManager, packageManager)
+	case 254:
+		errMsg += fmt.Sprintf(" (%s command failed - check if %s is installed and in PATH)", packageManager, packageManager)
+	default:
+		if exitCode != 0 {
+			errMsg += fmt.Sprintf(" (exit code %d)", exitCode)
+		}
+	}
+
+	// Extract meaningful error details from stderr
+	errorDetails := extractErrorDetails(stderr, packageManager)
+	if errorDetails != "" {
+		errMsg += ": " + errorDetails
+	}
+
+	// Add installation suggestions based on exit code and error pattern
+	suggestion := getSuggestion(packageManager, exitCode, stderr)
+	if suggestion != "" {
+		errMsg += "\n   Suggestion: " + suggestion
+	}
+
+	return fmt.Errorf("%s\n   Directory: %s\n   Command: %s", errMsg, projectDir, formatCommand(cmd))
+}
+
+// formatDotnetRestoreError creates a detailed error message for dotnet restore failures
+func formatDotnetRestoreError(projectPath, dir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
+	var exitCode int
+	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+		exitCode = exitErr.ExitCode()
+	} else {
+		// If not an ExitError, try to extract from error message
+		errMsg := cmdErr.Error()
+		if strings.Contains(errMsg, "exit status") {
+			var code int
+			if _, err := fmt.Sscanf(errMsg, "exit status %d", &code); err == nil {
+				exitCode = code
+			}
+		}
+	}
+
+	errMsg := "failed to restore .NET project"
+	if exitCode == 127 {
+		errMsg += " (dotnet not found - please install .NET SDK)"
+	} else if exitCode != 0 {
+		errMsg += fmt.Sprintf(" (exit code %d)", exitCode)
+	}
+
+	errorDetails := extractErrorDetails(stderr, "dotnet")
+	if errorDetails != "" {
+		errMsg += ": " + errorDetails
+	}
+
+	return fmt.Errorf("%s\n   Project: %s\n   Directory: %s\n   Command: %s", errMsg, projectPath, dir, formatCommand(cmd))
+}
+
+// extractErrorDetails extracts the most relevant error lines from stderr
+func extractErrorDetails(stderr, tool string) string {
+	if stderr == "" {
+		return ""
+	}
+
+	// Limit stderr to prevent memory issues with extremely verbose output
+	const maxStderrLen = 10000 // 10KB should be enough for error context
+	if len(stderr) > maxStderrLen {
+		stderr = stderr[:maxStderrLen] + "... (truncated)"
+	}
+
+	lines := strings.Split(stderr, "\n")
+	var errorLines []string
+
+	// Look for common error patterns
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Skip noise lines
+		if strings.HasPrefix(line, "Progress:") ||
+			strings.HasPrefix(line, "Downloading") ||
+			strings.HasPrefix(line, "Building") {
+			continue
+		}
+
+		// Capture error indicators
+		lowerLine := strings.ToLower(line)
+		if strings.Contains(lowerLine, "error") ||
+			strings.Contains(lowerLine, "failed") ||
+			strings.Contains(lowerLine, "enoent") ||
+			strings.Contains(lowerLine, "permission denied") ||
+			strings.Contains(lowerLine, "cannot find") ||
+			strings.Contains(lowerLine, "command not found") {
+			errorLines = append(errorLines, line)
+			if len(errorLines) >= 3 {
+				break // Limit to first 3 error lines
+			}
+		}
+	}
+
+	if len(errorLines) > 0 {
+		result := strings.Join(errorLines, "; ")
+		// Truncate if combined error lines are too long
+		const maxErrorLen = 500
+		if len(result) > maxErrorLen {
+			return result[:maxErrorLen] + "..."
+		}
+		return result
+	}
+
+	// If no specific error patterns found, return last few non-empty lines
+	var lastLines []string
+	for i := len(lines) - 1; i >= 0 && len(lastLines) < 2; i-- {
+		if trimmed := strings.TrimSpace(lines[i]); trimmed != "" {
+			lastLines = append([]string{trimmed}, lastLines...)
+		}
+	}
+
+	if len(lastLines) > 0 {
+		result := strings.Join(lastLines, "; ")
+		const maxErrorLen = 500
+		if len(result) > maxErrorLen {
+			return result[:maxErrorLen] + "..."
+		}
+		return result
+	}
+
+	return ""
+}
+
+// getSuggestion provides helpful suggestions based on error patterns
+func getSuggestion(packageManager string, exitCode int, stderr string) string {
+	lowerStderr := strings.ToLower(stderr)
+
+	// Check for "command not found" or exit code 127/254
+	if exitCode == 127 || exitCode == 254 || strings.Contains(lowerStderr, "command not found") {
+		switch packageManager {
+		case "pnpm":
+			return "Install pnpm with: npm install -g pnpm"
+		case "yarn":
+			return "Install yarn with: npm install -g yarn"
+		case "npm":
+			return "Install Node.js and npm from: https://nodejs.org"
+		}
+	}
+
+	// Permission errors
+	if strings.Contains(lowerStderr, "permission denied") || strings.Contains(lowerStderr, "eacces") {
+		return "Try running with appropriate permissions or check file/directory ownership"
+	}
+
+	// Network errors
+	if strings.Contains(lowerStderr, "enotfound") || strings.Contains(lowerStderr, "network") {
+		return "Check your network connection and proxy settings"
+	}
+
+	// Disk space
+	if strings.Contains(lowerStderr, "enospc") || strings.Contains(lowerStderr, "no space") {
+		return "Free up disk space and try again"
+	}
+
+	// Lock file issues
+	if strings.Contains(lowerStderr, "lock") && strings.Contains(lowerStderr, "conflict") {
+		return "Delete the lock file and node_modules, then try again"
+	}
+
+	return ""
+}
+
+// formatCommand formats a command for display
+func formatCommand(cmd *exec.Cmd) string {
+	if cmd == nil {
+		return "(unknown command)"
+	}
+	if len(cmd.Args) == 0 {
+		return cmd.Path
+	}
+	if len(cmd.Args) == 1 {
+		return cmd.Args[0]
+	}
+	return cmd.Args[0] + " " + strings.Join(cmd.Args[1:], " ")
+}
+
+// formatPythonInstallError creates a detailed error message for Python installer failures
+func formatPythonInstallError(tool, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
+	var exitCode int
+	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+		exitCode = exitErr.ExitCode()
+	} else {
+		// If not an ExitError, try to extract from error message
+		errMsg := cmdErr.Error()
+		if strings.Contains(errMsg, "exit status") {
+			var code int
+			if _, err := fmt.Sscanf(errMsg, "exit status %d", &code); err == nil {
+				exitCode = code
+			}
+		}
+	}
+
+	errMsg := fmt.Sprintf("failed to run %s", tool)
+
+	// Add exit code context
+	if exitCode == 127 {
+		errMsg += fmt.Sprintf(" (%s not found - please install %s)", tool, tool)
+	} else if exitCode != 0 {
+		errMsg += fmt.Sprintf(" (exit code %d)", exitCode)
+	}
+
+	// Extract error details
+	errorDetails := extractErrorDetails(stderr, tool)
+	if errorDetails != "" {
+		errMsg += ": " + errorDetails
+	}
+
+	// Add Python-specific suggestions
+	suggestion := getPythonSuggestion(tool, exitCode, stderr)
+	if suggestion != "" {
+		errMsg += "\n   Suggestion: " + suggestion
+	}
+
+	return fmt.Errorf("%s\n   Directory: %s\n   Command: %s", errMsg, projectDir, formatCommand(cmd))
+}
+
+// getPythonSuggestion provides helpful suggestions for Python tool failures
+func getPythonSuggestion(tool string, exitCode int, stderr string) string {
+	lowerStderr := strings.ToLower(stderr)
+
+	// Check for tool not found
+	if exitCode == 127 || strings.Contains(lowerStderr, "command not found") {
+		switch tool {
+		case "uv":
+			return "Install uv with: pip install uv"
+		case "poetry":
+			return "Install poetry with: pip install poetry"
+		case "python":
+			return "Install Python from: https://www.python.org/downloads/"
+		}
+	}
+
+	// Permission errors
+	if strings.Contains(lowerStderr, "permission denied") || strings.Contains(lowerStderr, "eacces") {
+		return "Try running with appropriate permissions or check file/directory ownership"
+	}
+
+	// Network errors
+	if strings.Contains(lowerStderr, "could not find") || strings.Contains(lowerStderr, "connection") {
+		return "Check your network connection and PyPI access"
+	}
+
+	// Virtual environment issues
+	if strings.Contains(lowerStderr, "venv") || strings.Contains(lowerStderr, "virtualenv") {
+		return "Try deleting the .venv directory and running again"
+	}
+
+	return ""
+}
+
+// runWithRetry executes a command with retry logic for Windows file locking errors.
+// This is a safety net for race conditions in npm workspaces on Windows where
+// concurrent npm processes may compete for the same files.
+func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error {
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Run the command
+		err := cmd.Run()
+
+		// If successful, return
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+
+		// Check if this is a file locking error that we should retry
+		stderr := stderrBuf.String()
+		if isFileLockingError(stderr) && attempt < maxRetries {
+			// Calculate exponential backoff delay
+			delay := time.Duration(1<<uint(attempt-1)) * time.Second
+			if !output.IsJSON() {
+				output.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
+			}
+			time.Sleep(delay)
+
+			// Reset stderr buffer for next attempt
+			stderrBuf.Reset()
+
+			// Recreate the command for the next attempt (exec.Cmd can only be run once)
+			newCmd := exec.Command(cmd.Path, cmd.Args[1:]...)
+			newCmd.Dir = cmd.Dir
+			newCmd.Env = cmd.Env
+			newCmd.Stdout = cmd.Stdout
+			newCmd.Stderr = io.MultiWriter(cmd.Stderr, stderrBuf)
+			newCmd.Stdin = cmd.Stdin
+			cmd = newCmd
+			continue
+		}
+
+		// Not a file locking error or max retries reached
+		return err
+	}
+
+	return lastErr
+}
+
+// isFileLockingError checks if the error message indicates a Windows file locking issue.
+// Common errors include EBUSY (file busy) and ENOTEMPTY (directory not empty).
+func isFileLockingError(stderr string) bool {
+	lowerStderr := strings.ToLower(stderr)
+	return strings.Contains(lowerStderr, "ebusy") ||
+		strings.Contains(lowerStderr, "enotempty") ||
+		strings.Contains(lowerStderr, "eperm") && runtime.GOOS == "windows"
 }

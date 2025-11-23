@@ -75,3 +75,13 @@ Element.prototype.scrollTo = vi.fn()
 // Mock URL.createObjectURL and revokeObjectURL
 globalThis.URL.createObjectURL = vi.fn(() => 'mock-url')
 globalThis.URL.revokeObjectURL = vi.fn()
+
+// Mock HTMLAnchorElement click to prevent jsdom navigation errors
+const originalCreateElement = document.createElement.bind(document)
+document.createElement = vi.fn((tagName: string, options?: ElementCreationOptions) => {
+  const element = originalCreateElement(tagName, options)
+  if (tagName === 'a') {
+    element.click = vi.fn()
+  }
+  return element
+}) as any

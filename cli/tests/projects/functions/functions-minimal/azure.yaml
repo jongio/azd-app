@@ -1,0 +1,6 @@
+name: functions-minimal
+services:
+  api:
+    project: .
+    language: js
+    host: function

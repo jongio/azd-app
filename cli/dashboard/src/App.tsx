@@ -37,13 +37,20 @@ function App() {
   }, [viewMode])
 
   useEffect(() => {
-    fetch('/api/project')
-      .then(res => res.json())
-      .then(data => {
+    const fetchProjectName = async () => {
+      try {
+        const res = await fetch('/api/project')
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        const data = await res.json()
         setProjectName(data.name)
         document.title = `${data.name}`
-      })
-      .catch(err => console.error('Failed to fetch project name:', err))
+      } catch (err) {
+        console.error('Failed to fetch project name:', err)
+      }
+    }
+    void fetchProjectName()
   }, [])
 
   const renderContent = () => {

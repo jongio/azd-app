@@ -1,5 +1,8 @@
 # App Extension - Ignore files
 
+# Project-specific files
+AGENTS.md
+
 # Binaries
 bin/
 *.exe

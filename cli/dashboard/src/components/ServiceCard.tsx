@@ -1,50 +1,17 @@
-import { Activity, Server, CheckCircle, XCircle, Clock, AlertCircle, StopCircle, ExternalLink, Code, Layers } from 'lucide-react'
+import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { Service } from '@/types'
+import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime } from '@/lib/service-utils'
 
 interface ServiceCardProps {
   service: Service
 }
 
 export function ServiceCard({ service }: ServiceCardProps) {
-  // Get status and health from local (with fallbacks)
-  const status = service.local?.status || service.status || 'not-running'
-  const health = service.local?.health || service.health || 'unknown'
-  
-  const getStatusColor = (status: string, health: string) => {
-    if ((status === 'ready' || status === 'running') && health === 'healthy') return 'success'
-    if (status === 'starting') return 'warning'
-    if (status === 'error' || health === 'unhealthy') return 'destructive'
-    if (status === 'stopped' || status === 'stopping' || status === 'not-running') return 'secondary'
-    return 'secondary'
-  }
-
-  const getStatusIcon = (status: string, health: string) => {
-    if ((status === 'ready' || status === 'running') && health === 'healthy') return <CheckCircle className="w-4 h-4" />
-    if (status === 'starting') return <Clock className="w-4 h-4 animate-spin" />
-    if (status === 'error' || health === 'unhealthy') return <XCircle className="w-4 h-4" />
-    if (status === 'stopped' || status === 'not-running') return <StopCircle className="w-4 h-4" />
-    if (status === 'stopping') return <StopCircle className="w-4 h-4 animate-pulse" />
-    return <AlertCircle className="w-4 h-4" />
-  }
-
-  const formatTime = (timeStr?: string) => {
-    if (!timeStr) return 'N/A'
-    const date = new Date(timeStr)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const seconds = Math.floor(diff / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const hours = Math.floor(minutes / 60)
-    const days = Math.floor(hours / 24)
-
-    if (seconds < 60) return `${seconds}s ago`
-    if (minutes < 60) return `${minutes}m ago`
-    if (hours < 24) return `${hours}h ago`
-    return `${days}d ago`
-  }
-
-  const isHealthy = (status === 'ready' || status === 'running') && health === 'healthy'
+  const { status, health } = getEffectiveStatus(service)
+  const statusDisplay = getStatusDisplay(status, health)
+  const healthy = isServiceHealthy(status, health)
+  const Icon = statusDisplay.icon
 
   return (
     <div className="group glass rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden">
@@ -57,11 +24,11 @@ export function ServiceCard({ service }: ServiceCardProps) {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl transition-all-smooth ${
-              isHealthy 
+              healthy 
                 ? 'bg-linear-to-br from-success/20 to-success/10 group-hover:scale-110' 
                 : 'bg-linear-to-br from-muted/20 to-muted/10'
             }`}>
-              <Server className={`w-5 h-5 ${isHealthy ? 'text-success' : 'text-muted-foreground'}`} />
+              <Server className={`w-5 h-5 ${healthy ? 'text-success' : 'text-muted-foreground'}`} />
             </div>
             <div>
               <h3 className="font-semibold text-xl text-foreground group-hover:text-primary transition-colors">
@@ -72,20 +39,20 @@ export function ServiceCard({ service }: ServiceCardProps) {
           </div>
           
           <Badge 
-            variant={getStatusColor(status, health)}
+            variant={statusDisplay.badgeVariant}
             className="transition-all-smooth group-hover:scale-105"
           >
             <span className="flex items-center gap-1.5">
               <div className="relative">
-                {getStatusIcon(status, health)}
-                {isHealthy && (
+                <Icon className={status === 'starting' ? 'w-4 h-4 animate-spin' : status === 'stopping' ? 'w-4 h-4 animate-pulse' : 'w-4 h-4'} />
+                {healthy && (
                   <>
                     <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-success rounded-full animate-ping"></span>
                     <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-success rounded-full"></span>
                   </>
                 )}
               </div>
-              {status}
+              {statusDisplay.text}
             </span>
           </Badge>
         </div>
@@ -172,13 +139,13 @@ export function ServiceCard({ service }: ServiceCardProps) {
             {(service.local?.startTime || service.startTime) && (
               <div className="flex items-center justify-between">
                 <span>Started</span>
-                <span className="font-medium">{formatTime(service.local?.startTime || service.startTime)}</span>
+                <span className="font-medium">{formatRelativeTime(service.local?.startTime || service.startTime)}</span>
               </div>
             )}
             {(service.local?.lastChecked || service.lastChecked) && (
               <div className="flex items-center justify-between">
                 <span>Last checked</span>
-                <span className="font-medium">{formatTime(service.local?.lastChecked || service.lastChecked)}</span>
+                <span className="font-medium">{formatRelativeTime(service.local?.lastChecked || service.lastChecked)}</span>
               </div>
             )}
           </div>
