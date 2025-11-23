@@ -436,6 +436,22 @@ type Hooks struct {
 	Postrun *Hook `yaml:"postrun,omitempty"`
 }
 
+// GetPrerun safely retrieves the prerun hook, returning nil if not configured.
+func (h *Hooks) GetPrerun() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prerun
+}
+
+// GetPostrun safely retrieves the postrun hook, returning nil if not configured.
+func (h *Hooks) GetPostrun() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Postrun
+}
+
 // Hook represents a lifecycle hook configuration.
 type Hook struct {
 	Run             string        `yaml:"run"`                       // Script or command to execute

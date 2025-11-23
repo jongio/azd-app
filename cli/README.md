@@ -577,8 +577,7 @@ See [LICENSE](LICENSE) for details.
 
 - **Issues**: [GitHub Issues](https://github.com/jongio/azd-app-extension/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jongio/azd-app-extension/discussions)
-- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
-
+- **Contributing**: See [CONTRIBUTING.md](CONTRIBUT
 ## Acknowledgments
 
 This extension is built with:

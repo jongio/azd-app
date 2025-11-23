@@ -11,6 +11,16 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/output"
 )
 
+// Shell type constants for platform-specific shell detection
+const (
+	ShellSh         = "sh"
+	ShellBash       = "bash"
+	ShellPwsh       = "pwsh"
+	ShellPowerShell = "powershell"
+	ShellCmd        = "cmd"
+	ShellZsh        = "zsh"
+)
+
 // HookConfig represents the configuration for executing a hook.
 type HookConfig struct {
 	Run             string // Script or command to execute
@@ -43,21 +53,8 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 	// Prepare command
 	cmd := prepareHookCommand(ctx, shell, config.Run, workingDir)
 
-	// Configure stdio based on interactive mode
-	if config.Interactive {
-		cmd.Stdin = os.Stdin
-	} else {
-		cmd.Stdin = nil
-	}
-
-	// In JSON mode, suppress output unless interactive
-	if output.IsJSON() && !config.Interactive {
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-	} else {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
+	// Configure stdio
+	configureCommandIO(cmd, config.Interactive)
 
 	// Execute the hook
 	err := cmd.Run()
@@ -102,23 +99,42 @@ func prepareHookCommand(ctx context.Context, shell, script, workingDir string) *
 	return cmd
 }
 
+// configureCommandIO configures stdin, stdout, and stderr for the command based on interactive mode and output format.
+func configureCommandIO(cmd *exec.Cmd, interactive bool) {
+	// Configure stdin based on interactive mode
+	if interactive {
+		cmd.Stdin = os.Stdin
+	} else {
+		cmd.Stdin = nil
+	}
+
+	// In JSON mode, suppress output unless interactive
+	if output.IsJSON() && !interactive {
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+}
+
 // getDefaultShell returns the default shell for the current platform.
 func getDefaultShell() string {
 	if runtime.GOOS == "windows" {
 		// Check if PowerShell is available (preferred on Windows)
-		if _, err := exec.LookPath("pwsh"); err == nil {
-			return "pwsh"
+		if _, err := exec.LookPath(ShellPwsh); err == nil {
+			return ShellPwsh
 		}
-		if _, err := exec.LookPath("powershell"); err == nil {
-			return "powershell"
+		if _, err := exec.LookPath(ShellPowerShell); err == nil {
+			return ShellPowerShell
 		}
-		return "cmd"
+		return ShellCmd
 	}
 	// POSIX systems: prefer bash, fallback to sh
-	if _, err := exec.LookPath("bash"); err == nil {
-		return "bash"
+	if _, err := exec.LookPath(ShellBash); err == nil {
+		return ShellBash
 	}
-	return "sh"
+	return ShellSh
 }
 
 // ResolveHookConfig resolves the final hook configuration, applying platform-specific overrides.

@@ -500,34 +500,29 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 
 // executePrerunHook executes the prerun hook if configured.
 func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	if azureYaml.Hooks == nil || azureYaml.Hooks.Prerun == nil {
-		return nil // No prerun hook configured
-	}
-
-	// Convert service.Hook to executor.Hook
-	hook := convertHook(azureYaml.Hooks.Prerun)
-	config := executor.ResolveHookConfig(hook)
-	if config == nil {
-		return nil
-	}
-
-	return executor.ExecuteHook(context.Background(), "prerun", *config, workingDir)
+	return executeHook(azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
 }
 
 // executePostrunHook executes the postrun hook if configured.
 func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	if azureYaml.Hooks == nil || azureYaml.Hooks.Postrun == nil {
-		return nil // No postrun hook configured
+	return executeHook(azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
+}
+
+// executeHook executes a lifecycle hook with the given name and configuration.
+// This is a common helper function to avoid duplication between prerun and postrun hooks.
+func executeHook(hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
+	if hooks == nil || hook == nil {
+		return nil // No hook configured
 	}
 
 	// Convert service.Hook to executor.Hook
-	hook := convertHook(azureYaml.Hooks.Postrun)
-	config := executor.ResolveHookConfig(hook)
+	convertedHook := convertHook(hook)
+	config := executor.ResolveHookConfig(convertedHook)
 	if config == nil {
 		return nil
 	}
 
-	return executor.ExecuteHook(context.Background(), "postrun", *config, workingDir)
+	return executor.ExecuteHook(context.Background(), hookName, *config, workingDir)
 }
 
 // convertHook converts service.Hook to executor.Hook to avoid circular imports.
