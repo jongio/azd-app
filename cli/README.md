@@ -21,6 +21,7 @@ App automatically detects and manages dependencies for:
 - 📦 **Multi-Language Support**: Works with Node.js, Python, and .NET projects
 - 🚀 **One-Command Setup**: Install all dependencies with a single command
 - 🎯 **Environment-Aware**: Creates and manages virtual environments for Python
+- 🪝 **Lifecycle Hooks**: Automate tasks before and after services start (prerun/postrun)
 - 🐳 **Docker Compose Compatible**: Environment variable syntax matches Docker Compose exactly
 - ⚡ **Fast Iteration**: Minimal test dependencies for quick validation
 
@@ -28,34 +29,28 @@ App automatically detects and manages dependencies for:
 
 ### For End Users
 
-First, enable azd extensions:
+First, add the extension registry:
 
 ```bash
-azd config set alpha.extension.enabled on
-```
-
-Then add the extension registry:
-
-```bash
-azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
+azd config set extension.registry https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 ```
 
 Then install the extension:
 
 ```bash
-azd extension install jongio.azd.app
+azd extension install app
 ```
 
 Or install from a specific version:
 
 ```bash
-azd extension install jongio.azd.app --version 0.5.1
+azd extension install app --version 0.1.0
 ```
 
 To uninstall:
 
 ```bash
-azd extension uninstall jongio.azd.app
+azd extension uninstall app
 ```
 
 ### For Development & Testing
@@ -118,7 +113,7 @@ The devcontainer includes:
 - Mage, golangci-lint, and all development tools
 - Your Azure credentials automatically mounted
 
-See [../.devcontainer/README.md](../.devcontainer/README.md) for details.
+See [.devcontainer/README.md](.devcontainer/README.md) for details.
 
 ### Prerequisites
 
@@ -179,9 +174,9 @@ The generated `azure.yaml`:
 ```yaml
 name: my-project
 reqs:
-  - name: node
+  - id: node
     minVersion: 22.0.0
-  - name: pnpm
+  - id: pnpm
     minVersion: 10.0.0
 ```
 
@@ -197,12 +192,12 @@ reqs:
 ```yaml
 name: my-project
 reqs:
-  - name: docker
+  - id: docker
     minVersion: "20.0.0"
     checkRunning: true
-  - name: nodejs
+  - id: nodejs
     minVersion: "20.0.0"
-  - name: python
+  - id: python
     minVersion: "3.12.0"
 ```
 
@@ -217,7 +212,7 @@ reqs:
 ✅ All requirements are satisfied!
 ```
 
-See [docs/commands/reqs.md](docs/commands/reqs.md) for detailed documentation.
+See [docs/reqs-command.md](docs/reqs-command.md) for detailed documentation.
 
 ### `azd app deps`
 
@@ -332,7 +327,7 @@ resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP_NAME")
 envName := os.Getenv("AZURE_ENV_NAME")
 ```
 
-See [docs/dev/azd-context-inheritance.md](docs/dev/azd-context-inheritance.md) for comprehensive documentation on accessing azd context and environment variables.
+See [docs/azd-context.md](docs/azd-context.md) for comprehensive documentation on accessing azd context and environment variables.
 
 ## Development
 
@@ -372,24 +367,11 @@ azd-app-extension/
 │       └── azure/
 
 ├── docs/                       # Documentation
-│   ├── cli-reference.md       # User-facing: CLI reference
-│   ├── environment-variables.md # User-facing: Environment variable configuration
-│   ├── ports.md               # User-facing: Port configuration
-│   ├── commands/              # User-facing: Command documentation
-│   │   ├── reqs.md
-│   │   ├── deps.md
-│   │   ├── run.md
-│   │   ├── logs.md
-│   │   ├── info.md
-│   │   └── version.md
-│   ├── schema/                # User-facing: Schema documentation
-│   │   └── azure.yaml.md
-│   ├── dev/                   # Developer-only: Internal implementation docs
-│   │   ├── azd-context-inheritance.md
-│   │   ├── testing.md
-│   │   └── release.md
-│   └── design/                # Developer-only: Design documents
-│       └── ports.md
+│   ├── quickstart.md
+│   ├── add-command-guide.md
+│   ├── command-dependency-chain.md
+│   ├── azd-context.md
+│   └── reqs-command.md
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml              # CI pipeline
@@ -520,8 +502,8 @@ The dashboard build is automatically included in:
 - CI/CD workflows - Dashboard is built and validated in all pipelines
 
 **Learn more about Mage:**
-- [Mage Documentation](https://magefile.org/) - Official Mage documentation
-- [Integration Tests](docs/dev/integration-tests.md) - Running and writing integration tests
+- [Mage Build Tool Guide](docs/mage-build-tool.md) - Complete guide to using Mage in this project
+- [Integration Tests](docs/integration-tests.md) - Running and writing integration tests
 
 ### Adding New Commands
 
@@ -558,7 +540,7 @@ azd app deps
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ### Code Quality Requirements
 
@@ -579,7 +561,8 @@ See [LICENSE](LICENSE) for details.
 ### Documentation
 
 - **[CLI Reference](docs/cli-reference.md)**: Complete command reference with all flags and options
-- **[Release Process](docs/dev/release.md)**: Guide for publishing new versions
+- **[Release Process](docs/release-process.md)**: Guide for publishing new versions
+- **[Quick Release](docs/release-quick.md)**: Quick reference for releases
 - **[Development Guides](docs/dev/)**: Internal development documentation
 
 ### External Resources
@@ -594,7 +577,7 @@ See [LICENSE](LICENSE) for details.
 
 - **Issues**: [GitHub Issues](https://github.com/jongio/azd-app-extension/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jongio/azd-app-extension/discussions)
-- **Contributing**: See [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Acknowledgments
 

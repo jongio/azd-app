@@ -15,6 +15,7 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 - **`environment`**: Environment variables (Docker Compose compatible formats)
 - **`entrypoint`**: Custom entry point files for Python/Node services
 - **`reqs`**: Prerequisite tool validation (top-level, not per-service)
+- **`hooks`**: Lifecycle hooks for prerun/postrun automation (similar to azd's preprovision/postprovision)
 
 All standard `azd` fields remain fully compatible.
 
@@ -46,6 +47,22 @@ reqs:
 
 ### `metadata`
 Free-form metadata (standard `azd` field).
+
+### `hooks` ⭐ NEW
+Lifecycle hooks that execute before and after the `run` command.
+
+```yaml
+hooks:
+  prerun:
+    run: "./scripts/setup.sh"
+    shell: sh
+    continueOnError: false
+  postrun:
+    run: "echo 'Services are ready!'"
+    shell: sh
+```
+
+See [Hook Object](#hook-object) for full configuration options.
 
 
 ## Service Object
@@ -214,6 +231,144 @@ reqs:
 
 
 
+## Hook Object
+
+Lifecycle hook that executes before or after the `run` command. Hooks are similar to azd's `preprovision` and `postprovision` hooks.
+
+### Properties
+
+- **`run`** (required): Script or command to execute
+  - Can be a path to a script file: `./scripts/setup.sh`
+  - Can be an inline command: `echo "Starting"`
+  - Can be a complex command: `npm run migrate && npm run seed`
+
+- **`shell`**: Shell to use for execution (optional)
+  - **Windows default**: `pwsh` > `powershell` > `cmd`
+  - **POSIX default**: `bash` > `sh`
+  - Supported values: `sh`, `bash`, `pwsh`, `powershell`, `cmd`
+
+- **`continueOnError`**: Whether to continue if hook fails (default: `false`)
+  - `true`: Log error but continue execution
+  - `false`: Stop execution on error
+
+- **`interactive`**: Whether script requires user interaction (default: `false`)
+  - `true`: Bind to stdin/stdout/stderr
+  - `false`: Run non-interactively
+
+- **`windows`**: Windows-specific hook override (see [Platform Hook Override](#platform-hook-override))
+
+- **`posix`**: POSIX-specific hook override (see [Platform Hook Override](#platform-hook-override))
+
+### Examples
+
+**Simple prerun hook:**
+```yaml
+hooks:
+  prerun:
+    run: "./scripts/db-migrate.sh"
+    shell: bash
+```
+
+**Multi-step prerun with error handling:**
+```yaml
+hooks:
+  prerun:
+    run: "npm run build && npm run test"
+    shell: sh
+    continueOnError: false
+```
+
+**Postrun notification:**
+```yaml
+hooks:
+  postrun:
+    run: "curl -X POST https://hooks.slack.com/... -d '{\"text\":\"Services started\"}'"
+    shell: sh
+    continueOnError: true
+```
+
+**Platform-specific hooks:**
+```yaml
+hooks:
+  prerun:
+    windows:
+      run: ".\\scripts\\setup.ps1"
+      shell: pwsh
+    posix:
+      run: "./scripts/setup.sh"
+      shell: bash
+```
+
+**Interactive setup:**
+```yaml
+hooks:
+  prerun:
+    run: "./scripts/interactive-setup.sh"
+    shell: bash
+    interactive: true
+```
+
+### Hook Execution
+
+**Prerun Hook:**
+- Executes **before** starting any services
+- Failure stops the run command (unless `continueOnError: true`)
+- Working directory: Same as `azure.yaml` location
+- Environment: All azd environment variables available
+
+**Postrun Hook:**
+- Executes **after** all services are ready
+- Failure is logged but services continue running
+- Working directory: Same as `azure.yaml` location
+- Environment: All azd environment variables + service URLs
+
+### Use Cases
+
+**Prerun hooks:**
+- Database migrations: `npm run db:migrate`
+- Environment validation: `./scripts/check-env.sh`
+- Building assets: `npm run build`
+- Setting up test data: `python seed_data.py`
+- Clearing caches: `rm -rf .cache`
+
+**Postrun hooks:**
+- Sending notifications: Slack, email, Teams
+- Opening browser: `open http://localhost:3000`
+- Running health checks: `curl http://localhost:8080/health`
+- Logging startup info: Echo service URLs and credentials
+- Service registration: Register with service discovery
+
+
+
+## Platform Hook Override
+
+Platform-specific hook configuration that overrides the parent hook settings for Windows or POSIX environments.
+
+### Properties
+
+All properties from [Hook Object](#hook-object) except `windows` and `posix` (no nested overrides):
+- **`run`** (required)
+- **`shell`** (optional)
+- **`continueOnError`** (optional)
+- **`interactive`** (optional)
+
+### Example
+
+```yaml
+hooks:
+  prerun:
+    windows:
+      run: "pwsh -File .\\scripts\\setup.ps1"
+      shell: pwsh
+      continueOnError: false
+    posix:
+      run: "./scripts/setup.sh"
+      shell: bash
+      continueOnError: false
+```
+
+
+
 ## Complete Example
 
 ```yaml
@@ -228,6 +383,15 @@ reqs:
     minVersion: "3.9"
   - name: docker
     checkRunning: true
+
+hooks:
+  prerun:
+    run: "./scripts/db-migrate.sh"
+    shell: bash
+    continueOnError: false
+  postrun:
+    run: "echo '✅ All services running at http://localhost:3000'"
+    shell: sh
 
 services:
   web:
@@ -537,7 +701,9 @@ services:
 ## See Also
 
 - [azd app CLI Reference](../cli-reference.md)
+- [Hooks Documentation](../hooks.md) - Comprehensive guide to lifecycle hooks
+- [Run Command Documentation](../commands/run.md) - Detailed run command documentation
 - [Port Configuration Guide](../features/ports.md)
 - [Port Management Design](../design/ports.md)
-- [Azure Functions Support](../azure-functions.md) - Comprehensive Azure Functions documentation
+- [Azure Functions Support](../features/azure-functions.md) - Comprehensive Azure Functions documentation
 

@@ -40,7 +40,7 @@ azd app deps --structured-logs
 |---------|-------------|---------------|
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
-| `run` | Run the development environment with service orchestration | [→ Full Spec](commands/run.md) |
+| `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |

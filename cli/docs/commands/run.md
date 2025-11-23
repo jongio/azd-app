@@ -7,6 +7,7 @@ The `run` command starts your development environment by orchestrating services 
 ## Purpose
 
 - **Service Orchestration**: Start multiple services in correct dependency order
+- **Lifecycle Hooks**: Execute prerun/postrun scripts for setup and notifications
 - **Multi-Runtime Support**: Support Node.js, Python, .NET, Azure Functions, Logic Apps, and container-based services
 - **Development Dashboard**: Provide real-time service monitoring and log viewing
 - **Port Management**: Automatically assign and manage service ports
@@ -29,6 +30,157 @@ azd app run [flags]
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
+
+## Lifecycle Hooks
+
+The `run` command supports **prerun** and **postrun** hooks that execute automatically before and after service orchestration. These are similar to azd's `preprovision` and `postprovision` hooks.
+
+### Hook Types
+
+#### `prerun` Hook
+Executes **before** starting any services. Common uses:
+- Database migrations
+- Environment validation
+- Dependency checks
+- Setting up test data
+- Pre-flight checks
+
+#### `postrun` Hook
+Executes **after** all services are ready and running. Common uses:
+- Notifications (Slack, email, etc.)
+- Opening browser windows
+- Running integration tests
+- Logging startup information
+- Service discovery registration
+
+### Hook Configuration
+
+Hooks are configured in the `hooks` section of `azure.yaml`:
+
+```yaml
+name: my-app
+
+hooks:
+  prerun:
+    run: ./scripts/setup.sh
+    shell: bash
+    continueOnError: false
+  postrun:
+    run: echo "All services ready!"
+    shell: sh
+
+services:
+  web:
+    language: js
+    project: ./frontend
+```
+
+### Hook Properties
+
+| Property | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `run` | string | ✅ | | Script or command to execute |
+| `shell` | string | ❌ | Platform default | Shell to use (sh, bash, pwsh, powershell, cmd) |
+| `continueOnError` | boolean | ❌ | `false` | Continue if hook fails |
+| `interactive` | boolean | ❌ | `false` | Allow user interaction |
+| `windows` | object | ❌ | | Windows-specific override |
+| `posix` | object | ❌ | | POSIX-specific override |
+
+### Platform-Specific Hooks
+
+Different scripts can run on Windows vs POSIX (Linux/macOS):
+
+```yaml
+hooks:
+  prerun:
+    windows:
+      run: .\scripts\setup.ps1
+      shell: pwsh
+    posix:
+      run: ./scripts/setup.sh
+      shell: bash
+```
+
+### Hook Execution Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Parse azure.yaml                                            │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Execute Prerun Hook (if configured)                         │
+│  - Run before starting any services                          │
+│  - Stop if hook fails (unless continueOnError=true)          │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Start Services                                              │
+│  - Orchestrate services in parallel                          │
+│  - Wait for all services to be ready                         │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Execute Postrun Hook (if configured)                        │
+│  - Run after all services are ready                          │
+│  - Warning if fails (services continue running)              │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Display Dashboard & Monitor Services                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Hook Examples
+
+**Database Migration:**
+```yaml
+hooks:
+  prerun:
+    run: npm run db:migrate
+    shell: bash
+```
+
+**Multi-Step Setup:**
+```yaml
+hooks:
+  prerun:
+    run: |
+      echo "Validating environment..."
+      npm run validate
+      npm run db:migrate
+      npm run seed
+    shell: bash
+```
+
+**Post-Startup Notification:**
+```yaml
+hooks:
+  postrun:
+    run: |
+      curl -X POST $SLACK_WEBHOOK \
+        -d '{"text":"Dev environment ready!"}'
+    shell: bash
+    continueOnError: true
+```
+
+**Cross-Platform Setup:**
+```yaml
+hooks:
+  prerun:
+    windows:
+      run: |
+        Write-Host "Windows setup"
+        & .\scripts\setup.ps1
+      shell: pwsh
+    posix:
+      run: |
+        echo "POSIX setup"
+        ./scripts/setup.sh
+      shell: bash
+```
+
+For complete hook documentation, see [`hooks.md`](../hooks.md).
 
 ## Execution Flow
 
@@ -73,6 +225,13 @@ azd app run [flags]
 │  Parse azure.yaml                                            │
 │  - Read services section                                     │
 │  - Extract service configurations                            │
+│  - Read hooks section                                        │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Execute Prerun Hook (if configured)                         │
+│  - Setup, migrations, validation                             │
+│  - FAIL if error and continueOnError=false                   │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -128,6 +287,12 @@ azd app run [flags]
 │  Validate Orchestration                                      │
 │  - Check all services started successfully                   │
 │  - Verify all services are ready                             │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Execute Postrun Hook (if configured)                        │
+│  - Notifications, tests, registration                        │
+│  - WARN if error (services continue running)                 │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -941,7 +1106,11 @@ dotnet workload list
 - [`azd app deps`](./deps.md) - Install dependencies (runs automatically)
 - [`azd app logs`](./logs.md) - View service logs
 - [`azd app info`](./info.md) - Show running service information
-- [Azure Functions Support](../azure-functions.md) - Detailed Azure Functions documentation
+
+## Related Documentation
+
+- [Lifecycle Hooks](../hooks.md) - Complete hook configuration guide
+- [Azure Functions Support](../features/azure-functions.md) - Detailed Azure Functions documentation
 
 ## Examples
 
