@@ -36,18 +36,15 @@ services:
       - DATABASE_URL=postgresql://localhost:5432/db
       - REDIS_URL=redis://localhost:6379
   
-  # Example 3: Array of objects (legacy/backward compatible)
+  # Example 3: Another array of strings format
   worker:
     language: python
     host: localhost
     project: ./worker
     environment:
-      - name: WORKER_THREADS
-        value: "4"
-      - name: QUEUE_URL
-        value: redis://localhost:6379
-      - name: LOG_LEVEL
-        value: debug
+      - WORKER_THREADS=4
+      - QUEUE_URL=redis://localhost:6379
+      - LOG_LEVEL=debug
   
   # Example 4: Variable substitution
   scheduler:

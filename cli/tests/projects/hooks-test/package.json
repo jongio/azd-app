@@ -1,0 +1,11 @@
+{
+  "name": "hooks-test-project",
+  "version": "1.0.0",
+  "description": "Test project for hook functionality",
+  "scripts": {
+    "dev": "echo 'Mock dev server started on port 3000' && sleep 300",
+    "start": "echo 'Mock production server started' && sleep 300"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

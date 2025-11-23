@@ -33,4 +33,9 @@ const (
 
 	// DefaultWebSocketWriteTimeout is the timeout for WebSocket write operations.
 	DefaultWebSocketWriteTimeout = 10 * time.Second
+
+	// Environment variable prefixes and patterns
+	// EnvServiceURLPrefix is the prefix for service URL environment variables (e.g., SERVICE_WEB_URL)
+	EnvServiceURLPrefix = "SERVICE_"
+	EnvServiceURLSuffix = "_URL"
 )

@@ -129,6 +129,11 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
+	// Execute prerun hook before starting services
+	if err := executePrerunHook(azureYaml, azureYamlDir); err != nil {
+		return err
+	}
+
 	// Check if there are services defined
 	if !service.HasServices(azureYaml) {
 		return showNoServicesMessage()
@@ -151,7 +156,7 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Execute and monitor services
-	return executeAndMonitorServices(runtimes, cwd)
+	return executeAndMonitorServices(runtimes, cwd, azureYaml, azureYamlDir)
 }
 
 // showNoServicesMessage displays a message when no services are defined.
@@ -203,7 +208,7 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 }
 
 // executeAndMonitorServices starts services and monitors them until interrupted.
-func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) error {
+func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
 	// Create logger
 	logger := service.NewServiceLogger(runVerbose)
 	logger.LogStartup(len(runtimes))
@@ -227,6 +232,11 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string) e
 	}
 
 	logger.LogReady()
+
+	// Execute postrun hook after all services are ready
+	if err := executePostrunHook(azureYaml, azureYamlDir); err != nil {
+		output.Warning("Postrun hook failed but services are running: %v", err)
+	}
 
 	// Display Functions/Logic Apps endpoints if any were discovered
 	if result.FunctionsParser != nil {
@@ -281,7 +291,21 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	var wg sync.WaitGroup
 	dashboardServer := dashboard.GetServer(cwd)
 
-	// Goroutine 1: Dashboard server
+	// Start dashboard monitoring
+	startDashboardMonitor(ctx, &wg, dashboardServer)
+
+	// Start service process monitors
+	startServiceMonitors(ctx, &wg, result.Processes)
+
+	// Wait for signal (context cancellation) or all services to complete
+	wg.Wait()
+
+	// Perform cleanup shutdown
+	return performGracefulShutdown(dashboardServer, result.Processes)
+}
+
+// startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
+func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardServer *dashboard.Server) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -307,21 +331,22 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 		// Block until context is cancelled
 		<-ctx.Done()
 	}()
+}
 
-	// Goroutine 2+: One goroutine per service to monitor its lifecycle
-	for name, process := range result.Processes {
+// startServiceMonitors starts monitoring goroutines for all service processes.
+func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map[string]*service.ServiceProcess) {
+	for name, process := range processes {
 		if process.Process == nil {
 			continue
 		}
-
 		wg.Add(1)
-		go monitorServiceProcess(ctx, &wg, name, process)
+		go monitorServiceProcess(ctx, wg, name, process)
 	}
+}
 
-	// Wait for signal (context cancellation) or all services to complete
-	wg.Wait()
-
-	// Perform cleanup shutdown with timeout
+// performGracefulShutdown stops all services and dashboard with a timeout.
+// Returns nil due to process isolation design - individual failures are logged but don't fail the command.
+func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -335,7 +360,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	}
 
 	// Stop all services with graceful timeout
-	if stopErr := shutdownAllServices(shutdownCtx, result.Processes); stopErr != nil {
+	if stopErr := shutdownAllServices(shutdownCtx, processes); stopErr != nil {
 		output.Warning("Some services failed to stop cleanly: %v", stopErr)
 	}
 
@@ -486,4 +511,80 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 	}
 
 	return nil
+}
+
+// executePrerunHook executes the prerun hook if configured.
+func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
+	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
+}
+
+// executePostrunHook executes the postrun hook if configured.
+func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
+	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
+}
+
+// executeHook executes a lifecycle hook with the given name and configuration.
+// This is a common helper function to avoid duplication between prerun and postrun hooks.
+func executeHook(azureYaml *service.AzureYaml, hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
+	if hooks == nil || hook == nil {
+		return nil // No hook configured
+	}
+
+	// Convert service.Hook to executor.Hook
+	convertedHook := convertHook(hook)
+	config := executor.ResolveHookConfig(convertedHook)
+	if config == nil {
+		return nil
+	}
+
+	// Build environment variables for the hook
+	// Following azd pattern: pass project directory and any other context
+	hookEnvVars := buildHookEnvironmentVariables(azureYaml, workingDir)
+	config.Env = hookEnvVars
+
+	return executor.ExecuteHook(context.Background(), hookName, *config, workingDir)
+}
+
+// buildHookEnvironmentVariables builds environment variables to pass to hooks
+// Following the pattern from azure/azure-dev
+func buildHookEnvironmentVariables(azureYaml *service.AzureYaml, workingDir string) []string {
+	envVars := []string{
+		fmt.Sprintf("%s=%s", executor.EnvProjectDir, workingDir),
+		fmt.Sprintf("%s=%s", executor.EnvProjectName, azureYaml.Name),
+	}
+
+	// Add count of services for context
+	if azureYaml.Services != nil {
+		envVars = append(envVars, fmt.Sprintf("%s=%d", executor.EnvServiceCount, len(azureYaml.Services)))
+	}
+
+	return envVars
+}
+
+// convertHook converts service.Hook to executor.Hook to avoid circular imports.
+func convertHook(h *service.Hook) *executor.Hook {
+	if h == nil {
+		return nil
+	}
+	return executor.NewHook(
+		h.Run,
+		h.Shell,
+		h.ContinueOnError,
+		h.Interactive,
+		convertPlatformHook(h.Windows),
+		convertPlatformHook(h.Posix),
+	)
+}
+
+// convertPlatformHook converts service.PlatformHook to executor.PlatformHook.
+func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
+	if ph == nil {
+		return nil
+	}
+	return executor.NewPlatformHook(
+		ph.Run,
+		ph.Shell,
+		ph.ContinueOnError,
+		ph.Interactive,
+	)
 }
