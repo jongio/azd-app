@@ -9,5 +9,6 @@ reqs:
 services:
   logicapp:
     project: .
+    language: csharp
     host: function
     ports: ["7071"]

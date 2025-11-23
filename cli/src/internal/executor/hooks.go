@@ -86,7 +86,9 @@ func prepareHookCommand(ctx context.Context, shell, script, workingDir string, e
 	switch {
 	case strings.Contains(shellLower, "pwsh") || strings.Contains(shellLower, "powershell"):
 		// PowerShell: use -Command for inline scripts
-		cmd = exec.CommandContext(ctx, shell, "-Command", script)
+		// Set OutputEncoding to UTF-8 to properly display Unicode characters (emojis)
+		wrappedScript := fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; %s", script)
+		cmd = exec.CommandContext(ctx, shell, "-Command", wrappedScript)
 	case strings.Contains(shellLower, "cmd"):
 		// Windows CMD: use /c for commands
 		cmd = exec.CommandContext(ctx, shell, "/c", script)

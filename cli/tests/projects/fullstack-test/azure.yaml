@@ -6,12 +6,21 @@ metadata:
 
 hooks:
   prerun:
-    shell: sh
-    run: echo "🚀 Starting fullstack application - preparing API and Web services..."
-    continueOnError: false
+    windows:
+      shell: pwsh
+      run: ./prerun.ps1
+      continueOnError: false
+    posix:
+      shell: sh
+      run: ./prerun.sh
+      continueOnError: false
   postrun:
-    shell: sh
-    run: echo "✅ Fullstack application is running! API on port 5000 and Web on port 5001"
+    windows:
+      shell: pwsh
+      run: ./postrun.ps1
+    posix:
+      shell: sh
+      run: ./postrun.sh
 
 reqs:
   - name: node

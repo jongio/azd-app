@@ -291,7 +291,21 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	var wg sync.WaitGroup
 	dashboardServer := dashboard.GetServer(cwd)
 
-	// Goroutine 1: Dashboard server
+	// Start dashboard monitoring
+	startDashboardMonitor(ctx, &wg, dashboardServer)
+
+	// Start service process monitors
+	startServiceMonitors(ctx, &wg, result.Processes)
+
+	// Wait for signal (context cancellation) or all services to complete
+	wg.Wait()
+
+	// Perform cleanup shutdown
+	return performGracefulShutdown(dashboardServer, result.Processes)
+}
+
+// startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
+func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardServer *dashboard.Server) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -317,21 +331,22 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 		// Block until context is cancelled
 		<-ctx.Done()
 	}()
+}
 
-	// Goroutine 2+: One goroutine per service to monitor its lifecycle
-	for name, process := range result.Processes {
+// startServiceMonitors starts monitoring goroutines for all service processes.
+func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map[string]*service.ServiceProcess) {
+	for name, process := range processes {
 		if process.Process == nil {
 			continue
 		}
-
 		wg.Add(1)
-		go monitorServiceProcess(ctx, &wg, name, process)
+		go monitorServiceProcess(ctx, wg, name, process)
 	}
+}
 
-	// Wait for signal (context cancellation) or all services to complete
-	wg.Wait()
-
-	// Perform cleanup shutdown with timeout
+// performGracefulShutdown stops all services and dashboard with a timeout.
+// Returns nil due to process isolation design - individual failures are logged but don't fail the command.
+func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -345,7 +360,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	}
 
 	// Stop all services with graceful timeout
-	if stopErr := shutdownAllServices(shutdownCtx, result.Processes); stopErr != nil {
+	if stopErr := shutdownAllServices(shutdownCtx, processes); stopErr != nil {
 		output.Warning("Some services failed to stop cleanly: %v", stopErr)
 	}
 
@@ -534,13 +549,13 @@ func executeHook(azureYaml *service.AzureYaml, hooks *service.Hooks, hook *servi
 // Following the pattern from azure/azure-dev
 func buildHookEnvironmentVariables(azureYaml *service.AzureYaml, workingDir string) []string {
 	envVars := []string{
-		fmt.Sprintf("AZD_APP_PROJECT_DIR=%s", workingDir),
-		fmt.Sprintf("AZD_APP_PROJECT_NAME=%s", azureYaml.Name),
+		fmt.Sprintf("%s=%s", executor.EnvProjectDir, workingDir),
+		fmt.Sprintf("%s=%s", executor.EnvProjectName, azureYaml.Name),
 	}
 
 	// Add count of services for context
 	if azureYaml.Services != nil {
-		envVars = append(envVars, fmt.Sprintf("AZD_APP_SERVICE_COUNT=%d", len(azureYaml.Services)))
+		envVars = append(envVars, fmt.Sprintf("%s=%d", executor.EnvServiceCount, len(azureYaml.Services)))
 	}
 
 	return envVars
@@ -551,14 +566,14 @@ func convertHook(h *service.Hook) *executor.Hook {
 	if h == nil {
 		return nil
 	}
-	return &executor.Hook{
-		Run:             h.Run,
-		Shell:           h.Shell,
-		ContinueOnError: h.ContinueOnError,
-		Interactive:     h.Interactive,
-		Windows:         convertPlatformHook(h.Windows),
-		Posix:           convertPlatformHook(h.Posix),
-	}
+	return executor.NewHook(
+		h.Run,
+		h.Shell,
+		h.ContinueOnError,
+		h.Interactive,
+		convertPlatformHook(h.Windows),
+		convertPlatformHook(h.Posix),
+	)
 }
 
 // convertPlatformHook converts service.PlatformHook to executor.PlatformHook.
@@ -566,10 +581,10 @@ func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
 	if ph == nil {
 		return nil
 	}
-	return &executor.PlatformHook{
-		Run:             ph.Run,
-		Shell:           ph.Shell,
-		ContinueOnError: ph.ContinueOnError,
-		Interactive:     ph.Interactive,
-	}
+	return executor.NewPlatformHook(
+		ph.Run,
+		ph.Shell,
+		ph.ContinueOnError,
+		ph.Interactive,
+	)
 }

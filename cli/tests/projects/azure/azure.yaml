@@ -5,7 +5,5 @@ name: aspire-test-project
 reqs:
   - name: dotnet
     minVersion: "8.0.0"
-  - name: aspire
-    minVersion: "13.0.0"
   - name: azd
     minVersion: "1.0.0"

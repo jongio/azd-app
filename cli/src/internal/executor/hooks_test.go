@@ -83,7 +83,7 @@ func TestPrepareHookCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			cmd := prepareHookCommand(ctx, tt.shell, tt.script, "/tmp")
+			cmd := prepareHookCommand(ctx, tt.shell, tt.script, "/tmp", nil)
 
 			if cmd.Dir != "/tmp" {
 				t.Errorf("Expected Dir='/tmp', got: %s", cmd.Dir)
@@ -503,7 +503,7 @@ func TestPrepareHookCommand_EnvironmentInheritance(t *testing.T) {
 	defer os.Unsetenv(testKey)
 
 	ctx := context.Background()
-	cmd := prepareHookCommand(ctx, "sh", "echo test", "/tmp")
+	cmd := prepareHookCommand(ctx, "sh", "echo test", "/tmp", nil)
 
 	// Check that environment is inherited
 	found := false
