@@ -1,6 +1,6 @@
 package executor
 
-// ConvertHook converts a generic hook interface to executor.Hook.
+// NewHook creates a new Hook with the specified configuration.
 // This is a helper to avoid circular imports when other packages need to pass
 // hook configurations to the executor package.
 //

@@ -319,7 +319,7 @@ func TestHooks_GetPrerun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.hooks.GetPrerun()
-			
+
 			if tt.wantNil {
 				if result != nil {
 					t.Error("Expected nil prerun hook")
@@ -361,7 +361,7 @@ func TestHooks_GetPostrun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.hooks.GetPostrun()
-			
+
 			if tt.wantNil {
 				if result != nil {
 					t.Error("Expected nil postrun hook")
@@ -511,4 +511,3 @@ services:
 		t.Errorf("Expected POSIX Shell='zsh', got: %s", prerun.Posix.Shell)
 	}
 }
-

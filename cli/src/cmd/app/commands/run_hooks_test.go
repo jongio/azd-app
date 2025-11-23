@@ -19,7 +19,7 @@ func TestExecutePrerunHook_Success(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with prerun hook
 	shell := "sh"
 	if runtime.GOOS == "windows" {
@@ -60,7 +60,7 @@ func TestExecutePrerunHook_Failure(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with failing prerun hook
 	shell := "sh"
 	failCmd := "exit 1"
@@ -103,7 +103,7 @@ func TestExecutePrerunHook_FailureWithContinue(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with failing prerun hook that continues
 	shell := "sh"
 	failCmd := "exit 1"
@@ -146,7 +146,7 @@ func TestExecutePostrunHook_Success(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with postrun hook
 	shell := "sh"
 	if runtime.GOOS == "windows" {
@@ -186,7 +186,7 @@ func TestExecutePostrunHook_Failure(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with failing postrun hook
 	shell := "sh"
 	failCmd := "exit 1"
@@ -225,7 +225,7 @@ services:
 
 func TestExecutePrerunHook_NoHooks(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml without hooks
 	azureYamlContent := `name: test-app
 
@@ -258,7 +258,7 @@ services:
 
 func TestBuildHookEnvironmentVariables(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	azureYaml := &service.AzureYaml{
 		Name: "my-test-app",
 		Services: map[string]service.Service{
@@ -297,7 +297,7 @@ func TestBuildHookEnvironmentVariables(t *testing.T) {
 
 func TestBuildHookEnvironmentVariables_NoServices(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	azureYaml := &service.AzureYaml{
 		Name:     "my-test-app",
 		Services: nil,
@@ -335,9 +335,9 @@ func TestBuildHookEnvironmentVariables_NoServices(t *testing.T) {
 
 func TestConvertHook(t *testing.T) {
 	tests := []struct {
-		name     string
-		hook     *service.Hook
-		wantNil  bool
+		name    string
+		hook    *service.Hook
+		wantNil bool
 	}{
 		{
 			name:    "nil hook",
@@ -375,7 +375,7 @@ func TestConvertHook(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := convertHook(tt.hook)
-			
+
 			if tt.wantNil {
 				if result != nil {
 					t.Error("Expected nil result for nil hook")
@@ -427,7 +427,7 @@ func TestConvertPlatformHook(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := convertPlatformHook(tt.hook)
-			
+
 			if tt.wantNil {
 				if result != nil {
 					t.Error("Expected nil result for nil hook")
@@ -455,7 +455,7 @@ func TestExecuteHook_EnvironmentVariables(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with prerun hook that uses environment variables
 	var checkEnvCmd, shell string
 	if runtime.GOOS == "windows" {
@@ -465,7 +465,7 @@ func TestExecuteHook_EnvironmentVariables(t *testing.T) {
 		checkEnvCmd = `[ "$` + executor.EnvProjectName + `" = "env-test-app" ] && [ "$` + executor.EnvServiceCount + `" = "2" ]`
 		shell = "sh"
 	}
-	
+
 	azureYamlContent := `name: env-test-app
 
 hooks:
@@ -501,13 +501,13 @@ services:
 
 func TestExecutePrerunHook_WithTimeout(t *testing.T) {
 	t.Skip("Context cancellation is tested in executor package; skip here to avoid process cleanup issues")
-	
+
 	if testing.Short() {
 		t.Skip("Skipping hook execution test in short mode")
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with long-running prerun hook
 	var sleepCmd, shell string
 	if runtime.GOOS == "windows" {
@@ -517,7 +517,7 @@ func TestExecutePrerunHook_WithTimeout(t *testing.T) {
 		sleepCmd = "sleep 10"
 		shell = "sh"
 	}
-	
+
 	azureYamlContent := `name: test-app
 
 hooks:
@@ -558,7 +558,7 @@ services:
 		// Give a moment for background process cleanup
 		time.Sleep(100 * time.Millisecond)
 	}
-	
+
 	// Give additional time for background process to terminate before temp dir cleanup
 	time.Sleep(200 * time.Millisecond)
 }
@@ -569,7 +569,7 @@ func TestExecutePlatformSpecificHooks(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create azure.yaml with platform-specific hooks
 	azureYamlContent := `name: test-app
 

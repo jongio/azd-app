@@ -30,12 +30,12 @@ func TestGetDefaultShell(t *testing.T) {
 
 func TestPrepareHookCommand(t *testing.T) {
 	tests := []struct {
-		name              string
-		shell             string
-		script            string
-		wantArg1          string
-		wantArg2Contains  string
-		isPowerShell      bool
+		name             string
+		shell            string
+		script           string
+		wantArg1         string
+		wantArg2Contains string
+		isPowerShell     bool
 	}{
 		{
 			name:             "sh shell",
@@ -613,16 +613,16 @@ func TestExecuteHook_WithCustomEnvVars(t *testing.T) {
 func TestNewHook(t *testing.T) {
 	continueOnError := true
 	interactive := false
-	
+
 	windows := NewPlatformHook("echo windows", "pwsh", &continueOnError, &interactive)
 	posix := NewPlatformHook("echo posix", "bash", nil, nil)
-	
+
 	hook := NewHook("echo test", "sh", false, true, windows, posix)
-	
+
 	if hook == nil {
 		t.Fatal("Expected non-nil hook")
 	}
-	
+
 	if hook.Run != "echo test" {
 		t.Errorf("Expected Run='echo test', got: %s", hook.Run)
 	}
@@ -646,13 +646,13 @@ func TestNewHook(t *testing.T) {
 func TestNewPlatformHook(t *testing.T) {
 	continueOnError := true
 	interactive := false
-	
+
 	hook := NewPlatformHook("echo test", "bash", &continueOnError, &interactive)
-	
+
 	if hook == nil {
 		t.Fatal("Expected non-nil platform hook")
 	}
-	
+
 	if hook.Run != "echo test" {
 		t.Errorf("Expected Run='echo test', got: %s", hook.Run)
 	}
@@ -675,11 +675,11 @@ func TestNewPlatformHook(t *testing.T) {
 
 func TestNewPlatformHook_WithNilValues(t *testing.T) {
 	hook := NewPlatformHook("echo test", "sh", nil, nil)
-	
+
 	if hook == nil {
 		t.Fatal("Expected non-nil platform hook")
 	}
-	
+
 	if hook.ContinueOnError != nil {
 		t.Error("Expected ContinueOnError to be nil")
 	}
@@ -687,4 +687,3 @@ func TestNewPlatformHook_WithNilValues(t *testing.T) {
 		t.Error("Expected Interactive to be nil")
 	}
 }
-

@@ -98,10 +98,10 @@ func prepareHookCommand(ctx context.Context, shell, script, workingDir string, e
 	}
 
 	cmd.Dir = workingDir
-	
+
 	// Start with inherited environment variables
 	cmd.Env = os.Environ()
-	
+
 	// Append additional hook-specific environment variables
 	if len(envVars) > 0 {
 		cmd.Env = append(cmd.Env, envVars...)
