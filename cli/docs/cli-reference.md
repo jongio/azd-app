@@ -40,7 +40,7 @@ azd app deps --structured-logs
 |---------|-------------|---------------|
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
-| `run` | Run the development environment with service orchestration | [→ Full Spec](commands/run.md) |
+| `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -253,6 +253,15 @@ services:
 ### Dependencies
 
 This command depends on `deps` and `reqs`, which will automatically run before starting services.
+
+### Hooks
+
+The `run` command supports lifecycle hooks that execute before and after services start:
+
+- **prerun**: Executes before starting any services (e.g., database migrations, setup tasks)
+- **postrun**: Executes after all services are ready (e.g., notifications, opening browsers)
+
+**→ [See Hooks Documentation](hooks.md)** for complete hook configuration and examples.
 
 **→ [See full run command specification](commands/run.md)** for orchestration flows, runtime modes, and detailed documentation.
 

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: hooks-test-project
+
+hooks:
+  prerun:
+    run: echo "🔧 Running prerun hook - preparing environment..."
+    shell: sh
+    continueOnError: false
+  postrun:
+    run: echo "✅ Running postrun hook - all services are ready!"
+    shell: sh
+
+services:
+  web:
+    language: TypeScript
+    project: .
+    ports:
+      - "3000"
+    environment:
+      NODE_ENV: development
+      API_URL: http://localhost:8000
+
+reqs:
+  - name: node
+    minVersion: "18.0.0"

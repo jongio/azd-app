@@ -4,6 +4,24 @@ name: fullstack-test
 metadata:
   template: fullstack-test
 
+hooks:
+  prerun:
+    windows:
+      shell: pwsh
+      run: ./prerun.ps1
+      continueOnError: false
+    posix:
+      shell: sh
+      run: ./prerun.sh
+      continueOnError: false
+  postrun:
+    windows:
+      shell: pwsh
+      run: ./postrun.ps1
+    posix:
+      shell: sh
+      run: ./postrun.sh
+
 reqs:
   - name: node
     minVersion: 18.0.0
@@ -27,7 +45,7 @@ services:
       FLASK_APP: app.py
   
   web:
-    language: node
+    language: js
     project: ./web
     host: localhost
     ports:

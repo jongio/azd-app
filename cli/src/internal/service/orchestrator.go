@@ -81,7 +81,8 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			// Extract Azure URL from environment variables if available
 			azureURL := ""
 			serviceNameUpper := strings.ToUpper(rt.Name)
-			if url, exists := envVars["SERVICE_"+serviceNameUpper+"_URL"]; exists {
+			envKey := EnvServiceURLPrefix + serviceNameUpper + EnvServiceURLSuffix
+			if url, exists := envVars[envKey]; exists {
 				azureURL = url
 			}
 

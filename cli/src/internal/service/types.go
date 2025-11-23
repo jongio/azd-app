@@ -14,6 +14,7 @@ type AzureYaml struct {
 	Services  map[string]Service     `yaml:"services"`
 	Resources map[string]Resource    `yaml:"resources"`
 	Metadata  map[string]interface{} `yaml:"metadata,omitempty"`
+	Hooks     *Hooks                 `yaml:"hooks,omitempty"`
 }
 
 // Service represents a service definition in azure.yaml.
@@ -427,4 +428,44 @@ func (s *Service) GetPrimaryPort() (int, int, bool) {
 	}
 
 	return mappings[0].HostPort, mappings[0].ContainerPort, isExplicit
+}
+
+// Hooks represents lifecycle hooks for run command.
+type Hooks struct {
+	Prerun  *Hook `yaml:"prerun,omitempty"`
+	Postrun *Hook `yaml:"postrun,omitempty"`
+}
+
+// GetPrerun safely retrieves the prerun hook, returning nil if not configured.
+func (h *Hooks) GetPrerun() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prerun
+}
+
+// GetPostrun safely retrieves the postrun hook, returning nil if not configured.
+func (h *Hooks) GetPostrun() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Postrun
+}
+
+// Hook represents a lifecycle hook configuration.
+type Hook struct {
+	Run             string        `yaml:"run"`                       // Script or command to execute
+	Shell           string        `yaml:"shell,omitempty"`           // Shell to use (sh, bash, pwsh, etc.)
+	ContinueOnError bool          `yaml:"continueOnError,omitempty"` // Continue if hook fails
+	Interactive     bool          `yaml:"interactive,omitempty"`     // Requires user interaction
+	Windows         *PlatformHook `yaml:"windows,omitempty"`         // Windows-specific override
+	Posix           *PlatformHook `yaml:"posix,omitempty"`           // POSIX (Linux/macOS)-specific override
+}
+
+// PlatformHook represents platform-specific hook configuration.
+type PlatformHook struct {
+	Run             string `yaml:"run"`
+	Shell           string `yaml:"shell,omitempty"`
+	ContinueOnError *bool  `yaml:"continueOnError,omitempty"` // Pointer to allow override to false
+	Interactive     *bool  `yaml:"interactive,omitempty"`     // Pointer to allow override to false
 }

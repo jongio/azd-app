@@ -57,6 +57,7 @@ An Azure Developer CLI (azd) extension that automates development environment se
   - Prerequisite checking with caching
   - Automatic dependency installation
   - Service orchestration from azure.yaml
+  - Lifecycle hooks (prerun/postrun automation)
   - Live web dashboard with service monitoring
   - Real-time log streaming
   - Azure environment integration

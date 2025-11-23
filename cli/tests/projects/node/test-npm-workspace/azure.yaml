@@ -2,7 +2,7 @@ name: test-npm-workspace
 services:
   api:
     project: ./packages/api
-    language: node
+    language: js
   webapp:
     project: ./packages/webapp
-    language: node
+    language: js

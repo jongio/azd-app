@@ -4,9 +4,11 @@ services:
     language: js
     project: ./packages/api
     host: localhost
-    port: 3001
+    ports:
+      - "3001"
   webapp:
     language: js
     project: ./packages/webapp
     host: localhost
-    port: 3002
+    ports:
+      - "3002"
