@@ -1,0 +1,20 @@
+{
+  "name": "functions-typescript-v4",
+  "version": "1.0.0",
+  "description": "Azure Functions TypeScript v4 programming model test project",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "npm run build && func start",
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "azure-functions-core-tools": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

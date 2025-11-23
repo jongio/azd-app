@@ -3,7 +3,6 @@ package dashboard
 import (
 	"crypto/rand"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -141,13 +140,12 @@ func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
 	services, err := serviceinfo.GetServiceInfo(s.projectDir)
 	if err != nil {
 		log.Printf("Warning: Failed to get service info: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to get service info: %v", err), http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "Failed to get service info", err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(services); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := writeJSON(w, services); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
 	}
 }
 
@@ -155,7 +153,7 @@ func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 	azureYaml, err := service.ParseAzureYaml(s.projectDir)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse azure.yaml: %v", err), http.StatusInternalServerError)
+		writeJSONError(w, http.StatusInternalServerError, "Failed to parse azure.yaml", err)
 		return
 	}
 
@@ -164,9 +162,8 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 		"dir":  s.projectDir,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
 	}
 }
 
@@ -211,13 +208,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the safe write method
-	client.writeMu.Lock()
-	err = conn.WriteJSON(map[string]interface{}{
+	if err := client.writeWebSocketJSON(map[string]interface{}{
 		"type":     "services",
 		"services": services,
-	})
-	client.writeMu.Unlock()
-	if err != nil {
+	}); err != nil {
+		log.Printf("Failed to send initial services: %v", err)
 		return
 	}
 
@@ -496,10 +491,7 @@ func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
 	}
 
 	for client := range s.clients {
-		client.writeMu.Lock()
-		err := client.conn.WriteJSON(message)
-		client.writeMu.Unlock()
-		if err != nil {
+		if err := client.writeWebSocketJSON(message); err != nil {
 			log.Printf("WebSocket send error: %v", err)
 		}
 	}
@@ -523,10 +515,7 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 	}
 
 	for client := range s.clients {
-		client.writeMu.Lock()
-		err := client.conn.WriteJSON(message)
-		client.writeMu.Unlock()
-		if err != nil {
+		if err := client.writeWebSocketJSON(message); err != nil {
 			log.Printf("WebSocket send error: %v", err)
 		}
 	}
@@ -563,9 +552,8 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 		logs = logManager.GetAllLogs(tail)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(logs); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := writeJSON(w, logs); err != nil {
+		log.Printf("Failed to write logs JSON: %v", err)
 	}
 }
 
@@ -592,10 +580,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		// Subscribe to specific service
 		buffer, exists := logManager.GetBuffer(serviceName)
 		if !exists {
-			conn.writeMu.Lock()
-			err := conn.conn.WriteJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)})
-			conn.writeMu.Unlock()
-			if err != nil {
+			if err := conn.writeWebSocketJSON(map[string]string{"error": fmt.Sprintf("Service '%s' not found", serviceName)}); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to write error to websocket: %v\n", err)
 			}
 			return
@@ -619,30 +604,52 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 
 	// Merge all subscription channels
 	mergedChan := make(chan service.LogEntry, 100)
+	stopMerge := make(chan struct{})
+	var wg sync.WaitGroup
+
 	for _, ch := range subscriptions {
+		wg.Add(1)
 		go func(ch chan service.LogEntry) {
-			for entry := range ch {
-				mergedChan <- entry
+			defer wg.Done()
+			for {
+				select {
+				case entry, ok := <-ch:
+					if !ok {
+						return
+					}
+					select {
+					case mergedChan <- entry:
+					case <-stopMerge:
+						return
+					}
+				case <-stopMerge:
+					return
+				}
 			}
 		}(ch)
 	}
 
+	// Close merged channel when all goroutines finish
+	go func() {
+		wg.Wait()
+		close(mergedChan)
+	}()
+
 	// Stream logs to WebSocket
 	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for {
 			select {
-			case entry := <-mergedChan:
-				conn.writeMu.Lock()
-				err := conn.conn.WriteJSON(entry)
-				conn.writeMu.Unlock()
-				if err != nil {
+			case entry, ok := <-mergedChan:
+				if !ok {
+					return
+				}
+				if err := conn.writeWebSocketJSON(entry); err != nil {
 					log.Printf("WebSocket write error: %v", err)
-					close(done)
 					return
 				}
 			case <-s.stopChan:
-				close(done)
 				return
 			}
 		}
@@ -650,6 +657,8 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 
 	// Keep connection alive until client disconnects or server stops
 	<-done
+	close(stopMerge)
+	wg.Wait()
 }
 
 // Stop stops the dashboard server and releases its port assignment.

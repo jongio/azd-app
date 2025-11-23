@@ -1,0 +1,13 @@
+{
+  "name": "functions-nodejs-v3",
+  "version": "1.0.0",
+  "description": "Azure Functions Node.js v3 (legacy) programming model test project",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.0.0"
+  }
+}

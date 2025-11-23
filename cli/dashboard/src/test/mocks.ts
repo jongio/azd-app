@@ -178,7 +178,7 @@ export const createMockFetchResponse = <T>(data: T, ok = true) => {
 }
 
 // Helper to create mock WebSocket message
-export const createMockWebSocketMessage = (data: any) => {
+export const createMockWebSocketMessage = (data: unknown) => {
   return {
     data: JSON.stringify(data),
   } as MessageEvent

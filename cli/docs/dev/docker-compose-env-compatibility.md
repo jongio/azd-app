@@ -55,7 +55,7 @@ type Service struct {
 ### 4. Documentation
 
 #### New Documentation
-- **`docs/environment-variables.md`**: Comprehensive guide (400+ lines)
+- **`docs/features/environment-variables.md`**: Comprehensive guide (400+ lines)
   - All format examples
   - Variable substitution
   - Priority rules
@@ -192,7 +192,7 @@ services:
 - `src/internal/service/docker_compose_compat_test.go` - Integration tests
 
 ### Documentation
-- `docs/environment-variables.md` - Comprehensive guide
+- `docs/features/environment-variables.md` - Comprehensive guide
 - `cli/README.md` - Updated with Docker Compose compatibility
 
 ### Examples

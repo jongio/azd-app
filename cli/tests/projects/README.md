@@ -12,11 +12,13 @@ test-projects/
 │   ├── test-pnpm-project/              # pnpm project with packageManager field
 │   ├── test-yarn-project/              # yarn project with packageManager field
 │   ├── test-no-packagemanager/         # No packageManager field, defaults to npm
-│   └── test-package-manager-override/  # packageManager field overrides lock files
+│   ├── test-package-manager-override/  # packageManager field overrides lock files
+│   └── test-npm-workspace/             # npm workspace monorepo (race condition fix)
 ├── python/             # Python test projects
 │   ├── test-poetry-project/  (poetry)
 │   ├── test-python-project/  (pip)
 │   └── test-uv-project/      (uv)
+├── logicapp-test/      # Logic Apps Standard test project
 ├── boundary-test/      # Tests boundary checking (no parent traversal)
 │   ├── package.json          (parent - should NOT be found)
 │   └── workspace/
@@ -44,6 +46,17 @@ The Node.js test projects validate package manager detection with the following 
 - **test-no-packagemanager**: Tests default npm behavior when no packageManager field exists
 - **test-package-manager-override**: Tests that `packageManager: "yarn@4.1.0"` overrides existing `pnpm-lock.yaml`
 - **test-node-project**: Basic Node.js project setup
+- **test-npm-workspace**: npm workspace monorepo testing workspace detection and race condition fix
+
+### npm Workspace Test Project
+
+The `test-npm-workspace/` project specifically tests:
+- ✅ Workspace detection from `package.json` workspaces field
+- ✅ Smart installation (single root install vs parallel child installs)
+- ✅ Race condition prevention on Windows (EBUSY/ENOTEMPTY errors)
+- ✅ Dependency hoisting validation
+
+See `test-npm-workspace/README.md` for detailed test instructions.
 
 ## Usage
 
@@ -51,6 +64,7 @@ These projects are used to test:
 - `azd app deps` - Installing dependencies across different package managers
 - `azd app run` - Running development environments
 - Detection logic for package managers (npm, pnpm, pip, poetry, uv)
+- Logic Apps Standard workflow detection and execution
 - **Boundary checking** - Ensuring projects outside `azure.yaml` workspace are not detected
 
 ### Boundary Test Project

@@ -1,0 +1,8 @@
+{
+  "name": "functions-invalid-no-functions",
+  "version": "1.0.0",
+  "description": "Invalid project - no functions defined",
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  }
+}

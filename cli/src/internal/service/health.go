@@ -20,6 +20,11 @@ const (
 	// Port check specific settings
 	PortCheckInitialInterval = 100 * time.Millisecond
 	PortCheckMaxInterval     = 2 * time.Second
+
+	// HTTP client settings
+	HTTPClientTimeout = 5 * time.Second
+	ConnectionTimeout = 2 * time.Second
+	PortCheckTimeout  = 1 * time.Second
 )
 
 // PerformHealthCheck verifies that a service is ready with exponential backoff.
@@ -65,7 +70,7 @@ func HTTPHealthCheck(port int, path string) error {
 
 	// Create HTTP client with timeout
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: HTTPClientTimeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// Don't follow redirects
 			return http.ErrUseLastResponse
@@ -100,7 +105,7 @@ func HTTPHealthCheck(port int, path string) error {
 // PortHealthCheck verifies that a port is listening.
 func PortHealthCheck(port int) error {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
+	conn, err := net.DialTimeout("tcp", address, ConnectionTimeout)
 	if err != nil {
 		return fmt.Errorf("port %d not listening: %w", port, err)
 	}
@@ -157,7 +162,7 @@ func TryHTTPHealthCheck(port int, path string) bool {
 // IsPortListening checks if a port is currently listening.
 func IsPortListening(port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, 1*time.Second)
+	conn, err := net.DialTimeout("tcp", address, PortCheckTimeout)
 	if err != nil {
 		return false
 	}

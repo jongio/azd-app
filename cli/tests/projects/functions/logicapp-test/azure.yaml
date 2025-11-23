@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: logicapp-test
+
+reqs:
+  - name: func
+    minVersion: "4.0.0"
+
+services:
+  logicapp:
+    project: .
+    host: function
+    ports: ["7071"]

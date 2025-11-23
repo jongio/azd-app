@@ -562,7 +562,7 @@ func TestCheckPrerequisite(t *testing.T) {
 }
 
 func TestToolRegistryCompleteness(t *testing.T) {
-	requiredTools := []string{"node", "pnpm", "python", "dotnet", "aspire", "azd", "az"}
+	requiredTools := []string{"node", "pnpm", "python", "dotnet", "aspire", "azd", "az", "func"}
 
 	for _, tool := range requiredTools {
 		t.Run(tool, func(t *testing.T) {
@@ -578,6 +578,133 @@ func TestToolRegistryCompleteness(t *testing.T) {
 
 			if len(config.Args) == 0 {
 				t.Errorf("Tool %s has no args", tool)
+			}
+		})
+	}
+}
+
+func TestFuncToolRegistry(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		expected string // Expected command that would be executed
+	}{
+		{
+			name:     "func resolves correctly",
+			toolName: "func",
+			expected: "func",
+		},
+		{
+			name:     "azure-functions-core-tools alias resolves to func",
+			toolName: "azure-functions-core-tools",
+			expected: "func",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tool := tt.toolName
+			if canonical, isAlias := toolAliases[tool]; isAlias {
+				tool = canonical
+			}
+
+			config, found := toolRegistry[tool]
+			if !found {
+				t.Errorf("Tool %s (from %s) not found in registry", tool, tt.toolName)
+				return
+			}
+
+			if config.Command != tt.expected {
+				t.Errorf("Tool %s resolved to command %s, want %s", tt.toolName, config.Command, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFuncVersionExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected string
+	}{
+		{
+			name:     "func standard version",
+			output:   "4.5.0",
+			expected: "4.5.0",
+		},
+		{
+			name:     "func older version",
+			output:   "4.0.0",
+			expected: "4.0.0",
+		},
+		{
+			name:     "func latest version",
+			output:   "4.10.2",
+			expected: "4.10.2",
+		},
+		{
+			name:     "func with extra whitespace",
+			output:   "  4.5.0  \n",
+			expected: "4.5.0",
+		},
+	}
+
+	config := toolRegistry["func"]
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractVersion(config, tt.output)
+			if result != tt.expected {
+				t.Errorf("extractVersion(func config, %q) = %q, want %q", tt.output, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFuncVersionComparison(t *testing.T) {
+	tests := []struct {
+		name      string
+		installed string
+		required  string
+		expected  bool
+	}{
+		{
+			name:      "func 4.5.0 meets 4.0.0 requirement",
+			installed: "4.5.0",
+			required:  "4.0.0",
+			expected:  true,
+		},
+		{
+			name:      "func 4.0.0 meets 4.0.0 requirement",
+			installed: "4.0.0",
+			required:  "4.0.0",
+			expected:  true,
+		},
+		{
+			name:      "func 3.9.0 fails 4.0.0 requirement",
+			installed: "3.9.0",
+			required:  "4.0.0",
+			expected:  false,
+		},
+		{
+			name:      "func 4.10.2 meets 4.5.0 requirement",
+			installed: "4.10.2",
+			required:  "4.5.0",
+			expected:  true,
+		},
+		{
+			name:      "func 4.5.1 meets 4.5.0 requirement",
+			installed: "4.5.1",
+			required:  "4.5.0",
+			expected:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := compareVersions(tt.installed, tt.required)
+			if result != tt.expected {
+				t.Errorf("compareVersions(%q, %q) = %v, want %v", tt.installed, tt.required, result, tt.expected)
 			}
 		})
 	}

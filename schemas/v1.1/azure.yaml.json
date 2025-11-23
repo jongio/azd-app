@@ -51,7 +51,9 @@
         },
         "language": {
           "type": "string",
-          "description": "The programming language of the service (from original schema)"
+          "description": "The programming language of the service (from original schema)",
+          "enum": ["js", "ts", "py", "python", "csharp", "dotnet", "go", "java", "rust", "ruby", "php", "aspire"],
+          "examples": ["TypeScript", "Python", "csharp"]
         },
         "project": {
           "type": "string",

@@ -23,7 +23,7 @@ func TestStopServiceGraceful_Success(t *testing.T) {
 		Port:       8090,
 	}
 
-	process, err := StartService(runtime, map[string]string{}, tmpDir)
+	process, err := StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -82,7 +82,7 @@ func TestStopServiceGraceful_ForcedKillAfterTimeout(t *testing.T) {
 		Port:       8091,
 	}
 
-	process, err := StartService(runtime, map[string]string{}, tmpDir)
+	process, err := StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -152,7 +152,7 @@ func TestStopServiceGraceful_AlreadyExited(t *testing.T) {
 		Port:       8092,
 	}
 
-	process, err := StartService(runtime, map[string]string{}, tmpDir)
+	process, err := StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -200,7 +200,7 @@ func TestStopServiceGraceful_MultipleTimeouts(t *testing.T) {
 				Port:       8093,
 			}
 
-			process, err := StartService(runtime, map[string]string{}, tmpDir)
+			process, err := StartService(runtime, map[string]string{}, tmpDir, nil)
 			if err != nil {
 				t.Fatalf("StartService() error = %v", err)
 			}
@@ -240,7 +240,7 @@ func TestStopService_UsesGracefulDefault(t *testing.T) {
 		Port:       8094,
 	}
 
-	process, err := StartService(runtime, map[string]string{}, tmpDir)
+	process, err := StartService(runtime, map[string]string{}, tmpDir, nil)
 	if err != nil {
 		t.Fatalf("StartService() error = %v", err)
 	}
@@ -286,7 +286,7 @@ func TestStopAllServices_GracefulShutdown(t *testing.T) {
 			Port:       8100 + i,
 		}
 
-		process, err := StartService(runtime, map[string]string{}, tmpDir)
+		process, err := StartService(runtime, map[string]string{}, tmpDir, nil)
 		if err != nil {
 			t.Fatalf("StartService(%d) error = %v", i, err)
 		}

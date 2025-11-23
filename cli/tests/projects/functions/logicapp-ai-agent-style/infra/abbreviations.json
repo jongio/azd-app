@@ -1,0 +1,11 @@
+{
+  "aiServices": "ai",
+  "appServicePlan": "asp",
+  "applicationInsights": "appins",
+  "keyVault": "kv",
+  "logicApp": "logic",
+  "logAnalyticsWorkspace": "log",
+  "resourceGroup": "rg",
+  "storageAccount": "st",
+  "userAssignedIdentity": "id"
+}

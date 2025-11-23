@@ -1,0 +1,55 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "Call_AI_Model": {
+        "type": "ServiceProvider",
+        "inputs": {
+          "parameters": {
+            "deploymentId": "gpt-4o",
+            "prompt": "@{triggerBody()?['message']}",
+            "maxTokens": 800
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "AzureOpenAI",
+            "operationId": "getChatCompletions",
+            "serviceProviderId": "/serviceProviders/AzureOpenAI"
+          }
+        },
+        "runAfter": {}
+      },
+      "Response": {
+        "type": "Response",
+        "kind": "http",
+        "inputs": {
+          "statusCode": 200,
+          "body": "@outputs('Call_AI_Model')?['body']?['choices']?[0]?['message']?['content']"
+        },
+        "runAfter": {
+          "Call_AI_Model": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "Http",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "contentVersion": "1.0.0.0",
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

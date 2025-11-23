@@ -1,0 +1,8 @@
+name: functions-dotnet-isolated
+metadata:
+  template: functions-dotnet-isolated@0.0.1
+services:
+  api:
+    project: .
+    language: csharp
+    host: function
