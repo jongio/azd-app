@@ -30,53 +30,60 @@ func TestGetDefaultShell(t *testing.T) {
 
 func TestPrepareHookCommand(t *testing.T) {
 	tests := []struct {
-		name     string
-		shell    string
-		script   string
-		wantArg1 string
-		wantArg2 string
+		name              string
+		shell             string
+		script            string
+		wantArg1          string
+		wantArg2Contains  string
+		isPowerShell      bool
 	}{
 		{
-			name:     "sh shell",
-			shell:    "sh",
-			script:   "echo test",
-			wantArg1: "-c",
-			wantArg2: "echo test",
+			name:             "sh shell",
+			shell:            "sh",
+			script:           "echo test",
+			wantArg1:         "-c",
+			wantArg2Contains: "echo test",
+			isPowerShell:     false,
 		},
 		{
-			name:     "bash shell",
-			shell:    "bash",
-			script:   "ls -la",
-			wantArg1: "-c",
-			wantArg2: "ls -la",
+			name:             "bash shell",
+			shell:            "bash",
+			script:           "ls -la",
+			wantArg1:         "-c",
+			wantArg2Contains: "ls -la",
+			isPowerShell:     false,
 		},
 		{
-			name:     "pwsh shell",
-			shell:    "pwsh",
-			script:   "Get-ChildItem",
-			wantArg1: "-Command",
-			wantArg2: "Get-ChildItem",
+			name:             "pwsh shell",
+			shell:            "pwsh",
+			script:           "Get-ChildItem",
+			wantArg1:         "-Command",
+			wantArg2Contains: "Get-ChildItem",
+			isPowerShell:     true,
 		},
 		{
-			name:     "powershell shell",
-			shell:    "powershell",
-			script:   "Write-Host test",
-			wantArg1: "-Command",
-			wantArg2: "Write-Host test",
+			name:             "powershell shell",
+			shell:            "powershell",
+			script:           "Write-Host test",
+			wantArg1:         "-Command",
+			wantArg2Contains: "Write-Host test",
+			isPowerShell:     true,
 		},
 		{
-			name:     "cmd shell",
-			shell:    "cmd",
-			script:   "dir",
-			wantArg1: "/c",
-			wantArg2: "dir",
+			name:             "cmd shell",
+			shell:            "cmd",
+			script:           "dir",
+			wantArg1:         "/c",
+			wantArg2Contains: "dir",
+			isPowerShell:     false,
 		},
 		{
-			name:     "zsh shell (posix)",
-			shell:    "zsh",
-			script:   "echo zsh",
-			wantArg1: "-c",
-			wantArg2: "echo zsh",
+			name:             "zsh shell (posix)",
+			shell:            "zsh",
+			script:           "echo zsh",
+			wantArg1:         "-c",
+			wantArg2Contains: "echo zsh",
+			isPowerShell:     false,
 		},
 	}
 
@@ -97,8 +104,15 @@ func TestPrepareHookCommand(t *testing.T) {
 				t.Errorf("Expected arg[1]=%q, got: %q", tt.wantArg1, cmd.Args[1])
 			}
 
-			if cmd.Args[2] != tt.wantArg2 {
-				t.Errorf("Expected arg[2]=%q, got: %q", tt.wantArg2, cmd.Args[2])
+			// For PowerShell, check that the script contains the expected command (may have UTF-8 wrapper)
+			if tt.isPowerShell {
+				if !strings.Contains(cmd.Args[2], tt.wantArg2Contains) {
+					t.Errorf("Expected arg[2] to contain %q, got: %q", tt.wantArg2Contains, cmd.Args[2])
+				}
+			} else {
+				if cmd.Args[2] != tt.wantArg2Contains {
+					t.Errorf("Expected arg[2]=%q, got: %q", tt.wantArg2Contains, cmd.Args[2])
+				}
 			}
 
 			if cmd.Env == nil {
@@ -538,3 +552,139 @@ func TestExecuteHook_DefaultShell(t *testing.T) {
 		t.Errorf("Expected successful execution with default shell, got: %v", err)
 	}
 }
+
+func TestPrepareHookCommand_WithAdditionalEnv(t *testing.T) {
+	testDir := "/test/path"
+	additionalEnv := []string{
+		"CUSTOM_VAR=custom_value",
+		"ANOTHER_VAR=another_value",
+	}
+
+	ctx := context.Background()
+	cmd := prepareHookCommand(ctx, "sh", "echo test", testDir, additionalEnv)
+
+	// Verify additional environment variables are appended
+	found := make(map[string]bool)
+	for _, env := range cmd.Env {
+		if strings.HasPrefix(env, "CUSTOM_VAR=") {
+			found["CUSTOM_VAR"] = true
+			if !strings.Contains(env, "custom_value") {
+				t.Errorf("Expected CUSTOM_VAR=custom_value, got: %s", env)
+			}
+		}
+		if strings.HasPrefix(env, "ANOTHER_VAR=") {
+			found["ANOTHER_VAR"] = true
+			if !strings.Contains(env, "another_value") {
+				t.Errorf("Expected ANOTHER_VAR=another_value, got: %s", env)
+			}
+		}
+	}
+
+	if !found["CUSTOM_VAR"] {
+		t.Error("Expected CUSTOM_VAR to be in environment")
+	}
+	if !found["ANOTHER_VAR"] {
+		t.Error("Expected ANOTHER_VAR to be in environment")
+	}
+}
+
+func TestExecuteHook_WithCustomEnvVars(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping hook execution test in short mode")
+	}
+
+	ctx := context.Background()
+	config := HookConfig{
+		Run:   "echo test",
+		Shell: getDefaultShell(),
+		Env: []string{
+			EnvProjectDir + "=/custom/path",
+			EnvProjectName + "=test-project",
+			EnvServiceCount + "=5",
+		},
+	}
+
+	err := ExecuteHook(ctx, "test", config, ".")
+	if err != nil {
+		t.Errorf("Expected successful execution with env vars, got: %v", err)
+	}
+}
+
+func TestNewHook(t *testing.T) {
+	continueOnError := true
+	interactive := false
+	
+	windows := NewPlatformHook("echo windows", "pwsh", &continueOnError, &interactive)
+	posix := NewPlatformHook("echo posix", "bash", nil, nil)
+	
+	hook := NewHook("echo test", "sh", false, true, windows, posix)
+	
+	if hook == nil {
+		t.Fatal("Expected non-nil hook")
+	}
+	
+	if hook.Run != "echo test" {
+		t.Errorf("Expected Run='echo test', got: %s", hook.Run)
+	}
+	if hook.Shell != "sh" {
+		t.Errorf("Expected Shell='sh', got: %s", hook.Shell)
+	}
+	if hook.ContinueOnError {
+		t.Error("Expected ContinueOnError=false")
+	}
+	if !hook.Interactive {
+		t.Error("Expected Interactive=true")
+	}
+	if hook.Windows == nil {
+		t.Error("Expected Windows platform hook to be non-nil")
+	}
+	if hook.Posix == nil {
+		t.Error("Expected POSIX platform hook to be non-nil")
+	}
+}
+
+func TestNewPlatformHook(t *testing.T) {
+	continueOnError := true
+	interactive := false
+	
+	hook := NewPlatformHook("echo test", "bash", &continueOnError, &interactive)
+	
+	if hook == nil {
+		t.Fatal("Expected non-nil platform hook")
+	}
+	
+	if hook.Run != "echo test" {
+		t.Errorf("Expected Run='echo test', got: %s", hook.Run)
+	}
+	if hook.Shell != "bash" {
+		t.Errorf("Expected Shell='bash', got: %s", hook.Shell)
+	}
+	if hook.ContinueOnError == nil {
+		t.Fatal("Expected ContinueOnError to be non-nil")
+	}
+	if !*hook.ContinueOnError {
+		t.Error("Expected ContinueOnError=true")
+	}
+	if hook.Interactive == nil {
+		t.Fatal("Expected Interactive to be non-nil")
+	}
+	if *hook.Interactive {
+		t.Error("Expected Interactive=false")
+	}
+}
+
+func TestNewPlatformHook_WithNilValues(t *testing.T) {
+	hook := NewPlatformHook("echo test", "sh", nil, nil)
+	
+	if hook == nil {
+		t.Fatal("Expected non-nil platform hook")
+	}
+	
+	if hook.ContinueOnError != nil {
+		t.Error("Expected ContinueOnError to be nil")
+	}
+	if hook.Interactive != nil {
+		t.Error("Expected Interactive to be nil")
+	}
+}
+
