@@ -294,7 +294,7 @@ hooks:
     shell: sh
 ```
 
-See [Hooks Documentation](docs/hooks.md) for complete hook configuration and examples.
+See [Hooks Documentation](docs/features/hooks.md) for complete hook configuration and examples.
 
 **Runtime Modes:**
 - **azd** (default): Runs services through azd's built-in dashboard, works with all project types

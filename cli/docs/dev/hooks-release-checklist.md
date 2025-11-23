@@ -13,7 +13,7 @@
   - [x] Windows
   - [x] macOS
 - [x] Documentation complete
-  - [x] User guide (docs/hooks.md)
+  - [x] User guide (docs/features/hooks.md)
   - [x] CLI reference updated
   - [x] Implementation details (docs/dev/hooks-implementation.md)
   - [x] Technical review (docs/dev/hooks-technical-review.md)
@@ -175,7 +175,7 @@ hooks:
     run: echo "Services ready!"
 
 
-**Documentation**: docs/hooks.md
+**Documentation**: docs/features/hooks.md
 
 **Breaking Changes**: None
 **Migration Required**: None (opt-in feature)

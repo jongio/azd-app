@@ -134,7 +134,7 @@ cmd /c "<script>"
 ## Documentation
 
 ### User Documentation
-- **docs/hooks.md**: Comprehensive guide
+- **docs/features/hooks.md**: Comprehensive guide
   - Overview and concepts
   - Configuration reference
   - Platform-specific hooks
