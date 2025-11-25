@@ -26,6 +26,9 @@ type Notification struct {
 
 	// Data contains arbitrary data associated with the notification
 	Data map[string]string
+
+	// URL to open when notification is clicked (optional)
+	URL string
 }
 
 // Action represents a notification action button.

@@ -17,6 +17,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
+	"github.com/jongio/azd-app/cli/src/internal/notifications"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
@@ -310,8 +311,22 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	var wg sync.WaitGroup
 	dashboardServer := dashboard.GetServer(cwd)
 
-	// Start dashboard monitoring
-	startDashboardMonitor(ctx, &wg, dashboardServer)
+	// Start notification manager for OS notifications on service issues
+	notifMgr, err := notifications.NewNotificationManager(
+		notifications.DefaultNotificationManagerConfig(cwd),
+	)
+	if err != nil {
+		output.Warning("Notifications unavailable: %v", err)
+	} else {
+		notifMgr.Start()
+		defer notifMgr.Stop()
+		if notifMgr.IsNotificationsEnabled() {
+			output.Info("🔔 OS notifications enabled for service issues")
+		}
+	}
+
+	// Start dashboard monitoring (passes notifMgr to set URL after dashboard starts)
+	startDashboardMonitor(ctx, &wg, dashboardServer, notifMgr)
 
 	// Start service process monitors
 	startServiceMonitors(ctx, &wg, result.Processes)
@@ -324,7 +339,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 }
 
 // startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
-func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardServer *dashboard.Server) {
+func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardServer *dashboard.Server, notifMgr *notifications.NotificationManager) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -339,6 +354,11 @@ func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardSer
 			output.Warning("Dashboard unavailable: %v", err)
 			<-ctx.Done()
 			return
+		}
+
+		// Set dashboard URL for clickable notifications
+		if notifMgr != nil {
+			notifMgr.SetDashboardURL(dashboardURL)
 		}
 
 		output.Newline()

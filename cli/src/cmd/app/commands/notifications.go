@@ -1,12 +1,15 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"text/tabwriter"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
+	"github.com/jongio/azd-app/cli/src/internal/notify"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +26,8 @@ func NewNotificationsCommand() *cobra.Command {
 	cmd.AddCommand(newNotificationsMarkReadCmd())
 	cmd.AddCommand(newNotificationsClearCmd())
 	cmd.AddCommand(newNotificationsStatsCmd())
+	cmd.AddCommand(newNotificationsTestCmd())
+	cmd.AddCommand(newNotificationsEnableCmd())
 
 	return cmd
 }
@@ -268,3 +273,106 @@ func getNotificationDBPath() string {
 	}
 	return dataHome + "/azd/notifications.db"
 }
+
+func newNotificationsTestCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Send a test notification",
+		Long:  "Send a test OS notification to verify notifications are working",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			output.CommandHeader("notifications test", "Send test notification")
+
+			// Check if notifications are enabled
+			prefs := config.GetGlobalNotificationPreferences()
+			if !prefs.OSNotifications {
+				output.Warning("OS notifications are disabled in preferences")
+				output.Info("Run 'azd app notifications enable' to enable them")
+				return nil
+			}
+
+			// Create notifier
+			notifyConfig := notify.DefaultConfig()
+			notifier, err := notify.New(notifyConfig)
+			if err != nil {
+				return fmt.Errorf("failed to create notifier: %w", err)
+			}
+			defer notifier.Close()
+
+			// Check if available
+			if !notifier.IsAvailable() {
+				output.Error("OS notifications are not available on this system")
+				output.Info("On Windows, ensure PowerShell is available")
+				output.Info("On macOS, notification permissions may be needed")
+				output.Info("On Linux, ensure notify-send is installed")
+				return nil
+			}
+
+			// Send test notification with a sample URL
+			notification := notify.Notification{
+				Title:     "Azure Dev Test",
+				Message:   "🎉 Notifications are working! Click to open the dashboard.",
+				Severity:  "info",
+				Timestamp: time.Now(),
+				URL:       "http://localhost:5173", // Default dev dashboard URL for testing
+			}
+
+			output.Info("Sending test notification...")
+			if err := notifier.Send(context.Background(), notification); err != nil {
+				return fmt.Errorf("failed to send notification: %w", err)
+			}
+
+			output.Success("Test notification sent!")
+			output.Info("Check your system notification center to verify it appeared")
+			output.Info("Click the notification or 'View Logs' button to open browser")
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func newNotificationsEnableCmd() *cobra.Command {
+	var disable bool
+
+	cmd := &cobra.Command{
+		Use:   "enable",
+		Short: "Enable or disable OS notifications",
+		Long:  "Enable or disable OS notifications for service state changes",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			output.CommandHeader("notifications enable", "Configure OS notifications")
+
+			// Load current preferences
+			prefs, err := config.LoadNotificationPreferences()
+			if err != nil {
+				return fmt.Errorf("failed to load preferences: %w", err)
+			}
+
+			if disable {
+				prefs.OSNotifications = false
+				output.Info("Disabling OS notifications...")
+			} else {
+				prefs.OSNotifications = true
+				output.Info("Enabling OS notifications...")
+			}
+
+			// Save preferences
+			if err := config.SaveNotificationPreferences(prefs); err != nil {
+				return fmt.Errorf("failed to save preferences: %w", err)
+			}
+
+			if disable {
+				output.Success("OS notifications disabled")
+			} else {
+				output.Success("OS notifications enabled")
+				output.Info("Run 'azd app notifications test' to verify they work")
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&disable, "disable", false, "Disable OS notifications instead of enabling")
+
+	return cmd
+}
+

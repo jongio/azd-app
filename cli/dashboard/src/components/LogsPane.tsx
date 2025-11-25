@@ -266,7 +266,8 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
 
   return (
     <div 
-      className={cn("flex flex-col border-4 rounded-lg overflow-hidden", isCollapsed ? "h-auto" : "h-full", borderClass)}
+      className={cn("flex flex-col border-4 rounded-lg overflow-hidden", borderClass)}
+      style={{ height: isCollapsed ? 'fit-content' : '100%' }}
       role="region"
       aria-label={`Logs for ${serviceName}`}
     >

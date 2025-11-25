@@ -313,6 +313,16 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start starts the dashboard server on an assigned port.
+// GetURL returns the dashboard URL if the server is started, empty string otherwise.
+func (s *Server) GetURL() string {
+	s.startedMu.Lock()
+	defer s.startedMu.Unlock()
+	if !s.started || s.port == 0 {
+		return ""
+	}
+	return fmt.Sprintf("http://localhost:%d", s.port)
+}
+
 func (s *Server) Start() (string, error) {
 	// Use port manager to get a persistent port for the dashboard
 	portMgr := portmanager.GetPortManager(s.projectDir)

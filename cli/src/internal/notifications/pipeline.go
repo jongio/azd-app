@@ -128,12 +128,13 @@ func (p *Pipeline) handleEvent(event Event) {
 
 // OSNotificationHandler sends events to OS notification system
 type OSNotificationHandler struct {
-	notifier notify.Notifier
-	config   *config.NotificationPreferences
-	lastSent map[string]time.Time
-	mu       sync.Mutex
-	ctx      context.Context
-	cancel   context.CancelFunc
+	notifier     notify.Notifier
+	config       *config.NotificationPreferences
+	lastSent     map[string]time.Time
+	mu           sync.Mutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	dashboardURL string // URL to dashboard for clickable notifications
 }
 
 // NewOSNotificationHandler creates a handler for OS notifications
@@ -149,6 +150,13 @@ func NewOSNotificationHandler(notifier notify.Notifier, cfg *config.Notification
 	// Start cleanup goroutine to prevent memory leak
 	go h.cleanupOldEntries()
 	return h
+}
+
+// SetDashboardURL sets the dashboard URL for clickable notifications
+func (h *OSNotificationHandler) SetDashboardURL(url string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.dashboardURL = url
 }
 
 // cleanupOldEntries periodically removes stale rate limit entries
@@ -199,11 +207,16 @@ func (h *OSNotificationHandler) Handle(ctx context.Context, event Event) error {
 	h.mu.Unlock()
 
 	// Send notification
+	h.mu.Lock()
+	dashURL := h.dashboardURL
+	h.mu.Unlock()
+
 	notification := notify.Notification{
 		Title:     fmt.Sprintf("Azure Dev: %s", event.ServiceName),
 		Message:   event.Message,
 		Severity:  event.Severity,
 		Timestamp: event.Timestamp,
+		URL:       dashURL,
 	}
 
 	return h.notifier.Send(ctx, notification)

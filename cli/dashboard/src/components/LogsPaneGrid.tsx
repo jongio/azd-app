@@ -13,6 +13,7 @@ export function LogsPaneGrid({ children, columns }: LogsPaneGridProps) {
   
   // Each pane takes equal height, filling the available container space
   // Use minmax to ensure panes don't shrink below a reasonable size but fit within viewport
+  // When panes are collapsed, they use fit-content height to shrink to header only
   const paneMinHeight = '150px'
   const paneHeight = `minmax(${paneMinHeight}, calc((100% - ${(rows - 1) * 16}px) / ${rows}))`
   
@@ -21,7 +22,8 @@ export function LogsPaneGrid({ children, columns }: LogsPaneGridProps) {
       className={cn("grid gap-4 w-full h-full p-4 overflow-auto box-border")}
       style={{
         gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        gridAutoRows: paneHeight
+        gridAutoRows: paneHeight,
+        alignItems: 'start'
       } as React.CSSProperties}
     >
       {children}
