@@ -78,10 +78,9 @@ export function useNotifications() {
   }, [])
 
   const clearAll = useCallback(() => {
-    if (confirm('Clear all notification history?')) {
-      setHistory([])
-      localStorage.removeItem(STORAGE_KEY)
-    }
+    // Clear without browser confirm - let the UI handle confirmation dialogs
+    setHistory([])
+    localStorage.removeItem(STORAGE_KEY)
   }, [])
 
   const handleNotificationClick = useCallback((id: string) => {

@@ -131,22 +131,32 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 }
 
 // GetService retrieves a service entry.
+// Returns a copy of the entry to prevent race conditions on concurrent access.
 func (r *ServiceRegistry) GetService(serviceName string) (*ServiceRegistryEntry, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	entry, exists := r.services[serviceName]
-	return entry, exists
+	if !exists {
+		return nil, false
+	}
+	
+	// Return a copy to prevent data races when caller modifies the entry
+	copy := *entry
+	return &copy, true
 }
 
 // ListAll returns all registered services.
+// Returns copies of the entries to prevent race conditions on concurrent access.
 func (r *ServiceRegistry) ListAll() []*ServiceRegistryEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	result := make([]*ServiceRegistryEntry, 0, len(r.services))
 	for _, entry := range r.services {
-		result = append(result, entry)
+		// Return copies to prevent data races
+		copy := *entry
+		result = append(result, &copy)
 	}
 	return result
 }
@@ -172,8 +182,22 @@ func (r *ServiceRegistry) load() error {
 		return err
 	}
 
-	if err := json.Unmarshal(data, &r.services); err != nil {
+	// Handle empty file gracefully
+	if len(data) == 0 {
+		r.services = make(map[string]*ServiceRegistryEntry)
+		return nil
+	}
+
+	// Unmarshal into a temporary map to preserve existing services on parse error
+	var loaded map[string]*ServiceRegistryEntry
+	if err := json.Unmarshal(data, &loaded); err != nil {
 		return fmt.Errorf("failed to unmarshal registry: %w", err)
+	}
+
+	if loaded != nil {
+		r.services = loaded
+	} else {
+		r.services = make(map[string]*ServiceRegistryEntry)
 	}
 
 	return nil

@@ -169,15 +169,23 @@ func (lb *LogBuffer) broadcast(entry LogEntry) {
 	for ch := range lb.subscribers {
 		// Non-blocking send with timeout to prevent slow subscribers from blocking
 		// If subscriber can't keep up, we drop the message rather than blocking
-		select {
-		case ch <- entry:
-			// Successfully sent
-		case <-time.After(DefaultLogSubscriberTimeout):
-			// Subscriber too slow, drop message
-			slog.Debug("dropped log entry for slow subscriber", "service", entry.Service)
-		default:
-			// Channel buffer full, skip this entry for this subscriber
-		}
+		// Use a goroutine with recover to handle closed channel panics safely
+		func(c chan LogEntry) {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Debug("recovered from panic during log broadcast", "error", r)
+				}
+			}()
+			select {
+			case c <- entry:
+				// Successfully sent
+			case <-time.After(DefaultLogSubscriberTimeout):
+				// Subscriber too slow, drop message
+				slog.Debug("dropped log entry for slow subscriber", "service", entry.Service)
+			default:
+				// Channel buffer full, skip this entry for this subscriber
+			}
+		}(ch)
 	}
 }
 
@@ -191,13 +199,19 @@ func (lb *LogBuffer) Clear() {
 
 // Close closes the log buffer and cleans up resources.
 func (lb *LogBuffer) Close() error {
-	// Close all subscriber channels
+	// Close all subscriber channels - take write lock to prevent new subscribers
 	lb.subMu.Lock()
+	subscribers := make(map[chan LogEntry]bool)
 	for ch := range lb.subscribers {
-		close(ch)
+		subscribers[ch] = true
 		delete(lb.subscribers, ch)
 	}
 	lb.subMu.Unlock()
+
+	// Close channels outside of lock to prevent deadlock
+	for ch := range subscribers {
+		close(ch)
+	}
 
 	// Close file if open
 	if lb.file != nil {

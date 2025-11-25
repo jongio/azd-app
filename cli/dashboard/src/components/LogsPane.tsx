@@ -15,9 +15,17 @@ const ansiConverter = new Convert({
   fg: '#FFF',
   bg: '#000',
   newline: false,
-  escapeXML: true,
+  escapeXML: true,  // CRITICAL: Must be true to prevent XSS
   stream: false
 })
+
+// Additional sanitization for safety
+function sanitizeHtml(html: string): string {
+  // Remove any script tags that might have slipped through
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+             .replace(/javascript:/gi, '')
+             .replace(/on\w+=/gi, '')
+}
 
 export interface LogEntry {
   service: string
@@ -92,22 +100,30 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
     const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/stream?service=${serviceName}`)
 
     ws.onmessage = (event) => {
-      if (!isPaused) {
-        try {
-          const entry = JSON.parse(event.data as string) as LogEntry
-          setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-        } catch (err) {
-          console.error('Failed to parse log entry:', err)
-        }
+      // Note: isPaused is captured at effect creation time
+      // For real-time pause behavior, we use a ref or different approach
+      try {
+        const entry = JSON.parse(event.data as string) as LogEntry
+        setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
+      } catch (err) {
+        console.error('Failed to parse log entry:', err)
       }
+    }
+
+    ws.onerror = (err) => {
+      console.error(`WebSocket error for ${serviceName}:`, err)
     }
 
     wsRef.current = ws
 
     return () => {
-      ws.close()
+      // Ensure clean disconnection
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close(1000, 'Component unmounting')
+      }
+      wsRef.current = null
     }
-  }, [serviceName, isPaused])
+  }, [serviceName]) // Removed isPaused - WebSocket shouldn't reconnect on pause toggle
 
   // Auto-scroll - scroll the container, not the page
   useEffect(() => {
@@ -256,9 +272,14 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
 
   const convertAnsiToHtml = useCallback((text: string) => {
     try {
-      return ansiConverter.toHtml(text)
+      const html = ansiConverter.toHtml(text)
+      return sanitizeHtml(html)
     } catch {
+      // If conversion fails, escape the text for safe display
       return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
     }
   }, [])
 

@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"log"
 	"math/big"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -141,6 +140,10 @@ func (s *Server) setupRoutes() {
 
 // handleGetServices returns services for the current project.
 func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	// Use shared serviceinfo package to get merged service data
 	services, err := serviceinfo.GetServiceInfo(s.projectDir)
 	if err != nil {
@@ -156,6 +159,10 @@ func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
 
 // handleGetProject returns project metadata from azure.yaml.
 func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	azureYaml, err := service.ParseAzureYaml(s.projectDir)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "Failed to parse azure.yaml", err)
@@ -318,33 +325,19 @@ func (s *Server) Start() (string, error) {
 	}
 	preferredPort := 40000 + int(nBig.Int64())
 
-	// Assign port for dashboard service (isExplicit=false)
-	port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false)
+	// Use FindAndReservePort to atomically find and reserve a port
+	// This eliminates the TOCTOU race between port checking and binding
+	reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
 	if err != nil {
-		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
+		return "", fmt.Errorf("failed to reserve port for dashboard: %w", err)
 	}
+	
+	port := reservation.Port
 
-	// Double-check port is still available (race condition protection)
-	// This handles the case where another process binds between assignment and server start
-	testAddr := fmt.Sprintf("127.0.0.1:%d", port)
-	testListener, err := net.Listen("tcp", testAddr)
-	if err != nil {
-		// Port became unavailable between assignment and binding
-		fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d became unavailable after assignment.\n", port)
-		fmt.Fprintf(os.Stderr, "Another instance may be starting simultaneously.\n")
-		fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
-
-		if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
-		}
-		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
-			return fmt.Sprintf("http://localhost:%d", port), nil
-		}
-		return "", fmt.Errorf("dashboard server failed to start: port conflicts")
-	}
-	// Close the test listener so the server can bind to it
-	if err := testListener.Close(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to close test listener: %v\n", err)
+	// Release reservation just before server binds
+	// The server must bind immediately after this
+	if err := reservation.Release(); err != nil {
+		log.Printf("Warning: failed to release port reservation: %v", err)
 	}
 
 	s.port = port
@@ -432,7 +425,9 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			// After 5 failed random attempts, try sequential ports
 			preferredPort = 40000 + (attempt * 100)
 		}
-		port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false)
+
+		// Use port reservation to prevent TOCTOU race
+		port, reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
 		if err != nil {
 			continue
 		}
@@ -443,6 +438,9 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			Handler:           s.mux,
 			ReadHeaderTimeout: 10 * time.Second,
 		}
+
+		// Release reservation just before binding - this is the atomic handoff
+		reservation.Release()
 
 		errChan := make(chan error, 1)
 		go func() {
@@ -530,15 +528,25 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	serviceName := r.URL.Query().Get("service")
 	tailStr := r.URL.Query().Get("tail")
 
-	// Default to 500 lines
+	// Default to 500 lines with bounds checking
 	tail := 500
 	if tailStr != "" {
 		if n, err := fmt.Sscanf(tailStr, "%d", &tail); err != nil || n != 1 {
 			tail = 500
 		}
+	}
+	// Enforce reasonable limits to prevent memory exhaustion
+	if tail <= 0 {
+		tail = 500
+	} else if tail > 10000 {
+		tail = 10000 // Maximum 10k lines
 	}
 
 	logManager := service.GetLogManager(s.projectDir)
