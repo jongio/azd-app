@@ -15,6 +15,12 @@ type AzureYaml struct {
 	Resources map[string]Resource    `yaml:"resources"`
 	Metadata  map[string]interface{} `yaml:"metadata,omitempty"`
 	Hooks     *Hooks                 `yaml:"hooks,omitempty"`
+	Dashboard *DashboardConfig       `yaml:"dashboard,omitempty"`
+}
+
+// DashboardConfig represents dashboard configuration in azure.yaml.
+type DashboardConfig struct {
+	Browser string `yaml:"browser,omitempty"` // Browser target: default, system, none
 }
 
 // Service represents a service definition in azure.yaml.

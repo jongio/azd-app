@@ -10,6 +10,15 @@ import {
   createMockWebSocketMessage,
 } from '@/test/mocks'
 
+interface MockWebSocket {
+  url: string
+  onopen: ((event: Event) => void) | null
+  onmessage: ((event: MessageEvent) => void) | null
+  onerror: ((event: Event) => void) | null
+  onclose: ((event: CloseEvent) => void) | null
+  close: ReturnType<typeof vi.fn>
+}
+
 describe('LogsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -24,7 +33,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse([])
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
   })
 
   it('should render logs view with controls', async () => {
@@ -69,7 +78,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse(mockLogs)
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     render(<LogsView />)
 
@@ -148,7 +157,9 @@ describe('LogsView', () => {
     await user.click(exportButton)
 
     // Check that URL.createObjectURL was called
-    expect(globalThis.URL.createObjectURL).toHaveBeenCalled()
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const mockFn = globalThis.URL.createObjectURL as ReturnType<typeof vi.fn>
+    expect(mockFn.mock.calls).toHaveLength(1)
   })
 
   it('should clear logs with confirmation', async () => {
@@ -201,7 +212,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse([])
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     render(<LogsView />)
 
@@ -227,9 +238,9 @@ describe('LogsView', () => {
   })
 
   it('should handle WebSocket log streaming', async () => {
-    let wsInstance: any
+    const wsRef: { current: MockWebSocket | null } = { current: null }
     const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsInstance = {
+      wsRef.current = {
         url,
         onopen: null,
         onmessage: null,
@@ -238,11 +249,11 @@ describe('LogsView', () => {
         close: vi.fn(),
       }
       setTimeout(() => {
-        if (wsInstance.onopen) wsInstance.onopen({})
+        wsRef.current?.onopen?.(new Event('open'))
       }, 0)
-      return wsInstance
+      return wsRef.current
     })
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     render(<LogsView />)
 
@@ -259,9 +270,10 @@ describe('LogsView', () => {
       isStderr: false,
     }
 
-    if (wsInstance && wsInstance.onmessage) {
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
       act(() => {
-        wsInstance.onmessage(createMockWebSocketMessage(newLogEntry))
+        handler(createMockWebSocketMessage(newLogEntry))
       })
     }
 
@@ -287,7 +299,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse([mockLogs[4]]) // Error log
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const { container } = render(<LogsView />)
 
@@ -306,7 +318,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse([mockLogs[3]]) // Warning log
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const { container } = render(<LogsView />)
 
@@ -337,7 +349,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse(mockLogsWithAnsi)
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     render(<LogsView />)
 
@@ -390,9 +402,9 @@ describe('LogsView', () => {
   })
 
   it('should limit logs to 1000 entries', async () => {
-    let wsInstance: any
+    const wsRef: { current: MockWebSocket | null } = { current: null }
     const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsInstance = {
+      wsRef.current = {
         url,
         onopen: null,
         onmessage: null,
@@ -401,11 +413,11 @@ describe('LogsView', () => {
         close: vi.fn(),
       }
       setTimeout(() => {
-        if (wsInstance.onopen) wsInstance.onopen({})
+        wsRef.current?.onopen?.(new Event('open'))
       }, 0)
-      return wsInstance
+      return wsRef.current
     })
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     // Create 1005 log entries
     const manyLogs = Array.from({ length: 1005 }, (_, i) => ({
@@ -422,7 +434,7 @@ describe('LogsView', () => {
       }
       return createMockFetchResponse(manyLogs)
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     render(<LogsView />)
 
@@ -431,9 +443,10 @@ describe('LogsView', () => {
     })
 
     // Add one more via WebSocket
-    if (wsInstance && wsInstance.onmessage) {
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
       act(() => {
-        wsInstance.onmessage(
+        handler(
           createMockWebSocketMessage({
             service: 'api',
             message: 'New entry',

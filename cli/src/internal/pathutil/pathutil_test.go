@@ -167,6 +167,103 @@ func TestSearchToolInSystemPath_KnownTools(t *testing.T) {
 	}
 }
 
+func TestFindToolInPath_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		wantFind bool
+	}{
+		{
+			name:     "empty string",
+			toolName: "",
+			wantFind: false,
+		},
+		{
+			name:     "tool with spaces",
+			toolName: "tool with spaces",
+			wantFind: false,
+		},
+		{
+			name:     "tool with path separators",
+			toolName: "tool/with/slashes",
+			wantFind: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FindToolInPath(tt.toolName)
+			found := result != ""
+			if found != tt.wantFind {
+				t.Logf("FindToolInPath(%q) found=%v, want=%v (result: %s)", tt.toolName, found, tt.wantFind, result)
+			}
+		})
+	}
+}
+
+func TestSearchToolInSystemPath_WindowsExtension(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Skipping Windows-specific test")
+	}
+
+	tests := []struct {
+		name     string
+		toolName string
+	}{
+		{
+			name:     "without .exe",
+			toolName: "cmd",
+		},
+		{
+			name:     "with .exe",
+			toolName: "cmd.exe",
+		},
+		{
+			name:     "mixed case",
+			toolName: "CMD.EXE",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SearchToolInSystemPath(tt.toolName)
+			// Just verify no panic and reasonable behavior
+			t.Logf("SearchToolInSystemPath(%s) = %s", tt.toolName, result)
+		})
+	}
+}
+
+func TestSearchToolInSystemPath_UnixPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Unix-specific test")
+	}
+
+	// Test that Unix search paths are used
+	result := SearchToolInSystemPath("sh")
+	// sh should be in /bin or /usr/bin on Unix systems
+	if result != "" {
+		t.Logf("Found sh at: %s", result)
+	} else {
+		t.Log("sh not found in common Unix paths (unusual but not a failure)")
+	}
+}
+
+func TestFindToolInPath_ActualTools(t *testing.T) {
+	// Test with a tool that should definitely exist in test environment
+	goPath := FindToolInPath("go")
+	if goPath == "" {
+		t.Error("Expected to find 'go' in PATH during tests")
+	}
+
+	if runtime.GOOS == "windows" {
+		// On Windows, verify .exe is added
+		goWithExe := FindToolInPath("go.exe")
+		if goWithExe == "" {
+			t.Error("Expected to find 'go.exe' in PATH on Windows")
+		}
+	}
+}
+
 func TestRefreshPATH_ErrorHandling(t *testing.T) {
 	// This test just verifies RefreshPATH handles errors gracefully
 	newPath, err := RefreshPATH()
@@ -187,6 +284,89 @@ func TestRefreshPATH_ErrorHandling(t *testing.T) {
 		if !containsAnyPath(newPath, []string{"Windows", "System32"}) {
 			t.Logf("Warning: Refreshed PATH doesn't contain expected Windows directories: %s", newPath)
 		}
+	}
+}
+
+func TestRefreshUnixPATH(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Unix-specific test on Windows")
+	}
+
+	// Save original PATH
+	originalPath := os.Getenv("PATH")
+	defer func() {
+		_ = os.Setenv("PATH", originalPath)
+	}()
+
+	// Test that refreshUnixPATH returns current PATH
+	newPath, err := refreshUnixPATH()
+	if err != nil {
+		t.Errorf("refreshUnixPATH() returned error: %v", err)
+	}
+
+	if newPath != originalPath {
+		t.Errorf("refreshUnixPATH() = %q, want %q", newPath, originalPath)
+	}
+}
+
+func TestRefreshWindowsPATH_Integration(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Skipping Windows-specific test on non-Windows")
+	}
+
+	// Save original PATH
+	originalPath := os.Getenv("PATH")
+	defer func() {
+		_ = os.Setenv("PATH", originalPath)
+	}()
+
+	// Test Windows PATH refresh
+	newPath, err := refreshWindowsPATH()
+	if err != nil {
+		// PowerShell might not be available in some test environments
+		t.Logf("refreshWindowsPATH() failed (may be expected): %v", err)
+		return
+	}
+
+	if newPath == "" {
+		t.Error("refreshWindowsPATH() returned empty PATH")
+	}
+
+	// Verify PATH was updated in environment
+	envPath := os.Getenv("PATH")
+	if envPath != newPath {
+		t.Errorf("PATH not updated in environment: got %q, want %q", envPath, newPath)
+	}
+}
+
+func TestRefreshPATH_OSSpecific(t *testing.T) {
+	// Save original PATH
+	originalPath := os.Getenv("PATH")
+	defer func() {
+		_ = os.Setenv("PATH", originalPath)
+	}()
+
+	newPath, err := RefreshPATH()
+
+	if runtime.GOOS == "windows" {
+		// On Windows, might fail if PowerShell unavailable
+		if err != nil {
+			t.Logf("RefreshPATH on Windows failed (expected in some environments): %v", err)
+			return
+		}
+	} else {
+		// On Unix, should always succeed
+		if err != nil {
+			t.Errorf("RefreshPATH on Unix failed: %v", err)
+		}
+		// Should return current PATH
+		if newPath != originalPath {
+			t.Errorf("RefreshPATH on Unix changed PATH: got %q, want %q", newPath, originalPath)
+		}
+	}
+
+	if newPath == "" {
+		t.Error("RefreshPATH returned empty PATH")
 	}
 }
 

@@ -1,3 +1,10 @@
+export interface ClassificationOverride {
+  id: string
+  text: string
+  level: 'info' | 'warning' | 'error'
+  createdAt: string
+}
+
 export interface LocalServiceInfo {
   status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
   health: 'healthy' | 'unhealthy' | 'unknown'

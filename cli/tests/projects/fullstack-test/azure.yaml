@@ -39,7 +39,6 @@ services:
     host: localhost
     ports:
       - "5000"
-    # Docker Compose map format (recommended)
     environment:
       FLASK_ENV: development
       FLASK_APP: app.py
@@ -50,7 +49,35 @@ services:
     host: localhost
     ports:
       - "5001"
-    # Docker Compose array of strings format
     environment:
-      - NODE_ENV=development
-      - API_URL=http://localhost:5000
+      NODE_ENV: development
+      API_URL: http://localhost:5000
+  
+  worker:
+    language: python
+    project: ./worker
+    host: localhost
+    ports:
+      - "5002"
+    entrypoint: worker
+    environment:
+      WORKER_ENV: development
+  
+  cache:
+    language: js
+    project: ./cache
+    host: localhost
+    ports:
+      - "6379"
+    environment:
+      NODE_ENV: development
+  
+  database:
+    language: python
+    project: ./database
+    host: localhost
+    ports:
+      - "5432"
+    entrypoint: database
+    environment:
+      DB_ENV: development

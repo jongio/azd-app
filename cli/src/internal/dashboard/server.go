@@ -123,8 +123,13 @@ func (s *Server) setupRoutes() {
 	// API endpoints (these take precedence over the file server)
 	s.mux.HandleFunc("/api/project", s.handleGetProject)
 	s.mux.HandleFunc("/api/services", s.handleGetServices)
+	s.mux.HandleFunc("/api/services/start", s.handleStartService)
+	s.mux.HandleFunc("/api/services/stop", s.handleStopService)
+	s.mux.HandleFunc("/api/services/restart", s.handleRestartService)
 	s.mux.HandleFunc("/api/logs", s.handleGetLogs)
 	s.mux.HandleFunc("/api/logs/stream", s.handleLogStream)
+	s.mux.HandleFunc("/api/logs/patterns", s.handlePatternsRouter)
+	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 
 	// Serve static files
@@ -659,6 +664,296 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	<-done
 	close(stopMerge)
 	wg.Wait()
+}
+
+// handleStartService handles POST /api/services/start to start a service or all services.
+func (s *Server) handleStartService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	serviceName := r.URL.Query().Get("service")
+
+	if serviceName == "" {
+		// Start all services
+		writeJSONError(w, http.StatusNotImplemented, "Starting all services not yet implemented", nil)
+		return
+	}
+
+	reg := registry.GetRegistry(s.projectDir)
+	entry, exists := reg.GetService(serviceName)
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found", serviceName), nil)
+		return
+	}
+
+	// Check if service is already running
+	if entry.Status == "running" || entry.Status == "ready" || entry.Status == "starting" {
+		writeJSONError(w, http.StatusConflict, fmt.Sprintf("Service '%s' is already %s", serviceName, entry.Status), nil)
+		return
+	}
+
+	// Parse azure.yaml to get service configuration
+	azureYaml, err := service.ParseAzureYaml(s.projectDir)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to parse azure.yaml", err)
+		return
+	}
+
+	// Find the service definition
+	svcDef, exists := azureYaml.Services[serviceName]
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found in azure.yaml", serviceName), nil)
+		return
+	}
+
+	// Detect runtime for the service
+	runtime, err := service.DetectServiceRuntime(serviceName, svcDef, map[int]bool{}, s.projectDir, "")
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to detect service runtime", err)
+		return
+	}
+
+	// Update registry to starting state
+	if err := reg.UpdateStatus(serviceName, "starting", "unknown"); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	// Load environment variables
+	envVars := make(map[string]string)
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		if len(pair) == 2 {
+			envVars[pair[0]] = pair[1]
+		}
+	}
+
+	// Merge runtime-specific env
+	for k, v := range runtime.Env {
+		envVars[k] = v
+	}
+
+	// Start the service
+	functionsParser := service.NewFunctionsOutputParser(false)
+	process, err := service.StartService(runtime, envVars, s.projectDir, functionsParser)
+	if err != nil {
+		if regErr := reg.UpdateStatus(serviceName, "error", "unknown"); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		writeJSONError(w, http.StatusInternalServerError, "Failed to start service", err)
+		return
+	}
+
+	// Update registry with running state
+	entry.PID = process.Process.Pid
+	entry.Status = "running"
+	entry.Health = "healthy"
+	entry.StartTime = time.Now()
+	entry.LastChecked = time.Now()
+	if err := reg.Register(entry); err != nil {
+		log.Printf("Warning: failed to register service: %v", err)
+	}
+
+	// Broadcast update to WebSocket clients
+	if err := s.BroadcastServiceUpdate(s.projectDir); err != nil {
+		log.Printf("Warning: failed to broadcast update: %v", err)
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Service '%s' started successfully", serviceName),
+		"service": entry,
+	}
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
+}
+
+// handleStopService handles POST /api/services/stop to stop a service or all services.
+func (s *Server) handleStopService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	serviceName := r.URL.Query().Get("service")
+
+	if serviceName == "" {
+		// Stop all services
+		writeJSONError(w, http.StatusNotImplemented, "Stopping all services not yet implemented", nil)
+		return
+	}
+
+	reg := registry.GetRegistry(s.projectDir)
+	entry, exists := reg.GetService(serviceName)
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found", serviceName), nil)
+		return
+	}
+
+	// Check if service is already stopped
+	if entry.Status == "stopped" || entry.Status == "not-running" {
+		writeJSONError(w, http.StatusConflict, fmt.Sprintf("Service '%s' is already stopped", serviceName), nil)
+		return
+	}
+
+	// Update registry to stopping state
+	if err := reg.UpdateStatus(serviceName, "stopping", entry.Health); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	// Find and stop the process
+	if entry.PID > 0 {
+		process, err := os.FindProcess(entry.PID)
+		if err != nil {
+			log.Printf("Warning: could not find process %d: %v", entry.PID, err)
+		} else {
+			serviceProcess := &service.ServiceProcess{
+				Name:    serviceName,
+				Process: process,
+			}
+			if err := service.StopService(serviceProcess); err != nil {
+				log.Printf("Warning: error stopping service %s: %v", serviceName, err)
+			}
+		}
+	}
+
+	// Update registry to stopped state
+	if err := reg.UpdateStatus(serviceName, "stopped", "unknown"); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	// Broadcast update to WebSocket clients
+	if err := s.BroadcastServiceUpdate(s.projectDir); err != nil {
+		log.Printf("Warning: failed to broadcast update: %v", err)
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Service '%s' stopped successfully", serviceName),
+	}
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
+}
+
+// handleRestartService handles POST /api/services/restart to restart a service or all services.
+func (s *Server) handleRestartService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	serviceName := r.URL.Query().Get("service")
+
+	if serviceName == "" {
+		// Restart all services
+		writeJSONError(w, http.StatusNotImplemented, "Restarting all services not yet implemented", nil)
+		return
+	}
+
+	reg := registry.GetRegistry(s.projectDir)
+	entry, exists := reg.GetService(serviceName)
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found", serviceName), nil)
+		return
+	}
+
+	// Stop the service if it's running
+	if entry.Status != "stopped" && entry.Status != "not-running" {
+		if entry.PID > 0 {
+			process, err := os.FindProcess(entry.PID)
+			if err != nil {
+				log.Printf("Warning: could not find process %d: %v", entry.PID, err)
+			} else {
+				serviceProcess := &service.ServiceProcess{
+					Name:    serviceName,
+					Process: process,
+				}
+				if err := service.StopService(serviceProcess); err != nil {
+					log.Printf("Warning: error stopping service %s: %v", serviceName, err)
+				}
+			}
+		}
+		// Wait a moment for the service to fully stop
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Parse azure.yaml to get service configuration
+	azureYaml, err := service.ParseAzureYaml(s.projectDir)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to parse azure.yaml", err)
+		return
+	}
+
+	// Get service definition
+	svcDef, exists := azureYaml.Services[serviceName]
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found in azure.yaml", serviceName), nil)
+		return
+	}
+
+	// Detect runtime for the service
+	runtime, err := service.DetectServiceRuntime(serviceName, svcDef, map[int]bool{}, s.projectDir, "")
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to detect service runtime", err)
+		return
+	}
+
+	// Update registry to starting state
+	if err := reg.UpdateStatus(serviceName, "starting", "unknown"); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	// Load environment variables
+	envVars := make(map[string]string)
+	for _, e := range os.Environ() {
+		pair := strings.SplitN(e, "=", 2)
+		if len(pair) == 2 {
+			envVars[pair[0]] = pair[1]
+		}
+	}
+
+	// Merge runtime-specific env
+	for k, v := range runtime.Env {
+		envVars[k] = v
+	}
+
+	// Start the service
+	functionsParser := service.NewFunctionsOutputParser(false)
+	process, err := service.StartService(runtime, envVars, s.projectDir, functionsParser)
+	if err != nil {
+		if regErr := reg.UpdateStatus(serviceName, "error", "unknown"); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		writeJSONError(w, http.StatusInternalServerError, "Failed to restart service", err)
+		return
+	}
+
+	// Update registry with running state
+	entry.PID = process.Process.Pid
+	entry.Status = "running"
+	entry.Health = "healthy"
+	entry.StartTime = time.Now()
+	entry.LastChecked = time.Now()
+	if err := reg.Register(entry); err != nil {
+		log.Printf("Warning: failed to register service: %v", err)
+	}
+
+	// Broadcast update to WebSocket clients
+	if err := s.BroadcastServiceUpdate(s.projectDir); err != nil {
+		log.Printf("Warning: failed to broadcast update: %v", err)
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Service '%s' restarted successfully", serviceName),
+		"service": entry,
+	}
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
 }
 
 // Stop stops the dashboard server and releases its port assignment.

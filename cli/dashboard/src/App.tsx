@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { useServices } from '@/hooks/useServices'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceTable } from '@/components/ServiceTable'
-import { LogsView } from '@/components/LogsView'
+import { LogsMultiPaneView } from '@/components/LogsMultiPaneView'
 import { Sidebar } from '@/components/Sidebar'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { ServiceStatusCard } from '@/components/ServiceStatusCard'
 import type { Service } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
+import { useServiceErrors } from '@/hooks/useServiceErrors'
 
 function App() {
   const [projectName, setProjectName] = useState<string>('')
@@ -14,23 +17,29 @@ function App() {
     const saved = localStorage.getItem('dashboard-view-preference')
     return (saved === 'cards' || saved === 'table') ? saved : 'table'
   })
+  const [isLogsFullscreen, setIsLogsFullscreen] = useState(false)
   const { services, loading, error } = useServices()
+  const { hasActiveErrors } = useServiceErrors()
 
-  // Scroll to top when view changes
+  // Scroll to top when view changes (only for non-console views)
   useEffect(() => {
-    const mainElement = document.querySelector('main')
-    if (mainElement) {
-      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    if (activeView !== 'console') {
+      const mainElement = document.querySelector('main')
+      if (mainElement) {
+        mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+      }
     }
   }, [activeView])
 
-  // Scroll to top when view mode changes
+  // Scroll to top when view mode changes (only for non-console views)
   useEffect(() => {
-    const mainElement = document.querySelector('main')
-    if (mainElement) {
-      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    if (activeView !== 'console') {
+      const mainElement = document.querySelector('main')
+      if (mainElement) {
+        mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+      }
     }
-  }, [viewMode])
+  }, [viewMode, activeView])
 
   useEffect(() => {
     localStorage.setItem('dashboard-view-preference', viewMode)
@@ -43,7 +52,7 @@ function App() {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
         }
-        const data = await res.json()
+        const data = await res.json() as { name: string }
         setProjectName(data.name)
         document.title = `${data.name}`
       } catch (err) {
@@ -61,23 +70,23 @@ function App() {
             <h1 className="text-2xl font-semibold text-foreground">Resources</h1>
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-foreground-tertiary" />
                 <input
                   type="text"
                   placeholder="Filter..."
-                  className="pl-9 pr-4 py-2 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-64 text-foreground"
+                  className="pl-9 pr-4 py-2 bg-input-background border border-input-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-64 text-input-foreground placeholder:text-input-placeholder"
                 />
               </div>
-              <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
-                <Filter className="w-4 h-4 text-gray-500 hover:text-gray-300" />
+              <button className="p-2 hover:bg-secondary rounded-md transition-colors">
+                <Filter className="w-4 h-4 text-foreground-tertiary hover:text-foreground-secondary" />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 mb-6 border-b border-[#2a2a2a]">
+          <div className="flex items-center gap-1 mb-6 border-b border-border">
             <button
               onClick={() => setViewMode('table')}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative ${viewMode === 'table' ? 'text-foreground' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${viewMode === 'table' ? 'text-foreground' : 'text-foreground-tertiary hover:text-foreground-secondary'}`}
             >
               Table
               {viewMode === 'table' && (
@@ -86,7 +95,7 @@ function App() {
             </button>
             <button
               onClick={() => setViewMode('cards')}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative ${viewMode === 'cards' ? 'text-foreground' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${viewMode === 'cards' ? 'text-foreground' : 'text-foreground-tertiary hover:text-foreground-secondary'}`}
             >
               Grid
               {viewMode === 'cards' && (
@@ -108,12 +117,12 @@ function App() {
               </div>
             </div>
           ) : services.length === 0 ? (
-            <div className="bg-[#1a1a1a] border border-white/10 p-12 rounded-lg text-center">
+            <div className="bg-card border border-card-border p-12 rounded-lg text-center">
               <h3 className="text-xl font-semibold mb-2">No Services Running</h3>
               <p className="text-muted-foreground mb-4">
                 Get started by launching your development services
               </p>
-              <code className="bg-black/30 px-3 py-2 rounded text-primary inline-block text-sm">
+              <code className="bg-muted px-3 py-2 rounded text-primary inline-block text-sm">
                 azd app run
               </code>
             </div>
@@ -135,10 +144,12 @@ function App() {
     if (activeView === 'console') {
       return (
         <>
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-foreground">Console</h1>
-          </div>
-          <LogsView />
+          {!isLogsFullscreen && (
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-semibold text-foreground">Console</h1>
+            </div>
+          )}
+          <LogsMultiPaneView onFullscreenChange={setIsLogsFullscreen} />
         </>
       )
     }
@@ -154,26 +165,35 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#1a1a1a]">
-      <Sidebar activeView={activeView} onViewChange={setActiveView} />
+    <div className="flex h-screen bg-background-tertiary">
+      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} />}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-14 border-b border-[#2a2a2a] flex items-center justify-between px-6 bg-[#0d0d0d]">
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold">{projectName || 'testhost'}</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
-              <Github className="w-4 h-4 text-gray-400 hover:text-gray-300" />
-            </button>
-            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
-              <HelpCircle className="w-4 h-4 text-gray-400 hover:text-gray-300" />
-            </button>
-            <button className="p-2 hover:bg-white/5 rounded-md transition-colors">
-              <Settings className="w-4 h-4 text-gray-400 hover:text-gray-300" />
-            </button>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto p-6 bg-[#1a1a1a]">
+        {!isLogsFullscreen && (
+          <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-background">
+            <div className="flex items-center gap-4">
+              <h1 className="text-sm font-semibold text-foreground">{projectName || 'testhost'}</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <ServiceStatusCard 
+                services={services} 
+                hasActiveErrors={hasActiveErrors} 
+                loading={loading}
+                onClick={() => setActiveView('console')}
+              />
+              <ThemeToggle />
+              <button className="p-2 hover:bg-secondary rounded-md transition-colors">
+                <Github className="w-4 h-4 text-foreground-secondary hover:text-foreground" />
+              </button>
+              <button className="p-2 hover:bg-secondary rounded-md transition-colors">
+                <HelpCircle className="w-4 h-4 text-foreground-secondary hover:text-foreground" />
+              </button>
+              <button className="p-2 hover:bg-secondary rounded-md transition-colors">
+                <Settings className="w-4 h-4 text-foreground-secondary hover:text-foreground" />
+              </button>
+            </div>
+          </header>
+        )}
+        <main className={isLogsFullscreen ? "flex-1 overflow-auto bg-background-tertiary" : "flex-1 overflow-auto p-6 bg-background-tertiary"}>
           {renderContent()}
         </main>
       </div>

@@ -153,6 +153,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
+	output.CommandHeader("reqs", "Check required prerequisites")
 	// Load azure.yaml
 	azureYamlPath, azureYaml, err := loadAzureYaml()
 	if err != nil {
@@ -369,9 +370,7 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
-	if !output.IsJSON() {
-		output.Section("📦", "Installing Dependencies")
-	}
+	output.CommandHeader("deps", "Install project dependencies")
 
 	// Determine search root
 	searchRoot, err := getSearchRoot()

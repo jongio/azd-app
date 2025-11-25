@@ -168,7 +168,7 @@ describe('Table Components', () => {
       )
       
       const tr = document.querySelector('tr')
-      expect(tr).toHaveClass('hover:bg-white/5')
+      expect(tr).toHaveClass('hover:bg-secondary/50')
     })
   })
 

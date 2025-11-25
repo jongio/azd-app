@@ -224,8 +224,14 @@ services:
 			svc := azureYaml.Services["api"]
 
 			// Detect runtime with specified mode
-			// Mark port 8000 as used to avoid real port conflicts in Python/FastAPI tests
-			runtime, err := service.DetectServiceRuntime("api", svc, map[int]bool{8000: true}, tmpDir, tt.runtimeMode)
+			// Mark common ports as used to avoid real port conflicts and interactive prompts during tests
+			usedPorts := map[int]bool{
+				3000: true, // Node.js default
+				5000: true, // Python/ASP.NET default
+				8000: true, // FastAPI/uvicorn default
+				8080: true, // Common alternative
+			}
+			runtime, err := service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, tt.runtimeMode)
 			if err != nil {
 				t.Fatalf("Failed to detect runtime: %v", err)
 			}

@@ -276,8 +276,9 @@ services:
 			}
 
 			// Detect runtime with entrypoint (using default "azd" mode)
-			// Mark port 8000 as used to avoid real port conflicts in tests
-			runtime, err := service.DetectServiceRuntime("api", svc, map[int]bool{8000: true}, tmpDir, "azd")
+			// Mark common ports as used to avoid real port conflicts and interactive prompts in tests
+			usedPorts := map[int]bool{3000: true, 5000: true, 8000: true, 8080: true}
+			runtime, err := service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
 			if err != nil {
 				t.Fatalf("Failed to detect runtime: %v", err)
 			}
@@ -371,8 +372,9 @@ services:
 			}
 
 			// Detect runtime - should succeed without error (using default "azd" mode)
-			// Mark port 8000 as used to avoid real port conflicts in tests
-			_, err = service.DetectServiceRuntime("api", svc, map[int]bool{8000: true}, tmpDir, "azd")
+			// Mark common ports as used to avoid real port conflicts and interactive prompts in tests
+			usedPorts := map[int]bool{3000: true, 5000: true, 8000: true, 8080: true}
+			_, err = service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -566,8 +568,9 @@ services:
 			svc := azureYaml.Services["api"]
 
 			// Detect runtime - this should validate entrypoint (using default "azd" mode)
-			// Mark port 8000 as used to avoid real port conflicts in tests
-			_, err = service.DetectServiceRuntime("api", svc, map[int]bool{8000: true}, tmpDir, "azd")
+			// Mark common ports as used to avoid real port conflicts and interactive prompts in tests
+			usedPorts := map[int]bool{3000: true, 5000: true, 8000: true, 8080: true}
+			_, err = service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
 
 			if tt.shouldError {
 				if err == nil {

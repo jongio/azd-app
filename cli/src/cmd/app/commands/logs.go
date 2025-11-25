@@ -50,6 +50,7 @@ func NewLogsCommand() *cobra.Command {
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
+	output.CommandHeader("logs", "View logs from running services")
 	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {

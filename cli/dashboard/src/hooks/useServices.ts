@@ -48,12 +48,12 @@ export function useServices() {
     try {
       const response = await fetch(`${API_BASE}/api/services`)
       if (!response.ok) throw new Error('Failed to fetch services')
-      const data = await response.json()
+      const data = await response.json() as Service[] | null
       setServices(data || [])
       setError(null)
       setUseMock(false)
-    } catch (err) {
-      console.log('Backend not available, using mock data')
+    } catch {
+      console.warn('Backend not available, using mock data')
       setServices(MOCK_SERVICES)
       setUseMock(true)
       setError(null) // Don't show error when using mock data
@@ -63,7 +63,7 @@ export function useServices() {
   }, [])
 
   useEffect(() => {
-    fetchServices()
+    void fetchServices()
 
     // Set up WebSocket connection
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -73,9 +73,9 @@ export function useServices() {
       setConnected(true)
     }
 
-    ws.onmessage = (event) => {
+    ws.onmessage = (event: MessageEvent<string>) => {
       try {
-        const update = JSON.parse(event.data)
+        const update = JSON.parse(event.data) as { type: string; service: Service }
         if (update.type === 'update' || update.type === 'add') {
           setServices(prev => {
             const index = prev.findIndex(
@@ -102,7 +102,7 @@ export function useServices() {
 
     ws.onerror = () => {
       setConnected(false)
-      console.log('WebSocket not available (this is normal in dev mode)')
+      console.warn('WebSocket not available (this is normal in dev mode)')
     }
 
     ws.onclose = () => {

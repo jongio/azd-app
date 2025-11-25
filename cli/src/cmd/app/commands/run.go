@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/browser"
+	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
@@ -33,6 +35,8 @@ var (
 	runVerbose       bool
 	runDryRun        bool
 	runRuntime       string
+	runBrowser       string
+	runNoBrowser     bool
 )
 
 // NewRunCommand creates the run command.
@@ -53,13 +57,20 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&runVerbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.Flags().BoolVar(&runDryRun, "dry-run", false, "Show what would be run without starting services")
 	cmd.Flags().StringVar(&runRuntime, "runtime", runtimeModeAzd, "Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)")
+	cmd.Flags().StringVar(&runBrowser, "browser", "", "Browser to launch dashboard in: default, system, none")
+	cmd.Flags().BoolVar(&runNoBrowser, "no-browser", false, "Do not launch browser automatically")
 
 	return cmd
 }
 
 // runWithServices runs services from azure.yaml.
 func runWithServices(ctx context.Context, _ *cobra.Command, _ []string) error {
+	output.CommandHeader("run", "Run the development environment")
 	if err := validateRuntimeMode(runRuntime); err != nil {
+		return err
+	}
+
+	if err := validateBrowserFlag(); err != nil {
 		return err
 	}
 
@@ -80,6 +91,14 @@ func runWithServices(ctx context.Context, _ *cobra.Command, _ []string) error {
 func validateRuntimeMode(mode string) error {
 	if mode != runtimeModeAzd && mode != runtimeModeAspire {
 		return fmt.Errorf("invalid --runtime value: %s (must be '%s' or '%s')", mode, runtimeModeAzd, runtimeModeAspire)
+	}
+	return nil
+}
+
+// validateBrowserFlag validates the --browser flag if specified.
+func validateBrowserFlag() error {
+	if runBrowser != "" && !browser.IsValid(runBrowser) {
+		return fmt.Errorf("invalid --browser value: %s (valid options: %s)", runBrowser, browser.FormatValidTargets())
 	}
 	return nil
 }
@@ -324,6 +343,10 @@ func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardSer
 
 		output.Newline()
 		output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
+
+		// Launch browser after dashboard is ready
+		launchDashboardBrowser(dashboardURL)
+
 		output.Newline()
 		output.Info("💡 Press Ctrl+C to stop all services")
 		output.Newline()
@@ -587,4 +610,79 @@ func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
 		ph.ContinueOnError,
 		ph.Interactive,
 	)
+}
+
+// resolveBrowserTarget determines which browser target to use based on priority:
+// 1. Command flag (--browser or --no-browser)
+// 2. Project config (azure.yaml dashboard.browser)
+// 3. User config (azd config app.dashboard.browser)
+// 4. Auto-detect VS Code environment
+// 5. System default browser
+func resolveBrowserTarget(azureYaml *service.AzureYaml) browser.Target {
+	// Priority 1: Command-line flags
+	if runNoBrowser {
+		return browser.TargetNone
+	}
+	if runBrowser != "" {
+		if !browser.IsValid(runBrowser) {
+			output.Warning("Invalid browser target: %s (valid: %s). Using default.", runBrowser, browser.FormatValidTargets())
+			return browser.TargetSystem
+		}
+		return browser.Target(runBrowser)
+	}
+
+	// Priority 2: Project config (azure.yaml)
+	if azureYaml != nil && azureYaml.Dashboard != nil && azureYaml.Dashboard.Browser != "" {
+		projectBrowser := azureYaml.Dashboard.Browser
+		if !browser.IsValid(projectBrowser) {
+			output.Warning("Invalid browser setting in azure.yaml: %s. Using default.", projectBrowser)
+		} else {
+			return browser.Target(projectBrowser)
+		}
+	}
+
+	// Priority 3: User config (azd config)
+	userBrowser := config.GetDashboardBrowser()
+	if userBrowser != "" {
+		if !browser.IsValid(userBrowser) {
+			output.Warning("Invalid browser config: %s. Using default.", userBrowser)
+		} else {
+			return browser.Target(userBrowser)
+		}
+	}
+
+	// Priority 4: System default (fallback)
+	return browser.TargetSystem
+}
+
+// launchDashboardBrowser launches the dashboard in the configured browser.
+func launchDashboardBrowser(dashboardURL string) {
+	// Parse azure.yaml to get project config for browser preference
+	azureYamlPath, err := findAzureYaml()
+	var azureYaml *service.AzureYaml
+	if err == nil {
+		azureYaml, _ = service.ParseAzureYaml(azureYamlPath)
+	}
+
+	// Resolve browser target using priority system
+	target := resolveBrowserTarget(azureYaml)
+
+	// If target is none, don't launch
+	if target == browser.TargetNone {
+		return
+	}
+
+	// Display launch message
+	targetName := browser.GetTargetDisplayName(target)
+	output.Info("🌐 Opening dashboard in %s...", targetName)
+
+	// Launch browser (non-blocking)
+	if err := browser.Launch(browser.LaunchOptions{
+		URL:     dashboardURL,
+		Target:  target,
+		Timeout: 5 * time.Second,
+	}); err != nil {
+		output.Warning("Could not open browser: %v", err)
+		output.Info("Dashboard available at: %s", dashboardURL)
+	}
 }

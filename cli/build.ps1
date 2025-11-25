@@ -125,9 +125,20 @@ foreach ($PLATFORM in $PLATFORMS) {
 
     Write-Host "  Building for $OS/$ARCH..." -ForegroundColor Gray
 
-    # Delete the output file if it already exists
+    # Handle locked files on Windows by renaming instead of deleting
     if (Test-Path -Path $OUTPUT_NAME) {
-        Remove-Item -Path $OUTPUT_NAME -Force
+        $backupName = "$OUTPUT_NAME.old"
+        try {
+            # Try to remove old backup first
+            if (Test-Path -Path $backupName) {
+                Remove-Item -Path $backupName -Force -ErrorAction SilentlyContinue
+            }
+            # Rename current file (works even if running)
+            Move-Item -Path $OUTPUT_NAME -Destination $backupName -Force -ErrorAction Stop
+        } catch {
+            # If rename fails, file might not be locked - try direct delete
+            Remove-Item -Path $OUTPUT_NAME -Force -ErrorAction SilentlyContinue
+        }
     }
 
     # Set environment variables for Go build

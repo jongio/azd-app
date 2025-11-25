@@ -15,10 +15,41 @@ vi.mock('@/hooks/useServices', () => ({
   })),
 }))
 
+// Mock the useServiceErrors hook
+vi.mock('@/hooks/useServiceErrors', () => ({
+  useServiceErrors: vi.fn(() => ({
+    hasActiveErrors: false,
+  })),
+}))
+
+// Mock the useToast hook
+vi.mock('@/components/ui/toast', () => ({
+  useToast: vi.fn(() => ({
+    showToast: vi.fn(),
+    ToastContainer: () => null,
+  })),
+}))
+
 describe('App', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     localStorage.clear()
+
+    // Reset the useServices mock to default values
+    const { useServices } = await import('@/hooks/useServices')
+    vi.mocked(useServices).mockReturnValue({
+      services: mockServices,
+      loading: false,
+      error: null,
+      connected: true,
+      refetch: vi.fn(),
+    })
+
+    // Reset the useServiceErrors mock to default values
+    const { useServiceErrors } = await import('@/hooks/useServiceErrors')
+    vi.mocked(useServiceErrors).mockReturnValue({
+      hasActiveErrors: false,
+    })
 
     const mockFetch = vi.fn((url: string) => {
       if (url === '/api/project') {
@@ -26,7 +57,7 @@ describe('App', () => {
       }
       return createMockFetchResponse([])
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
   })
 
   it('should render the app with default resources view', async () => {
@@ -59,7 +90,7 @@ describe('App', () => {
 
     // Should show grid view
     await waitFor(() => {
-      expect(localStorage.setItem).toHaveBeenCalledWith('dashboard-view-preference', 'cards')
+      expect(localStorage.getItem('dashboard-view-preference')).toBe('cards')
     })
 
     // Click Table button
@@ -67,7 +98,7 @@ describe('App', () => {
     await user.click(tableButton)
 
     await waitFor(() => {
-      expect(localStorage.setItem).toHaveBeenCalledWith('dashboard-view-preference', 'table')
+      expect(localStorage.getItem('dashboard-view-preference')).toBe('table')
     })
   })
 
@@ -156,14 +187,24 @@ describe('App', () => {
     }, { timeout: 3000 })
   })
 
-  it.skip('should remember view preference from localStorage', async () => {
-    // TODO: This test is skipped because localStorage preference isn't applying on initial render
-    // The feature needs to be debugged - App.tsx reads localStorage but viewMode doesn't update UI correctly
+  it('should remember view preference from localStorage', async () => {
+    // Set localStorage preference before rendering
     localStorage.setItem('dashboard-view-preference', 'cards')
 
     render(<App />)
 
+    // Wait for the Resources view to render
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
+    })
+
     // Since localStorage is read on mount, the grid view should be active
+    // Check that the Grid button has the active indicator
+    await waitFor(() => {
+      const gridButton = screen.getByRole('button', { name: /grid/i })
+      expect(gridButton.querySelector('.bg-primary')).toBeTruthy()
+    })
+
     // Check that we can see the grid layout (divs with grid classes)
     await waitFor(() => {
       const gridContainer = document.querySelector('.grid.grid-cols-1')
@@ -178,8 +219,8 @@ describe('App', () => {
     // Mock querySelector to return an element with scrollTo
     const mockMainElement = {
       scrollTo: scrollToMock,
-    }
-    vi.spyOn(document, 'querySelector').mockReturnValue(mockMainElement as any)
+    } as unknown as Element
+    vi.spyOn(document, 'querySelector').mockReturnValue(mockMainElement)
 
     render(<App />)
 
@@ -235,14 +276,14 @@ describe('App', () => {
       }
       return createMockFetchResponse([])
     })
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     render(<App />)
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Failed to fetch project name:',
-        expect.any(Error)
+        expect.any(Error) as Error
       )
     })
 
@@ -268,5 +309,54 @@ describe('App', () => {
 
     // Input should have the value
     expect(searchInput).toHaveValue('test')
+  })
+
+  it('should show error indicator on Console nav when errors are active', async () => {
+    const { useServiceErrors } = await import('@/hooks/useServiceErrors')
+    vi.mocked(useServiceErrors).mockReturnValue({ hasActiveErrors: true })
+    
+    render(<App />)
+
+    // Wait for the component to fully render and settle
+    await waitFor(() => {
+      // Find Console nav button - it should have a red pulsing dot indicator
+      const consoleNav = screen.getByRole('button', { name: /console/i })
+      
+      // Check for error indicator styles (red ring and pulsing dot)
+      expect(consoleNav).toBeInTheDocument()
+      
+      // The button should have the error ring class when not active
+      const errorIndicator = consoleNav.querySelector('.animate-pulse')
+      expect(errorIndicator).toBeInTheDocument()
+    })
+  })
+
+  it('should render ServiceStatusCard in the header', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      // Should show the service status button
+      const statusButton = screen.getByTitle('Click to view console logs')
+      expect(statusButton).toBeInTheDocument()
+    })
+  })
+
+  it('should navigate to console when ServiceStatusCard is clicked', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
+    })
+
+    // Find and click the service status card button
+    const statusButton = screen.getByTitle('Click to view console logs')
+    await user.click(statusButton)
+
+    // Should switch to console view (the console nav should become active)
+    await waitFor(() => {
+      const consoleNav = screen.getByRole('button', { name: /console/i })
+      expect(consoleNav).toHaveClass('bg-accent')
+    })
   })
 })
