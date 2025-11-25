@@ -21,23 +21,25 @@ function App() {
   const { services, loading, error } = useServices()
   const { hasActiveErrors } = useServiceErrors()
 
+  // Helper function to scroll main element to top smoothly
+  const scrollMainToTop = () => {
+    const mainElement = document.querySelector('main')
+    if (mainElement) {
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   // Scroll to top when view changes (only for non-console views)
   useEffect(() => {
     if (activeView !== 'console') {
-      const mainElement = document.querySelector('main')
-      if (mainElement) {
-        mainElement.scrollTo({ top: 0, behavior: 'smooth' })
-      }
+      scrollMainToTop()
     }
   }, [activeView])
 
-  // Scroll to top when view mode changes (only for non-console views)
+  // Scroll to top when view mode changes (only for non-console views in resources)
   useEffect(() => {
-    if (activeView !== 'console') {
-      const mainElement = document.querySelector('main')
-      if (mainElement) {
-        mainElement.scrollTo({ top: 0, behavior: 'smooth' })
-      }
+    if (activeView === 'resources') {
+      scrollMainToTop()
     }
   }, [viewMode, activeView])
 

@@ -41,7 +41,7 @@ var (
 	httpTriggerPattern = regexp.MustCompile(`^\s*(\w+):\s+\[(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|.*?)\]\s+http://[^/]+/(.*)$`)
 
 	// Alternative pattern for simpler output
-	simpleHttpPattern = regexp.MustCompile(`^\s*(\w+):\s+http://[^/]+/(.*)$`)
+	simpleHTTPPattern = regexp.MustCompile(`^\s*(\w+):\s+http://[^/]+/(.*)$`)
 
 	// Non-HTTP trigger patterns
 	timerTriggerPattern      = regexp.MustCompile(`^\s*(\w+):\s+\[timerTrigger\]`)
@@ -67,7 +67,7 @@ func (p *FunctionsOutputParser) ParseLine(serviceName, line string) {
 	}
 
 	// Simple HTTP trigger
-	if matches := simpleHttpPattern.FindStringSubmatch(line); matches != nil {
+	if matches := simpleHTTPPattern.FindStringSubmatch(line); matches != nil {
 		endpoint := FunctionEndpoint{
 			Name:        matches[1],
 			TriggerType: "HTTP",

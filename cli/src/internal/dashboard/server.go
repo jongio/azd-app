@@ -427,11 +427,12 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		}
 
 		// Use port reservation to prevent TOCTOU race
-		port, reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
+		reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
 		if err != nil {
 			continue
 		}
 
+		port := reservation.Port
 		s.port = port
 		s.server = &http.Server{
 			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
@@ -451,7 +452,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		}()
 
 		// Monitor for server errors in background
-		go func() {
+		go func(port int) {
 			select {
 			case err := <-errChan:
 				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
@@ -462,7 +463,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			case <-s.stopChan:
 				return
 			}
-		}()
+		}(port)
 
 		time.Sleep(100 * time.Millisecond)
 

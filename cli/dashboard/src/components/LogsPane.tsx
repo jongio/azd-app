@@ -2,30 +2,16 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
-import Convert from 'ansi-to-html'
 import { cn } from '@/lib/utils'
 import type { LogPattern } from '@/hooks/useLogPatterns'
 import { useLogClassification } from '@/hooks/useLogClassification'
-
-const MAX_LOGS_IN_MEMORY = 1000
-const LOG_LEVEL_WARNING = 2
-const LOG_LEVEL_ERROR = 3
-
-const ansiConverter = new Convert({
-  fg: '#FFF',
-  bg: '#000',
-  newline: false,
-  escapeXML: true,  // CRITICAL: Must be true to prevent XSS
-  stream: false
-})
-
-// Additional sanitization for safety
-function sanitizeHtml(html: string): string {
-  // Remove any script tags that might have slipped through
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-             .replace(/javascript:/gi, '')
-             .replace(/on\w+=/gi, '')
-}
+import {
+  MAX_LOGS_IN_MEMORY,
+  LOG_LEVELS,
+  convertAnsiToHtml,
+  isErrorLine as baseIsErrorLine,
+  isWarningLine as baseIsWarningLine,
+} from '@/lib/log-utils'
 
 export interface LogEntry {
   service: string
@@ -61,7 +47,7 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   
-  const { overrides: _overrides, addOverride, getClassificationForText } = useLogClassification()
+  const { addOverride, getClassificationForText } = useLogClassification()
 
   // Toggle collapse state and persist
   const toggleCollapsed = useCallback(() => {
@@ -192,16 +178,6 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
     if (overrideLevel === 'error') return true
     if (overrideLevel === 'info' || overrideLevel === 'warning') return false
 
-    // Exclude common informational messages that contain error-like keywords
-    const informationalMessages = [
-      /Debug mode:/i,
-      /Development mode:/i,
-    ]
-    
-    if (informationalMessages.some(pattern => pattern.test(message))) {
-      return false
-    }
-
     // Check global patterns
     for (const pattern of patterns) {
       if (pattern.enabled && pattern.source === 'user') {
@@ -214,8 +190,8 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
       }
     }
 
-    const errorPattern = /\b(error|failed|failure|exception|fatal|panic|critical|crash|died)\b/i
-    return errorPattern.test(message)
+    // Use centralized error detection
+    return baseIsErrorLine(message)
   }, [patterns, getClassificationForText])
 
   const isWarningLine = useCallback((message: string) => {
@@ -223,30 +199,16 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
     const overrideLevel = getClassificationForText(message)
     if (overrideLevel === 'warning') return true
     if (overrideLevel === 'info' || overrideLevel === 'error') return false
-
-    // Exclude common informational messages from frameworks that contain "warning" but aren't actual warnings
-    const informationalMessages = [
-      /WARNING: This is a development server/i,
-      /Development mode is enabled/i,
-      /Debug mode:/i,
-      /Serving Flask app/i,
-      /Running on (http|all addresses)/i,
-      /Press CTRL\+C to quit/i,
-    ]
     
-    if (informationalMessages.some(pattern => pattern.test(message))) {
-      return false
-    }
-    
-    const warningPattern = /\b(warn|warning|caution|deprecated)\b/i
-    return warningPattern.test(message)
+    // Use centralized warning detection
+    return baseIsWarningLine(message)
   }, [getClassificationForText])
 
   const paneStatus = useMemo(() => {
     const hasError = logs.some(log => 
-      isErrorLine(log.message) || log.level === LOG_LEVEL_ERROR
+      isErrorLine(log.message) || log.level === LOG_LEVELS.ERROR
     )
-    const hasWarning = logs.some(log => isWarningLine(log.message) || log.level === LOG_LEVEL_WARNING)
+    const hasWarning = logs.some(log => isWarningLine(log.message) || log.level === LOG_LEVELS.WARNING)
 
     if (hasError) return 'error'
     if (hasWarning) return 'warning'
@@ -262,26 +224,13 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
       
       // Level filter
       const overrideLevel = getClassificationForText(log.message)
-      const isError = overrideLevel === 'error' || (!overrideLevel && (isErrorLine(log.message) || log.level === LOG_LEVEL_ERROR))
-      const isWarning = overrideLevel === 'warning' || (!overrideLevel && !isError && (isWarningLine(log.message) || log.level === LOG_LEVEL_WARNING))
+      const isError = overrideLevel === 'error' || (!overrideLevel && (isErrorLine(log.message) || log.level === LOG_LEVELS.ERROR))
+      const isWarning = overrideLevel === 'warning' || (!overrideLevel && !isError && (isWarningLine(log.message) || log.level === LOG_LEVELS.WARNING))
       const logLevel = isError ? 'error' : isWarning ? 'warning' : 'info'
       
       return levelFilter.has(logLevel)
     })
   }, [logs, globalSearchTerm, levelFilter, getClassificationForText, isErrorLine, isWarningLine])
-
-  const convertAnsiToHtml = useCallback((text: string) => {
-    try {
-      const html = ansiConverter.toHtml(text)
-      return sanitizeHtml(html)
-    } catch {
-      // If conversion fails, escape the text for safe display
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-    }
-  }, [])
 
   const handleCopyPane = () => {
     onCopy(filteredLogs)
@@ -386,8 +335,8 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
             {filteredLogs.map((log, idx) => {
               // Determine log level with override check
               const overrideLevel = getClassificationForText(log.message)
-              const isError = overrideLevel === 'error' || (!overrideLevel && (isErrorLine(log.message) || log.level === LOG_LEVEL_ERROR))
-              const isWarning = overrideLevel === 'warning' || (!overrideLevel && !isError && (isWarningLine(log.message) || log.level === LOG_LEVEL_WARNING))
+              const isError = overrideLevel === 'error' || (!overrideLevel && (isErrorLine(log.message) || log.level === LOG_LEVELS.ERROR))
+              const isWarning = overrideLevel === 'warning' || (!overrideLevel && !isError && (isWarningLine(log.message) || log.level === LOG_LEVELS.WARNING))
               const logLevel = isError ? 'error' : isWarning ? 'warning' : 'info'
 
               return (

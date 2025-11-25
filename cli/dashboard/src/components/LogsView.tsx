@@ -5,23 +5,16 @@ import { Button } from '@/components/ui/button'
 import { Search, Download, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import type { Service } from '@/types'
-import Convert from 'ansi-to-html'
-
-// Constants
-const MAX_LOGS_IN_MEMORY = 1000
-const INITIAL_LOG_TAIL = 500
-const SCROLL_THRESHOLD_PX = 10
-const LOG_LEVEL_INFO = 1
-const LOG_LEVEL_WARNING = 2
-const LOG_LEVEL_ERROR = 3
-
-const ansiConverter = new Convert({
-  fg: '#FFF',
-  bg: '#000',
-  newline: false,
-  escapeXML: true,
-  stream: false
-})
+import {
+  MAX_LOGS_IN_MEMORY,
+  INITIAL_LOG_TAIL,
+  SCROLL_THRESHOLD_PX,
+  LOG_LEVELS,
+  convertAnsiToHtml,
+  isErrorLine,
+  isWarningLine,
+  getServiceColor,
+} from '@/lib/log-utils'
 
 interface LogEntry {
   service: string
@@ -159,17 +152,6 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
     }
   }
 
-  // Error/warning detection regex - defined before filteredLogs which uses them
-  const isErrorLine = useCallback((message: string) => {
-    const errorPattern = /\b(error|failed|failure|exception|fatal|panic|critical|crash|died)\b/i
-    return errorPattern.test(message)
-  }, [])
-
-  const isWarningLine = useCallback((message: string) => {
-    const warningPattern = /\b(warn|warning|caution|deprecated)\b/i
-    return warningPattern.test(message)
-  }, [])
-
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       // Filter by search term
@@ -188,8 +170,8 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
 
       // Filter by log level
       if (levelFilter && levelFilter.size > 0) {
-        const isError = log.level === LOG_LEVEL_ERROR || log.isStderr || isErrorLine(log.message)
-        const isWarning = log.level === LOG_LEVEL_WARNING || isWarningLine(log.message)
+        const isError = log.level === LOG_LEVELS.ERROR || log.isStderr || isErrorLine(log.message)
+        const isWarning = log.level === LOG_LEVELS.WARNING || isWarningLine(log.message)
         const isInfo = !isError && !isWarning
         
         if (isError && !levelFilter.has('error')) return false
@@ -199,7 +181,7 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
 
       return true
     })
-  }, [logs, searchTerm, selectedServices, selectedService, levelFilter, isErrorLine, isWarningLine])
+  }, [logs, searchTerm, selectedServices, selectedService, levelFilter])
 
   const exportLogs = useCallback(() => {
     const content = filteredLogs
@@ -244,48 +226,17 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
     }
   }, [])
 
-  // Assign consistent colors to services (avoiding red)
-  const serviceColors = useMemo(() => [
-    'text-blue-400',
-    'text-green-400', 
-    'text-purple-400',
-    'text-cyan-400',
-    'text-pink-400',
-    'text-amber-400',
-    'text-teal-400',
-    'text-indigo-400',
-    'text-lime-400',
-    'text-fuchsia-400',
-    'text-sky-400',
-    'text-violet-400',
-  ], [])
-
-  const getServiceColor = useCallback((serviceName: string) => {
-    // Generate consistent color index from service name
-    const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return serviceColors[hash % serviceColors.length]
-  }, [serviceColors])
-
   const getLogColor = useCallback((log: LogEntry) => {
     // Check message content first for errors/warnings
     if (isErrorLine(log.message)) return 'text-red-400'
     if (isWarningLine(log.message)) return 'text-yellow-400'
     
     // Check log level and stderr
-    if (log.isStderr || log.level === LOG_LEVEL_ERROR) return 'text-red-400'
-    if (log.level === LOG_LEVEL_WARNING) return 'text-yellow-400'
-    if (log.level === LOG_LEVEL_INFO) return 'text-foreground-tertiary'
+    if (log.isStderr || log.level === LOG_LEVELS.ERROR) return 'text-red-400'
+    if (log.level === LOG_LEVELS.WARNING) return 'text-yellow-400'
+    if (log.level === LOG_LEVELS.INFO) return 'text-foreground-tertiary'
     
     return 'text-foreground'
-  }, [isErrorLine, isWarningLine])
-
-  const convertAnsiToHtml = useCallback((text: string) => {
-    try {
-      return ansiConverter.toHtml(text)
-    } catch {
-      // If conversion fails, return original text
-      return text
-    }
   }, [])
 
   return (

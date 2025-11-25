@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { LOG_LEVELS, isErrorLine } from '@/lib/log-utils'
 
 interface LogEntry {
   service: string
@@ -7,8 +8,6 @@ interface LogEntry {
   timestamp: string
   isStderr: boolean
 }
-
-const LOG_LEVEL_ERROR = 3
 
 /**
  * Hook to track active errors across all services by monitoring WebSocket log streams.
@@ -55,11 +54,10 @@ export function useServiceErrors() {
         try {
           const entry = JSON.parse(event.data as string) as LogEntry
           
-          // Check if this is an error log
-          const isError = entry.level === LOG_LEVEL_ERROR || 
-            /\b(error|failed|failure|exception|fatal|panic|critical|crash|died)\b/i.test(entry.message)
+          // Check if this is an error log using centralized detection
+          const hasError = entry.level === LOG_LEVELS.ERROR || isErrorLine(entry.message)
           
-          if (isError) {
+          if (hasError) {
             errorTimestampsRef.current.set(`${serviceName}-${Date.now()}`, Date.now())
           }
         } catch (err) {

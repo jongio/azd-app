@@ -1,3 +1,4 @@
+// Package registry provides functionality for managing running service registrations.
 package registry
 
 import (
