@@ -426,3 +426,105 @@ func TestLogBuffer_Close(t *testing.T) {
 	// Trying to add after close should not panic (writes ignored)
 	// This verifies graceful handling of writes after close
 }
+
+func TestLogBuffer_WithFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a filter that blocks certain messages
+	filter, err := NewLogFilter([]string{
+		"Autofill\\.enable",
+		"npm warn",
+		"Debugger listening",
+	})
+	if err != nil {
+		t.Fatalf("NewLogFilter() error = %v", err)
+	}
+
+	// Create buffer with filter
+	buffer, err := NewLogBufferWithFilter("test-service", 100, false, tmpDir, filter)
+	if err != nil {
+		t.Fatalf("NewLogBufferWithFilter() error = %v", err)
+	}
+	defer buffer.Close()
+
+	// Add various log entries
+	testCases := []struct {
+		message      string
+		shouldFilter bool
+	}{
+		{"Application started", false},
+		{"Request Autofill.enable failed", true},
+		{"npm warn Unknown env config", true},
+		{"Debugger listening on ws://127.0.0.1:5858", true},
+		{"User logged in successfully", false},
+		{"Error: Connection failed", false},
+	}
+
+	for _, tc := range testCases {
+		buffer.Add(LogEntry{
+			Service:   "test-service",
+			Message:   tc.message,
+			Timestamp: time.Now(),
+			Level:     LogLevelInfo,
+		})
+	}
+
+	// Verify only unfiltered entries are in the buffer
+	entries := buffer.GetRecent(100)
+	
+	// Count expected entries
+	expectedCount := 0
+	for _, tc := range testCases {
+		if !tc.shouldFilter {
+			expectedCount++
+		}
+	}
+
+	if len(entries) != expectedCount {
+		t.Errorf("Expected %d entries after filtering, got %d", expectedCount, len(entries))
+	}
+
+	// Verify filtered messages are not in the buffer
+	for _, entry := range entries {
+		for _, tc := range testCases {
+			if tc.shouldFilter && entry.Message == tc.message {
+				t.Errorf("Filtered message found in buffer: %s", tc.message)
+			}
+		}
+	}
+}
+
+func TestLogBuffer_WithoutFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create buffer without filter (nil)
+	buffer, err := NewLogBufferWithFilter("test-service", 100, false, tmpDir, nil)
+	if err != nil {
+		t.Fatalf("NewLogBufferWithFilter() error = %v", err)
+	}
+	defer buffer.Close()
+
+	// Add entries that would normally be filtered
+	messages := []string{
+		"Request Autofill.enable failed",
+		"npm warn Unknown env config",
+		"Normal log message",
+	}
+
+	for _, msg := range messages {
+		buffer.Add(LogEntry{
+			Service:   "test-service",
+			Message:   msg,
+			Timestamp: time.Now(),
+			Level:     LogLevelInfo,
+		})
+	}
+
+	// Without filter, all entries should be present
+	entries := buffer.GetRecent(100)
+	if len(entries) != len(messages) {
+		t.Errorf("Expected %d entries without filter, got %d", len(messages), len(entries))
+	}
+}
+
+

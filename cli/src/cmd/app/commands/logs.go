@@ -16,15 +16,17 @@ import (
 )
 
 var (
-	logsFollow     bool
-	logsService    string
-	logsTail       int
-	logsSince      string
-	logsTimestamps bool
-	logsNoColor    bool
-	logsLevel      string
-	logsFormat     string
-	logsOutput     string
+	logsFollow      bool
+	logsService     string
+	logsTail        int
+	logsSince       string
+	logsTimestamps  bool
+	logsNoColor     bool
+	logsLevel       string
+	logsFormat      string
+	logsOutput      string
+	logsExclude     string
+	logsNoBuiltins  bool
 )
 
 // NewLogsCommand creates the logs command.
@@ -45,6 +47,8 @@ func NewLogsCommand() *cobra.Command {
 	cmd.Flags().StringVar(&logsLevel, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVar(&logsFormat, "format", "text", "Output format (text, json)")
 	cmd.Flags().StringVar(&logsOutput, "output", "", "Write logs to file instead of stdout")
+	cmd.Flags().StringVarP(&logsExclude, "exclude", "e", "", "Regex patterns to exclude (comma-separated)")
+	cmd.Flags().BoolVar(&logsNoBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 
 	return cmd
 }
@@ -99,6 +103,12 @@ func runLogs(cmd *cobra.Command, args []string) error {
 
 	// Parse log level filter
 	levelFilter := parseLogLevel(logsLevel)
+
+	// Build log filter from flags and azure.yaml
+	logFilter, err := buildLogFilter(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to build log filter: %w", err)
+	}
 
 	// Parse since duration
 	var sinceTime time.Time
@@ -156,6 +166,9 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	// Filter by level
 	logs = filterLogsByLevel(logs, levelFilter)
 
+	// Filter by pattern
+	logs = service.FilterLogEntries(logs, logFilter)
+
 	// Display initial logs
 	if logsFormat == "json" {
 		displayLogsJSON(logs, output)
@@ -165,14 +178,14 @@ func runLogs(cmd *cobra.Command, args []string) error {
 
 	// Follow mode - subscribe to live logs
 	if logsFollow {
-		return followLogs(logManager, serviceFilter, levelFilter, output)
+		return followLogs(logManager, serviceFilter, levelFilter, logFilter, output)
 	}
 
 	return nil
 }
 
 // followLogs subscribes to live log streams and displays them.
-func followLogs(logManager *service.LogManager, serviceFilter []string, levelFilter service.LogLevel, output *os.File) error {
+func followLogs(logManager *service.LogManager, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, output *os.File) error {
 	// Create subscriptions
 	subscriptions := make(map[string]chan service.LogEntry)
 
@@ -215,6 +228,11 @@ func followLogs(logManager *service.LogManager, serviceFilter []string, levelFil
 		case entry := <-mergedChan:
 			// Filter by level
 			if levelFilter != -1 && entry.Level != levelFilter {
+				continue
+			}
+
+			// Filter by pattern
+			if logFilter != nil && logFilter.ShouldFilter(entry.Message) {
 				continue
 			}
 
@@ -320,4 +338,45 @@ func filterLogsByLevel(logs []service.LogEntry, level service.LogLevel) []servic
 		}
 	}
 	return filtered
+}
+
+// buildLogFilter creates a log filter from command-line flags and azure.yaml config.
+// Priority: command-line flags > azure.yaml project config > built-in patterns.
+func buildLogFilter(cwd string) (*service.LogFilter, error) {
+	var customPatterns []string
+
+	// Parse command-line exclude patterns
+	if logsExclude != "" {
+		customPatterns = service.ParseExcludePatterns(logsExclude)
+	}
+
+	// Try to load patterns from azure.yaml logs.filters section
+	azureYaml, err := service.ParseAzureYaml(cwd)
+	filterConfig := getFilterConfig(azureYaml, err)
+	if filterConfig != nil {
+		customPatterns = append(customPatterns, filterConfig.Exclude...)
+	}
+
+	// Determine if we should include built-in patterns
+	includeBuiltins := !logsNoBuiltins
+	if filterConfig != nil {
+		// azure.yaml can override, but command-line takes precedence
+		if !logsNoBuiltins {
+			includeBuiltins = filterConfig.ShouldIncludeBuiltins()
+		}
+	}
+
+	// Build the filter
+	if includeBuiltins {
+		return service.NewLogFilterWithBuiltins(customPatterns)
+	}
+	return service.NewLogFilter(customPatterns)
+}
+
+// getFilterConfig extracts the filter config from azure.yaml's logs section.
+func getFilterConfig(azureYaml *service.AzureYaml, err error) *service.LogFilterConfig {
+	if err != nil || azureYaml == nil {
+		return nil
+	}
+	return azureYaml.Logs.GetFilters()
 }

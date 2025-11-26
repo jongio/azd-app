@@ -653,7 +653,7 @@ func TestMonitorServiceProcess_CleanExit(t *testing.T) {
 	wg.Add(1)
 
 	// Should not panic or cause issues
-	monitorServiceProcess(ctx, &wg, runtime.Name, process)
+	monitorServiceProcess(ctx, &wg, runtime.Name, process, tmpDir)
 
 	// Wait should complete without hanging
 	waitDone := make(chan struct{})
@@ -707,7 +707,7 @@ func TestMonitorServiceProcess_CrashExit(t *testing.T) {
 	wg.Add(1)
 
 	// Should handle crash without panic
-	monitorServiceProcess(ctx, &wg, runtime.Name, process)
+	monitorServiceProcess(ctx, &wg, runtime.Name, process, tmpDir)
 
 	waitDone := make(chan struct{})
 	go func() {
@@ -761,7 +761,7 @@ func TestMonitorServiceProcess_ContextCancellation(t *testing.T) {
 	wg.Add(1)
 
 	// Start monitoring
-	go monitorServiceProcess(ctx, &wg, runtime.Name, process)
+	go monitorServiceProcess(ctx, &wg, runtime.Name, process, tmpDir)
 
 	// Cancel context after short delay (simulate Ctrl+C)
 	time.Sleep(500 * time.Millisecond)

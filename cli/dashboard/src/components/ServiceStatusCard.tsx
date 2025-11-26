@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertCircle, XCircle, Loader2 } from 'lucide-react'
+import { XCircle, AlertTriangle, Info, Loader2 } from 'lucide-react'
 import type { Service } from '@/types'
 
 interface ServiceStatusCardProps {
@@ -9,96 +9,83 @@ interface ServiceStatusCardProps {
 }
 
 export function ServiceStatusCard({ services, hasActiveErrors, loading, onClick }: ServiceStatusCardProps) {
-  // Calculate health status
-  const healthyCounts = {
-    healthy: 0,
-    unhealthy: 0,
-    unknown: 0,
-    stopped: 0
+  // Calculate service status counts
+  const statusCounts = {
+    error: 0,
+    warn: 0,
+    info: 0
   }
 
   services.forEach(service => {
     const status = service.local?.status || service.status
     const health = service.local?.health || service.health
     
-    if (status === 'stopped' || status === 'not-running' || status === 'error') {
-      healthyCounts.stopped++
-    } else if (health === 'unhealthy') {
-      healthyCounts.unhealthy++
-    } else if (health === 'healthy') {
-      healthyCounts.healthy++
+    if (status === 'stopped' || status === 'not-running' || status === 'error' || health === 'unhealthy') {
+      statusCounts.error++
+    } else if (health === 'unknown' || status === 'starting' || status === 'stopping') {
+      statusCounts.warn++
     } else {
-      healthyCounts.unknown++
+      // healthy/running services
+      statusCounts.info++
     }
   })
 
-  const totalServices = services.length
-  const allHealthy = healthyCounts.healthy === totalServices && totalServices > 0
-  const issueCount = healthyCounts.unhealthy + healthyCounts.stopped
-  const hasServiceIssues = issueCount > 0
+  // If there are active log errors but no service-level errors, show in warn
+  if (hasActiveErrors && statusCounts.error === 0) {
+    // Move one info to warn to indicate log errors exist
+    if (statusCounts.info > 0) {
+      statusCounts.warn += statusCounts.info
+      statusCounts.info = 0
+    }
+  }
 
-  // Determine status based on service health
-  let statusColor = 'text-muted-foreground'
-  let statusBg = 'bg-muted/50'
-  let statusIcon = <Loader2 className="w-4 h-4 animate-spin" />
-  let statusText = 'Loading...'
+  // Determine overall status ring color
   let statusRing = ''
-
-  if (loading) {
-    statusColor = 'text-muted-foreground'
-    statusBg = 'bg-muted/50'
-    statusIcon = <Loader2 className="w-4 h-4 animate-spin" />
-    statusText = 'Loading...'
-  } else if (totalServices === 0) {
-    statusColor = 'text-muted-foreground'
-    statusBg = 'bg-muted/50'
-    statusIcon = <AlertCircle className="w-4 h-4" />
-    statusText = 'No services'
-  } else if (hasServiceIssues) {
-    // Red: Service-level issues (unhealthy/stopped)
-    statusColor = 'text-red-600 dark:text-red-400'
-    statusBg = 'bg-red-50 dark:bg-red-950/30'
-    statusIcon = <XCircle className="w-4 h-4" />
-    statusText = `${issueCount} issue${issueCount !== 1 ? 's' : ''}`
+  if (statusCounts.error > 0) {
     statusRing = 'ring-2 ring-red-500/50'
-  } else if (hasActiveErrors) {
-    // Yellow/Orange: Log errors detected but services are healthy
-    statusColor = 'text-orange-600 dark:text-orange-400'
-    statusBg = 'bg-orange-50 dark:bg-orange-950/30'
-    statusIcon = <AlertCircle className="w-4 h-4" />
-    statusText = 'Log errors'
+  } else if (statusCounts.warn > 0 || hasActiveErrors) {
     statusRing = 'ring-2 ring-orange-500/50'
-  } else if (allHealthy) {
-    statusColor = 'text-green-600 dark:text-green-400'
-    statusBg = 'bg-green-50 dark:bg-green-950/30'
-    statusIcon = <CheckCircle2 className="w-4 h-4" />
-    statusText = 'All healthy'
-  } else {
-    statusColor = 'text-yellow-600 dark:text-yellow-400'
-    statusBg = 'bg-yellow-50 dark:bg-yellow-950/30'
-    statusIcon = <AlertCircle className="w-4 h-4" />
-    statusText = `${healthyCounts.healthy}/${totalServices} healthy`
   }
 
   return (
     <button
       onClick={onClick}
       className={`
-        flex items-center gap-2 px-3 py-1.5 rounded-md transition-all
-        ${statusBg} ${statusColor} hover:opacity-80 ${statusRing}
-        cursor-pointer
+        flex flex-col gap-1 px-3 py-1.5 rounded-md transition-all
+        bg-muted/50 hover:bg-muted/70 ${statusRing}
+        cursor-pointer min-w-[140px]
       `}
       title="Click to view console logs"
     >
-      {statusIcon}
-      <div className="flex flex-col items-start">
-        <span className="text-xs font-medium leading-tight">{statusText}</span>
-        {totalServices > 0 && !loading && (
-          <span className="text-[10px] opacity-70 leading-tight">
-            {totalServices} service{totalServices !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
+      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+        Service Status
+      </span>
+      {loading ? (
+        <div className="flex items-center justify-center py-1">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-1" title="Error">
+            <XCircle className="w-3.5 h-3.5 text-red-500" />
+            <span className={statusCounts.error > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
+              {statusCounts.error}
+            </span>
+          </div>
+          <div className="flex items-center gap-1" title="Warning">
+            <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
+            <span className={statusCounts.warn > 0 ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-muted-foreground'}>
+              {statusCounts.warn}
+            </span>
+          </div>
+          <div className="flex items-center gap-1" title="Info">
+            <Info className="w-3.5 h-3.5 text-blue-500" />
+            <span className={statusCounts.info > 0 ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-muted-foreground'}>
+              {statusCounts.info}
+            </span>
+          </div>
+        </div>
+      )}
     </button>
   )
 }

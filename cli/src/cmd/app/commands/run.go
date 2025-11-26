@@ -19,6 +19,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 
@@ -329,7 +330,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	startDashboardMonitor(ctx, &wg, dashboardServer, notifMgr)
 
 	// Start service process monitors
-	startServiceMonitors(ctx, &wg, result.Processes)
+	startServiceMonitors(ctx, &wg, result.Processes, cwd)
 
 	// Wait for signal (context cancellation) or all services to complete
 	wg.Wait()
@@ -377,13 +378,13 @@ func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardSer
 }
 
 // startServiceMonitors starts monitoring goroutines for all service processes.
-func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map[string]*service.ServiceProcess) {
+func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map[string]*service.ServiceProcess, projectDir string) {
 	for name, process := range processes {
 		if process.Process == nil {
 			continue
 		}
 		wg.Add(1)
-		go monitorServiceProcess(ctx, wg, name, process)
+		go monitorServiceProcess(ctx, wg, name, process, projectDir)
 	}
 }
 
@@ -424,7 +425,7 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 // monitorServiceProcess monitors a single service process for exit or cancellation.
 // This function runs in its own goroutine with panic recovery to ensure one service
 // crash doesn't affect others (process isolation).
-func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName string, proc *service.ServiceProcess) {
+func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName string, proc *service.ServiceProcess, projectDir string) {
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -453,10 +454,22 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 	case err := <-waitDone:
 		// Service exited - log it but don't cancel context (process isolation)
 		if err != nil {
+			// Update registry to trigger OS notification via state monitor
+			reg := registry.GetRegistry(projectDir)
+			if regErr := reg.UpdateStatus(serviceName, "error", "unhealthy"); regErr != nil {
+				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
+			}
+
 			output.Error("⚠️  %v", err)
 			output.Warning("Service %s stopped. Other services continue running.", serviceName)
 			output.Info("Press Ctrl+C to stop all services")
 		} else {
+			// Update registry for clean exit
+			reg := registry.GetRegistry(projectDir)
+			if regErr := reg.UpdateStatus(serviceName, "stopped", "unknown"); regErr != nil {
+				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
+			}
+
 			output.Info("Service %s exited cleanly", serviceName)
 		}
 		// Intentionally don't cancel context - other services should continue

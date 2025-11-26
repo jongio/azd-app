@@ -38,6 +38,16 @@ const mockStoppedService: Service = {
   }
 }
 
+const mockStartingService: Service = {
+  name: 'cache',
+  local: {
+    status: 'starting',
+    health: 'unknown',
+    startTime: new Date().toISOString(),
+    lastChecked: new Date().toISOString()
+  }
+}
+
 describe('ServiceStatusCard', () => {
   it('should show loading state when loading', () => {
     const onClick = vi.fn()
@@ -50,10 +60,13 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Service Status')).toBeInTheDocument()
+    // Spinner should be visible (Loader2 component)
+    const button = screen.getByRole('button')
+    expect(button.querySelector('svg.animate-spin')).toBeInTheDocument()
   })
 
-  it('should show "No services" when no services are available', () => {
+  it('should show "Service Status" header', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
@@ -64,25 +77,27 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    expect(screen.getByText('No services')).toBeInTheDocument()
+    expect(screen.getByText('Service Status')).toBeInTheDocument()
   })
 
-  it('should show "All healthy" when all services are healthy', () => {
+  it('should show three columns with counts when services are available', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
-        services={[mockHealthyService, { ...mockHealthyService, name: 'web' }]} 
+        services={[mockHealthyService, mockUnhealthyService, mockStoppedService]} 
         hasActiveErrors={false} 
         loading={false}
         onClick={onClick}
       />
     )
 
-    expect(screen.getByText('All healthy')).toBeInTheDocument()
-    expect(screen.getByText('2 services')).toBeInTheDocument()
+    // Should have 3 status icons with counts
+    expect(screen.getByTitle('Error')).toBeInTheDocument()
+    expect(screen.getByTitle('Warning')).toBeInTheDocument()
+    expect(screen.getByTitle('Info')).toBeInTheDocument()
   })
 
-  it('should show issue count when services are unhealthy', () => {
+  it('should count unhealthy services as errors', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
@@ -93,25 +108,48 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    expect(screen.getByText('1 issue')).toBeInTheDocument()
-    expect(screen.getByText('2 services')).toBeInTheDocument()
+    // 1 error (unhealthy), 0 warn, 1 info (healthy)
+    const errorDiv = screen.getByTitle('Error')
+    const infoDiv = screen.getByTitle('Info')
+    expect(errorDiv.textContent).toContain('1')
+    expect(infoDiv.textContent).toContain('1')
   })
 
-  it('should show plural "issues" when multiple services are unhealthy', () => {
+  it('should count stopped services as errors', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
-        services={[mockUnhealthyService, mockStoppedService]} 
+        services={[mockHealthyService, mockStoppedService]} 
         hasActiveErrors={false} 
         loading={false}
         onClick={onClick}
       />
     )
 
-    expect(screen.getByText('2 issues')).toBeInTheDocument()
+    // 1 error (stopped), 0 warn, 1 info (healthy)
+    const errorDiv = screen.getByTitle('Error')
+    expect(errorDiv.textContent).toContain('1')
   })
 
-  it('should show "Log errors" when hasActiveErrors is true but services are healthy', () => {
+  it('should count starting services as warnings', () => {
+    const onClick = vi.fn()
+    render(
+      <ServiceStatusCard 
+        services={[mockHealthyService, mockStartingService]} 
+        hasActiveErrors={false} 
+        loading={false}
+        onClick={onClick}
+      />
+    )
+
+    // 0 error, 1 warn (starting), 1 info (healthy)
+    const warnDiv = screen.getByTitle('Warning')
+    const infoDiv = screen.getByTitle('Info')
+    expect(warnDiv.textContent).toContain('1')
+    expect(infoDiv.textContent).toContain('1')
+  })
+
+  it('should move info to warn when hasActiveErrors is true', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
@@ -122,10 +160,14 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    expect(screen.getByText('Log errors')).toBeInTheDocument()
+    // When hasActiveErrors but no error services, info moves to warn
+    const warnDiv = screen.getByTitle('Warning')
+    const infoDiv = screen.getByTitle('Info')
+    expect(warnDiv.textContent).toContain('1')
+    expect(infoDiv.textContent).toContain('0')
   })
 
-  it('should show orange styling when hasActiveErrors is true but services are healthy', () => {
+  it('should show orange ring when hasActiveErrors is true', () => {
     const onClick = vi.fn()
     const { container } = render(
       <ServiceStatusCard 
@@ -137,26 +179,24 @@ describe('ServiceStatusCard', () => {
     )
 
     const button = container.querySelector('button')
-    expect(button).toHaveClass('bg-orange-50')
-    expect(button).toHaveClass('text-orange-600')
     expect(button).toHaveClass('ring-2')
     expect(button).toHaveClass('ring-orange-500/50')
   })
 
-  it('should show healthy count when some services are healthy and some are not', () => {
+  it('should show red ring when there are error services', () => {
     const onClick = vi.fn()
-    const services = [mockHealthyService, mockHealthyService, mockUnhealthyService]
-    render(
+    const { container } = render(
       <ServiceStatusCard 
-        services={services} 
+        services={[mockUnhealthyService]} 
         hasActiveErrors={false} 
         loading={false}
         onClick={onClick}
       />
     )
 
-    // Should show issue count when there are problems
-    expect(screen.getByText('1 issue')).toBeInTheDocument()
+    const button = container.querySelector('button')
+    expect(button).toHaveClass('ring-2')
+    expect(button).toHaveClass('ring-red-500/50')
   })
 
   it('should call onClick when clicked', async () => {
@@ -192,69 +232,41 @@ describe('ServiceStatusCard', () => {
     expect(button).toHaveAttribute('title', 'Click to view console logs')
   })
 
-  it('should show green styling when all healthy', () => {
-    const onClick = vi.fn()
-    const { container } = render(
-      <ServiceStatusCard 
-        services={[mockHealthyService]} 
-        hasActiveErrors={false} 
-        loading={false}
-        onClick={onClick}
-      />
-    )
-
-    const button = container.querySelector('button')
-    expect(button).toHaveClass('bg-green-50')
-    expect(button).toHaveClass('text-green-600')
-  })
-
-  it('should show red styling and ring when there are errors', () => {
-    const onClick = vi.fn()
-    const { container } = render(
-      <ServiceStatusCard 
-        services={[mockUnhealthyService]} 
-        hasActiveErrors={false} 
-        loading={false}
-        onClick={onClick}
-      />
-    )
-
-    const button = container.querySelector('button')
-    expect(button).toHaveClass('bg-red-50')
-    expect(button).toHaveClass('text-red-600')
-    expect(button).toHaveClass('ring-2')
-    expect(button).toHaveClass('ring-red-500/50')
-  })
-
-  it('should show singular "service" when only one service', () => {
+  it('should show all zeros when no services', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
-        services={[mockHealthyService]} 
+        services={[]} 
         hasActiveErrors={false} 
         loading={false}
         onClick={onClick}
       />
     )
 
-    expect(screen.getByText('1 service')).toBeInTheDocument()
+    const errorDiv = screen.getByTitle('Error')
+    const warnDiv = screen.getByTitle('Warning')
+    const infoDiv = screen.getByTitle('Info')
+    expect(errorDiv.textContent).toContain('0')
+    expect(warnDiv.textContent).toContain('0')
+    expect(infoDiv.textContent).toContain('0')
   })
 
-  it('should count stopped services as issues', () => {
+  it('should count all healthy services as info', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
-        services={[mockHealthyService, mockStoppedService]} 
+        services={[mockHealthyService, { ...mockHealthyService, name: 'web' }]} 
         hasActiveErrors={false} 
         loading={false}
         onClick={onClick}
       />
     )
 
-    expect(screen.getByText('1 issue')).toBeInTheDocument()
+    const infoDiv = screen.getByTitle('Info')
+    expect(infoDiv.textContent).toContain('2')
   })
 
-  it('should render CheckCircle icon when all healthy', () => {
+  it('should render status icons', () => {
     const onClick = vi.fn()
     const { container } = render(
       <ServiceStatusCard 
@@ -265,8 +277,8 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // CheckCircle2 should be present
-    const svg = container.querySelector('svg')
-    expect(svg).toBeInTheDocument()
+    // Should have 3 svg icons (XCircle, AlertTriangle, Info)
+    const svgs = container.querySelectorAll('svg')
+    expect(svgs.length).toBe(3)
   })
 })

@@ -24,15 +24,22 @@ type LogBuffer struct {
 	fileWriter  *bufio.Writer
 	file        *os.File
 	fileMu      sync.Mutex
+	logFilter   *LogFilter // Optional filter for noisy log messages
 }
 
 // NewLogBuffer creates a new log buffer for a service.
 func NewLogBuffer(serviceName string, maxSize int, enableFileLogging bool, projectDir string) (*LogBuffer, error) {
+	return NewLogBufferWithFilter(serviceName, maxSize, enableFileLogging, projectDir, nil)
+}
+
+// NewLogBufferWithFilter creates a new log buffer with optional log filtering.
+func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging bool, projectDir string, filter *LogFilter) (*LogBuffer, error) {
 	lb := &LogBuffer{
 		serviceName: serviceName,
 		entries:     make([]LogEntry, 0, maxSize),
 		maxSize:     maxSize,
 		subscribers: make(map[chan LogEntry]bool),
+		logFilter:   filter,
 	}
 
 	// Setup file logging if enabled
@@ -56,7 +63,13 @@ func NewLogBuffer(serviceName string, maxSize int, enableFileLogging bool, proje
 }
 
 // Add appends a log entry to the buffer.
+// If a log filter is configured, noisy messages are filtered out.
 func (lb *LogBuffer) Add(entry LogEntry) {
+	// Apply log filter if configured
+	if lb.logFilter != nil && lb.logFilter.ShouldFilter(entry.Message) {
+		return // Skip noisy log entry
+	}
+
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
@@ -233,6 +246,14 @@ func (lb *LogBuffer) Close() error {
 func inferLogLevel(message string) LogLevel {
 	lowerMsg := strings.ToLower(message)
 
+	// Check for patterns that should always be INFO (overrides error/warning detection)
+	// These are success messages that contain words like "error" but aren't actually errors
+	for _, pattern := range infoOverridePatterns {
+		if strings.Contains(lowerMsg, pattern) {
+			return LogLevelInfo
+		}
+	}
+
 	// Check for error indicators
 	if strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "exception") ||
 		strings.Contains(lowerMsg, "fatal") || strings.Contains(lowerMsg, "panic") {
@@ -251,4 +272,21 @@ func inferLogLevel(message string) LogLevel {
 
 	// Default to info
 	return LogLevelInfo
+}
+
+// infoOverridePatterns contains patterns that should always be classified as INFO,
+// even if they contain words like "error" or "warning".
+// These are typically success messages from build tools.
+var infoOverridePatterns = []string{
+	// TypeScript compiler success messages
+	"found 0 errors",
+	"0 error(s)",
+	"0 errors",
+	// Build success patterns
+	"build succeeded",
+	"compilation succeeded",
+	"compiled successfully",
+	// Test success patterns
+	"0 failed",
+	"all tests passed",
 }
