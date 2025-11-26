@@ -650,15 +650,16 @@ func (pm *PortManager) IsPortAvailable(port int) bool {
 // the caller is ready to bind their service.
 //
 // Usage:
-//   reservation, err := pm.ReservePort(8080)
-//   if err != nil {
-//       // Port not available, try another
-//   }
-//   defer reservation.Release() // Always release, even on error paths
-//   
-//   // Immediately before starting service:
-//   reservation.Release()
-//   service.Start() // Must bind quickly after release
+//
+//	reservation, err := pm.ReservePort(8080)
+//	if err != nil {
+//	    // Port not available, try another
+//	}
+//	defer reservation.Release() // Always release, even on error paths
+//
+//	// Immediately before starting service:
+//	reservation.Release()
+//	service.Start() // Must bind quickly after release
 //
 // Returns:
 //   - *PortReservation: Holds the port open. Call Release() before binding.

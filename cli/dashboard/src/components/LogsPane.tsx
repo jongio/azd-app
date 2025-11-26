@@ -30,18 +30,35 @@ interface LogsPaneProps {
   autoScrollEnabled?: boolean
   clearAllTrigger?: number
   levelFilter?: Set<'info' | 'warning' | 'error'>
+  isCollapsed?: boolean           // NEW: controlled collapse state
+  onToggleCollapse?: () => void   // NEW: collapse toggle callback
 }
 
-export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearchTerm = '', autoScrollEnabled = true, clearAllTrigger = 0, levelFilter = new Set(['info', 'warning', 'error'] as const) }: LogsPaneProps) {
+export function LogsPane({ 
+  serviceName, 
+  patterns, 
+  onCopy, 
+  isPaused, 
+  globalSearchTerm = '', 
+  autoScrollEnabled = true, 
+  clearAllTrigger = 0, 
+  levelFilter = new Set(['info', 'warning', 'error'] as const),
+  isCollapsed: controlledIsCollapsed,
+  onToggleCollapse
+}: LogsPaneProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [selectedText, setSelectedText] = useState<string>('')
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null)
   const [showClassificationConfirmation, setShowClassificationConfirmation] = useState(false)
   const [copiedLineIndex, setCopiedLineIndex] = useState<number | null>(null)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+  // Internal state as fallback for uncontrolled mode
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem(`logs-pane-collapsed-${serviceName}`)
     return saved === 'true'
   })
+  
+  // Use controlled state if provided, otherwise internal
+  const isCollapsed = controlledIsCollapsed ?? internalIsCollapsed
   
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
@@ -49,14 +66,18 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
   
   const { addOverride, getClassificationForText } = useLogClassification()
 
-  // Toggle collapse state and persist
+  // Toggle function - use callback if provided, otherwise internal
   const toggleCollapsed = useCallback(() => {
-    setIsCollapsed(prev => {
-      const newValue = !prev
-      localStorage.setItem(`logs-pane-collapsed-${serviceName}`, String(newValue))
-      return newValue
-    })
-  }, [serviceName])
+    if (onToggleCollapse) {
+      onToggleCollapse()
+    } else {
+      setInternalIsCollapsed(prev => {
+        const newValue = !prev
+        localStorage.setItem(`logs-pane-collapsed-${serviceName}`, String(newValue))
+        return newValue
+      })
+    }
+  }, [serviceName, onToggleCollapse])
 
   // Clear logs when global clear is triggered
   useEffect(() => {
@@ -264,16 +285,28 @@ export function LogsPane({ serviceName, patterns, onCopy, isPaused, globalSearch
     info: 'border-gray-300'
   }[paneStatus]
 
+  const headerBgClass = {
+    error: 'bg-red-50 dark:bg-red-900/20',
+    warning: 'bg-yellow-50 dark:bg-yellow-900/20',
+    info: 'bg-card'
+  }[paneStatus]
+
   return (
     <div 
-      className={cn("flex flex-col border-4 rounded-lg overflow-hidden", borderClass)}
-      style={{ height: isCollapsed ? 'fit-content' : '100%' }}
+      className={cn("flex flex-col border-4 rounded-lg overflow-hidden transition-all duration-200", borderClass)}
+      style={{ 
+        height: isCollapsed ? 'fit-content' : '100%',
+        minHeight: isCollapsed ? undefined : '150px'
+      }}
       role="region"
       aria-label={`Logs for ${serviceName}`}
     >
       {/* Header */}
       <div 
-        className="flex items-center justify-between px-4 py-2 bg-card border-b cursor-pointer select-none"
+        className={cn(
+          "flex items-center justify-between px-4 py-2 border-b cursor-pointer select-none transition-colors duration-200",
+          headerBgClass
+        )}
         onClick={toggleCollapsed}
       >
         <div className="flex items-center gap-2">

@@ -375,4 +375,3 @@ func newNotificationsEnableCmd() *cobra.Command {
 
 	return cmd
 }
-

@@ -312,7 +312,6 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 </html>`)
 }
 
-// Start starts the dashboard server on an assigned port.
 // GetURL returns the dashboard URL if the server is started, empty string otherwise.
 func (s *Server) GetURL() string {
 	s.startedMu.Lock()
@@ -323,6 +322,7 @@ func (s *Server) GetURL() string {
 	return fmt.Sprintf("http://localhost:%d", s.port)
 }
 
+// Start starts the dashboard server on an assigned port.
 func (s *Server) Start() (string, error) {
 	// Use port manager to get a persistent port for the dashboard
 	portMgr := portmanager.GetPortManager(s.projectDir)
@@ -341,7 +341,7 @@ func (s *Server) Start() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to reserve port for dashboard: %w", err)
 	}
-	
+
 	port := reservation.Port
 
 	// Release reservation just before server binds
@@ -451,7 +451,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		}
 
 		// Release reservation just before binding - this is the atomic handoff
-		reservation.Release()
+		_ = reservation.Release()
 
 		errChan := make(chan error, 1)
 		go func() {

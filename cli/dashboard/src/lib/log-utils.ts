@@ -93,6 +93,10 @@ const INFORMATIONAL_PATTERNS = [
   /Serving Flask app/i,
   /Running on (http|all addresses)/i,
   /Press CTRL\+C to quit/i,
+  /Found 0 errors/i,                    // TypeScript compiler success
+  /Watching for file changes/i,         // TypeScript watch mode
+  /Starting compilation/i,              // TypeScript compiler starting
+  /Compilation complete/i,              // TypeScript compiler success
 ]
 
 /**

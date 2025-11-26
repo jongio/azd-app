@@ -25,10 +25,30 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true)
   const [clearAllTrigger, setClearAllTrigger] = useState(0)
   const [levelFilter, setLevelFilter] = useState<Set<'info' | 'warning' | 'error'>>(new Set(['info', 'warning', 'error']))
+  const [collapsedPanes, setCollapsedPanes] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('logs-pane-collapsed-states')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
   
   const { preferences, updateUI } = usePreferences()
   const { patterns } = useLogPatterns()
   const { showToast, ToastContainer } = useToast()
+
+  // Persist collapsed state
+  useEffect(() => {
+    localStorage.setItem('logs-pane-collapsed-states', JSON.stringify(collapsedPanes))
+  }, [collapsedPanes])
+
+  const togglePaneCollapse = useCallback((serviceName: string) => {
+    setCollapsedPanes(prev => ({
+      ...prev,
+      [serviceName]: !prev[serviceName]
+    }))
+  }, [])
 
   // Notify parent component when fullscreen changes
   useEffect(() => {
@@ -341,7 +361,7 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
       {/* View Content */}
       <div className="flex-1 overflow-hidden">
         {viewMode === 'grid' ? (
-          <LogsPaneGrid columns={effectiveColumns}>
+          <LogsPaneGrid columns={effectiveColumns} collapsedPanes={collapsedPanes}>
             {selectedServicesList.map(serviceName => (
               <LogsPane
                 key={serviceName}
@@ -353,6 +373,8 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
                 autoScrollEnabled={autoScrollEnabled}
                 clearAllTrigger={clearAllTrigger}
                 levelFilter={levelFilter}
+                isCollapsed={collapsedPanes[serviceName] ?? false}
+                onToggleCollapse={() => togglePaneCollapse(serviceName)}
               />
             ))}
           </LogsPaneGrid>

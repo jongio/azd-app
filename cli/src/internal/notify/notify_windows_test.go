@@ -109,7 +109,7 @@ func TestWindowsNotifier_BuildToastScript(t *testing.T) {
 			if !strings.Contains(script, "Windows.UI.Notifications.ToastNotificationManager") {
 				t.Error("script should contain ToastNotificationManager")
 			}
-			if !strings.Contains(script, "<toast>") {
+			if !strings.Contains(script, "<toast") {
 				t.Error("script should contain toast XML")
 			}
 		})

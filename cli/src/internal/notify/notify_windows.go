@@ -313,6 +313,7 @@ if (-not $loaded) {
     exit 0
 }
 
+# App: %s
 # App IDs to try in order of preference
 $appIds = @(
     '%s',
@@ -354,14 +355,25 @@ if (-not $success) {
 `,
 		// First fallback icons
 		icon, tipIcon, message, title,
-		// Our app ID
-		appUserModelID,
+		// App name comment
+		w.config.AppName,
+		// Our app ID (use config if set, otherwise default)
+		w.getAppID(),
 		// Toast template (already escaped)
 		toastTemplate,
 		// Second fallback icons
 		icon, tipIcon, message, title)
 
 	return script
+}
+
+// getAppID returns the App ID to use for notifications.
+// Uses the config value if set, otherwise falls back to the default.
+func (w *windowsNotifier) getAppID() string {
+	if w.config.AppID != "" {
+		return w.config.AppID
+	}
+	return appUserModelID
 }
 
 // IsAvailable checks if Windows toast notifications are available.

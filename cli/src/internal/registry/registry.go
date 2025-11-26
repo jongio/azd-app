@@ -141,7 +141,7 @@ func (r *ServiceRegistry) GetService(serviceName string) (*ServiceRegistryEntry,
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Return a copy to prevent data races when caller modifies the entry
 	copy := *entry
 	return &copy, true

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,16 @@ interface ThemeToggleProps {
 export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
   const { theme, toggleTheme, isMounted } = useTheme()
   const [announcement, setAnnouncement] = useState('')
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleToggle = () => {
     toggleTheme()
@@ -18,7 +28,12 @@ export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
     // Announce to screen readers
     const newTheme = theme === 'light' ? 'dark' : 'light'
     setAnnouncement(`${newTheme === 'light' ? 'Light' : 'Dark'} mode enabled`)
-    setTimeout(() => setAnnouncement(''), 1000)
+    
+    // Clear any existing timeout before setting a new one
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    timeoutRef.current = setTimeout(() => setAnnouncement(''), 1000)
     
     // Callback
     onThemeChange?.(newTheme)

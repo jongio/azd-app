@@ -319,7 +319,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 		output.Warning("Notifications unavailable: %v", err)
 	} else {
 		notifMgr.Start()
-		defer notifMgr.Stop()
+		defer func() { _ = notifMgr.Stop() }()
 		if notifMgr.IsNotificationsEnabled() {
 			output.Info("🔔 OS notifications enabled for service issues")
 		}

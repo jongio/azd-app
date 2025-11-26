@@ -65,7 +65,7 @@ func TestNotificationManager(t *testing.T) {
 		require.NoError(t, err)
 
 		nm.Start()
-		defer nm.Stop()
+		defer func() { _ = nm.Stop() }()
 
 		// Simulate a state transition
 		transition := monitor.StateTransition{
