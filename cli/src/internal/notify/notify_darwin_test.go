@@ -46,7 +46,10 @@ func TestDarwinNotifier_Send_ScriptFormat(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 	notifier, _ := newPlatformNotifier(config)
-	dn := notifier.(*darwinNotifier)
+	// Verify we got a darwin notifier
+	if _, ok := notifier.(*darwinNotifier); !ok {
+		t.Fatal("expected darwinNotifier type")
+	}
 
 	tests := []struct {
 		name         string
