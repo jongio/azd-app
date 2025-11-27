@@ -1,3 +1,11 @@
+## [0.6.0] - 2025-11-27
+
+- feat: Enhanced logs dashboard with multi-pane view, notifications, and browser launch (#68) (0cb89f8)
+- Add prerun and postrun hook support to azd app run command (#41) (bebd097)
+- Azure Function and Logic App Support (#66) (02f5a91)
+- fix: update documentation links for security and installation instructions (7ef8f20)
+- chore: update registry for v0.5.11 (da28132)
+
 ## [Unreleased]
 
 ### Fixed
