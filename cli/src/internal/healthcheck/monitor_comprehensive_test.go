@@ -141,7 +141,7 @@ func TestTryHTTPHealthCheckContextCancellation(t *testing.T) {
 func TestTryHTTPHealthCheckInvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte(`{invalid json`))
+		_, _ = w.Write([]byte(`{invalid json`))
 	}))
 	defer server.Close()
 
@@ -170,7 +170,7 @@ func TestTryHTTPHealthCheckInvalidJSON(t *testing.T) {
 	}
 
 	// Details should be nil or empty due to invalid JSON
-	if result.Details != nil && len(result.Details) > 0 {
+	if len(result.Details) > 0 {
 		t.Error("Expected empty details for invalid JSON")
 	}
 }
@@ -185,7 +185,7 @@ func TestTryHTTPHealthCheckLargeResponse(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write(largeData)
+		_, _ = w.Write(largeData)
 	}))
 	defer server.Close()
 
@@ -220,7 +220,7 @@ func TestTryHTTPHealthCheckDifferentEndpoints(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
 			w.WriteHeader(200)
-			w.Write([]byte(`{"status":"healthy"}`))
+			_, _ = w.Write([]byte(`{"status":"healthy"}`))
 		}
 	}))
 	defer server.Close()

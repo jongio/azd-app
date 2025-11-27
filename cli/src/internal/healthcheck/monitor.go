@@ -277,7 +277,7 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 				Str("from", from.String()).
 				Str("to", to.String()).
 				Msg("Circuit breaker state changed")
-			
+
 			// Record state change in metrics
 			if metricsEnabled {
 				recordCircuitBreakerState(name, to)
@@ -590,7 +590,7 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	startTime := time.Now()
 	serviceName := svc.Name
-	
+
 	log.Debug().
 		Str("service", serviceName).
 		Int("port", svc.Port).
@@ -605,7 +605,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 				Str("service", serviceName).
 				Err(err).
 				Msg("Rate limit exceeded")
-			
+
 			return HealthCheckResult{
 				ServiceName: serviceName,
 				Timestamp:   time.Now(),
@@ -620,7 +620,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 
 	// Perform check with circuit breaker wrapping if enabled
 	var result HealthCheckResult
-	
+
 	if breaker != nil {
 		output, err := breaker.Execute(func() (interface{}, error) {
 			res := c.performServiceCheck(ctx, svc)
@@ -635,7 +635,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 				log.Warn().
 					Str("service", serviceName).
 					Msg("Circuit breaker open - skipping check")
-				
+
 				result = HealthCheckResult{
 					ServiceName: serviceName,
 					Timestamp:   time.Now(),
@@ -662,7 +662,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 	// Record metrics if enabled
 	duration := time.Since(startTime)
 	result.ResponseTime = duration
-	
+
 	if metricsEnabled {
 		recordHealthCheck(result)
 	}
