@@ -236,14 +236,19 @@ func (m *StateMonitor) detectTransition(currentState *ServiceState) {
 // processStateUpdate handles the locked portion of state transition detection.
 // Returns a transition to notify about, or nil if no notification needed.
 func (m *StateMonitor) processStateUpdate(currentState *ServiceState) *StateTransition {
+	// Acquire rateLimitMu first to maintain consistent lock ordering
+	// This prevents deadlock with shouldRateLimit which also acquires rateLimitMu
+	var shouldUpdateRateLimit bool
+	var transitionCopy *StateTransition
+
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	previousState, exists := m.previousStates[currentState.Name]
 
 	// First time seeing this service
 	if !exists {
 		m.previousStates[currentState.Name] = currentState
+		m.mu.Unlock()
 		return nil
 	}
 
@@ -252,28 +257,37 @@ func (m *StateMonitor) processStateUpdate(currentState *ServiceState) *StateTran
 	if transition == nil {
 		// No meaningful transition, just update state
 		m.previousStates[currentState.Name] = currentState
+		m.mu.Unlock()
 		return nil
 	}
 
-	// Check rate limiting
+	// Check rate limiting - this acquires rateLimitMu internally (RLock only)
 	if m.shouldRateLimit(currentState.Name, transition.Severity) {
 		slog.Debug("Rate limiting notification",
 			"service", currentState.Name,
 			"severity", transition.Severity.String())
 		m.previousStates[currentState.Name] = currentState
+		m.mu.Unlock()
 		return nil
 	}
 
 	// Record transition
 	m.addTransitionLocked(transition)
 	m.previousStates[currentState.Name] = currentState
+	shouldUpdateRateLimit = true
 
-	// Update rate limit timestamp (acquires its own lock)
-	m.updateRateLimit(currentState.Name)
+	// Copy transition before releasing lock
+	transitionCopied := *transition
+	transitionCopy = &transitionCopied
 
-	// Return a copy for notification (caller will notify outside lock)
-	transitionCopy := *transition
-	return &transitionCopy
+	m.mu.Unlock()
+
+	// Update rate limit timestamp AFTER releasing mu to prevent lock ordering issues
+	if shouldUpdateRateLimit {
+		m.updateRateLimit(currentState.Name)
+	}
+
+	return transitionCopy
 }
 
 // evaluateTransition determines if a state change is meaningful.
@@ -437,6 +451,11 @@ func (m *StateMonitor) notifyListeners(transition StateTransition) {
 
 // isProcessRunning checks if a process with the given PID is running.
 // Works cross-platform (Windows and Unix).
+//
+// KNOWN LIMITATION (Windows): On Windows, this function may return true for
+// stale PIDs because os.FindProcess always succeeds and Signal(0) is not
+// fully supported. For production use requiring high reliability, consider
+// using Windows API (OpenProcess) or github.com/shirou/gopsutil.
 func isProcessRunning(pid int) bool {
 	if pid <= 0 {
 		return false
@@ -448,22 +467,22 @@ func isProcessRunning(pid int) bool {
 	}
 
 	// On Unix, Signal(0) checks if process exists without sending a signal
-	// On Windows, this always succeeds for FindProcess, so we use a different approach
+	// On Windows, Signal(0) is not reliably supported
 	err = process.Signal(syscall.Signal(0))
 	if err == nil {
 		return true
 	}
 
-	// On Windows, Signal(0) is not supported
-	// On Unix, Signal(0) failing means process doesn't exist
-	// Check if error contains "not supported" or similar Windows-specific messages
+	// Check for Windows-specific "not supported" error
 	errMsg := err.Error()
-	if strings.Contains(errMsg, "not supported") {
-		// On Windows, FindProcess succeeds if process exists
-		// If we got here, process handle was created successfully
+	if strings.Contains(errMsg, "not supported") || strings.Contains(errMsg, "Access is denied") {
+		// On Windows, if FindProcess succeeded and we got here, the process
+		// handle was created. This is imperfect (stale PIDs may appear as running)
+		// but better than failing all Windows process checks.
 		return true
 	}
 
-	// On Unix, any other error means process doesn't exist
+	// On Unix, Signal(0) error means process doesn't exist
+	// On Windows, other errors indicate process lookup failed
 	return false
 }

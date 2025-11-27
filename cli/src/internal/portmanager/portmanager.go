@@ -329,6 +329,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
 
 		// Release mutex before blocking on user input to prevent deadlocks
+		// WARNING: TOCTOU race - state may change during user input. We re-validate after.
 		pm.mu.Unlock()
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
@@ -341,6 +342,21 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		response = strings.TrimSpace(response)
 		switch response {
 		case "1":
+			// Re-validate port state after re-acquiring lock (state may have changed during user input)
+			if pm.isPortAvailable(preferredPort) {
+				// Port became available while waiting for user input - use it directly
+				pm.assignments[serviceName] = &PortAssignment{
+					ServiceName: serviceName,
+					Port:        preferredPort,
+					LastUsed:    time.Now(),
+				}
+				if err := pm.save(); err != nil {
+					return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "✓ Port %d is now available and assigned to service '%s'\n\n", preferredPort, serviceName)
+				return preferredPort, false, nil
+			}
+
 			// Kill process
 			if err := pm.killProcessOnPort(preferredPort); err != nil {
 				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
@@ -439,6 +455,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
 
 		// Release mutex before blocking on user input to prevent deadlocks
+		// WARNING: TOCTOU race - state may change during user input. We re-validate after.
 		pm.mu.Unlock()
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
@@ -451,6 +468,16 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		response = strings.TrimSpace(response)
 		switch response {
 		case "1":
+			// Re-validate port state after re-acquiring lock (state may have changed during user input)
+			if pm.isPortAvailable(assignedPort) {
+				// Port became available while waiting for user input - use it directly
+				if err := pm.save(); err != nil {
+					return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "✓ Port %d is now available for service '%s'\n\n", assignedPort, serviceName)
+				return assignedPort, false, nil
+			}
+
 			// Kill process
 			if err := pm.killProcessOnPort(assignedPort); err != nil {
 				fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
@@ -535,6 +562,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
 
 		// Release mutex before blocking on user input to prevent deadlocks
+		// WARNING: TOCTOU race - state may change during user input. We re-validate after.
 		pm.mu.Unlock()
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
@@ -547,6 +575,21 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 		response = strings.TrimSpace(response)
 		switch response {
 		case "1":
+			// Re-validate port state after re-acquiring lock (state may have changed during user input)
+			if pm.isPortAvailable(preferredPort) {
+				// Port became available while waiting for user input - use it directly
+				pm.assignments[serviceName] = &PortAssignment{
+					ServiceName: serviceName,
+					Port:        preferredPort,
+					LastUsed:    time.Now(),
+				}
+				if err := pm.save(); err != nil {
+					return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "✓ Port %d is now available and assigned to service '%s'\n\n", preferredPort, serviceName)
+				return preferredPort, false, nil
+			}
+
 			// Kill process
 			if err := pm.killProcessOnPort(preferredPort); err != nil {
 				fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
