@@ -186,7 +186,7 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
       <ToastContainer />
       
       {/* Global Toolbar */}
-      <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-card border-b flex-shrink-0">
+      <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-card border-b shrink-0">
         <div className="flex gap-2 items-center flex-wrap">
           {/* View Mode Toggle */}
           {!isFullscreen && (
@@ -302,7 +302,7 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
 
       {/* Filters - hidden in fullscreen mode */}
       {!isFullscreen && (
-        <div className="p-4 bg-card border-b flex-shrink-0">
+        <div className="p-4 bg-card border-b shrink-0">
           <div className="flex flex-wrap gap-8">
             {/* Services Filter */}
             <div>

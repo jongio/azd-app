@@ -1,3 +1,5 @@
+// Package logging provides a structured logging abstraction built on top of slog.
+// It supports configurable log levels, structured JSON output, and debug mode.
 package logging
 
 import (

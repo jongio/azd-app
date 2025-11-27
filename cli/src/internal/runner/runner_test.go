@@ -650,8 +650,8 @@ func TestRunFunctionApp_LogicAppsMissingWorkflows(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create host.json
-	hostJsonPath := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJsonPath, []byte("{}"), 0600); err != nil {
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
@@ -681,15 +681,15 @@ func TestRunFunctionApp_WithHostJson(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create host.json
-	hostJsonPath := filepath.Join(tmpDir, "host.json")
-	hostJsonContent := `{
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	hostJSONContent := `{
 		"version": "2.0",
 		"extensionBundle": {
 			"id": "Microsoft.Azure.Functions.ExtensionBundle",
 			"version": "[3.*, 4.0.0)"
 		}
 	}`
-	if err := os.WriteFile(hostJsonPath, []byte(hostJsonContent), 0600); err != nil {
+	if err := os.WriteFile(hostJSONPath, []byte(hostJSONContent), 0600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
@@ -725,8 +725,8 @@ func TestRunFunctionApp_LogicAppsWithWorkflows(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create host.json
-	hostJsonPath := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJsonPath, []byte("{}"), 0600); err != nil {
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
@@ -778,8 +778,8 @@ func TestRunLogicApp(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create host.json
-	hostJsonPath := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJsonPath, []byte("{}"), 0600); err != nil {
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 

@@ -1,3 +1,6 @@
+// Package dashboard provides a web-based user interface for monitoring and managing services.
+// It includes a dashboard server with WebSocket support for real-time updates,
+// log streaming capabilities, and REST API endpoints for service management.
 package dashboard
 
 import (

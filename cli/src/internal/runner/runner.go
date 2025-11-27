@@ -1,3 +1,6 @@
+// Package runner provides execution capabilities for various project types including
+// Aspire, Node.js, Python, .NET, and Azure Functions projects.
+// It handles process management, environment configuration, and entry point detection.
 package runner
 
 import (
@@ -261,9 +264,9 @@ func RunFunctionApp(ctx context.Context, project types.FunctionAppProject, port 
 	}
 
 	// Validate required files exist
-	hostJsonPath := filepath.Join(project.Dir, "host.json")
-	if _, err := os.Stat(hostJsonPath); os.IsNotExist(err) {
-		return fmt.Errorf("Azure Functions project missing host.json: run 'func init' to initialize the project")
+	hostJSONPath := filepath.Join(project.Dir, "host.json")
+	if _, err := os.Stat(hostJSONPath); os.IsNotExist(err) {
+		return fmt.Errorf("azure Functions project missing host.json: run 'func init' to initialize the project")
 	}
 
 	// Variant-specific validation
@@ -271,7 +274,7 @@ func RunFunctionApp(ctx context.Context, project types.FunctionAppProject, port 
 	case "logicapps":
 		workflowsPath := filepath.Join(project.Dir, "workflows")
 		if info, err := os.Stat(workflowsPath); err != nil || !info.IsDir() {
-			return fmt.Errorf("Logic Apps project missing workflows/ directory")
+			return fmt.Errorf("logic Apps project missing workflows/ directory")
 		}
 	}
 
