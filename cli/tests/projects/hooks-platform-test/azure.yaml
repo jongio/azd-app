@@ -29,7 +29,7 @@ services:
     project: .
     entrypoint: main.py
     ports:
-      - "8000"
+      - "8100"
     environment:
       ENVIRONMENT: development
       DEBUG: "true"

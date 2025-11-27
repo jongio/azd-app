@@ -33,6 +33,8 @@ azd app logs [service-name] [flags]
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--output` | | string | | Write logs to file instead of stdout |
+| `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
+| `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
 ## Execution Flow
 
@@ -170,7 +172,7 @@ azd app logs [service-name] [flags]
 
 ### Log Collection
 
-Services send logs to buffers managed by the LogManager:
+Services send logs to buffers managed by the LogManager. Log filtering is applied at collection time, so noisy messages never enter the buffer:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -187,9 +189,16 @@ Services send logs to buffers managed by the LogManager:
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
+│  Log Filter (applied at collection time)                     │
+│  - Built-in patterns (Electron, npm, Node.js noise)         │
+│  - azure.yaml logs.filters.exclude patterns                 │
+│  - Noisy messages are dropped before buffer                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
 │  Service Log Buffer                                          │
 │  - Ring buffer (circular, fixed size)                        │
-│  - Stores recent entries                                     │
+│  - Stores recent entries (after filtering)                   │
 │  - Supports subscriptions (for follow mode)                  │
 └─────────────────────────────────────────────────────────────┘
                             ↓
@@ -197,6 +206,7 @@ Services send logs to buffers managed by the LogManager:
 │  Log Manager                                                 │
 │  - Central registry of all buffers                           │
 │  - Query interface for commands                              │
+│  - Loads filter config from azure.yaml at startup            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -507,7 +517,91 @@ azd app logs --level error --since 1h --output errors.log
     ↓
 3. Level Filter     (--level)
     ↓
-4. Format/Display   (--format, --timestamps, --no-color)
+4. Pattern Filter   (--exclude, azure.yaml logFilters, built-ins)
+    ↓
+5. Format/Display   (--format, --timestamps, --no-color)
+```
+
+## Pattern-Based Filtering
+
+### Overview
+
+Pattern-based filtering suppresses noisy log output that doesn't indicate real problems. Patterns are applied using case-insensitive regex matching.
+
+**Filtering happens at two levels:**
+1. **Collection time** (`azd app run`): Noisy messages are filtered out before they enter the log buffer or are written to log files
+2. **Display time** (`azd app logs --exclude`): Additional command-line patterns for ad-hoc filtering
+
+### Built-In Patterns
+
+By default, azd app logs suppresses common noise patterns:
+
+| Pattern | Description |
+|---------|-------------|
+| `Request Autofill.enable failed` | Electron DevTools protocol errors |
+| `npm warn Unknown env config` | npm registry credential warnings |
+| `Debugger listening on ws://` | Node.js debugger messages |
+| `ExperimentalWarning:` | Node.js experimental feature warnings |
+| `DeprecationWarning:` | Node.js deprecation warnings |
+
+### Command-Line Filtering
+
+```bash
+# Exclude specific patterns
+azd app logs --exclude "pattern1,pattern2"
+
+# Disable built-in patterns (show all logs)
+azd app logs --no-builtins
+
+# Combine custom patterns with built-ins
+azd app logs --exclude "my custom pattern"
+```
+
+### Azure.yaml Configuration
+
+Configure project-level log settings in `azure.yaml` under the `logs` section:
+
+```yaml
+# Logging configuration
+logs:
+  filters:
+    exclude:
+      - "Optional service not available"
+      - "Cache miss"
+      - "Retry attempt"
+    includeBuiltins: true  # Include built-in patterns (default: true)
+```
+
+Service-level logging configuration:
+
+```yaml
+services:
+  web:
+    project: ./frontend
+    logs:
+      filters:
+        exclude:
+          - "Hot Module Replacement"
+```
+
+### Filter Priority
+
+1. **Command-line `--exclude`**: Always applied
+2. **Command-line `--no-builtins`**: Overrides azure.yaml and defaults
+3. **azure.yaml `logs.filters`**: Project-level patterns
+4. **Built-in patterns**: Applied by default unless disabled
+
+### Examples
+
+```bash
+# Suppress Ollama connection failures
+azd app logs --exclude "Ollama not available"
+
+# Show only real errors (no warnings, no noise)
+azd app logs --level error
+
+# See all logs including noise (debugging filters)
+azd app logs --no-builtins
 ```
 
 ## Timestamps

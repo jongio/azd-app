@@ -466,6 +466,45 @@ func Watch() error {
 	return sh.RunWithV(env, "azd", "x", "watch")
 }
 
+// WatchAll monitors both CLI and dashboard files, rebuilding on changes.
+// Runs azd x watch for CLI and vite dev server for dashboard concurrently.
+// Note: On Windows, stop any running instances of the app before starting the watcher
+// to avoid "file in use" errors during installation.
+func WatchAll() error {
+	fmt.Println("Starting watchers for both CLI and dashboard...")
+	fmt.Println("⚠️  Tip: Stop any running instances of 'app' to avoid file-in-use errors")
+	fmt.Println()
+	// Check if azd is available
+	if _, err := sh.Output("azd", "version"); err != nil {
+		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	}
+
+	// Create channels for error handling
+	errChan := make(chan error, 2)
+
+	// Start CLI watcher in goroutine
+	go func() {
+		fmt.Println("🔧 Starting CLI watcher (azd x watch)...")
+		env := map[string]string{
+			"EXTENSION_ID": extensionID,
+		}
+		if err := sh.RunWithV(env, "azd", "x", "watch"); err != nil {
+			errChan <- fmt.Errorf("CLI watcher failed: %w", err)
+		}
+	}()
+
+	// Start dashboard watcher in goroutine
+	go func() {
+		fmt.Println("⚛️  Starting dashboard watcher (vite dev server)...")
+		if err := sh.RunV("npm", "run", "dev", "--prefix", dashboardDir); err != nil {
+			errChan <- fmt.Errorf("dashboard watcher failed: %w", err)
+		}
+	}()
+
+	// Wait for either watcher to fail
+	return <-errChan
+}
+
 // Uninstall removes the locally installed extension.
 func Uninstall() error {
 	fmt.Println("Uninstalling extension...")
@@ -474,6 +513,32 @@ func Uninstall() error {
 	}
 
 	fmt.Println("✅ Extension uninstalled!")
+	return nil
+}
+
+// CheckGitAttributes ensures .gitattributes file exists with proper line ending configuration.
+func CheckGitAttributes() error {
+	fmt.Println("Checking .gitattributes...")
+
+	gitattributesPath := filepath.Join("..", ".gitattributes")
+	if _, err := os.Stat(gitattributesPath); os.IsNotExist(err) {
+		return fmt.Errorf(".gitattributes file not found - required for proper line ending configuration")
+	}
+
+	fmt.Println("✅ .gitattributes exists!")
+	return nil
+}
+
+// CheckGitIgnore ensures .gitignore file exists.
+func CheckGitIgnore() error {
+	fmt.Println("Checking .gitignore...")
+
+	gitignorePath := filepath.Join("..", ".gitignore")
+	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
+		return fmt.Errorf(".gitignore file not found")
+	}
+
+	fmt.Println("✅ .gitignore exists!")
 	return nil
 }
 
@@ -486,11 +551,15 @@ func Preflight() error {
 		name string
 		fn   func() error
 	}{
+		{"Checking .gitignore", CheckGitIgnore},
+		{"Checking .gitattributes", CheckGitAttributes},
 		{"Formatting code", Fmt},
 		{"Verifying go.mod consistency", ModVerify},
 		{"Tidying go.mod and go.sum", ModTidy},
-		{"Building and linting dashboard", DashboardBuild},
-		{"Running dashboard tests", DashboardTest},
+		{"Building dashboard", DashboardBuild},
+		{"Linting dashboard", DashboardLint},
+		{"Running dashboard unit tests", DashboardTest},
+		{"Running dashboard E2E tests", DashboardTestE2E},
 		{"Building Go binary", Build},
 		{"Running go vet", Vet},
 		{"Running staticcheck", Staticcheck},
@@ -585,6 +654,18 @@ func DashboardBuild() error {
 	return nil
 }
 
+// DashboardLint runs ESLint on the dashboard code.
+func DashboardLint() error {
+	fmt.Println("Running dashboard linting...")
+
+	if err := sh.RunV("npm", "run", "lint", "--prefix", dashboardDir); err != nil {
+		return fmt.Errorf("dashboard linting failed: %w", err)
+	}
+
+	fmt.Println("✅ Dashboard linting passed!")
+	return nil
+}
+
 // DashboardTest runs the dashboard tests with vitest.
 func DashboardTest() error {
 	fmt.Println("Running dashboard tests...")
@@ -595,6 +676,41 @@ func DashboardTest() error {
 	}
 
 	fmt.Println("✅ Dashboard tests passed!")
+	return nil
+}
+
+// DashboardTestE2E runs the dashboard E2E tests with Playwright.
+func DashboardTestE2E() error {
+	fmt.Println("Running dashboard E2E tests...")
+
+	// Ensure Playwright browsers are installed
+	fmt.Println("Installing Playwright browsers (if needed)...")
+	// Change to dashboard directory to run playwright install
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
+		}
+	}()
+
+	if err := os.Chdir(dashboardDir); err != nil {
+		return fmt.Errorf("failed to change to dashboard directory: %w", err)
+	}
+
+	if err := sh.RunV("npx", "playwright", "install", "--with-deps", "chromium"); err != nil {
+		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
+	}
+
+	// Run playwright with line reporter to avoid opening browser with HTML report on failure
+	// Stay in dashboard directory where playwright.config.ts is located
+	if err := sh.RunV("npx", "playwright", "test", "--reporter=line", "--project=chromium"); err != nil {
+		return fmt.Errorf("dashboard E2E tests failed: %w", err)
+	}
+
+	fmt.Println("✅ Dashboard E2E tests passed!")
 	return nil
 }
 

@@ -3,6 +3,15 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { useServices } from '@/hooks/useServices'
 import { mockServices, createMockFetchResponse, createMockWebSocketMessage } from '@/test/mocks'
 
+interface MockWebSocket {
+  url: string
+  onopen: ((event: Event) => void) | null
+  onmessage: ((event: MessageEvent) => void) | null
+  onerror: ((event: Event) => void) | null
+  onclose: ((event: CloseEvent) => void) | null
+  close: ReturnType<typeof vi.fn>
+}
+
 describe('useServices', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -15,7 +24,7 @@ describe('useServices', () => {
 
   it('should fetch services on mount', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const { result } = renderHook(() => useServices())
 
@@ -32,8 +41,8 @@ describe('useServices', () => {
 
   it('should handle fetch errors and use mock data', async () => {
     const mockFetch = vi.fn(() => Promise.reject(new Error('Network error')))
-    globalThis.fetch = mockFetch as any
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    globalThis.fetch = mockFetch as unknown as typeof fetch
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const { result } = renderHook(() => useServices())
 
@@ -50,7 +59,7 @@ describe('useServices', () => {
 
   it('should handle empty service list', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse([]))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const { result } = renderHook(() => useServices())
 
@@ -63,7 +72,7 @@ describe('useServices', () => {
 
   it('should set up WebSocket connection', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const { result } = renderHook(() => useServices())
 
@@ -77,12 +86,12 @@ describe('useServices', () => {
 
   it('should handle WebSocket service updates', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     // Create a custom WebSocket mock that we can control
-    let wsInstance: any
+    const wsRef: { current: MockWebSocket | null } = { current: null }
     const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsInstance = {
+      wsRef.current = {
         url,
         onopen: null,
         onmessage: null,
@@ -91,11 +100,11 @@ describe('useServices', () => {
         close: vi.fn(),
       }
       setTimeout(() => {
-        if (wsInstance.onopen) wsInstance.onopen({})
+        wsRef.current?.onopen?.(new Event('open'))
       }, 0)
-      return wsInstance
+      return wsRef.current
     })
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     const { result } = renderHook(() => useServices())
 
@@ -109,9 +118,10 @@ describe('useServices', () => {
       local: { ...mockServices[0].local, status: 'stopping' as const },
     }
 
-    if (wsInstance && wsInstance.onmessage) {
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
       act(() => {
-        wsInstance.onmessage(
+        handler(
           createMockWebSocketMessage({
             type: 'update',
             service: updatedService,
@@ -128,11 +138,11 @@ describe('useServices', () => {
 
   it('should handle WebSocket service addition', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
-    let wsInstance: any
+    const wsRef: { current: MockWebSocket | null } = { current: null }
     const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsInstance = {
+      wsRef.current = {
         url,
         onopen: null,
         onmessage: null,
@@ -141,11 +151,11 @@ describe('useServices', () => {
         close: vi.fn(),
       }
       setTimeout(() => {
-        if (wsInstance.onopen) wsInstance.onopen({})
+        wsRef.current?.onopen?.(new Event('open'))
       }, 0)
-      return wsInstance
+      return wsRef.current
     })
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     const { result } = renderHook(() => useServices())
 
@@ -167,9 +177,10 @@ describe('useServices', () => {
       },
     }
 
-    if (wsInstance && wsInstance.onmessage) {
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
       act(() => {
-        wsInstance.onmessage(
+        handler(
           createMockWebSocketMessage({
             type: 'add',
             service: newService,
@@ -186,11 +197,11 @@ describe('useServices', () => {
 
   it('should handle WebSocket service removal', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
-    let wsInstance: any
+    const wsRef: { current: MockWebSocket | null } = { current: null }
     const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsInstance = {
+      wsRef.current = {
         url,
         onopen: null,
         onmessage: null,
@@ -199,11 +210,11 @@ describe('useServices', () => {
         close: vi.fn(),
       }
       setTimeout(() => {
-        if (wsInstance.onopen) wsInstance.onopen({})
+        wsRef.current?.onopen?.(new Event('open'))
       }, 0)
-      return wsInstance
+      return wsRef.current
     })
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     const { result } = renderHook(() => useServices())
 
@@ -214,9 +225,10 @@ describe('useServices', () => {
     const initialCount = result.current.services.length
 
     // Remove a service
-    if (wsInstance && wsInstance.onmessage) {
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
       act(() => {
-        wsInstance.onmessage(
+        handler(
           createMockWebSocketMessage({
             type: 'remove',
             service: mockServices[0],
@@ -233,12 +245,12 @@ describe('useServices', () => {
 
   it('should handle malformed WebSocket messages', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    let wsInstance: any
+    const wsRef: { current: MockWebSocket | null } = { current: null }
     const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsInstance = {
+      wsRef.current = {
         url,
         onopen: null,
         onmessage: null,
@@ -247,11 +259,11 @@ describe('useServices', () => {
         close: vi.fn(),
       }
       setTimeout(() => {
-        if (wsInstance.onopen) wsInstance.onopen({})
+        wsRef.current?.onopen?.(new Event('open'))
       }, 0)
-      return wsInstance
+      return wsRef.current
     })
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     const { result } = renderHook(() => useServices())
 
@@ -262,9 +274,10 @@ describe('useServices', () => {
     const initialServices = [...result.current.services]
 
     // Send malformed message
-    if (wsInstance && wsInstance.onmessage) {
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
       act(() => {
-        wsInstance.onmessage({ data: 'not-valid-json' })
+        handler(new MessageEvent('message', { data: 'not-valid-json' }))
       })
     }
 
@@ -283,7 +296,7 @@ describe('useServices', () => {
 
   it('should provide refetch function', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const closeMock = vi.fn()
     const WebSocketMock = vi.fn().mockImplementation(() => ({
@@ -293,7 +306,7 @@ describe('useServices', () => {
       onclose: null,
       close: closeMock,
     }))
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     const { result } = renderHook(() => useServices())
 
@@ -304,8 +317,8 @@ describe('useServices', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
 
     // Call refetch
-    act(() => {
-      result.current.refetch()
+    await act(async () => {
+      await result.current.refetch()
     })
 
     await waitFor(() => {
@@ -315,7 +328,7 @@ describe('useServices', () => {
 
   it('should close WebSocket on unmount', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     const closeMock = vi.fn()
     const WebSocketMock = vi.fn().mockImplementation(() => ({
@@ -325,7 +338,7 @@ describe('useServices', () => {
       onclose: null,
       close: closeMock,
     }))
-    globalThis.WebSocket = WebSocketMock as any
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     const { unmount } = renderHook(() => useServices())
 

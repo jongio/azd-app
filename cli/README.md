@@ -157,6 +157,45 @@ azd app reqs --generate --dry-run
 
 When you run `azd app reqs --generate` in a Node.js project:
 
+### `azd app notifications`
+
+Manage process notifications for service state changes and events.
+
+```bash
+# List notification history
+azd app notifications list
+
+# Show only unread notifications
+azd app notifications list --unread
+
+# Filter by service name
+azd app notifications list --service web
+
+# Mark notification as read
+azd app notifications mark-read 123
+
+# Mark all as read
+azd app notifications mark-read --all
+
+# View notification statistics
+azd app notifications stats
+
+# Clear old notifications
+azd app notifications clear --older-than 7d
+
+# Clear all notifications
+azd app notifications clear
+```
+
+**Features:**
+- ✅ Track service state changes (starting, running, stopped, failed)
+- ✅ Desktop notifications for critical events (OS-native)
+- ✅ Persistent notification history with SQLite database
+- ✅ Mark notifications as read/unread
+- ✅ Filter by service, severity, or read status
+- ✅ Automatic cleanup of old notifications
+- ✅ Statistics and reporting
+
 ```bash
 🔍 Scanning project for dependencies...
 

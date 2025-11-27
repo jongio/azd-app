@@ -868,3 +868,253 @@ func TestConfigurablePortRange(t *testing.T) {
 		})
 	}
 }
+
+func TestPortInUseError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      *PortInUseError
+		expected string
+	}{
+		{
+			name: "with process name",
+			err: &PortInUseError{
+				Port:        8080,
+				PID:         1234,
+				ProcessName: "nginx",
+				ServiceName: "web-service",
+			},
+			expected: "port 8080 required by service 'web-service' is in use by nginx (PID 1234)",
+		},
+		{
+			name: "without process name",
+			err: &PortInUseError{
+				Port:        3000,
+				PID:         5678,
+				ProcessName: "",
+				ServiceName: "api-service",
+			},
+			expected: "port 3000 required by service 'api-service' is in use by PID 5678",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.err.Error()
+			if got != tt.expected {
+				t.Errorf("PortInUseError.Error() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPortRangeExhaustedError(t *testing.T) {
+	err := &PortRangeExhaustedError{
+		StartPort: 3000,
+		EndPort:   4000,
+	}
+
+	expected := "no available ports in range 3000-4000"
+	got := err.Error()
+
+	if got != expected {
+		t.Errorf("PortRangeExhaustedError.Error() = %q, want %q", got, expected)
+	}
+}
+
+func TestInvalidPortError(t *testing.T) {
+	err := &InvalidPortError{
+		Port:   100,
+		Reason: "port outside valid range",
+	}
+
+	expected := "invalid port 100: port outside valid range"
+	got := err.Error()
+
+	if got != expected {
+		t.Errorf("InvalidPortError.Error() = %q, want %q", got, expected)
+	}
+}
+
+func TestIsPortAvailable_PublicAPI(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, map[int]bool{
+		8080: true, // Mark 8080 as unavailable
+	})
+
+	// Test public API
+	if pm.IsPortAvailable(8080) {
+		t.Error("Expected port 8080 to be unavailable")
+	}
+
+	if !pm.IsPortAvailable(9999) {
+		t.Error("Expected port 9999 to be available")
+	}
+}
+
+func TestAssignPort_PortRangeExhausted(t *testing.T) {
+	t.Skip("Skipping test that triggers user prompts - needs refactoring for testability")
+
+	// Set a very small port range
+	os.Setenv(envPortRangeStart, "3000")
+	os.Setenv(envPortRangeEnd, "3001")
+	defer os.Unsetenv(envPortRangeStart)
+	defer os.Unsetenv(envPortRangeEnd)
+
+	// Clear cache to force new manager creation
+	managerCacheMu.Lock()
+	managerCache = make(map[string]*cacheEntry)
+	managerCacheMu.Unlock()
+
+	tempDir := t.TempDir()
+
+	// Mark all ports in range as unavailable
+	pm := setupTestManager(tempDir, map[int]bool{
+		3000: true,
+		3001: true,
+	})
+
+	// Try to assign a port when all are unavailable
+	_, _, err := pm.AssignPort("test-service", 3000, false)
+	if err == nil {
+		t.Fatal("Expected error when port range exhausted, got nil")
+	}
+
+	// Check if it's the right error type
+	if _, ok := err.(*PortRangeExhaustedError); !ok {
+		t.Errorf("Expected PortRangeExhaustedError, got %T: %v", err, err)
+	}
+}
+
+func TestGetPortRangeEnd_InvalidEnv(t *testing.T) {
+	tests := []struct {
+		name        string
+		envValue    string
+		expectedEnd int
+	}{
+		{
+			name:        "invalid non-numeric",
+			envValue:    "invalid",
+			expectedEnd: PortRangeEnd,
+		},
+		{
+			name:        "out of range too high",
+			envValue:    "70000",
+			expectedEnd: PortRangeEnd,
+		},
+		{
+			name:        "low port is accepted",
+			envValue:    "100",
+			expectedEnd: 100, // Low ports are valid if explicitly set
+		},
+		{
+			name:        "valid custom port",
+			envValue:    "50000",
+			expectedEnd: 50000,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv(envPortRangeEnd, tt.envValue)
+			defer os.Unsetenv(envPortRangeEnd)
+
+			got := getPortRangeEnd()
+			if got != tt.expectedEnd {
+				t.Errorf("getPortRangeEnd() = %d, want %d", got, tt.expectedEnd)
+			}
+		})
+	}
+}
+
+func TestSaveLoadPortManager(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, nil)
+
+	// Assign some ports
+	_, _, err := pm.AssignPort("service1", 3000, true)
+	if err != nil {
+		t.Fatalf("Failed to assign port: %v", err)
+	}
+
+	_, _, err = pm.AssignPort("service2", 4000, false)
+	if err != nil {
+		t.Fatalf("Failed to assign port: %v", err)
+	}
+
+	// Force save
+	pm.mu.Lock()
+	err = pm.save()
+	pm.mu.Unlock()
+	if err != nil {
+		t.Fatalf("Failed to save: %v", err)
+	}
+
+	// Create a new port manager for the same directory
+	pm2 := GetPortManager(tempDir)
+
+	// Check if assignments were loaded
+	port1, exists := pm2.GetAssignment("service1")
+	if !exists || port1 != 3000 {
+		t.Errorf("Expected service1 on port 3000, got exists=%v, port=%d", exists, port1)
+	}
+
+	port2, exists := pm2.GetAssignment("service2")
+	if !exists || port2 != 4000 {
+		t.Errorf("Expected service2 on port 4000, got exists=%v, port=%d", exists, port2)
+	}
+}
+
+func TestCleanStalePorts_RemovesOldAssignments(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, nil)
+
+	// Assign a port with an old timestamp (older than 7 days)
+	pm.mu.Lock()
+	pm.assignments["old-service"] = &PortAssignment{
+		ServiceName: "old-service",
+		Port:        5000,
+		LastUsed:    time.Now().Add(-8 * 24 * time.Hour), // Older than 7 days
+	}
+	pm.mu.Unlock()
+
+	// Clean stale ports
+	err := pm.CleanStalePorts()
+	if err != nil {
+		t.Fatalf("CleanStalePorts failed: %v", err)
+	}
+
+	// Verify the old assignment was removed
+	pm.mu.RLock()
+	_, exists := pm.assignments["old-service"]
+	pm.mu.RUnlock()
+
+	if exists {
+		t.Error("Expected old-service assignment to be cleaned up")
+	}
+}
+
+func TestCleanStalePorts_KeepsRecentAssignments(t *testing.T) {
+	tempDir := t.TempDir()
+	pm := setupTestManager(tempDir, nil)
+
+	// Assign a port with a recent timestamp
+	pm.mu.Lock()
+	pm.assignments["recent-service"] = &PortAssignment{
+		ServiceName: "recent-service",
+		Port:        6000,
+		LastUsed:    time.Now().Add(-1 * time.Hour), // Recent
+	}
+	pm.mu.Unlock()
+
+	// Clean stale ports
+	_ = pm.CleanStalePorts()
+
+	// Verify the recent assignment was kept
+	pm.mu.RLock()
+	_, exists := pm.assignments["recent-service"]
+	pm.mu.RUnlock()
+
+	if !exists {
+		t.Error("Expected recent-service assignment to be kept")
+	}
+}

@@ -611,3 +611,202 @@ func TestFindPythonEntryPoint_DirectoryPriority(t *testing.T) {
 		t.Errorf("expected root app.py to be preferred, got %s", entry)
 	}
 }
+
+func TestRunFunctionApp_InvalidPath(t *testing.T) {
+	project := types.FunctionAppProject{
+		Dir:      "../../../invalid/path",
+		Variant:  "nodejs",
+		Language: "JavaScript",
+	}
+
+	err := RunFunctionApp(context.Background(), project, 7071)
+	if err == nil {
+		t.Error("expected error for invalid path")
+	}
+}
+
+func TestRunFunctionApp_MissingHostJson(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	project := types.FunctionAppProject{
+		Dir:      tmpDir,
+		Variant:  "nodejs",
+		Language: "JavaScript",
+	}
+
+	err := RunFunctionApp(context.Background(), project, 7071)
+	if err == nil {
+		t.Error("expected error when host.json is missing")
+	}
+	if err != nil && err.Error() != "" {
+		// Verify error message mentions host.json
+		if !contains(err.Error(), "host.json") {
+			t.Errorf("expected error to mention host.json, got: %v", err)
+		}
+	}
+}
+
+func TestRunFunctionApp_LogicAppsMissingWorkflows(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create host.json
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
+		t.Fatalf("failed to create host.json: %v", err)
+	}
+
+	project := types.FunctionAppProject{
+		Dir:      tmpDir,
+		Variant:  "logicapps",
+		Language: "Logic Apps",
+	}
+
+	err := RunFunctionApp(context.Background(), project, 7071)
+	if err == nil {
+		t.Error("expected error when workflows directory is missing for Logic Apps")
+	}
+	if err != nil && err.Error() != "" {
+		// Verify error message mentions workflows directory
+		if !contains(err.Error(), "workflows") {
+			t.Errorf("expected error to mention workflows directory, got: %v", err)
+		}
+	}
+}
+
+func TestRunFunctionApp_WithHostJson(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create host.json
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	hostJSONContent := `{
+		"version": "2.0",
+		"extensionBundle": {
+			"id": "Microsoft.Azure.Functions.ExtensionBundle",
+			"version": "[3.*, 4.0.0)"
+		}
+	}`
+	if err := os.WriteFile(hostJSONPath, []byte(hostJSONContent), 0600); err != nil {
+		t.Fatalf("failed to create host.json: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		variant string
+	}{
+		{"Node.js Functions", "nodejs"},
+		{"Python Functions", "python"},
+		{".NET Functions", "dotnet"},
+		{"Java Functions", "java"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project := types.FunctionAppProject{
+				Dir:      tmpDir,
+				Variant:  tt.variant,
+				Language: "test",
+			}
+
+			// This will error on execution if func isn't installed, but validation should pass
+			_ = RunFunctionApp(context.Background(), project, 7071)
+		})
+	}
+}
+
+func TestRunFunctionApp_LogicAppsWithWorkflows(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create host.json
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
+		t.Fatalf("failed to create host.json: %v", err)
+	}
+
+	// Create workflows directory
+	workflowsDir := filepath.Join(tmpDir, "workflows")
+	if err := os.MkdirAll(workflowsDir, 0750); err != nil {
+		t.Fatalf("failed to create workflows directory: %v", err)
+	}
+
+	project := types.FunctionAppProject{
+		Dir:      tmpDir,
+		Variant:  "logicapps",
+		Language: "Logic Apps",
+	}
+
+	// This will error on execution if func isn't installed, but validation should pass
+	_ = RunFunctionApp(context.Background(), project, 7071)
+}
+
+func TestGetVariantDisplayName(t *testing.T) {
+	tests := []struct {
+		variant  string
+		expected string
+	}{
+		{"logicapps", "Logic Apps Standard"},
+		{"nodejs", "Node.js Functions"},
+		{"python", "Python Functions"},
+		{"dotnet", ".NET Functions"},
+		{"java", "Java Functions"},
+		{"unknown", "Azure Functions"},
+		{"", "Azure Functions"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.variant, func(t *testing.T) {
+			got := getVariantDisplayName(tt.variant)
+			if got != tt.expected {
+				t.Errorf("getVariantDisplayName(%q) = %q, want %q", tt.variant, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRunLogicApp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create host.json
+	hostJSONPath := filepath.Join(tmpDir, "host.json")
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
+		t.Fatalf("failed to create host.json: %v", err)
+	}
+
+	// Create workflows directory
+	workflowsDir := filepath.Join(tmpDir, "workflows")
+	if err := os.MkdirAll(workflowsDir, 0750); err != nil {
+		t.Fatalf("failed to create workflows directory: %v", err)
+	}
+
+	project := types.LogicAppProject{
+		Dir: tmpDir,
+	}
+
+	// This will error on execution if func isn't installed, but validation should pass
+	_ = RunLogicApp(context.Background(), project, 7071)
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

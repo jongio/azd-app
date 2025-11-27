@@ -560,6 +560,7 @@ type FixResult struct {
 
 // runReqsFix attempts to fix PATH issues for missing tools.
 func runReqsFix() error {
+	output.CommandHeader("reqs --fix", "Fix PATH issues for missing tools")
 	if !output.IsJSON() {
 		output.Section(output.IconTool, "Attempting to fix requirement issues...")
 	}

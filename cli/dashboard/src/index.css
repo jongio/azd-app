@@ -1,58 +1,226 @@
 @import "tailwindcss";
 
 @layer base {
+  /* Base color primitives */
   :root {
-    /* Aspire-inspired dark theme */
-    --background: 0 0% 8%;  /* #141414 - very dark background */
-    --foreground: 0 0% 95%;  /* Light text */
+    /* Gray scale primitives */
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f5;
+    --gray-200: #e5e5e5;
+    --gray-300: #d4d4d4;
+    --gray-400: #a3a3a3;
+    --gray-500: #737373;
+    --gray-600: #525252;
+    --gray-700: #404040;
+    --gray-800: #262626;
+    --gray-900: #171717;
+    --gray-950: #0a0a0a;
     
-    /* Card backgrounds */
-    --card: 0 0% 12%;  /* #1f1f1f - slightly lighter than bg */
-    --card-foreground: 0 0% 95%;
+    /* Purple primitives */
+    --purple-50: #faf5ff;
+    --purple-100: #f3e8ff;
+    --purple-200: #e9d5ff;
+    --purple-300: #d8b4fe;
+    --purple-400: #c084fc;
+    --purple-500: #a855f7;
+    --purple-600: #9333ea;
+    --purple-700: #7e22ce;
+    --purple-800: #6b21a8;
+    --purple-900: #581c87;
     
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
+    /* Status color primitives */
+    --red-50: #fef2f2;
+    --red-500: #ef4444;
+    --red-600: #dc2626;
+    --red-700: #b91c1c;
     
-    /* Purple primary (Aspire accent) */
-    --primary: 266 100% 70%;  /* Purple accent */
-    --primary-foreground: 0 0% 100%;
+    --yellow-50: #fefce8;
+    --yellow-500: #eab308;
+    --yellow-600: #ca8a04;
+    --yellow-800: #854d0e;
+    
+    --green-50: #f0fdf4;
+    --green-500: #22c55e;
+    --green-600: #16a34a;
+    --green-700: #15803d;
+    
+    --blue-50: #eff6ff;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
+    
+    /* Spacing, typography, etc. */
+    --radius: 0.5rem;
+  }
+  
+  /* Light theme (default) */
+  [data-theme="light"] {
+    /* Backgrounds */
+    --background: #ffffff;
+    --background-secondary: var(--gray-50);
+    --background-tertiary: var(--gray-100);
+    --background-elevated: #ffffff;
+    
+    /* Foregrounds */
+    --foreground: var(--gray-900);
+    --foreground-secondary: var(--gray-600);
+    --foreground-tertiary: var(--gray-500);
+    --foreground-muted: var(--gray-400);
+    
+    /* Borders */
+    --border: var(--gray-200);
+    --border-secondary: var(--gray-300);
+    --border-focus: var(--purple-500);
+    
+    /* Primary (Brand) */
+    --primary: var(--purple-600);
+    --primary-foreground: #ffffff;
+    --primary-hover: var(--purple-700);
+    --primary-active: var(--purple-800);
     
     /* Secondary */
-    --secondary: 0 0% 20%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: var(--gray-100);
+    --secondary-foreground: var(--gray-900);
+    --secondary-hover: var(--gray-200);
+    --secondary-active: var(--gray-300);
     
-    --muted: 0 0% 25%;
-    --muted-foreground: 0 0% 60%;
+    /* Accent */
+    --accent: var(--purple-50);
+    --accent-foreground: var(--purple-700);
+    --accent-hover: var(--purple-100);
     
-    /* Accent - keeping purple theme */
-    --accent: 266 100% 70%;
-    --accent-foreground: 0 0% 100%;
+    /* Muted */
+    --muted: var(--gray-100);
+    --muted-foreground: var(--gray-600);
     
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    /* Destructive (Error) */
+    --destructive: var(--red-600);
+    --destructive-foreground: #ffffff;
+    --destructive-hover: var(--red-700);
     
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 266 100% 70%;
-    --radius: 0.5rem;
+    /* Success */
+    --success: var(--green-600);
+    --success-foreground: #ffffff;
+    --success-hover: var(--green-700);
     
-    /* Status colors matching Aspire */
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
+    /* Warning */
+    --warning: var(--yellow-600);
+    --warning-foreground: #ffffff;
+    --warning-hover: var(--yellow-500);
     
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    /* Info */
+    --info: var(--blue-600);
+    --info-foreground: #ffffff;
+    
+    /* Card */
+    --card: #ffffff;
+    --card-foreground: var(--gray-900);
+    --card-border: var(--gray-200);
+    
+    /* Popover */
+    --popover: #ffffff;
+    --popover-foreground: var(--gray-900);
+    
+    /* Input */
+    --input-background: #ffffff;
+    --input-foreground: var(--gray-900);
+    --input-border: var(--gray-300);
+    --input-placeholder: var(--gray-400);
+    --input-focus-border: var(--purple-500);
+    
+    /* Ring (Focus) */
+    --ring: var(--purple-500);
+    --ring-offset: #ffffff;
+  }
+  
+  /* Dark theme */
+  [data-theme="dark"] {
+    /* Backgrounds */
+    --background: #0d0d0d;
+    --background-secondary: #141414;
+    --background-tertiary: #1a1a1a;
+    --background-elevated: #1f1f1f;
+    
+    /* Foregrounds */
+    --foreground: var(--gray-100);
+    --foreground-secondary: var(--gray-400);
+    --foreground-tertiary: var(--gray-500);
+    --foreground-muted: var(--gray-600);
+    
+    /* Borders */
+    --border: #2a2a2a;
+    --border-secondary: #333333;
+    --border-focus: var(--purple-400);
+    
+    /* Primary (Brand) - Brighter in dark mode */
+    --primary: var(--purple-500);
+    --primary-foreground: #ffffff;
+    --primary-hover: var(--purple-400);
+    --primary-active: var(--purple-300);
+    
+    /* Secondary */
+    --secondary: #1f1f1f;
+    --secondary-foreground: var(--gray-100);
+    --secondary-hover: #262626;
+    --secondary-active: #2d2d2d;
+    
+    /* Accent */
+    --accent: #2d1f4a;
+    --accent-foreground: var(--purple-300);
+    --accent-hover: #3d2f5a;
+    
+    /* Muted */
+    --muted: #262626;
+    --muted-foreground: var(--gray-400);
+    
+    /* Destructive (Error) */
+    --destructive: var(--red-500);
+    --destructive-foreground: #ffffff;
+    --destructive-hover: var(--red-400);
+    
+    /* Success */
+    --success: var(--green-500);
+    --success-foreground: #ffffff;
+    --success-hover: var(--green-400);
+    
+    /* Warning */
+    --warning: var(--yellow-500);
+    --warning-foreground: var(--gray-900);
+    --warning-hover: var(--yellow-400);
+    
+    /* Info */
+    --info: var(--blue-500);
+    --info-foreground: #ffffff;
+    
+    /* Card */
+    --card: #1a1a1a;
+    --card-foreground: var(--gray-100);
+    --card-border: #2a2a2a;
+    
+    /* Popover */
+    --popover: #1f1f1f;
+    --popover-foreground: var(--gray-100);
+    
+    /* Input */
+    --input-background: #1a1a1a;
+    --input-foreground: var(--gray-100);
+    --input-border: #2a2a2a;
+    --input-placeholder: var(--gray-500);
+    --input-focus-border: var(--purple-500);
+    
+    /* Ring (Focus) */
+    --ring: var(--purple-500);
+    --ring-offset: #0d0d0d;
   }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--border);
   }
   
   body {
-    background: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background: var(--background);
+    color: var(--foreground);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
       sans-serif;
@@ -64,9 +232,38 @@
     position: relative;
     z-index: 1;
   }
+  
+  /* Apply theme transitions */
+  [data-theme] {
+    transition-property: background-color, color, border-color;
+    transition-duration: 400ms;
+    transition-timing-function: ease-in-out;
+  }
+  
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme],
+    [data-theme] * {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
 }
 
 @layer utilities {
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
   /* Minimal glass effect for Aspire style */
   .glass {
     background: rgba(255, 255, 255, 0.02);
@@ -76,5 +273,48 @@
   /* Smooth transitions */
   .transition-all-smooth {
     transition: all 0.2s ease;
+  }
+  
+  /* Error pulse animation for log panes */
+  @keyframes error-pulse {
+    0%, 100% {
+      border-color: #EF4444;
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+  
+  .animate-error-pulse {
+    animation: error-pulse 1.5s ease-in-out infinite;
+  }
+  
+  /* Notification badge pulse animation */
+  @keyframes notification-pulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    50% {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+  }
+  
+  .animate-notification-pulse {
+    animation: notification-pulse 600ms ease-out 2;
+  }
+  
+  /* Reduced motion support for animations */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-error-pulse,
+    .animate-notification-pulse {
+      animation: none;
+    }
   }
 }

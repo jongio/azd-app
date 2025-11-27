@@ -1,13 +1,16 @@
+// Package dashboard provides a web-based user interface for monitoring and managing services.
+// It includes a dashboard server with WebSocket support for real-time updates,
+// log streaming capabilities, and REST API endpoints for service management.
 package dashboard
 
 import (
 	"crypto/rand"
 	"embed"
 	"fmt"
+	"html"
 	"io/fs"
 	"log"
 	"math/big"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,12 +19,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
-
-	"github.com/gorilla/websocket"
 )
 
 //go:embed dist
@@ -29,27 +31,12 @@ var staticFiles embed.FS
 
 // clientConn wraps a websocket connection with a write mutex for safe concurrent writes.
 type clientConn struct {
-	conn    *websocket.Conn
-	writeMu sync.Mutex
+	client *wsClient // Uses github.com/coder/websocket
 }
 
 var (
 	servers   = make(map[string]*Server) // Key: normalized project directory path
 	serversMu sync.Mutex
-	upgrader  = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			// Allow connections from localhost only to prevent CSWSH attacks
-			// Empty origin is allowed for direct WebSocket connections (non-browser clients)
-			if origin == "" {
-				return true
-			}
-			return strings.HasPrefix(origin, "http://localhost:") ||
-				strings.HasPrefix(origin, "http://127.0.0.1:") ||
-				strings.HasPrefix(origin, "https://localhost:") ||
-				strings.HasPrefix(origin, "https://127.0.0.1:")
-		},
-	}
 )
 
 // Server represents the dashboard HTTP server.
@@ -123,8 +110,13 @@ func (s *Server) setupRoutes() {
 	// API endpoints (these take precedence over the file server)
 	s.mux.HandleFunc("/api/project", s.handleGetProject)
 	s.mux.HandleFunc("/api/services", s.handleGetServices)
+	s.mux.HandleFunc("/api/services/start", s.handleStartService)
+	s.mux.HandleFunc("/api/services/stop", s.handleStopService)
+	s.mux.HandleFunc("/api/services/restart", s.handleRestartService)
 	s.mux.HandleFunc("/api/logs", s.handleGetLogs)
 	s.mux.HandleFunc("/api/logs/stream", s.handleLogStream)
+	s.mux.HandleFunc("/api/logs/patterns", s.handlePatternsRouter)
+	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 
 	// Serve static files
@@ -136,6 +128,10 @@ func (s *Server) setupRoutes() {
 
 // handleGetServices returns services for the current project.
 func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	// Use shared serviceinfo package to get merged service data
 	services, err := serviceinfo.GetServiceInfo(s.projectDir)
 	if err != nil {
@@ -151,6 +147,10 @@ func (s *Server) handleGetServices(w http.ResponseWriter, r *http.Request) {
 
 // handleGetProject returns project metadata from azure.yaml.
 func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	azureYaml, err := service.ParseAzureYaml(s.projectDir)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "Failed to parse azure.yaml", err)
@@ -169,33 +169,26 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 
 // handleWebSocket handles WebSocket connections for live updates.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := acceptWebSocket(w, r)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
-		return
-	}
-
-	// Configure WebSocket with standard timeouts
-	if err := configureWebSocket(conn); err != nil {
-		log.Printf("Failed to configure WebSocket: %v", err)
-		if closeErr := conn.Close(); closeErr != nil {
-			log.Printf("Failed to close connection: %v", closeErr)
+		if err != http.ErrAbortHandler {
+			log.Printf("WebSocket upgrade error: %v", err)
 		}
 		return
 	}
 
-	// Wrap connection with mutex for safe concurrent writes
-	client := &clientConn{conn: conn}
+	client := newWSClient(conn)
+	clientWrapper := &clientConn{client: client}
 
 	s.clientsMu.Lock()
-	s.clients[client] = true
+	s.clients[clientWrapper] = true
 	s.clientsMu.Unlock()
 
 	defer func() {
 		s.clientsMu.Lock()
-		delete(s.clients, client)
+		delete(s.clients, clientWrapper)
 		s.clientsMu.Unlock()
-		if err := conn.Close(); err != nil {
+		if err := client.close(); err != nil {
 			log.Printf("Failed to close websocket connection: %v", err)
 		}
 	}()
@@ -208,7 +201,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the safe write method
-	if err := client.writeWebSocketJSON(map[string]interface{}{
+	if err := clientWrapper.writeWebSocketJSON(map[string]interface{}{
 		"type":     "services",
 		"services": services,
 	}); err != nil {
@@ -217,7 +210,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start health monitoring
-	monitor := newWSHealthMonitor(conn, &client.writeMu)
+	monitor := newWSHealthMonitor(client)
 	healthErrors := monitor.start()
 	defer monitor.stop()
 
@@ -230,8 +223,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			// Health monitor detected a problem, close connection
 			return
 		default:
-			_, _, err := conn.ReadMessage()
-			if err != nil {
+			if err := readMessage(client); err != nil {
 				return
 			}
 		}
@@ -278,6 +270,14 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 				statusClass = "error"
 			}
 
+			// Escape all user-controllable values to prevent XSS
+			escapedName := html.EscapeString(svc.Name)
+			escapedURL := html.EscapeString(svc.URL)
+			escapedFramework := html.EscapeString(svc.Framework)
+			escapedLanguage := html.EscapeString(svc.Language)
+			escapedStatus := html.EscapeString(svc.Status)
+			escapedHealth := html.EscapeString(svc.Health)
+
 			fmt.Fprintf(w, `
     <div class="service">
         <h3><span class="status %s"></span>%s</h3>
@@ -286,7 +286,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
         <p><strong>Status:</strong> %s | <strong>Health:</strong> %s</p>
         <p><strong>Started:</strong> %s</p>
     </div>
-`, statusClass, svc.Name, svc.URL, svc.URL, svc.Framework, svc.Language, svc.Status, svc.Health, svc.StartTime.Format(time.RFC822))
+`, statusClass, escapedName, escapedURL, escapedURL, escapedFramework, escapedLanguage, escapedStatus, escapedHealth, svc.StartTime.Format(time.RFC822))
 		}
 	}
 
@@ -298,6 +298,16 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
     </p>
 </body>
 </html>`)
+}
+
+// GetURL returns the dashboard URL if the server is started, empty string otherwise.
+func (s *Server) GetURL() string {
+	s.startedMu.Lock()
+	defer s.startedMu.Unlock()
+	if !s.started || s.port == 0 {
+		return ""
+	}
+	return fmt.Sprintf("http://localhost:%d", s.port)
 }
 
 // Start starts the dashboard server on an assigned port.
@@ -313,33 +323,19 @@ func (s *Server) Start() (string, error) {
 	}
 	preferredPort := 40000 + int(nBig.Int64())
 
-	// Assign port for dashboard service (isExplicit=false)
-	port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false)
+	// Use FindAndReservePort to atomically find and reserve a port
+	// This eliminates the TOCTOU race between port checking and binding
+	reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
 	if err != nil {
-		return "", fmt.Errorf("failed to assign port for dashboard: %w", err)
+		return "", fmt.Errorf("failed to reserve port for dashboard: %w", err)
 	}
 
-	// Double-check port is still available (race condition protection)
-	// This handles the case where another process binds between assignment and server start
-	testAddr := fmt.Sprintf("127.0.0.1:%d", port)
-	testListener, err := net.Listen("tcp", testAddr)
-	if err != nil {
-		// Port became unavailable between assignment and binding
-		fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d became unavailable after assignment.\n", port)
-		fmt.Fprintf(os.Stderr, "Another instance may be starting simultaneously.\n")
-		fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
+	port := reservation.Port
 
-		if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
-		}
-		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
-			return fmt.Sprintf("http://localhost:%d", port), nil
-		}
-		return "", fmt.Errorf("dashboard server failed to start: port conflicts")
-	}
-	// Close the test listener so the server can bind to it
-	if err := testListener.Close(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to close test listener: %v\n", err)
+	// Release reservation just before server binds
+	// The server must bind immediately after this
+	if err := reservation.Release(); err != nil {
+		log.Printf("Warning: failed to release port reservation: %v", err)
 	}
 
 	s.port = port
@@ -374,7 +370,7 @@ func (s *Server) Start() (string, error) {
 	}()
 
 	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(constants.ServerStartupDelay)
 
 	// Mark as started
 	s.startedMu.Lock()
@@ -427,17 +423,23 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			// After 5 failed random attempts, try sequential ports
 			preferredPort = 40000 + (attempt * 100)
 		}
-		port, _, err := portMgr.AssignPort("azd-app-dashboard", preferredPort, false)
+
+		// Use port reservation to prevent TOCTOU race
+		reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
 		if err != nil {
 			continue
 		}
 
+		port := reservation.Port
 		s.port = port
 		s.server = &http.Server{
 			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
 			Handler:           s.mux,
 			ReadHeaderTimeout: 10 * time.Second,
 		}
+
+		// Release reservation just before binding - this is the atomic handoff
+		_ = reservation.Release()
 
 		errChan := make(chan error, 1)
 		go func() {
@@ -448,7 +450,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		}()
 
 		// Monitor for server errors in background
-		go func() {
+		go func(port int) {
 			select {
 			case err := <-errChan:
 				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
@@ -459,7 +461,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			case <-s.stopChan:
 				return
 			}
-		}()
+		}(port)
 
 		time.Sleep(100 * time.Millisecond)
 
@@ -525,15 +527,25 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	serviceName := r.URL.Query().Get("service")
 	tailStr := r.URL.Query().Get("tail")
 
-	// Default to 500 lines
+	// Default to 500 lines with bounds checking
 	tail := 500
 	if tailStr != "" {
 		if n, err := fmt.Sscanf(tailStr, "%d", &tail); err != nil || n != 1 {
 			tail = 500
 		}
+	}
+	// Enforce reasonable limits to prevent memory exhaustion
+	if tail <= 0 {
+		tail = 500
+	} else if tail > 10000 {
+		tail = 10000 // Maximum 10k lines
 	}
 
 	logManager := service.GetLogManager(s.projectDir)
@@ -562,14 +574,17 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 
 	// Upgrade connection to WebSocket
-	rawConn, err := upgrader.Upgrade(w, r, nil)
+	rawConn, err := acceptWebSocket(w, r)
 	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
+		if err != http.ErrAbortHandler {
+			log.Printf("WebSocket upgrade failed: %v", err)
+		}
 		return
 	}
 	// Wrap connection with mutex for safe concurrent writes
-	conn := &clientConn{conn: rawConn}
-	defer rawConn.Close()
+	client := newWSClient(rawConn)
+	conn := &clientConn{client: client}
+	defer client.close()
 
 	logManager := service.GetLogManager(s.projectDir)
 
@@ -659,6 +674,21 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	<-done
 	close(stopMerge)
 	wg.Wait()
+}
+
+// handleStartService handles POST /api/services/start to start a service or all services.
+func (s *Server) handleStartService(w http.ResponseWriter, r *http.Request) {
+	newServiceOperationHandler(s, opStart).Handle(w, r)
+}
+
+// handleStopService handles POST /api/services/stop to stop a service or all services.
+func (s *Server) handleStopService(w http.ResponseWriter, r *http.Request) {
+	newServiceOperationHandler(s, opStop).Handle(w, r)
+}
+
+// handleRestartService handles POST /api/services/restart to restart a service or all services.
+func (s *Server) handleRestartService(w http.ResponseWriter, r *http.Request) {
+	newServiceOperationHandler(s, opRestart).Handle(w, r)
 }
 
 // Stop stops the dashboard server and releases its port assignment.

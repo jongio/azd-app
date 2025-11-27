@@ -22,8 +22,8 @@ describe('Sidebar', () => {
     const resourcesButton = screen.getByRole('button', { name: /resources/i })
     
     // Active item should have specific styling
-    expect(resourcesButton).toHaveClass('text-purple-400')
-    expect(resourcesButton).toHaveClass('bg-purple-500/15')
+    expect(resourcesButton).toHaveClass('text-accent-foreground')
+    expect(resourcesButton).toHaveClass('bg-accent')
   })
 
   it('should call onViewChange when navigation item is clicked', async () => {
@@ -76,8 +76,8 @@ describe('Sidebar', () => {
 
     const consoleButton = screen.getByRole('button', { name: /console/i })
     
-    // Inactive items should have gray text color
-    expect(consoleButton).toHaveClass('text-gray-500')
+    // Inactive items should have tertiary foreground text color
+    expect(consoleButton).toHaveClass('text-foreground-tertiary')
   })
 
   it('should render all 5 navigation items', () => {
@@ -94,18 +94,18 @@ describe('Sidebar', () => {
 
     // Resources should be active
     let resourcesButton = screen.getByRole('button', { name: /resources/i })
-    expect(resourcesButton).toHaveClass('text-purple-400')
+    expect(resourcesButton).toHaveClass('text-accent-foreground')
 
     // Change to console
     rerender(<Sidebar activeView="console" onViewChange={onViewChange} />)
 
     // Console should now be active
     const consoleButton = screen.getByRole('button', { name: /console/i })
-    expect(consoleButton).toHaveClass('text-purple-400')
+    expect(consoleButton).toHaveClass('text-accent-foreground')
 
     // Resources should no longer be active
     resourcesButton = screen.getByRole('button', { name: /resources/i })
-    expect(resourcesButton).toHaveClass('text-gray-500')
+    expect(resourcesButton).toHaveClass('text-foreground-tertiary')
   })
 
   it('should render with proper layout styling', () => {
@@ -114,7 +114,7 @@ describe('Sidebar', () => {
 
     const sidebar = container.firstChild
     expect(sidebar).toHaveClass('w-20')
-    expect(sidebar).toHaveClass('bg-[#0d0d0d]')
+    expect(sidebar).toHaveClass('bg-background')
   })
 
   it('should render buttons as flex columns with proper alignment', () => {
@@ -156,5 +156,74 @@ describe('Sidebar', () => {
       expect(element).toHaveClass('text-[10px]')
       expect(element).toHaveClass('font-medium')
     })
+  })
+
+  it('should show error indicator on Console nav when hasActiveErrors is true', () => {
+    const onViewChange = vi.fn()
+    render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} />)
+
+    const consoleButton = screen.getByRole('button', { name: /console/i })
+    
+    // Should have error ring class
+    expect(consoleButton).toHaveClass('ring-2')
+    expect(consoleButton).toHaveClass('ring-red-500/50')
+    
+    // Should have pulsing red dot indicator
+    const errorDot = consoleButton.querySelector('.animate-pulse')
+    expect(errorDot).toBeInTheDocument()
+    expect(errorDot).toHaveClass('bg-red-500')
+  })
+
+  it('should not show error indicator on Console nav when hasActiveErrors is false', () => {
+    const onViewChange = vi.fn()
+    render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={false} />)
+
+    const consoleButton = screen.getByRole('button', { name: /console/i })
+    
+    // Should NOT have error ring or pulsing dot
+    expect(consoleButton).not.toHaveClass('ring-2')
+    const errorDot = consoleButton.querySelector('.animate-pulse')
+    expect(errorDot).not.toBeInTheDocument()
+  })
+
+  it('should not show error indicator on Console nav when it is active', () => {
+    const onViewChange = vi.fn()
+    render(<Sidebar activeView="console" onViewChange={onViewChange} hasActiveErrors={true} />)
+
+    const consoleButton = screen.getByRole('button', { name: /console/i })
+    
+    // Should NOT have error ring when active
+    expect(consoleButton).not.toHaveClass('ring-2')
+    expect(consoleButton).not.toHaveClass('ring-red-500/50')
+    
+    // But should still have the pulsing dot
+    const errorDot = consoleButton.querySelector('.animate-pulse')
+    expect(errorDot).toBeInTheDocument()
+  })
+
+  it('should only show error indicator on Console nav, not other nav items', () => {
+    const onViewChange = vi.fn()
+    render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} />)
+
+    const resourcesButton = screen.getByRole('button', { name: /resources/i })
+    const structuredButton = screen.getByRole('button', { name: /structured/i })
+    const tracesButton = screen.getByRole('button', { name: /traces/i })
+    const metricsButton = screen.getByRole('button', { name: /metrics/i })
+    
+    // None of these should have error indicators
+    expect(resourcesButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
+    expect(structuredButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
+    expect(tracesButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
+    expect(metricsButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
+  })
+
+  it('should have title attribute on error indicator', () => {
+    const onViewChange = vi.fn()
+    render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} />)
+
+    const consoleButton = screen.getByRole('button', { name: /console/i })
+    const errorDot = consoleButton.querySelector('.animate-pulse')
+    
+    expect(errorDot).toHaveAttribute('title', 'Active errors detected')
   })
 })

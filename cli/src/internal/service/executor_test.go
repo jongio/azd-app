@@ -290,18 +290,34 @@ func TestInferLogLevel(t *testing.T) {
 		message string
 		want    LogLevel
 	}{
+		// Standard info detection
 		{"Normal log message", LogLevelInfo},
+		{"INFO: starting service", LogLevelInfo},
+		{"Starting application", LogLevelInfo},
+
+		// Standard error detection
 		{"ERROR: something went wrong", LogLevelError},
 		{"error occurred", LogLevelError},
 		{"Exception in thread", LogLevelError},
 		{"FATAL: critical failure", LogLevelError},
 		{"panic: runtime error", LogLevelError},
+
+		// Standard warning detection
 		{"WARNING: deprecation notice", LogLevelWarn},
 		{"warn: invalid config", LogLevelWarn},
+
+		// Debug detection
 		{"DEBUG: verbose output", LogLevelDebug},
 		{"trace information", LogLevelDebug},
-		{"INFO: starting service", LogLevelInfo},
-		{"Starting application", LogLevelInfo},
+
+		// INFO OVERRIDES - These contain "error" but should be INFO
+		{"Found 0 errors. Watching for file changes.", LogLevelInfo},
+		{"2:59:24 PM - Found 0 errors. Watching for file changes.", LogLevelInfo},
+		{"Build succeeded with 0 error(s)", LogLevelInfo},
+		{"Compilation succeeded", LogLevelInfo},
+		{"compiled successfully", LogLevelInfo},
+		{"0 failed, 10 passed", LogLevelInfo},
+		{"All tests passed", LogLevelInfo},
 	}
 
 	for _, tt := range tests {

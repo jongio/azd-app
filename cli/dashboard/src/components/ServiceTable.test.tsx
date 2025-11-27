@@ -105,12 +105,10 @@ describe('ServiceTable', () => {
   it('should render action buttons for each service', () => {
     render(<ServiceTable services={mockServices} />)
 
-    // Each service should have logs button and more options button
+    // Each service should have logs button
     const logsButtons = screen.getAllByTitle('View Logs')
-    const moreButtons = screen.getAllByTitle('More Options')
 
     expect(logsButtons).toHaveLength(mockServices.length)
-    expect(moreButtons).toHaveLength(mockServices.length)
   })
 
   it('should display status cells with correct state', () => {

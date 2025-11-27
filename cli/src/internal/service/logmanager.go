@@ -14,6 +14,7 @@ import (
 type LogManager struct {
 	projectDir string
 	buffers    map[string]*LogBuffer // key: serviceName
+	logFilter  *LogFilter            // Optional log filter for all buffers
 	mu         sync.RWMutex
 }
 
@@ -49,10 +50,40 @@ func GetLogManager(projectDir string) *LogManager {
 	lm := &LogManager{
 		projectDir: absPath,
 		buffers:    make(map[string]*LogBuffer),
+		logFilter:  loadLogFilterForProject(absPath),
 	}
 	logManagers[absPath] = lm
 
 	return lm
+}
+
+// loadLogFilterForProject loads the log filter configuration from azure.yaml.
+func loadLogFilterForProject(projectDir string) *LogFilter {
+	azureYamlPath := filepath.Join(projectDir, "azure.yaml")
+	azureYaml, err := ParseAzureYaml(azureYamlPath)
+	if err != nil {
+		// No azure.yaml or parse error - use built-in filters only
+		filter, _ := NewLogFilterWithBuiltins(nil)
+		return filter
+	}
+
+	// Get filter config from azure.yaml
+	filterConfig := azureYaml.Logs.GetFilters()
+	var customPatterns []string
+	includeBuiltins := true
+
+	if filterConfig != nil {
+		customPatterns = filterConfig.Exclude
+		includeBuiltins = filterConfig.ShouldIncludeBuiltins()
+	}
+
+	var filter *LogFilter
+	if includeBuiltins {
+		filter, _ = NewLogFilterWithBuiltins(customPatterns)
+	} else {
+		filter, _ = NewLogFilter(customPatterns)
+	}
+	return filter
 }
 
 // CreateBuffer creates a log buffer for a service.
@@ -65,8 +96,8 @@ func (lm *LogManager) CreateBuffer(serviceName string, maxSize int, enableFileLo
 		return buffer, nil
 	}
 
-	// Create new buffer
-	buffer, err := NewLogBuffer(serviceName, maxSize, enableFileLogging, lm.projectDir)
+	// Create new buffer with the log filter
+	buffer, err := NewLogBufferWithFilter(serviceName, maxSize, enableFileLogging, lm.projectDir, lm.logFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log buffer for %s: %w", serviceName, err)
 	}

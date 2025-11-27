@@ -95,7 +95,7 @@ test.describe('Dashboard - Resources View', () => {
   });
 
   test('should display service status', async ({ page }) => {
-    await expect(page.getByText('Running')).toBeVisible();
+    await expect(page.getByText('Running').first()).toBeVisible();
   });
 
   test('should show search filter input', async ({ page }) => {
@@ -186,15 +186,15 @@ test.describe('Dashboard - Console View', () => {
   });
 
   test('should navigate to console view', async ({ page }) => {
-    await page.getByRole('button', { name: /console/i }).click();
+    await page.getByRole('button', { name: 'Console', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Console' })).toBeVisible();
   });
 
   test('should display log controls', async ({ page }) => {
-    await page.getByRole('button', { name: /console/i }).click();
+    await page.getByRole('button', { name: 'Console', exact: true }).click();
     
-    // Check for service filter
-    await expect(page.getByText('Service')).toBeVisible();
+    // Check for service filter heading
+    await expect(page.getByRole('heading', { name: 'Services' })).toBeVisible();
   });
 });
 
@@ -220,8 +220,8 @@ test.describe('Dashboard - Error States', () => {
 
     await page.goto('/');
     
-    // Should show loading spinner
-    const spinner = page.locator('.animate-spin');
+    // Should show loading spinner (use first() since there may be multiple spinners)
+    const spinner = page.locator('.animate-spin').first();
     await expect(spinner).toBeVisible();
   });
 

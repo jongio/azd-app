@@ -1,6 +1,8 @@
 package security
 
 import (
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -164,5 +166,101 @@ func TestSanitizeScriptName(t *testing.T) {
 				t.Errorf("SanitizeScriptName() error message should mention dangerous character, got: %v", err)
 			}
 		})
+	}
+}
+
+func TestValidateFilePermissions(t *testing.T) {
+	tmpFile := t.TempDir() + "/test.txt"
+
+	// Create a test file
+	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Test with secure permissions (0644)
+	err := ValidateFilePermissions(tmpFile)
+	if err != nil {
+		t.Errorf("ValidateFilePermissions() with 0644 should pass, got error: %v", err)
+	}
+
+	// Skip world-writable test on Windows (uses ACLs)
+	if runtime.GOOS != "windows" {
+		// Make file world-writable
+		if err := os.Chmod(tmpFile, 0666); err != nil {
+			t.Fatalf("Failed to chmod file: %v", err)
+		}
+
+		// Test with insecure permissions (0666)
+		err = ValidateFilePermissions(tmpFile)
+		if err == nil {
+			t.Error("ValidateFilePermissions() with 0666 should fail on Unix")
+		}
+	}
+
+	// Test with non-existent file (only fails on Unix, Windows returns nil)
+	if runtime.GOOS != "windows" {
+		err = ValidateFilePermissions("/nonexistent/file")
+		if err == nil {
+			t.Error("ValidateFilePermissions() with non-existent file should fail on Unix")
+		}
+	}
+}
+
+func TestValidatePath_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "double dots in middle",
+			path:    "/usr/../etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "double dots at end",
+			path:    "/tmp/..",
+			wantErr: true,
+		},
+		{
+			name:    "normal relative path",
+			path:    "relative/path",
+			wantErr: false,
+		},
+		{
+			name:    "absolute windows path",
+			path:    "C:\\Users\\test",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidatePath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidatePath() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestSanitizeScriptName_AllDangerousChars(t *testing.T) {
+	dangerousChars := []string{";", "&", "|", ">", "<", "`", "$", "(", ")", "{", "}", "[", "]", "\n", "\r"}
+
+	for _, char := range dangerousChars {
+		t.Run("char_"+char, func(t *testing.T) {
+			scriptName := "test" + char + "malicious"
+			err := SanitizeScriptName(scriptName)
+			if err == nil {
+				t.Errorf("SanitizeScriptName() should reject script with %q", char)
+			}
+		})
+	}
+}
+
+func TestValidatePackageManager_Dotnet(t *testing.T) {
+	err := ValidatePackageManager("dotnet")
+	if err != nil {
+		t.Errorf("ValidatePackageManager(\"dotnet\") should be valid, got error: %v", err)
 	}
 }

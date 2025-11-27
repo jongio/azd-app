@@ -153,6 +153,7 @@ func isPortReachable(port int) bool {
 
 // runInfo executes the info command.
 func runInfo(cmd *cobra.Command, args []string) error {
+	output.CommandHeader("info", "Show information about services")
 	// Default: show services from current directory
 	cwd, err := os.Getwd()
 	if err != nil {

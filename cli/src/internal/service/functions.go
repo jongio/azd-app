@@ -97,13 +97,13 @@ func hasLogicAppWorkflowsV2(projectDir string) bool {
 
 // hasLogicAppsExtensionBundle checks if host.json contains Logic Apps extension bundle.
 func hasLogicAppsExtensionBundle(projectDir string) bool {
-	hostJsonPath := filepath.Join(projectDir, "host.json")
-	if err := security.ValidatePath(hostJsonPath); err != nil {
+	hostJSONPath := filepath.Join(projectDir, "host.json")
+	if err := security.ValidatePath(hostJSONPath); err != nil {
 		return false
 	}
 
 	// #nosec G304 -- Path validated by security.ValidatePath
-	data, err := os.ReadFile(hostJsonPath)
+	data, err := os.ReadFile(hostJSONPath)
 	if err != nil {
 		return false
 	}
@@ -135,15 +135,15 @@ func isNodeJSFunctionsVariant(projectDir string) bool {
 	// Must have either:
 	// 1. function.json files (v3 model), OR
 	// 2. @azure/functions dependency (v4 model)
-	return hasFunctionJson(projectDir) || hasAzureFunctionsDependency(projectDir)
+	return hasFunctionJSON(projectDir) || hasAzureFunctionsDependency(projectDir)
 }
 
-// hasFunctionJson checks if the directory contains function.json files.
+// hasFunctionJSON checks if the directory contains function.json files.
 // This is used by both Node.js v3 and Python v1 models.
-func hasFunctionJson(projectDir string) bool {
+func hasFunctionJSON(projectDir string) bool {
 	// Check for function.json in subdirectories (v3/v1 model)
-	functionJsonFiles, _ := filepath.Glob(filepath.Join(projectDir, "*", "function.json"))
-	return len(functionJsonFiles) > 0
+	functionJSONFiles, _ := filepath.Glob(filepath.Join(projectDir, "*", "function.json"))
+	return len(functionJSONFiles) > 0
 }
 
 // hasAzureFunctionsDependency checks if package.json contains @azure/functions dependency.
@@ -173,7 +173,7 @@ func isPythonFunctionsVariant(projectDir string) bool {
 	}
 
 	// Python Functions v1 model: requirements.txt + function.json files
-	if fileExists(projectDir, "requirements.txt") && hasFunctionJson(projectDir) {
+	if fileExists(projectDir, "requirements.txt") && hasFunctionJSON(projectDir) {
 		return true
 	}
 
@@ -239,11 +239,11 @@ func isJavaFunctionsVariant(projectDir string) bool {
 // Returns FunctionsVariantUnknown if the project is not a recognized Functions variant.
 func detectFunctionsVariant(projectDir string) FunctionsVariant {
 	// Validate host.json exists (required for all Azure Functions projects)
-	hostJsonPath := filepath.Join(projectDir, "host.json")
-	if err := security.ValidatePath(hostJsonPath); err != nil {
+	hostJSONPath := filepath.Join(projectDir, "host.json")
+	if err := security.ValidatePath(hostJSONPath); err != nil {
 		return FunctionsVariantUnknown
 	}
-	if _, err := os.Stat(hostJsonPath); os.IsNotExist(err) {
+	if _, err := os.Stat(hostJSONPath); os.IsNotExist(err) {
 		return FunctionsVariantUnknown
 	}
 
@@ -306,12 +306,12 @@ func detectFunctionsLanguage(variant FunctionsVariant, projectDir string) (strin
 // buildFunctionsRuntime creates a ServiceRuntime for an Azure Functions project.
 func buildFunctionsRuntime(serviceName string, service Service, projectDir string, usedPorts map[int]bool, azureYamlDir string) (*ServiceRuntime, error) {
 	// Validate host.json exists
-	hostJsonPath := filepath.Join(projectDir, "host.json")
-	if err := security.ValidatePath(hostJsonPath); err != nil {
+	hostJSONPath := filepath.Join(projectDir, "host.json")
+	if err := security.ValidatePath(hostJSONPath); err != nil {
 		return nil, fmt.Errorf("invalid host.json path: %w", err)
 	}
-	if _, err := os.Stat(hostJsonPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Azure Functions project missing host.json at %s", projectDir)
+	if _, err := os.Stat(hostJSONPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("azure functions project missing host.json at %s", projectDir)
 	}
 
 	// Detect Functions variant

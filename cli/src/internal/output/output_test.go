@@ -170,6 +170,67 @@ func TestPrintDefaultInJSONMode(t *testing.T) {
 	}
 }
 
+func TestCommandHeaderInJSONMode(t *testing.T) {
+	// Set to JSON format
+	_ = SetFormat("json")
+	defer func() { _ = SetFormat("default") }() // Reset
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	CommandHeader("test", "Test command description")
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	// In JSON mode, CommandHeader should produce no output
+	if output != "" {
+		t.Errorf("CommandHeader() in JSON mode should produce no output, got: %q", output)
+	}
+}
+
+func TestCommandHeaderInDefaultMode(t *testing.T) {
+	// Set to default format
+	_ = SetFormat("default")
+	defer func() { _ = SetFormat("default") }() // Reset
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	CommandHeader("test", "Test command description")
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	// In default mode, CommandHeader should produce output containing the command name
+	if !strings.Contains(output, "azd app test") {
+		t.Errorf("CommandHeader() in default mode should contain 'azd app test', got: %q", output)
+	}
+	if !strings.Contains(output, "Test command description") {
+		t.Errorf("CommandHeader() in default mode should contain description, got: %q", output)
+	}
+}
+
 func TestPrint(t *testing.T) {
 	// Test default format
 	_ = SetFormat("default")
@@ -254,6 +315,7 @@ func TestOutputFunctions(t *testing.T) {
 		fn   func()
 	}{
 		{"Header", func() { Header("Test Header") }},
+		{"CommandHeader", func() { CommandHeader("test", "Test description") }},
 		{"Section", func() { Section("📦", "Test Section") }},
 		{"Success", func() { Success("Test success") }},
 		{"Error", func() { Error("Test error") }},

@@ -9,10 +9,13 @@ interface ServiceTableProps {
 
 export function ServiceTable({ services, onViewLogs }: ServiceTableProps) {
   return (
-    <div className="bg-[#1a1a1a] rounded-lg overflow-hidden border border-white/10">
+    <div className="bg-card rounded-lg overflow-hidden border border-card-border">
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        <h2 className="text-sm font-semibold text-foreground">Services ({services.length})</h2>
+      </div>
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-transparent border-b border-white/10">
+          <TableRow className="hover:bg-transparent border-b border-border">
             <TableHead className="w-[180px]">Name</TableHead>
             <TableHead className="w-[120px]">State</TableHead>
             <TableHead className="w-[140px]">Start time</TableHead>

@@ -56,6 +56,10 @@
           "$ref": "#/definitions/hook"
         }
       }
+    },
+    "logs": {
+      "$ref": "#/definitions/logsConfig",
+      "description": "Project-level logging configuration"
     }
   },
   "definitions": {
@@ -120,6 +124,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "logs": {
+          "$ref": "#/definitions/logsConfig",
+          "description": "Service-level logging configuration"
         }
       }
     },
@@ -404,6 +412,39 @@
           "type": "boolean",
           "default": false,
           "title": "Whether the script will run in interactive mode"
+        }
+      }
+    },
+    "logsConfig": {
+      "type": "object",
+      "description": "Logging configuration for the project or service",
+      "additionalProperties": false,
+      "properties": {
+        "filters": {
+          "$ref": "#/definitions/logFilterConfig",
+          "description": "Filter configuration to suppress noisy log output"
+        }
+      }
+    },
+    "logFilterConfig": {
+      "type": "object",
+      "description": "Log filtering configuration to suppress noisy output patterns",
+      "additionalProperties": false,
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "description": "Regex patterns to filter out (suppress) from log output. Patterns are case-insensitive.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["npm warn", "Debugger listening", "ExperimentalWarning"]
+          ]
+        },
+        "includeBuiltins": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include built-in filter patterns for common noise (Electron DevTools errors, npm warnings, etc.). Defaults to true."
         }
       }
     }

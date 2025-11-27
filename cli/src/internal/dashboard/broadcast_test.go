@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
 func TestBroadcastServiceUpdate(t *testing.T) {
@@ -42,15 +44,18 @@ services:
 
 	// Connect WebSocket client
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
-	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ws, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close()
+	defer ws.Close(websocket.StatusNormalClosure, "test complete")
 
 	// Read initial message (sent on connect)
 	var initialMsg map[string]interface{}
-	if err := ws.ReadJSON(&initialMsg); err != nil {
+	if err := wsjson.Read(ctx, ws, &initialMsg); err != nil {
 		t.Fatalf("failed to read initial message: %v", err)
 	}
 
@@ -60,9 +65,10 @@ services:
 	}
 
 	// Read broadcast message
-	_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
 	var updateMsg map[string]interface{}
-	if err := ws.ReadJSON(&updateMsg); err != nil {
+	if err := wsjson.Read(readCtx, ws, &updateMsg); err != nil {
 		t.Fatalf("failed to read broadcast message: %v", err)
 	}
 
@@ -112,17 +118,20 @@ services:
 	clients := make([]*websocket.Conn, numClients)
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for i := 0; i < numClients; i++ {
-		ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		ws, _, err := websocket.Dial(ctx, wsURL, nil)
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close()
+		defer ws.Close(websocket.StatusNormalClosure, "test complete")
 		clients[i] = ws
 
 		// Read initial message
 		var initialMsg map[string]interface{}
-		if err := ws.ReadJSON(&initialMsg); err != nil {
+		if err := wsjson.Read(ctx, ws, &initialMsg); err != nil {
 			t.Fatalf("client %d failed to read initial message: %v", i, err)
 		}
 	}
@@ -134,9 +143,10 @@ services:
 
 	// Verify all clients received the update
 	for i, ws := range clients {
-		_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+		readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer readCancel()
 		var updateMsg map[string]interface{}
-		if err := ws.ReadJSON(&updateMsg); err != nil {
+		if err := wsjson.Read(readCtx, ws, &updateMsg); err != nil {
 			t.Errorf("client %d failed to receive broadcast: %v", i, err)
 			continue
 		}
@@ -279,16 +289,20 @@ services:
 
 	// Connect WebSocket
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
-	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ws, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close()
+	defer ws.Close(websocket.StatusNormalClosure, "test complete")
 
 	// Should receive initial services immediately on connect
-	_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer readCancel()
 	var msg map[string]interface{}
-	if err := ws.ReadJSON(&msg); err != nil {
+	if err := wsjson.Read(readCtx, ws, &msg); err != nil {
 		t.Fatalf("failed to read initial message: %v", err)
 	}
 
