@@ -3,7 +3,7 @@ package notify
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 )
 
@@ -79,10 +79,10 @@ func New(config Config) (Notifier, error) {
 	return newPlatformNotifier(config)
 }
 
-// Error types
+// Error types - using errors.New for sentinel errors per Go 1.13+ best practices
 var (
-	ErrNotAvailable       = fmt.Errorf("OS notifications not available")
-	ErrPermissionDenied   = fmt.Errorf("notification permissions denied")
-	ErrNotificationFailed = fmt.Errorf("failed to send notification")
-	ErrTimeout            = fmt.Errorf("notification timeout")
+	ErrNotAvailable       = errors.New("OS notifications not available")
+	ErrPermissionDenied   = errors.New("notification permissions denied")
+	ErrNotificationFailed = errors.New("failed to send notification")
+	ErrTimeout            = errors.New("notification timeout")
 )

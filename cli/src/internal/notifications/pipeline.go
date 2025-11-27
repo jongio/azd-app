@@ -112,16 +112,41 @@ func (p *Pipeline) processEvents() {
 	}
 }
 
-// handleEvent distributes an event to all handlers
+// handleEvent distributes an event to all handlers.
+// It respects the pipeline's context for cancellation, allowing handlers
+// to be interrupted when the pipeline is stopping.
 func (p *Pipeline) handleEvent(event Event) {
+	// Check if context is already cancelled before processing
+	select {
+	case <-p.ctx.Done():
+		slog.Debug("Skipping event handling - pipeline context cancelled",
+			"eventType", event.Type,
+			"service", event.ServiceName)
+		return
+	default:
+	}
+
 	p.mu.RLock()
 	handlers := make([]Handler, len(p.handlers))
 	copy(handlers, p.handlers)
 	p.mu.RUnlock()
 
 	for _, handler := range handlers {
+		// Check context before each handler to allow early termination
+		select {
+		case <-p.ctx.Done():
+			slog.Debug("Stopping event distribution - pipeline context cancelled",
+				"eventType", event.Type,
+				"service", event.ServiceName)
+			return
+		default:
+		}
+
 		if err := handler.Handle(p.ctx, event); err != nil {
-			// Log error but continue processing
+			// Log error but continue processing (unless context cancelled)
+			if p.ctx.Err() != nil {
+				return // Pipeline is stopping, don't log spurious errors
+			}
 			slog.Warn("Handler error processing notification event",
 				"error", err,
 				"eventType", event.Type,

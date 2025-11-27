@@ -28,8 +28,23 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   const [collapsedPanes, setCollapsedPanes] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('logs-pane-collapsed-states')
-      return saved ? JSON.parse(saved) as Record<string, boolean> : {}
-    } catch {
+      if (!saved) return {}
+      const parsed: unknown = JSON.parse(saved)
+      // Validate the parsed data is an object with boolean values
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        console.warn('Invalid collapsed states format in localStorage, using defaults')
+        return {}
+      }
+      // Type guard to ensure all values are booleans
+      const result: Record<string, boolean> = {}
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof key === 'string' && typeof value === 'boolean') {
+          result[key] = value
+        }
+      }
+      return result
+    } catch (e) {
+      console.warn('Failed to parse collapsed states from localStorage:', e)
       return {}
     }
   })
@@ -56,7 +71,8 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   }, [isFullscreen, onFullscreenChange])
 
   const viewMode = preferences.ui.viewMode
-  const gridColumns = preferences.ui.gridColumns
+  // Clamp gridColumns to valid range (1-6) for safety
+  const gridColumns = Math.max(1, Math.min(6, preferences.ui.gridColumns))
 
   // Fetch services
   useEffect(() => {

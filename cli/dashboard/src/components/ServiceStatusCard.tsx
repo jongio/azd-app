@@ -51,36 +51,37 @@ export function ServiceStatusCard({ services, hasActiveErrors, loading, onClick 
     <button
       onClick={onClick}
       className={`
-        flex flex-col gap-1 px-3 py-1.5 rounded-md transition-all
-        bg-muted/50 hover:bg-muted/70 ${statusRing}
-        cursor-pointer min-w-[140px]
+        flex flex-col items-center gap-2 px-4 py-2.5 rounded-lg transition-all
+        bg-card border border-border/50 hover:border-border hover:bg-accent/50 
+        shadow-sm hover:shadow ${statusRing}
+        cursor-pointer min-w-[160px]
       `}
       title="Click to view console logs"
     >
-      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+      <span className="text-[11px] font-semibold text-foreground/80 uppercase tracking-wider text-center w-full">
         Service Status
       </span>
       {loading ? (
-        <div className="flex items-center justify-center py-1">
-          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center py-1.5">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1" title="Error">
-            <XCircle className="w-3.5 h-3.5 text-red-500" />
-            <span className={statusCounts.error > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
+        <div className="flex items-center justify-center gap-4 text-sm w-full">
+          <div className="flex flex-col items-center gap-0.5" title="Error">
+            <XCircle className={`w-5 h-5 ${statusCounts.error > 0 ? 'text-red-500' : 'text-muted-foreground/40'}`} />
+            <span className={`text-xs font-semibold ${statusCounts.error > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground/60'}`}>
               {statusCounts.error}
             </span>
           </div>
-          <div className="flex items-center gap-1" title="Warning">
-            <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
-            <span className={statusCounts.warn > 0 ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-muted-foreground'}>
+          <div className="flex flex-col items-center gap-0.5" title="Warning">
+            <AlertTriangle className={`w-5 h-5 ${statusCounts.warn > 0 ? 'text-orange-500' : 'text-muted-foreground/40'}`} />
+            <span className={`text-xs font-semibold ${statusCounts.warn > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground/60'}`}>
               {statusCounts.warn}
             </span>
           </div>
-          <div className="flex items-center gap-1" title="Running">
-            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-            <span className={statusCounts.running > 0 ? 'text-green-600 dark:text-green-400 font-medium' : 'text-muted-foreground'}>
+          <div className="flex flex-col items-center gap-0.5" title="Running">
+            <CheckCircle className={`w-5 h-5 ${statusCounts.running > 0 ? 'text-green-500' : 'text-muted-foreground/40'}`} />
+            <span className={`text-xs font-semibold ${statusCounts.running > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground/60'}`}>
               {statusCounts.running}
             </span>
           </div>

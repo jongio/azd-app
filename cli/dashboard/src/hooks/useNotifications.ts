@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Notification } from '@/components/NotificationStack'
 import type { NotificationHistoryItem } from '@/components/NotificationCenter'
 
@@ -9,6 +9,18 @@ export function useNotifications() {
   const [toastNotifications, setToastNotifications] = useState<Notification[]>([])
   const [history, setHistory] = useState<NotificationHistoryItem[]>([])
   const [isCenterOpen, setIsCenterOpen] = useState(false)
+  
+  // Track pending dismiss timeouts for cleanup
+  const dismissTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  // Cleanup all pending timeouts on unmount
+  useEffect(() => {
+    const timeouts = dismissTimeoutsRef.current
+    return () => {
+      timeouts.forEach((timeout) => clearTimeout(timeout))
+      timeouts.clear()
+    }
+  }, [])
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -59,12 +71,23 @@ export function useNotifications() {
   }, [])
 
   const dismissToast = useCallback((id: string) => {
+    // Clear any existing timeout for this notification
+    const existingTimeout = dismissTimeoutsRef.current.get(id)
+    if (existingTimeout) {
+      clearTimeout(existingTimeout)
+      dismissTimeoutsRef.current.delete(id)
+    }
+
     setToastNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, dismissed: true } : n
     ))
-    setTimeout(() => {
+    
+    const timeout = setTimeout(() => {
       setToastNotifications(prev => prev.filter(n => n.id !== id))
+      dismissTimeoutsRef.current.delete(id)
     }, 300)
+    
+    dismissTimeoutsRef.current.set(id, timeout)
   }, [])
 
   const markAsRead = useCallback((id: string) => {

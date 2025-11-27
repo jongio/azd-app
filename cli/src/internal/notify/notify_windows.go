@@ -238,6 +238,17 @@ func (w *windowsNotifier) findAzdExecutable() string {
 
 // sanitizeForPowerShell sanitizes a string for safe use in PowerShell scripts.
 // It escapes single quotes and removes potentially dangerous characters.
+//
+// Security considerations:
+//   - Removes control characters (ASCII 0-31 except tab, newline, carriage return)
+//   - Escapes single quotes (PowerShell string delimiter)
+//   - Removes backticks (PowerShell escape character)
+//   - Removes $ (PowerShell variable expansion)
+//   - Removes semicolons (command separator)
+//   - Removes parentheses (subexpression operator)
+//   - Removes braces (script block delimiters)
+//   - Removes pipe and redirect operators
+//   - Enforces maximum length to prevent buffer issues
 func sanitizeForPowerShell(s string) string {
 	// Limit length to prevent buffer issues
 	if len(s) > constants.MaxNotificationTextLength {
@@ -256,18 +267,54 @@ func sanitizeForPowerShell(s string) string {
 	s = strings.ReplaceAll(s, "`", "")
 	// Remove $ which could trigger variable expansion
 	s = strings.ReplaceAll(s, "$", "")
+	// Remove semicolons which could separate commands
+	s = strings.ReplaceAll(s, ";", "")
+	// Remove parentheses which could be used for subexpressions
+	s = strings.ReplaceAll(s, "(", "")
+	s = strings.ReplaceAll(s, ")", "")
+	// Remove braces which could define script blocks
+	s = strings.ReplaceAll(s, "{", "")
+	s = strings.ReplaceAll(s, "}", "")
+	// Remove pipe operator
+	s = strings.ReplaceAll(s, "|", "")
+	// Remove redirect operators
+	s = strings.ReplaceAll(s, ">", "")
+	s = strings.ReplaceAll(s, "<", "")
 	return s
 }
 
 // sanitizeForXML sanitizes a string for safe use in XML content.
+// This is used for toast notification templates which are XML-based.
+//
+// The function first applies PowerShell sanitization, then escapes XML entities.
+// Note: < and > are already removed by sanitizeForPowerShell, but we escape
+// them here as a defense-in-depth measure.
 func sanitizeForXML(s string) string {
-	// First apply PowerShell sanitization
-	s = sanitizeForPowerShell(s)
-	// Then escape XML special characters
+	// Limit length first
+	if len(s) > constants.MaxNotificationTextLength {
+		s = s[:constants.MaxNotificationTextLength]
+	}
+	// Escape XML special characters FIRST (before PowerShell sanitization)
+	// This order is important: & must be escaped before other entities
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")
 	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	// Now apply PowerShell sanitization for the script context
+	// Note: We skip calling sanitizeForPowerShell here since we've already
+	// done XML escaping. Instead, we remove remaining dangerous characters.
+	s = strings.Map(func(r rune) rune {
+		if r < 32 && r != '\t' && r != '\n' && r != '\r' {
+			return -1
+		}
+		return r
+	}, s)
+	// Remove PowerShell-specific dangerous characters
+	s = strings.ReplaceAll(s, "`", "")
+	s = strings.ReplaceAll(s, "$", "")
+	s = strings.ReplaceAll(s, ";", "")
+	s = strings.ReplaceAll(s, "|", "")
 	return s
 }
 

@@ -45,6 +45,10 @@ const (
 	CleanupInterval = 5 * time.Minute
 	// DefaultMonitorInterval is the default interval for state monitoring
 	DefaultMonitorInterval = 5 * time.Second
+	// ServerStartupDelay is the delay to wait for HTTP server startup
+	ServerStartupDelay = 100 * time.Millisecond
+	// ToastAutoDismissTimeout is the timeout for auto-dismissing toast notifications
+	ToastAutoDismissTimeout = 10 * time.Second
 )
 
 // Buffer sizes
@@ -99,4 +103,24 @@ const (
 	MaxOverrideTextLength = 500
 	// MaxNotificationTextLength is the maximum length for notification text (title, message, URL)
 	MaxNotificationTextLength = 500
+)
+
+// UI constraints
+const (
+	// MinGridColumns is the minimum number of grid columns for logs view
+	MinGridColumns = 1
+	// MaxGridColumns is the maximum number of grid columns for logs view
+	MaxGridColumns = 6
+	// DefaultGridColumns is the default number of grid columns
+	DefaultGridColumns = 2
+)
+
+// WebSocket reconnection
+const (
+	// WebSocketInitialReconnectDelay is the initial delay before reconnecting
+	WebSocketInitialReconnectDelay = 1 * time.Second
+	// WebSocketMaxReconnectDelay is the maximum delay between reconnection attempts
+	WebSocketMaxReconnectDelay = 30 * time.Second
+	// WebSocketMaxReconnectAttempts is the maximum number of reconnection attempts (0 = unlimited)
+	WebSocketMaxReconnectAttempts = 0
 )

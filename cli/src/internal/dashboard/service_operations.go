@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,30 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
+
+// serviceNameRegex validates service names to prevent injection attacks.
+// Allows alphanumeric characters, hyphens, underscores, and dots.
+// Must start with alphanumeric, max 63 characters (DNS label compatible).
+var serviceNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$`)
+
+// validateServiceName validates that a service name is safe and well-formed.
+// Returns an error if the name is empty, too long, or contains invalid characters.
+func validateServiceName(name string) error {
+	if name == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+	if len(name) > 63 {
+		return fmt.Errorf("service name exceeds maximum length of 63 characters")
+	}
+	if !serviceNameRegex.MatchString(name) {
+		return fmt.Errorf("service name contains invalid characters (use alphanumeric, hyphen, underscore, or dot)")
+	}
+	// Additional check for path traversal attempts
+	if strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("service name contains invalid path characters")
+	}
+	return nil
+}
 
 // serviceOperation defines the type of service operation to perform.
 type serviceOperation int
@@ -46,6 +71,12 @@ func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request)
 	serviceName := r.URL.Query().Get("service")
 	if serviceName == "" {
 		writeJSONError(w, http.StatusNotImplemented, h.getNotImplementedMessage(), nil)
+		return
+	}
+
+	// Validate service name to prevent injection attacks
+	if err := validateServiceName(serviceName); err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid service name: %s", err.Error()), nil)
 		return
 	}
 

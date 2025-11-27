@@ -1,3 +1,7 @@
+// Package browser provides utilities for launching URLs in the user's web browser.
+// It supports Windows, macOS, and Linux with automatic detection of the system
+// default browser. The package handles cross-platform differences in browser
+// launch commands and provides options for controlling launch behavior.
 package browser
 
 import (

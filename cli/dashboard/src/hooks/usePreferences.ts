@@ -38,6 +38,91 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   }
 }
 
+/**
+ * Type guard to check if a value is a valid view mode.
+ */
+function isValidViewMode(value: unknown): value is 'grid' | 'unified' {
+  return value === 'grid' || value === 'unified'
+}
+
+/**
+ * Type guard to check if a value is a valid copy format.
+ */
+function isValidCopyFormat(value: unknown): value is 'plaintext' | 'json' | 'markdown' | 'csv' {
+  return value === 'plaintext' || value === 'json' || value === 'markdown' || value === 'csv'
+}
+
+/**
+ * Validates and sanitizes preferences data from the API.
+ * Returns a valid UserPreferences object with defaults for any invalid/missing fields.
+ */
+function validatePreferences(data: unknown): UserPreferences {
+  if (typeof data !== 'object' || data === null) {
+    return DEFAULT_PREFERENCES
+  }
+
+  const raw = data as Record<string, unknown>
+
+  // Validate UI preferences
+  const rawUI = typeof raw.ui === 'object' && raw.ui !== null 
+    ? raw.ui as Record<string, unknown> 
+    : {}
+  
+  const ui: UserPreferences['ui'] = {
+    gridColumns: typeof rawUI.gridColumns === 'number' && rawUI.gridColumns >= 1 && rawUI.gridColumns <= 6
+      ? rawUI.gridColumns
+      : DEFAULT_PREFERENCES.ui.gridColumns,
+    viewMode: isValidViewMode(rawUI.viewMode)
+      ? rawUI.viewMode
+      : DEFAULT_PREFERENCES.ui.viewMode,
+    selectedServices: Array.isArray(rawUI.selectedServices) && 
+      rawUI.selectedServices.every((s): s is string => typeof s === 'string')
+      ? rawUI.selectedServices
+      : DEFAULT_PREFERENCES.ui.selectedServices
+  }
+
+  // Validate behavior preferences
+  const rawBehavior = typeof raw.behavior === 'object' && raw.behavior !== null
+    ? raw.behavior as Record<string, unknown>
+    : {}
+  
+  const behavior: UserPreferences['behavior'] = {
+    autoScroll: typeof rawBehavior.autoScroll === 'boolean'
+      ? rawBehavior.autoScroll
+      : DEFAULT_PREFERENCES.behavior.autoScroll,
+    pauseOnScroll: typeof rawBehavior.pauseOnScroll === 'boolean'
+      ? rawBehavior.pauseOnScroll
+      : DEFAULT_PREFERENCES.behavior.pauseOnScroll,
+    timestampFormat: typeof rawBehavior.timestampFormat === 'string'
+      ? rawBehavior.timestampFormat
+      : DEFAULT_PREFERENCES.behavior.timestampFormat
+  }
+
+  // Validate copy preferences
+  const rawCopy = typeof raw.copy === 'object' && raw.copy !== null
+    ? raw.copy as Record<string, unknown>
+    : {}
+  
+  const copy: UserPreferences['copy'] = {
+    defaultFormat: isValidCopyFormat(rawCopy.defaultFormat)
+      ? rawCopy.defaultFormat
+      : DEFAULT_PREFERENCES.copy.defaultFormat,
+    includeTimestamp: typeof rawCopy.includeTimestamp === 'boolean'
+      ? rawCopy.includeTimestamp
+      : DEFAULT_PREFERENCES.copy.includeTimestamp,
+    includeService: typeof rawCopy.includeService === 'boolean'
+      ? rawCopy.includeService
+      : DEFAULT_PREFERENCES.copy.includeService
+  }
+
+  return {
+    version: typeof raw.version === 'string' ? raw.version : DEFAULT_PREFERENCES.version,
+    ui,
+    behavior,
+    copy
+  }
+}
+
 export function usePreferences() {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES)
   const [isLoading, setIsLoading] = useState(true)
@@ -47,8 +132,9 @@ export function usePreferences() {
       setIsLoading(true)
       const response = await fetch('/api/logs/preferences')
       if (response.ok) {
-        const data = await response.json() as UserPreferences
-        setPreferences({ ...DEFAULT_PREFERENCES, ...data })
+        const data: unknown = await response.json()
+        const validatedPrefs = validatePreferences(data)
+        setPreferences(validatedPrefs)
       } else {
         setPreferences(DEFAULT_PREFERENCES)
       }

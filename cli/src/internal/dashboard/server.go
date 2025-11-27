@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -369,7 +370,7 @@ func (s *Server) Start() (string, error) {
 	}()
 
 	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(constants.ServerStartupDelay)
 
 	// Mark as started
 	s.startedMu.Lock()

@@ -404,14 +404,14 @@ func (m *StateMonitor) updateRateLimit(serviceName string) {
 }
 
 // addTransitionLocked adds a transition to history (must hold mu).
+// Uses efficient slice reslicing to maintain maxHistory limit.
 func (m *StateMonitor) addTransitionLocked(transition *StateTransition) {
 	m.stateHistory = append(m.stateHistory, *transition)
 
-	// Trim history if it exceeds max
+	// Trim history if it exceeds max - use efficient reslicing
 	if len(m.stateHistory) > m.maxHistory {
-		// Keep most recent transitions
-		copy(m.stateHistory, m.stateHistory[len(m.stateHistory)-m.maxHistory:])
-		m.stateHistory = m.stateHistory[:m.maxHistory]
+		// Keep most recent transitions by reslicing
+		m.stateHistory = m.stateHistory[len(m.stateHistory)-m.maxHistory:]
 	}
 }
 
