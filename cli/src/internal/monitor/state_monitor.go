@@ -224,6 +224,18 @@ func (m *StateMonitor) captureServiceState(svc *registry.ServiceRegistryEntry) *
 
 // detectTransition detects and records state transitions.
 func (m *StateMonitor) detectTransition(currentState *ServiceState) {
+	// Process state update under lock, extract transition if any
+	transition := m.processStateUpdate(currentState)
+
+	// Notify listeners outside of lock to prevent deadlock
+	if transition != nil {
+		m.notifyListeners(*transition)
+	}
+}
+
+// processStateUpdate handles the locked portion of state transition detection.
+// Returns a transition to notify about, or nil if no notification needed.
+func (m *StateMonitor) processStateUpdate(currentState *ServiceState) *StateTransition {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -232,7 +244,7 @@ func (m *StateMonitor) detectTransition(currentState *ServiceState) {
 	// First time seeing this service
 	if !exists {
 		m.previousStates[currentState.Name] = currentState
-		return
+		return nil
 	}
 
 	// Check for meaningful transitions
@@ -240,7 +252,7 @@ func (m *StateMonitor) detectTransition(currentState *ServiceState) {
 	if transition == nil {
 		// No meaningful transition, just update state
 		m.previousStates[currentState.Name] = currentState
-		return
+		return nil
 	}
 
 	// Check rate limiting
@@ -249,7 +261,7 @@ func (m *StateMonitor) detectTransition(currentState *ServiceState) {
 			"service", currentState.Name,
 			"severity", transition.Severity.String())
 		m.previousStates[currentState.Name] = currentState
-		return
+		return nil
 	}
 
 	// Record transition
@@ -259,15 +271,9 @@ func (m *StateMonitor) detectTransition(currentState *ServiceState) {
 	// Update rate limit timestamp
 	m.updateRateLimitLocked(currentState.Name)
 
-	// Copy transition for notification (while still holding lock)
+	// Return a copy for notification (caller will notify outside lock)
 	transitionCopy := *transition
-
-	// Release lock before notifying to prevent blocking
-	m.mu.Unlock()
-	defer m.mu.Lock() // Re-acquire at function exit if needed
-
-	// Notify listeners outside lock to prevent deadlock
-	m.notifyListeners(transitionCopy)
+	return &transitionCopy
 }
 
 // evaluateTransition determines if a state change is meaningful.

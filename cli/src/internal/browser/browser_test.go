@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"context"
 	"runtime"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func TestResolveTarget(t *testing.T) {
 	}
 }
 
-func TestBuildSystemCommand(t *testing.T) {
+func TestBuildSystemCommandContext(t *testing.T) {
 	tests := []struct {
 		name        string
 		goos        string
@@ -92,7 +93,8 @@ func TestBuildSystemCommand(t *testing.T) {
 				t.Skipf("Skipping test for %s on %s", tt.goos, runtime.GOOS)
 			}
 
-			cmd := buildSystemCommand("http://localhost:4280")
+			ctx := context.Background()
+			cmd := buildSystemCommandContext(ctx, "http://localhost:4280")
 			if cmd.Path == "" {
 				t.Error("Command path is empty")
 			}

@@ -68,3 +68,33 @@ const (
 	SourceUser = "user"
 	SourceApp  = "app"
 )
+
+// Service status values
+const (
+	StatusRunning    = "running"
+	StatusStopped    = "stopped"
+	StatusStarting   = "starting"
+	StatusReady      = "ready"
+	StatusNotRunning = "not-running"
+	StatusError      = "error"
+	StatusStopping   = "stopping"
+)
+
+// Service health values
+const (
+	HealthHealthy   = "healthy"
+	HealthUnhealthy = "unhealthy"
+	HealthUnknown   = "unknown"
+)
+
+// Pattern field limits
+const (
+	// MaxPatternNameLength is the maximum length for pattern names
+	MaxPatternNameLength = 100
+	// MaxPatternLength is the maximum length for pattern regex
+	MaxPatternLength = 500
+	// MaxPatternDescriptionLength is the maximum length for pattern descriptions
+	MaxPatternDescriptionLength = 500
+	// MaxOverrideTextLength is the maximum length for override text
+	MaxOverrideTextLength = 500
+)

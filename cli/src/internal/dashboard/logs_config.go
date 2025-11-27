@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/fileutil"
 )
 
@@ -57,6 +58,43 @@ var (
 	prefsMu    sync.RWMutex
 )
 
+// validatePattern validates a LogPattern's fields for length and content.
+func validatePattern(pattern *LogPattern) error {
+	if len(pattern.Name) > constants.MaxPatternNameLength {
+		return fmt.Errorf("pattern name exceeds maximum length of %d characters", constants.MaxPatternNameLength)
+	}
+	if len(pattern.Pattern) > constants.MaxPatternLength {
+		return fmt.Errorf("pattern exceeds maximum length of %d characters", constants.MaxPatternLength)
+	}
+	if len(pattern.Description) > constants.MaxPatternDescriptionLength {
+		return fmt.Errorf("pattern description exceeds maximum length of %d characters", constants.MaxPatternDescriptionLength)
+	}
+	if pattern.Name == "" {
+		return fmt.Errorf("pattern name is required")
+	}
+	if pattern.Pattern == "" {
+		return fmt.Errorf("pattern is required")
+	}
+	if pattern.Type != "positive" && pattern.Type != "negative" {
+		return fmt.Errorf("pattern type must be 'positive' or 'negative'")
+	}
+	return nil
+}
+
+// validateOverride validates a ClassificationOverride's fields.
+func validateOverride(override *ClassificationOverride) error {
+	if len(override.Text) > constants.MaxOverrideTextLength {
+		return fmt.Errorf("override text exceeds maximum length of %d characters", constants.MaxOverrideTextLength)
+	}
+	if override.Text == "" {
+		return fmt.Errorf("override text is required")
+	}
+	if override.Level != "info" && override.Level != "warning" && override.Level != "error" {
+		return fmt.Errorf("override level must be 'info', 'warning', or 'error'")
+	}
+	return nil
+}
+
 // getUserConfigDir returns the user-level config directory (~/.azure/logs-dashboard/)
 func getUserConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -71,8 +109,38 @@ func getUserConfigDir() (string, error) {
 }
 
 // getAppConfigDir returns the app-level config directory (.azure/logs-dashboard/)
+// It validates the projectDir to prevent path traversal attacks.
 func getAppConfigDir(projectDir string) (string, error) {
-	configDir := filepath.Join(projectDir, ".azure", "logs-dashboard")
+	// Validate and clean the project directory path
+	if projectDir == "" {
+		return "", fmt.Errorf("project directory cannot be empty")
+	}
+
+	// Get absolute path to prevent traversal
+	absProjectDir, err := filepath.Abs(projectDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve project directory: %w", err)
+	}
+
+	// Clean the path to remove any .. or . components
+	absProjectDir = filepath.Clean(absProjectDir)
+
+	// Verify the directory exists and is a directory
+	info, err := os.Stat(absProjectDir)
+	if err != nil {
+		return "", fmt.Errorf("project directory does not exist: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("project path is not a directory: %s", absProjectDir)
+	}
+
+	configDir := filepath.Join(absProjectDir, ".azure", "logs-dashboard")
+
+	// Verify the config dir is still under the project dir (prevent traversal)
+	if !strings.HasPrefix(filepath.Clean(configDir), absProjectDir) {
+		return "", fmt.Errorf("config directory would escape project directory")
+	}
+
 	if err := fileutil.EnsureDir(configDir); err != nil {
 		return "", err
 	}
@@ -318,6 +386,12 @@ func (s *Server) handleCreatePattern(w http.ResponseWriter, r *http.Request) {
 	// Validate source
 	if pattern.Source != SourceUser && pattern.Source != SourceApp {
 		http.Error(w, "Invalid source (must be 'user' or 'app')", http.StatusBadRequest)
+		return
+	}
+
+	// Validate pattern fields
+	if err := validatePattern(&pattern); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -618,9 +692,9 @@ func (s *Server) handleCreateOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate level
-	if override.Level != "info" && override.Level != "warning" && override.Level != "error" {
-		http.Error(w, "Invalid level (must be 'info', 'warning', or 'error')", http.StatusBadRequest)
+	// Validate override fields
+	if err := validateOverride(&override); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 

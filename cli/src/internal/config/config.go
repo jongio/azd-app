@@ -114,6 +114,15 @@ func GetGlobal() *Config {
 	return globalConfig
 }
 
+// ResetGlobal resets the global config state. This is primarily for testing.
+// It clears the cached config so the next call to GetGlobal will reload from disk.
+func ResetGlobal() {
+	configMu.Lock()
+	defer configMu.Unlock()
+	globalConfig = nil
+	globalConfigOnce = sync.Once{}
+}
+
 // Get retrieves a config value by key path.
 // Supported keys: "app.dashboard.browser"
 func Get(key string) (string, error) {

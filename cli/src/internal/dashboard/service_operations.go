@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
@@ -61,10 +62,12 @@ func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// For restart, stop the service first
-	if h.operation == opRestart && entry.Status != "stopped" && entry.Status != "not-running" {
-		h.stopService(entry, serviceName)
-		time.Sleep(500 * time.Millisecond)
+	// For restart, stop the service first and wait for process exit
+	if h.operation == opRestart && entry.Status != constants.StatusStopped && entry.Status != constants.StatusNotRunning {
+		if err := h.stopService(entry, serviceName); err != nil {
+			log.Printf("Warning: error during restart stop phase: %v", err)
+		}
+		// Process exit is handled by stopService via StopServiceGraceful
 	}
 
 	// For stop operation, just stop and return
@@ -81,11 +84,11 @@ func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request)
 func (h *serviceOperationHandler) validateState(entry *registry.ServiceRegistryEntry, serviceName string) error {
 	switch h.operation {
 	case opStart:
-		if entry.Status == "running" || entry.Status == "ready" || entry.Status == "starting" {
+		if entry.Status == constants.StatusRunning || entry.Status == constants.StatusReady || entry.Status == constants.StatusStarting {
 			return fmt.Errorf("Service '%s' is already %s", serviceName, entry.Status)
 		}
 	case opStop:
-		if entry.Status == "stopped" || entry.Status == "not-running" {
+		if entry.Status == constants.StatusStopped || entry.Status == constants.StatusNotRunning {
 			return fmt.Errorf("Service '%s' is already stopped", serviceName)
 		}
 	case opRestart:
@@ -95,41 +98,50 @@ func (h *serviceOperationHandler) validateState(entry *registry.ServiceRegistryE
 }
 
 // stopService stops a running service by PID.
-func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEntry, serviceName string) {
+// Returns nil if service was stopped successfully or if there was no process to stop.
+func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEntry, serviceName string) error {
 	if entry.PID <= 0 {
-		return
+		return nil
 	}
 
 	process, err := os.FindProcess(entry.PID)
 	if err != nil {
-		log.Printf("Warning: could not find process %d: %v", entry.PID, err)
-		return
+		return fmt.Errorf("could not find process %d: %w", entry.PID, err)
 	}
 
 	serviceProcess := &service.ServiceProcess{
 		Name:    serviceName,
 		Process: process,
 	}
-	if err := service.StopService(serviceProcess); err != nil {
-		log.Printf("Warning: error stopping service %s: %v", serviceName, err)
+	if err := service.StopServiceGraceful(serviceProcess, service.DefaultStopTimeout); err != nil {
+		return fmt.Errorf("error stopping service %s: %w", serviceName, err)
 	}
+	return nil
 }
 
 // performStop handles the stop operation.
 func (h *serviceOperationHandler) performStop(w http.ResponseWriter, entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) {
 	// Update registry to stopping state
-	if err := reg.UpdateStatus(serviceName, "stopping", entry.Health); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopping, entry.Health); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
-	h.stopService(entry, serviceName)
+	if err := h.stopService(entry, serviceName); err != nil {
+		log.Printf("Warning: %v", err)
+		// Update registry to error state and notify clients
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		h.broadcastAndRespond(w, serviceName, constants.StatusError, nil)
+		return
+	}
 
 	// Update registry to stopped state
-	if err := reg.UpdateStatus(serviceName, "stopped", "unknown"); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
-	h.broadcastAndRespond(w, serviceName, "stopped", nil)
+	h.broadcastAndRespond(w, serviceName, constants.StatusStopped, nil)
 }
 
 // performStart handles the start/restart operation.
@@ -156,7 +168,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, "starting", "unknown"); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthUnknown); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -167,24 +179,37 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	functionsParser := service.NewFunctionsOutputParser(false)
 	process, err := service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
 	if err != nil {
-		if regErr := reg.UpdateStatus(serviceName, "error", "unknown"); regErr != nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		// Broadcast error state to WebSocket clients
+		if broadcastErr := h.server.BroadcastServiceUpdate(h.server.projectDir); broadcastErr != nil {
+			log.Printf("Warning: failed to broadcast error update: %v", broadcastErr)
 		}
 		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to %s service", h.getOperationVerb()), err)
 		return
 	}
 
-	// Update registry with running state
-	entry.PID = process.Process.Pid
-	entry.Status = "running"
-	entry.Health = "healthy"
-	entry.StartTime = time.Now()
-	entry.LastChecked = time.Now()
-	if err := reg.Register(entry); err != nil {
+	// Create a fresh entry to avoid race conditions with the copy from GetService
+	updatedEntry := &registry.ServiceRegistryEntry{
+		Name:        serviceName,
+		ProjectDir:  entry.ProjectDir,
+		PID:         process.Process.Pid,
+		Port:        runtime.Port,
+		URL:         entry.URL,
+		AzureURL:    entry.AzureURL,
+		Language:    runtime.Language,
+		Framework:   runtime.Framework,
+		Status:      constants.StatusRunning,
+		Health:      constants.HealthHealthy,
+		StartTime:   time.Now(),
+		LastChecked: time.Now(),
+	}
+	if err := reg.Register(updatedEntry); err != nil {
 		log.Printf("Warning: failed to register service: %v", err)
 	}
 
-	h.broadcastAndRespond(w, serviceName, h.getOperationPastTense(), entry)
+	h.broadcastAndRespond(w, serviceName, h.getOperationPastTense(), updatedEntry)
 }
 
 // loadEnvironmentVariables loads env vars from OS and merges runtime-specific ones.

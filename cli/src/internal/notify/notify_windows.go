@@ -230,12 +230,47 @@ func (w *windowsNotifier) findAzdExecutable() string {
 	return ""
 }
 
+// sanitizeForPowerShell sanitizes a string for safe use in PowerShell scripts.
+// It escapes single quotes and removes potentially dangerous characters.
+func sanitizeForPowerShell(s string) string {
+	// Limit length to prevent buffer issues
+	if len(s) > 500 {
+		s = s[:500]
+	}
+	// Remove null bytes and other control characters that could cause issues
+	s = strings.Map(func(r rune) rune {
+		if r < 32 && r != '\t' && r != '\n' && r != '\r' {
+			return -1 // Remove control characters
+		}
+		return r
+	}, s)
+	// Escape single quotes for PowerShell strings
+	s = strings.ReplaceAll(s, "'", "''")
+	// Remove backticks which are PowerShell escape characters
+	s = strings.ReplaceAll(s, "`", "")
+	// Remove $ which could trigger variable expansion
+	s = strings.ReplaceAll(s, "$", "")
+	return s
+}
+
+// sanitizeForXML sanitizes a string for safe use in XML content.
+func sanitizeForXML(s string) string {
+	// First apply PowerShell sanitization
+	s = sanitizeForPowerShell(s)
+	// Then escape XML special characters
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}
+
 // buildToastScript builds a PowerShell script for Windows toast notifications.
 func (w *windowsNotifier) buildToastScript(notification Notification) string {
-	// Escape single quotes in strings
-	title := strings.ReplaceAll(notification.Title, "'", "''")
-	message := strings.ReplaceAll(notification.Message, "'", "''")
-	url := strings.ReplaceAll(notification.URL, "'", "''")
+	// Sanitize inputs to prevent injection attacks
+	title := sanitizeForXML(notification.Title)
+	message := sanitizeForXML(notification.Message)
+	url := sanitizeForPowerShell(notification.URL)
 
 	// Determine icon based on severity
 	icon := "Information"

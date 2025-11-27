@@ -4,6 +4,7 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -121,7 +122,10 @@ func (p *Pipeline) handleEvent(event Event) {
 	for _, handler := range handlers {
 		if err := handler.Handle(p.ctx, event); err != nil {
 			// Log error but continue processing
-			fmt.Printf("Handler error: %v\n", err)
+			slog.Warn("Handler error processing notification event",
+				"error", err,
+				"eventType", event.Type,
+				"service", event.ServiceName)
 		}
 	}
 }
