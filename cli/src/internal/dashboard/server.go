@@ -209,7 +209,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start health monitoring
-	monitor := newWSHealthMonitorNhooyr(client)
+	monitor := newWSHealthMonitor(client)
 	healthErrors := monitor.start()
 	defer monitor.stop()
 

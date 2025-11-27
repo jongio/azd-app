@@ -13,7 +13,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
-// wsClient wraps a nhooyr websocket connection with a write mutex for safe concurrent writes.
+// wsClient wraps a coder/websocket connection with a write mutex for safe concurrent writes.
 type wsClient struct {
 	conn    *websocket.Conn
 	writeMu sync.Mutex
@@ -103,16 +103,16 @@ func readMessage(client *wsClient) error {
 	return nil
 }
 
-// wsHealthMonitorNhooyr manages WebSocket connection health monitoring with ping/pong for nhooyr/websocket.
-type wsHealthMonitorNhooyr struct {
+// wsHealthMonitor manages WebSocket connection health monitoring with ping/pong for coder/websocket.
+type wsHealthMonitor struct {
 	client     *wsClient
 	stopChan   chan struct{}
 	pingTicker *time.Ticker
 }
 
-// newWSHealthMonitorNhooyr creates a new WebSocket health monitor.
-func newWSHealthMonitorNhooyr(client *wsClient) *wsHealthMonitorNhooyr {
-	return &wsHealthMonitorNhooyr{
+// newWSHealthMonitor creates a new WebSocket health monitor.
+func newWSHealthMonitor(client *wsClient) *wsHealthMonitor {
+	return &wsHealthMonitor{
 		client:   client,
 		stopChan: make(chan struct{}),
 	}
@@ -120,10 +120,10 @@ func newWSHealthMonitorNhooyr(client *wsClient) *wsHealthMonitorNhooyr {
 
 // start begins the health monitoring with ping/pong messages.
 // Returns an error channel that will receive any fatal errors.
-func (m *wsHealthMonitorNhooyr) start() <-chan error {
+func (m *wsHealthMonitor) start() <-chan error {
 	errChan := make(chan error, 1)
 
-	// Start ping ticker - nhooyr/websocket handles pings automatically, but we can configure read deadline
+	// Start ping ticker - coder/websocket handles pings automatically, but we can configure read deadline
 	m.pingTicker = time.NewTicker(service.DefaultWebSocketPingPeriod)
 
 	// Start ping loop in goroutine
@@ -134,7 +134,7 @@ func (m *wsHealthMonitorNhooyr) start() <-chan error {
 			case <-m.stopChan:
 				return
 			case <-m.pingTicker.C:
-				// nhooyr/websocket handles pings automatically when reading
+				// coder/websocket handles pings automatically when reading
 				// We just need to ensure we're reading periodically
 				ctx, cancel := context.WithTimeout(m.client.ctx, service.DefaultWebSocketWriteTimeout)
 				err := m.client.conn.Ping(ctx)
@@ -153,6 +153,6 @@ func (m *wsHealthMonitorNhooyr) start() <-chan error {
 }
 
 // stop stops the health monitor.
-func (m *wsHealthMonitorNhooyr) stop() {
+func (m *wsHealthMonitor) stop() {
 	close(m.stopChan)
 }
