@@ -1,0 +1,9 @@
+{
+  "name": "stable-api",
+  "version": "1.0.0",
+  "description": "Stable API service - always healthy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

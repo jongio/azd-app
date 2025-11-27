@@ -1,5 +1,5 @@
-import { CheckCircle, XCircle, Clock, AlertCircle, StopCircle, type LucideIcon } from 'lucide-react'
-import type { Service } from '@/types'
+import { CheckCircle, XCircle, Clock, AlertCircle, StopCircle, AlertTriangle, type LucideIcon } from 'lucide-react'
+import type { Service, HealthCheckResult } from '@/types'
 
 /**
  * Status display configuration for a service
@@ -37,6 +37,17 @@ export function getStatusDisplay(status: string, health: string): StatusDisplay 
       textColor: 'text-green-400',
       badgeVariant: 'success',
       icon: CheckCircle
+    }
+  }
+
+  // Degraded state (new)
+  if ((status === 'ready' || status === 'running') && health === 'degraded') {
+    return {
+      text: 'Degraded',
+      color: 'bg-amber-500',
+      textColor: 'text-amber-400',
+      badgeVariant: 'warning',
+      icon: AlertTriangle
     }
   }
 
@@ -152,5 +163,79 @@ export function formatLogTimestamp(timestamp: string): string {
     return `${time}.${ms}`
   } catch {
     return timestamp
+  }
+}
+
+/**
+ * Format response time from nanoseconds to human-readable string
+ */
+export function formatResponseTime(nanos?: number): string {
+  if (!nanos || nanos <= 0) return '-'
+  const ms = nanos / 1_000_000
+  if (ms < 1) return '<1ms'
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+/**
+ * Format uptime from nanoseconds to human-readable string
+ */
+export function formatUptime(nanos?: number): string {
+  if (!nanos || nanos <= 0) return '-'
+  const seconds = nanos / 1_000_000_000
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  const minutes = seconds / 60
+  if (minutes < 60) return `${Math.round(minutes)}m`
+  const hours = minutes / 60
+  if (hours < 24) return `${Math.floor(hours)}h ${Math.round(minutes % 60)}m`
+  const days = hours / 24
+  return `${Math.floor(days)}d ${Math.round(hours % 24)}h`
+}
+
+/**
+ * Get health check type display text
+ */
+export function getCheckTypeDisplay(checkType?: string): string {
+  switch (checkType) {
+    case 'http':
+      return 'HTTP'
+    case 'port':
+      return 'Port'
+    case 'process':
+      return 'Process'
+    default:
+      return 'Unknown'
+  }
+}
+
+/**
+ * Merge health check result into service for display
+ */
+export function mergeHealthIntoService(
+  service: Service,
+  healthResult?: HealthCheckResult
+): Service {
+  if (!healthResult) return service
+
+  return {
+    ...service,
+    local: {
+      ...service.local,
+      status: service.local?.status ?? 'not-running',
+      health: healthResult.status === 'healthy' ? 'healthy' 
+            : healthResult.status === 'degraded' ? 'degraded'
+            : healthResult.status === 'unhealthy' ? 'unhealthy' 
+            : 'unknown',
+      lastChecked: healthResult.timestamp,
+      healthDetails: {
+        checkType: healthResult.checkType,
+        endpoint: healthResult.endpoint,
+        responseTime: healthResult.responseTime / 1_000_000, // convert to ms
+        statusCode: healthResult.statusCode,
+        uptime: healthResult.uptime ? healthResult.uptime / 1_000_000_000 : undefined, // convert to seconds
+        lastError: healthResult.error,
+        details: healthResult.details,
+      },
+    },
   }
 }

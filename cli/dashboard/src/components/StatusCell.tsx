@@ -2,7 +2,7 @@ import { getStatusDisplay } from '@/lib/service-utils'
 
 interface StatusCellProps {
   status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
-  health: 'healthy' | 'unhealthy' | 'unknown'
+  health: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
 }
 
 export function StatusCell({ status, health }: StatusCellProps) {

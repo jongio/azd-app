@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: lifecycle-test
+metadata:
+  template: lifecycle-test
+  description: Test project simulating service lifecycle - healthy → unhealthy → healthy transitions
+
+services:
+  # Stable service - always healthy
+  stable-api:
+    language: js
+    project: ./stable-api
+    host: localhost
+    ports:
+      - "3001"
+    healthcheck:
+      test: "http://localhost:3001/health"
+      interval: 5s
+      timeout: 3s
+      retries: 2
+
+  # Flaky service - transitions between healthy/unhealthy on schedule
+  flaky-service:
+    language: js
+    project: ./flaky-service
+    host: localhost
+    ports:
+      - "3002"
+    healthcheck:
+      test: "http://localhost:3002/health"
+      interval: 5s
+      timeout: 3s
+      retries: 1
+
+  # Slow starter - unhealthy initially, becomes healthy after warmup
+  slow-starter:
+    language: js
+    project: ./slow-starter
+    host: localhost
+    ports:
+      - "3003"
+    healthcheck:
+      test: "http://localhost:3003/health"
+      interval: 5s
+      timeout: 3s
+      retries: 2
+      start_period: 30s
+
+  # Degraded service - healthy but slow response times
+  degraded-api:
+    language: js
+    project: ./degraded-api
+    host: localhost
+    ports:
+      - "3004"
+    healthcheck:
+      test: "http://localhost:3004/health"
+      interval: 5s
+      timeout: 3s
+      retries: 2

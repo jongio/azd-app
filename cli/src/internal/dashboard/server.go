@@ -118,6 +118,8 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/logs/patterns", s.handlePatternsRouter)
 	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
+	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
+	s.mux.HandleFunc("/api/health/stream", s.handleHealthStream)
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
