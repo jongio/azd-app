@@ -2,12 +2,74 @@
 package fileutil
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/security"
 )
+
+// File permissions
+const (
+	// DirPermission is the default permission for creating directories (rwxr-x---)
+	DirPermission = 0750
+	// FilePermission is the default permission for creating files (rw-r--r--)
+	FilePermission = 0644
+)
+
+// AtomicWriteJSON writes data as JSON to a file atomically.
+// It writes to a temporary file first, then renames it to the target path.
+// This ensures the file is never left in a partial/corrupt state.
+func AtomicWriteJSON(path string, data interface{}) error {
+	tmpPath := path + ".tmp"
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	// Write to temp file first
+	if err := os.WriteFile(tmpPath, jsonData, FilePermission); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Rename temp file to final file (atomic operation on most filesystems)
+	if err := os.Rename(tmpPath, path); err != nil {
+		// Clean up temp file on failure
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// ReadJSON reads JSON from a file into the target interface.
+// Returns nil error if file doesn't exist (target unchanged).
+func ReadJSON(path string, target interface{}) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // File doesn't exist, not an error
+		}
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	if err := json.Unmarshal(data, target); err != nil {
+		return fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return nil
+}
+
+// EnsureDir creates a directory if it doesn't exist.
+func EnsureDir(path string) error {
+	if err := os.MkdirAll(path, DirPermission); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+	return nil
+}
 
 // FileExists checks if a file exists in a directory.
 // Returns true if the file exists, false otherwise.

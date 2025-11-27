@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/jongio/azd-app/cli/src/internal/fileutil"
 )
 
 // LogPattern represents a pattern for false positive/negative detection
@@ -44,6 +46,12 @@ type UserPreferences struct {
 	ViewMode    string `json:"viewMode"` // "grid" or "unified"
 }
 
+// Pattern/Override source types
+const (
+	SourceUser = "user"
+	SourceApp  = "app"
+)
+
 var (
 	patternsMu sync.RWMutex
 	prefsMu    sync.RWMutex
@@ -56,8 +64,8 @@ func getUserConfigDir() (string, error) {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 	configDir := filepath.Join(home, ".azure", "logs-dashboard")
-	if err := os.MkdirAll(configDir, 0750); err != nil {
-		return "", fmt.Errorf("failed to create config directory: %w", err)
+	if err := fileutil.EnsureDir(configDir); err != nil {
+		return "", err
 	}
 	return configDir, nil
 }
@@ -65,8 +73,8 @@ func getUserConfigDir() (string, error) {
 // getAppConfigDir returns the app-level config directory (.azure/logs-dashboard/)
 func getAppConfigDir(projectDir string) (string, error) {
 	configDir := filepath.Join(projectDir, ".azure", "logs-dashboard")
-	if err := os.MkdirAll(configDir, 0750); err != nil {
-		return "", fmt.Errorf("failed to create app config directory: %w", err)
+	if err := fileutil.EnsureDir(configDir); err != nil {
+		return "", err
 	}
 	return configDir, nil
 }
@@ -132,6 +140,25 @@ func loadPatternsFromDir(configDir string, source string) ([]LogPattern, error) 
 	return patterns, nil
 }
 
+// loadPatternsForSource loads patterns for a specific source (user or app).
+// This is a helper to reduce code duplication.
+func loadPatternsForSource(projectDir, source string) ([]LogPattern, error) {
+	var configDir string
+	var err error
+
+	if source == SourceUser {
+		configDir, err = getUserConfigDir()
+	} else {
+		configDir, err = getAppConfigDir(projectDir)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return loadPatternsFromDir(configDir, source)
+}
+
 // loadClassificationOverrides loads classification overrides from app config
 func loadClassificationOverrides(projectDir string) ([]ClassificationOverride, error) {
 	appConfigDir, err := getAppConfigDir(projectDir)
@@ -165,24 +192,7 @@ func saveClassificationOverrides(projectDir string, overrides []ClassificationOv
 	}
 
 	overridesFile := filepath.Join(appConfigDir, "overrides.json")
-	tempFile := overridesFile + ".tmp"
-
-	data, err := json.MarshalIndent(overrides, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal overrides: %w", err)
-	}
-
-	// Write to temp file first (atomic write pattern)
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
-		return fmt.Errorf("failed to write temp overrides file: %w", err)
-	}
-
-	// Rename temp file to final file (atomic operation)
-	if err := os.Rename(tempFile, overridesFile); err != nil {
-		return fmt.Errorf("failed to rename overrides file: %w", err)
-	}
-
-	return nil
+	return fileutil.AtomicWriteJSON(overridesFile, overrides)
 }
 
 // savePatterns saves patterns to the appropriate config directory
@@ -193,7 +203,7 @@ func savePatterns(projectDir string, patterns []LogPattern, source string) error
 	var configDir string
 	var err error
 
-	if source == "user" {
+	if source == SourceUser {
 		configDir, err = getUserConfigDir()
 	} else {
 		configDir, err = getAppConfigDir(projectDir)
@@ -204,24 +214,7 @@ func savePatterns(projectDir string, patterns []LogPattern, source string) error
 	}
 
 	patternsFile := filepath.Join(configDir, "patterns.json")
-	tempFile := patternsFile + ".tmp"
-
-	data, err := json.MarshalIndent(patterns, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal patterns: %w", err)
-	}
-
-	// Write to temp file first (atomic write pattern)
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
-		return fmt.Errorf("failed to write temp patterns file: %w", err)
-	}
-
-	// Rename temp file to final file (atomic operation)
-	if err := os.Rename(tempFile, patternsFile); err != nil {
-		return fmt.Errorf("failed to rename patterns file: %w", err)
-	}
-
-	return nil
+	return fileutil.AtomicWriteJSON(patternsFile, patterns)
 }
 
 // loadPreferences loads user preferences
@@ -268,24 +261,7 @@ func savePreferences(prefs UserPreferences) error {
 	}
 
 	prefsFile := filepath.Join(userConfigDir, "preferences.json")
-	tempFile := prefsFile + ".tmp"
-
-	data, err := json.MarshalIndent(prefs, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal preferences: %w", err)
-	}
-
-	// Write to temp file first (atomic write pattern)
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
-		return fmt.Errorf("failed to write temp preferences file: %w", err)
-	}
-
-	// Rename temp file to final file (atomic operation)
-	if err := os.Rename(tempFile, prefsFile); err != nil {
-		return fmt.Errorf("failed to rename preferences file: %w", err)
-	}
-
-	return nil
+	return fileutil.AtomicWriteJSON(prefsFile, prefs)
 }
 
 // HTTP Handlers
@@ -340,24 +316,13 @@ func (s *Server) handleCreatePattern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate source
-	if pattern.Source != "user" && pattern.Source != "app" {
+	if pattern.Source != SourceUser && pattern.Source != SourceApp {
 		http.Error(w, "Invalid source (must be 'user' or 'app')", http.StatusBadRequest)
 		return
 	}
 
 	// Load existing patterns for this source
-	var existingPatterns []LogPattern
-	if pattern.Source == "user" {
-		userConfigDir, err := getUserConfigDir()
-		if err == nil {
-			existingPatterns, _ = loadPatternsFromDir(userConfigDir, "user")
-		}
-	} else {
-		appConfigDir, err := getAppConfigDir(s.projectDir)
-		if err == nil {
-			existingPatterns, _ = loadPatternsFromDir(appConfigDir, "app")
-		}
-	}
+	existingPatterns, _ := loadPatternsForSource(s.projectDir, pattern.Source)
 
 	// Append new pattern
 	existingPatterns = append(existingPatterns, pattern)
@@ -425,18 +390,7 @@ func (s *Server) handleUpdatePattern(w http.ResponseWriter, r *http.Request) {
 	source := foundPattern.Source
 
 	// Load patterns for this source
-	var sourcePatterns []LogPattern
-	if source == "user" {
-		userConfigDir, err := getUserConfigDir()
-		if err == nil {
-			sourcePatterns, _ = loadPatternsFromDir(userConfigDir, "user")
-		}
-	} else {
-		appConfigDir, err := getAppConfigDir(s.projectDir)
-		if err == nil {
-			sourcePatterns, _ = loadPatternsFromDir(appConfigDir, "app")
-		}
-	}
+	sourcePatterns, _ := loadPatternsForSource(s.projectDir, source)
 
 	// Update pattern
 	found := false
@@ -514,18 +468,7 @@ func (s *Server) handleDeletePattern(w http.ResponseWriter, r *http.Request) {
 	source := foundPattern.Source
 
 	// Load patterns for this source
-	var sourcePatterns []LogPattern
-	if source == "user" {
-		userConfigDir, err := getUserConfigDir()
-		if err == nil {
-			sourcePatterns, _ = loadPatternsFromDir(userConfigDir, "user")
-		}
-	} else {
-		appConfigDir, err := getAppConfigDir(s.projectDir)
-		if err == nil {
-			sourcePatterns, _ = loadPatternsFromDir(appConfigDir, "app")
-		}
-	}
+	sourcePatterns, _ := loadPatternsForSource(s.projectDir, source)
 
 	// Remove pattern
 	updatedPatterns := make([]LogPattern, 0)
