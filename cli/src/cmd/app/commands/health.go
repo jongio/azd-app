@@ -236,7 +236,7 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	// Handle interrupt signals for graceful shutdown
-	setupSignalHandler(cancel)
+	setupSignalHandler(ctx, cancel)
 
 	if healthStream {
 		return runStreamingMode(ctx, monitor, serviceFilter)
@@ -276,14 +276,19 @@ func parseServiceFilter(serviceStr string) []string {
 }
 
 // setupSignalHandler sets up signal handling for graceful shutdown
-func setupSignalHandler(cancel context.CancelFunc) {
+// The goroutine will exit when either a signal is received or the context is cancelled
+func setupSignalHandler(ctx context.Context, cancel context.CancelFunc) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-sigChan
-		// Cancel context
-		cancel()
-		// Stop listening for more signals
+		select {
+		case <-sigChan:
+			// Signal received - cancel context
+			cancel()
+		case <-ctx.Done():
+			// Context cancelled (normal exit) - just clean up
+		}
+		// Clean up signal handling
 		signal.Stop(sigChan)
 		close(sigChan)
 	}()
@@ -303,7 +308,7 @@ func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serv
 
 	// Return exit code based on health status
 	if report.Summary.Unhealthy > 0 {
-		return fmt.Errorf("") // Exit with code 1 but no message
+		return fmt.Errorf("%d service(s) unhealthy", report.Summary.Unhealthy)
 	}
 
 	return nil

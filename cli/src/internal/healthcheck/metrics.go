@@ -1,7 +1,9 @@
 package healthcheck
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -142,12 +144,8 @@ func getErrorType(errMsg string) string {
 // containsAny checks if a string contains any of the given substrings.
 func containsAny(s string, substrs ...string) bool {
 	for _, substr := range substrs {
-		if len(s) >= len(substr) {
-			for i := 0; i <= len(s)-len(substr); i++ {
-				if s[i:i+len(substr)] == substr {
-					return true
-				}
-			}
+		if strings.Contains(s, substr) {
+			return true
 		}
 	}
 	return false
@@ -164,11 +162,7 @@ func ServeMetrics(port int) error {
 		w.Write([]byte("OK"))
 	})
 
-	addr := ":" + string(rune(port/10000%10+'0')) +
-		string(rune(port/1000%10+'0')) +
-		string(rune(port/100%10+'0')) +
-		string(rune(port/10%10+'0')) +
-		string(rune(port%10+'0'))
+	addr := fmt.Sprintf(":%d", port)
 
 	log.Info().Int("port", port).Str("endpoint", "/metrics").Msg("Starting Prometheus metrics server")
 
