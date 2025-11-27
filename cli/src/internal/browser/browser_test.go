@@ -165,6 +165,33 @@ func TestLaunch(t *testing.T) {
 			},
 			wantErr: false, // Launch is async, so no error is returned immediately
 		},
+		{
+			name: "invalid URL scheme returns error",
+			opts: LaunchOptions{
+				URL:     "file:///etc/passwd",
+				Target:  TargetSystem,
+				Timeout: 100 * time.Millisecond,
+			},
+			wantErr: true, // Should reject non-http(s) URLs
+		},
+		{
+			name: "ftp URL scheme returns error",
+			opts: LaunchOptions{
+				URL:     "ftp://example.com/file",
+				Target:  TargetSystem,
+				Timeout: 100 * time.Millisecond,
+			},
+			wantErr: true,
+		},
+		{
+			name: "https URL is valid",
+			opts: LaunchOptions{
+				URL:     "https://localhost:4280",
+				Target:  TargetNone, // Use none to avoid actually launching
+				Timeout: 100 * time.Millisecond,
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

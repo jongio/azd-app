@@ -68,6 +68,11 @@ func Launch(opts LaunchOptions) error {
 		opts.Timeout = 5 * time.Second
 	}
 
+	// Validate URL - must be http or https
+	if !strings.HasPrefix(opts.URL, "http://") && !strings.HasPrefix(opts.URL, "https://") {
+		return fmt.Errorf("invalid URL scheme: URL must start with http:// or https://")
+	}
+
 	// Resolve the actual target
 	target := ResolveTarget(opts.Target)
 

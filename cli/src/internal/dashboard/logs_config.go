@@ -47,11 +47,7 @@ type UserPreferences struct {
 	ViewMode    string `json:"viewMode"` // "grid" or "unified"
 }
 
-// Pattern/Override source types
-const (
-	SourceUser = "user"
-	SourceApp  = "app"
-)
+// Pattern/Override source types - use constants.SourceUser and constants.SourceApp
 
 var (
 	patternsMu sync.RWMutex
@@ -214,7 +210,7 @@ func loadPatternsForSource(projectDir, source string) ([]LogPattern, error) {
 	var configDir string
 	var err error
 
-	if source == SourceUser {
+	if source == constants.SourceUser {
 		configDir, err = getUserConfigDir()
 	} else {
 		configDir, err = getAppConfigDir(projectDir)
@@ -271,7 +267,7 @@ func savePatterns(projectDir string, patterns []LogPattern, source string) error
 	var configDir string
 	var err error
 
-	if source == SourceUser {
+	if source == constants.SourceUser {
 		configDir, err = getUserConfigDir()
 	} else {
 		configDir, err = getAppConfigDir(projectDir)
@@ -384,7 +380,7 @@ func (s *Server) handleCreatePattern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate source
-	if pattern.Source != SourceUser && pattern.Source != SourceApp {
+	if pattern.Source != constants.SourceUser && pattern.Source != constants.SourceApp {
 		http.Error(w, "Invalid source (must be 'user' or 'app')", http.StatusBadRequest)
 		return
 	}
@@ -484,6 +480,13 @@ func (s *Server) handleUpdatePattern(w http.ResponseWriter, r *http.Request) {
 				sourcePatterns[i].Description = updates.Description
 			}
 			sourcePatterns[i].Enabled = updates.Enabled
+
+			// Validate the updated pattern
+			if err := validatePattern(&sourcePatterns[i]); err != nil {
+				writeJSONError(w, http.StatusBadRequest, err.Error(), nil)
+				return
+			}
+
 			found = true
 			break
 		}

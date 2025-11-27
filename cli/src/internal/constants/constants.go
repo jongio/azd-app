@@ -97,4 +97,6 @@ const (
 	MaxPatternDescriptionLength = 500
 	// MaxOverrideTextLength is the maximum length for override text
 	MaxOverrideTextLength = 500
+	// MaxNotificationTextLength is the maximum length for notification text (title, message, URL)
+	MaxNotificationTextLength = 500
 )

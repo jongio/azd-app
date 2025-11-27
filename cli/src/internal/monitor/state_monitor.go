@@ -268,8 +268,8 @@ func (m *StateMonitor) processStateUpdate(currentState *ServiceState) *StateTran
 	m.addTransitionLocked(transition)
 	m.previousStates[currentState.Name] = currentState
 
-	// Update rate limit timestamp
-	m.updateRateLimitLocked(currentState.Name)
+	// Update rate limit timestamp (acquires its own lock)
+	m.updateRateLimit(currentState.Name)
 
 	// Return a copy for notification (caller will notify outside lock)
 	transitionCopy := *transition
@@ -390,8 +390,9 @@ func (m *StateMonitor) shouldRateLimit(serviceName string, severity Severity) bo
 	return time.Since(lastTime) < m.rateLimitWindow
 }
 
-// updateRateLimitLocked updates the rate limit timestamp (must hold rateLimitMu).
-func (m *StateMonitor) updateRateLimitLocked(serviceName string) {
+// updateRateLimit updates the rate limit timestamp.
+// This function manages its own locking.
+func (m *StateMonitor) updateRateLimit(serviceName string) {
 	m.rateLimitMu.Lock()
 	defer m.rateLimitMu.Unlock()
 

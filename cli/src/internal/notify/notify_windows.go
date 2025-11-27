@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 const (
@@ -104,6 +106,10 @@ func (w *windowsNotifier) ensureAppRegistered() error {
 		}
 	}
 
+	// Sanitize paths to prevent injection
+	safeShortcutPath := sanitizeForPowerShell(shortcutPath)
+	safeExePath := sanitizeForPowerShell(exePath)
+
 	// Create shortcut with AppUserModelID using PowerShell
 	script := fmt.Sprintf(`
 $shortcutPath = '%s'
@@ -194,8 +200,8 @@ try {
     # Notifications will still work but may show as PowerShell
 }
 `,
-		strings.ReplaceAll(shortcutPath, "'", "''"),
-		strings.ReplaceAll(exePath, "'", "''"),
+		safeShortcutPath,
+		safeExePath,
 		appUserModelID)
 
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
@@ -234,8 +240,8 @@ func (w *windowsNotifier) findAzdExecutable() string {
 // It escapes single quotes and removes potentially dangerous characters.
 func sanitizeForPowerShell(s string) string {
 	// Limit length to prevent buffer issues
-	if len(s) > 500 {
-		s = s[:500]
+	if len(s) > constants.MaxNotificationTextLength {
+		s = s[:constants.MaxNotificationTextLength]
 	}
 	// Remove null bytes and other control characters that could cause issues
 	s = strings.Map(func(r rune) rune {
