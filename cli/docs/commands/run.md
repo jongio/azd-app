@@ -30,6 +30,103 @@ azd app run [flags]
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
+| `--browser` | | string | | Browser to launch dashboard in: default, system, none |
+| `--no-browser` | | bool | `false` | Do not launch browser automatically |
+
+## Browser Launch
+
+The `run` command automatically opens the dashboard in your preferred browser when it starts. This behavior can be customized through multiple configuration levels.
+
+### Default Behavior
+
+By default, `azd app run` will automatically open the dashboard in your system default browser when it starts.
+
+### Browser Target Options
+
+| Target | Description |
+|--------|-------------|
+| `default` | System default browser (alias for `system`) |
+| `system` | System default browser |
+| `vscode` | VS Code Simple Browser (falls back to system if not in VS Code) |
+| `none` | Do not launch browser |default option) |
+| `system` | System default browser (same as default
+
+Browser target is determined by the following priority (highest to lowest):
+
+1. **Command-line flag**: `--browser=<target>` or `--no-browser`
+2. **Project configuration**: `azure.yaml` → `dashboard.browser`
+3. **User configuration**: `azd config set app.dashboard.browser <target>`
+4. **Auto-detection**: Detect VS Code environment
+5. **System default**: System
+### Command-Line Examples
+
+```bash
+# Use VS Code Simple Browser (override all other settings)
+azd apsystem default browser (this is the default)
+azd app run
+
+# Do not launch browser
+azd app run --no-browser
+azd app run --browser=none
+```
+
+### Project Configuration
+
+Configure browser preference for all team members in `azure.yaml`:
+
+```yaml
+name: my-app
+
+dashboard:
+  browser: vscode  # Everyone uses VS Code Simple Browser when available
+
+services:
+  web:none  # Don't launch browser automatically for this project
+    language: js
+    project: ./src/web
+```
+
+### User Configuration
+
+Set your personal browser preference across all projects:
+
+```bash
+# Set preference
+azd config set app.dashboard.browser vscode
+Disable browser launch by default
+azd config set app.dashboard.browser none
+
+# View current setting
+azd config get app.dashboard.browser
+
+# Remove preference (use system browser)
+azd config unset app.dashboard.browser
+```
+
+Configuration is stored in `~/.azd/config.json`:
+
+```json
+{
+  "app": {
+    "dashboard": {
+      "browser": "system"
+    }
+  }
+}
+```
+
+**Timing**: Browser launches immediately after dashboard server is ready and displays:
+```
+📊 Dashboard: http://localhost:4280
+🌐 Opening dashboard in VS Code Simple Browser...
+```
+
+**Errors**: If browser launch fails, a warning is displayed but the dashboard continues running:
+```
+⚠️  Could not open browser automatically. Dashboard available at: http://localhost:4280
+```
+
+**Non-blocking**: Browser launch happens asynchronously and never blocks dashboard startup.
 
 ## Lifecycle Hooks
 
@@ -38,7 +135,7 @@ The `run` command supports **prerun** and **postrun** hooks that execute automat
 ### Hook Types
 
 #### `prerun` Hook
-Executes **before** starting any services. Common uses:
+Executes **before** stardefault bs. Common uses:
 - Database migrations
 - Environment validation
 - Dependency checks

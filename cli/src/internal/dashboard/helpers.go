@@ -33,11 +33,8 @@ func writeJSONError(w http.ResponseWriter, statusCode int, message string, err e
 
 // writeWebSocketJSON safely writes JSON to a WebSocket connection with mutex protection.
 func (c *clientConn) writeWebSocketJSON(data interface{}) error {
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
-
-	if err := c.conn.WriteJSON(data); err != nil {
-		return fmt.Errorf("failed to write to WebSocket: %w", err)
+	if c.client == nil {
+		return fmt.Errorf("WebSocket client not initialized")
 	}
-	return nil
+	return c.client.writeJSON(data)
 }

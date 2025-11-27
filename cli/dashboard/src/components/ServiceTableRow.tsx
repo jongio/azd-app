@@ -1,4 +1,4 @@
-import { Server, MoreVertical, FileText, ExternalLink } from 'lucide-react'
+import { Server, FileText, ExternalLink } from 'lucide-react'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { StatusCell } from '@/components/StatusCell'
 import type { Service } from '@/types'
@@ -110,16 +110,10 @@ export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => onViewLogs?.(service.name)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors group"
+            className="p-2 rounded-lg hover:bg-secondary transition-colors group"
             title="View Logs"
           >
             <FileText className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-          </button>
-          <button
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors group"
-            title="More Options"
-          >
-            <MoreVertical className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </button>
         </div>
       </TableCell>

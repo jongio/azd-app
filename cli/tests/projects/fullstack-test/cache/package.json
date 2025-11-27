@@ -1,0 +1,12 @@
+{
+  "name": "cache-service",
+  "version": "1.0.0",
+  "description": "Simulated cache service for fullstack test",
+  "main": "cache.js",
+  "scripts": {
+    "start": "node cache.js"
+  },
+  "keywords": ["cache", "redis", "test"],
+  "author": "",
+  "license": "MIT"
+}

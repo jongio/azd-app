@@ -15,6 +15,13 @@ type AzureYaml struct {
 	Resources map[string]Resource    `yaml:"resources"`
 	Metadata  map[string]interface{} `yaml:"metadata,omitempty"`
 	Hooks     *Hooks                 `yaml:"hooks,omitempty"`
+	Dashboard *DashboardConfig       `yaml:"dashboard,omitempty"`
+	Logs      *LogsConfig            `yaml:"logs,omitempty"` // Project-level logging configuration
+}
+
+// DashboardConfig represents dashboard configuration in azure.yaml.
+type DashboardConfig struct {
+	Browser string `yaml:"browser,omitempty"` // Browser target: default, system, none
 }
 
 // Service represents a service definition in azure.yaml.
@@ -28,6 +35,7 @@ type Service struct {
 	Ports       []string      `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
 	Environment Environment   `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
 	Uses        []string      `yaml:"uses,omitempty"`
+	Logs        *LogsConfig   `yaml:"logs,omitempty"` // Service-level logging configuration
 }
 
 // DockerConfig represents Docker build configuration.

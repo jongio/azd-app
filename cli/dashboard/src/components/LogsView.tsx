@@ -5,23 +5,16 @@ import { Button } from '@/components/ui/button'
 import { Search, Download, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import type { Service } from '@/types'
-import Convert from 'ansi-to-html'
-
-// Constants
-const MAX_LOGS_IN_MEMORY = 1000
-const INITIAL_LOG_TAIL = 500
-const SCROLL_THRESHOLD_PX = 10
-const LOG_LEVEL_INFO = 1
-const LOG_LEVEL_WARNING = 2
-const LOG_LEVEL_ERROR = 3
-
-const ansiConverter = new Convert({
-  fg: '#FFF',
-  bg: '#000',
-  newline: false,
-  escapeXML: true,
-  stream: false
-})
+import {
+  MAX_LOGS_IN_MEMORY,
+  INITIAL_LOG_TAIL,
+  SCROLL_THRESHOLD_PX,
+  LOG_LEVELS,
+  convertAnsiToHtml,
+  isErrorLine,
+  isWarningLine,
+  getServiceColor,
+} from '@/lib/log-utils'
 
 interface LogEntry {
   service: string
@@ -31,7 +24,12 @@ interface LogEntry {
   isStderr: boolean
 }
 
-export function LogsView() {
+interface LogsViewProps {
+  selectedServices?: Set<string>
+  levelFilter?: Set<'info' | 'warning' | 'error'>
+}
+
+export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [services, setServices] = useState<string[]>([])
   const [selectedService, setSelectedService] = useState<string>('all')
@@ -60,20 +58,78 @@ export function LogsView() {
     void fetchServices()
   }, [])
 
+  const fetchLogs = useCallback(async () => {
+    const url = selectedService === 'all'
+      ? `/api/logs?tail=${INITIAL_LOG_TAIL}`
+      : `/api/logs?service=${selectedService}&tail=${INITIAL_LOG_TAIL}`
+
+    try {
+      const res = await fetch(url)
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
+      const data = await res.json() as LogEntry[]
+      setLogs(data || [])
+    } catch (err) {
+      console.error('Failed to fetch logs:', err)
+      setLogs([])
+    }
+  }, [selectedService])
+
+  const setupWebSocket = useCallback(() => {
+    // Close existing connection
+    if (wsRef.current) {
+      wsRef.current.close()
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const url = selectedService === 'all'
+      ? `${protocol}//${window.location.host}/api/logs/stream`
+      : `${protocol}//${window.location.host}/api/logs/stream?service=${selectedService}`
+
+    const ws = new WebSocket(url)
+
+    ws.onopen = () => {
+      // WebSocket connected
+    }
+
+    ws.onmessage = (event: MessageEvent<string>) => {
+      if (!isPaused) {
+        try {
+          const entry = JSON.parse(event.data) as LogEntry
+          setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
+        } catch (err) {
+          console.error('Failed to parse log entry:', err)
+        }
+      }
+    }
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
+    }
+
+    ws.onclose = () => {
+      // WebSocket closed
+    }
+
+    wsRef.current = ws
+  }, [selectedService, isPaused])
+
   // Fetch initial logs and setup WebSocket
   useEffect(() => {
-    fetchLogs()
-    setupWebSocket()
+    void fetchLogs()
+    void setupWebSocket()
 
     return () => {
       wsRef.current?.close()
     }
-  }, [selectedService])
+  }, [fetchLogs, setupWebSocket, selectedService])
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom - scroll the container, not the page
   useEffect(() => {
-    if (!isPaused && !isUserScrolling) {
-      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!isPaused && !isUserScrolling && logsContainerRef.current) {
+      const container = logsContainerRef.current
+      container.scrollTop = container.scrollHeight
     }
   }, [logs, isPaused, isUserScrolling])
 
@@ -96,68 +152,36 @@ export function LogsView() {
     }
   }
 
-  const fetchLogs = async () => {
-    const url = selectedService === 'all'
-      ? `/api/logs?tail=${INITIAL_LOG_TAIL}`
-      : `/api/logs?service=${selectedService}&tail=${INITIAL_LOG_TAIL}`
-
-    try {
-      const res = await fetch(url)
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data = await res.json()
-      setLogs(data || [])
-    } catch (err) {
-      console.error('Failed to fetch logs:', err)
-      setLogs([])
-    }
-  }
-
-  const setupWebSocket = () => {
-    // Close existing connection
-    if (wsRef.current) {
-      wsRef.current.close()
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = selectedService === 'all'
-      ? `${protocol}//${window.location.host}/api/logs/stream`
-      : `${protocol}//${window.location.host}/api/logs/stream?service=${selectedService}`
-
-    const ws = new WebSocket(url)
-
-    ws.onopen = () => {
-      // WebSocket connected
-    }
-
-    ws.onmessage = (event) => {
-      if (!isPaused) {
-        try {
-          const entry = JSON.parse(event.data)
-          setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-        } catch (err) {
-          console.error('Failed to parse log entry:', err)
-        }
-      }
-    }
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-    }
-
-    ws.onclose = () => {
-      // WebSocket closed
-    }
-
-    wsRef.current = ws
-  }
-
   const filteredLogs = useMemo(() => {
-    return logs.filter(log =>
-      log && log.message && log.message.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [logs, searchTerm])
+    return logs.filter(log => {
+      // Filter by search term
+      const matchesSearch = log && log.message && log.message.toLowerCase().includes(searchTerm.toLowerCase())
+      if (!matchesSearch) return false
+
+      // Filter by selected services from multi-pane view
+      if (selectedServices && selectedServices.size > 0) {
+        if (!selectedServices.has(log.service)) return false
+      }
+
+      // Filter by dropdown service selection
+      if (selectedService !== 'all') {
+        if (log.service !== selectedService) return false
+      }
+
+      // Filter by log level
+      if (levelFilter && levelFilter.size > 0) {
+        const isError = log.level === LOG_LEVELS.ERROR || log.isStderr || isErrorLine(log.message)
+        const isWarning = log.level === LOG_LEVELS.WARNING || isWarningLine(log.message)
+        const isInfo = !isError && !isWarning
+        
+        if (isError && !levelFilter.has('error')) return false
+        if (isWarning && !isError && !levelFilter.has('warning')) return false
+        if (isInfo && !levelFilter.has('info')) return false
+      }
+
+      return true
+    })
+  }, [logs, searchTerm, selectedServices, selectedService, levelFilter])
 
   const exportLogs = useCallback(() => {
     const content = filteredLogs
@@ -187,7 +211,9 @@ export function LogsView() {
     if (!newPausedState) {
       setIsUserScrolling(false)
       setTimeout(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (logsContainerRef.current) {
+          logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
+        }
       }, 100)
     }
   }, [isPaused])
@@ -195,40 +221,9 @@ export function LogsView() {
   const scrollToBottom = useCallback(() => {
     setIsUserScrolling(false)
     setIsPaused(false)
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
-
-  // Error/warning detection regex
-  const isErrorLine = useCallback((message: string) => {
-    const errorPattern = /\b(error|failed|failure|exception|fatal|panic|critical|crash|died)\b/i
-    return errorPattern.test(message)
-  }, [])
-
-  const isWarningLine = useCallback((message: string) => {
-    const warningPattern = /\b(warn|warning|caution|deprecated)\b/i
-    return warningPattern.test(message)
-  }, [])
-
-  // Assign consistent colors to services (avoiding red)
-  const serviceColors = [
-    'text-blue-400',
-    'text-green-400', 
-    'text-purple-400',
-    'text-cyan-400',
-    'text-pink-400',
-    'text-amber-400',
-    'text-teal-400',
-    'text-indigo-400',
-    'text-lime-400',
-    'text-fuchsia-400',
-    'text-sky-400',
-    'text-violet-400',
-  ]
-
-  const getServiceColor = useCallback((serviceName: string) => {
-    // Generate consistent color index from service name
-    const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return serviceColors[hash % serviceColors.length]
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
+    }
   }, [])
 
   const getLogColor = useCallback((log: LogEntry) => {
@@ -237,20 +232,11 @@ export function LogsView() {
     if (isWarningLine(log.message)) return 'text-yellow-400'
     
     // Check log level and stderr
-    if (log.isStderr || log.level === LOG_LEVEL_ERROR) return 'text-red-400'
-    if (log.level === LOG_LEVEL_WARNING) return 'text-yellow-400'
-    if (log.level === LOG_LEVEL_INFO) return 'text-gray-400'
+    if (log.isStderr || log.level === LOG_LEVELS.ERROR) return 'text-red-400'
+    if (log.level === LOG_LEVELS.WARNING) return 'text-yellow-400'
+    if (log.level === LOG_LEVELS.INFO) return 'text-foreground-tertiary'
     
     return 'text-foreground'
-  }, [isErrorLine, isWarningLine])
-
-  const convertAnsiToHtml = useCallback((text: string) => {
-    try {
-      return ansiConverter.toHtml(text)
-    } catch {
-      // If conversion fails, return original text
-      return text
-    }
   }, [])
 
   return (
@@ -311,7 +297,7 @@ export function LogsView() {
             {filteredLogs.map((log, idx) => (
               <div key={idx} className={getLogColor(log)}>
                 <span className="text-muted-foreground text-xs">
-                  [{formatLogTimestamp(log?.timestamp || '')}]
+                  [{formatLogTimestamp(String(log?.timestamp ?? ''))}]
                 </span>
                 {' '}
                 <span className={getServiceColor(log?.service || 'unknown')}>

@@ -13,6 +13,10 @@ bin/
 # Test binaries
 *.test
 
+# Playwright test outputs
+test-results/
+playwright-report/
+
 # Coverage
 *.out
 *.coverage
@@ -107,18 +111,10 @@ tests/projects/node/test-pnpm-project/azure.yaml
 tests/projects/python/test-uv-project/azure.yaml
 tests/projects/aspire-test/azure.yaml
 
-cli2/jongio.azd.app/build.ps1
-cli2/jongio.azd.app/build.sh
-cli2/jongio.azd.app/changelog.md
-cli2/jongio.azd.app/extension.yaml
-cli2/jongio.azd.app/go.mod
-cli2/jongio.azd.app/go.sum
-cli2/jongio.azd.app/main.go
-cli2/jongio.azd.app/README.md
-cli2/jongio.azd.app/internal/cmd/context.go
-cli2/jongio.azd.app/internal/cmd/listen.go
-cli2/jongio.azd.app/internal/cmd/prompt.go
-cli2/jongio.azd.app/internal/cmd/root.go
-cli2/jongio.azd.app/internal/cmd/version.go
+
 azd-app.sln
 cli/output-coverage
+
+
+
+.github/agents/**

@@ -1,27 +1,119 @@
 package dashboard
 
 import (
+	"context"
+	"encoding/json"
 	"log/slog"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
-// wsHealthMonitor manages WebSocket connection health monitoring with ping/pong.
+// wsClient wraps a coder/websocket connection with a write mutex for safe concurrent writes.
+type wsClient struct {
+	conn    *websocket.Conn
+	writeMu sync.Mutex
+	ctx     context.Context
+	cancel  context.CancelFunc
+}
+
+// checkOrigin validates the WebSocket connection origin.
+// Only allows localhost connections to prevent CSWSH attacks.
+func checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	// Empty origin is allowed for direct WebSocket connections (non-browser clients like CLI tools)
+	// This is a security trade-off: we allow programmatic access but require localhost for browsers
+	if origin == "" {
+		return true
+	}
+	return strings.HasPrefix(origin, "http://localhost:") ||
+		strings.HasPrefix(origin, "http://127.0.0.1:") ||
+		strings.HasPrefix(origin, "https://localhost:") ||
+		strings.HasPrefix(origin, "https://127.0.0.1:")
+}
+
+// acceptWebSocket accepts a WebSocket connection with origin validation.
+func acceptWebSocket(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
+	// Validate origin before accepting
+	if !checkOrigin(r) {
+		http.Error(w, "Forbidden: invalid origin", http.StatusForbidden)
+		return nil, http.ErrAbortHandler
+	}
+
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		// We handle origin checking manually above for clearer error messages
+		InsecureSkipVerify: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+// newWSClient creates a new WebSocket client wrapper.
+func newWSClient(conn *websocket.Conn) *wsClient {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &wsClient{
+		conn:   conn,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+}
+
+// writeJSON safely writes JSON to the WebSocket connection with mutex protection.
+func (c *wsClient) writeJSON(data interface{}) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(c.ctx, service.DefaultWebSocketWriteTimeout)
+	defer cancel()
+
+	return c.conn.Write(ctx, websocket.MessageText, jsonBytes)
+}
+
+// close closes the WebSocket connection.
+func (c *wsClient) close() error {
+	c.cancel()
+	return c.conn.Close(websocket.StatusNormalClosure, "server closing")
+}
+
+// readMessage reads a single message from the WebSocket connection.
+func readMessage(client *wsClient) error {
+	ctx, cancel := context.WithTimeout(client.ctx, service.DefaultWebSocketPongWait)
+	defer cancel()
+
+	_, _, err := client.conn.Read(ctx)
+	if err != nil {
+		// Check if it's a normal closure
+		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// wsHealthMonitor manages WebSocket connection health monitoring with ping/pong for coder/websocket.
 type wsHealthMonitor struct {
-	conn       *websocket.Conn
-	writeMu    *sync.Mutex
+	client     *wsClient
 	stopChan   chan struct{}
 	pingTicker *time.Ticker
 }
 
 // newWSHealthMonitor creates a new WebSocket health monitor.
-func newWSHealthMonitor(conn *websocket.Conn, writeMu *sync.Mutex) *wsHealthMonitor {
+func newWSHealthMonitor(client *wsClient) *wsHealthMonitor {
 	return &wsHealthMonitor{
-		conn:     conn,
-		writeMu:  writeMu,
+		client:   client,
 		stopChan: make(chan struct{}),
 	}
 }
@@ -31,18 +123,7 @@ func newWSHealthMonitor(conn *websocket.Conn, writeMu *sync.Mutex) *wsHealthMoni
 func (m *wsHealthMonitor) start() <-chan error {
 	errChan := make(chan error, 1)
 
-	// Configure read deadline and pong handler
-	if err := m.conn.SetReadDeadline(time.Now().Add(service.DefaultWebSocketPongWait)); err != nil {
-		slog.Warn("failed to set read deadline", "error", err)
-		errChan <- err
-		return errChan
-	}
-
-	m.conn.SetPongHandler(func(string) error {
-		return m.conn.SetReadDeadline(time.Now().Add(service.DefaultWebSocketPongWait))
-	})
-
-	// Start ping ticker
+	// Start ping ticker - coder/websocket handles pings automatically, but we can configure read deadline
 	m.pingTicker = time.NewTicker(service.DefaultWebSocketPingPeriod)
 
 	// Start ping loop in goroutine
@@ -53,14 +134,11 @@ func (m *wsHealthMonitor) start() <-chan error {
 			case <-m.stopChan:
 				return
 			case <-m.pingTicker.C:
-				// Send ping message
-				m.writeMu.Lock()
-				err := m.conn.WriteControl(
-					websocket.PingMessage,
-					[]byte{},
-					time.Now().Add(service.DefaultWebSocketWriteTimeout),
-				)
-				m.writeMu.Unlock()
+				// coder/websocket handles pings automatically when reading
+				// We just need to ensure we're reading periodically
+				ctx, cancel := context.WithTimeout(m.client.ctx, service.DefaultWebSocketWriteTimeout)
+				err := m.client.conn.Ping(ctx)
+				cancel()
 
 				if err != nil {
 					slog.Debug("ping failed, connection likely closed", "error", err)
@@ -77,19 +155,4 @@ func (m *wsHealthMonitor) start() <-chan error {
 // stop stops the health monitor.
 func (m *wsHealthMonitor) stop() {
 	close(m.stopChan)
-}
-
-// configureWebSocket applies standard WebSocket configuration.
-func configureWebSocket(conn *websocket.Conn) error {
-	// Set initial read deadline
-	if err := conn.SetReadDeadline(time.Now().Add(service.DefaultWebSocketPongWait)); err != nil {
-		return err
-	}
-
-	// Set pong handler to extend deadline on each pong received
-	conn.SetPongHandler(func(string) error {
-		return conn.SetReadDeadline(time.Now().Add(service.DefaultWebSocketPongWait))
-	})
-
-	return nil
 }

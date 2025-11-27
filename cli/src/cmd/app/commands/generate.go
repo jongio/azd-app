@@ -43,6 +43,7 @@ type GenerateResult struct {
 
 // runGenerate is the main entry point for the generate command.
 func runGenerate(config GenerateConfig) error {
+	output.CommandHeader("reqs --generate", "Generate requirements from project")
 	output.Section("🔍", "Scanning project for dependencies")
 
 	// Detect all reqs based on project structure

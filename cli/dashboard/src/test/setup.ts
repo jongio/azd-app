@@ -10,7 +10,7 @@ afterEach(() => {
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -22,29 +22,43 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
-// Mock localStorage
+// Mock localStorage with proper implementation
+const localStorageStore = new Map<string, string>()
 const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
+  getItem: vi.fn((key: string) => localStorageStore.get(key) ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageStore.set(key, value)
+  }),
+  removeItem: vi.fn((key: string) => {
+    localStorageStore.delete(key)
+  }),
+  clear: vi.fn(() => {
+    localStorageStore.clear()
+  }),
+  get length() {
+    return localStorageStore.size
+  },
+  key: vi.fn((index: number) => {
+    const keys = Array.from(localStorageStore.keys())
+    return keys[index] ?? null
+  }),
 }
-globalThis.localStorage = localStorageMock as any
+globalThis.localStorage = localStorageMock as Storage
 
 // Mock WebSocket
 class WebSocketMock {
   url: string
-  onopen: ((this: WebSocket, ev: Event) => any) | null = null
-  onmessage: ((this: WebSocket, ev: MessageEvent) => any) | null = null
-  onerror: ((this: WebSocket, ev: Event) => any) | null = null
-  onclose: ((this: WebSocket, ev: CloseEvent) => any) | null = null
+  onopen: ((this: WebSocket, ev: Event) => unknown) | null = null
+  onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null = null
+  onerror: ((this: WebSocket, ev: Event) => unknown) | null = null
+  onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null = null
   readyState = 1 // OPEN
 
   constructor(url: string) {
     this.url = url
     setTimeout(() => {
       if (this.onopen) {
-        this.onopen.call(this as any, {} as Event)
+        this.onopen.call(this as unknown as WebSocket, {} as Event)
       }
     }, 0)
   }
@@ -56,12 +70,12 @@ class WebSocketMock {
   close() {
     this.readyState = 3 // CLOSED
     if (this.onclose) {
-      this.onclose.call(this as any, {} as CloseEvent)
+      this.onclose.call(this as unknown as WebSocket, {} as CloseEvent)
     }
   }
 }
 
-globalThis.WebSocket = WebSocketMock as any
+globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
 // Mock fetch
 globalThis.fetch = vi.fn()
@@ -81,7 +95,7 @@ const originalCreateElement = document.createElement.bind(document)
 document.createElement = vi.fn((tagName: string, options?: ElementCreationOptions) => {
   const element = originalCreateElement(tagName, options)
   if (tagName === 'a') {
-    element.click = vi.fn()
+    (element as HTMLAnchorElement).click = vi.fn()
   }
   return element
-}) as any
+}) as typeof document.createElement

@@ -193,6 +193,18 @@ func Header(text string) {
 	fmt.Println(strings.Repeat("=", len(text)))
 }
 
+// CommandHeader prints a modern CLI command header with branding.
+// This should be called at the start of each command (not in JSON mode).
+func CommandHeader(command, description string) {
+	if globalFormat == FormatJSON {
+		return
+	}
+	fmt.Println()
+	fmt.Printf("%s%sazd app %s%s\n", Bold, BrightCyan, command, Reset)
+	fmt.Printf("%s%s%s\n", Dim, description, Reset)
+	fmt.Printf("%s%s%s\n", Dim, strings.Repeat("─", 50), Reset)
+}
+
 // Section prints a section header
 func Section(icon, text string) {
 	displayIcon := getIcon(icon, "[>]")

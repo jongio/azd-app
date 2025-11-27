@@ -19,7 +19,7 @@ services:
       - "3000"
     environment:
       NODE_ENV: development
-      API_URL: http://localhost:8000
+      API_URL: http://localhost:8100
 
 reqs:
   - name: node

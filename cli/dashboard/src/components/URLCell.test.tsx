@@ -197,7 +197,7 @@ describe('URLCell', () => {
     
     const link = screen.getByRole('link')
     expect(link.textContent).toContain('...')
-    expect(link.textContent!.length).toBeLessThan(longUrlNoProtocol.length)
+    expect(link.textContent.length).toBeLessThan(longUrlNoProtocol.length)
   })
 
   it('should handle edge case with empty string URLs', () => {

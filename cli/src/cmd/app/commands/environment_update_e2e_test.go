@@ -4,13 +4,15 @@
 package commands
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 )
@@ -51,15 +53,18 @@ services:
 
 	// Step 2: Connect WebSocket client
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
-	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ws, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close()
+	defer ws.Close(websocket.StatusNormalClosure, "test complete")
 
 	// Read initial message
 	var initialMsg map[string]interface{}
-	if err := ws.ReadJSON(&initialMsg); err != nil {
+	if err := wsjson.Read(ctx, ws, &initialMsg); err != nil {
 		t.Fatalf("failed to read initial message: %v", err)
 	}
 
@@ -110,9 +115,10 @@ services:
 	}
 
 	// Step 5: Wait for and verify WebSocket broadcast
-	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	readCtx, readCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer readCancel()
 	var updateMsg map[string]interface{}
-	if err := ws.ReadJSON(&updateMsg); err != nil {
+	if err := wsjson.Read(readCtx, ws, &updateMsg); err != nil {
 		t.Fatalf("failed to read broadcast message: %v", err)
 	}
 
@@ -215,17 +221,20 @@ services:
 	clients := make([]*websocket.Conn, numClients)
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for i := 0; i < numClients; i++ {
-		ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		ws, _, err := websocket.Dial(ctx, wsURL, nil)
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close()
+		defer ws.Close(websocket.StatusNormalClosure, "test complete")
 		clients[i] = ws
 
 		// Read initial message
 		var initialMsg map[string]interface{}
-		if err := ws.ReadJSON(&initialMsg); err != nil {
+		if err := wsjson.Read(ctx, ws, &initialMsg); err != nil {
 			t.Fatalf("client %d failed to read initial message: %v", i, err)
 		}
 	}
@@ -244,9 +253,10 @@ services:
 
 	// Verify all clients received the update
 	for i, ws := range clients {
-		_ = ws.SetReadDeadline(time.Now().Add(3 * time.Second))
+		readCtx, readCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer readCancel()
 		var updateMsg map[string]interface{}
-		if err := ws.ReadJSON(&updateMsg); err != nil {
+		if err := wsjson.Read(readCtx, ws, &updateMsg); err != nil {
 			t.Errorf("client %d failed to receive update: %v", i, err)
 			continue
 		}
@@ -311,17 +321,20 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	clients := make([]*websocket.Conn, numClients)
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for i := 0; i < numClients; i++ {
-		ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		ws, _, err := websocket.Dial(ctx, wsURL, nil)
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close()
+		defer ws.Close(websocket.StatusNormalClosure, "test complete")
 		clients[i] = ws
 
 		// Drain initial message
 		var msg map[string]interface{}
-		_ = ws.ReadJSON(&msg)
+		_ = wsjson.Read(ctx, ws, &msg)
 	}
 
 	// Perform concurrent environment updates and broadcasts
@@ -357,11 +370,12 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	_ = srv.BroadcastServiceUpdate(tempDir)
 
 	for i, ws := range clients {
-		_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+		readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer readCancel()
 		var msg map[string]interface{}
 		// Read all pending messages
 		for {
-			if err := ws.ReadJSON(&msg); err != nil {
+			if err := wsjson.Read(readCtx, ws, &msg); err != nil {
 				break
 			}
 		}

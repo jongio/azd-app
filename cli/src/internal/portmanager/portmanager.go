@@ -64,6 +64,30 @@ type PortAssignment struct {
 	LastUsed    time.Time `json:"lastUsed"`
 }
 
+// PortReservation holds a port open to prevent TOCTOU race conditions.
+// Call Release() just before your service binds to the port.
+type PortReservation struct {
+	Port     int
+	listener net.Listener
+	released bool
+	mu       sync.Mutex
+}
+
+// Release closes the reservation listener, freeing the port for binding.
+// This should be called immediately before your service binds to the port.
+// Safe to call multiple times.
+func (r *PortReservation) Release() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.released || r.listener == nil {
+		return nil
+	}
+
+	r.released = true
+	return r.listener.Close()
+}
+
 // PortManager manages port assignments for services.
 type PortManager struct {
 	mu          sync.RWMutex
@@ -619,6 +643,103 @@ func (pm *PortManager) CleanStalePorts() error {
 // This is a public wrapper around the internal port checking logic.
 func (pm *PortManager) IsPortAvailable(port int) bool {
 	return pm.isPortAvailable(port)
+}
+
+// ReservePort attempts to reserve a port by binding to it.
+// This eliminates TOCTOU race conditions by holding the port open until
+// the caller is ready to bind their service.
+//
+// Usage:
+//
+//	reservation, err := pm.ReservePort(8080)
+//	if err != nil {
+//	    // Port not available, try another
+//	}
+//	defer reservation.Release() // Always release, even on error paths
+//
+//	// Immediately before starting service:
+//	reservation.Release()
+//	service.Start() // Must bind quickly after release
+//
+// Returns:
+//   - *PortReservation: Holds the port open. Call Release() before binding.
+//   - error: Non-nil if port cannot be reserved
+func (pm *PortManager) ReservePort(port int) (*PortReservation, error) {
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("port %d is not available: %w", port, err)
+	}
+
+	return &PortReservation{
+		Port:     port,
+		listener: listener,
+		released: false,
+	}, nil
+}
+
+// FindAndReservePort finds an available port and reserves it atomically.
+// This combines port finding and reservation to eliminate TOCTOU races.
+//
+// Returns:
+//   - *PortReservation: Holds the port open. Call Release() before binding.
+//   - error: Non-nil if no port can be reserved after max attempts
+func (pm *PortManager) FindAndReservePort(serviceName string, preferredPort int) (*PortReservation, error) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	// Build map of assigned ports to avoid duplicates
+	assignedPorts := make(map[int]bool)
+	for _, assignment := range pm.assignments {
+		assignedPorts[assignment.Port] = true
+	}
+
+	// Try preferred port first
+	if preferredPort >= pm.portRange.start && preferredPort <= pm.portRange.end && !assignedPorts[preferredPort] {
+		if reservation, err := pm.ReservePort(preferredPort); err == nil {
+			pm.assignments[serviceName] = &PortAssignment{
+				ServiceName: serviceName,
+				Port:        preferredPort,
+				LastUsed:    time.Now(),
+			}
+			_ = pm.save()
+			return reservation, nil
+		}
+	}
+
+	// Calculate port range size
+	rangeSize := pm.portRange.end - pm.portRange.start + 1
+	if rangeSize <= 0 {
+		return nil, fmt.Errorf("invalid port range: %d-%d", pm.portRange.start, pm.portRange.end)
+	}
+
+	// Randomize starting point
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(rangeSize)))
+	if err != nil {
+		nBig = big.NewInt(0)
+	}
+	startOffset := int(nBig.Int64())
+
+	// Try to find and reserve a port
+	for attempt := 0; attempt < maxPortScanAttempts && attempt < rangeSize; attempt++ {
+		port := pm.portRange.start + ((startOffset + attempt) % rangeSize)
+
+		if assignedPorts[port] {
+			continue
+		}
+
+		if reservation, err := pm.ReservePort(port); err == nil {
+			pm.assignments[serviceName] = &PortAssignment{
+				ServiceName: serviceName,
+				Port:        port,
+				LastUsed:    time.Now(),
+			}
+			_ = pm.save()
+			return reservation, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no available ports found after %d attempts", maxPortScanAttempts)
 }
 
 // isPortAvailable checks if a port is available by attempting to bind to it.

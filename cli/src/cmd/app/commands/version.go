@@ -36,7 +36,7 @@ func NewVersionCommand() *cobra.Command {
 			}
 
 			// Default output
-			output.Header("azd app extension")
+			output.CommandHeader("version", "Show version information")
 			output.Label("Version", Version)
 			output.Label("Built", BuildTime)
 			return nil
