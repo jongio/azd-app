@@ -2,6 +2,8 @@ package notifications
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,9 +20,12 @@ func TestPipeline(t *testing.T) {
 		defer func() { _ = pipeline.Stop() }()
 
 		var handled []Event
+		var mu sync.Mutex
 		handler := &mockHandler{
 			handleFunc: func(ctx context.Context, event Event) error {
+				mu.Lock()
 				handled = append(handled, event)
+				mu.Unlock()
 				return nil
 			},
 		}
@@ -41,27 +46,29 @@ func TestPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		time.Sleep(100 * time.Millisecond)
+		mu.Lock()
 		require.Len(t, handled, 1)
 		assert.Equal(t, "api", handled[0].ServiceName)
+		mu.Unlock()
 	})
 
 	t.Run("MultipleHandlers", func(t *testing.T) {
 		pipeline := NewPipeline(10)
 		defer func() { _ = pipeline.Stop() }()
 
-		count1 := 0
-		count2 := 0
+		var count1 atomic.Int32
+		var count2 atomic.Int32
 
 		pipeline.RegisterHandler(&mockHandler{
 			handleFunc: func(ctx context.Context, event Event) error {
-				count1++
+				count1.Add(1)
 				return nil
 			},
 		})
 
 		pipeline.RegisterHandler(&mockHandler{
 			handleFunc: func(ctx context.Context, event Event) error {
-				count2++
+				count2.Add(1)
 				return nil
 			},
 		})
@@ -78,8 +85,8 @@ func TestPipeline(t *testing.T) {
 		_ = pipeline.Publish(event)
 		time.Sleep(100 * time.Millisecond)
 
-		assert.Equal(t, 1, count1)
-		assert.Equal(t, 1, count2)
+		assert.Equal(t, int32(1), count1.Load())
+		assert.Equal(t, int32(1), count2.Load())
 	})
 
 	t.Run("BufferFull", func(t *testing.T) {

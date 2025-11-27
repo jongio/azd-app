@@ -39,49 +39,78 @@ export function ServiceStatusCard({ services, hasActiveErrors, loading, onClick 
     }
   }
 
-  // Determine overall status ring color
-  let statusRing = ''
-  if (statusCounts.error > 0) {
-    statusRing = 'ring-2 ring-red-500/50'
-  } else if (statusCounts.warn > 0 || hasActiveErrors) {
-    statusRing = 'ring-2 ring-orange-500/50'
-  }
-
   return (
     <button
       onClick={onClick}
-      className={`
-        flex flex-col items-center gap-2 px-4 py-2.5 rounded-lg transition-all
-        bg-card border border-border/50 hover:border-border hover:bg-accent/50 
-        shadow-sm hover:shadow ${statusRing}
-        cursor-pointer min-w-[160px]
-      `}
+      className="flex items-center gap-3 px-3 py-1.5 rounded-md transition-all hover:bg-secondary/80 cursor-pointer group"
       title="Click to view console logs"
     >
-      <span className="text-[11px] font-semibold text-foreground/80 uppercase tracking-wider text-center w-full">
-        Service Status
-      </span>
       {loading ? (
-        <div className="flex items-center justify-center py-1.5">
-          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        </div>
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
       ) : (
-        <div className="flex items-center justify-center gap-4 text-sm w-full">
-          <div className="flex flex-col items-center gap-0.5" title="Error">
-            <XCircle className={`w-5 h-5 ${statusCounts.error > 0 ? 'text-red-500' : 'text-muted-foreground/40'}`} />
-            <span className={`text-xs font-semibold ${statusCounts.error > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground/60'}`}>
+        <div className="flex items-center gap-3">
+          {/* Error indicator */}
+          <div className="flex items-center gap-1.5" title="Errors">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+              statusCounts.error > 0 
+                ? 'bg-red-500/15' 
+                : 'bg-transparent'
+            }`}>
+              <XCircle className={`w-4 h-4 ${
+                statusCounts.error > 0 
+                  ? 'text-red-500' 
+                  : 'text-muted-foreground/30 group-hover:text-muted-foreground/50'
+              }`} />
+            </div>
+            <span className={`text-sm tabular-nums ${
+              statusCounts.error > 0 
+                ? 'text-red-500 font-medium' 
+                : 'text-muted-foreground/50'
+            }`}>
               {statusCounts.error}
             </span>
           </div>
-          <div className="flex flex-col items-center gap-0.5" title="Warning">
-            <AlertTriangle className={`w-5 h-5 ${statusCounts.warn > 0 ? 'text-orange-500' : 'text-muted-foreground/40'}`} />
-            <span className={`text-xs font-semibold ${statusCounts.warn > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground/60'}`}>
+
+          {/* Warning indicator */}
+          <div className="flex items-center gap-1.5" title="Warnings">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+              statusCounts.warn > 0 
+                ? 'bg-amber-500/15' 
+                : 'bg-transparent'
+            }`}>
+              <AlertTriangle className={`w-4 h-4 ${
+                statusCounts.warn > 0 
+                  ? 'text-amber-500' 
+                  : 'text-muted-foreground/30 group-hover:text-muted-foreground/50'
+              }`} />
+            </div>
+            <span className={`text-sm tabular-nums ${
+              statusCounts.warn > 0 
+                ? 'text-amber-500 font-medium' 
+                : 'text-muted-foreground/50'
+            }`}>
               {statusCounts.warn}
             </span>
           </div>
-          <div className="flex flex-col items-center gap-0.5" title="Running">
-            <CheckCircle className={`w-5 h-5 ${statusCounts.running > 0 ? 'text-green-500' : 'text-muted-foreground/40'}`} />
-            <span className={`text-xs font-semibold ${statusCounts.running > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground/60'}`}>
+
+          {/* Running indicator */}
+          <div className="flex items-center gap-1.5" title="Running">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+              statusCounts.running > 0 
+                ? 'bg-green-500/15' 
+                : 'bg-transparent'
+            }`}>
+              <CheckCircle className={`w-4 h-4 ${
+                statusCounts.running > 0 
+                  ? 'text-green-500' 
+                  : 'text-muted-foreground/30 group-hover:text-muted-foreground/50'
+              }`} />
+            </div>
+            <span className={`text-sm tabular-nums ${
+              statusCounts.running > 0 
+                ? 'text-green-500 font-medium' 
+                : 'text-muted-foreground/50'
+            }`}>
               {statusCounts.running}
             </span>
           </div>

@@ -60,24 +60,9 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    expect(screen.getByText('Service Status')).toBeInTheDocument()
     // Spinner should be visible (Loader2 component)
     const button = screen.getByRole('button')
     expect(button.querySelector('svg.animate-spin')).toBeInTheDocument()
-  })
-
-  it('should show "Service Status" header', () => {
-    const onClick = vi.fn()
-    render(
-      <ServiceStatusCard 
-        services={[]} 
-        hasActiveErrors={false} 
-        loading={false}
-        onClick={onClick}
-      />
-    )
-
-    expect(screen.getByText('Service Status')).toBeInTheDocument()
   })
 
   it('should show three columns with counts when services are available', () => {
@@ -92,8 +77,8 @@ describe('ServiceStatusCard', () => {
     )
 
     // Should have 3 status icons with counts
-    expect(screen.getByTitle('Error')).toBeInTheDocument()
-    expect(screen.getByTitle('Warning')).toBeInTheDocument()
+    expect(screen.getByTitle('Errors')).toBeInTheDocument()
+    expect(screen.getByTitle('Warnings')).toBeInTheDocument()
     expect(screen.getByTitle('Running')).toBeInTheDocument()
   })
 
@@ -109,7 +94,7 @@ describe('ServiceStatusCard', () => {
     )
 
     // 1 error (unhealthy), 0 warn, 1 running (healthy)
-    const errorDiv = screen.getByTitle('Error')
+    const errorDiv = screen.getByTitle('Errors')
     const runningDiv = screen.getByTitle('Running')
     expect(errorDiv.textContent).toContain('1')
     expect(runningDiv.textContent).toContain('1')
@@ -127,7 +112,7 @@ describe('ServiceStatusCard', () => {
     )
 
     // 1 error (stopped), 0 warn, 1 info (healthy)
-    const errorDiv = screen.getByTitle('Error')
+    const errorDiv = screen.getByTitle('Errors')
     expect(errorDiv.textContent).toContain('1')
   })
 
@@ -143,7 +128,7 @@ describe('ServiceStatusCard', () => {
     )
 
     // 0 error, 1 warn (starting), 1 running (healthy)
-    const warnDiv = screen.getByTitle('Warning')
+    const warnDiv = screen.getByTitle('Warnings')
     const runningDiv = screen.getByTitle('Running')
     expect(warnDiv.textContent).toContain('1')
     expect(runningDiv.textContent).toContain('1')
@@ -161,29 +146,13 @@ describe('ServiceStatusCard', () => {
     )
 
     // When hasActiveErrors but no error services, running moves to warn
-    const warnDiv = screen.getByTitle('Warning')
+    const warnDiv = screen.getByTitle('Warnings')
     const runningDiv = screen.getByTitle('Running')
     expect(warnDiv.textContent).toContain('1')
     expect(runningDiv.textContent).toContain('0')
   })
 
-  it('should show orange ring when hasActiveErrors is true', () => {
-    const onClick = vi.fn()
-    const { container } = render(
-      <ServiceStatusCard 
-        services={[mockHealthyService]} 
-        hasActiveErrors={true} 
-        loading={false}
-        onClick={onClick}
-      />
-    )
-
-    const button = container.querySelector('button')
-    expect(button).toHaveClass('ring-2')
-    expect(button).toHaveClass('ring-orange-500/50')
-  })
-
-  it('should show red ring when there are error services', () => {
+  it('should show error styling when there are error services', () => {
     const onClick = vi.fn()
     const { container } = render(
       <ServiceStatusCard 
@@ -194,9 +163,12 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    const button = container.querySelector('button')
-    expect(button).toHaveClass('ring-2')
-    expect(button).toHaveClass('ring-red-500/50')
+    // Error count should have the red styling
+    const errorDiv = screen.getByTitle('Errors')
+    expect(errorDiv.textContent).toContain('1')
+    // Check for error icon with proper color class
+    const errorIcon = container.querySelector('.text-red-500')
+    expect(errorIcon).toBeInTheDocument()
   })
 
   it('should call onClick when clicked', async () => {
@@ -243,15 +215,15 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    const errorDiv = screen.getByTitle('Error')
-    const warnDiv = screen.getByTitle('Warning')
+    const errorDiv = screen.getByTitle('Errors')
+    const warnDiv = screen.getByTitle('Warnings')
     const runningDiv = screen.getByTitle('Running')
     expect(errorDiv.textContent).toContain('0')
     expect(warnDiv.textContent).toContain('0')
     expect(runningDiv.textContent).toContain('0')
   })
 
-  it('should count all healthy services as info', () => {
+  it('should count all healthy services as running', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
@@ -280,5 +252,24 @@ describe('ServiceStatusCard', () => {
     // Should have 3 svg icons (XCircle, AlertTriangle, CheckCircle)
     const svgs = container.querySelectorAll('svg')
     expect(svgs.length).toBe(3)
+  })
+
+  it('should show warning styling when hasActiveErrors is true', () => {
+    const onClick = vi.fn()
+    const { container } = render(
+      <ServiceStatusCard 
+        services={[mockHealthyService]} 
+        hasActiveErrors={true} 
+        loading={false}
+        onClick={onClick}
+      />
+    )
+
+    // Warning count should have the amber styling
+    const warnDiv = screen.getByTitle('Warnings')
+    expect(warnDiv.textContent).toContain('1')
+    // Check for warning icon with proper color class
+    const warnIcon = container.querySelector('.text-amber-500')
+    expect(warnIcon).toBeInTheDocument()
   })
 })

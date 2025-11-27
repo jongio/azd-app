@@ -186,12 +186,12 @@ test.describe('Dashboard - Console View', () => {
   });
 
   test('should navigate to console view', async ({ page }) => {
-    await page.getByRole('button', { name: /console/i }).click();
+    await page.getByRole('button', { name: 'Console', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Console' })).toBeVisible();
   });
 
   test('should display log controls', async ({ page }) => {
-    await page.getByRole('button', { name: /console/i }).click();
+    await page.getByRole('button', { name: 'Console', exact: true }).click();
     
     // Check for service filter heading
     await expect(page.getByRole('heading', { name: 'Services' })).toBeVisible();

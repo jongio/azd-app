@@ -182,6 +182,7 @@ function App() {
                 loading={loading}
                 onClick={() => setActiveView('console')}
               />
+              <div className="w-px h-5 bg-border mx-1" />
               <ThemeToggle />
               <button className="p-2 hover:bg-secondary rounded-md transition-colors">
                 <Github className="w-4 h-4 text-foreground-secondary hover:text-foreground" />
