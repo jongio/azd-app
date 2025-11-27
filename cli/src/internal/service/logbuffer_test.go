@@ -471,7 +471,7 @@ func TestLogBuffer_WithFilter(t *testing.T) {
 
 	// Verify only unfiltered entries are in the buffer
 	entries := buffer.GetRecent(100)
-	
+
 	// Count expected entries
 	expectedCount := 0
 	for _, tc := range testCases {
@@ -526,5 +526,3 @@ func TestLogBuffer_WithoutFilter(t *testing.T) {
 		t.Errorf("Expected %d entries without filter, got %d", len(messages), len(entries))
 	}
 }
-
-

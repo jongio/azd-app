@@ -122,10 +122,10 @@ func TestNewLogFilterWithBuiltins_CustomPatterns(t *testing.T) {
 		message string
 		want    bool
 	}{
-		{"Request Autofill.enable failed", true},                 // built-in
-		{"This has my custom pattern in it", true},               // custom
-		{"This has another pattern in it", true},                 // custom
-		{"Server started on port 3000", false},                   // neither
+		{"Request Autofill.enable failed", true},   // built-in
+		{"This has my custom pattern in it", true}, // custom
+		{"This has another pattern in it", true},   // custom
+		{"Server started on port 3000", false},     // neither
 	}
 
 	for _, tt := range tests {
@@ -180,28 +180,28 @@ func TestLogFilterConfig_ShouldIncludeBuiltins(t *testing.T) {
 
 func TestLogFilterConfig_BuildLogFilter(t *testing.T) {
 	tests := []struct {
-		name          string
-		config        *LogFilterConfig
-		testMessage   string
-		shouldFilter  bool
+		name         string
+		config       *LogFilterConfig
+		testMessage  string
+		shouldFilter bool
 	}{
 		{
-			name:          "nil config uses builtins",
-			config:        nil,
-			testMessage:   "npm warn Unknown env config",
-			shouldFilter:  true,
+			name:         "nil config uses builtins",
+			config:       nil,
+			testMessage:  "npm warn Unknown env config",
+			shouldFilter: true,
 		},
 		{
-			name:          "config with builtins",
-			config:        &LogFilterConfig{IncludeBuiltins: boolPtr(true)},
-			testMessage:   "npm warn Unknown env config",
-			shouldFilter:  true,
+			name:         "config with builtins",
+			config:       &LogFilterConfig{IncludeBuiltins: boolPtr(true)},
+			testMessage:  "npm warn Unknown env config",
+			shouldFilter: true,
 		},
 		{
-			name:          "config without builtins",
-			config:        &LogFilterConfig{IncludeBuiltins: boolPtr(false)},
-			testMessage:   "npm warn Unknown env config",
-			shouldFilter:  false,
+			name:         "config without builtins",
+			config:       &LogFilterConfig{IncludeBuiltins: boolPtr(false)},
+			testMessage:  "npm warn Unknown env config",
+			shouldFilter: false,
 		},
 		{
 			name: "config with custom patterns",
@@ -209,8 +209,8 @@ func TestLogFilterConfig_BuildLogFilter(t *testing.T) {
 				Exclude:         []string{"custom pattern"},
 				IncludeBuiltins: boolPtr(false),
 			},
-			testMessage:   "this has custom pattern",
-			shouldFilter:  true,
+			testMessage:  "this has custom pattern",
+			shouldFilter: true,
 		},
 	}
 

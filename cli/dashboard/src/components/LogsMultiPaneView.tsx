@@ -28,7 +28,7 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   const [collapsedPanes, setCollapsedPanes] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('logs-pane-collapsed-states')
-      return saved ? JSON.parse(saved) : {}
+      return saved ? JSON.parse(saved) as Record<string, boolean> : {}
     } catch {
       return {}
     }

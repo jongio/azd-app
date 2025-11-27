@@ -16,17 +16,17 @@ import (
 )
 
 var (
-	logsFollow      bool
-	logsService     string
-	logsTail        int
-	logsSince       string
-	logsTimestamps  bool
-	logsNoColor     bool
-	logsLevel       string
-	logsFormat      string
-	logsOutput      string
-	logsExclude     string
-	logsNoBuiltins  bool
+	logsFollow     bool
+	logsService    string
+	logsTail       int
+	logsSince      string
+	logsTimestamps bool
+	logsNoColor    bool
+	logsLevel      string
+	logsFormat     string
+	logsOutput     string
+	logsExclude    string
+	logsNoBuiltins bool
 )
 
 // NewLogsCommand creates the logs command.

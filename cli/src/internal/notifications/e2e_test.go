@@ -148,10 +148,10 @@ func TestE2E_OSNotificationHandler(t *testing.T) {
 
 		// Create config with short rate limit
 		prefs := &config.NotificationPreferences{
-			OSNotifications:       true,
+			OSNotifications:        true,
 			DashboardNotifications: true,
-			SeverityFilter:        "all",
-			RateLimitWindow:       "1s",
+			SeverityFilter:         "all",
+			RateLimitWindow:        "1s",
 		}
 
 		handler := NewOSNotificationHandler(mockNotifier, prefs)
@@ -190,10 +190,10 @@ func TestE2E_OSNotificationHandler(t *testing.T) {
 
 		// Only critical notifications
 		prefs := &config.NotificationPreferences{
-			OSNotifications:       true,
+			OSNotifications:        true,
 			DashboardNotifications: true,
-			SeverityFilter:        "critical",
-			RateLimitWindow:       "1ms", // Minimal rate limit for testing
+			SeverityFilter:         "critical",
+			RateLimitWindow:        "1ms", // Minimal rate limit for testing
 		}
 
 		handler := NewOSNotificationHandler(mockNotifier, prefs)
