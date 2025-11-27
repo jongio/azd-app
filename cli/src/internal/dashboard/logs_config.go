@@ -15,6 +15,10 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/fileutil"
 )
 
+// maxRequestBodySize is the maximum allowed size for HTTP request bodies (1MB).
+// This prevents denial-of-service attacks via excessively large payloads.
+const maxRequestBodySize = 1 << 20 // 1MB
+
 // LogPattern represents a pattern for false positive/negative detection
 type LogPattern struct {
 	ID          string `json:"id"`
@@ -366,7 +370,8 @@ func (s *Server) handleCreatePattern(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	// Limit request body size to prevent DoS attacks
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "Failed to read request body", err)
 		return
@@ -423,7 +428,8 @@ func (s *Server) handleUpdatePattern(w http.ResponseWriter, r *http.Request) {
 	}
 	patternID := pathParts[0]
 
-	body, err := io.ReadAll(r.Body)
+	// Limit request body size to prevent DoS attacks
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "Failed to read request body", err)
 		return
@@ -589,7 +595,8 @@ func (s *Server) handleSavePreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	// Limit request body size to prevent DoS attacks
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "Failed to read request body", err)
 		return
@@ -682,7 +689,8 @@ func (s *Server) handleCreateOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	// Limit request body size to prevent DoS attacks
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "Failed to read request body", err)
 		return

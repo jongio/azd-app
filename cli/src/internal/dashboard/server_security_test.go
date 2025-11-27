@@ -84,8 +84,8 @@ func TestWebSocketOriginValidation(t *testing.T) {
 				req.Header.Set("Origin", tt.origin)
 			}
 
-			// Test the CheckOrigin function
-			allowed := upgrader.CheckOrigin(req)
+			// Test the checkOrigin function
+			allowed := checkOrigin(req)
 
 			if allowed != tt.expectAllow {
 				t.Errorf("Origin validation failed for %q: got allowed=%v, want %v",
@@ -114,7 +114,7 @@ func TestWebSocketOriginValidation_CSWSH(t *testing.T) {
 				},
 			}
 
-			if upgrader.CheckOrigin(req) {
+			if checkOrigin(req) {
 				t.Errorf("CSWSH vulnerability: malicious origin %q was allowed", origin)
 			}
 		})

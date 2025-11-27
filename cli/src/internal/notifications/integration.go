@@ -4,10 +4,10 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/config"
+	"github.com/jongio/azd-app/cli/src/internal/logging"
 	"github.com/jongio/azd-app/cli/src/internal/monitor"
 	"github.com/jongio/azd-app/cli/src/internal/notify"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
@@ -55,7 +55,7 @@ func NewNotificationManager(cfg NotificationManagerConfig) (*NotificationManager
 	notifier, err := notify.New(notifyConfig)
 	if err != nil {
 		// Non-fatal: notifications will just be unavailable
-		log.Printf("OS notifications unavailable: %v", err)
+		logging.Debug("OS notifications unavailable", "error", err)
 		notifier = nil
 	}
 
@@ -107,9 +107,9 @@ func (nm *NotificationManager) Start() {
 
 	// Log notification status
 	if nm.notifier != nil && nm.notifier.IsAvailable() {
-		log.Printf("OS notifications enabled")
+		logging.Debug("OS notifications enabled")
 	} else {
-		log.Printf("OS notifications disabled or unavailable")
+		logging.Debug("OS notifications disabled or unavailable")
 	}
 }
 
@@ -125,20 +125,20 @@ func (nm *NotificationManager) Stop() error {
 
 	// Stop pipeline
 	if err := nm.pipeline.Stop(); err != nil {
-		log.Printf("Error stopping pipeline: %v", err)
+		logging.Error("Error stopping pipeline", "error", err)
 	}
 
 	// Close OS handler
 	if nm.osHandler != nil {
 		if err := nm.osHandler.Close(); err != nil {
-			log.Printf("Error closing OS handler: %v", err)
+			logging.Error("Error closing OS handler", "error", err)
 		}
 	}
 
 	// Close notifier
 	if nm.notifier != nil {
 		if err := nm.notifier.Close(); err != nil {
-			log.Printf("Error closing notifier: %v", err)
+			logging.Error("Error closing notifier", "error", err)
 		}
 	}
 
@@ -180,7 +180,7 @@ func (nm *NotificationManager) handleStateTransition(transition monitor.StateTra
 
 	// Publish to pipeline
 	if err := nm.pipeline.Publish(event); err != nil {
-		log.Printf("Failed to publish notification event: %v", err)
+		logging.Error("Failed to publish notification event", "error", err)
 	}
 }
 

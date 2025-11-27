@@ -1,4 +1,4 @@
-import { XCircle, AlertTriangle, Info, Loader2 } from 'lucide-react'
+import { XCircle, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
 import type { Service } from '@/types'
 
 interface ServiceStatusCardProps {
@@ -13,7 +13,7 @@ export function ServiceStatusCard({ services, hasActiveErrors, loading, onClick 
   const statusCounts = {
     error: 0,
     warn: 0,
-    info: 0
+    running: 0
   }
 
   services.forEach(service => {
@@ -26,16 +26,16 @@ export function ServiceStatusCard({ services, hasActiveErrors, loading, onClick 
       statusCounts.warn++
     } else {
       // healthy/running services
-      statusCounts.info++
+      statusCounts.running++
     }
   })
 
   // If there are active log errors but no service-level errors, show in warn
   if (hasActiveErrors && statusCounts.error === 0) {
-    // Move one info to warn to indicate log errors exist
-    if (statusCounts.info > 0) {
-      statusCounts.warn += statusCounts.info
-      statusCounts.info = 0
+    // Move running to warn to indicate log errors exist
+    if (statusCounts.running > 0) {
+      statusCounts.warn += statusCounts.running
+      statusCounts.running = 0
     }
   }
 
@@ -78,10 +78,10 @@ export function ServiceStatusCard({ services, hasActiveErrors, loading, onClick 
               {statusCounts.warn}
             </span>
           </div>
-          <div className="flex items-center gap-1" title="Info">
-            <Info className="w-3.5 h-3.5 text-blue-500" />
-            <span className={statusCounts.info > 0 ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-muted-foreground'}>
-              {statusCounts.info}
+          <div className="flex items-center gap-1" title="Running">
+            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+            <span className={statusCounts.running > 0 ? 'text-green-600 dark:text-green-400 font-medium' : 'text-muted-foreground'}>
+              {statusCounts.running}
             </span>
           </div>
         </div>

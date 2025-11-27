@@ -362,21 +362,25 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
       <div className="flex-1 overflow-hidden">
         {viewMode === 'grid' ? (
           <LogsPaneGrid columns={effectiveColumns} collapsedPanes={collapsedPanes}>
-            {selectedServicesList.map(serviceName => (
-              <LogsPane
-                key={serviceName}
-                serviceName={serviceName}
-                patterns={patterns}
-                onCopy={handleCopyPane}
-                isPaused={isPaused}
-                globalSearchTerm={globalSearchTerm}
-                autoScrollEnabled={autoScrollEnabled}
-                clearAllTrigger={clearAllTrigger}
-                levelFilter={levelFilter}
-                isCollapsed={collapsedPanes[serviceName] ?? false}
-                onToggleCollapse={() => togglePaneCollapse(serviceName)}
-              />
-            ))}
+            {selectedServicesList.map(serviceName => {
+              const service = services.find(s => s.name === serviceName)
+              return (
+                <LogsPane
+                  key={serviceName}
+                  serviceName={serviceName}
+                  port={service?.local?.port}
+                  patterns={patterns}
+                  onCopy={handleCopyPane}
+                  isPaused={isPaused}
+                  globalSearchTerm={globalSearchTerm}
+                  autoScrollEnabled={autoScrollEnabled}
+                  clearAllTrigger={clearAllTrigger}
+                  levelFilter={levelFilter}
+                  isCollapsed={collapsedPanes[serviceName] ?? false}
+                  onToggleCollapse={() => togglePaneCollapse(serviceName)}
+                />
+              )
+            })}
           </LogsPaneGrid>
         ) : (
           <LogsView selectedServices={selectedServices} levelFilter={levelFilter} />

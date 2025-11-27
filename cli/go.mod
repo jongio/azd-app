@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/azure/azure-dev v0.0.0-20251111051408-de1f7fb16c75
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/gorilla/websocket v1.5.3
+	github.com/coder/websocket v1.8.14
 	github.com/magefile/mage v1.15.0
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1

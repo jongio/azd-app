@@ -23,6 +23,7 @@ export interface LogEntry {
 
 interface LogsPaneProps {
   serviceName: string
+  port?: number
   patterns: LogPattern[]
   onCopy: (logs: LogEntry[]) => void
   isPaused: boolean
@@ -36,6 +37,7 @@ interface LogsPaneProps {
 
 export function LogsPane({ 
   serviceName, 
+  port,
   patterns, 
   onCopy, 
   isPaused, 
@@ -326,6 +328,11 @@ export function LogsPane({
             )}
           </button>
           <h3 className="font-semibold">{serviceName}</h3>
+          {port && (
+            <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+              :{port}
+            </span>
+          )}
           <span className={cn(
             "px-2 py-0.5 text-xs rounded-full font-medium",
             paneStatus === 'error' && "bg-destructive/10 text-destructive border border-destructive/30",

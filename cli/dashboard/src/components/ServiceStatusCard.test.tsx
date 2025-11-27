@@ -94,7 +94,7 @@ describe('ServiceStatusCard', () => {
     // Should have 3 status icons with counts
     expect(screen.getByTitle('Error')).toBeInTheDocument()
     expect(screen.getByTitle('Warning')).toBeInTheDocument()
-    expect(screen.getByTitle('Info')).toBeInTheDocument()
+    expect(screen.getByTitle('Running')).toBeInTheDocument()
   })
 
   it('should count unhealthy services as errors', () => {
@@ -108,11 +108,11 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // 1 error (unhealthy), 0 warn, 1 info (healthy)
+    // 1 error (unhealthy), 0 warn, 1 running (healthy)
     const errorDiv = screen.getByTitle('Error')
-    const infoDiv = screen.getByTitle('Info')
+    const runningDiv = screen.getByTitle('Running')
     expect(errorDiv.textContent).toContain('1')
-    expect(infoDiv.textContent).toContain('1')
+    expect(runningDiv.textContent).toContain('1')
   })
 
   it('should count stopped services as errors', () => {
@@ -142,11 +142,11 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // 0 error, 1 warn (starting), 1 info (healthy)
+    // 0 error, 1 warn (starting), 1 running (healthy)
     const warnDiv = screen.getByTitle('Warning')
-    const infoDiv = screen.getByTitle('Info')
+    const runningDiv = screen.getByTitle('Running')
     expect(warnDiv.textContent).toContain('1')
-    expect(infoDiv.textContent).toContain('1')
+    expect(runningDiv.textContent).toContain('1')
   })
 
   it('should move info to warn when hasActiveErrors is true', () => {
@@ -160,11 +160,11 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // When hasActiveErrors but no error services, info moves to warn
+    // When hasActiveErrors but no error services, running moves to warn
     const warnDiv = screen.getByTitle('Warning')
-    const infoDiv = screen.getByTitle('Info')
+    const runningDiv = screen.getByTitle('Running')
     expect(warnDiv.textContent).toContain('1')
-    expect(infoDiv.textContent).toContain('0')
+    expect(runningDiv.textContent).toContain('0')
   })
 
   it('should show orange ring when hasActiveErrors is true', () => {
@@ -245,10 +245,10 @@ describe('ServiceStatusCard', () => {
 
     const errorDiv = screen.getByTitle('Error')
     const warnDiv = screen.getByTitle('Warning')
-    const infoDiv = screen.getByTitle('Info')
+    const runningDiv = screen.getByTitle('Running')
     expect(errorDiv.textContent).toContain('0')
     expect(warnDiv.textContent).toContain('0')
-    expect(infoDiv.textContent).toContain('0')
+    expect(runningDiv.textContent).toContain('0')
   })
 
   it('should count all healthy services as info', () => {
@@ -262,8 +262,8 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    const infoDiv = screen.getByTitle('Info')
-    expect(infoDiv.textContent).toContain('2')
+    const runningDiv = screen.getByTitle('Running')
+    expect(runningDiv.textContent).toContain('2')
   })
 
   it('should render status icons', () => {
@@ -277,7 +277,7 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // Should have 3 svg icons (XCircle, AlertTriangle, Info)
+    // Should have 3 svg icons (XCircle, AlertTriangle, CheckCircle)
     const svgs = container.querySelectorAll('svg')
     expect(svgs.length).toBe(3)
   })

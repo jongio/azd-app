@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"embed"
 	"fmt"
+	"html"
 	"io/fs"
 	"log"
 	"math/big"
@@ -22,8 +23,6 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
-
-	"github.com/gorilla/websocket"
 )
 
 //go:embed dist
@@ -31,27 +30,12 @@ var staticFiles embed.FS
 
 // clientConn wraps a websocket connection with a write mutex for safe concurrent writes.
 type clientConn struct {
-	conn    *websocket.Conn
-	writeMu sync.Mutex
+	client *wsClient // Uses github.com/coder/websocket
 }
 
 var (
 	servers   = make(map[string]*Server) // Key: normalized project directory path
 	serversMu sync.Mutex
-	upgrader  = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			// Allow connections from localhost only to prevent CSWSH attacks
-			// Empty origin is allowed for direct WebSocket connections (non-browser clients)
-			if origin == "" {
-				return true
-			}
-			return strings.HasPrefix(origin, "http://localhost:") ||
-				strings.HasPrefix(origin, "http://127.0.0.1:") ||
-				strings.HasPrefix(origin, "https://localhost:") ||
-				strings.HasPrefix(origin, "https://127.0.0.1:")
-		},
-	}
 )
 
 // Server represents the dashboard HTTP server.
@@ -184,33 +168,26 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 
 // handleWebSocket handles WebSocket connections for live updates.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := acceptWebSocket(w, r)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
-		return
-	}
-
-	// Configure WebSocket with standard timeouts
-	if err := configureWebSocket(conn); err != nil {
-		log.Printf("Failed to configure WebSocket: %v", err)
-		if closeErr := conn.Close(); closeErr != nil {
-			log.Printf("Failed to close connection: %v", closeErr)
+		if err != http.ErrAbortHandler {
+			log.Printf("WebSocket upgrade error: %v", err)
 		}
 		return
 	}
 
-	// Wrap connection with mutex for safe concurrent writes
-	client := &clientConn{conn: conn}
+	client := newWSClient(conn)
+	clientWrapper := &clientConn{client: client}
 
 	s.clientsMu.Lock()
-	s.clients[client] = true
+	s.clients[clientWrapper] = true
 	s.clientsMu.Unlock()
 
 	defer func() {
 		s.clientsMu.Lock()
-		delete(s.clients, client)
+		delete(s.clients, clientWrapper)
 		s.clientsMu.Unlock()
-		if err := conn.Close(); err != nil {
+		if err := client.close(); err != nil {
 			log.Printf("Failed to close websocket connection: %v", err)
 		}
 	}()
@@ -223,7 +200,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use the safe write method
-	if err := client.writeWebSocketJSON(map[string]interface{}{
+	if err := clientWrapper.writeWebSocketJSON(map[string]interface{}{
 		"type":     "services",
 		"services": services,
 	}); err != nil {
@@ -232,7 +209,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start health monitoring
-	monitor := newWSHealthMonitor(conn, &client.writeMu)
+	monitor := newWSHealthMonitorNhooyr(client)
 	healthErrors := monitor.start()
 	defer monitor.stop()
 
@@ -245,8 +222,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			// Health monitor detected a problem, close connection
 			return
 		default:
-			_, _, err := conn.ReadMessage()
-			if err != nil {
+			if err := readMessage(client); err != nil {
 				return
 			}
 		}
@@ -293,6 +269,14 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 				statusClass = "error"
 			}
 
+			// Escape all user-controllable values to prevent XSS
+			escapedName := html.EscapeString(svc.Name)
+			escapedURL := html.EscapeString(svc.URL)
+			escapedFramework := html.EscapeString(svc.Framework)
+			escapedLanguage := html.EscapeString(svc.Language)
+			escapedStatus := html.EscapeString(svc.Status)
+			escapedHealth := html.EscapeString(svc.Health)
+
 			fmt.Fprintf(w, `
     <div class="service">
         <h3><span class="status %s"></span>%s</h3>
@@ -301,7 +285,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
         <p><strong>Status:</strong> %s | <strong>Health:</strong> %s</p>
         <p><strong>Started:</strong> %s</p>
     </div>
-`, statusClass, svc.Name, svc.URL, svc.URL, svc.Framework, svc.Language, svc.Status, svc.Health, svc.StartTime.Format(time.RFC822))
+`, statusClass, escapedName, escapedURL, escapedURL, escapedFramework, escapedLanguage, escapedStatus, escapedHealth, svc.StartTime.Format(time.RFC822))
 		}
 	}
 
@@ -589,14 +573,17 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 
 	// Upgrade connection to WebSocket
-	rawConn, err := upgrader.Upgrade(w, r, nil)
+	rawConn, err := acceptWebSocket(w, r)
 	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
+		if err != http.ErrAbortHandler {
+			log.Printf("WebSocket upgrade failed: %v", err)
+		}
 		return
 	}
 	// Wrap connection with mutex for safe concurrent writes
-	conn := &clientConn{conn: rawConn}
-	defer rawConn.Close()
+	client := newWSClient(rawConn)
+	conn := &clientConn{client: client}
+	defer client.close()
 
 	logManager := service.GetLogManager(s.projectDir)
 
