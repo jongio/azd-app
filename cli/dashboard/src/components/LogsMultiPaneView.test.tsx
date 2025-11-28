@@ -383,11 +383,11 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
       expect(screen.getByText('Health Status')).toBeInTheDocument()
     })
 
-    const healthyCheckbox = screen.getByLabelText('Show healthy services') as HTMLInputElement
-    const degradedCheckbox = screen.getByLabelText('Show degraded services') as HTMLInputElement
-    const unhealthyCheckbox = screen.getByLabelText('Show unhealthy services') as HTMLInputElement
-    const startingCheckbox = screen.getByLabelText('Show starting services') as HTMLInputElement
-    const unknownCheckbox = screen.getByLabelText('Show unknown services') as HTMLInputElement
+    const healthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show healthy services')
+    const degradedCheckbox = screen.getByLabelText<HTMLInputElement>('Show degraded services')
+    const unhealthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show unhealthy services')
+    const startingCheckbox = screen.getByLabelText<HTMLInputElement>('Show starting services')
+    const unknownCheckbox = screen.getByLabelText<HTMLInputElement>('Show unknown services')
 
     expect(healthyCheckbox.checked).toBe(true)
     expect(degradedCheckbox.checked).toBe(true)
@@ -404,7 +404,7 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
       expect(screen.getByText('Health Status')).toBeInTheDocument()
     })
 
-    const healthyCheckbox = screen.getByLabelText('Show healthy services') as HTMLInputElement
+    const healthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show healthy services')
     expect(healthyCheckbox.checked).toBe(true)
 
     await user.click(healthyCheckbox)
@@ -428,7 +428,7 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
     await waitFor(() => {
       const saved = localStorage.getItem('logs-health-status-filter')
       expect(saved).toBeDefined()
-      const parsed = JSON.parse(saved!)
+      const parsed = JSON.parse(saved!) as string[]
       expect(parsed).not.toContain('healthy')
       expect(parsed).toContain('degraded')
       expect(parsed).toContain('unhealthy')
@@ -446,11 +446,11 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
       expect(screen.getByText('Health Status')).toBeInTheDocument()
     })
 
-    const healthyCheckbox = screen.getByLabelText('Show healthy services') as HTMLInputElement
-    const degradedCheckbox = screen.getByLabelText('Show degraded services') as HTMLInputElement
-    const unhealthyCheckbox = screen.getByLabelText('Show unhealthy services') as HTMLInputElement
-    const startingCheckbox = screen.getByLabelText('Show starting services') as HTMLInputElement
-    const unknownCheckbox = screen.getByLabelText('Show unknown services') as HTMLInputElement
+    const healthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show healthy services')
+    const degradedCheckbox = screen.getByLabelText<HTMLInputElement>('Show degraded services')
+    const unhealthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show unhealthy services')
+    const startingCheckbox = screen.getByLabelText<HTMLInputElement>('Show starting services')
+    const unknownCheckbox = screen.getByLabelText<HTMLInputElement>('Show unknown services')
 
     expect(healthyCheckbox.checked).toBe(true)
     expect(degradedCheckbox.checked).toBe(false)
@@ -561,7 +561,7 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
     })
 
     // Should fall back to all checked
-    const healthyCheckbox = screen.getByLabelText('Show healthy services') as HTMLInputElement
+    const healthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show healthy services')
     expect(healthyCheckbox.checked).toBe(true)
   })
 
@@ -575,7 +575,7 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
     })
 
     // Should fall back to all checked
-    const healthyCheckbox = screen.getByLabelText('Show healthy services') as HTMLInputElement
+    const healthyCheckbox = screen.getByLabelText<HTMLInputElement>('Show healthy services')
     expect(healthyCheckbox.checked).toBe(true)
   })
 })

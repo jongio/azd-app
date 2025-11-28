@@ -240,24 +240,24 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 }
 
 // getOrCreateCircuitBreaker gets or creates a circuit breaker for a service.
-func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker.CircuitBreaker {
-	if !hc.enableBreaker {
+func (c *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker.CircuitBreaker {
+	if !c.enableBreaker {
 		return nil
 	}
 
-	hc.mu.RLock()
-	breaker, exists := hc.breakers[serviceName]
-	hc.mu.RUnlock()
+	c.mu.RLock()
+	breaker, exists := c.breakers[serviceName]
+	c.mu.RUnlock()
 
 	if exists {
 		return breaker
 	}
 
-	hc.mu.Lock()
-	defer hc.mu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if breaker, exists := hc.breakers[serviceName]; exists {
+	if breaker, exists := c.breakers[serviceName]; exists {
 		return breaker
 	}
 
@@ -265,11 +265,11 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 	settings := gobreaker.Settings{
 		Name:        serviceName,
 		MaxRequests: 3, // Max requests in half-open state
-		Interval:    hc.breakerTimeout,
-		Timeout:     hc.breakerTimeout,
+		Interval:    c.breakerTimeout,
+		Timeout:     c.breakerTimeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= uint32(hc.breakerFailures) && failureRatio >= 0.6
+			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
 			log.Info().
@@ -286,38 +286,38 @@ func (hc *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreake
 	}
 
 	breaker = gobreaker.NewCircuitBreaker(settings)
-	hc.breakers[serviceName] = breaker
+	c.breakers[serviceName] = breaker
 	return breaker
 }
 
 // getOrCreateRateLimiter gets or creates a rate limiter for a service.
-func (hc *HealthChecker) getOrCreateRateLimiter(serviceName string) *rate.Limiter {
-	if hc.rateLimit <= 0 {
+func (c *HealthChecker) getOrCreateRateLimiter(serviceName string) *rate.Limiter {
+	if c.rateLimit <= 0 {
 		return nil
 	}
 
-	hc.mu.RLock()
-	limiter, exists := hc.rateLimiters[serviceName]
-	hc.mu.RUnlock()
+	c.mu.RLock()
+	limiter, exists := c.rateLimiters[serviceName]
+	c.mu.RUnlock()
 
 	if exists {
 		return limiter
 	}
 
-	hc.mu.Lock()
-	defer hc.mu.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if limiter, exists := hc.rateLimiters[serviceName]; exists {
+	if limiter, exists := c.rateLimiters[serviceName]; exists {
 		return limiter
 	}
 
 	// Create rate limiter with burst capacity
-	limiter = rate.NewLimiter(rate.Limit(hc.rateLimit), hc.rateLimit*2)
-	hc.rateLimiters[serviceName] = limiter
+	limiter = rate.NewLimiter(rate.Limit(c.rateLimit), c.rateLimit*2)
+	c.rateLimiters[serviceName] = limiter
 	log.Debug().
 		Str("service", serviceName).
-		Int("rate_limit", hc.rateLimit).
+		Int("rate_limit", c.rateLimit).
 		Msg("Created rate limiter")
 
 	return limiter

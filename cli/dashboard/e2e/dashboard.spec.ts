@@ -1,7 +1,62 @@
 import { test, expect } from '@playwright/test';
 
+// Helper to inject EventSource mock before page loads
+async function mockEventSource(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    // Mock EventSource to prevent health stream overlay
+    class MockEventSource {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSED = 2;
+      readonly CONNECTING = 0;
+      readonly OPEN = 1;
+      readonly CLOSED = 2;
+      readyState = 1; // OPEN
+      url: string;
+      withCredentials = false;
+      onopen: ((ev: Event) => void) | null = null;
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: ((ev: Event) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        // Simulate successful connection
+        setTimeout(() => {
+          if (this.onopen) {
+            this.onopen(new Event('open'));
+          }
+          // Send initial health data
+          if (this.onmessage) {
+            const data = JSON.stringify({
+              type: 'health',
+              timestamp: new Date().toISOString(),
+              services: [],
+              summary: { total: 0, healthy: 0, degraded: 0, unhealthy: 0, unknown: 0, overall: 'healthy' }
+            });
+            this.onmessage(new MessageEvent('message', { data }));
+          }
+        }, 10);
+      }
+
+      close() {
+        this.readyState = 2;
+      }
+
+      addEventListener() {}
+      removeEventListener() {}
+      dispatchEvent() { return false; }
+    }
+
+    // Replace global EventSource
+    (window as unknown as { EventSource: typeof MockEventSource }).EventSource = MockEventSource;
+  });
+}
+
 test.describe('Dashboard - Resources View', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock EventSource before page loads
+    await mockEventSource(page);
+
     // Mock the API responses
     await page.route('/api/project', async route => {
       await route.fulfill({
@@ -49,6 +104,22 @@ test.describe('Dashboard - Resources View', () => {
     });
 
     await page.route('/api/logs*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('/api/preferences*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'system', dateFormat: 'relative', refreshInterval: 5000, fontSize: 14 }),
+      });
+    });
+
+    await page.route('/api/classifications*', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -107,12 +178,12 @@ test.describe('Dashboard - Resources View', () => {
   });
 
   test('should navigate between views', async ({ page }) => {
-    // Click console view
-    await page.getByRole('button', { name: /console/i }).click();
+    // Click console view (use exact match to avoid matching other console-related buttons)
+    await page.getByRole('button', { name: 'Console', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Console' })).toBeVisible();
     
     // Click back to resources
-    await page.getByRole('button', { name: /resources/i }).click();
+    await page.getByRole('button', { name: 'Resources', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
   });
 
@@ -143,6 +214,9 @@ test.describe('Dashboard - Resources View', () => {
 
 test.describe('Dashboard - Console View', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock EventSource before page loads
+    await mockEventSource(page);
+
     await page.route('/api/project', async route => {
       await route.fulfill({
         status: 200,
@@ -182,6 +256,22 @@ test.describe('Dashboard - Console View', () => {
       });
     });
 
+    await page.route('/api/preferences*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'system', dateFormat: 'relative', refreshInterval: 5000, fontSize: 14 }),
+      });
+    });
+
+    await page.route('/api/classifications*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
     await page.goto('/');
   });
 
@@ -200,6 +290,9 @@ test.describe('Dashboard - Console View', () => {
 
 test.describe('Dashboard - Error States', () => {
   test('should display loading state', async ({ page }) => {
+    // Mock EventSource before page loads
+    await mockEventSource(page);
+
     // Delay the API response
     await page.route('/api/services', async route => {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -218,6 +311,22 @@ test.describe('Dashboard - Error States', () => {
       });
     });
 
+    await page.route('/api/preferences*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'system', dateFormat: 'relative', refreshInterval: 5000, fontSize: 14 }),
+      });
+    });
+
+    await page.route('/api/classifications*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
     await page.goto('/');
     
     // Should show loading spinner (use first() since there may be multiple spinners)
@@ -226,6 +335,9 @@ test.describe('Dashboard - Error States', () => {
   });
 
   test('should display empty state when no services', async ({ page }) => {
+    // Mock EventSource before page loads
+    await mockEventSource(page);
+
     await page.route('/api/project', async route => {
       await route.fulfill({
         status: 200,
@@ -242,6 +354,22 @@ test.describe('Dashboard - Error States', () => {
       });
     });
 
+    await page.route('/api/preferences*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'system', dateFormat: 'relative', refreshInterval: 5000, fontSize: 14 }),
+      });
+    });
+
+    await page.route('/api/classifications*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
     await page.goto('/');
     
     await expect(page.getByText('No Services Running')).toBeVisible();
@@ -251,6 +379,9 @@ test.describe('Dashboard - Error States', () => {
 
 test.describe('Dashboard - Accessibility', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock EventSource before page loads
+    await mockEventSource(page);
+
     await page.route('/api/project', async route => {
       await route.fulfill({
         status: 200,
@@ -280,6 +411,22 @@ test.describe('Dashboard - Accessibility', () => {
     });
 
     await page.route('/api/logs*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('/api/preferences*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'system', dateFormat: 'relative', refreshInterval: 5000, fontSize: 14 }),
+      });
+    });
+
+    await page.route('/api/classifications*', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

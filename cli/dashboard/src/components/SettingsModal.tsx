@@ -178,7 +178,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </Button>
               <Button 
                 size="sm" 
-                onClick={handleSaveChanges}
+                onClick={() => { void handleSaveChanges() }}
                 disabled={isSaving}
               >
                 <Save className="w-4 h-4 mr-2" />

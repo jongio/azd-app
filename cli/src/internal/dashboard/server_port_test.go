@@ -27,7 +27,7 @@ func TestPersistentDashboardPort_FirstRunPersists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start() failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	if url == "" {
 		t.Fatal("Expected non-empty URL")
@@ -69,7 +69,7 @@ func TestPersistentDashboardPort_SecondRunReusesPersisted(t *testing.T) {
 		t.Fatalf("First Start() failed: %v", err)
 	}
 	port1 := srv1.port
-	srv1.Stop()
+	_ = srv1.Stop()
 
 	// Clear servers map but NOT port manager cache (to simulate restart)
 	serversMu.Lock()
@@ -93,7 +93,7 @@ func TestPersistentDashboardPort_SecondRunReusesPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Second Start() failed: %v", err)
 	}
-	defer srv2.Stop()
+	defer func() { _ = srv2.Stop() }()
 	port2 := srv2.port
 
 	// Verify same port is used
@@ -122,7 +122,7 @@ func TestPersistentDashboardPort_PortRangeIsValid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start() failed: %v", err)
 	}
-	defer srv.Stop()
+	defer func() { _ = srv.Stop() }()
 
 	// Verify port is in expected range
 	if srv.port < constants.DashboardPortRangeMin || srv.port > constants.DashboardPortRangeMax {
@@ -163,7 +163,7 @@ func TestPersistentDashboardPort_MultipleProjects(t *testing.T) {
 		t.Fatalf("First project Start() failed: %v", err)
 	}
 	port1 := srv1.port
-	defer srv1.Stop()
+	defer func() { _ = srv1.Stop() }()
 
 	// Start second project
 	srv2 := GetServer(tempDir2)
@@ -172,7 +172,7 @@ func TestPersistentDashboardPort_MultipleProjects(t *testing.T) {
 		t.Fatalf("Second project Start() failed: %v", err)
 	}
 	port2 := srv2.port
-	defer srv2.Stop()
+	defer func() { _ = srv2.Stop() }()
 
 	// Ports may or may not be different (random), but each project
 	// should have its own ports.json file
@@ -243,9 +243,9 @@ func TestPersistentDashboardPort_PortConflictFallback(t *testing.T) {
 		if port1 == port2 {
 			t.Errorf("Expected different ports when original is in use, got same port %d", port1)
 		}
-		srv2.Stop()
+		_ = srv2.Stop()
 	}
 
 	// Clean up first server
-	srv1.Stop()
+	_ = srv1.Stop()
 }

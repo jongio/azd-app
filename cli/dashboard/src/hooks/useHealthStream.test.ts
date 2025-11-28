@@ -92,11 +92,11 @@ describe('useHealthStream', () => {
     expect(result.current.summary).toBeNull()
   })
 
-  it('should connect to SSE endpoint on mount', async () => {
+  it('should connect to SSE endpoint on mount', () => {
     renderHook(() => useHealthStream())
 
     // Advance timers to allow connection
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
@@ -104,56 +104,56 @@ describe('useHealthStream', () => {
     expect(mockEventSourceInstance).not.toBeNull()
   })
 
-  it('should set connected to true on open', async () => {
+  it('should set connected to true on open', () => {
     const { result } = renderHook(() => useHealthStream())
 
     // Advance timers to trigger connection
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Manually trigger the open callback since fake timers don't work with setTimeout inside EventSource
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.onopen?.()
     })
 
     expect(result.current.connected).toBe(true)
   })
 
-  it('should build URL with custom interval', async () => {
+  it('should build URL with custom interval', () => {
     renderHook(() => useHealthStream({ interval: 10 }))
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     expect(EventSource).toHaveBeenCalledWith('/api/health/stream?interval=10s')
   })
 
-  it('should build URL with service filter', async () => {
+  it('should build URL with service filter', () => {
     renderHook(() => useHealthStream({ services: ['api', 'web'] }))
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     expect(EventSource).toHaveBeenCalledWith('/api/health/stream?interval=5s&service=api%2Cweb')
   })
 
-  it('should not connect when disabled', async () => {
+  it('should not connect when disabled', () => {
     renderHook(() => useHealthStream({ enabled: false }))
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     expect(EventSource).not.toHaveBeenCalled()
   })
 
-  it('should handle health report event', async () => {
+  it('should handle health report event', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
@@ -179,7 +179,7 @@ describe('useHealthStream', () => {
       },
     }
 
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('message', healthReport)
     })
 
@@ -188,10 +188,10 @@ describe('useHealthStream', () => {
     expect(result.current.lastUpdate).not.toBeNull()
   })
 
-  it('should handle health change event', async () => {
+  it('should handle health change event', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
@@ -204,7 +204,7 @@ describe('useHealthStream', () => {
       reason: 'connection refused',
     }
 
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('health-change', changeEvent)
     })
 
@@ -212,26 +212,26 @@ describe('useHealthStream', () => {
     expect(result.current.changes[0]).toEqual(changeEvent)
   })
 
-  it('should handle heartbeat event', async () => {
+  it('should handle heartbeat event', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     const initialUpdate = result.current.lastUpdate
 
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('heartbeat', { type: 'heartbeat', timestamp: '2024-11-27T10:30:00Z' })
     })
 
     expect(result.current.lastUpdate).not.toEqual(initialUpdate)
   })
 
-  it('should get service health by name', async () => {
+  it('should get service health by name', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
@@ -265,7 +265,7 @@ describe('useHealthStream', () => {
       },
     }
 
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('message', healthReport)
     })
 
@@ -281,16 +281,16 @@ describe('useHealthStream', () => {
     expect(unknownHealth).toBeUndefined()
   })
 
-  it('should limit stored changes', async () => {
+  it('should limit stored changes', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Dispatch 60 change events (more than MAX_CHANGES_TO_KEEP = 50)
     for (let i = 0; i < 60; i++) {
-      await act(async () => {
+      act(() => {
         mockEventSourceInstance?.dispatchEvent('health-change', {
           type: 'health-change',
           timestamp: new Date().toISOString(),
@@ -304,15 +304,15 @@ describe('useHealthStream', () => {
     expect(result.current.changes.length).toBeLessThanOrEqual(50)
   })
 
-  it('should handle connection error and attempt reconnection', async () => {
+  it('should handle connection error and attempt reconnection', () => {
     const { result } = renderHook(() => useHealthStream({ reconnectDelay: 1000, maxReconnectAttempts: 3 }))
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Simulate error
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.simulateError()
     })
 
@@ -320,7 +320,7 @@ describe('useHealthStream', () => {
     expect(result.current.error).toContain('Reconnecting')
 
     // Advance timer to trigger reconnect
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(2000)
     })
 
@@ -328,10 +328,10 @@ describe('useHealthStream', () => {
     expect(EventSource).toHaveBeenCalledTimes(2)
   })
 
-  it('should cleanup on unmount', async () => {
+  it('should cleanup on unmount', () => {
     const { unmount } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
@@ -343,40 +343,40 @@ describe('useHealthStream', () => {
     expect(instance?.readyState).toBe(MockEventSource.CLOSED)
   })
 
-  it('should allow manual reconnection', async () => {
+  it('should allow manual reconnection', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Simulate disconnect
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.close()
     })
 
     // Manual reconnect
-    await act(async () => {
+    act(() => {
       result.current.reconnect()
     })
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     expect(EventSource).toHaveBeenCalledTimes(2)
   })
 
-  it('should parse malformed JSON gracefully', async () => {
+  it('should parse malformed JSON gracefully', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Send malformed data
-    await act(async () => {
+    act(() => {
       if (mockEventSourceInstance?.onmessage) {
         mockEventSourceInstance.onmessage({ data: 'not-valid-json' } as MessageEvent)
       }
@@ -389,15 +389,15 @@ describe('useHealthStream', () => {
     consoleSpy.mockRestore()
   })
 
-  it('should get latest change for a service', async () => {
+  it('should get latest change for a service', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Add multiple changes for different services
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('health-change', {
         type: 'health-change',
         timestamp: '2024-11-27T10:30:00Z',
@@ -407,7 +407,7 @@ describe('useHealthStream', () => {
       })
     })
 
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('health-change', {
         type: 'health-change',
         timestamp: '2024-11-27T10:31:00Z',
@@ -425,15 +425,15 @@ describe('useHealthStream', () => {
     expect(unknownChange).toBeUndefined()
   })
 
-  it('should detect service recovery', async () => {
+  it('should detect service recovery', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Service goes unhealthy
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('health-change', {
         type: 'health-change',
         timestamp: '2024-11-27T10:30:00Z',
@@ -446,7 +446,7 @@ describe('useHealthStream', () => {
     expect(result.current.hasRecovered('api')).toBe(false)
 
     // Service recovers
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('health-change', {
         type: 'health-change',
         timestamp: '2024-11-27T10:31:00Z',
@@ -459,15 +459,15 @@ describe('useHealthStream', () => {
     expect(result.current.hasRecovered('api')).toBe(true)
   })
 
-  it('should clear changes', async () => {
+  it('should clear changes', () => {
     const { result } = renderHook(() => useHealthStream())
 
-    await act(async () => {
+    act(() => {
       vi.advanceTimersByTime(10)
     })
 
     // Add a change
-    await act(async () => {
+    act(() => {
       mockEventSourceInstance?.dispatchEvent('health-change', {
         type: 'health-change',
         timestamp: '2024-11-27T10:30:00Z',
@@ -480,7 +480,7 @@ describe('useHealthStream', () => {
     expect(result.current.changes).toHaveLength(1)
 
     // Clear changes
-    await act(async () => {
+    act(() => {
       result.current.clearChanges()
     })
 

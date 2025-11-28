@@ -28,11 +28,11 @@ func isExpectedCloseError(err error) bool {
 	// Check for common expected closure patterns
 	expectedPatterns := []string{
 		"connection was aborted",
-		"wsasend:",           // Windows socket error
-		"broken pipe",        // Unix pipe closed
-		"connection reset",   // Connection reset by peer
+		"wsasend:",                  // Windows socket error
+		"broken pipe",               // Unix pipe closed
+		"connection reset",          // Connection reset by peer
 		"context deadline exceeded", // Write timeout
-		"context canceled",   // Context was canceled
+		"context canceled",          // Context was canceled
 		"use of closed network connection",
 	}
 	for _, pattern := range expectedPatterns {

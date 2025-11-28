@@ -117,8 +117,6 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/logs/stream", s.handleLogStream)
 	s.mux.HandleFunc("/api/logs/classifications", s.handleClassificationsRouter)
 	s.mux.HandleFunc("/api/logs/classifications/", s.handleClassificationsRouter)
-	// NOTE: /api/logs/patterns deprecated in favor of /api/logs/classifications
-	// The old patterns code in logs_config.go can be removed in a future cleanup
 	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
