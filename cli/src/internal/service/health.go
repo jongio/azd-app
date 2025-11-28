@@ -6,8 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"syscall"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -132,20 +130,8 @@ func ProcessHealthCheck(process *ServiceProcess) error {
 		return fmt.Errorf("process has invalid PID: %d", pid)
 	}
 
-	// Try to find the process - this works cross-platform
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return fmt.Errorf("process %d not found: %w", pid, err)
-	}
-
-	// On Unix, we can send signal 0 to check if process exists
-	// On Windows, FindProcess always succeeds, so we rely on that
-	// We don't use Signal(nil) as it can cause issues
-	if err := p.Signal(syscall.Signal(0)); err != nil {
-		return fmt.Errorf("process %d not running: %w", pid, err)
-	}
-
-	return nil
+	// Use platform-specific implementation to check if process is running
+	return processIsRunning(pid)
 }
 
 // WaitForPort waits for a port to become available (listening) with exponential backoff.

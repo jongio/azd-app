@@ -24,9 +24,17 @@ const (
 )
 
 // TestHealthCommandE2E_FullWorkflow tests the complete health command workflow end-to-end.
+// This test starts real services and requires interactive port assignment,
+// so it's skipped in CI environments.
 func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping E2E test in short mode")
+	}
+
+	// Skip in CI because this test starts real services that may require
+	// interactive port assignment or have other environment dependencies
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping full workflow E2E test in CI - requires interactive port assignment")
 	}
 
 	// Get absolute path to test project
@@ -51,7 +59,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "deps")
+		cmd := exec.CommandContext(ctx, binaryPath, "deps")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -71,7 +79,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 	t.Run("StartServices", func(t *testing.T) {
 		runCtx, runCancel = context.WithCancel(context.Background())
 
-		runCmd = exec.CommandContext(runCtx, binaryPath, "app", "run")
+		runCmd = exec.CommandContext(runCtx, binaryPath, "run")
 		runCmd.Dir = projectDir
 		runCmd.Stdout = os.Stdout
 		runCmd.Stderr = os.Stderr
@@ -111,7 +119,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health")
+		cmd := exec.CommandContext(ctx, binaryPath, "health")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -143,7 +151,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "json")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -173,7 +181,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "table")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "table")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -199,7 +207,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--service", "web,api")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--service", "web,api")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -227,7 +235,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--verbose")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--verbose")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -255,7 +263,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--stream", "--interval", "2s")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--stream", "--interval", "2s")
 		cmd.Dir = projectDir
 
 		var stdout bytes.Buffer
@@ -289,7 +297,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "info")
+		cmd := exec.CommandContext(ctx, binaryPath, "info")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -328,7 +336,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health")
+		cmd := exec.CommandContext(ctx, binaryPath, "health")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -350,7 +358,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "invalid")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "invalid")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -370,7 +378,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--stream", "--interval", "0s")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--stream", "--interval", "0s")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -383,9 +391,16 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 }
 
 // TestHealthCommandE2E_CrossPlatform tests platform-specific behaviors.
+// This test starts real services, so it's skipped in CI environments.
 func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping E2E test in short mode")
+	}
+
+	// Skip in CI because this test starts real services that may require
+	// interactive port assignment or have other environment dependencies
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping cross-platform E2E test in CI - requires interactive port assignment")
 	}
 
 	binaryPath := buildAzdBinary(t)
@@ -405,7 +420,7 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		runCtx, runCancel := context.WithCancel(context.Background())
 		defer runCancel()
 
-		runCmd := exec.CommandContext(runCtx, binaryPath, "app", "run")
+		runCmd := exec.CommandContext(runCtx, binaryPath, "run")
 		runCmd.Dir = projectDir
 
 		if err := runCmd.Start(); err != nil {
@@ -421,7 +436,7 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		time.Sleep(30 * time.Second)
 
 		// Health check should detect running processes
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "json")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
