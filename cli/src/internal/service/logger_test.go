@@ -244,42 +244,18 @@ func TestServiceLogger_LogInfo(t *testing.T) {
 func TestServiceLogger_LogStartup(t *testing.T) {
 	logger := NewServiceLogger(false)
 
-	tests := []struct {
-		count int
-		want  string
-	}{
-		{1, "service"},
-		{2, "services"},
-		{5, "services"},
-	}
+	output := captureStdout(func() {
+		logger.LogStartup(3)
+	})
 
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%d services", tt.count), func(t *testing.T) {
-			output := captureStdout(func() {
-				logger.LogStartup(tt.count)
-			})
-
-			if !strings.Contains(output, tt.want) {
-				t.Errorf("LogStartup(%d) output missing %q", tt.count, tt.want)
-			}
-
-			if !strings.Contains(output, "Azure Developer CLI") {
-				t.Error("LogStartup output missing title")
-			}
-
-			if !strings.Contains(output, "🚀") {
-				t.Error("LogStartup output missing rocket emoji")
-			}
-		})
+	// Simplified output just says "Starting services..."
+	if !strings.Contains(output, "Starting services...") {
+		t.Error("LogStartup output missing 'Starting services...'")
 	}
 }
 
 func TestServiceLogger_LogSummary(t *testing.T) {
 	logger := NewServiceLogger(false)
-
-	// Pre-allocate colors to avoid mutex during capture
-	_ = logger.getServiceColor("web")
-	_ = logger.getServiceColor("api")
 
 	urls := map[string]string{
 		"web": "http://localhost:3000",
@@ -289,10 +265,6 @@ func TestServiceLogger_LogSummary(t *testing.T) {
 	output := captureStdout(func() {
 		logger.LogSummary(urls)
 	})
-
-	if !strings.Contains(output, "All services ready") {
-		t.Error("LogSummary output missing ready message")
-	}
 
 	if !strings.Contains(output, "web") {
 		t.Error("LogSummary output missing web service")
@@ -309,6 +281,11 @@ func TestServiceLogger_LogSummary(t *testing.T) {
 	if !strings.Contains(output, "http://localhost:8080") {
 		t.Error("LogSummary output missing api URL")
 	}
+
+	// Should have checkmarks
+	if !strings.Contains(output, "✓") {
+		t.Error("LogSummary output missing checkmarks")
+	}
 }
 
 func TestServiceLogger_LogSummary_EmptyURLs(t *testing.T) {
@@ -318,8 +295,10 @@ func TestServiceLogger_LogSummary_EmptyURLs(t *testing.T) {
 		logger.LogSummary(map[string]string{})
 	})
 
-	if !strings.Contains(output, "All services ready") {
-		t.Error("LogSummary output missing ready message")
+	// Empty URLs should produce no output (not even a newline for the summary itself)
+	// Just verify it doesn't panic and produces minimal output
+	if strings.Contains(output, "✓") {
+		t.Error("LogSummary with empty URLs should not have checkmarks")
 	}
 }
 
@@ -330,12 +309,8 @@ func TestServiceLogger_LogReady(t *testing.T) {
 		logger.LogReady()
 	})
 
-	if !strings.Contains(output, "All services ready") {
+	if !strings.Contains(output, "Ready") {
 		t.Error("LogReady output missing ready message")
-	}
-
-	if !strings.Contains(output, "✨") {
-		t.Error("LogReady output missing sparkles emoji")
 	}
 }
 

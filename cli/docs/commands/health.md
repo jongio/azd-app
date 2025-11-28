@@ -21,6 +21,8 @@ azd app health [flags]
 
 ### Flags
 
+#### Basic Flags
+
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Monitor specific service(s) only (comma-separated) |
@@ -31,6 +33,37 @@ azd app health [flags]
 | `--timeout` | | duration | `5s` | Timeout for each health check |
 | `--all` | | bool | `false` | Show health for all projects on this machine |
 | `--verbose` | `-v` | bool | `false` | Show detailed health check information |
+
+#### Profile and Logging Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--profile` | string | | Health profile to use (development, production, ci, staging, or custom) |
+| `--log-level` | string | `info` | Log level: debug, info, warn, error |
+| `--log-format` | string | `pretty` | Log format: json, pretty, text |
+| `--save-profiles` | bool | `false` | Save sample health profiles to .azd/health-profiles.yaml |
+
+#### Metrics Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--metrics` | bool | `false` | Enable Prometheus metrics exposition |
+| `--metrics-port` | int | `9090` | Port for Prometheus metrics endpoint |
+
+#### Circuit Breaker Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--circuit-breaker` | bool | `false` | Enable circuit breaker pattern |
+| `--circuit-break-count` | int | `5` | Number of failures before opening circuit |
+| `--circuit-break-timeout` | duration | `60s` | Circuit breaker timeout duration |
+
+#### Rate Limiting and Caching Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--rate-limit` | int | `0` | Max health checks per second per service (0 = unlimited) |
+| `--cache-ttl` | duration | `0` | Cache TTL for health results (0 = no caching) |
 
 ## Execution Flow
 

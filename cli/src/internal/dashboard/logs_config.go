@@ -44,11 +44,33 @@ type PatternsResponse struct {
 	Overrides []ClassificationOverride `json:"overrides,omitempty"`
 }
 
+// UIPreferences represents UI-related preferences
+type UIPreferences struct {
+	GridColumns      int      `json:"gridColumns"`
+	ViewMode         string   `json:"viewMode"` // "grid" or "unified"
+	SelectedServices []string `json:"selectedServices"`
+}
+
+// BehaviorPreferences represents behavior-related preferences
+type BehaviorPreferences struct {
+	AutoScroll      bool   `json:"autoScroll"`
+	PauseOnScroll   bool   `json:"pauseOnScroll"`
+	TimestampFormat string `json:"timestampFormat"`
+}
+
+// CopyPreferences represents copy-related preferences
+type CopyPreferences struct {
+	DefaultFormat    string `json:"defaultFormat"` // "plaintext", "json", "markdown", "csv"
+	IncludeTimestamp bool   `json:"includeTimestamp"`
+	IncludeService   bool   `json:"includeService"`
+}
+
 // UserPreferences represents user preferences for the logs view
 type UserPreferences struct {
-	GridColumns int    `json:"gridColumns"`
-	PaneHeight  int    `json:"paneHeight"`
-	ViewMode    string `json:"viewMode"` // "grid" or "unified"
+	Version  string              `json:"version"`
+	UI       UIPreferences       `json:"ui"`
+	Behavior BehaviorPreferences `json:"behavior"`
+	Copy     CopyPreferences     `json:"copy"`
 }
 
 // Pattern/Override source types - use constants.SourceUser and constants.SourceApp
@@ -302,9 +324,22 @@ func loadPreferences() (UserPreferences, error) {
 		if os.IsNotExist(err) {
 			// Return default preferences
 			return UserPreferences{
-				GridColumns: 3,
-				PaneHeight:  400,
-				ViewMode:    "grid",
+				Version: "1.0",
+				UI: UIPreferences{
+					GridColumns:      2,
+					ViewMode:         "grid",
+					SelectedServices: []string{},
+				},
+				Behavior: BehaviorPreferences{
+					AutoScroll:      true,
+					PauseOnScroll:   true,
+					TimestampFormat: "hh:mm:ss.sss",
+				},
+				Copy: CopyPreferences{
+					DefaultFormat:    "plaintext",
+					IncludeTimestamp: true,
+					IncludeService:   true,
+				},
 			}, nil
 		}
 		return UserPreferences{}, fmt.Errorf("failed to read preferences file: %w", err)

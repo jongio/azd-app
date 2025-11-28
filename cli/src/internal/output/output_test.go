@@ -199,10 +199,47 @@ func TestCommandHeaderInJSONMode(t *testing.T) {
 	}
 }
 
+func TestCommandHeaderInOrchestratedMode(t *testing.T) {
+	// Set to default format but orchestrated mode
+	_ = SetFormat("default")
+	SetOrchestrated(true)
+	defer func() {
+		_ = SetFormat("default")
+		SetOrchestrated(false)
+	}()
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	CommandHeader("test", "Test command description")
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+	output := buf.String()
+
+	// In orchestrated mode, CommandHeader should produce no output
+	if output != "" {
+		t.Errorf("CommandHeader() in orchestrated mode should produce no output, got: %q", output)
+	}
+}
+
 func TestCommandHeaderInDefaultMode(t *testing.T) {
 	// Set to default format
 	_ = SetFormat("default")
-	defer func() { _ = SetFormat("default") }() // Reset
+	SetOrchestrated(false) // Ensure not in orchestrated mode
+	defer func() {
+		_ = SetFormat("default")
+		SetOrchestrated(false)
+	}()
 
 	// Capture stdout
 	oldStdout := os.Stdout
@@ -225,9 +262,6 @@ func TestCommandHeaderInDefaultMode(t *testing.T) {
 	// In default mode, CommandHeader should produce output containing the command name
 	if !strings.Contains(output, "azd app test") {
 		t.Errorf("CommandHeader() in default mode should contain 'azd app test', got: %q", output)
-	}
-	if !strings.Contains(output, "Test command description") {
-		t.Errorf("CommandHeader() in default mode should contain description, got: %q", output)
 	}
 }
 

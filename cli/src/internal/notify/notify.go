@@ -69,7 +69,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		AppName: "Azure Developer CLI",
-		AppID:   "com.microsoft.azd",
+		AppID:   "Microsoft.AzureDeveloperCLI",
 		Timeout: 5 * time.Second,
 	}
 }

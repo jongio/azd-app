@@ -3,14 +3,15 @@ const http = require('http');
 const PORT = 3004;
 const startTime = Date.now();
 
-// Degradation cycle: fast → slow → degraded → fast
+// Degradation cycle: fast → slow → degraded → critical → fast
+// Each phase demonstrates a different health state
 const PHASE_DURATION = 15000; // 15 seconds per phase
 const phases = [
-  { name: 'optimal', responseTime: 10, healthy: true },
-  { name: 'normal', responseTime: 50, healthy: true },
-  { name: 'slow', responseTime: 200, healthy: true },
-  { name: 'degraded', responseTime: 800, healthy: true },  // Still healthy but slow
-  { name: 'critical', responseTime: 2500, healthy: false }, // Too slow, unhealthy
+  { name: 'optimal', responseTime: 10, status: 'healthy' },     // ✅ healthy - fast response
+  { name: 'normal', responseTime: 50, status: 'healthy' },      // ✅ healthy - normal response  
+  { name: 'slow', responseTime: 200, status: 'healthy' },       // ✅ healthy - still within limits
+  { name: 'degraded', responseTime: 800, status: 'degraded' },  // ⚠️ DEGRADED - slow but working
+  { name: 'critical', responseTime: 1500, status: 'unhealthy' }, // ❌ unhealthy - too slow
 ];
 
 let currentPhaseIndex = 0;
@@ -38,27 +39,33 @@ function getCurrentPhase() {
     phaseStartTime = Date.now();
     const newPhase = phases[currentPhaseIndex];
     
-    // Log phase transition
-    if (previousPhase.healthy && !newPhase.healthy) {
+    // Log phase transition with appropriate level
+    if (newPhase.status === 'unhealthy') {
       log('error', `🔴 PERFORMANCE CRITICAL - Response times exceeding thresholds`, {
         previousPhase: previousPhase.name,
         newPhase: newPhase.name,
+        previousStatus: previousPhase.status,
+        newStatus: newPhase.status,
         responseTime: `${newPhase.responseTime}ms`
       });
-    } else if (!previousPhase.healthy && newPhase.healthy) {
-      log('info', `🟢 PERFORMANCE RECOVERED - Response times normalized`, {
+    } else if (newPhase.status === 'degraded') {
+      log('warn', `🟡 SERVICE DEGRADED - High latency detected`, {
         previousPhase: previousPhase.name,
         newPhase: newPhase.name,
+        previousStatus: previousPhase.status,
+        newStatus: newPhase.status,
         responseTime: `${newPhase.responseTime}ms`
       });
-    } else if (newPhase.responseTime > previousPhase.responseTime) {
-      log('warn', `⚠️ Performance degrading - increased latency detected`, {
+    } else if (previousPhase.status !== 'healthy' && newPhase.status === 'healthy') {
+      log('info', `🟢 SERVICE RECOVERED - Response times normalized`, {
         previousPhase: previousPhase.name,
         newPhase: newPhase.name,
+        previousStatus: previousPhase.status,
+        newStatus: newPhase.status,
         responseTime: `${newPhase.responseTime}ms`
       });
     } else {
-      log('info', `📈 Performance improving`, {
+      log('info', `📊 Phase transition`, {
         previousPhase: previousPhase.name,
         newPhase: newPhase.name,
         responseTime: `${newPhase.responseTime}ms`
@@ -72,40 +79,28 @@ const server = http.createServer((req, res) => {
   const phase = getCurrentPhase();
   
   if (req.url === '/health') {
-    // Simulate response time
+    // Simulate response time based on phase
     setTimeout(() => {
-      if (phase.healthy) {
-        const level = phase.responseTime > 500 ? 'warn' : 'info';
-        log(level, `Health check completed`, { 
-          status: 'healthy',
-          phase: phase.name,
-          responseTime: `${phase.responseTime}ms`
-        });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          status: 'healthy',
-          service: 'degraded-api',
-          phase: phase.name,
-          responseTime: phase.responseTime,
-          uptime: Date.now() - startTime,
-          degraded: phase.responseTime > 200
-        }));
-      } else {
-        log('error', `Health check FAILED - response time exceeded threshold`, { 
-          status: 'unhealthy',
-          phase: phase.name,
-          responseTime: `${phase.responseTime}ms`,
-          threshold: '2000ms'
-        });
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          status: 'unhealthy',
-          service: 'degraded-api',
-          error: 'Response time exceeded threshold',
-          phase: phase.name,
-          responseTime: phase.responseTime
-        }));
-      }
+      // Return the phase's status directly - this triggers the correct health state
+      // healthy → green, degraded → yellow, unhealthy → red
+      const httpStatus = phase.status === 'unhealthy' ? 503 : 200;
+      const logLevel = phase.status === 'unhealthy' ? 'error' : 
+                       phase.status === 'degraded' ? 'warn' : 'info';
+      
+      log(logLevel, `Health check completed`, { 
+        status: phase.status,
+        phase: phase.name,
+        responseTime: `${phase.responseTime}ms`
+      });
+      
+      res.writeHead(httpStatus, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: phase.status,  // This is what the health monitor reads!
+        service: 'degraded-api',
+        phase: phase.name,
+        responseTime: phase.responseTime,
+        uptime: Date.now() - startTime
+      }));
     }, phase.responseTime);
   } else if (req.url === '/') {
     setTimeout(() => {
@@ -113,6 +108,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ 
         message: 'Degraded API service',
         phase: phase.name,
+        status: phase.status,
         responseTime: phase.responseTime
       }));
     }, phase.responseTime);
@@ -132,10 +128,13 @@ server.listen(PORT, () => {
   // Periodic status log
   setInterval(() => {
     const phase = getCurrentPhase();
-    const emoji = phase.healthy ? (phase.responseTime > 200 ? '🟡' : '🟢') : '🔴';
-    log(phase.healthy ? 'info' : 'error', `${emoji} Current phase: ${phase.name}`, {
+    const emoji = phase.status === 'healthy' ? '🟢' : 
+                  phase.status === 'degraded' ? '🟡' : '🔴';
+    const logLevel = phase.status === 'unhealthy' ? 'error' : 
+                     phase.status === 'degraded' ? 'warn' : 'info';
+    log(logLevel, `${emoji} Current phase: ${phase.name}`, {
+      status: phase.status,
       responseTime: `${phase.responseTime}ms`,
-      healthy: phase.healthy,
       timeInPhase: `${((Date.now() - phaseStartTime) / 1000).toFixed(0)}s`
     });
   }, 10000);

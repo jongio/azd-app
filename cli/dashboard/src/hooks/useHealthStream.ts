@@ -69,6 +69,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
   const eventSourceRef = useRef<EventSource | null>(null)
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Build SSE URL with parameters
   const buildUrl = useCallback(() => {
@@ -122,6 +123,10 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
       clearTimeout(reconnectTimeoutRef.current)
       reconnectTimeoutRef.current = null
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current)
+      countdownIntervalRef.current = null
+    }
   }, [])
 
   // Connect to SSE stream
@@ -152,13 +157,35 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
     eventSource.onerror = () => {
       setConnected(false)
 
+      // Clear any existing countdown
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current)
+        countdownIntervalRef.current = null
+      }
+
       // Attempt reconnection
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         reconnectAttemptsRef.current++
         const delay = reconnectDelay * Math.pow(2, reconnectAttemptsRef.current - 1)
-        setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s...`)
+        let remainingSeconds = Math.ceil(delay / 1000)
+        
+        // Set initial countdown message
+        setError(`Connection lost. Reconnecting in ${remainingSeconds}s...`)
+        
+        // Update countdown every second
+        countdownIntervalRef.current = setInterval(() => {
+          remainingSeconds--
+          if (remainingSeconds > 0) {
+            setError(`Connection lost. Reconnecting in ${remainingSeconds}s...`)
+          }
+        }, 1000)
 
         reconnectTimeoutRef.current = setTimeout(() => {
+          // Clear countdown interval when reconnecting
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current)
+            countdownIntervalRef.current = null
+          }
           connect()
         }, delay)
       } else {

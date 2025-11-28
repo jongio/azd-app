@@ -45,7 +45,7 @@ export function ServiceStatusCard({
             >
               <Activity className={`w-3 h-3 ${
                 healthConnected 
-                  ? 'text-green-400 animate-pulse' 
+                  ? 'text-green-400 animate-heartbeat' 
                   : 'text-muted-foreground/30'
               }`} />
             </div>
@@ -55,7 +55,7 @@ export function ServiceStatusCard({
           <div className="flex items-center gap-1.5" title="Errors/Unhealthy">
             <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
               statusCounts.error > 0 
-                ? 'bg-red-500/15' 
+                ? 'bg-red-500/15 animate-status-flash' 
                 : 'bg-transparent'
             }`}>
               <XCircle className={`w-4 h-4 ${
@@ -77,7 +77,7 @@ export function ServiceStatusCard({
           <div className="flex items-center gap-1.5" title="Warnings/Degraded">
             <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
               statusCounts.warn > 0 
-                ? 'bg-amber-500/15' 
+                ? 'bg-amber-500/15 animate-caution-pulse' 
                 : 'bg-transparent'
             }`}>
               <AlertTriangle className={`w-4 h-4 ${
@@ -99,7 +99,7 @@ export function ServiceStatusCard({
           <div className="flex items-center gap-1.5" title="Running/Healthy">
             <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
               statusCounts.running > 0 
-                ? 'bg-green-500/15' 
+                ? 'bg-green-500/15 animate-heartbeat' 
                 : 'bg-transparent'
             }`}>
               <CheckCircle className={`w-4 h-4 ${

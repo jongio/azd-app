@@ -545,9 +545,9 @@ func CheckDeps() error {
 // Install builds and installs the extension locally using azd x build.
 // Requires azd to be installed and available in PATH.
 func Install() error {
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	// Ensure azd extensions are set up
+	if err := ensureAzdExtensions(); err != nil {
+		return err
 	}
 
 	// Get version
@@ -556,7 +556,7 @@ func Install() error {
 		return err
 	}
 
-	fmt.Println("Installing locally...")
+	fmt.Println("Building extension...")
 
 	// Set environment variables
 	env := map[string]string{
@@ -564,21 +564,107 @@ func Install() error {
 		"EXTENSION_VERSION": version,
 	}
 
-	// azd x build automatically installs unless --skip-install is passed
-	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
+	// Build the extension (skip install - we'll do it via extension install for proper registration)
+	if err := sh.RunWithV(env, "azd", "x", "build", "--skip-install"); err != nil {
+		return fmt.Errorf("build failed: %w", err)
+	}
+
+	// Get the absolute path to registry.json (cross-platform)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	registryPath := filepath.Join(filepath.Dir(cwd), "registry.json")
+
+	// Check if registry.json exists, if not use the one in the current directory's parent
+	if _, err := os.Stat(registryPath); os.IsNotExist(err) {
+		// Try current directory
+		registryPath = filepath.Join(cwd, "..", "registry.json")
+		registryPath, _ = filepath.Abs(registryPath)
+	}
+
+	// Ensure the local extension source exists
+	if err := ensureLocalExtensionSource(registryPath); err != nil {
+		return err
+	}
+
+	// Install the extension from the local source
+	fmt.Println("📦 Installing extension from local registry...")
+	if err := sh.RunV("azd", "extension", "install", extensionID, "--source", "local", "--force"); err != nil {
+		return fmt.Errorf("extension install failed: %w", err)
 	}
 
 	fmt.Printf("✅ Installed version: %s\n", version)
+	fmt.Println("   Run 'azd app version' to verify")
+	return nil
+}
+
+// ensureLocalExtensionSource adds a local extension source if it doesn't exist.
+func ensureLocalExtensionSource(registryPath string) error {
+	// Check if local source already exists
+	sourcesOutput, err := sh.Output("azd", "extension", "source", "list")
+	if err != nil {
+		sourcesOutput = ""
+	}
+
+	// Check if "local" source already exists
+	if strings.Contains(sourcesOutput, "local") {
+		fmt.Println("✅ Local extension source already configured")
+		return nil
+	}
+
+	fmt.Println("📦 Adding local extension source...")
+
+	// Add the local source
+	if err := sh.RunV("azd", "extension", "source", "add", "-n", "local", "-t", "file", "-l", registryPath); err != nil {
+		return fmt.Errorf("failed to add local extension source: %w", err)
+	}
+
+	return nil
+}
+
+// ensureAzdExtensions checks that azd is installed, extensions are enabled, and the azd x extension is installed.
+// This is a prerequisite for commands that use azd x (build, watch, etc.).
+func ensureAzdExtensions() error {
+	// Check if azd is available
+	if _, err := sh.Output("azd", "version"); err != nil {
+		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	}
+
+	// Check if extensions are enabled by looking at config
+	configOutput, err := sh.Output("azd", "config", "show")
+	if err != nil {
+		// Config might not exist yet, that's okay
+		configOutput = ""
+	}
+
+	// Enable extensions if not already enabled
+	if !strings.Contains(configOutput, `"enabled": "on"`) && !strings.Contains(configOutput, `"enabled":"on"`) {
+		fmt.Println("📦 Enabling azd extensions...")
+		if err := sh.RunV("azd", "config", "set", "alpha.extension.enabled", "on"); err != nil {
+			return fmt.Errorf("failed to enable azd extensions: %w", err)
+		}
+		fmt.Println("✅ Extensions enabled!")
+	}
+
+	// Check if azd x extension is available
+	if _, err := sh.Output("azd", "x", "--help"); err != nil {
+		fmt.Println("📦 Installing azd x extension (developer kit)...")
+		if err := sh.RunV("azd", "extension", "install", "microsoft.azd.extensions", "--source", "azd"); err != nil {
+			return fmt.Errorf("failed to install azd x extension: %w", err)
+		}
+		fmt.Println("✅ azd x extension installed!")
+	}
+
 	return nil
 }
 
 // Watch monitors files and rebuilds/reinstalls on changes using azd x watch.
 // Requires azd to be installed and available in PATH.
 func Watch() error {
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	// Ensure azd extensions are set up
+	if err := ensureAzdExtensions(); err != nil {
+		return err
 	}
 
 	fmt.Println("Starting file watcher with azd x watch...")
@@ -600,10 +686,17 @@ func WatchAll() error {
 	fmt.Println("⚠️  Tip: Stop any running instances of 'app' to avoid file-in-use errors")
 	fmt.Println()
 
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	// Ensure azd extensions are set up (enables extensions + installs azd x if needed)
+	if err := ensureAzdExtensions(); err != nil {
+		return err
 	}
+
+	// Install dashboard dependencies before starting watcher
+	fmt.Println("📦 Installing dashboard dependencies...")
+	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+	fmt.Println()
 
 	// Create channels for error handling
 	errChan := make(chan error, 2)

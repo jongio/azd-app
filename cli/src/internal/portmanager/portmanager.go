@@ -215,6 +215,14 @@ func evictOldestCacheEntry() {
 	}
 }
 
+// ClearCacheForTesting clears the port manager cache.
+// This is only intended for use in tests to ensure clean state between test runs.
+func ClearCacheForTesting() {
+	managerCacheMu.Lock()
+	defer managerCacheMu.Unlock()
+	managerCache = make(map[string]*cacheEntry)
+}
+
 // getPortRangeStart returns the configured port range start or default.
 func getPortRangeStart() int {
 	if val := os.Getenv(envPortRangeStart); val != "" {
@@ -724,6 +732,9 @@ func (pm *PortManager) ReservePort(port int) (*PortReservation, error) {
 // FindAndReservePort finds an available port and reserves it atomically.
 // This combines port finding and reservation to eliminate TOCTOU races.
 //
+// If the service already has a persisted assignment with the preferred port,
+// it will attempt to reuse that port first for consistency across runs.
+//
 // Returns:
 //   - *PortReservation: Holds the port open. Call Release() before binding.
 //   - error: Non-nil if no port can be reserved after max attempts
@@ -731,10 +742,13 @@ func (pm *PortManager) FindAndReservePort(serviceName string, preferredPort int)
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	// Build map of assigned ports to avoid duplicates
+	// Build map of assigned ports to avoid duplicates, excluding this service's own assignment
+	// This allows a service to reuse its own persisted port for consistency across runs
 	assignedPorts := make(map[int]bool)
-	for _, assignment := range pm.assignments {
-		assignedPorts[assignment.Port] = true
+	for name, assignment := range pm.assignments {
+		if name != serviceName {
+			assignedPorts[assignment.Port] = true
+		}
 	}
 
 	// Try preferred port first

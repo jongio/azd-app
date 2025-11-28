@@ -62,8 +62,8 @@ export function getStatusDisplay(status: string, health: string): StatusDisplay 
     }
   }
 
-  // Starting
-  if (status === 'starting') {
+  // Starting (either status or health is starting)
+  if (status === 'starting' || health === 'starting') {
     return {
       text: 'Starting',
       color: 'bg-yellow-500',

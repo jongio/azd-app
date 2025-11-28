@@ -44,6 +44,7 @@ azd app deps --structured-logs
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
 | `listen` | Extension framework integration (hidden, used by azd internally) | |
 
@@ -86,6 +87,7 @@ azd app reqs --clear-cache
 | `--dry-run` | | bool | `false` | Preview changes without modifying azure.yaml |
 | `--no-cache` | | bool | `false` | Force fresh reqs check and bypass cached results |
 | `--clear-cache` | | bool | `false` | Clear cached reqs results |
+| `--fix` | | bool | `false` | Attempt to fix PATH issues for missing tools |
 
 ### Features
 
@@ -132,7 +134,7 @@ Automatically detects your project type and installs all dependencies.
 ### Usage
 
 ```bash
-azd app deps
+azd app deps [flags]
 ```
 
 ### Examples
@@ -140,11 +142,25 @@ azd app deps
 ```bash
 # Install dependencies for all detected projects
 azd app deps
+
+# Show full installation output
+azd app deps --verbose
+
+# Clean reinstall (removes node_modules, .venv first)
+azd app deps --clean
+
+# Force fresh install (combines --clean and --no-cache)
+azd app deps --force
 ```
 
 ### Flags
 
-None. This command automatically detects and installs dependencies.
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--verbose` | `-v` | bool | `false` | Show full installation output |
+| `--clean` | | bool | `false` | Remove existing dependencies before installing (clears node_modules, .venv, etc.) |
+| `--no-cache` | | bool | `false` | Force fresh dependency installation and bypass cached results |
+| `--force` | `-f` | bool | `false` | Force clean reinstall (combines --clean and --no-cache) |
 
 ### Features
 
@@ -211,6 +227,7 @@ azd app run -s web -v --runtime aspire
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
+| `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ### Runtime Modes
 
@@ -529,6 +546,8 @@ azd app logs --no-color
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--output` | | string | | Write logs to file instead of stdout |
+| `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
+| `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
 ### Log Levels
 

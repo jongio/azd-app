@@ -1,18 +1,29 @@
 import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertCircle, AlertTriangle, Clock, Zap, Globe } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import type { Service } from '@/types'
+import type { Service, HealthCheckResult } from '@/types'
 import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime, formatResponseTime, formatUptime, getCheckTypeDisplay } from '@/lib/service-utils'
 
 interface ServiceCardProps {
   service: Service
+  healthStatus?: HealthCheckResult
 }
 
-export function ServiceCard({ service }: ServiceCardProps) {
-  const { status, health } = getEffectiveStatus(service)
+export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
+  // Use real-time health from health stream if available
+  const { status, health: baseHealth } = getEffectiveStatus(service)
+  const health = healthStatus?.status || baseHealth
   const statusDisplay = getStatusDisplay(status, health)
   const healthy = isServiceHealthy(status, health)
   const Icon = statusDisplay.icon
-  const healthDetails = service.local?.healthDetails
+  // Prefer health details from healthStatus (real-time) over service.local.healthDetails
+  const healthDetails = healthStatus ? {
+    checkType: healthStatus.checkType,
+    endpoint: healthStatus.endpoint,
+    responseTime: healthStatus.responseTime ? healthStatus.responseTime / 1_000_000 : undefined, // Convert ns to ms
+    statusCode: healthStatus.statusCode,
+    uptime: healthStatus.uptime ? healthStatus.uptime / 1_000_000_000 : undefined, // Convert ns to s
+    lastError: healthStatus.error,
+  } : service.local?.healthDetails
 
   return (
     <div className="group glass rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden">

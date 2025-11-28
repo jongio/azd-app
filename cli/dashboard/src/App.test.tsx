@@ -22,6 +22,16 @@ vi.mock('@/hooks/useServiceErrors', () => ({
   })),
 }))
 
+// Mock the useHealthStream hook to prevent EventSource issues in jsdom
+vi.mock('@/hooks/useHealthStream', () => ({
+  useHealthStream: vi.fn(() => ({
+    healthReport: null,
+    connected: false,
+    error: null,
+    getServiceHealth: vi.fn(() => null),
+  })),
+}))
+
 // Mock the useToast hook
 vi.mock('@/components/ui/toast', () => ({
   useToast: vi.fn(() => ({

@@ -115,7 +115,10 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/services/restart", s.handleRestartService)
 	s.mux.HandleFunc("/api/logs", s.handleGetLogs)
 	s.mux.HandleFunc("/api/logs/stream", s.handleLogStream)
-	s.mux.HandleFunc("/api/logs/patterns", s.handlePatternsRouter)
+	s.mux.HandleFunc("/api/logs/classifications", s.handleClassificationsRouter)
+	s.mux.HandleFunc("/api/logs/classifications/", s.handleClassificationsRouter)
+	// NOTE: /api/logs/patterns deprecated in favor of /api/logs/classifications
+	// The old patterns code in logs_config.go can be removed in a future cleanup
 	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
@@ -191,7 +194,10 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		delete(s.clients, clientWrapper)
 		s.clientsMu.Unlock()
 		if err := client.close(); err != nil {
-			log.Printf("Failed to close websocket connection: %v", err)
+			// Only log unexpected close errors
+			if !isExpectedCloseError(err) {
+				log.Printf("Failed to close websocket connection: %v", err)
+			}
 		}
 	}()
 
@@ -317,17 +323,24 @@ func (s *Server) Start() (string, error) {
 	// Use port manager to get a persistent port for the dashboard
 	portMgr := portmanager.GetPortManager(s.projectDir)
 
-	// Use a random port in higher range (40000-49999) to avoid common conflicts
-	// This range is typically used for ephemeral/dynamic ports
-	nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
-	if err != nil {
-		return "", fmt.Errorf("failed to generate random port: %w", err)
+	// Check for existing persisted port first to maintain URL consistency across runs
+	var preferredPort int
+	if existingPort, exists := portMgr.GetAssignment(constants.DashboardServiceName); exists && existingPort > 0 {
+		// Use persisted port as preferred - same workspace gets same dashboard URL
+		preferredPort = existingPort
+	} else {
+		// First run: generate random port in dashboard range (40000-49999)
+		// This range is typically used for ephemeral/dynamic ports to avoid common conflicts
+		nBig, err := rand.Int(rand.Reader, big.NewInt(10000))
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random port: %w", err)
+		}
+		preferredPort = 40000 + int(nBig.Int64())
 	}
-	preferredPort := 40000 + int(nBig.Int64())
 
 	// Use FindAndReservePort to atomically find and reserve a port
 	// This eliminates the TOCTOU race between port checking and binding
-	reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
+	reservation, err := portMgr.FindAndReservePort(constants.DashboardServiceName, preferredPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to reserve port for dashboard: %w", err)
 	}
@@ -405,7 +418,7 @@ func (s *Server) Start() (string, error) {
 // retryWithAlternativePort attempts to start the server on an alternative port.
 func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int, error) {
 	// Release the failed port assignment
-	if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+	if err := portMgr.ReleasePort(constants.DashboardServiceName); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
 	}
 
@@ -427,7 +440,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		}
 
 		// Use port reservation to prevent TOCTOU race
-		reservation, err := portMgr.FindAndReservePort("azd-app-dashboard", preferredPort)
+		reservation, err := portMgr.FindAndReservePort(constants.DashboardServiceName, preferredPort)
 		if err != nil {
 			continue
 		}
@@ -470,7 +483,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		select {
 		case <-errChan:
 			// This port also failed, try next
-			if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
+			if err := portMgr.ReleasePort(constants.DashboardServiceName); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
 			}
 			continue
@@ -496,7 +509,9 @@ func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
 
 	for client := range s.clients {
 		if err := client.writeWebSocketJSON(message); err != nil {
-			log.Printf("WebSocket send error: %v", err)
+			if !isExpectedCloseError(err) {
+				log.Printf("WebSocket send error: %v", err)
+			}
 		}
 	}
 }
@@ -520,7 +535,9 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 
 	for client := range s.clients {
 		if err := client.writeWebSocketJSON(message); err != nil {
-			log.Printf("WebSocket send error: %v", err)
+			if !isExpectedCloseError(err) {
+				log.Printf("WebSocket send error: %v", err)
+			}
 		}
 	}
 
@@ -663,7 +680,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if err := conn.writeWebSocketJSON(entry); err != nil {
-					log.Printf("WebSocket write error: %v", err)
+					// Only log unexpected errors - client disconnects are normal
+					if !isExpectedCloseError(err) {
+						log.Printf("WebSocket write error: %v", err)
+					}
 					return
 				}
 			case <-s.stopChan:
@@ -714,11 +734,10 @@ func (s *Server) Stop() error {
 
 	close(s.stopChan)
 
-	// Release port assignment
-	portMgr := portmanager.GetPortManager(s.projectDir)
-	if err := portMgr.ReleasePort("azd-app-dashboard"); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to release dashboard port: %v\n", err)
-	}
+	// Note: We intentionally do NOT release the port assignment here.
+	// The port is persisted to .azure/ports.json so that subsequent runs
+	// of azd app run in the same workspace use the same dashboard URL.
+	// The port will be reused on the next Start() call.
 
 	if s.server != nil {
 		return s.server.Close()

@@ -1,13 +1,19 @@
 import { Table, TableHeader, TableBody, TableHead, TableRow } from '@/components/ui/table'
 import { ServiceTableRow } from '@/components/ServiceTableRow'
-import type { Service } from '@/types'
+import type { Service, HealthReportEvent } from '@/types'
 
 interface ServiceTableProps {
   services: Service[]
   onViewLogs?: (serviceName: string) => void
+  healthReport?: HealthReportEvent | null
 }
 
-export function ServiceTable({ services, onViewLogs }: ServiceTableProps) {
+export function ServiceTable({ services, onViewLogs, healthReport }: ServiceTableProps) {
+  // Helper to get health status for a specific service
+  const getServiceHealth = (serviceName: string) => {
+    return healthReport?.services.find(s => s.serviceName === serviceName)
+  }
+
   return (
     <div className="bg-card rounded-lg overflow-hidden border border-card-border">
       <div className="flex items-center justify-between p-4 border-b border-border">
@@ -31,6 +37,7 @@ export function ServiceTable({ services, onViewLogs }: ServiceTableProps) {
               key={service.name} 
               service={service}
               onViewLogs={onViewLogs}
+              healthStatus={getServiceHealth(service.name)}
             />
           ))}
         </TableBody>
