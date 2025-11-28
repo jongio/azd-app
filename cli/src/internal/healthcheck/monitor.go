@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
-	"syscall"
+	"sync/atomic"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/procutil"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	cache "github.com/patrickmn/go-cache"
@@ -48,8 +48,9 @@ var commonHealthPaths = []string{
 }
 
 var (
-	// metricsEnabled controls whether Prometheus metrics are recorded
-	metricsEnabled = false
+	// metricsEnabled controls whether Prometheus metrics are recorded.
+	// Uses atomic.Bool for thread-safe concurrent access from multiple goroutines.
+	metricsEnabled atomic.Bool
 )
 
 // HealthStatus represents the health state of a service.
@@ -186,8 +187,8 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 	// Initialize logging
 	InitializeLogging(config.LogLevel, config.LogFormat)
 
-	// Set metrics flag
-	metricsEnabled = config.EnableMetrics
+	// Set metrics flag atomically for thread-safe access
+	metricsEnabled.Store(config.EnableMetrics)
 
 	log.Debug().
 		Str("project_dir", config.ProjectDir).
@@ -279,7 +280,7 @@ func (c *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker
 				Msg("Circuit breaker state changed")
 
 			// Record state change in metrics
-			if metricsEnabled {
+			if metricsEnabled.Load() {
 				recordCircuitBreakerState(name, to)
 			}
 		},
@@ -695,7 +696,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 	duration := time.Since(startTime)
 	result.ResponseTime = duration
 
-	if metricsEnabled {
+	if metricsEnabled.Load() {
 		recordHealthCheck(result)
 	}
 
@@ -872,54 +873,18 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 
 func (c *HealthChecker) checkPort(ctx context.Context, port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, defaultPortCheckTimeout)
+	// Use dialer with context for proper cancellation support
+	dialer := net.Dialer{Timeout: defaultPortCheckTimeout}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	_ = conn.Close() // Ignore close error for port check
 	return true
 }
 
+// isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
+// This wrapper maintains backward compatibility while eliminating code duplication.
 func isProcessRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-
-	// Try to find the process
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// On Windows, FindProcess always succeeds for any PID, so we use Signal(0)
-	// which will fail with "not supported" on Windows. In that case, we try
-	// to open the process with minimal permissions to verify it exists.
-	if runtime.GOOS == "windows" {
-		// Try Signal(0) first - it may work on some Windows versions
-		err := process.Signal(syscall.Signal(0))
-		if err == nil {
-			return true
-		}
-		// On Windows, Signal(0) is typically not supported.
-		// NOTE: This is a known limitation. For fully reliable Windows process
-		// detection, use Windows API (OpenProcess with PROCESS_QUERY_LIMITED_INFORMATION)
-		// or a library like github.com/shirou/gopsutil.
-		// For now, we return true for valid PIDs as a fallback, with the understanding
-		// that stale PIDs may incorrectly appear as running.
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "not supported") || strings.Contains(errMsg, "Access is denied") {
-			// Process handle was created, assume process exists
-			// This is imperfect but better than failing all Windows checks
-			return true
-		}
-		// Permission denied or other error - process may not exist
-		return false
-	}
-
-	// On Unix-like systems, use signal 0 to check existence
-	if err := process.Signal(syscall.Signal(0)); err != nil {
-		return false
-	}
-
-	return true
+	return procutil.IsProcessRunning(pid)
 }

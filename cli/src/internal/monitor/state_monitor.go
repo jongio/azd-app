@@ -5,12 +5,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/procutil"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
@@ -449,40 +447,8 @@ func (m *StateMonitor) notifyListeners(transition StateTransition) {
 	}
 }
 
-// isProcessRunning checks if a process with the given PID is running.
-// Works cross-platform (Windows and Unix).
-//
-// KNOWN LIMITATION (Windows): On Windows, this function may return true for
-// stale PIDs because os.FindProcess always succeeds and Signal(0) is not
-// fully supported. For production use requiring high reliability, consider
-// using Windows API (OpenProcess) or github.com/shirou/gopsutil.
+// isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
+// This wrapper maintains backward compatibility while eliminating code duplication.
 func isProcessRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// On Unix, Signal(0) checks if process exists without sending a signal
-	// On Windows, Signal(0) is not reliably supported
-	err = process.Signal(syscall.Signal(0))
-	if err == nil {
-		return true
-	}
-
-	// Check for Windows-specific "not supported" error
-	errMsg := err.Error()
-	if strings.Contains(errMsg, "not supported") || strings.Contains(errMsg, "Access is denied") {
-		// On Windows, if FindProcess succeeded and we got here, the process
-		// handle was created. This is imperfect (stale PIDs may appear as running)
-		// but better than failing all Windows process checks.
-		return true
-	}
-
-	// On Unix, Signal(0) error means process doesn't exist
-	// On Windows, other errors indicate process lookup failed
-	return false
+	return procutil.IsProcessRunning(pid)
 }
