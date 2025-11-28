@@ -31,8 +31,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Install Mage
         run: go install github.com/magefile/mage@latest
@@ -74,14 +77,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Build dashboard
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Install Aspire CLI
@@ -161,14 +167,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Build dashboard assets
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Install golangci-lint
@@ -200,14 +209,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Build dashboard
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Build for multiple platforms
@@ -247,8 +259,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -299,8 +314,8 @@ jobs:
       - name: Build dashboard assets
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Run E2E integration tests
