@@ -48,17 +48,35 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 		return nil, fmt.Errorf("invalid project directory: %w", err)
 	}
 
+	// Determine default health check type based on service configuration
+	defaultHealthCheckType := "http"
+	if service.IsHealthcheckDisabled() {
+		defaultHealthCheckType = "none"
+	} else if service.Healthcheck != nil && service.Healthcheck.Type != "" {
+		defaultHealthCheckType = service.Healthcheck.Type
+	}
+
 	runtime := &ServiceRuntime{
 		Name:       serviceName,
 		WorkingDir: projectDir,
 		Protocol:   "http",
 		Env:        make(map[string]string),
 		HealthCheck: HealthCheckConfig{
-			Type:     "http",
+			Type:     defaultHealthCheckType,
 			Path:     "/",
 			Timeout:  60 * time.Second,
 			Interval: 2 * time.Second,
 		},
+	}
+
+	// Apply custom health check path and pattern if configured
+	if service.Healthcheck != nil {
+		if service.Healthcheck.Path != "" {
+			runtime.HealthCheck.Path = service.Healthcheck.Path
+		}
+		if service.Healthcheck.Pattern != "" {
+			runtime.HealthCheck.LogMatch = service.Healthcheck.Pattern
+		}
 	}
 
 	// Special handling for Azure Functions (all variants including Logic Apps)
@@ -85,26 +103,38 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	runtime.Framework = framework
 	runtime.PackageManager = packageManager
 
-	// Detect preferred port from config (and whether it's explicitly set in azure.yaml)
-	preferredPort, isExplicit, _ := DetectPort(serviceName, service, projectDir, framework, usedPorts)
+	// Port assignment: skip for services that don't need a port (e.g., build/watch services)
+	if service.NeedsPort() {
+		// Detect preferred port from config (and whether it's explicitly set in azure.yaml)
+		preferredPort, isExplicit, _ := DetectPort(serviceName, service, projectDir, framework, usedPorts)
 
-	// Use port manager from azure.yaml directory (not service project dir) so all services share port assignments
-	portMgr := portmanager.GetPortManager(azureYamlDir)
-	port, shouldUpdateAzureYaml, err := portMgr.AssignPort(serviceName, preferredPort, isExplicit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to assign port: %w", err)
+		// Use port manager from azure.yaml directory (not service project dir) so all services share port assignments
+		portMgr := portmanager.GetPortManager(azureYamlDir)
+		port, shouldUpdateAzureYaml, err := portMgr.AssignPort(serviceName, preferredPort, isExplicit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to assign port: %w", err)
+		}
+		runtime.Port = port
+		runtime.ShouldUpdateAzureYaml = shouldUpdateAzureYaml // Track if user wants azure.yaml updated
+		usedPorts[port] = true
+	} else {
+		// No port needed - service runs without HTTP endpoint (e.g., tsc --watch)
+		runtime.Port = 0
+		// Set health check to process-based since there's no HTTP endpoint
+		if runtime.HealthCheck.Type == "http" {
+			runtime.HealthCheck.Type = "process"
+		}
 	}
-	runtime.Port = port
-	runtime.ShouldUpdateAzureYaml = shouldUpdateAzureYaml // Track if user wants azure.yaml updated
-	usedPorts[port] = true
 
 	// Build command and args based on framework (AFTER port assignment)
 	if err := buildRunCommand(runtime, projectDir, service.Entrypoint, runtimeMode); err != nil {
 		return nil, fmt.Errorf("failed to build run command: %w", err)
 	}
 
-	// Set health check configuration based on framework
-	configureHealthCheck(runtime)
+	// Set health check configuration based on framework (only if not explicitly disabled)
+	if !service.IsHealthcheckDisabled() {
+		configureHealthCheck(runtime)
+	}
 
 	return runtime, nil
 }

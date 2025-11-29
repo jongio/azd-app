@@ -2,11 +2,14 @@ package healthcheck
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
 func TestHealthStatus(t *testing.T) {
@@ -298,5 +301,206 @@ func TestCheckServiceFallback(t *testing.T) {
 
 	if result.Status != HealthStatusUnhealthy {
 		t.Errorf("Expected status unhealthy, got %s", result.Status)
+	}
+}
+
+func TestParseHealthCheckConfig(t *testing.T) {
+	tests := []struct {
+		name            string
+		healthcheck     *service.HealthcheckConfig
+		expectedTest    []string
+		expectedNil     bool
+		expectedRetries int
+	}{
+		{
+			name:        "nil healthcheck",
+			healthcheck: nil,
+			expectedNil: true,
+		},
+		{
+			name: "URL string test",
+			healthcheck: &service.HealthcheckConfig{
+				Test:     "http://localhost:8080/health",
+				Interval: "30s",
+				Timeout:  "10s",
+				Retries:  5,
+			},
+			expectedTest:    []string{"http://localhost:8080/health"},
+			expectedRetries: 5,
+		},
+		{
+			name: "CMD array test",
+			healthcheck: &service.HealthcheckConfig{
+				Test: []interface{}{"CMD", "curl", "-f", "http://localhost/health"},
+			},
+			expectedTest:    []string{"CMD", "curl", "-f", "http://localhost/health"},
+			expectedRetries: 3, // default
+		},
+		{
+			name: "CMD-SHELL test",
+			healthcheck: &service.HealthcheckConfig{
+				Test: []interface{}{"CMD-SHELL", "curl -f http://localhost/health || exit 1"},
+			},
+			expectedTest:    []string{"CMD-SHELL", "curl -f http://localhost/health || exit 1"},
+			expectedRetries: 3, // default
+		},
+		{
+			name: "default retries when not specified",
+			healthcheck: &service.HealthcheckConfig{
+				Test: "http://localhost:8080/ready",
+			},
+			expectedTest:    []string{"http://localhost:8080/ready"},
+			expectedRetries: 3,
+		},
+		{
+			name: "disable healthcheck",
+			healthcheck: &service.HealthcheckConfig{
+				Disable: true,
+			},
+			expectedTest:    []string{"NONE"},
+			expectedRetries: 0, // not set when disabled
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service.Service{
+				Healthcheck: tt.healthcheck,
+			}
+
+			config := parseHealthCheckConfig(svc)
+
+			if tt.expectedNil {
+				if config != nil {
+					t.Errorf("Expected nil config, got %+v", config)
+				}
+				return
+			}
+
+			if config == nil {
+				t.Fatal("Expected non-nil config")
+			}
+
+			if len(config.Test) != len(tt.expectedTest) {
+				t.Errorf("Expected test length %d, got %d", len(tt.expectedTest), len(config.Test))
+			}
+
+			for i, expected := range tt.expectedTest {
+				if i < len(config.Test) && config.Test[i] != expected {
+					t.Errorf("Expected test[%d] = %q, got %q", i, expected, config.Test[i])
+				}
+			}
+
+			if config.Retries != tt.expectedRetries {
+				t.Errorf("Expected retries %d, got %d", tt.expectedRetries, config.Retries)
+			}
+		})
+	}
+}
+
+func TestCustomHealthCheck_HTTPUrl(t *testing.T) {
+	// Create a test server that responds healthy
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/ready" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"healthy","connections":4}`))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+
+	config := &healthCheckConfig{
+		Test: []string{server.URL + "/ready"},
+	}
+
+	result := checker.tryCustomHealthCheck(context.Background(), config)
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+
+	if result.Status != HealthStatusHealthy {
+		t.Errorf("Expected healthy status, got %s", result.Status)
+	}
+
+	if result.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code 200, got %d", result.StatusCode)
+	}
+}
+
+func TestCustomHealthCheck_HTTPUrl_Unhealthy(t *testing.T) {
+	// Create a test server that responds with 500
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+
+	config := &healthCheckConfig{
+		Test: []string{server.URL + "/health"},
+	}
+
+	result := checker.tryCustomHealthCheck(context.Background(), config)
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+
+	if result.Status != HealthStatusUnhealthy {
+		t.Errorf("Expected unhealthy status, got %s", result.Status)
+	}
+}
+
+func TestTryHTTPHealthCheck_Skips404(t *testing.T) {
+	// Create a test server that returns 404 for /health but 200 for /ready
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ready":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"healthy"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	// Extract port from test server
+	_, portStr, _ := net.SplitHostPort(server.Listener.Addr().String())
+	port := 0
+	_, _ = fmt.Sscanf(portStr, "%d", &port)
+
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+
+	result := checker.tryHTTPHealthCheck(context.Background(), port)
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+
+	// Should have found /ready endpoint (which is in commonHealthPaths)
+	if result.Status != HealthStatusHealthy {
+		t.Errorf("Expected healthy status, got %s (endpoint: %s)", result.Status, result.Endpoint)
 	}
 }

@@ -71,6 +71,7 @@ yarn.lock
 
 # Dashboard - preserve lockfile for reproducible builds
 !cli/dashboard/package-lock.json
+!cli/dashboard/pnpm-lock.yaml
 
 # .NET
 obj/

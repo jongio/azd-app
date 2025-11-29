@@ -9,8 +9,12 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -515,25 +519,77 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 }
 
 func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
-	// Docker Compose style healthcheck parsing
-	// Note: This requires the Service type to have a HealthCheck field
-	// which should be added in future when Docker Compose integration is implemented.
-	// For now, we check if any health-related configuration exists.
+	// Check if healthcheck is disabled using the helper method
+	if svc.IsHealthcheckDisabled() {
+		return &healthCheckConfig{
+			Test: []string{"NONE"},
+		}
+	}
 
-	// Check if service has explicit health configuration (future enhancement)
-	// When Service type includes healthcheck field from Docker Compose format:
-	// type Service struct {
-	//     HealthCheck struct {
-	//         Test        []string      `yaml:"test"`
-	//         Interval    time.Duration `yaml:"interval"`
-	//         Timeout     time.Duration `yaml:"timeout"`
-	//         Retries     int           `yaml:"retries"`
-	//         StartPeriod time.Duration `yaml:"start_period"`
-	//     } `yaml:"healthcheck"`
-	// }
+	// Docker Compose style healthcheck parsing from azure.yaml
+	if svc.Healthcheck == nil {
+		return nil
+	}
 
-	// Return nil for now - caller handles gracefully
-	return nil
+	config := &healthCheckConfig{
+		Retries: 3, // Default
+	}
+
+	// Parse test field - can be string or array
+	switch t := svc.Healthcheck.Test.(type) {
+	case string:
+		// Single string - could be URL or shell command
+		config.Test = []string{t}
+	case []interface{}:
+		// Array format: ["CMD", "curl", "-f", "..."] or ["CMD-SHELL", "..."]
+		for _, item := range t {
+			if s, ok := item.(string); ok {
+				config.Test = append(config.Test, s)
+			}
+		}
+	case []string:
+		config.Test = t
+	}
+
+	// Handle type: "none" - convert to ["NONE"] format for compatibility
+	if svc.Healthcheck.Type == "none" {
+		config.Test = []string{"NONE"}
+	}
+
+	// Parse interval
+	if svc.Healthcheck.Interval != "" {
+		if d, err := time.ParseDuration(svc.Healthcheck.Interval); err == nil {
+			config.Interval = d
+		}
+	}
+
+	// Parse timeout
+	if svc.Healthcheck.Timeout != "" {
+		if d, err := time.ParseDuration(svc.Healthcheck.Timeout); err == nil {
+			config.Timeout = d
+		}
+	}
+
+	// Parse retries
+	if svc.Healthcheck.Retries > 0 {
+		config.Retries = svc.Healthcheck.Retries
+	}
+
+	// Parse start_period
+	if svc.Healthcheck.StartPeriod != "" {
+		if d, err := time.ParseDuration(svc.Healthcheck.StartPeriod); err == nil {
+			config.StartPeriod = d
+		}
+	}
+
+	// Parse start_interval
+	if svc.Healthcheck.StartInterval != "" {
+		if d, err := time.ParseDuration(svc.Healthcheck.StartInterval); err == nil {
+			config.StartInterval = d
+		}
+	}
+
+	return config
 }
 
 func filterServices(services []serviceInfo, filter []string) []serviceInfo {
@@ -721,6 +777,28 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		result.Uptime = time.Since(svc.StartTime)
 	}
 
+	// Check for custom healthcheck config first
+	if svc.HealthCheck != nil && len(svc.HealthCheck.Test) > 0 {
+		if httpResult := c.tryCustomHealthCheck(ctx, svc.HealthCheck); httpResult != nil {
+			result.CheckType = HealthCheckTypeHTTP
+			result.Endpoint = httpResult.Endpoint
+			result.ResponseTime = httpResult.ResponseTime
+			result.StatusCode = httpResult.StatusCode
+			result.Status = httpResult.Status
+			result.Details = httpResult.Details
+			result.Error = httpResult.Error
+			// Extract port from URL if available
+			if u, err := url.Parse(httpResult.Endpoint); err == nil {
+				if p := u.Port(); p != "" {
+					if port, err := strconv.Atoi(p); err == nil {
+						result.Port = port
+					}
+				}
+			}
+			return result
+		}
+	}
+
 	// Cascading strategy: HTTP -> Port -> Process
 
 	// 1. Try HTTP health check
@@ -768,6 +846,169 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 	result.CheckType = HealthCheckTypeProcess
 	result.Status = HealthStatusUnknown
 	result.Error = "no health check method available"
+
+	return result
+}
+
+// tryCustomHealthCheck performs a health check using custom configuration from azure.yaml.
+func (c *HealthChecker) tryCustomHealthCheck(ctx context.Context, config *healthCheckConfig) *httpHealthCheckResult {
+	if len(config.Test) == 0 {
+		return nil
+	}
+
+	test := config.Test[0]
+
+	// Check if it's an HTTP URL (cross-platform approach)
+	if strings.HasPrefix(test, "http://") || strings.HasPrefix(test, "https://") {
+		return c.performHTTPCheck(ctx, test)
+	}
+
+	// Check for CMD or CMD-SHELL format
+	if len(config.Test) > 1 {
+		switch config.Test[0] {
+		case "CMD":
+			// CMD format: ["CMD", "curl", "-f", "http://..."]
+			// Execute command directly
+			return c.performCommandCheck(ctx, config.Test[1:])
+		case "CMD-SHELL":
+			// CMD-SHELL format: ["CMD-SHELL", "curl -f http://... || exit 1"]
+			// Execute through shell
+			return c.performShellCheck(ctx, config.Test[1])
+		case "NONE":
+			// Disable health check - return healthy
+			return &httpHealthCheckResult{
+				Endpoint: "none",
+				Status:   HealthStatusHealthy,
+			}
+		}
+	}
+
+	// Single string that's not a URL - treat as shell command
+	return c.performShellCheck(ctx, test)
+}
+
+// performHTTPCheck performs a direct HTTP health check to a specific URL.
+func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *httpHealthCheckResult {
+	startTime := time.Now()
+	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		return &httpHealthCheckResult{
+			Endpoint: urlStr,
+			Status:   HealthStatusUnhealthy,
+			Error:    fmt.Sprintf("failed to create request: %v", err),
+		}
+	}
+
+	resp, err := c.httpClient.Do(req)
+	responseTime := time.Since(startTime)
+
+	if err != nil {
+		return &httpHealthCheckResult{
+			Endpoint:     urlStr,
+			ResponseTime: responseTime,
+			Status:       HealthStatusUnhealthy,
+			Error:        fmt.Sprintf("connection failed: %v", err),
+		}
+	}
+
+	// Read and close body
+	limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
+	body, readErr := io.ReadAll(limitedReader)
+	_ = resp.Body.Close()
+
+	result := &httpHealthCheckResult{
+		Endpoint:     urlStr,
+		ResponseTime: responseTime,
+		StatusCode:   resp.StatusCode,
+	}
+
+	// Determine status based on HTTP status code
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		result.Status = HealthStatusHealthy
+	case resp.StatusCode >= 300 && resp.StatusCode < 400:
+		result.Status = HealthStatusHealthy // Redirects OK
+	case resp.StatusCode >= 500:
+		result.Status = HealthStatusUnhealthy
+	default:
+		result.Status = HealthStatusDegraded
+	}
+
+	// Try to parse response body for additional details
+	if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		var details map[string]interface{}
+		if err := json.Unmarshal(body, &details); err == nil {
+			result.Details = details
+
+			// Check for explicit status in response
+			if status, ok := details["status"].(string); ok {
+				switch strings.ToLower(status) {
+				case "healthy", "ok", "up":
+					result.Status = HealthStatusHealthy
+				case "degraded", "warning":
+					result.Status = HealthStatusDegraded
+				case "unhealthy", "down", "error":
+					result.Status = HealthStatusUnhealthy
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// performCommandCheck executes a command for health check (CMD format).
+func (c *HealthChecker) performCommandCheck(ctx context.Context, args []string) *httpHealthCheckResult {
+	if len(args) == 0 {
+		return nil
+	}
+
+	startTime := time.Now()
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	err := cmd.Run()
+	responseTime := time.Since(startTime)
+
+	result := &httpHealthCheckResult{
+		Endpoint:     strings.Join(args, " "),
+		ResponseTime: responseTime,
+	}
+
+	if err != nil {
+		result.Status = HealthStatusUnhealthy
+		result.Error = fmt.Sprintf("command failed: %v", err)
+	} else {
+		result.Status = HealthStatusHealthy
+	}
+
+	return result
+}
+
+// performShellCheck executes a shell command for health check (CMD-SHELL format).
+func (c *HealthChecker) performShellCheck(ctx context.Context, command string) *httpHealthCheckResult {
+	startTime := time.Now()
+
+	// Use appropriate shell based on OS
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.CommandContext(ctx, "cmd", "/C", command)
+	} else {
+		cmd = exec.CommandContext(ctx, "sh", "-c", command)
+	}
+
+	err := cmd.Run()
+	responseTime := time.Since(startTime)
+
+	result := &httpHealthCheckResult{
+		Endpoint:     command,
+		ResponseTime: responseTime,
+	}
+
+	if err != nil {
+		result.Status = HealthStatusUnhealthy
+		result.Error = fmt.Sprintf("command failed: %v", err)
+	} else {
+		result.Status = HealthStatusHealthy
+	}
 
 	return result
 }
@@ -824,6 +1065,11 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 		if closeErr != nil {
 			// Log error but don't fail health check
 			fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", closeErr)
+		}
+
+		// Skip 404 responses - endpoint doesn't exist, try next one
+		if resp.StatusCode == http.StatusNotFound {
+			continue
 		}
 
 		// Found a responding endpoint
