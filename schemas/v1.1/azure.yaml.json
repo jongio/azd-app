@@ -277,6 +277,11 @@
           "description": "Time between health checks during start period (e.g., 5s)",
           "pattern": "^\\d+[smh]$",
           "default": "5s"
+        },
+        "disable": {
+          "type": "boolean",
+          "description": "Set to true to disable the healthcheck. Equivalent to test: [\"NONE\"]",
+          "default": false
         }
       }
     },

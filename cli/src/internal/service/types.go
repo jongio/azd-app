@@ -26,16 +26,50 @@ type DashboardConfig struct {
 
 // Service represents a service definition in azure.yaml.
 type Service struct {
-	Host        string        `yaml:"host"`
-	Language    string        `yaml:"language,omitempty"`
-	Project     string        `yaml:"project,omitempty"`
-	Entrypoint  string        `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
-	Image       string        `yaml:"image,omitempty"`
-	Docker      *DockerConfig `yaml:"docker,omitempty"`
-	Ports       []string      `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
-	Environment Environment   `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
-	Uses        []string      `yaml:"uses,omitempty"`
-	Logs        *LogsConfig   `yaml:"logs,omitempty"` // Service-level logging configuration
+	Host        string             `yaml:"host"`
+	Language    string             `yaml:"language,omitempty"`
+	Project     string             `yaml:"project,omitempty"`
+	Entrypoint  string             `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
+	Image       string             `yaml:"image,omitempty"`
+	Docker      *DockerConfig      `yaml:"docker,omitempty"`
+	Ports       []string           `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
+	Environment Environment        `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
+	Uses        []string           `yaml:"uses,omitempty"`
+	Logs        *LogsConfig        `yaml:"logs,omitempty"`        // Service-level logging configuration
+	Healthcheck *HealthcheckConfig `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
+}
+
+// HealthcheckConfig represents Docker Compose-compatible health check configuration.
+// Supports cross-platform HTTP URL checks or shell command checks.
+type HealthcheckConfig struct {
+	// Test is the health check command or URL.
+	// For cross-platform compatibility, use HTTP URL string (e.g., "http://localhost:8080/health").
+	// Can also be shell command string or array (CMD or CMD-SHELL format).
+	// Examples:
+	//   - "http://localhost:8080/health" (cross-platform HTTP check)
+	//   - ["CMD", "curl", "-f", "http://localhost/health"]
+	//   - ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+	//   - ["NONE"] (disable health check)
+	Test interface{} `yaml:"test,omitempty"`
+
+	// Interval is the time between health checks (e.g., "30s", "1m").
+	Interval string `yaml:"interval,omitempty"`
+
+	// Timeout is the maximum time for health check to complete (e.g., "30s", "1m").
+	Timeout string `yaml:"timeout,omitempty"`
+
+	// Retries is the number of consecutive failures before marking unhealthy.
+	Retries int `yaml:"retries,omitempty"`
+
+	// StartPeriod is the grace period for container initialization (e.g., "0s", "40s").
+	StartPeriod string `yaml:"start_period,omitempty"`
+
+	// StartInterval is the time between health checks during start period (e.g., "5s").
+	StartInterval string `yaml:"start_interval,omitempty"`
+
+	// Disable set to true disables the healthcheck entirely.
+	// This is equivalent to test: ["NONE"].
+	Disable bool `yaml:"disable,omitempty"`
 }
 
 // DockerConfig represents Docker build configuration.
