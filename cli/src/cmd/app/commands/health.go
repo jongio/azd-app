@@ -89,7 +89,8 @@ Examples:
   
   # Stream with metrics
   azd app health --stream --interval 10s --metrics --metrics-port 9090`,
-		RunE: runHealth,
+		SilenceUsage: true,
+		RunE:         runHealth,
 	}
 
 	// Basic flags

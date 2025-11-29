@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { LayoutGrid, List, Settings, Pause, Play, Download, Maximize2, Minimize2, Search, Trash2, ChevronsDown } from 'lucide-react'
 import { LogsPane, type LogEntry } from './LogsPane'
 import { LogsPaneGrid } from './LogsPaneGrid'
+import { LogsToolbar } from './LogsToolbar'
 import { SettingsModal } from './SettingsModal'
 import { LogsView } from './LogsView'
 import { usePreferences } from '@/hooks/usePreferences'
 import { useToast } from '@/components/ui/toast'
+import { useServiceOperations } from '@/hooks/useServiceOperations'
 import type { Service, HealthReportEvent, HealthStatus } from '@/types'
 
 interface LogsMultiPaneViewProps {
@@ -68,6 +67,33 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
   
   const { preferences, updateUI } = usePreferences()
   const { showToast, ToastContainer } = useToast()
+  const { 
+    startAll, 
+    stopAll, 
+    restartAll, 
+    isBulkOperationInProgress, 
+    bulkOperation,
+    lastResult,
+    error: operationError 
+  } = useServiceOperations()
+
+  // Show toast for bulk operation results
+  useEffect(() => {
+    if (lastResult) {
+      if (lastResult.success) {
+        showToast(lastResult.message, 'success')
+      } else {
+        showToast(lastResult.message, 'error')
+      }
+    }
+  }, [lastResult, showToast])
+
+  // Show toast for operation errors
+  useEffect(() => {
+    if (operationError) {
+      showToast(operationError, 'error')
+    }
+  }, [operationError, showToast])
 
   // Persist collapsed state
   useEffect(() => {
@@ -218,10 +244,6 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
     showToast('All logs cleared', 'success')
   }, [showToast])
 
-  const handleToggleAutoScroll = useCallback(() => {
-    setAutoScrollEnabled(prev => !prev)
-  }, [])
-
   // Sort services alphabetically (case-insensitive)
   const selectedServicesList = Array.from(selectedServices).sort((a, b) => 
     a.toLowerCase().localeCompare(b.toLowerCase())
@@ -243,119 +265,28 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
       <ToastContainer />
       
       {/* Global Toolbar */}
-      <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-card border-b shrink-0">
-        <div className="flex gap-2 items-center flex-wrap">
-          {/* View Mode Toggle */}
-          {!isFullscreen && (
-            <div className="flex gap-1 border rounded-lg p-1">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => updateUI({ viewMode: 'grid' })}
-                title="Grid View (Ctrl+Shift+L)"
-              >
-                <LayoutGrid className="w-4 h-4 mr-2" />
-                Grid
-              </Button>
-              <Button
-                variant={viewMode === 'unified' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => updateUI({ viewMode: 'unified' })}
-                title="Unified View (Ctrl+Shift+L)"
-              >
-                <List className="w-4 h-4 mr-2" />
-                Unified
-              </Button>
-            </div>
-          )}
-
-          {/* Global Search */}
-          <div className="relative min-w-[200px]">
-            <Search className="absolute left-2 top-2.5 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search all logs..."
-              value={globalSearchTerm}
-              onChange={(e) => setGlobalSearchTerm(e.target.value)}
-              className="pl-8 h-9"
-            />
-          </div>
-
-          {/* Pause/Resume All */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsPaused(!isPaused)}
-            title={`${isPaused ? 'Resume' : 'Pause'} all logs (Space)`}
-          >
-            {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-          </Button>
-
-          {/* Stop Auto-Scroll All */}
-          <Button
-            variant={autoScrollEnabled ? "default" : "outline"}
-            size="sm"
-            onClick={handleToggleAutoScroll}
-            title={autoScrollEnabled ? "Stop auto-scroll (all panes)" : "Enable auto-scroll (all panes)"}
-          >
-            <ChevronsDown className="w-4 h-4" />
-          </Button>
-
-          {/* Clear All Logs */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearAll}
-            title="Clear all logs"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-
-          {/* Settings */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSettingsOpen(true)}
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
-
-          {/* Export All */}
-          {!isFullscreen && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportAll}
-              title="Export All"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-          )}
-
-          {/* Fullscreen Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            title={`${isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen (F11)'}`}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {isPaused && (
-            <div className="text-sm text-yellow-600 font-medium">
-              ⏸ Paused
-            </div>
-          )}
-          {!autoScrollEnabled && (
-            <div className="text-sm text-blue-600 font-medium">
-              🛑 Auto-scroll stopped
-            </div>
-          )}
-        </div>
-      </div>
+      <LogsToolbar
+        viewMode={viewMode}
+        onViewModeChange={(mode) => updateUI({ viewMode: mode })}
+        isFullscreen={isFullscreen}
+        onFullscreenChange={setIsFullscreen}
+        isPaused={isPaused}
+        onPauseChange={setIsPaused}
+        autoScrollEnabled={autoScrollEnabled}
+        onAutoScrollChange={setAutoScrollEnabled}
+        searchTerm={globalSearchTerm}
+        onSearchChange={setGlobalSearchTerm}
+        onClearAll={handleClearAll}
+        onExportAll={handleExportAll}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onStartAll={startAll}
+        onStopAll={stopAll}
+        onRestartAll={restartAll}
+        isBulkOperationInProgress={isBulkOperationInProgress}
+        bulkOperation={bulkOperation}
+        gridColumns={gridColumns}
+        onGridColumnsChange={(columns) => updateUI({ gridColumns: columns })}
+      />
 
       {/* Filters */}
       <div className="p-4 bg-card border-b shrink-0">
@@ -494,6 +425,7 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
                     serviceName={serviceName}
                     port={service?.local?.port}
                     url={service?.local?.url}
+                    service={service}
                     onCopy={handleCopyPane}
                     isPaused={isPaused}
                     globalSearchTerm={globalSearchTerm}

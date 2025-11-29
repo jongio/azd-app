@@ -23,9 +23,10 @@ type VersionInfo struct {
 // NewVersionCommand creates the version command.
 func NewVersionCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Show version information",
-		Long:  `Display the version of the azd app extension.`,
+		Use:          "version",
+		Short:        "Show version information",
+		Long:         `Display the version of the azd app extension.`,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// JSON output
 			if output.IsJSON() {

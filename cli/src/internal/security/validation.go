@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -14,6 +15,12 @@ var (
 	ErrInvalidPath = errors.New("invalid path")
 	// ErrPathTraversal indicates a path traversal attack attempt.
 	ErrPathTraversal = errors.New("path traversal detected")
+	// ErrInvalidServiceName indicates an invalid service name.
+	ErrInvalidServiceName = errors.New("invalid service name")
+
+	// serviceNamePattern validates service names - alphanumeric start, then alphanumeric, underscore, hyphen, or dot.
+	// Max 63 characters to align with DNS label limits and container naming conventions.
+	serviceNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$`)
 )
 
 // ValidatePath checks if a path is safe to use.
@@ -57,6 +64,38 @@ func ValidatePath(path string) error {
 	// Verify resolved path doesn't contain ..
 	if strings.Contains(resolvedPath, "..") {
 		return fmt.Errorf("%w: resolved path contains parent directory reference", ErrPathTraversal)
+	}
+
+	return nil
+}
+
+// ValidateServiceName validates that a service name is safe and well-formed.
+// Service names must:
+// - Start with an alphanumeric character
+// - Contain only alphanumeric characters, underscores, hyphens, or dots
+// - Be at most 63 characters (DNS label limit)
+// - Not contain path traversal sequences
+//
+// If allowEmpty is true, empty strings are accepted (for optional parameters).
+func ValidateServiceName(name string, allowEmpty bool) error {
+	if name == "" {
+		if allowEmpty {
+			return nil
+		}
+		return fmt.Errorf("%w: service name cannot be empty", ErrInvalidServiceName)
+	}
+
+	if len(name) > 63 {
+		return fmt.Errorf("%w: exceeds maximum length of 63 characters", ErrInvalidServiceName)
+	}
+
+	if !serviceNamePattern.MatchString(name) {
+		return fmt.Errorf("%w: must start with alphanumeric and contain only alphanumeric, underscore, hyphen, or dot", ErrInvalidServiceName)
+	}
+
+	// Extra check for path traversal attempts
+	if strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("%w: contains invalid path characters", ErrInvalidServiceName)
 	}
 
 	return nil

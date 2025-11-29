@@ -47,34 +47,42 @@ func getVersion() (string, error) {
 }
 
 // All runs lint, test, and build in dependency order.
+// Set ALL_PLATFORMS=true to build for all platforms instead of current platform.
 func All() error {
 	mg.Deps(Fmt, DashboardBuild, Lint, Test)
 	return Build()
 }
 
-// Build compiles the app binary for the current platform with version info.
+// Build builds the dashboard and CLI binary for the current platform.
+// Set ALL_PLATFORMS=true to build for all platforms instead of current platform.
 func Build() error {
-	fmt.Println("Building", binaryName+"...")
+	mg.Deps(DashboardBuild)
 
-	// Get version from extension.yaml (don't bump on every build)
+	if os.Getenv("ALL_PLATFORMS") == "true" {
+		return buildAllPlatforms()
+	}
+	return buildCurrentPlatform()
+}
+
+// buildCurrentPlatform compiles the CLI binary for the current platform.
+func buildCurrentPlatform() error {
+	fmt.Println("Building CLI for current platform...")
+
 	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
-	// Detect current platform
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 	platform := fmt.Sprintf("%s/%s", goos, goarch)
 
-	// Set environment variables for build script
 	env := map[string]string{
 		"EXTENSION_ID":       extensionID,
 		"EXTENSION_VERSION":  version,
 		"EXTENSION_PLATFORM": platform,
 	}
 
-	// Call build script directly
 	var buildScript string
 	if runtime.GOOS == "windows" {
 		buildScript = "build.ps1"
@@ -88,28 +96,25 @@ func Build() error {
 		}
 	}
 
-	fmt.Printf("✅ Build complete! Version: %s\n", version)
+	fmt.Printf("✅ Build complete! Version: %s, Platform: %s\n", version, platform)
 	return nil
 }
 
-// BuildAll builds for all platforms.
-func BuildAll() error {
-	fmt.Println("Building for all platforms...")
+// buildAllPlatforms compiles the CLI binary for all platforms.
+func buildAllPlatforms() error {
+	fmt.Println("Building CLI for all platforms...")
 
-	// Get version from extension.yaml (don't bump on every build)
 	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
-	// Set environment variables for build script
 	// When EXTENSION_PLATFORM is not set, the script builds for all platforms
 	env := map[string]string{
 		"EXTENSION_ID":      extensionID,
 		"EXTENSION_VERSION": version,
 	}
 
-	// Call build script directly
 	var buildScript string
 	if runtime.GOOS == "windows" {
 		buildScript = "build.ps1"
@@ -123,7 +128,7 @@ func BuildAll() error {
 		}
 	}
 
-	fmt.Println("✅ Build complete for all platforms!")
+	fmt.Printf("✅ Build complete for all platforms! Version: %s\n", version)
 	return nil
 }
 
