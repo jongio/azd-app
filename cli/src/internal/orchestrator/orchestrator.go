@@ -3,6 +3,8 @@ package orchestrator
 import (
 	"fmt"
 	"sync"
+
+	"github.com/jongio/azd-app/cli/src/internal/output"
 )
 
 // CommandFunc represents a command execution function.
@@ -53,16 +55,18 @@ func (o *Orchestrator) Register(cmd *Command) error {
 
 // Run executes a command and all its dependencies in the correct order.
 // It uses memoization to avoid running the same command multiple times.
+// Dependencies are run in orchestrated mode (suppressed headers).
 func (o *Orchestrator) Run(commandName string) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	return o.runLocked(commandName, make(map[string]bool))
+	return o.runLocked(commandName, make(map[string]bool), false)
 }
 
 // runLocked executes a command with cycle detection.
 // Must be called with o.mu held.
-func (o *Orchestrator) runLocked(commandName string, visiting map[string]bool) error {
+// isDependency indicates if this is being run as a dependency (suppresses headers).
+func (o *Orchestrator) runLocked(commandName string, visiting map[string]bool, isDependency bool) error {
 	// Check if already executed
 	if o.executed[commandName] {
 		return nil
@@ -82,15 +86,21 @@ func (o *Orchestrator) runLocked(commandName string, visiting map[string]bool) e
 	// Mark as visiting
 	visiting[commandName] = true
 
-	// Execute dependencies first
+	// Execute dependencies first (always in orchestrated mode)
 	for _, depName := range cmd.Dependencies {
-		if err := o.runLocked(depName, visiting); err != nil {
+		if err := o.runLocked(depName, visiting, true); err != nil {
 			return fmt.Errorf("dependency %s failed for %s: %w", depName, commandName, err)
 		}
 	}
 
 	// Unmark visiting
 	delete(visiting, commandName)
+
+	// Set orchestrated mode for dependencies to suppress headers
+	if isDependency {
+		output.SetOrchestrated(true)
+		defer output.SetOrchestrated(false)
+	}
 
 	// Execute the command
 	if err := cmd.Execute(); err != nil {

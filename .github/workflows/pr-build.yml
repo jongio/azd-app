@@ -190,8 +190,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Calculate PR version
         id: version
@@ -211,14 +214,24 @@ jobs:
         run: curl -fsSL https://aka.ms/install-azd.sh | bash
 
       - name: Install azd extensions
-        run: azd extension install microsoft.azd.extensions
+        run: |
+          # Add the official azd extensions registry source
+          azd extension source add azd --location https://aka.ms/azd/extensions/registry --type url 2>/dev/null || true
+          azd extension install microsoft.azd.extensions --source azd
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('cli/dashboard/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Build dashboard
-        working-directory: cli
+        working-directory: cli/dashboard
         run: |
-          cd dashboard
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Update extension.yaml with PR version
         working-directory: cli

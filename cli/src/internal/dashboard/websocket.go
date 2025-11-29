@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -12,6 +13,35 @@ import (
 	"github.com/coder/websocket"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
+
+// isExpectedCloseError returns true if the error is an expected WebSocket closure.
+// These occur when clients disconnect (tab closed, page refresh, navigation).
+func isExpectedCloseError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// Check for normal closure status
+	if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+		return true
+	}
+	// Check for common expected closure patterns
+	expectedPatterns := []string{
+		"connection was aborted",
+		"wsasend:",                  // Windows socket error
+		"broken pipe",               // Unix pipe closed
+		"connection reset",          // Connection reset by peer
+		"context deadline exceeded", // Write timeout
+		"context canceled",          // Context was canceled
+		"use of closed network connection",
+	}
+	for _, pattern := range expectedPatterns {
+		if strings.Contains(strings.ToLower(errStr), pattern) {
+			return true
+		}
+	}
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
 
 // wsClient wraps a coder/websocket connection with a write mutex for safe concurrent writes.
 type wsClient struct {

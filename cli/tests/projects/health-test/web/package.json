@@ -1,0 +1,12 @@
+{
+  "name": "health-test-web",
+  "version": "1.0.0",
+  "description": "Web service for health monitoring test",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

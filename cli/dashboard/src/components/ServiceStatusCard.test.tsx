@@ -77,9 +77,9 @@ describe('ServiceStatusCard', () => {
     )
 
     // Should have 3 status icons with counts
-    expect(screen.getByTitle('Errors')).toBeInTheDocument()
-    expect(screen.getByTitle('Warnings')).toBeInTheDocument()
-    expect(screen.getByTitle('Running')).toBeInTheDocument()
+    expect(screen.getByTitle('Errors/Unhealthy')).toBeInTheDocument()
+    expect(screen.getByTitle('Warnings/Degraded')).toBeInTheDocument()
+    expect(screen.getByTitle('Running/Healthy')).toBeInTheDocument()
   })
 
   it('should count unhealthy services as errors', () => {
@@ -94,8 +94,8 @@ describe('ServiceStatusCard', () => {
     )
 
     // 1 error (unhealthy), 0 warn, 1 running (healthy)
-    const errorDiv = screen.getByTitle('Errors')
-    const runningDiv = screen.getByTitle('Running')
+    const errorDiv = screen.getByTitle('Errors/Unhealthy')
+    const runningDiv = screen.getByTitle('Running/Healthy')
     expect(errorDiv.textContent).toContain('1')
     expect(runningDiv.textContent).toContain('1')
   })
@@ -112,7 +112,7 @@ describe('ServiceStatusCard', () => {
     )
 
     // 1 error (stopped), 0 warn, 1 info (healthy)
-    const errorDiv = screen.getByTitle('Errors')
+    const errorDiv = screen.getByTitle('Errors/Unhealthy')
     expect(errorDiv.textContent).toContain('1')
   })
 
@@ -128,8 +128,8 @@ describe('ServiceStatusCard', () => {
     )
 
     // 0 error, 1 warn (starting), 1 running (healthy)
-    const warnDiv = screen.getByTitle('Warnings')
-    const runningDiv = screen.getByTitle('Running')
+    const warnDiv = screen.getByTitle('Warnings/Degraded')
+    const runningDiv = screen.getByTitle('Running/Healthy')
     expect(warnDiv.textContent).toContain('1')
     expect(runningDiv.textContent).toContain('1')
   })
@@ -146,8 +146,8 @@ describe('ServiceStatusCard', () => {
     )
 
     // When hasActiveErrors but no error services, running moves to warn
-    const warnDiv = screen.getByTitle('Warnings')
-    const runningDiv = screen.getByTitle('Running')
+    const warnDiv = screen.getByTitle('Warnings/Degraded')
+    const runningDiv = screen.getByTitle('Running/Healthy')
     expect(warnDiv.textContent).toContain('1')
     expect(runningDiv.textContent).toContain('0')
   })
@@ -164,7 +164,7 @@ describe('ServiceStatusCard', () => {
     )
 
     // Error count should have the red styling
-    const errorDiv = screen.getByTitle('Errors')
+    const errorDiv = screen.getByTitle('Errors/Unhealthy')
     expect(errorDiv.textContent).toContain('1')
     // Check for error icon with proper color class
     const errorIcon = container.querySelector('.text-red-500')
@@ -215,9 +215,9 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    const errorDiv = screen.getByTitle('Errors')
-    const warnDiv = screen.getByTitle('Warnings')
-    const runningDiv = screen.getByTitle('Running')
+    const errorDiv = screen.getByTitle('Errors/Unhealthy')
+    const warnDiv = screen.getByTitle('Warnings/Degraded')
+    const runningDiv = screen.getByTitle('Running/Healthy')
     expect(errorDiv.textContent).toContain('0')
     expect(warnDiv.textContent).toContain('0')
     expect(runningDiv.textContent).toContain('0')
@@ -234,7 +234,7 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    const runningDiv = screen.getByTitle('Running')
+    const runningDiv = screen.getByTitle('Running/Healthy')
     expect(runningDiv.textContent).toContain('2')
   })
 
@@ -266,7 +266,7 @@ describe('ServiceStatusCard', () => {
     )
 
     // Warning count should have the amber styling
-    const warnDiv = screen.getByTitle('Warnings')
+    const warnDiv = screen.getByTitle('Warnings/Degraded')
     expect(warnDiv.textContent).toContain('1')
     // Check for warning icon with proper color class
     const warnIcon = container.querySelector('.text-amber-500')

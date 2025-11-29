@@ -158,48 +158,28 @@ func (l *ServiceLogger) LogVerbose(serviceName string, message string) {
 	l.LogService(serviceName, message)
 }
 
-// LogStartup logs the startup banner.
+// LogStartup logs the startup phase label.
 func (l *ServiceLogger) LogStartup(serviceCount int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	fmt.Printf("\n%s🚀 Azure Developer CLI - App Extension%s\n", colorBold, colorReset)
-	fmt.Printf("%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", "\033[90m", colorReset)
-
-	serviceWord := "service"
-	if serviceCount != 1 {
-		serviceWord = "services"
-	}
-
-	fmt.Printf("\n%s⚡ Starting %d %s...%s\n\n", "\033[96m", serviceCount, serviceWord, colorReset)
+	fmt.Println("Starting services...")
 }
 
-// LogSummary logs the final summary of service URLs.
+// LogSummary logs the service URLs after startup.
 func (l *ServiceLogger) LogSummary(urls map[string]string) {
-	fmt.Printf("\n%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", "\033[90m", colorReset)
-	fmt.Printf("%s✨ All services ready!%s\n", "\033[92m", colorReset)
-	fmt.Printf("%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n\n", "\033[90m", colorReset)
-
+	fmt.Println()
 	if len(urls) > 0 {
-		fmt.Printf("%s📡 Service URLs:%s\n\n", colorBold, colorReset)
 		for name, url := range urls {
-			color := l.getServiceColor(name)
-			// Extract just the service name without path for cleaner display
-			displayName := name
-			if len(displayName) > 15 {
-				displayName = displayName[:12] + "..."
-			}
-			fmt.Printf("   %s%-18s%s → %s%s%s\n", color, displayName, colorReset, "\033[94m", url, colorReset)
+			fmt.Printf("  \033[32m✓\033[0m %-18s  %s\n", name, url)
 		}
-		fmt.Println()
 	}
 }
 
-// LogReady logs the ready message without repeating URLs.
+// LogReady logs the ready phase label.
 func (l *ServiceLogger) LogReady() {
-	fmt.Printf("\n%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n", "\033[90m", colorReset)
-	fmt.Printf("%s✨ All services ready!%s\n", "\033[92m", colorReset)
-	fmt.Printf("%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n\n", "\033[90m", colorReset)
+	fmt.Println()
+	fmt.Println("Ready")
 }
 
 // StreamLogs streams logs from multiple services to the console.

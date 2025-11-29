@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useServices } from '@/hooks/useServices'
+import { useHealthStream } from '@/hooks/useHealthStream'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceTable } from '@/components/ServiceTable'
 import { LogsMultiPaneView } from '@/components/LogsMultiPaneView'
 import { Sidebar } from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ServiceStatusCard } from '@/components/ServiceStatusCard'
-import type { Service } from '@/types'
-import { AlertCircle, Search, Filter, Github, HelpCircle, Settings } from 'lucide-react'
+import type { Service, HealthCheckResult } from '@/types'
+import { AlertCircle, Search, Filter, Github, HelpCircle, Settings, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { useServiceErrors } from '@/hooks/useServiceErrors'
 
 function App() {
@@ -20,6 +21,21 @@ function App() {
   const [isLogsFullscreen, setIsLogsFullscreen] = useState(false)
   const { services, loading, error } = useServices()
   const { hasActiveErrors } = useServiceErrors()
+  
+  // Real-time health monitoring
+  const { 
+    healthReport, 
+    summary: healthSummary, 
+    connected: healthConnected,
+    error: healthError,
+    reconnect: healthReconnect,
+    getServiceHealth 
+  } = useHealthStream()
+
+  // Helper to get health status for a specific service
+  const getServiceHealthStatus = useCallback((serviceName: string): HealthCheckResult | undefined => {
+    return getServiceHealth(serviceName)
+  }, [getServiceHealth])
 
   // Helper function to scroll main element to top smoothly
   const scrollMainToTop = () => {
@@ -130,11 +146,19 @@ function App() {
             </div>
           ) : (
             viewMode === 'table' ? (
-              <ServiceTable services={services} onViewLogs={() => setActiveView('console')} />
+              <ServiceTable 
+                services={services} 
+                onViewLogs={() => setActiveView('console')}
+                healthReport={healthReport}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {services.map((service: Service) => (
-                  <ServiceCard key={service.name} service={service} />
+                  <ServiceCard 
+                    key={service.name} 
+                    service={service}
+                    healthStatus={getServiceHealthStatus(service.name)}
+                  />
                 ))}
               </div>
             )
@@ -151,7 +175,10 @@ function App() {
               <h1 className="text-2xl font-semibold text-foreground">Console</h1>
             </div>
           )}
-          <LogsMultiPaneView onFullscreenChange={setIsLogsFullscreen} />
+          <LogsMultiPaneView 
+            onFullscreenChange={setIsLogsFullscreen}
+            healthReport={healthReport}
+          />
         </>
       )
     }
@@ -167,8 +194,68 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background-tertiary">
-      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} />}
+    <div className="flex h-screen bg-background-tertiary relative">
+      {/* Connection Lost Overlay */}
+      {healthError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background backdrop-blur-sm transition-opacity duration-300">
+          <div className="flex flex-col items-center gap-6 p-8 rounded-2xl bg-card border border-border shadow-2xl max-w-md mx-4 animate-fade-in-up">
+            {/* Animated Icon with contextual animation */}
+            <div className="relative w-32 h-32 flex items-center justify-center">
+              {healthError.includes('Failed to connect') ? (
+                <>
+                  {/* Disconnected state - subtle pulsing rings */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-28 h-28 rounded-full border-2 border-red-500/20 animate-pulse" />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-red-500/10 animate-pulse" />
+                  </div>
+                  <div className="relative z-10 w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center shadow-lg">
+                    <WifiOff className="w-8 h-8 text-red-500" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Reconnecting state - smooth expanding waves */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-32 h-32 rounded-full bg-amber-500/15 animate-signal-wave" />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-28 h-28 rounded-full bg-amber-500/20 animate-signal-wave-delayed" />
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-amber-500/25 animate-signal-wave-delayed-2" />
+                  </div>
+                  <div className="relative z-10 w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center animate-breathe animate-glow-pulse">
+                    <Wifi className="w-8 h-8 text-amber-500" />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            {/* Message */}
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                {healthError.includes('Failed to connect') ? 'Connection Lost' : 'Reconnecting...'}
+              </h2>
+              <p className="text-sm text-muted-foreground">{healthError}</p>
+            </div>
+            
+            {/* Retry Button */}
+            {healthError.includes('Failed to connect') && (
+              <button 
+                onClick={healthReconnect}
+                className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-all shadow-lg hover:scale-105 active:scale-95"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry Connection
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} healthSummary={healthSummary} />}
       <div className="flex-1 flex flex-col overflow-hidden">
         {!isLogsFullscreen && (
           <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-background">
@@ -181,6 +268,8 @@ function App() {
                 hasActiveErrors={hasActiveErrors} 
                 loading={loading}
                 onClick={() => setActiveView('console')}
+                healthSummary={healthSummary}
+                healthConnected={healthConnected}
               />
               <div className="w-px h-5 bg-border mx-1" />
               <ThemeToggle />

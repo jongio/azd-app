@@ -1,0 +1,9 @@
+{
+  "name": "slow-starter",
+  "version": "1.0.0",
+  "description": "Slow starter service - unhealthy during warmup, then healthy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

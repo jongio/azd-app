@@ -7,15 +7,15 @@ import { LogsPaneGrid } from './LogsPaneGrid'
 import { SettingsModal } from './SettingsModal'
 import { LogsView } from './LogsView'
 import { usePreferences } from '@/hooks/usePreferences'
-import { useLogPatterns } from '@/hooks/useLogPatterns'
 import { useToast } from '@/components/ui/toast'
-import type { Service } from '@/types'
+import type { Service, HealthReportEvent, HealthStatus } from '@/types'
 
 interface LogsMultiPaneViewProps {
   onFullscreenChange?: (isFullscreen: boolean) => void
+  healthReport?: HealthReportEvent | null
 }
 
-export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps = {}) {
+export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMultiPaneViewProps = {}) {
   const [services, setServices] = useState<Service[]>([])
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set())
   const [isPaused, setIsPaused] = useState(false)
@@ -25,6 +25,23 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true)
   const [clearAllTrigger, setClearAllTrigger] = useState(0)
   const [levelFilter, setLevelFilter] = useState<Set<'info' | 'warning' | 'error'>>(new Set(['info', 'warning', 'error']))
+  const [healthFilter, setHealthFilter] = useState<Set<HealthStatus>>(() => {
+    try {
+      const saved = localStorage.getItem('logs-health-status-filter')
+      if (!saved) return new Set(['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'])
+      const parsed: unknown = JSON.parse(saved)
+      if (!Array.isArray(parsed)) {
+        console.warn('Invalid health filter format in localStorage, using defaults')
+        return new Set(['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'])
+      }
+      const validStatuses: HealthStatus[] = ['healthy', 'degraded', 'unhealthy', 'starting', 'unknown']
+      const validValues = parsed.filter((v): v is HealthStatus => validStatuses.includes(v as HealthStatus))
+      return new Set(validValues.length > 0 ? validValues : validStatuses)
+    } catch (e) {
+      console.warn('Failed to parse health filter from localStorage:', e)
+      return new Set(['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'])
+    }
+  })
   const [collapsedPanes, setCollapsedPanes] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('logs-pane-collapsed-states')
@@ -50,13 +67,17 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   })
   
   const { preferences, updateUI } = usePreferences()
-  const { patterns } = useLogPatterns()
   const { showToast, ToastContainer } = useToast()
 
   // Persist collapsed state
   useEffect(() => {
     localStorage.setItem('logs-pane-collapsed-states', JSON.stringify(collapsedPanes))
   }, [collapsedPanes])
+
+  // Persist health filter state
+  useEffect(() => {
+    localStorage.setItem('logs-health-status-filter', JSON.stringify(Array.from(healthFilter)))
+  }, [healthFilter])
 
   const togglePaneCollapse = useCallback((serviceName: string) => {
     setCollapsedPanes(prev => ({
@@ -152,6 +173,18 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
     })
   }
 
+  const toggleHealthFilter = (status: HealthStatus) => {
+    setHealthFilter(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(status)) {
+        newSet.delete(status)
+      } else {
+        newSet.add(status)
+      }
+      return newSet
+    })
+  }
+
   const handleCopyPane = useCallback((logs: LogEntry[]) => {
     const format = preferences.copy.defaultFormat
     let content = ''
@@ -193,6 +226,14 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
   const selectedServicesList = Array.from(selectedServices).sort((a, b) => 
     a.toLowerCase().localeCompare(b.toLowerCase())
   )
+
+  // Filter services by health status
+  const filteredServicesList = selectedServicesList.filter(serviceName => {
+    const serviceHealth = healthReport?.services.find(
+      s => s.serviceName === serviceName
+    )?.status ?? 'unknown'
+    return healthFilter.has(serviceHealth)
+  })
 
   // Responsive column calculation
   const effectiveColumns = window.innerWidth < 600 ? 1 : gridColumns
@@ -316,88 +357,157 @@ export function LogsMultiPaneView({ onFullscreenChange }: LogsMultiPaneViewProps
         </div>
       </div>
 
-      {/* Filters - hidden in fullscreen mode */}
-      {!isFullscreen && (
-        <div className="p-4 bg-card border-b shrink-0">
-          <div className="flex flex-wrap gap-8">
-            {/* Services Filter */}
-            <div>
-              <h3 className="font-medium mb-3">Services</h3>
-              <div className="flex flex-wrap gap-2">
-                {[...services].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(service => (
-                  <label key={service.name} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedServices.has(service.name)}
-                      onChange={() => handleToggleService(service.name)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">{service.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            {/* Level Filter */}
-            <div>
-              <h3 className="font-medium mb-3">Log Levels</h3>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+      {/* Filters */}
+      <div className="p-4 bg-card border-b shrink-0">
+        <div className="flex flex-wrap gap-8">
+          {/* Services Filter */}
+          <div>
+            <h3 className="font-medium mb-3">Services</h3>
+            <div className="flex flex-wrap gap-2">
+              {[...services].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map(service => (
+                <label key={service.name} className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={levelFilter.has('info')}
-                    onChange={() => toggleLevelFilter('info')}
-                    className="w-4 h-4 accent-blue-500"
+                    checked={selectedServices.has(service.name)}
+                    onChange={() => handleToggleService(service.name)}
+                    className="w-4 h-4"
                   />
-                  <span className="text-sm text-blue-500">Info</span>
+                  <span className="text-sm">{service.name}</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={levelFilter.has('warning')}
-                    onChange={() => toggleLevelFilter('warning')}
-                  className="w-4 h-4 accent-yellow-500"
+              ))}
+            </div>
+          </div>
+          {/* Divider */}
+          <div className="w-px bg-border self-stretch" />
+          {/* Level Filter */}
+          <div>
+            <h3 className="font-medium mb-3">Log Levels</h3>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={levelFilter.has('info')}
+                  onChange={() => toggleLevelFilter('info')}
+                  className="w-4 h-4 accent-blue-500"
                 />
-                <span className="text-sm text-yellow-500">Warning</span>
+                <span className="text-sm text-blue-500">Info</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={levelFilter.has('error')}
-                  onChange={() => toggleLevelFilter('error')}
-                  className="w-4 h-4 accent-red-500"
-                />
-                <span className="text-sm text-red-500">Error</span>
-              </label>
-            </div>
+                  checked={levelFilter.has('warning')}
+                  onChange={() => toggleLevelFilter('warning')}
+                className="w-4 h-4 accent-yellow-500"
+              />
+              <span className="text-sm text-yellow-500">Warning</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={levelFilter.has('error')}
+                onChange={() => toggleLevelFilter('error')}
+                className="w-4 h-4 accent-red-500"
+              />
+              <span className="text-sm text-red-500">Error</span>
+            </label>
+          </div>
+        </div>
+        {/* Divider */}
+        <div className="w-px bg-border self-stretch" />
+        {/* Health Status Filter */}
+        <div role="group" aria-labelledby="health-status-filter-heading">
+          <h3 id="health-status-filter-heading" className="font-medium mb-3">Health Status</h3>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={healthFilter.has('healthy')}
+                onChange={() => toggleHealthFilter('healthy')}
+                aria-label="Show healthy services"
+                className="w-4 h-4 accent-green-500"
+              />
+              <span className="text-sm text-green-500">Healthy</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={healthFilter.has('degraded')}
+                onChange={() => toggleHealthFilter('degraded')}
+                aria-label="Show degraded services"
+                className="w-4 h-4 accent-yellow-500"
+              />
+              <span className="text-sm text-yellow-500">Degraded</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={healthFilter.has('unhealthy')}
+                onChange={() => toggleHealthFilter('unhealthy')}
+                aria-label="Show unhealthy services"
+                className="w-4 h-4 accent-red-500"
+              />
+              <span className="text-sm text-red-500">Unhealthy</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={healthFilter.has('starting')}
+                onChange={() => toggleHealthFilter('starting')}
+                aria-label="Show starting services"
+                className="w-4 h-4 accent-blue-500"
+              />
+              <span className="text-sm text-blue-500">Starting</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={healthFilter.has('unknown')}
+                onChange={() => toggleHealthFilter('unknown')}
+                aria-label="Show unknown services"
+                className="w-4 h-4 accent-gray-500"
+              />
+              <span className="text-sm text-gray-500 dark:text-gray-400">Unknown</span>
+            </label>
           </div>
         </div>
       </div>
-      )}
+    </div>
 
       {/* View Content */}
       <div className="flex-1 overflow-hidden">
         {viewMode === 'grid' ? (
-          <LogsPaneGrid columns={effectiveColumns} collapsedPanes={collapsedPanes}>
-            {selectedServicesList.map(serviceName => {
-              const service = services.find(s => s.name === serviceName)
-              return (
-                <LogsPane
-                  key={serviceName}
-                  serviceName={serviceName}
-                  port={service?.local?.port}
-                  patterns={patterns}
-                  onCopy={handleCopyPane}
-                  isPaused={isPaused}
-                  globalSearchTerm={globalSearchTerm}
-                  autoScrollEnabled={autoScrollEnabled}
-                  clearAllTrigger={clearAllTrigger}
-                  levelFilter={levelFilter}
-                  isCollapsed={collapsedPanes[serviceName] ?? false}
-                  onToggleCollapse={() => togglePaneCollapse(serviceName)}
-                />
-              )
-            })}
-          </LogsPaneGrid>
+          filteredServicesList.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="text-center">
+                <p className="text-lg font-medium">No services match the current filters</p>
+                <p className="text-sm mt-2">Try adjusting your service or health status filters</p>
+              </div>
+            </div>
+          ) : (
+            <LogsPaneGrid columns={effectiveColumns} collapsedPanes={collapsedPanes}>
+              {filteredServicesList.map(serviceName => {
+                const service = services.find(s => s.name === serviceName)
+                const serviceHealthStatus = healthReport?.services.find(s => s.serviceName === serviceName)?.status
+                return (
+                  <LogsPane
+                    key={serviceName}
+                    serviceName={serviceName}
+                    port={service?.local?.port}
+                    url={service?.local?.url}
+                    onCopy={handleCopyPane}
+                    isPaused={isPaused}
+                    globalSearchTerm={globalSearchTerm}
+                    autoScrollEnabled={autoScrollEnabled}
+                    clearAllTrigger={clearAllTrigger}
+                    levelFilter={levelFilter}
+                    isCollapsed={collapsedPanes[serviceName] ?? false}
+                    onToggleCollapse={() => togglePaneCollapse(serviceName)}
+                    serviceHealth={serviceHealthStatus}
+                  />
+                )
+              })}
+            </LogsPaneGrid>
+          )
         ) : (
           <LogsView selectedServices={selectedServices} levelFilter={levelFilter} />
         )}

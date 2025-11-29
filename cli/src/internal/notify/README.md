@@ -163,7 +163,7 @@ func DefaultConfig() Config
 ```
 Returns default configuration:
 - AppName: "Azure Developer CLI"
-- AppID: "com.microsoft.azd"
+- AppID: "Microsoft.AzureDeveloperCLI"
 - Timeout: 5 seconds
 
 ## Platform-Specific Details

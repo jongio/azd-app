@@ -45,6 +45,27 @@ func AtomicWriteJSON(path string, data interface{}) error {
 	return nil
 }
 
+// AtomicWriteFile writes raw bytes to a file atomically.
+// It writes to a temporary file first, then renames it to the target path.
+// This ensures the file is never left in a partial/corrupt state.
+func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	tmpPath := path + ".tmp"
+
+	// Write to temp file first
+	if err := os.WriteFile(tmpPath, data, perm); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Rename temp file to final file (atomic operation on most filesystems)
+	if err := os.Rename(tmpPath, path); err != nil {
+		// Clean up temp file on failure
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
 // ReadJSON reads JSON from a file into the target interface.
 // Returns nil error if file doesn't exist (target unchanged).
 func ReadJSON(path string, target interface{}) error {

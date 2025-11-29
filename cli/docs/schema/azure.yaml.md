@@ -14,6 +14,7 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 - **`ports`**: Explicit port mappings (Docker Compose style)
 - **`environment`**: Environment variables (Docker Compose compatible formats)
 - **`entrypoint`**: Custom entry point files for Python/Node services
+- **`healthcheck`**: Docker Compose-compatible health checks for monitoring
 - **`reqs`**: Prerequisite tool validation (top-level, not per-service)
 - **`hooks`**: Lifecycle hooks for prerun/postrun automation (similar to azd's preprovision/postprovision)
 
@@ -160,6 +161,57 @@ services:
   api:
     uses: ["database"]  # API waits for database
 ```
+
+#### `healthcheck` ⭐ NEW
+**Type:** `object` (optional)
+
+Docker Compose-compatible health check configuration for `azd app health` command.
+
+**Properties:**
+- **`test`**: Health check command (string or array)
+  - **HTTP URL (recommended)**: `"http://localhost:8080/health"` - Cross-platform built-in HTTP check
+  - String shell command: `"curl -f http://localhost/health || exit 1"` (requires curl installed)
+  - Array CMD: `["CMD", "curl", "-f", "http://localhost/health"]` (requires curl installed)
+  - Array CMD-SHELL: `["CMD-SHELL", "curl -f http://localhost/health || exit 1"]` (requires curl installed)
+  - Disable: `["NONE"]`
+- **`interval`**: Time between checks (default: `30s`)
+- **`timeout`**: Max time for check (default: `30s`)
+- **`retries`**: Consecutive failures before unhealthy (default: `3`)
+- **`start_period`**: Grace period for initialization (default: `0s`)
+- **`start_interval`**: Interval during start period (default: `5s`)
+
+```yaml
+services:
+  api:
+    language: python
+    project: ./api
+    ports: ["8080"]
+    healthcheck:
+      test: "http://localhost:8080/health"  # Recommended: cross-platform
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+      start_interval: 5s
+  
+  worker:
+    language: python
+    project: ./worker
+    # No healthcheck - falls back to process check
+  
+  redis:
+    image: redis:7-alpine
+    ports: ["6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]  # Requires redis-cli in container
+      interval: 5s
+      timeout: 3s
+```
+
+**Note:** If no healthcheck is specified, `azd app health` uses cascading fallback:
+1. Try common HTTP endpoints (`/health`, `/healthz`, `/ready`, `/alive`)
+2. Fall back to TCP port check
+3. Fall back to process check
 
 
 
@@ -414,6 +466,12 @@ services:
         value: "postgresql://localhost:5432/todos"
       - name: SECRET_KEY
         secret: API_SECRET
+    healthcheck:
+      test: "http://localhost:8000/health"  # Cross-platform HTTP check
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     uses: ["database"]
   
   database:

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
-import type { LogPattern } from '@/hooks/useLogPatterns'
-import { useLogClassification } from '@/hooks/useLogClassification'
+import type { HealthStatus } from '@/types'
+import { useLogClassifications } from '@/hooks/useLogClassifications'
 import {
   MAX_LOGS_IN_MEMORY,
   LOG_LEVELS,
@@ -24,7 +24,7 @@ export interface LogEntry {
 interface LogsPaneProps {
   serviceName: string
   port?: number
-  patterns: LogPattern[]
+  url?: string                    // Service URL for "open in new tab" button
   onCopy: (logs: LogEntry[]) => void
   isPaused: boolean
   globalSearchTerm?: string
@@ -33,12 +33,13 @@ interface LogsPaneProps {
   levelFilter?: Set<'info' | 'warning' | 'error'>
   isCollapsed?: boolean           // NEW: controlled collapse state
   onToggleCollapse?: () => void   // NEW: collapse toggle callback
+  serviceHealth?: HealthStatus    // NEW: real-time health status from health stream
 }
 
 export function LogsPane({ 
   serviceName, 
   port,
-  patterns, 
+  url,
   onCopy, 
   isPaused, 
   globalSearchTerm = '', 
@@ -46,7 +47,8 @@ export function LogsPane({
   clearAllTrigger = 0, 
   levelFilter = new Set(['info', 'warning', 'error'] as const),
   isCollapsed: controlledIsCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  serviceHealth
 }: LogsPaneProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [selectedText, setSelectedText] = useState<string>('')
@@ -65,8 +67,14 @@ export function LogsPane({
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const isPausedRef = useRef(isPaused)
   
-  const { addOverride, getClassificationForText } = useLogClassification()
+  const { addClassification, getClassificationForText } = useLogClassifications()
+
+  // Keep isPaused ref in sync for WebSocket callback
+  useEffect(() => {
+    isPausedRef.current = isPaused
+  }, [isPaused])
 
   // Toggle function - use callback if provided, otherwise internal
   const toggleCollapsed = useCallback(() => {
@@ -109,8 +117,11 @@ export function LogsPane({
     const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/stream?service=${serviceName}`)
 
     ws.onmessage = (event) => {
-      // Note: isPaused is captured at effect creation time
-      // For real-time pause behavior, we use a ref or different approach
+      // Check pause state from ref to get current value (not stale closure)
+      if (isPausedRef.current) {
+        // When paused, don't add new logs
+        return
+      }
       try {
         const entry = JSON.parse(event.data as string) as LogEntry
         setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
@@ -166,7 +177,7 @@ export function LogsPane({
   const handleClassifySelection = useCallback(async (level: 'info' | 'warning' | 'error') => {
     if (selectedText) {
       try {
-        await addOverride(selectedText, level)
+        await addClassification(selectedText, level)
         setSelectedText('')
         setSelectionPosition(null)
         window.getSelection()?.removeAllRanges()
@@ -177,10 +188,10 @@ export function LogsPane({
           setShowClassificationConfirmation(false)
         }, 2000)
       } catch (err) {
-        console.error('Failed to add classification override:', err)
+        console.error('Failed to add classification:', err)
       }
     }
-  }, [selectedText, addOverride])
+  }, [selectedText, addClassification])
 
   useEffect(() => {
     const container = logsContainerRef.current
@@ -196,32 +207,20 @@ export function LogsPane({
   }, [handleTextSelection])
 
   const isErrorLine = useCallback((message: string) => {
-    // Check if any part of the message has a classification override
-    const overrideLevel = getClassificationForText(message)
-    if (overrideLevel === 'error') return true
-    if (overrideLevel === 'info' || overrideLevel === 'warning') return false
-
-    // Check global patterns
-    for (const pattern of patterns) {
-      if (pattern.enabled && pattern.source === 'user') {
-        try {
-          const regex = new RegExp(pattern.regex, 'i')
-          if (regex.test(message)) return false
-        } catch {
-          // Invalid regex, skip
-        }
-      }
-    }
+    // Check if any part of the message has a classification
+    const classificationLevel = getClassificationForText(message)
+    if (classificationLevel === 'error') return true
+    if (classificationLevel === 'info' || classificationLevel === 'warning') return false
 
     // Use centralized error detection
     return baseIsErrorLine(message)
-  }, [patterns, getClassificationForText])
+  }, [getClassificationForText])
 
   const isWarningLine = useCallback((message: string) => {
-    // Check if any part of the message has a classification override
-    const overrideLevel = getClassificationForText(message)
-    if (overrideLevel === 'warning') return true
-    if (overrideLevel === 'info' || overrideLevel === 'error') return false
+    // Check if any part of the message has a classification
+    const classificationLevel = getClassificationForText(message)
+    if (classificationLevel === 'warning') return true
+    if (classificationLevel === 'info' || classificationLevel === 'error') return false
     
     // Use centralized warning detection
     return baseIsWarningLine(message)
@@ -281,17 +280,35 @@ export function LogsPane({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [handleClickOutside])
 
+  // Border and header colors should follow service health (if available), not log content
+  // This prevents confusing UX where border is red but health badge shows green
+  const getVisualStatus = (): 'error' | 'warning' | 'info' | 'healthy' => {
+    if (serviceHealth) {
+      // Use health check status as primary indicator
+      if (serviceHealth === 'unhealthy') return 'error'
+      if (serviceHealth === 'degraded' || serviceHealth === 'starting') return 'warning'
+      if (serviceHealth === 'healthy') return 'healthy'
+      // 'unknown' falls through to log-based status
+    }
+    // Fall back to log-based status when health is unknown or not available
+    return paneStatus
+  }
+  
+  const visualStatus = getVisualStatus()
+
   const borderClass = {
-    error: 'border-red-500 animate-pulse',
+    error: 'border-red-500',
     warning: 'border-yellow-500',
-    info: 'border-gray-300'
-  }[paneStatus]
+    healthy: 'border-green-500',
+    info: 'border-gray-300 dark:border-gray-600'
+  }[visualStatus]
 
   const headerBgClass = {
     error: 'bg-red-50 dark:bg-red-900/20',
     warning: 'bg-yellow-50 dark:bg-yellow-900/20',
+    healthy: 'bg-green-50 dark:bg-green-900/20',
     info: 'bg-card'
-  }[paneStatus]
+  }[visualStatus]
 
   return (
     <div 
@@ -327,25 +344,46 @@ export function LogsPane({
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             )}
           </button>
-          <h3 className="font-semibold">{serviceName}</h3>
-          {port && (
-            <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
-              :{port}
+          <h3 className="font-semibold">
+            {serviceName}{port && <span className="text-muted-foreground font-mono">:{port}</span>}
+          </h3>
+          {/* Health status badge - from real-time health checks */}
+          {serviceHealth && (
+            <span 
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium transition-all duration-200",
+                serviceHealth === 'healthy' && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
+                serviceHealth === 'degraded' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30",
+                serviceHealth === 'unhealthy' && "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30",
+                (serviceHealth === 'unknown' || serviceHealth === 'starting') && "bg-muted text-muted-foreground border border-border"
+              )}
+              title={`Service health: ${serviceHealth} (from health checks)`}
+            >
+              {serviceHealth === 'healthy' ? (
+                <Heart className="w-3 h-3 shrink-0 animate-heartbeat" />
+              ) : serviceHealth === 'degraded' ? (
+                <HeartPulse className="w-3 h-3 shrink-0 animate-caution-pulse" />
+              ) : serviceHealth === 'unhealthy' ? (
+                <HeartPulse className="w-3 h-3 shrink-0 animate-status-flash" />
+              ) : (
+                <HeartPulse className="w-3 h-3 shrink-0" />
+              )}
+              <span className="leading-none">{serviceHealth}</span>
             </span>
           )}
-          <span className={cn(
-            "px-2 py-0.5 text-xs rounded-full font-medium",
-            paneStatus === 'error' && "bg-destructive/10 text-destructive border border-destructive/30",
-            paneStatus === 'warning' && "bg-warning/10 text-warning border border-warning/30",
-            paneStatus === 'info' && "bg-muted text-muted-foreground border border-border"
-          )}>
-            {paneStatus}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {filteredLogs.length} / {logs.length} logs
-          </span>
         </div>
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {url && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+              title="Open in new tab"
+              aria-label="Open service in new tab"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -411,7 +449,7 @@ export function LogsPane({
                   {/* Copy button - appears on hover */}
                   <button
                     onClick={() => handleCopyLine(log, idx)}
-                    className="opacity-0 group-hover:opacity-100 shrink-0 p-1 hover:bg-muted rounded transition-opacity cursor-pointer"
+                    className="opacity-0 group-hover:opacity-100 shrink-0 p-1 hover:bg-muted rounded transition-opacity"
                     title="Copy log line"
                     aria-label="Copy this log line"
                   >

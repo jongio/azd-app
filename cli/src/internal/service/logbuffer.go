@@ -45,7 +45,9 @@ func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging b
 	// Setup file logging if enabled
 	if enableFileLogging {
 		logsDir := filepath.Join(projectDir, ".azure", "logs")
-		if err := os.MkdirAll(logsDir, 0750); err != nil {
+		// Use 0700 for directory permissions to match file privacy intent (0600)
+		// This ensures only the owner can access log files
+		if err := os.MkdirAll(logsDir, 0700); err != nil {
 			return nil, fmt.Errorf("failed to create logs directory: %w", err)
 		}
 

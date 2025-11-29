@@ -136,4 +136,40 @@ describe('StatusCell', () => {
     rerender(<StatusCell status="running" health="unhealthy" />)
     expect(screen.getByText('Unhealthy')).toBeInTheDocument()
   })
+
+  it('should apply heartbeat animation for healthy running service', () => {
+    const { container } = render(<StatusCell status="ready" health="healthy" />)
+    
+    const dot = container.querySelector('.bg-green-500')
+    expect(dot).toHaveClass('animate-heartbeat')
+  })
+
+  it('should apply flash animation for unhealthy service', () => {
+    const { container } = render(<StatusCell status="ready" health="unhealthy" />)
+    
+    const dot = container.querySelector('.bg-red-500')
+    expect(dot).toHaveClass('animate-status-flash')
+  })
+
+  it('should apply caution-pulse animation for degraded service', () => {
+    const { container } = render(<StatusCell status="running" health="degraded" />)
+    
+    const dot = container.querySelector('.bg-amber-500')
+    expect(dot).toHaveClass('animate-caution-pulse')
+  })
+
+  it('should apply flash animation for error status', () => {
+    const { container } = render(<StatusCell status="error" health="unknown" />)
+    
+    const dot = container.querySelector('.bg-red-500')
+    expect(dot).toHaveClass('animate-status-flash')
+  })
+
+  it('should not apply animation for stopped service', () => {
+    const { container } = render(<StatusCell status="stopped" health="unknown" />)
+    
+    const dot = container.querySelector('.bg-gray-500')
+    expect(dot).not.toHaveClass('animate-heartbeat')
+    expect(dot).not.toHaveClass('animate-status-flash')
+  })
 })

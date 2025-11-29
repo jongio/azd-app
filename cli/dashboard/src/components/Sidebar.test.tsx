@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Sidebar } from '@/components/Sidebar'
+import type { HealthSummary } from '@/types'
 
 describe('Sidebar', () => {
   it('should render all navigation items', () => {
@@ -164,12 +165,8 @@ describe('Sidebar', () => {
 
     const consoleButton = screen.getByRole('button', { name: /console/i })
     
-    // Should have error ring class
-    expect(consoleButton).toHaveClass('ring-2')
-    expect(consoleButton).toHaveClass('ring-red-500/50')
-    
-    // Should have pulsing red dot indicator
-    const errorDot = consoleButton.querySelector('.animate-pulse')
+    // Should have flashing red dot indicator
+    const errorDot = consoleButton.querySelector('.animate-status-flash')
     expect(errorDot).toBeInTheDocument()
     expect(errorDot).toHaveClass('bg-red-500')
   })
@@ -180,9 +177,8 @@ describe('Sidebar', () => {
 
     const consoleButton = screen.getByRole('button', { name: /console/i })
     
-    // Should NOT have error ring or pulsing dot
-    expect(consoleButton).not.toHaveClass('ring-2')
-    const errorDot = consoleButton.querySelector('.animate-pulse')
+    // Should NOT have flashing dot
+    const errorDot = consoleButton.querySelector('.animate-status-flash')
     expect(errorDot).not.toBeInTheDocument()
   })
 
@@ -192,12 +188,8 @@ describe('Sidebar', () => {
 
     const consoleButton = screen.getByRole('button', { name: /console/i })
     
-    // Should NOT have error ring when active
-    expect(consoleButton).not.toHaveClass('ring-2')
-    expect(consoleButton).not.toHaveClass('ring-red-500/50')
-    
-    // But should still have the pulsing dot
-    const errorDot = consoleButton.querySelector('.animate-pulse')
+    // Should still have the flashing dot when active
+    const errorDot = consoleButton.querySelector('.animate-status-flash')
     expect(errorDot).toBeInTheDocument()
   })
 
@@ -211,10 +203,10 @@ describe('Sidebar', () => {
     const metricsButton = screen.getByRole('button', { name: /metrics/i })
     
     // None of these should have error indicators
-    expect(resourcesButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
-    expect(structuredButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
-    expect(tracesButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
-    expect(metricsButton.querySelector('.animate-pulse')).not.toBeInTheDocument()
+    expect(resourcesButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
+    expect(structuredButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
+    expect(tracesButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
+    expect(metricsButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
   })
 
   it('should have title attribute on error indicator', () => {
@@ -222,8 +214,135 @@ describe('Sidebar', () => {
     render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} />)
 
     const consoleButton = screen.getByRole('button', { name: /console/i })
-    const errorDot = consoleButton.querySelector('.animate-pulse')
+    const errorDot = consoleButton.querySelector('.animate-status-flash')
     
     expect(errorDot).toHaveAttribute('title', 'Active errors detected')
+  })
+
+  describe('Health Summary Indicator', () => {
+    it('should show red indicator when there are unhealthy services', () => {
+      const onViewChange = vi.fn()
+      const healthSummary: HealthSummary = {
+        total: 4,
+        healthy: 2,
+        degraded: 1,
+        unhealthy: 1,
+        unknown: 0,
+        overall: 'unhealthy'
+      }
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} healthSummary={healthSummary} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toBeInTheDocument()
+      expect(indicator).toHaveClass('bg-red-500')
+      expect(indicator).toHaveClass('animate-status-flash')
+      expect(indicator).toHaveAttribute('title', '1 unhealthy service(s)')
+    })
+
+    it('should show yellow indicator when there are degraded but no unhealthy services', () => {
+      const onViewChange = vi.fn()
+      const healthSummary: HealthSummary = {
+        total: 4,
+        healthy: 2,
+        degraded: 2,
+        unhealthy: 0,
+        unknown: 0,
+        overall: 'degraded'
+      }
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} healthSummary={healthSummary} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toBeInTheDocument()
+      expect(indicator).toHaveClass('bg-yellow-500')
+      expect(indicator).not.toHaveClass('animate-pulse')
+      expect(indicator).toHaveAttribute('title', '2 degraded/unknown service(s)')
+    })
+
+    it('should show yellow indicator when there are unknown services', () => {
+      const onViewChange = vi.fn()
+      const healthSummary: HealthSummary = {
+        total: 4,
+        healthy: 3,
+        degraded: 0,
+        unhealthy: 0,
+        unknown: 1,
+        overall: 'unknown'
+      }
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} healthSummary={healthSummary} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toBeInTheDocument()
+      expect(indicator).toHaveClass('bg-yellow-500')
+      expect(indicator).toHaveAttribute('title', '1 degraded/unknown service(s)')
+    })
+
+    it('should show green indicator when all services are healthy', () => {
+      const onViewChange = vi.fn()
+      const healthSummary: HealthSummary = {
+        total: 4,
+        healthy: 4,
+        degraded: 0,
+        unhealthy: 0,
+        unknown: 0,
+        overall: 'healthy'
+      }
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} healthSummary={healthSummary} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toBeInTheDocument()
+      expect(indicator).toHaveClass('bg-green-500')
+      expect(indicator).not.toHaveClass('animate-pulse')
+      expect(indicator).toHaveAttribute('title', 'All services healthy')
+    })
+
+    it('should prioritize healthSummary over hasActiveErrors', () => {
+      const onViewChange = vi.fn()
+      const healthSummary: HealthSummary = {
+        total: 4,
+        healthy: 4,
+        degraded: 0,
+        unhealthy: 0,
+        unknown: 0,
+        overall: 'healthy'
+      }
+      // Even with hasActiveErrors=true, should show green because healthSummary is all healthy
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} healthSummary={healthSummary} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toHaveClass('bg-green-500')
+      expect(indicator).toHaveAttribute('title', 'All services healthy')
+    })
+
+    it('should fall back to hasActiveErrors when no healthSummary is provided', () => {
+      const onViewChange = vi.fn()
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toBeInTheDocument()
+      expect(indicator).toHaveClass('bg-red-500')
+      expect(indicator).toHaveAttribute('title', 'Active errors detected')
+    })
+
+    it('should not show indicator when no healthSummary and hasActiveErrors is false', () => {
+      const onViewChange = vi.fn()
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={false} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).not.toBeInTheDocument()
+    })
   })
 })

@@ -125,6 +125,10 @@
             "type": "string"
           }
         },
+        "healthcheck": {
+          "$ref": "#/definitions/healthcheck",
+          "description": "Docker Compose-compatible healthcheck configuration - azd app addition for health monitoring"
+        },
         "logs": {
           "$ref": "#/definitions/logsConfig",
           "description": "Service-level logging configuration"
@@ -223,6 +227,56 @@
           "type": "boolean",
           "description": "Whether this is an existing resource (not provisioned by azd)",
           "default": false
+        }
+      }
+    },
+    "healthcheck": {
+      "type": "object",
+      "description": "Docker Compose-compatible health check configuration",
+      "properties": {
+        "test": {
+          "type": ["string", "array"],
+          "description": "The test to perform. For cross-platform compatibility, use HTTP URL string (e.g., 'http://localhost:8080/health'). Can also be shell command string or array (CMD or CMD-SHELL format).",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "http://localhost:8080/health",
+            "curl -f http://localhost/health || exit 1",
+            ["CMD", "curl", "-f", "http://localhost/health"],
+            ["CMD-SHELL", "curl -f http://localhost/health || exit 1"],
+            ["NONE"]
+          ]
+        },
+        "interval": {
+          "type": "string",
+          "description": "Time between health checks (e.g., 30s, 1m)",
+          "pattern": "^\\d+[smh]$",
+          "default": "30s"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Maximum time for health check to complete (e.g., 30s, 1m)",
+          "pattern": "^\\d+[smh]$",
+          "default": "30s"
+        },
+        "retries": {
+          "type": "integer",
+          "description": "Number of consecutive failures before marking unhealthy",
+          "minimum": 1,
+          "default": 3
+        },
+        "start_period": {
+          "type": "string",
+          "description": "Grace period for container initialization (e.g., 0s, 40s)",
+          "pattern": "^\\d+[smh]$",
+          "default": "0s"
+        },
+        "start_interval": {
+          "type": "string",
+          "description": "Time between health checks during start period (e.g., 5s)",
+          "pattern": "^\\d+[smh]$",
+          "default": "5s"
         }
       }
     },
@@ -476,6 +530,13 @@
               "secret": "POSTGRES_CONNECTION_STRING"
             }
           ],
+          "healthcheck": {
+            "test": "http://localhost:8000/health",
+            "interval": "10s",
+            "timeout": "5s",
+            "retries": 3,
+            "start_period": "30s"
+          },
           "uses": ["db"]
         }
       },

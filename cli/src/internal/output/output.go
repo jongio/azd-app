@@ -84,6 +84,20 @@ var (
 // Global output format setting
 var globalFormat Format = FormatDefault
 
+// orchestratedMode indicates if running as part of command orchestration
+var orchestratedMode = false
+
+// SetOrchestrated sets the orchestration mode flag.
+// When true, subcommands skip their headers.
+func SetOrchestrated(value bool) {
+	orchestratedMode = value
+}
+
+// IsOrchestrated returns true if running in orchestrated mode.
+func IsOrchestrated() bool {
+	return orchestratedMode
+}
+
 // supportsUnicode detects if the terminal supports Unicode/emojis
 var supportsUnicode = detectUnicodeSupport()
 
@@ -193,16 +207,17 @@ func Header(text string) {
 	fmt.Println(strings.Repeat("=", len(text)))
 }
 
-// CommandHeader prints a modern CLI command header with branding.
-// This should be called at the start of each command (not in JSON mode).
-func CommandHeader(command, description string) {
-	if globalFormat == FormatJSON {
+// CommandHeader prints a minimal command header.
+// Shows just the command name with a short divider.
+// Skipped when in orchestrated mode (subcommands don't print headers).
+func CommandHeader(command, _ string) {
+	if globalFormat == FormatJSON || orchestratedMode {
 		return
 	}
 	fmt.Println()
-	fmt.Printf("%s%sazd app %s%s\n", Bold, BrightCyan, command, Reset)
-	fmt.Printf("%s%s%s\n", Dim, description, Reset)
-	fmt.Printf("%s%s%s\n", Dim, strings.Repeat("─", 50), Reset)
+	fmt.Printf("%sazd app %s%s\n", Bold, command, Reset)
+	fmt.Println(strings.Repeat("─", 30))
+	fmt.Println()
 }
 
 // Section prints a section header
@@ -282,12 +297,31 @@ func ItemInfo(format string, args ...interface{}) {
 
 // Divider prints a horizontal divider
 func Divider() {
-	fmt.Printf("\n%s%s%s\n", Dim, strings.Repeat("─", 75), Reset)
+	fmt.Printf("\n%s%s%s\n", Dim, strings.Repeat("─", 50), Reset)
 }
 
 // Newline prints a blank line
 func Newline() {
 	fmt.Println()
+}
+
+// Hint prints compact hints on a single line with bullet separators.
+// Example: Hint("Press Ctrl+C to stop", "Use --web to open browser")
+func Hint(hints ...string) {
+	if len(hints) == 0 {
+		return
+	}
+	fmt.Printf("%s%s%s\n", Dim, strings.Join(hints, " • "), Reset)
+}
+
+// Phase prints a phase label like "Installing dependencies..." or "Starting services..."
+func Phase(label string) {
+	fmt.Printf("%s%s%s\n", Dim, label, Reset)
+}
+
+// Plain prints plain text without any formatting.
+func Plain(format string, args ...interface{}) {
+	fmt.Printf(format+"\n", args...)
 }
 
 // Label prints a label and value pair

@@ -124,13 +124,20 @@ type LogFilterConfig struct {
 	IncludeBuiltins *bool `yaml:"includeBuiltins,omitempty"`
 }
 
+// LogClassification represents a user-defined text classification for logs.
+// When log text contains the specified Text, it will be classified as the specified Level.
+type LogClassification struct {
+	Text  string `yaml:"text" json:"text"`   // Text to match (case-insensitive)
+	Level string `yaml:"level" json:"level"` // "info", "warning", or "error"
+}
+
 // LogsConfig represents the logs configuration section in azure.yaml.
 // This is the root-level configuration for all logging-related settings.
 type LogsConfig struct {
 	// Filters for suppressing noisy log output
 	Filters *LogFilterConfig `yaml:"filters,omitempty"`
-	// Future: add more log-related settings here
-	// Examples: level, format, output, retention, etc.
+	// Classifications for overriding log levels based on text matches
+	Classifications []LogClassification `yaml:"classifications,omitempty" json:"classifications,omitempty"`
 }
 
 // GetFilters returns the filter config, or nil if not set.
@@ -139,6 +146,19 @@ func (c *LogsConfig) GetFilters() *LogFilterConfig {
 		return nil
 	}
 	return c.Filters
+}
+
+// GetClassifications returns the classifications, or empty slice if not set.
+func (c *LogsConfig) GetClassifications() []LogClassification {
+	if c == nil || c.Classifications == nil {
+		return []LogClassification{}
+	}
+	return c.Classifications
+}
+
+// ValidateClassificationLevel checks if a level string is valid.
+func ValidateClassificationLevel(level string) bool {
+	return level == "info" || level == "warning" || level == "error"
 }
 
 // ShouldIncludeBuiltins returns true if built-in patterns should be included.

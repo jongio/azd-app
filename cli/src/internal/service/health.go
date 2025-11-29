@@ -124,17 +124,14 @@ func ProcessHealthCheck(process *ServiceProcess) error {
 		return fmt.Errorf("process not started")
 	}
 
-	// Check if process is still running by attempting a non-blocking signal
-	// On Windows, Signal(nil) doesn't work, so we try Signal(syscall.Signal(0)) which also doesn't work
-	// Instead, we'll use a different approach: check if the process can be found
-	// The most reliable cross-platform way is to just assume it's running if we have a Process object
-	// and it hasn't been waited on yet. If the process exited, Wait() would have been called.
-	// For testing purposes, we can rely on the PID being valid.
-	if process.PID == 0 && process.Process.Pid == 0 {
-		return fmt.Errorf("process has invalid PID")
+	// Check if we have a valid PID
+	pid := process.Process.Pid
+	if pid <= 0 {
+		return fmt.Errorf("process has invalid PID: %d", pid)
 	}
 
-	return nil
+	// Use platform-specific implementation to check if process is running
+	return processIsRunning(pid)
 }
 
 // WaitForPort waits for a port to become available (listening) with exponential backoff.

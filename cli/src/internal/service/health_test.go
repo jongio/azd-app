@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -326,7 +327,16 @@ func TestPerformHealthCheck_ProcessType(t *testing.T) {
 	}
 
 	// Start a real process that will run for a bit
-	cmd := exec.Command("timeout", "5")
+	// Use platform-specific command
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// On Windows, use ping with count to wait
+		cmd = exec.Command("ping", "-n", "10", "127.0.0.1")
+	} else {
+		// On Unix, use sleep
+		cmd = exec.Command("sleep", "5")
+	}
+
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start test process: %v", err)
 	}

@@ -13,6 +13,8 @@ const (
 
 // Dashboard configuration
 const (
+	// DashboardServiceName is the service name used for port manager assignments
+	DashboardServiceName = "azd-app-dashboard"
 	// DashboardPortRangeMin is the minimum port for dashboard (ephemeral range)
 	DashboardPortRangeMin = 40000
 	// DashboardPortRangeMax is the maximum port for dashboard (ephemeral range)

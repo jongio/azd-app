@@ -526,9 +526,6 @@ func checkAllSuccess(results []InstallResult) bool {
 // executeRun is the function executed by the orchestrator for the run command.
 // This ensures deps (and transitively reqs) are run before starting services.
 func executeRun() error {
-	if !output.IsJSON() {
-		output.Section("🚀", "Starting services (reqs and deps already checked)...")
-	}
 	// The actual run logic is handled by the run command's RunE function
 	// This is just a marker to ensure the dependency chain is executed
 	return nil

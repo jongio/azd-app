@@ -218,6 +218,11 @@
     border-color: var(--border);
   }
   
+  /* Global cursor pointer for all buttons */
+  button {
+    cursor: pointer;
+  }
+  
   body {
     background: var(--background);
     color: var(--foreground);
@@ -238,15 +243,6 @@
     transition-property: background-color, color, border-color;
     transition-duration: 400ms;
     transition-timing-function: ease-in-out;
-  }
-  
-  /* Respect reduced motion preferences */
-  @media (prefers-reduced-motion: reduce) {
-    [data-theme],
-    [data-theme] * {
-      transition-duration: 0ms !important;
-      animation-duration: 0ms !important;
-    }
   }
 }
 
@@ -275,46 +271,188 @@
     transition: all 0.2s ease;
   }
   
-  /* Error pulse animation for log panes */
-  @keyframes error-pulse {
-    0%, 100% {
-      border-color: #EF4444;
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.6;
-    }
-  }
-  
+  /* Animation utility classes */
   .animate-error-pulse {
     animation: error-pulse 1.5s ease-in-out infinite;
   }
-  
-  /* Notification badge pulse animation */
-  @keyframes notification-pulse {
-    0% {
-      transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
-    }
-    50% {
-      transform: scale(1.15);
-      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0);
-    }
-    100% {
-      transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-    }
+
+  .animate-status-flash {
+    animation: status-flash 0.8s steps(1) infinite;
+  }
+
+  .animate-caution-pulse {
+    animation: caution-pulse 2.5s ease-in-out infinite;
+  }
+
+  .animate-heartbeat {
+    animation: heartbeat 1.5s ease-in-out infinite;
   }
   
   .animate-notification-pulse {
     animation: notification-pulse 600ms ease-out 2;
   }
-  
-  /* Reduced motion support for animations */
-  @media (prefers-reduced-motion: reduce) {
-    .animate-error-pulse,
-    .animate-notification-pulse {
-      animation: none;
-    }
+
+  .animate-signal-wave {
+    animation: signal-wave 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .animate-signal-wave-delayed {
+    animation: signal-wave 2s cubic-bezier(0.4, 0, 0.2, 1) infinite 0.5s;
+  }
+
+  .animate-signal-wave-delayed-2 {
+    animation: signal-wave 2s cubic-bezier(0.4, 0, 0.2, 1) infinite 1s;
+  }
+
+  .animate-shake {
+    animation: shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  .animate-reconnect-spin {
+    animation: reconnect-spin 1.5s linear infinite;
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-breathe {
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+}
+
+/* Keyframes must be defined outside @layer for proper browser support */
+@keyframes error-pulse {
+  0%, 100% {
+    border-color: #EF4444;
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Error/Unhealthy: Sharp flash - urgent alert with quick on/off */
+@keyframes status-flash {
+  0%, 49%, 100% {
+    opacity: 1;
+  }
+  50%, 74% {
+    opacity: 0.2;
+  }
+}
+
+/* Warning/Degraded: Smooth breathing scale - draws attention without urgency */
+@keyframes caution-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* Healthy: Gentle heartbeat - smooth rhythmic pulse */
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.08);
+  }
+  30% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.05);
+  }
+  60%, 100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes notification-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes signal-wave {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-3px);
+  }
+  40%, 80% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes reconnect-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Smooth breathing animation for reconnecting icon */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+/* Gentle glow pulse for the center icon */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
   }
 }

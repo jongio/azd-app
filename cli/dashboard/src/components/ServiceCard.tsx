@@ -1,17 +1,29 @@
-import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertCircle } from 'lucide-react'
+import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertCircle, AlertTriangle, Clock, Zap, Globe } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import type { Service } from '@/types'
-import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime } from '@/lib/service-utils'
+import type { Service, HealthCheckResult } from '@/types'
+import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime, formatResponseTime, formatUptime, getCheckTypeDisplay } from '@/lib/service-utils'
 
 interface ServiceCardProps {
   service: Service
+  healthStatus?: HealthCheckResult
 }
 
-export function ServiceCard({ service }: ServiceCardProps) {
-  const { status, health } = getEffectiveStatus(service)
+export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
+  // Use real-time health from health stream if available
+  const { status, health: baseHealth } = getEffectiveStatus(service)
+  const health = healthStatus?.status || baseHealth
   const statusDisplay = getStatusDisplay(status, health)
   const healthy = isServiceHealthy(status, health)
   const Icon = statusDisplay.icon
+  // Prefer health details from healthStatus (real-time) over service.local.healthDetails
+  const healthDetails = healthStatus ? {
+    checkType: healthStatus.checkType,
+    endpoint: healthStatus.endpoint,
+    responseTime: healthStatus.responseTime ? healthStatus.responseTime / 1_000_000 : undefined, // Convert ns to ms
+    statusCode: healthStatus.statusCode,
+    uptime: healthStatus.uptime ? healthStatus.uptime / 1_000_000_000 : undefined, // Convert ns to s
+    lastError: healthStatus.error,
+  } : service.local?.healthDetails
 
   return (
     <div className="group glass rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden">
@@ -122,16 +134,74 @@ export function ServiceCard({ service }: ServiceCardProps) {
           <div className="flex items-center gap-2">
             {health === 'healthy' ? (
               <CheckCircle className="w-4 h-4 text-success" />
+            ) : health === 'degraded' ? (
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
             ) : (
               <XCircle className="w-4 h-4 text-destructive" />
             )}
             <span className={`text-sm font-medium ${
-              health === 'healthy' ? 'text-success' : 'text-destructive'
+              health === 'healthy' ? 'text-success' 
+              : health === 'degraded' ? 'text-amber-500' 
+              : 'text-destructive'
             }`}>
               {health}
             </span>
           </div>
         </div>
+
+        {/* Health Details (when available) */}
+        {healthDetails && (
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {/* Response Time */}
+            <div className="glass p-2 rounded-lg border border-white/5">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Zap className="w-3 h-3 text-yellow-400" />
+                <span className="text-[10px] text-muted-foreground">Response</span>
+              </div>
+              <p className="font-mono font-semibold text-xs text-foreground">
+                {formatResponseTime(healthDetails.responseTime ? healthDetails.responseTime * 1_000_000 : undefined)}
+              </p>
+            </div>
+            {/* Check Type */}
+            <div className="glass p-2 rounded-lg border border-white/5">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Globe className="w-3 h-3 text-blue-400" />
+                <span className="text-[10px] text-muted-foreground">Check</span>
+              </div>
+              <p className="font-semibold text-xs text-foreground">
+                {getCheckTypeDisplay(healthDetails.checkType)}
+              </p>
+            </div>
+            {/* Uptime */}
+            <div className="glass p-2 rounded-lg border border-white/5">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Clock className="w-3 h-3 text-green-400" />
+                <span className="text-[10px] text-muted-foreground">Uptime</span>
+              </div>
+              <p className="font-mono font-semibold text-xs text-foreground">
+                {formatUptime(healthDetails.uptime ? healthDetails.uptime * 1_000_000_000 : undefined)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Health Endpoint (when available) */}
+        {healthDetails?.endpoint && (
+          <div className="mb-4 px-3 py-2 rounded-lg glass border border-white/5">
+            <div className="flex items-center gap-2">
+              <Activity className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">Health Endpoint:</span>
+              <span className="text-xs font-mono text-foreground/80 truncate flex-1">
+                {healthDetails.endpoint}
+              </span>
+              {healthDetails.statusCode && (
+                <Badge variant={healthDetails.statusCode < 400 ? 'success' : 'destructive'} className="text-[10px] px-1.5 py-0">
+                  {healthDetails.statusCode}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         {(service.local?.startTime || service.local?.lastChecked || service.startTime || service.lastChecked) && (
@@ -152,13 +222,13 @@ export function ServiceCard({ service }: ServiceCardProps) {
         )}
 
         {/* Error State */}
-        {service.error && (
+        {(service.error || healthDetails?.lastError) && (
           <div className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-medium text-destructive mb-1">Error Detected</p>
-                <p className="text-xs text-destructive/80">{service.error}</p>
+                <p className="text-xs text-destructive/80">{service.error || healthDetails?.lastError}</p>
               </div>
             </div>
           </div>

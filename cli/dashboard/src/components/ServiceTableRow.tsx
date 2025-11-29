@@ -1,17 +1,19 @@
 import { Server, FileText, ExternalLink } from 'lucide-react'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { StatusCell } from '@/components/StatusCell'
-import type { Service } from '@/types'
+import type { Service, HealthCheckResult } from '@/types'
 
 interface ServiceTableRowProps {
   service: Service
   onViewLogs?: (serviceName: string) => void
+  healthStatus?: HealthCheckResult
 }
 
-export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
-  // Get status and health from local (with fallbacks)
+export function ServiceTableRow({ service, onViewLogs, healthStatus }: ServiceTableRowProps) {
+  // Get status and health - prefer real-time health data, fall back to local
   const status = service.local?.status || service.status || 'not-running'
-  const health = service.local?.health || service.health || 'unknown'
+  // Use real-time health from stream if available
+  const health = healthStatus?.status || service.local?.health || service.health || 'unknown'
   
   const formatStartTime = (timeStr?: string) => {
     if (!timeStr) return '-'
@@ -52,7 +54,11 @@ export function ServiceTableRow({ service, onViewLogs }: ServiceTableRowProps) {
 
       {/* State Column */}
       <TableCell>
-        <StatusCell status={status} health={health} />
+        <StatusCell 
+          status={status} 
+          health={health}
+          healthCheckResult={healthStatus}
+        />
       </TableCell>
 
       {/* Start Time Column */}

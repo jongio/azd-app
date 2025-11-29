@@ -64,6 +64,7 @@ func main() {
 		commands.NewDepsCommand(),
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
+		commands.NewHealthCommand(),
 		commands.NewVersionCommand(),
 		commands.NewNotificationsCommand(),
 		commands.NewListenCommand(), // Required for azd extension framework
