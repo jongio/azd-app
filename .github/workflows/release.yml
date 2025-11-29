@@ -455,7 +455,10 @@ jobs:
 
       - name: Install azd extensions
         working-directory: cli
-        run: azd extension install microsoft.azd.extensions
+        run: |
+          # Add the official azd extensions registry source
+          azd extension source add azd --location https://aka.ms/azd/extensions/registry --type url 2>/dev/null || true
+          azd extension install microsoft.azd.extensions --source azd
 
       - name: Build dashboard (for embedding in binary)
         working-directory: cli
