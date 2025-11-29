@@ -1,0 +1,44 @@
+name: lifecycle-test
+services:
+    degraded-api:
+        host: localhost
+        language: js
+        project: ./degraded-api
+        ports:
+            - "3004"
+    flaky-service:
+        host: localhost
+        language: js
+        project: ./flaky-service
+        ports:
+            - "3002"
+    slow-starter:
+        host: localhost
+        language: js
+        project: ./slow-starter
+        ports:
+            - "3003"
+    stable-api:
+        host: localhost
+        language: js
+        project: ./stable-api
+        ports:
+            - "3001"
+resources: {}
+metadata:
+    description: Test project simulating service lifecycle - healthy → unhealthy → healthy transitions
+    template: lifecycle-test
+logs:
+    classifications:
+        - text: flaky
+          level: error
+        - text: Connection
+          level: warning
+        - text: Current
+          level: info
+        - text: Database connection unavailable
+          level: error
+        - text: asdfa
+          level: info
+        - text: Service entering degraded state, requests may fail
+          level: warning

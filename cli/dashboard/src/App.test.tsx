@@ -22,6 +22,16 @@ vi.mock('@/hooks/useServiceErrors', () => ({
   })),
 }))
 
+// Mock the useHealthStream hook to prevent EventSource issues in jsdom
+vi.mock('@/hooks/useHealthStream', () => ({
+  useHealthStream: vi.fn(() => ({
+    healthReport: null,
+    connected: false,
+    error: null,
+    getServiceHealth: vi.fn(() => null),
+  })),
+}))
+
 // Mock the useToast hook
 vi.mock('@/components/ui/toast', () => ({
   useToast: vi.fn(() => ({
@@ -322,11 +332,11 @@ describe('App', () => {
       // Find Console nav button - it should have a red pulsing dot indicator
       const consoleNav = screen.getByRole('button', { name: /console/i })
       
-      // Check for error indicator styles (red ring and pulsing dot)
+      // Check for error indicator styles (red ring and flashing dot)
       expect(consoleNav).toBeInTheDocument()
       
-      // The button should have the error ring class when not active
-      const errorIndicator = consoleNav.querySelector('.animate-pulse')
+      // The button should have the error indicator with status-flash animation
+      const errorIndicator = consoleNav.querySelector('.animate-status-flash')
       expect(errorIndicator).toBeInTheDocument()
     })
   })

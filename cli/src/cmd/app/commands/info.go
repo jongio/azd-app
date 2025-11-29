@@ -246,7 +246,7 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 			health = svc.Local.Health
 		}
 
-		statusIcon := getStatusIcon(status, health)
+		statusIcon := getInfoStatusIcon(status, health)
 		output.Newline()
 		output.Info("  %s %s", statusIcon, svc.Name)
 
@@ -440,11 +440,11 @@ func formatTime(t time.Time) string {
 
 	// Show relative time for recent events
 	if duration < time.Minute {
-		return fmt.Sprintf("%s ago", formatDuration(duration))
+		return fmt.Sprintf("%s ago", formatInfoDuration(duration))
 	} else if duration < time.Hour {
-		return fmt.Sprintf("%s ago", formatDuration(duration))
+		return fmt.Sprintf("%s ago", formatInfoDuration(duration))
 	} else if duration < 24*time.Hour {
-		return fmt.Sprintf("%s ago", formatDuration(duration))
+		return fmt.Sprintf("%s ago", formatInfoDuration(duration))
 	}
 
 	// Show absolute time for older events
@@ -452,7 +452,7 @@ func formatTime(t time.Time) string {
 }
 
 // formatDuration formats a duration in a human-readable way.
-func formatDuration(d time.Duration) string {
+func formatInfoDuration(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%ds", int(d.Seconds()))
 	} else if d < time.Hour {
@@ -464,7 +464,7 @@ func formatDuration(d time.Duration) string {
 }
 
 // getStatusIcon returns a colored icon based on status and health.
-func getStatusIcon(status, health string) string {
+func getInfoStatusIcon(status, health string) string {
 	if status == "ready" && health == "healthy" {
 		return colorGreen + "✓" + colorReset
 	}

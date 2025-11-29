@@ -1,0 +1,83 @@
+# Health Check Profiles for azd app health
+# 
+# Profiles allow you to define different health check configurations
+# for different environments (development, production, ci, staging)
+#
+# Usage: azd app health --profile production --stream
+#
+# Available settings:
+#   interval:               Time between health checks in streaming mode
+#   timeout:                Maximum time to wait for health check
+#   retries:                Number of retries for failed checks
+#   circuitBreaker:         Enable circuit breaker pattern
+#   circuitBreakerFailures: Failures before circuit opens
+#   circuitBreakerTimeout:  Time before circuit retry
+#   rateLimit:              Max health checks per second (0 = unlimited)
+#   verbose:                Show detailed output
+#   logLevel:               Logging level (debug, info, warn, error)
+#   logFormat:              Log format (json, pretty, text)
+#   metrics:                Enable Prometheus metrics endpoint
+#   metricsPort:            Prometheus metrics port
+#   cacheTTL:               Cache health results for this duration (0 = no cache)
+
+profiles:
+    ci:
+        name: ci
+        interval: 10s
+        timeout: 30s
+        retries: 5
+        circuitBreaker: false
+        circuitBreakerFailures: 10
+        circuitBreakerTimeout: 30s
+        rateLimit: 0
+        verbose: true
+        logLevel: info
+        logFormat: json
+        metrics: false
+        metricsPort: 9090
+        cacheTTL: 0s
+    development:
+        name: development
+        interval: 5s
+        timeout: 10s
+        retries: 1
+        circuitBreaker: false
+        circuitBreakerFailures: 5
+        circuitBreakerTimeout: 1m0s
+        rateLimit: 0
+        verbose: true
+        logLevel: debug
+        logFormat: pretty
+        metrics: false
+        metricsPort: 9090
+        cacheTTL: 0s
+    production:
+        name: production
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        circuitBreaker: true
+        circuitBreakerFailures: 5
+        circuitBreakerTimeout: 1m0s
+        rateLimit: 10
+        verbose: false
+        logLevel: info
+        logFormat: json
+        metrics: true
+        metricsPort: 9090
+        cacheTTL: 5s
+    staging:
+        name: staging
+        interval: 15s
+        timeout: 10s
+        retries: 3
+        circuitBreaker: true
+        circuitBreakerFailures: 5
+        circuitBreakerTimeout: 1m0s
+        rateLimit: 20
+        verbose: true
+        logLevel: debug
+        logFormat: json
+        metrics: true
+        metricsPort: 9090
+        cacheTTL: 3s

@@ -31,8 +31,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Install Mage
         run: go install github.com/magefile/mage@latest
@@ -74,14 +77,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Build dashboard
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Install Aspire CLI
@@ -161,14 +167,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Build dashboard assets
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Install golangci-lint
@@ -200,14 +209,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: cli/dashboard/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Build dashboard
         run: |
           cd dashboard
-          npm install
-          npm run build
+          pnpm install
+          pnpm run build
           cd ..
 
       - name: Build for multiple platforms
@@ -222,3 +234,105 @@ jobs:
         with:
           name: binaries
           path: cli/bin/
+
+  integration:
+    name: Integration Tests
+    runs-on: ${{ matrix.os }}
+    needs: [preflight, test]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.25']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd tests/projects/health-test
+          for dir in api worker; do
+            cd $dir
+            python -m pip install -r requirements.txt
+            cd ..
+          done
+
+      - name: Install Python dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd tests/projects/health-test
+          foreach ($dir in @('api', 'worker')) {
+            cd $dir
+            python -m pip install -r requirements.txt
+            cd ..
+          }
+
+      - name: Install Python dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd tests/projects/health-test
+          for dir in api worker; do
+            cd $dir
+            python -m pip install -r requirements.txt
+            cd ..
+          done
+
+      - name: Install Node.js dependencies
+        run: |
+          cd tests/projects/health-test
+          for dir in web admin database; do
+            cd $dir
+            npm install
+            cd ..
+          done
+        shell: bash
+
+      - name: Build dashboard assets
+        run: |
+          cd dashboard
+          pnpm install
+          pnpm run build
+          cd ..
+
+      - name: Run E2E integration tests
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          go test -v -tags=integration -timeout=10m ./src/cmd/app/commands -run TestHealthCommandE2E
+        env:
+          CI: true
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-logs-${{ matrix.os }}
+          path: |
+            cli/tests/projects/health-test/*.log
+            cli/.azure/**/*.log
+          if-no-files-found: ignore
+

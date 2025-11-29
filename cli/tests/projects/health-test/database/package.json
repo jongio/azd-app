@@ -1,0 +1,10 @@
+{
+  "name": "health-test-database",
+  "version": "1.0.0",
+  "description": "Database TCP service for health monitoring test",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

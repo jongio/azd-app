@@ -565,17 +565,85 @@ Copilot will:
 
 ## Testing
 
+### Unit Tests
+
+```bash
+# Run unit tests only (fast)
+mage test
+
+# Run with coverage
+mage testCoverage
+
+# View coverage report
+open coverage/coverage.html  # macOS
+start coverage/coverage.html  # Windows
+xdg-open coverage/coverage.html  # Linux
+```
+
+### Integration Tests
+
+```bash
+# Run all integration tests
+mage testIntegration
+
+# Run specific package integration tests
+TEST_PACKAGE=runner mage testIntegration
+TEST_PACKAGE=commands mage testIntegration
+
+# Run specific test
+TEST_NAME=TestHealthCommandE2E_FullWorkflow mage testIntegration
+```
+
+### E2E Tests
+
+End-to-end tests verify complete workflows across all platforms:
+
+```bash
+# Run E2E tests for health command
+mage testE2E
+
+# Run all tests (unit + integration + E2E)
+mage testAll
+```
+
+**E2E Test Coverage:**
+- Health command full workflow (install deps → start services → health checks)
+- JSON/Table output validation
+- Service filtering and verbose modes
+- Streaming health updates
+- Error handling scenarios
+- Cross-platform process/port checking (Windows/macOS/Linux)
+
+**Test Projects:**
+
 Test projects are located in `tests/projects/` with minimal dependencies:
 
 ```bash
-# Test Node.js detection and dependency installation
+# Health monitoring test project (comprehensive E2E testing)
+cd tests/projects/health-test
+./quick-start.sh  # Linux/macOS
+./quick-start.ps1  # Windows
+
+# Node.js detection and dependency installation
 cd tests/projects/node/test-npm-project
 azd app deps
 
-# Test Python detection and dependency installation
+# Python detection and dependency installation
 cd tests/projects/python/test-uv-project
 azd app deps
 ```
+
+### CI/CD Testing
+
+- **Unit tests**: Run on every PR (Ubuntu, Windows, macOS)
+- **Integration tests**: Run in main CI workflow
+- **E2E tests**: Run automatically on health command changes
+- **Manual E2E**: Trigger via workflow dispatch in `.github/workflows/health-e2e.yml`
+
+**View test results:**
+- [CI Workflow](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
+- [Health E2E Workflow](https://github.com/jongio/azd-app/actions/workflows/health-e2e.yml)
+
 
 ## Contributing
 

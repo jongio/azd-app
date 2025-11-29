@@ -1,7 +1,103 @@
 import { test, expect } from '@playwright/test'
 
+// Helper to inject EventSource mock before page loads
+async function mockEventSource(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    // Mock EventSource to prevent health stream overlay
+    class MockEventSource {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSED = 2;
+      readonly CONNECTING = 0;
+      readonly OPEN = 1;
+      readonly CLOSED = 2;
+      readyState = 1; // OPEN
+      url: string;
+      withCredentials = false;
+      onopen: ((ev: Event) => void) | null = null;
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: ((ev: Event) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        // Simulate successful connection
+        setTimeout(() => {
+          if (this.onopen) {
+            this.onopen(new Event('open'));
+          }
+          // Send initial health data
+          if (this.onmessage) {
+            const data = JSON.stringify({
+              type: 'health',
+              timestamp: new Date().toISOString(),
+              services: [],
+              summary: { total: 0, healthy: 0, degraded: 0, unhealthy: 0, unknown: 0, overall: 'healthy' }
+            });
+            this.onmessage(new MessageEvent('message', { data }));
+          }
+        }, 10);
+      }
+
+      close() {
+        this.readyState = 2;
+      }
+
+      addEventListener() {}
+      removeEventListener() {}
+      dispatchEvent() { return false; }
+    }
+
+    // Replace global EventSource
+    (window as unknown as { EventSource: typeof MockEventSource }).EventSource = MockEventSource;
+  });
+}
+
 test.describe('Theme Toggle', () => {
   test.beforeEach(async ({ page }) => {
+    // Mock EventSource before page loads
+    await mockEventSource(page);
+
+    // Mock API endpoints to avoid loading overlay
+    await page.route('/api/project', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ name: 'test-project' }),
+      });
+    });
+
+    await page.route('/api/services', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('/api/logs*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route('/api/preferences*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ theme: 'system', dateFormat: 'relative', refreshInterval: 5000, fontSize: 14 }),
+      });
+    });
+
+    await page.route('/api/classifications*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
     // Clear localStorage before each test
     await page.goto('/')
     await page.evaluate(() => localStorage.clear())

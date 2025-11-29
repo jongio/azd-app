@@ -1,0 +1,8 @@
+logs/
+node_modules/
+.azure/
+__pycache__/
+*.pyc
+*.log
+*.pid
+nohup.out

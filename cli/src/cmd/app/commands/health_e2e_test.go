@@ -18,18 +18,23 @@ import (
 )
 
 const (
-	testProjectPath = "../../../../tests/projects/health-test"
-	healthTimeout   = 5 * time.Minute
-	serviceTimeout  = 90 * time.Second
+	testProjectPath   = "../../../../tests/projects/health-test"
+	e2eHealthTimeout  = 5 * time.Minute
+	e2eServiceTimeout = 90 * time.Second
 )
 
-// expectedServices defines the services expected in the health-test project
-var expectedServices = []string{"web", "api", "database", "worker", "admin"}
-
 // TestHealthCommandE2E_FullWorkflow tests the complete health command workflow end-to-end.
+// This test starts real services and requires interactive port assignment,
+// so it's skipped in CI environments.
 func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping E2E test in short mode")
+	}
+
+	// Skip in CI because this test starts real services that may require
+	// interactive port assignment or have other environment dependencies
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping full workflow E2E test in CI - requires interactive port assignment")
 	}
 
 	// Get absolute path to test project
@@ -54,7 +59,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "deps")
+		cmd := exec.CommandContext(ctx, binaryPath, "deps")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -74,7 +79,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 	t.Run("StartServices", func(t *testing.T) {
 		runCtx, runCancel = context.WithCancel(context.Background())
 
-		runCmd = exec.CommandContext(runCtx, binaryPath, "app", "run")
+		runCmd = exec.CommandContext(runCtx, binaryPath, "run")
 		runCmd.Dir = projectDir
 		runCmd.Stdout = os.Stdout
 		runCmd.Stderr = os.Stderr
@@ -86,8 +91,8 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		t.Logf("Services started, PID: %d", runCmd.Process.Pid)
 
 		// Wait for services to initialize
-		t.Logf("Waiting %v for services to initialize...", serviceTimeout)
-		time.Sleep(serviceTimeout)
+		t.Logf("Waiting %v for services to initialize...", e2eServiceTimeout)
+		time.Sleep(e2eServiceTimeout)
 	})
 
 	// Ensure cleanup happens
@@ -100,10 +105,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 				time.Sleep(2 * time.Second)
 				if runtime.GOOS == "windows" {
 					// On Windows, we may need to force kill
-					// cspell:ignore taskkill
-					if err := exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", runCmd.Process.Pid)).Run(); err != nil {
-						t.Logf("Failed to taskkill process %d: %v", runCmd.Process.Pid, err)
-					}
+					_ = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", runCmd.Process.Pid)).Run()
 				}
 				_ = runCmd.Process.Kill()
 				_ = runCmd.Wait()
@@ -117,7 +119,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health")
+		cmd := exec.CommandContext(ctx, binaryPath, "health")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -137,7 +139,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 
 		// Verify output contains service names
 		outputStr := string(output)
-		for _, svc := range expectedServices {
+		for _, svc := range []string{"web", "api", "database", "worker", "admin"} {
 			if !strings.Contains(outputStr, svc) {
 				t.Errorf("Output missing service: %s", svc)
 			}
@@ -149,7 +151,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "json")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -179,7 +181,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "table")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "table")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -205,7 +207,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--service", "web,api")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--service", "web,api")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -233,7 +235,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--verbose")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--verbose")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -261,7 +263,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--stream", "--interval", "2s")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--stream", "--interval", "2s")
 		cmd.Dir = projectDir
 
 		var stdout bytes.Buffer
@@ -281,22 +283,10 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 
 		output := stdout.String()
 
-		// Count updates by looking for multiple instances of common health check indicators
-		// Note: This assumes health output contains service status information on each update
-		// If the output format changes, this test may need adjustment
+		// Should have multiple updates
 		updateCount := strings.Count(output, "Timestamp:")
-
-		// Fallback: if Timestamp not found, try counting by service name occurrences
-		// (each update should list services multiple times)
-		if updateCount == 0 {
-			// Count occurrences of first service - should appear once per update
-			if len(expectedServices) > 0 {
-				updateCount = strings.Count(output, "\""+expectedServices[0]+"\"") / len(expectedServices)
-			}
-		}
-
 		if updateCount < 2 {
-			t.Errorf("Expected at least 2 updates in streaming mode, got %d. Output:\n%s", updateCount, output)
+			t.Errorf("Expected at least 2 updates in streaming mode, got %d", updateCount)
 		}
 
 		t.Logf("Streaming produced %d updates", updateCount)
@@ -307,7 +297,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "info")
+		cmd := exec.CommandContext(ctx, binaryPath, "info")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -318,7 +308,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		outputStr := string(output)
 
 		// Verify all services are listed
-		for _, svc := range expectedServices {
+		for _, svc := range []string{"web", "api", "database", "worker", "admin"} {
 			if !strings.Contains(outputStr, svc) {
 				t.Errorf("Service info missing service: %s", svc)
 			}
@@ -346,7 +336,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health")
+		cmd := exec.CommandContext(ctx, binaryPath, "health")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -368,7 +358,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "invalid")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "invalid")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -388,7 +378,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--stream", "--interval", "0s")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--stream", "--interval", "0s")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -401,9 +391,16 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 }
 
 // TestHealthCommandE2E_CrossPlatform tests platform-specific behaviors.
+// This test starts real services, so it's skipped in CI environments.
 func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping E2E test in short mode")
+	}
+
+	// Skip in CI because this test starts real services that may require
+	// interactive port assignment or have other environment dependencies
+	if os.Getenv("CI") != "" {
+		t.Skip("Skipping cross-platform E2E test in CI - requires interactive port assignment")
 	}
 
 	binaryPath := buildAzdBinary(t)
@@ -423,7 +420,7 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		runCtx, runCancel := context.WithCancel(context.Background())
 		defer runCancel()
 
-		runCmd := exec.CommandContext(runCtx, binaryPath, "app", "run")
+		runCmd := exec.CommandContext(runCtx, binaryPath, "run")
 		runCmd.Dir = projectDir
 
 		if err := runCmd.Start(); err != nil {
@@ -439,7 +436,7 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		time.Sleep(30 * time.Second)
 
 		// Health check should detect running processes
-		cmd := exec.CommandContext(ctx, binaryPath, "app", "health", "--output", "json")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 

@@ -116,6 +116,54 @@ Notification Statistics:
 
 ---
 
+### azd app notifications test
+
+Send a test notification to verify OS notifications are working.
+
+**Usage:**
+```bash
+azd app notifications test
+```
+
+**Description:**
+Sends a test OS notification to verify that notifications are properly configured and working on your system. The notification includes a clickable link to open the dashboard.
+
+**Examples:**
+```bash
+# Send a test notification
+azd app notifications test
+```
+
+**Requirements:**
+- **Windows**: PowerShell must be available
+- **macOS**: Notification permissions may be required
+- **Linux**: `notify-send` must be installed
+
+---
+
+### azd app notifications enable
+
+Enable or disable OS notifications for service state changes.
+
+**Usage:**
+```bash
+azd app notifications enable [flags]
+```
+
+**Flags:**
+- `--disable` - Disable OS notifications instead of enabling
+
+**Examples:**
+```bash
+# Enable OS notifications
+azd app notifications enable
+
+# Disable OS notifications
+azd app notifications enable --disable
+```
+
+---
+
 ## Database Location
 
 Notifications are stored in:

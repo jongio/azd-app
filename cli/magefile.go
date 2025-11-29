@@ -237,6 +237,27 @@ func TestVisual() error {
 	return nil
 }
 
+// TestE2E runs end-to-end integration tests for the health command.
+func TestE2E() error {
+	fmt.Println("Running E2E integration tests...")
+
+	timeout := os.Getenv("TEST_TIMEOUT")
+	if timeout == "" {
+		timeout = "15m"
+	}
+
+	args := []string{
+		"test",
+		"-v",
+		"-tags=integration",
+		"-timeout=" + timeout,
+		"./src/cmd/app/commands",
+		"-run=TestHealthCommandE2E",
+	}
+
+	return sh.RunV("go", args...)
+}
+
 // TestCoverage runs tests with coverage report.
 func TestCoverage() error {
 	fmt.Println("Running tests with coverage...")
@@ -417,12 +438,116 @@ func Clean() error {
 	return nil
 }
 
+// CheckDeps checks for outdated Go modules and pnpm packages.
+// It warns about available updates but does not fail the build.
+func CheckDeps() error {
+	fmt.Println("Checking for outdated dependencies...")
+	fmt.Println()
+
+	hasIssues := false
+
+	// Check Go module updates
+	fmt.Println("📦 Checking Go modules for updates...")
+	goOutput, err := sh.Output("go", "list", "-u", "-m", "-f", "{{if .Update}}{{.Path}}: {{.Version}} -> {{.Update.Version}}{{end}}", "all")
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Failed to check Go module updates: %v\n", err)
+	} else {
+		// Filter out empty lines
+		var updates []string
+		for _, line := range strings.Split(goOutput, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				updates = append(updates, line)
+			}
+		}
+
+		if len(updates) > 0 {
+			fmt.Println("   Available Go module updates:")
+			for _, update := range updates {
+				fmt.Printf("   • %s\n", update)
+			}
+			hasIssues = true
+		} else {
+			fmt.Println("   ✅ All Go modules are up to date!")
+		}
+	}
+	fmt.Println()
+
+	// Check for deprecated Go modules
+	fmt.Println("🔍 Checking Go modules for deprecation notices...")
+	deprecatedOutput, err := sh.Output("go", "list", "-u", "-m", "-f", "{{if .Deprecated}}{{.Path}}: DEPRECATED - {{.Deprecated}}{{end}}", "all")
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Failed to check for deprecated Go modules: %v\n", err)
+	} else {
+		// Filter out empty lines
+		var deprecated []string
+		for _, line := range strings.Split(deprecatedOutput, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				deprecated = append(deprecated, line)
+			}
+		}
+
+		if len(deprecated) > 0 {
+			fmt.Println("   ⚠️  Deprecated Go modules found:")
+			for _, dep := range deprecated {
+				fmt.Printf("   • %s\n", dep)
+			}
+			hasIssues = true
+		} else {
+			fmt.Println("   ✅ No deprecated Go modules found!")
+		}
+	}
+	fmt.Println()
+
+	// Check pnpm package updates for dashboard
+	fmt.Println("📦 Checking dashboard pnpm packages for updates...")
+	// pnpm outdated returns exit code 1 when there are outdated packages, so we capture output differently
+	pnpmOutput, _ := sh.Output("pnpm", "outdated", "--dir", dashboardDir)
+	if pnpmOutput != "" {
+		fmt.Println("   Available pnpm package updates:")
+		fmt.Println("   " + strings.ReplaceAll(pnpmOutput, "\n", "\n   "))
+		hasIssues = true
+	} else {
+		fmt.Println("   ✅ All pnpm packages are up to date!")
+	}
+	fmt.Println()
+
+	// Check for pnpm audit vulnerabilities
+	fmt.Println("🔒 Checking dashboard pnpm packages for security vulnerabilities...")
+	auditOutput, auditErr := sh.Output("pnpm", "audit", "--dir", dashboardDir, "--json")
+	if auditErr != nil {
+		// pnpm audit exits with non-zero when vulnerabilities found
+		// Parse the JSON to get a summary
+		if strings.Contains(auditOutput, "\"vulnerabilities\"") {
+			fmt.Println("   ⚠️  Security vulnerabilities found in pnpm packages!")
+			fmt.Println("   Run 'pnpm audit --dir dashboard' for details")
+			fmt.Println("   Run 'pnpm audit --fix --dir dashboard' to fix automatically")
+			hasIssues = true
+		}
+	} else {
+		fmt.Println("   ✅ No known pnpm security vulnerabilities!")
+	}
+	fmt.Println()
+
+	if hasIssues {
+		fmt.Println("💡 Tip: Run 'go get -u ./...' to update Go modules")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update pnpm packages")
+		fmt.Println("⚠️  Dependency updates available (continuing with preflight)")
+	} else {
+		fmt.Println("✅ All dependencies are up to date!")
+	}
+
+	// Don't fail the build - just warn
+	return nil
+}
+
 // Install builds and installs the extension locally using azd x build.
 // Requires azd to be installed and available in PATH.
 func Install() error {
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	// Ensure azd extensions are set up
+	if err := ensureAzdExtensions(); err != nil {
+		return err
 	}
 
 	// Get version
@@ -431,7 +556,7 @@ func Install() error {
 		return err
 	}
 
-	fmt.Println("Installing locally...")
+	fmt.Println("Building extension...")
 
 	// Set environment variables
 	env := map[string]string{
@@ -439,21 +564,107 @@ func Install() error {
 		"EXTENSION_VERSION": version,
 	}
 
-	// azd x build automatically installs unless --skip-install is passed
-	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
+	// Build the extension (skip install - we'll do it via extension install for proper registration)
+	if err := sh.RunWithV(env, "azd", "x", "build", "--skip-install"); err != nil {
+		return fmt.Errorf("build failed: %w", err)
+	}
+
+	// Get the absolute path to registry.json (cross-platform)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	registryPath := filepath.Join(filepath.Dir(cwd), "registry.json")
+
+	// Check if registry.json exists, if not use the one in the current directory's parent
+	if _, err := os.Stat(registryPath); os.IsNotExist(err) {
+		// Try current directory
+		registryPath = filepath.Join(cwd, "..", "registry.json")
+		registryPath, _ = filepath.Abs(registryPath)
+	}
+
+	// Ensure the local extension source exists
+	if err := ensureLocalExtensionSource(registryPath); err != nil {
+		return err
+	}
+
+	// Install the extension from the local source
+	fmt.Println("📦 Installing extension from local registry...")
+	if err := sh.RunV("azd", "extension", "install", extensionID, "--source", "local", "--force"); err != nil {
+		return fmt.Errorf("extension install failed: %w", err)
 	}
 
 	fmt.Printf("✅ Installed version: %s\n", version)
+	fmt.Println("   Run 'azd app version' to verify")
+	return nil
+}
+
+// ensureLocalExtensionSource adds a local extension source if it doesn't exist.
+func ensureLocalExtensionSource(registryPath string) error {
+	// Check if local source already exists
+	sourcesOutput, err := sh.Output("azd", "extension", "source", "list")
+	if err != nil {
+		sourcesOutput = ""
+	}
+
+	// Check if "local" source already exists
+	if strings.Contains(sourcesOutput, "local") {
+		fmt.Println("✅ Local extension source already configured")
+		return nil
+	}
+
+	fmt.Println("📦 Adding local extension source...")
+
+	// Add the local source
+	if err := sh.RunV("azd", "extension", "source", "add", "-n", "local", "-t", "file", "-l", registryPath); err != nil {
+		return fmt.Errorf("failed to add local extension source: %w", err)
+	}
+
+	return nil
+}
+
+// ensureAzdExtensions checks that azd is installed, extensions are enabled, and the azd x extension is installed.
+// This is a prerequisite for commands that use azd x (build, watch, etc.).
+func ensureAzdExtensions() error {
+	// Check if azd is available
+	if _, err := sh.Output("azd", "version"); err != nil {
+		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	}
+
+	// Check if extensions are enabled by looking at config
+	configOutput, err := sh.Output("azd", "config", "show")
+	if err != nil {
+		// Config might not exist yet, that's okay
+		configOutput = ""
+	}
+
+	// Enable extensions if not already enabled
+	if !strings.Contains(configOutput, `"enabled": "on"`) && !strings.Contains(configOutput, `"enabled":"on"`) {
+		fmt.Println("📦 Enabling azd extensions...")
+		if err := sh.RunV("azd", "config", "set", "alpha.extension.enabled", "on"); err != nil {
+			return fmt.Errorf("failed to enable azd extensions: %w", err)
+		}
+		fmt.Println("✅ Extensions enabled!")
+	}
+
+	// Check if azd x extension is available
+	if _, err := sh.Output("azd", "x", "--help"); err != nil {
+		fmt.Println("📦 Installing azd x extension (developer kit)...")
+		if err := sh.RunV("azd", "extension", "install", "microsoft.azd.extensions", "--source", "azd"); err != nil {
+			return fmt.Errorf("failed to install azd x extension: %w", err)
+		}
+		fmt.Println("✅ azd x extension installed!")
+	}
+
 	return nil
 }
 
 // Watch monitors files and rebuilds/reinstalls on changes using azd x watch.
 // Requires azd to be installed and available in PATH.
 func Watch() error {
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+	// Ensure azd extensions are set up
+	if err := ensureAzdExtensions(); err != nil {
+		return err
 	}
 
 	fmt.Println("Starting file watcher with azd x watch...")
@@ -474,10 +685,18 @@ func WatchAll() error {
 	fmt.Println("Starting watchers for both CLI and dashboard...")
 	fmt.Println("⚠️  Tip: Stop any running instances of 'app' to avoid file-in-use errors")
 	fmt.Println()
-	// Check if azd is available
-	if _, err := sh.Output("azd", "version"); err != nil {
-		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
+
+	// Ensure azd extensions are set up (enables extensions + installs azd x if needed)
+	if err := ensureAzdExtensions(); err != nil {
+		return err
 	}
+
+	// Install dashboard dependencies before starting watcher
+	fmt.Println("📦 Installing dashboard dependencies...")
+	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+	fmt.Println()
 
 	// Create channels for error handling
 	errChan := make(chan error, 2)
@@ -496,7 +715,7 @@ func WatchAll() error {
 	// Start dashboard watcher in goroutine
 	go func() {
 		fmt.Println("⚛️  Starting dashboard watcher (vite dev server)...")
-		if err := sh.RunV("npm", "run", "dev", "--prefix", dashboardDir); err != nil {
+		if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev"); err != nil {
 			errChan <- fmt.Errorf("dashboard watcher failed: %w", err)
 		}
 	}()
@@ -553,6 +772,7 @@ func Preflight() error {
 	}{
 		{"Checking .gitignore", CheckGitIgnore},
 		{"Checking .gitattributes", CheckGitAttributes},
+		{"Checking for outdated dependencies", CheckDeps},
 		{"Formatting code", Fmt},
 		{"Verifying go.mod consistency", ModVerify},
 		{"Tidying go.mod and go.sum", ModTidy},
@@ -640,29 +860,17 @@ func DashboardBuild() error {
 
 	// Install dependencies
 	fmt.Println("Installing dashboard dependencies...")
-	if err := sh.RunWith(map[string]string{"npm_config_update_notifier": "false"}, "npm", "install", "--prefix", dashboardDir); err != nil {
-		return fmt.Errorf("npm install failed: %w", err)
+	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
 	}
 
 	// Run TypeScript compilation and build
 	fmt.Println("Building dashboard assets...")
-	if err := sh.RunV("npm", "run", "build", "--prefix", dashboardDir); err != nil {
+	if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build"); err != nil {
 		return fmt.Errorf("dashboard build failed: %w", err)
 	}
 
 	fmt.Println("✅ Dashboard build complete!")
-	return nil
-}
-
-// DashboardLint runs ESLint on the dashboard code.
-func DashboardLint() error {
-	fmt.Println("Running dashboard linting...")
-
-	if err := sh.RunV("npm", "run", "lint", "--prefix", dashboardDir); err != nil {
-		return fmt.Errorf("dashboard linting failed: %w", err)
-	}
-
-	fmt.Println("✅ Dashboard linting passed!")
 	return nil
 }
 
@@ -671,11 +879,23 @@ func DashboardTest() error {
 	fmt.Println("Running dashboard tests...")
 
 	// Run tests
-	if err := sh.RunV("npm", "test", "--prefix", dashboardDir); err != nil {
+	if err := sh.RunV("pnpm", "--dir", dashboardDir, "test"); err != nil {
 		return fmt.Errorf("dashboard tests failed: %w", err)
 	}
 
 	fmt.Println("✅ Dashboard tests passed!")
+	return nil
+}
+
+// DashboardLint runs ESLint on the dashboard code.
+func DashboardLint() error {
+	fmt.Println("Running dashboard linting...")
+
+	if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "lint"); err != nil {
+		return fmt.Errorf("dashboard linting failed: %w", err)
+	}
+
+	fmt.Println("✅ Dashboard linting passed!")
 	return nil
 }
 
@@ -717,7 +937,7 @@ func DashboardTestE2E() error {
 // DashboardDev runs the dashboard in development mode with hot reload.
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
-	return sh.RunV("npm", "run", "dev", "--prefix", dashboardDir)
+	return sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev")
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).

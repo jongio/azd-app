@@ -5,12 +5,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/procutil"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
@@ -236,14 +234,19 @@ func (m *StateMonitor) detectTransition(currentState *ServiceState) {
 // processStateUpdate handles the locked portion of state transition detection.
 // Returns a transition to notify about, or nil if no notification needed.
 func (m *StateMonitor) processStateUpdate(currentState *ServiceState) *StateTransition {
+	// Acquire rateLimitMu first to maintain consistent lock ordering
+	// This prevents deadlock with shouldRateLimit which also acquires rateLimitMu
+	var shouldUpdateRateLimit bool
+	var transitionCopy *StateTransition
+
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	previousState, exists := m.previousStates[currentState.Name]
 
 	// First time seeing this service
 	if !exists {
 		m.previousStates[currentState.Name] = currentState
+		m.mu.Unlock()
 		return nil
 	}
 
@@ -252,28 +255,37 @@ func (m *StateMonitor) processStateUpdate(currentState *ServiceState) *StateTran
 	if transition == nil {
 		// No meaningful transition, just update state
 		m.previousStates[currentState.Name] = currentState
+		m.mu.Unlock()
 		return nil
 	}
 
-	// Check rate limiting
+	// Check rate limiting - this acquires rateLimitMu internally (RLock only)
 	if m.shouldRateLimit(currentState.Name, transition.Severity) {
 		slog.Debug("Rate limiting notification",
 			"service", currentState.Name,
 			"severity", transition.Severity.String())
 		m.previousStates[currentState.Name] = currentState
+		m.mu.Unlock()
 		return nil
 	}
 
 	// Record transition
 	m.addTransitionLocked(transition)
 	m.previousStates[currentState.Name] = currentState
+	shouldUpdateRateLimit = true
 
-	// Update rate limit timestamp (acquires its own lock)
-	m.updateRateLimit(currentState.Name)
+	// Copy transition before releasing lock
+	transitionCopied := *transition
+	transitionCopy = &transitionCopied
 
-	// Return a copy for notification (caller will notify outside lock)
-	transitionCopy := *transition
-	return &transitionCopy
+	m.mu.Unlock()
+
+	// Update rate limit timestamp AFTER releasing mu to prevent lock ordering issues
+	if shouldUpdateRateLimit {
+		m.updateRateLimit(currentState.Name)
+	}
+
+	return transitionCopy
 }
 
 // evaluateTransition determines if a state change is meaningful.
@@ -435,35 +447,8 @@ func (m *StateMonitor) notifyListeners(transition StateTransition) {
 	}
 }
 
-// isProcessRunning checks if a process with the given PID is running.
-// Works cross-platform (Windows and Unix).
+// isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
+// This wrapper maintains backward compatibility while eliminating code duplication.
 func isProcessRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// On Unix, Signal(0) checks if process exists without sending a signal
-	// On Windows, this always succeeds for FindProcess, so we use a different approach
-	err = process.Signal(syscall.Signal(0))
-	if err == nil {
-		return true
-	}
-
-	// On Windows, Signal(0) is not supported
-	// On Unix, Signal(0) failing means process doesn't exist
-	// Check if error contains "not supported" or similar Windows-specific messages
-	errMsg := err.Error()
-	if strings.Contains(errMsg, "not supported") {
-		// On Windows, FindProcess succeeds if process exists
-		// If we got here, process handle was created successfully
-		return true
-	}
-
-	// On Unix, any other error means process doesn't exist
-	return false
+	return procutil.IsProcessRunning(pid)
 }

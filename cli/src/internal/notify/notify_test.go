@@ -46,8 +46,8 @@ func TestDefaultConfig(t *testing.T) {
 	if config.AppName != "Azure Developer CLI" {
 		t.Errorf("expected app name 'Azure Developer CLI', got %s", config.AppName)
 	}
-	if config.AppID != "com.microsoft.azd" {
-		t.Errorf("expected app ID 'com.microsoft.azd', got %s", config.AppID)
+	if config.AppID != "Microsoft.AzureDeveloperCLI" {
+		t.Errorf("expected app ID 'Microsoft.AzureDeveloperCLI', got %s", config.AppID)
 	}
 	if config.Timeout != 5*time.Second {
 		t.Errorf("expected timeout 5s, got %v", config.Timeout)
