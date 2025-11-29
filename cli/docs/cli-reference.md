@@ -44,6 +44,7 @@ azd app deps --structured-logs
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
 | `listen` | Extension framework integration (hidden, used by azd internally) | |
@@ -635,6 +636,96 @@ api
 ```
 
 **→ [See full info command specification](commands/info.md)** for service registry details and detailed documentation.
+
+---
+
+## `azd app mcp`
+
+Model Context Protocol (MCP) server for AI assistant integration. Enables AI assistants like Claude Desktop and GitHub Copilot to interact with your azd app projects.
+
+### Usage
+
+```bash
+azd app mcp serve
+```
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `serve` | Start the MCP server for AI assistant integration |
+
+### Examples
+
+```bash
+# Start the MCP server (typically called by AI assistants)
+azd app mcp serve
+
+# Test the server manually
+azd app mcp serve
+# Then send MCP protocol messages via stdin
+```
+
+### Tools Provided
+
+The MCP server exposes 10 tools:
+
+| Category | Tool | Description |
+|----------|------|-------------|
+| Observability | `get_services` | Get comprehensive information about all running services |
+| Observability | `get_service_logs` | Retrieve logs with filtering by service, level, time |
+| Observability | `get_project_info` | Get project metadata from azure.yaml |
+| Operations | `run_services` | Start development services |
+| Operations | `stop_services` | Get guidance on stopping services |
+| Operations | `restart_service` | Get guidance on restarting a service |
+| Operations | `install_dependencies` | Install dependencies for all projects |
+| Operations | `check_requirements` | Check if prerequisites are installed |
+| Configuration | `get_environment_variables` | Get configured environment variables |
+| Configuration | `set_environment_variable` | Get guidance on setting environment variables |
+
+### Resources Provided
+
+| URI | Name | Description |
+|-----|------|-------------|
+| `azure://project/azure.yaml` | azure.yaml | Project configuration file |
+| `azure://project/services/configs` | service-configs | Service configurations |
+
+### Integration
+
+**Claude Desktop** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "azd-app": {
+      "command": "azd",
+      "args": ["app", "mcp", "serve"]
+    }
+  }
+}
+```
+
+**VS Code** (`.vscode/settings.json`):
+```json
+{
+  "mcp": {
+    "servers": {
+      "azd-app": {
+        "type": "stdio",
+        "command": "azd",
+        "args": ["app", "mcp", "serve"]
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PROJECT_DIR` | Project directory for operations | `.` (current directory) |
+
+**→ [See full mcp command specification](commands/mcp.md)** for tool parameters, technical details, and comprehensive documentation.
 
 ---
 

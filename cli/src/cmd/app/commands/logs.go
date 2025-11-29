@@ -1,15 +1,18 @@
 package commands
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/spf13/cobra"
@@ -74,11 +77,20 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Get log manager
+	// Get running services from registry (persisted to disk)
+	reg := registry.GetRegistry(cwd)
+	registeredServices := reg.ListAll()
+
+	// Get log manager for in-memory buffers (may be empty if called from subprocess)
 	logManager := service.GetLogManager(cwd)
 
+	// Build list of service names from registry
+	var serviceNames []string
+	for _, svc := range registeredServices {
+		serviceNames = append(serviceNames, svc.Name)
+	}
+
 	// Check if any services are running
-	serviceNames := logManager.GetServiceNames()
 	if len(serviceNames) == 0 {
 		output.Info("No services are currently running")
 		output.Item("Run 'azd app run' to start services")
@@ -121,7 +133,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	}
 
 	// Setup output writer
-	output := os.Stdout
+	outputWriter := os.Stdout
 	if logsOutput != "" {
 		// Validate the output path to prevent path traversal attacks
 		if err := security.ValidatePath(logsOutput); err != nil {
@@ -133,35 +145,43 @@ func runLogs(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to create output file: %w", err)
 		}
 		defer file.Close()
-		output = file
+		outputWriter = file
 	}
 
-	// Get initial logs
-	var logs []service.LogEntry
-	if len(serviceFilter) == 0 {
-		// Get logs from all services
-		if logsSince != "" {
-			logs = logManager.GetAllLogsSince(sinceTime)
-		} else {
-			logs = logManager.GetAllLogs(logsTail)
-		}
-	} else {
-		// Get logs from specific services
-		for _, serviceName := range serviceFilter {
-			buffer, exists := logManager.GetBuffer(serviceName)
-			if !exists {
-				continue
-			}
+	// Determine which services to get logs for
+	targetServices := serviceFilter
+	if len(targetServices) == 0 {
+		targetServices = serviceNames
+	}
 
-			var serviceLogs []service.LogEntry
+	// Get logs - try in-memory buffers first, fall back to log files
+	var logs []service.LogEntry
+	for _, serviceName := range targetServices {
+		var serviceLogs []service.LogEntry
+
+		// Try in-memory buffer first
+		buffer, exists := logManager.GetBuffer(serviceName)
+		if exists {
 			if logsSince != "" {
 				serviceLogs = buffer.GetSince(sinceTime)
 			} else {
 				serviceLogs = buffer.GetRecent(logsTail)
 			}
-			logs = append(logs, serviceLogs...)
 		}
+
+		// If no logs in memory, try reading from log files
+		if len(serviceLogs) == 0 {
+			fileLogs, err := readLogsFromFile(cwd, serviceName, logsTail, sinceTime)
+			if err == nil {
+				serviceLogs = fileLogs
+			}
+		}
+
+		logs = append(logs, serviceLogs...)
 	}
+
+	// Sort logs by timestamp
+	service.SortLogEntries(logs)
 
 	// Filter by level
 	logs = filterLogsByLevel(logs, levelFilter)
@@ -171,17 +191,133 @@ func runLogs(cmd *cobra.Command, args []string) error {
 
 	// Display initial logs
 	if logsFormat == "json" {
-		displayLogsJSON(logs, output)
+		displayLogsJSON(logs, outputWriter)
 	} else {
-		displayLogsText(logs, output, logsTimestamps, logsNoColor)
+		displayLogsText(logs, outputWriter, logsTimestamps, logsNoColor)
 	}
 
 	// Follow mode - subscribe to live logs
 	if logsFollow {
-		return followLogs(logManager, serviceFilter, levelFilter, logFilter, output)
+		return followLogs(logManager, serviceFilter, levelFilter, logFilter, outputWriter)
 	}
 
 	return nil
+}
+
+// readLogsFromFile reads logs from the persisted log file for a service.
+// This is used when the in-memory buffer is empty (e.g., when called from a subprocess).
+func readLogsFromFile(projectDir, serviceName string, tail int, sinceTime time.Time) ([]service.LogEntry, error) {
+	logFile := filepath.Join(projectDir, ".azure", "logs", serviceName+".log")
+
+	file, err := os.Open(logFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var entries []service.LogEntry
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		entry, err := parseLogLine(line, serviceName)
+		if err != nil {
+			continue // Skip unparseable lines
+		}
+
+		// Apply since filter
+		if !sinceTime.IsZero() && entry.Timestamp.Before(sinceTime) {
+			continue
+		}
+
+		entries = append(entries, entry)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	// Apply tail limit
+	if tail > 0 && len(entries) > tail {
+		entries = entries[len(entries)-tail:]
+	}
+
+	return entries, nil
+}
+
+// parseLogLine parses a log line from the file format:
+// [2006-01-02 15:04:05.000] [LEVEL] [STREAM] message
+func parseLogLine(line, serviceName string) (service.LogEntry, error) {
+	entry := service.LogEntry{
+		Service: serviceName,
+	}
+
+	// Parse timestamp: [2006-01-02 15:04:05.000]
+	if len(line) < 25 || line[0] != '[' {
+		return entry, fmt.Errorf("invalid log line format")
+	}
+
+	endTimestamp := strings.Index(line[1:], "]")
+	if endTimestamp == -1 {
+		return entry, fmt.Errorf("missing timestamp end bracket")
+	}
+
+	timestampStr := line[1 : endTimestamp+1]
+	timestamp, err := time.Parse("2006-01-02 15:04:05.000", timestampStr)
+	if err != nil {
+		return entry, fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+	entry.Timestamp = timestamp
+
+	// Parse remaining: [LEVEL] [STREAM] message
+	remaining := line[endTimestamp+3:] // Skip "] "
+
+	// Parse level: [LEVEL]
+	if len(remaining) < 3 || remaining[0] != '[' {
+		entry.Message = remaining
+		entry.Level = service.LogLevelInfo
+		return entry, nil
+	}
+
+	endLevel := strings.Index(remaining[1:], "]")
+	if endLevel == -1 {
+		entry.Message = remaining
+		entry.Level = service.LogLevelInfo
+		return entry, nil
+	}
+
+	levelStr := remaining[1 : endLevel+1]
+	entry.Level = parseLogLevelFromString(levelStr)
+	remaining = remaining[endLevel+3:] // Skip "] "
+
+	// Parse stream: [STREAM]
+	if len(remaining) >= 3 && remaining[0] == '[' {
+		endStream := strings.Index(remaining[1:], "]")
+		if endStream != -1 {
+			streamStr := remaining[1 : endStream+1]
+			entry.IsStderr = streamStr == "ERR"
+			remaining = remaining[endStream+3:] // Skip "] "
+		}
+	}
+
+	entry.Message = remaining
+	return entry, nil
+}
+
+// parseLogLevelFromString parses a log level from a string.
+func parseLogLevelFromString(level string) service.LogLevel {
+	switch strings.ToUpper(level) {
+	case "INFO":
+		return service.LogLevelInfo
+	case "WARN", "WARNING":
+		return service.LogLevelWarn
+	case "ERROR":
+		return service.LogLevelError
+	case "DEBUG":
+		return service.LogLevelDebug
+	default:
+		return service.LogLevelInfo
+	}
 }
 
 // followLogs subscribes to live log streams and displays them.

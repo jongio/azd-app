@@ -71,9 +71,37 @@ An Azure Developer CLI (azd) extension that automates development environment se
 Visual Studio Code extension for enhanced azd workflows and project management.
 
 ### MCP Server
-**Status:** 🚧 Coming Soon
+**Status:** ✅ Active
 
-Model Context Protocol server for AI-assisted development with Azure Developer CLI.
+Model Context Protocol server for AI-assisted development with Azure Developer CLI. Integrates with the azd extension framework as an `mcp-server` capability.
+
+- **Implementation**: Native Go implementation using `mark3labs/mcp-go`
+- **Extension Framework**: Registered via `extension.yaml` with `mcp-server` capability
+- **AI Integration**: Comprehensive monitoring and operations for running applications
+- **Server Name**: `app-mcp-server` (follows azd extension naming: `{namespace}-mcp-server`)
+- **Integration**: Works alongside azd core MCP for complete project lifecycle support
+- **Tools**: 10 tools (3 observability + 7 operational)
+  - **Observability**: get_services, get_service_logs, get_project_info
+  - **Operations**: run_services, stop_services, restart_service, install_dependencies
+  - **Configuration**: check_requirements, get_environment_variables, set_environment_variable
+- **Resources**: 2 resources
+  - azure.yaml - Project configuration
+  - service-configs - Service configurations and environment
+- **Built-in Instructions**: AI guidance on best practices and tool usage
+- **Features**:
+  - Real-time service status and health monitoring
+  - Log streaming with filtering capabilities
+  - Start/stop/restart services through AI commands
+  - Automatic dependency installation
+  - Environment variable management
+  - Prerequisite checking and validation
+  - Azure deployment information access
+  - Project configuration as readable resources
+  - Zero external dependencies (no Node.js required)
+  - Automatic environment variable injection via extension framework
+
+👉 [Usage Guide: Using with AI Assistants](./docs/mcp-usage.md)
+👉 [Extension Framework Integration](./cli/docs/dev/mcp-extension-framework-integration.md)
 
 ---
 
@@ -149,7 +177,6 @@ For detailed installation and usage instructions, see the [CLI documentation](./
 azd-app/
 ├── cli/              # Azure Developer CLI Extension (Go)
 ├── vsc/              # VS Code Extension (TypeScript) - Coming Soon
-├── mcp/              # MCP Server (TypeScript) - Coming Soon
 ├── docs/             # Documentation
 └── .github/          # CI/CD workflows
 ```
@@ -164,7 +191,6 @@ Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 
 1. **CLI Extension**: See [cli/README.md](./cli/README.md#for-development--testing)
 2. **VS Code Extension**: Coming soon
-3. **MCP Server**: Coming soon
 
 ---
 

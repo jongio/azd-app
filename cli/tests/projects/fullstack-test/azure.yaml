@@ -42,6 +42,7 @@ services:
     environment:
       FLASK_ENV: development
       FLASK_APP: app.py
+      DATABASE_URL: postgres://localhost:5432/mydb
   
   web:
     language: js

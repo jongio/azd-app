@@ -230,7 +230,7 @@ jobs:
       - name: Build dashboard
         working-directory: cli/dashboard
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install
           pnpm run build
 
       - name: Update extension.yaml with PR version
