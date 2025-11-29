@@ -216,10 +216,17 @@ jobs:
       - name: Install azd extensions
         run: azd extension install microsoft.azd.extensions
 
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('cli/dashboard/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: Build dashboard
-        working-directory: cli
+        working-directory: cli/dashboard
         run: |
-          cd dashboard
           pnpm install --frozen-lockfile
           pnpm run build
 
