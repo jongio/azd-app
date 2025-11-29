@@ -73,10 +73,13 @@ Visual Studio Code extension for enhanced azd workflows and project management.
 ### MCP Server
 **Status:** ✅ Active
 
-Model Context Protocol server for AI-assisted development with Azure Developer CLI.
+Model Context Protocol server for AI-assisted development with Azure Developer CLI. Integrates with the azd extension framework as an `mcp-server` capability.
 
 - **Implementation**: Native Go implementation using `mark3labs/mcp-go`
+- **Extension Framework**: Registered via `extension.yaml` with `mcp-server` capability
 - **AI Integration**: Comprehensive monitoring and operations for running applications
+- **Server Name**: `app-mcp-server` (follows azd extension naming: `{namespace}-mcp-server`)
+- **Integration**: Works alongside azd core MCP for complete project lifecycle support
 - **Tools**: 10 tools (3 observability + 7 operational)
   - **Observability**: get_services, get_service_logs, get_project_info
   - **Operations**: run_services, stop_services, restart_service, install_dependencies
@@ -95,8 +98,10 @@ Model Context Protocol server for AI-assisted development with Azure Developer C
   - Azure deployment information access
   - Project configuration as readable resources
   - Zero external dependencies (no Node.js required)
+  - Automatic environment variable injection via extension framework
 
 👉 [Usage Guide: Using with AI Assistants](./docs/mcp-usage.md)
+👉 [Extension Framework Integration](./cli/docs/dev/mcp-extension-framework-integration.md)
 
 ---
 

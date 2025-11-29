@@ -3,9 +3,12 @@ package commands
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewMCPCommand(t *testing.T) {
@@ -72,6 +75,11 @@ func TestGetServicesToolDefinition(t *testing.T) {
 	// Verify tool metadata
 	if tool.Tool.Description == "" {
 		t.Error("get_services tool should have a description")
+	}
+
+	// Verify tool has title annotation (MCP spec compliance)
+	if tool.Tool.Annotations.Title == "" {
+		t.Error("get_services tool should have a title annotation")
 	}
 }
 
@@ -488,38 +496,232 @@ func TestMarshalToolResult(t *testing.T) {
 }
 
 func TestExtractProjectDirArg(t *testing.T) {
+	// Create a temp directory for testing
+	tempDir := t.TempDir()
+
 	tests := []struct {
-		name     string
-		args     map[string]interface{}
-		expected []string
+		name      string
+		args      map[string]interface{}
+		wantLen   int
+		wantError bool
 	}{
 		{
-			name:     "With project dir",
-			args:     map[string]interface{}{"projectDir": "/path/to/project"},
-			expected: []string{"--project", "/path/to/project"},
+			name:      "With valid project dir",
+			args:      map[string]interface{}{"projectDir": tempDir},
+			wantLen:   2, // --cwd and the path
+			wantError: false,
 		},
 		{
-			name:     "Without project dir",
-			args:     map[string]interface{}{},
-			expected: []string{},
+			name:      "Without project dir",
+			args:      map[string]interface{}{},
+			wantLen:   0,
+			wantError: false,
 		},
 		{
-			name:     "Empty project dir",
-			args:     map[string]interface{}{"projectDir": ""},
-			expected: []string{},
+			name:      "Empty project dir",
+			args:      map[string]interface{}{"projectDir": ""},
+			wantLen:   0,
+			wantError: false,
+		},
+		{
+			name:      "With non-existent project dir",
+			args:      map[string]interface{}{"projectDir": "/nonexistent/path/that/does/not/exist"},
+			wantLen:   0,
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractProjectDirArg(tt.args)
-			if len(result) != len(tt.expected) {
-				t.Errorf("Expected %d args, got %d", len(tt.expected), len(result))
-			}
-			for i := range result {
-				if i < len(tt.expected) && result[i] != tt.expected[i] {
-					t.Errorf("Expected arg[%d]='%s', got '%s'", i, tt.expected[i], result[i])
+			result, err := extractProjectDirArg(tt.args)
+			if tt.wantError {
+				if err == nil {
+					t.Error("Expected error, got nil")
 				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+				if len(result) != tt.wantLen {
+					t.Errorf("Expected %d args, got %d", tt.wantLen, len(result))
+				}
+			}
+		})
+	}
+}
+
+func TestValidateServiceName(t *testing.T) {
+	tests := []struct {
+		name      string
+		service   string
+		wantError bool
+	}{
+		{
+			name:      "Valid service name",
+			service:   "my-service",
+			wantError: false,
+		},
+		{
+			name:      "Valid with underscore",
+			service:   "my_service_123",
+			wantError: false,
+		},
+		{
+			name:      "Empty string (OK for optional)",
+			service:   "",
+			wantError: false,
+		},
+		{
+			name:      "Invalid - starts with hyphen",
+			service:   "-service",
+			wantError: true,
+		},
+		{
+			name:      "Invalid - contains special chars",
+			service:   "service; rm -rf /",
+			wantError: true,
+		},
+		{
+			name:      "Invalid - too long",
+			service:   string(make([]byte, 200)),
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateServiceName(tt.service)
+			if tt.wantError && err == nil {
+				t.Error("Expected error, got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateProjectDir(t *testing.T) {
+	// Create a temp directory and file for testing
+	tempDir := t.TempDir()
+	tempFile := filepath.Join(tempDir, "testfile.txt")
+	err := os.WriteFile(tempFile, []byte("test"), 0644)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		dir       string
+		wantError bool
+	}{
+		{
+			name:      "Valid directory",
+			dir:       tempDir,
+			wantError: false,
+		},
+		{
+			name:      "Current directory",
+			dir:       ".",
+			wantError: false,
+		},
+		{
+			name:      "Empty string",
+			dir:       "",
+			wantError: false,
+		},
+		{
+			name:      "Non-existent directory",
+			dir:       "/nonexistent/path/that/does/not/exist",
+			wantError: true,
+		},
+		{
+			name:      "Path is a file not directory",
+			dir:       tempFile,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := validateProjectDir(tt.dir)
+			if tt.wantError && err == nil {
+				t.Error("Expected error, got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestIsValidDuration(t *testing.T) {
+	tests := []struct {
+		name     string
+		duration string
+		want     bool
+	}{
+		{"Valid seconds", "30s", true},
+		{"Valid minutes", "5m", true},
+		{"Valid hours", "1h", true},
+		{"Empty string", "", false},
+		{"Missing unit", "30", false},
+		{"Invalid unit", "30x", false},
+		{"No number", "s", false},
+		{"Negative", "-5m", false},
+		{"Float", "1.5m", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidDuration(tt.duration); got != tt.want {
+				t.Errorf("isValidDuration(%q) = %v, want %v", tt.duration, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetArgsMap(t *testing.T) {
+	tests := []struct {
+		name    string
+		request mcp.CallToolRequest
+		wantLen int
+	}{
+		{
+			name: "Valid arguments map",
+			request: mcp.CallToolRequest{
+				Params: mcp.CallToolParams{
+					Name:      "test",
+					Arguments: map[string]interface{}{"key": "value"},
+				},
+			},
+			wantLen: 1,
+		},
+		{
+			name: "Nil arguments",
+			request: mcp.CallToolRequest{
+				Params: mcp.CallToolParams{
+					Name:      "test",
+					Arguments: nil,
+				},
+			},
+			wantLen: 0,
+		},
+		{
+			name: "Wrong type arguments",
+			request: mcp.CallToolRequest{
+				Params: mcp.CallToolParams{
+					Name:      "test",
+					Arguments: "not a map",
+				},
+			},
+			wantLen: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getArgsMap(tt.request)
+			if len(result) != tt.wantLen {
+				t.Errorf("Expected %d keys, got %d", tt.wantLen, len(result))
 			}
 		})
 	}
@@ -779,12 +981,12 @@ func TestRestartServiceToolHandler(t *testing.T) {
 
 func TestGetProjectDir(t *testing.T) {
 	// Save original value
-	originalProjectDir := os.Getenv("PROJECT_DIR")
+	originalProjectDir := os.Getenv("AZD_APP_PROJECT_DIR")
 	defer func() {
 		if originalProjectDir != "" {
-			os.Setenv("PROJECT_DIR", originalProjectDir)
+			os.Setenv("AZD_APP_PROJECT_DIR", originalProjectDir)
 		} else {
-			os.Unsetenv("PROJECT_DIR")
+			os.Unsetenv("AZD_APP_PROJECT_DIR")
 		}
 	}()
 
@@ -794,12 +996,12 @@ func TestGetProjectDir(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "With PROJECT_DIR set",
+			name:     "With AZD_APP_PROJECT_DIR set",
 			envValue: "/custom/project/path",
 			expected: "/custom/project/path",
 		},
 		{
-			name:     "Without PROJECT_DIR set",
+			name:     "Without AZD_APP_PROJECT_DIR set",
 			envValue: "",
 			expected: ".",
 		},
@@ -808,9 +1010,9 @@ func TestGetProjectDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.envValue != "" {
-				os.Setenv("PROJECT_DIR", tt.envValue)
+				os.Setenv("AZD_APP_PROJECT_DIR", tt.envValue)
 			} else {
-				os.Unsetenv("PROJECT_DIR")
+				os.Unsetenv("AZD_APP_PROJECT_DIR")
 			}
 
 			result := getProjectDir()
@@ -819,4 +1021,84 @@ func TestGetProjectDir(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAllToolsHaveTitles verifies that all MCP tools have title annotations (MCP spec compliance)
+func TestAllToolsHaveTitles(t *testing.T) {
+	tools := []struct {
+		name     string
+		tool     func() server.ServerTool
+		expected string
+	}{
+		{"get_services", newGetServicesTool, "Get Running Services"},
+		{"get_service_logs", newGetServiceLogsTool, "Get Service Logs"},
+		{"get_project_info", newGetProjectInfoTool, "Get Project Information"},
+		{"run_services", newRunServicesTool, "Run Development Services"},
+		{"stop_services", newStopServicesTool, "Stop Running Services"},
+		{"restart_service", newRestartServiceTool, "Restart Service"},
+		{"install_dependencies", newInstallDependenciesTool, "Install Project Dependencies"},
+		{"check_requirements", newCheckRequirementsTool, "Check Prerequisites"},
+		{"get_environment_variables", newGetEnvironmentVariablesTool, "Get Environment Variables"},
+		{"set_environment_variable", newSetEnvironmentVariableTool, "Set Environment Variable"},
+	}
+
+	for _, tt := range tools {
+		t.Run(tt.name, func(t *testing.T) {
+			tool := tt.tool()
+			if tool.Tool.Annotations.Title != tt.expected {
+				t.Errorf("Tool %s: expected title '%s', got '%s'", tt.name, tt.expected, tool.Tool.Annotations.Title)
+			}
+		})
+	}
+}
+
+// TestResourcesHaveAnnotations verifies that MCP resources have proper annotations
+func TestResourcesHaveAnnotations(t *testing.T) {
+	t.Run("azure.yaml resource", func(t *testing.T) {
+		resource := newAzureYamlResource()
+
+		if resource.Resource.Name != "azure.yaml" {
+			t.Errorf("Expected resource name 'azure.yaml', got '%s'", resource.Resource.Name)
+		}
+
+		// Verify annotations exist
+		if resource.Resource.Annotations == nil {
+			t.Error("azure.yaml resource should have annotations")
+			return
+		}
+
+		// Verify audience includes both user and assistant
+		if len(resource.Resource.Annotations.Audience) != 2 {
+			t.Errorf("Expected 2 audience roles, got %d", len(resource.Resource.Annotations.Audience))
+		}
+
+		// Verify priority is set (0.9 for high importance)
+		if resource.Resource.Annotations.Priority != 0.9 {
+			t.Errorf("azure.yaml resource should have priority 0.9, got %f", resource.Resource.Annotations.Priority)
+		}
+	})
+
+	t.Run("service-configs resource", func(t *testing.T) {
+		resource := newServiceConfigResource()
+
+		if resource.Resource.Name != "service-configs" {
+			t.Errorf("Expected resource name 'service-configs', got '%s'", resource.Resource.Name)
+		}
+
+		// Verify annotations exist
+		if resource.Resource.Annotations == nil {
+			t.Error("service-configs resource should have annotations")
+			return
+		}
+
+		// Verify audience includes assistant
+		if len(resource.Resource.Annotations.Audience) != 1 {
+			t.Errorf("Expected 1 audience role, got %d", len(resource.Resource.Annotations.Audience))
+		}
+
+		// Verify priority is set (0.7 for medium importance)
+		if resource.Resource.Annotations.Priority != 0.7 {
+			t.Errorf("service-configs resource should have priority 0.7, got %f", resource.Resource.Annotations.Priority)
+		}
+	})
 }

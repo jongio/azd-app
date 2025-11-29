@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,13 +17,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Default timeout for command execution
-const defaultCommandTimeout = 30 * time.Second
+// Timeout constants
+const (
+	defaultCommandTimeout    = 30 * time.Second
+	dependencyInstallTimeout = 5 * time.Minute
+)
+
+// Command constants
+const (
+	azdCommand     = "azd"
+	appSubcommand  = "app"
+	jsonOutputFlag = "--output"
+	jsonOutputVal  = "json"
+	cwdFlag        = "--cwd"
+	projectFlag    = "--project"
+)
 
 // Allowed values for validation
 var (
 	allowedLogLevels = map[string]bool{"info": true, "warn": true, "error": true, "debug": true, "all": true}
 	allowedRuntimes  = map[string]bool{"azd": true, "aspire": true, "pnpm": true, "docker-compose": true}
+	// safeNamePattern validates service names and other identifiers to prevent injection
+	safeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 )
 
 // NewMCPCommand creates the mcp command with subcommands.
@@ -57,7 +73,13 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 // runMCPServer implements the MCP server logic
 func runMCPServer(ctx context.Context) error {
 	// System instructions to guide AI on how to use the tools
-	instructions := `This MCP server provides tools to monitor and operate on azd app projects.
+	// This server is part of the azd extension framework and provides runtime operations
+	instructions := `This MCP server is provided by the azd app extension and focuses on runtime operations for azd projects.
+
+**Extension Role:**
+This server complements azd's core MCP capabilities:
+- azd core MCP: Project planning, architecture discovery, infrastructure generation
+- azd app MCP (this): Runtime operations, service monitoring, log analysis
 
 **Best Practices:**
 1. Always use get_services to check current state before starting/stopping services
@@ -68,11 +90,17 @@ func runMCPServer(ctx context.Context) error {
 **Tool Categories:**
 - Observability: get_services, get_service_logs, get_project_info
 - Operations: run_services, stop_services, restart_service, install_dependencies
-- Configuration: check_requirements, get_environment_variables, set_environment_variable`
+- Configuration: check_requirements, get_environment_variables, set_environment_variable
+
+**Integration Notes:**
+- Works with projects created by azd init or azd templates
+- Monitors services started by azd app run
+- Complements azd's built-in deployment and provisioning workflows`
 
 	// Create MCP server with all capabilities
+	// Server name follows azd extension naming convention: {namespace}-mcp-server
 	s := server.NewMCPServer(
-		"azd-app-mcp-server", "0.1.0",
+		"app-mcp-server", "0.1.0",
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, true), // subscribe=false, listChanged=true
 		server.WithPromptCapabilities(false),         // listChanged=false
@@ -117,22 +145,33 @@ func runMCPServer(ctx context.Context) error {
 
 // executeAzdAppCommand executes an azd app command and returns JSON output
 func executeAzdAppCommand(ctx context.Context, command string, args []string) (map[string]interface{}, error) {
+	return executeAzdAppCommandWithTimeout(ctx, command, args, defaultCommandTimeout)
+}
+
+// executeAzdAppCommandWithTimeout executes an azd app command with a custom timeout
+func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args []string, timeout time.Duration) (map[string]interface{}, error) {
+	// Check if context is already cancelled
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("command cancelled before execution: %w", err)
+	}
+
 	cmdArgs := append([]string{command}, args...)
-	cmdArgs = append(cmdArgs, "--output", "json")
+	cmdArgs = append(cmdArgs, jsonOutputFlag, jsonOutputVal)
 
 	// Use context with timeout for command execution
-	cmdCtx, cancel := context.WithTimeout(ctx, defaultCommandTimeout)
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(cmdCtx, "azd", append([]string{"app"}, cmdArgs...)...)
+	cmd := exec.CommandContext(cmdCtx, azdCommand, append([]string{appSubcommand}, cmdArgs...)...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Check if context was cancelled or timed out
+		// Check if parent context was cancelled
 		if errors.Is(ctx.Err(), context.Canceled) {
 			return nil, fmt.Errorf("command cancelled: %w", ctx.Err())
 		}
+		// Check if command context timed out
 		if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
-			return nil, fmt.Errorf("command timed out after %v", defaultCommandTimeout)
+			return nil, fmt.Errorf("command timed out after %v", timeout)
 		}
 		return nil, fmt.Errorf("failed to execute azd app %s: %w\nOutput: %s", command, err, string(output))
 	}
@@ -146,6 +185,14 @@ func executeAzdAppCommand(ctx context.Context, command string, args []string) (m
 }
 
 // Helper functions for common MCP patterns
+
+// getArgsMap safely extracts the arguments map from a request
+func getArgsMap(request mcp.CallToolRequest) map[string]interface{} {
+	if args, ok := request.Params.Arguments.(map[string]interface{}); ok {
+		return args
+	}
+	return make(map[string]interface{})
+}
 
 // getStringParam safely extracts a string parameter from request arguments
 func getStringParam(args map[string]interface{}, key string) (string, bool) {
@@ -172,13 +219,18 @@ func marshalToolResult(data interface{}) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(string(jsonBytes)), nil
 }
 
-// extractProjectDirArg extracts projectDir argument and returns command args
-func extractProjectDirArg(args map[string]interface{}) []string {
+// extractProjectDirArg extracts projectDir argument and returns command args with --cwd flag
+// Returns the args and any validation error
+func extractProjectDirArg(args map[string]interface{}) ([]string, error) {
 	var cmdArgs []string
 	if projectDir, ok := getStringParam(args, "projectDir"); ok {
-		cmdArgs = append(cmdArgs, "--project", projectDir)
+		validatedPath, err := validateProjectDir(projectDir)
+		if err != nil {
+			return nil, err
+		}
+		cmdArgs = append(cmdArgs, cwdFlag, validatedPath)
 	}
-	return cmdArgs
+	return cmdArgs, nil
 }
 
 // validateRequiredParam validates that a required parameter exists and returns the value
@@ -205,13 +257,137 @@ func validateEnumParam(value string, allowed map[string]bool, paramName string) 
 	return nil
 }
 
-// getProjectDir gets the project directory from PROJECT_DIR environment variable or defaults to current directory
+// isValidDuration validates a duration string format (e.g., "5m", "1h", "30s")
+func isValidDuration(s string) bool {
+	if s == "" {
+		return false
+	}
+	// Simple validation: must end with s, m, or h and have a numeric prefix
+	s = strings.TrimSpace(s)
+	if len(s) < 2 {
+		return false
+	}
+	suffix := s[len(s)-1]
+	if suffix != 's' && suffix != 'm' && suffix != 'h' {
+		return false
+	}
+	prefix := s[:len(s)-1]
+	for _, c := range prefix {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return len(prefix) > 0
+}
+
+// validateServiceName validates that a service name is safe and doesn't contain injection characters
+func validateServiceName(name string) error {
+	if name == "" {
+		return nil // Empty is OK for optional params
+	}
+	if len(name) > 128 {
+		return fmt.Errorf("service name too long (max 128 characters)")
+	}
+	if !safeNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid service name: must start with alphanumeric and contain only alphanumeric, underscore, or hyphen")
+	}
+	return nil
+}
+
+// validateProjectDir validates that the project directory path is safe
+// Prevents path traversal attacks and ensures the directory exists
+func validateProjectDir(dir string) (string, error) {
+	if dir == "" || dir == "." {
+		return ".", nil
+	}
+
+	// Clean the path to resolve any . or .. components
+	cleanPath := filepath.Clean(dir)
+
+	// Get absolute path
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("invalid project directory path: %w", err)
+	}
+
+	// Check if directory exists
+	info, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("project directory does not exist: %s", absPath)
+		}
+		return "", fmt.Errorf("cannot access project directory: %w", err)
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("path is not a directory: %s", absPath)
+	}
+
+	return absPath, nil
+}
+
+// getProjectDir gets the project directory from AZD_APP_PROJECT_DIR environment variable or defaults to current directory
+// This environment variable is set by azd when invoking the extension's MCP server
 func getProjectDir() string {
-	projectDir := os.Getenv("PROJECT_DIR")
+	// First try AZD_APP_PROJECT_DIR (set via extension.yaml mcp.serve.env)
+	projectDir := os.Getenv("AZD_APP_PROJECT_DIR")
+	if projectDir == "" {
+		// Fall back to PROJECT_DIR for backwards compatibility
+		projectDir = os.Getenv("PROJECT_DIR")
+	}
 	if projectDir == "" {
 		projectDir = "."
 	}
 	return projectDir
+}
+
+// ServiceInfo represents the output schema for get_services tool
+type ServiceInfo struct {
+	Project  map[string]interface{} `json:"project" jsonschema:"description=Project metadata including name and directory"`
+	Services []ServiceDetails       `json:"services" jsonschema:"description=List of services with their status and configuration"`
+}
+
+// ServiceDetails represents individual service information
+type ServiceDetails struct {
+	Name      string            `json:"name" jsonschema:"description=Service name"`
+	Language  string            `json:"language" jsonschema:"description=Programming language (e.g. python, javascript, dotnet)"`
+	Framework string            `json:"framework" jsonschema:"description=Framework used (e.g. flask, express, aspnet)"`
+	Project   string            `json:"project" jsonschema:"description=Path to the project directory"`
+	Status    string            `json:"status,omitempty" jsonschema:"description=Current running status"`
+	Health    string            `json:"health,omitempty" jsonschema:"description=Health check status"`
+	URL       string            `json:"url,omitempty" jsonschema:"description=Local URL where service is running"`
+	Port      int               `json:"port,omitempty" jsonschema:"description=Port number the service is listening on"`
+	PID       int               `json:"pid,omitempty" jsonschema:"description=Process ID of the running service"`
+	Env       map[string]string `json:"env,omitempty" jsonschema:"description=Environment variables configured for the service"`
+}
+
+// ProjectInfo represents the output schema for get_project_info tool
+type ProjectInfo struct {
+	Project  map[string]interface{}  `json:"project" jsonschema:"description=Project metadata"`
+	Services []ProjectServiceSummary `json:"services" jsonschema:"description=Summary of services defined in the project"`
+}
+
+// ProjectServiceSummary represents a simplified service summary
+type ProjectServiceSummary struct {
+	Name      string `json:"name" jsonschema:"description=Service name"`
+	Language  string `json:"language" jsonschema:"description=Programming language"`
+	Framework string `json:"framework" jsonschema:"description=Framework used"`
+	Project   string `json:"project" jsonschema:"description=Project directory path"`
+}
+
+// RequirementsResult represents the output schema for check_requirements tool
+type RequirementsResult struct {
+	Requirements []RequirementStatus `json:"requirements" jsonschema:"description=List of requirements and their status"`
+	AllMet       bool                `json:"allMet" jsonschema:"description=Whether all requirements are satisfied"`
+}
+
+// RequirementStatus represents individual requirement check result
+type RequirementStatus struct {
+	Name           string `json:"name" jsonschema:"description=Requirement name (e.g. node, python, docker)"`
+	Required       string `json:"required" jsonschema:"description=Required version"`
+	Installed      string `json:"installed,omitempty" jsonschema:"description=Installed version if found"`
+	Met            bool   `json:"met" jsonschema:"description=Whether requirement is satisfied"`
+	InstallCommand string `json:"installCommand,omitempty" jsonschema:"description=Command to install if missing"`
 }
 
 // newGetServicesTool creates the get_services tool
@@ -219,18 +395,23 @@ func newGetServicesTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"get_services",
+			mcp.WithTitleAnnotation("Get Running Services"),
 			mcp.WithDescription("Get comprehensive information about all running services in the current azd app project. Returns service status, health, URLs, ports, Azure deployment information, and environment variables."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithOutputSchema[ServiceInfo](),
 			mcp.WithString("projectDir",
 				mcp.Description("Optional project directory path. If not provided, uses current directory."),
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			cmdArgs := extractProjectDirArg(args)
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
 
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
@@ -247,10 +428,14 @@ func newGetServiceLogsTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"get_service_logs",
+			mcp.WithTitleAnnotation("Get Service Logs"),
 			mcp.WithDescription("Get logs from running services. Can filter by service name, log level, and time range. Supports both recent logs and live streaming."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithString("projectDir",
+				mcp.Description("Optional project directory path. If not provided, uses current directory."),
+			),
 			mcp.WithString("serviceName",
 				mcp.Description("Optional service name to filter logs. If not provided, shows logs from all services."),
 			),
@@ -265,15 +450,27 @@ func newGetServiceLogsTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			var cmdArgs []string
+			// Start with --cwd if projectDir is specified
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
 
 			if serviceName, ok := getStringParam(args, "serviceName"); ok {
+				// Validate service name to prevent injection
+				if err := validateServiceName(serviceName); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
 				cmdArgs = append(cmdArgs, serviceName)
 			}
 
 			if tail, ok := getFloat64Param(args, "tail"); ok && tail > 0 {
+				// Cap tail at reasonable maximum
+				if tail > 10000 {
+					tail = 10000
+				}
 				cmdArgs = append(cmdArgs, "--tail", fmt.Sprintf("%.0f", tail))
 			}
 
@@ -288,19 +485,31 @@ func newGetServiceLogsTool() server.ServerTool {
 			}
 
 			if since, ok := getStringParam(args, "since"); ok {
+				// Validate since format (should be like 5m, 1h, 30s)
+				if !isValidDuration(since) {
+					return mcp.NewToolResultError("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
+				}
 				cmdArgs = append(cmdArgs, "--since", since)
 			}
 
 			// Add format flag for JSON output
 			cmdArgs = append(cmdArgs, "--format", "json")
 
+			// Check context before starting
+			if err := ctx.Err(); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", err)), nil
+			}
+
 			// Execute logs command with context
 			cmdCtx, cancel := context.WithTimeout(ctx, defaultCommandTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(cmdCtx, "azd", append([]string{"app", "logs"}, cmdArgs...)...)
+			cmd := exec.CommandContext(cmdCtx, azdCommand, append([]string{appSubcommand, "logs"}, cmdArgs...)...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
+				if errors.Is(ctx.Err(), context.Canceled) {
+					return mcp.NewToolResultError("Request was cancelled"), nil
+				}
 				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
 					return mcp.NewToolResultError(fmt.Sprintf("Command timed out after %v", defaultCommandTimeout)), nil
 				}
@@ -330,18 +539,23 @@ func newGetProjectInfoTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"get_project_info",
+			mcp.WithTitleAnnotation("Get Project Information"),
 			mcp.WithDescription("Get project metadata and configuration from azure.yaml. Returns project name, directory, and service definitions."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithOutputSchema[ProjectInfo](),
 			mcp.WithString("projectDir",
 				mcp.Description("Optional project directory path. If not provided, uses current directory."),
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			cmdArgs := extractProjectDirArg(args)
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
 
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
@@ -380,6 +594,7 @@ func newRunServicesTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"run_services",
+			mcp.WithTitleAnnotation("Run Development Services"),
 			mcp.WithDescription("Start development services defined in azure.yaml, Aspire, or docker compose. This command will start the application in the background and return information about the started services."),
 			mcp.WithReadOnlyHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(false),
@@ -392,12 +607,11 @@ func newRunServicesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			var cmdArgs []string
-
-			if projectDir, ok := getStringParam(args, "projectDir"); ok {
-				cmdArgs = append(cmdArgs, "--project", projectDir)
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
 			}
 
 			if runtime, ok := getStringParam(args, "runtime"); ok {
@@ -411,7 +625,7 @@ func newRunServicesTool() server.ServerTool {
 			// Note: azd app run is interactive and long-running, so we run it in a non-blocking way
 			// and return information about the command being executed
 			// The context is intentionally NOT used here because the process should continue running
-			cmd := exec.Command("azd", append([]string{"app", "run"}, cmdArgs...)...)
+			cmd := exec.Command(azdCommand, append([]string{appSubcommand, "run"}, cmdArgs...)...)
 
 			// Detach process from current process group so it survives after MCP server exits
 			cmd.Stdout = nil
@@ -423,10 +637,9 @@ func newRunServicesTool() server.ServerTool {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to start services: %v", err)), nil
 			}
 
-			// Safely check process before accessing PID
-			if cmd.Process == nil {
-				return mcp.NewToolResultError("Process information unavailable after starting services"), nil
-			}
+			// Capture PID immediately after Start() to avoid race
+			// cmd.Process is guaranteed to be set after successful Start()
+			pid := cmd.Process.Pid
 
 			// Release the process so it's not a zombie when parent exits
 			// The process will be orphaned and adopted by init/systemd
@@ -437,7 +650,7 @@ func newRunServicesTool() server.ServerTool {
 			result := map[string]interface{}{
 				"status":  "started",
 				"message": "Services are starting in the background. Use get_services to check their status.",
-				"pid":     cmd.Process.Pid,
+				"pid":     pid,
 			}
 
 			return marshalToolResult(result)
@@ -450,6 +663,7 @@ func newInstallDependenciesTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"install_dependencies",
+			mcp.WithTitleAnnotation("Install Project Dependencies"),
 			mcp.WithDescription("Install dependencies for all detected projects (Node.js, Python, .NET). Automatically detects package managers (npm/pnpm/yarn, uv/poetry/pip, dotnet) and installs dependencies."),
 			mcp.WithReadOnlyHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -459,24 +673,31 @@ func newInstallDependenciesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			var cmdArgs []string
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
 
-			if projectDir, ok := getStringParam(args, "projectDir"); ok {
-				cmdArgs = append(cmdArgs, "--project", projectDir)
+			// Check context before starting long operation
+			if err := ctx.Err(); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", err)), nil
 			}
 
 			// Use longer timeout for dependency installation (can be slow)
-			cmdCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			cmdCtx, cancel := context.WithTimeout(ctx, dependencyInstallTimeout)
 			defer cancel()
 
 			// Execute deps command with context
-			cmd := exec.CommandContext(cmdCtx, "azd", append([]string{"app", "deps"}, cmdArgs...)...)
+			cmd := exec.CommandContext(cmdCtx, azdCommand, append([]string{appSubcommand, "deps"}, cmdArgs...)...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
+				if errors.Is(ctx.Err(), context.Canceled) {
+					return mcp.NewToolResultError("Request was cancelled"), nil
+				}
 				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
-					return mcp.NewToolResultError("Dependency installation timed out after 5 minutes"), nil
+					return mcp.NewToolResultError(fmt.Sprintf("Dependency installation timed out after %v", dependencyInstallTimeout)), nil
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to install dependencies: %v\nOutput: %s", err, string(output))), nil
 			}
@@ -497,18 +718,23 @@ func newCheckRequirementsTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"check_requirements",
+			mcp.WithTitleAnnotation("Check Prerequisites"),
 			mcp.WithDescription("Check if all required prerequisites (tools, CLIs, SDKs) defined in azure.yaml are installed and meet minimum version requirements. Returns detailed status of each requirement."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithOutputSchema[RequirementsResult](),
 			mcp.WithString("projectDir",
 				mcp.Description("Optional project directory path. If not provided, uses current directory."),
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			cmdArgs := extractProjectDirArg(args)
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
 
 			result, err := executeAzdAppCommand(ctx, "reqs", cmdArgs)
 			if err != nil {
@@ -525,6 +751,7 @@ func newStopServicesTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"stop_services",
+			mcp.WithTitleAnnotation("Stop Running Services"),
 			mcp.WithDescription("Stop all running development services. This will gracefully shut down services started with run_services."),
 			mcp.WithReadOnlyHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -551,6 +778,7 @@ func newRestartServiceTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"restart_service",
+			mcp.WithTitleAnnotation("Restart Service"),
 			mcp.WithDescription("Restart a specific service. This will stop and start the specified service."),
 			mcp.WithReadOnlyHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(false),
@@ -564,10 +792,15 @@ func newRestartServiceTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
 			serviceName, err := validateRequiredParam(args, "serviceName")
 			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			// Validate service name to prevent injection
+			if err := validateServiceName(serviceName); err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
@@ -587,6 +820,7 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"get_environment_variables",
+			mcp.WithTitleAnnotation("Get Environment Variables"),
 			mcp.WithDescription("Get environment variables configured for services. Returns all environment variables that services will use."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -599,9 +833,20 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
-			cmdArgs := extractProjectDirArg(args)
+			cmdArgs, err := extractProjectDirArg(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
+
+			// Validate service name if provided
+			serviceName, hasFilter := getStringParam(args, "serviceName")
+			if hasFilter {
+				if err := validateServiceName(serviceName); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+			}
 
 			// Get service info which includes environment variables
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
@@ -612,8 +857,6 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 			// Extract environment variables from services
 			envVars := make(map[string]interface{})
 			if services, ok := result["services"].([]interface{}); ok {
-				serviceName, hasFilter := getStringParam(args, "serviceName")
-
 				for _, svc := range services {
 					if svcMap, ok := svc.(map[string]interface{}); ok {
 						svcName, _ := svcMap["name"].(string)
@@ -640,6 +883,7 @@ func newSetEnvironmentVariableTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
 			"set_environment_variable",
+			mcp.WithTitleAnnotation("Set Environment Variable"),
 			mcp.WithDescription("Set an environment variable for services. Note: This provides guidance on how to set environment variables, as they must be configured in azure.yaml or .env files."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
@@ -657,11 +901,16 @@ func newSetEnvironmentVariableTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args, _ := request.Params.Arguments.(map[string]interface{})
+			args := getArgsMap(request)
 
 			name, err := validateRequiredParam(args, "name")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			// Validate env var name format
+			if !safeNamePattern.MatchString(name) {
+				return mcp.NewToolResultError("Invalid environment variable name: must start with alphanumeric and contain only alphanumeric, underscore, or hyphen"), nil
 			}
 
 			value, err := validateRequiredParam(args, "value")
@@ -670,7 +919,11 @@ func newSetEnvironmentVariableTool() server.ServerTool {
 			}
 
 			serviceName, _ := getStringParam(args, "serviceName")
-			if serviceName == "" {
+			if serviceName != "" {
+				if err := validateServiceName(serviceName); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+			} else {
 				serviceName = "<service-name>"
 			}
 
@@ -716,13 +969,36 @@ func newAzureYamlResource() server.ServerResource {
 			"azure://project/azure.yaml",
 			"azure.yaml",
 			mcp.WithResourceDescription("The azure.yaml configuration file that defines the project structure, services, and dependencies."),
+			mcp.WithAnnotations([]mcp.Role{mcp.RoleUser, mcp.RoleAssistant}, 0.9),
+			mcp.WithMIMEType("application/x-yaml"),
 		),
 		Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-			// Find and read azure.yaml from project directory
-			azureYamlPath := filepath.Join(getProjectDir(), "azure.yaml")
+			// Check context
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("request cancelled: %w", err)
+			}
 
-			content, err := os.ReadFile(azureYamlPath)
+			// Get and validate project directory
+			projectDir := getProjectDir()
+			validatedDir, err := validateProjectDir(projectDir)
 			if err != nil {
+				return nil, fmt.Errorf("invalid project directory: %w", err)
+			}
+
+			// Find and read azure.yaml from project directory
+			azureYamlPath := filepath.Join(validatedDir, "azure.yaml")
+
+			// Verify the file path is still within the project directory (defense in depth)
+			cleanPath := filepath.Clean(azureYamlPath)
+			if !strings.HasPrefix(cleanPath, validatedDir) && validatedDir != "." {
+				return nil, fmt.Errorf("azure.yaml path escapes project directory")
+			}
+
+			content, err := os.ReadFile(cleanPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil, fmt.Errorf("azure.yaml not found in project directory: %s", validatedDir)
+				}
 				return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
 			}
 
@@ -744,13 +1020,24 @@ func newServiceConfigResource() server.ServerResource {
 			"azure://project/services/configs",
 			"service-configs",
 			mcp.WithResourceDescription("Configuration details for all services including environment variables, ports, and runtime settings."),
+			mcp.WithAnnotations([]mcp.Role{mcp.RoleAssistant}, 0.7),
+			mcp.WithMIMEType("application/json"),
 		),
 		Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+			// Check context
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("request cancelled: %w", err)
+			}
+
 			// Get service configurations from project directory
 			var cmdArgs []string
 			projectDir := getProjectDir()
 			if projectDir != "." {
-				cmdArgs = append(cmdArgs, "--project", projectDir)
+				validatedDir, err := validateProjectDir(projectDir)
+				if err != nil {
+					return nil, fmt.Errorf("invalid project directory: %w", err)
+				}
+				cmdArgs = append(cmdArgs, cwdFlag, validatedDir)
 			}
 
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
@@ -764,6 +1051,9 @@ func newServiceConfigResource() server.ServerResource {
 				for _, svc := range services {
 					if svcMap, ok := svc.(map[string]interface{}); ok {
 						svcName, _ := svcMap["name"].(string)
+						if svcName == "" {
+							continue // Skip services without names
+						}
 						config := map[string]interface{}{
 							"name":      svcMap["name"],
 							"language":  svcMap["language"],

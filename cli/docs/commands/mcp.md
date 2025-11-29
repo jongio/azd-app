@@ -2,7 +2,21 @@
 
 ## Overview
 
-The `mcp` command provides Model Context Protocol (MCP) server functionality, enabling AI assistants like Claude Desktop and GitHub Copilot to interact with your azd app projects. The MCP server exposes tools and resources that allow AI assistants to monitor services, read logs, check requirements, and manage your development environment.
+The `mcp` command provides Model Context Protocol (MCP) server functionality as part of the azd extension framework. This extension server enables AI assistants like Claude Desktop and GitHub Copilot to interact with your azd app projects by exposing runtime operations, service monitoring, and log analysis capabilities.
+
+## What is MCP?
+
+The Model Context Protocol (MCP) is a standard for connecting AI assistants to external tools and data sources. The azd app extension provides an MCP server that integrates with the Azure Developer CLI's extension framework, working alongside azd's core MCP capabilities:
+
+- **azd core MCP**: Project planning, architecture discovery, component detection, infrastructure generation
+- **azd app MCP (this extension)**: Runtime operations, service monitoring, log analysis, dependency management
+
+This server enables AI assistants to:
+
+- Check service status and health
+- View application logs
+- Access Azure deployment information
+- Query project configuration
 
 ## Purpose
 
@@ -90,6 +104,33 @@ Best Practices:
 3. Use get_service_logs to diagnose issues when services fail to start
 4. Read azure.yaml resource to understand project structure before operations
 ```
+
+## Quick Start
+
+### 1. Install the azd app extension
+
+```bash
+# Enable azd extensions
+azd config set alpha.extension.enabled on
+
+# Add the extension registry
+azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
+
+# Install the extension
+azd extension install jongio.azd.app
+```
+
+### 2. Configure Your AI Assistant
+
+See the sections below for [VS Code / GitHub Copilot](#integration-with-vs-code--github-copilot) or [Claude Desktop](#integration-with-claude-desktop) configuration.
+
+### 3. Start Using MCP
+
+Once configured, you can ask your AI assistant:
+- "What services are running in my project?"
+- "Show me the logs from my API service"
+- "Check the health status of all my services"
+- "What environment variables are configured for my web service?"
 
 ## Integration with VS Code / GitHub Copilot
 
@@ -240,6 +281,25 @@ VS Code provides several commands to manage MCP servers:
 | `MCP: Open Workspace Folder Configuration` | Edit workspace mcp.json |
 | `MCP: Reset Cached Tools` | Clear cached tool definitions |
 | `MCP: Reset Trust` | Reset trust settings for servers |
+| `MCP: Browse Resources` | View resources from MCP servers |
+
+### Starting the MCP Server in VS Code
+
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+2. Run **MCP: List Servers**
+3. Select `azd-app` and choose **Start**
+
+Or, the server will auto-start when you first use Copilot Chat (if `chat.mcp.autostart` is enabled).
+
+### Using in Copilot Chat
+
+Open the Chat view (`Ctrl+Alt+I` / `Cmd+Alt+I`) and ask about your project:
+
+Example prompts:
+- "What services are running in my project?"
+- "Show me the error logs from my API service"
+- "Check if all my dependencies are installed"
+- "What environment variables are configured?"
 
 ## Integration with Claude Desktop
 
@@ -301,11 +361,18 @@ Add the MCP server to your Claude Desktop configuration:
 }
 ```
 
+### Verifying the Connection
+
+After restarting Claude Desktop, you should see an MCP indicator showing that the azd-app server is connected. You can now ask Claude about your running services.
+
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PROJECT_DIR` | Project directory to use for operations | Current directory (`.`) |
+| Variable | Description | Default | Set By |
+|----------|-------------|---------|--------|
+| `AZD_APP_PROJECT_DIR` | Project directory to use for operations | Current directory (`.`) | azd extension framework via `extension.yaml` |
+| `PROJECT_DIR` | Legacy project directory (deprecated) | Current directory (`.`) | User configuration (backwards compatibility) |
+
+**Note:** When the extension is invoked by azd, the `AZD_APP_PROJECT_DIR` variable is automatically set based on the `extension.yaml` configuration. This ensures the MCP server operates on the correct project directory in the context of azd's extension framework.
 
 ## Tool Parameters
 
@@ -383,8 +450,10 @@ Add the MCP server to your Claude Desktop configuration:
 
 - **Transport**: stdio (standard input/output)
 - **Protocol**: Model Context Protocol (MCP)
-- **Server Name**: `azd-app-mcp-server`
+- **Extension Framework**: azd extension with `mcp-server` capability
+- **Server Name**: `app-mcp-server` (follows azd extension naming: `{namespace}-mcp-server`)
 - **Version**: `0.1.0`
+- **Integration**: Registered via `extension.yaml` with `mcp-server` capability
 
 ### Capabilities
 
@@ -411,18 +480,25 @@ All tool handlers return structured error responses:
 - Command failures include stderr output for debugging
 - Parameter validation errors are descriptive
 
-## Comparison with azd's MCP Tools
+## Comparison with azd's Core MCP Tools
 
-The azd app MCP server complements (does not duplicate) azd's built-in MCP capabilities:
+The azd app MCP server is part of the azd extension framework and works alongside azd's built-in MCP capabilities:
 
-| azd app MCP (this server) | azd MCP (built-in) |
+| azd app MCP (this extension) | azd core MCP (built-in) |
 |---------------------------|-------------------|
 | Monitor running services | Plan architecture |
 | View application logs | Discover components |
 | Start/stop services | Generate azure.yaml |
 | Check requirements | Generate infrastructure |
 | Manage environment vars | Create Dockerfiles |
+| Install dependencies | Initialize projects |
 | **Focus: Runtime Operations** | **Focus: Project Setup** |
+
+**Extension Framework Integration:**
+- Both servers are exposed through MCP when the extension is installed
+- Tools from both servers are available simultaneously in AI assistants
+- The extension's MCP configuration is declared in `extension.yaml` with the `mcp-server` capability
+- azd core automatically invokes `azd app mcp serve` when the extension is registered
 
 ## Examples
 
@@ -438,17 +514,97 @@ azd app mcp serve
 
 ### Example AI Conversations
 
-**User:** "What services are running in my project?"
-**AI:** Uses `get_services` tool to list running services with their status.
+#### Check Service Status
 
-**User:** "Show me the error logs from the API"
-**AI:** Uses `get_service_logs` with `serviceName=api` and `level=error`.
+**Prompt:** "What services are running?"
 
-**User:** "Install all my project dependencies"
-**AI:** Uses `install_dependencies` tool and reports results.
+**AI Response:**
+```
+I can see 2 services running in your project:
 
-**User:** "Check if I have all the required tools"
-**AI:** Uses `check_requirements` and lists any missing prerequisites.
+1. **api** (Node.js/Express)
+   - Status: Running (healthy)
+   - Local URL: http://localhost:3000
+   - Azure URL: https://myapp-api.azurewebsites.net
+   - PID: 12345
+
+2. **web** (React)
+   - Status: Running (healthy)
+   - Local URL: http://localhost:5173
+   - Port: 5173
+   - PID: 12346
+```
+
+#### Get Service Logs
+
+**Prompt:** "Show me the last 20 lines of logs from the API service"
+
+**AI Response:**
+```
+Here are the recent logs from the 'api' service:
+
+[10:30:45] [api] Server started on port 3000
+[10:30:46] [api] Connected to database
+[10:31:02] [api] GET /api/users - 200 OK (15ms)
+[10:31:15] [api] POST /api/users - 201 Created (8ms)
+[10:32:01] [api] GET /api/products - 200 OK (12ms)
+...
+```
+
+#### Troubleshoot Issues
+
+**Prompt:** "Why is my web service failing?"
+
+**AI Response:**
+```
+Let me check the status and logs of your web service.
+
+I can see the web service is marked as "unhealthy". Looking at the error logs:
+
+[10:35:12] [web] ERROR: Failed to connect to API at http://localhost:3000
+[10:35:12] [web] Error: ECONNREFUSED
+
+The issue is that the web service cannot connect to the API service. 
+The API might not be running or the port might be blocked. 
+Let me check the API service status...
+```
+
+#### Check Azure Deployment
+
+**Prompt:** "What are the Azure URLs for my deployed services?"
+
+**AI Response:**
+```
+Here are the Azure deployment URLs:
+
+- **api**: https://myapp-api.azurewebsites.net
+  Resource: myapp-api (Container App)
+  
+- **web**: https://myapp-web.azurewebsites.net
+  Resource: myapp-web (Static Web App)
+
+Both services are deployed and accessible.
+```
+
+#### Install Dependencies
+
+**Prompt:** "Install all my project dependencies"
+
+**AI Response:**
+```
+→ Calls install_dependencies tool
+→ Returns: { status: "completed", output: "npm install complete..." }
+```
+
+#### Check Requirements
+
+**Prompt:** "Check if I have all the required tools installed"
+
+**AI Response:**
+```
+→ Calls check_requirements tool
+→ Returns: { requirements: [...], allMet: true }
+```
 
 ## Troubleshooting
 
@@ -510,9 +666,18 @@ Ensure services are running before querying:
 azd app run
 ```
 
+## Privacy and Security
+
+The MCP server:
+- ✅ Only accesses local project data
+- ✅ Runs with the same permissions as your user
+- ✅ Does not send data to external servers
+- ✅ Only exposes information through the MCP protocol to authorized AI assistants
+
+**Note:** The AI assistant (Claude, Copilot, etc.) may send the retrieved information to their servers for processing. Review your AI assistant's privacy policy for details.
+
 ## See Also
 
-- [MCP Usage Guide](../../docs/mcp-usage.md) - User-friendly setup guide
 - [run Command](run.md) - Start development services
 - [logs Command](logs.md) - View service logs
 - [info Command](info.md) - Get project information

@@ -475,7 +475,7 @@ func TestRunInfoWithServices(t *testing.T) {
 	}
 }
 
-func TestRunInfoWithProjectFlag(t *testing.T) {
+func TestRunInfoWithDifferentWorkingDirectory(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
 
@@ -505,13 +505,23 @@ func TestRunInfoWithProjectFlag(t *testing.T) {
 		t.Fatalf("Failed to register service: %v", err)
 	}
 
-	// Test with --project flag
-	cmd := NewInfoCommand()
-	cmd.SetArgs([]string{"--project", tmpDir})
-
-	err := cmd.Execute()
+	// Change to the temp directory (simulating --cwd flag behavior)
+	originalDir, err := os.Getwd()
 	if err != nil {
-		t.Errorf("runInfo() with --project flag failed: %v", err)
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	cmd := NewInfoCommand()
+	cmd.SetArgs([]string{})
+
+	err = cmd.Execute()
+	if err != nil {
+		t.Errorf("runInfo() with different working directory failed: %v", err)
 	}
 }
 

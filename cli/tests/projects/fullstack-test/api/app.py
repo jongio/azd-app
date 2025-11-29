@@ -24,6 +24,13 @@ def get_data():
         'count': 3
     })
 
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'service': 'api'
+    })
+
 @app.route('/api/health')
 def health():
     return jsonify({

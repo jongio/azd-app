@@ -140,7 +140,7 @@ func (lm *LogManager) GetAllLogs(n int) []LogEntry {
 	}
 
 	// Sort by timestamp
-	sortLogEntries(allLogs)
+	SortLogEntries(allLogs)
 
 	return allLogs
 }
@@ -157,7 +157,7 @@ func (lm *LogManager) GetAllLogsSince(since time.Time) []LogEntry {
 	}
 
 	// Sort by timestamp
-	sortLogEntries(allLogs)
+	SortLogEntries(allLogs)
 
 	return allLogs
 }
@@ -227,8 +227,8 @@ func (lm *LogManager) ClearBuffer(serviceName string) error {
 	return nil
 }
 
-// sortLogEntries sorts log entries by timestamp (ascending).
-func sortLogEntries(entries []LogEntry) {
+// SortLogEntries sorts log entries by timestamp (ascending).
+func SortLogEntries(entries []LogEntry) {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Timestamp.Before(entries[j].Timestamp)
 	})
