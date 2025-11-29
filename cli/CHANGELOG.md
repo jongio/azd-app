@@ -1,3 +1,9 @@
+## [0.6.1] - 2025-11-29
+
+- Implement Docker Compose-compatible health check configuration (#70) (1422cc0)
+- Ship-ready azd app health command: Docker Compose config, intelligent streaming, comprehensive testing, full production hardening, and complete manual test suite (#43) (d4a06eb)
+- chore: update registry for v0.6.0 (220e80c)
+
 ## [0.6.0] - 2025-11-27
 
 - feat: Enhanced logs dashboard with multi-pane view, notifications, and browser launch (#68) (0cb89f8)
