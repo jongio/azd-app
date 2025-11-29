@@ -19,8 +19,7 @@ import (
 )
 
 var (
-	infoAll     bool
-	infoProject string
+	infoAll bool
 )
 
 // NewInfoCommand creates the info command.
@@ -33,7 +32,6 @@ func NewInfoCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&infoAll, "all", false, "Show services from all projects on this machine")
-	cmd.Flags().StringVar(&infoProject, "project", "", "Show services from a specific project directory")
 
 	return cmd
 }
@@ -154,18 +152,13 @@ func isPortReachable(port int) bool {
 // runInfo executes the info command.
 func runInfo(cmd *cobra.Command, args []string) error {
 	output.CommandHeader("info", "Show information about services")
-	// Default: show services from current directory
+	// Get current working directory (may be set by --cwd flag)
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	projectDir := cwd
-	if infoProject != "" {
-		projectDir = infoProject
-	}
-
-	reg := registry.GetRegistry(projectDir)
+	reg := registry.GetRegistry(cwd)
 
 	// Validate and clean up stale processes in real-time
 	if err := validateAndCleanServices(reg); err != nil && !output.IsJSON() {
@@ -173,7 +166,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Use shared serviceinfo package to get merged service data
-	allServices, err := serviceinfo.GetServiceInfo(projectDir)
+	allServices, err := serviceinfo.GetServiceInfo(cwd)
 	if err != nil && !output.IsJSON() {
 		output.Warning("Failed to get service info: %v", err)
 	}
@@ -183,11 +176,11 @@ func runInfo(cmd *cobra.Command, args []string) error {
 
 	// For JSON output
 	if output.IsJSON() {
-		return printInfoJSON(projectDir, allServices, azureEnv)
+		return printInfoJSON(cwd, allServices, azureEnv)
 	}
 
 	// Default output
-	printInfoDefault(projectDir, allServices, azureEnv)
+	printInfoDefault(cwd, allServices, azureEnv)
 	return nil
 } // printInfoJSON outputs service information in JSON format.
 func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azureEnv map[string]string) error {

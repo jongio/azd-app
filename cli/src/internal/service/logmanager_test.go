@@ -297,7 +297,7 @@ func TestSortLogEntries(t *testing.T) {
 		{Timestamp: now.Add(1 * time.Second), Message: "second"},
 	}
 
-	sortLogEntries(entries)
+	SortLogEntries(entries)
 
 	if len(entries) != 3 {
 		t.Fatalf("expected 3 entries, got %d", len(entries))

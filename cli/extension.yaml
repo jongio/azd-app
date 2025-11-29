@@ -20,3 +20,8 @@ tags:
   - developer
   - productivity
   - app
+mcp:
+  serve:
+    args: ["mcp", "serve"]
+    env:
+      - "AZD_APP_PROJECT_DIR=${AZD_PROJECT_DIR}"
