@@ -370,6 +370,103 @@ services:
 - `"shell-command"` - String format (automatically wrapped with CMD-SHELL)
 - `["NONE"]` - Disable health check
 
+### Skipping Health Checks for Build/Watch Services
+
+For services that don't serve HTTP endpoints (like TypeScript compilers in watch mode, build watchers, or background processors), you can disable health checks entirely:
+
+**Option 1: Boolean false (simplest)**
+```yaml
+services:
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    healthcheck: false  # Skip health checks entirely
+```
+
+**Option 2: Using disable flag**
+```yaml
+services:
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    healthcheck:
+      disable: true
+```
+
+**Option 3: Using type: none**
+```yaml
+services:
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    healthcheck:
+      type: none
+```
+
+**Option 4: Using test: ["NONE"]**
+```yaml
+services:
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    healthcheck:
+      test: ["NONE"]
+```
+
+When health checks are disabled:
+- No port is auto-assigned for the service
+- The service is always considered "healthy" (running)
+- Health monitoring falls back to process-level checks (is the process running?)
+- Dependent services using `uses:` will not be affected
+
+**Example: TypeScript compiler with dependent API server**
+```yaml
+services:
+  # TypeScript compiler for API (watch mode) - no HTTP endpoint
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    healthcheck: false  # Skip HTTP health checks
+    environment:
+      NODE_ENV: development
+
+  # API server with nodemon - serves HTTP on port 3001
+  api:
+    language: ts
+    project: ./services/api
+    ports:
+      - "3001"
+    uses:
+      - api-tsc  # Depends on api-tsc being healthy (process running)
+    healthcheck:
+      test: "http://localhost:3001/health"
+      interval: 10s
+```
+
+### Health Check Types
+
+The `type` field supports the following values:
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `http` | HTTP endpoint check (default) | Web servers, APIs |
+| `tcp` | TCP port check | Databases, gRPC services |
+| `process` | Process existence check | Background workers |
+| `output` | Pattern matching in stdout | Build tools, watchers |
+| `none` | Skip health checks | Build/watch services |
+
+**Output-based health check (experimental)**:
+```yaml
+services:
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    healthcheck:
+      type: output
+      pattern: "Found 0 errors"  # Regex to match in stdout
+      timeout: 60s
+```
+
 **Legacy Format** (still supported for backward compatibility):
 ```yaml
 services:

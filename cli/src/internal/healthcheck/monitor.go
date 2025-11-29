@@ -519,16 +519,16 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 }
 
 func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
-	// Docker Compose style healthcheck parsing from azure.yaml
-	if svc.Healthcheck == nil {
-		return nil
-	}
-
-	// Check if healthcheck is disabled
-	if svc.Healthcheck.Disable {
+	// Check if healthcheck is disabled using the helper method
+	if svc.IsHealthcheckDisabled() {
 		return &healthCheckConfig{
 			Test: []string{"NONE"},
 		}
+	}
+
+	// Docker Compose style healthcheck parsing from azure.yaml
+	if svc.Healthcheck == nil {
+		return nil
 	}
 
 	config := &healthCheckConfig{
@@ -549,6 +549,11 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 		}
 	case []string:
 		config.Test = t
+	}
+
+	// Handle type: "none" - convert to ["NONE"] format for compatibility
+	if svc.Healthcheck.Type == "none" {
+		config.Test = []string{"NONE"}
 	}
 
 	// Parse interval

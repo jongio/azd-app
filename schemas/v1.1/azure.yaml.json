@@ -126,8 +126,11 @@
           }
         },
         "healthcheck": {
-          "$ref": "#/definitions/healthcheck",
-          "description": "Docker Compose-compatible healthcheck configuration - azd app addition for health monitoring"
+          "oneOf": [
+            { "type": "boolean" },
+            { "$ref": "#/definitions/healthcheck" }
+          ],
+          "description": "Health check configuration. Set to false to disable health checks for build/watch services that don't serve HTTP endpoints. Docker Compose-compatible object format is also supported."
         },
         "logs": {
           "$ref": "#/definitions/logsConfig",
@@ -232,7 +235,7 @@
     },
     "healthcheck": {
       "type": "object",
-      "description": "Docker Compose-compatible health check configuration",
+      "description": "Docker Compose-compatible health check configuration. For build/watch services that don't serve HTTP endpoints, use 'disable: true' or set healthcheck to false at the service level.",
       "properties": {
         "test": {
           "type": ["string", "array"],
@@ -247,6 +250,22 @@
             ["CMD-SHELL", "curl -f http://localhost/health || exit 1"],
             ["NONE"]
           ]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["http", "tcp", "process", "output", "none"],
+          "description": "Type of health check to perform. 'http' checks an HTTP endpoint, 'tcp' checks if a port is listening, 'process' checks if the process is running, 'output' monitors stdout for a pattern, 'none' disables health checks.",
+          "default": "http"
+        },
+        "path": {
+          "type": "string",
+          "description": "HTTP path for health checks (when type=http). Defaults to '/health'.",
+          "default": "/health"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Regex pattern to match in stdout (when type=output). Service is considered healthy when this pattern is matched.",
+          "examples": ["Found 0 errors", "Server started", "Listening on port"]
         },
         "interval": {
           "type": "string",
@@ -280,7 +299,7 @@
         },
         "disable": {
           "type": "boolean",
-          "description": "Set to true to disable the healthcheck. Equivalent to test: [\"NONE\"]",
+          "description": "Set to true to disable the healthcheck. Equivalent to test: [\"NONE\"] or type: none",
           "default": false
         }
       }

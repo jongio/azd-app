@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // AzureYaml represents the parsed azure.yaml file.
@@ -26,21 +28,122 @@ type DashboardConfig struct {
 
 // Service represents a service definition in azure.yaml.
 type Service struct {
-	Host        string             `yaml:"host"`
-	Language    string             `yaml:"language,omitempty"`
-	Project     string             `yaml:"project,omitempty"`
-	Entrypoint  string             `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
-	Image       string             `yaml:"image,omitempty"`
-	Docker      *DockerConfig      `yaml:"docker,omitempty"`
-	Ports       []string           `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
-	Environment Environment        `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
-	Uses        []string           `yaml:"uses,omitempty"`
-	Logs        *LogsConfig        `yaml:"logs,omitempty"`        // Service-level logging configuration
-	Healthcheck *HealthcheckConfig `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
+	Host               string             `yaml:"host"`
+	Language           string             `yaml:"language,omitempty"`
+	Project            string             `yaml:"project,omitempty"`
+	Entrypoint         string             `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
+	Image              string             `yaml:"image,omitempty"`
+	Docker             *DockerConfig      `yaml:"docker,omitempty"`
+	Ports              []string           `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
+	Environment        Environment        `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
+	Uses               []string           `yaml:"uses,omitempty"`
+	Logs               *LogsConfig        `yaml:"logs,omitempty"`        // Service-level logging configuration
+	Healthcheck        *HealthcheckConfig `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
+	HealthcheckEnabled *bool              `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
+}
+
+// serviceRaw is used to handle both boolean and object healthcheck values.
+// It duplicates all fields from Service except Healthcheck to avoid infinite recursion.
+type serviceRaw struct {
+	Host        string        `yaml:"host"`
+	Language    string        `yaml:"language,omitempty"`
+	Project     string        `yaml:"project,omitempty"`
+	Entrypoint  string        `yaml:"entrypoint,omitempty"`
+	Image       string        `yaml:"image,omitempty"`
+	Docker      *DockerConfig `yaml:"docker,omitempty"`
+	Ports       []string      `yaml:"ports,omitempty"`
+	Environment Environment   `yaml:"environment,omitempty"`
+	Uses        []string      `yaml:"uses,omitempty"`
+	Logs        *LogsConfig   `yaml:"logs,omitempty"`
+	Healthcheck interface{}   `yaml:"healthcheck,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
+func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var raw serviceRaw
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	// Copy all fields from the raw struct
+	s.Host = raw.Host
+	s.Language = raw.Language
+	s.Project = raw.Project
+	s.Entrypoint = raw.Entrypoint
+	s.Image = raw.Image
+	s.Docker = raw.Docker
+	s.Ports = raw.Ports
+	s.Environment = raw.Environment
+	s.Uses = raw.Uses
+	s.Logs = raw.Logs
+
+	// Handle healthcheck field
+	switch v := raw.Healthcheck.(type) {
+	case bool:
+		// healthcheck: false or healthcheck: true
+		s.HealthcheckEnabled = &v
+		if !v {
+			// Create a HealthcheckConfig with Disable: true to match the behavior
+			s.Healthcheck = &HealthcheckConfig{Disable: true}
+		}
+	case map[string]interface{}:
+		// healthcheck: { ... } - use standard unmarshaling
+		// Need to re-unmarshal just the healthcheck field
+		var hc HealthcheckConfig
+		// Convert map back to YAML bytes and unmarshal
+		data, err := yaml.Marshal(v)
+		if err != nil {
+			return err
+		}
+		if err := yaml.Unmarshal(data, &hc); err != nil {
+			return err
+		}
+		s.Healthcheck = &hc
+	case nil:
+		// No healthcheck specified
+		s.Healthcheck = nil
+	}
+
+	return nil
+}
+
+// IsHealthcheckDisabled returns true if health checks should be skipped for this service.
+// This can be triggered by:
+// - healthcheck: false (boolean)
+// - healthcheck.disable: true
+// - healthcheck.type: "none"
+// - healthcheck.test: ["NONE"]
+func (s *Service) IsHealthcheckDisabled() bool {
+	// Check if explicitly set to false
+	if s.HealthcheckEnabled != nil && !*s.HealthcheckEnabled {
+		return true
+	}
+
+	// Delegate to HealthcheckConfig.IsDisabled()
+	return s.Healthcheck.IsDisabled()
+}
+
+// NeedsPort returns true if this service needs a port assigned.
+// Services with disabled health checks and no explicit ports may not need a port.
+func (s *Service) NeedsPort() bool {
+	// If ports are explicitly configured, service needs them
+	if len(s.Ports) > 0 {
+		return true
+	}
+
+	// If health checks are disabled, service likely doesn't need a port
+	// (e.g., build/watch services like tsc --watch)
+	if s.IsHealthcheckDisabled() {
+		return false
+	}
+
+	// Default: service needs a port for HTTP health checks
+	return true
 }
 
 // HealthcheckConfig represents Docker Compose-compatible health check configuration.
 // Supports cross-platform HTTP URL checks or shell command checks.
+// Can also be set to false (via HealthcheckDisabled) to skip health checks entirely.
 type HealthcheckConfig struct {
 	// Test is the health check command or URL.
 	// For cross-platform compatibility, use HTTP URL string (e.g., "http://localhost:8080/health").
@@ -51,6 +154,23 @@ type HealthcheckConfig struct {
 	//   - ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
 	//   - ["NONE"] (disable health check)
 	Test interface{} `yaml:"test,omitempty"`
+
+	// Type specifies the health check method: "http", "tcp", "process", "output", or "none".
+	// - "http": Check an HTTP endpoint (default)
+	// - "tcp": Check if a port is listening
+	// - "process": Check if the process is running
+	// - "output": Monitor stdout for a pattern match
+	// - "none": Disable health checks (service is always considered healthy)
+	Type string `yaml:"type,omitempty"`
+
+	// Path is the HTTP path for health checks (when type=http).
+	// Defaults to "/health".
+	Path string `yaml:"path,omitempty"`
+
+	// Pattern is a regex pattern to match in stdout (when type=output).
+	// Service is considered healthy when this pattern is matched.
+	// Examples: "Found 0 errors", "Server started", "Listening on port"
+	Pattern string `yaml:"pattern,omitempty"`
 
 	// Interval is the time between health checks (e.g., "30s", "1m").
 	Interval string `yaml:"interval,omitempty"`
@@ -68,8 +188,56 @@ type HealthcheckConfig struct {
 	StartInterval string `yaml:"start_interval,omitempty"`
 
 	// Disable set to true disables the healthcheck entirely.
-	// This is equivalent to test: ["NONE"].
+	// This is equivalent to test: ["NONE"] or type: "none".
 	Disable bool `yaml:"disable,omitempty"`
+}
+
+// IsDisabled returns true if health checks should be skipped for this service.
+// This can be triggered by:
+// - disable: true
+// - type: "none"
+// - test: ["NONE"]
+func (h *HealthcheckConfig) IsDisabled() bool {
+	if h == nil {
+		return false
+	}
+
+	// Check explicit disable flag
+	if h.Disable {
+		return true
+	}
+
+	// Check type: "none"
+	if h.Type == "none" {
+		return true
+	}
+
+	// Check test: ["NONE"]
+	switch t := h.Test.(type) {
+	case []interface{}:
+		if len(t) > 0 {
+			if str, ok := t[0].(string); ok && str == "NONE" {
+				return true
+			}
+		}
+	case []string:
+		if len(t) > 0 && t[0] == "NONE" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetType returns the health check type, with "http" as the default.
+func (h *HealthcheckConfig) GetType() string {
+	if h == nil {
+		return "http"
+	}
+	if h.Type != "" {
+		return h.Type
+	}
+	return "http"
 }
 
 // DockerConfig represents Docker build configuration.
