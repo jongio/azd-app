@@ -3,15 +3,26 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
+)
+
+// Default timeout for command execution
+const defaultCommandTimeout = 30 * time.Second
+
+// Allowed values for validation
+var (
+	allowedLogLevels = map[string]bool{"info": true, "warn": true, "error": true, "debug": true, "all": true}
+	allowedRuntimes  = map[string]bool{"azd": true, "aspire": true, "pnpm": true, "docker-compose": true}
 )
 
 // NewMCPCommand creates the mcp command with subcommands.
@@ -105,19 +116,30 @@ func runMCPServer(ctx context.Context) error {
 }
 
 // executeAzdAppCommand executes an azd app command and returns JSON output
-func executeAzdAppCommand(command string, args []string) (map[string]interface{}, error) {
+func executeAzdAppCommand(ctx context.Context, command string, args []string) (map[string]interface{}, error) {
 	cmdArgs := append([]string{command}, args...)
 	cmdArgs = append(cmdArgs, "--output", "json")
 
-	cmd := exec.Command("azd", append([]string{"app"}, cmdArgs...)...)
-	output, err := cmd.Output()
+	// Use context with timeout for command execution
+	cmdCtx, cancel := context.WithTimeout(ctx, defaultCommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, "azd", append([]string{"app"}, cmdArgs...)...)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute azd app %s: %w", command, err)
+		// Check if context was cancelled or timed out
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, fmt.Errorf("command cancelled: %w", ctx.Err())
+		}
+		if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("command timed out after %v", defaultCommandTimeout)
+		}
+		return nil, fmt.Errorf("failed to execute azd app %s: %w\nOutput: %s", command, err, string(output))
 	}
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON output: %w", err)
+		return nil, fmt.Errorf("failed to parse JSON output: %w\nRaw output: %s", err, string(output))
 	}
 
 	return result, nil
@@ -159,10 +181,26 @@ func extractProjectDirArg(args map[string]interface{}) []string {
 	return cmdArgs
 }
 
-// validateRequiredParam validates that a required parameter exists
-func validateRequiredParam(args map[string]interface{}, key string) error {
-	if val, ok := args[key].(string); !ok || val == "" {
-		return fmt.Errorf("%s parameter is required", key)
+// validateRequiredParam validates that a required parameter exists and returns the value
+func validateRequiredParam(args map[string]interface{}, key string) (string, error) {
+	val, ok := args[key].(string)
+	if !ok || val == "" {
+		return "", fmt.Errorf("%s parameter is required", key)
+	}
+	return val, nil
+}
+
+// validateEnumParam validates that a parameter value is in allowed set
+func validateEnumParam(value string, allowed map[string]bool, paramName string) error {
+	if value == "" {
+		return nil // Empty is OK for optional params
+	}
+	if !allowed[value] {
+		var validValues []string
+		for k := range allowed {
+			validValues = append(validValues, k)
+		}
+		return fmt.Errorf("invalid %s: '%s'. Valid values: %s", paramName, value, strings.Join(validValues, ", "))
 	}
 	return nil
 }
@@ -194,7 +232,7 @@ func newGetServicesTool() server.ServerTool {
 
 			cmdArgs := extractProjectDirArg(args)
 
-			result, err := executeAzdAppCommand("info", cmdArgs)
+			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to get services: %v", err)), nil
 			}
@@ -239,8 +277,14 @@ func newGetServiceLogsTool() server.ServerTool {
 				cmdArgs = append(cmdArgs, "--tail", fmt.Sprintf("%.0f", tail))
 			}
 
-			if level, ok := getStringParam(args, "level"); ok && level != "all" {
-				cmdArgs = append(cmdArgs, "--level", level)
+			if level, ok := getStringParam(args, "level"); ok {
+				// Validate level parameter
+				if err := validateEnumParam(level, allowedLogLevels, "level"); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				if level != "all" {
+					cmdArgs = append(cmdArgs, "--level", level)
+				}
 			}
 
 			if since, ok := getStringParam(args, "since"); ok {
@@ -250,11 +294,17 @@ func newGetServiceLogsTool() server.ServerTool {
 			// Add format flag for JSON output
 			cmdArgs = append(cmdArgs, "--format", "json")
 
-			// Execute logs command
-			cmd := exec.Command("azd", append([]string{"app", "logs"}, cmdArgs...)...)
-			output, err := cmd.Output()
+			// Execute logs command with context
+			cmdCtx, cancel := context.WithTimeout(ctx, defaultCommandTimeout)
+			defer cancel()
+
+			cmd := exec.CommandContext(cmdCtx, "azd", append([]string{"app", "logs"}, cmdArgs...)...)
+			output, err := cmd.CombinedOutput()
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v", err)), nil
+				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+					return mcp.NewToolResultError(fmt.Sprintf("Command timed out after %v", defaultCommandTimeout)), nil
+				}
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v\nOutput: %s", err, string(output))), nil
 			}
 
 			// Parse line-by-line JSON output
@@ -293,7 +343,7 @@ func newGetProjectInfoTool() server.ServerTool {
 
 			cmdArgs := extractProjectDirArg(args)
 
-			result, err := executeAzdAppCommand("info", cmdArgs)
+			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to get project info: %v", err)), nil
 			}
@@ -351,12 +401,22 @@ func newRunServicesTool() server.ServerTool {
 			}
 
 			if runtime, ok := getStringParam(args, "runtime"); ok {
+				// Validate runtime parameter
+				if err := validateEnumParam(runtime, allowedRuntimes, "runtime"); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
 				cmdArgs = append(cmdArgs, "--runtime", runtime)
 			}
 
 			// Note: azd app run is interactive and long-running, so we run it in a non-blocking way
 			// and return information about the command being executed
+			// The context is intentionally NOT used here because the process should continue running
 			cmd := exec.Command("azd", append([]string{"app", "run"}, cmdArgs...)...)
+
+			// Detach process from current process group so it survives after MCP server exits
+			cmd.Stdout = nil
+			cmd.Stderr = nil
+			cmd.Stdin = nil
 
 			// Start the command but don't wait for it
 			if err := cmd.Start(); err != nil {
@@ -368,18 +428,19 @@ func newRunServicesTool() server.ServerTool {
 				return mcp.NewToolResultError("Process information unavailable after starting services"), nil
 			}
 
+			// Release the process so it's not a zombie when parent exits
+			// The process will be orphaned and adopted by init/systemd
+			go func() {
+				_ = cmd.Wait() // Ignore error, just clean up zombie
+			}()
+
 			result := map[string]interface{}{
 				"status":  "started",
 				"message": "Services are starting in the background. Use get_services to check their status.",
 				"pid":     cmd.Process.Pid,
 			}
 
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(result)
 		},
 	}
 }
@@ -406,10 +467,17 @@ func newInstallDependenciesTool() server.ServerTool {
 				cmdArgs = append(cmdArgs, "--project", projectDir)
 			}
 
-			// Execute deps command
-			cmd := exec.Command("azd", append([]string{"app", "deps"}, cmdArgs...)...)
+			// Use longer timeout for dependency installation (can be slow)
+			cmdCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			defer cancel()
+
+			// Execute deps command with context
+			cmd := exec.CommandContext(cmdCtx, "azd", append([]string{"app", "deps"}, cmdArgs...)...)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
+				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+					return mcp.NewToolResultError("Dependency installation timed out after 5 minutes"), nil
+				}
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to install dependencies: %v\nOutput: %s", err, string(output))), nil
 			}
 
@@ -419,12 +487,7 @@ func newInstallDependenciesTool() server.ServerTool {
 				"output":  string(output),
 			}
 
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(result)
 		},
 	}
 }
@@ -445,23 +508,14 @@ func newCheckRequirementsTool() server.ServerTool {
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args, _ := request.Params.Arguments.(map[string]interface{})
 
-			var cmdArgs []string
+			cmdArgs := extractProjectDirArg(args)
 
-			if projectDir, ok := getStringParam(args, "projectDir"); ok {
-				cmdArgs = append(cmdArgs, "--project", projectDir)
-			}
-
-			result, err := executeAzdAppCommand("reqs", cmdArgs)
+			result, err := executeAzdAppCommand(ctx, "reqs", cmdArgs)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to check requirements: %v", err)), nil
 			}
 
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(result)
 		},
 	}
 }
@@ -487,12 +541,7 @@ func newStopServicesTool() server.ServerTool {
 				"tip":     "You can use get_services to find the PID of running services.",
 			}
 
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(result)
 		},
 	}
 }
@@ -517,9 +566,9 @@ func newRestartServiceTool() server.ServerTool {
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args, _ := request.Params.Arguments.(map[string]interface{})
 
-			serviceName, ok := args["serviceName"].(string)
-			if !ok || serviceName == "" {
-				return mcp.NewToolResultError("serviceName parameter is required"), nil
+			serviceName, err := validateRequiredParam(args, "serviceName")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 
 			result := map[string]interface{}{
@@ -528,12 +577,7 @@ func newRestartServiceTool() server.ServerTool {
 				"tip":     "Use get_services to find the current PID of the service.",
 			}
 
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(result)
 		},
 	}
 }
@@ -557,14 +601,10 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args, _ := request.Params.Arguments.(map[string]interface{})
 
-			var cmdArgs []string
-
-			if projectDir, ok := getStringParam(args, "projectDir"); ok {
-				cmdArgs = append(cmdArgs, "--project", projectDir)
-			}
+			cmdArgs := extractProjectDirArg(args)
 
 			// Get service info which includes environment variables
-			result, err := executeAzdAppCommand("info", cmdArgs)
+			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to get environment variables: %v", err)), nil
 			}
@@ -572,7 +612,7 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 			// Extract environment variables from services
 			envVars := make(map[string]interface{})
 			if services, ok := result["services"].([]interface{}); ok {
-				serviceName, hasFilter := args["serviceName"].(string)
+				serviceName, hasFilter := getStringParam(args, "serviceName")
 
 				for _, svc := range services {
 					if svcMap, ok := svc.(map[string]interface{}); ok {
@@ -590,12 +630,7 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 				}
 			}
 
-			jsonBytes, err := json.MarshalIndent(envVars, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal environment variables: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(envVars)
 		},
 	}
 }
@@ -624,15 +659,19 @@ func newSetEnvironmentVariableTool() server.ServerTool {
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args, _ := request.Params.Arguments.(map[string]interface{})
 
-			name, ok1 := args["name"].(string)
-			value, ok2 := args["value"].(string)
-			if !ok1 || !ok2 || name == "" || value == "" {
-				return mcp.NewToolResultError("name and value parameters are required"), nil
+			name, err := validateRequiredParam(args, "name")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			serviceName := ""
-			if svc, ok := args["serviceName"].(string); ok {
-				serviceName = svc
+			value, err := validateRequiredParam(args, "value")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			serviceName, _ := getStringParam(args, "serviceName")
+			if serviceName == "" {
+				serviceName = "<service-name>"
 			}
 
 			guidance := fmt.Sprintf(`To set environment variable '%s=%s':
@@ -665,12 +704,7 @@ After updating, restart services for changes to take effect.`,
 				"value":    value,
 			}
 
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
-			}
-
-			return mcp.NewToolResultText(string(jsonBytes)), nil
+			return marshalToolResult(result)
 		},
 	}
 }
@@ -719,7 +753,7 @@ func newServiceConfigResource() server.ServerResource {
 				cmdArgs = append(cmdArgs, "--project", projectDir)
 			}
 
-			result, err := executeAzdAppCommand("info", cmdArgs)
+			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get service configs: %w", err)
 			}

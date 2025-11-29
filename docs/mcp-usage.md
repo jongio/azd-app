@@ -133,9 +133,152 @@ Here are the Azure deployment URLs:
 Both services are deployed and accessible.
 ```
 
-## Setup with GitHub Copilot
+## Setup with GitHub Copilot (VS Code)
 
-GitHub Copilot's MCP integration is coming soon. Check back for updates.
+VS Code supports MCP servers through a dedicated `mcp.json` configuration file. This is the recommended approach for VS Code and GitHub Copilot integration.
+
+### 1. Install the azd app extension
+
+```bash
+# Enable azd extensions
+azd config set alpha.extension.enabled on
+
+# Add the extension registry
+azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
+
+# Install the extension
+azd extension install jongio.azd.app
+```
+
+### 2. Configure the MCP Server
+
+#### Option A: Workspace Configuration (Recommended for Teams)
+
+Create `.vscode/mcp.json` in your project root:
+
+```json
+{
+  "servers": {
+    "azd-app": {
+      "type": "stdio",
+      "command": "azd",
+      "args": ["app", "mcp", "serve"]
+    }
+  }
+}
+```
+
+This allows team members to share the same MCP configuration via source control.
+
+#### Option B: User Configuration (Personal)
+
+For configuration across all your workspaces, run the **MCP: Open User Configuration** command in VS Code, or create/edit the user-level `mcp.json`:
+
+**Location:**
+- **Windows:** `%APPDATA%\Code\User\mcp.json`
+- **macOS:** `~/Library/Application Support/Code/User/mcp.json`
+- **Linux:** `~/.config/Code/User/mcp.json`
+
+```json
+{
+  "servers": {
+    "azd-app": {
+      "type": "stdio",
+      "command": "azd",
+      "args": ["app", "mcp", "serve"]
+    }
+  }
+}
+```
+
+### 3. Start the MCP Server
+
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+2. Run **MCP: List Servers**
+3. Select `azd-app` and choose **Start**
+
+Or, the server will auto-start when you first use Copilot Chat (if `chat.mcp.autostart` is enabled).
+
+### 4. Use in Copilot Chat
+
+Open the Chat view (`Ctrl+Alt+I` / `Cmd+Alt+I`) and ask about your project:
+
+Example prompts:
+- "What services are running in my project?"
+- "Show me the error logs from my API service"
+- "Check if all my dependencies are installed"
+- "What environment variables are configured?"
+
+### VS Code with Custom Project Directory
+
+Use the `env` property to specify a project directory:
+
+```json
+{
+  "servers": {
+    "azd-app": {
+      "type": "stdio",
+      "command": "azd",
+      "args": ["app", "mcp", "serve"],
+      "env": {
+        "PROJECT_DIR": "${workspaceFolder}"
+      }
+    }
+  }
+}
+```
+
+> **Note:** VS Code supports [predefined variables](https://code.visualstudio.com/docs/reference/variables-reference) like `${workspaceFolder}` in the configuration.
+
+### VS Code with Environment File
+
+Load additional environment variables from a `.env` file:
+
+```json
+{
+  "servers": {
+    "azd-app": {
+      "type": "stdio",
+      "command": "azd",
+      "args": ["app", "mcp", "serve"],
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}
+```
+
+### Dev Container Configuration
+
+For [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers), add the MCP server to your `devcontainer.json`:
+
+```json
+{
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "customizations": {
+    "vscode": {
+      "mcp": {
+        "servers": {
+          "azd-app": {
+            "command": "azd",
+            "args": ["app", "mcp", "serve"]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Managing MCP Servers in VS Code
+
+| Command | Description |
+|---------|-------------|
+| `MCP: List Servers` | View all configured servers and their status |
+| `MCP: Open User Configuration` | Edit user-level mcp.json |
+| `MCP: Open Workspace Folder Configuration` | Edit workspace mcp.json |
+| `MCP: Reset Cached Tools` | Clear cached tool definitions |
+| `MCP: Reset Trust` | Reset trust settings for servers |
+| `MCP: Browse Resources` | View resources from MCP servers |
 
 ## Available Tools and Resources
 
@@ -396,10 +539,42 @@ azd app run
 **Error:** MCP server times out or disconnects
 
 **Solution:**
-1. Restart Claude Desktop
-2. Check Claude Desktop logs for errors
+1. Restart Claude Desktop or VS Code
+2. Check logs for errors:
+   - Claude Desktop: Check Claude Desktop logs
+   - VS Code: Run **MCP: List Servers** → Select server → **Show Output**
 3. Try running `azd app mcp serve` manually to test
 4. Ensure the azd app extension is properly installed
+
+### VS Code: Server Not Appearing
+
+**Problem:** MCP server doesn't show in VS Code
+
+**Solutions:**
+1. Verify `mcp.json` is in the correct location:
+   - Workspace: `.vscode/mcp.json`
+   - User: See platform-specific paths above
+2. Check JSON syntax is valid (VS Code provides IntelliSense)
+3. Ensure `type` is set to `"stdio"` for local servers
+4. Run **MCP: List Servers** to check server status
+
+### VS Code: Tools Not Showing in Chat
+
+**Problem:** MCP tools aren't available in Copilot Chat
+
+**Solutions:**
+1. Open the Chat view and click the **Tools** button
+2. Verify the azd-app server is listed and enabled
+3. Run **MCP: Reset Cached Tools** to refresh tool discovery
+4. Restart VS Code if the server was recently added
+
+### VS Code: Trust Dialog Issues
+
+**Problem:** Can't start the server, trust dialog doesn't appear
+
+**Solution:**
+1. Run **MCP: Reset Trust** to reset trust settings
+2. Start the server from **MCP: List Servers** instead of directly from `mcp.json`
 
 ### Permission Errors
 
@@ -472,6 +647,9 @@ The MCP server:
 ## Learn More
 
 - [MCP Documentation](https://modelcontextprotocol.io)
+- [VS Code MCP Servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers) - VS Code MCP documentation
+- [Claude Desktop MCP](https://modelcontextprotocol.io/quickstart/user) - Claude Desktop MCP setup
 - [azd app CLI](../cli/README.md)
+- [azd app mcp Command](../cli/docs/commands/mcp.md) - Detailed CLI reference
 - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 - [MCP Server Implementation](./README.md)

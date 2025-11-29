@@ -527,40 +527,86 @@ func TestExtractProjectDirArg(t *testing.T) {
 
 func TestValidateRequiredParam(t *testing.T) {
 	tests := []struct {
+		name          string
+		args          map[string]interface{}
+		key           string
+		expectedValue string
+		wantError     bool
+	}{
+		{
+			name:          "Valid required parameter",
+			args:          map[string]interface{}{"key": "value"},
+			key:           "key",
+			expectedValue: "value",
+			wantError:     false,
+		},
+		{
+			name:          "Missing required parameter",
+			args:          map[string]interface{}{},
+			key:           "key",
+			expectedValue: "",
+			wantError:     true,
+		},
+		{
+			name:          "Empty required parameter",
+			args:          map[string]interface{}{"key": ""},
+			key:           "key",
+			expectedValue: "",
+			wantError:     true,
+		},
+		{
+			name:          "Wrong type parameter",
+			args:          map[string]interface{}{"key": 123},
+			key:           "key",
+			expectedValue: "",
+			wantError:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := validateRequiredParam(tt.args, tt.key)
+			if tt.wantError && err == nil {
+				t.Error("Expected error, got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+			if !tt.wantError && val != tt.expectedValue {
+				t.Errorf("Expected value '%s', got '%s'", tt.expectedValue, val)
+			}
+		})
+	}
+}
+
+func TestValidateEnumParam(t *testing.T) {
+	allowed := map[string]bool{"a": true, "b": true, "c": true}
+
+	tests := []struct {
 		name      string
-		args      map[string]interface{}
-		key       string
+		value     string
 		wantError bool
 	}{
 		{
-			name:      "Valid required parameter",
-			args:      map[string]interface{}{"key": "value"},
-			key:       "key",
+			name:      "Valid value",
+			value:     "a",
 			wantError: false,
 		},
 		{
-			name:      "Missing required parameter",
-			args:      map[string]interface{}{},
-			key:       "key",
-			wantError: true,
+			name:      "Empty value (optional)",
+			value:     "",
+			wantError: false,
 		},
 		{
-			name:      "Empty required parameter",
-			args:      map[string]interface{}{"key": ""},
-			key:       "key",
-			wantError: true,
-		},
-		{
-			name:      "Wrong type parameter",
-			args:      map[string]interface{}{"key": 123},
-			key:       "key",
+			name:      "Invalid value",
+			value:     "invalid",
 			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateRequiredParam(tt.args, tt.key)
+			err := validateEnumParam(tt.value, allowed, "test")
 			if tt.wantError && err == nil {
 				t.Error("Expected error, got nil")
 			}
