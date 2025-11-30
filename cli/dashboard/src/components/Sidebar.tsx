@@ -1,4 +1,4 @@
-import { Activity, Terminal, FileText, GitBranch, BarChart3 } from 'lucide-react'
+import { Activity, Terminal } from 'lucide-react'
 import type { HealthSummary } from '@/types'
 
 interface SidebarProps {
@@ -32,9 +32,6 @@ export function Sidebar({ activeView, onViewChange, hasActiveErrors = false, hea
   const navItems = [
     { id: 'resources', label: 'Resources', icon: Activity },
     { id: 'console', label: 'Console', icon: Terminal },
-    { id: 'structured', label: 'Structured', icon: FileText },
-    { id: 'traces', label: 'Traces', icon: GitBranch },
-    { id: 'metrics', label: 'Metrics', icon: BarChart3 },
   ]
 
   return (

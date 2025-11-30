@@ -27,7 +27,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
   } : service.local?.healthDetails
 
   return (
-    <div className="group glass rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden">
+    <div className="group rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden bg-card border border-border shadow-sm hover:shadow-md">
       {/* Animated gradient background on hover */}
       <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
       
@@ -111,7 +111,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
             href={service.local.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-2 mb-4 p-3 rounded-xl glass border border-white/5 hover:border-primary/50 transition-all-smooth group/link"
+            className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-muted/50 border border-border hover:border-primary/50 transition-all-smooth group/link"
           >
             <Activity className="w-4 h-4 text-primary" />
             <span className="text-sm text-foreground/90 group-hover/link:text-primary transition-colors flex-1 truncate">
@@ -142,14 +142,14 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
 
         {/* Tech Stack */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="glass p-3 rounded-xl border border-white/5">
+          <div className="bg-muted/50 p-3 rounded-xl border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Code className="w-3.5 h-3.5 text-accent" />
               <span className="text-xs text-muted-foreground">Framework</span>
             </div>
             <p className="font-semibold text-sm text-foreground">{service.framework}</p>
           </div>
-          <div className="glass p-3 rounded-xl border border-white/5">
+          <div className="bg-muted/50 p-3 rounded-xl border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Layers className="w-3.5 h-3.5 text-secondary" />
               <span className="text-xs text-muted-foreground">Language</span>
@@ -159,7 +159,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
         </div>
 
         {/* Metrics Row */}
-        <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-linear-to-r from-primary/5 to-accent/5 border border-white/5 mb-4">
+        <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-linear-to-r from-primary/5 to-accent/5 border border-border mb-4">
           {service.local?.port && (
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
@@ -189,7 +189,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
         {healthDetails && (
           <div className="grid grid-cols-3 gap-2 mb-4">
             {/* Response Time */}
-            <div className="glass p-2 rounded-lg border border-white/5">
+            <div className="bg-muted/50 p-2 rounded-lg border border-border">
               <div className="flex items-center gap-1 mb-0.5">
                 <Zap className="w-3 h-3 text-yellow-400" />
                 <span className="text-[10px] text-muted-foreground">Response</span>
@@ -199,7 +199,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
               </p>
             </div>
             {/* Check Type */}
-            <div className="glass p-2 rounded-lg border border-white/5">
+            <div className="bg-muted/50 p-2 rounded-lg border border-border">
               <div className="flex items-center gap-1 mb-0.5">
                 <Globe className="w-3 h-3 text-blue-400" />
                 <span className="text-[10px] text-muted-foreground">Check</span>
@@ -209,7 +209,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
               </p>
             </div>
             {/* Uptime */}
-            <div className="glass p-2 rounded-lg border border-white/5">
+            <div className="bg-muted/50 p-2 rounded-lg border border-border">
               <div className="flex items-center gap-1 mb-0.5">
                 <Clock className="w-3 h-3 text-green-400" />
                 <span className="text-[10px] text-muted-foreground">Uptime</span>
@@ -223,7 +223,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
 
         {/* Health Endpoint (when available) */}
         {healthDetails?.endpoint && (
-          <div className="mb-4 px-3 py-2 rounded-lg glass border border-white/5">
+          <div className="mb-4 px-3 py-2 rounded-lg bg-muted/50 border border-border">
             <div className="flex items-center gap-2">
               <Activity className="w-3 h-3 text-muted-foreground" />
               <span className="text-[10px] text-muted-foreground">Health Endpoint:</span>
@@ -241,7 +241,7 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
 
         {/* Footer */}
         {(service.local?.startTime || service.local?.lastChecked || service.startTime || service.lastChecked) && (
-          <div className="pt-4 border-t border-white/5 space-y-1.5 text-xs text-muted-foreground">
+          <div className="pt-4 border-t border-border space-y-1.5 text-xs text-muted-foreground">
             {(service.local?.startTime || service.startTime) && (
               <div className="flex items-center justify-between">
                 <span>Started</span>

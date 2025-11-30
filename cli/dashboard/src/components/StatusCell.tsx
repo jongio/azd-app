@@ -1,5 +1,6 @@
+import { useMemo } from 'react'
 import { getStatusDisplay } from '@/lib/service-utils'
-import { Activity, Globe, Plug, Cpu } from 'lucide-react'
+import { Activity, Globe, Plug, Cpu, type LucideIcon } from 'lucide-react'
 import type { HealthCheckResult, HealthStatus } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -18,23 +19,24 @@ function formatResponseTime(ns?: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-/** Get icon for health check type */
-function getCheckTypeIcon(checkType?: string) {
-  switch (checkType) {
-    case 'http':
-      return Globe
-    case 'port':
-      return Plug
-    case 'process':
-      return Cpu
-    default:
-      return Activity
-  }
+/** Map of check types to their icons - defined outside component */
+const CHECK_TYPE_ICONS: Record<string, LucideIcon> = {
+  http: Globe,
+  port: Plug,
+  process: Cpu,
 }
+
+/** Default icon when check type is unknown */
+const DEFAULT_CHECK_ICON = Activity
 
 export function StatusCell({ status, health, healthCheckResult }: StatusCellProps) {
   const statusDisplay = getStatusDisplay(status, health)
-  const CheckIcon = getCheckTypeIcon(healthCheckResult?.checkType)
+  
+  // Use useMemo to avoid recreating the icon reference on each render
+  const CheckIcon = useMemo(() => {
+    const checkType = healthCheckResult?.checkType
+    return checkType && CHECK_TYPE_ICONS[checkType] ? CHECK_TYPE_ICONS[checkType] : DEFAULT_CHECK_ICON
+  }, [healthCheckResult?.checkType])
   
   // Determine which animation to show based on health status
   const isUnhealthy = health === 'unhealthy' || status === 'error'

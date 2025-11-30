@@ -187,12 +187,6 @@ test.describe('Dashboard - Resources View', () => {
     await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
   });
 
-  test('should show coming soon for unimplemented views', async ({ page }) => {
-    await page.getByRole('button', { name: /traces/i }).click();
-    await expect(page.getByText('Coming Soon')).toBeVisible();
-    await expect(page.getByText('This view is not yet implemented')).toBeVisible();
-  });
-
   test('should display header buttons', async ({ page }) => {
     // Check that header action buttons are present
     const header = page.locator('header');

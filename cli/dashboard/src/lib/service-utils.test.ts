@@ -4,11 +4,13 @@ import {
   getStatusDisplay,
   isServiceHealthy,
   formatRelativeTime,
+  formatStartTime,
   formatLogTimestamp,
   formatResponseTime,
   formatUptime,
   getCheckTypeDisplay,
   mergeHealthIntoService,
+  getLogPaneVisualStatus,
 } from './service-utils'
 import type { Service, HealthCheckResult } from '@/types'
 
@@ -174,6 +176,25 @@ describe('service-utils', () => {
       // Invalid dates result in NaN calculations but don't throw
       const result = formatRelativeTime('invalid-date')
       expect(result).toContain('NaN')
+    })
+  })
+
+  describe('formatStartTime', () => {
+    it('should return - for undefined', () => {
+      expect(formatStartTime(undefined)).toBe('-')
+    })
+
+    it('should format time as HH:MM:SS', () => {
+      // Test with a known UTC time that will format consistently
+      const result = formatStartTime('2024-01-15T10:30:45.000Z')
+      // Should contain colons for time format
+      expect(result).toMatch(/\d{1,2}:\d{2}:\d{2}/)
+    })
+
+    it('should handle invalid date string gracefully', () => {
+      const result = formatStartTime('invalid-date')
+      // Returns the original string on parse failure
+      expect(result).toBe('invalid-date')
     })
   })
 
@@ -402,6 +423,43 @@ describe('service-utils', () => {
       const result = mergeHealthIntoService(serviceWithoutLocal, healthResult)
       expect(result.local?.status).toBe('not-running')
       expect(result.local?.health).toBe('healthy')
+    })
+  })
+
+  describe('getLogPaneVisualStatus', () => {
+    it('should return error when serviceHealth is unhealthy', () => {
+      expect(getLogPaneVisualStatus('unhealthy', 'info')).toBe('error')
+    })
+
+    it('should return warning when serviceHealth is degraded', () => {
+      expect(getLogPaneVisualStatus('degraded', 'info')).toBe('warning')
+    })
+
+    it('should return warning when serviceHealth is starting', () => {
+      expect(getLogPaneVisualStatus('starting', 'info')).toBe('warning')
+    })
+
+    it('should return healthy when serviceHealth is healthy', () => {
+      expect(getLogPaneVisualStatus('healthy', 'error')).toBe('healthy')
+    })
+
+    it('should fall back to paneStatus when serviceHealth is unknown', () => {
+      expect(getLogPaneVisualStatus('unknown', 'error')).toBe('error')
+      expect(getLogPaneVisualStatus('unknown', 'warning')).toBe('warning')
+      expect(getLogPaneVisualStatus('unknown', 'info')).toBe('info')
+    })
+
+    it('should fall back to paneStatus when serviceHealth is undefined', () => {
+      expect(getLogPaneVisualStatus(undefined, 'error')).toBe('error')
+      expect(getLogPaneVisualStatus(undefined, 'warning')).toBe('warning')
+      expect(getLogPaneVisualStatus(undefined, 'info')).toBe('info')
+    })
+
+    it('should prioritize health status over log-based status', () => {
+      // Even if logs show errors, healthy service should show as healthy
+      expect(getLogPaneVisualStatus('healthy', 'error')).toBe('healthy')
+      // But unhealthy service shows error even if logs show info
+      expect(getLogPaneVisualStatus('unhealthy', 'info')).toBe('error')
     })
   })
 })

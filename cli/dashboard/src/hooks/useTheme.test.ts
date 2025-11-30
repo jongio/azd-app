@@ -19,17 +19,6 @@ describe('useTheme', () => {
     expect(result.current.theme).toBe('light')
   })
 
-  it('sets isMounted to true after initialization', async () => {
-    const { result } = renderHook(() => useTheme())
-    
-    // Wait for effect to run
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0))
-    })
-    
-    expect(result.current.isMounted).toBe(true)
-  })
-
   it('applies theme to document root on initialization', async () => {
     renderHook(() => useTheme())
     

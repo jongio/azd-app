@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 const isCI: boolean = Boolean(process.env.CI);
 
 /**

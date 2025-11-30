@@ -11,9 +11,6 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Resources')).toBeInTheDocument()
     expect(screen.getByText('Console')).toBeInTheDocument()
-    expect(screen.getByText('Structured')).toBeInTheDocument()
-    expect(screen.getByText('Traces')).toBeInTheDocument()
-    expect(screen.getByText('Metrics')).toBeInTheDocument()
   })
 
   it('should highlight active view', () => {
@@ -47,17 +44,9 @@ describe('Sidebar', () => {
     await user.click(screen.getByRole('button', { name: /console/i }))
     expect(onViewChange).toHaveBeenCalledWith('console')
 
-    // Click Traces
-    await user.click(screen.getByRole('button', { name: /traces/i }))
-    expect(onViewChange).toHaveBeenCalledWith('traces')
-
-    // Click Metrics
-    await user.click(screen.getByRole('button', { name: /metrics/i }))
-    expect(onViewChange).toHaveBeenCalledWith('metrics')
-
-    // Click Structured
-    await user.click(screen.getByRole('button', { name: /structured/i }))
-    expect(onViewChange).toHaveBeenCalledWith('structured')
+    // Click Resources
+    await user.click(screen.getByRole('button', { name: /resources/i }))
+    expect(onViewChange).toHaveBeenCalledWith('resources')
   })
 
   it('should render icons for each navigation item', () => {
@@ -81,12 +70,12 @@ describe('Sidebar', () => {
     expect(consoleButton).toHaveClass('text-foreground-tertiary')
   })
 
-  it('should render all 5 navigation items', () => {
+  it('should render all 2 navigation items', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(5)
+    expect(buttons).toHaveLength(2)
   })
 
   it('should update active state when activeView prop changes', () => {
@@ -150,7 +139,7 @@ describe('Sidebar', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
-    const labels = ['Resources', 'Console', 'Structured', 'Traces', 'Metrics']
+    const labels = ['Resources', 'Console']
     
     labels.forEach(label => {
       const element = screen.getByText(label)
@@ -198,15 +187,9 @@ describe('Sidebar', () => {
     render(<Sidebar activeView="resources" onViewChange={onViewChange} hasActiveErrors={true} />)
 
     const resourcesButton = screen.getByRole('button', { name: /resources/i })
-    const structuredButton = screen.getByRole('button', { name: /structured/i })
-    const tracesButton = screen.getByRole('button', { name: /traces/i })
-    const metricsButton = screen.getByRole('button', { name: /metrics/i })
     
-    // None of these should have error indicators
+    // Resources should not have error indicator
     expect(resourcesButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
-    expect(structuredButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
-    expect(tracesButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
-    expect(metricsButton.querySelector('.animate-status-flash')).not.toBeInTheDocument()
   })
 
   it('should have title attribute on error indicator', () => {

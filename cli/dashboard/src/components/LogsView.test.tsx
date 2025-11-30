@@ -239,26 +239,29 @@ describe('LogsView', () => {
 
   it('should handle WebSocket log streaming', async () => {
     const wsRef: { current: MockWebSocket | null } = { current: null }
-    const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsRef.current = {
-        url,
-        onopen: null,
-        onmessage: null,
-        onerror: null,
-        onclose: null,
-        close: vi.fn(),
+    let mockConstructorCalled = false
+    class WebSocketMock {
+      url: string
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+      onclose: ((event: CloseEvent) => void) | null = null
+      close = vi.fn()
+      constructor(url: string) {
+        this.url = url
+        wsRef.current = this
+        mockConstructorCalled = true
+        setTimeout(() => {
+          this.onopen?.(new Event('open'))
+        }, 0)
       }
-      setTimeout(() => {
-        wsRef.current?.onopen?.(new Event('open'))
-      }, 0)
-      return wsRef.current
-    })
+    }
     globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     render(<LogsView />)
 
     await waitFor(() => {
-      expect(WebSocketMock).toHaveBeenCalled()
+      expect(mockConstructorCalled).toBe(true)
     })
 
     // Simulate receiving a new log entry
@@ -403,20 +406,21 @@ describe('LogsView', () => {
 
   it('should limit logs to 1000 entries', async () => {
     const wsRef: { current: MockWebSocket | null } = { current: null }
-    const WebSocketMock = vi.fn().mockImplementation((url: string) => {
-      wsRef.current = {
-        url,
-        onopen: null,
-        onmessage: null,
-        onerror: null,
-        onclose: null,
-        close: vi.fn(),
+    class WebSocketMock {
+      url: string
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+      onclose: ((event: CloseEvent) => void) | null = null
+      close = vi.fn()
+      constructor(url: string) {
+        this.url = url
+        wsRef.current = this
+        setTimeout(() => {
+          this.onopen?.(new Event('open'))
+        }, 0)
       }
-      setTimeout(() => {
-        wsRef.current?.onopen?.(new Event('open'))
-      }, 0)
-      return wsRef.current
-    })
+    }
     globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     // Create 1005 log entries

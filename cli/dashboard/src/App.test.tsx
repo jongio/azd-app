@@ -259,7 +259,7 @@ describe('App', () => {
     expect(buttons.length).toBeGreaterThan(0)
   })
 
-  it('should show coming soon for unimplemented views', async () => {
+  it('should switch between resources and console views', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -267,13 +267,12 @@ describe('App', () => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
     })
 
-    // Click on a view that's not implemented (e.g., Traces)
-    const tracesButton = screen.getByRole('button', { name: /traces/i })
-    await user.click(tracesButton)
+    // Click on Console view
+    const consoleButton = screen.getByRole('button', { name: /console/i })
+    await user.click(consoleButton)
 
     await waitFor(() => {
-      expect(screen.getByText('Coming Soon')).toBeInTheDocument()
-      expect(screen.getByText('This view is not yet implemented')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Console' })).toBeInTheDocument()
     })
   })
 
