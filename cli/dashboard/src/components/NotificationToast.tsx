@@ -131,22 +131,19 @@ export function NotificationToast({
 
   const severityStyles = {
     critical: {
-      light: 'bg-[hsl(0,84%,95%)] border-[hsl(0,84%,60%)] text-[hsl(0,10%,15%)]',
-      dark: 'dark:bg-[hsl(0,50%,15%)] dark:border-[hsl(0,60%,50%)] dark:text-[hsl(0,5%,95%)]',
-      icon: 'text-[hsl(0,84%,40%)] dark:text-[hsl(0,70%,60%)]',
-      progress: 'bg-[hsl(0,84%,60%)]'
+      container: 'bg-red-50 border-red-500 text-red-900 [data-theme=dark]:bg-red-900/20 [data-theme=dark]:border-red-400 [data-theme=dark]:text-red-100',
+      icon: 'text-red-600 [data-theme=dark]:text-red-400',
+      progress: 'bg-red-500'
     },
     warning: {
-      light: 'bg-[hsl(45,100%,95%)] border-[hsl(45,100%,50%)] text-[hsl(45,10%,15%)]',
-      dark: 'dark:bg-[hsl(45,50%,15%)] dark:border-[hsl(45,80%,50%)] dark:text-[hsl(45,5%,95%)]',
-      icon: 'text-[hsl(45,100%,35%)] dark:text-[hsl(45,90%,60%)]',
-      progress: 'bg-[hsl(45,100%,50%)]'
+      container: 'bg-amber-50 border-amber-500 text-amber-900 [data-theme=dark]:bg-amber-900/20 [data-theme=dark]:border-amber-400 [data-theme=dark]:text-amber-100',
+      icon: 'text-amber-600 [data-theme=dark]:text-amber-400',
+      progress: 'bg-amber-500'
     },
     info: {
-      light: 'bg-[hsl(210,100%,95%)] border-[hsl(210,100%,50%)] text-[hsl(210,10%,15%)]',
-      dark: 'dark:bg-[hsl(210,50%,15%)] dark:border-[hsl(210,80%,50%)] dark:text-[hsl(210,5%,95%)]',
-      icon: 'text-[hsl(210,100%,35%)] dark:text-[hsl(210,90%,60%)]',
-      progress: 'bg-[hsl(210,100%,50%)]'
+      container: 'bg-blue-50 border-blue-500 text-blue-900 [data-theme=dark]:bg-blue-900/20 [data-theme=dark]:border-blue-400 [data-theme=dark]:text-blue-100',
+      icon: 'text-blue-600 [data-theme=dark]:text-blue-400',
+      progress: 'bg-blue-500'
     }
   }
 
@@ -161,8 +158,7 @@ export function NotificationToast({
       aria-describedby={`toast-message-${id}`}
       className={cn(
         'w-full sm:w-[360px] min-h-[80px] max-w-[420px] rounded-lg border shadow-lg transition-all duration-300',
-        styles.light,
-        styles.dark,
+        styles.container,
         isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full',
         isPaused ? 'shadow-xl' : '',
         onClick && 'cursor-pointer hover:shadow-xl hover:scale-[1.01] active:scale-[0.98]',
@@ -174,7 +170,7 @@ export function NotificationToast({
     >
       <div className="p-4 flex gap-3 items-start">
         {/* Icon */}
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <Icon className={cn('w-[18px] h-[18px]', styles.icon)} />
         </div>
 
@@ -210,7 +206,7 @@ export function NotificationToast({
             }
           }}
           aria-label="Dismiss notification"
-          className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
+          className="shrink-0 opacity-70 hover:opacity-100 transition-opacity p-1 rounded hover:bg-secondary/50"
         >
           <X className="w-4 h-4" />
         </button>
@@ -218,7 +214,7 @@ export function NotificationToast({
 
       {/* Progress bar */}
       {autoDismiss && (
-        <div className="h-[2px] bg-black/10 dark:bg-white/10">
+        <div className="h-0.5 bg-muted">
           <div
             className={cn('h-full opacity-60 transition-all duration-75 linear', styles.progress)}
             style={{ width: `${timeRemaining}%` }}

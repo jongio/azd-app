@@ -301,15 +301,15 @@ export function LogsPane({
 
   const borderClass = {
     error: 'border-red-500',
-    warning: 'border-yellow-500',
+    warning: 'border-amber-500',
     healthy: 'border-green-500',
-    info: 'border-gray-300 dark:border-gray-600'
+    info: 'border-border'
   }[visualStatus]
 
   const headerBgClass = {
-    error: 'bg-red-50 dark:bg-red-900/20',
-    warning: 'bg-yellow-50 dark:bg-yellow-900/20',
-    healthy: 'bg-green-50 dark:bg-green-900/20',
+    error: 'log-header-error',
+    warning: 'log-header-warning',
+    healthy: 'log-header-healthy',
     info: 'bg-card'
   }[visualStatus]
 
