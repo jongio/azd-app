@@ -162,28 +162,28 @@ export function LogsToolbar({
                 <Columns className="w-4 h-4 ml-1.5 text-muted-foreground" />
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => onGridColumnsChange(Math.max(1, gridColumns - 1))}
                   disabled={gridColumns <= 1}
                   aria-label="Decrease columns"
                   title="Decrease columns"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7"
                 >
-                  <Minus className="w-3 h-3" />
+                  <Minus className="!w-4 !h-4" strokeWidth={2.5} />
                 </Button>
-                <span className="w-4 text-center text-sm font-medium" aria-live="polite">
+                <span className="w-5 text-center text-sm font-medium" aria-live="polite">
                   {gridColumns}
                 </span>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => onGridColumnsChange(Math.min(6, gridColumns + 1))}
                   disabled={gridColumns >= 6}
                   aria-label="Increase columns"
                   title="Increase columns"
-                  className="h-7 w-7 p-0"
+                  className="h-7 w-7"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="!w-4 !h-4" strokeWidth={2.5} />
                 </Button>
               </div>
             )}

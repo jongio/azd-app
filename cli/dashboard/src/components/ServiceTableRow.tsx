@@ -1,6 +1,7 @@
 import { Server, FileText, ExternalLink } from 'lucide-react'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { StatusCell } from '@/components/StatusCell'
+import { ServiceActions } from '@/components/ServiceActions'
 import type { Service, HealthCheckResult } from '@/types'
 
 interface ServiceTableRowProps {
@@ -114,6 +115,7 @@ export function ServiceTableRow({ service, onViewLogs, healthStatus }: ServiceTa
       {/* Actions Column */}
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
+          <ServiceActions service={service} variant="compact" />
           <button
             onClick={() => onViewLogs?.(service.name)}
             className="p-2 rounded-lg hover:bg-secondary transition-colors group"

@@ -1,5 +1,6 @@
-import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertCircle, AlertTriangle, Clock, Zap, Globe } from 'lucide-react'
+import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertTriangle, Clock, Zap, Globe } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { ServiceActions } from '@/components/ServiceActions'
 import type { Service, HealthCheckResult } from '@/types'
 import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime, formatResponseTime, formatUptime, getCheckTypeDisplay } from '@/lib/service-utils'
 
@@ -67,6 +68,41 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
               {statusDisplay.text}
             </span>
           </Badge>
+        </div>
+
+        {/* Error/Warning Banner - Shown prominently after header */}
+        {(service.error || healthDetails?.lastError) && (
+          <div className="mb-4 p-3 rounded-xl bg-destructive/15 border border-destructive/50">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-destructive">Error Detected</p>
+                <p className="text-xs text-destructive/80 mt-1">
+                  {service.error || healthDetails?.lastError}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Degraded Warning Banner */}
+        {!service.error && !healthDetails?.lastError && health === 'degraded' && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/50">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-amber-600 dark:text-amber-400">Performance Degraded</p>
+                <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1">
+                  Service is responding slowly or intermittently
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons Row */}
+        <div className="mb-4">
+          <ServiceActions service={service} variant="default" />
         </div>
 
         {/* Local URL Link (if available) */}
@@ -221,18 +257,6 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
           </div>
         )}
 
-        {/* Error State */}
-        {(service.error || healthDetails?.lastError) && (
-          <div className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-medium text-destructive mb-1">Error Detected</p>
-                <p className="text-xs text-destructive/80">{service.error || healthDetails?.lastError}</p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

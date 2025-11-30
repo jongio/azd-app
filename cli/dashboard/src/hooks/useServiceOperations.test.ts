@@ -70,11 +70,35 @@ describe('useServiceOperations', () => {
       expect(actions).toContain('start')
     })
 
-    it('returns start for error service', () => {
+    it('returns stop and restart for error service with PID (process alive)', () => {
       const { result } = renderHook(() => useServiceOperations())
       const service = createMockService('test', 'error')
+      // createMockService includes pid: 1234, so process is alive
+      const actions = result.current.getAvailableActions(service)
+      expect(actions).toContain('restart')
+      expect(actions).toContain('stop')
+      expect(actions).not.toContain('start')
+    })
+
+    it('returns start for error service without PID (process dead)', () => {
+      const { result } = renderHook(() => useServiceOperations())
+      const service: Service = {
+        name: 'test',
+        local: {
+          status: 'error',
+          health: 'unhealthy',
+          // No pid - process is dead
+          port: 3000,
+          url: 'http://localhost:3000',
+        },
+        language: 'node',
+        framework: 'express',
+        project: '/test/project',
+      }
       const actions = result.current.getAvailableActions(service)
       expect(actions).toContain('start')
+      expect(actions).not.toContain('stop')
+      expect(actions).not.toContain('restart')
     })
 
     it('returns restart and stop for running service', () => {

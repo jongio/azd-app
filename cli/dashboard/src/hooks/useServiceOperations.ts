@@ -237,27 +237,54 @@ export function useServiceOperations() {
 
   /**
    * Get available actions for a service based on its current status.
+   * 
+   * IMPORTANT: This function uses PROCESS status (running/stopped/etc),
+   * NOT health status (healthy/unhealthy/degraded). A running but unhealthy
+   * service should show Stop/Restart because the process IS running.
    */
   const getAvailableActions = useCallback((service: Service): ServiceOperation[] => {
     const status = service.local?.status ?? 'not-running'
     const actions: ServiceOperation[] = []
 
+    // First, check if process appears to be running based on PID or port
+    // This is a fallback for when status might not reflect actual state
+    const hasRunningProcess = !!(service.local?.pid || service.local?.port)
+
     switch (status) {
       case 'stopped':
       case 'not-running':
-      case 'error':
         actions.push('start')
         break
       case 'running':
       case 'ready':
+        // Process is running - show stop/restart regardless of health status
         actions.push('restart', 'stop')
         break
       case 'starting':
-        // Limited actions during transition
+        // Allow stopping a stuck startup
         actions.push('stop')
         break
       case 'stopping':
         // No actions during stopping
+        break
+      case 'error':
+        // Error state needs special handling:
+        // If process is alive (has PID), show stop/restart
+        // If process is dead (no PID), show start
+        if (service.local?.pid) {
+          actions.push('restart', 'stop')
+        } else {
+          actions.push('start')
+        }
+        break
+      default:
+        // For any unknown status, infer from process indicators
+        // If we have a PID or port, assume the process is running
+        if (hasRunningProcess) {
+          actions.push('restart', 'stop')
+        } else {
+          actions.push('start')
+        }
         break
     }
 
