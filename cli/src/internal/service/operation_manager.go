@@ -146,16 +146,28 @@ func (m *ServiceOperationManager) ExecuteOperation(
 	defer cancel()
 
 	// Use a channel to implement lock with timeout
+	// The done channel signals the goroutine to release the lock if timeout fired
 	lockAcquired := make(chan struct{})
+	done := make(chan struct{})
 	go func() {
 		mtx.Lock()
-		close(lockAcquired)
+		select {
+		case <-done:
+			// Timeout already fired, release the lock immediately
+			mtx.Unlock()
+			return
+		case lockAcquired <- struct{}{}:
+			// Successfully signaled that lock was acquired
+			// Caller will handle unlock via defer
+		}
 	}()
 
 	select {
 	case <-lockAcquired:
 		// Lock acquired, proceed
+		defer mtx.Unlock()
 	case <-lockCtx.Done():
+		close(done) // Signal goroutine to release lock if it acquires it later
 		result.Error = fmt.Errorf("timeout waiting for service lock (another operation may be in progress)")
 		result.Duration = time.Since(startTime)
 		slog.Warn("operation lock timeout",
@@ -163,7 +175,6 @@ func (m *ServiceOperationManager) ExecuteOperation(
 			slog.String("operation", string(operation)))
 		return result
 	}
-	defer mtx.Unlock()
 
 	// Check if operation is already in progress
 	currentState := m.GetOperationState(serviceName)

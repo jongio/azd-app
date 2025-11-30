@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
@@ -71,169 +73,141 @@ func NewServiceController(projectDir string) (*ServiceController, error) {
 
 // GetRunningServices returns a list of running service names.
 func (c *ServiceController) GetRunningServices() []string {
-	var running []string
-	for _, entry := range c.registry.ListAll() {
-		if entry.Status == constants.StatusRunning || entry.Status == constants.StatusReady {
-			running = append(running, entry.Name)
-		}
-	}
-	return running
+	return c.filterServices(func(status string) bool {
+		return status == constants.StatusRunning || status == constants.StatusReady
+	})
 }
 
 // GetStoppedServices returns a list of stopped service names.
 func (c *ServiceController) GetStoppedServices() []string {
-	var stopped []string
-	for _, entry := range c.registry.ListAll() {
-		if entry.Status == constants.StatusStopped || entry.Status == constants.StatusNotRunning || entry.Status == constants.StatusError {
-			stopped = append(stopped, entry.Name)
-		}
-	}
-	return stopped
+	return c.filterServices(func(status string) bool {
+		return status == constants.StatusStopped || status == constants.StatusNotRunning || status == constants.StatusError
+	})
 }
 
 // GetAllServices returns a list of all registered service names.
 func (c *ServiceController) GetAllServices() []string {
-	var all []string
+	return c.filterServices(func(_ string) bool { return true })
+}
+
+// filterServices returns service names matching the given status predicate.
+func (c *ServiceController) filterServices(predicate func(status string) bool) []string {
+	var names []string
 	for _, entry := range c.registry.ListAll() {
-		all = append(all, entry.Name)
+		if predicate(entry.Status) {
+			names = append(names, entry.Name)
+		}
 	}
-	return all
+	return names
+}
+
+// newErrorResult creates a ServiceControlResult with an error.
+func newErrorResult(serviceName, errMsg string) *ServiceControlResult {
+	return &ServiceControlResult{
+		ServiceName: serviceName,
+		Success:     false,
+		Error:       errMsg,
+		Message:     errMsg,
+	}
+}
+
+// validateAndGetService validates the service name and retrieves the registry entry.
+func (c *ServiceController) validateAndGetService(serviceName string) (*registry.ServiceRegistryEntry, *ServiceControlResult) {
+	if err := security.ValidateServiceName(serviceName, false); err != nil {
+		return nil, newErrorResult(serviceName, err.Error())
+	}
+
+	entry, exists := c.registry.GetService(serviceName)
+	if !exists {
+		return nil, newErrorResult(serviceName, fmt.Sprintf("service '%s' not found", serviceName))
+	}
+
+	return entry, nil
+}
+
+// isRunning returns true if the service status indicates it's running.
+func isRunning(status string) bool {
+	return status == constants.StatusRunning || status == constants.StatusReady
+}
+
+// isStopped returns true if the service status indicates it's stopped.
+func isStopped(status string) bool {
+	return status == constants.StatusStopped || status == constants.StatusNotRunning
 }
 
 // StartService starts a single service.
 func (c *ServiceController) StartService(ctx context.Context, serviceName string) *ServiceControlResult {
-	result := &ServiceControlResult{
-		ServiceName: serviceName,
-		Success:     false,
+	entry, errResult := c.validateAndGetService(serviceName)
+	if errResult != nil {
+		return errResult
 	}
 
-	// Validate service name to prevent injection
-	if err := security.ValidateServiceName(serviceName, false); err != nil {
-		result.Error = err.Error()
-		result.Message = result.Error
-		return result
+	if isRunning(entry.Status) {
+		return newErrorResult(serviceName, fmt.Sprintf("service '%s' is already running", serviceName))
 	}
 
-	entry, exists := c.registry.GetService(serviceName)
-	if !exists {
-		result.Error = fmt.Sprintf("service '%s' not found", serviceName)
-		result.Message = result.Error
-		return result
-	}
-
-	// Check if already running
-	if entry.Status == constants.StatusRunning || entry.Status == constants.StatusReady {
-		result.Error = fmt.Sprintf("service '%s' is already running", serviceName)
-		result.Message = result.Error
-		return result
-	}
-
-	// Execute with operation manager
 	opResult := c.opManager.ExecuteOperation(ctx, serviceName, service.OpStart, func(ctx context.Context) error {
 		return c.performStart(entry, serviceName)
 	})
 
-	if opResult.Error != nil {
-		result.Error = opResult.Error.Error()
-		result.Message = fmt.Sprintf("Failed to start '%s': %s", serviceName, opResult.Error)
-	} else {
-		result.Success = true
-		result.Status = constants.StatusRunning
-		result.Message = fmt.Sprintf("Service '%s' started", serviceName)
-	}
-	result.Duration = opResult.Duration.Round(time.Millisecond).String()
-	return result
+	return c.buildResult(serviceName, opResult, "start", constants.StatusRunning)
 }
 
 // StopService stops a single service.
 func (c *ServiceController) StopService(ctx context.Context, serviceName string) *ServiceControlResult {
-	result := &ServiceControlResult{
-		ServiceName: serviceName,
-		Success:     false,
+	entry, errResult := c.validateAndGetService(serviceName)
+	if errResult != nil {
+		return errResult
 	}
 
-	// Validate service name to prevent injection
-	if err := security.ValidateServiceName(serviceName, false); err != nil {
-		result.Error = err.Error()
-		result.Message = result.Error
-		return result
+	if isStopped(entry.Status) {
+		return newErrorResult(serviceName, fmt.Sprintf("service '%s' is already stopped", serviceName))
 	}
 
-	entry, exists := c.registry.GetService(serviceName)
-	if !exists {
-		result.Error = fmt.Sprintf("service '%s' not found", serviceName)
-		result.Message = result.Error
-		return result
-	}
-
-	// Check if already stopped
-	if entry.Status == constants.StatusStopped || entry.Status == constants.StatusNotRunning {
-		result.Error = fmt.Sprintf("service '%s' is already stopped", serviceName)
-		result.Message = result.Error
-		return result
-	}
-
-	// Execute with operation manager
 	opResult := c.opManager.ExecuteOperation(ctx, serviceName, service.OpStop, func(ctx context.Context) error {
 		return c.performStop(entry, serviceName)
 	})
 
-	if opResult.Error != nil {
-		result.Error = opResult.Error.Error()
-		result.Message = fmt.Sprintf("Failed to stop '%s': %s", serviceName, opResult.Error)
-	} else {
-		result.Success = true
-		result.Status = constants.StatusStopped
-		result.Message = fmt.Sprintf("Service '%s' stopped", serviceName)
-	}
-	result.Duration = opResult.Duration.Round(time.Millisecond).String()
-	return result
+	return c.buildResult(serviceName, opResult, "stop", constants.StatusStopped)
 }
 
 // RestartService restarts a single service.
 func (c *ServiceController) RestartService(ctx context.Context, serviceName string) *ServiceControlResult {
-	result := &ServiceControlResult{
-		ServiceName: serviceName,
-		Success:     false,
+	entry, errResult := c.validateAndGetService(serviceName)
+	if errResult != nil {
+		return errResult
 	}
 
-	// Validate service name to prevent injection
-	if err := security.ValidateServiceName(serviceName, false); err != nil {
-		result.Error = err.Error()
-		result.Message = result.Error
-		return result
-	}
-
-	entry, exists := c.registry.GetService(serviceName)
-	if !exists {
-		result.Error = fmt.Sprintf("service '%s' not found", serviceName)
-		result.Message = result.Error
-		return result
-	}
-
-	// Execute with operation manager
 	opResult := c.opManager.ExecuteOperation(ctx, serviceName, service.OpRestart, func(ctx context.Context) error {
-		// Stop if running
-		if entry.Status == constants.StatusRunning || entry.Status == constants.StatusReady {
+		if isRunning(entry.Status) {
 			if err := c.performStop(entry, serviceName); err != nil {
 				return fmt.Errorf("stop phase failed: %w", err)
 			}
-			// Refresh entry after stop
 			entry, _ = c.registry.GetService(serviceName)
 		}
-		// Start
 		return c.performStart(entry, serviceName)
 	})
 
+	return c.buildResult(serviceName, opResult, "restart", constants.StatusRunning)
+}
+
+// buildResult constructs a ServiceControlResult from an operation result.
+func (c *ServiceController) buildResult(serviceName string, opResult *service.OperationResult, opVerb, successStatus string) *ServiceControlResult {
+	result := &ServiceControlResult{
+		ServiceName: serviceName,
+		Duration:    opResult.Duration.Round(time.Millisecond).String(),
+	}
+
 	if opResult.Error != nil {
+		result.Success = false
 		result.Error = opResult.Error.Error()
-		result.Message = fmt.Sprintf("Failed to restart '%s': %s", serviceName, opResult.Error)
+		result.Message = fmt.Sprintf("Failed to %s '%s': %s", opVerb, serviceName, opResult.Error)
 	} else {
 		result.Success = true
-		result.Status = constants.StatusRunning
-		result.Message = fmt.Sprintf("Service '%s' restarted", serviceName)
+		result.Status = successStatus
+		result.Message = fmt.Sprintf("Service '%s' %sed", serviceName, opVerb)
 	}
-	result.Duration = opResult.Duration.Round(time.Millisecond).String()
+
 	return result
 }
 
@@ -382,7 +356,7 @@ func (c *ServiceController) loadEnvVars(runtime *service.ServiceRuntime) map[str
 }
 
 // printResult prints a single service control result to the console.
-func printResult(result *ServiceControlResult, operation string) {
+func printResult(result *ServiceControlResult) {
 	if result.Success {
 		output.ItemSuccess("%s: %s", result.ServiceName, result.Message)
 	} else {
@@ -391,9 +365,9 @@ func printResult(result *ServiceControlResult, operation string) {
 }
 
 // printBulkResult prints bulk operation results to the console.
-func printBulkResult(result *BulkServiceControlResult, operation string) {
+func printBulkResult(result *BulkServiceControlResult) {
 	for _, r := range result.Results {
-		printResult(&r, operation)
+		printResult(&r)
 	}
 
 	output.Newline()
@@ -402,4 +376,145 @@ func printBulkResult(result *BulkServiceControlResult, operation string) {
 	} else {
 		output.Warning("%s", result.Message)
 	}
+}
+
+// setupContextWithSignalHandling creates a context that cancels on SIGINT/SIGTERM.
+// Returns the context, cancel function, and a cleanup function that should be deferred.
+func setupContextWithSignalHandling() (context.Context, context.CancelFunc, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		cancel()
+	}()
+
+	cleanup := func() {
+		signal.Stop(sigChan)
+		cancel()
+	}
+
+	return ctx, cancel, cleanup
+}
+
+// printNoServicesRegistered outputs the no services registered message.
+func printNoServicesRegistered() {
+	output.Info("No services are registered")
+	output.Item("Run 'azd app run' first to start your development environment")
+}
+
+// noServicesRegisteredResult returns a BulkServiceControlResult for when no services are registered.
+func noServicesRegisteredResult() BulkServiceControlResult {
+	return BulkServiceControlResult{
+		Success: false,
+		Message: "No services registered. Run 'azd app run' first.",
+		Results: []ServiceControlResult{},
+	}
+}
+
+// noServicesToOperateResult returns a successful BulkServiceControlResult when no services need the operation.
+func noServicesToOperateResult(stateDesc, opVerb string) BulkServiceControlResult {
+	return BulkServiceControlResult{
+		Success: true,
+		Message: fmt.Sprintf("No %s services to %s", stateDesc, opVerb),
+		Results: []ServiceControlResult{},
+	}
+}
+
+// handleNoServicesCase handles the common pattern when --all finds no applicable services.
+// Returns true if the case was handled (caller should return), false otherwise.
+func handleNoServicesCase(ctrl *ServiceController, stateDesc, opVerb string) bool {
+	if len(ctrl.GetAllServices()) == 0 {
+		printNoServicesRegistered()
+		if output.IsJSON() {
+			_ = output.PrintJSON(noServicesRegisteredResult())
+		}
+		return true
+	}
+	output.Info("No %s services to %s (all services are already %s)", stateDesc, opVerb, oppositeState(stateDesc))
+	if output.IsJSON() {
+		_ = output.PrintJSON(noServicesToOperateResult(stateDesc, opVerb))
+	}
+	return true
+}
+
+// oppositeState returns the opposite state description for user messaging.
+func oppositeState(state string) string {
+	switch state {
+	case "stopped":
+		return "running"
+	case "running":
+		return "stopped"
+	default:
+		return "in another state"
+	}
+}
+
+// confirmBulkOperation prompts for confirmation of bulk operations.
+// Returns true if the user confirms or skipConfirm is true, false if cancelled.
+func confirmBulkOperation(count int, opVerb string, skipConfirm bool) bool {
+	if skipConfirm || output.IsJSON() {
+		return true
+	}
+	return output.Confirm(fmt.Sprintf("%s all %d service(s)?", capitalize(opVerb), count))
+}
+
+// capitalize returns the string with its first letter capitalized.
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// executeServiceOperation handles single vs bulk operation execution with consistent output.
+func executeServiceOperation(
+	ctx context.Context,
+	services []string,
+	singleOp func(ctx context.Context, name string) *ServiceControlResult,
+	bulkOp func(ctx context.Context, names []string) *BulkServiceControlResult,
+	opVerb string,
+) error {
+	if len(services) == 1 {
+		result := singleOp(ctx, services[0])
+		if output.IsJSON() {
+			return output.PrintJSON(result)
+		}
+		printResult(result)
+		if !result.Success {
+			return fmt.Errorf("failed to %s service: %s", opVerb, result.Error)
+		}
+		return nil
+	}
+
+	result := bulkOp(ctx, services)
+	if output.IsJSON() {
+		return output.PrintJSON(result)
+	}
+	printBulkResult(result)
+	if !result.Success {
+		return fmt.Errorf("failed to %s %d service(s)", opVerb, result.FailureCount)
+	}
+	return nil
+}
+
+// parseServiceList splits a comma-separated service list, trims whitespace, and validates names.
+func parseServiceList(services string) ([]string, error) {
+	if services == "" {
+		return nil, nil
+	}
+	parts := strings.Split(services, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			if err := security.ValidateServiceName(trimmed, false); err != nil {
+				return nil, fmt.Errorf("invalid service name '%s': %w", trimmed, err)
+			}
+			result = append(result, trimmed)
+		}
+	}
+	return result, nil
 }

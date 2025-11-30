@@ -1,11 +1,7 @@
 package commands
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 
@@ -69,77 +65,28 @@ func runStop(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set up context with signal handling
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		cancel()
-	}()
+	ctx, _, cleanup := setupContextWithSignalHandling()
+	defer cleanup()
 
 	// Determine which services to stop
 	var servicesToStop []string
 	if stopAll {
 		servicesToStop = ctrl.GetRunningServices()
-		// Confirm destructive operation
-		if len(servicesToStop) > 0 && !stopYes && !output.IsJSON() {
-			if !output.Confirm(fmt.Sprintf("Stop all %d running service(s)?", len(servicesToStop))) {
-				output.Info("Operation cancelled")
-				return nil
-			}
-		}
-		if len(servicesToStop) == 0 {
-			// Check if there are any services at all
-			allServices := ctrl.GetAllServices()
-			if len(allServices) == 0 {
-				output.Info("No services are registered")
-				output.Item("Run 'azd app run' first to start your development environment")
-				if output.IsJSON() {
-					return output.PrintJSON(BulkServiceControlResult{
-						Success: false,
-						Message: "No services registered. Run 'azd app run' first.",
-						Results: []ServiceControlResult{},
-					})
-				}
-				return nil
-			}
-			output.Info("No running services to stop (all services are already stopped)")
-			if output.IsJSON() {
-				return output.PrintJSON(BulkServiceControlResult{
-					Success: true,
-					Message: "No running services to stop",
-					Results: []ServiceControlResult{},
-				})
-			}
+		if len(servicesToStop) > 0 && !confirmBulkOperation(len(servicesToStop), "stop", stopYes) {
+			output.Info("Operation cancelled")
 			return nil
 		}
+		if len(servicesToStop) == 0 {
+			if handleNoServicesCase(ctrl, "running", "stop") {
+				return nil
+			}
+		}
 	} else {
-		servicesToStop = parseServiceList(stopService)
+		servicesToStop, err = parseServiceList(stopService)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Execute operation
-	if len(servicesToStop) == 1 {
-		result := ctrl.StopService(ctx, servicesToStop[0])
-		if output.IsJSON() {
-			return output.PrintJSON(result)
-		}
-		printResult(result, "stop")
-		if !result.Success {
-			return fmt.Errorf("failed to stop service: %s", result.Error)
-		}
-		return nil
-	}
-
-	// Bulk operation
-	result := ctrl.BulkStop(ctx, servicesToStop)
-	if output.IsJSON() {
-		return output.PrintJSON(result)
-	}
-	printBulkResult(result, "stop")
-	if !result.Success {
-		return fmt.Errorf("failed to stop %d service(s)", result.FailureCount)
-	}
-	return nil
+	return executeServiceOperation(ctx, servicesToStop, ctrl.StopService, ctrl.BulkStop, "stop")
 }

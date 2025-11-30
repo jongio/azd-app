@@ -1,12 +1,7 @@
 package commands
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 
@@ -68,86 +63,24 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set up context with signal handling
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		cancel()
-	}()
+	ctx, _, cleanup := setupContextWithSignalHandling()
+	defer cleanup()
 
 	// Determine which services to start
 	var servicesToStart []string
 	if startAll {
 		servicesToStart = ctrl.GetStoppedServices()
 		if len(servicesToStart) == 0 {
-			// Check if there are any services at all
-			allServices := ctrl.GetAllServices()
-			if len(allServices) == 0 {
-				output.Info("No services are registered")
-				output.Item("Run 'azd app run' first to start your development environment")
-				if output.IsJSON() {
-					return output.PrintJSON(BulkServiceControlResult{
-						Success: false,
-						Message: "No services registered. Run 'azd app run' first.",
-						Results: []ServiceControlResult{},
-					})
-				}
+			if handleNoServicesCase(ctrl, "stopped", "start") {
 				return nil
 			}
-			output.Info("No stopped services to start (all services are already running)")
-			if output.IsJSON() {
-				return output.PrintJSON(BulkServiceControlResult{
-					Success: true,
-					Message: "No stopped services to start",
-					Results: []ServiceControlResult{},
-				})
-			}
-			return nil
 		}
 	} else {
-		servicesToStart = parseServiceList(startService)
-	}
-
-	// Execute operation
-	if len(servicesToStart) == 1 {
-		result := ctrl.StartService(ctx, servicesToStart[0])
-		if output.IsJSON() {
-			return output.PrintJSON(result)
-		}
-		printResult(result, "start")
-		if !result.Success {
-			return fmt.Errorf("failed to start service: %s", result.Error)
-		}
-		return nil
-	}
-
-	// Bulk operation
-	result := ctrl.BulkStart(ctx, servicesToStart)
-	if output.IsJSON() {
-		return output.PrintJSON(result)
-	}
-	printBulkResult(result, "start")
-	if !result.Success {
-		return fmt.Errorf("failed to start %d service(s)", result.FailureCount)
-	}
-	return nil
-}
-
-// parseServiceList splits a comma-separated service list and trims whitespace.
-func parseServiceList(services string) []string {
-	if services == "" {
-		return nil
-	}
-	parts := strings.Split(services, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		trimmed := strings.TrimSpace(p)
-		if trimmed != "" {
-			result = append(result, trimmed)
+		servicesToStart, err = parseServiceList(startService)
+		if err != nil {
+			return err
 		}
 	}
-	return result
+
+	return executeServiceOperation(ctx, servicesToStart, ctrl.StartService, ctrl.BulkStart, "start")
 }
