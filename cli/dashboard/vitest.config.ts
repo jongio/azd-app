@@ -4,9 +4,7 @@ import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // Handle __dirname for ESM
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
 const __filename: string = fileURLToPath(import.meta.url)
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 const __dirname: string = path.dirname(__filename)
 
 export default defineConfig({
@@ -34,7 +32,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       '@': path.resolve(__dirname, './src'),
     } as Record<string, string>,
   },
