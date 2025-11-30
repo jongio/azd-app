@@ -103,12 +103,12 @@ describe('LogsToolbar', () => {
       expect(gridButton).toBeInTheDocument()
     })
 
-    it('should not show view mode toggle in fullscreen mode', () => {
+    it('should show view mode toggle in fullscreen mode', () => {
       const props = createDefaultProps({ isFullscreen: true })
       render(<LogsToolbar {...props} />)
 
-      const gridButtons = screen.queryAllByRole('button', { name: /grid/i })
-      expect(gridButtons.length).toBe(0)
+      const gridButton = screen.getByRole('button', { name: /grid/i })
+      expect(gridButton).toBeInTheDocument()
     })
 
     it('should highlight active view mode', () => {
@@ -194,11 +194,11 @@ describe('LogsToolbar', () => {
       expect(increaseButton).toBeDisabled()
     })
 
-    it('should not show grid columns control in fullscreen mode', () => {
+    it('should show grid columns control in fullscreen mode', () => {
       const props = createDefaultProps({ isFullscreen: true, viewMode: 'grid' })
       render(<LogsToolbar {...props} />)
 
-      expect(screen.queryByRole('group', { name: /grid columns/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('group', { name: /grid columns/i })).toBeInTheDocument()
     })
   })
 

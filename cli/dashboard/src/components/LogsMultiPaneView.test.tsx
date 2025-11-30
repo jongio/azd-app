@@ -105,7 +105,7 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     })
   })
 
-  it('should hide view mode toggle in fullscreen', async () => {
+  it('should show view mode toggle in fullscreen', async () => {
     const user = userEvent.setup()
     
     render(<LogsMultiPaneView />)
@@ -118,9 +118,10 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     // Enter fullscreen via keyboard shortcut
     await user.keyboard('{F11}')
 
+    // View mode toggle should still be visible in fullscreen
     await waitFor(() => {
-      expect(screen.queryByText('Grid')).not.toBeInTheDocument()
-      expect(screen.queryByText('Unified')).not.toBeInTheDocument()
+      expect(screen.getByText('Grid')).toBeInTheDocument()
+      expect(screen.getByText('Unified')).toBeInTheDocument()
     })
   })
 

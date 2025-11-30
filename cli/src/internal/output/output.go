@@ -333,7 +333,9 @@ func Confirm(message string) bool {
 	}
 	fmt.Printf("%s%s%s [y/N]: ", BrightYellow, message, Reset)
 	var response string
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		return false // On read error, default to no
+	}
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes"
 }

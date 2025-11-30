@@ -120,74 +120,70 @@ export function LogsToolbar({
     >
       {/* Group 1: View Mode & Grid Columns */}
       <div className="flex items-center gap-2">
-        {!isFullscreen && (
-          <>
-            {/* View Mode Toggle */}
-            <div
-              role="group"
-              aria-label="View mode"
-              className="flex gap-0.5 border rounded-lg p-0.5"
-            >
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => onViewModeChange('grid')}
-                aria-pressed={viewMode === 'grid'}
-                title="Grid View (Ctrl+Shift+L)"
-                className="h-7 px-2"
-              >
-                <LayoutGrid className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1.5">Grid</span>
-              </Button>
-              <Button
-                variant={viewMode === 'unified' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => onViewModeChange('unified')}
-                aria-pressed={viewMode === 'unified'}
-                title="Unified View (Ctrl+Shift+L)"
-                className="h-7 px-2"
-              >
-                <List className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1.5">Unified</span>
-              </Button>
-            </div>
+        {/* View Mode Toggle */}
+        <div
+          role="group"
+          aria-label="View mode"
+          className="flex gap-0.5 border rounded-lg p-0.5"
+        >
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('grid')}
+            aria-pressed={viewMode === 'grid'}
+            title="Grid View (Ctrl+Shift+L)"
+            className="h-7 px-2"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="hidden sm:inline ml-1.5">Grid</span>
+          </Button>
+          <Button
+            variant={viewMode === 'unified' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('unified')}
+            aria-pressed={viewMode === 'unified'}
+            title="Unified View (Ctrl+Shift+L)"
+            className="h-7 px-2"
+          >
+            <List className="w-4 h-4" />
+            <span className="hidden sm:inline ml-1.5">Unified</span>
+          </Button>
+        </div>
 
-            {/* Grid Columns Control - Only show in grid mode */}
-            {viewMode === 'grid' && (
-              <div
-                role="group"
-                aria-label="Grid columns"
-                className="flex items-center gap-1 border rounded-lg p-0.5"
-              >
-                <Columns className="w-4 h-4 ml-1.5 text-muted-foreground" />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onGridColumnsChange(Math.max(1, gridColumns - 1))}
-                  disabled={gridColumns <= 1}
-                  aria-label="Decrease columns"
-                  title="Decrease columns"
-                  className="h-7 w-7"
-                >
-                  <Minus className="!w-4 !h-4" strokeWidth={2.5} />
-                </Button>
-                <span className="w-5 text-center text-sm font-medium" aria-live="polite">
-                  {gridColumns}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onGridColumnsChange(Math.min(6, gridColumns + 1))}
-                  disabled={gridColumns >= 6}
-                  aria-label="Increase columns"
-                  title="Increase columns"
-                  className="h-7 w-7"
-                >
-                  <Plus className="!w-4 !h-4" strokeWidth={2.5} />
-                </Button>
-              </div>
-            )}
-          </>
+        {/* Grid Columns Control - Only show in grid mode */}
+        {viewMode === 'grid' && (
+          <div
+            role="group"
+            aria-label="Grid columns"
+            className="flex items-center gap-1 border rounded-lg p-0.5"
+          >
+            <Columns className="w-4 h-4 ml-1.5 text-muted-foreground" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onGridColumnsChange(Math.max(1, gridColumns - 1))}
+              disabled={gridColumns <= 1}
+              aria-label="Decrease columns"
+              title="Decrease columns"
+              className="h-7 w-7"
+            >
+              <Minus className="!w-4 !h-4" strokeWidth={2.5} />
+            </Button>
+            <span className="w-5 text-center text-sm font-medium" aria-live="polite">
+              {gridColumns}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onGridColumnsChange(Math.min(6, gridColumns + 1))}
+              disabled={gridColumns >= 6}
+              aria-label="Increase columns"
+              title="Increase columns"
+              className="h-7 w-7"
+            >
+              <Plus className="!w-4 !h-4" strokeWidth={2.5} />
+            </Button>
+          </div>
         )}
       </div>
 
