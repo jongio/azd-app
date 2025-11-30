@@ -5,9 +5,28 @@ import type { NotificationHistoryItem } from '@/components/NotificationCenter'
 const STORAGE_KEY = 'azd-notification-history'
 const MAX_HISTORY = 100
 
+/** Load history from localStorage */
+function loadHistoryFromStorage(): NotificationHistoryItem[] {
+  if (typeof window === 'undefined') return []
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as Array<Omit<NotificationHistoryItem, 'timestamp'> & { timestamp: string }>
+      return parsed.map((item) => ({
+        ...item,
+        timestamp: new Date(item.timestamp)
+      }))
+    } catch (e) {
+      console.error('Failed to parse notification history:', e)
+    }
+  }
+  return []
+}
+
 export function useNotifications() {
   const [toastNotifications, setToastNotifications] = useState<Notification[]>([])
-  const [history, setHistory] = useState<NotificationHistoryItem[]>([])
+  // Initialize history from localStorage using lazy initializer
+  const [history, setHistory] = useState<NotificationHistoryItem[]>(loadHistoryFromStorage)
   const [isCenterOpen, setIsCenterOpen] = useState(false)
   
   // Track pending dismiss timeouts for cleanup
@@ -19,22 +38,6 @@ export function useNotifications() {
     return () => {
       timeouts.forEach((timeout) => clearTimeout(timeout))
       timeouts.clear()
-    }
-  }, [])
-
-  // Load history from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Array<Omit<NotificationHistoryItem, 'timestamp'> & { timestamp: string }>
-        setHistory(parsed.map((item) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        })))
-      } catch (e) {
-        console.error('Failed to parse notification history:', e)
-      }
     }
   }, [])
 

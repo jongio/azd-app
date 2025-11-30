@@ -31,8 +31,15 @@ export function NotificationToast({
   const [isPaused, setIsPaused] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(100)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const startTimeRef = useRef<number>(Date.now())
+  const startTimeRef = useRef<number | null>(null)
   const pausedTimeRef = useRef<number>(0)
+  
+  // Initialize startTime on first render effect
+  useEffect(() => {
+    if (startTimeRef.current === null) {
+      startTimeRef.current = Date.now()
+    }
+  }, [])
 
   // Default timeouts based on severity
   const timeout = dismissTimeout ?? (severity === 'critical' ? 10000 : 5000)
@@ -68,18 +75,21 @@ export function NotificationToast({
 
   // Auto-dismiss timer
   useEffect(() => {
-    if (!autoDismiss || isPaused) return
+    if (!autoDismiss || isPaused || startTimeRef.current === null) return
 
-    const elapsed = Date.now() - startTimeRef.current - pausedTimeRef.current
+    const startTime = startTimeRef.current
+    const elapsed = Date.now() - startTime - pausedTimeRef.current
     const remaining = timeout - elapsed
 
     if (remaining <= 0) {
-      handleDismiss()
-      return
+      // Use setTimeout to avoid synchronous setState in effect
+      const immediateTimer = setTimeout(() => handleDismiss(), 0)
+      return () => clearTimeout(immediateTimer)
     }
 
     // Update progress bar
     const progressInterval = setInterval(() => {
+      if (startTimeRef.current === null) return
       const elapsed = Date.now() - startTimeRef.current - pausedTimeRef.current
       const progress = Math.max(0, 100 - (elapsed / timeout) * 100)
       setTimeRemaining(progress)
@@ -109,7 +119,9 @@ export function NotificationToast({
 
   const handleMouseEnter = () => {
     setIsPaused(true)
-    pausedTimeRef.current = Date.now() - startTimeRef.current
+    if (startTimeRef.current !== null) {
+      pausedTimeRef.current = Date.now() - startTimeRef.current
+    }
   }
 
   const handleMouseLeave = () => {
