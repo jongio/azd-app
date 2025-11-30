@@ -1,26 +1,35 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Notification } from '@/components/NotificationStack'
 import type { NotificationHistoryItem } from '@/components/NotificationCenter'
+import { getStorageItem, setStorageItem, removeStorageItem } from '@/lib/storage-utils'
 
 const STORAGE_KEY = 'azd-notification-history'
 const MAX_HISTORY = 100
 
+/** Type guard for notification history items */
+function isNotificationHistoryArray(value: unknown): value is Array<Omit<NotificationHistoryItem, 'timestamp'> & { timestamp: string }> {
+  if (!Array.isArray(value)) return false
+  return value.every(item => 
+    typeof item === 'object' && 
+    item !== null &&
+    typeof item.id === 'string' &&
+    typeof item.serviceName === 'string' &&
+    typeof item.message === 'string' &&
+    typeof item.timestamp === 'string'
+  )
+}
+
 /** Load history from localStorage */
 function loadHistoryFromStorage(): NotificationHistoryItem[] {
-  if (typeof window === 'undefined') return []
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as Array<Omit<NotificationHistoryItem, 'timestamp'> & { timestamp: string }>
-      return parsed.map((item) => ({
-        ...item,
-        timestamp: new Date(item.timestamp)
-      }))
-    } catch (e) {
-      console.error('Failed to parse notification history:', e)
-    }
-  }
-  return []
+  const stored = getStorageItem<Array<Omit<NotificationHistoryItem, 'timestamp'> & { timestamp: string }>>(
+    STORAGE_KEY, 
+    [], 
+    isNotificationHistoryArray
+  )
+  return stored.map((item) => ({
+    ...item,
+    timestamp: new Date(item.timestamp)
+  }))
 }
 
 export function useNotifications() {
@@ -44,7 +53,7 @@ export function useNotifications() {
   // Save history to localStorage
   useEffect(() => {
     if (history.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)))
+      setStorageItem(STORAGE_KEY, history.slice(0, MAX_HISTORY))
     }
   }, [history])
 
@@ -106,7 +115,7 @@ export function useNotifications() {
   const clearAll = useCallback(() => {
     // Clear without browser confirm - let the UI handle confirmation dialogs
     setHistory([])
-    localStorage.removeItem(STORAGE_KEY)
+    removeStorageItem(STORAGE_KEY)
   }, [])
 
   const handleNotificationClick = useCallback((id: string) => {

@@ -7,7 +7,19 @@ import { LogsView } from './LogsView'
 import { usePreferences } from '@/hooks/usePreferences'
 import { useToast } from '@/components/ui/toast'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
+import { getStorageItem, setStorageItem, isRecordOfBooleans, createStringArrayValidator } from '@/lib/storage-utils'
 import type { Service, HealthReportEvent, HealthStatus } from '@/types'
+
+// Storage keys
+const HEALTH_FILTER_KEY = 'logs-health-status-filter'
+const COLLAPSED_PANES_KEY = 'logs-pane-collapsed-states'
+
+// Valid health statuses
+const VALID_HEALTH_STATUSES: readonly HealthStatus[] = ['healthy', 'degraded', 'unhealthy', 'starting', 'unknown']
+const DEFAULT_HEALTH_FILTER = new Set<HealthStatus>(VALID_HEALTH_STATUSES)
+
+// Validator for health filter array
+const isValidHealthFilterArray = createStringArrayValidator(VALID_HEALTH_STATUSES)
 
 interface LogsMultiPaneViewProps {
   onFullscreenChange?: (isFullscreen: boolean) => void
@@ -25,44 +37,11 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
   const [clearAllTrigger, setClearAllTrigger] = useState(0)
   const [levelFilter, setLevelFilter] = useState<Set<'info' | 'warning' | 'error'>>(new Set(['info', 'warning', 'error']))
   const [healthFilter, setHealthFilter] = useState<Set<HealthStatus>>(() => {
-    try {
-      const saved = localStorage.getItem('logs-health-status-filter')
-      if (!saved) return new Set(['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'])
-      const parsed: unknown = JSON.parse(saved)
-      if (!Array.isArray(parsed)) {
-        console.warn('Invalid health filter format in localStorage, using defaults')
-        return new Set(['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'])
-      }
-      const validStatuses: HealthStatus[] = ['healthy', 'degraded', 'unhealthy', 'starting', 'unknown']
-      const validValues = parsed.filter((v): v is HealthStatus => validStatuses.includes(v as HealthStatus))
-      return new Set(validValues.length > 0 ? validValues : validStatuses)
-    } catch (e) {
-      console.warn('Failed to parse health filter from localStorage:', e)
-      return new Set(['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'])
-    }
+    const stored = getStorageItem<HealthStatus[]>(HEALTH_FILTER_KEY, [...VALID_HEALTH_STATUSES], isValidHealthFilterArray)
+    return new Set(stored.length > 0 ? stored : VALID_HEALTH_STATUSES)
   })
   const [collapsedPanes, setCollapsedPanes] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('logs-pane-collapsed-states')
-      if (!saved) return {}
-      const parsed: unknown = JSON.parse(saved)
-      // Validate the parsed data is an object with boolean values
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        console.warn('Invalid collapsed states format in localStorage, using defaults')
-        return {}
-      }
-      // Type guard to ensure all values are booleans
-      const result: Record<string, boolean> = {}
-      for (const [key, value] of Object.entries(parsed)) {
-        if (typeof key === 'string' && typeof value === 'boolean') {
-          result[key] = value
-        }
-      }
-      return result
-    } catch (e) {
-      console.warn('Failed to parse collapsed states from localStorage:', e)
-      return {}
-    }
+    return getStorageItem(COLLAPSED_PANES_KEY, {}, isRecordOfBooleans)
   })
   
   const { preferences, updateUI } = usePreferences()
@@ -97,12 +76,12 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
 
   // Persist collapsed state
   useEffect(() => {
-    localStorage.setItem('logs-pane-collapsed-states', JSON.stringify(collapsedPanes))
+    setStorageItem(COLLAPSED_PANES_KEY, collapsedPanes)
   }, [collapsedPanes])
 
   // Persist health filter state
   useEffect(() => {
-    localStorage.setItem('logs-health-status-filter', JSON.stringify(Array.from(healthFilter)))
+    setStorageItem(HEALTH_FILTER_KEY, Array.from(healthFilter))
   }, [healthFilter])
 
   const togglePaneCollapse = useCallback((serviceName: string) => {

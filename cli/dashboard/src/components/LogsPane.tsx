@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink } from 'lucide-react'
-import { formatLogTimestamp } from '@/lib/service-utils'
+import { formatLogTimestamp, getLogPaneVisualStatus, type VisualStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
@@ -285,19 +285,7 @@ export function LogsPane({
 
   // Border and header colors should follow service health (if available), not log content
   // This prevents confusing UX where border is red but health badge shows green
-  const getVisualStatus = (): 'error' | 'warning' | 'info' | 'healthy' => {
-    if (serviceHealth) {
-      // Use health check status as primary indicator
-      if (serviceHealth === 'unhealthy') return 'error'
-      if (serviceHealth === 'degraded' || serviceHealth === 'starting') return 'warning'
-      if (serviceHealth === 'healthy') return 'healthy'
-      // 'unknown' falls through to log-based status
-    }
-    // Fall back to log-based status when health is unknown or not available
-    return paneStatus
-  }
-  
-  const visualStatus = getVisualStatus()
+  const visualStatus: VisualStatus = getLogPaneVisualStatus(serviceHealth, paneStatus)
 
   const borderClass = {
     error: 'border-red-500',
