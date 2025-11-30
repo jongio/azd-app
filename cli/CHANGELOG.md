@@ -1,3 +1,10 @@
+## [0.7.0] - 2025-11-30
+
+- Refactor and enhance tests, styles, and configurations (#73) (f508e5c)
+- Implement service control commands and enhance UI (#72) (4d0a676)
+- Implement production-ready MCP server for azd app extension with tools, resources, prompts, and comprehensive testing (#37) (02330a3)
+- chore: update registry for v0.6.1 (397300a)
+
 ## [0.6.1] - 2025-11-29
 
 - Implement Docker Compose-compatible health check configuration (#70) (1422cc0)
