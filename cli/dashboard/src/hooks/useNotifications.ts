@@ -9,14 +9,16 @@ const MAX_HISTORY = 100
 /** Type guard for notification history items */
 function isNotificationHistoryArray(value: unknown): value is Array<Omit<NotificationHistoryItem, 'timestamp'> & { timestamp: string }> {
   if (!Array.isArray(value)) return false
-  return value.every(item => 
-    typeof item === 'object' && 
-    item !== null &&
-    typeof item.id === 'string' &&
-    typeof item.serviceName === 'string' &&
-    typeof item.message === 'string' &&
-    typeof item.timestamp === 'string'
-  )
+  return value.every(item => {
+    if (typeof item !== 'object' || item === null) return false
+    const obj = item as Record<string, unknown>
+    return (
+      typeof obj.id === 'string' &&
+      typeof obj.serviceName === 'string' &&
+      typeof obj.message === 'string' &&
+      typeof obj.timestamp === 'string'
+    )
+  })
 }
 
 /** Load history from localStorage */
