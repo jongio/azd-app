@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
@@ -280,20 +281,6 @@ func isValidDuration(s string) bool {
 	return len(prefix) > 0
 }
 
-// validateServiceName validates that a service name is safe and doesn't contain injection characters
-func validateServiceName(name string) error {
-	if name == "" {
-		return nil // Empty is OK for optional params
-	}
-	if len(name) > 128 {
-		return fmt.Errorf("service name too long (max 128 characters)")
-	}
-	if !safeNamePattern.MatchString(name) {
-		return fmt.Errorf("invalid service name: must start with alphanumeric and contain only alphanumeric, underscore, or hyphen")
-	}
-	return nil
-}
-
 // validateProjectDir validates that the project directory path is safe
 // Prevents path traversal attacks and ensures the directory exists
 func validateProjectDir(dir string) (string, error) {
@@ -460,7 +447,7 @@ func newGetServiceLogsTool() server.ServerTool {
 
 			if serviceName, ok := getStringParam(args, "serviceName"); ok {
 				// Validate service name to prevent injection
-				if err := validateServiceName(serviceName); err != nil {
+				if err := security.ValidateServiceName(serviceName, true); err != nil {
 					return mcp.NewToolResultError(err.Error()), nil
 				}
 				cmdArgs = append(cmdArgs, serviceName)
@@ -800,7 +787,7 @@ func newRestartServiceTool() server.ServerTool {
 			}
 
 			// Validate service name to prevent injection
-			if err := validateServiceName(serviceName); err != nil {
+			if err := security.ValidateServiceName(serviceName, false); err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
@@ -843,7 +830,7 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 			// Validate service name if provided
 			serviceName, hasFilter := getStringParam(args, "serviceName")
 			if hasFilter {
-				if err := validateServiceName(serviceName); err != nil {
+				if err := security.ValidateServiceName(serviceName, true); err != nil {
 					return mcp.NewToolResultError(err.Error()), nil
 				}
 			}
@@ -920,7 +907,7 @@ func newSetEnvironmentVariableTool() server.ServerTool {
 
 			serviceName, _ := getStringParam(args, "serviceName")
 			if serviceName != "" {
-				if err := validateServiceName(serviceName); err != nil {
+				if err := security.ValidateServiceName(serviceName, true); err != nil {
 					return mcp.NewToolResultError(err.Error()), nil
 				}
 			} else {

@@ -27,7 +27,7 @@ var (
 	logsNoColor    bool
 	logsLevel      string
 	logsFormat     string
-	logsOutput     string
+	logsFile       string
 	logsExclude    string
 	logsNoBuiltins bool
 )
@@ -35,10 +35,11 @@ var (
 // NewLogsCommand creates the logs command.
 func NewLogsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "logs [service-name]",
-		Short: "View logs from running services",
-		Long:  `Display output logs from running services for debugging and monitoring`,
-		RunE:  runLogs,
+		Use:          "logs [service-name]",
+		Short:        "View logs from running services",
+		Long:         `Display output logs from running services for debugging and monitoring`,
+		SilenceUsage: true,
+		RunE:         runLogs,
 	}
 
 	cmd.Flags().BoolVarP(&logsFollow, "follow", "f", false, "Follow log output (tail -f behavior)")
@@ -49,7 +50,7 @@ func NewLogsCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&logsNoColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&logsLevel, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVar(&logsFormat, "format", "text", "Output format (text, json)")
-	cmd.Flags().StringVar(&logsOutput, "output", "", "Write logs to file instead of stdout")
+	cmd.Flags().StringVar(&logsFile, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVarP(&logsExclude, "exclude", "e", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().BoolVar(&logsNoBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 
@@ -134,13 +135,13 @@ func runLogs(cmd *cobra.Command, args []string) error {
 
 	// Setup output writer
 	outputWriter := os.Stdout
-	if logsOutput != "" {
+	if logsFile != "" {
 		// Validate the output path to prevent path traversal attacks
-		if err := security.ValidatePath(logsOutput); err != nil {
+		if err := security.ValidatePath(logsFile); err != nil {
 			return fmt.Errorf("invalid output path: %w", err)
 		}
 		// #nosec G304 -- Path validated by security.ValidatePath above
-		file, err := os.Create(logsOutput)
+		file, err := os.Create(logsFile)
 		if err != nil {
 			return fmt.Errorf("failed to create output file: %w", err)
 		}

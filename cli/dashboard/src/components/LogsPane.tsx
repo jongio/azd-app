@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button'
 import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
-import type { HealthStatus } from '@/types'
+import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
+import { ServiceActions } from './ServiceActions'
 import {
   MAX_LOGS_IN_MEMORY,
   LOG_LEVELS,
@@ -25,6 +26,7 @@ interface LogsPaneProps {
   serviceName: string
   port?: number
   url?: string                    // Service URL for "open in new tab" button
+  service?: Service               // Full service object for lifecycle controls
   onCopy: (logs: LogEntry[]) => void
   isPaused: boolean
   globalSearchTerm?: string
@@ -40,6 +42,7 @@ export function LogsPane({
   serviceName, 
   port,
   url,
+  service,
   onCopy, 
   isPaused, 
   globalSearchTerm = '', 
@@ -373,6 +376,12 @@ export function LogsPane({
           )}
         </div>
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {/* Service lifecycle controls */}
+          {service && (
+            <div className="mr-2 border-r pr-2 border-border">
+              <ServiceActions service={service} variant="compact" />
+            </div>
+          )}
           {url && (
             <Button
               variant="outline"

@@ -1,42 +1,19 @@
 package dashboard
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
-
-// serviceNameRegex validates service names to prevent injection attacks.
-// Allows alphanumeric characters, hyphens, underscores, and dots.
-// Must start with alphanumeric, max 63 characters (DNS label compatible).
-var serviceNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$`)
-
-// validateServiceName validates that a service name is safe and well-formed.
-// Returns an error if the name is empty, too long, or contains invalid characters.
-func validateServiceName(name string) error {
-	if name == "" {
-		return fmt.Errorf("service name cannot be empty")
-	}
-	if len(name) > 63 {
-		return fmt.Errorf("service name exceeds maximum length of 63 characters")
-	}
-	if !serviceNameRegex.MatchString(name) {
-		return fmt.Errorf("service name contains invalid characters (use alphanumeric, hyphen, underscore, or dot)")
-	}
-	// Additional check for path traversal attempts
-	if strings.Contains(name, "..") || strings.Contains(name, "/") || strings.Contains(name, "\\") {
-		return fmt.Errorf("service name contains invalid path characters")
-	}
-	return nil
-}
 
 // serviceOperation defines the type of service operation to perform.
 type serviceOperation int
@@ -61,7 +38,35 @@ func newServiceOperationHandler(s *Server, op serviceOperation) *serviceOperatio
 	}
 }
 
+// toServiceOperationType converts the internal operation type to the service package type.
+func (h *serviceOperationHandler) toServiceOperationType() service.OperationType {
+	switch h.operation {
+	case opStart:
+		return service.OpStart
+	case opStop:
+		return service.OpStop
+	case opRestart:
+		return service.OpRestart
+	default:
+		return service.OpStart
+	}
+}
+
+// getOperationVerb returns the verb for the operation (start/stop/restart).
+func (h *serviceOperationHandler) getOperationVerb() string {
+	switch h.operation {
+	case opStart:
+		return "start"
+	case opStop:
+		return "stop"
+	case opRestart:
+		return "restart"
+	}
+	return "operate"
+}
+
 // Handle processes the service operation request.
+// If no service name is provided, performs bulk operation on all applicable services.
 func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -70,12 +75,19 @@ func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request)
 
 	serviceName := r.URL.Query().Get("service")
 	if serviceName == "" {
-		writeJSONError(w, http.StatusNotImplemented, h.getNotImplementedMessage(), nil)
+		// Bulk operation - handle all applicable services
+		h.handleBulkOperation(w, r)
 		return
 	}
 
+	// Single service operation
+	h.handleSingleOperation(w, r, serviceName)
+}
+
+// handleSingleOperation handles operations on a single service.
+func (h *serviceOperationHandler) handleSingleOperation(w http.ResponseWriter, r *http.Request, serviceName string) {
 	// Validate service name to prevent injection attacks
-	if err := validateServiceName(serviceName); err != nil {
+	if err := security.ValidateServiceName(serviceName, false); err != nil {
 		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid service name: %s", err.Error()), nil)
 		return
 	}
@@ -87,28 +99,242 @@ func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Check if operation is already in progress via operation manager
+	opMgr := service.GetOperationManager()
+	if opMgr.IsOperationInProgress(serviceName) {
+		writeJSONError(w, http.StatusConflict, fmt.Sprintf("Operation already in progress for service '%s'", serviceName), nil)
+		return
+	}
+
 	// Validate state for operation
 	if err := h.validateState(entry, serviceName); err != nil {
 		writeJSONError(w, http.StatusConflict, err.Error(), nil)
 		return
 	}
 
+	// Execute operation with the operation manager for concurrency control
+	// Use request context for proper cancellation
+	ctx := r.Context()
+	opType := h.toServiceOperationType()
+
+	result := opMgr.ExecuteOperation(ctx, serviceName, opType, func(ctx context.Context) error {
+		return h.executeServiceOperation(w, entry, serviceName, reg)
+	})
+
+	if result.Error != nil {
+		writeJSONError(w, http.StatusInternalServerError, result.Error.Error(), nil)
+	}
+}
+
+// executeServiceOperation performs the actual service operation.
+func (h *serviceOperationHandler) executeServiceOperation(w http.ResponseWriter, entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) error {
 	// For restart, stop the service first and wait for process exit
 	if h.operation == opRestart && entry.Status != constants.StatusStopped && entry.Status != constants.StatusNotRunning {
 		if err := h.stopService(entry, serviceName); err != nil {
 			log.Printf("Warning: error during restart stop phase: %v", err)
 		}
-		// Process exit is handled by stopService via StopServiceGraceful
 	}
 
 	// For stop operation, just stop and return
 	if h.operation == opStop {
 		h.performStop(w, entry, serviceName, reg)
-		return
+		return nil
 	}
 
 	// For start/restart, start the service
 	h.performStart(w, entry, serviceName, reg)
+	return nil
+}
+
+// handleBulkOperation handles operations on all applicable services.
+func (h *serviceOperationHandler) handleBulkOperation(w http.ResponseWriter, r *http.Request) {
+	reg := registry.GetRegistry(h.server.projectDir)
+	allServices := reg.ListAll()
+
+	// Filter services based on operation type
+	var applicableServices []string
+	for _, entry := range allServices {
+		switch h.operation {
+		case opStart:
+			// Start only stopped/errored services
+			if entry.Status == constants.StatusStopped || entry.Status == constants.StatusNotRunning || entry.Status == constants.StatusError {
+				applicableServices = append(applicableServices, entry.Name)
+			}
+		case opStop:
+			// Stop only running services
+			if entry.Status == constants.StatusRunning || entry.Status == constants.StatusReady || entry.Status == constants.StatusStarting {
+				applicableServices = append(applicableServices, entry.Name)
+			}
+		case opRestart:
+			// Restart all services that are running or stopped
+			applicableServices = append(applicableServices, entry.Name)
+		}
+	}
+
+	if len(applicableServices) == 0 {
+		response := map[string]interface{}{
+			"success":  true,
+			"message":  fmt.Sprintf("No services to %s", h.getOperationVerb()),
+			"services": []interface{}{},
+		}
+		if err := writeJSON(w, response); err != nil {
+			log.Printf("Failed to write JSON response: %v", err)
+		}
+		return
+	}
+
+	// Execute bulk operation
+	// Use request context for proper cancellation
+	opMgr := service.GetOperationManager()
+	ctx := r.Context()
+	opType := h.toServiceOperationType()
+
+	// Create operation function factory for each service
+	operationFactory := func(svcName string) func(ctx context.Context) error {
+		return func(ctx context.Context) error {
+			entry, exists := reg.GetService(svcName)
+			if !exists {
+				return fmt.Errorf("service '%s' not found", svcName)
+			}
+			return h.executeBulkServiceOperation(entry, svcName, reg)
+		}
+	}
+
+	result := opMgr.ExecuteBulkOperation(ctx, applicableServices, opType, operationFactory)
+
+	// Broadcast update after bulk operation
+	if err := h.server.BroadcastServiceUpdate(h.server.projectDir); err != nil {
+		log.Printf("Warning: failed to broadcast update: %v", err)
+	}
+
+	// Build response with results
+	serviceResults := make([]map[string]interface{}, 0, len(result.Results))
+	for _, opResult := range result.Results {
+		svcResult := map[string]interface{}{
+			"name":     opResult.ServiceName,
+			"success":  opResult.Success,
+			"duration": opResult.Duration.String(),
+		}
+		if opResult.Error != nil {
+			svcResult["error"] = opResult.Error.Error()
+		}
+		serviceResults = append(serviceResults, svcResult)
+	}
+
+	response := map[string]interface{}{
+		"success":      result.FailureCount == 0,
+		"message":      fmt.Sprintf("%d service(s) %s, %d failed", result.SuccessCount, h.getOperationPastTense(), result.FailureCount),
+		"services":     serviceResults,
+		"successCount": result.SuccessCount,
+		"failureCount": result.FailureCount,
+		"duration":     result.TotalDuration.String(),
+	}
+
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
+}
+
+// executeBulkServiceOperation performs the operation for a single service in bulk mode.
+// Unlike executeServiceOperation, this doesn't write to the response writer.
+func (h *serviceOperationHandler) executeBulkServiceOperation(entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) error {
+	// For restart, stop the service first
+	if h.operation == opRestart && entry.Status != constants.StatusStopped && entry.Status != constants.StatusNotRunning {
+		if err := h.stopService(entry, serviceName); err != nil {
+			log.Printf("Warning: error during restart stop phase for %s: %v", serviceName, err)
+		}
+	}
+
+	// For stop operation
+	if h.operation == opStop {
+		return h.performStopBulk(entry, serviceName, reg)
+	}
+
+	// For start/restart
+	return h.performStartBulk(entry, serviceName, reg)
+}
+
+// performStopBulk handles the stop operation without writing to HTTP response.
+func (h *serviceOperationHandler) performStopBulk(entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) error {
+	// Update registry to stopping state
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopping, entry.Health); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	if err := h.stopService(entry, serviceName); err != nil {
+		log.Printf("Warning: %v", err)
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		return err
+	}
+
+	// Update registry to stopped state
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	return nil
+}
+
+// performStartBulk handles the start/restart operation without writing to HTTP response.
+func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) error {
+	// Parse azure.yaml to get service configuration
+	azureYaml, err := service.ParseAzureYaml(h.server.projectDir)
+	if err != nil {
+		return fmt.Errorf("failed to parse azure.yaml: %w", err)
+	}
+
+	// Find the service definition
+	svcDef, exists := azureYaml.Services[serviceName]
+	if !exists {
+		return fmt.Errorf("service '%s' not found in azure.yaml", serviceName)
+	}
+
+	// Detect runtime for the service
+	runtime, err := service.DetectServiceRuntime(serviceName, svcDef, map[int]bool{}, h.server.projectDir, "")
+	if err != nil {
+		return fmt.Errorf("failed to detect service runtime: %w", err)
+	}
+
+	// Update registry to starting state
+	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthUnknown); err != nil {
+		log.Printf("Warning: failed to update status: %v", err)
+	}
+
+	// Load environment variables
+	envVars := h.loadEnvironmentVariables(runtime)
+
+	// Start the service
+	functionsParser := service.NewFunctionsOutputParser(false)
+	process, err := service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
+	if err != nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		return fmt.Errorf("failed to start service: %w", err)
+	}
+
+	// Create a fresh entry
+	updatedEntry := &registry.ServiceRegistryEntry{
+		Name:        serviceName,
+		ProjectDir:  entry.ProjectDir,
+		PID:         process.Process.Pid,
+		Port:        runtime.Port,
+		URL:         entry.URL,
+		AzureURL:    entry.AzureURL,
+		Language:    runtime.Language,
+		Framework:   runtime.Framework,
+		Status:      constants.StatusRunning,
+		Health:      constants.HealthHealthy,
+		StartTime:   time.Now(),
+		LastChecked: time.Now(),
+	}
+	if err := reg.Register(updatedEntry); err != nil {
+		log.Printf("Warning: failed to register service: %v", err)
+	}
+
+	return nil
 }
 
 // validateState checks if the operation is valid for the current service state.
@@ -279,32 +505,6 @@ func (h *serviceOperationHandler) broadcastAndRespond(w http.ResponseWriter, ser
 	if err := writeJSON(w, response); err != nil {
 		log.Printf("Failed to write JSON response: %v", err)
 	}
-}
-
-// getNotImplementedMessage returns the not implemented message for bulk operations.
-func (h *serviceOperationHandler) getNotImplementedMessage() string {
-	switch h.operation {
-	case opStart:
-		return "Starting all services not yet implemented"
-	case opStop:
-		return "Stopping all services not yet implemented"
-	case opRestart:
-		return "Restarting all services not yet implemented"
-	}
-	return "Operation not yet implemented"
-}
-
-// getOperationVerb returns the verb for the operation (start/stop/restart).
-func (h *serviceOperationHandler) getOperationVerb() string {
-	switch h.operation {
-	case opStart:
-		return "start"
-	case opStop:
-		return "stop"
-	case opRestart:
-		return "restart"
-	}
-	return "operate"
 }
 
 // getOperationPastTense returns the past tense of the operation.

@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { X, Save, RotateCcw } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ClassificationsEditor, type ClassificationChange } from './ClassificationsManager'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
-import { usePreferences } from '@/hooks/usePreferences'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -13,8 +11,6 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { classifications, addClassification, deleteClassification, reload } = useLogClassifications()
-  const { preferences, updateUI } = usePreferences()
-  const [activeTab, setActiveTab] = useState<string>('general')
   const [pendingChanges, setPendingChanges] = useState<ClassificationChange[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -105,63 +101,29 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         <div className="p-4 overflow-y-auto max-h-[calc(80vh-140px)]">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="classifications">
-                Log Classifications
-                {hasUnsavedChanges && (
-                  <span className="ml-2 w-2 h-2 bg-yellow-500 rounded-full" title="Unsaved changes" />
-                )}
-              </TabsTrigger>
-            </TabsList>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p>Log classifications are stored in your project's <code className="bg-muted px-1 rounded">azure.yaml</code> file.</p>
+              <p className="mt-1">Add classifications below or select text in the logs to classify it.</p>
+            </div>
             
-            <TabsContent value="general" className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <label htmlFor="gridColumns" className="text-sm font-medium">Grid Columns</label>
-                <input
-                  id="gridColumns"
-                  type="number"
-                  min={1}
-                  max={6}
-                  value={preferences.ui.gridColumns}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value)
-                    if (val >= 1 && val <= 6) {
-                      updateUI({ gridColumns: val })
-                    }
-                  }}
-                  className="w-20 px-3 py-1.5 text-sm border border-border rounded-md bg-white dark:bg-neutral-800 text-foreground text-center"
-                />
+            {saveError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+                {saveError}
               </div>
-            </TabsContent>
-            
-            <TabsContent value="classifications" className="mt-4">
-              <div className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  <p>Log classifications are stored in your project's <code className="bg-muted px-1 rounded">azure.yaml</code> file.</p>
-                  <p className="mt-1">Add classifications below or select text in the logs to classify it.</p>
-                </div>
-                
-                {saveError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
-                    {saveError}
-                  </div>
-                )}
+            )}
 
-                <ClassificationsEditor
-                  classifications={classifications}
-                  pendingChanges={pendingChanges}
-                  onAddChange={handleAddChange}
-                  onRemoveChange={handleRemoveChange}
-                />
-              </div>
-            </TabsContent>
-          </Tabs>
+            <ClassificationsEditor
+              classifications={classifications}
+              pendingChanges={pendingChanges}
+              onAddChange={handleAddChange}
+              onRemoveChange={handleRemoveChange}
+            />
+          </div>
         </div>
 
-        {/* Footer with Save/Discard buttons - only show when on classifications tab with changes */}
-        {activeTab === 'classifications' && hasUnsavedChanges && (
+        {/* Footer with Save/Discard buttons - only show when there are unsaved changes */}
+        {hasUnsavedChanges && (
           <div className="flex items-center justify-between p-4 border-t border-border bg-muted/30">
             <div className="text-sm text-muted-foreground">
               {pendingChanges.length} unsaved change{pendingChanges.length !== 1 ? 's' : ''}

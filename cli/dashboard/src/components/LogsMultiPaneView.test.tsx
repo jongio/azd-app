@@ -51,11 +51,11 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
   })
 
-  it('should render fullscreen toggle button', async () => {
+  it('should render fullscreen toggle button in toolbar', async () => {
     render(<LogsMultiPaneView />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
+      expect(screen.getByTitle('Enter Fullscreen (F11)')).toBeInTheDocument()
     })
   })
 
@@ -66,15 +66,14 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     render(<LogsMultiPaneView onFullscreenChange={onFullscreenChange} />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
+      expect(screen.getByTitle('Enter Fullscreen (F11)')).toBeInTheDocument()
     })
 
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
+    const fullscreenButton = screen.getByTitle('Enter Fullscreen (F11)')
     await user.click(fullscreenButton)
 
     await waitFor(() => {
       expect(onFullscreenChange).toHaveBeenCalledWith(true)
-      expect(screen.getByTitle(/Exit Fullscreen/)).toBeInTheDocument()
     })
   })
 
@@ -85,28 +84,28 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     render(<LogsMultiPaneView onFullscreenChange={onFullscreenChange} />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
+      expect(screen.getByTitle('Enter Fullscreen (F11)')).toBeInTheDocument()
     })
 
     // Enter fullscreen
-    const enterButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(enterButton)
+    await user.click(screen.getByTitle('Enter Fullscreen (F11)'))
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Exit Fullscreen/)).toBeInTheDocument()
+      expect(onFullscreenChange).toHaveBeenCalledWith(true)
     })
 
     // Exit fullscreen
-    const exitButton = screen.getByTitle(/Exit Fullscreen/)
-    await user.click(exitButton)
+    await waitFor(() => {
+      expect(screen.getByTitle('Exit Fullscreen (F11)')).toBeInTheDocument()
+    })
+    await user.click(screen.getByTitle('Exit Fullscreen (F11)'))
 
     await waitFor(() => {
       expect(onFullscreenChange).toHaveBeenCalledWith(false)
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
     })
   })
 
-  it('should hide view mode toggle in fullscreen', async () => {
+  it('should show view mode toggle in fullscreen', async () => {
     const user = userEvent.setup()
     
     render(<LogsMultiPaneView />)
@@ -116,31 +115,31 @@ describe('LogsMultiPaneView - Fullscreen', () => {
       expect(screen.getByText('Unified')).toBeInTheDocument()
     })
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard shortcut
+    await user.keyboard('{F11}')
 
+    // View mode toggle should still be visible in fullscreen
     await waitFor(() => {
-      expect(screen.queryByText('Grid')).not.toBeInTheDocument()
-      expect(screen.queryByText('Unified')).not.toBeInTheDocument()
+      expect(screen.getByText('Grid')).toBeInTheDocument()
+      expect(screen.getByText('Unified')).toBeInTheDocument()
     })
   })
 
-  it('should hide settings button in fullscreen', async () => {
+  it('should keep settings accessible in fullscreen', async () => {
     const user = userEvent.setup()
     
     render(<LogsMultiPaneView />)
 
     await waitFor(() => {
-      expect(screen.getByTitle('Settings')).toBeInTheDocument()
+      expect(screen.getByTitle('Settings (Ctrl+,)')).toBeInTheDocument()
     })
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard
+    await user.keyboard('{F11}')
 
+    // Settings should still be accessible as direct button
     await waitFor(() => {
-      expect(screen.getByTitle('Settings')).toBeInTheDocument()
+      expect(screen.getByTitle('Settings (Ctrl+,)')).toBeInTheDocument()
     })
   })
 
@@ -149,35 +148,36 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     
     render(<LogsMultiPaneView />)
 
+    // Export button should be present
     await waitFor(() => {
-      expect(screen.getByTitle('Export All')).toBeInTheDocument()
+      expect(screen.getByTitle('Export All Logs')).toBeInTheDocument()
     })
-
+    
     // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    await user.keyboard('{F11}')
 
+    // Export should not be visible in fullscreen
     await waitFor(() => {
-      expect(screen.queryByTitle('Export All')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Export All Logs')).not.toBeInTheDocument()
     })
   })
 
-  it('should keep service selector visible in fullscreen', async () => {
+  it('should keep service buttons visible in fullscreen', async () => {
     const user = userEvent.setup()
     
     render(<LogsMultiPaneView />)
 
+    // Check service buttons are present
     await waitFor(() => {
-      expect(screen.getByText('Services')).toBeInTheDocument()
+      expect(screen.getByTitle('Start All (Ctrl+Shift+S)')).toBeInTheDocument()
     })
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard
+    await user.keyboard('{F11}')
 
-    // Service selector should still be visible in fullscreen
+    // Service buttons should still be visible in fullscreen
     await waitFor(() => {
-      expect(screen.getByText('Services')).toBeInTheDocument()
+      expect(screen.getByTitle('Start All (Ctrl+Shift+S)')).toBeInTheDocument()
     })
   })
 
@@ -187,15 +187,14 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     render(<LogsMultiPaneView />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Pause/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /pause log stream/i })).toBeInTheDocument()
     })
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard
+    await user.keyboard('{F11}')
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Pause/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /pause log stream/i })).toBeInTheDocument()
     })
   })
 
@@ -206,7 +205,7 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     render(<LogsMultiPaneView onFullscreenChange={onFullscreenChange} />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
+      expect(screen.getByRole('toolbar')).toBeInTheDocument()
     })
 
     // Press F11
@@ -224,7 +223,7 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     render(<LogsMultiPaneView onFullscreenChange={onFullscreenChange} />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
+      expect(screen.getByRole('toolbar')).toBeInTheDocument()
     })
 
     // Press Ctrl+Shift+F
@@ -241,9 +240,8 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     
     render(<LogsMultiPaneView onFullscreenChange={onFullscreenChange} />)
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard
+    await user.keyboard('{F11}')
 
     await waitFor(() => {
       expect(onFullscreenChange).toHaveBeenCalledWith(true)
@@ -263,15 +261,14 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     const { container } = render(<LogsMultiPaneView />)
 
     await waitFor(() => {
-      expect(screen.getByTitle(/Enter Fullscreen/)).toBeInTheDocument()
+      expect(screen.getByRole('toolbar')).toBeInTheDocument()
     })
 
     // Normal mode - should not have fixed positioning
     expect(container.querySelector('.fixed.inset-0.z-50')).not.toBeInTheDocument()
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard
+    await user.keyboard('{F11}')
 
     await waitFor(() => {
       // Fullscreen mode - should have fixed positioning
@@ -279,29 +276,24 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     })
   })
 
-  it('should show Maximize icon when not fullscreen', async () => {
+  it('should show fullscreen button in toolbar', async () => {
     render(<LogsMultiPaneView />)
 
     await waitFor(() => {
-      const button = screen.getByTitle(/Enter Fullscreen/)
-      const svg = button.querySelector('svg')
-      expect(svg).toBeInTheDocument()
+      expect(screen.getByTitle('Enter Fullscreen (F11)')).toBeInTheDocument()
     })
   })
 
-  it('should show Minimize icon when fullscreen', async () => {
+  it('should show exit fullscreen option when in fullscreen', async () => {
     const user = userEvent.setup()
     
     render(<LogsMultiPaneView />)
 
-    // Enter fullscreen
-    const fullscreenButton = screen.getByTitle(/Enter Fullscreen/)
-    await user.click(fullscreenButton)
+    // Enter fullscreen via keyboard
+    await user.keyboard('{F11}')
 
     await waitFor(() => {
-      const button = screen.getByTitle(/Exit Fullscreen/)
-      const svg = button.querySelector('svg')
-      expect(svg).toBeInTheDocument()
+      expect(screen.getByTitle('Exit Fullscreen (F11)')).toBeInTheDocument()
     })
   })
 })

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
@@ -102,6 +103,7 @@ func StopService(process *ServiceProcess) error {
 // StopServiceGraceful stops a service with graceful shutdown timeout.
 // Sends SIGINT, waits for timeout, then force kills if still running.
 // Returns nil if process stops successfully within timeout.
+// Note: The dashboard service is protected and will never be killed.
 func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 	if process == nil {
 		return fmt.Errorf("process is nil")
@@ -110,25 +112,47 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		return fmt.Errorf("process not started")
 	}
 
+	// Never kill the dashboard process - it must remain running to manage other services
+	if process.Name == constants.DashboardServiceName {
+		slog.Debug("skipping stop for dashboard service - dashboard is protected",
+			slog.String("service", process.Name))
+		return nil
+	}
+
 	slog.Info("stopping service",
 		slog.String("service", process.Name),
 		slog.Int("pid", process.Process.Pid),
 		slog.Int("port", process.Port),
 		slog.Duration("timeout", timeout))
 
-	// On Windows, graceful shutdown via signals is not well-supported.
-	// Skip signal attempt and use Kill() directly, which Windows handles properly.
+	// On Windows, we use taskkill with /T flag to kill the entire process tree.
+	// This is critical because services often spawn child processes (e.g., npm -> node,
+	// electron -> node) that hold ports. Using process.Kill() only kills the parent,
+	// leaving child processes running and holding ports, causing port conflicts on restart.
 	if runtime.GOOS == "windows" {
-		slog.Debug("using Kill() for Windows process termination",
-			slog.String("service", process.Name))
-		if err := process.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill process: %w", err)
+		slog.Debug("using taskkill /T for Windows process tree termination",
+			slog.String("service", process.Name),
+			slog.Int("pid", process.Process.Pid))
+
+		// Use taskkill /F /T to force kill entire process tree
+		// /F = Force termination
+		// /T = Kill child processes (tree kill)
+		// /PID = Target process ID
+		// #nosec G204 -- PID is from os.Process which is a validated integer
+		cmd := exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Process.Pid))
+		if err := cmd.Run(); err != nil {
+			// taskkill returns error if process already exited, which is fine
+			slog.Debug("taskkill completed with error (process may have already exited)",
+				slog.String("service", process.Name),
+				slog.String("error", err.Error()))
 		}
-		// Wait for process to exit
+
+		// Wait for process to exit - this may fail if taskkill already cleaned up
 		_, waitErr := process.Process.Wait()
 		// Ignore "Access is denied" - process already exited on Windows
 		if waitErr != nil && !isAccessDeniedError(waitErr) {
-			return waitErr
+			slog.Debug("wait completed with error (expected if taskkill succeeded)",
+				slog.String("error", waitErr.Error()))
 		}
 		slog.Info("service stopped",
 			slog.String("service", process.Name))
