@@ -258,7 +258,7 @@ func validateHealthFlags() error {
 		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
 	}
 	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
-		return fmt.Errorf("output must be 'text', 'json', or 'table'")
+		return fmt.Errorf("invalid output format: must be 'text', 'json', or 'table'")
 	}
 	return nil
 }

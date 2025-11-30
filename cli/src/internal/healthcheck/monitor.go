@@ -155,10 +155,12 @@ func InitializeLogging(logLevel, logFormat string) {
 	// Set up time format
 	zerolog.TimeFieldFormat = time.RFC3339
 
-	// Configure output format
+	// Configure output format - all formats write to stderr to avoid
+	// interfering with command output (especially JSON output)
 	switch logFormat {
 	case "json":
-		// JSON output (default, no changes needed)
+		// JSON output to stderr
+		log.Logger = log.Output(os.Stderr)
 	case "pretty":
 		log.Logger = log.Output(zerolog.ConsoleWriter{
 			Out:        os.Stderr,
