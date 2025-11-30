@@ -1,47 +1,49 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 export type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'dashboard-theme'
+const DEFAULT_THEME: Theme = 'light'
 
 function isValidTheme(value: string | null): value is Theme {
   return value === 'light' || value === 'dark'
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    // Initialize from localStorage immediately (SSR-safe)
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (isValidTheme(stored)) {
-        return stored
-      }
-    }
-    return 'light'
-  })
-  const [isMounted, setIsMounted] = useState(false)
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') return DEFAULT_THEME
+  const stored = localStorage.getItem(STORAGE_KEY)
+  return isValidTheme(stored) ? stored : DEFAULT_THEME
+}
 
+function applyTheme(theme: Theme): void {
+  document.documentElement.setAttribute('data-theme', theme)
+}
+
+function persistTheme(theme: Theme): void {
+  localStorage.setItem(STORAGE_KEY, theme)
+}
+
+export function useTheme() {
+  const [theme, setThemeState] = useState<Theme>(getStoredTheme)
+
+  // Apply theme to document on mount and theme changes
   useEffect(() => {
-    // Apply theme to document on mount
-    document.documentElement.setAttribute('data-theme', theme)
-    setIsMounted(true)
+    applyTheme(theme)
   }, [theme])
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
-    document.documentElement.setAttribute('data-theme', newTheme)
-    localStorage.setItem(STORAGE_KEY, newTheme)
-  }
+    applyTheme(newTheme)
+    persistTheme(newTheme)
+  }, [])
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light'
-    setTheme(newTheme)
-  }
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'light' ? 'dark' : 'light')
+  }, [theme, setTheme])
 
   return {
     theme,
     setTheme,
     toggleTheme,
-    isMounted,
   }
 }

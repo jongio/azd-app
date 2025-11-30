@@ -2,6 +2,7 @@ import { Server, FileText, ExternalLink } from 'lucide-react'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { StatusCell } from '@/components/StatusCell'
 import { ServiceActions } from '@/components/ServiceActions'
+import { formatStartTime } from '@/lib/service-utils'
 import type { Service, HealthCheckResult } from '@/types'
 
 interface ServiceTableRowProps {
@@ -15,16 +16,6 @@ export function ServiceTableRow({ service, onViewLogs, healthStatus }: ServiceTa
   const status = service.local?.status || service.status || 'not-running'
   // Use real-time health from stream if available
   const health = healthStatus?.status || service.local?.health || service.health || 'unknown'
-  
-  const formatStartTime = (timeStr?: string) => {
-    if (!timeStr) return '-'
-    const date = new Date(timeStr)
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
-    })
-  }
 
   const getStatusColor = (status: string, health: string) => {
     if ((status === 'ready' || status === 'running') && health === 'healthy') return 'text-success'

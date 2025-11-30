@@ -9,7 +9,7 @@ interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
-  const { theme, toggleTheme, isMounted } = useTheme()
+  const { theme, toggleTheme } = useTheme()
   const [announcement, setAnnouncement] = useState('')
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -37,11 +37,6 @@ export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
     
     // Callback
     onThemeChange?.(newTheme)
-  }
-
-  // Prevent SSR flash
-  if (!isMounted) {
-    return null
   }
 
   const Icon = theme === 'light' ? Sun : Moon

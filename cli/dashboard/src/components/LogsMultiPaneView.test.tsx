@@ -40,14 +40,18 @@ describe('LogsMultiPaneView - Fullscreen', () => {
     })
     globalThis.fetch = mockFetch as unknown as typeof fetch
 
-    // Mock WebSocket
-    const WebSocketMock = vi.fn().mockImplementation(() => ({
-      onopen: null,
-      onmessage: null,
-      onerror: null,
-      onclose: null,
-      close: vi.fn(),
-    }))
+    // Mock WebSocket as a class for vitest 4.x compatibility
+    class WebSocketMock {
+      onopen: ((this: WebSocket, ev: Event) => unknown) | null = null
+      onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null = null
+      onerror: ((this: WebSocket, ev: Event) => unknown) | null = null
+      onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null = null
+      close = vi.fn()
+      send = vi.fn()
+      constructor(_url: string) {
+        // no-op
+      }
+    }
     globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
   })
 
@@ -340,13 +344,18 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
     })
     globalThis.fetch = mockFetch as unknown as typeof fetch
 
-    const WebSocketMock = vi.fn().mockImplementation(() => ({
-      onopen: null,
-      onmessage: null,
-      onerror: null,
-      onclose: null,
-      close: vi.fn(),
-    }))
+    // Mock WebSocket as a class for vitest 4.x compatibility
+    class WebSocketMock {
+      onopen: ((this: WebSocket, ev: Event) => unknown) | null = null
+      onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null = null
+      onerror: ((this: WebSocket, ev: Event) => unknown) | null = null
+      onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null = null
+      close = vi.fn()
+      send = vi.fn()
+      constructor(_url: string) {
+        // no-op
+      }
+    }
     globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
   })
 

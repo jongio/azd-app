@@ -1,5 +1,5 @@
 import { CheckCircle, XCircle, Clock, AlertCircle, StopCircle, AlertTriangle, type LucideIcon } from 'lucide-react'
-import type { Service, HealthCheckResult } from '@/types'
+import type { Service, HealthCheckResult, HealthStatus } from '@/types'
 
 /**
  * Status display configuration for a service
@@ -148,6 +148,26 @@ export function formatRelativeTime(timeStr?: string): string {
 }
 
 /**
+ * Format a start time for table display (HH:MM:SS)
+ */
+export function formatStartTime(timeStr?: string): string {
+  if (!timeStr) return '-'
+  try {
+    const date = new Date(timeStr)
+    if (isNaN(date.getTime())) {
+      return timeStr
+    }
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    })
+  } catch {
+    return timeStr
+  }
+}
+
+/**
  * Format a timestamp for log display (HH:MM:SS.mmm)
  */
 export function formatLogTimestamp(timestamp: string): string {
@@ -206,6 +226,25 @@ export function getCheckTypeDisplay(checkType?: string): string {
     default:
       return 'Unknown'
   }
+}
+
+/** Visual status type for UI styling */
+export type VisualStatus = 'error' | 'warning' | 'info' | 'healthy'
+
+/**
+ * Get the visual status for a log pane based on health status and log content.
+ * Prioritizes health check status over log-based status for consistent UX.
+ */
+export function getLogPaneVisualStatus(
+  serviceHealth: HealthStatus | undefined,
+  fallbackStatus: 'error' | 'warning' | 'info'
+): VisualStatus {
+  if (serviceHealth) {
+    if (serviceHealth === 'unhealthy') return 'error'
+    if (serviceHealth === 'degraded' || serviceHealth === 'starting') return 'warning'
+    if (serviceHealth === 'healthy') return 'healthy'
+  }
+  return fallbackStatus
 }
 
 /**

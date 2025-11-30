@@ -64,16 +64,27 @@ class MockEventSource {
 
 // Store mock instances for test access
 let mockEventSourceInstance: MockEventSource | null = null
+let mockEventSourceCallCount = 0
+let lastEventSourceUrl: string | null = null
 
-vi.stubGlobal('EventSource', vi.fn((url: string) => {
-  mockEventSourceInstance = new MockEventSource(url)
-  return mockEventSourceInstance
-}))
+// Create a factory function that creates MockEventSource instances
+class EventSourceFactory {
+  constructor(url: string) {
+    mockEventSourceInstance = new MockEventSource(url)
+    mockEventSourceCallCount++
+    lastEventSourceUrl = url
+    return mockEventSourceInstance as unknown as EventSource
+  }
+}
+
+vi.stubGlobal('EventSource', EventSourceFactory)
 
 describe('useHealthStream', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mockEventSourceInstance = null
+    mockEventSourceCallCount = 0
+    lastEventSourceUrl = null
     vi.clearAllMocks()
   })
 
@@ -100,7 +111,7 @@ describe('useHealthStream', () => {
       vi.advanceTimersByTime(10)
     })
 
-    expect(EventSource).toHaveBeenCalledWith('/api/health/stream?interval=5s')
+    expect(lastEventSourceUrl).toBe('/api/health/stream?interval=5s')
     expect(mockEventSourceInstance).not.toBeNull()
   })
 
@@ -127,7 +138,7 @@ describe('useHealthStream', () => {
       vi.advanceTimersByTime(10)
     })
 
-    expect(EventSource).toHaveBeenCalledWith('/api/health/stream?interval=10s')
+    expect(lastEventSourceUrl).toBe('/api/health/stream?interval=10s')
   })
 
   it('should build URL with service filter', () => {
@@ -137,7 +148,7 @@ describe('useHealthStream', () => {
       vi.advanceTimersByTime(10)
     })
 
-    expect(EventSource).toHaveBeenCalledWith('/api/health/stream?interval=5s&service=api%2Cweb')
+    expect(lastEventSourceUrl).toBe('/api/health/stream?interval=5s&service=api%2Cweb')
   })
 
   it('should not connect when disabled', () => {
@@ -147,7 +158,7 @@ describe('useHealthStream', () => {
       vi.advanceTimersByTime(10)
     })
 
-    expect(EventSource).not.toHaveBeenCalled()
+    expect(mockEventSourceCallCount).toBe(0)
   })
 
   it('should handle health report event', () => {
@@ -325,7 +336,7 @@ describe('useHealthStream', () => {
     })
 
     // Should have attempted reconnection
-    expect(EventSource).toHaveBeenCalledTimes(2)
+    expect(mockEventSourceCallCount).toBe(2)
   })
 
   it('should cleanup on unmount', () => {
@@ -364,7 +375,7 @@ describe('useHealthStream', () => {
       vi.advanceTimersByTime(10)
     })
 
-    expect(EventSource).toHaveBeenCalledTimes(2)
+    expect(mockEventSourceCallCount).toBe(2)
   })
 
   it('should parse malformed JSON gracefully', () => {
