@@ -41,6 +41,9 @@ azd app deps --structured-logs
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
+| `start` | Start stopped services | [→ Full Spec](commands/start.md) |
+| `stop` | Stop running services | [→ Full Spec](commands/stop.md) |
+| `restart` | Restart services | [→ Full Spec](commands/restart.md) |
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
@@ -283,6 +286,120 @@ The `run` command supports lifecycle hooks that execute before and after service
 **→ [See Hooks Documentation](hooks.md)** for complete hook configuration and examples.
 
 **→ [See full run command specification](commands/run.md)** for orchestration flows, runtime modes, and detailed documentation.
+
+---
+
+## `azd app start`
+
+Start stopped services.
+
+### Usage
+
+```bash
+azd app start [flags]
+```
+
+### Examples
+
+```bash
+# Start a specific service
+azd app start --service api
+
+# Start multiple services
+azd app start --service "api,web,worker"
+
+# Start all stopped services
+azd app start --all
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Service name(s) to start (comma-separated) |
+| `--all` | | bool | `false` | Start all stopped services |
+
+### Description
+
+Start one or more stopped services that were previously running. This command operates on the service registry maintained by `azd app run`. If no services are registered, use `azd app run` to start your development environment first.
+
+**→ [See full start command specification](commands/start.md)** for complete documentation.
+
+---
+
+## `azd app stop`
+
+Stop running services.
+
+### Usage
+
+```bash
+azd app stop [flags]
+```
+
+### Examples
+
+```bash
+# Stop a specific service
+azd app stop --service api
+
+# Stop multiple services
+azd app stop --service "api,web,worker"
+
+# Stop all running services
+azd app stop --all
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
+| `--all` | | bool | `false` | Stop all running services |
+
+### Description
+
+Stop one or more running services gracefully. Services are stopped with a graceful shutdown timeout. If a service doesn't respond to graceful shutdown, it will be forcefully terminated.
+
+**→ [See full stop command specification](commands/stop.md)** for complete documentation.
+
+---
+
+## `azd app restart`
+
+Restart services.
+
+### Usage
+
+```bash
+azd app restart [flags]
+```
+
+### Examples
+
+```bash
+# Restart a specific service
+azd app restart --service api
+
+# Restart multiple services
+azd app restart --service "api,web,worker"
+
+# Restart all services
+azd app restart --all
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Service name(s) to restart (comma-separated) |
+| `--all` | | bool | `false` | Restart all services |
+
+### Description
+
+Restart one or more services. This command stops and then starts services. It works on both running and stopped services. Services are stopped gracefully before being restarted.
+
+**→ [See full restart command specification](commands/restart.md)** for complete documentation.
 
 ---
 

@@ -89,6 +89,12 @@ export function StatusCell({ status, health, healthCheckResult }: StatusCellProp
           />
         </span>
       )}
+      {/* Visible error indicator */}
+      {healthCheckResult?.error && (
+        <span className="text-xs text-destructive/80 truncate max-w-[150px]" title={healthCheckResult.error}>
+          {healthCheckResult.error}
+        </span>
+      )}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/require"
@@ -552,45 +553,58 @@ func TestExtractProjectDirArg(t *testing.T) {
 
 func TestValidateServiceName(t *testing.T) {
 	tests := []struct {
-		name      string
-		service   string
-		wantError bool
+		name       string
+		service    string
+		allowEmpty bool
+		wantError  bool
 	}{
 		{
-			name:      "Valid service name",
-			service:   "my-service",
-			wantError: false,
+			name:       "Valid service name",
+			service:    "my-service",
+			allowEmpty: false,
+			wantError:  false,
 		},
 		{
-			name:      "Valid with underscore",
-			service:   "my_service_123",
-			wantError: false,
+			name:       "Valid with underscore",
+			service:    "my_service_123",
+			allowEmpty: false,
+			wantError:  false,
 		},
 		{
-			name:      "Empty string (OK for optional)",
-			service:   "",
-			wantError: false,
+			name:       "Empty string allowed",
+			service:    "",
+			allowEmpty: true,
+			wantError:  false,
 		},
 		{
-			name:      "Invalid - starts with hyphen",
-			service:   "-service",
-			wantError: true,
+			name:       "Empty string not allowed",
+			service:    "",
+			allowEmpty: false,
+			wantError:  true,
 		},
 		{
-			name:      "Invalid - contains special chars",
-			service:   "service; rm -rf /",
-			wantError: true,
+			name:       "Invalid - starts with hyphen",
+			service:    "-service",
+			allowEmpty: false,
+			wantError:  true,
 		},
 		{
-			name:      "Invalid - too long",
-			service:   string(make([]byte, 200)),
-			wantError: true,
+			name:       "Invalid - contains special chars",
+			service:    "service; rm -rf /",
+			allowEmpty: false,
+			wantError:  true,
+		},
+		{
+			name:       "Invalid - too long",
+			service:    string(make([]byte, 100)),
+			allowEmpty: false,
+			wantError:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateServiceName(tt.service)
+			err := security.ValidateServiceName(tt.service, tt.allowEmpty)
 			if tt.wantError && err == nil {
 				t.Error("Expected error, got nil")
 			}

@@ -43,7 +43,7 @@ func TestRunHealthValidation(t *testing.T) {
 			interval:      5 * time.Second,
 			timeout:       5 * time.Second,
 			output:        "xml",
-			expectedError: "output must be 'text', 'json', or 'table'",
+			expectedError: "invalid output format: must be 'text', 'json', or 'table'",
 		},
 	}
 

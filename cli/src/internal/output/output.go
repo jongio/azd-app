@@ -324,6 +324,22 @@ func Plain(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
 }
 
+// Confirm prompts the user for confirmation and returns true if they confirm.
+// Returns true immediately if in JSON mode (non-interactive).
+// The prompt displays the message and waits for y/n input.
+func Confirm(message string) bool {
+	if globalFormat == FormatJSON {
+		return true // Non-interactive mode, assume yes
+	}
+	fmt.Printf("%s%s%s [y/N]: ", BrightYellow, message, Reset)
+	var response string
+	if _, err := fmt.Scanln(&response); err != nil {
+		return false // On read error, default to no
+	}
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == "yes"
+}
+
 // Label prints a label and value pair
 func Label(label, value string) {
 	fmt.Printf("   %s%-12s%s %s\n", Dim, label+":", Reset, value)

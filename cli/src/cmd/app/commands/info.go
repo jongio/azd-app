@@ -25,10 +25,11 @@ var (
 // NewInfoCommand creates the info command.
 func NewInfoCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "info",
-		Short: "Show information about running services",
-		Long:  `Displays comprehensive information about all running services including URLs, status, health, and metadata`,
-		RunE:  runInfo,
+		Use:          "info",
+		Short:        "Show information about running services",
+		Long:         `Displays comprehensive information about all running services including URLs, status, health, and metadata`,
+		SilenceUsage: true,
+		RunE:         runInfo,
 	}
 
 	cmd.Flags().BoolVar(&infoAll, "all", false, "Show services from all projects on this machine")
@@ -339,28 +340,6 @@ func getAzureEndpoints() map[string]string {
 	}
 
 	return endpoints
-}
-
-// getServiceEnvVars returns all SERVICE_{name}_ environment variables for a service.
-func getServiceEnvVars(serviceName string) map[string]string {
-	envVars := make(map[string]string)
-	prefix := "SERVICE_" + strings.ToUpper(serviceName) + "_"
-
-	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := parts[0]
-		value := parts[1]
-
-		if strings.HasPrefix(key, prefix) {
-			envVars[key] = value
-		}
-	}
-
-	return envVars
 }
 
 // getServiceEnvironmentVars returns environment variables for a specific service,

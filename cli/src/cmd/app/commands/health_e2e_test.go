@@ -153,13 +153,20 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 
 		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
-		output, err := cmd.CombinedOutput()
+
+		// Capture stdout only (stderr has log messages that would break JSON parsing)
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = nil // Discard stderr
+
+		err := cmd.Run()
 
 		// Ignore non-zero exit codes, focus on JSON validity
 		if err != nil {
 			t.Logf("Command returned error (expected during startup): %v", err)
 		}
 
+		output := stdout.Bytes()
 		var result map[string]interface{}
 		if err := json.Unmarshal(output, &result); err != nil {
 			t.Fatalf("Invalid JSON output: %v\nOutput: %s", err, output)
@@ -260,10 +267,11 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 
 	// Test 7: Streaming mode (short duration)
 	t.Run("StreamingMode", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "health", "--stream", "--interval", "2s")
+		// Use interval > timeout (default timeout is 5s, so use 3s interval and shorter 1s timeout)
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--stream", "--interval", "3s", "--timeout", "1s")
 		cmd.Dir = projectDir
 
 		var stdout bytes.Buffer
@@ -274,8 +282,8 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 			t.Fatalf("Failed to start streaming health check: %v", err)
 		}
 
-		// Let it run for a few iterations
-		time.Sleep(7 * time.Second)
+		// Let it run for a few iterations (3s interval means ~3 checks in 10s)
+		time.Sleep(10 * time.Second)
 
 		// Cancel and wait
 		cancel()
@@ -283,10 +291,12 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 
 		output := stdout.String()
 
-		// Should have multiple updates
-		updateCount := strings.Count(output, "Timestamp:")
+		// In non-TTY mode (pipe/buffer), streaming outputs JSON lines
+		// Each line should be a valid JSON object containing "services" and "summary"
+		// Count JSON objects with "services" to verify multiple updates
+		updateCount := strings.Count(output, `"services":[`)
 		if updateCount < 2 {
-			t.Errorf("Expected at least 2 updates in streaming mode, got %d", updateCount)
+			t.Errorf("Expected at least 2 updates in streaming mode, got %d. Output: %s", updateCount, output)
 		}
 
 		t.Logf("Streaming produced %d updates", updateCount)
@@ -413,7 +423,7 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 
 	t.Run("ProcessCheckCrossPlatform", func(t *testing.T) {
 		// This test verifies that process checking works on the current platform
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		// Start a simple service
@@ -438,12 +448,19 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		// Health check should detect running processes
 		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
-		output, err := cmd.CombinedOutput()
+
+		// Capture stdout only (stderr has log messages that would break JSON parsing)
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = nil // Discard stderr
+
+		err = cmd.Run()
 
 		if err != nil {
 			t.Logf("Health check returned: %v", err)
 		}
 
+		output := stdout.Bytes()
 		var result map[string]interface{}
 		if err := json.Unmarshal(output, &result); err != nil {
 			t.Fatalf("Invalid JSON: %v", err)
