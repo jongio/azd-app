@@ -6,10 +6,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: 'line',
   use: {
-    baseURL: 'http://localhost:4321/azd-app',
+    // Note: Trailing slash is required for proper URL resolution with relative paths
+    baseURL: 'http://localhost:4321/azd-app/',
     trace: 'on-first-retry',
+    headless: true,
   },
   projects: [
     {
@@ -17,9 +19,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'pnpm preview',
-    url: 'http://localhost:4321/azd-app',
-    reuseExistingServer: !process.env.CI,
-  },
 });
