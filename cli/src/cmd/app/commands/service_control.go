@@ -281,7 +281,7 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 	}
 
 	// Update to starting state
-	_ = c.registry.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthUnknown)
+	_ = c.registry.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthStarting)
 
 	// Load environment variables
 	envVars := c.loadEnvVars(runtime)
@@ -295,6 +295,8 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 	}
 
 	// Update registry with new process info
+	// Keep health as "starting" - the health monitor will transition to "healthy"
+	// once the service is actually responding to health checks
 	updatedEntry := &registry.ServiceRegistryEntry{
 		Name:        serviceName,
 		ProjectDir:  entry.ProjectDir,
@@ -305,7 +307,7 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 		Language:    runtime.Language,
 		Framework:   runtime.Framework,
 		Status:      constants.StatusRunning,
-		Health:      constants.HealthHealthy,
+		Health:      constants.HealthStarting,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
 	}

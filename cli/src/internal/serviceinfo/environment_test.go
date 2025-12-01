@@ -140,49 +140,35 @@ func TestRefreshEnvironmentCache_ConcurrentAccess(t *testing.T) {
 }
 
 func TestGetAzureEnvironmentValues_MergesCache(t *testing.T) {
-	// Save original environment
-	originalEnv := os.Environ()
+	// Clear cache before test
+	environmentCacheMu.Lock()
+	environmentCache = make(map[string]string)
+	environmentCacheMu.Unlock()
+
 	defer func() {
-		os.Clearenv()
-		for _, env := range originalEnv {
-			parts := splitEnv(env)
-			if len(parts) == 2 {
-				os.Setenv(parts[0], parts[1])
-			}
-		}
-		// Clear cache
+		// Clear cache after test
 		environmentCacheMu.Lock()
 		environmentCache = make(map[string]string)
 		environmentCacheMu.Unlock()
 	}()
 
-	// Set process environment
-	os.Clearenv()
-	os.Setenv("PROCESS_VAR", "from_process")
-	os.Setenv("SHARED_VAR", "process_value")
-
-	// Manually populate cache with different values
+	// Manually populate cache with values
 	environmentCacheMu.Lock()
-	environmentCache["CACHE_VAR"] = "from_cache"
-	environmentCache["SHARED_VAR"] = "cache_value" // Cache should win
+	environmentCache["AZURE_CACHE_VAR"] = "from_cache"
+	environmentCache["MY_CUSTOM_VAR"] = "custom_value"
 	environmentCacheMu.Unlock()
 
-	// Get merged environment values
+	// Get merged environment values (azd env get-values may or may not return values
+	// depending on whether we're in an azd project, but cache should always be included)
 	result := getAzureEnvironmentValues("")
 
-	// Verify process-only variable
-	if result["PROCESS_VAR"] != "from_process" {
-		t.Errorf("PROCESS_VAR = %q, want %q", result["PROCESS_VAR"], "from_process")
+	// Verify cache variables are included
+	if result["AZURE_CACHE_VAR"] != "from_cache" {
+		t.Errorf("AZURE_CACHE_VAR = %q, want %q", result["AZURE_CACHE_VAR"], "from_cache")
 	}
 
-	// Verify cache-only variable
-	if result["CACHE_VAR"] != "from_cache" {
-		t.Errorf("CACHE_VAR = %q, want %q", result["CACHE_VAR"], "from_cache")
-	}
-
-	// Verify cache takes priority over process for shared variables
-	if result["SHARED_VAR"] != "cache_value" {
-		t.Errorf("SHARED_VAR = %q, want %q (cache should override process)", result["SHARED_VAR"], "cache_value")
+	if result["MY_CUSTOM_VAR"] != "custom_value" {
+		t.Errorf("MY_CUSTOM_VAR = %q, want %q", result["MY_CUSTOM_VAR"], "custom_value")
 	}
 }
 

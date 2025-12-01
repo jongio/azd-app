@@ -89,7 +89,9 @@ const (
 // Service health values
 const (
 	HealthHealthy   = "healthy"
+	HealthDegraded  = "degraded"
 	HealthUnhealthy = "unhealthy"
+	HealthStarting  = "starting"
 	HealthUnknown   = "unknown"
 )
 

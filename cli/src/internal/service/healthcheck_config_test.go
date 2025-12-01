@@ -178,7 +178,7 @@ func TestService_NeedsPort(t *testing.T) {
 		{
 			name:     "no ports no healthcheck",
 			service:  Service{},
-			expected: true, // Default: needs port for HTTP health check
+			expected: false, // No ports defined = no port needed (uses process health check)
 		},
 		{
 			name: "explicit ports",
@@ -192,7 +192,7 @@ func TestService_NeedsPort(t *testing.T) {
 			service: Service{
 				Healthcheck: &HealthcheckConfig{Disable: true},
 			},
-			expected: false, // No port needed
+			expected: false, // No ports defined = no port needed
 		},
 		{
 			name: "healthcheck disabled with ports",
@@ -207,14 +207,29 @@ func TestService_NeedsPort(t *testing.T) {
 			service: Service{
 				Healthcheck: &HealthcheckConfig{Type: "none"},
 			},
-			expected: false, // No port needed
+			expected: false, // No ports defined = no port needed
 		},
 		{
 			name: "healthcheck type process",
 			service: Service{
 				Healthcheck: &HealthcheckConfig{Type: "process"},
 			},
-			expected: true, // Process check still needs a port for the service
+			expected: false, // No ports defined = no port needed (uses process health check)
+		},
+		{
+			name: "healthcheck type http with ports",
+			service: Service{
+				Ports:       []string{"8080"},
+				Healthcheck: &HealthcheckConfig{Type: "http"},
+			},
+			expected: true, // Explicit ports = port needed
+		},
+		{
+			name: "multiple ports",
+			service: Service{
+				Ports: []string{"3000", "3001"},
+			},
+			expected: true,
 		},
 	}
 

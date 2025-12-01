@@ -105,9 +105,9 @@ describe('service-utils', () => {
       expect(display.badgeVariant).toBe('secondary')
     })
 
-    it('should return Stopped for not-running status', () => {
+    it('should return Not Running for not-running status', () => {
       const display = getStatusDisplay('not-running', 'unknown')
-      expect(display.text).toBe('Stopped')
+      expect(display.text).toBe('Not Running')
     })
 
     it('should return Unknown for unrecognized status', () => {
@@ -460,6 +460,25 @@ describe('service-utils', () => {
       expect(getLogPaneVisualStatus('healthy', 'error')).toBe('healthy')
       // But unhealthy service shows error even if logs show info
       expect(getLogPaneVisualStatus('unhealthy', 'info')).toBe('error')
+    })
+
+    it('should return stopped when processStatus is stopped', () => {
+      // Stopped process status takes priority over health status
+      expect(getLogPaneVisualStatus('healthy', 'info', 'stopped')).toBe('stopped')
+      expect(getLogPaneVisualStatus('unhealthy', 'error', 'stopped')).toBe('stopped')
+      expect(getLogPaneVisualStatus(undefined, 'info', 'stopped')).toBe('stopped')
+    })
+
+    it('should not affect status when processStatus is running', () => {
+      // Running process status should not affect the result
+      expect(getLogPaneVisualStatus('healthy', 'info', 'running')).toBe('healthy')
+      expect(getLogPaneVisualStatus('unhealthy', 'error', 'running')).toBe('error')
+    })
+
+    it('should not affect status when processStatus is undefined', () => {
+      // Undefined process status should fall back to health-based status
+      expect(getLogPaneVisualStatus('healthy', 'info', undefined)).toBe('healthy')
+      expect(getLogPaneVisualStatus('unhealthy', 'error', undefined)).toBe('error')
     })
   })
 })

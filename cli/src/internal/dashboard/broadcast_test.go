@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 )
 
 func TestBroadcastServiceUpdate(t *testing.T) {
@@ -206,12 +207,15 @@ services:
 		t.Fatalf("failed to create test azure.yaml: %v", err)
 	}
 
-	// Set environment variables that should be picked up
-	os.Setenv("SERVICE_API_URL", "https://test-api.azurecontainerapps.io")
-	os.Setenv("SERVICE_API_NAME", "test-api-resource")
+	// Use serviceinfo cache to simulate environment values from azd env get-values
+	// This simulates what happens when azd provision completes and fires an event
+	serviceinfo.RefreshEnvironmentFromEvent(map[string]interface{}{
+		"SERVICE_API_URL":  map[string]interface{}{"value": "https://test-api.azurecontainerapps.io"},
+		"SERVICE_API_NAME": map[string]interface{}{"value": "test-api-resource"},
+	})
 	defer func() {
-		os.Unsetenv("SERVICE_API_URL")
-		os.Unsetenv("SERVICE_API_NAME")
+		// Clear the cache after test
+		serviceinfo.RefreshEnvironmentFromEvent(map[string]interface{}{})
 	}()
 
 	// Create server

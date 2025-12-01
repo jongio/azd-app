@@ -23,9 +23,10 @@ const isValidHealthFilterArray = createStringArrayValidator(VALID_HEALTH_STATUSE
 interface LogsMultiPaneViewProps {
   onFullscreenChange?: (isFullscreen: boolean) => void
   healthReport?: HealthReportEvent | null
+  onServiceClick?: (service: Service) => void  // Callback to open service details panel
 }
 
-export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMultiPaneViewProps = {}) {
+export function LogsMultiPaneView({ onFullscreenChange, healthReport, onServiceClick }: LogsMultiPaneViewProps = {}) {
   const [services, setServices] = useState<Service[]>([])
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set())
   const [isPaused, setIsPaused] = useState(false)
@@ -227,8 +228,14 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
     a.toLowerCase().localeCompare(b.toLowerCase())
   )
 
-  // Filter services by health status
+  // Filter services by health status (stopped services always show since they have no health status)
   const filteredServicesList = selectedServicesList.filter(serviceName => {
+    const service = services.find(s => s.name === serviceName)
+    const processStatus = service?.local?.status
+    
+    // Stopped services always show (they don't have health status)
+    if (processStatus === 'stopped') return true
+    
     const serviceHealth = healthReport?.services.find(
       s => s.serviceName === serviceName
     )?.status ?? 'unknown'
@@ -413,6 +420,7 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport }: LogsMult
                     isCollapsed={collapsedPanes[serviceName] ?? false}
                     onToggleCollapse={() => togglePaneCollapse(serviceName)}
                     serviceHealth={serviceHealthStatus}
+                    onShowDetails={service && onServiceClick ? () => onServiceClick(service) : undefined}
                   />
                 )
               })}
