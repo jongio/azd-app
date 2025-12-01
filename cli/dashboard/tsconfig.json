@@ -15,8 +15,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Path mapping */
-    "baseUrl": ".",
+    /* Path mapping - using absolute paths instead of deprecated baseUrl */
     "paths": {
       "@/*": ["./src/*"]
     },
@@ -25,10 +24,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-
-    /* Suppress deprecation warnings for baseUrl until TS 7.0 */
-    "ignoreDeprecations": "6.0"
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "e2e"],
   "references": [{ "path": "./tsconfig.node.json" }]
