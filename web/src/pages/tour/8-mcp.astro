@@ -343,13 +343,13 @@ const nextStep = getNextStep(8);
     gap: 1rem;
     padding: 1.5rem;
     margin-top: 2rem;
-    background: linear-gradient(135deg, var(--color-azure-50), var(--color-bg-accent));
+    background: var(--color-azure-50);
     border: 2px solid var(--color-azure-300);
     border-radius: 0.75rem;
   }
 
-  [data-theme="dark"] .congratulations-banner {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.1));
+  :global([data-theme="dark"]) .congratulations-banner {
+    background: rgba(59, 130, 246, 0.15);
     border-color: var(--color-azure-700);
   }
 

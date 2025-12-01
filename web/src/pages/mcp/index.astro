@@ -10,6 +10,7 @@
 import Layout from '../../components/Layout.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
 import AIChatDemo from '../../components/AIChatDemo.astro';
+import CopyButton from '../../components/CopyButton.astro';
 
 const baseUrl = import.meta.env.BASE_URL;
 
@@ -84,6 +85,37 @@ const useCases = [
     title: "Log Analysis",
     description: "Have AI search and analyze logs to find patterns and errors",
     example: '"Show me errors from the last 5 minutes"',
+  },
+];
+
+// Featured prompts - most useful prompts to highlight
+const featuredPrompts = [
+  {
+    category: "Diagnostics",
+    categoryIcon: "🔍",
+    prompts: [
+      "What's the health status of all my services?",
+      "Are there any errors in my service logs?",
+      "Why is the API service failing?",
+    ],
+  },
+  {
+    category: "Operations",
+    categoryIcon: "⚙️",
+    prompts: [
+      "Start all services",
+      "Restart the web service",
+      "Stop all running services",
+    ],
+  },
+  {
+    category: "Debugging",
+    categoryIcon: "🐛",
+    prompts: [
+      "Why is the database connection failing?",
+      "Show me the stack trace from the most recent error",
+      "Which service is causing slow responses?",
+    ],
   },
 ];
 ---
@@ -168,6 +200,41 @@ const useCases = [
             </div>
           </div>
         ))}
+      </div>
+    </section>
+
+    <!-- Featured Prompts -->
+    <section class="mcp-prompts-featured" aria-labelledby="prompts-heading">
+      <div class="mcp-prompts-header">
+        <h2 id="prompts-heading" class="section-title">Prompt Library</h2>
+        <p class="mcp-prompts-subtitle">Copy and paste these prompts to get started with AI debugging</p>
+      </div>
+      <div class="mcp-prompts-grid">
+        {featuredPrompts.map((category) => (
+          <div class="mcp-prompts-category">
+            <div class="mcp-prompts-category-header">
+              <span class="mcp-prompts-category-icon" aria-hidden="true">{category.categoryIcon}</span>
+              <h3 class="mcp-prompts-category-title">{category.category}</h3>
+            </div>
+            <ul class="mcp-prompts-list">
+              {category.prompts.map((prompt) => (
+                <li class="mcp-prompt-item">
+                  <code class="mcp-prompt-text">{prompt}</code>
+                  <CopyButton text={prompt} size="sm" />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div class="mcp-prompts-cta">
+        <a href={`${baseUrl}mcp/prompts/`} class="btn-secondary">
+          Browse All Prompts
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
       </div>
     </section>
 
@@ -490,6 +557,11 @@ const useCases = [
     border-radius: 0.5rem;
   }
 
+  :global([data-theme="dark"]) .mcp-use-case-example {
+    background: #0f172a;
+    border: 1px solid #334155;
+  }
+
   .mcp-use-case-example-label {
     display: block;
     font-size: 0.75rem;
@@ -502,8 +574,127 @@ const useCases = [
     color: var(--color-azure-600);
   }
 
-  [data-theme="dark"] .mcp-use-case-example code {
-    color: var(--color-azure-400);
+  :global([data-theme="dark"]) .mcp-use-case-example code {
+    color: #93c5fd;
+  }
+
+  /* Featured Prompts */
+  .mcp-prompts-featured {
+    padding: 3rem 0;
+    background: linear-gradient(135deg, var(--color-azure-50) 0%, var(--color-bg-secondary) 100%);
+    margin: 0 -1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    border-top: 1px solid var(--color-border-default);
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  :global([data-theme="dark"]) .mcp-prompts-featured {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, var(--color-bg-secondary) 100%);
+  }
+
+  .mcp-prompts-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .mcp-prompts-subtitle {
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    margin: 0.5rem 0 0;
+  }
+
+  .mcp-prompts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 768px) {
+    .mcp-prompts-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .mcp-prompts-category {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  :global([data-theme="dark"]) .mcp-prompts-category {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .mcp-prompts-category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .mcp-prompts-category-icon {
+    font-size: 1.25rem;
+  }
+
+  .mcp-prompts-category-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .mcp-prompts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .mcp-prompt-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    background: var(--color-bg-secondary);
+    border-radius: 0.5rem;
+    transition: background-color 0.15s ease;
+  }
+
+  .mcp-prompt-item:hover {
+    background: var(--color-bg-tertiary);
+  }
+
+  :global([data-theme="dark"]) .mcp-prompt-item {
+    background: #1e293b;
+  }
+
+  :global([data-theme="dark"]) .mcp-prompt-item:hover {
+    background: #334155;
+  }
+
+  .mcp-prompt-text {
+    font-size: 0.8125rem;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+  }
+
+  .mcp-prompts-cta {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
   }
 
   /* Quick Start */

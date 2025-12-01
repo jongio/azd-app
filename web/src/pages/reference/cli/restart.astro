@@ -1,15 +1,14 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-const usageCode = "azd app deps [flags]";
-const example0 = "azd app deps [flags]";
-const example1 = "azd app deps";
-const example2 = "azd app deps --verbose";
-const example3 = "azd app deps --clean";
-const example4 = "azd app deps --force";
+const usageCode = "azd app restart [flags]";
+const example0 = "azd app restart [flags]";
+const example1 = "azd app restart --service api";
+const example2 = "azd app restart --service \"api,web,worker\"";
+const example3 = "azd app restart --all";
 ---
 
-<Layout title="deps - CLI Reference" description="Automatically detects your project type and installs all dependencies.">
+<Layout title="restart - CLI Reference" description="Restart services.">
   <div class="max-w-4xl mx-auto px-4 py-12">
     <!-- Breadcrumb -->
     <nav class="text-sm mb-8">
@@ -18,14 +17,14 @@ const example4 = "azd app deps --force";
         <li>/</li>
         <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
         <li>/</li>
-        <li class="text-neutral-900 dark:text-white">deps</li>
+        <li class="text-neutral-900 dark:text-white">restart</li>
       </ol>
     </nav>
 
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-4xl font-bold mb-4">azd app deps</h1>
-      <p class="text-xl text-neutral-600 dark:text-neutral-400">Automatically detects your project type and installs all dependencies.</p>
+      <h1 class="text-4xl font-bold mb-4">azd app restart</h1>
+      <p class="text-xl text-neutral-600 dark:text-neutral-400">Restart services.</p>
     </div>
 
     <!-- Usage -->
@@ -49,32 +48,18 @@ const example4 = "azd app deps --force";
     <tbody>
       
       <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--verbose</code></td>
-        <td class="py-3 px-4"><code>-v</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
-        <td class="py-3 px-4">Show full installation output</td>
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--service</code></td>
+        <td class="py-3 px-4"><code>-s</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">Service name(s) to restart (comma-separated)</td>
       </tr>
       <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--clean</code></td>
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--all</code></td>
         <td class="py-3 px-4">-</td>
         <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
         <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
-        <td class="py-3 px-4">Remove existing dependencies before installing (clears node_modules, .venv, etc.)</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--no-cache</code></td>
-        <td class="py-3 px-4">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
-        <td class="py-3 px-4">Force fresh dependency installation and bypass cached results</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--force</code></td>
-        <td class="py-3 px-4"><code>-f</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
-        <td class="py-3 px-4">Force clean reinstall (combines --clean and --no-cache)</td>
+        <td class="py-3 px-4">Restart all services</td>
       </tr>
     </tbody>
   </table>
@@ -88,7 +73,6 @@ const example4 = "azd app deps --force";
   <Code code={example1} lang="bash" frame="terminal" />
   <Code code={example2} lang="bash" frame="terminal" />
   <Code code={example3} lang="bash" frame="terminal" />
-  <Code code={example4} lang="bash" frame="terminal" />
 </div>
 
     <!-- Link to detailed docs -->
@@ -99,12 +83,12 @@ const example4 = "azd app deps --force";
         For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
       </p>
       <a 
-        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/deps.md"
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/restart.md"
         target="_blank"
         rel="noopener noreferrer"
         class="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
       >
-        View full deps specification →
+        View full restart specification →
       </a>
     </div>
 

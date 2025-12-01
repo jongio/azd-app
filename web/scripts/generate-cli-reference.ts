@@ -21,6 +21,7 @@ interface CommandInfo {
   flags: Flag[];
   examples: Example[];
   hasDetailedDoc: boolean;
+  specContent: string;
 }
 
 interface Flag {
@@ -46,6 +47,9 @@ const COMMANDS = [
   'reqs',
   'deps', 
   'run',
+  'start',
+  'stop',
+  'restart',
   'health',
   'logs',
   'info',
@@ -57,14 +61,20 @@ const COMMANDS = [
 function parseFlags(content: string): Flag[] {
   const flags: Flag[] = [];
   
-  // Match flag tables
-  const tableRegex = /\|\s*`([^`]+)`\s*\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/g;
+  // Only parse tables in the ### Flags section
+  const flagsSectionMatch = content.match(/### Flags\s*([\s\S]*?)(?=###|$)/);
+  if (!flagsSectionMatch) return flags;
+  
+  const flagsSection = flagsSectionMatch[1];
+  
+  // Match 5-column flag tables (Flag | Short | Type | Default | Description)
+  const table5ColRegex = /\|\s*`([^`]+)`\s*\|\s*(`[^`]*`|)\s*\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/g;
   let match;
   
-  while ((match = tableRegex.exec(content)) !== null) {
+  while ((match = table5ColRegex.exec(flagsSection)) !== null) {
     const flag = match[1].trim();
-    // Skip header row
-    if (flag === 'Flag' || flag.includes('---')) continue;
+    // Skip header row or if it doesn't look like a flag
+    if (flag === 'Flag' || flag.includes('---') || !flag.startsWith('--')) continue;
     
     flags.push({
       flag,
@@ -72,6 +82,25 @@ function parseFlags(content: string): Flag[] {
       type: match[3].trim().replace(/`/g, ''),
       default: match[4].trim().replace(/`/g, ''),
       description: match[5].trim()
+    });
+  }
+  
+  // Match 4-column flag tables (Flag | Type | Default | Description) - no Short column
+  const table4ColRegex = /\|\s*`(--[^`]+)`\s*\|\s*([^|]*)\|\s*([^|]*)\|\s*([^|]*)\|/g;
+  
+  while ((match = table4ColRegex.exec(flagsSection)) !== null) {
+    const flag = match[1].trim();
+    // Skip header row
+    if (flag === 'Flag' || flag.includes('---')) continue;
+    // Skip if we already have this flag (from 5-column table)
+    if (flags.some(f => f.flag === flag)) continue;
+    
+    flags.push({
+      flag,
+      short: '',
+      type: match[2].trim().replace(/`/g, ''),
+      default: match[3].trim().replace(/`/g, ''),
+      description: match[4].trim()
     });
   }
   
@@ -89,16 +118,26 @@ function parseExamples(content: string): Example[] {
     const block = match[1].trim();
     const lines = block.split('\n');
     
-    for (const line of lines) {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
       if (line.startsWith('#')) {
-        continue; // Skip comments for now
+        i++;
+        continue; // Skip comments
       }
       if (line.startsWith('azd app')) {
+        // Handle multi-line commands with backslash continuation
+        let fullCommand = line.trim();
+        while (fullCommand.endsWith('\\') && i + 1 < lines.length) {
+          i++;
+          fullCommand = fullCommand.slice(0, -1).trim() + ' ' + lines[i].trim();
+        }
         examples.push({
           description: '',
-          command: line.trim()
+          command: fullCommand
         });
       }
+      i++;
     }
   }
   
@@ -122,13 +161,19 @@ function parseCommandFromReference(content: string, commandName: string): Comman
   const usageMatch = section.match(/```bash\nazd app (\w+)([^`]*)?```/);
   const usage = usageMatch ? `azd app ${usageMatch[1]}${usageMatch[2] || ''}`.trim() : `azd app ${commandName} [flags]`;
   
+  // Read full spec content if available
+  const specPath = path.join(COMMANDS_DIR, `${commandName}.md`);
+  const hasDetailedDoc = fs.existsSync(specPath);
+  const specContent = hasDetailedDoc ? fs.readFileSync(specPath, 'utf-8') : '';
+  
   return {
     name: commandName,
     description,
     usage,
     flags: parseFlags(section),
     examples: parseExamples(section),
-    hasDetailedDoc: fs.existsSync(path.join(COMMANDS_DIR, `${commandName}.md`))
+    hasDetailedDoc,
+    specContent
   };
 }
 
@@ -158,26 +203,25 @@ function generateCommandPage(command: CommandInfo): string {
   </table>
 </div>` : '';
 
+  // Create example code variables in frontmatter
+  const exampleCodes = command.examples.map((e, i) => 
+    `const example${i} = ${JSON.stringify(e.command)};`
+  ).join('\n');
+
   const examplesSection = command.examples.length > 0 ? `
 <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
 <div class="space-y-4">
-  ${command.examples.map(e => `
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="${e.command.replace(/"/g, '&quot;')}"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">${e.command}</code></pre>
-  </div>`).join('')}
+  ${command.examples.map((_, i) => `<Code code={example${i}} lang="bash" frame="terminal" />`).join('\n  ')}
 </div>` : '';
+
+  // Create usage code variable in frontmatter
+  const usageCode = `const usageCode = ${JSON.stringify(command.usage)};`;
 
   return `---
 import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+${usageCode}
+${exampleCodes}
 ---
 
 <Layout title="${command.name} - CLI Reference" description="${command.description}">
@@ -201,9 +245,7 @@ import Layout from '../../../components/Layout.astro';
 
     <!-- Usage -->
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
-    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
-      <code class="text-green-400">${command.usage}</code>
-    </div>
+    <Code code={usageCode} lang="bash" frame="terminal" />
 
     <!-- Flags -->
     ${command.flags.length > 0 ? '<h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>' : ''}
@@ -270,6 +312,28 @@ function generateIndexPage(commands: CommandInfo[]): string {
 
   return `---
 import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+
+const quickRefCode = \`# Check prerequisites
+azd app reqs
+
+# Install dependencies
+azd app deps
+
+# Start development environment
+azd app run
+
+# Monitor service health
+azd app health --stream
+
+# View logs
+azd app logs --follow
+
+# Show running services
+azd app info
+
+# Start MCP server for AI debugging
+azd app mcp serve\`;
 ---
 
 <Layout title="CLI Reference" description="Complete reference for all azd app commands and flags">
@@ -329,28 +393,7 @@ import Layout from '../../../components/Layout.astro';
     <!-- Quick Reference -->
     <section class="mt-12">
       <h2 class="text-2xl font-bold mb-6">Quick Reference</h2>
-      <div class="bg-neutral-900 rounded-lg p-6 overflow-x-auto">
-        <pre class="text-sm"><code class="text-green-400"># Check prerequisites
-azd app reqs
-
-# Install dependencies
-azd app deps
-
-# Start development environment
-azd app run
-
-# Monitor service health
-azd app health --stream
-
-# View logs
-azd app logs --follow
-
-# Show running services
-azd app info
-
-# Start MCP server for AI debugging
-azd app mcp serve</code></pre>
-      </div>
+      <Code code={quickRefCode} lang="bash" frame="terminal" />
     </section>
 
     <!-- Environment Variables -->

@@ -8,7 +8,6 @@
 import Layout from '../components/Layout.astro';
 import FeatureCard from '../components/FeatureCard.astro';
 import DashboardCarousel from '../components/DashboardCarousel.astro';
-import InstallTabs from '../components/InstallTabs.astro';
 import Terminal from '../components/Terminal.astro';
 
 // Feature data - Lead with core dev experience, AI features later
@@ -169,28 +168,6 @@ const demoSteps = [
       <div class="demo-cta">
         <a href="/azd-app/quick-start/" class="btn-primary">
           Start Quick Start
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-          </svg>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Install Section -->
-  <section class="install" aria-labelledby="install-heading">
-    <div class="install-container">
-      <div class="install-header">
-        <h2 id="install-heading" class="install-title">Quick Install</h2>
-        <p class="install-description">Get up and running in less than 2 minutes</p>
-      </div>
-      
-      <InstallTabs defaultPlatform="windows" />
-
-      <div class="install-cta">
-        <a href="/azd-app/quick-start/" class="btn-secondary">
-          Continue to Quick Start
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="5" y1="12" x2="19" y2="12"></line>
             <polyline points="12 5 19 12 12 19"></polyline>
@@ -560,53 +537,6 @@ const demoSteps = [
 
   .demo-cta {
     text-align: center;
-  }
-
-  /* ========================================
-     Install Section
-     ======================================== */
-  .install {
-    padding: 5rem 1.5rem;
-  }
-
-  @media (min-width: 768px) {
-    .install {
-      padding: 6rem 2rem;
-    }
-  }
-
-  .install-container {
-    max-width: 900px;
-    margin: 0 auto;
-  }
-
-  .install-header {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  .install-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: 0.5rem;
-  }
-
-  @media (min-width: 768px) {
-    .install-title {
-      font-size: 2.5rem;
-    }
-  }
-
-  .install-description {
-    font-size: 1.125rem;
-    color: var(--color-text-secondary);
-    margin: 0;
-  }
-
-  .install-cta {
-    text-align: center;
-    margin-top: 2rem;
   }
 
   /* ========================================

@@ -78,8 +78,9 @@ const {
     animation: challenge-attention 0.5s ease-out 0.5s both;
   }
 
-  [data-theme="dark"] .challenge-callout {
-    background: linear-gradient(135deg, #422006, #451a03);
+  :global([data-theme="dark"]) .challenge-callout {
+    background: linear-gradient(135deg, #78350f, #92400e);
+    border-color: #fbbf24;
   }
 
   .challenge-header {
@@ -101,6 +102,10 @@ const {
     margin: 0;
   }
 
+  :global([data-theme="dark"]) .challenge-title {
+    color: #fef3c7;
+  }
+
   .challenge-description {
     color: var(--color-text-secondary);
     margin: 0 0 1.25rem 0;
@@ -108,11 +113,20 @@ const {
     font-size: 0.9375rem;
   }
 
+  :global([data-theme="dark"]) .challenge-description {
+    color: #fde68a;
+  }
+
   .challenge-prompt {
     background: var(--color-bg-primary);
     border: 1px solid var(--color-border-default);
     border-radius: 0.5rem;
     padding: 1rem;
+  }
+
+  :global([data-theme="dark"]) .challenge-prompt {
+    background: #1c1917;
+    border-color: #44403c;
   }
 
   .challenge-prompt-label {
@@ -125,7 +139,7 @@ const {
     margin-bottom: 0.5rem;
   }
 
-  [data-theme="dark"] .challenge-prompt-label {
+  :global([data-theme="dark"]) .challenge-prompt-label {
     color: var(--color-azure-400);
   }
 

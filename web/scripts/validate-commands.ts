@@ -24,12 +24,12 @@ const projectRoot = path.resolve(webRoot, "..");
 const CLI_COMMANDS_DIR = path.join(projectRoot, "cli", "docs", "commands");
 const CONTENT_COMMANDS_DIR = path.join(webRoot, "src", "content", "commands");
 const TOUR_PAGES_DIR = path.join(webRoot, "src", "pages", "tour");
-const REFERENCE_COMMANDS_DIR = path.join(
+const REFERENCE_CLI_DIR = path.join(
   webRoot,
   "src",
   "pages",
   "reference",
-  "commands"
+  "cli"
 );
 const EXCLUDE_FILE = path.join(webRoot, "scripts", ".exclude-commands");
 
@@ -134,30 +134,25 @@ function checkTourPages(command: string): string | null {
 }
 
 /**
- * Check if a command is covered in reference/commands pages
+ * Check if a command is covered in reference/cli pages (generated)
  */
-function checkReferenceCommands(command: string): string | null {
-  if (!fs.existsSync(REFERENCE_COMMANDS_DIR)) {
+function checkReferenceCli(command: string): string | null {
+  if (!fs.existsSync(REFERENCE_CLI_DIR)) {
     return null;
   }
 
-  const files = fs.readdirSync(REFERENCE_COMMANDS_DIR);
+  const files = fs.readdirSync(REFERENCE_CLI_DIR);
 
   // Check for direct command page
   const possibleNames = [
     `${command}.astro`,
     `${command}.mdx`,
     `${command}.md`,
-    "[...slug].astro", // Dynamic route that may cover all commands
   ];
 
   for (const name of possibleNames) {
     if (files.includes(name)) {
-      if (name === "[...slug].astro") {
-        // Dynamic route - assume it covers all commands
-        return `pages/reference/commands/${name} (dynamic)`;
-      }
-      return `pages/reference/commands/${name}`;
+      return `pages/reference/cli/${name}`;
     }
   }
 
@@ -186,7 +181,7 @@ function validateCommands(): ValidationResult[] {
       coverageLocation = checkTourPages(command);
     }
     if (!coverageLocation) {
-      coverageLocation = checkReferenceCommands(command);
+      coverageLocation = checkReferenceCli(command);
     }
 
     results.push({
@@ -235,7 +230,7 @@ function main(): void {
     console.log("To fix this, add documentation in one of these locations:");
     console.log("   • web/src/content/commands/<command>.md");
     console.log("   • web/src/pages/tour/<step>.mdx (covering the command)");
-    console.log("   • web/src/pages/reference/commands/<command>.astro");
+    console.log("   • web/src/pages/reference/cli/<command>.astro");
     console.log();
     console.log("To exclude a command from validation, add it to:");
     console.log("   web/scripts/.exclude-commands");

@@ -1,5 +1,17 @@
 ---
 import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+const usageCode = "azd app logs [flags]";
+const example0 = "azd app logs [flags]";
+const example1 = "azd app logs";
+const example2 = "azd app logs --follow";
+const example3 = "azd app logs --service web,api";
+const example4 = "azd app logs --tail 50";
+const example5 = "azd app logs --since 5m";
+const example6 = "azd app logs --level error";
+const example7 = "azd app logs --format json";
+const example8 = "azd app logs --file debug.log";
+const example9 = "azd app logs --timestamps=false";
 ---
 
 <Layout title="logs - CLI Reference" description="View logs from running services with filtering and follow support.">
@@ -23,9 +35,7 @@ import Layout from '../../../components/Layout.astro';
 
     <!-- Usage -->
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
-    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
-      <code class="text-green-400">azd app logs [flags]</code>
-    </div>
+    <Code code={usageCode} lang="bash" frame="terminal" />
 
     <!-- Flags -->
     <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
@@ -100,7 +110,7 @@ import Layout from '../../../components/Layout.astro';
         <td class="py-3 px-4">Output format (text, json)</td>
       </tr>
       <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--output</code></td>
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--file</code></td>
         <td class="py-3 px-4">-</td>
         <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
         <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
@@ -128,127 +138,16 @@ import Layout from '../../../components/Layout.astro';
     
 <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
 <div class="space-y-4">
-  
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs [flags]"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs [flags]</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --follow"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --follow</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --service web,api"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --service web,api</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --tail 50"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --tail 50</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --since 5m"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --since 5m</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --level error"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --level error</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --format json"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --format json</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --output debug.log"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --output debug.log</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app logs --timestamps=false"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --timestamps=false</code></pre>
-  </div>
+  <Code code={example0} lang="bash" frame="terminal" />
+  <Code code={example1} lang="bash" frame="terminal" />
+  <Code code={example2} lang="bash" frame="terminal" />
+  <Code code={example3} lang="bash" frame="terminal" />
+  <Code code={example4} lang="bash" frame="terminal" />
+  <Code code={example5} lang="bash" frame="terminal" />
+  <Code code={example6} lang="bash" frame="terminal" />
+  <Code code={example7} lang="bash" frame="terminal" />
+  <Code code={example8} lang="bash" frame="terminal" />
+  <Code code={example9} lang="bash" frame="terminal" />
 </div>
 
     <!-- Link to detailed docs -->
