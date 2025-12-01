@@ -313,81 +313,81 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport, onServiceC
                   type="checkbox"
                   checked={levelFilter.has('warning')}
                   onChange={() => toggleLevelFilter('warning')}
-                className="w-4 h-4 accent-yellow-500"
-              />
-              <span className="text-sm text-yellow-500">Warning</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={levelFilter.has('error')}
-                onChange={() => toggleLevelFilter('error')}
-                className="w-4 h-4 accent-red-500"
-              />
-              <span className="text-sm text-red-500">Error</span>
-            </label>
+                  className="w-4 h-4 accent-yellow-500"
+                />
+                <span className="text-sm text-yellow-500">Warning</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={levelFilter.has('error')}
+                  onChange={() => toggleLevelFilter('error')}
+                  className="w-4 h-4 accent-red-500"
+                />
+                <span className="text-sm text-red-500">Error</span>
+              </label>
+            </div>
           </div>
-        </div>
-        {/* Divider */}
-        <div className="w-px bg-border self-stretch" />
-        {/* Health Status Filter */}
-        <div role="group" aria-labelledby="health-status-filter-heading">
-          <h3 id="health-status-filter-heading" className="font-medium mb-3">Health Status</h3>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={healthFilter.has('healthy')}
-                onChange={() => toggleHealthFilter('healthy')}
-                aria-label="Show healthy services"
-                className="w-4 h-4 accent-green-500"
-              />
-              <span className="text-sm text-green-500">Healthy</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={healthFilter.has('degraded')}
-                onChange={() => toggleHealthFilter('degraded')}
-                aria-label="Show degraded services"
-                className="w-4 h-4 accent-yellow-500"
-              />
-              <span className="text-sm text-yellow-500">Degraded</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={healthFilter.has('unhealthy')}
-                onChange={() => toggleHealthFilter('unhealthy')}
-                aria-label="Show unhealthy services"
-                className="w-4 h-4 accent-red-500"
-              />
-              <span className="text-sm text-red-500">Unhealthy</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={healthFilter.has('starting')}
-                onChange={() => toggleHealthFilter('starting')}
-                aria-label="Show starting services"
-                className="w-4 h-4 accent-blue-500"
-              />
-              <span className="text-sm text-blue-500">Starting</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={healthFilter.has('unknown')}
-                onChange={() => toggleHealthFilter('unknown')}
-                aria-label="Show unknown services"
-                className="w-4 h-4 accent-gray-500"
-              />
-              <span className="text-sm text-gray-500 dark:text-gray-400">Unknown</span>
-            </label>
+          {/* Divider */}
+          <div className="w-px bg-border self-stretch" />
+          {/* Health Status Filter */}
+          <div role="group" aria-labelledby="health-status-filter-heading">
+            <h3 id="health-status-filter-heading" className="font-medium mb-3">Health Status</h3>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={healthFilter.has('healthy')}
+                  onChange={() => toggleHealthFilter('healthy')}
+                  aria-label="Show healthy services"
+                  className="w-4 h-4 accent-green-500"
+                />
+                <span className="text-sm text-green-500">Healthy</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={healthFilter.has('degraded')}
+                  onChange={() => toggleHealthFilter('degraded')}
+                  aria-label="Show degraded services"
+                  className="w-4 h-4 accent-yellow-500"
+                />
+                <span className="text-sm text-yellow-500">Degraded</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={healthFilter.has('unhealthy')}
+                  onChange={() => toggleHealthFilter('unhealthy')}
+                  aria-label="Show unhealthy services"
+                  className="w-4 h-4 accent-red-500"
+                />
+                <span className="text-sm text-red-500">Unhealthy</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={healthFilter.has('starting')}
+                  onChange={() => toggleHealthFilter('starting')}
+                  aria-label="Show starting services"
+                  className="w-4 h-4 accent-blue-500"
+                />
+                <span className="text-sm text-blue-500">Starting</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={healthFilter.has('unknown')}
+                  onChange={() => toggleHealthFilter('unknown')}
+                  aria-label="Show unknown services"
+                  className="w-4 h-4 accent-gray-500"
+                />
+                <span className="text-sm text-gray-500 dark:text-gray-400">Unknown</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
       {/* View Content */}
       <div className="flex-1 overflow-hidden">

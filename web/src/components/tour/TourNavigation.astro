@@ -11,10 +11,10 @@ interface Props {
   currentStep: number;
   /** Total steps */
   totalSteps: number;
-  /** Previous step (null if first) */
-  previousStep: TourStep | null;
-  /** Next step (null if last) */
-  nextStep: TourStep | null;
+  /** Previous step (null/undefined if first) */
+  previousStep: TourStep | null | undefined;
+  /** Next step (null/undefined if last) */
+  nextStep: TourStep | null | undefined;
   /** Custom class name */
   class?: string;
 }
