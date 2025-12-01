@@ -1,5 +1,10 @@
 ---
 import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+const usageCode = "azd app mcp serve";
+const example0 = "azd app mcp serve";
+const example1 = "azd app mcp serve";
+const example2 = "azd app mcp serve";
 ---
 
 <Layout title="mcp - CLI Reference" description="Model Context Protocol (MCP) server for AI assistant integration. Enables AI assistants like Claude Desktop and GitHub Copilot to interact with your azd app projects.">
@@ -23,133 +28,19 @@ import Layout from '../../../components/Layout.astro';
 
     <!-- Usage -->
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
-    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
-      <code class="text-green-400">azd app mcp serve</code>
-    </div>
+    <Code code={usageCode} lang="bash" frame="terminal" />
 
     <!-- Flags -->
-    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
     
-<div class="overflow-x-auto my-8">
-  <table class="min-w-full text-sm">
-    <thead>
-      <tr class="border-b border-neutral-200 dark:border-neutral-700">
-        <th class="text-left py-3 px-4 font-semibold">Flag</th>
-        <th class="text-left py-3 px-4 font-semibold">Short</th>
-        <th class="text-left py-3 px-4 font-semibold">Type</th>
-        <th class="text-left py-3 px-4 font-semibold">Default</th>
-        <th class="text-left py-3 px-4 font-semibold">Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">serve</code></td>
-        <td class="py-3 px-4"><code>Start the MCP server for AI assistant integration</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">### Examples
-
-bash
-# Start the MCP server (typically called by AI assistants)
-azd app mcp serve
-
-# Test the server manually
-azd app mcp serve
-# Then send MCP protocol messages via stdin
-
-
-### Tools Provided
-
-The MCP server exposes 10 tools:</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Category</td>
-        <td class="py-3 px-4">Tool</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">get_services</code></td>
-        <td class="py-3 px-4"><code>Get comprehensive information about all running services</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Observability</td>
-        <td class="py-3 px-4">`get_service_logs`</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">get_project_info</code></td>
-        <td class="py-3 px-4"><code>Get project metadata from azure.yaml</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Operations</td>
-        <td class="py-3 px-4">`run_services`</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">stop_services</code></td>
-        <td class="py-3 px-4"><code>Get guidance on stopping services</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Operations</td>
-        <td class="py-3 px-4">`restart_service`</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">install_dependencies</code></td>
-        <td class="py-3 px-4"><code>Install dependencies for all projects</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Operations</td>
-        <td class="py-3 px-4">`check_requirements`</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">get_environment_variables</code></td>
-        <td class="py-3 px-4"><code>Get configured environment variables</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Configuration</td>
-        <td class="py-3 px-4">`set_environment_variable`</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">azure://project/azure.yaml</code></td>
-        <td class="py-3 px-4"><code>azure.yaml</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Project configuration file</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4">`azure://project/services/configs`</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+    
 
     <!-- Examples -->
     
 <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
 <div class="space-y-4">
-  
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app mcp serve"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app mcp serve</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app mcp serve"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app mcp serve</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app mcp serve"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app mcp serve</code></pre>
-  </div>
+  <Code code={example0} lang="bash" frame="terminal" />
+  <Code code={example1} lang="bash" frame="terminal" />
+  <Code code={example2} lang="bash" frame="terminal" />
 </div>
 
     <!-- Link to detailed docs -->

@@ -16,6 +16,7 @@ import ProgressIndicator from '../components/ProgressIndicator.astro';
 import StepCard from '../components/StepCard.astro';
 import CodeBlock from '../components/CodeBlock.astro';
 import ChallengeCallout from '../components/ChallengeCallout.astro';
+import PlatformInstallTabs from '../components/PlatformInstallTabs.astro';
 
 // Progress steps configuration
 const progressSteps = [
@@ -47,13 +48,6 @@ const nextSteps = [
     href: import.meta.env.BASE_URL + "cli/",
   },
 ];
-
-// Platform-specific commands for Step 1
-const step1Commands = {
-  windows: 'winget install microsoft.azd',
-  macos: 'brew tap azure/azd && brew install azd',
-  linux: 'curl -fsSL https://aka.ms/install-azd.sh | bash',
-};
 
 // Step 2 commands (same across platforms)
 const step2Commands = `# Enable extensions
@@ -126,102 +120,7 @@ azd app run`;
       title="Install Azure Developer CLI"
       description="First, you'll need the Azure Developer CLI (azd) installed on your machine. Choose your platform below:"
     >
-      <div class="platform-tabs" role="tablist" aria-label="Platform installation instructions">
-        <div class="platform-tabs-buttons">
-          <button
-            type="button"
-            role="tab"
-            id="tab-windows"
-            aria-selected="true"
-            aria-controls="panel-windows"
-            class="platform-tab platform-tab--active"
-            data-platform="windows"
-            tabindex="0"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
-            </svg>
-            <span>Windows</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-macos"
-            aria-selected="false"
-            aria-controls="panel-macos"
-            class="platform-tab"
-            data-platform="macos"
-            tabindex="-1"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-            </svg>
-            <span>macOS</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-linux"
-            aria-selected="false"
-            aria-controls="panel-linux"
-            class="platform-tab"
-            data-platform="linux"
-            tabindex="-1"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.002c-.06-.135-.12-.2-.246-.334-.09-.134-.2-.2-.416-.333l-.003-.003c-.003-.066-.008-.135-.02-.2-.14-.468-.52-.87-1.025-1.138a.417.417 0 00-.114-.037l-.003.003c-.027.023-.038.034-.054.068-.135.468-.166.87-.166 1.404 0 .468.034.87.135 1.404.166.998.5 1.336.834 1.938.167.399.298.735.298 1.27 0 .191-.019.4-.058.603l.003.003c.675-.13 1.075-.397 1.253-.664.18-.267.182-.466.117-.601a.398.398 0 00-.366-.27c-.206 0-.396.135-.58.135-.12 0-.228-.07-.312-.135-.09-.065-.155-.2-.155-.333 0-.135.084-.266.232-.334.149-.065.346-.134.607-.134.26 0 .571.07.837.4.135.134.206.333.206.532s-.068.4-.203.535c-.135.2-.334.334-.602.534-.9.534-2.106.67-2.869.4a4.463 4.463 0 01-.1.268l-.003-.003c-.109.467-.165.867-.143 1.338.022.465.11.867.312 1.069.135.135.34.2.55.266.212.066.443.135.623.2.09.032.164.065.226.1a.377.377 0 01.208.134.56.56 0 01.074.335c-.003.12-.035.218-.117.333-.165.2-.447.401-.778.535-.333.135-.676.201-.938.201h-.003c-.466 0-.865-.134-1.11-.399a1.513 1.513 0 01-.308-.533l-.003-.067c-.208 0-.466.027-.733.067-.467.065-.936.2-1.27.4-.334.135-.601.334-.868.534a9.87 9.87 0 01-.935.6c-.266.135-.533.266-.735.333a1.9 1.9 0 01-.467.067c-.135 0-.265-.032-.39-.1a.762.762 0 01-.285-.267c-.13-.2-.212-.534-.114-.932v-.003c-.533-.067-1-.267-1.4-.534a2.3 2.3 0 01-.867-.934v-.003h-.003c-.134-.334-.2-.602-.2-.937 0-.265.067-.537.2-.803.066-.134.133-.2.2-.334.066-.067.133-.133.266-.2a.538.538 0 00.2-.333 1.11 1.11 0 00-.036-.468v-.002a3.7 3.7 0 01-.236-.8 3.64 3.64 0 01-.067-.868c.003-.466.084-.937.234-1.339.106-.33.243-.667.443-.93a2.37 2.37 0 011.266-.904l.067-.03v-.002c-.006-.068-.014-.133-.014-.2-.067-.467-.267-.937-.467-1.338-.2-.334-.4-.668-.533-.868-.134-.2-.2-.267-.267-.333a3.357 3.357 0 01-.4-.934 2.727 2.727 0 01.134-1.804c.2-.533.533-.935.933-1.2a2.71 2.71 0 011.537-.4c.466-.004.935.13 1.337.4.403.2.735.465.937.802.2.333.333.732.4 1.066v.003a3.596 3.596 0 01-.067 1.27 3.18 3.18 0 01-.467 1.068l-.002.003c.2.067.4.133.6.267.134.066.267.133.4.267v-.003a4.89 4.89 0 01-.667-2.538z"/>
-            </svg>
-            <span>Linux</span>
-          </button>
-        </div>
-
-        <div
-          role="tabpanel"
-          id="panel-windows"
-          aria-labelledby="tab-windows"
-          class="platform-panel platform-panel--active"
-          tabindex="0"
-        >
-          <CodeBlock 
-            code={step1Commands.windows}
-            language="bash"
-            showLanguage={true}
-            showCopy={true}
-          />
-        </div>
-
-        <div
-          role="tabpanel"
-          id="panel-macos"
-          aria-labelledby="tab-macos"
-          class="platform-panel"
-          tabindex="0"
-          hidden
-        >
-          <CodeBlock 
-            code={step1Commands.macos}
-            language="bash"
-            showLanguage={true}
-            showCopy={true}
-          />
-        </div>
-
-        <div
-          role="tabpanel"
-          id="panel-linux"
-          aria-labelledby="tab-linux"
-          class="platform-panel"
-          tabindex="0"
-          hidden
-        >
-          <CodeBlock 
-            code={step1Commands.linux}
-            language="bash"
-            showLanguage={true}
-            showCopy={true}
-          />
-        </div>
-      </div>
+      <PlatformInstallTabs id="quickstart" />
 
       <div class="step-tip">
         <span class="step-tip-icon">💡</span>
@@ -425,105 +324,6 @@ azd app run`;
   }
 
   /* ========================================
-     Platform Tabs (Step 1)
-     ======================================== */
-  .platform-tabs {
-    width: 100%;
-  }
-
-  .platform-tabs-buttons {
-    display: flex;
-    gap: 0.5rem;
-    border-bottom: 1px solid var(--color-border-default);
-    padding-bottom: 0;
-    margin-bottom: 0;
-  }
-
-  .platform-tab {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.25rem;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    transition: color 150ms ease-out, border-color 150ms ease-out, background-color 150ms ease-out;
-    margin-bottom: -1px;
-  }
-
-  .platform-tab:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-secondary);
-  }
-
-  .platform-tab:focus-visible {
-    outline: 2px solid var(--color-border-focus);
-    outline-offset: -2px;
-    border-radius: 0.25rem;
-  }
-
-  .platform-tab--active {
-    color: var(--color-interactive-default);
-    border-bottom-color: var(--color-interactive-default);
-  }
-
-  .platform-tab svg {
-    width: 18px;
-    height: 18px;
-    opacity: 0.7;
-  }
-
-  .platform-tab--active svg {
-    opacity: 1;
-  }
-
-  .platform-panel {
-    display: none;
-  }
-
-  .platform-panel--active {
-    display: block;
-  }
-
-  .platform-panel :global(.code-block) {
-    margin-top: 0;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    border-top: none;
-  }
-
-  /* Mobile platform tabs */
-  @media (max-width: 480px) {
-    .platform-tabs-buttons {
-      flex-direction: column;
-      gap: 0;
-      border-bottom: none;
-    }
-
-    .platform-tab {
-      justify-content: flex-start;
-      padding: 0.875rem 1rem;
-      border-bottom: 1px solid var(--color-border-default);
-      border-left: 3px solid transparent;
-      margin-bottom: 0;
-    }
-
-    .platform-tab--active {
-      border-bottom-color: var(--color-border-default);
-      border-left-color: var(--color-interactive-default);
-      background-color: var(--color-bg-secondary);
-    }
-
-    .platform-panel :global(.code-block) {
-      border-radius: 0;
-    }
-  }
-
-  /* ========================================
      Terminal Output (Step 3)
      ======================================== */
   .terminal-output {
@@ -590,17 +390,18 @@ azd app run`;
     align-items: flex-start;
     gap: 0.625rem;
     padding: 0.875rem 1rem;
-    background: var(--color-azure-50);
-    border: 1px solid var(--color-azure-200);
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    color: var(--color-text-secondary);
+    color: #78350f;
     line-height: 1.5;
   }
 
-  [data-theme="dark"] .step-tip {
-    background: rgba(59, 130, 246, 0.1);
-    border-color: var(--color-azure-800);
+  :global([data-theme="dark"]) .step-tip {
+    background: #78350f;
+    border-color: #fbbf24;
+    color: #fef3c7;
   }
 
   .step-tip-icon {
@@ -614,6 +415,11 @@ azd app run`;
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
     font-size: 0.8125rem;
+  }
+
+  :global([data-theme="dark"]) .step-tip code {
+    background: #451a03;
+    color: #fde68a;
   }
 
   /* ========================================
@@ -755,91 +561,3 @@ azd app run`;
     }
   }
 </style>
-
-<script>
-  function initPlatformTabs(): void {
-    const tabContainers = document.querySelectorAll('.platform-tabs');
-    
-    tabContainers.forEach((container) => {
-      const tabs = container.querySelectorAll<HTMLButtonElement>('.platform-tab');
-      const panels = container.querySelectorAll<HTMLDivElement>('.platform-panel');
-
-      function selectTab(selectedTab: HTMLButtonElement): void {
-        const platform = selectedTab.dataset.platform;
-
-        // Update tabs
-        tabs.forEach((tab) => {
-          const isSelected = tab === selectedTab;
-          tab.setAttribute('aria-selected', String(isSelected));
-          tab.classList.toggle('platform-tab--active', isSelected);
-          tab.tabIndex = isSelected ? 0 : -1;
-        });
-
-        // Update panels
-        panels.forEach((panel) => {
-          const isActive = panel.id === `panel-${platform}`;
-          panel.classList.toggle('platform-panel--active', isActive);
-          panel.hidden = !isActive;
-        });
-      }
-
-      tabs.forEach((tab) => {
-        tab.addEventListener('click', () => selectTab(tab));
-
-        tab.addEventListener('keydown', (e) => {
-          const currentIndex = Array.from(tabs).indexOf(tab);
-          let newIndex: number | null = null;
-
-          if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-            e.preventDefault();
-            newIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-          } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-            e.preventDefault();
-            newIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1;
-          } else if (e.key === 'Home') {
-            e.preventDefault();
-            newIndex = 0;
-          } else if (e.key === 'End') {
-            e.preventDefault();
-            newIndex = tabs.length - 1;
-          }
-
-          if (newIndex !== null) {
-            const newTab = tabs[newIndex];
-            newTab.focus();
-            selectTab(newTab);
-          }
-        });
-      });
-    });
-  }
-
-  // Auto-detect platform
-  function detectPlatform(): void {
-    const userAgent = navigator.userAgent.toLowerCase();
-    let platform: string;
-
-    if (userAgent.includes('win')) {
-      platform = 'windows';
-    } else if (userAgent.includes('mac')) {
-      platform = 'macos';
-    } else {
-      platform = 'linux';
-    }
-
-    const tab = document.querySelector<HTMLButtonElement>(`.platform-tab[data-platform="${platform}"]`);
-    if (tab && tab.getAttribute('aria-selected') !== 'true') {
-      tab.click();
-    }
-  }
-
-  // Initialize
-  initPlatformTabs();
-  detectPlatform();
-
-  // Re-initialize on Astro page transitions
-  document.addEventListener('astro:page-load', () => {
-    initPlatformTabs();
-    detectPlatform();
-  });
-</script>

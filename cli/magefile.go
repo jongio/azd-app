@@ -53,54 +53,45 @@ func All() error {
 	return Build()
 }
 
-// Build builds the dashboard and CLI binary for the current platform.
-// Set ALL_PLATFORMS=true to build for all platforms instead of current platform.
+// Build builds the dashboard and CLI binary, and installs it locally.
+// This is the main command for development - it builds everything and installs the extension.
+// Set ALL_PLATFORMS=true to build for all platforms (skip install).
+// Set SKIP_INSTALL=true to only build without installing.
 func Build() error {
 	mg.Deps(DashboardBuild)
 
 	if os.Getenv("ALL_PLATFORMS") == "true" {
 		return buildAllPlatforms()
 	}
-	return buildCurrentPlatform()
-}
 
-// buildCurrentPlatform compiles the CLI binary for the current platform.
-func buildCurrentPlatform() error {
-	fmt.Println("Building CLI for current platform...")
+	// Ensure azd extensions are set up
+	if err := ensureAzdExtensions(); err != nil {
+		return err
+	}
 
 	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-	platform := fmt.Sprintf("%s/%s", goos, goarch)
+	fmt.Println("Building and installing extension...")
 
 	env := map[string]string{
-		"EXTENSION_ID":       extensionID,
-		"EXTENSION_VERSION":  version,
-		"EXTENSION_PLATFORM": platform,
+		"EXTENSION_ID":      extensionID,
+		"EXTENSION_VERSION": version,
 	}
 
-	var buildScript string
-	if runtime.GOOS == "windows" {
-		buildScript = "build.ps1"
-		if err := sh.RunWithV(env, "pwsh", "-File", buildScript); err != nil {
-			return fmt.Errorf("build failed: %w", err)
-		}
-	} else {
-		buildScript = "build.sh"
-		if err := sh.RunWithV(env, "bash", buildScript); err != nil {
-			return fmt.Errorf("build failed: %w", err)
-		}
+	// Build and install directly using azd x build
+	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
+		return fmt.Errorf("build failed: %w", err)
 	}
 
-	fmt.Printf("✅ Build complete! Version: %s, Platform: %s\n", version, platform)
+	fmt.Printf("✅ Build complete! Version: %s\n", version)
+	fmt.Println("   Run 'azd app version' to verify")
 	return nil
 }
 
-// buildAllPlatforms compiles the CLI binary for all platforms.
+// buildAllPlatforms compiles the CLI binary for all platforms (used for releases).
 func buildAllPlatforms() error {
 	fmt.Println("Building CLI for all platforms...")
 
@@ -547,87 +538,6 @@ func CheckDeps() error {
 	return nil
 }
 
-// Install builds and installs the extension locally using azd x build.
-// Requires azd to be installed and available in PATH.
-func Install() error {
-	// Ensure azd extensions are set up
-	if err := ensureAzdExtensions(); err != nil {
-		return err
-	}
-
-	// Get version
-	version, err := getVersion()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Building extension...")
-
-	// Set environment variables
-	env := map[string]string{
-		"EXTENSION_ID":      extensionID,
-		"EXTENSION_VERSION": version,
-	}
-
-	// Build the extension (skip install - we'll do it via extension install for proper registration)
-	if err := sh.RunWithV(env, "azd", "x", "build", "--skip-install"); err != nil {
-		return fmt.Errorf("build failed: %w", err)
-	}
-
-	// Get the absolute path to registry.json (cross-platform)
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-	registryPath := filepath.Join(filepath.Dir(cwd), "registry.json")
-
-	// Check if registry.json exists, if not use the one in the current directory's parent
-	if _, err := os.Stat(registryPath); os.IsNotExist(err) {
-		// Try current directory
-		registryPath = filepath.Join(cwd, "..", "registry.json")
-		registryPath, _ = filepath.Abs(registryPath)
-	}
-
-	// Ensure the local extension source exists
-	if err := ensureLocalExtensionSource(registryPath); err != nil {
-		return err
-	}
-
-	// Install the extension from the local source
-	fmt.Println("📦 Installing extension from local registry...")
-	if err := sh.RunV("azd", "extension", "install", extensionID, "--source", "local", "--force"); err != nil {
-		return fmt.Errorf("extension install failed: %w", err)
-	}
-
-	fmt.Printf("✅ Installed version: %s\n", version)
-	fmt.Println("   Run 'azd app version' to verify")
-	return nil
-}
-
-// ensureLocalExtensionSource adds a local extension source if it doesn't exist.
-func ensureLocalExtensionSource(registryPath string) error {
-	// Check if local source already exists
-	sourcesOutput, err := sh.Output("azd", "extension", "source", "list")
-	if err != nil {
-		sourcesOutput = ""
-	}
-
-	// Check if "local" source already exists
-	if strings.Contains(sourcesOutput, "local") {
-		fmt.Println("✅ Local extension source already configured")
-		return nil
-	}
-
-	fmt.Println("📦 Adding local extension source...")
-
-	// Add the local source
-	if err := sh.RunV("azd", "extension", "source", "add", "-n", "local", "-t", "file", "-l", registryPath); err != nil {
-		return fmt.Errorf("failed to add local extension source: %w", err)
-	}
-
-	return nil
-}
-
 // ensureAzdExtensions checks that azd is installed, extensions are enabled, and the azd x extension is installed.
 // This is a prerequisite for commands that use azd x (build, watch, etc.).
 func ensureAzdExtensions() error {
@@ -683,7 +593,9 @@ func Watch() error {
 }
 
 // WatchAll monitors both CLI and dashboard files, rebuilding on changes.
-// Runs azd x watch for CLI and vite dev server for dashboard concurrently.
+// Runs azd x watch for CLI and vite build --watch for dashboard concurrently.
+// The dashboard is built to the embedded location (src/internal/dashboard/dist)
+// so changes are automatically included when the CLI is rebuilt.
 // Note: On Windows, stop any running instances of the app before starting the watcher
 // to avoid "file in use" errors during installation.
 func WatchAll() error {
@@ -701,6 +613,12 @@ func WatchAll() error {
 	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
 		return fmt.Errorf("pnpm install failed: %w", err)
 	}
+
+	// Do an initial dashboard build to ensure embedded dist is up-to-date
+	fmt.Println("📦 Building dashboard for embedding...")
+	if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build"); err != nil {
+		return fmt.Errorf("initial dashboard build failed: %w", err)
+	}
 	fmt.Println()
 
 	// Create channels for error handling
@@ -717,10 +635,11 @@ func WatchAll() error {
 		}
 	}()
 
-	// Start dashboard watcher in goroutine
+	// Start dashboard watcher in goroutine - uses vite build --watch to output to embedded location
 	go func() {
-		fmt.Println("⚛️  Starting dashboard watcher (vite dev server)...")
-		if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev"); err != nil {
+		fmt.Println("⚛️  Starting dashboard watcher (vite build --watch)...")
+		fmt.Println("   Dashboard changes will be built to src/internal/dashboard/dist")
+		if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build", "--", "--watch"); err != nil {
 			errChan <- fmt.Errorf("dashboard watcher failed: %w", err)
 		}
 	}()
@@ -860,6 +779,7 @@ func runGosec() error {
 }
 
 // DashboardBuild builds the dashboard TypeScript/React code.
+// The build output goes to src/internal/dashboard/dist which is embedded in the CLI binary.
 func DashboardBuild() error {
 	fmt.Println("Building dashboard...")
 
@@ -870,12 +790,13 @@ func DashboardBuild() error {
 	}
 
 	// Run TypeScript compilation and build
-	fmt.Println("Building dashboard assets...")
+	// Output goes to src/internal/dashboard/dist (configured in vite.config.ts)
+	fmt.Println("Building dashboard assets to src/internal/dashboard/dist...")
 	if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build"); err != nil {
 		return fmt.Errorf("dashboard build failed: %w", err)
 	}
 
-	fmt.Println("✅ Dashboard build complete!")
+	fmt.Println("✅ Dashboard build complete! Assets embedded in CLI binary.")
 	return nil
 }
 

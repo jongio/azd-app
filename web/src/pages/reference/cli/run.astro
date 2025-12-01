@@ -1,5 +1,15 @@
 ---
 import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+const usageCode = "azd app run [flags]";
+const example0 = "azd app run [flags]";
+const example1 = "azd app run";
+const example2 = "azd app run --service web,api";
+const example3 = "azd app run --runtime aspire";
+const example4 = "azd app run --dry-run";
+const example5 = "azd app run --verbose";
+const example6 = "azd app run --env-file .env.local";
+const example7 = "azd app run -s web -v --runtime aspire";
 ---
 
 <Layout title="run - CLI Reference" description="Starts your development environment based on project type with support for multi-service orchestration.">
@@ -23,9 +33,7 @@ import Layout from '../../../components/Layout.astro';
 
     <!-- Usage -->
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
-    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
-      <code class="text-green-400">azd app run [flags]</code>
-    </div>
+    <Code code={usageCode} lang="bash" frame="terminal" />
 
     <!-- Flags -->
     <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
@@ -93,103 +101,14 @@ import Layout from '../../../components/Layout.astro';
     
 <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
 <div class="space-y-4">
-  
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run [flags]"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run [flags]</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run --service web,api"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run --service web,api</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run --runtime aspire"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run --runtime aspire</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run --dry-run"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run --dry-run</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run --verbose"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run --verbose</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run --env-file .env.local"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run --env-file .env.local</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app run -s web -v --runtime aspire"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app run -s web -v --runtime aspire</code></pre>
-  </div>
+  <Code code={example0} lang="bash" frame="terminal" />
+  <Code code={example1} lang="bash" frame="terminal" />
+  <Code code={example2} lang="bash" frame="terminal" />
+  <Code code={example3} lang="bash" frame="terminal" />
+  <Code code={example4} lang="bash" frame="terminal" />
+  <Code code={example5} lang="bash" frame="terminal" />
+  <Code code={example6} lang="bash" frame="terminal" />
+  <Code code={example7} lang="bash" frame="terminal" />
 </div>
 
     <!-- Link to detailed docs -->

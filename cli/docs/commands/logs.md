@@ -32,7 +32,7 @@ azd app logs [service-name] [flags]
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
 | `--format` | | string | `text` | Output format (text, json) |
-| `--output` | | string | | Write logs to file instead of stdout |
+| `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
@@ -92,7 +92,7 @@ azd app logs [service-name] [flags]
 ┌─────────────────────────────────────────────────────────────┐
 │  Setup Output Writer                                         │
 │  - Default: stdout                                           │
-│  - If --output: create file                                  │
+│  - If --file: create file                                    │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -422,13 +422,13 @@ azd app logs -f --level error
 
 ```bash
 # Save to file
-azd app logs --output debug.log
+azd app logs --file debug.log
 
 # Follow and save
-azd app logs -f --output live.log
+azd app logs -f --file live.log
 
 # JSON to file
-azd app logs --format json --output data.jsonl
+azd app logs --format json --file data.jsonl
 ```
 
 **Security**: Output path is validated to prevent path traversal attacks
@@ -476,7 +476,7 @@ azd app logs --since 1h --level error
 
 ```bash
 # Export as JSON
-azd app logs --format json --output logs.jsonl
+azd app logs --format json --file logs.jsonl
 
 # Can then analyze with jq:
 cat logs.jsonl | jq 'select(.level == 2)'
@@ -505,7 +505,7 @@ azd app logs --service api --level error --since 5m
 azd app logs -f --service web,api --timestamps=false
 
 # Save errors from last hour to file
-azd app logs --level error --since 1h --output errors.log
+azd app logs --level error --since 1h --file errors.log
 ```
 
 **Filter Application Order**:
@@ -668,7 +668,7 @@ The logs command integrates with the service registry:
 | No services running | `azd app run` not active | Run `azd app run` first |
 | Service not found | Invalid service name | Check `azd app info` for service list |
 | Invalid duration | Bad --since format | Use format like "5m", "1h", "30s" |
-| Permission denied | Can't write to --output | Check file permissions |
+| Permission denied | Can't write to --file | Check file permissions |
 
 **Example Error**:
 ```bash
@@ -762,7 +762,7 @@ $ azd app logs --level error --since 1h
 ### Example 4: JSON Export
 
 ```bash
-$ azd app logs --format json --output logs.jsonl
+$ azd app logs --format json --file logs.jsonl
 
 $ cat logs.jsonl | jq -r 'select(.level == 2) | .message'
 ERROR: Connection timeout to database

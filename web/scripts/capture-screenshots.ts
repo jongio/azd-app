@@ -542,7 +542,7 @@ async function optimizeImages(): Promise<void> {
 }
 
 async function findAzdAppBinary(): Promise<string> {
-  // Look for the built binary
+  // Look for the built binary - prefer the NEWEST one to avoid stale binary issues
   const binDir = path.join(CLI_DIR, 'bin');
   const isWindows = process.platform === 'win32';
   
@@ -551,20 +551,31 @@ async function findAzdAppBinary(): Promise<string> {
     const ext = isWindows ? '.exe' : '';
     const platformArch = isWindows ? 'windows-amd64' : `${process.platform}-${process.arch === 'x64' ? 'amd64' : process.arch}`;
     
-    // Look for exact match: azd-app.exe or azd-app
-    const exactMatch = files.find(f => f === `azd-app${ext}`);
-    if (exactMatch) {
-      return path.join(binDir, exactMatch);
-    }
+    // Find all matching binaries for this platform (excluding .old files)
+    const candidates = files
+      .filter(f => 
+        (f === `azd-app${ext}` || f.includes(platformArch)) &&
+        (isWindows ? f.endsWith('.exe') : !f.includes('.')) &&
+        !f.endsWith('.old')
+      )
+      .map(f => ({
+        name: f,
+        path: path.join(binDir, f),
+        mtime: fs.statSync(path.join(binDir, f)).mtime.getTime()
+      }))
+      .sort((a, b) => b.mtime - a.mtime); // Sort by newest first
     
-    // Look for platform-specific binary (not .old files)
-    const binary = files.find(f => 
-      f.includes(platformArch) && 
-      (isWindows ? f.endsWith('.exe') : !f.includes('.')) &&
-      !f.endsWith('.old')
-    );
-    if (binary) {
-      return path.join(binDir, binary);
+    if (candidates.length > 0) {
+      const newest = candidates[0];
+      console.log(`  Found ${candidates.length} candidate(s), using newest: ${newest.name}`);
+      if (candidates.length > 1) {
+        const oldest = candidates[candidates.length - 1];
+        const ageMinutes = Math.round((newest.mtime - oldest.mtime) / 60000);
+        if (ageMinutes > 5) {
+          console.log(`  ⚠️  Warning: ${oldest.name} is ${ageMinutes} minutes older - consider cleaning up stale binaries`);
+        }
+      }
+      return newest.path;
     }
   }
   

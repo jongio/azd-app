@@ -33,7 +33,19 @@ const { sections, currentPath = Astro.url.pathname } = Astro.props;
 function isActive(href: string, current: string): boolean {
   const normalizedHref = href.replace(/\/$/, '');
   const normalizedCurrent = current.replace(/\/$/, '');
-  return normalizedHref === normalizedCurrent;
+  
+  // Exact match
+  if (normalizedHref === normalizedCurrent) {
+    return true;
+  }
+  
+  // For non-home pages, check if current path starts with the nav item path
+  // This highlights parent nav items for sub-pages
+  if (normalizedHref !== '/azd-app' && normalizedCurrent.startsWith(normalizedHref + '/')) {
+    return true;
+  }
+  
+  return false;
 }
 
 function hasActiveChild(items: SidebarItem[], current: string): boolean {

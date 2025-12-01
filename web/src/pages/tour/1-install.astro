@@ -8,6 +8,7 @@ import TourNavigation from '../../components/tour/TourNavigation.astro';
 import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
 import TryItYourself from '../../components/tour/TryItYourself.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
+import PlatformInstallTabs from '../../components/PlatformInstallTabs.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
 const step = getStepByNumber(1)!;
@@ -65,29 +66,7 @@ const nextStep = getNextStep(1);
       <h2>Install Azure Developer CLI</h2>
       <p>Choose the installation method for your platform:</p>
 
-      <h3>Windows (PowerShell)</h3>
-      <CodeBlock 
-        code="winget install microsoft.azd"
-        language="bash"
-        showLanguage={true}
-        showCopy={true}
-      />
-
-      <h3>macOS (Homebrew)</h3>
-      <CodeBlock 
-        code="brew tap azure/azd && brew install azd"
-        language="bash"
-        showLanguage={true}
-        showCopy={true}
-      />
-
-      <h3>Linux (curl)</h3>
-      <CodeBlock 
-        code="curl -fsSL https://aka.ms/install-azd.sh | bash"
-        language="bash"
-        showLanguage={true}
-        showCopy={true}
-      />
+      <PlatformInstallTabs id="tour-install" />
 
       <h2>Install the azd app Extension</h2>
       <p>Once azd is installed, enable extensions and install azd app:</p>

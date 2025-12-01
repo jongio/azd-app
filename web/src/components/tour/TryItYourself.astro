@@ -75,7 +75,7 @@ const {
     border-radius: 0.75rem;
   }
 
-  [data-theme="dark"] .try-it-yourself {
+  :global([data-theme="dark"]) .try-it-yourself {
     background: linear-gradient(135deg, #422006, #451a03);
   }
 
@@ -97,11 +97,19 @@ const {
     margin: 0;
   }
 
+  :global([data-theme="dark"]) .try-it-title {
+    color: #fef3c7;
+  }
+
   .try-it-prompt {
     font-size: 1rem;
     line-height: 1.6;
     color: var(--color-text-secondary);
     margin: 0 0 0.75rem;
+  }
+
+  :global([data-theme="dark"]) .try-it-prompt {
+    color: #fde68a;
   }
 
   .try-it-expected {
@@ -114,12 +122,18 @@ const {
     border-radius: 0.375rem;
   }
 
-  [data-theme="dark"] .try-it-expected {
+  :global([data-theme="dark"]) .try-it-expected {
     background: rgba(0, 0, 0, 0.2);
+    color: #fcd34d;
   }
 
   .try-it-expected strong {
     color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  :global([data-theme="dark"]) .try-it-expected strong {
+    color: #fef3c7;
   }
 
   .try-it-action {
@@ -139,7 +153,7 @@ const {
     transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
   }
 
-  [data-theme="dark"] .try-it-action {
+  :global([data-theme="dark"]) .try-it-action {
     background: var(--color-bg-primary);
   }
 

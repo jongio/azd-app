@@ -1,14 +1,3 @@
 # Commands to exclude from documentation validation
 # Add one command name per line (without .md extension)
 # Lines starting with # are comments
-
-# Temporarily excluding commands pending documentation
-deps
-health
-info
-logs
-mcp
-notifications
-reqs
-run
-version

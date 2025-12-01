@@ -246,8 +246,8 @@
   --color-mcp-badge-border: #f59e0b;
 
   /* Code Block Tokens - Dark Theme (Darker Background) */
-  --code-block-bg: #0f172a;
-  --code-header-bg: #020617;
+  --code-block-bg: #020617;
+  --code-header-bg: #010409;
   --code-header-border: #1e293b;
   --code-filename-color: #64748b;
   --code-line-number-color: #475569;
@@ -330,8 +330,8 @@
     --color-mcp-badge-border: #f59e0b;
 
     /* Code Block Tokens - Dark Theme (Darker Background) */
-    --code-block-bg: #0f172a;
-    --code-header-bg: #020617;
+    --code-block-bg: #020617;
+    --code-header-bg: #010409;
     --code-header-border: #1e293b;
     --code-filename-color: #64748b;
     --code-line-number-color: #475569;

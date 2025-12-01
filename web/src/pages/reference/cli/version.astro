@@ -1,5 +1,9 @@
 ---
 import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+const usageCode = "azd app version";
+const example0 = "azd app version";
+const example1 = "azd app version";
 ---
 
 <Layout title="version - CLI Reference" description="Show version information for the azd app extension.">
@@ -23,9 +27,7 @@ import Layout from '../../../components/Layout.astro';
 
     <!-- Usage -->
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
-    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
-      <code class="text-green-400">azd app version</code>
-    </div>
+    <Code code={usageCode} lang="bash" frame="terminal" />
 
     <!-- Flags -->
     
@@ -35,31 +37,8 @@ import Layout from '../../../components/Layout.astro';
     
 <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
 <div class="space-y-4">
-  
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app version"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app version</code></pre>
-  </div>
-  <div class="bg-neutral-900 rounded-lg overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
-      <span class="text-neutral-400 text-sm">bash</span>
-      <button 
-        class="copy-button text-neutral-400 hover:text-white text-sm"
-        data-code="azd app version"
-      >
-        Copy
-      </button>
-    </div>
-    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app version</code></pre>
-  </div>
+  <Code code={example0} lang="bash" frame="terminal" />
+  <Code code={example1} lang="bash" frame="terminal" />
 </div>
 
     <!-- Link to detailed docs -->
