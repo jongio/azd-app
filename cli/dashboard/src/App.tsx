@@ -7,6 +7,12 @@ import { LogsMultiPaneView } from '@/components/LogsMultiPaneView'
 import { Sidebar } from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ServiceStatusCard } from '@/components/ServiceStatusCard'
+import { EnvironmentPanel } from '@/components/EnvironmentPanel'
+import { PerformanceMetrics } from '@/components/views/PerformanceMetrics'
+// ServiceDependencies feature removed
+import { ServiceDetailPanel } from '@/components/panels/ServiceDetailPanel'
+import { KeyboardShortcuts } from '@/components/modals/KeyboardShortcuts'
+import { shouldHandleShortcut, keyToView } from '@/lib/shortcuts-utils'
 import type { Service, HealthCheckResult } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { useServiceErrors } from '@/hooks/useServiceErrors'
@@ -19,6 +25,9 @@ function App() {
     return (saved === 'cards' || saved === 'table') ? saved : 'table'
   })
   const [isLogsFullscreen, setIsLogsFullscreen] = useState(false)
+  const [selectedService, setSelectedService] = useState<Service | null>(null)
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
   const { services, loading, error } = useServices()
   const { hasActiveErrors } = useServiceErrors()
   
@@ -36,6 +45,69 @@ function App() {
   const getServiceHealthStatus = useCallback((serviceName: string): HealthCheckResult | undefined => {
     return getServiceHealth(serviceName)
   }, [getServiceHealth])
+
+  // Handle service click to open detail panel
+  const handleServiceClick = useCallback((service: Service) => {
+    setSelectedService(service)
+    setIsDetailPanelOpen(true)
+  }, [])
+
+  // Handle detail panel close
+  const handleDetailPanelClose = useCallback(() => {
+    setIsDetailPanelOpen(false)
+  }, [])
+
+  // Handle keyboard shortcuts modal
+  const handleShortcutsModalOpen = useCallback(() => {
+    setIsShortcutsModalOpen(true)
+  }, [])
+
+  const handleShortcutsModalClose = useCallback(() => {
+    setIsShortcutsModalOpen(false)
+  }, [])
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle shortcuts when in input/textarea
+      if (!shouldHandleShortcut(event)) return
+      
+      // Don't handle shortcuts when modal is open (except Escape)
+      if (isShortcutsModalOpen && event.key !== 'Escape') return
+      
+      const key = event.key
+      
+      // ? - Show keyboard shortcuts
+      if (key === '?') {
+        event.preventDefault()
+        setIsShortcutsModalOpen(true)
+        return
+      }
+      
+      // Navigation shortcuts (1-6)
+      const view = keyToView[key]
+      if (view) {
+        event.preventDefault()
+        setActiveView(view)
+        return
+      }
+      
+      // T - Toggle table/grid view
+      if (key.toLowerCase() === 't' && activeView === 'resources') {
+        event.preventDefault()
+        setViewMode(prev => prev === 'table' ? 'cards' : 'table')
+        return
+      }
+      
+      // R - Refresh (already handled by browser, but could be used for manual refresh)
+      // C - Clear console logs (would need to be connected to LogsMultiPaneView)
+      // E - Export logs (would need to be connected to LogsMultiPaneView)
+      // / or Ctrl+F - Focus search (would need to connect to search input)
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isShortcutsModalOpen, activeView])
 
   // Helper function to scroll main element to top smoothly
   const scrollMainToTop = () => {
@@ -149,6 +221,7 @@ function App() {
               <ServiceTable 
                 services={services} 
                 onViewLogs={() => setActiveView('console')}
+                onServiceClick={handleServiceClick}
                 healthReport={healthReport}
               />
             ) : (
@@ -158,6 +231,7 @@ function App() {
                     key={service.name} 
                     service={service}
                     healthStatus={getServiceHealthStatus(service.name)}
+                    onClick={() => handleServiceClick(service)}
                   />
                 ))}
               </div>
@@ -178,7 +252,30 @@ function App() {
           <LogsMultiPaneView 
             onFullscreenChange={setIsLogsFullscreen}
             healthReport={healthReport}
+            onServiceClick={handleServiceClick}
           />
+        </>
+      )
+    }
+
+    if (activeView === 'environment') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-foreground">Environment</h2>
+          </div>
+          <EnvironmentPanel services={services} />
+        </>
+      )
+    }
+
+    if (activeView === 'metrics') {
+      return (
+        <>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-foreground">Metrics</h2>
+          </div>
+          <PerformanceMetrics services={services} healthReport={healthReport} />
         </>
       )
     }
@@ -255,7 +352,7 @@ function App() {
         </div>
       )}
       
-      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} healthSummary={healthSummary} />}
+      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} healthSummary={healthSummary} services={services} />}
       <div className="flex-1 flex flex-col overflow-hidden">
         {!isLogsFullscreen && (
           <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background">
@@ -276,7 +373,12 @@ function App() {
               <button className="p-2 hover:bg-secondary rounded-md transition-colors">
                 <Github className="w-4 h-4 text-foreground-secondary hover:text-foreground" />
               </button>
-              <button className="p-2 hover:bg-secondary rounded-md transition-colors">
+              <button 
+                onClick={handleShortcutsModalOpen}
+                className="p-2 hover:bg-secondary rounded-md transition-colors"
+                aria-label="Keyboard shortcuts"
+                title="Keyboard shortcuts (?)"
+              >
                 <HelpCircle className="w-4 h-4 text-foreground-secondary hover:text-foreground" />
               </button>
               <button className="p-2 hover:bg-secondary rounded-md transition-colors">
@@ -289,6 +391,20 @@ function App() {
           {renderContent()}
         </main>
       </div>
+      
+      {/* Service Detail Panel */}
+      <ServiceDetailPanel
+        service={selectedService}
+        isOpen={isDetailPanelOpen}
+        onClose={handleDetailPanelClose}
+        healthStatus={selectedService ? getServiceHealthStatus(selectedService.name) : undefined}
+      />
+      
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts
+        isOpen={isShortcutsModalOpen}
+        onClose={handleShortcutsModalClose}
+      />
     </div>
   )
 }

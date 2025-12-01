@@ -100,7 +100,7 @@ describe('ServiceStatusCard', () => {
     expect(runningDiv.textContent).toContain('1')
   })
 
-  it('should count stopped services as errors', () => {
+  it('should count stopped services separately', () => {
     const onClick = vi.fn()
     render(
       <ServiceStatusCard 
@@ -111,9 +111,11 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // 1 error (stopped), 0 warn, 1 info (healthy)
-    const errorDiv = screen.getByTitle('Errors/Unhealthy')
-    expect(errorDiv.textContent).toContain('1')
+    // Stopped services are counted separately (not as errors)
+    const stoppedDiv = screen.getByTitle('Stopped')
+    const runningDiv = screen.getByTitle('Running/Healthy')
+    expect(stoppedDiv.textContent).toContain('1')
+    expect(runningDiv.textContent).toContain('1')
   })
 
   it('should count starting services as warnings', () => {
@@ -249,9 +251,9 @@ describe('ServiceStatusCard', () => {
       />
     )
 
-    // Should have 3 svg icons (XCircle, AlertTriangle, CheckCircle)
+    // Should have 4 svg icons (XCircle, AlertTriangle, CheckCircle, CircleDot)
     const svgs = container.querySelectorAll('svg')
-    expect(svgs.length).toBe(3)
+    expect(svgs.length).toBe(4)
   })
 
   it('should show warning styling when hasActiveErrors is true', () => {

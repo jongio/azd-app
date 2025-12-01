@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
@@ -87,16 +88,21 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			}
 
 			// Register service in starting state
+			// Only set URL if port is assigned (port > 0)
+			serviceURL := ""
+			if rt.Port > 0 {
+				serviceURL = fmt.Sprintf("http://localhost:%d", rt.Port)
+			}
 			if err := reg.Register(&registry.ServiceRegistryEntry{
 				Name:       rt.Name,
 				ProjectDir: projectDir,
 				Port:       rt.Port,
-				URL:        fmt.Sprintf("http://localhost:%d", rt.Port),
+				URL:        serviceURL,
 				AzureURL:   azureURL,
 				Language:   rt.Language,
 				Framework:  rt.Framework,
-				Status:     "starting",
-				Health:     "unknown",
+				Status:     constants.StatusStarting,
+				Health:     constants.HealthStarting,
 				StartTime:  time.Now(),
 			}); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to register service: %v", err))
@@ -139,7 +145,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				startErrors[rt.Name] = err
 				result.Errors[rt.Name] = err
 				mu.Unlock()
-				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
+				if err := reg.UpdateStatus(rt.Name, constants.StatusError, constants.HealthUnhealthy); err != nil {
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("❌ Port %d conflict detected", rt.Port))
@@ -163,7 +169,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 					slog.String("service", rt.Name),
 					slog.Int("port", rt.Port),
 					slog.String("error", err.Error()))
-				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
+				if err := reg.UpdateStatus(rt.Name, constants.StatusError, constants.HealthUnhealthy); err != nil {
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("Failed to start: %v", err))
@@ -196,10 +202,18 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 			mu.Unlock()
 
 			// Log service URL immediately with modern formatting
-			url := fmt.Sprintf("http://localhost:%d", process.Port)
-			output.ItemSuccess("%s%-15s%s → %s", output.Cyan, rt.Name, output.Reset, url)
+			// Only show URL for services with assigned ports (port > 0)
+			if process.Port > 0 {
+				url := fmt.Sprintf("http://localhost:%d", process.Port)
+				output.ItemSuccess("%s%-15s%s → %s", output.Cyan, rt.Name, output.Reset, url)
+			} else {
+				output.ItemSuccess("%s%-15s%s", output.Cyan, rt.Name, output.Reset)
+			}
 
-			if err := reg.UpdateStatus(rt.Name, "running", "healthy"); err != nil {
+			// Update status to running but keep health as "starting"
+			// The health monitor will transition health to "healthy" once the service
+			// is actually responding to health checks
+			if err := reg.UpdateStatus(rt.Name, constants.StatusRunning, constants.HealthStarting); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 			}
 			process.Ready = true
@@ -272,7 +286,7 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 			defer wg.Done()
 
 			// Update status to stopping
-			if err := reg.UpdateStatus(serviceName, "stopping", "unknown"); err != nil {
+			if err := reg.UpdateStatus(serviceName, constants.StatusStopping, constants.HealthUnknown); err != nil {
 				output.Error("Warning: failed to update status for %s: %v", serviceName, err)
 			}
 
@@ -293,11 +307,13 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 }
 
 // GetServiceURLs generates URLs for all running services.
+// Only includes services that have an assigned port (port > 0).
 func GetServiceURLs(processes map[string]*ServiceProcess) map[string]string {
 	urls := make(map[string]string)
 
 	for name, process := range processes {
-		if process.Ready {
+		// Only include services with assigned ports (port > 0)
+		if process.Ready && process.Port > 0 {
 			urls[name] = fmt.Sprintf("http://localhost:%d", process.Port)
 		}
 	}

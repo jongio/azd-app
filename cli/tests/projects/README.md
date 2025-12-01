@@ -18,6 +18,10 @@ test-projects/
 │   ├── test-poetry-project/  (poetry)
 │   ├── test-python-project/  (pip)
 │   └── test-uv-project/      (uv)
+├── azure-deploy-test/  # Azure deployment test project
+│   ├── azure.yaml            # azd app configuration
+│   ├── infra/                # Bicep infrastructure (Container Apps)
+│   └── src/web/              # Express.js app showing Azure context
 ├── logicapp-test/      # Logic Apps Standard test project
 ├── boundary-test/      # Tests boundary checking (no parent traversal)
 │   ├── package.json          (parent - should NOT be found)
@@ -75,6 +79,16 @@ The `boundary-test/` project specifically tests that the detector functions:
 - ❌ Do NOT detect projects in sibling/parent directories
 
 See `boundary-test/README.md` for detailed test instructions.
+
+### Azure Deployment Test Project
+
+The `azure-deploy-test/` project tests Azure deployment and environment variable inheritance:
+- ✅ Minimal Azure Container Apps deployment with `azd up`
+- ✅ Local development with `azd app run`
+- ✅ Azure context inheritance (`AZURE_*`, `AZD_*`, `SERVICE_*` variables)
+- ✅ Web UI displaying all Azure environment variables
+
+See `azure-deploy-test/README.md` for detailed test instructions.
 
 ## Running Tests
 

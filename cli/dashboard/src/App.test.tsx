@@ -321,6 +321,19 @@ describe('App', () => {
   })
 
   it('should show error indicator on Console nav when errors are active', async () => {
+    // To show the error indicator, we need either:
+    // 1. Services with unhealthy status (from health data)
+    // 2. OR empty services with hasActiveErrors=true (fallback)
+    // Using the fallback approach here:
+    const { useServices } = await import('@/hooks/useServices')
+    vi.mocked(useServices).mockReturnValue({
+      services: [], // Empty services so hasActiveErrors is used as fallback
+      loading: false,
+      error: null,
+      connected: true,
+      refetch: vi.fn(),
+    })
+    
     const { useServiceErrors } = await import('@/hooks/useServiceErrors')
     vi.mocked(useServiceErrors).mockReturnValue({ hasActiveErrors: true })
     

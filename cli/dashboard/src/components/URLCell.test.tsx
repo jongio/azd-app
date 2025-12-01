@@ -132,7 +132,7 @@ describe('URLCell', () => {
     render(<URLCell localUrl="http://localhost:3000" azureUrl="https://my-app.azurewebsites.net" />)
     
     const badge = screen.getByText('+1')
-    expect(badge).toHaveClass('bg-blue-500/20', 'text-blue-300')
+    expect(badge).toHaveClass('bg-primary/20', 'text-primary')
   })
 
   it('should have correct styling for tooltip container', () => {

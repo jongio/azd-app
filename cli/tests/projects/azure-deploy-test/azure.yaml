@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: azure-deploy-test
+
+services:
+  web:
+    host: containerapp
+    language: js
+    project: ./src/web
+    docker:
+      path: ./Dockerfile
+    ports:
+      - "3000"
+    healthcheck:
+      test: "http://localhost:3000/health"
+      interval: "10s"
+      timeout: "5s"
+      retries: 3
+      start_period: "30s"
+
+reqs:
+  - name: node
+    minVersion: "18.0.0"
+  - name: azd
+    minVersion: "1.0.0"

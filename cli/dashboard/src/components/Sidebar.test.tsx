@@ -11,6 +11,8 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Resources')).toBeInTheDocument()
     expect(screen.getByText('Console')).toBeInTheDocument()
+    expect(screen.getByText('Environment')).toBeInTheDocument()
+    expect(screen.getByText('Metrics')).toBeInTheDocument()
   })
 
   it('should highlight active view', () => {
@@ -70,12 +72,12 @@ describe('Sidebar', () => {
     expect(consoleButton).toHaveClass('text-foreground-tertiary')
   })
 
-  it('should render all 2 navigation items', () => {
+  it('should render all 4 navigation items', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(2)
+    expect(buttons).toHaveLength(4)
   })
 
   it('should update active state when activeView prop changes', () => {
@@ -139,7 +141,7 @@ describe('Sidebar', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
-    const labels = ['Resources', 'Console']
+    const labels = ['Resources', 'Console', 'Environment', 'Metrics']
     
     labels.forEach(label => {
       const element = screen.getByText(label)
@@ -210,6 +212,8 @@ describe('Sidebar', () => {
         healthy: 2,
         degraded: 1,
         unhealthy: 1,
+        starting: 0,
+        stopped: 0,
         unknown: 0,
         overall: 'unhealthy'
       }
@@ -231,6 +235,8 @@ describe('Sidebar', () => {
         healthy: 2,
         degraded: 2,
         unhealthy: 0,
+        starting: 0,
+        stopped: 0,
         unknown: 0,
         overall: 'degraded'
       }
@@ -252,6 +258,8 @@ describe('Sidebar', () => {
         healthy: 3,
         degraded: 0,
         unhealthy: 0,
+        starting: 0,
+        stopped: 0,
         unknown: 1,
         overall: 'unknown'
       }
@@ -272,6 +280,8 @@ describe('Sidebar', () => {
         healthy: 4,
         degraded: 0,
         unhealthy: 0,
+        starting: 0,
+        stopped: 0,
         unknown: 0,
         overall: 'healthy'
       }
@@ -293,6 +303,8 @@ describe('Sidebar', () => {
         healthy: 4,
         degraded: 0,
         unhealthy: 0,
+        starting: 0,
+        stopped: 0,
         unknown: 0,
         overall: 'healthy'
       }
@@ -326,6 +338,34 @@ describe('Sidebar', () => {
       const indicator = consoleButton.querySelector('.rounded-full')
       
       expect(indicator).not.toBeInTheDocument()
+    })
+
+    it('should show gray indicator when all services are stopped', () => {
+      const onViewChange = vi.fn()
+      const stoppedServices = [
+        { name: 'api', local: { status: 'stopped' as const, health: 'unknown' as const } },
+        { name: 'web', local: { status: 'stopped' as const, health: 'unknown' as const } },
+      ]
+      // Health summary shows unhealthy because stopped services fail health checks
+      // But services prop shows they are stopped, so we should see gray indicator
+      const healthSummary: HealthSummary = {
+        total: 2,
+        healthy: 0,
+        degraded: 0,
+        unhealthy: 2, // Stopped services appear as unhealthy in health checks
+        starting: 0,
+        stopped: 0,
+        unknown: 0,
+        overall: 'unhealthy'
+      }
+      render(<Sidebar activeView="resources" onViewChange={onViewChange} healthSummary={healthSummary} services={stoppedServices} />)
+
+      const consoleButton = screen.getByRole('button', { name: /console/i })
+      const indicator = consoleButton.querySelector('.rounded-full')
+      
+      expect(indicator).toBeInTheDocument()
+      // Should NOT show red (unhealthy) because stopped services are not errors
+      expect(indicator).not.toHaveClass('bg-red-500')
     })
   })
 })

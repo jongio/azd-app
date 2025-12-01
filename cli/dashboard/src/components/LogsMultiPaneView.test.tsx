@@ -311,7 +311,7 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
       { serviceName: 'web', status: 'degraded', checkType: 'http', responseTime: 200, timestamp: new Date().toISOString() },
       { serviceName: 'worker', status: 'unhealthy', checkType: 'process', responseTime: 0, timestamp: new Date().toISOString() },
     ],
-    summary: { total: 3, healthy: 1, degraded: 1, unhealthy: 1, unknown: 0, overall: 'degraded' },
+    summary: { total: 3, healthy: 1, degraded: 1, unhealthy: 1, starting: 0, stopped: 0, unknown: 0, overall: 'degraded' },
   }
 
   const mockServicesWithHealth = [
@@ -511,7 +511,7 @@ describe('LogsMultiPaneView - Health Status Filter', () => {
         { serviceName: 'api', status: 'healthy', checkType: 'http', responseTime: 100, timestamp: new Date().toISOString() },
         // web and worker are missing - should be treated as 'unknown'
       ],
-      summary: { total: 1, healthy: 1, degraded: 0, unhealthy: 0, unknown: 2, overall: 'healthy' },
+      summary: { total: 1, healthy: 1, degraded: 0, unhealthy: 0, starting: 0, stopped: 0, unknown: 2, overall: 'healthy' },
     }
 
     render(<LogsMultiPaneView healthReport={partialHealthReport} />)

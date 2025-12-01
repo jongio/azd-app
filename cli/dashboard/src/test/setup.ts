@@ -22,6 +22,16 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
+// Mock navigator.clipboard
+Object.defineProperty(navigator, 'clipboard', {
+  value: {
+    writeText: vi.fn().mockResolvedValue(undefined),
+    readText: vi.fn().mockResolvedValue(''),
+  },
+  writable: true,
+  configurable: true,
+})
+
 // Mock localStorage with proper implementation
 const localStorageStore = new Map<string, string>()
 const localStorageMock = {

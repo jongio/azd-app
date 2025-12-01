@@ -376,6 +376,14 @@
   .animate-glow-pulse {
     animation: glow-pulse 2s ease-in-out infinite;
   }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 200ms ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 200ms ease-out;
+  }
 }
 
 /* Keyframes must be defined outside @layer for proper browser support */
@@ -507,5 +515,27 @@
   }
   50% {
     box-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
+  }
+}
+
+/* Slide in from right for panels */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Simple fade in */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

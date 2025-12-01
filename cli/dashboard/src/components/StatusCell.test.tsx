@@ -67,11 +67,11 @@ describe('StatusCell', () => {
     expect(statusElement).toHaveClass('text-gray-400')
   })
 
-  it('should display Stopped status for not-running service', () => {
+  it('should display Not Running status for not-running service', () => {
     render(<StatusCell status="not-running" health="unknown" />)
     
-    expect(screen.getByText('Stopped')).toBeInTheDocument()
-    const statusElement = screen.getByText('Stopped')
+    expect(screen.getByText('Not Running')).toBeInTheDocument()
+    const statusElement = screen.getByText('Not Running')
     expect(statusElement).toHaveClass('text-gray-400')
   })
 

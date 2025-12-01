@@ -107,6 +107,7 @@ type HealthSummary struct {
 	Healthy   int          `json:"healthy"`
 	Degraded  int          `json:"degraded"`
 	Unhealthy int          `json:"unhealthy"`
+	Starting  int          `json:"starting"`
 	Unknown   int          `json:"unknown"`
 	Overall   HealthStatus `json:"overall"`
 }
@@ -618,6 +619,8 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 			status = "error"
 		} else if result.Status == HealthStatusDegraded {
 			status = "degraded"
+		} else if result.Status == HealthStatusStarting {
+			status = "starting"
 		}
 
 		// Update registry with health status
@@ -643,18 +646,24 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 			summary.Degraded++
 		case HealthStatusUnhealthy:
 			summary.Unhealthy++
+		case HealthStatusStarting:
+			summary.Starting++
 		default:
 			summary.Unknown++
 		}
 	}
 
 	// Determine overall status
+	// Starting services are treated as neutral - they don't affect overall health
 	if summary.Unhealthy > 0 {
 		summary.Overall = HealthStatusUnhealthy
 	} else if summary.Degraded > 0 {
 		summary.Overall = HealthStatusDegraded
 	} else if summary.Healthy > 0 {
 		summary.Overall = HealthStatusHealthy
+	} else if summary.Starting > 0 {
+		// All services are starting - overall is starting
+		summary.Overall = HealthStatusStarting
 	} else {
 		summary.Overall = HealthStatusUnknown
 	}
@@ -779,6 +788,14 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		result.Uptime = time.Since(svc.StartTime)
 	}
 
+	// If the service is in "starting" state in the registry and has been running for less than
+	// the startup grace period (30 seconds), keep it in "starting" state unless health checks pass.
+	// This prevents services from showing as "unhealthy" during normal startup.
+	const startupGracePeriod = 30 * time.Second
+	isInStartupGracePeriod := svc.RegistryHealth == "starting" &&
+		!svc.StartTime.IsZero() &&
+		time.Since(svc.StartTime) < startupGracePeriod
+
 	// Check for custom healthcheck config first
 	if svc.HealthCheck != nil && len(svc.HealthCheck.Test) > 0 {
 		if httpResult := c.tryCustomHealthCheck(ctx, svc.HealthCheck); httpResult != nil {
@@ -797,6 +814,10 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 					}
 				}
 			}
+			// If check failed but we're in startup grace period, keep "starting" status
+			if isInStartupGracePeriod && result.Status != HealthStatusHealthy {
+				result.Status = HealthStatusStarting
+			}
 			return result
 		}
 	}
@@ -814,6 +835,10 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 			result.Details = httpResult.Details
 			result.Error = httpResult.Error
 			result.Port = svc.Port
+			// If check failed but we're in startup grace period, keep "starting" status
+			if isInStartupGracePeriod && result.Status != HealthStatusHealthy {
+				result.Status = HealthStatusStarting
+			}
 			return result
 		}
 	}
@@ -825,7 +850,12 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		if c.checkPort(ctx, svc.Port) {
 			result.Status = HealthStatusHealthy
 		} else {
-			result.Status = HealthStatusUnhealthy
+			// If port check failed but we're in startup grace period, keep "starting" status
+			if isInStartupGracePeriod {
+				result.Status = HealthStatusStarting
+			} else {
+				result.Status = HealthStatusUnhealthy
+			}
 			result.Error = fmt.Sprintf("port %d not listening", svc.Port)
 		}
 		return result
@@ -838,15 +868,24 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		if isProcessRunning(svc.PID) {
 			result.Status = HealthStatusHealthy
 		} else {
-			result.Status = HealthStatusUnhealthy
+			// If process check failed but we're in startup grace period, keep "starting" status
+			if isInStartupGracePeriod {
+				result.Status = HealthStatusStarting
+			} else {
+				result.Status = HealthStatusUnhealthy
+			}
 			result.Error = fmt.Sprintf("process %d not running", svc.PID)
 		}
 		return result
 	}
 
-	// No check available
+	// No check available - if in startup grace period, show "starting", otherwise "unknown"
 	result.CheckType = HealthCheckTypeProcess
-	result.Status = HealthStatusUnknown
+	if isInStartupGracePeriod {
+		result.Status = HealthStatusStarting
+	} else {
+		result.Status = HealthStatusUnknown
+	}
 	result.Error = "no health check method available"
 
 	return result
@@ -1071,6 +1110,12 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 
 		// Skip 404 responses - endpoint doesn't exist, try next one
 		if resp.StatusCode == http.StatusNotFound {
+			continue
+		}
+
+		// Skip 400 Bad Request - likely not an HTTP endpoint (e.g., Node.js inspector, WebSocket)
+		// This allows cascading to port/process checks for debug ports
+		if resp.StatusCode == http.StatusBadRequest {
 			continue
 		}
 

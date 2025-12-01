@@ -1,7 +1,9 @@
 package serviceinfo
 
 import (
+	"encoding/json"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -107,14 +109,14 @@ func GetServiceInfo(projectDir string) ([]*ServiceInfo, error) {
 	reg := registry.GetRegistry(projectDir)
 	runningServices := reg.ListAll()
 
-	// Get Azure environment values
+	// Get Azure environment values (all values from azd env get-values)
 	azureEnv := getAzureEnvironmentValues(projectDir)
 
 	// Extract Azure service information from environment
 	azureServiceInfo := extractAzureServiceInfo(azureEnv)
 
 	// Merge azure.yaml services with running services to get complete picture
-	allServices := mergeServiceInfo(azureYaml, runningServices, azureServiceInfo)
+	allServices := mergeServiceInfo(azureYaml, runningServices, azureServiceInfo, azureEnv)
 
 	return allServices, nil
 }
@@ -134,23 +136,27 @@ func parseAzureYaml(projectDir string) (*service.AzureYaml, error) {
 	return azureYaml, nil
 }
 
-// getAzureEnvironmentValues reads Azure environment variables from the current process environment.
-// Since this is an azd extension, all azd environment variables are automatically available.
+// getAzureEnvironmentValues reads Azure environment variables from azd env get-values.
+// This returns all environment variables defined in the azd environment, not system variables.
 // Additionally, it merges in values from the event-driven environment cache which is updated
 // when azd provision completes.
 func getAzureEnvironmentValues(projectDir string) map[string]string {
 	envVars := make(map[string]string)
 
-	// Get all environment variables from current process (azd provides these)
-	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) != 2 {
-			continue
+	// Get environment variables from azd env get-values
+	cmd := exec.Command("azd", "env", "get-values", "--output", "json")
+	if projectDir != "" {
+		cmd.Dir = projectDir
+	}
+	output, err := cmd.Output()
+	if err == nil {
+		var azdEnvVars map[string]string
+		if err := json.Unmarshal(output, &azdEnvVars); err == nil {
+			// Add all environment variables from azd
+			for key, value := range azdEnvVars {
+				envVars[key] = value
+			}
 		}
-
-		key := parts[0]
-		value := parts[1]
-		envVars[key] = value
 	}
 
 	// Merge in the cached environment values from azd events (higher priority)
@@ -255,7 +261,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 }
 
 // mergeServiceInfo combines azure.yaml services with running services and Azure info.
-func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.ServiceRegistryEntry, azureServices map[string]AzureServiceInfo) []*ServiceInfo {
+func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.ServiceRegistryEntry, azureServices map[string]AzureServiceInfo, envVars map[string]string) []*ServiceInfo {
 	serviceMap := make(map[string]*ServiceInfo)
 
 	// First, add all services from azure.yaml
@@ -264,10 +270,11 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 			// Normalize service name to lowercase for case-insensitive matching
 			normalizedName := strings.ToLower(name)
 			serviceMap[normalizedName] = &ServiceInfo{
-				Name:      name, // Preserve original casing for display
-				Language:  svc.Language,
-				Project:   svc.Project,
-				Framework: detectFramework(svc),
+				Name:            name, // Preserve original casing for display
+				Language:        svc.Language,
+				Project:         svc.Project,
+				Framework:       detectFramework(svc),
+				EnvironmentVars: envVars, // Include Azure/AZD environment variables
 				// Initialize with default local state
 				Local: &LocalServiceInfo{
 					Status: "not-running",

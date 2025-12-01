@@ -46,7 +46,7 @@ export function URLCell({ localUrl, azureUrl }: URLCellProps) {
         <div className="relative group">
           <Badge 
             variant="secondary" 
-            className="bg-blue-500/20 text-blue-300 cursor-help hover:bg-blue-500/30 transition-colors"
+            className="bg-primary/20 text-primary cursor-help hover:bg-primary/30 transition-colors"
             title="Azure URL available"
           >
             +1
@@ -54,13 +54,13 @@ export function URLCell({ localUrl, azureUrl }: URLCellProps) {
           
           {/* Tooltip on hover */}
           <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-50 w-max max-w-md">
-            <div className="glass border border-white/10 rounded-lg p-3 shadow-xl">
+            <div className="bg-popover border border-border rounded-lg p-3 shadow-xl">
               <div className="text-xs text-muted-foreground mb-2">Azure URL:</div>
               <a
                 href={azureUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-300 hover:text-blue-200 text-sm flex items-center gap-2 transition-colors"
+                className="text-primary hover:text-primary/80 text-sm flex items-center gap-2 transition-colors"
               >
                 <span className="truncate max-w-[350px]">{azureUrl}</span>
                 <ExternalLink className="w-3 h-3 shrink-0" />

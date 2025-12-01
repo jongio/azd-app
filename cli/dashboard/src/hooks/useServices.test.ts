@@ -137,6 +137,61 @@ describe('useServices', () => {
     })
   })
 
+  it('should handle WebSocket bulk services update', async () => {
+    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
+    globalThis.fetch = mockFetch as unknown as typeof fetch
+
+    // Create a custom WebSocket mock class that we can control
+    const wsRef: { current: MockWebSocket | null } = { current: null }
+    class WebSocketMock {
+      url: string
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+      onclose: ((event: CloseEvent) => void) | null = null
+      close = vi.fn()
+      constructor(url: string) {
+        this.url = url
+        wsRef.current = this
+        setTimeout(() => {
+          this.onopen?.(new Event('open'))
+        }, 0)
+      }
+    }
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
+
+    const { result } = renderHook(() => useServices())
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    // Simulate receiving a bulk services update (e.g., after stop all)
+    const updatedServices = mockServices.map(s => ({
+      ...s,
+      local: { ...s.local, status: 'stopped' as const, health: 'unknown' as const },
+    }))
+
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
+      act(() => {
+        handler(
+          createMockWebSocketMessage({
+            type: 'services',
+            services: updatedServices,
+          })
+        )
+      })
+    }
+
+    await waitFor(() => {
+      // All services should be stopped
+      result.current.services.forEach(service => {
+        expect(service.local?.status).toBe('stopped')
+      })
+    })
+  })
+
   it('should handle WebSocket service addition', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
     globalThis.fetch = mockFetch as unknown as typeof fetch

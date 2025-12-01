@@ -124,21 +124,13 @@ func (s *Service) IsHealthcheckDisabled() bool {
 }
 
 // NeedsPort returns true if this service needs a port assigned.
-// Services with disabled health checks and no explicit ports may not need a port.
+// Services must explicitly define ports in azure.yaml to have a port assigned.
+// Services without ports (e.g., build/watch services like tsc --watch) will use
+// process-based health checks instead of HTTP health checks.
 func (s *Service) NeedsPort() bool {
-	// If ports are explicitly configured, service needs them
-	if len(s.Ports) > 0 {
-		return true
-	}
-
-	// If health checks are disabled, service likely doesn't need a port
-	// (e.g., build/watch services like tsc --watch)
-	if s.IsHealthcheckDisabled() {
-		return false
-	}
-
-	// Default: service needs a port for HTTP health checks
-	return true
+	// Only services with explicitly configured ports need a port assigned.
+	// Services without ports will use process-based health checks.
+	return len(s.Ports) > 0
 }
 
 // HealthcheckConfig represents Docker Compose-compatible health check configuration.

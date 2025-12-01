@@ -79,23 +79,26 @@ export function useServices() {
     ws.onmessage = (event: MessageEvent<string>) => {
       if (!isMounted) return
       try {
-        const update = JSON.parse(event.data) as { type: string; service: Service }
-        if (update.type === 'update' || update.type === 'add') {
+        const update = JSON.parse(event.data) as { type: string; service?: Service; services?: Service[] }
+        if (update.type === 'services' && update.services) {
+          // Bulk update: replace all services
+          setServices(update.services)
+        } else if ((update.type === 'update' || update.type === 'add') && update.service) {
           setServices(prev => {
             const index = prev.findIndex(
-              s => s.name === update.service.name
+              s => s.name === update.service!.name
             )
             if (index >= 0) {
               const updated = [...prev]
-              updated[index] = update.service
+              updated[index] = update.service!
               return updated
             }
-            return [...prev, update.service]
+            return [...prev, update.service!]
           })
-        } else if (update.type === 'remove') {
+        } else if (update.type === 'remove' && update.service) {
           setServices(prev =>
             prev.filter(
-              s => s.name !== update.service.name
+              s => s.name !== update.service!.name
             )
           )
         }

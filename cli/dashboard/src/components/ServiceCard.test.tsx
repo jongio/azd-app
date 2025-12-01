@@ -118,15 +118,15 @@ describe('ServiceCard', () => {
   it('should apply correct color classes for healthy service', () => {
     const { container } = render(<ServiceCard service={mockServices[0]} />)
 
-    // Check for success-related classes
-    expect(container.querySelector('.text-success')).toBeInTheDocument()
+    // Check for green-500 color class (consistent with ServiceStatusCard)
+    expect(container.querySelector('.text-green-500')).toBeInTheDocument()
   })
 
   it('should apply correct color classes for error service', () => {
     const { container } = render(<ServiceCard service={mockServiceWithError} />)
 
-    // Check for destructive-related classes
-    expect(container.querySelector('.text-destructive')).toBeInTheDocument()
+    // Check for red-500 color class (consistent with ServiceStatusCard)
+    expect(container.querySelector('.text-red-500')).toBeInTheDocument()
   })
 
   it('should show pulse animation for healthy service', () => {
@@ -192,7 +192,7 @@ describe('ServiceCard', () => {
     const { container } = render(<ServiceCard service={mockServiceWithAzure} />)
 
     expect(screen.getByText('Azure URL')).toBeInTheDocument()
-    // Check for Azure-specific styling classes
-    expect(container.querySelector('.text-blue-400')).toBeInTheDocument()
+    // Check for Azure-specific styling classes (uses primary color)
+    expect(container.querySelector('.text-primary')).toBeInTheDocument()
   })
 })
