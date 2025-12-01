@@ -1,6 +1,7 @@
 import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertTriangle, Clock, Zap, Globe } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ServiceActions } from '@/components/ServiceActions'
+import { useServiceOperations } from '@/hooks/useServiceOperations'
 import type { Service, HealthCheckResult } from '@/types'
 import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime, formatResponseTime, formatUptime, getCheckTypeDisplay } from '@/lib/service-utils'
 
@@ -11,8 +12,13 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps) {
+  // Get operation state for optimistic UI updates
+  const { getOperationState } = useServiceOperations()
+  const operationState = getOperationState(service.name)
+  
   // Use real-time health from health stream if available
-  const { status, health: baseHealth } = getEffectiveStatus(service)
+  // Pass operation state to getEffectiveStatus for optimistic updates
+  const { status, health: baseHealth } = getEffectiveStatus(service, operationState)
   const health = healthStatus?.status || baseHealth
   const statusDisplay = getStatusDisplay(status, health)
   const healthy = isServiceHealthy(status, health)
@@ -45,10 +51,10 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl transition-all-smooth ${
               healthy 
-                ? 'bg-linear-to-br from-success/20 to-success/10 group-hover:scale-110' 
+                ? 'bg-linear-to-br from-green-500/20 to-green-500/10 group-hover:scale-110' 
                 : 'bg-linear-to-br from-muted/20 to-muted/10'
             }`}>
-              <Server className={`w-5 h-5 ${healthy ? 'text-success' : 'text-muted-foreground'}`} />
+              <Server className={`w-5 h-5 ${healthy ? 'text-green-500' : 'text-muted-foreground'}`} />
             </div>
             <div>
               <h3 className="font-semibold text-xl text-foreground group-hover:text-primary transition-colors">
@@ -64,11 +70,11 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
           >
             <span className="flex items-center gap-1.5">
               <div className="relative">
-                <Icon className={status === 'starting' ? 'w-4 h-4 animate-spin' : status === 'stopping' ? 'w-4 h-4 animate-pulse' : 'w-4 h-4'} />
+                <Icon className={status === 'starting' || status === 'restarting' ? 'w-4 h-4 animate-spin' : status === 'stopping' ? 'w-4 h-4 animate-pulse' : 'w-4 h-4'} />
                 {healthy && (
                   <>
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-success rounded-full animate-ping"></span>
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-success rounded-full"></span>
+                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
+                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full"></span>
                   </>
                 )}
               </div>
@@ -108,7 +114,7 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
         )}
 
         {/* Action Buttons Row */}
-        <div className="mb-4">
+        <div className="mb-4" onClick={(e) => e.stopPropagation()}>
           <ServiceActions service={service} variant="default" />
         </div>
 
@@ -119,6 +125,7 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
             target="_blank" 
             rel="noopener noreferrer"
             className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-muted/50 border border-border hover:border-primary/50 transition-all-smooth group/link"
+            onClick={(e) => e.stopPropagation()}
           >
             <Activity className="w-4 h-4 text-primary" />
             <span className="text-sm text-foreground/90 group-hover/link:text-primary transition-colors flex-1 truncate">
@@ -134,16 +141,17 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
             href={service.azure.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-2 mb-4 p-3 rounded-xl glass border border-blue-500/20 hover:border-blue-500/50 transition-all-smooth group/link bg-blue-500/5"
+            className="flex items-center gap-2 mb-4 p-3 rounded-xl border border-primary/30 hover:border-primary/50 transition-all-smooth group/link bg-primary/5 hover:bg-primary/10"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Activity className="w-4 h-4 text-blue-400" />
+            <Activity className="w-4 h-4 text-primary" />
             <div className="flex-1 truncate">
-              <div className="text-xs text-blue-300/70 mb-0.5">Azure URL</div>
-              <span className="text-sm text-blue-100 group-hover/link:text-blue-300 transition-colors truncate block">
+              <div className="text-xs text-muted-foreground mb-0.5">Azure URL</div>
+              <span className="text-sm text-foreground group-hover/link:text-primary transition-colors truncate block">
                 {service.azure.url}
               </span>
             </div>
-            <ExternalLink className="w-4 h-4 text-blue-400 group-hover/link:text-blue-300 transition-colors" />
+            <ExternalLink className="w-4 h-4 text-primary group-hover/link:text-primary/80 transition-colors" />
           </a>
         )}
 
@@ -176,16 +184,19 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
           )}
           <div className="flex items-center gap-2">
             {health === 'healthy' ? (
-              <CheckCircle className="w-4 h-4 text-success" />
+              <CheckCircle className="w-4 h-4 text-green-500" />
             ) : health === 'degraded' ? (
               <AlertTriangle className="w-4 h-4 text-amber-500" />
+            ) : health === 'unhealthy' ? (
+              <XCircle className="w-4 h-4 text-red-500" />
             ) : (
-              <XCircle className="w-4 h-4 text-destructive" />
+              <XCircle className="w-4 h-4 text-gray-400" />
             )}
             <span className={`text-sm font-medium ${
-              health === 'healthy' ? 'text-success' 
+              health === 'healthy' ? 'text-green-500' 
               : health === 'degraded' ? 'text-amber-500' 
-              : 'text-destructive'
+              : health === 'unhealthy' ? 'text-red-500'
+              : 'text-gray-400'
             }`}>
               {health}
             </span>

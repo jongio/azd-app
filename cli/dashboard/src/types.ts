@@ -25,7 +25,7 @@ export interface HealthDetails {
 
 export interface LocalServiceInfo {
   status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
-  health: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
+  health: 'healthy' | 'degraded' | 'unhealthy' | 'starting' | 'unknown'
   url?: string
   port?: number
   pid?: number
@@ -102,6 +102,8 @@ export interface HealthSummary {
   healthy: number
   degraded: number
   unhealthy: number
+  starting: number
+  stopped: number
   unknown: number
   overall: HealthStatus
 }

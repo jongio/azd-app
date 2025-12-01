@@ -9,7 +9,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { ServiceStatusCard } from '@/components/ServiceStatusCard'
 import { EnvironmentPanel } from '@/components/EnvironmentPanel'
 import { PerformanceMetrics } from '@/components/views/PerformanceMetrics'
-import { ServiceDependencies } from '@/components/views/ServiceDependencies'
+// ServiceDependencies feature removed
 import { ServiceDetailPanel } from '@/components/panels/ServiceDetailPanel'
 import { KeyboardShortcuts } from '@/components/modals/KeyboardShortcuts'
 import { shouldHandleShortcut, keyToView } from '@/lib/shortcuts-utils'
@@ -252,6 +252,7 @@ function App() {
           <LogsMultiPaneView 
             onFullscreenChange={setIsLogsFullscreen}
             healthReport={healthReport}
+            onServiceClick={handleServiceClick}
           />
         </>
       )
@@ -275,17 +276,6 @@ function App() {
             <h2 className="text-xl font-semibold text-foreground">Metrics</h2>
           </div>
           <PerformanceMetrics services={services} healthReport={healthReport} />
-        </>
-      )
-    }
-
-    if (activeView === 'dependencies') {
-      return (
-        <>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-foreground">Dependencies</h2>
-          </div>
-          <ServiceDependencies services={services} />
         </>
       )
     }
@@ -362,7 +352,7 @@ function App() {
         </div>
       )}
       
-      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} healthSummary={healthSummary} />}
+      {!isLogsFullscreen && <Sidebar activeView={activeView} onViewChange={setActiveView} hasActiveErrors={hasActiveErrors} healthSummary={healthSummary} services={services} />}
       <div className="flex-1 flex flex-col overflow-hidden">
         {!isLogsFullscreen && (
           <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-background">

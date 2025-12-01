@@ -5,7 +5,7 @@ import type { HealthCheckResult, HealthStatus } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface StatusCellProps {
-  status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
+  status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running' | 'restarting'
   health: HealthStatus
   healthCheckResult?: HealthCheckResult
 }

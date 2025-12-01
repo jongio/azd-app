@@ -1,40 +1,46 @@
-import { Activity, Terminal, Settings2, BarChart3, GitBranch } from 'lucide-react'
-import type { HealthSummary } from '@/types'
+import { Activity, Terminal, Settings2, BarChart3 } from 'lucide-react'
+import type { HealthSummary, Service } from '@/types'
+import { calculateStatusCounts, type StatusCounts } from '@/lib/service-utils'
 
 interface SidebarProps {
   activeView: string
   onViewChange: (view: string) => void
   hasActiveErrors?: boolean
   healthSummary?: HealthSummary | null
+  services?: Service[]
 }
 
-/** Determine the status indicator color based on health summary */
-function getStatusIndicator(healthSummary?: HealthSummary | null, hasActiveErrors?: boolean): { color: string; title: string } | null {
-  if (healthSummary) {
-    if (healthSummary.unhealthy > 0) {
-      return { color: 'bg-red-500', title: `${healthSummary.unhealthy} unhealthy service(s)` }
-    }
-    if (healthSummary.degraded > 0 || healthSummary.unknown > 0) {
-      return { color: 'bg-yellow-500', title: `${healthSummary.degraded + healthSummary.unknown} degraded/unknown service(s)` }
-    }
-    if (healthSummary.healthy > 0) {
-      return { color: 'bg-green-500', title: 'All services healthy' }
-    }
+/** Determine the status indicator color based on status counts */
+function getSidebarStatusIndicator(counts: StatusCounts, hasActiveErrors: boolean): { color: string; title: string } | null {
+  // Priority: error > warn > running > stopped
+  if (counts.error > 0) {
+    return { color: 'bg-red-500', title: `${counts.error} unhealthy service(s)` }
   }
-  // Fallback to hasActiveErrors if no health summary
+  if (counts.warn > 0) {
+    return { color: 'bg-yellow-500', title: `${counts.warn} degraded/unknown service(s)` }
+  }
+  if (counts.running > 0) {
+    return { color: 'bg-green-500', title: 'All services healthy' }
+  }
+  if (counts.stopped > 0) {
+    return { color: 'bg-gray-400', title: `${counts.stopped} stopped service(s)` }
+  }
+  // Fallback to hasActiveErrors when no services/health data
   if (hasActiveErrors) {
     return { color: 'bg-red-500', title: 'Active errors detected' }
   }
   return null
 }
 
-export function Sidebar({ activeView, onViewChange, hasActiveErrors = false, healthSummary }: SidebarProps) {
+export function Sidebar({ activeView, onViewChange, hasActiveErrors = false, healthSummary, services = [] }: SidebarProps) {
+  // Use unified status count calculation
+  const statusCounts = calculateStatusCounts(services, healthSummary, hasActiveErrors)
+
   const navItems = [
     { id: 'resources', label: 'Resources', icon: Activity },
     { id: 'console', label: 'Console', icon: Terminal },
     { id: 'environment', label: 'Environment', icon: Settings2 },
     { id: 'metrics', label: 'Metrics', icon: BarChart3 },
-    { id: 'dependencies', label: 'Dependencies', icon: GitBranch },
   ]
 
   return (
@@ -42,7 +48,7 @@ export function Sidebar({ activeView, onViewChange, hasActiveErrors = false, hea
       {navItems.map((item) => {
         const Icon = item.icon
         const isActive = activeView === item.id
-        const statusIndicator = item.id === 'console' ? getStatusIndicator(healthSummary, hasActiveErrors) : null
+        const statusIndicator = item.id === 'console' ? getSidebarStatusIndicator(statusCounts, hasActiveErrors) : null
         
         return (
           <button

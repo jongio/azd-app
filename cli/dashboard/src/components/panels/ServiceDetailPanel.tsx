@@ -2,7 +2,7 @@
  * ServiceDetailPanel - Slide-in panel displaying comprehensive service details
  */
 import * as React from 'react'
-import { X, ExternalLink, Eye, EyeOff } from 'lucide-react'
+import { X, ExternalLink, Eye, EyeOff, Copy, Check, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useClipboard } from '@/hooks/useClipboard'
@@ -17,7 +17,6 @@ import {
   getHealthColor,
   buildAzurePortalUrl,
   isSensitiveKey,
-  maskValue,
   formatResourceType,
   getStatusDisplay,
   getHealthDisplay,
@@ -53,18 +52,22 @@ type DetailTab = 'overview' | 'local' | 'azure' | 'environment'
 interface SectionCardProps {
   title: string
   children: React.ReactNode
+  action?: React.ReactNode
   'data-testid'?: string
 }
 
-function SectionCard({ title, children, 'data-testid': testId }: SectionCardProps) {
+function SectionCard({ title, children, action, 'data-testid': testId }: SectionCardProps) {
   return (
     <div
       className="p-4 rounded-lg border border-border bg-card mb-4"
       data-testid={testId}
     >
-      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-        {title}
-      </h4>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          {title}
+        </h4>
+        {action}
+      </div>
       {children}
     </div>
   )
@@ -143,16 +146,16 @@ function OverviewTab({ service, healthStatus }: OverviewTabProps) {
               </div>
             )}
             {service.azure?.url && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Endpoint</span>
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-sm text-muted-foreground shrink-0">Endpoint</span>
                 <a
                   href={service.azure.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                  className="text-sm text-primary hover:underline flex items-center gap-1 text-right break-all"
                 >
                   {service.azure.url}
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               </div>
             )}
@@ -400,54 +403,63 @@ function AzureTab({ service }: AzureTabProps) {
             />
           )}
           {service.azure?.url && (
-            <InfoField
-              label="Endpoint"
-              value={service.azure.url}
-              copyable
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">Endpoint</span>
+              <a
+                href={service.azure.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1 break-all"
+              >
+                {service.azure.url}
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            </div>
           )}
         </div>
       </SectionCard>
 
-      {/* Azure Metadata */}
-      <SectionCard title="Azure Metadata" data-testid="azure-metadata-section">
-        <div className="space-y-2">
-          {service.azure?.subscriptionId && (
-            <InfoField
-              label="Subscription"
-              value={service.azure.subscriptionId}
-              copyable
-            />
-          )}
-          {service.azure?.resourceGroup && (
-            <InfoField
-              label="Resource Group"
-              value={service.azure.resourceGroup}
-              copyable
-            />
-          )}
-          {service.azure?.location && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Location</span>
-              <span className="text-sm font-medium text-foreground">{service.azure.location}</span>
-            </div>
-          )}
-          {service.azure?.containerAppEnvId && (
-            <InfoField
-              label="Environment ID"
-              value={service.azure.containerAppEnvId}
-              copyable
-            />
-          )}
-          {service.azure?.logAnalyticsId && (
-            <InfoField
-              label="Log Analytics"
-              value={service.azure.logAnalyticsId}
-              copyable
-            />
-          )}
-        </div>
-      </SectionCard>
+      {/* Azure Metadata - only show if we have metadata */}
+      {(service.azure?.subscriptionId || service.azure?.resourceGroup || service.azure?.location || service.azure?.containerAppEnvId || service.azure?.logAnalyticsId) && (
+        <SectionCard title="Azure Metadata" data-testid="azure-metadata-section">
+          <div className="space-y-2">
+            {service.azure?.subscriptionId && (
+              <InfoField
+                label="Subscription"
+                value={service.azure.subscriptionId}
+                copyable
+              />
+            )}
+            {service.azure?.resourceGroup && (
+              <InfoField
+                label="Resource Group"
+                value={service.azure.resourceGroup}
+                copyable
+              />
+            )}
+            {service.azure?.location && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Location</span>
+                <span className="text-sm font-medium text-foreground">{service.azure.location}</span>
+              </div>
+            )}
+            {service.azure?.containerAppEnvId && (
+              <InfoField
+                label="Environment ID"
+                value={service.azure.containerAppEnvId}
+                copyable
+              />
+            )}
+            {service.azure?.logAnalyticsId && (
+              <InfoField
+                label="Log Analytics"
+                value={service.azure.logAnalyticsId}
+                copyable
+              />
+            )}
+          </div>
+        </SectionCard>
+      )}
 
       {/* Actions */}
       {azurePortalUrl && (
@@ -480,13 +492,9 @@ interface EnvironmentTabProps {
 }
 
 function EnvironmentTab({ service, copiedField, onCopy }: EnvironmentTabProps) {
-  const [showSensitive, setShowSensitive] = React.useState<Record<string, boolean>>({})
+  const [showValues, setShowValues] = React.useState(false)
   const envVars = service.environmentVariables || {}
-  const envEntries = Object.entries(envVars)
-
-  const toggleSensitive = (key: string) => {
-    setShowSensitive(prev => ({ ...prev, [key]: !prev[key] }))
-  }
+  const envEntries = Object.entries(envVars).sort(([a], [b]) => a.localeCompare(b))
 
   if (envEntries.length === 0) {
     return (
@@ -505,49 +513,70 @@ function EnvironmentTab({ service, copiedField, onCopy }: EnvironmentTabProps) {
       <SectionCard
         title={`Environment Variables (${envEntries.length})`}
         data-testid="env-vars-section"
+        action={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowValues(!showValues)}
+            aria-pressed={showValues}
+            aria-label={showValues ? 'Hide sensitive values' : 'Show sensitive values'}
+            className="gap-1 h-7 text-xs"
+          >
+            {showValues ? (
+              <>
+                <EyeOff className="h-3 w-3" aria-hidden="true" />
+                Hide
+              </>
+            ) : (
+              <>
+                <Eye className="h-3 w-3" aria-hidden="true" />
+                Show
+              </>
+            )}
+          </Button>
+        }
       >
-        <div className="space-y-2">
+        <div className="space-y-3">
           {envEntries.map(([key, value]) => {
             const isSensitive = isSensitiveKey(key)
-            const isShown = showSensitive[key]
-            const displayValue = isSensitive && !isShown ? maskValue(value) : value
+            const displayValue = isSensitive && !showValues ? '••••••••••••' : value
+            const copied = copiedField === `env-${key}`
 
             return (
-              <div key={key} className="flex items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground font-mono flex-shrink-0">
-                  {key}
-                </span>
+              <div key={key} className="space-y-1">
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-medium text-foreground font-mono truncate max-w-[200px]">
-                    {displayValue}
-                  </span>
                   {isSensitive && (
-                    <button
-                      type="button"
-                      onClick={() => toggleSensitive(key)}
-                      className="p-1 hover:bg-secondary rounded-md transition-colors"
-                      aria-label={isShown ? `Hide ${key}` : `Show ${key}`}
-                    >
-                      {isShown ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </button>
+                    <Lock
+                      className="h-3 w-3 text-amber-500 shrink-0"
+                      aria-label="Sensitive value"
+                    />
                   )}
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {key}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={displayValue}
+                    readOnly
+                    disabled
+                    className="flex-1 min-w-0 px-2 py-1 text-sm font-mono text-muted-foreground bg-muted/50 border border-border rounded cursor-default"
+                    aria-label={`Value for ${key}`}
+                  />
                   <button
                     type="button"
                     onClick={() => onCopy(value, `env-${key}`)}
                     className={cn(
-                      'p-1 hover:bg-secondary rounded-md transition-colors',
-                      copiedField === `env-${key}` && 'text-green-500'
+                      'p-1.5 hover:bg-secondary rounded-md transition-colors shrink-0',
+                      copied && 'text-green-600 dark:text-green-500'
                     )}
-                    aria-label={`Copy ${key}`}
+                    aria-label={copied ? `${key} copied` : `Copy ${key} value`}
                   >
-                    {copiedField === `env-${key}` ? (
-                      <span className="text-xs">✓</span>
+                    {copied ? (
+                      <Check className="h-4 w-4" aria-hidden="true" />
                     ) : (
-                      <span className="text-xs">📋</span>
+                      <Copy className="h-4 w-4" aria-hidden="true" />
                     )}
                   </button>
                 </div>

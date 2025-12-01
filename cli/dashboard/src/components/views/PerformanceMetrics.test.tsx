@@ -69,6 +69,8 @@ const mockHealthReport: HealthReportEvent = {
     healthy: 2,
     degraded: 1,
     unhealthy: 1,
+    starting: 0,
+    stopped: 0,
     unknown: 1,
     overall: 'unhealthy',
   },

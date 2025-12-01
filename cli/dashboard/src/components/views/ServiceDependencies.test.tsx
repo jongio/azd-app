@@ -244,7 +244,7 @@ describe('dependencies-utils', () => {
 
     it('returns stopped indicator', () => {
       const indicator = getStatusIndicator('stopped')
-      expect(indicator.icon).toBe('○')
+      expect(indicator.icon).toBe('◉')
       expect(indicator.color).toContain('gray')
     })
 
@@ -518,8 +518,8 @@ describe('ServiceDependencies', () => {
     it('displays status indicator for stopped services', () => {
       render(<ServiceDependencies services={mockServices} />)
       const workerCard = screen.getByTestId('service-card-worker')
-      const indicator = within(workerCard).getByText('○')
-      expect(indicator).toHaveClass('text-gray-500')
+      const indicator = within(workerCard).getByText('◉')
+      expect(indicator).toHaveClass('text-gray-400')
     })
 
     it('displays status indicator for starting services', () => {

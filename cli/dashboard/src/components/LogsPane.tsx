@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink } from 'lucide-react'
+import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink, CircleDot, PanelRight } from 'lucide-react'
 import { formatLogTimestamp, getLogPaneVisualStatus, type VisualStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import type { HealthStatus, Service } from '@/types'
@@ -36,6 +36,7 @@ interface LogsPaneProps {
   isCollapsed?: boolean           // NEW: controlled collapse state
   onToggleCollapse?: () => void   // NEW: collapse toggle callback
   serviceHealth?: HealthStatus    // NEW: real-time health status from health stream
+  onShowDetails?: () => void      // Callback to open service details panel
 }
 
 export function LogsPane({ 
@@ -51,7 +52,8 @@ export function LogsPane({
   levelFilter = new Set(['info', 'warning', 'error'] as const),
   isCollapsed: controlledIsCollapsed,
   onToggleCollapse,
-  serviceHealth
+  serviceHealth,
+  onShowDetails
 }: LogsPaneProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [selectedText, setSelectedText] = useState<string>('')
@@ -283,14 +285,18 @@ export function LogsPane({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [handleClickOutside])
 
+  // Get process status from service
+  const processStatus = service?.local?.status
+
   // Border and header colors should follow service health (if available), not log content
-  // This prevents confusing UX where border is red but health badge shows green
-  const visualStatus: VisualStatus = getLogPaneVisualStatus(serviceHealth, paneStatus)
+  // Process status (stopped) takes priority over health status
+  const visualStatus: VisualStatus = getLogPaneVisualStatus(serviceHealth, paneStatus, processStatus)
 
   const borderClass = {
     error: 'border-red-500',
     warning: 'border-amber-500',
     healthy: 'border-green-500',
+    stopped: 'border-gray-400',
     info: 'border-border'
   }[visualStatus]
 
@@ -298,6 +304,7 @@ export function LogsPane({
     error: 'log-header-error',
     warning: 'log-header-warning',
     healthy: 'log-header-healthy',
+    stopped: 'bg-muted',
     info: 'bg-card'
   }[visualStatus]
 
@@ -338,8 +345,18 @@ export function LogsPane({
           <h3 className="font-semibold">
             {serviceName}{port && <span className="text-muted-foreground font-mono">:{port}</span>}
           </h3>
-          {/* Health status badge - from real-time health checks */}
-          {serviceHealth && (
+          {/* Stopped badge - shows when service is stopped */}
+          {processStatus === 'stopped' && (
+            <span 
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/30"
+              title="Service is stopped"
+            >
+              <CircleDot className="w-3 h-3 shrink-0" />
+              <span className="leading-none">stopped</span>
+            </span>
+          )}
+          {/* Health status badge - from real-time health checks, only show when not stopped */}
+          {serviceHealth && processStatus !== 'stopped' && (
             <span 
               className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium transition-all duration-200",
@@ -379,6 +396,17 @@ export function LogsPane({
               aria-label="Open service in new tab"
             >
               <ExternalLink className="w-4 h-4" />
+            </Button>
+          )}
+          {onShowDetails && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onShowDetails}
+              title="Show service details"
+              aria-label="Show service details panel"
+            >
+              <PanelRight className="w-4 h-4" />
             </Button>
           )}
           <Button

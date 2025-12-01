@@ -1,6 +1,11 @@
 import * as React from 'react'
 import { Search, Eye, EyeOff, Lock, Copy, Check, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { 
+  aggregateEnvironmentVariables, 
+  filterEnvironmentVariables,
+  type AggregatedEnvVar 
+} from '@/lib/env-utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,20 +21,8 @@ import {
 import { useClipboard } from '@/hooks/useClipboard'
 import type { Service } from '@/types'
 
-/** Aggregated environment variable with service associations */
-interface AggregatedEnvVar {
-  /** Environment variable name */
-  name: string
-  /** Environment variable value */
-  value: string
-  /** List of services that use this variable */
-  services: string[]
-  /** Whether the variable is considered sensitive */
-  isSensitive: boolean
-}
-
 /** Props for the main EnvironmentPanel component */
-interface EnvironmentPanelProps {
+export interface EnvironmentPanelProps {
   /** Services data containing environment variables */
   services: Service[]
   /** Additional class names */
@@ -68,94 +61,6 @@ interface EnvironmentRowProps {
   onCopy: () => void
   /** Currently selected service filter */
   selectedService: string | null
-}
-
-/** Sensitive patterns for detecting sensitive environment variables */
-const SENSITIVE_PATTERNS = [
-  'key',
-  'secret',
-  'password',
-  'token',
-  'credential',
-  'auth',
-  'api_key',
-  'apikey',
-  'private',
-  'cert',
-  'connection_string',
-  'connectionstring',
-]
-
-/**
- * Determines if an environment variable name indicates a sensitive value
- */
-function isSensitiveVariable(name: string): boolean {
-  const lowerName = name.toLowerCase()
-  return SENSITIVE_PATTERNS.some(pattern => lowerName.includes(pattern))
-}
-
-/**
- * Aggregates environment variables from all services
- * Groups by variable name, collects all services that use each variable
- */
-function aggregateEnvironmentVariables(services: Service[]): AggregatedEnvVar[] {
-  const envMap = new Map<string, AggregatedEnvVar>()
-
-  for (const service of services) {
-    const envVars = service.environmentVariables ?? {}
-
-    for (const [name, value] of Object.entries(envVars)) {
-      const existing = envMap.get(name)
-
-      if (existing) {
-        // Variable exists - add service to list
-        if (!existing.services.includes(service.name)) {
-          existing.services.push(service.name)
-        }
-      } else {
-        // New variable
-        envMap.set(name, {
-          name,
-          value,
-          services: [service.name],
-          isSensitive: isSensitiveVariable(name),
-        })
-      }
-    }
-  }
-
-  // Sort alphabetically by variable name
-  return Array.from(envMap.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  )
-}
-
-/**
- * Filters environment variables based on search query and service selection
- */
-function filterEnvironmentVariables(
-  variables: AggregatedEnvVar[],
-  searchQuery: string,
-  selectedService: string | null
-): AggregatedEnvVar[] {
-  return variables.filter(envVar => {
-    // Service filter
-    if (selectedService && !envVar.services.includes(selectedService)) {
-      return false
-    }
-
-    // Search filter (name OR value)
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      const matchesName = envVar.name.toLowerCase().includes(query)
-      const matchesValue = envVar.value.toLowerCase().includes(query)
-      if (!matchesName && !matchesValue) {
-        return false
-      }
-    }
-
-    return true
-  })
 }
 
 /**
@@ -247,9 +152,14 @@ function EnvironmentRow({
 
       <TableCell>
         <div className="flex items-center gap-2">
-          <code className="text-sm font-mono text-muted-foreground truncate max-w-md">
-            {displayValue}
-          </code>
+          <input
+            type="text"
+            value={displayValue}
+            readOnly
+            disabled
+            className="flex-1 min-w-0 px-2 py-1 text-sm font-mono text-muted-foreground bg-muted/50 border border-border rounded cursor-default"
+            aria-label={`Value for ${variable.name}`}
+          />
           <Button
             type="button"
             variant="ghost"
@@ -490,7 +400,3 @@ export function EnvironmentPanel({
     </section>
   )
 }
-
-// Export helper functions for testing
-export { isSensitiveVariable, aggregateEnvironmentVariables, filterEnvironmentVariables }
-export type { AggregatedEnvVar, EnvironmentPanelProps }

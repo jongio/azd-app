@@ -298,7 +298,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthUnknown); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthStarting); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -326,7 +326,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		Language:    runtime.Language,
 		Framework:   runtime.Framework,
 		Status:      constants.StatusRunning,
-		Health:      constants.HealthHealthy,
+		Health:      constants.HealthStarting,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
 	}
@@ -425,7 +425,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthUnknown); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthStarting); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -458,7 +458,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 		Language:    runtime.Language,
 		Framework:   runtime.Framework,
 		Status:      constants.StatusRunning,
-		Health:      constants.HealthHealthy,
+		Health:      constants.HealthStarting,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
 	}

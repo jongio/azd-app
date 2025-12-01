@@ -28,6 +28,7 @@ import {
   getHealthScoreVariant,
   getServiceUptime
 } from '@/lib/metrics-utils'
+import { getStatusBadgeConfig, getHealthBadgeConfig } from '@/lib/service-utils'
 import type { Service, HealthReportEvent, HealthCheckResult } from '@/types'
 
 // ============================================================================
@@ -144,18 +145,8 @@ function MetricCard({
 // Status Badge Component
 // ============================================================================
 
-function StatusBadge({ status }: { status?: Service['local'] extends infer T ? T extends { status: infer S } ? S : never : never }) {
-  const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
-    running: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '●', label: 'Running' },
-    ready: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '●', label: 'Ready' },
-    starting: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', icon: '◐', label: 'Starting' },
-    stopping: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', icon: '◑', label: 'Stopping' },
-    stopped: { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', icon: '○', label: 'Stopped' },
-    error: { color: 'bg-red-500/10 text-red-500 border-red-500/20', icon: '⚠', label: 'Error' },
-    'not-running': { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', icon: '○', label: 'Not Running' },
-  }
-
-  const config = status ? statusConfig[status] || statusConfig['not-running'] : statusConfig['not-running']
+function StatusBadge({ status }: { status?: string }) {
+  const config = getStatusBadgeConfig(status)
 
   return (
     <Badge variant="outline" className={`${config.color} border`}>
@@ -169,15 +160,8 @@ function StatusBadge({ status }: { status?: Service['local'] extends infer T ? T
 // Health Badge Component
 // ============================================================================
 
-function HealthBadge({ health }: { health?: Service['local'] extends infer T ? T extends { health: infer H } ? H : never : never }) {
-  const healthConfig: Record<string, { color: string; label: string }> = {
-    healthy: { color: 'bg-green-500/10 text-green-500 border-green-500/20', label: 'Healthy' },
-    degraded: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', label: 'Degraded' },
-    unhealthy: { color: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'Unhealthy' },
-    unknown: { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', label: 'Unknown' },
-  }
-
-  const config = health ? healthConfig[health] || healthConfig['unknown'] : healthConfig['unknown']
+function HealthBadge({ health }: { health?: string }) {
+  const config = getHealthBadgeConfig(health)
 
   return (
     <Badge variant="outline" className={`${config.color} border`}>
@@ -235,6 +219,18 @@ export function PerformanceMetrics({
     const result = healthReport.services.find((s: HealthCheckResult) => s.serviceName === serviceName)
     // Convert nanoseconds to milliseconds
     return result?.responseTime ? result.responseTime / 1_000_000 : null
+  }
+
+  // Get health status from health report (preferred) or service data (fallback)
+  const getServiceHealthStatus = (service: Service): Service['local'] extends infer T ? T extends { health: infer H } ? H : never : never => {
+    if (healthReport) {
+      const result = healthReport.services.find((s: HealthCheckResult) => s.serviceName === service.name)
+      if (result) {
+        return result.status as Service['local'] extends infer T ? T extends { health: infer H } ? H : never : never
+      }
+    }
+    // Fallback to service's local health
+    return service.local?.health ?? 'unknown'
   }
 
   return (
@@ -313,6 +309,7 @@ export function PerformanceMetrics({
                 {services.map((service) => {
                   const uptime = getServiceUptime(service)
                   const responseTime = getServiceResponseTime(service.name)
+                  const healthStatus = getServiceHealthStatus(service)
                   
                   return (
                     <TableRow key={service.name} data-testid={`service-row-${service.name}`}>
@@ -327,7 +324,7 @@ export function PerformanceMetrics({
                         {service.local?.port ?? '-'}
                       </TableCell>
                       <TableCell>
-                        <HealthBadge health={service.local?.health} />
+                        <HealthBadge health={healthStatus} />
                       </TableCell>
                       <TableCell>
                         <ResponseTimeCell ms={responseTime} />

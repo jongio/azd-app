@@ -1,5 +1,6 @@
-import { XCircle, AlertTriangle, CheckCircle, Loader2, Activity } from 'lucide-react'
+import { XCircle, AlertTriangle, CheckCircle, Loader2, Activity, CircleDot } from 'lucide-react'
 import type { Service, HealthSummary } from '@/types'
+import { calculateStatusCounts } from '@/lib/service-utils'
 
 interface ServiceStatusCardProps {
   services: Service[]
@@ -18,14 +19,8 @@ export function ServiceStatusCard({
   healthSummary,
   healthConnected 
 }: ServiceStatusCardProps) {
-  // Calculate service status counts - prefer health summary if available
-  const statusCounts = healthSummary 
-    ? {
-        error: healthSummary.unhealthy,
-        warn: healthSummary.degraded + healthSummary.unknown,
-        running: healthSummary.healthy
-      }
-    : calculateStatusCounts(services, hasActiveErrors)
+  // Use unified status count calculation
+  const statusCounts = calculateStatusCounts(services, healthSummary, hasActiveErrors)
 
   return (
     <button
@@ -116,42 +111,30 @@ export function ServiceStatusCard({
               {statusCounts.running}
             </span>
           </div>
+
+          {/* Stopped indicator */}
+          <div className="flex items-center gap-1.5" title="Stopped">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+              statusCounts.stopped > 0 
+                ? 'bg-gray-500/15' 
+                : 'bg-transparent'
+            }`}>
+              <CircleDot className={`w-4 h-4 ${
+                statusCounts.stopped > 0 
+                  ? 'text-gray-400' 
+                  : 'text-muted-foreground/30 group-hover:text-muted-foreground/50'
+              }`} />
+            </div>
+            <span className={`text-sm tabular-nums ${
+              statusCounts.stopped > 0 
+                ? 'text-gray-400 font-medium' 
+                : 'text-muted-foreground/50'
+            }`}>
+              {statusCounts.stopped}
+            </span>
+          </div>
         </div>
       )}
     </button>
   )
-}
-
-/** Calculate status counts from services when health summary is not available */
-function calculateStatusCounts(services: Service[], hasActiveErrors: boolean): { error: number; warn: number; running: number } {
-  const statusCounts = {
-    error: 0,
-    warn: 0,
-    running: 0
-  }
-
-  services.forEach(service => {
-    const status = service.local?.status || service.status
-    const health = service.local?.health || service.health
-    
-    if (status === 'stopped' || status === 'not-running' || status === 'error' || health === 'unhealthy') {
-      statusCounts.error++
-    } else if (health === 'degraded' || health === 'unknown' || status === 'starting' || status === 'stopping') {
-      statusCounts.warn++
-    } else {
-      // healthy/running services
-      statusCounts.running++
-    }
-  })
-
-  // If there are active log errors but no service-level errors, show in warn
-  if (hasActiveErrors && statusCounts.error === 0) {
-    // Move running to warn to indicate log errors exist
-    if (statusCounts.running > 0) {
-      statusCounts.warn += statusCounts.running
-      statusCounts.running = 0
-    }
-  }
-
-  return statusCounts
 }

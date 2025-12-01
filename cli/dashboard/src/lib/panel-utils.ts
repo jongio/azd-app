@@ -57,6 +57,7 @@ export function getHealthColor(health?: string): string {
     healthy: 'text-green-500',
     degraded: 'text-yellow-500',
     unhealthy: 'text-red-500',
+    starting: 'text-yellow-500',
     unknown: 'text-gray-500',
   }
   return colors[health || 'unknown'] || 'text-gray-500'
@@ -139,7 +140,7 @@ export function getStatusDisplay(status?: string): { text: string; indicator: st
     ready: { text: 'Ready', indicator: '●' },
     starting: { text: 'Starting', indicator: '◐' },
     stopping: { text: 'Stopping', indicator: '◑' },
-    stopped: { text: 'Stopped', indicator: '○' },
+    stopped: { text: 'Stopped', indicator: '◉' },
     error: { text: 'Error', indicator: '⚠' },
     'not-running': { text: 'Not Running', indicator: '○' },
   }
@@ -154,6 +155,7 @@ export function getHealthDisplay(health?: string): { text: string; indicator: st
     healthy: { text: 'Healthy', indicator: '●' },
     degraded: { text: 'Degraded', indicator: '◐' },
     unhealthy: { text: 'Unhealthy', indicator: '●' },
+    starting: { text: 'Starting', indicator: '◐' },
     unknown: { text: 'Unknown', indicator: '○' },
   }
   return displays[health || 'unknown'] || displays['unknown']

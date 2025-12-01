@@ -3,6 +3,9 @@
  */
 import type { Service } from '@/types'
 
+// Re-export status indicator from unified service-utils
+export { getStatusIndicator, type StatusIndicator } from '@/lib/service-utils'
+
 /** Grouped services by language */
 export type GroupedServices = Record<string, Service[]>
 
@@ -11,13 +14,6 @@ export interface LanguageBadgeStyle {
   bg: string
   text: string
   abbr: string
-}
-
-/** Status indicator configuration */
-export interface StatusIndicator {
-  icon: string
-  color: string
-  animate: string
 }
 
 /**
@@ -74,22 +70,6 @@ export function getLanguageBadgeStyle(language: string): LanguageBadgeStyle {
     '.NET': { bg: 'bg-purple-500/10', text: 'text-purple-500', abbr: '.N' },
   }
   return styles[language] || { bg: 'bg-gray-500/10', text: 'text-gray-500', abbr: '??' }
-}
-
-/**
- * Get status indicator for a service status
- */
-export function getStatusIndicator(status?: string): StatusIndicator {
-  const indicators: Record<string, StatusIndicator> = {
-    running: { icon: '●', color: 'text-green-500', animate: 'animate-pulse' },
-    ready: { icon: '●', color: 'text-green-500', animate: '' },
-    starting: { icon: '◐', color: 'text-yellow-500', animate: 'animate-spin' },
-    stopping: { icon: '◑', color: 'text-yellow-500', animate: '' },
-    stopped: { icon: '○', color: 'text-gray-500', animate: '' },
-    error: { icon: '⚠', color: 'text-red-500', animate: 'animate-pulse' },
-    'not-running': { icon: '○', color: 'text-gray-500', animate: '' },
-  }
-  return indicators[status || 'not-running'] || indicators['not-running']
 }
 
 /**

@@ -284,7 +284,7 @@ describe('panel-utils', () => {
     it('returns stopped display', () => {
       const display = getStatusDisplay('stopped')
       expect(display.text).toBe('Stopped')
-      expect(display.indicator).toBe('○')
+      expect(display.indicator).toBe('◉')
     })
 
     it('returns error display', () => {
@@ -715,7 +715,8 @@ describe('ServiceDetailPanel', () => {
 
       await user.click(screen.getByRole('button', { name: 'Environment' }))
       expect(screen.getByText('NODE_ENV')).toBeInTheDocument()
-      expect(screen.getByText('production')).toBeInTheDocument()
+      // Values are now in input fields
+      expect(screen.getByDisplayValue('production')).toBeInTheDocument()
     })
 
     it('masks sensitive values by default', async () => {
@@ -729,8 +730,8 @@ describe('ServiceDetailPanel', () => {
       )
 
       await user.click(screen.getByRole('button', { name: 'Environment' }))
-      // API_KEY should be masked
-      expect(screen.queryByText('secret-key-123')).not.toBeInTheDocument()
+      // API_KEY should be masked (values are in input fields)
+      expect(screen.queryByDisplayValue('secret-key-123')).not.toBeInTheDocument()
     })
 
     it('shows empty state when no env vars', async () => {

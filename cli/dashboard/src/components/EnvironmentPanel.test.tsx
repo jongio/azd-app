@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { EnvironmentPanel } from './EnvironmentPanel'
 import {
-  EnvironmentPanel,
   isSensitiveVariable,
   aggregateEnvironmentVariables,
   filterEnvironmentVariables,
-} from './EnvironmentPanel'
+} from '@/lib/env-utils'
 import type { Service } from '@/types'
 
 beforeEach(() => {
@@ -209,12 +209,12 @@ describe('EnvironmentPanel', () => {
     const services = createMockServices()
     render(<EnvironmentPanel services={services} />)
 
-    // Sensitive values should be masked
-    expect(screen.getAllByText('••••••••••••')).toHaveLength(2) // API_KEY and SECRET_TOKEN
+    // Sensitive values should be masked (values are in input fields)
+    expect(screen.getAllByDisplayValue('••••••••••••')).toHaveLength(2) // API_KEY and SECRET_TOKEN
 
-    // Non-sensitive values should be visible
-    expect(screen.getByText('development')).toBeInTheDocument()
-    expect(screen.getByText('3000')).toBeInTheDocument()
+    // Non-sensitive values should be visible (values are in input fields)
+    expect(screen.getByDisplayValue('development')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('3000')).toBeInTheDocument()
   })
 
   it('shows sensitive indicator (lock icon) for sensitive variables', () => {
@@ -266,8 +266,8 @@ describe('EnvironmentPanel - Show/Hide Toggle', () => {
     const services = createMockServices()
     render(<EnvironmentPanel services={services} />)
 
-    // Initially sensitive values are masked
-    expect(screen.getAllByText('••••••••••••')).toHaveLength(2)
+    // Initially sensitive values are masked (values are in input fields)
+    expect(screen.getAllByDisplayValue('••••••••••••')).toHaveLength(2)
 
     // Click show values toggle
     const toggleButton = screen.getByRole('button', {
@@ -275,10 +275,10 @@ describe('EnvironmentPanel - Show/Hide Toggle', () => {
     })
     await user.click(toggleButton)
 
-    // All values should now be visible
-    expect(screen.queryByText('••••••••••••')).not.toBeInTheDocument()
-    expect(screen.getByText('sk-secret-123')).toBeInTheDocument()
-    expect(screen.getByText('token-abc-123')).toBeInTheDocument()
+    // All values should now be visible (values are in input fields)
+    expect(screen.queryByDisplayValue('••••••••••••')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('sk-secret-123')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('token-abc-123')).toBeInTheDocument()
   })
 
   it('toggles button label between Show/Hide', async () => {

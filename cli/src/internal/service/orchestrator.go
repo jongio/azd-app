@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
@@ -100,8 +101,8 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				AzureURL:   azureURL,
 				Language:   rt.Language,
 				Framework:  rt.Framework,
-				Status:     "starting",
-				Health:     "unknown",
+				Status:     constants.StatusStarting,
+				Health:     constants.HealthStarting,
 				StartTime:  time.Now(),
 			}); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to register service: %v", err))
@@ -144,7 +145,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				startErrors[rt.Name] = err
 				result.Errors[rt.Name] = err
 				mu.Unlock()
-				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
+				if err := reg.UpdateStatus(rt.Name, constants.StatusError, constants.HealthUnhealthy); err != nil {
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("❌ Port %d conflict detected", rt.Port))
@@ -168,7 +169,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 					slog.String("service", rt.Name),
 					slog.Int("port", rt.Port),
 					slog.String("error", err.Error()))
-				if err := reg.UpdateStatus(rt.Name, "error", "unknown"); err != nil {
+				if err := reg.UpdateStatus(rt.Name, constants.StatusError, constants.HealthUnhealthy); err != nil {
 					logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 				}
 				logger.LogService(rt.Name, fmt.Sprintf("Failed to start: %v", err))
@@ -209,7 +210,10 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				output.ItemSuccess("%s%-15s%s", output.Cyan, rt.Name, output.Reset)
 			}
 
-			if err := reg.UpdateStatus(rt.Name, "running", "healthy"); err != nil {
+			// Update status to running but keep health as "starting"
+			// The health monitor will transition health to "healthy" once the service
+			// is actually responding to health checks
+			if err := reg.UpdateStatus(rt.Name, constants.StatusRunning, constants.HealthStarting); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update status: %v", err))
 			}
 			process.Ready = true
@@ -282,7 +286,7 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 			defer wg.Done()
 
 			// Update status to stopping
-			if err := reg.UpdateStatus(serviceName, "stopping", "unknown"); err != nil {
+			if err := reg.UpdateStatus(serviceName, constants.StatusStopping, constants.HealthUnknown); err != nil {
 				output.Error("Warning: failed to update status for %s: %v", serviceName, err)
 			}
 

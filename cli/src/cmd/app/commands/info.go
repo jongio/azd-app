@@ -470,11 +470,12 @@ const (
 	colorReset  = "\033[0m"
 )
 
-// getAzureEnvironmentValues gets environment values from azd env get-values or current environment.
+// getAzureEnvironmentValues gets environment values from azd env get-values.
+// Returns all environment variables defined in the azd environment.
 func getAzureEnvironmentValues() map[string]string {
 	allEnvVars := make(map[string]string)
 
-	// First, try to get values from azd env get-values
+	// Get values from azd env get-values
 	cmd := exec.Command("azd", "env", "get-values", "--output", "json")
 	output, err := cmd.Output()
 	if err == nil {
@@ -485,18 +486,6 @@ func getAzureEnvironmentValues() map[string]string {
 				allEnvVars[key] = value
 			}
 		}
-	}
-
-	// Fallback: Check current process environment for all variables
-	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := parts[0]
-		value := parts[1]
-		allEnvVars[key] = value
 	}
 
 	return allEnvVars
