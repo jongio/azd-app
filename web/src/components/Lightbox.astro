@@ -1,0 +1,599 @@
+---
+/**
+ * Lightbox Component
+ * Full-screen modal overlay for viewing images at full resolution.
+ * Supports keyboard navigation, focus trapping, and accessible dismissal.
+ */
+---
+
+<!-- Global Lightbox Container (rendered once, reused for all screenshots) -->
+<div
+  id="screenshot-lightbox"
+  class="lightbox"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="lightbox-title"
+  aria-describedby="lightbox-caption"
+  hidden
+>
+  <!-- Backdrop -->
+  <div class="lightbox-backdrop" data-lightbox-close aria-hidden="true"></div>
+
+  <!-- Dialog Content -->
+  <div class="lightbox-dialog">
+    <!-- Close Button -->
+    <button
+      type="button"
+      class="lightbox-close"
+      aria-label="Close image viewer"
+      data-lightbox-close
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+
+    <!-- Image Container -->
+    <div class="lightbox-content">
+      <!-- Loading Spinner -->
+      <div class="lightbox-spinner" aria-hidden="true">
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+        </svg>
+      </div>
+
+      <!-- Image -->
+      <img
+        class="lightbox-image"
+        src=""
+        alt=""
+        loading="eager"
+      />
+
+      <!-- Screen reader title -->
+      <h2 id="lightbox-title" class="sr-only">Image viewer</h2>
+    </div>
+
+    <!-- Caption -->
+    <div class="lightbox-footer">
+      <p id="lightbox-caption" class="lightbox-caption"></p>
+    </div>
+  </div>
+
+  <!-- Screen reader announcements -->
+  <div aria-live="polite" class="sr-only" id="lightbox-announcer"></div>
+</div>
+
+<style>
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lightbox[hidden] {
+    display: none;
+  }
+
+  /* Backdrop */
+  .lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    transition: opacity var(--duration-slow) var(--ease-out);
+  }
+
+  :global([data-theme="dark"]) .lightbox-backdrop {
+    background-color: rgba(0, 0, 0, 0.95);
+  }
+
+  .lightbox.lightbox--open .lightbox-backdrop {
+    opacity: 1;
+  }
+
+  .lightbox.lightbox--closing .lightbox-backdrop {
+    opacity: 0;
+  }
+
+  /* Dialog */
+  .lightbox-dialog {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 48px);
+    padding: 48px;
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity var(--duration-slow) var(--ease-out),
+                transform var(--duration-slow) cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .lightbox.lightbox--open .lightbox-dialog {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .lightbox.lightbox--closing .lightbox-dialog {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 640px) {
+    .lightbox-dialog {
+      padding: 16px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 32px);
+    }
+  }
+
+  /* Close Button */
+  .lightbox-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-lg);
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out);
+  }
+
+  .lightbox-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .lightbox-close:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #60a5fa;
+  }
+
+  .lightbox-close:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 640px) {
+    .lightbox-close {
+      width: 56px;
+      height: 56px;
+      top: 8px;
+      right: 8px;
+    }
+  }
+
+  /* Content */
+  .lightbox-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Spinner */
+  .lightbox-spinner {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0;
+    transition: opacity var(--duration-normal) var(--ease-out);
+  }
+
+  .lightbox-spinner svg {
+    animation: lightbox-spin 1s linear infinite;
+  }
+
+  .lightbox.lightbox--loading .lightbox-spinner {
+    opacity: 1;
+  }
+
+  @keyframes lightbox-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Image */
+  .lightbox-image {
+    max-width: calc(100vw - 96px);
+    max-height: calc(100vh - 160px);
+    border-radius: var(--radius-md);
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity var(--duration-slow) var(--ease-out);
+  }
+
+  .lightbox.lightbox--loaded .lightbox-image {
+    opacity: 1;
+  }
+
+  @media (max-width: 640px) {
+    .lightbox-image {
+      max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 100px);
+    }
+  }
+
+  /* Footer/Caption */
+  .lightbox-footer {
+    margin-top: 16px;
+    text-align: center;
+  }
+
+  .lightbox-caption {
+    margin: 0;
+    padding: 12px 24px;
+    max-width: 600px;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    color: #e5e7eb;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: var(--radius-md);
+  }
+
+  .lightbox-caption:empty {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .lightbox-caption {
+      font-size: 13px;
+      padding: 12px 16px;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox-backdrop,
+    .lightbox-dialog,
+    .lightbox-image {
+      transition: opacity 0.1s ease-out;
+    }
+
+    .lightbox-dialog {
+      transform: none !important;
+    }
+
+    .lightbox-spinner svg {
+      animation: lightbox-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes lightbox-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+  }
+
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+</style>
+
+<script>
+  interface LightboxState {
+    isOpen: boolean;
+    triggerElement: HTMLElement | null;
+    lightSrc: string;
+    darkSrc: string;
+    caption: string;
+    alt: string;
+  }
+
+  const state: LightboxState = {
+    isOpen: false,
+    triggerElement: null,
+    lightSrc: '',
+    darkSrc: '',
+    caption: '',
+    alt: ''
+  };
+
+  let focusableElements: HTMLElement[] = [];
+
+  function getLightbox(): HTMLElement | null {
+    return document.getElementById('screenshot-lightbox');
+  }
+
+  function getImage(): HTMLImageElement | null {
+    return document.querySelector('.lightbox-image');
+  }
+
+  function getAnnouncer(): HTMLElement | null {
+    return document.getElementById('lightbox-announcer');
+  }
+
+  function announce(message: string): void {
+    const announcer = getAnnouncer();
+    if (announcer) {
+      announcer.textContent = message;
+      // Clear after announcement
+      setTimeout(() => {
+        announcer.textContent = '';
+      }, 1000);
+    }
+  }
+
+  function getCurrentTheme(): 'light' | 'dark' {
+    const theme = document.documentElement.getAttribute('data-theme');
+    if (theme === 'dark') return 'dark';
+    if (theme === 'light') return 'light';
+    // System theme
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function getThemedSrc(): string {
+    const theme = getCurrentTheme();
+    return theme === 'dark' ? state.darkSrc : state.lightSrc;
+  }
+
+  function lockBodyScroll(): void {
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.dataset.scrollY = String(scrollY);
+  }
+
+  function unlockBodyScroll(): void {
+    const scrollY = document.body.dataset.scrollY;
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    if (scrollY) {
+      window.scrollTo(0, parseInt(scrollY));
+    }
+    delete document.body.dataset.scrollY;
+  }
+
+  function setupFocusTrap(container: HTMLElement): void {
+    const focusableSelectors = [
+      'button:not([disabled])',
+      '[href]',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])'
+    ];
+
+    focusableElements = Array.from(
+      container.querySelectorAll(focusableSelectors.join(','))
+    ) as HTMLElement[];
+  }
+
+  function handleFocusTrap(event: KeyboardEvent): void {
+    if (event.key !== 'Tab' || focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey) {
+      if (document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      }
+    } else {
+      if (document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent): void {
+    if (!state.isOpen) return;
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeLightbox();
+    }
+
+    handleFocusTrap(event);
+  }
+
+  function openLightbox(options: {
+    lightSrc: string;
+    darkSrc: string;
+    alt: string;
+    caption?: string;
+    triggerElement: HTMLElement;
+  }): void {
+    const lightbox = getLightbox();
+    const image = getImage();
+    const captionEl = document.getElementById('lightbox-caption');
+
+    if (!lightbox || !image) return;
+
+    // Store state
+    state.isOpen = true;
+    state.triggerElement = options.triggerElement;
+    state.lightSrc = options.lightSrc;
+    state.darkSrc = options.darkSrc;
+    state.alt = options.alt;
+    state.caption = options.caption || '';
+
+    // Set caption
+    if (captionEl) {
+      captionEl.textContent = state.caption;
+    }
+
+    // Set image
+    image.alt = state.alt;
+    image.src = '';
+
+    // Show lightbox
+    lightbox.hidden = false;
+    lightbox.classList.add('lightbox--loading');
+
+    // Lock body scroll
+    lockBodyScroll();
+
+    // Load image
+    const src = getThemedSrc();
+    image.onload = () => {
+      lightbox.classList.remove('lightbox--loading');
+      lightbox.classList.add('lightbox--loaded');
+      announce(`Image loaded. ${state.alt}`);
+    };
+    image.onerror = () => {
+      lightbox.classList.remove('lightbox--loading');
+      announce('Failed to load image.');
+    };
+    image.src = src;
+
+    // Animate in
+    requestAnimationFrame(() => {
+      lightbox.classList.add('lightbox--open');
+    });
+
+    // Setup focus trap
+    setupFocusTrap(lightbox);
+
+    // Focus close button
+    const closeBtn = lightbox.querySelector('.lightbox-close') as HTMLElement;
+    if (closeBtn) {
+      setTimeout(() => closeBtn.focus(), 100);
+    }
+
+    // Add keyboard listener
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Announce
+    announce(`Image viewer opened. ${state.alt}. Press Escape to close.`);
+  }
+
+  function closeLightbox(): void {
+    const lightbox = getLightbox();
+
+    if (!lightbox || !state.isOpen) return;
+
+    // Start closing animation
+    lightbox.classList.remove('lightbox--open');
+    lightbox.classList.add('lightbox--closing');
+
+    // Remove keyboard listener
+    document.removeEventListener('keydown', handleKeyDown);
+
+    // After animation
+    setTimeout(() => {
+      lightbox.hidden = true;
+      lightbox.classList.remove('lightbox--closing', 'lightbox--loaded', 'lightbox--loading');
+
+      // Unlock body scroll
+      unlockBodyScroll();
+
+      // Return focus
+      if (state.triggerElement) {
+        state.triggerElement.focus();
+      }
+
+      // Reset state
+      state.isOpen = false;
+      state.triggerElement = null;
+
+      announce('Image viewer closed.');
+    }, 300);
+  }
+
+  function handleThemeChange(): void {
+    if (!state.isOpen) return;
+
+    const image = getImage();
+    if (image) {
+      const newSrc = getThemedSrc();
+      if (image.src !== newSrc) {
+        image.style.opacity = '0.7';
+        image.src = newSrc;
+        image.onload = () => {
+          image.style.opacity = '';
+        };
+      }
+    }
+  }
+
+  function init(): void {
+    const lightbox = getLightbox();
+    if (!lightbox) return;
+
+    // Close on backdrop/button click
+    lightbox.querySelectorAll('[data-lightbox-close]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+          closeLightbox();
+        }
+      });
+    });
+
+    // Listen for theme changes
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName === 'data-theme') {
+          handleThemeChange();
+        }
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true });
+
+    // Expose global function for Screenshot component
+    (window as any).openScreenshotLightbox = openLightbox;
+    (window as any).closeScreenshotLightbox = closeLightbox;
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Re-init on Astro page transitions
+  document.addEventListener('astro:after-swap', init);
+</script>

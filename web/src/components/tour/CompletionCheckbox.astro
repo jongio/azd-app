@@ -1,0 +1,259 @@
+---
+/**
+ * CompletionCheckbox Component
+ * 
+ * Allows users to mark a tour step as complete with visual feedback
+ * and localStorage persistence.
+ */
+
+interface Props {
+  /** Step number */
+  stepNumber: number;
+  /** Label text */
+  label?: string;
+  /** Custom class name */
+  class?: string;
+}
+
+const {
+  stepNumber,
+  label = 'Mark as complete',
+  class: className = '',
+} = Astro.props;
+---
+
+<div 
+  class:list={['completion-checkbox', className]}
+  data-completion-checkbox
+  data-step-number={stepNumber}
+>
+  <label class="completion-checkbox-label">
+    <input 
+      type="checkbox"
+      class="completion-checkbox-input"
+      aria-describedby={`completion-hint-${stepNumber}`}
+      data-completion-input
+    />
+    <span class="completion-checkbox-visual" aria-hidden="true">
+      <svg class="completion-checkbox-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </span>
+    <span class="completion-checkbox-text" data-completion-text>{label}</span>
+  </label>
+  <span id={`completion-hint-${stepNumber}`} class="sr-only">
+    Marks this step as complete and saves your progress
+  </span>
+</div>
+
+<style>
+  .completion-checkbox {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .completion-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  .completion-checkbox-label:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-bg-secondary);
+  }
+
+  .completion-checkbox--completed .completion-checkbox-label {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--color-success);
+  }
+
+  .completion-checkbox-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .completion-checkbox-input:focus-visible + .completion-checkbox-visual {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .completion-checkbox-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border: 2px solid var(--color-border-strong);
+    border-radius: 6px;
+    background: transparent;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .completion-checkbox--completed .completion-checkbox-visual {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    animation: checkbox-check 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  @keyframes checkbox-check {
+    0% { transform: scale(0.8); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  .completion-checkbox-check {
+    opacity: 0;
+    color: white;
+    transform: scale(0.8);
+    transition: opacity 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .completion-checkbox--completed .completion-checkbox-check {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .completion-checkbox-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    transition: color 150ms ease-out;
+  }
+
+  .completion-checkbox--completed .completion-checkbox-text {
+    color: var(--color-text-primary);
+  }
+
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .completion-checkbox-visual,
+    .completion-checkbox-check,
+    .completion-checkbox-label {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+</style>
+
+<script>
+  import { STORAGE_KEY, defaultProgress, type TourProgress } from '../../data/tour-steps';
+
+  function loadTourProgress(): TourProgress {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return { ...defaultProgress };
+      const parsed = JSON.parse(stored);
+      return parsed.version === 1 ? parsed : { ...defaultProgress };
+    } catch {
+      return { ...defaultProgress };
+    }
+  }
+
+  function saveTourProgress(progress: TourProgress): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...progress,
+        lastUpdated: new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.error('Failed to save tour progress:', error);
+    }
+  }
+
+  function initCompletionCheckbox(): void {
+    const checkboxes = document.querySelectorAll('[data-completion-checkbox]');
+
+    checkboxes.forEach(container => {
+      const stepNumber = parseInt(container.getAttribute('data-step-number') || '0', 10);
+      const input = container.querySelector<HTMLInputElement>('[data-completion-input]');
+      const textEl = container.querySelector('[data-completion-text]');
+
+      if (!input || !stepNumber) return;
+
+      // Load initial state
+      const progress = loadTourProgress();
+      const isCompleted = progress.completedSteps.includes(stepNumber);
+      
+      input.checked = isCompleted;
+      container.classList.toggle('completion-checkbox--completed', isCompleted);
+      if (textEl) {
+        textEl.textContent = isCompleted ? 'Completed! Great job.' : 'Mark as complete';
+      }
+
+      // Handle changes
+      input.addEventListener('change', () => {
+        const currentProgress = loadTourProgress();
+        const isNowCompleted = input.checked;
+
+        if (isNowCompleted) {
+          if (!currentProgress.completedSteps.includes(stepNumber)) {
+            currentProgress.completedSteps.push(stepNumber);
+            currentProgress.completedSteps.sort((a, b) => a - b);
+          }
+        } else {
+          currentProgress.completedSteps = currentProgress.completedSteps.filter(n => n !== stepNumber);
+        }
+
+        saveTourProgress(currentProgress);
+        container.classList.toggle('completion-checkbox--completed', isNowCompleted);
+        
+        if (textEl) {
+          textEl.textContent = isNowCompleted ? 'Completed! Great job.' : 'Mark as complete';
+        }
+
+        // Dispatch event for sidebar to update
+        window.dispatchEvent(new CustomEvent('tour:progress-updated', {
+          detail: { completedSteps: currentProgress.completedSteps }
+        }));
+
+        // Screen reader announcement
+        const announcement = document.createElement('div');
+        announcement.setAttribute('role', 'status');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.className = 'sr-only';
+        announcement.textContent = isNowCompleted 
+          ? `Step ${stepNumber} marked as complete. Progress: ${currentProgress.completedSteps.length} of 8 steps.`
+          : `Step ${stepNumber} marked as incomplete.`;
+        document.body.appendChild(announcement);
+        setTimeout(() => announcement.remove(), 1000);
+      });
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCompletionCheckbox);
+  } else {
+    initCompletionCheckbox();
+  }
+
+  document.addEventListener('astro:after-swap', initCompletionCheckbox);
+</script>

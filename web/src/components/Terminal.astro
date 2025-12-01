@@ -1,0 +1,309 @@
+---
+/**
+ * Terminal Component
+ * 
+ * Displays command-line output with a realistic terminal appearance.
+ * Supports commands, output, success, error, and info line types.
+ */
+
+import CopyButton from './CopyButton.astro';
+
+interface TerminalLine {
+  /** Type of line */
+  type: 'command' | 'output' | 'error' | 'success' | 'info';
+  /** Content of the line */
+  content: string;
+}
+
+interface Props {
+  /** Lines of terminal content */
+  lines: TerminalLine[];
+  /** Terminal title (shown in header) */
+  title?: string;
+  /** Show macOS-style window dots */
+  showDots?: boolean;
+  /** Show copy button */
+  showCopy?: boolean;
+  /** Terminal prompt string */
+  prompt?: string;
+  /** Maximum height before scrolling */
+  maxHeight?: string;
+  /** Additional CSS classes */
+  class?: string;
+}
+
+const {
+  lines,
+  title = 'Terminal',
+  showDots = true,
+  showCopy = true,
+  prompt = '$',
+  maxHeight,
+  class: className = '',
+} = Astro.props;
+
+// Extract only commands for copying
+const commandsText = lines
+  .filter(line => line.type === 'command')
+  .map(line => line.content)
+  .join('\n');
+
+// Create aria label
+const ariaLabel = lines.length > 0 && lines[0].type === 'command'
+  ? `Terminal showing ${lines[0].content} command`
+  : 'Terminal output';
+---
+
+<figure 
+  class:list={['terminal', className]}
+  role="figure"
+  aria-label={ariaLabel}
+>
+  <div class="terminal-header" aria-hidden="true">
+    {showDots && (
+      <div class="terminal-dots">
+        <span class="terminal-dot terminal-dot--red"></span>
+        <span class="terminal-dot terminal-dot--yellow"></span>
+        <span class="terminal-dot terminal-dot--green"></span>
+      </div>
+    )}
+    <span class="terminal-title">{title}</span>
+    {showCopy && commandsText && (
+      <CopyButton text={commandsText} size="sm" label="Copy commands to clipboard" />
+    )}
+  </div>
+
+  <div 
+    class="terminal-content"
+    role="log"
+    aria-live="polite"
+    aria-label="Terminal output"
+    tabindex="0"
+    style={maxHeight ? `max-height: ${maxHeight}` : undefined}
+  >
+    {lines.map((line) => (
+      <div class={`terminal-line terminal-line--${line.type}`}>
+        {line.type === 'command' && (
+          <span class="terminal-prompt" aria-hidden="true">{prompt}</span>
+        )}
+        <span class={`terminal-text terminal-text--${line.type}`}>
+          {line.content}
+        </span>
+      </div>
+    ))}
+    <div class="terminal-line terminal-line--prompt">
+      <span class="terminal-prompt" aria-hidden="true">{prompt}</span>
+      <span class="terminal-cursor" aria-hidden="true"></span>
+    </div>
+  </div>
+</figure>
+
+<style>
+  /* Terminal Container */
+  .terminal {
+    position: relative;
+    margin: 1.5rem 0;
+    border-radius: var(--terminal-border-radius, 0.5rem);
+    overflow: hidden;
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-header-border);
+  }
+
+  /* Header */
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: var(--terminal-header-bg);
+    border-bottom: 1px solid var(--terminal-header-border);
+    min-height: 36px;
+    gap: 0.75rem;
+  }
+
+  /* Window Dots */
+  .terminal-dots {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .terminal-dot--red {
+    background-color: var(--terminal-dot-red, #f87171);
+  }
+
+  .terminal-dot--yellow {
+    background-color: var(--terminal-dot-yellow, #fbbf24);
+  }
+
+  .terminal-dot--green {
+    background-color: var(--terminal-dot-green, #4ade80);
+  }
+
+  /* Title */
+  .terminal-title {
+    flex: 1;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--terminal-title-color);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Content */
+  .terminal-content {
+    padding: var(--terminal-padding, 1rem);
+    font-family: var(--font-family-mono);
+    font-size: var(--terminal-font-size, 0.875rem);
+    line-height: var(--terminal-line-height, 1.6);
+    overflow: auto;
+  }
+
+  .terminal-content:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+  }
+
+  .terminal-content:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Lines */
+  .terminal-line {
+    display: flex;
+    align-items: flex-start;
+    min-height: 1.6em;
+  }
+
+  .terminal-line--command {
+    margin-bottom: 0.25rem;
+  }
+
+  .terminal-line--output,
+  .terminal-line--success,
+  .terminal-line--error,
+  .terminal-line--info {
+    padding-left: 1rem;
+  }
+
+  .terminal-line--prompt {
+    margin-top: 0.5rem;
+  }
+
+  /* Prompt */
+  .terminal-prompt {
+    color: var(--terminal-prompt, #10b981);
+    font-weight: 600;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  /* Text Colors */
+  .terminal-text--command {
+    color: var(--terminal-command, #f8fafc);
+    font-weight: 500;
+  }
+
+  .terminal-text--output {
+    color: var(--terminal-output, #cbd5e1);
+  }
+
+  .terminal-text--success {
+    color: var(--terminal-success, #4ade80);
+  }
+
+  .terminal-text--error {
+    color: var(--terminal-error, #f87171);
+  }
+
+  .terminal-text--info {
+    color: var(--terminal-info, #60a5fa);
+  }
+
+  /* Cursor */
+  .terminal-cursor {
+    display: inline-block;
+    width: 0.5ch;
+    height: 1.2em;
+    background-color: var(--terminal-cursor, #f8fafc);
+    animation: cursor-blink 1.06s step-end infinite;
+    vertical-align: text-bottom;
+  }
+
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Custom Scrollbar */
+  .terminal-content::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .terminal-content::-webkit-scrollbar-track {
+    background: var(--code-scrollbar-track);
+  }
+
+  .terminal-content::-webkit-scrollbar-thumb {
+    background: var(--code-scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  .terminal-content::-webkit-scrollbar-thumb:hover {
+    background: var(--code-scrollbar-thumb-hover);
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 640px) {
+    .terminal {
+      border-radius: 0;
+      margin-left: calc(-1 * var(--spacing-4, 1rem));
+      margin-right: calc(-1 * var(--spacing-4, 1rem));
+      border-left: none;
+      border-right: none;
+    }
+
+    .terminal-header {
+      padding: 0.375rem 0.75rem;
+    }
+
+    .terminal-dots {
+      display: none;
+    }
+
+    .terminal-title {
+      text-align: left;
+    }
+
+    .terminal-content {
+      font-size: 13px;
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+  }
+
+  /* Touch Targets */
+  @media (pointer: coarse) {
+    .terminal-header :global(.copy-button) {
+      min-width: 44px;
+      min-height: 44px;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .terminal-cursor {
+      animation: none;
+      opacity: 1;
+    }
+  }
+</style>

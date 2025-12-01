@@ -1,0 +1,453 @@
+---
+/**
+ * DashboardCarousel Component
+ * 
+ * Auto-rotating carousel showing different views of the azd app dashboard.
+ * Features:
+ * - Auto-advances every few seconds
+ * - Manual navigation with dots and arrows
+ * - Pause on hover
+ * - Accessible keyboard navigation
+ */
+
+interface Props {
+  /** Custom class name */
+  class?: string;
+  /** Auto-advance interval in milliseconds (default: 4000) */
+  interval?: number;
+}
+
+const { class: className = '', interval = 4000 } = Astro.props;
+const baseUrl = import.meta.env.BASE_URL;
+
+// Define the carousel slides
+const slides = [
+  {
+    src: `${baseUrl}screenshots/dashboard-resources-table.png`,
+    alt: 'Resources view showing services in a table format with status, ports, and health indicators',
+    title: 'Resources Table',
+    description: 'View all services at a glance',
+  },
+  {
+    src: `${baseUrl}screenshots/dashboard-resources-cards.png`,
+    alt: 'Resources view showing services as cards with detailed status information',
+    title: 'Resources Cards',
+    description: 'Detailed service cards',
+  },
+  {
+    src: `${baseUrl}screenshots/dashboard-console.png`,
+    alt: 'Console view showing real-time logs from all services with filtering options',
+    title: 'Console View',
+    description: 'Real-time logs & monitoring',
+  },
+];
+---
+
+<div 
+  class:list={['dashboard-carousel', className]}
+  data-carousel
+  data-interval={interval}
+  role="region"
+  aria-roledescription="carousel"
+  aria-label="Dashboard views"
+>
+  <!-- Slides container -->
+  <div class="carousel-viewport" aria-live="polite">
+    <div class="carousel-track">
+      {slides.map((slide, index) => (
+        <div 
+          class="carousel-slide"
+          data-slide-index={index}
+          role="group"
+          aria-roledescription="slide"
+          aria-label={`${index + 1} of ${slides.length}: ${slide.title}`}
+          aria-hidden={index !== 0}
+        >
+          <img 
+            src={slide.src}
+            alt={slide.alt}
+            class="carousel-image"
+            loading={index === 0 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- Navigation arrows -->
+  <button 
+    class="carousel-arrow carousel-arrow-prev"
+    aria-label="Previous slide"
+    data-carousel-prev
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+  </button>
+  <button 
+    class="carousel-arrow carousel-arrow-next"
+    aria-label="Next slide"
+    data-carousel-next
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </button>
+
+  <!-- Slide info and dots -->
+  <div class="carousel-controls">
+    <div class="carousel-info">
+      <span class="carousel-title" data-carousel-title>{slides[0].title}</span>
+      <span class="carousel-description" data-carousel-description>{slides[0].description}</span>
+    </div>
+    <div class="carousel-dots" role="tablist" aria-label="Slide navigation">
+      {slides.map((slide, index) => (
+        <button 
+          class:list={['carousel-dot', { active: index === 0 }]}
+          data-slide-target={index}
+          role="tab"
+          aria-selected={index === 0}
+          aria-label={`Go to slide ${index + 1}: ${slide.title}`}
+        />
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .dashboard-carousel {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    margin: 0;
+  }
+
+  .carousel-viewport {
+    overflow: hidden;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-secondary);
+  }
+
+  .carousel-track {
+    display: flex;
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .carousel-slide {
+    flex: 0 0 100%;
+    min-width: 100%;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+  }
+
+  .carousel-slide[aria-hidden="true"] {
+    opacity: 0.3;
+  }
+
+  .carousel-image {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Navigation arrows */
+  .carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s, color 0.2s;
+    box-shadow: var(--shadow-md);
+    z-index: 10;
+  }
+
+  .carousel-arrow svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .dashboard-carousel:hover .carousel-arrow,
+  .dashboard-carousel:focus-within .carousel-arrow {
+    opacity: 1;
+  }
+
+  .carousel-arrow:hover {
+    background: var(--color-azure-500);
+    color: white;
+  }
+
+  .carousel-arrow:focus {
+    outline: 2px solid var(--color-azure-500);
+    outline-offset: 2px;
+    opacity: 1;
+  }
+
+  .carousel-arrow-prev {
+    left: 0.75rem;
+  }
+
+  .carousel-arrow-next {
+    right: 0.75rem;
+  }
+
+  /* Controls (info + dots) */
+  .carousel-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding: 0 0.25rem;
+  }
+
+  .carousel-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .carousel-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+    transition: opacity 0.3s ease-out;
+  }
+
+  .carousel-title.fading {
+    opacity: 0;
+  }
+
+  .carousel-description {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+    transition: opacity 0.3s ease-out;
+  }
+
+  .carousel-description.fading {
+    opacity: 0;
+  }
+
+  .carousel-dots {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .carousel-dot {
+    width: 8px;
+    height: 8px;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-text-tertiary);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.4s ease-out, transform 0.3s ease-out, width 0.3s ease-out;
+  }
+
+  .carousel-dot:hover {
+    background: var(--color-text-secondary);
+    transform: scale(1.2);
+  }
+
+  .carousel-dot.active {
+    background: var(--color-azure-500);
+    width: 20px;
+    border-radius: 4px;
+  }
+
+  .carousel-dot:focus {
+    outline: 2px solid var(--color-azure-500);
+    outline-offset: 2px;
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 640px) {
+    .dashboard-carousel {
+      max-width: 100%;
+    }
+
+    .carousel-arrow {
+      width: 32px;
+      height: 32px;
+      opacity: 0.7;
+    }
+
+    .carousel-arrow svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .carousel-arrow-prev {
+      left: 0.5rem;
+    }
+
+    .carousel-arrow-next {
+      right: 0.5rem;
+    }
+  }
+</style>
+
+<script>
+  // Carousel functionality
+  document.addEventListener('DOMContentLoaded', () => {
+    const carousels = document.querySelectorAll('[data-carousel]');
+    
+    carousels.forEach((carousel) => {
+      const track = carousel.querySelector('.carousel-track') as HTMLElement;
+      const slides = carousel.querySelectorAll('.carousel-slide');
+      const dots = carousel.querySelectorAll('.carousel-dot');
+      const prevBtn = carousel.querySelector('[data-carousel-prev]');
+      const nextBtn = carousel.querySelector('[data-carousel-next]');
+      const titleEl = carousel.querySelector('[data-carousel-title]');
+      const descEl = carousel.querySelector('[data-carousel-description]');
+      
+      const interval = parseInt(carousel.getAttribute('data-interval') || '4000', 10);
+      let currentIndex = 0;
+      let autoplayTimer: number | null = null;
+      let isPaused = false;
+      
+      // Slide data for updating info
+      const slideData = [
+        { title: 'Resources Table', description: 'View all services at a glance' },
+        { title: 'Resources Cards', description: 'Detailed service cards' },
+        { title: 'Console View', description: 'Real-time logs & monitoring' },
+      ];
+
+      function goToSlide(index: number) {
+        if (index < 0) index = slides.length - 1;
+        if (index >= slides.length) index = 0;
+        
+        const previousIndex = currentIndex;
+        currentIndex = index;
+        
+        // Move track with smooth transition
+        track.style.transform = `translateX(-${currentIndex * 100}%)`;
+        
+        // Update dots with smooth transition
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === currentIndex);
+          dot.setAttribute('aria-selected', String(i === currentIndex));
+        });
+        
+        // Update slide aria attributes
+        slides.forEach((slide, i) => {
+          slide.setAttribute('aria-hidden', String(i !== currentIndex));
+        });
+        
+        // Smooth fade transition for info text
+        if (titleEl && descEl && slideData[currentIndex] && previousIndex !== currentIndex) {
+          // Fade out
+          titleEl.classList.add('fading');
+          descEl.classList.add('fading');
+          
+          // Update text and fade in after transition
+          setTimeout(() => {
+            titleEl.textContent = slideData[currentIndex].title;
+            descEl.textContent = slideData[currentIndex].description;
+            titleEl.classList.remove('fading');
+            descEl.classList.remove('fading');
+          }, 200);
+        }
+      }
+
+      function nextSlide() {
+        goToSlide(currentIndex + 1);
+      }
+
+      function prevSlide() {
+        goToSlide(currentIndex - 1);
+      }
+
+      function startAutoplay() {
+        if (autoplayTimer) clearInterval(autoplayTimer);
+        if (!isPaused) {
+          autoplayTimer = window.setInterval(nextSlide, interval);
+        }
+      }
+
+      function stopAutoplay() {
+        if (autoplayTimer) {
+          clearInterval(autoplayTimer);
+          autoplayTimer = null;
+        }
+      }
+
+      // Event listeners
+      prevBtn?.addEventListener('click', () => {
+        prevSlide();
+        startAutoplay(); // Reset timer after manual navigation
+      });
+
+      nextBtn?.addEventListener('click', () => {
+        nextSlide();
+        startAutoplay(); // Reset timer after manual navigation
+      });
+
+      dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => {
+          goToSlide(index);
+          startAutoplay(); // Reset timer after manual navigation
+        });
+      });
+
+      // Pause on hover
+      carousel.addEventListener('mouseenter', () => {
+        isPaused = true;
+        stopAutoplay();
+      });
+
+      carousel.addEventListener('mouseleave', () => {
+        isPaused = false;
+        startAutoplay();
+      });
+
+      // Keyboard navigation
+      carousel.addEventListener('keydown', (e) => {
+        const event = e as KeyboardEvent;
+        if (event.key === 'ArrowLeft') {
+          prevSlide();
+          startAutoplay();
+        } else if (event.key === 'ArrowRight') {
+          nextSlide();
+          startAutoplay();
+        }
+      });
+
+      // Touch/swipe support
+      let touchStartX = 0;
+      let touchEndX = 0;
+
+      carousel.addEventListener('touchstart', (e) => {
+        touchStartX = (e as TouchEvent).changedTouches[0].screenX;
+      }, { passive: true });
+
+      carousel.addEventListener('touchend', (e) => {
+        touchEndX = (e as TouchEvent).changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        
+        if (Math.abs(diff) > 50) { // Minimum swipe distance
+          if (diff > 0) {
+            nextSlide();
+          } else {
+            prevSlide();
+          }
+          startAutoplay();
+        }
+      }, { passive: true });
+
+      // Start autoplay
+      startAutoplay();
+    });
+  });
+</script>

@@ -1,0 +1,461 @@
+---
+/**
+ * Tour Overview Page
+ * 
+ * Landing page for the guided tour with overview of all 8 steps.
+ */
+import TourLayout from '../../components/tour/TourLayout.astro';
+import { tourSteps, getTotalEstimatedTime } from '../../data/tour-steps';
+
+const baseUrl = import.meta.env.BASE_URL;
+const totalTime = getTotalEstimatedTime();
+---
+
+<TourLayout 
+  title="Guided Tour Overview" 
+  description="Take a comprehensive 8-step tour of azd-app features"
+  currentStep={0}
+>
+  <div class="tour-overview">
+    <!-- Hero -->
+    <section class="tour-hero" aria-labelledby="tour-heading">
+      <span class="tour-hero-icon" aria-hidden="true">🎯</span>
+      <h1 id="tour-heading" class="tour-hero-title">Guided Tour</h1>
+      <p class="tour-hero-description">
+        Learn azd-app step by step. This comprehensive tour covers installation, 
+        running apps, using the dashboard, viewing logs, monitoring health, 
+        and integrating with GitHub Copilot.
+      </p>
+      
+      <div class="tour-hero-meta">
+        <div class="tour-meta-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>~{totalTime} minutes</span>
+        </div>
+        <div class="tour-meta-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"></path>
+            <rect x="9" y="3" width="6" height="4" rx="2"></rect>
+            <path d="M9 14l2 2 4-4"></path>
+          </svg>
+          <span>8 steps</span>
+        </div>
+        <div class="tour-meta-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+            <path d="M12 16v-4M12 8h.01"></path>
+          </svg>
+          <span>Progress saved automatically</span>
+        </div>
+      </div>
+
+      <a href={`${baseUrl}tour/1-install/`} class="tour-start-button">
+        Start the Tour
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </a>
+    </section>
+
+    <!-- Steps Grid -->
+    <section class="tour-steps-section" aria-labelledby="steps-heading">
+      <h2 id="steps-heading" class="tour-steps-title">What You'll Learn</h2>
+      
+      <div class="tour-steps-grid">
+        {tourSteps.map((step) => (
+          <a 
+            href={`${baseUrl}tour/${step.slug}/`}
+            class="tour-step-card"
+            data-step-card
+            data-step-number={step.number}
+          >
+            <div class="tour-step-card-header">
+              <span class="tour-step-card-icon" aria-hidden="true">{step.icon}</span>
+              <span class="tour-step-card-number">Step {step.number}</span>
+            </div>
+            <h3 class="tour-step-card-title">{step.title}</h3>
+            <p class="tour-step-card-description">{step.description}</p>
+            <div class="tour-step-card-footer">
+              <span class="tour-step-card-time">~{step.estimatedTime} min</span>
+              <span class="tour-step-card-status" data-step-status aria-hidden="true"></span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- Resume Section -->
+    <section 
+      class="tour-resume-section" 
+      aria-labelledby="resume-heading"
+      data-resume-section
+      hidden
+    >
+      <h2 id="resume-heading" class="tour-resume-title">Welcome Back!</h2>
+      <p class="tour-resume-description" data-resume-text>
+        You have progress saved. Would you like to continue where you left off?
+      </p>
+      <div class="tour-resume-actions">
+        <a href="#" class="tour-resume-button" data-resume-button>
+          Continue from Step <span data-resume-step>1</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+        <button type="button" class="tour-restart-button" data-restart-button>
+          Start from Beginning
+        </button>
+      </div>
+    </section>
+  </div>
+</TourLayout>
+
+<style>
+  .tour-overview {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* Hero Section */
+  .tour-hero {
+    text-align: center;
+    padding: 2rem 0 3rem;
+  }
+
+  .tour-hero-icon {
+    display: block;
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .tour-hero-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1rem;
+  }
+
+  .tour-hero-description {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    max-width: 600px;
+    margin: 0 auto 1.5rem;
+  }
+
+  .tour-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .tour-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .tour-meta-item svg {
+    color: var(--color-azure-500);
+  }
+
+  .tour-start-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: white;
+    background: var(--color-azure-500);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .tour-start-button:hover {
+    background: var(--color-azure-600);
+    text-decoration: none;
+    color: white;
+    transform: translateY(-2px);
+  }
+
+  .tour-start-button:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Steps Section */
+  .tour-steps-section {
+    padding: 2rem 0;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .tour-steps-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1.5rem;
+    text-align: center;
+  }
+
+  .tour-steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .tour-step-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    transition: border-color 150ms ease-out, transform 150ms ease-out, box-shadow 150ms ease-out;
+  }
+
+  .tour-step-card:hover {
+    border-color: var(--color-azure-300);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+  }
+
+  .tour-step-card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .tour-step-card--completed {
+    border-color: var(--color-success);
+    background: rgba(16, 185, 129, 0.05);
+  }
+
+  .tour-step-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .tour-step-card-icon {
+    font-size: 1.5rem;
+  }
+
+  .tour-step-card-number {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  .tour-step-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem;
+  }
+
+  .tour-step-card-description {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    flex: 1;
+  }
+
+  .tour-step-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .tour-step-card-time {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  .tour-step-card-status {
+    font-size: 0.875rem;
+  }
+
+  /* Resume Section */
+  .tour-resume-section {
+    padding: 1.5rem;
+    margin-top: 2rem;
+    background: var(--color-bg-accent);
+    border: 1px solid var(--color-azure-200);
+    border-radius: 0.75rem;
+    text-align: center;
+  }
+
+  [data-theme="dark"] .tour-resume-section {
+    border-color: var(--color-azure-800);
+  }
+
+  .tour-resume-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem;
+  }
+
+  .tour-resume-description {
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary);
+    margin: 0 0 1rem;
+  }
+
+  .tour-resume-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .tour-resume-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: white;
+    background: var(--color-azure-500);
+    border-radius: 0.375rem;
+    text-decoration: none;
+    transition: background-color 150ms ease-out;
+  }
+
+  .tour-resume-button:hover {
+    background: var(--color-azure-600);
+    text-decoration: none;
+    color: white;
+  }
+
+  .tour-restart-button {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  .tour-restart-button:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-strong);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .tour-start-button:hover,
+    .tour-step-card:hover {
+      transform: none;
+    }
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .tour-hero-title {
+      font-size: 2rem;
+    }
+
+    .tour-hero-meta {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .tour-steps-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  import { STORAGE_KEY, tourSteps, type TourProgress } from '../../data/tour-steps';
+
+  const baseUrl = import.meta.env.BASE_URL;
+
+  function loadTourProgress(): TourProgress | null {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return null;
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  }
+
+  function initTourOverview(): void {
+    const progress = loadTourProgress();
+    const cards = document.querySelectorAll('[data-step-card]');
+    const resumeSection = document.querySelector('[data-resume-section]');
+    const resumeButton = document.querySelector<HTMLAnchorElement>('[data-resume-button]');
+    const resumeStepSpan = document.querySelector('[data-resume-step]');
+    const restartButton = document.querySelector('[data-restart-button]');
+
+    if (!progress || progress.completedSteps.length === 0) {
+      return;
+    }
+
+    // Update card status
+    cards.forEach(card => {
+      const stepNumber = parseInt(card.getAttribute('data-step-number') || '0', 10);
+      const statusEl = card.querySelector('[data-step-status]');
+      
+      if (progress.completedSteps.includes(stepNumber)) {
+        card.classList.add('tour-step-card--completed');
+        if (statusEl) statusEl.textContent = '✓ Complete';
+      }
+    });
+
+    // Show resume section if there's progress
+    if (resumeSection && resumeButton && resumeStepSpan && progress.lastActiveStep > 0) {
+      resumeSection.removeAttribute('hidden');
+      
+      // Find the next incomplete step or the last active step
+      const nextIncomplete = tourSteps.find(s => !progress.completedSteps.includes(s.number));
+      const stepToResume = nextIncomplete?.number || progress.lastActiveStep;
+      const stepInfo = tourSteps.find(s => s.number === stepToResume);
+      
+      if (stepInfo) {
+        resumeStepSpan.textContent = String(stepToResume);
+        resumeButton.href = `${baseUrl}tour/${stepInfo.slug}/`;
+      }
+    }
+
+    // Restart button handler
+    restartButton?.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      window.location.href = `${baseUrl}tour/1-install/`;
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTourOverview);
+  } else {
+    initTourOverview();
+  }
+
+  document.addEventListener('astro:after-swap', initTourOverview);
+</script>

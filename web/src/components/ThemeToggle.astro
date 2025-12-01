@@ -1,0 +1,244 @@
+---
+/**
+ * ThemeToggle Component
+ * Allows users to switch between light and dark color schemes.
+ * Persists preference in localStorage and provides smooth transitions.
+ */
+interface Props {
+  showLabel?: boolean;
+  class?: string;
+}
+
+const { showLabel = false, class: className = '' } = Astro.props;
+---
+
+<div class:list={['theme-toggle', className]}>
+  <button
+    type="button"
+    class="theme-toggle-button"
+    aria-label="Toggle theme"
+    aria-describedby="theme-status"
+    data-theme-toggle
+  >
+    <!-- Sun icon (light mode) -->
+    <svg
+      class="theme-icon sun-icon"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+    <!-- Moon icon (dark mode) -->
+    <svg
+      class="theme-icon moon-icon"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+    {showLabel && <span class="theme-label" data-theme-label>Light</span>}
+  </button>
+  <span id="theme-status" class="sr-only" aria-live="polite" data-theme-status>
+    Current theme: light
+  </span>
+</div>
+
+<style>
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .theme-toggle-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background-color 100ms ease-out, color 100ms ease-out;
+  }
+
+  .theme-toggle-button:hover {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .theme-toggle-button:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .theme-toggle-button:active {
+    transform: scale(0.95);
+  }
+
+  .theme-icon {
+    position: absolute;
+    transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+                opacity 0.15s ease-out;
+  }
+
+  .theme-toggle-button {
+    position: relative;
+  }
+
+  /* Light theme - show sun */
+  :global([data-theme="light"]) .sun-icon {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+
+  :global([data-theme="light"]) .moon-icon {
+    transform: rotate(90deg);
+    opacity: 0;
+  }
+
+  /* Dark theme - show moon */
+  :global([data-theme="dark"]) .moon-icon {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+
+  :global([data-theme="dark"]) .sun-icon {
+    transform: rotate(-90deg);
+    opacity: 0;
+  }
+
+  /* Default state (no theme set) - show sun */
+  :global(:root:not([data-theme])) .sun-icon {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+
+  :global(:root:not([data-theme])) .moon-icon {
+    opacity: 0;
+  }
+
+  .theme-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .theme-icon {
+      transition: opacity 0.1s ease-out;
+      transform: none !important;
+    }
+  }
+</style>
+
+<script>
+  const STORAGE_KEY = 'azd-app:theme';
+  type Theme = 'light' | 'dark';
+
+  function getStoredTheme(): Theme | null {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === 'light' || stored === 'dark') {
+        return stored;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setStoredTheme(theme: Theme): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      // localStorage not available
+    }
+  }
+
+  function getEffectiveTheme(stored: Theme | null): Theme {
+    if (stored === null) {
+      // Default to light when no preference stored
+      return 'light';
+    }
+    return stored;
+  }
+
+  function applyTheme(theme: Theme): void {
+    // Apply theme
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.colorScheme = theme;
+    
+    // Update meta theme-color
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', theme === 'dark' ? '#1e293b' : '#ffffff');
+    }
+    
+    // Update labels
+    const labels = document.querySelectorAll('[data-theme-label]');
+    const labelText = theme === 'dark' ? 'Dark' : 'Light';
+    labels.forEach(label => {
+      label.textContent = labelText;
+    });
+    
+    // Announce to screen readers
+    const statuses = document.querySelectorAll('[data-theme-status]');
+    statuses.forEach(status => {
+      status.textContent = `Theme changed to ${theme} mode`;
+    });
+  }
+
+  function cycleTheme(): void {
+    const current = getStoredTheme() || 'light';
+    const next: Theme = current === 'light' ? 'dark' : 'light';
+    setStoredTheme(next);
+    applyTheme(next);
+  }
+
+  // Initialize
+  function init(): void {
+    const stored = getStoredTheme();
+    const effective = getEffectiveTheme(stored);
+    applyTheme(effective);
+    
+    // Attach click handlers
+    document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+      button.addEventListener('click', cycleTheme);
+    });
+  }
+
+  // Run on DOMContentLoaded and on navigation
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  
+  // Re-init on Astro page transitions
+  document.addEventListener('astro:after-swap', init);
+</script>

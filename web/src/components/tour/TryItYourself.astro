@@ -1,0 +1,164 @@
+---
+/**
+ * TryItYourself Component
+ * 
+ * Encourages users to practice with hands-on actions and provides clear expectations.
+ */
+
+interface Props {
+  /** Prompt text */
+  prompt: string;
+  /** Expected outcome */
+  expectedOutcome?: string;
+  /** Optional action button */
+  action?: {
+    label: string;
+    href?: string;
+  };
+  /** Custom class name */
+  class?: string;
+}
+
+const {
+  prompt,
+  expectedOutcome,
+  action,
+  class: className = '',
+} = Astro.props;
+---
+
+<section 
+  class:list={['try-it-yourself', className]}
+  role="region"
+  aria-label="Try it yourself challenge"
+>
+  <div class="try-it-header">
+    <span class="try-it-icon" aria-hidden="true">🎯</span>
+    <h3 class="try-it-title">Try It Yourself</h3>
+  </div>
+
+  <p class="try-it-prompt">{prompt}</p>
+
+  {expectedOutcome && (
+    <p class="try-it-expected">
+      <strong>Expected:</strong> {expectedOutcome}
+    </p>
+  )}
+
+  {action && (
+    action.href ? (
+      <a href={action.href} class="try-it-action">
+        {action.label}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </a>
+    ) : (
+      <button type="button" class="try-it-action">
+        {action.label}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    )
+  )}
+</section>
+
+<style>
+  .try-it-yourself {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    background: linear-gradient(135deg, #fef3c7, #fef9c3);
+    border: 2px solid var(--color-mcp-badge-border);
+    border-radius: 0.75rem;
+  }
+
+  [data-theme="dark"] .try-it-yourself {
+    background: linear-gradient(135deg, #422006, #451a03);
+  }
+
+  .try-it-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .try-it-icon {
+    font-size: 1.25rem;
+  }
+
+  .try-it-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .try-it-prompt {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+    margin: 0 0 0.75rem;
+  }
+
+  .try-it-expected {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-tertiary);
+    margin: 0;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 0.375rem;
+  }
+
+  [data-theme="dark"] .try-it-expected {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .try-it-expected strong {
+    color: var(--color-text-primary);
+  }
+
+  .try-it-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    background: white;
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  [data-theme="dark"] .try-it-action {
+    background: var(--color-bg-primary);
+  }
+
+  .try-it-action:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-strong);
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+
+  .try-it-action:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .try-it-action:hover {
+      transform: none;
+    }
+  }
+</style>

@@ -1,0 +1,315 @@
+---
+/**
+ * TourNavigation Component
+ * 
+ * Navigate between tour steps with previous/next buttons and step indicator dots.
+ */
+import type { TourStep } from '../../data/tour-steps';
+
+interface Props {
+  /** Current step number */
+  currentStep: number;
+  /** Total steps */
+  totalSteps: number;
+  /** Previous step (null if first) */
+  previousStep: TourStep | null;
+  /** Next step (null if last) */
+  nextStep: TourStep | null;
+  /** Custom class name */
+  class?: string;
+}
+
+const {
+  currentStep,
+  totalSteps,
+  previousStep,
+  nextStep,
+  class: className = '',
+} = Astro.props;
+
+const baseUrl = import.meta.env.BASE_URL;
+const isLastStep = currentStep === totalSteps;
+---
+
+<nav 
+  class:list={['tour-navigation', className]}
+  aria-label="Step navigation"
+>
+  <div class="tour-nav-buttons">
+    {previousStep ? (
+      <a 
+        href={`${baseUrl}tour/${previousStep.slug}/`}
+        class="tour-nav-button tour-nav-button--prev"
+        rel="prev"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span class="tour-nav-button-content">
+          <span class="tour-nav-direction">Previous</span>
+          <span class="tour-nav-title">{previousStep.title}</span>
+        </span>
+      </a>
+    ) : (
+      <div class="tour-nav-button-placeholder"></div>
+    )}
+
+    {nextStep ? (
+      <a 
+        href={`${baseUrl}tour/${nextStep.slug}/`}
+        class="tour-nav-button tour-nav-button--next"
+        rel="next"
+      >
+        <span class="tour-nav-button-content">
+          <span class="tour-nav-direction">Next</span>
+          <span class="tour-nav-title">{nextStep.title}</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </a>
+    ) : (
+      <a 
+        href={`${baseUrl}tour/complete/`}
+        class="tour-nav-button tour-nav-button--next tour-nav-button--complete"
+      >
+        <span class="tour-nav-button-content">
+          <span class="tour-nav-direction">Finish</span>
+          <span class="tour-nav-title">Complete Tour! 🎉</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </a>
+    )}
+  </div>
+
+  <div class="tour-nav-dots" role="group" aria-label="Step progress">
+    {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
+      <a
+        href={`${baseUrl}tour/${step}-${['install', 'requirements', 'dependencies', 'first-app', 'dashboard', 'logs', 'health', 'mcp'][step - 1]}/`}
+        class:list={[
+          'tour-nav-dot',
+          { 'tour-nav-dot--current': step === currentStep }
+        ]}
+        aria-label={`Step ${step}${step === currentStep ? ', current step' : ''}`}
+        aria-current={step === currentStep ? 'step' : undefined}
+        data-step-dot
+        data-step-number={step}
+      />
+    ))}
+  </div>
+</nav>
+
+<style>
+  .tour-navigation {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2rem 0;
+    margin-top: 3rem;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .tour-nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .tour-nav-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+    max-width: 45%;
+  }
+
+  .tour-nav-button:hover {
+    text-decoration: none;
+    transform: translateY(-2px);
+  }
+
+  .tour-nav-button--prev {
+    background: transparent;
+    border: 1px solid var(--color-border-default);
+    color: var(--color-text-secondary);
+  }
+
+  .tour-nav-button--prev:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  .tour-nav-button--next {
+    background: var(--color-azure-500);
+    color: white;
+    border: 1px solid transparent;
+    margin-left: auto;
+  }
+
+  .tour-nav-button--next:hover {
+    background: var(--color-azure-600);
+    color: white;
+  }
+
+  .tour-nav-button--complete {
+    background: var(--color-success);
+  }
+
+  .tour-nav-button--complete:hover {
+    background: #059669;
+  }
+
+  .tour-nav-button-placeholder {
+    width: 1px;
+  }
+
+  .tour-nav-button-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .tour-nav-button--prev .tour-nav-button-content {
+    align-items: flex-start;
+  }
+
+  .tour-nav-button--next .tour-nav-button-content {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .tour-nav-direction {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+  }
+
+  .tour-nav-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .tour-nav-button svg {
+    flex-shrink: 0;
+  }
+
+  /* Step Dots */
+  .tour-nav-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .tour-nav-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-border-strong);
+    transition: background-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .tour-nav-dot:hover {
+    transform: scale(1.2);
+    background: var(--color-azure-400);
+  }
+
+  .tour-nav-dot--current {
+    background: var(--color-azure-500);
+    transform: scale(1.2);
+  }
+
+  .tour-nav-dot--completed {
+    background: var(--color-success);
+  }
+
+  .tour-nav-dot:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .tour-nav-buttons {
+      flex-direction: column;
+    }
+
+    .tour-nav-button {
+      max-width: 100%;
+      justify-content: center;
+    }
+
+    .tour-nav-button--prev .tour-nav-button-content,
+    .tour-nav-button--next .tour-nav-button-content {
+      align-items: center;
+      text-align: center;
+    }
+
+    .tour-nav-title {
+      max-width: none;
+    }
+
+    .tour-nav-dots {
+      order: -1;
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .tour-nav-button:hover,
+    .tour-nav-dot:hover {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  import { STORAGE_KEY, type TourProgress } from '../../data/tour-steps';
+
+  function loadTourProgress(): TourProgress | null {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return null;
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  }
+
+  function updateNavDots(): void {
+    const progress = loadTourProgress();
+    if (!progress) return;
+
+    const dots = document.querySelectorAll('[data-step-dot]');
+    dots.forEach(dot => {
+      const stepNumber = parseInt(dot.getAttribute('data-step-number') || '0', 10);
+      if (progress.completedSteps.includes(stepNumber)) {
+        dot.classList.add('tour-nav-dot--completed');
+      } else {
+        dot.classList.remove('tour-nav-dot--completed');
+      }
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateNavDots);
+  } else {
+    updateNavDots();
+  }
+
+  // Listen for progress updates
+  window.addEventListener('tour:progress-updated', updateNavDots);
+  document.addEventListener('astro:after-swap', updateNavDots);
+</script>
