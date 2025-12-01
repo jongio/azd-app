@@ -498,8 +498,17 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 		return nil
 
 	case "Go":
-		runtime.Command = "go"
-		runtime.Args = []string{"run", "."}
+		// If entrypoint is provided, use it directly as a shell command
+		if entrypoint != "" {
+			parts := strings.Fields(entrypoint)
+			if len(parts) > 0 {
+				runtime.Command = parts[0]
+				runtime.Args = parts[1:]
+			}
+		} else {
+			runtime.Command = "go"
+			runtime.Args = []string{"run", "."}
+		}
 
 	case "Rust":
 		runtime.Command = "cargo"
