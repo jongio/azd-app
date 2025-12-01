@@ -161,7 +161,7 @@ function getTypeColor(type: ChangeEntry['type']): string {
 function generateReleaseHtml(release: ReleaseEntry, isLatest: boolean = false): string {
   const changes = release.changes.map(change => `
         <li class="flex items-start gap-3 py-2">
-          <span class="flex-shrink-0 text-lg">${getTypeIcon(change.type)}</span>
+          <span class="shrink-0 text-lg">${getTypeIcon(change.type)}</span>
           <span class="text-neutral-700 dark:text-neutral-300">${formatChangeMessage(change)}</span>
         </li>`).join('');
 
@@ -257,7 +257,7 @@ import Layout from '../../../components/Layout.astro';
     </div>
 
     <!-- Highlights -->
-    <div class="mb-12 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+    <div class="mb-12 p-6 bg-linear-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
       <h2 class="text-xl font-bold mb-4">🎉 Recent Highlights</h2>
       <ul class="space-y-2 text-neutral-700 dark:text-neutral-300">
         <li class="flex items-start gap-2">
