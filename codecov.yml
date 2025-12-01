@@ -1,0 +1,45 @@
+# Codecov configuration for azd-app
+# See: https://docs.codecov.io/docs/codecov-yaml
+
+coverage:
+  precision: 2
+  round: down
+  range: "40...100"
+
+  status:
+    # Overall project coverage - should not decrease significantly
+    project:
+      default:
+        target: auto
+        threshold: 1%  # Allow 1% drop from base
+        informational: false
+
+    # Patch coverage - new code in PRs
+    # Set to informational to prevent blocking PRs on coverage
+    # Many code paths require integration tests with external dependencies (azd CLI)
+    patch:
+      default:
+        target: 50%  # Target 50% for new code
+        threshold: 10%  # Allow variance
+        informational: true  # Don't fail PRs, just report
+
+comment:
+  layout: "header, diff, flags, files"
+  behavior: default
+  require_changes: true
+  require_base: false
+  require_head: true
+  hide_project_coverage: false
+
+# Ignore files that are hard to test (e.g., CLI entry points, generated code)
+ignore:
+  - "cli/src/cmd/app/main.go"  # Entry point
+  - "**/generated/**"
+  - "**/*_test.go"  # Test files themselves
+
+# Flag management for different test types
+flags:
+  unittests:
+    paths:
+      - cli/src/
+    carryforward: true
