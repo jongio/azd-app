@@ -14,7 +14,7 @@ export interface AggregatedEnvVar {
  * Patterns to match sensitive variable names
  * Uses substring matching (e.g., 'password' matches 'DATABASE_PASSWORD')
  */
-const SENSITIVE_PATTERNS = [
+const SENSITIVE_PATTERNS = new Set([
   'password',
   'secret',
   'key',
@@ -26,14 +26,17 @@ const SENSITIVE_PATTERNS = [
   'private',
   'connection_string',
   'connectionstring',
-]
+] as const)
 
 /**
  * Determines if an environment variable name indicates a sensitive value
  */
 export function isSensitiveVariable(name: string): boolean {
   const lowerName = name.toLowerCase()
-  return SENSITIVE_PATTERNS.some(pattern => lowerName.includes(pattern))
+  for (const pattern of SENSITIVE_PATTERNS) {
+    if (lowerName.includes(pattern)) return true
+  }
+  return false
 }
 
 /**

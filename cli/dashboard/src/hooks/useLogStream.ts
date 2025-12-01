@@ -74,7 +74,7 @@ export function useLogStream({
         throw new Error(`HTTP error! status: ${res.status}`)
       }
       const data = await res.json() as LogEntry[]
-      setLogs(data || [])
+      setLogs(data ?? [])
     } catch (err) {
       console.error('Failed to fetch logs:', err)
       setLogs([])

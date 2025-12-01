@@ -19,7 +19,7 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
   // Use real-time health from health stream if available
   // Pass operation state to getEffectiveStatus for optimistic updates
   const { status, health: baseHealth } = getEffectiveStatus(service, operationState)
-  const health = healthStatus?.status || baseHealth
+  const health = healthStatus?.status ?? baseHealth
   const statusDisplay = getStatusDisplay(status, health)
   const healthy = isServiceHealthy(status, health)
   const Icon = statusDisplay.icon
@@ -84,14 +84,14 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
         </div>
 
         {/* Error/Warning Banner - Shown prominently after header */}
-        {(service.error || healthDetails?.lastError) && (
+        {(service.error ?? healthDetails?.lastError) && (
           <div className="mb-4 p-3 rounded-xl bg-destructive/15 border border-destructive/50">
             <div className="flex items-start gap-3">
               <XCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-destructive">Error Detected</p>
                 <p className="text-xs text-destructive/80 mt-1">
-                  {service.error || healthDetails?.lastError}
+                  {service.error ?? healthDetails?.lastError}
                 </p>
               </div>
             </div>
@@ -99,7 +99,7 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
         )}
 
         {/* Degraded Warning Banner */}
-        {!service.error && !healthDetails?.lastError && health === 'degraded' && (
+        {!(service.error ?? healthDetails?.lastError) && health === 'degraded' && (
           <div className="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/50">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
@@ -258,18 +258,18 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
         )}
 
         {/* Footer */}
-        {(service.local?.startTime || service.local?.lastChecked || service.startTime || service.lastChecked) && (
+        {(service.local?.startTime ?? service.local?.lastChecked ?? service.startTime ?? service.lastChecked) && (
           <div className="pt-4 border-t border-border space-y-1.5 text-xs text-muted-foreground">
-            {(service.local?.startTime || service.startTime) && (
+            {(service.local?.startTime ?? service.startTime) && (
               <div className="flex items-center justify-between">
                 <span>Started</span>
-                <span className="font-medium">{formatRelativeTime(service.local?.startTime || service.startTime)}</span>
+                <span className="font-medium">{formatRelativeTime(service.local?.startTime ?? service.startTime)}</span>
               </div>
             )}
-            {(service.local?.lastChecked || service.lastChecked) && (
+            {(service.local?.lastChecked ?? service.lastChecked) && (
               <div className="flex items-center justify-between">
                 <span>Last checked</span>
-                <span className="font-medium">{formatRelativeTime(service.local?.lastChecked || service.lastChecked)}</span>
+                <span className="font-medium">{formatRelativeTime(service.local?.lastChecked ?? service.lastChecked)}</span>
               </div>
             )}
           </div>

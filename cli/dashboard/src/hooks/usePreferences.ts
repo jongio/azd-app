@@ -64,9 +64,9 @@ function validatePreferences(data: unknown): UserPreferences {
   const raw = data as Record<string, unknown>
 
   // Validate UI preferences
-  const rawUI = typeof raw.ui === 'object' && raw.ui !== null 
-    ? raw.ui as Record<string, unknown> 
-    : {}
+  const rawUI = (typeof raw.ui === 'object' && raw.ui !== null
+    ? raw.ui
+    : {}) as Record<string, unknown>
   
   const ui: UserPreferences['ui'] = {
     gridColumns: typeof rawUI.gridColumns === 'number' && rawUI.gridColumns >= 1 && rawUI.gridColumns <= 6

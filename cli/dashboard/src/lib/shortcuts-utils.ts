@@ -13,7 +13,7 @@ export interface Shortcut {
 /**
  * All keyboard shortcuts organized by category
  */
-export const shortcuts: Shortcut[] = [
+export const shortcuts = [
   // Navigation
   { key: '1', description: 'Resources view', category: 'navigation' },
   { key: '2', description: 'Console view', category: 'navigation' },
@@ -31,14 +31,21 @@ export const shortcuts: Shortcut[] = [
   { key: 'T', description: 'Toggle table/grid view', category: 'views' },
   { key: '?', description: 'Show keyboard shortcuts', category: 'views' },
   { key: 'Esc', description: 'Close dialogs/modals', category: 'views' },
-]
+] as const satisfies readonly Shortcut[]
 
 /**
  * Check if running on macOS
+ * Uses modern userAgentData API with fallback to userAgent
  */
 export function isMacPlatform(): boolean {
   if (typeof navigator === 'undefined') return false
-  return navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  // Use modern userAgentData API if available
+  const userAgentData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData
+  if (userAgentData?.platform) {
+    return userAgentData.platform.toLowerCase() === 'macos'
+  }
+  // Fallback to userAgent string (navigator.platform is deprecated)
+  return /mac/i.test(navigator.userAgent)
 }
 
 /**
@@ -71,35 +78,35 @@ export function getShortcutsByCategory(category: ShortcutCategory): Shortcut[] {
  * Get category display name
  */
 export function getCategoryDisplayName(category: ShortcutCategory): string {
-  const names: Record<ShortcutCategory, string> = {
+  const names = {
     navigation: 'Navigation',
     actions: 'Actions',
     views: 'Views',
-  }
+  } as const satisfies Record<ShortcutCategory, string>
   return names[category]
 }
 
 /**
  * Map view name to navigation key
  */
-export const viewToKey: Record<string, string> = {
+export const viewToKey = {
   resources: '1',
   console: '2',
   metrics: '3',
   environment: '4',
   dependencies: '5',
-}
+} as const satisfies Record<string, string>
 
 /**
  * Map key to view name
  */
-export const keyToView: Record<string, string> = {
+export const keyToView = {
   '1': 'resources',
   '2': 'console',
   '3': 'metrics',
   '4': 'environment',
   '5': 'dependencies',
-}
+} as const satisfies Record<string, string>
 
 /**
  * Check if key event should trigger shortcut (not in input/textarea)

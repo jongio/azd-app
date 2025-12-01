@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,7 +15,7 @@ const (
 )
 
 func main() {
-	log.Println("Worker service starting...")
+	slog.Info("Worker service starting...")
 
 	// Create cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -28,16 +28,16 @@ func main() {
 	// Start worker loop
 	go runWorker(ctx)
 
-	log.Println("Worker is running. Processing jobs every 5 seconds...")
+	slog.Info("Worker is running. Processing jobs every 5 seconds...")
 
 	// Wait for shutdown signal
 	sig := <-sigChan
-	log.Printf("Received signal %v, shutting down...", sig)
+	slog.Info("Received signal, shutting down...", "signal", sig)
 	cancel()
 
 	// Give time for cleanup
 	time.Sleep(200 * time.Millisecond)
-	log.Println("Worker stopped")
+	slog.Info("Worker stopped")
 }
 
 func runWorker(ctx context.Context) {
@@ -56,14 +56,14 @@ func runWorker(ctx context.Context) {
 
 func processJob(ctx context.Context) {
 	jobID := time.Now().UnixNano()
-	log.Printf("Processing job %d...", jobID)
+	slog.Info("Processing job...", "jobID", jobID)
 
 	// Simulate work with context cancellation support
 	select {
 	case <-ctx.Done():
-		log.Printf("Job %d cancelled", jobID)
+		slog.Info("Job cancelled", "jobID", jobID)
 		return
 	case <-time.After(jobProcessing):
-		log.Printf("Job %d completed", jobID)
+		slog.Info("Job completed", "jobID", jobID)
 	}
 }

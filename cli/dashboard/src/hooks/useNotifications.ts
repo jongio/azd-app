@@ -60,7 +60,7 @@ export function useNotifications() {
   }, [history])
 
   const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
-    const id = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const id = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
     const fullNotification: Notification = {
       ...notification,
       id

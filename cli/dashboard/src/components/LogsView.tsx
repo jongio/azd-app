@@ -69,7 +69,7 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
         throw new Error(`HTTP error! status: ${res.status}`)
       }
       const data = await res.json() as LogEntry[]
-      setLogs(data || [])
+      setLogs(data ?? [])
     } catch (err) {
       console.error('Failed to fetch logs:', err)
       setLogs([])
@@ -185,7 +185,7 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
 
   const exportLogs = useCallback(() => {
     const content = filteredLogs
-      .map(log => `[${log.timestamp || ''}] [${log.service || ''}] ${log.message || ''}`)
+      .map(log => `[${log.timestamp ?? ''}] [${log.service ?? ''}] ${log.message ?? ''}`)
       .join('\n')
 
     const blob = new Blob([content], { type: 'text/plain' })
@@ -300,13 +300,13 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
                   [{formatLogTimestamp(String(log?.timestamp ?? ''))}]
                 </span>
                 {' '}
-                <span className={getServiceColor(log?.service || 'unknown')}>
-                  [{log?.service || 'unknown'}]
+                <span className={getServiceColor(log?.service ?? 'unknown')}>
+                  [{log?.service ?? 'unknown'}]
                 </span>
                 {' '}
                 <span 
                   dangerouslySetInnerHTML={{ 
-                    __html: convertAnsiToHtml(log?.message || '') 
+                    __html: convertAnsiToHtml(log?.message ?? '') 
                   }} 
                 />
               </div>

@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -106,10 +107,10 @@ func StopService(process *ServiceProcess) error {
 // Note: The dashboard service is protected and will never be killed.
 func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 	if process == nil {
-		return fmt.Errorf("process is nil")
+		return errors.New("process is nil")
 	}
 	if process.Process == nil {
-		return fmt.Errorf("process not started")
+		return errors.New("process not started")
 	}
 
 	// Never kill the dashboard process - it must remain running to manage other services

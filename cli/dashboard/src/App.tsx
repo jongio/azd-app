@@ -85,7 +85,7 @@ function App() {
       }
       
       // Navigation shortcuts (1-6)
-      const view = keyToView[key]
+      const view = keyToView[key as keyof typeof keyToView]
       if (view) {
         event.preventDefault()
         setActiveView(view)

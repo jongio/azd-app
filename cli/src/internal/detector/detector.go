@@ -2,7 +2,7 @@ package detector
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +50,7 @@ func FindPythonProjects(rootDir string) ([]types.PythonProject, error) {
 		// Standard error handling: log and skip problematic paths
 		// This prevents permission errors from terminating the search
 		if err != nil {
-			log.Printf("skipping path %s due to error: %v", path, err)
+			slog.Debug("skipping path due to error", "path", path, "error", err)
 			return nil // Skip errors but continue walking
 		}
 
@@ -325,7 +325,7 @@ func GetPackageManagerFromPackageJSON(projectDir string) string {
 
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		// Log invalid JSON for debugging purposes, including full project directory path
-		log.Printf("[DEBUG] Failed to parse package.json in project '%s': invalid JSON format", projectDir)
+		slog.Debug("failed to parse package.json", "project", projectDir, "error", "invalid JSON format")
 		return ""
 	}
 
@@ -431,7 +431,7 @@ func FindFunctionApps(rootDir string) ([]types.FunctionAppProject, error) {
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		// Standard error handling: log and skip problematic paths
 		if err != nil {
-			log.Printf("skipping path %s due to error: %v", path, err)
+			slog.Debug("skipping path due to error", "path", path, "error", err)
 			return nil
 		}
 
@@ -604,7 +604,7 @@ func FindLogicApps(rootDir string) ([]types.LogicAppProject, error) {
 		// Standard error handling: log and skip problematic paths
 		// This prevents permission errors from terminating the search
 		if err != nil {
-			log.Printf("skipping path %s due to error: %v", path, err)
+			slog.Debug("skipping path due to error", "path", path, "error", err)
 			return nil // Skip errors but continue walking
 		}
 
@@ -694,7 +694,7 @@ func FindAppHost(rootDir string) (*types.AspireProject, error) {
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		// Standard error handling: log and skip problematic paths
 		if err != nil {
-			log.Printf("skipping path %s due to error: %v", path, err)
+			slog.Debug("skipping path due to error", "path", path, "error", err)
 			return nil // Skip errors but continue walking
 		}
 

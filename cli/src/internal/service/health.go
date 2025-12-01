@@ -2,8 +2,9 @@
 package service
 
 import (
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -156,7 +157,7 @@ func PortHealthCheck(port int) error {
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
 			// Log but don't fail health check on close error
-			log.Printf("Warning: failed to close health check connection: %v", closeErr)
+			slog.Warn("failed to close health check connection", "error", closeErr)
 		}
 	}()
 	return nil
@@ -165,7 +166,7 @@ func PortHealthCheck(port int) error {
 // ProcessHealthCheck verifies that a process is running.
 func ProcessHealthCheck(process *ServiceProcess) error {
 	if process.Process == nil {
-		return fmt.Errorf("process not started")
+		return errors.New("process not started")
 	}
 
 	// Check if we have a valid PID
@@ -209,7 +210,7 @@ func IsPortListening(port int) bool {
 	}
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
-			log.Printf("Warning: failed to close connection during port check: %v", closeErr)
+			slog.Warn("failed to close connection during port check", "error", closeErr)
 		}
 	}()
 	return true

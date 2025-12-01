@@ -148,14 +148,6 @@ func calculateLevels(graph *DependencyGraph) error {
 	return nil
 }
 
-// max returns the larger of two integers.
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // TopologicalSort returns services grouped by dependency level.
 // Each slice contains services that can be started in parallel.
 func TopologicalSort(graph *DependencyGraph) [][]string {

@@ -29,7 +29,7 @@ export interface TabsListProps {
 
 export function TabsList({ children, className }: TabsListProps) {
   return (
-    <div className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className || ''}`}>
+    <div className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className ?? ''}`}>
       {children}
     </div>
   )
@@ -54,7 +54,7 @@ export function TabsTrigger({ value, children, className }: TabsTriggerProps) {
         isActive
           ? 'bg-background text-foreground shadow-sm'
           : 'hover:bg-background/50'
-      } ${className || ''}`}
+      } ${className ?? ''}`}
     >
       {children}
     </button>
@@ -74,7 +74,7 @@ export function TabsContent({ value, children, className }: TabsContentProps) {
   if (context.value !== value) return null
 
   return (
-    <div className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-card ${className || ''}`}>
+    <div className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-card ${className ?? ''}`}>
       {children}
     </div>
   )

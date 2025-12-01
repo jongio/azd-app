@@ -47,7 +47,7 @@ export function useLogClassifications() {
       }
       
       const data = await response.json() as ClassificationsResponse
-      setClassifications(data.classifications || [])
+      setClassifications(data.classifications ?? [])
     } catch (err) {
       console.error('Failed to load classifications:', err)
       setError(err instanceof Error ? err : new Error('Failed to load classifications'))
