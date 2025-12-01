@@ -1,0 +1,383 @@
+---
+/**
+ * AIChatDemo Component
+ * 
+ * Displays a realistic GitHub Copilot conversation demonstrating AI debugging capabilities.
+ * Shows the MCP integration with tool calls and code snippets.
+ */
+
+interface CodeSnippet {
+  language: string;
+  code: string;
+  filename?: string;
+}
+
+interface ToolCall {
+  name: string;
+  status: 'calling' | 'complete';
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  codeSnippet?: CodeSnippet;
+  toolCall?: ToolCall;
+}
+
+interface Props {
+  /** Custom class name */
+  class?: string;
+}
+
+const { class: className = '' } = Astro.props;
+
+// Demo conversation showcasing AI debugging
+const messages: ChatMessage[] = [
+  {
+    role: 'user',
+    content: 'Why is my API service failing?',
+  },
+  {
+    role: 'assistant',
+    content: 'Let me check the logs for your API service...',
+    toolCall: { name: 'get_service_logs', status: 'calling' },
+  },
+  {
+    role: 'assistant',
+    content: 'I found the issue. Your API is failing due to a database connection timeout.',
+  },
+  {
+    role: 'assistant',
+    content: 'The error is in your connection configuration:',
+    codeSnippet: {
+      language: 'python',
+      filename: 'src/api/db.py',
+      code: `# Line 42 - timeout is too short
+connection = Database(
+    host="localhost",
+    timeout=1  # Should be at least 5
+)`,
+    },
+  },
+  {
+    role: 'assistant',
+    content: 'Increase the timeout to 5 seconds and the connection will succeed.',
+  },
+];
+---
+
+<figure 
+  class:list={['ai-chat-demo', className]}
+  role="figure"
+  aria-label="GitHub Copilot conversation demonstrating AI-powered debugging"
+>
+  <!-- Header -->
+  <div class="ai-chat-header">
+    <div class="ai-chat-header-left">
+      <span class="copilot-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.164 6.839 9.49.5.09.682-.218.682-.484 0-.237-.009-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.268 2.75 1.026A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.026 2.747-1.026.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .269.18.579.688.481C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+        </svg>
+      </span>
+      <span class="ai-chat-title">GitHub Copilot</span>
+    </div>
+    <div class="ai-chat-badge">MCP</div>
+  </div>
+
+  <!-- Messages -->
+  <div class="ai-chat-messages" aria-label="Chat messages">
+    {messages.map((message) => (
+      <div class={`ai-chat-message ai-chat-message--${message.role}`}>
+        {message.role === 'assistant' && (
+          <span class="ai-chat-avatar" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.164 6.839 9.49.5.09.682-.218.682-.484 0-.237-.009-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.268 2.75 1.026A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.026 2.747-1.026.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .269.18.579.688.481C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+            </svg>
+          </span>
+        )}
+        <div class="ai-chat-bubble">
+          <span class="ai-chat-text">{message.content}</span>
+          
+          {message.toolCall && (
+            <div class="ai-chat-tool-call">
+              <span class="ai-chat-tool-icon" aria-hidden="true">🔧</span>
+              <span class="ai-chat-tool-text">
+                Calling <code>{message.toolCall.name}</code>...
+              </span>
+            </div>
+          )}
+
+          {message.codeSnippet && (
+            <div class="ai-chat-code">
+              <div class="ai-chat-code-header">
+                <span class="ai-chat-code-lang">{message.codeSnippet.language}</span>
+                {message.codeSnippet.filename && (
+                  <span class="ai-chat-code-file">{message.codeSnippet.filename}</span>
+                )}
+              </div>
+              <pre class="ai-chat-code-content"><code>{message.codeSnippet.code}</code></pre>
+            </div>
+          )}
+        </div>
+      </div>
+    ))}
+  </div>
+</figure>
+
+<style>
+  .ai-chat-demo {
+    width: 100%;
+    max-width: 560px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+    margin: 0;
+  }
+
+  /* Header */
+  .ai-chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--color-azure-50);
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  :global([data-theme="dark"]) .ai-chat-header,
+  :global(:root:not([data-theme="light"])) .ai-chat-header {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .ai-chat-header {
+      background: rgba(59, 130, 246, 0.1);
+    }
+  }
+
+  .ai-chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .copilot-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-interactive-default);
+  }
+
+  .ai-chat-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .ai-chat-badge {
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--color-mcp-badge-bg);
+    color: var(--color-mcp-badge-text);
+    border: 1px solid var(--color-mcp-badge-border);
+    border-radius: 0.25rem;
+  }
+
+  /* Messages */
+  .ai-chat-messages {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 380px;
+    overflow-y: auto;
+  }
+
+  .ai-chat-message {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 95%;
+  }
+
+  .ai-chat-message--user {
+    align-self: flex-end;
+  }
+
+  .ai-chat-message--assistant {
+    align-self: flex-start;
+  }
+
+  .ai-chat-avatar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-interactive-default);
+    color: white;
+    border-radius: 50%;
+    margin-top: 0.125rem;
+  }
+
+  .ai-chat-bubble {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ai-chat-message--user .ai-chat-bubble {
+    background: var(--color-interactive-default);
+    color: white;
+    padding: 0.625rem 0.875rem;
+    border-radius: 1rem 1rem 0.25rem 1rem;
+  }
+
+  .ai-chat-message--assistant .ai-chat-bubble {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    padding: 0.625rem 0.875rem;
+    border-radius: 1rem 1rem 1rem 0.25rem;
+  }
+
+  .ai-chat-text {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  /* Tool Call */
+  .ai-chat-tool-call {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    background: var(--color-mcp-badge-bg);
+    border: 1px solid var(--color-mcp-badge-border);
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+  }
+
+  .ai-chat-tool-icon {
+    font-size: 0.875rem;
+  }
+
+  .ai-chat-tool-text {
+    color: var(--color-mcp-badge-text);
+  }
+
+  .ai-chat-tool-text code {
+    font-family: var(--font-family-mono);
+    font-weight: 600;
+  }
+
+  /* Code Snippet */
+  .ai-chat-code {
+    margin-top: 0.25rem;
+    background: var(--code-block-bg);
+    border: 1px solid var(--code-header-border);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    font-size: 0.8125rem;
+  }
+
+  .ai-chat-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.375rem 0.75rem;
+    background: var(--code-header-bg);
+    border-bottom: 1px solid var(--code-header-border);
+    gap: 0.5rem;
+  }
+
+  .ai-chat-code-lang {
+    font-family: var(--font-family-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+    text-transform: lowercase;
+  }
+
+  .ai-chat-code-file {
+    font-family: var(--font-family-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+
+  .ai-chat-code-content {
+    margin: 0;
+    padding: 0.75rem;
+    font-family: var(--font-family-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--code-text-color);
+    overflow-x: auto;
+  }
+
+  .ai-chat-code-content code {
+    font-family: inherit;
+  }
+
+  /* Scrollbar */
+  .ai-chat-messages::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .ai-chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .ai-chat-messages::-webkit-scrollbar-thumb {
+    background: var(--color-border-default);
+    border-radius: 3px;
+  }
+
+  /* Animation */
+  .ai-chat-message {
+    animation: message-appear 0.3s ease-out both;
+  }
+
+  .ai-chat-message:nth-child(1) { animation-delay: 0.1s; }
+  .ai-chat-message:nth-child(2) { animation-delay: 0.3s; }
+  .ai-chat-message:nth-child(3) { animation-delay: 0.6s; }
+  .ai-chat-message:nth-child(4) { animation-delay: 0.9s; }
+  .ai-chat-message:nth-child(5) { animation-delay: 1.2s; }
+
+  @keyframes message-appear {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .ai-chat-message {
+      animation: none;
+    }
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .ai-chat-demo {
+      max-width: 100%;
+    }
+
+    .ai-chat-messages {
+      max-height: 320px;
+      padding: 0.75rem;
+    }
+
+    .ai-chat-code-content {
+      font-size: 0.6875rem;
+    }
+  }
+</style>

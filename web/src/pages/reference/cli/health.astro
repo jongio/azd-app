@@ -1,0 +1,366 @@
+---
+import Layout from '../../../components/Layout.astro';
+---
+
+<Layout title="health - CLI Reference" description="Monitor the health status of running services with production-grade reliability and observability features.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">health</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app health</h1>
+      <p class="text-xl text-neutral-600 dark:text-neutral-400">Monitor the health status of running services with production-grade reliability and observability features.</p>
+    </div>
+
+    <!-- Usage -->
+    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-green-400">azd app health [flags]</code>
+    </div>
+
+    <!-- Flags -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
+    
+<div class="overflow-x-auto my-8">
+  <table class="min-w-full text-sm">
+    <thead>
+      <tr class="border-b border-neutral-200 dark:border-neutral-700">
+        <th class="text-left py-3 px-4 font-semibold">Flag</th>
+        <th class="text-left py-3 px-4 font-semibold">Short</th>
+        <th class="text-left py-3 px-4 font-semibold">Type</th>
+        <th class="text-left py-3 px-4 font-semibold">Default</th>
+        <th class="text-left py-3 px-4 font-semibold">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--service</code></td>
+        <td class="py-3 px-4"><code>-s</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">Monitor specific service(s) only (comma-separated)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--stream</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4">Enable streaming mode for real-time updates</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--interval</code></td>
+        <td class="py-3 px-4"><code>-i</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">duration</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">5s</td>
+        <td class="py-3 px-4">Interval between health checks in streaming mode</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--output</code></td>
+        <td class="py-3 px-4"><code>-o</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">text</td>
+        <td class="py-3 px-4">Output format: 'text', 'json', 'table'</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--endpoint</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">/health</td>
+        <td class="py-3 px-4">Default health endpoint path to check</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--timeout</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">duration</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">5s</td>
+        <td class="py-3 px-4">Timeout for each health check</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--all</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4">Show health for all projects on this machine</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--verbose</code></td>
+        <td class="py-3 px-4"><code>-v</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4">Show detailed health check information</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--profile</code></td>
+        <td class="py-3 px-4"><code>string</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Health profile: development, production, ci, staging, or custom</td>
+        <td class="py-3 px-4"></td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">info</code></td>
+        <td class="py-3 px-4"><code>Log level: debug, info, warn, error</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">--log-format</td>
+        <td class="py-3 px-4">string</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--save-profiles</code></td>
+        <td class="py-3 px-4"><code>bool</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Save sample health profiles to .azd/health-profiles.yaml</td>
+        <td class="py-3 px-4"></td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">false</code></td>
+        <td class="py-3 px-4"><code>Enable Prometheus metrics exposition</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">--metrics-port</td>
+        <td class="py-3 px-4">int</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--circuit-breaker</code></td>
+        <td class="py-3 px-4"><code>bool</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Enable circuit breaker pattern</td>
+        <td class="py-3 px-4"></td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">5</code></td>
+        <td class="py-3 px-4"><code>Number of failures before opening circuit</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">--circuit-break-timeout</td>
+        <td class="py-3 px-4">duration</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--rate-limit</code></td>
+        <td class="py-3 px-4"><code>int</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">0</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Max health checks per second per service (0 = unlimited)</td>
+        <td class="py-3 px-4"></td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">0</code></td>
+        <td class="py-3 px-4"><code>Cache TTL for health results (0 = no caching)</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">### Features
+
+**Basic Features:**
+- ✅ **HTTP Health Checks**: Automatically detect and use /health endpoints
+- ✅ **Port Checks**: Fall back to TCP port checks for non-HTTP services
+- ✅ **Process Checks**: Verify process is running as last resort
+- ✅ **Streaming Mode**: Real-time continuous monitoring with configurable intervals
+- ✅ **Static Mode**: Point-in-time health snapshot
+- ✅ **Smart Detection**: Try common health paths (/health, /healthz, /ready, /alive)
+- ✅ **Multiple Formats**: Text, JSON, or table output
+
+**Production Features (NEW):**
+- 🔥 **Circuit Breaker**: Prevents cascading failures with automatic recovery
+- 🚦 **Rate Limiting**: Per-service token bucket rate limiter
+- ⚡ **Result Caching**: TTL-based caching to reduce load
+- 📊 **Prometheus Metrics**: 6 metrics for full observability
+- 📝 **Structured Logging**: JSON/pretty/text with configurable levels
+- 🎯 **Health Profiles**: Environment-specific configurations
+
+### Health Check Strategy
+
+The command uses a cascading strategy:
+
+1. **HTTP Health Endpoint** (Preferred)
+   - Check explicit healthCheck.endpoint in azure.yaml
+   - Try common paths: /health, /healthz, /ready, /alive, /ping
+   - Accept 2xx and 3xx status codes as healthy
+
+2. **TCP Port Check** (Fallback)
+   - Verify service is listening on configured port
+   - Useful for databases, non-HTTP services
+
+3. **Process Check** (Last Resort)
+   - Verify process is still running
+   - Least reliable, only confirms existence
+
+### Health Status Values</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">Status</td>
+        <td class="py-3 px-4">Meaning</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">healthy</code></td>
+        <td class="py-3 px-4"><code>Service fully operational</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">HTTP 2xx/3xx, port listening, or process running</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">`degraded`</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">unhealthy</code></td>
+        <td class="py-3 px-4"><code>Service not functioning</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">HTTP 4xx/5xx, port not listening, process dead</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">`starting`</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+    <!-- Examples -->
+    
+<h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
+<div class="space-y-4">
+  
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health [flags]"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health [flags]</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health --service web,api"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health --service web,api</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health --stream --interval 10s"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health --stream --interval 10s</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health --output json"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health --output json</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health --profile production --stream"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health --profile production --stream</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health --profile development --log-level debug"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health --profile development --log-level debug</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health \"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health \</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app health --save-profiles"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app health --save-profiles</code></pre>
+  </div>
+</div>
+
+    <!-- Link to detailed docs -->
+    
+    <div class="mt-12 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+      <h3 class="text-lg font-semibold mb-2">📚 Detailed Documentation</h3>
+      <p class="text-neutral-600 dark:text-neutral-400 mb-4">
+        For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
+      </p>
+      <a 
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/health.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        View full health specification →
+      </a>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          ← Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.copy-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied!';
+          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+  </script>
+</Layout>

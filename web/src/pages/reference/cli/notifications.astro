@@ -1,0 +1,226 @@
+---
+import Layout from '../../../components/Layout.astro';
+---
+
+<Layout title="notifications - CLI Reference" description="Manage process notifications for service state changes and events.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">notifications</li>
+      </ol>
+    </nav>
+
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app notifications</h1>
+      <p class="text-xl text-neutral-600 dark:text-neutral-400">Manage process notifications for service state changes and events.</p>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-8 mb-4">Subcommands</h2>
+    <div class="overflow-x-auto my-8">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b border-neutral-200 dark:border-neutral-700">
+            <th class="text-left py-3 px-4 font-semibold">Command</th>
+            <th class="text-left py-3 px-4 font-semibold">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">list</code></td>
+            <td class="py-3 px-4">View notification history with filtering options</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">mark-read</code></td>
+            <td class="py-3 px-4">Mark notification(s) as read</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">clear</code></td>
+            <td class="py-3 px-4">Clear notification history</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">stats</code></td>
+            <td class="py-3 px-4">Show notification statistics</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">test</code></td>
+            <td class="py-3 px-4">Send a test notification to verify OS notifications are working</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">enable</code></td>
+            <td class="py-3 px-4">Enable or disable OS notifications</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">azd app notifications list</h2>
+    <p class="text-neutral-600 dark:text-neutral-400 mb-4">View notification history with filtering options.</p>
+    
+    <h3 class="text-lg font-semibold mt-6 mb-3">Usage</h3>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-neutral-100">azd app notifications list [flags]</code>
+    </div>
+
+    <h3 class="text-lg font-semibold mt-6 mb-3">Flags</h3>
+    <div class="overflow-x-auto my-4">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b border-neutral-200 dark:border-neutral-700">
+            <th class="text-left py-3 px-4 font-semibold">Flag</th>
+            <th class="text-left py-3 px-4 font-semibold">Short</th>
+            <th class="text-left py-3 px-4 font-semibold">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--service</code></td>
+            <td class="py-3 px-4"><code>-s</code></td>
+            <td class="py-3 px-4">Filter by service name</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--unread</code></td>
+            <td class="py-3 px-4"><code>-u</code></td>
+            <td class="py-3 px-4">Show only unread notifications</td>
+          </tr>
+          <tr class="border-b border-neutral-100 dark:border-neutral-800">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--limit</code></td>
+            <td class="py-3 px-4"><code>-n</code></td>
+            <td class="py-3 px-4">Maximum number of notifications to show (default: 50)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="text-lg font-semibold mt-6 mb-3">Examples</h3>
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">View all recent notifications:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications list</code>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">View unread notifications only:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications list --unread</code>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">View notifications for a specific service:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications list --service api</code>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">azd app notifications mark-read</h2>
+    <p class="text-neutral-600 dark:text-neutral-400 mb-4">Mark notification(s) as read.</p>
+    
+    <h3 class="text-lg font-semibold mt-6 mb-3">Usage</h3>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-neutral-100">azd app notifications mark-read [id] [flags]</code>
+    </div>
+
+    <h3 class="text-lg font-semibold mt-6 mb-3">Examples</h3>
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Mark specific notification as read:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications mark-read 42</code>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Mark all notifications as read:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications mark-read --all</code>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">azd app notifications clear</h2>
+    <p class="text-neutral-600 dark:text-neutral-400 mb-4">Clear notification history.</p>
+    
+    <h3 class="text-lg font-semibold mt-6 mb-3">Usage</h3>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-neutral-100">azd app notifications clear [flags]</code>
+    </div>
+
+    <h3 class="text-lg font-semibold mt-6 mb-3">Examples</h3>
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Clear all notifications:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications clear</code>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Clear notifications older than 7 days:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications clear --older-than 168h</code>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">azd app notifications stats</h2>
+    <p class="text-neutral-600 dark:text-neutral-400 mb-4">Show notification statistics.</p>
+    
+    <h3 class="text-lg font-semibold mt-6 mb-3">Usage</h3>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-neutral-100">azd app notifications stats</code>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">azd app notifications test</h2>
+    <p class="text-neutral-600 dark:text-neutral-400 mb-4">Send a test notification to verify OS notifications are working.</p>
+    
+    <h3 class="text-lg font-semibold mt-6 mb-3">Usage</h3>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-neutral-100">azd app notifications test</code>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">azd app notifications enable</h2>
+    <p class="text-neutral-600 dark:text-neutral-400 mb-4">Enable or disable OS notifications for service state changes.</p>
+    
+    <h3 class="text-lg font-semibold mt-6 mb-3">Usage</h3>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-neutral-100">azd app notifications enable [flags]</code>
+    </div>
+
+    <h3 class="text-lg font-semibold mt-6 mb-3">Examples</h3>
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Enable OS notifications:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications enable</code>
+        </div>
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Disable OS notifications:</p>
+        <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+          <code class="text-neutral-100">azd app notifications enable --disable</code>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">Related Commands</h2>
+    <div class="flex flex-wrap gap-4">
+      <a href="/azd-app/reference/cli/run/" class="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">
+        <code class="text-blue-600 dark:text-blue-400">azd app run</code>
+      </a>
+      <a href="/azd-app/reference/cli/info/" class="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">
+        <code class="text-blue-600 dark:text-blue-400">azd app info</code>
+      </a>
+      <a href="/azd-app/reference/cli/logs/" class="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">
+        <code class="text-blue-600 dark:text-blue-400">azd app logs</code>
+      </a>
+    </div>
+
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700 flex justify-between">
+      <a href="/azd-app/reference/cli/mcp/" class="text-blue-600 dark:text-blue-400 hover:underline">← mcp</a>
+      <a href="/azd-app/reference/cli/version/" class="text-blue-600 dark:text-blue-400 hover:underline">version →</a>
+    </div>
+  </div>
+</Layout>

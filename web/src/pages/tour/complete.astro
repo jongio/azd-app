@@ -1,0 +1,239 @@
+---
+/**
+ * Tour Complete Page
+ * 
+ * Congratulates the user for completing the guided tour and provides next steps.
+ */
+import TourLayout from '../../components/tour/TourLayout.astro';
+import { tourSteps, getTotalEstimatedTime } from '../../data/tour-steps';
+
+const totalTime = getTotalEstimatedTime();
+const stepCount = tourSteps.length;
+---
+
+<TourLayout 
+  title="Tour Complete!"
+  description="Congratulations on completing the azd app guided tour"
+  currentStep={stepCount + 1}
+>
+  <article class="tour-complete-page">
+    <header class="complete-header">
+      <div class="complete-icon">🎉</div>
+      <h1 class="complete-title">Congratulations!</h1>
+      <p class="complete-subtitle">You've completed the azd app guided tour</p>
+    </header>
+
+    <div class="complete-content">
+      <section class="complete-summary">
+        <h2>What You've Learned</h2>
+        <div class="summary-grid">
+          {tourSteps.map((step) => (
+            <div class="summary-item">
+              <span class="summary-icon">{step.icon}</span>
+              <span class="summary-text">{step.title}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="next-steps">
+        <h2>Next Steps</h2>
+        <div class="next-steps-grid">
+          <a href={`${import.meta.env.BASE_URL}examples/`} class="next-step-card">
+            <span class="next-step-icon">📚</span>
+            <h3>Explore Examples</h3>
+            <p>See real-world projects using azd app</p>
+          </a>
+          
+          <a href={`${import.meta.env.BASE_URL}reference/cli/`} class="next-step-card">
+            <span class="next-step-icon">📖</span>
+            <h3>CLI Reference</h3>
+            <p>Dive deeper into all available commands</p>
+          </a>
+          
+          <a href={`${import.meta.env.BASE_URL}mcp/`} class="next-step-card">
+            <span class="next-step-icon">🤖</span>
+            <h3>MCP Integration</h3>
+            <p>Advanced AI-powered development features</p>
+          </a>
+          
+          <a href="https://github.com/jongio/azd-app" target="_blank" rel="noopener noreferrer" class="next-step-card">
+            <span class="next-step-icon">⭐</span>
+            <h3>Star on GitHub</h3>
+            <p>Show your support and stay updated</p>
+          </a>
+        </div>
+      </section>
+
+      <section class="restart-section">
+        <a href={`${import.meta.env.BASE_URL}tour/`} class="restart-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M1 4v6h6"></path>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          Restart the tour
+        </a>
+      </section>
+    </div>
+  </article>
+</TourLayout>
+
+<style>
+  .tour-complete-page {
+    max-width: 100%;
+    padding: 2rem 0;
+  }
+
+  .complete-header {
+    text-align: center;
+    padding-bottom: 2rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .complete-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: bounce 0.5s ease-out;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .complete-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem;
+  }
+
+  .complete-subtitle {
+    font-size: 1.25rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .complete-content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .complete-summary h2,
+  .next-steps h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1.5rem;
+    text-align: center;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .summary-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+  }
+
+  .summary-icon {
+    font-size: 1.25rem;
+  }
+
+  .summary-text {
+    font-size: 0.9375rem;
+    color: var(--color-text-primary);
+  }
+
+  .next-steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .next-step-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    transition: border-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .next-step-card:hover {
+    border-color: var(--color-azure-500);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+
+  .next-step-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .next-step-card h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.375rem;
+  }
+
+  .next-step-card p {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .restart-section {
+    text-align: center;
+    padding-top: 1rem;
+  }
+
+  .restart-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-tertiary);
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .restart-link:hover {
+    color: var(--color-azure-500);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .complete-title {
+      font-size: 2rem;
+    }
+
+    .complete-subtitle {
+      font-size: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .complete-icon {
+      animation: none;
+    }
+
+    .next-step-card:hover {
+      transform: none;
+    }
+  }
+</style>

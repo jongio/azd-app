@@ -73,6 +73,25 @@ yarn.lock
 !cli/dashboard/package-lock.json
 !cli/dashboard/pnpm-lock.yaml
 
+# Website - preserve lockfile for reproducible builds
+!web/pnpm-lock.yaml
+
+# Astro
+.astro/
+
+# Website build output
+web/dist/
+
+# Pagefind output (generated at build time)
+web/dist/pagefind/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Demo project - preserve its own lockfile
+!cli/demo/api/package-lock.json
+
 # .NET
 obj/
 *.pdb

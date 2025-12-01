@@ -1,0 +1,531 @@
+---
+/**
+ * Footer Component
+ * Site-wide footer with navigation links, social media, and copyright.
+ * Adapts from multi-column on desktop to stacked accordion on mobile.
+ */
+
+interface FooterLink {
+  label: string;
+  href: string;
+  external?: boolean;
+  badge?: string;
+}
+
+interface FooterSection {
+  title: string;
+  links: FooterLink[];
+}
+
+interface SocialLink {
+  platform: 'github';
+  href: string;
+  label: string;
+}
+
+const footerNavigation: FooterSection[] = [
+  {
+    title: 'Getting Started',
+    links: [
+      { label: 'Quick Start', href: '/azd-app/quick-start/' },
+      { label: 'Guided Tour', href: '/azd-app/tour/' },
+      { label: 'Examples', href: '/azd-app/examples/' },
+    ],
+  },
+  {
+    title: 'Documentation',
+    links: [
+      { label: 'CLI Reference', href: '/azd-app/reference/cli/' },
+      { label: 'MCP Server', href: '/azd-app/mcp/', badge: 'AI' },
+      { label: 'AI Debugging', href: '/azd-app/mcp/ai-debugging/' },
+      { label: 'MCP Tools', href: '/azd-app/mcp/tools/' },
+    ],
+  },
+  {
+    title: 'Community',
+    links: [
+      { label: 'GitHub', href: 'https://github.com/jongio/azd-app', external: true },
+      { label: 'Issues', href: 'https://github.com/jongio/azd-app/issues', external: true },
+      { label: 'Changelog', href: '/azd-app/reference/changelog/', badge: 'New' },
+      { label: "What's New", href: '/azd-app/reference/whats-new/' },
+    ],
+  },
+];
+
+const socialLinks: SocialLink[] = [
+  { platform: 'github', href: 'https://github.com/jongio/azd-app', label: 'azd app on GitHub' },
+];
+
+const legalLinks = [
+  { label: 'MIT License', href: 'https://github.com/jongio/azd-app/blob/main/LICENSE' },
+];
+
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="footer" role="contentinfo" aria-label="Site footer">
+  <div class="footer-container">
+    <!-- Brand -->
+    <div class="footer-brand">
+      <a href="/azd-app/" class="footer-logo" aria-label="azd app home">
+        <span class="footer-logo-text">azd app</span>
+      </a>
+      <p class="footer-tagline">Local dev made simple</p>
+      
+      <!-- Social Links -->
+      <nav class="footer-social" aria-label="Social media links">
+        <ul role="list">
+          {socialLinks.map((social) => (
+            <li>
+              <a
+                href={social.href}
+                class:list={['social-icon', `social-icon--${social.platform}`]}
+                aria-label={social.label}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {social.platform === 'github' && (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+
+    <!-- Navigation Sections -->
+    <div class="footer-nav-wrapper">
+      {footerNavigation.map((section, index) => (
+        <div class="footer-section" data-footer-section>
+          <button
+            type="button"
+            class="footer-section-header"
+            aria-expanded="false"
+            aria-controls={`footer-section-${index}`}
+            data-footer-section-toggle
+          >
+            <span class="footer-section-title">{section.title}</span>
+            <svg 
+              class="footer-section-chevron" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <h2 class="footer-section-title-desktop">{section.title}</h2>
+          <ul id={`footer-section-${index}`} class="footer-section-links" role="list">
+            {section.links.map((link) => (
+              <li>
+                <a
+                  href={link.href}
+                  class="footer-link"
+                  target={link.external ? '_blank' : undefined}
+                  rel={link.external ? 'noopener noreferrer' : undefined}
+                >
+                  {link.label}
+                  {link.badge && (
+                    <span class="footer-badge">{link.badge}</span>
+                  )}
+                  {link.external && (
+                    <>
+                      <svg 
+                        class="external-icon" 
+                        width="12" 
+                        height="12" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        stroke-width="2"
+                        aria-hidden="true"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                      <span class="sr-only">(opens in new tab)</span>
+                    </>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- Bottom Bar -->
+  <div class="footer-bottom">
+    <div class="footer-bottom-container">
+      <p class="footer-copyright">
+        © {currentYear} azd app. All rights reserved.
+      </p>
+      <nav class="footer-legal" aria-label="Legal links">
+        <ul role="list">
+          {legalLinks.map((link) => (
+            <li>
+              <a href={link.href} class="footer-legal-link">{link.label}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background-color: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .footer-container {
+    display: grid;
+    gap: 2rem;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .footer-container {
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .footer-container {
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      gap: 4rem;
+    }
+  }
+
+  /* Brand Section */
+  .footer-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .footer-brand {
+      grid-column: 1 / -1;
+      margin-bottom: 1rem;
+    }
+  }
+
+  .footer-logo {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .footer-logo:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .footer-logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .footer-tagline {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  /* Social Links */
+  .footer-social {
+    margin-top: 0.5rem;
+  }
+
+  .footer-social ul {
+    display: flex;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .social-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    color: var(--color-text-muted);
+    transition: color 100ms ease-out, transform 100ms ease-out, background-color 100ms ease-out;
+  }
+
+  .social-icon:hover {
+    transform: scale(1.1);
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .social-icon:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .social-icon--github:hover {
+    color: #333;
+  }
+
+  :global([data-theme="dark"]) .social-icon--github:hover {
+    color: #f0f6fc;
+  }
+
+  /* Navigation Wrapper */
+  .footer-nav-wrapper {
+    display: contents;
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .footer-nav-wrapper {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-column: 1 / -1;
+      gap: 2rem;
+    }
+  }
+
+  /* Footer Section */
+  .footer-section {
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  @media (min-width: 768px) {
+    .footer-section {
+      border-bottom: none;
+    }
+  }
+
+  .footer-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1rem 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  @media (min-width: 768px) {
+    .footer-section-header {
+      display: none;
+    }
+  }
+
+  .footer-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .footer-section-title-desktop {
+    display: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .footer-section-title-desktop {
+      display: block;
+    }
+  }
+
+  .footer-section-chevron {
+    color: var(--color-text-muted);
+    transition: transform 200ms ease-out;
+  }
+
+  .footer-section[data-expanded="true"] .footer-section-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Section Links */
+  .footer-section-links {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 200ms ease-out;
+    overflow: hidden;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .footer-section[data-expanded="true"] .footer-section-links {
+    grid-template-rows: 1fr;
+  }
+
+  @media (min-width: 768px) {
+    .footer-section-links {
+      grid-template-rows: 1fr;
+      overflow: visible;
+    }
+  }
+
+  .footer-section-links > * {
+    overflow: hidden;
+  }
+
+  .footer-section-links li {
+    padding-bottom: 0.75rem;
+  }
+
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 100ms ease-out;
+  }
+
+  .footer-link:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .footer-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 0.125rem;
+  }
+
+  .footer-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+    background-color: var(--color-mcp-badge-bg);
+    color: var(--color-mcp-badge-text);
+    border-radius: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .external-icon {
+    opacity: 0.5;
+    transition: opacity 100ms ease-out;
+  }
+
+  .footer-link:hover .external-icon {
+    opacity: 1;
+  }
+
+  /* Bottom Bar */
+  .footer-bottom {
+    border-top: 1px solid var(--color-border-default);
+    background-color: var(--color-bg-primary);
+  }
+
+  .footer-bottom-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .footer-bottom-container {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  .footer-copyright {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .footer-legal ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .footer-legal-link {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color 100ms ease-out;
+  }
+
+  .footer-legal-link:hover {
+    color: var(--color-text-primary);
+  }
+
+  .footer-legal-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 0.125rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+</style>
+
+<script>
+  function initFooter(): void {
+    // Mobile accordion
+    document.querySelectorAll('[data-footer-section-toggle]').forEach(button => {
+      button.addEventListener('click', () => {
+        const section = button.closest('[data-footer-section]');
+        if (!section) return;
+        
+        const isExpanded = section.getAttribute('data-expanded') === 'true';
+        section.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+        button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+      });
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFooter);
+  } else {
+    initFooter();
+  }
+  
+  document.addEventListener('astro:after-swap', initFooter);
+</script>

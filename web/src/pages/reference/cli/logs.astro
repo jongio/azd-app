@@ -1,0 +1,293 @@
+---
+import Layout from '../../../components/Layout.astro';
+---
+
+<Layout title="logs - CLI Reference" description="View logs from running services with filtering and follow support.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">logs</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app logs</h1>
+      <p class="text-xl text-neutral-600 dark:text-neutral-400">View logs from running services with filtering and follow support.</p>
+    </div>
+
+    <!-- Usage -->
+    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-green-400">azd app logs [flags]</code>
+    </div>
+
+    <!-- Flags -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
+    
+<div class="overflow-x-auto my-8">
+  <table class="min-w-full text-sm">
+    <thead>
+      <tr class="border-b border-neutral-200 dark:border-neutral-700">
+        <th class="text-left py-3 px-4 font-semibold">Flag</th>
+        <th class="text-left py-3 px-4 font-semibold">Short</th>
+        <th class="text-left py-3 px-4 font-semibold">Type</th>
+        <th class="text-left py-3 px-4 font-semibold">Default</th>
+        <th class="text-left py-3 px-4 font-semibold">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--follow</code></td>
+        <td class="py-3 px-4"><code>-f</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4">Follow log output (tail -f behavior)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--service</code></td>
+        <td class="py-3 px-4"><code>-s</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">Filter by service name(s) (comma-separated)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--tail</code></td>
+        <td class="py-3 px-4"><code>-n</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">int</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">100</td>
+        <td class="py-3 px-4">Number of lines to show from the end</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--since</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">Show logs since duration (e.g., 5m, 1h)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--timestamps</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">true</td>
+        <td class="py-3 px-4">Show timestamps with each log entry</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--no-color</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4">Disable colored output</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--level</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">all</td>
+        <td class="py-3 px-4">Filter by log level (info, warn, error, debug, all)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--format</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">text</td>
+        <td class="py-3 px-4">Output format (text, json)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--output</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">Write logs to file instead of stdout</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--exclude</code></td>
+        <td class="py-3 px-4"><code>-e</code></td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
+        <td class="py-3 px-4">Regex patterns to exclude (comma-separated)</td>
+      </tr>
+      <tr class="border-b border-neutral-100 dark:border-neutral-800">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--no-builtins</code></td>
+        <td class="py-3 px-4">-</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
+        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
+        <td class="py-3 px-4">Disable built-in filter patterns</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+    <!-- Examples -->
+    
+<h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
+<div class="space-y-4">
+  
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs [flags]"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs [flags]</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --follow"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --follow</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --service web,api"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --service web,api</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --tail 50"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --tail 50</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --since 5m"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --since 5m</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --level error"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --level error</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --format json"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --format json</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --output debug.log"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --output debug.log</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app logs --timestamps=false"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app logs --timestamps=false</code></pre>
+  </div>
+</div>
+
+    <!-- Link to detailed docs -->
+    
+    <div class="mt-12 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+      <h3 class="text-lg font-semibold mb-2">📚 Detailed Documentation</h3>
+      <p class="text-neutral-600 dark:text-neutral-400 mb-4">
+        For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
+      </p>
+      <a 
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/logs.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        View full logs specification →
+      </a>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          ← Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.copy-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied!';
+          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+  </script>
+</Layout>

@@ -1,0 +1,104 @@
+---
+import Layout from '../../../components/Layout.astro';
+---
+
+<Layout title="version - CLI Reference" description="Show version information for the azd app extension.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">version</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app version</h1>
+      <p class="text-xl text-neutral-600 dark:text-neutral-400">Show version information for the azd app extension.</p>
+    </div>
+
+    <!-- Usage -->
+    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
+    <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+      <code class="text-green-400">azd app version</code>
+    </div>
+
+    <!-- Flags -->
+    
+    
+
+    <!-- Examples -->
+    
+<h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
+<div class="space-y-4">
+  
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app version"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app version</code></pre>
+  </div>
+  <div class="bg-neutral-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-neutral-800">
+      <span class="text-neutral-400 text-sm">bash</span>
+      <button 
+        class="copy-button text-neutral-400 hover:text-white text-sm"
+        data-code="azd app version"
+      >
+        Copy
+      </button>
+    </div>
+    <pre class="p-4 overflow-x-auto"><code class="text-green-400">azd app version</code></pre>
+  </div>
+</div>
+
+    <!-- Link to detailed docs -->
+    
+    <div class="mt-12 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+      <h3 class="text-lg font-semibold mb-2">📚 Detailed Documentation</h3>
+      <p class="text-neutral-600 dark:text-neutral-400 mb-4">
+        For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
+      </p>
+      <a 
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/version.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        View full version specification →
+      </a>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          ← Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.copy-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied!';
+          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+  </script>
+</Layout>

@@ -1,0 +1,467 @@
+---
+/**
+ * Screenshot Component
+ * Displays screenshots with dark/light theme variants and click-to-expand lightbox.
+ * Auto-switches images based on current theme.
+ */
+interface Props {
+  /** Light theme screenshot path (relative to /screenshots/) */
+  lightSrc: string;
+  /** Dark theme screenshot path (relative to /screenshots/) */
+  darkSrc: string;
+  /** Alt text for accessibility (required) */
+  alt: string;
+  /** Optional caption displayed below the screenshot */
+  caption?: string;
+  /** Width of the image (CSS value) */
+  width?: string;
+  /** Maximum width of the container */
+  maxWidth?: string;
+  /** Aspect ratio to maintain (e.g., "16/9") */
+  aspectRatio?: string;
+  /** Disable lightbox functionality */
+  disableLightbox?: boolean;
+  /** Custom class name */
+  class?: string;
+  /** Priority loading for above-the-fold images */
+  priority?: boolean;
+}
+
+const {
+  lightSrc,
+  darkSrc,
+  alt,
+  caption,
+  width,
+  maxWidth,
+  aspectRatio,
+  disableLightbox = false,
+  class: className = '',
+  priority = false
+} = Astro.props;
+
+// Resolve paths - if not starting with /, assume relative to /screenshots/
+const resolvedLightSrc = lightSrc.startsWith('/') ? lightSrc : `/screenshots/${lightSrc}`;
+const resolvedDarkSrc = darkSrc.startsWith('/') ? darkSrc : `/screenshots/${darkSrc}`;
+
+// Generate unique ID for this screenshot
+const id = `screenshot-${Math.random().toString(36).substring(2, 9)}`;
+
+// Build style string
+const containerStyles = [
+  maxWidth ? `max-width: ${maxWidth}` : '',
+].filter(Boolean).join('; ');
+
+const imageStyles = [
+  width ? `width: ${width}` : '',
+  aspectRatio ? `aspect-ratio: ${aspectRatio}` : '',
+].filter(Boolean).join('; ');
+---
+
+<figure
+  class:list={['screenshot', className]}
+  role="figure"
+  data-screenshot
+  data-light-src={resolvedLightSrc}
+  data-dark-src={resolvedDarkSrc}
+  id={id}
+  style={containerStyles || undefined}
+>
+  {disableLightbox ? (
+    <div class="screenshot-wrapper">
+      <picture class="screenshot-picture">
+        <img
+          class="screenshot-image"
+          src={resolvedLightSrc}
+          data-light-src={resolvedLightSrc}
+          data-dark-src={resolvedDarkSrc}
+          alt={alt}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          style={imageStyles || undefined}
+        />
+      </picture>
+    </div>
+  ) : (
+    <button
+      type="button"
+      class="screenshot-button"
+      aria-label={`View full size: ${alt}`}
+      aria-haspopup="dialog"
+      data-screenshot-trigger
+    >
+      <picture class="screenshot-picture">
+        <img
+          class="screenshot-image"
+          src={resolvedLightSrc}
+          data-light-src={resolvedLightSrc}
+          data-dark-src={resolvedDarkSrc}
+          alt={alt}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          style={imageStyles || undefined}
+        />
+      </picture>
+
+      <div class="screenshot-overlay" aria-hidden="true">
+        <svg
+          class="screenshot-expand-icon"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <polyline points="9 21 3 21 3 15"></polyline>
+          <line x1="21" y1="3" x2="14" y2="10"></line>
+          <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+        <span class="screenshot-expand-text">View full size</span>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div class="screenshot-skeleton" aria-hidden="true"></div>
+    </button>
+  )}
+
+  {caption && (
+    <figcaption class="screenshot-caption">
+      {caption}
+    </figcaption>
+  )}
+</figure>
+
+<style>
+  .screenshot {
+    margin: var(--spacing-6) 0;
+    width: 100%;
+  }
+
+  .screenshot-wrapper,
+  .screenshot-button {
+    position: relative;
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-secondary);
+    transition: box-shadow var(--duration-normal) var(--ease-out),
+                border-color var(--duration-normal) var(--ease-out);
+  }
+
+  .screenshot-button {
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .screenshot-button:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-border-strong);
+  }
+
+  .screenshot-button:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-color: var(--color-border-focus);
+  }
+
+  .screenshot-button:active {
+    transform: scale(0.995);
+  }
+
+  /* Picture and Image */
+  .screenshot-picture {
+    display: block;
+    width: 100%;
+  }
+
+  .screenshot-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity var(--duration-slow) var(--ease-out),
+                transform var(--duration-normal) var(--ease-out);
+  }
+
+  .screenshot-image.screenshot-image--loaded {
+    opacity: 1;
+  }
+
+  .screenshot-button:hover .screenshot-image {
+    transform: scale(1.02);
+  }
+
+  /* Skeleton loader */
+  .screenshot-skeleton {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      var(--color-bg-tertiary) 0%,
+      var(--color-bg-secondary) 50%,
+      var(--color-bg-tertiary) 100%
+    );
+    background-size: 200% 100%;
+    animation: screenshot-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .screenshot-image--loaded ~ .screenshot-skeleton,
+  .screenshot-button:has(.screenshot-image--loaded) .screenshot-skeleton {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @keyframes screenshot-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Overlay */
+  .screenshot-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    opacity: 0;
+    transition: opacity var(--duration-normal) var(--ease-out);
+  }
+
+  :global([data-theme="dark"]) .screenshot-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+
+  .screenshot-button:hover .screenshot-overlay,
+  .screenshot-button:focus-visible .screenshot-overlay {
+    opacity: 1;
+  }
+
+  .screenshot-expand-icon {
+    opacity: 0.9;
+  }
+
+  .screenshot-expand-text {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
+
+  /* Caption */
+  .screenshot-caption {
+    margin-top: var(--spacing-3);
+    padding: 0;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-tertiary);
+    text-align: center;
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .screenshot {
+      margin-left: calc(-1 * var(--spacing-4));
+      margin-right: calc(-1 * var(--spacing-4));
+    }
+
+    .screenshot-wrapper,
+    .screenshot-button {
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+    }
+
+    /* Always show overlay hint on mobile */
+    .screenshot-overlay {
+      opacity: 0;
+      background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.6) 0%,
+        transparent 60%
+      );
+    }
+
+    .screenshot-button:not(:hover):not(:focus-visible) .screenshot-overlay {
+      opacity: 0.8;
+    }
+
+    .screenshot-button:not(:hover):not(:focus-visible) .screenshot-expand-icon {
+      display: none;
+    }
+
+    .screenshot-button:not(:hover):not(:focus-visible) .screenshot-expand-text {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      font-size: 12px;
+    }
+
+    .screenshot-caption {
+      padding-left: var(--spacing-4);
+      padding-right: var(--spacing-4);
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .screenshot-image {
+      transition: opacity 0.1s ease-out;
+    }
+
+    .screenshot-button:hover .screenshot-image {
+      transform: none;
+    }
+
+    .screenshot-overlay {
+      transition: opacity 0.1s ease-out;
+    }
+
+    .screenshot-skeleton {
+      animation: none;
+      background: var(--color-bg-tertiary);
+    }
+  }
+</style>
+
+<script>
+  function getCurrentTheme(): 'light' | 'dark' {
+    const theme = document.documentElement.getAttribute('data-theme');
+    if (theme === 'dark') return 'dark';
+    if (theme === 'light') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function updateImageSrc(img: HTMLImageElement): void {
+    const theme = getCurrentTheme();
+    const lightSrc = img.dataset.lightSrc;
+    const darkSrc = img.dataset.darkSrc;
+
+    if (!lightSrc || !darkSrc) return;
+
+    const newSrc = theme === 'dark' ? darkSrc : lightSrc;
+
+    if (img.src !== newSrc && !img.src.endsWith(newSrc)) {
+      // Add switching class for crossfade
+      img.classList.add('screenshot-image--switching');
+      img.src = newSrc;
+    }
+  }
+
+  function initScreenshot(container: Element): void {
+    const img = container.querySelector('.screenshot-image') as HTMLImageElement;
+    const trigger = container.querySelector('[data-screenshot-trigger]') as HTMLButtonElement;
+
+    if (!img) return;
+
+    // Set initial image based on theme
+    updateImageSrc(img);
+
+    // Handle image load
+    const handleLoad = () => {
+      img.classList.add('screenshot-image--loaded');
+      img.classList.remove('screenshot-image--switching');
+    };
+
+    if (img.complete && img.naturalWidth > 0) {
+      handleLoad();
+    } else {
+      img.addEventListener('load', handleLoad);
+    }
+
+    // Handle image error - try fallback
+    img.addEventListener('error', () => {
+      const lightSrc = img.dataset.lightSrc;
+      const darkSrc = img.dataset.darkSrc;
+
+      // Try the other variant as fallback
+      if (img.src.includes(darkSrc || '') && lightSrc) {
+        img.src = lightSrc;
+      } else if (img.src.includes(lightSrc || '') && darkSrc) {
+        img.src = darkSrc;
+      }
+    });
+
+    // Handle click to open lightbox
+    if (trigger) {
+      trigger.addEventListener('click', () => {
+        const lightSrc = container.getAttribute('data-light-src');
+        const darkSrc = container.getAttribute('data-dark-src');
+        const alt = img.alt;
+        const caption = container.querySelector('.screenshot-caption')?.textContent || '';
+
+        if (typeof (window as any).openScreenshotLightbox === 'function') {
+          (window as any).openScreenshotLightbox({
+            lightSrc,
+            darkSrc,
+            alt,
+            caption,
+            triggerElement: trigger
+          });
+        }
+      });
+
+      // Keyboard support
+      trigger.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          trigger.click();
+        }
+      });
+    }
+  }
+
+  function initAllScreenshots(): void {
+    document.querySelectorAll('[data-screenshot]').forEach(initScreenshot);
+  }
+
+  function handleThemeChange(): void {
+    document.querySelectorAll('.screenshot-image').forEach((img) => {
+      updateImageSrc(img as HTMLImageElement);
+    });
+  }
+
+  function init(): void {
+    initAllScreenshots();
+
+    // Listen for theme changes
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName === 'data-theme') {
+          handleThemeChange();
+        }
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true });
+
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      const theme = document.documentElement.getAttribute('data-theme');
+      if (!theme || theme === 'system') {
+        handleThemeChange();
+      }
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Re-init on Astro page transitions
+  document.addEventListener('astro:after-swap', init);
+</script>

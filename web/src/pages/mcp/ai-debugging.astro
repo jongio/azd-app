@@ -1,0 +1,774 @@
+---
+/**
+ * AI Debugging Page
+ * 
+ * How to use MCP with AI assistants for debugging.
+ */
+import Layout from '../../components/Layout.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import AIChatDemo from '../../components/AIChatDemo.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
+
+// Debugging workflows
+const workflows = [
+  {
+    id: "diagnose-errors",
+    title: "Diagnose Errors",
+    icon: "🔍",
+    description: "When a service is failing or returning errors",
+    steps: [
+      "Ask: \"Which services are having issues?\"",
+      "Get service health status via MCP",
+      "Ask: \"Show me errors from [service name]\"",
+      "AI analyzes logs and identifies the root cause",
+      "Get suggested fixes",
+    ],
+    prompts: [
+      "Why is my API returning 500 errors?",
+      "What's causing the database connection to fail?",
+      "Show me the stack trace from the last error",
+    ],
+  },
+  {
+    id: "monitor-health",
+    title: "Monitor Health",
+    icon: "💓",
+    description: "Keep track of service status and performance",
+    steps: [
+      "Ask: \"What's the health status of all services?\"",
+      "MCP checks each service's health endpoint",
+      "AI reports healthy vs unhealthy services",
+      "For unhealthy services, AI explains why",
+    ],
+    prompts: [
+      "Are all my services healthy?",
+      "Which service has the most errors?",
+      "Is the web service responding correctly?",
+    ],
+  },
+  {
+    id: "analyze-logs",
+    title: "Analyze Logs",
+    icon: "📝",
+    description: "Search and understand log output",
+    steps: [
+      "Ask: \"Show me logs from the last 5 minutes\"",
+      "MCP streams recent logs",
+      "Ask: \"Find any errors or warnings\"",
+      "AI highlights important log entries",
+    ],
+    prompts: [
+      "Show me errors from the API service in the last hour",
+      "Are there any repeated warning patterns?",
+      "What happened right before the crash?",
+    ],
+  },
+  {
+    id: "understand-config",
+    title: "Understand Configuration",
+    icon: "⚙️",
+    description: "Get help with project setup and configuration",
+    steps: [
+      "Ask: \"What services are configured in this project?\"",
+      "MCP reads azure.yaml and project structure",
+      "AI explains the service architecture",
+      "Get help with configuration issues",
+    ],
+    prompts: [
+      "Explain my project's service architecture",
+      "What environment variables does the API need?",
+      "Is my azure.yaml configured correctly?",
+    ],
+  },
+];
+
+// Example conversation
+const exampleConversation = [
+  {
+    role: "user",
+    content: "My API is returning 500 errors. What's wrong?",
+  },
+  {
+    role: "assistant",
+    content: "I'll check the API service logs for you.",
+    tool: "get_service_logs",
+  },
+  {
+    role: "assistant",
+    content: `Looking at the recent logs, I found the issue:
+
+**Error:** \`ConnectionError: Cannot connect to Redis at localhost:6379\`
+
+The API is trying to connect to Redis for caching, but the Redis service isn't running.
+
+**Solutions:**
+1. Start Redis: The dashboard shows Redis is stopped
+2. Check your docker-compose.yml - Redis might not be included
+3. Or update your config to make Redis optional`,
+  },
+];
+---
+
+<Layout title="AI Debugging" description="Debug your services using AI assistants and MCP">
+  <main class="debug-page">
+    <!-- Header -->
+    <header class="debug-header">
+      <nav class="debug-breadcrumb" aria-label="Breadcrumb">
+        <a href={`${baseUrl}mcp/`}>MCP Server</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">AI Debugging</span>
+      </nav>
+      <h1 class="debug-title">AI Debugging</h1>
+      <p class="debug-description">
+        Use GitHub Copilot and other AI assistants to diagnose issues, analyze logs, 
+        and understand your services through natural conversation.
+      </p>
+    </header>
+
+    <!-- How it Works -->
+    <section class="debug-how-it-works" aria-labelledby="how-heading">
+      <h2 id="how-heading" class="section-title">How It Works</h2>
+      <div class="debug-flow">
+        <div class="debug-flow-step">
+          <div class="debug-flow-icon" aria-hidden="true">💬</div>
+          <div class="debug-flow-content">
+            <h3>1. Ask a Question</h3>
+            <p>Describe the issue in natural language</p>
+          </div>
+        </div>
+        <div class="debug-flow-arrow" aria-hidden="true">→</div>
+        <div class="debug-flow-step">
+          <div class="debug-flow-icon" aria-hidden="true">🔧</div>
+          <div class="debug-flow-content">
+            <h3>2. MCP Gathers Data</h3>
+            <p>AI uses MCP tools to check services</p>
+          </div>
+        </div>
+        <div class="debug-flow-arrow" aria-hidden="true">→</div>
+        <div class="debug-flow-step">
+          <div class="debug-flow-icon" aria-hidden="true">💡</div>
+          <div class="debug-flow-content">
+            <h3>3. Get Insights</h3>
+            <p>AI explains issues and suggests fixes</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Example Conversation -->
+    <section class="debug-example" aria-labelledby="example-heading">
+      <h2 id="example-heading" class="section-title">Example: Finding a Bug</h2>
+      <div class="debug-example-demo">
+        <AIChatDemo />
+      </div>
+    </section>
+
+    <!-- Debugging Workflows -->
+    <section class="debug-workflows" aria-labelledby="workflows-heading">
+      <h2 id="workflows-heading" class="section-title">Debugging Workflows</h2>
+      <div class="debug-workflows-grid">
+        {workflows.map((workflow) => (
+          <article class="debug-workflow-card" id={workflow.id}>
+            <header class="debug-workflow-header">
+              <span class="debug-workflow-icon" aria-hidden="true">{workflow.icon}</span>
+              <h3 class="debug-workflow-title">{workflow.title}</h3>
+            </header>
+            <p class="debug-workflow-description">{workflow.description}</p>
+            
+            <div class="debug-workflow-steps">
+              <h4 class="debug-workflow-steps-title">Steps</h4>
+              <ol class="debug-workflow-steps-list">
+                {workflow.steps.map((step) => (
+                  <li>{step}</li>
+                ))}
+              </ol>
+            </div>
+
+            <div class="debug-workflow-prompts">
+              <h4 class="debug-workflow-prompts-title">Try these prompts</h4>
+              {workflow.prompts.map((prompt) => (
+                <button class="debug-prompt-copy" data-prompt={prompt} type="button">
+                  <code>{prompt}</code>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <!-- Tips -->
+    <section class="debug-tips" aria-labelledby="tips-heading">
+      <h2 id="tips-heading" class="section-title">Tips for Effective AI Debugging</h2>
+      <div class="debug-tips-grid">
+        <div class="debug-tip">
+          <span class="debug-tip-icon" aria-hidden="true">🎯</span>
+          <div class="debug-tip-content">
+            <h3>Be Specific</h3>
+            <p>
+              Instead of "something is broken", say "the API is returning 500 errors 
+              when I call /users endpoint".
+            </p>
+          </div>
+        </div>
+        <div class="debug-tip">
+          <span class="debug-tip-icon" aria-hidden="true">📍</span>
+          <div class="debug-tip-content">
+            <h3>Name Your Services</h3>
+            <p>
+              Reference specific service names from your azure.yaml like "the web service" 
+              or "the api container".
+            </p>
+          </div>
+        </div>
+        <div class="debug-tip">
+          <span class="debug-tip-icon" aria-hidden="true">⏰</span>
+          <div class="debug-tip-content">
+            <h3>Include Timeframes</h3>
+            <p>
+              "Show me errors from the last 10 minutes" helps narrow down relevant logs.
+            </p>
+          </div>
+        </div>
+        <div class="debug-tip">
+          <span class="debug-tip-icon" aria-hidden="true">🔄</span>
+          <div class="debug-tip-content">
+            <h3>Follow Up</h3>
+            <p>
+              Ask follow-up questions to dig deeper. "Why did that error happen?" 
+              or "Show me more context around that log".
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MCP Tools Used -->
+    <section class="debug-tools" aria-labelledby="tools-heading">
+      <h2 id="tools-heading" class="section-title">MCP Tools for Debugging</h2>
+      <div class="debug-tools-list">
+        <div class="debug-tool">
+          <code class="debug-tool-name">get_services</code>
+          <p class="debug-tool-desc">Lists all services with their current status (running, stopped, error)</p>
+        </div>
+        <div class="debug-tool">
+          <code class="debug-tool-name">get_service_logs</code>
+          <p class="debug-tool-desc">Retrieves logs from a specific service, optionally filtered by time or level</p>
+        </div>
+        <div class="debug-tool">
+          <code class="debug-tool-name">check_requirements</code>
+          <p class="debug-tool-desc">Verifies all prerequisites are met (Node.js, Python, Docker, etc.)</p>
+        </div>
+        <div class="debug-tool">
+          <code class="debug-tool-name">get_project_info</code>
+          <p class="debug-tool-desc">Returns project configuration from azure.yaml</p>
+        </div>
+        <div class="debug-tool">
+          <code class="debug-tool-name">get_environment_variables</code>
+          <p class="debug-tool-desc">Shows environment variables for services (secrets redacted)</p>
+        </div>
+      </div>
+      <div class="debug-tools-cta">
+        <a href={`${baseUrl}mcp/tools/`} class="btn-secondary">
+          View All 10 Tools
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+      </div>
+    </section>
+
+    <!-- Next Steps -->
+    <section class="debug-next" aria-labelledby="next-heading">
+      <h2 id="next-heading" class="section-title">Continue Learning</h2>
+      <div class="debug-next-cards">
+        <a href={`${baseUrl}mcp/prompts/`} class="debug-next-card">
+          <span class="debug-next-card-icon" aria-hidden="true">💬</span>
+          <div class="debug-next-card-content">
+            <h3>Prompt Library</h3>
+            <p>50+ ready-to-use prompts for debugging</p>
+          </div>
+        </a>
+        <a href={`${baseUrl}mcp/tools/`} class="debug-next-card">
+          <span class="debug-next-card-icon" aria-hidden="true">🔧</span>
+          <div class="debug-next-card-content">
+            <h3>Tools Reference</h3>
+            <p>Detailed docs for all MCP tools</p>
+          </div>
+        </a>
+        <a href={`${baseUrl}tour/8-mcp/`} class="debug-next-card">
+          <span class="debug-next-card-icon" aria-hidden="true">🎓</span>
+          <div class="debug-next-card-content">
+            <h3>MCP Tutorial</h3>
+            <p>Step-by-step MCP setup guide</p>
+          </div>
+        </a>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<style>
+  .debug-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+  }
+
+  .section-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1.5rem;
+  }
+
+  /* Header */
+  .debug-header {
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--color-border-default);
+    margin-bottom: 2rem;
+  }
+
+  .debug-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+    margin-bottom: 1rem;
+  }
+
+  .debug-breadcrumb a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .debug-breadcrumb a:hover {
+    color: var(--color-interactive-default);
+    text-decoration: underline;
+  }
+
+  .debug-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.75rem;
+  }
+
+  .debug-description {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: 1.6;
+    max-width: 700px;
+  }
+
+  /* How it Works */
+  .debug-how-it-works {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .debug-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  @media (min-width: 768px) {
+    .debug-flow {
+      flex-direction: row;
+      justify-content: center;
+      gap: 0;
+    }
+  }
+
+  .debug-flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    flex: 1;
+    max-width: 200px;
+  }
+
+  .debug-flow-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .debug-flow-content h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.25rem;
+  }
+
+  .debug-flow-content p {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .debug-flow-arrow {
+    font-size: 1.5rem;
+    color: var(--color-text-muted);
+    transform: rotate(90deg);
+  }
+
+  @media (min-width: 768px) {
+    .debug-flow-arrow {
+      transform: none;
+      padding: 0 1rem;
+    }
+  }
+
+  /* Example */
+  .debug-example {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .debug-example-demo {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* Workflows */
+  .debug-workflows {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .debug-workflows-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 768px) {
+    .debug-workflows-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .debug-workflow-card {
+    padding: 1.5rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+  }
+
+  .debug-workflow-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .debug-workflow-icon {
+    font-size: 1.5rem;
+  }
+
+  .debug-workflow-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .debug-workflow-description {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0 0 1rem;
+    line-height: 1.5;
+  }
+
+  .debug-workflow-steps {
+    margin-bottom: 1rem;
+  }
+
+  .debug-workflow-steps-title,
+  .debug-workflow-prompts-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 0.5rem;
+  }
+
+  .debug-workflow-steps-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+
+  .debug-workflow-steps-list li {
+    margin: 0.25rem 0;
+    line-height: 1.5;
+  }
+
+  .debug-workflow-prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .debug-prompt-copy {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: border-color 150ms ease-out, background-color 150ms ease-out;
+  }
+
+  .debug-prompt-copy:hover {
+    border-color: var(--color-azure-300);
+    background: var(--color-bg-accent);
+  }
+
+  .debug-prompt-copy code {
+    font-size: 0.8125rem;
+    color: var(--color-text-primary);
+    background: none;
+    text-align: left;
+  }
+
+  .debug-prompt-copy svg {
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+  }
+
+  /* Tips */
+  .debug-tips {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .debug-tips-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .debug-tips-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .debug-tip {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--color-bg-secondary);
+    border-radius: 0.75rem;
+  }
+
+  .debug-tip-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .debug-tip-content h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.25rem;
+  }
+
+  .debug-tip-content p {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* Tools */
+  .debug-tools {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .debug-tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .debug-tool {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .debug-tool {
+      flex-direction: row;
+      gap: 1rem;
+      align-items: center;
+    }
+  }
+
+  .debug-tool-name {
+    font-size: 0.875rem;
+    font-family: var(--font-family-mono);
+    color: var(--color-azure-600);
+    background: none;
+    padding: 0;
+    flex-shrink: 0;
+    min-width: 180px;
+  }
+
+  [data-theme="dark"] .debug-tool-name {
+    color: var(--color-azure-400);
+  }
+
+  .debug-tool-desc {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .debug-tools-cta {
+    text-align: center;
+  }
+
+  /* Next Steps */
+  .debug-next {
+    padding-top: 2rem;
+  }
+
+  .debug-next-cards {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .debug-next-cards {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .debug-next-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    transition: border-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .debug-next-card:hover {
+    border-color: var(--color-azure-300);
+    transform: translateY(-2px);
+  }
+
+  .debug-next-card-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .debug-next-card-content h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.25rem;
+  }
+
+  .debug-next-card-content p {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  /* Button */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-strong);
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  .btn-secondary:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-azure-500);
+    color: var(--color-azure-600);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .debug-next-card:hover {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  function initPromptCopy(): void {
+    const promptButtons = document.querySelectorAll<HTMLButtonElement>('.debug-prompt-copy');
+    
+    promptButtons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const prompt = button.getAttribute('data-prompt');
+        if (!prompt) return;
+
+        try {
+          await navigator.clipboard.writeText(prompt);
+          
+          const svg = button.querySelector('svg');
+          if (svg) {
+            svg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+            setTimeout(() => {
+              svg.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>';
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPromptCopy);
+  } else {
+    initPromptCopy();
+  }
+
+  document.addEventListener('astro:after-swap', initPromptCopy);
+</script>

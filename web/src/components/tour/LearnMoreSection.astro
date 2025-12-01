@@ -1,0 +1,272 @@
+---
+/**
+ * LearnMoreSection Component
+ * 
+ * Provides expandable supplementary content without overwhelming the main flow.
+ */
+
+interface Props {
+  /** Section title */
+  title?: string;
+  /** Whether section is initially expanded */
+  defaultExpanded?: boolean;
+  /** Unique ID for this section */
+  id: string;
+  /** Custom class name */
+  class?: string;
+}
+
+const {
+  title = 'Learn More',
+  defaultExpanded = false,
+  id,
+  class: className = '',
+} = Astro.props;
+
+const contentId = `learn-more-content-${id}`;
+---
+
+<section 
+  class:list={['learn-more', { 'learn-more--expanded': defaultExpanded }, className]}
+  data-learn-more
+  data-section-id={id}
+>
+  <button
+    type="button"
+    class="learn-more-header"
+    aria-expanded={defaultExpanded ? 'true' : 'false'}
+    aria-controls={contentId}
+    data-learn-more-toggle
+  >
+    <span class="learn-more-title">
+      <span class="learn-more-icon" aria-hidden="true">📚</span>
+      <span>{title}</span>
+    </span>
+    <svg 
+      class="learn-more-chevron" 
+      width="20" 
+      height="20" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      stroke-width="2"
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </button>
+  
+  <div 
+    id={contentId}
+    class="learn-more-content"
+    data-learn-more-content
+  >
+    <div class="learn-more-content-inner">
+      <slot />
+    </div>
+  </div>
+</section>
+
+<style>
+  .learn-more {
+    margin: 1.5rem 0;
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--color-bg-primary);
+  }
+
+  .learn-more-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: var(--color-bg-secondary);
+    border: none;
+    cursor: pointer;
+    transition: background-color 150ms ease-out;
+  }
+
+  .learn-more-header:hover {
+    background: var(--color-bg-tertiary);
+  }
+
+  .learn-more-header:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+  }
+
+  .learn-more-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .learn-more-icon {
+    font-size: 1.125rem;
+  }
+
+  .learn-more-chevron {
+    flex-shrink: 0;
+    color: var(--color-text-tertiary);
+    transition: transform 200ms ease-out;
+  }
+
+  .learn-more--expanded .learn-more-chevron {
+    transform: rotate(90deg);
+  }
+
+  .learn-more-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 300ms ease-out;
+  }
+
+  .learn-more--expanded .learn-more-content {
+    grid-template-rows: 1fr;
+  }
+
+  .learn-more-content-inner {
+    overflow: hidden;
+  }
+
+  .learn-more-content-inner > :first-child {
+    margin-top: 0;
+    padding-top: 1.25rem;
+  }
+
+  .learn-more-content-inner > :last-child {
+    margin-bottom: 0;
+    padding-bottom: 1.25rem;
+  }
+
+  .learn-more-content-inner {
+    padding: 0 1.25rem;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+  }
+
+  .learn-more-content-inner :global(h3) {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 1.5rem 0 0.75rem;
+  }
+
+  .learn-more-content-inner :global(h3:first-child) {
+    margin-top: 0;
+  }
+
+  .learn-more-content-inner :global(ul),
+  .learn-more-content-inner :global(ol) {
+    padding-left: 1.5rem;
+    margin: 0.75rem 0;
+  }
+
+  .learn-more-content-inner :global(li) {
+    margin: 0.5rem 0;
+  }
+
+  .learn-more-content-inner :global(code) {
+    font-size: 0.875em;
+    padding: 0.125rem 0.375rem;
+    background: var(--color-bg-tertiary);
+    border-radius: 0.25rem;
+  }
+
+  .learn-more-content-inner :global(a) {
+    color: var(--color-interactive-default);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .learn-more-content-inner :global(a:hover) {
+    color: var(--color-interactive-hover);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .learn-more-chevron,
+    .learn-more-content {
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+
+<script>
+  import { STORAGE_KEY, type TourProgress, defaultProgress } from '../../data/tour-steps';
+
+  function loadTourProgress(): TourProgress {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return { ...defaultProgress };
+      const parsed = JSON.parse(stored);
+      return parsed.version === 1 ? parsed : { ...defaultProgress };
+    } catch {
+      return { ...defaultProgress };
+    }
+  }
+
+  function saveTourProgress(progress: TourProgress): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...progress,
+        lastUpdated: new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.error('Failed to save tour progress:', error);
+    }
+  }
+
+  function initLearnMore(): void {
+    const sections = document.querySelectorAll('[data-learn-more]');
+    const progress = loadTourProgress();
+
+    sections.forEach(section => {
+      const sectionId = section.getAttribute('data-section-id') || '';
+      const toggle = section.querySelector<HTMLButtonElement>('[data-learn-more-toggle]');
+      
+      if (!toggle) return;
+
+      // Restore expanded state from localStorage
+      if (progress.expandedSections.includes(sectionId)) {
+        section.classList.add('learn-more--expanded');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+
+      toggle.addEventListener('click', () => {
+        const isExpanded = section.classList.contains('learn-more--expanded');
+        
+        section.classList.toggle('learn-more--expanded');
+        toggle.setAttribute('aria-expanded', String(!isExpanded));
+
+        // Save state to localStorage
+        const currentProgress = loadTourProgress();
+        if (!isExpanded) {
+          if (!currentProgress.expandedSections.includes(sectionId)) {
+            currentProgress.expandedSections.push(sectionId);
+          }
+        } else {
+          currentProgress.expandedSections = currentProgress.expandedSections.filter(
+            id => id !== sectionId
+          );
+        }
+        saveTourProgress(currentProgress);
+      });
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLearnMore);
+  } else {
+    initLearnMore();
+  }
+
+  document.addEventListener('astro:after-swap', initLearnMore);
+</script>

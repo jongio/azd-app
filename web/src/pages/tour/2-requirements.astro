@@ -1,0 +1,275 @@
+---
+/**
+ * Tour Step 2: Check requirements
+ */
+import TourLayout from '../../components/tour/TourLayout.astro';
+import CompletionCheckbox from '../../components/tour/CompletionCheckbox.astro';
+import TourNavigation from '../../components/tour/TourNavigation.astro';
+import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
+import TryItYourself from '../../components/tour/TryItYourself.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
+
+const step = getStepByNumber(2)!;
+const prevStep = getPreviousStep(2);
+const nextStep = getNextStep(2);
+---
+
+<TourLayout 
+  title={step.title}
+  description={step.description}
+  currentStep={step.number}
+>
+  <article class="tour-step-page">
+    <!-- Step Header -->
+    <header class="tour-step-header">
+      <nav aria-label="Breadcrumb" class="tour-breadcrumb">
+        <a href={`${import.meta.env.BASE_URL}tour/`}>Guided Tour</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Step {step.number}</span>
+      </nav>
+      
+      <div class="tour-step-meta">
+        <span class="tour-step-icon" aria-hidden="true">{step.icon}</span>
+        <span class="tour-step-number">Step {step.number}</span>
+      </div>
+      
+      <h1 class="tour-step-title">{step.title}</h1>
+      
+      <div class="tour-step-info">
+        <span class="tour-step-time">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          ~{step.estimatedTime} minutes
+        </span>
+      </div>
+
+      <CompletionCheckbox stepNumber={step.number} />
+    </header>
+
+    <!-- Step Content -->
+    <div class="tour-step-content">
+      <p class="tour-step-intro">
+        Before running the demo project, let's verify your system meets all requirements.
+        The <code>azd app reqs</code> command checks everything automatically.
+      </p>
+
+      <h2>Check System Requirements</h2>
+      <p>From the demo project folder, run the requirements check:</p>
+
+      <CodeBlock 
+        code={`# Make sure you're in the demo project
+cd azd-app-demo
+
+# Check requirements
+azd app reqs`}
+        language="bash"
+        showLanguage={true}
+        showCopy={true}
+      />
+
+      <p>This command checks for:</p>
+      <ul>
+        <li><strong>Docker</strong> - Required for running containerized services</li>
+        <li><strong>Docker Compose</strong> - For orchestrating multi-container apps</li>
+        <li><strong>Git</strong> - For version control and cloning templates</li>
+        <li><strong>.NET SDK</strong> - Required for .NET Aspire projects</li>
+        <li><strong>Node.js</strong> - For the dashboard and JavaScript projects</li>
+      </ul>
+
+      <h2>Expected Output</h2>
+      <p>You should see a list of requirements with their status:</p>
+
+      <CodeBlock 
+        code={`Checking requirements...
+
+✓ Docker: Installed (v24.0.6)
+✓ Docker Compose: Installed (v2.21.0)
+✓ Git: Installed (v2.42.0)
+✓ .NET SDK: Installed (v8.0.100)
+✓ Node.js: Installed (v20.10.0)
+
+All requirements met! You're ready to run azd-app.`}
+        language="bash"
+        showLanguage={false}
+        showCopy={false}
+      />
+
+      <h2>Fixing Missing Requirements</h2>
+      <p>If any requirements are missing, install them before continuing:</p>
+
+      <h3>Docker</h3>
+      <p>
+        Install <a href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">Docker Desktop</a> 
+        for Windows and macOS, or Docker Engine for Linux.
+      </p>
+
+      <h3>.NET SDK</h3>
+      <CodeBlock 
+        code={`# Windows (winget)
+winget install Microsoft.DotNet.SDK.8
+
+# macOS (Homebrew)
+brew install dotnet-sdk
+
+# Linux (package manager)
+sudo apt install dotnet-sdk-8.0`}
+        language="bash"
+        showLanguage={true}
+        showCopy={true}
+      />
+
+      <TryItYourself 
+        prompt="Run `azd app reqs` and ensure all requirements show a green checkmark."
+        expectedOutcome="All items should show ✓ with their version numbers. If anything is missing, install it before proceeding."
+      />
+
+      <LearnMoreSection id="step2-requirements-details" title="Detailed Requirements">
+        <h3>Minimum Versions</h3>
+        <ul>
+          <li><strong>Docker:</strong> 20.10 or later</li>
+          <li><strong>Docker Compose:</strong> 2.0 or later</li>
+          <li><strong>Git:</strong> 2.30 or later</li>
+          <li><strong>.NET SDK:</strong> 8.0 or later (for .NET Aspire projects)</li>
+          <li><strong>Node.js:</strong> 18.0 or later (LTS recommended)</li>
+        </ul>
+
+        <h3>Platform-Specific Notes</h3>
+        <p>
+          <strong>Windows:</strong> Ensure WSL2 is enabled for Docker Desktop.
+          <strong>macOS:</strong> Rosetta 2 may be required on Apple Silicon Macs.
+          <strong>Linux:</strong> Add your user to the docker group to avoid using sudo.
+        </p>
+      </LearnMoreSection>
+    </div>
+
+    <!-- Navigation -->
+    <TourNavigation 
+      currentStep={step.number}
+      totalSteps={tourSteps.length}
+      previousStep={prevStep}
+      nextStep={nextStep}
+    />
+  </article>
+</TourLayout>
+
+<style>
+  .tour-step-page {
+    max-width: 100%;
+  }
+
+  .tour-step-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .tour-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+    margin-bottom: 1rem;
+  }
+
+  .tour-breadcrumb a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .tour-breadcrumb a:hover {
+    color: var(--color-interactive-default);
+    text-decoration: underline;
+  }
+
+  .tour-step-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tour-step-icon {
+    font-size: 1.5rem;
+  }
+
+  .tour-step-number {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-azure-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  [data-theme="dark"] .tour-step-number {
+    color: var(--color-azure-400);
+  }
+
+  .tour-step-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1rem;
+  }
+
+  .tour-step-info {
+    margin-bottom: 1.5rem;
+  }
+
+  .tour-step-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .tour-step-content {
+    line-height: 1.7;
+  }
+
+  .tour-step-content h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 2rem 0 1rem;
+  }
+
+  .tour-step-content h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 1.5rem 0 0.75rem;
+  }
+
+  .tour-step-content p {
+    color: var(--color-text-secondary);
+    margin: 0 0 1rem;
+  }
+
+  .tour-step-content ul,
+  .tour-step-content ol {
+    color: var(--color-text-secondary);
+    padding-left: 1.5rem;
+    margin: 0 0 1rem;
+  }
+
+  .tour-step-content li {
+    margin: 0.5rem 0;
+  }
+
+  .tour-step-intro {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 640px) {
+    .tour-step-title {
+      font-size: 1.5rem;
+    }
+  }
+</style>
