@@ -282,7 +282,8 @@ func TestCoverage() error {
 	coverageHTML := filepath.Join(absCoverageDir, "coverage.html")
 
 	// Run tests with coverage (use -short to skip integration tests)
-	if err := sh.RunV("go", "test", "-v", "-short", "-coverprofile="+coverageOut, "./src/..."); err != nil {
+	// Use -p for parallel package testing
+	if err := sh.RunV("go", "test", "-short", "-coverprofile="+coverageOut, "./src/..."); err != nil {
 		return fmt.Errorf("tests failed: %w", err)
 	}
 
@@ -309,7 +310,8 @@ func Coverage() error {
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
 	// Use same command as CI to ensure consistency
-	if err := sh.RunV("golangci-lint", "run", "--timeout=5m"); err != nil {
+	// --concurrency=0 uses all available CPUs
+	if err := sh.RunV("golangci-lint", "run", "--timeout=5m", "--concurrency=0"); err != nil {
 		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
 		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
 		return err
@@ -848,30 +850,28 @@ func DashboardLint() error {
 func DashboardTestE2E() error {
 	fmt.Println("Running dashboard E2E tests...")
 
+	// Get absolute path to dashboard directory (safe for parallel execution)
+	absDashboardDir, err := filepath.Abs(dashboardDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute dashboard path: %w", err)
+	}
+
 	// Ensure Playwright browsers are installed
 	fmt.Println("Installing Playwright browsers (if needed)...")
-	// Change to dashboard directory to run playwright install
-	originalDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-	defer func() {
-		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
-		}
-	}()
-
-	if err := os.Chdir(dashboardDir); err != nil {
-		return fmt.Errorf("failed to change to dashboard directory: %w", err)
-	}
-
-	if err := sh.RunV("npx", "playwright", "install", "--with-deps", "chromium"); err != nil {
+	installCmd := exec.Command("npx", "playwright", "install", "--with-deps", "chromium")
+	installCmd.Dir = absDashboardDir
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
 		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
 	}
 
 	// Run playwright with line reporter to avoid opening browser with HTML report on failure
-	// Stay in dashboard directory where playwright.config.ts is located
-	if err := sh.RunV("npx", "playwright", "test", "--reporter=line", "--project=chromium"); err != nil {
+	testCmd := exec.Command("npx", "playwright", "test", "--reporter=line", "--project=chromium")
+	testCmd.Dir = absDashboardDir
+	testCmd.Stdout = os.Stdout
+	testCmd.Stderr = os.Stderr
+	if err := testCmd.Run(); err != nil {
 		return fmt.Errorf("dashboard E2E tests failed: %w", err)
 	}
 
@@ -946,31 +946,26 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 		fmt.Println("Running website E2E tests...")
 	}
 
-	// Change to website directory
-	originalDir, err := os.Getwd()
+	// Get absolute path to website directory (safe for parallel execution)
+	absWebsiteDir, err := filepath.Abs(websiteDir)
 	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-	defer func() {
-		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
-		}
-	}()
-
-	if err := os.Chdir(websiteDir); err != nil {
-		return fmt.Errorf("failed to change to website directory: %w", err)
+		return fmt.Errorf("failed to get absolute website path: %w", err)
 	}
 
 	// Install Playwright browsers
 	fmt.Println("Installing Playwright browsers (if needed)...")
-	if err := sh.RunV("npx", "playwright", "install", "--with-deps", "chromium"); err != nil {
+	installCmd := exec.Command("npx", "playwright", "install", "--with-deps", "chromium")
+	installCmd.Dir = absWebsiteDir
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
 		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
 	}
 
 	// Start the preview server in the background
 	fmt.Println("Starting preview server...")
 	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
-	serverCmd.Dir = "."
+	serverCmd.Dir = absWebsiteDir
 	serverCmd.Stdout = os.Stdout
 	serverCmd.Stderr = os.Stderr
 	if err := serverCmd.Start(); err != nil {
@@ -1006,7 +1001,11 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 	if updateSnapshots {
 		args = append(args, "--update-snapshots")
 	}
-	if err := sh.RunV("npx", args...); err != nil {
+	testCmd := exec.Command("npx", args...)
+	testCmd.Dir = absWebsiteDir
+	testCmd.Stdout = os.Stdout
+	testCmd.Stderr = os.Stderr
+	if err := testCmd.Run(); err != nil {
 		return fmt.Errorf("website E2E tests failed: %w", err)
 	}
 
