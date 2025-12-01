@@ -22,6 +22,7 @@ import (
 const (
 	defaultCommandTimeout    = 30 * time.Second
 	dependencyInstallTimeout = 5 * time.Minute
+	maxLogTailLines          = 10000 // Maximum number of log lines to retrieve
 )
 
 // Command constants
@@ -31,7 +32,6 @@ const (
 	jsonOutputFlag = "--output"
 	jsonOutputVal  = "json"
 	cwdFlag        = "--cwd"
-	projectFlag    = "--project"
 )
 
 // Allowed values for validation
@@ -86,12 +86,18 @@ This server complements azd's core MCP capabilities:
 1. Always use get_services to check current state before starting/stopping services
 2. Use check_requirements before installing dependencies to see what's needed
 3. Use get_service_logs to diagnose issues when services fail to start
-4. Read azure.yaml resource to understand project structure before operations
+4. Read azure://project/azure.yaml resource to understand project structure before operations
 
 **Tool Categories:**
 - Observability: get_services, get_service_logs, get_project_info
-- Operations: run_services, stop_services, restart_service, install_dependencies
+- Operations: run_services, stop_services, start_service, restart_service, install_dependencies
 - Configuration: check_requirements, get_environment_variables, set_environment_variable
+
+**Service Lifecycle:**
+- run_services: Start all services (background process, use get_services to check status)
+- start_service: Start a specific stopped service
+- stop_services: Stop all or a specific running service (graceful shutdown)
+- restart_service: Stop and start a specific service
 
 **Integration Notes:**
 - Works with projects created by azd init or azd templates
@@ -101,7 +107,7 @@ This server complements azd's core MCP capabilities:
 	// Create MCP server with all capabilities
 	// Server name follows azd extension naming convention: {namespace}-mcp-server
 	s := server.NewMCPServer(
-		"app-mcp-server", "0.1.0",
+		"app-mcp-server", Version,
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(false, true), // subscribe=false, listChanged=true
 		server.WithPromptCapabilities(false),         // listChanged=false
@@ -117,6 +123,7 @@ This server complements azd's core MCP capabilities:
 		// Operational tools
 		newRunServicesTool(),
 		newStopServicesTool(),
+		newStartServiceTool(),
 		newRestartServiceTool(),
 		newInstallDependenciesTool(),
 		newCheckRequirementsTool(),
@@ -232,6 +239,20 @@ func extractProjectDirArg(args map[string]interface{}) ([]string, error) {
 		cmdArgs = append(cmdArgs, cwdFlag, validatedPath)
 	}
 	return cmdArgs, nil
+}
+
+// extractValidatedProjectDir extracts and validates projectDir from args, returning the path.
+// Falls back to getProjectDir() if not provided in args.
+func extractValidatedProjectDir(args map[string]interface{}) (string, error) {
+	projectDir := getProjectDir()
+	if pd, ok := getStringParam(args, "projectDir"); ok {
+		validatedPath, err := validateProjectDir(pd)
+		if err != nil {
+			return "", err
+		}
+		projectDir = validatedPath
+	}
+	return projectDir, nil
 }
 
 // validateRequiredParam validates that a required parameter exists and returns the value
@@ -455,8 +476,8 @@ func newGetServiceLogsTool() server.ServerTool {
 
 			if tail, ok := getFloat64Param(args, "tail"); ok && tail > 0 {
 				// Cap tail at reasonable maximum
-				if tail > 10000 {
-					tail = 10000
+				if tail > float64(maxLogTailLines) {
+					tail = float64(maxLogTailLines)
 				}
 				cmdArgs = append(cmdArgs, "--tail", fmt.Sprintf("%.0f", tail))
 			}
@@ -746,15 +767,94 @@ func newStopServicesTool() server.ServerTool {
 			mcp.WithString("projectDir",
 				mcp.Description("Optional project directory path. If not provided, uses current directory."),
 			),
+			mcp.WithString("serviceName",
+				mcp.Description("Optional specific service to stop. If not provided, stops all running services."),
+			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			// Note: azd app doesn't have a direct stop command, so we provide guidance
-			result := map[string]interface{}{
-				"status":  "info",
-				"message": "To stop services, use Ctrl+C in the terminal running 'azd app run', or use system tools to kill the process.",
-				"tip":     "You can use get_services to find the PID of running services.",
+			args := getArgsMap(request)
+
+			// Get project directory
+			projectDir, err := extractValidatedProjectDir(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
 			}
 
+			// Create service controller
+			ctrl, err := NewServiceController(projectDir)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to initialize service controller: %v", err)), nil
+			}
+
+			// Check if a specific service was requested
+			if serviceName, ok := getStringParam(args, "serviceName"); ok {
+				if err := security.ValidateServiceName(serviceName, false); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				result := ctrl.StopService(ctx, serviceName)
+				return marshalToolResult(result)
+			}
+
+			// Stop all running services
+			runningServices := ctrl.GetRunningServices()
+			if len(runningServices) == 0 {
+				return marshalToolResult(BulkServiceControlResult{
+					Success: true,
+					Message: "No running services to stop",
+					Results: []ServiceControlResult{},
+				})
+			}
+
+			result := ctrl.BulkStop(ctx, runningServices)
+			return marshalToolResult(result)
+		},
+	}
+}
+
+// newStartServiceTool creates the start_service tool
+func newStartServiceTool() server.ServerTool {
+	return server.ServerTool{
+		Tool: mcp.NewTool(
+			"start_service",
+			mcp.WithTitleAnnotation("Start Service"),
+			mcp.WithDescription("Start a specific stopped service. Use this to start individual services that were previously stopped."),
+			mcp.WithReadOnlyHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(false),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithString("serviceName",
+				mcp.Description("Name of the service to start"),
+				mcp.Required(),
+			),
+			mcp.WithString("projectDir",
+				mcp.Description("Optional project directory path. If not provided, uses current directory."),
+			),
+		),
+		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args := getArgsMap(request)
+
+			serviceName, err := validateRequiredParam(args, "serviceName")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			// Validate service name to prevent injection
+			if err := security.ValidateServiceName(serviceName, false); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			// Get project directory
+			projectDir, err := extractValidatedProjectDir(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			}
+
+			// Create service controller
+			ctrl, err := NewServiceController(projectDir)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to initialize service controller: %v", err)), nil
+			}
+
+			result := ctrl.StartService(ctx, serviceName)
 			return marshalToolResult(result)
 		},
 	}
@@ -791,12 +891,19 @@ func newRestartServiceTool() server.ServerTool {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			result := map[string]interface{}{
-				"status":  "info",
-				"message": fmt.Sprintf("To restart service '%s', first stop it (Ctrl+C or kill PID), then use run_services to start it again.", serviceName),
-				"tip":     "Use get_services to find the current PID of the service.",
+			// Get project directory
+			projectDir, err := extractValidatedProjectDir(args)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
 			}
 
+			// Create service controller
+			ctrl, err := NewServiceController(projectDir)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to initialize service controller: %v", err)), nil
+			}
+
+			result := ctrl.RestartService(ctx, serviceName)
 			return marshalToolResult(result)
 		},
 	}
