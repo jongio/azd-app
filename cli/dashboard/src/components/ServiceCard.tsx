@@ -7,9 +7,10 @@ import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeT
 interface ServiceCardProps {
   service: Service
   healthStatus?: HealthCheckResult
+  onClick?: () => void
 }
 
-export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
+export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps) {
   // Use real-time health from health stream if available
   const { status, health: baseHealth } = getEffectiveStatus(service)
   const health = healthStatus?.status || baseHealth
@@ -27,7 +28,13 @@ export function ServiceCard({ service, healthStatus }: ServiceCardProps) {
   } : service.local?.healthDetails
 
   return (
-    <div className="group rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden bg-card border border-border shadow-sm hover:shadow-md">
+    <div 
+      className="group rounded-2xl p-6 transition-all-smooth hover:scale-[1.02] hover:border-primary/50 relative overflow-hidden bg-card border border-border shadow-sm hover:shadow-md cursor-pointer"
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+    >
       {/* Animated gradient background on hover */}
       <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
       

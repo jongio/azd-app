@@ -11,6 +11,10 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Resources')).toBeInTheDocument()
     expect(screen.getByText('Console')).toBeInTheDocument()
+    expect(screen.getByText('Environment')).toBeInTheDocument()
+    expect(screen.getByText('Actions')).toBeInTheDocument()
+    expect(screen.getByText('Metrics')).toBeInTheDocument()
+    expect(screen.getByText('Dependencies')).toBeInTheDocument()
   })
 
   it('should highlight active view', () => {
@@ -70,12 +74,12 @@ describe('Sidebar', () => {
     expect(consoleButton).toHaveClass('text-foreground-tertiary')
   })
 
-  it('should render all 2 navigation items', () => {
+  it('should render all 6 navigation items', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(2)
+    expect(buttons).toHaveLength(6)
   })
 
   it('should update active state when activeView prop changes', () => {
@@ -139,7 +143,7 @@ describe('Sidebar', () => {
     const onViewChange = vi.fn()
     render(<Sidebar activeView="resources" onViewChange={onViewChange} />)
 
-    const labels = ['Resources', 'Console']
+    const labels = ['Resources', 'Console', 'Environment', 'Actions', 'Metrics', 'Dependencies']
     
     labels.forEach(label => {
       const element = screen.getByText(label)

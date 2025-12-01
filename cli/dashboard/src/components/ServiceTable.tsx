@@ -5,10 +5,11 @@ import type { Service, HealthReportEvent } from '@/types'
 interface ServiceTableProps {
   services: Service[]
   onViewLogs?: (serviceName: string) => void
+  onServiceClick?: (service: Service) => void
   healthReport?: HealthReportEvent | null
 }
 
-export function ServiceTable({ services, onViewLogs, healthReport }: ServiceTableProps) {
+export function ServiceTable({ services, onViewLogs, onServiceClick, healthReport }: ServiceTableProps) {
   // Helper to get health status for a specific service
   const getServiceHealth = (serviceName: string) => {
     return healthReport?.services.find(s => s.serviceName === serviceName)
@@ -37,6 +38,7 @@ export function ServiceTable({ services, onViewLogs, healthReport }: ServiceTabl
               key={service.name} 
               service={service}
               onViewLogs={onViewLogs}
+              onClick={onServiceClick ? () => onServiceClick(service) : undefined}
               healthStatus={getServiceHealth(service.name)}
             />
           ))}

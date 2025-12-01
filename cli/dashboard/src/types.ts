@@ -38,6 +38,12 @@ export interface AzureServiceInfo {
   url?: string
   resourceName?: string
   imageName?: string
+  resourceType?: string  // containerapp, appservice, function, etc.
+  resourceGroup?: string
+  location?: string
+  subscriptionId?: string
+  logAnalyticsId?: string
+  containerAppEnvId?: string
 }
 
 export interface Service {

@@ -8,10 +8,11 @@ import type { Service, HealthCheckResult } from '@/types'
 interface ServiceTableRowProps {
   service: Service
   onViewLogs?: (serviceName: string) => void
+  onClick?: () => void
   healthStatus?: HealthCheckResult
 }
 
-export function ServiceTableRow({ service, onViewLogs, healthStatus }: ServiceTableRowProps) {
+export function ServiceTableRow({ service, onViewLogs, onClick, healthStatus }: ServiceTableRowProps) {
   // Get status and health - prefer real-time health data, fall back to local
   const status = service.local?.status || service.status || 'not-running'
   // Use real-time health from stream if available
@@ -27,7 +28,10 @@ export function ServiceTableRow({ service, onViewLogs, healthStatus }: ServiceTa
   const isHealthy = (status === 'ready' || status === 'running') && health === 'healthy'
 
   return (
-    <TableRow>
+    <TableRow 
+      className={onClick ? 'cursor-pointer' : undefined}
+      onClick={onClick}
+    >
       {/* Name Column */}
       <TableCell className="font-medium">
         <div className="flex items-center gap-3">
