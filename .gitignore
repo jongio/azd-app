@@ -89,6 +89,9 @@ web/dist/pagefind/
 playwright-report/
 test-results/
 
+# Playwright snapshots (platform-specific)
+**/*.spec.ts-snapshots/
+
 # Demo project - preserve its own lockfile
 !cli/demo/api/package-lock.json
 

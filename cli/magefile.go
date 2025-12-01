@@ -4,11 +4,13 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -21,6 +23,7 @@ const (
 	coverageDir        = "coverage"
 	extensionFile      = "extension.yaml"
 	dashboardDir       = "dashboard"
+	websiteDir         = "../web"
 	defaultTestTimeout = "10m"
 	extensionID        = "jongio.azd.app"
 )
@@ -505,7 +508,19 @@ func CheckDeps() error {
 		fmt.Println("   " + strings.ReplaceAll(pnpmOutput, "\n", "\n   "))
 		hasIssues = true
 	} else {
-		fmt.Println("   ✅ All pnpm packages are up to date!")
+		fmt.Println("   ✅ All dashboard pnpm packages are up to date!")
+	}
+	fmt.Println()
+
+	// Check pnpm package updates for website
+	fmt.Println("📦 Checking website pnpm packages for updates...")
+	websitePnpmOutput, _ := sh.Output("pnpm", "outdated", "--dir", websiteDir)
+	if websitePnpmOutput != "" {
+		fmt.Println("   Available pnpm package updates:")
+		fmt.Println("   " + strings.ReplaceAll(websitePnpmOutput, "\n", "\n   "))
+		hasIssues = true
+	} else {
+		fmt.Println("   ✅ All website pnpm packages are up to date!")
 	}
 	fmt.Println()
 
@@ -528,7 +543,8 @@ func CheckDeps() error {
 
 	if hasIssues {
 		fmt.Println("💡 Tip: Run 'go get -u ./...' to update Go modules")
-		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update pnpm packages")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update dashboard packages")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir ../web' to update website packages")
 		fmt.Println("⚠️  Dependency updates available (continuing with preflight)")
 	} else {
 		fmt.Println("✅ All dependencies are up to date!")
@@ -704,6 +720,9 @@ func Preflight() error {
 		{"Linting dashboard", DashboardLint},
 		{"Running dashboard unit tests", DashboardTest},
 		{"Running dashboard E2E tests", DashboardTestE2E},
+		{"Validating website CLI docs", WebsiteValidate},
+		{"Building website", WebsiteBuild},
+		{"Running website E2E tests", WebsiteTestE2E},
 		{"Building Go binary", Build},
 		{"Running go vet", Vet},
 		{"Running staticcheck", Staticcheck},
@@ -864,6 +883,172 @@ func DashboardTestE2E() error {
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
 	return sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev")
+}
+
+// ============================================================================
+// Website (Astro marketing site) targets
+// ============================================================================
+
+// WebsiteBuild builds the Astro website with validation and code generation.
+// Runs: validate CLI docs, generate CLI reference, generate changelog, then build.
+func WebsiteBuild() error {
+	fmt.Println("Building website...")
+
+	// Install dependencies
+	fmt.Println("Installing website dependencies...")
+	if err := sh.RunV("pnpm", "install", "--dir", websiteDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+
+	// Run build (which includes prebuild: validate, generate:cli, generate:changelog)
+	fmt.Println("Building Astro site...")
+	if err := sh.RunV("pnpm", "--dir", websiteDir, "run", "build"); err != nil {
+		return fmt.Errorf("website build failed: %w", err)
+	}
+
+	fmt.Println("✅ Website build complete!")
+	return nil
+}
+
+// WebsiteValidate validates that CLI command documentation matches actual commands.
+func WebsiteValidate() error {
+	fmt.Println("Validating website CLI documentation...")
+
+	// Install dependencies first
+	if err := sh.RunV("pnpm", "install", "--dir", websiteDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+
+	// Run validation script
+	if err := sh.RunV("pnpm", "--dir", websiteDir, "run", "validate"); err != nil {
+		return fmt.Errorf("website CLI validation failed: %w", err)
+	}
+
+	fmt.Println("✅ Website CLI documentation is valid!")
+	return nil
+}
+
+// WebsiteTestE2EUpdateSnapshots runs the website E2E tests and updates snapshots.
+func WebsiteTestE2EUpdateSnapshots() error {
+	return runWebsiteE2ETests(true)
+}
+
+// WebsiteTestE2E runs the website E2E tests with Playwright.
+func WebsiteTestE2E() error {
+	return runWebsiteE2ETests(false)
+}
+
+// runWebsiteE2ETests is the shared implementation for E2E tests.
+func runWebsiteE2ETests(updateSnapshots bool) error {
+	if updateSnapshots {
+		fmt.Println("Running website E2E tests (updating snapshots)...")
+	} else {
+		fmt.Println("Running website E2E tests...")
+	}
+
+	// Change to website directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
+		}
+	}()
+
+	if err := os.Chdir(websiteDir); err != nil {
+		return fmt.Errorf("failed to change to website directory: %w", err)
+	}
+
+	// Install Playwright browsers
+	fmt.Println("Installing Playwright browsers (if needed)...")
+	if err := sh.RunV("npx", "playwright", "install", "--with-deps", "chromium"); err != nil {
+		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
+	}
+
+	// Start the preview server in the background
+	fmt.Println("Starting preview server...")
+	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd.Dir = "."
+	serverCmd.Stdout = os.Stdout
+	serverCmd.Stderr = os.Stderr
+	if err := serverCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start preview server: %w", err)
+	}
+	defer func() {
+		if serverCmd.Process != nil {
+			_ = serverCmd.Process.Kill()
+		}
+	}()
+
+	// Wait for server to be ready
+	fmt.Println("Waiting for server to be ready...")
+	serverReady := false
+	for i := 0; i < 30; i++ {
+		resp, err := http.Get("http://localhost:4321/azd-app/")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				serverReady = true
+				break
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !serverReady {
+		return fmt.Errorf("server did not become ready within 30 seconds")
+	}
+	fmt.Println("Server is ready!")
+
+	// Run playwright tests
+	args := []string{"playwright", "test", "--reporter=line", "--project=chromium"}
+	if updateSnapshots {
+		args = append(args, "--update-snapshots")
+	}
+	if err := sh.RunV("npx", args...); err != nil {
+		return fmt.Errorf("website E2E tests failed: %w", err)
+	}
+
+	fmt.Println("✅ Website E2E tests passed!")
+	return nil
+}
+
+// WebsiteDev runs the website in development mode with hot reload.
+func WebsiteDev() error {
+	fmt.Println("Starting website development server...")
+	return sh.RunV("pnpm", "--dir", websiteDir, "run", "dev")
+}
+
+// WebsitePreview runs the website in preview mode (production build served locally).
+func WebsitePreview() error {
+	fmt.Println("Starting website preview server...")
+
+	// Build first
+	if err := WebsiteBuild(); err != nil {
+		return err
+	}
+
+	return sh.RunV("pnpm", "--dir", websiteDir, "run", "preview")
+}
+
+// WebsiteScreenshots captures dashboard screenshots for the marketing website.
+// Requires the demo project to be running with azd app run.
+func WebsiteScreenshots() error {
+	fmt.Println("Capturing dashboard screenshots...")
+
+	// Install dependencies first
+	if err := sh.RunV("pnpm", "install", "--dir", websiteDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+
+	// Run screenshot capture script
+	if err := sh.RunV("pnpm", "--dir", websiteDir, "run", "screenshots"); err != nil {
+		return fmt.Errorf("screenshot capture failed: %w", err)
+	}
+
+	fmt.Println("✅ Screenshots captured!")
+	return nil
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).
