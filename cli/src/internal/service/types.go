@@ -12,13 +12,13 @@ import (
 
 // AzureYaml represents the parsed azure.yaml file.
 type AzureYaml struct {
-	Name      string                 `yaml:"name"`
-	Services  map[string]Service     `yaml:"services"`
-	Resources map[string]Resource    `yaml:"resources"`
-	Metadata  map[string]interface{} `yaml:"metadata,omitempty"`
-	Hooks     *Hooks                 `yaml:"hooks,omitempty"`
-	Dashboard *DashboardConfig       `yaml:"dashboard,omitempty"`
-	Logs      *LogsConfig            `yaml:"logs,omitempty"` // Project-level logging configuration
+	Name      string              `yaml:"name"`
+	Services  map[string]Service  `yaml:"services"`
+	Resources map[string]Resource `yaml:"resources"`
+	Metadata  map[string]any      `yaml:"metadata,omitempty"`
+	Hooks     *Hooks              `yaml:"hooks,omitempty"`
+	Dashboard *DashboardConfig    `yaml:"dashboard,omitempty"`
+	Logs      *LogsConfig         `yaml:"logs,omitempty"` // Project-level logging configuration
 }
 
 // DashboardConfig represents dashboard configuration in azure.yaml.
@@ -55,7 +55,7 @@ type serviceRaw struct {
 	Environment Environment   `yaml:"environment,omitempty"`
 	Uses        []string      `yaml:"uses,omitempty"`
 	Logs        *LogsConfig   `yaml:"logs,omitempty"`
-	Healthcheck interface{}   `yaml:"healthcheck,omitempty"`
+	Healthcheck any           `yaml:"healthcheck,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
@@ -86,7 +86,7 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			// Create a HealthcheckConfig with Disable: true to match the behavior
 			s.Healthcheck = &HealthcheckConfig{Disable: true}
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		// healthcheck: { ... } - use standard unmarshaling
 		// Need to re-unmarshal just the healthcheck field
 		var hc HealthcheckConfig
@@ -145,7 +145,7 @@ type HealthcheckConfig struct {
 	//   - ["CMD", "curl", "-f", "http://localhost/health"]
 	//   - ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
 	//   - ["NONE"] (disable health check)
-	Test interface{} `yaml:"test,omitempty"`
+	Test any `yaml:"test,omitempty"`
 
 	// Type specifies the health check method: "http", "tcp", "process", "output", or "none".
 	// - "http": Check an HTTP endpoint (default)
@@ -206,7 +206,7 @@ func (h *HealthcheckConfig) IsDisabled() bool {
 
 	// Check test: ["NONE"]
 	switch t := h.Test.(type) {
-	case []interface{}:
+	case []any:
 		if len(t) > 0 {
 			if str, ok := t[0].(string); ok && str == "NONE" {
 				return true
@@ -278,7 +278,7 @@ func (e *Environment) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	// Try array format: ["KEY=value"] or [{name: "KEY", value: "val"}]
-	var envArray []interface{}
+	var envArray []any
 	if err := unmarshal(&envArray); err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func (e *Environment) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				// KEY without value means empty string
 				(*e)[parts[0]] = ""
 			}
-		case map[string]interface{}:
+		case map[string]any:
 			// Object format: {name: "KEY", value: "val", secret: "secret"}
 			name, hasName := v["name"].(string)
 			if !hasName {

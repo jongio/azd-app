@@ -24,10 +24,10 @@ other: data
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item3", "value": "baz"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n" +
 					indent + "  value: " + item["value"].(string) + "\n"
 			},
@@ -65,10 +65,10 @@ items:
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item1", "value": "duplicate"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n"
 			},
 		}
@@ -101,10 +101,10 @@ items:
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item3", "value": "baz"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n" +
 					indent + "  value: " + item["value"].(string) + "\n"
 			},
@@ -133,10 +133,10 @@ other: data
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item1", "value": "foo"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n" +
 					indent + "  value: " + item["value"].(string) + "\n"
 			},
@@ -164,10 +164,10 @@ other: data
 		opts := ArrayAppendOptions{
 			SectionKey: "missing",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item1", "value": "test"},
 			},
-			FormatItem: func(item map[string]interface{}, arrayIndent string) string {
+			FormatItem: func(item map[string]any, arrayIndent string) string {
 				return fmt.Sprintf("%s- id: %s\n%s  value: %s\n",
 					arrayIndent, item["id"], arrayIndent, item["value"])
 			},
@@ -202,12 +202,12 @@ items:
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item2", "value": "b"},
 				{"id": "item3", "value": "c"},
 				{"id": "item4", "value": "d"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n" +
 					indent + "  value: " + item["value"].(string) + "\n"
 			},
@@ -246,10 +246,10 @@ other: data
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item2", "value": "bar"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n" +
 					indent + "  value: " + item["value"].(string) + "\n"
 			},
@@ -296,11 +296,11 @@ items:
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item1"},
 				{"id": "item2"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n"
 			},
 		}
@@ -337,10 +337,10 @@ version: 1.0
 		opts := ArrayAppendOptions{
 			SectionKey: "items",
 			ItemIDKey:  "id",
-			Items: []map[string]interface{}{
+			Items: []map[string]any{
 				{"id": "item2"},
 			},
-			FormatItem: func(item map[string]interface{}, indent string) string {
+			FormatItem: func(item map[string]any, indent string) string {
 				return indent + "- id: " + item["id"].(string) + "\n"
 			},
 		}

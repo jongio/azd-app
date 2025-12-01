@@ -20,14 +20,17 @@ export interface LanguageBadgeStyle {
  * Group services by their language/technology
  */
 export function groupServicesByLanguage(services: Service[]): GroupedServices {
-  return services.reduce((groups, service) => {
-    const language = normalizeLanguage(service.language || 'Other')
-    if (!groups[language]) {
-      groups[language] = []
+  const groups = new Map<string, Service[]>()
+  for (const service of services) {
+    const language = normalizeLanguage(service.language ?? 'Other')
+    const existing = groups.get(language)
+    if (existing) {
+      existing.push(service)
+    } else {
+      groups.set(language, [service])
     }
-    groups[language].push(service)
-    return groups
-  }, {} as GroupedServices)
+  }
+  return Object.fromEntries(groups)
 }
 
 /**
@@ -35,7 +38,7 @@ export function groupServicesByLanguage(services: Service[]): GroupedServices {
  */
 export function normalizeLanguage(language: string): string {
   const normalized = language.toLowerCase()
-  const languageMap: Record<string, string> = {
+  const languageMap = {
     ts: 'TypeScript',
     typescript: 'TypeScript',
     js: 'JavaScript',
@@ -51,15 +54,15 @@ export function normalizeLanguage(language: string): string {
     csharp: 'C#',
     dotnet: '.NET',
     '.net': '.NET',
-  }
-  return languageMap[normalized] || language
+  } as const satisfies Record<string, string>
+  return languageMap[normalized as keyof typeof languageMap] ?? language
 }
 
 /**
  * Get badge styling for a language
  */
 export function getLanguageBadgeStyle(language: string): LanguageBadgeStyle {
-  const styles: Record<string, LanguageBadgeStyle> = {
+  const styles = {
     TypeScript: { bg: 'bg-blue-500/10', text: 'text-blue-500', abbr: 'TS' },
     JavaScript: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', abbr: 'JS' },
     Python: { bg: 'bg-green-500/10', text: 'text-green-500', abbr: 'PY' },
@@ -68,15 +71,15 @@ export function getLanguageBadgeStyle(language: string): LanguageBadgeStyle {
     Java: { bg: 'bg-red-500/10', text: 'text-red-500', abbr: 'JV' },
     'C#': { bg: 'bg-purple-500/10', text: 'text-purple-500', abbr: 'C#' },
     '.NET': { bg: 'bg-purple-500/10', text: 'text-purple-500', abbr: '.N' },
-  }
-  return styles[language] || { bg: 'bg-gray-500/10', text: 'text-gray-500', abbr: '??' }
+  } as const satisfies Record<string, LanguageBadgeStyle>
+  return styles[language as keyof typeof styles] ?? { bg: 'bg-gray-500/10', text: 'text-gray-500', abbr: '??' }
 }
 
 /**
  * Count environment variables for a service
  */
 export function countEnvVars(service: Service): number {
-  return Object.keys(service.environmentVariables || {}).length
+  return Object.keys(service.environmentVariables ?? {}).length
 }
 
 /**

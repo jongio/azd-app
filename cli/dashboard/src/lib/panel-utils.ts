@@ -29,7 +29,7 @@ export function formatUptime(startTime?: string): string {
 export function formatTimestamp(timestamp?: string): string {
   if (!timestamp) return 'N/A'
   const date = new Date(timestamp)
-  if (isNaN(date.getTime())) return 'N/A'
+  if (Number.isNaN(date.getTime())) return 'N/A'
   return date.toLocaleString()
 }
 
@@ -37,7 +37,7 @@ export function formatTimestamp(timestamp?: string): string {
  * Get text color for service status
  */
 export function getStatusColor(status?: string): string {
-  const colors: Record<string, string> = {
+  const colors = {
     running: 'text-green-500',
     ready: 'text-green-500',
     starting: 'text-yellow-500',
@@ -45,22 +45,22 @@ export function getStatusColor(status?: string): string {
     stopped: 'text-gray-500',
     error: 'text-red-500',
     'not-running': 'text-gray-500',
-  }
-  return colors[status || 'not-running'] || 'text-gray-500'
+  } as const satisfies Record<string, string>
+  return colors[status as keyof typeof colors] ?? colors['not-running']
 }
 
 /**
  * Get text color for health status
  */
 export function getHealthColor(health?: string): string {
-  const colors: Record<string, string> = {
+  const colors = {
     healthy: 'text-green-500',
     degraded: 'text-yellow-500',
     unhealthy: 'text-red-500',
     starting: 'text-yellow-500',
     unknown: 'text-gray-500',
-  }
-  return colors[health || 'unknown'] || 'text-gray-500'
+  } as const satisfies Record<string, string>
+  return colors[health as keyof typeof colors] ?? colors.unknown
 }
 
 /**
@@ -119,23 +119,24 @@ export function maskValue(value: string): string {
 export function formatResourceType(resourceType?: string): string {
   if (!resourceType) return 'Unknown'
   
-  const typeMap: Record<string, string> = {
+  const typeMap = {
     containerapp: 'Container App',
     appservice: 'App Service',
     webapp: 'Web App',
     function: 'Function App',
     aks: 'Kubernetes Service',
     staticwebapp: 'Static Web App',
-  }
+  } as const satisfies Record<string, string>
   
-  return typeMap[resourceType.toLowerCase()] || resourceType
+  const key = resourceType.toLowerCase() as keyof typeof typeMap
+  return typeMap[key] ?? resourceType
 }
 
 /**
  * Get status display with indicator
  */
 export function getStatusDisplay(status?: string): { text: string; indicator: string } {
-  const displays: Record<string, { text: string; indicator: string }> = {
+  const displays = {
     running: { text: 'Running', indicator: '●' },
     ready: { text: 'Ready', indicator: '●' },
     starting: { text: 'Starting', indicator: '◐' },
@@ -143,22 +144,24 @@ export function getStatusDisplay(status?: string): { text: string; indicator: st
     stopped: { text: 'Stopped', indicator: '◉' },
     error: { text: 'Error', indicator: '⚠' },
     'not-running': { text: 'Not Running', indicator: '○' },
-  }
-  return displays[status || 'not-running'] || displays['not-running']
+  } as const satisfies Record<string, { text: string; indicator: string }>
+  const key = (status ?? 'not-running') as keyof typeof displays
+  return displays[key] ?? displays['not-running']
 }
 
 /**
  * Get health display with indicator
  */
 export function getHealthDisplay(health?: string): { text: string; indicator: string } {
-  const displays: Record<string, { text: string; indicator: string }> = {
+  const displays = {
     healthy: { text: 'Healthy', indicator: '●' },
     degraded: { text: 'Degraded', indicator: '◐' },
     unhealthy: { text: 'Unhealthy', indicator: '●' },
     starting: { text: 'Starting', indicator: '◐' },
     unknown: { text: 'Unknown', indicator: '○' },
-  }
-  return displays[health || 'unknown'] || displays['unknown']
+  } as const satisfies Record<string, { text: string; indicator: string }>
+  const key = (health ?? 'unknown') as keyof typeof displays
+  return displays[key] ?? displays.unknown
 }
 
 /**
@@ -167,14 +170,15 @@ export function getHealthDisplay(health?: string): { text: string; indicator: st
 export function formatCheckType(checkType?: string): string {
   if (!checkType) return 'Unknown'
   
-  const typeMap: Record<string, string> = {
+  const typeMap = {
     http: 'HTTP',
     port: 'Port',
     process: 'Process',
     tcp: 'TCP',
-  }
+  } as const satisfies Record<string, string>
   
-  return typeMap[checkType.toLowerCase()] || checkType
+  const key = checkType.toLowerCase() as keyof typeof typeMap
+  return typeMap[key] ?? checkType
 }
 
 /**

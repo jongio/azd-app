@@ -108,7 +108,7 @@ export function LogsPane({
         const res = await fetch(`/api/logs?service=${serviceName}&tail=500`)
         if (res.ok) {
           const data = await res.json() as LogEntry[]
-          setLogs(data || [])
+          setLogs(data ?? [])
         }
       } catch (err) {
         console.error(`Failed to fetch logs for ${serviceName}:`, err)
@@ -465,10 +465,10 @@ export function LogsPane({
                   
                   <div className="flex-1 min-w-0 select-text">
                     <span className="text-muted-foreground text-xs">
-                      [{formatLogTimestamp(log?.timestamp || '')}]
+                      [{formatLogTimestamp(log.timestamp ?? '')}]
                     </span>
                     {' '}
-                    <span dangerouslySetInnerHTML={{ __html: convertAnsiToHtml(log?.message || '') }} />
+                    <span dangerouslySetInnerHTML={{ __html: convertAnsiToHtml(log.message ?? '') }} />
                   </div>
                   
                   {/* Copy button - appears on hover */}

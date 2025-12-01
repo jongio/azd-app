@@ -27,7 +27,7 @@ export interface StatusIndicator {
  * Returns icon, color class, and animation class for status dots/icons
  */
 export function getStatusIndicator(status?: string): StatusIndicator {
-  const indicators: Record<string, StatusIndicator> = {
+  const indicators = {
     running: { icon: '●', color: 'text-green-500', animate: 'animate-pulse' },
     ready: { icon: '●', color: 'text-green-500', animate: '' },
     starting: { icon: '◐', color: 'text-yellow-500', animate: 'animate-spin' },
@@ -36,8 +36,8 @@ export function getStatusIndicator(status?: string): StatusIndicator {
     stopped: { icon: '◉', color: 'text-gray-400', animate: '' },
     error: { icon: '⚠', color: 'text-red-500', animate: 'animate-pulse' },
     'not-running': { icon: '○', color: 'text-gray-500', animate: '' },
-  }
-  return indicators[status || 'not-running'] || indicators['not-running']
+  } as const satisfies Record<string, StatusIndicator>
+  return indicators[status as keyof typeof indicators] ?? indicators['not-running']
 }
 
 /**
@@ -157,7 +157,7 @@ export interface StatusBadgeConfig {
  * Used for Badge components in tables and cards
  */
 export function getStatusBadgeConfig(status?: string): StatusBadgeConfig {
-  const configs: Record<string, StatusBadgeConfig> = {
+  const configs = {
     running: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '●', label: 'Running' },
     ready: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '●', label: 'Ready' },
     starting: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', icon: '◐', label: 'Starting' },
@@ -166,8 +166,8 @@ export function getStatusBadgeConfig(status?: string): StatusBadgeConfig {
     stopped: { color: 'bg-gray-400/10 text-gray-400 border-gray-400/20', icon: '◉', label: 'Stopped' },
     error: { color: 'bg-red-500/10 text-red-500 border-red-500/20', icon: '⚠', label: 'Error' },
     'not-running': { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', icon: '○', label: 'Not Running' },
-  }
-  return configs[status || 'not-running'] || configs['not-running']
+  } as const satisfies Record<string, StatusBadgeConfig>
+  return configs[status as keyof typeof configs] ?? configs['not-running']
 }
 
 /**
@@ -183,14 +183,14 @@ export interface HealthBadgeConfig {
  * Used for Badge components in tables and cards
  */
 export function getHealthBadgeConfig(health?: string): HealthBadgeConfig {
-  const configs: Record<string, HealthBadgeConfig> = {
+  const configs = {
     healthy: { color: 'bg-green-500/10 text-green-500 border-green-500/20', label: 'Healthy' },
     degraded: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', label: 'Degraded' },
     unhealthy: { color: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'Unhealthy' },
     starting: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', label: 'Starting' },
     unknown: { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', label: 'Unknown' },
-  }
-  return configs[health || 'unknown'] || configs['unknown']
+  } as const satisfies Record<string, HealthBadgeConfig>
+  return configs[health as keyof typeof configs] ?? configs['unknown']
 }
 
 /**
@@ -219,8 +219,8 @@ export function getEffectiveStatus(
   }
   
   return {
-    status: service.local?.status || service.status || 'not-running',
-    health: service.local?.health || service.health || 'unknown'
+    status: service.local?.status ?? service.status ?? 'not-running',
+    health: service.local?.health ?? service.health ?? 'unknown'
   }
 }
 
@@ -367,7 +367,7 @@ export function formatStartTime(timeStr?: string): string {
   if (!timeStr) return '-'
   try {
     const date = new Date(timeStr)
-    if (isNaN(date.getTime())) {
+    if (Number.isNaN(date.getTime())) {
       return timeStr
     }
     return date.toLocaleTimeString('en-US', { 
@@ -429,16 +429,12 @@ export function formatUptime(nanos?: number): string {
  * Get health check type display text
  */
 export function getCheckTypeDisplay(checkType?: string): string {
-  switch (checkType) {
-    case 'http':
-      return 'HTTP'
-    case 'port':
-      return 'Port'
-    case 'process':
-      return 'Process'
-    default:
-      return 'Unknown'
-  }
+  const displayMap = {
+    http: 'HTTP',
+    port: 'Port',
+    process: 'Process',
+  } as const
+  return displayMap[checkType as keyof typeof displayMap] ?? 'Unknown'
 }
 
 /** Visual status type for UI styling */

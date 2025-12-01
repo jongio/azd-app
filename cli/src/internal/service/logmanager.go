@@ -2,6 +2,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -207,10 +208,7 @@ func (lm *LogManager) Clear() error {
 
 	lm.buffers = make(map[string]*LogBuffer)
 
-	if len(errs) > 0 {
-		return fmt.Errorf("errors while clearing buffers: %v", errs)
-	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // ClearBuffer clears the entries in a specific service's buffer without removing it.

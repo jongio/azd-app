@@ -62,7 +62,15 @@ describe('shortcuts-utils', () => {
 
     it('should return true on Mac platform', () => {
       Object.defineProperty(global, 'navigator', {
-        value: { platform: 'MacIntel' },
+        value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+        writable: true,
+      })
+      expect(isMacPlatform()).toBe(true)
+    })
+
+    it('should return true on Mac when using userAgentData API', () => {
+      Object.defineProperty(global, 'navigator', {
+        value: { userAgentData: { platform: 'macOS' }, userAgent: '' },
         writable: true,
       })
       expect(isMacPlatform()).toBe(true)
@@ -70,7 +78,7 @@ describe('shortcuts-utils', () => {
 
     it('should return false on Windows platform', () => {
       Object.defineProperty(global, 'navigator', {
-        value: { platform: 'Win32' },
+        value: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         writable: true,
       })
       expect(isMacPlatform()).toBe(false)
@@ -78,7 +86,7 @@ describe('shortcuts-utils', () => {
 
     it('should return false on Linux platform', () => {
       Object.defineProperty(global, 'navigator', {
-        value: { platform: 'Linux' },
+        value: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
         writable: true,
       })
       expect(isMacPlatform()).toBe(false)
@@ -91,7 +99,7 @@ describe('shortcuts-utils', () => {
     beforeEach(() => {
       // Default to non-Mac for tests
       Object.defineProperty(global, 'navigator', {
-        value: { platform: 'Win32' },
+        value: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         writable: true,
       })
     })
@@ -116,7 +124,7 @@ describe('shortcuts-utils', () => {
 
     it('should replace Ctrl with ⌘ on Mac', () => {
       Object.defineProperty(global, 'navigator', {
-        value: { platform: 'MacIntel' },
+        value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
         writable: true,
       })
       expect(formatKey('Ctrl+F')).toBe('⌘F')
@@ -129,7 +137,7 @@ describe('shortcuts-utils', () => {
 
     it('should replace Alt with ⌥ on Mac', () => {
       Object.defineProperty(global, 'navigator', {
-        value: { platform: 'MacIntel' },
+        value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
         writable: true,
       })
       expect(formatKey('Alt+Tab')).toBe('⌥Tab')

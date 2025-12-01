@@ -15,7 +15,7 @@ export const LOG_LEVELS = {
   ERROR: 3,
 } as const
 
-export type LogLevel = typeof LOG_LEVELS[keyof typeof LOG_LEVELS]
+export type LogLevel = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS]
 export type LogLevelName = 'info' | 'warning' | 'error'
 
 /** Maximum number of logs to keep in memory per pane */
@@ -133,24 +133,16 @@ export function getLogLevel(
   isStderr?: boolean
 ): LogLevelName {
   // Check stderr and explicit error level first
-  if (isStderr || numericLevel === LOG_LEVELS.ERROR) {
-    return 'error'
-  }
+  if (isStderr || numericLevel === LOG_LEVELS.ERROR) return 'error'
   
   // Check message content for errors
-  if (isErrorLine(message)) {
-    return 'error'
-  }
+  if (isErrorLine(message)) return 'error'
   
   // Check explicit warning level
-  if (numericLevel === LOG_LEVELS.WARNING) {
-    return 'warning'
-  }
+  if (numericLevel === LOG_LEVELS.WARNING) return 'warning'
   
   // Check message content for warnings
-  if (isWarningLine(message)) {
-    return 'warning'
-  }
+  if (isWarningLine(message)) return 'warning'
   
   return 'info'
 }
@@ -173,7 +165,7 @@ const SERVICE_COLORS = [
   'text-fuchsia-400',
   'text-sky-400',
   'text-violet-400',
-]
+] as const satisfies readonly string[]
 
 /**
  * Gets a consistent color class for a service name.

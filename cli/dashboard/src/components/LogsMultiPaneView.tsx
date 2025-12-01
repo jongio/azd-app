@@ -15,7 +15,7 @@ const HEALTH_FILTER_KEY = 'logs-health-status-filter'
 const COLLAPSED_PANES_KEY = 'logs-pane-collapsed-states'
 
 // Valid health statuses
-const VALID_HEALTH_STATUSES: readonly HealthStatus[] = ['healthy', 'degraded', 'unhealthy', 'starting', 'unknown']
+const VALID_HEALTH_STATUSES = ['healthy', 'degraded', 'unhealthy', 'starting', 'unknown'] as const satisfies readonly HealthStatus[]
 
 // Validator for health filter array
 const isValidHealthFilterArray = createStringArrayValidator(VALID_HEALTH_STATUSES)
