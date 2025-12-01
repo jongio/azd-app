@@ -132,7 +132,7 @@ export function useServiceOperations() {
       )
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string }
+        const errorData = await response.json().catch(() => ({})) as { error?: string }
         throw new Error(errorData.error ?? `Failed to ${operation} service`)
       }
 
@@ -193,7 +193,7 @@ export function useServiceOperations() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string }
+        const errorData = await response.json().catch(() => ({})) as { error?: string }
         throw new Error(errorData.error ?? `Failed to ${operation} all services`)
       }
 

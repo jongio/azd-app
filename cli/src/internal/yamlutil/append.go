@@ -9,10 +9,10 @@ import (
 
 // ArrayAppendOptions configures how array items should be appended to a YAML section.
 type ArrayAppendOptions struct {
-	SectionKey string                                      // The YAML key to find (e.g., "reqs")
-	Items      []map[string]interface{}                    // Items to append
-	ItemIDKey  string                                      // Key to use for deduplication (e.g., "id")
-	FormatItem func(map[string]interface{}, string) string // Custom formatter for items
+	SectionKey string                              // The YAML key to find (e.g., "reqs")
+	Items      []map[string]any                    // Items to append
+	ItemIDKey  string                              // Key to use for deduplication (e.g., "id")
+	FormatItem func(map[string]any, string) string // Custom formatter for items
 }
 
 // AppendToArraySection appends items to a YAML array section while preserving all
@@ -30,7 +30,7 @@ func AppendToArraySection(content string, opts ArrayAppendOptions) (string, int,
 	}
 
 	// Filter items to add (skip duplicates)
-	var toAdd []map[string]interface{}
+	var toAdd []map[string]any
 	for _, item := range opts.Items {
 		if id, ok := item[opts.ItemIDKey].(string); ok {
 			if !existingIDs[id] {
@@ -64,7 +64,7 @@ func AppendToArraySection(content string, opts ArrayAppendOptions) (string, int,
 }
 
 // appendNewSection creates a new section at the end of the file with the specified items.
-func appendNewSection(content string, opts ArrayAppendOptions, items []map[string]interface{}) (string, int, error) {
+func appendNewSection(content string, opts ArrayAppendOptions, items []map[string]any) (string, int, error) {
 	var builder strings.Builder
 	builder.WriteString(content)
 
@@ -98,16 +98,16 @@ type sectionInfo struct {
 
 // getExistingIDs parses the YAML to extract existing item IDs.
 func getExistingIDs(content, sectionKey, idKey string) (map[string]bool, error) {
-	var root map[string]interface{}
+	var root map[string]any
 	if err := yaml.Unmarshal([]byte(content), &root); err != nil {
 		return nil, err
 	}
 
 	existingIDs := make(map[string]bool)
 
-	if section, ok := root[sectionKey].([]interface{}); ok {
+	if section, ok := root[sectionKey].([]any); ok {
 		for _, item := range section {
-			if itemMap, ok := item.(map[string]interface{}); ok {
+			if itemMap, ok := item.(map[string]any); ok {
 				if id, ok := itemMap[idKey].(string); ok {
 					existingIDs[id] = true
 				}
@@ -226,7 +226,7 @@ func scanArrayItem(lines []string, startIdx int, arrayIndent string) int {
 }
 
 // buildItemsYaml generates YAML text for new items using the custom formatter.
-func buildItemsYaml(items []map[string]interface{}, arrayIndent string, formatter func(map[string]interface{}, string) string) string {
+func buildItemsYaml(items []map[string]any, arrayIndent string, formatter func(map[string]any, string) string) string {
 	var builder strings.Builder
 
 	for _, item := range items {

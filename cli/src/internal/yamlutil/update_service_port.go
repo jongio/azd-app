@@ -29,7 +29,7 @@ func UpdateServicePort(azureYamlPath, serviceName string, port int) error {
 
 	// Parse YAML to verify service exists
 	var azureYaml struct {
-		Services map[string]interface{} `yaml:"services"`
+		Services map[string]any `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)

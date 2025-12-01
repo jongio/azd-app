@@ -260,5 +260,5 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
     getLatestChange,
     clearChanges,
     reconnect,
-  }
+  } satisfies UseHealthStreamReturn
 }

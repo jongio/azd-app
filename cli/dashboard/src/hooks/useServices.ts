@@ -49,7 +49,7 @@ export function useServices() {
       const response = await fetch(`${API_BASE}/api/services`)
       if (!response.ok) throw new Error('Failed to fetch services')
       const data = await response.json() as Service[] | null
-      setServices(data || [])
+      setServices(data ?? [])
       setError(null)
       setUseMock(false)
     } catch {

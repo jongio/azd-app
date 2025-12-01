@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,8 +27,8 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", handleRoot)
-	mux.HandleFunc("/health", handleHealth)
+	mux.HandleFunc("GET /", handleRoot)
+	mux.HandleFunc("GET /health", handleHealth)
 
 	addr := fmt.Sprintf(":%s", port)
 	server := &http.Server{
@@ -41,9 +41,10 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Printf("Go API server starting on %s", addr)
+		slog.Info("Go API server starting", "addr", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			slog.Error("Server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -52,45 +53,34 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("Server shutdown error: %v", err)
+		slog.Error("Server shutdown error", "error", err)
 	}
 
-	log.Println("Server stopped")
+	slog.Info("Server stopped")
 }
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"message": "Hello from Go API!",
 		"status":  "running",
 	}); err != nil {
-		log.Printf("Error encoding response: %v", err)
+		slog.Error("Error encoding response", "error", err)
 	}
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status": "healthy",
 	}); err != nil {
-		log.Printf("Error encoding health response: %v", err)
+		slog.Error("Error encoding health response", "error", err)
 	}
 }

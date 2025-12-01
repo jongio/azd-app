@@ -23,7 +23,7 @@ export function ServiceTableRow({ service, onViewLogs, onClick, healthStatus }: 
   // Use real-time health from stream if available (but only when not in operation)
   const status = effectiveStatus as 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running' | 'restarting'
   const health = (operationState === 'idle' 
-    ? (healthStatus?.status || effectiveHealth) 
+    ? (healthStatus?.status ?? effectiveHealth) 
     : effectiveHealth) as HealthStatus
 
   const getStatusColor = (status: string, health: string) => {
@@ -67,14 +67,14 @@ export function ServiceTableRow({ service, onViewLogs, onClick, healthStatus }: 
 
       {/* Start Time Column */}
       <TableCell className="text-muted-foreground">
-        {formatStartTime(service.local?.startTime || service.startTime)}
+        {formatStartTime(service.local?.startTime ?? service.startTime)}
       </TableCell>
 
       {/* Source Column */}
       <TableCell className="max-w-[250px]">
-        <div className="truncate" title={service.project || service.framework || '-'}>
+        <div className="truncate" title={service.project ?? service.framework ?? '-'}>
           <span className="text-sm text-foreground/90">
-            {service.project || service.framework || '-'}
+            {service.project ?? service.framework ?? '-'}
           </span>
         </div>
       </TableCell>
