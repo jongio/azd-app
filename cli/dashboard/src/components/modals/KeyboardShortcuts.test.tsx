@@ -84,16 +84,10 @@ describe('KeyboardShortcuts', () => {
       expect(screen.getByText('4')).toBeInTheDocument()
     })
 
-    it('should display Actions view shortcut', () => {
-      render(<KeyboardShortcuts {...defaultProps} />)
-      expect(screen.getByText('Actions view')).toBeInTheDocument()
-      expect(screen.getByText('5')).toBeInTheDocument()
-    })
-
     it('should display Dependencies view shortcut', () => {
       render(<KeyboardShortcuts {...defaultProps} />)
       expect(screen.getByText('Dependencies view')).toBeInTheDocument()
-      expect(screen.getByText('6')).toBeInTheDocument()
+      expect(screen.getByText('5')).toBeInTheDocument()
     })
   })
 

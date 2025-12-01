@@ -504,3 +504,34 @@ func TestTryHTTPHealthCheck_Skips404(t *testing.T) {
 		t.Errorf("Expected healthy status, got %s (endpoint: %s)", result.Status, result.Endpoint)
 	}
 }
+
+func TestTryHTTPHealthCheck_Skips400BadRequest(t *testing.T) {
+	// Create a test server that returns 400 for all endpoints
+	// This simulates a non-HTTP service like Node.js inspector on a debug port
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Bad Request"))
+	}))
+	defer server.Close()
+
+	// Extract port from test server
+	_, portStr, _ := net.SplitHostPort(server.Listener.Addr().String())
+	port := 0
+	_, _ = fmt.Sscanf(portStr, "%d", &port)
+
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+
+	result := checker.tryHTTPHealthCheck(context.Background(), port)
+
+	// Should return nil since all endpoints returned 400 (not an HTTP service)
+	// This allows cascading to port/process check
+	if result != nil {
+		t.Errorf("Expected nil result for 400 responses (cascade to port check), got status: %s", result.Status)
+	}
+}

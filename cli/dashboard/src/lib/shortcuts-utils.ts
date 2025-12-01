@@ -19,8 +19,7 @@ export const shortcuts: Shortcut[] = [
   { key: '2', description: 'Console view', category: 'navigation' },
   { key: '3', description: 'Metrics view', category: 'navigation' },
   { key: '4', description: 'Environment view', category: 'navigation' },
-  { key: '5', description: 'Actions view', category: 'navigation' },
-  { key: '6', description: 'Dependencies view', category: 'navigation' },
+  { key: '5', description: 'Dependencies view', category: 'navigation' },
   
   // Actions
   { key: 'R', description: 'Refresh all services', category: 'actions' },
@@ -88,8 +87,7 @@ export const viewToKey: Record<string, string> = {
   console: '2',
   metrics: '3',
   environment: '4',
-  actions: '5',
-  dependencies: '6',
+  dependencies: '5',
 }
 
 /**
@@ -100,8 +98,7 @@ export const keyToView: Record<string, string> = {
   '2': 'console',
   '3': 'metrics',
   '4': 'environment',
-  '5': 'actions',
-  '6': 'dependencies',
+  '5': 'dependencies',
 }
 
 /**

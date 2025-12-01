@@ -8,7 +8,6 @@ import { Sidebar } from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ServiceStatusCard } from '@/components/ServiceStatusCard'
 import { EnvironmentPanel } from '@/components/EnvironmentPanel'
-import { QuickActions } from '@/components/views/QuickActions'
 import { PerformanceMetrics } from '@/components/views/PerformanceMetrics'
 import { ServiceDependencies } from '@/components/views/ServiceDependencies'
 import { ServiceDetailPanel } from '@/components/panels/ServiceDetailPanel'
@@ -265,17 +264,6 @@ function App() {
             <h2 className="text-xl font-semibold text-foreground">Environment</h2>
           </div>
           <EnvironmentPanel services={services} />
-        </>
-      )
-    }
-
-    if (activeView === 'actions') {
-      return (
-        <>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-foreground">Actions</h2>
-          </div>
-          <QuickActions services={services} />
         </>
       )
     }

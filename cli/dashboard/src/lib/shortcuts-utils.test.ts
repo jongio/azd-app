@@ -194,12 +194,8 @@ describe('shortcuts-utils', () => {
       expect(viewToKey.environment).toBe('4')
     })
 
-    it('should map actions to 5', () => {
-      expect(viewToKey.actions).toBe('5')
-    })
-
-    it('should map dependencies to 6', () => {
-      expect(viewToKey.dependencies).toBe('6')
+    it('should map dependencies to 5', () => {
+      expect(viewToKey.dependencies).toBe('5')
     })
   })
 
@@ -220,12 +216,8 @@ describe('shortcuts-utils', () => {
       expect(keyToView['4']).toBe('environment')
     })
 
-    it('should map 5 to actions', () => {
-      expect(keyToView['5']).toBe('actions')
-    })
-
-    it('should map 6 to dependencies', () => {
-      expect(keyToView['6']).toBe('dependencies')
+    it('should map 5 to dependencies', () => {
+      expect(keyToView['5']).toBe('dependencies')
     })
   })
 

@@ -112,8 +112,8 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
           <ServiceActions service={service} variant="default" />
         </div>
 
-        {/* Local URL Link (if available) */}
-        {service.local?.url && (
+        {/* Local URL Link (if available and not port 0) */}
+        {service.local?.url && !service.local.url.match(/:0\/?$/) && (
           <a 
             href={service.local.url} 
             target="_blank" 

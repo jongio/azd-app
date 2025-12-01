@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ServiceDependencies } from './ServiceDependencies'
 import type { Service } from '@/types'
 
@@ -341,6 +342,20 @@ describe('dependencies-utils', () => {
       expect(getServiceUrl(service)).toBeNull()
     })
 
+    it('returns null for services with port 0 (portless services)', () => {
+      const service = createService({
+        local: { status: 'running', health: 'healthy', port: 0 },
+      })
+      expect(getServiceUrl(service)).toBeNull()
+    })
+
+    it('returns null for services with localhost:0 URL', () => {
+      const service = createService({
+        local: { status: 'running', health: 'healthy', url: 'http://localhost:0' },
+      })
+      expect(getServiceUrl(service)).toBeNull()
+    })
+
     it('returns null for services without local info', () => {
       const service = createService({ local: undefined })
       expect(getServiceUrl(service)).toBeNull()
@@ -601,6 +616,105 @@ describe('ServiceDependencies', () => {
       render(<ServiceDependencies services={singleService} />)
       expect(screen.getByTestId('language-group-Kotlin')).toBeInTheDocument()
       expect(screen.getByText('(1 service)')).toBeInTheDocument()
+    })
+  })
+
+  describe('search and filter', () => {
+    it('renders search input', () => {
+      render(<ServiceDependencies services={mockServices} />)
+      expect(screen.getByTestId('service-search-input')).toBeInTheDocument()
+    })
+
+    it('renders filter button', () => {
+      render(<ServiceDependencies services={mockServices} />)
+      expect(screen.getByTestId('language-filter-button')).toBeInTheDocument()
+    })
+
+    it('filters services by search query', async () => {
+      render(<ServiceDependencies services={mockServices} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      // Initially all services visible
+      expect(screen.getByTestId('service-card-web')).toBeInTheDocument()
+      expect(screen.getByTestId('service-card-api')).toBeInTheDocument()
+
+      // Type search query
+      await userEvent.type(searchInput, 'web')
+
+      // Only matching service visible
+      expect(screen.getByTestId('service-card-web')).toBeInTheDocument()
+      expect(screen.queryByTestId('service-card-api')).not.toBeInTheDocument()
+    })
+
+    it('filters services by framework', async () => {
+      const servicesWithFrameworks = [
+        createService({ name: 'react-app', language: 'TypeScript', framework: 'React' }),
+        createService({ name: 'next-app', language: 'TypeScript', framework: 'Next.js' }),
+        createService({ name: 'flask-api', language: 'Python', framework: 'Flask' }),
+      ]
+      render(<ServiceDependencies services={servicesWithFrameworks} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      await userEvent.type(searchInput, 'react')
+
+      expect(screen.getByTestId('service-card-react-app')).toBeInTheDocument()
+      expect(screen.queryByTestId('service-card-next-app')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('service-card-flask-api')).not.toBeInTheDocument()
+    })
+
+    it('shows empty state when no services match filter', async () => {
+      render(<ServiceDependencies services={mockServices} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      await userEvent.type(searchInput, 'nonexistent')
+
+      expect(screen.getByText('No services match your filters')).toBeInTheDocument()
+    })
+
+    it('shows clear filters button when filters active', async () => {
+      render(<ServiceDependencies services={mockServices} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      // No clear button initially
+      expect(screen.queryByTestId('clear-filters-button')).not.toBeInTheDocument()
+
+      // Type search query
+      await userEvent.type(searchInput, 'web')
+
+      // Clear button appears
+      expect(screen.getByTestId('clear-filters-button')).toBeInTheDocument()
+    })
+
+    it('clears search when clear button clicked', async () => {
+      render(<ServiceDependencies services={mockServices} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      await userEvent.type(searchInput, 'web')
+      expect(screen.queryByTestId('service-card-api')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByTestId('clear-filters-button'))
+
+      // All services visible again
+      expect(screen.getByTestId('service-card-web')).toBeInTheDocument()
+      expect(screen.getByTestId('service-card-api')).toBeInTheDocument()
+    })
+
+    it('shows result count when filters active', async () => {
+      render(<ServiceDependencies services={mockServices} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      await userEvent.type(searchInput, 'web')
+
+      expect(screen.getByText(/Showing 1 of \d+ services/)).toBeInTheDocument()
+    })
+
+    it('search is case insensitive', async () => {
+      render(<ServiceDependencies services={mockServices} />)
+      const searchInput = screen.getByTestId('service-search-input')
+
+      await userEvent.type(searchInput, 'WEB')
+
+      expect(screen.getByTestId('service-card-web')).toBeInTheDocument()
     })
   })
 })

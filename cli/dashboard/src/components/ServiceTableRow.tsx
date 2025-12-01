@@ -73,7 +73,7 @@ export function ServiceTableRow({ service, onViewLogs, onClick, healthStatus }: 
 
       {/* Local URL Column */}
       <TableCell className="max-w-[200px]">
-        {service.local?.url ? (
+        {service.local?.url && !service.local.url.match(/:0\/?$/) ? (
           <a
             href={service.local.url}
             target="_blank"

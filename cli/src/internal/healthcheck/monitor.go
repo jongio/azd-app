@@ -1074,6 +1074,12 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 			continue
 		}
 
+		// Skip 400 Bad Request - likely not an HTTP endpoint (e.g., Node.js inspector, WebSocket)
+		// This allows cascading to port/process checks for debug ports
+		if resp.StatusCode == http.StatusBadRequest {
+			continue
+		}
+
 		// Found a responding endpoint
 		result := &httpHealthCheckResult{
 			Endpoint:     url,

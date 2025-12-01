@@ -114,15 +114,26 @@ export function sortGroupsBySize(groups: GroupedServices): [string, Service[]][]
 }
 
 /**
+ * Check if a URL is valid (not localhost:0 or similar invalid ports)
+ */
+function isValidUrl(url: string): boolean {
+  // Filter out URLs with port 0 (e.g., http://localhost:0)
+  if (url.match(/:0\/?$/)) {
+    return false
+  }
+  return true
+}
+
+/**
  * Get the local URL for a service
  */
 export function getServiceUrl(service: Service): string | null {
-  // Check for URL in local info
-  if (service.local?.url) {
+  // Check for URL in local info and validate it
+  if (service.local?.url && isValidUrl(service.local.url)) {
     return service.local.url
   }
-  // Build URL from port if available
-  if (service.local?.port) {
+  // Build URL from port if available (port must be > 0 to be valid)
+  if (service.local?.port && service.local.port > 0) {
     return `http://localhost:${service.local.port}`
   }
   return null

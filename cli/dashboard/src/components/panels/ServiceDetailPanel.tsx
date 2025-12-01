@@ -82,7 +82,9 @@ interface OverviewTabProps {
 function OverviewTab({ service, healthStatus }: OverviewTabProps) {
   const statusDisplay = getStatusDisplay(service.local?.status || service.status)
   const healthDisplay = getHealthDisplay(service.local?.health || service.health)
-  const localUrl = service.local?.url || (service.local?.port ? `http://localhost:${service.local.port}` : null)
+  // Build local URL, filtering out port 0 URLs (e.g., localhost:0)
+  const rawUrl = service.local?.url || (service.local?.port && service.local.port > 0 ? `http://localhost:${service.local.port}` : null)
+  const localUrl = rawUrl && !rawUrl.match(/:0\/?$/) ? rawUrl : null
   const isAzureDeployed = hasAzureDeployment(service)
   const azurePortalUrl = buildAzurePortalUrl(service)
 
@@ -188,7 +190,9 @@ interface LocalTabProps {
 function LocalTab({ service, healthStatus }: LocalTabProps) {
   const statusDisplay = getStatusDisplay(service.local?.status || service.status)
   const healthDisplay = getHealthDisplay(healthStatus?.status || service.local?.health || service.health)
-  const localUrl = service.local?.url || (service.local?.port ? `http://localhost:${service.local.port}` : null)
+  // Build local URL, filtering out port 0 URLs (e.g., localhost:0)
+  const rawUrl = service.local?.url || (service.local?.port && service.local.port > 0 ? `http://localhost:${service.local.port}` : null)
+  const localUrl = rawUrl && !rawUrl.match(/:0\/?$/) ? rawUrl : null
 
   return (
     <div data-testid="local-tab-content">

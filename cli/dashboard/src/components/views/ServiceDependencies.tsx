@@ -2,7 +2,7 @@
  * ServiceDependencies - Visualizes services grouped by language/technology
  */
 import * as React from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Search, Filter, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Service } from '@/types'
 import {
@@ -14,6 +14,15 @@ import {
   getServiceUrl,
   pluralize,
 } from '@/lib/dependencies-utils'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 
 // =============================================================================
 // ServiceDependencyCard
@@ -62,8 +71,8 @@ function ServiceDependencyCard({ service, onClick }: ServiceDependencyCardProps)
         <span className="text-sm text-muted-foreground">{service.framework}</span>
       )}
 
-      {/* Port */}
-      {service.local?.port && (
+      {/* Port - only show if port > 0 */}
+      {service.local?.port && service.local.port > 0 && (
         <span className="text-sm text-muted-foreground">:{service.local.port}</span>
       )}
 
@@ -171,10 +180,50 @@ export function ServiceDependencies({
   className,
   'data-testid': testId = 'service-dependencies',
 }: ServiceDependenciesProps) {
-  // Group and sort services
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [selectedLanguages, setSelectedLanguages] = React.useState<Set<string>>(new Set())
+
+  // Get all available languages for filter dropdown
+  const availableLanguages = React.useMemo(() => {
+    const languages = new Set<string>()
+    services.forEach(service => {
+      const lang = service.language || 'Other'
+      languages.add(lang)
+    })
+    return Array.from(languages).sort()
+  }, [services])
+
+  // Filter services based on search query and selected languages
+  const filteredServices = React.useMemo(() => {
+    return services.filter(service => {
+      // Search filter - match name, framework, or language
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const matchesName = service.name.toLowerCase().includes(query)
+        const matchesFramework = service.framework?.toLowerCase().includes(query)
+        const matchesLanguage = service.language?.toLowerCase().includes(query)
+        if (!matchesName && !matchesFramework && !matchesLanguage) {
+          return false
+        }
+      }
+
+      // Language filter
+      if (selectedLanguages.size > 0) {
+        const lang = service.language || 'Other'
+        if (!selectedLanguages.has(lang)) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [services, searchQuery, selectedLanguages])
+
+  // Group and sort filtered services
   const groupedServices = React.useMemo(
-    () => groupServicesByLanguage(services),
-    [services]
+    () => groupServicesByLanguage(filteredServices),
+    [filteredServices]
   )
 
   const sortedGroups = React.useMemo(
@@ -182,7 +231,28 @@ export function ServiceDependencies({
     [groupedServices]
   )
 
-  // Handle empty state
+  // Toggle language filter
+  const toggleLanguage = (language: string) => {
+    setSelectedLanguages(prev => {
+      const next = new Set(prev)
+      if (next.has(language)) {
+        next.delete(language)
+      } else {
+        next.add(language)
+      }
+      return next
+    })
+  }
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedLanguages(new Set())
+  }
+
+  const hasActiveFilters = searchQuery.length > 0 || selectedLanguages.size > 0
+
+  // Handle empty state (no services at all)
   if (services.length === 0) {
     return (
       <div
@@ -204,6 +274,104 @@ export function ServiceDependencies({
         Service Dependencies by Language
       </h2>
 
+      {/* Search and Filter Bar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search
+            className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            placeholder="Search services..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            aria-label="Search services"
+            data-testid="service-search-input"
+          />
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'gap-2',
+                selectedLanguages.size > 0 && 'border-primary text-primary'
+              )}
+              data-testid="language-filter-button"
+            >
+              <Filter className="h-4 w-4" />
+              {selectedLanguages.size > 0 ? (
+                <span>{selectedLanguages.size} selected</span>
+              ) : (
+                <span className="sr-only md:not-sr-only">Filter</span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {availableLanguages.map(language => (
+              <DropdownMenuCheckboxItem
+                key={language}
+                checked={selectedLanguages.has(language)}
+                onCheckedChange={() => toggleLanguage(language)}
+              >
+                {language}
+              </DropdownMenuCheckboxItem>
+            ))}
+            {selectedLanguages.size > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={false}
+                  onCheckedChange={() => setSelectedLanguages(new Set())}
+                  className="text-muted-foreground"
+                >
+                  Clear all
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="gap-1 text-muted-foreground hover:text-foreground"
+            data-testid="clear-filters-button"
+          >
+            <X className="h-4 w-4" />
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {/* Results count */}
+      {hasActiveFilters && (
+        <div
+          className="text-sm text-muted-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          Showing {filteredServices.length} of {services.length} {pluralize(services.length, 'service')}
+        </div>
+      )}
+
+      {/* Empty filtered state */}
+      {filteredServices.length === 0 && hasActiveFilters && (
+        <div className="flex flex-col items-center justify-center py-12">
+          <p className="text-muted-foreground mb-4">No services match your filters</p>
+          <Button variant="outline" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      )}
+
+      {/* Service groups */}
       {sortedGroups.map(([language, groupServices]) => (
         <LanguageGroup
           key={language}
