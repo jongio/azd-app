@@ -2,3 +2,8 @@
 bin/
 dist/
 azd-app
+
+# Coverage output files
+cov
+mcpcov
+*.out
