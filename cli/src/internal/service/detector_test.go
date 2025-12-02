@@ -9,44 +9,164 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
-func TestEntrypointOverride(t *testing.T) {
+// TestDockerComposeStyleEntrypoint tests Docker Compose style entrypoint + command semantics.
+// In Docker Compose: entrypoint is the executable, command is the arguments.
+func TestDockerComposeStyleEntrypoint(t *testing.T) {
+	tests := []struct {
+		name            string
+		entrypoint      string
+		command         string
+		projectFiles    map[string]string
+		expectedCommand string
+		expectedArgs    []string
+	}{
+		{
+			name:       "FastAPI with uvicorn entrypoint and command args",
+			entrypoint: "uvicorn",
+			command:    "custom_main:app --reload --host 0.0.0.0 --port 5000",
+			projectFiles: map[string]string{
+				"requirements.txt": "fastapi\nuvicorn",
+				"custom_main.py":   "from fastapi import FastAPI\napp = FastAPI()",
+			},
+			expectedCommand: "uvicorn",
+			expectedArgs:    []string{"custom_main:app", "--reload", "--host", "0.0.0.0", "--port", "5000"},
+		},
+		{
+			name:       "Flask with python entrypoint and flask args",
+			entrypoint: "python",
+			command:    "-m flask run --host 0.0.0.0 --port 5000",
+			projectFiles: map[string]string{
+				"requirements.txt": "flask",
+				"app.py":           "from flask import Flask\napp = Flask(__name__)",
+			},
+			expectedCommand: "python",
+			expectedArgs:    []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", "5000"},
+		},
+		{
+			name:       "Node.js with npm entrypoint and dev script",
+			entrypoint: "npm",
+			command:    "run dev",
+			projectFiles: map[string]string{
+				"package.json": `{"name":"test","scripts":{"dev":"node server.js"}}`,
+			},
+			expectedCommand: "npm",
+			expectedArgs:    []string{"run", "dev"},
+		},
+		{
+			name:       "Go service with go entrypoint and run command",
+			entrypoint: "go",
+			command:    "run ./cmd/api",
+			projectFiles: map[string]string{
+				"go.mod":          "module example.com/app\n\ngo 1.21",
+				"cmd/api/main.go": "package main\n\nfunc main() {}",
+			},
+			expectedCommand: "go",
+			expectedArgs:    []string{"run", "./cmd/api"},
+		},
+		{
+			name:       "Entrypoint only (no command)",
+			entrypoint: "uvicorn main:app --reload",
+			command:    "",
+			projectFiles: map[string]string{
+				"requirements.txt": "fastapi\nuvicorn",
+				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
+			},
+			expectedCommand: "uvicorn",
+			expectedArgs:    []string{"main:app", "--reload"},
+		},
+		{
+			name:       "Command only (no entrypoint)",
+			entrypoint: "",
+			command:    "uvicorn main:app --reload --host 0.0.0.0 --port 5000",
+			projectFiles: map[string]string{
+				"requirements.txt": "fastapi\nuvicorn",
+				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
+			},
+			expectedCommand: "uvicorn",
+			expectedArgs:    []string{"main:app", "--reload", "--host", "0.0.0.0", "--port", "5000"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary project directory
+			tmpDir := t.TempDir()
+
+			// Create project files
+			for filename, content := range tt.projectFiles {
+				filePath := filepath.Join(tmpDir, filename)
+				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+					t.Fatalf("Failed to create directory for %s: %v", filename, err)
+				}
+				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+					t.Fatalf("Failed to create file %s: %v", filename, err)
+				}
+			}
+
+			// Create azure.yaml with entrypoint and command
+			azureYamlContent := `name: test-app
+services:
+  api:
+    project: .
+    host: containerapp
+    ports:
+      - "5000"`
+
+			if tt.entrypoint != "" {
+				azureYamlContent += "\n    entrypoint: " + tt.entrypoint
+			}
+			if tt.command != "" {
+				azureYamlContent += "\n    command: " + tt.command
+			}
+
+			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+				t.Fatalf("Failed to create azure.yaml: %v", err)
+			}
+
+			// Parse azure.yaml
+			azureYaml, err := service.ParseAzureYaml(azureYamlPath)
+			if err != nil {
+				t.Fatalf("Failed to parse azure.yaml: %v", err)
+			}
+
+			svc := azureYaml.Services["api"]
+			usedPorts := map[int]bool{3000: true, 8000: true, 8080: true}
+			runtime, err := service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
+			if err != nil {
+				t.Fatalf("Failed to detect runtime: %v", err)
+			}
+
+			// Verify command matches expected
+			if runtime.Command != tt.expectedCommand {
+				t.Errorf("Expected command %q, got %q", tt.expectedCommand, runtime.Command)
+			}
+
+			// Verify args match expected
+			if len(runtime.Args) != len(tt.expectedArgs) {
+				t.Errorf("Expected args %v, got %v", tt.expectedArgs, runtime.Args)
+			} else {
+				for i, arg := range tt.expectedArgs {
+					if runtime.Args[i] != arg {
+						t.Errorf("Expected arg[%d] = %q, got %q", i, arg, runtime.Args[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestAutoDetectWhenNoOverride tests that framework defaults are used when no entrypoint/command specified.
+func TestAutoDetectWhenNoOverride(t *testing.T) {
 	tests := []struct {
 		name         string
 		framework    string
-		entrypoint   string
 		projectFiles map[string]string // filename -> content
 		checkCmd     func(runtime *service.ServiceRuntime) error
 	}{
 		{
-			name:       "FastAPI with custom entrypoint",
-			framework:  "FastAPI",
-			entrypoint: "custom_main",
-			projectFiles: map[string]string{
-				"requirements.txt": "fastapi\nuvicorn",
-				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
-				"custom_main.py":   "from fastapi import FastAPI\napp = FastAPI()",
-			},
-			checkCmd: func(runtime *service.ServiceRuntime) error {
-				// Should use python (or venv python), not uvicorn directly
-				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
-					t.Errorf("Expected python command, got %q", runtime.Command)
-				}
-				// Check that -m uvicorn is used
-				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "uvicorn" {
-					t.Errorf("Expected '-m uvicorn' in args, got: %v", runtime.Args)
-				}
-				// Check that custom_main is used in args
-				argsStr := strings.Join(runtime.Args, " ")
-				if !strings.Contains(argsStr, "custom_main:app") {
-					t.Errorf("Expected 'custom_main:app' in args, got: %v", runtime.Args)
-				}
-				return nil
-			},
-		},
-		{
-			name:       "FastAPI without entrypoint (auto-detect)",
-			framework:  "FastAPI",
-			entrypoint: "",
+			name:      "FastAPI without entrypoint (auto-detect)",
+			framework: "FastAPI",
 			projectFiles: map[string]string{
 				"requirements.txt": "fastapi\nuvicorn",
 				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
@@ -69,32 +189,8 @@ func TestEntrypointOverride(t *testing.T) {
 			},
 		},
 		{
-			name:       "Flask with custom entrypoint",
-			framework:  "Flask",
-			entrypoint: "server.py",
-			projectFiles: map[string]string{
-				"requirements.txt": "flask",
-				"main.py":          "from flask import Flask\napp = Flask(__name__)",
-				"server.py":        "from flask import Flask\napp = Flask(__name__)",
-			},
-			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "python" {
-					t.Errorf("Expected command 'python', got %q", runtime.Command)
-				}
-				// Check FLASK_APP env var is set to custom entrypoint
-				if runtime.Env["FLASK_APP"] != "server.py" {
-					t.Errorf("Expected FLASK_APP='server.py', got %q", runtime.Env["FLASK_APP"])
-				}
-				if runtime.Env["FLASK_ENV"] != "development" {
-					t.Errorf("Expected FLASK_ENV='development', got %q", runtime.Env["FLASK_ENV"])
-				}
-				return nil
-			},
-		},
-		{
-			name:       "Flask without entrypoint (auto-detect)",
-			framework:  "Flask",
-			entrypoint: "",
+			name:      "Flask without entrypoint (auto-detect)",
+			framework: "Flask",
 			projectFiles: map[string]string{
 				"requirements.txt": "flask",
 				"app.py":           "from flask import Flask\napp = Flask(__name__)",
@@ -111,35 +207,8 @@ func TestEntrypointOverride(t *testing.T) {
 			},
 		},
 		{
-			name:       "Streamlit with custom entrypoint",
-			framework:  "Streamlit",
-			entrypoint: "dashboard",
-			projectFiles: map[string]string{
-				"requirements.txt": "streamlit",
-				"main.py":          "import streamlit as st",
-				"dashboard.py":     "import streamlit as st",
-			},
-			checkCmd: func(runtime *service.ServiceRuntime) error {
-				// Should use python (or venv python), not streamlit directly
-				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
-					t.Errorf("Expected python command, got %q", runtime.Command)
-				}
-				// Check that -m streamlit is used
-				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "streamlit" {
-					t.Errorf("Expected '-m streamlit' in args, got: %v", runtime.Args)
-				}
-				// Check that dashboard.py is used in args
-				argsStr := strings.Join(runtime.Args, " ")
-				if !strings.Contains(argsStr, "dashboard.py") {
-					t.Errorf("Expected 'dashboard.py' in args, got: %v", runtime.Args)
-				}
-				return nil
-			},
-		},
-		{
-			name:       "Streamlit without entrypoint (auto-detect)",
-			framework:  "Streamlit",
-			entrypoint: "",
+			name:      "Streamlit without entrypoint (auto-detect)",
+			framework: "Streamlit",
 			projectFiles: map[string]string{
 				"requirements.txt": "streamlit",
 				"main.py":          "import streamlit as st",
@@ -162,29 +231,8 @@ func TestEntrypointOverride(t *testing.T) {
 			},
 		},
 		{
-			name:       "Python with custom entrypoint",
-			framework:  "Python",
-			entrypoint: "run_app",
-			projectFiles: map[string]string{
-				"requirements.txt": "requests",
-				"run_app.py":       "# Python app",
-			},
-			checkCmd: func(runtime *service.ServiceRuntime) error {
-				if runtime.Command != "python" {
-					t.Errorf("Expected command 'python', got %q", runtime.Command)
-				}
-				// Check that run_app.py is used in args
-				argsStr := strings.Join(runtime.Args, " ")
-				if !strings.Contains(argsStr, "run_app.py") {
-					t.Errorf("Expected 'run_app.py' in args, got: %v", runtime.Args)
-				}
-				return nil
-			},
-		},
-		{
-			name:       "Python without entrypoint (auto-detect)",
-			framework:  "Python",
-			entrypoint: "",
+			name:      "Python without entrypoint (auto-detect)",
+			framework: "Python",
 			projectFiles: map[string]string{
 				"requirements.txt": "requests",
 				"main.py":          "# Python app",
@@ -197,32 +245,6 @@ func TestEntrypointOverride(t *testing.T) {
 				argsStr := strings.Join(runtime.Args, " ")
 				if !strings.Contains(argsStr, "main.py") {
 					t.Errorf("Expected 'main.py' in args, got: %v", runtime.Args)
-				}
-				return nil
-			},
-		},
-		{
-			name:       "FastAPI with entrypoint in src directory",
-			framework:  "FastAPI",
-			entrypoint: "src/main",
-			projectFiles: map[string]string{
-				"requirements.txt": "fastapi\nuvicorn",
-				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
-				"src/main.py":      "from fastapi import FastAPI\napp = FastAPI()",
-			},
-			checkCmd: func(runtime *service.ServiceRuntime) error {
-				// Should use python (or venv python), not uvicorn directly
-				if runtime.Command != "python" && filepath.Base(runtime.Command) != "python" && filepath.Base(runtime.Command) != "python.exe" {
-					t.Errorf("Expected python command, got %q", runtime.Command)
-				}
-				// Check that -m uvicorn is used
-				if len(runtime.Args) < 2 || runtime.Args[0] != "-m" || runtime.Args[1] != "uvicorn" {
-					t.Errorf("Expected '-m uvicorn' in args, got: %v", runtime.Args)
-				}
-				// Check that src/main:app is used in args
-				argsStr := strings.Join(runtime.Args, " ")
-				if !strings.Contains(argsStr, "src/main:app") {
-					t.Errorf("Expected 'src/main:app' in args, got: %v", runtime.Args)
 				}
 				return nil
 			},
@@ -246,17 +268,13 @@ func TestEntrypointOverride(t *testing.T) {
 				}
 			}
 
-			// Create azure.yaml with entrypoint configuration
+			// Create azure.yaml without entrypoint (auto-detect test)
 			azureYamlContent := `name: test-app
 services:
   api:
     project: .
     language: python
     host: containerapp`
-
-			if tt.entrypoint != "" {
-				azureYamlContent += "\n    entrypoint: " + tt.entrypoint
-			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
 			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
@@ -291,35 +309,49 @@ services:
 	}
 }
 
+// TestEntrypointValidation tests that azure.yaml parsing correctly handles the entrypoint field.
+// With Docker Compose semantics, entrypoint is the executable, not a filename hint.
 func TestEntrypointValidation(t *testing.T) {
 	tests := []struct {
-		name         string
-		entrypoint   string
-		projectFiles map[string]string
+		name            string
+		entrypoint      string
+		command         string
+		projectFiles    map[string]string
+		expectedCommand string
+		expectedArgs    []string
 	}{
 		{
-			name:       "Valid entrypoint file exists",
-			entrypoint: "custom_main",
+			name:       "Entrypoint as executable (uvicorn)",
+			entrypoint: "uvicorn",
+			command:    "main:app --reload",
 			projectFiles: map[string]string{
-				"custom_main.py":   "# App",
-				"requirements.txt": "requests",
+				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
+				"requirements.txt": "fastapi\nuvicorn",
 			},
+			expectedCommand: "uvicorn",
+			expectedArgs:    []string{"main:app", "--reload"},
 		},
 		{
-			name:       "Entrypoint with .py extension",
-			entrypoint: "custom_main.py",
+			name:       "Entrypoint as executable (python)",
+			entrypoint: "python",
+			command:    "main.py",
 			projectFiles: map[string]string{
-				"custom_main.py":   "# App",
+				"main.py":          "print('hello')",
 				"requirements.txt": "requests",
 			},
+			expectedCommand: "python",
+			expectedArgs:    []string{"main.py"},
 		},
 		{
-			name:       "Entrypoint in subdirectory",
-			entrypoint: "src/app",
+			name:       "Full command in entrypoint (no command field)",
+			entrypoint: "uvicorn main:app --reload --host 0.0.0.0",
+			command:    "",
 			projectFiles: map[string]string{
-				"src/app.py":       "# App",
-				"requirements.txt": "requests",
+				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
+				"requirements.txt": "fastapi\nuvicorn",
 			},
+			expectedCommand: "uvicorn",
+			expectedArgs:    []string{"main:app", "--reload", "--host", "0.0.0.0"},
 		},
 	}
 
@@ -340,14 +372,19 @@ func TestEntrypointValidation(t *testing.T) {
 				}
 			}
 
-			// Create azure.yaml with entrypoint
+			// Create azure.yaml with entrypoint and command
 			azureYamlContent := `name: test-app
 services:
   api:
     project: .
     language: python
     host: containerapp
+    ports:
+      - "5000"
     entrypoint: ` + tt.entrypoint
+			if tt.command != "" {
+				azureYamlContent += "\n    command: " + tt.command
+			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
 			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
@@ -371,12 +408,27 @@ services:
 				t.Errorf("Expected entrypoint %q, got %q", tt.entrypoint, svc.Entrypoint)
 			}
 
-			// Detect runtime - should succeed without error (using default "azd" mode)
-			// Mark common ports as used to avoid real port conflicts and interactive prompts in tests
-			usedPorts := map[int]bool{3000: true, 5000: true, 8000: true, 8080: true}
-			_, err = service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
+			// Detect runtime
+			usedPorts := map[int]bool{3000: true, 8000: true, 8080: true}
+			runtime, err := service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
 			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
+				t.Fatalf("Failed to detect runtime: %v", err)
+			}
+
+			// Verify command matches expected
+			if runtime.Command != tt.expectedCommand {
+				t.Errorf("Expected command %q, got %q", tt.expectedCommand, runtime.Command)
+			}
+
+			// Verify args
+			if len(runtime.Args) != len(tt.expectedArgs) {
+				t.Errorf("Expected args %v, got %v", tt.expectedArgs, runtime.Args)
+			} else {
+				for i, arg := range tt.expectedArgs {
+					if runtime.Args[i] != arg {
+						t.Errorf("Expected arg[%d] = %q, got %q", i, arg, runtime.Args[i])
+					}
+				}
 			}
 		})
 	}
@@ -460,52 +512,18 @@ services:
 	}
 }
 
-func TestEntrypointMissingFile(t *testing.T) {
+// TestAutoDetectMissingFile tests that auto-detection properly fails when no default entry file exists.
+// With Docker Compose semantics, entrypoint is the executable (not validated as a file),
+// but auto-detection still validates that the default entry point files exist.
+func TestAutoDetectMissingFile(t *testing.T) {
 	tests := []struct {
 		name         string
-		framework    string
-		entrypoint   string
 		projectFiles map[string]string
 		shouldError  bool
 		errorContain string
 	}{
 		{
-			name:       "FastAPI missing entrypoint file",
-			framework:  "FastAPI",
-			entrypoint: "missing_file",
-			projectFiles: map[string]string{
-				"requirements.txt": "fastapi\nuvicorn",
-				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
-			},
-			shouldError:  true,
-			errorContain: "python entrypoint file not found: missing_file",
-		},
-		{
-			name:       "Flask missing entrypoint file",
-			framework:  "Flask",
-			entrypoint: "nonexistent",
-			projectFiles: map[string]string{
-				"requirements.txt": "flask",
-				"app.py":           "from flask import Flask\napp = Flask(__name__)",
-			},
-			shouldError:  true,
-			errorContain: "python entrypoint file not found: nonexistent",
-		},
-		{
-			name:       "Streamlit missing entrypoint file",
-			framework:  "Streamlit",
-			entrypoint: "dashboard_missing",
-			projectFiles: map[string]string{
-				"requirements.txt": "streamlit",
-				"main.py":          "import streamlit as st",
-			},
-			shouldError:  true,
-			errorContain: "python entrypoint file not found: dashboard_missing",
-		},
-		{
-			name:       "Python missing auto-detected file",
-			framework:  "Python",
-			entrypoint: "", // Will try to auto-detect
+			name: "Python missing auto-detected file",
 			projectFiles: map[string]string{
 				"requirements.txt": "requests",
 				// No main.py or app.py
@@ -514,13 +532,18 @@ func TestEntrypointMissingFile(t *testing.T) {
 			errorContain: "python entrypoint file not found: main",
 		},
 		{
-			name:       "FastAPI existing file should not error",
-			framework:  "FastAPI",
-			entrypoint: "server",
+			name: "FastAPI with main.py should not error",
 			projectFiles: map[string]string{
 				"requirements.txt": "fastapi\nuvicorn",
 				"main.py":          "from fastapi import FastAPI\napp = FastAPI()",
-				"server.py":        "from fastapi import FastAPI\napp = FastAPI()",
+			},
+			shouldError: false,
+		},
+		{
+			name: "Flask with app.py should not error",
+			projectFiles: map[string]string{
+				"requirements.txt": "flask",
+				"app.py":           "from flask import Flask\napp = Flask(__name__)",
 			},
 			shouldError: false,
 		},
@@ -542,17 +565,13 @@ func TestEntrypointMissingFile(t *testing.T) {
 				}
 			}
 
-			// Create azure.yaml
+			// Create azure.yaml without entrypoint/command (auto-detect)
 			azureYamlContent := `name: test-app
 services:
   api:
     project: .
     language: python
     host: containerapp`
-
-			if tt.entrypoint != "" {
-				azureYamlContent += "\n    entrypoint: " + tt.entrypoint
-			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
 			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
@@ -568,7 +587,6 @@ services:
 			svc := azureYaml.Services["api"]
 
 			// Detect runtime - this should validate entrypoint (using default "azd" mode)
-			// Mark common ports as used to avoid real port conflicts and interactive prompts in tests
 			usedPorts := map[int]bool{3000: true, 5000: true, 8000: true, 8080: true}
 			_, err = service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
 
@@ -908,6 +926,239 @@ services:
 
 			if runtime.Language != tt.expected {
 				t.Errorf("For input %q: expected language %q, got %q", tt.input, tt.expected, runtime.Language)
+			}
+		})
+	}
+}
+
+func TestServiceModeDetection(t *testing.T) {
+	tests := []struct {
+		name         string
+		projectFiles map[string]string
+		entrypoint   string
+		language     string
+		ports        string
+		expectedMode string
+	}{
+		{
+			name: "Go with air.toml (watch mode)",
+			projectFiles: map[string]string{
+				"go.mod":   "module example.com/app\n\ngo 1.21",
+				"main.go":  "package main\n\nfunc main() {}",
+				"air.toml": "[build]\n  cmd = \"go build\"",
+			},
+			entrypoint:   "air",
+			language:     "go",
+			ports:        "",
+			expectedMode: "watch",
+		},
+		{
+			name: "Go build command (build mode)",
+			projectFiles: map[string]string{
+				"go.mod":  "module example.com/app\n\ngo 1.21",
+				"main.go": "package main\n\nfunc main() {}",
+			},
+			entrypoint:   "go build -o app .",
+			language:     "go",
+			ports:        "",
+			expectedMode: "build",
+		},
+		{
+			name: "HTTP service with ports (http type, no mode)",
+			projectFiles: map[string]string{
+				"go.mod":  "module example.com/app\n\ngo 1.21",
+				"main.go": "package main\n\nfunc main() {}",
+			},
+			entrypoint:   "go run .",
+			language:     "go",
+			ports:        "8080",
+			expectedMode: "", // Empty because it's http type, not process
+		},
+		{
+			name: "TypeScript with nodemon dev script",
+			projectFiles: map[string]string{
+				"package.json": `{"name":"test","scripts":{"dev":"nodemon src/index.ts","start":"node dist/index.js"},"devDependencies":{"nodemon":"^3.0.0"}}`,
+				"src/index.ts": "console.log('hello')",
+			},
+			entrypoint:   "npm run dev",
+			language:     "typescript",
+			ports:        "",
+			expectedMode: "watch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary project directory
+			tmpDir := t.TempDir()
+
+			// Create project files
+			for filename, content := range tt.projectFiles {
+				filePath := filepath.Join(tmpDir, filename)
+				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+					t.Fatalf("Failed to create directory for %s: %v", filename, err)
+				}
+				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+					t.Fatalf("Failed to create file %s: %v", filename, err)
+				}
+			}
+
+			// Create azure.yaml
+			azureYamlContent := `name: test-app
+services:
+  api:
+    project: .
+    language: ` + tt.language
+			if tt.ports != "" {
+				azureYamlContent += "\n    ports:\n      - \"" + tt.ports + "\""
+			}
+			if tt.entrypoint != "" {
+				azureYamlContent += "\n    entrypoint: " + tt.entrypoint
+			}
+
+			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+				t.Fatalf("Failed to create azure.yaml: %v", err)
+			}
+
+			// Parse azure.yaml
+			azureYaml, err := service.ParseAzureYaml(azureYamlPath)
+			if err != nil {
+				t.Fatalf("Failed to parse azure.yaml: %v", err)
+			}
+
+			svc := azureYaml.Services["api"]
+			usedPorts := map[int]bool{}
+			runtime, err := service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if runtime.Mode != tt.expectedMode {
+				t.Errorf("Expected mode %q, got %q", tt.expectedMode, runtime.Mode)
+			}
+		})
+	}
+}
+
+func TestServiceTypeConstants(t *testing.T) {
+	// Test that constants are defined correctly
+	if service.ServiceTypeHTTP != "http" {
+		t.Errorf("Expected ServiceTypeHTTP to be 'http', got %q", service.ServiceTypeHTTP)
+	}
+	if service.ServiceTypeTCP != "tcp" {
+		t.Errorf("Expected ServiceTypeTCP to be 'tcp', got %q", service.ServiceTypeTCP)
+	}
+	if service.ServiceTypeProcess != "process" {
+		t.Errorf("Expected ServiceTypeProcess to be 'process', got %q", service.ServiceTypeProcess)
+	}
+	if service.ServiceModeWatch != "watch" {
+		t.Errorf("Expected ServiceModeWatch to be 'watch', got %q", service.ServiceModeWatch)
+	}
+	if service.ServiceModeBuild != "build" {
+		t.Errorf("Expected ServiceModeBuild to be 'build', got %q", service.ServiceModeBuild)
+	}
+	if service.ServiceModeDaemon != "daemon" {
+		t.Errorf("Expected ServiceModeDaemon to be 'daemon', got %q", service.ServiceModeDaemon)
+	}
+	if service.ServiceModeTask != "task" {
+		t.Errorf("Expected ServiceModeTask to be 'task', got %q", service.ServiceModeTask)
+	}
+}
+
+func TestServiceHelperMethods(t *testing.T) {
+	tests := []struct {
+		name         string
+		svc          service.Service
+		expectedType string
+		expectedMode string
+		isProcess    bool
+		isWatch      bool
+		isBuild      bool
+	}{
+		{
+			name: "HTTP service with port",
+			svc: service.Service{
+				Type:  "",
+				Mode:  "",
+				Ports: []string{"8080"},
+			},
+			expectedType: "http",
+			expectedMode: "",
+			isProcess:    false,
+			isWatch:      false,
+			isBuild:      false,
+		},
+		{
+			name: "Process service with watch mode",
+			svc: service.Service{
+				Type:  "process",
+				Mode:  "watch",
+				Ports: []string{},
+			},
+			expectedType: "process",
+			expectedMode: "watch",
+			isProcess:    true,
+			isWatch:      true,
+			isBuild:      false,
+		},
+		{
+			name: "Process service with build mode",
+			svc: service.Service{
+				Type:  "process",
+				Mode:  "build",
+				Ports: []string{},
+			},
+			expectedType: "process",
+			expectedMode: "build",
+			isProcess:    true,
+			isWatch:      false,
+			isBuild:      true,
+		},
+		{
+			name: "Service without ports infers process type",
+			svc: service.Service{
+				Type:  "",
+				Mode:  "",
+				Ports: []string{},
+			},
+			expectedType: "process",
+			expectedMode: "daemon", // Default mode for process services
+			isProcess:    true,
+			isWatch:      false,
+			isBuild:      false,
+		},
+		{
+			name: "Explicit TCP type",
+			svc: service.Service{
+				Type:  "tcp",
+				Mode:  "",
+				Ports: []string{"9000"},
+			},
+			expectedType: "tcp",
+			expectedMode: "",
+			isProcess:    false,
+			isWatch:      false,
+			isBuild:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.svc.GetServiceType(); got != tt.expectedType {
+				t.Errorf("GetServiceType() = %q, want %q", got, tt.expectedType)
+			}
+			if got := tt.svc.GetServiceMode(); got != tt.expectedMode {
+				t.Errorf("GetServiceMode() = %q, want %q", got, tt.expectedMode)
+			}
+			if got := tt.svc.IsProcessService(); got != tt.isProcess {
+				t.Errorf("IsProcessService() = %v, want %v", got, tt.isProcess)
+			}
+			if got := tt.svc.IsWatchMode(); got != tt.isWatch {
+				t.Errorf("IsWatchMode() = %v, want %v", got, tt.isWatch)
+			}
+			if got := tt.svc.IsBuildMode(); got != tt.isBuild {
+				t.Errorf("IsBuildMode() = %v, want %v", got, tt.isBuild)
 			}
 		})
 	}

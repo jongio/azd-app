@@ -70,7 +70,7 @@ gh workflow run health-e2e.yml
 - ✅ Ubuntu (latest)
 - ✅ Windows (latest)
 - ✅ macOS (latest)
-- ✅ Go 1.25
+- ✅ Go 1.25.5
 
 ## Test Project
 
@@ -188,7 +188,7 @@ pkill -9 node
 - **Individual commands**: 10-30 seconds (context timeout)
 
 ### Dependencies
-- Go 1.25
+- Go 1.25.5
 - Node.js 20
 - Python 3.11
 - Platform-specific tools (npm, pip)

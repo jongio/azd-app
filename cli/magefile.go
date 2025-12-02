@@ -31,6 +31,34 @@ const (
 // Default target runs all checks and builds.
 var Default = All
 
+// killAppProcesses terminates any running azd app processes to allow rebuilding.
+// This is necessary on Windows where the binary cannot be overwritten while in use.
+func killAppProcesses() error {
+	if runtime.GOOS == "windows" {
+		fmt.Println("Stopping any running app processes...")
+		// Kill any process named "app" (the binary name)
+		// Use taskkill with /F (force) and /IM (image name)
+		// Ignore errors since the process may not be running
+		_ = exec.Command("taskkill", "/F", "/IM", binaryName+".exe").Run()
+
+		// Also kill the installed extension binary (jongio-azd-app-*.exe)
+		// The extension ID is "jongio.azd.app" which becomes "jongio-azd-app" in the binary name
+		extensionBinaryPrefix := strings.ReplaceAll(extensionID, ".", "-")
+		// Kill all platform variants that might be running
+		for _, arch := range []string{"windows-amd64", "windows-arm64"} {
+			binaryName := extensionBinaryPrefix + "-" + arch + ".exe"
+			_ = exec.Command("taskkill", "/F", "/IM", binaryName).Run()
+		}
+	} else {
+		// On Unix, use pkill (ignore errors if no process found)
+		_ = exec.Command("pkill", "-f", binaryName).Run()
+		// Also kill the installed extension binary
+		extensionBinaryPrefix := strings.ReplaceAll(extensionID, ".", "-")
+		_ = exec.Command("pkill", "-f", extensionBinaryPrefix).Run()
+	}
+	return nil
+}
+
 // getVersion reads the current version from extension.yaml.
 func getVersion() (string, error) {
 	data, err := os.ReadFile(extensionFile)
@@ -61,6 +89,9 @@ func All() error {
 // Set ALL_PLATFORMS=true to build for all platforms (skip install).
 // Set SKIP_INSTALL=true to only build without installing.
 func Build() error {
+	// Kill any running app processes first to avoid "file in use" errors on Windows
+	_ = killAppProcesses()
+
 	mg.Deps(DashboardBuild)
 
 	if os.Getenv("ALL_PLATFORMS") == "true" {
@@ -614,11 +645,10 @@ func Watch() error {
 // Runs azd x watch for CLI and vite build --watch for dashboard concurrently.
 // The dashboard is built to the embedded location (src/internal/dashboard/dist)
 // so changes are automatically included when the CLI is rebuilt.
-// Note: On Windows, stop any running instances of the app before starting the watcher
-// to avoid "file in use" errors during installation.
+// Note: The build scripts (build.ps1/build.sh) kill running app processes
+// on each rebuild iteration to avoid "file in use" errors on Windows.
 func WatchAll() error {
 	fmt.Println("Starting watchers for both CLI and dashboard...")
-	fmt.Println("⚠️  Tip: Stop any running instances of 'app' to avoid file-in-use errors")
 	fmt.Println()
 
 	// Ensure azd extensions are set up (enables extensions + installs azd x if needed)

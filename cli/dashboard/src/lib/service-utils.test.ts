@@ -11,6 +11,15 @@ import {
   getCheckTypeDisplay,
   mergeHealthIntoService,
   getLogPaneVisualStatus,
+  getServiceTypeBadgeConfig,
+  getServiceModeBadgeConfig,
+  getServiceTypeLabel,
+  getServiceModeLabel,
+  isProcessService,
+  isContinuousMode,
+  isOneTimeMode,
+  getStatusIndicator,
+  getStatusBadgeConfig,
 } from './service-utils'
 import type { Service, HealthCheckResult } from '@/types'
 
@@ -479,6 +488,249 @@ describe('service-utils', () => {
       // Undefined process status should fall back to health-based status
       expect(getLogPaneVisualStatus('healthy', 'info', undefined)).toBe('healthy')
       expect(getLogPaneVisualStatus('unhealthy', 'error', undefined)).toBe('error')
+    })
+  })
+
+  describe('Process Service Status Display', () => {
+    describe('getStatusDisplay for process services', () => {
+      it('should return Watching for watching status', () => {
+        const display = getStatusDisplay('watching', 'unknown')
+        expect(display.text).toBe('Watching')
+        expect(display.badgeVariant).toBe('success')
+      })
+
+      it('should return Building for building status', () => {
+        const display = getStatusDisplay('building', 'unknown')
+        expect(display.text).toBe('Building')
+        expect(display.badgeVariant).toBe('warning')
+      })
+
+      it('should return Built for built status', () => {
+        const display = getStatusDisplay('built', 'unknown')
+        expect(display.text).toBe('Built')
+        expect(display.badgeVariant).toBe('success')
+      })
+
+      it('should return Failed for failed status', () => {
+        const display = getStatusDisplay('failed', 'unknown')
+        expect(display.text).toBe('Failed')
+        expect(display.badgeVariant).toBe('destructive')
+      })
+
+      it('should return Completed for completed status', () => {
+        const display = getStatusDisplay('completed', 'unknown')
+        expect(display.text).toBe('Completed')
+        expect(display.badgeVariant).toBe('success')
+      })
+    })
+
+    describe('getStatusIndicator for process services', () => {
+      it('should return correct indicator for watching', () => {
+        const indicator = getStatusIndicator('watching')
+        expect(indicator.icon).toBe('👁')
+        expect(indicator.color).toBe('text-green-500')
+      })
+
+      it('should return correct indicator for building', () => {
+        const indicator = getStatusIndicator('building')
+        expect(indicator.icon).toBe('🔨')
+        expect(indicator.color).toBe('text-yellow-500')
+        expect(indicator.animate).toBe('animate-pulse')
+      })
+
+      it('should return correct indicator for built', () => {
+        const indicator = getStatusIndicator('built')
+        expect(indicator.icon).toBe('✓')
+        expect(indicator.color).toBe('text-green-500')
+      })
+
+      it('should return correct indicator for failed', () => {
+        const indicator = getStatusIndicator('failed')
+        expect(indicator.icon).toBe('✗')
+        expect(indicator.color).toBe('text-red-500')
+      })
+
+      it('should return correct indicator for completed', () => {
+        const indicator = getStatusIndicator('completed')
+        expect(indicator.icon).toBe('✓')
+        expect(indicator.color).toBe('text-green-500')
+      })
+    })
+
+    describe('getStatusBadgeConfig for process services', () => {
+      it('should return correct config for watching', () => {
+        const config = getStatusBadgeConfig('watching')
+        expect(config.label).toBe('Watching')
+        expect(config.color).toContain('green')
+      })
+
+      it('should return correct config for building', () => {
+        const config = getStatusBadgeConfig('building')
+        expect(config.label).toBe('Building')
+        expect(config.color).toContain('yellow')
+      })
+
+      it('should return correct config for built', () => {
+        const config = getStatusBadgeConfig('built')
+        expect(config.label).toBe('Built')
+        expect(config.color).toContain('green')
+      })
+
+      it('should return correct config for failed', () => {
+        const config = getStatusBadgeConfig('failed')
+        expect(config.label).toBe('Failed')
+        expect(config.color).toContain('red')
+      })
+
+      it('should return correct config for completed', () => {
+        const config = getStatusBadgeConfig('completed')
+        expect(config.label).toBe('Completed')
+        expect(config.color).toContain('green')
+      })
+    })
+  })
+
+  describe('Service Type and Mode Utilities', () => {
+    describe('getServiceTypeBadgeConfig', () => {
+      it('should return HTTP config for http type', () => {
+        const config = getServiceTypeBadgeConfig('http')
+        expect(config.label).toBe('HTTP')
+        expect(config.color).toContain('blue')
+      })
+
+      it('should return TCP config for tcp type', () => {
+        const config = getServiceTypeBadgeConfig('tcp')
+        expect(config.label).toBe('TCP')
+        expect(config.color).toContain('purple')
+      })
+
+      it('should return Process config for process type', () => {
+        const config = getServiceTypeBadgeConfig('process')
+        expect(config.label).toBe('Process')
+        expect(config.color).toContain('cyan')
+      })
+
+      it('should default to HTTP for undefined', () => {
+        const config = getServiceTypeBadgeConfig(undefined)
+        expect(config.label).toBe('HTTP')
+      })
+    })
+
+    describe('getServiceModeBadgeConfig', () => {
+      it('should return Watch config for watch mode', () => {
+        const config = getServiceModeBadgeConfig('watch')
+        expect(config.label).toBe('Watch')
+        expect(config.description).toContain('watching')
+      })
+
+      it('should return Build config for build mode', () => {
+        const config = getServiceModeBadgeConfig('build')
+        expect(config.label).toBe('Build')
+        expect(config.description.toLowerCase()).toContain('one-time')
+      })
+
+      it('should return Daemon config for daemon mode', () => {
+        const config = getServiceModeBadgeConfig('daemon')
+        expect(config.label).toBe('Daemon')
+        expect(config.description.toLowerCase()).toContain('background')
+      })
+
+      it('should return Task config for task mode', () => {
+        const config = getServiceModeBadgeConfig('task')
+        expect(config.label).toBe('Task')
+        expect(config.description.toLowerCase()).toContain('on-demand')
+      })
+
+      it('should default to Watch for undefined', () => {
+        const config = getServiceModeBadgeConfig(undefined)
+        expect(config.label).toBe('Watch')
+      })
+    })
+
+    describe('getServiceTypeLabel', () => {
+      it('should return HTTP Service for http', () => {
+        expect(getServiceTypeLabel('http')).toBe('HTTP Service')
+      })
+
+      it('should return TCP Service for tcp', () => {
+        expect(getServiceTypeLabel('tcp')).toBe('TCP Service')
+      })
+
+      it('should return Process Service for process', () => {
+        expect(getServiceTypeLabel('process')).toBe('Process Service')
+      })
+    })
+
+    describe('getServiceModeLabel', () => {
+      it('should return Watch Mode for watch', () => {
+        expect(getServiceModeLabel('watch')).toBe('Watch Mode')
+      })
+
+      it('should return Build Mode for build', () => {
+        expect(getServiceModeLabel('build')).toBe('Build Mode')
+      })
+
+      it('should return Daemon Mode for daemon', () => {
+        expect(getServiceModeLabel('daemon')).toBe('Daemon Mode')
+      })
+
+      it('should return Task Mode for task', () => {
+        expect(getServiceModeLabel('task')).toBe('Task Mode')
+      })
+    })
+
+    describe('isProcessService', () => {
+      it('should return true for process type', () => {
+        expect(isProcessService('process')).toBe(true)
+      })
+
+      it('should return false for http type', () => {
+        expect(isProcessService('http')).toBe(false)
+      })
+
+      it('should return false for tcp type', () => {
+        expect(isProcessService('tcp')).toBe(false)
+      })
+
+      it('should return false for undefined', () => {
+        expect(isProcessService(undefined)).toBe(false)
+      })
+    })
+
+    describe('isContinuousMode', () => {
+      it('should return true for watch mode', () => {
+        expect(isContinuousMode('watch')).toBe(true)
+      })
+
+      it('should return true for daemon mode', () => {
+        expect(isContinuousMode('daemon')).toBe(true)
+      })
+
+      it('should return false for build mode', () => {
+        expect(isContinuousMode('build')).toBe(false)
+      })
+
+      it('should return false for task mode', () => {
+        expect(isContinuousMode('task')).toBe(false)
+      })
+    })
+
+    describe('isOneTimeMode', () => {
+      it('should return true for build mode', () => {
+        expect(isOneTimeMode('build')).toBe(true)
+      })
+
+      it('should return true for task mode', () => {
+        expect(isOneTimeMode('task')).toBe(true)
+      })
+
+      it('should return false for watch mode', () => {
+        expect(isOneTimeMode('watch')).toBe(false)
+      })
+
+      it('should return false for daemon mode', () => {
+        expect(isOneTimeMode('daemon')).toBe(false)
+      })
     })
   })
 })

@@ -1,9 +1,9 @@
-import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertTriangle, Clock, Zap, Globe } from 'lucide-react'
+import { Activity, Server, CheckCircle, XCircle, ExternalLink, Code, Layers, AlertTriangle, Clock, Zap, Globe, Eye, Hammer, Cog } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
 import type { Service, HealthCheckResult } from '@/types'
-import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime, formatResponseTime, formatUptime, getCheckTypeDisplay } from '@/lib/service-utils'
+import { getEffectiveStatus, getStatusDisplay, isServiceHealthy, formatRelativeTime, formatResponseTime, formatUptime, getCheckTypeDisplay, isProcessService, getServiceModeBadgeConfig } from '@/lib/service-utils'
 
 interface ServiceCardProps {
   service: Service
@@ -23,6 +23,13 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
   const statusDisplay = getStatusDisplay(status, health)
   const healthy = isServiceHealthy(status, health)
   const Icon = statusDisplay.icon
+  
+  // Get service type and mode
+  const serviceType = service.local?.serviceType
+  const serviceMode = service.local?.serviceMode
+  const isProcess = isProcessService(serviceType)
+  const modeBadgeConfig = serviceMode ? getServiceModeBadgeConfig(serviceMode) : null
+  
   // Prefer health details from healthStatus (real-time) over service.local.healthDetails
   const healthDetails = healthStatus ? {
     checkType: healthStatus.checkType,
@@ -54,13 +61,26 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
                 ? 'bg-linear-to-br from-green-500/20 to-green-500/10 group-hover:scale-110' 
                 : 'bg-linear-to-br from-muted/20 to-muted/10'
             }`}>
-              <Server className={`w-5 h-5 ${healthy ? 'text-green-500' : 'text-muted-foreground'}`} />
+              {isProcess ? (
+                <Cog className={`w-5 h-5 ${healthy || status === 'watching' || status === 'built' || status === 'completed' ? 'text-green-500' : 'text-muted-foreground'}`} />
+              ) : (
+                <Server className={`w-5 h-5 ${healthy ? 'text-green-500' : 'text-muted-foreground'}`} />
+              )}
             </div>
             <div>
               <h3 className="font-semibold text-xl text-foreground group-hover:text-primary transition-colors">
                 {service.name}
               </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Service Instance</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs text-muted-foreground">
+                  {isProcess ? 'Process Service' : 'Service Instance'}
+                </p>
+                {modeBadgeConfig && (
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${modeBadgeConfig.color}`}>
+                    {modeBadgeConfig.label}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           
@@ -70,8 +90,8 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
           >
             <span className="flex items-center gap-1.5">
               <div className="relative">
-                <Icon className={status === 'starting' || status === 'restarting' ? 'w-4 h-4 animate-spin' : status === 'stopping' ? 'w-4 h-4 animate-pulse' : 'w-4 h-4'} />
-                {healthy && (
+                <Icon className={status === 'starting' || status === 'restarting' || status === 'building' ? 'w-4 h-4 animate-spin' : status === 'stopping' ? 'w-4 h-4 animate-pulse' : 'w-4 h-4'} />
+                {(healthy || status === 'watching' || status === 'built' || status === 'completed') && (
                   <>
                     <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></span>
                     <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full"></span>
@@ -175,31 +195,69 @@ export function ServiceCard({ service, healthStatus, onClick }: ServiceCardProps
 
         {/* Metrics Row */}
         <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-linear-to-r from-primary/5 to-accent/5 border border-border mb-4">
-          {service.local?.port && (
+          {/* Port display - only show for non-process services */}
+          {!isProcess && service.local?.port && (
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
               <span className="text-xs text-muted-foreground">Port</span>
               <span className="font-mono font-semibold text-sm text-primary">{service.local.port}</span>
             </div>
           )}
+          {/* Process service mode indicator */}
+          {isProcess && serviceMode && (
+            <div className="flex items-center gap-2">
+              {serviceMode === 'watch' && <Eye className="w-4 h-4 text-green-500" />}
+              {serviceMode === 'build' && <Hammer className="w-4 h-4 text-orange-500" />}
+              {serviceMode === 'daemon' && <Cog className="w-4 h-4 text-indigo-500 animate-spin" style={{ animationDuration: '3s' }} />}
+              {serviceMode === 'task' && <Cog className="w-4 h-4 text-gray-500" />}
+              <span className="text-xs text-muted-foreground">Mode</span>
+              <span className="font-semibold text-sm text-foreground capitalize">{serviceMode}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
-            {health === 'healthy' ? (
-              <CheckCircle className="w-4 h-4 text-green-500" />
-            ) : health === 'degraded' ? (
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-            ) : health === 'unhealthy' ? (
-              <XCircle className="w-4 h-4 text-red-500" />
+            {/* For process services, show process-specific status indicators */}
+            {isProcess ? (
+              <>
+                {status === 'watching' && <Eye className="w-4 h-4 text-green-500" />}
+                {status === 'building' && <Hammer className="w-4 h-4 text-yellow-500 animate-pulse" />}
+                {status === 'built' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                {status === 'completed' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                {status === 'failed' && <XCircle className="w-4 h-4 text-red-500" />}
+                {status === 'running' && <Cog className="w-4 h-4 text-green-500" />}
+                {status === 'stopped' && <XCircle className="w-4 h-4 text-gray-400" />}
+                {!['watching', 'building', 'built', 'completed', 'failed', 'running', 'stopped'].includes(status) && (
+                  <XCircle className="w-4 h-4 text-gray-400" />
+                )}
+                <span className={`text-sm font-medium ${
+                  status === 'watching' || status === 'built' || status === 'completed' || status === 'running' ? 'text-green-500' 
+                  : status === 'building' ? 'text-yellow-500' 
+                  : status === 'failed' ? 'text-red-500'
+                  : 'text-gray-400'
+                }`}>
+                  {status}
+                </span>
+              </>
             ) : (
-              <XCircle className="w-4 h-4 text-gray-400" />
+              <>
+                {health === 'healthy' ? (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                ) : health === 'degraded' ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                ) : health === 'unhealthy' ? (
+                  <XCircle className="w-4 h-4 text-red-500" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-gray-400" />
+                )}
+                <span className={`text-sm font-medium ${
+                  health === 'healthy' ? 'text-green-500' 
+                  : health === 'degraded' ? 'text-amber-500' 
+                  : health === 'unhealthy' ? 'text-red-500'
+                  : 'text-gray-400'
+                }`}>
+                  {health}
+                </span>
+              </>
             )}
-            <span className={`text-sm font-medium ${
-              health === 'healthy' ? 'text-green-500' 
-              : health === 'degraded' ? 'text-amber-500' 
-              : health === 'unhealthy' ? 'text-red-500'
-              : 'text-gray-400'
-            }`}>
-              {health}
-            </span>
           </div>
         </div>
 

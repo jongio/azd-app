@@ -25,6 +25,9 @@ defaults:
   run:
     working-directory: cli
 
+env:
+  GO_VERSION: '1.25.5'
+
 jobs:
   # Check if build should run
   check-permission:
@@ -180,11 +183,21 @@ jobs:
         with:
           ref: ${{ steps.pr.outputs.sha }}
 
-      - name: Set up Go
+      - name: Set up Go (bootstrap)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
-          cache-dependency-path: cli/go.sum
+          go-version: 'stable'
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }}
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+
+      - name: Verify Go version
+        run: go version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

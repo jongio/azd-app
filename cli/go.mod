@@ -1,6 +1,6 @@
 module github.com/jongio/azd-app/cli
 
-go 1.25
+go 1.25.5
 
 require (
 	github.com/azure/azure-dev/cli/azd v0.0.0-20251125180657-0bdb540fa966
