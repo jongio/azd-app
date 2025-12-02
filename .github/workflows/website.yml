@@ -109,6 +109,9 @@ jobs:
           mv _new_build/* .
           rm -rf _new_build
           
+          # Add .nojekyll to prevent Jekyll processing (needed for _astro folder)
+          touch .nojekyll
+          
           # Commit and push
           git add -A
           git commit -m "Deploy production website" --allow-empty
@@ -139,8 +142,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
+          # Add .nojekyll to prevent Jekyll processing (needed for _astro folder)
+          touch .nojekyll
+          
           # Add the PR preview directory
-          git add pr/${{ env.PR_NUMBER }}
+          git add .nojekyll pr/${{ env.PR_NUMBER }}
           
           # Commit and push
           git commit -m "Deploy PR #${{ env.PR_NUMBER }} preview" --allow-empty
