@@ -58,7 +58,8 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Update astro.config.mjs base path for PR preview
+          # Update astro.config.mjs for PR preview paths
+          sed -i "s|site: 'https://jongio.github.io/azd-app/'|site: 'https://jongio.github.io/azd-app/pr/${{ env.PR_NUMBER }}/'|g" astro.config.mjs
           sed -i "s|base: '/azd-app/'|base: '/azd-app/pr/${{ env.PR_NUMBER }}/'|g" astro.config.mjs
           pnpm build
 
