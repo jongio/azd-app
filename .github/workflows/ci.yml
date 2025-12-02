@@ -12,6 +12,9 @@ defaults:
   run:
     working-directory: cli
 
+env:
+  GO_VERSION: '1.25.5'
+
 jobs:
   preflight:
     name: Preflight Checks
@@ -21,11 +24,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go (bootstrap)
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
-          cache-dependency-path: cli/go.sum
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }}
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          echo "GOROOT=$(go${{ env.GO_VERSION }} env GOROOT)" >> $GITHUB_ENV
+
+      - name: Use Go ${{ env.GO_VERSION }}
+        run: |
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+          go version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -64,17 +79,37 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['stable']
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go (bootstrap)
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-          cache-dependency-path: cli/go.sum
+          go-version: 'stable'
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }} (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+
+      - name: Install Go ${{ env.GO_VERSION }} (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          & go${{ env.GO_VERSION }} download
+          $gopath = go env GOPATH
+          "$gopath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Copy-Item "$gopath\bin\go${{ env.GO_VERSION }}.exe" "$gopath\bin\go.exe" -Force
+
+      - name: Verify Go version
+        run: go version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -121,8 +156,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../coverage
-          # Clean build cache to avoid version mismatch issues
-          go clean -cache
           # Race detector not supported on macOS without additional setup
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             go test -short -v -coverprofile=../coverage/coverage.out ./...
@@ -136,7 +169,7 @@ jobs:
         with:
           file: coverage/coverage.out
           flags: unittests
-          name: codecov-${{ matrix.os }}-go-${{ matrix.go-version }}
+          name: codecov-${{ matrix.os }}-go-${{ env.GO_VERSION }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           verbose: true
@@ -162,11 +195,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go (bootstrap)
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
-          cache-dependency-path: cli/go.sum
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }}
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+
+      - name: Verify Go version
+        run: go version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -204,11 +247,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go (bootstrap)
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
-          cache-dependency-path: cli/go.sum
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }}
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+
+      - name: Verify Go version
+        run: go version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -248,17 +301,37 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['stable']
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set up Go (bootstrap)
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-          cache-dependency-path: cli/go.sum
+          go-version: 'stable'
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }} (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+
+      - name: Install Go ${{ env.GO_VERSION }} (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          & go${{ env.GO_VERSION }} download
+          $gopath = go env GOPATH
+          "$gopath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Copy-Item "$gopath\bin\go${{ env.GO_VERSION }}.exe" "$gopath\bin\go.exe" -Force
+
+      - name: Verify Go version
+        run: go version
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
