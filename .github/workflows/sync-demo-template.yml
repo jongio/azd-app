@@ -163,6 +163,8 @@ jobs:
           DEMO_REPO_PAT: ${{ secrets.DEMO_REPO_PAT }}
         run: |
           echo "Target repository appears to be empty. Initializing..."
+          # Clean up any partial checkout and start fresh
+          rm -rf target
           mkdir -p target
           cd target
           git init
