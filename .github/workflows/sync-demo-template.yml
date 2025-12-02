@@ -148,12 +148,30 @@ jobs:
 
       - name: Checkout target repository
         if: env.secret_configured == 'true'
+        id: checkout-target
+        continue-on-error: true
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TARGET_REPO }}
           token: ${{ secrets.DEMO_REPO_PAT }}
           path: target
           fetch-depth: 0
+
+      - name: Initialize empty target repository
+        if: env.secret_configured == 'true' && steps.checkout-target.outcome == 'failure'
+        env:
+          DEMO_REPO_PAT: ${{ secrets.DEMO_REPO_PAT }}
+        run: |
+          echo "Target repository appears to be empty. Initializing..."
+          mkdir -p target
+          cd target
+          git init
+          git remote add origin "https://x-access-token:${DEMO_REPO_PAT}@github.com/${{ env.TARGET_REPO }}.git"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Create an initial empty commit so we have a branch to work with
+          git commit --allow-empty -m "chore: initialize repository"
+          echo "✓ Initialized empty repository"
 
       - name: Sync demo files to target
         if: env.secret_configured == 'true'
