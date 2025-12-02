@@ -1,20 +1,58 @@
-# azd-app Demo Project
+# azd app Demo Project
 
-This demo project showcases how to use azd-app with AI-powered debugging through the MCP (Model Context Protocol) integration with GitHub Copilot.
+This demo project showcases how to use `azd app` with AI-powered debugging through the MCP (Model Context Protocol) integration with GitHub Copilot.
+
+> 📚 **Full Documentation**: [jongio.github.io/azd-app](https://jongio.github.io/azd-app/)
+
+## Prerequisites
+
+You'll need the Azure Developer CLI (azd) installed. Choose your platform:
+
+**Windows:**
+```bash
+winget install microsoft.azd
+```
+
+**macOS:**
+```bash
+brew tap azure/azd && brew install azd
+```
+
+**Linux:**
+```bash
+curl -fsSL https://aka.ms/install-azd.sh | bash
+```
+
+## Install azd app
+
+Enable the azd extensions feature and install the azd app extension:
+
+```bash
+# Enable extensions
+azd config set alpha.extensions.enabled on
+
+# Add azd app extension source
+azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+
+# Install the extension
+azd extension install app
+```
 
 ## Quick Start
 
 ```bash
 # Install dependencies
-azd-app deps
+azd app deps
 
 # Start the API service
-azd-app run
+azd app run
 ```
+
+The dashboard will open automatically at `http://localhost:5050`.
 
 ## Demonstrating AI Debugging
 
-This project includes an **intentional bug** for demonstrating AI debugging capabilities:
+This project includes an **intentional bug** for demonstrating AI debugging capabilities.
 
 ### The Bug
 
@@ -34,9 +72,9 @@ curl -X POST http://localhost:3000/items \
 
 ### Using Copilot to Debug
 
-1. Run the service with `azd-app run`
+1. Run the service with `azd app run`
 2. Trigger the bug with the curl command above
-3. Open GitHub Copilot and ask:
+3. Open GitHub Copilot Chat (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows/Linux or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on macOS) and ask:
 
    > "Check the API logs for errors"
 
@@ -56,15 +94,14 @@ curl -X POST http://localhost:3000/items \
 
 ## MCP Configuration
 
-The `.vscode/mcp.json` file configures the azd-app MCP server for Copilot:
+The `.vscode/mcp.json` file configures the azd app MCP server for Copilot:
 
 ```json
 {
   "servers": {
-    "azd-app": {
-      "type": "stdio",
-      "command": "azd-app",
-      "args": ["mcp"]
+    "Azure Developer CLI - App Extension": {
+      "command": "azd",
+      "args": ["app", "mcp", "serve"]
     }
   }
 }
@@ -72,15 +109,31 @@ The `.vscode/mcp.json` file configures the azd-app MCP server for Copilot:
 
 ## Available MCP Tools
 
-When debugging with Copilot, these tools are available:
+When debugging with Copilot, 10 tools are available across three categories:
 
+### Observe
 | Tool | Description |
 |------|-------------|
-| `get_services` | List all services and their status |
-| `get_service_logs` | Fetch logs from a running service |
-| `restart_service` | Restart a service after code changes |
+| `get_services` | List all services with status, ports, and health |
+| `get_service_logs` | Fetch logs with optional filtering by level and time |
 | `get_project_info` | Get azure.yaml configuration |
-| `get_environment_variables` | Check environment variables |
+
+### Operate
+| Tool | Description |
+|------|-------------|
+| `run_services` | Start all or specific services |
+| `stop_services` | Stop all or specific services |
+| `restart_service` | Restart a specific service |
+| `install_dependencies` | Install dependencies for services |
+
+### Configure
+| Tool | Description |
+|------|-------------|
+| `check_requirements` | Verify prerequisites (Node.js, Python, etc.) |
+| `get_environment_variables` | Get environment variables (sensitive values redacted) |
+| `set_environment_variable` | Set an environment variable for a service |
+
+See the full [MCP Tools Reference](https://jongio.github.io/azd-app/mcp/tools/) for detailed documentation.
 
 ## Project Structure
 
@@ -106,6 +159,9 @@ demo/
 
 ## Learn More
 
-- [azd-app Documentation](https://jongio.github.io/azd-app/)
-- [MCP Integration Guide](https://jongio.github.io/azd-app/mcp/)
-- [AI Debugging Tips](https://jongio.github.io/azd-app/examples/)
+- [azd app Documentation](https://jongio.github.io/azd-app/)
+- [Quick Start Guide](https://jongio.github.io/azd-app/quick-start/)
+- [Guided Tour](https://jongio.github.io/azd-app/tour/)
+- [MCP Server & AI Debugging](https://jongio.github.io/azd-app/mcp/)
+- [MCP Tools Reference](https://jongio.github.io/azd-app/mcp/tools/)
+- [CLI Reference](https://jongio.github.io/azd-app/reference/cli/)
