@@ -4,6 +4,9 @@
    Tailwind v4 Theme Configuration
    ============================================ */
 
+/* Configure dark mode to use data-theme attribute */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   /* Azure-inspired colors */
   --color-azure-50: #eff6ff;

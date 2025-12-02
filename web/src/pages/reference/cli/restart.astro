@@ -24,7 +24,7 @@ const example3 = "azd app restart --all";
     <!-- Header -->
     <div class="mb-8">
       <h1 class="text-4xl font-bold mb-4">azd app restart</h1>
-      <p class="text-xl text-neutral-600 dark:text-neutral-400">Restart services.</p>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">Restart services.</p>
     </div>
 
     <!-- Usage -->
@@ -35,32 +35,25 @@ const example3 = "azd app restart --all";
     <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
     
 <div class="overflow-x-auto my-8">
-  <table class="min-w-full text-sm">
+  <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
     <thead>
-      <tr class="border-b border-neutral-200 dark:border-neutral-700">
-        <th class="text-left py-3 px-4 font-semibold">Flag</th>
-        <th class="text-left py-3 px-4 font-semibold">Short</th>
-        <th class="text-left py-3 px-4 font-semibold">Type</th>
-        <th class="text-left py-3 px-4 font-semibold">Default</th>
-        <th class="text-left py-3 px-4 font-semibold">Description</th>
+      <tr class="bg-neutral-200 dark:bg-neutral-700">
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
       </tr>
     </thead>
-    <tbody>
-      
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--service</code></td>
-        <td class="py-3 px-4"><code>-s</code></td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">string</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">-</td>
-        <td class="py-3 px-4">Service name(s) to restart (comma-separated)</td>
-      </tr>
-      <tr class="border-b border-neutral-100 dark:border-neutral-800">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">--all</code></td>
-        <td class="py-3 px-4">-</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">bool</td>
-        <td class="py-3 px-4 text-neutral-600 dark:text-neutral-400">false</td>
-        <td class="py-3 px-4">Restart all services</td>
-      </tr>
+    <tbody class="bg-neutral-100 dark:bg-neutral-800">
+      ${command.flags.map(f => `
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">${f.flag}</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.short ? `<code class="bg-transparent">${f.short}</code>` : '-'}</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.type || '-'}</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.default || '-'}</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.description}</td>
+      </tr>`).join('')}
     </tbody>
   </table>
 </div>
@@ -77,16 +70,16 @@ const example3 = "azd app restart --all";
 
     <!-- Link to detailed docs -->
     
-    <div class="mt-12 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-      <h3 class="text-lg font-semibold mb-2">📚 Detailed Documentation</h3>
-      <p class="text-neutral-600 dark:text-neutral-400 mb-4">
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
         For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
       </p>
       <a 
         href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/restart.md"
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
       >
         View full restart specification →
       </a>
