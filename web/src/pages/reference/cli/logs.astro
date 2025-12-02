@@ -52,14 +52,83 @@ const example9 = "azd app logs --timestamps=false";
       </tr>
     </thead>
     <tbody class="bg-neutral-100 dark:bg-neutral-800">
-      ${command.flags.map(f => `
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">${f.flag}</code></td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.short ? `<code class="bg-transparent">${f.short}</code>` : '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.type || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.default || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.description}</td>
-      </tr>`).join('')}
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--follow</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-f</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Follow log output (tail -f behavior)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-s</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Filter by service name(s) (comma-separated)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--tail</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-n</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">100</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Number of lines to show from the end</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--since</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show logs since duration (e.g., 5m, 1h)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--timestamps</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">true</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show timestamps with each log entry</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--no-color</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Disable colored output</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--level</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">all</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Filter by log level (info, warn, error, debug, all)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--format</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">text</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format (text, json)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--file</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Write logs to file instead of stdout</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--exclude</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-e</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Regex patterns to exclude (comma-separated)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--no-builtins</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Disable built-in filter patterns</td>
+      </tr>
     </tbody>
   </table>
 </div>
