@@ -1,3 +1,13 @@
+## [0.7.1] - 2025-12-02
+
+- fix: set default working directory for cleanup job in PR build workflow (#80) (3f0242c)
+- Refactor logging, enhance TypeScript type safety, and improve environment variable handling (#79) (170bc8f)
+- feat: enhance Go service detection and add worker service implementation (#78) (61d1fcf)
+- Dashboard Improvements & Health Status Enhancements (#77) (06c70f5)
+- Add comprehensive validation tests for various tools and introduce Codecov configuration (#76) (33f0b9a)
+- feat: add service control commands and enhance logging capabilities (#75) (d984560)
+- chore: update registry for v0.7.0 (5d5471f)
+
 ## [0.7.0] - 2025-11-30
 
 - Refactor and enhance tests, styles, and configurations (#73) (f508e5c)
