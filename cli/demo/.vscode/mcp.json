@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "azd-app": {
+      "type": "stdio",
+      "command": "azd-app",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
