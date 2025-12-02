@@ -121,6 +121,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../coverage
+          # Clean build cache to avoid version mismatch issues
+          go clean -cache
           # Race detector not supported on macOS without additional setup
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             go test -short -v -coverprofile=../coverage/coverage.out ./...
