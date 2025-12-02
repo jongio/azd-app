@@ -7,7 +7,7 @@
       "description": "A collection of developer productivity commands for Azure Developer CLI",
       "versions": [
         {
-          "version": "0.5.7",
+          "version": "0.7.0",
           "capabilities": [
             "custom-commands",
             "lifecycle-events",

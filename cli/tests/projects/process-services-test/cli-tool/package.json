@@ -1,0 +1,21 @@
+{
+  "name": "cli-tool",
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.0.0",
+  "bin": {
+    "cli-tool": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/cli.ts",
+    "build": "tsc",
+    "start": "node dist/cli.js"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.0.0"
+  }
+}

@@ -104,6 +104,8 @@ func OrchestrateServices(runtimes []*ServiceRuntime, envVars map[string]string, 
 				Status:     constants.StatusStarting,
 				Health:     constants.HealthStarting,
 				StartTime:  time.Now(),
+				Type:       rt.Type,
+				Mode:       rt.Mode,
 			}); err != nil {
 				logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to register service: %v", err))
 			}

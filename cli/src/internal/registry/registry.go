@@ -20,11 +20,15 @@ type ServiceRegistryEntry struct {
 	AzureURL    string    `json:"azureUrl,omitempty"`
 	Language    string    `json:"language"`
 	Framework   string    `json:"framework"`
-	Status      string    `json:"status"` // "starting", "ready", "stopping", "stopped", "error"
-	Health      string    `json:"health"` // "healthy", "unhealthy", "unknown"
+	Status      string    `json:"status"` // "starting", "ready", "stopping", "stopped", "error", "building", "built", "completed", "failed", "watching"
+	Health      string    `json:"health"` // "healthy", "unhealthy", "unknown", "starting"
 	StartTime   time.Time `json:"startTime"`
 	LastChecked time.Time `json:"lastChecked"`
 	Error       string    `json:"error,omitempty"`
+	Type        string    `json:"type,omitempty"`     // "http", "tcp", "process"
+	Mode        string    `json:"mode,omitempty"`     // "watch", "build", "daemon", "task" (for type=process)
+	ExitCode    *int      `json:"exitCode,omitempty"` // Exit code for completed build/task mode services (nil = still running)
+	EndTime     time.Time `json:"endTime,omitempty"`  // When the process exited (for build/task modes)
 }
 
 // ServiceRegistry manages the registry of running services for a project.
@@ -125,6 +129,21 @@ func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error
 	if svc, exists := r.services[serviceName]; exists {
 		svc.Status = status
 		svc.Health = health
+		svc.LastChecked = time.Now()
+		return r.save()
+	}
+	return fmt.Errorf("service not found: %s", serviceName)
+}
+
+// UpdateExitInfo updates the exit code and end time for a completed service.
+// This is used for build/task mode services that complete and exit.
+func (r *ServiceRegistry) UpdateExitInfo(serviceName string, exitCode int, endTime time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if svc, exists := r.services[serviceName]; exists {
+		svc.ExitCode = &exitCode
+		svc.EndTime = endTime
 		svc.LastChecked = time.Now()
 		return r.save()
 	}

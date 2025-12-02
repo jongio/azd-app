@@ -241,6 +241,12 @@ export function useServiceOperations() {
    * IMPORTANT: This function uses PROCESS status (running/stopped/etc),
    * NOT health status (healthy/unhealthy/degraded). A running but unhealthy
    * service should show Stop/Restart because the process IS running.
+   * 
+   * For process services (type: 'process'), the status can be:
+   * - 'watching': Process is watching for file changes (can stop/restart)
+   * - 'building': Process is currently building (can stop)
+   * - 'built': Process completed build (can start to rebuild)
+   * - 'failed': Process failed (can start to retry)
    */
   const getAvailableActions = useCallback((service: Service): ServiceOperation[] => {
     const status = service.local?.status ?? 'not-running'
@@ -253,15 +259,20 @@ export function useServiceOperations() {
     switch (status) {
       case 'stopped':
       case 'not-running':
+      case 'built':  // Process service completed build - can start to rebuild
+      case 'completed': // Process service completed task - can start to re-run
+      case 'failed': // Process service failed - can start to retry
         actions.push('start')
         break
       case 'running':
       case 'ready':
+      case 'watching': // Process service actively watching - can stop/restart
         // Process is running - show stop/restart regardless of health status
         actions.push('restart', 'stop')
         break
       case 'starting':
-        // Allow stopping a stuck startup
+      case 'building': // Process service building - can stop to cancel
+        // Allow stopping a stuck startup or build
         actions.push('stop')
         break
       case 'stopping':
