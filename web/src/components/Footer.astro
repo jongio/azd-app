@@ -23,22 +23,25 @@ interface SocialLink {
   label: string;
 }
 
+// Use BASE_URL from Astro config for proper path handling
+const base = import.meta.env.BASE_URL;
+
 const footerNavigation: FooterSection[] = [
   {
     title: 'Getting Started',
     links: [
-      { label: 'Quick Start', href: '/azd-app/quick-start/' },
-      { label: 'Guided Tour', href: '/azd-app/tour/' },
-      { label: 'Examples', href: '/azd-app/examples/' },
+      { label: 'Quick Start', href: `${base}quick-start/` },
+      { label: 'Guided Tour', href: `${base}tour/` },
+      { label: 'Examples', href: `${base}examples/` },
     ],
   },
   {
     title: 'Documentation',
     links: [
-      { label: 'CLI Reference', href: '/azd-app/reference/cli/' },
-      { label: 'MCP Server', href: '/azd-app/mcp/', badge: 'AI' },
-      { label: 'AI Debugging', href: '/azd-app/mcp/ai-debugging/' },
-      { label: 'MCP Tools', href: '/azd-app/mcp/tools/' },
+      { label: 'CLI Reference', href: `${base}reference/cli/` },
+      { label: 'MCP Server', href: `${base}mcp/`, badge: 'AI' },
+      { label: 'AI Debugging', href: `${base}mcp/ai-debugging/` },
+      { label: 'MCP Tools', href: `${base}mcp/tools/` },
     ],
   },
   {
@@ -46,8 +49,8 @@ const footerNavigation: FooterSection[] = [
     links: [
       { label: 'GitHub', href: 'https://github.com/jongio/azd-app', external: true },
       { label: 'Issues', href: 'https://github.com/jongio/azd-app/issues', external: true },
-      { label: 'Changelog', href: '/azd-app/reference/changelog/', badge: 'New' },
-      { label: "What's New", href: '/azd-app/reference/whats-new/' },
+      { label: 'Changelog', href: `${base}reference/changelog/`, badge: 'New' },
+      { label: "What's New", href: `${base}reference/whats-new/` },
     ],
   },
 ];
@@ -67,7 +70,7 @@ const currentYear = new Date().getFullYear();
   <div class="footer-container">
     <!-- Brand -->
     <div class="footer-brand">
-      <a href="/azd-app/" class="footer-logo" aria-label="azd app home">
+      <a href={base} class="footer-logo" aria-label="azd app home">
         <span class="footer-logo-text">azd app</span>
       </a>
       <p class="footer-tagline">Local dev made simple</p>
