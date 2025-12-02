@@ -48,8 +48,6 @@ azd app deps
 azd app run
 ```
 
-The dashboard will open automatically at `http://localhost:5050`.
-
 ## Demonstrating AI Debugging
 
 This project includes an **intentional bug** for demonstrating AI debugging capabilities.
