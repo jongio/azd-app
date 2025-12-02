@@ -73,7 +73,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.25.5'
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
