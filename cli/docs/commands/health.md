@@ -455,6 +455,91 @@ The `type` field supports the following values:
 | `output` | Pattern matching in stdout | Build tools, watchers |
 | `none` | Skip health checks | Build/watch services |
 
+### Service Types and Modes
+
+Services are categorized by their **type** (protocol) and **mode** (lifecycle behavior):
+
+**Service Types:**
+
+| Type | Description | Auto-Detection |
+|------|-------------|----------------|
+| `http` | HTTP traffic with health endpoint | Default when service has ports |
+| `tcp` | Raw TCP connections | Explicit configuration |
+| `process` | No network endpoint | Default when no ports defined |
+
+**Service Modes (for process type):**
+
+| Mode | Description | Detection |
+|------|-------------|-----------|
+| `watch` | Continuously watching for file changes | Commands with `--watch`, `-w`, or watch tools (nodemon, air, etc.) |
+| `build` | One-time build, exits on completion | Commands with `build`, `compile`, `tsc` without watch |
+| `daemon` | Long-running background process | Explicit configuration |
+| `task` | On-demand one-time execution | Explicit configuration |
+
+**Configuration Example:**
+
+```yaml
+services:
+  # HTTP service (auto-detected from ports)
+  api:
+    language: go
+    project: ./api
+    ports:
+      - "8080"
+    healthcheck:
+      test: "http://localhost:8080/health"
+  
+  # Process service in watch mode (auto-detected)
+  api-tsc:
+    language: ts
+    project: ./services/api-tsc
+    type: process        # Explicit: no network endpoint
+    mode: watch          # Explicit: watching for changes
+    # Auto-detected from: npm run watch, tsc --watch, nodemon, etc.
+  
+  # Process service in build mode
+  frontend-build:
+    language: ts
+    project: ./frontend
+    type: process
+    mode: build          # One-time build, exits when done
+```
+
+**Health Check Behavior by Type/Mode:**
+
+| Type | Mode | Health Strategy | Status Values |
+|------|------|-----------------|---------------|
+| http | - | HTTP endpoint check | healthy, degraded, unhealthy |
+| tcp | - | Port listening check | healthy, unhealthy |
+| process | watch | Process alive check | watching, stopped, error |
+| process | build | Exit code check | building, built, failed |
+| process | daemon | Process alive check | running, stopped, error |
+| process | task | Exit code check | running, completed, failed |
+
+**Auto-Detection Rules:**
+
+1. **Service Type Detection:**
+   - Has `ports` defined → `http` type (default)
+   - No `ports` defined → `process` type
+
+2. **Service Mode Detection (for process type):**
+   - Command contains `--watch` or `-w` → `watch` mode
+   - Command contains watch tools (nodemon, air, watchexec) → `watch` mode
+   - Project has `air.toml` or watch script in package.json → `watch` mode
+   - Command contains `build`, `compile`, `tsc` (without watch) → `build` mode
+   - Default → `daemon` mode
+
+**Language-Specific Watch Detection:**
+
+| Language | Watch Indicators |
+|----------|------------------|
+| TypeScript/JavaScript | nodemon, ts-node --watch, tsc -w, npm run dev (with watch) |
+| Go | air, reflex, air.toml, .air.toml |
+| Python | uvicorn --reload, watchdog, watchgod |
+| .NET | dotnet watch |
+| Rust | cargo-watch |
+| Java | spring-boot-devtools, jrebel |
+
 **Output-based health check (experimental)**:
 ```yaml
 services:

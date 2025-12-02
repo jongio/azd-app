@@ -10,6 +10,46 @@ EXTENSION_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Change to the script directory
 cd "$EXTENSION_DIR" || exit
 
+# Check if .go files have changed by comparing timestamps
+# Only kill CLI processes if Go files need rebuilding
+SHOULD_KILL_PROCESSES=false
+
+if [ -d "src" ]; then
+    # Find newest .go file
+    NEWEST_GO_FILE=$(find src -name "*.go" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
+                     find src -name "*.go" -type f -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
+    
+    if [ -d "bin" ]; then
+        # Find newest binary (excluding .old files)
+        NEWEST_BINARY=$(find bin -type f ! -name "*.old" -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
+                        find bin -type f ! -name "*.old" -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
+        
+        if [ -n "$NEWEST_GO_FILE" ] && [ -n "$NEWEST_BINARY" ]; then
+            if [ "$NEWEST_GO_FILE" -gt "$NEWEST_BINARY" ]; then
+                SHOULD_KILL_PROCESSES=true
+            fi
+        elif [ -n "$NEWEST_GO_FILE" ]; then
+            # No binary exists, will need to build
+            SHOULD_KILL_PROCESSES=true
+        fi
+    else
+        # No bin directory, will need to build
+        SHOULD_KILL_PROCESSES=true
+    fi
+fi
+
+if [ "$SHOULD_KILL_PROCESSES" = true ]; then
+    # Kill any running app processes to allow rebuilding
+    echo "Go files changed - stopping any running app processes..."
+    BINARY_NAME="app"
+    EXTENSION_ID_FOR_KILL="jongio.azd.app"
+    EXTENSION_BINARY_PREFIX="${EXTENSION_ID_FOR_KILL//./-}"
+
+    # Kill processes silently (ignore errors if not running)
+    pkill -f "$BINARY_NAME" 2>/dev/null || true
+    pkill -f "$EXTENSION_BINARY_PREFIX" 2>/dev/null || true
+fi
+
 echo "Building App Extension..."
 
 # Build dashboard first (if needed)

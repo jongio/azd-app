@@ -215,9 +215,18 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 }
 
 // SaveResults saves reqs check results to cache.
+// Only caches successful results (allPassed=true) to avoid blocking users with stale failures.
 func (cm *CacheManager) SaveResults(azureYamlPath string, results []CachedReqResult, allPassed bool) error {
 	// If cache is disabled, skip saving
 	if !cm.enabled {
+		return nil
+	}
+
+	// Only cache successful results - failed checks should always be re-run
+	// so users aren't blocked by stale failures after installing missing tools
+	if !allPassed {
+		// Clear any existing cache on failure to ensure fresh check next time
+		_ = cm.ClearCache()
 		return nil
 	}
 

@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
 import { getStatusDisplay } from '@/lib/service-utils'
-import { Activity, Globe, Plug, Cpu, type LucideIcon } from 'lucide-react'
-import type { HealthCheckResult, HealthStatus } from '@/types'
+import { Activity, Globe, Plug, Cpu, Eye, Hammer, type LucideIcon } from 'lucide-react'
+import type { HealthCheckResult, HealthStatus, ServiceType, ServiceMode, ServiceStatus } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface StatusCellProps {
-  status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running' | 'restarting'
+  status: ServiceStatus
   health: HealthStatus
   healthCheckResult?: HealthCheckResult
+  serviceType?: ServiceType
+  serviceMode?: ServiceMode
 }
 
 /** Format response time from nanoseconds to human-readable */
@@ -29,19 +31,28 @@ const CHECK_TYPE_ICONS: Record<string, LucideIcon> = {
 /** Default icon when check type is unknown */
 const DEFAULT_CHECK_ICON = Activity
 
-export function StatusCell({ status, health, healthCheckResult }: StatusCellProps) {
+export function StatusCell({ status, health, healthCheckResult, serviceType, serviceMode }: StatusCellProps) {
   const statusDisplay = getStatusDisplay(status, health)
+  const isProcessService = serviceType === 'process'
   
   // Use useMemo to avoid recreating the icon reference on each render
   const CheckIcon = useMemo(() => {
+    // For process services, show mode-specific icons
+    if (isProcessService) {
+      if (status === 'watching' || serviceMode === 'watch') return Eye
+      if (status === 'building' || serviceMode === 'build') return Hammer
+      return Cpu // daemon, task, or default
+    }
     const checkType = healthCheckResult?.checkType
     return checkType && CHECK_TYPE_ICONS[checkType] ? CHECK_TYPE_ICONS[checkType] : DEFAULT_CHECK_ICON
-  }, [healthCheckResult?.checkType])
+  }, [healthCheckResult?.checkType, isProcessService, serviceMode, status])
   
   // Determine which animation to show based on health status
-  const isUnhealthy = health === 'unhealthy' || status === 'error'
+  const isUnhealthy = health === 'unhealthy' || status === 'error' || status === 'failed'
   const isDegraded = health === 'degraded'
-  const isHealthy = (status === 'ready' || status === 'running') && health === 'healthy'
+  const isBuilding = status === 'building'
+  const isHealthy = (status === 'ready' || status === 'running' || status === 'watching' || status === 'built' || status === 'completed') && 
+                    (health === 'healthy' || isProcessService)
   
   // Build tooltip content
   const tooltipLines: string[] = []
@@ -74,8 +85,9 @@ export function StatusCell({ status, health, healthCheckResult }: StatusCellProp
         statusDisplay.color,
         isUnhealthy && "animate-status-flash",
         isDegraded && "animate-caution-pulse",
+        isBuilding && "animate-pulse",
         isHealthy && "animate-heartbeat",
-        !isUnhealthy && !isDegraded && !isHealthy && "transition-all duration-200"
+        !isUnhealthy && !isDegraded && !isBuilding && !isHealthy && "transition-all duration-200"
       )}></div>
       <span className={cn(
         "font-medium transition-colors duration-200",

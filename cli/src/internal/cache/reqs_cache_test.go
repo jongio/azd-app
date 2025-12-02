@@ -402,6 +402,61 @@ func TestSaveResults(t *testing.T) {
 	}
 }
 
+func TestSaveResultsFailedClearsCache(t *testing.T) {
+	tempDir := t.TempDir()
+	cm := &CacheManager{
+		cacheDir: tempDir,
+		ttl:      time.Hour,
+		enabled:  true,
+	}
+
+	// Create a test azure.yaml file
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	// First, save successful results to create a cache
+	successResults := []CachedReqResult{
+		{Name: "tool1", Installed: true, Version: "1.0.0", Satisfied: true},
+	}
+	if err := cm.SaveResults(azureYamlPath, successResults, true); err != nil {
+		t.Fatalf("SaveResults(allPassed=true) error = %v", err)
+	}
+
+	// Verify cache file was created
+	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
+	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
+		t.Fatalf("cache file was not created after successful save")
+	}
+
+	// Now save failed results - should clear the cache
+	failedResults := []CachedReqResult{
+		{Name: "tool1", Installed: true, Version: "1.0.0", Satisfied: true},
+		{Name: "tool2", Installed: false, Satisfied: false},
+	}
+	if err := cm.SaveResults(azureYamlPath, failedResults, false); err != nil {
+		t.Fatalf("SaveResults(allPassed=false) error = %v", err)
+	}
+
+	// Verify cache file was removed (not updated with failed results)
+	if _, err := os.Stat(cacheFile); !os.IsNotExist(err) {
+		t.Errorf("cache file should be removed after failed save, but still exists")
+	}
+
+	// Verify that GetCachedResults returns no cache
+	cache, valid, err := cm.GetCachedResults(azureYamlPath)
+	if err != nil {
+		t.Fatalf("GetCachedResults() error = %v", err)
+	}
+	if valid {
+		t.Errorf("GetCachedResults() should return invalid after failed save")
+	}
+	if cache != nil {
+		t.Errorf("GetCachedResults() should return nil after failed save")
+	}
+}
+
 func TestClearCache(t *testing.T) {
 	tempDir := t.TempDir()
 	cm := &CacheManager{

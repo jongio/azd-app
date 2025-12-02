@@ -10,6 +10,42 @@ $EXTENSION_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Change to the script directory
 Set-Location -Path $EXTENSION_DIR
 
+# Check if .go files have changed by comparing timestamps
+# Only kill CLI processes if Go files need rebuilding
+$shouldKillProcesses = $false
+$goFiles = Get-ChildItem -Path "src" -Recurse -Filter "*.go" -ErrorAction SilentlyContinue
+
+if ($goFiles) {
+    # Check if any binary exists to compare against
+    $existingBinaries = Get-ChildItem -Path "bin" -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.old" }
+    if ($existingBinaries) {
+        $newestBinary = $existingBinaries | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        $newestGoFile = $goFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newestGoFile.LastWriteTime -gt $newestBinary.LastWriteTime) {
+            $shouldKillProcesses = $true
+        }
+    } else {
+        # No binary exists, will need to build (and kill any stale processes)
+        $shouldKillProcesses = $true
+    }
+}
+
+if ($shouldKillProcesses) {
+    # Kill any running app processes to allow rebuilding
+    # This is necessary on Windows where the binary cannot be overwritten while in use
+    Write-Host "Go files changed - stopping any running app processes..." -ForegroundColor Yellow
+    $binaryName = "app"
+    $extensionId = "jongio.azd.app"
+    $extensionBinaryPrefix = $extensionId -replace '\.', '-'
+
+    # Kill processes silently (ignore errors if not running)
+    taskkill /F /IM "$binaryName.exe" 2>$null | Out-Null
+    foreach ($arch in @("windows-amd64", "windows-arm64")) {
+        $procName = "$extensionBinaryPrefix-$arch.exe"
+        taskkill /F /IM $procName 2>$null | Out-Null
+    }
+}
+
 Write-Host "Building App Extension..." -ForegroundColor Cyan
 
 # Build dashboard first (if needed)

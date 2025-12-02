@@ -1,5 +1,5 @@
-import { CheckCircle, XCircle, Clock, AlertCircle, StopCircle, CircleDot, Circle, AlertTriangle, type LucideIcon } from 'lucide-react'
-import type { Service, HealthCheckResult, HealthStatus, HealthSummary } from '@/types'
+import { CheckCircle, XCircle, Clock, AlertCircle, StopCircle, CircleDot, Circle, AlertTriangle, Eye, Hammer, type LucideIcon } from 'lucide-react'
+import type { Service, HealthCheckResult, HealthStatus, HealthSummary, ServiceType, ServiceMode } from '@/types'
 
 /**
  * Status display configuration for a service
@@ -36,6 +36,12 @@ export function getStatusIndicator(status?: string): StatusIndicator {
     stopped: { icon: '◉', color: 'text-gray-400', animate: '' },
     error: { icon: '⚠', color: 'text-red-500', animate: 'animate-pulse' },
     'not-running': { icon: '○', color: 'text-gray-500', animate: '' },
+    // Process service specific statuses
+    watching: { icon: '👁', color: 'text-green-500', animate: '' },
+    building: { icon: '🔨', color: 'text-yellow-500', animate: 'animate-pulse' },
+    built: { icon: '✓', color: 'text-green-500', animate: '' },
+    failed: { icon: '✗', color: 'text-red-500', animate: '' },
+    completed: { icon: '✓', color: 'text-green-500', animate: '' },
   } as const satisfies Record<string, StatusIndicator>
   return indicators[status as keyof typeof indicators] ?? indicators['not-running']
 }
@@ -166,6 +172,12 @@ export function getStatusBadgeConfig(status?: string): StatusBadgeConfig {
     stopped: { color: 'bg-gray-400/10 text-gray-400 border-gray-400/20', icon: '◉', label: 'Stopped' },
     error: { color: 'bg-red-500/10 text-red-500 border-red-500/20', icon: '⚠', label: 'Error' },
     'not-running': { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', icon: '○', label: 'Not Running' },
+    // Process service specific statuses
+    watching: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '👁', label: 'Watching' },
+    building: { color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', icon: '🔨', label: 'Building' },
+    built: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '✓', label: 'Built' },
+    failed: { color: 'bg-red-500/10 text-red-500 border-red-500/20', icon: '✗', label: 'Failed' },
+    completed: { color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: '✓', label: 'Completed' },
   } as const satisfies Record<string, StatusBadgeConfig>
   return configs[status as keyof typeof configs] ?? configs['not-running']
 }
@@ -249,6 +261,62 @@ export function getStatusDisplay(status: string, health: string): StatusDisplay 
       textColor: 'text-gray-400',
       badgeVariant: 'secondary',
       icon: StopCircle
+    }
+  }
+
+  // PROCESS SERVICE SPECIFIC STATUSES
+  // Watching - process service is actively watching for file changes
+  if (status === 'watching') {
+    return {
+      text: 'Watching',
+      color: 'bg-green-500',
+      textColor: 'text-green-400',
+      badgeVariant: 'success',
+      icon: Eye
+    }
+  }
+
+  // Building - process service is currently building
+  if (status === 'building') {
+    return {
+      text: 'Building',
+      color: 'bg-yellow-500',
+      textColor: 'text-yellow-400',
+      badgeVariant: 'warning',
+      icon: Hammer
+    }
+  }
+
+  // Built - process service completed build successfully
+  if (status === 'built') {
+    return {
+      text: 'Built',
+      color: 'bg-green-500',
+      textColor: 'text-green-400',
+      badgeVariant: 'success',
+      icon: CheckCircle
+    }
+  }
+
+  // Completed - process service task completed successfully
+  if (status === 'completed') {
+    return {
+      text: 'Completed',
+      color: 'bg-green-500',
+      textColor: 'text-green-400',
+      badgeVariant: 'success',
+      icon: CheckCircle
+    }
+  }
+
+  // Failed - process service build/task failed
+  if (status === 'failed') {
+    return {
+      text: 'Failed',
+      color: 'bg-red-500',
+      textColor: 'text-red-400',
+      badgeVariant: 'destructive',
+      icon: XCircle
     }
   }
 
@@ -491,4 +559,91 @@ export function mergeHealthIntoService(
       },
     },
   }
+}
+
+// ============================================================================
+// Service Type and Mode Utilities
+// ============================================================================
+
+export interface ServiceTypeBadgeConfig {
+  color: string
+  label: string
+  icon: string
+}
+
+export interface ServiceModeBadgeConfig {
+  color: string
+  label: string
+  description: string
+}
+
+/**
+ * Get display configuration for a service type
+ */
+export function getServiceTypeBadgeConfig(serviceType?: ServiceType): ServiceTypeBadgeConfig {
+  const configs: Record<ServiceType, ServiceTypeBadgeConfig> = {
+    http: { color: 'bg-blue-500/10 text-blue-500 border-blue-500/20', label: 'HTTP', icon: '🌐' },
+    tcp: { color: 'bg-purple-500/10 text-purple-500 border-purple-500/20', label: 'TCP', icon: '🔌' },
+    process: { color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20', label: 'Process', icon: '⚙️' },
+  }
+  return configs[serviceType ?? 'http']
+}
+
+/**
+ * Get display configuration for a service mode
+ */
+export function getServiceModeBadgeConfig(serviceMode?: ServiceMode): ServiceModeBadgeConfig {
+  const configs: Record<ServiceMode, ServiceModeBadgeConfig> = {
+    watch: { color: 'bg-green-500/10 text-green-500 border-green-500/20', label: 'Watch', description: 'Continuously watching for file changes' },
+    build: { color: 'bg-orange-500/10 text-orange-500 border-orange-500/20', label: 'Build', description: 'One-time build, exits on completion' },
+    daemon: { color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20', label: 'Daemon', description: 'Long-running background process' },
+    task: { color: 'bg-gray-500/10 text-gray-500 border-gray-500/20', label: 'Task', description: 'On-demand one-time execution' },
+  }
+  return configs[serviceMode ?? 'watch']
+}
+
+/**
+ * Get a human-readable label for a service type
+ */
+export function getServiceTypeLabel(serviceType?: ServiceType): string {
+  const labels: Record<ServiceType, string> = {
+    http: 'HTTP Service',
+    tcp: 'TCP Service',
+    process: 'Process Service',
+  }
+  return labels[serviceType ?? 'http']
+}
+
+/**
+ * Get a human-readable label for a service mode
+ */
+export function getServiceModeLabel(serviceMode?: ServiceMode): string {
+  const labels: Record<ServiceMode, string> = {
+    watch: 'Watch Mode',
+    build: 'Build Mode',
+    daemon: 'Daemon Mode',
+    task: 'Task Mode',
+  }
+  return labels[serviceMode ?? 'watch']
+}
+
+/**
+ * Check if a service type is process-based (no network endpoint)
+ */
+export function isProcessService(serviceType?: ServiceType): boolean {
+  return serviceType === 'process'
+}
+
+/**
+ * Check if a service mode indicates continuous operation
+ */
+export function isContinuousMode(serviceMode?: ServiceMode): boolean {
+  return serviceMode === 'watch' || serviceMode === 'daemon'
+}
+
+/**
+ * Check if a service mode indicates one-time execution
+ */
+export function isOneTimeMode(serviceMode?: ServiceMode): boolean {
+  return serviceMode === 'build' || serviceMode === 'task'
 }

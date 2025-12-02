@@ -422,42 +422,81 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 
 	// Wait for either process exit or context cancellation
 	// Use buffered channel to prevent goroutine leak
-	waitDone := make(chan error, 1)
+	type exitResult struct {
+		exitCode int
+		err      error
+	}
+	waitDone := make(chan exitResult, 1)
 	go func() {
 		state, err := proc.Process.Wait()
 		if err != nil {
-			waitDone <- fmt.Errorf("service %s exited with error: %w", serviceName, err)
+			waitDone <- exitResult{exitCode: -1, err: fmt.Errorf("service %s exited with error: %w", serviceName, err)}
 			return
 		}
+		exitCode := state.ExitCode()
 		if !state.Success() {
-			exitCode := state.ExitCode()
-			waitDone <- fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())
+			waitDone <- exitResult{exitCode: exitCode, err: fmt.Errorf("service %s exited with code %d: %s", serviceName, exitCode, state.String())}
 			return
 		}
-		waitDone <- nil
+		waitDone <- exitResult{exitCode: 0, err: nil}
 	}()
 
 	select {
-	case err := <-waitDone:
-		// Service exited - log it but don't cancel context (process isolation)
-		if err != nil {
+	case result := <-waitDone:
+		// Service exited - record exit info in registry
+		reg := registry.GetRegistry(projectDir)
+		endTime := time.Now()
+
+		// Always record exit code and end time for build/task mode tracking
+		if regErr := reg.UpdateExitInfo(serviceName, result.exitCode, endTime); regErr != nil {
+			output.Warning("Failed to update exit info for %s: %v", serviceName, regErr)
+		}
+
+		// Get service mode from registry to determine appropriate status
+		entry, _ := reg.GetService(serviceName)
+		mode := ""
+		if entry != nil {
+			mode = entry.Mode
+		}
+
+		if result.err != nil {
 			// Update registry to trigger OS notification via state monitor
-			reg := registry.GetRegistry(projectDir)
 			if regErr := reg.UpdateStatus(serviceName, "error", "unhealthy"); regErr != nil {
 				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
 			}
 
-			output.Error("⚠️  %v", err)
-			output.Warning("Service %s stopped. Other services continue running.", serviceName)
-			output.Info("Press Ctrl+C to stop all services")
+			// Show mode-appropriate error message
+			switch mode {
+			case service.ServiceModeBuild:
+				output.Error("✗ Build failed: %s (exit code %d)", serviceName, result.exitCode)
+			case service.ServiceModeTask:
+				output.Error("✗ Task failed: %s (exit code %d)", serviceName, result.exitCode)
+			default:
+				output.Error("⚠️  %v", result.err)
+				output.Warning("Service %s stopped. Other services continue running.", serviceName)
+				output.Info("Press Ctrl+C to stop all services")
+			}
 		} else {
 			// Update registry for clean exit
-			reg := registry.GetRegistry(projectDir)
-			if regErr := reg.UpdateStatus(serviceName, "stopped", "unknown"); regErr != nil {
+			// Use mode-appropriate status
+			var status, health string
+			switch mode {
+			case service.ServiceModeBuild:
+				status = "built"
+				health = "healthy"
+				// Don't print message - build completion is expected, status visible in dashboard
+			case service.ServiceModeTask:
+				status = "completed"
+				health = "healthy"
+				// Don't print message - task completion is expected, status visible in dashboard
+			default:
+				status = "stopped"
+				health = "unknown"
+				output.Info("Service %s exited cleanly", serviceName)
+			}
+			if regErr := reg.UpdateStatus(serviceName, status, health); regErr != nil {
 				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
 			}
-
-			output.Info("Service %s exited cleanly", serviceName)
 		}
 		// Intentionally don't cancel context - other services should continue
 	case <-ctx.Done():
