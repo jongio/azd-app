@@ -1,6 +1,7 @@
 name: Website Deploy
 
 on:
+  workflow_dispatch:  # Allow manual trigger
   push:
     branches:
       - main
