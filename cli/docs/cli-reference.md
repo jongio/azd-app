@@ -826,8 +826,7 @@ The MCP server exposes 10 tools:
 {
   "mcp": {
     "servers": {
-      "azd-app": {
-        "type": "stdio",
+      "Azure Developer CLI - App Extension": {
         "command": "azd",
         "args": ["app", "mcp", "serve"]
       }

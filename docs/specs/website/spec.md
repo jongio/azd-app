@@ -174,7 +174,7 @@ azd-app-demo/
 ```json
 {
   "servers": {
-    "azd-app": {
+    "Azure Developer CLI - App Extension": {
       "command": "azd",
       "args": ["app", "mcp", "serve"]
     }

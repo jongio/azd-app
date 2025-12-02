@@ -1002,6 +1002,13 @@ func (pm *PortManager) getProcessName(pid int) (string, error) {
 	return name, nil
 }
 
+// KillProcessOnPort kills any process listening on the specified port.
+// Returns nil if no process was using the port or if the process was successfully killed.
+// Returns an error only if the process could not be terminated (e.g., protected system process).
+func (pm *PortManager) KillProcessOnPort(port int) error {
+	return pm.killProcessOnPort(port)
+}
+
 // killProcessOnPort kills any process listening on the specified port.
 func (pm *PortManager) killProcessOnPort(port int) error {
 	// Get the PID first so we can provide feedback

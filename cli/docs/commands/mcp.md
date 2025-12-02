@@ -143,8 +143,7 @@ Create a `.vscode/mcp.json` file in your project root. This allows team members 
 ```json
 {
   "servers": {
-    "azd-app": {
-      "type": "stdio",
+    "Azure Developer CLI - App Extension": {
       "command": "azd",
       "args": ["app", "mcp", "serve"]
     }
@@ -164,8 +163,7 @@ For personal configuration across all workspaces, use the **MCP: Open User Confi
 ```json
 {
   "servers": {
-    "azd-app": {
-      "type": "stdio",
+    "Azure Developer CLI - App Extension": {
       "command": "azd",
       "args": ["app", "mcp", "serve"]
     }
@@ -180,8 +178,7 @@ Use the `env` property to specify a project directory:
 ```json
 {
   "servers": {
-    "azd-app": {
-      "type": "stdio",
+    "Azure Developer CLI - App Extension": {
       "command": "azd",
       "args": ["app", "mcp", "serve"],
       "env": {
@@ -201,7 +198,7 @@ Load environment variables from a `.env` file:
 ```json
 {
   "servers": {
-    "azd-app": {
+    "Azure Developer CLI - App Extension": {
       "type": "stdio",
       "command": "azd",
       "args": ["app", "mcp", "serve"],
@@ -218,16 +215,14 @@ Configure separate servers for different projects in your workspace:
 ```json
 {
   "servers": {
-    "azd-app-frontend": {
-      "type": "stdio",
+    "Azure Developer CLI - App Extension - Frontend": {
       "command": "azd",
       "args": ["app", "mcp", "serve"],
       "env": {
         "PROJECT_DIR": "${workspaceFolder}/frontend"
       }
     },
-    "azd-app-backend": {
-      "type": "stdio",
+    "Azure Developer CLI - App Extension - Backend": {
       "command": "azd",
       "args": ["app", "mcp", "serve"],
       "env": {
@@ -249,7 +244,7 @@ For [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers
     "vscode": {
       "mcp": {
         "servers": {
-          "azd-app": {
+          "Azure Developer CLI - App Extension": {
             "command": "azd",
             "args": ["app", "mcp", "serve"]
           }
@@ -314,7 +309,7 @@ Add the MCP server to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "azd-app": {
+    "Azure Developer CLI - App Extension": {
       "command": "azd",
       "args": ["app", "mcp", "serve"]
     }
@@ -327,7 +322,7 @@ Add the MCP server to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "azd-app": {
+    "Azure Developer CLI - App Extension": {
       "command": "azd",
       "args": ["app", "mcp", "serve"],
       "env": {
@@ -343,14 +338,14 @@ Add the MCP server to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "azd-app-frontend": {
+    "Azure Developer CLI - App Extension - Frontend": {
       "command": "azd",
       "args": ["app", "mcp", "serve"],
       "env": {
         "PROJECT_DIR": "/path/to/frontend"
       }
     },
-    "azd-app-backend": {
+    "Azure Developer CLI - App Extension - Backend": {
       "command": "azd",
       "args": ["app", "mcp", "serve"],
       "env": {
