@@ -5,7 +5,7 @@ This devcontainer provides a complete development environment for the App Extens
 ## What's Included
 
 ### Languages & Runtimes
-- **Go 1.23** - Primary development language
+- **Go 1.25.5** - Primary development language
 - **Node.js LTS** - For Node.js project testing
 - **Python 3.12** - For Python project testing
 - **.NET 8.0** - For .NET and Aspire project testing
