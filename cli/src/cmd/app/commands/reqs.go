@@ -131,6 +131,11 @@ var toolRegistry = map[string]ToolConfig{
 		Command: "az",
 		Args:    []string{"version", "--output", "tsv", "--query", "\"azure-cli\""},
 	},
+	"air": {
+		Command:       "air",
+		Args:          []string{"-v"},
+		VersionPrefix: "v",
+	},
 	"func": {
 		Command: "func",
 		Args:    []string{"--version"},
