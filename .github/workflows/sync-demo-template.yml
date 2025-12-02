@@ -24,14 +24,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      secret_configured: ${{ steps.check-secret.outputs.configured }}
     
     steps:
+      - name: Check for required secret
+        id: check-secret
+        env:
+          DEMO_REPO_PAT: ${{ secrets.DEMO_REPO_PAT }}
+        run: |
+          if [ -z "$DEMO_REPO_PAT" ]; then
+            echo "::warning::DEMO_REPO_PAT secret is not configured. Skipping sync to target repository."
+            echo "To enable syncing, add a DEMO_REPO_PAT secret with a GitHub PAT that has access to ${{ env.TARGET_REPO }}"
+            echo "configured=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "configured=true" >> $GITHUB_OUTPUT
+          echo "secret_configured=true" >> $GITHUB_ENV
+
       - name: Checkout source repository
+        if: env.secret_configured == 'true'
         uses: actions/checkout@v4
         with:
           path: source
 
       - name: Validate source files exist
+        if: env.secret_configured == 'true'
         run: |
           echo "Validating source demo directory exists..."
           if [ ! -d "source/${{ env.DEMO_SOURCE_PATH }}" ]; then
@@ -43,6 +61,7 @@ jobs:
           ls -la "source/${{ env.DEMO_SOURCE_PATH }}"
 
       - name: Validate required files
+        if: env.secret_configured == 'true'
         run: |
           DEMO_PATH="source/${{ env.DEMO_SOURCE_PATH }}"
           MISSING_FILES=""
@@ -70,6 +89,7 @@ jobs:
           echo "All required files present!"
 
       - name: Checkout target repository
+        if: env.secret_configured == 'true'
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TARGET_REPO }}
@@ -78,6 +98,7 @@ jobs:
           fetch-depth: 0
 
       - name: Sync demo files to target
+        if: env.secret_configured == 'true'
         run: |
           DEMO_PATH="source/${{ env.DEMO_SOURCE_PATH }}"
           
@@ -104,6 +125,7 @@ jobs:
           fi
 
       - name: Check for changes
+        if: env.secret_configured == 'true'
         id: changes
         working-directory: target
         run: |
@@ -118,7 +140,7 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true' && (github.event.inputs.dry_run != 'true')
+        if: env.secret_configured == 'true' && steps.changes.outputs.has_changes == 'true' && (github.event.inputs.dry_run != 'true')
         working-directory: target
         run: |
           git config user.name "github-actions[bot]"
@@ -137,7 +159,7 @@ jobs:
           echo "✓ Changes pushed to ${{ env.TARGET_REPO }}"
 
       - name: Dry run summary
-        if: github.event.inputs.dry_run == 'true'
+        if: env.secret_configured == 'true' && github.event.inputs.dry_run == 'true'
         run: |
           echo "DRY RUN: Changes were not pushed"
           echo "The following changes would have been made:"
@@ -148,7 +170,7 @@ jobs:
     name: Smoke Test Demo
     runs-on: ubuntu-latest
     needs: sync
-    if: always() && needs.sync.result == 'success'
+    if: always() && needs.sync.result == 'success' && needs.sync.outputs.secret_configured == 'true'
     
     steps:
       - name: Checkout synced demo repository
