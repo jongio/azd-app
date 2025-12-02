@@ -11,6 +11,31 @@ export type HealthCheckType = 'http' | 'port' | 'process'
 /** Health status values */
 export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'starting' | 'unknown'
 
+/**
+ * Service type - how the service is accessed (protocol level)
+ * - http: Serves HTTP/HTTPS traffic (default when ports defined)
+ * - tcp: Raw TCP connections (databases, gRPC)
+ * - process: No network endpoint (default when no ports)
+ */
+export type ServiceType = 'http' | 'tcp' | 'process'
+
+/**
+ * Service run mode - lifecycle behavior for process-type services
+ * - watch: Continuous, watches for changes (tsc --watch, nodemon)
+ * - build: One-time build, exits on completion (tsc, go build)
+ * - daemon: Long-running background process (MCP servers, workers)
+ * - task: One-time task run on demand (migrations, scripts)
+ */
+export type ServiceMode = 'watch' | 'build' | 'daemon' | 'task'
+
+/**
+ * Extended status values including process-service specific statuses
+ */
+export type ServiceStatus = 
+  | 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running' | 'restarting'
+  // Process service specific statuses
+  | 'watching' | 'building' | 'built' | 'failed' | 'completed'
+
 /** Detailed health check information */
 export interface HealthDetails {
   checkType: HealthCheckType
@@ -24,7 +49,7 @@ export interface HealthDetails {
 }
 
 export interface LocalServiceInfo {
-  status: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
+  status: ServiceStatus
   health: 'healthy' | 'degraded' | 'unhealthy' | 'starting' | 'unknown'
   url?: string
   port?: number
@@ -32,6 +57,8 @@ export interface LocalServiceInfo {
   startTime?: string
   lastChecked?: string
   healthDetails?: HealthDetails
+  serviceType?: ServiceType
+  serviceMode?: ServiceMode
 }
 
 export interface AzureServiceInfo {
@@ -55,7 +82,7 @@ export interface Service {
   azure?: AzureServiceInfo
   environmentVariables?: Record<string, string>
   // Legacy fields for compatibility during transition
-  status?: 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running'
+  status?: ServiceStatus
   health?: 'healthy' | 'unhealthy' | 'unknown'
   startTime?: string
   lastChecked?: string
@@ -94,6 +121,8 @@ export interface HealthCheckResult {
   port?: number
   pid?: number
   uptime?: number  // nanoseconds from Go
+  serviceType?: ServiceType
+  serviceMode?: ServiceMode
 }
 
 /** Summary of overall health status */

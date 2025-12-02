@@ -127,7 +127,8 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	}
 
 	// Build command and args based on framework (AFTER port assignment)
-	if err := buildRunCommand(runtime, projectDir, service.Entrypoint, runtimeMode); err != nil {
+	// Docker Compose style: entrypoint is executable, command is args
+	if err := buildRunCommand(runtime, projectDir, service.Entrypoint, service.Command, runtimeMode); err != nil {
 		return nil, fmt.Errorf("failed to build run command: %w", err)
 	}
 
@@ -136,7 +137,188 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 		configureHealthCheck(runtime)
 	}
 
+	// Detect and set service type and mode
+	runtime.Type = service.GetServiceType()
+	if runtime.Type == ServiceTypeProcess {
+		// Detect mode from explicit config, command, or project structure
+		runtime.Mode = detectServiceMode(service, runtime, projectDir)
+	}
+
 	return runtime, nil
+}
+
+// detectServiceMode determines the run mode for a process-type service.
+// Priority: explicit config > command detection > project structure > default (daemon).
+func detectServiceMode(service Service, runtime *ServiceRuntime, projectDir string) string {
+	// If explicitly set in config, use that
+	if service.Mode != "" {
+		return service.Mode
+	}
+
+	// Build full command string for detection
+	fullCmd := runtime.Command
+	if len(runtime.Args) > 0 {
+		fullCmd = fullCmd + " " + strings.Join(runtime.Args, " ")
+	}
+
+	// Check command for watch indicators
+	if isWatchCommand(fullCmd) {
+		return ServiceModeWatch
+	}
+
+	// Check command for build indicators
+	if isBuildCommand(fullCmd, runtime.Language) {
+		return ServiceModeBuild
+	}
+
+	// Check project structure for watch mode indicators
+	if hasWatchModeIndicators(projectDir, runtime.Language, runtime.PackageManager) {
+		return ServiceModeWatch
+	}
+
+	// Default to daemon for process services
+	return ServiceModeDaemon
+}
+
+// isWatchCommand checks if the command indicates watch mode.
+func isWatchCommand(cmd string) bool {
+	cmdLower := strings.ToLower(cmd)
+
+	// Common watch flags and commands
+	watchIndicators := []string{
+		"--watch",
+		"-w ",
+		" watch",
+		"nodemon",
+		"tsx watch",
+		"ts-node-dev",
+		"dotnet watch",
+		"cargo watch",
+		"air ", // Go live reload
+		"reflex",
+		"entr",
+		"watchexec",
+		"--reload", // uvicorn, flask
+		"livereload",
+		"browser-sync",
+	}
+
+	for _, indicator := range watchIndicators {
+		if strings.Contains(cmdLower, indicator) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isBuildCommand checks if the command indicates a one-time build.
+func isBuildCommand(cmd string, language string) bool {
+	cmdLower := strings.ToLower(cmd)
+
+	// Language-specific build commands
+	buildCommands := map[string][]string{
+		"TypeScript": {"tsc", "npm run build", "pnpm build", "yarn build", "bun build"},
+		"JavaScript": {"npm run build", "pnpm build", "yarn build", "bun build", "webpack", "rollup", "esbuild"},
+		"Go":         {"go build", "go install"},
+		".NET":       {"dotnet build", "dotnet publish"},
+		"Rust":       {"cargo build"},
+		"Java":       {"mvn package", "mvn compile", "gradle build", "gradle assemble"},
+		"Python":     {"python setup.py build", "pip wheel"},
+	}
+
+	// Check language-specific build commands
+	if commands, ok := buildCommands[language]; ok {
+		for _, buildCmd := range commands {
+			if strings.Contains(cmdLower, buildCmd) {
+				// Make sure it's not a watch variant
+				if !strings.Contains(cmdLower, "watch") && !strings.Contains(cmdLower, "-w") {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// hasWatchModeIndicators checks project structure for watch mode configuration.
+func hasWatchModeIndicators(projectDir string, language string, packageManager string) bool {
+	switch language {
+	case "TypeScript", "JavaScript":
+		// Check package.json for watch scripts
+		return hasWatchScriptInPackageJSON(projectDir)
+	case "Go":
+		// Check for air.toml or .air.toml (Go live reload)
+		return fileExists(projectDir, "air.toml") ||
+			fileExists(projectDir, ".air.toml") ||
+			fileExists(projectDir, "reflex.conf")
+	case ".NET":
+		// .NET watch is typically in command, not config
+		return false
+	case "Python":
+		// Check for watchdog or watchfiles in requirements
+		return containsWatchDependency(projectDir)
+	default:
+		return false
+	}
+}
+
+// hasWatchScriptInPackageJSON checks if package.json has a watch script.
+func hasWatchScriptInPackageJSON(projectDir string) bool {
+	packageJSONPath := filepath.Join(projectDir, "package.json")
+	if err := security.ValidatePath(packageJSONPath); err != nil {
+		return false
+	}
+
+	// Check for common watch script names
+	watchScripts := []string{
+		`"watch"`,
+		`"dev"`,
+		`"start:dev"`,
+		`"serve"`,
+	}
+
+	for _, script := range watchScripts {
+		if containsText(packageJSONPath, script) {
+			// Verify the script contains watch-like command
+			// This is a heuristic - we check for common watch patterns in the file
+			if containsText(packageJSONPath, "watch") ||
+				containsText(packageJSONPath, "nodemon") ||
+				containsText(packageJSONPath, "--reload") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// containsWatchDependency checks Python requirements for watch-related packages.
+func containsWatchDependency(projectDir string) bool {
+	requirementsFiles := []string{
+		"requirements.txt",
+		"requirements-dev.txt",
+		"pyproject.toml",
+	}
+
+	watchPackages := []string{
+		"watchdog",
+		"watchfiles",
+		"hupper",
+		"reloading",
+	}
+
+	for _, reqFile := range requirementsFiles {
+		filePath := filepath.Join(projectDir, reqFile)
+		for _, pkg := range watchPackages {
+			if containsText(filePath, pkg) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // detectLanguage determines the programming language used by the service.
@@ -375,8 +557,9 @@ func resolvePythonEntrypoint(projectDir, entrypoint string) (string, error) {
 	return appFile, nil
 }
 
-// buildPythonCommand configures a Python service runtime with the appropriate command and arguments.
-func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonCmd string) error {
+// buildPythonDefaultCommand configures a Python service runtime with framework-specific defaults.
+// Auto-detects the app file based on framework conventions.
+func buildPythonDefaultCommand(runtime *ServiceRuntime, projectDir, pythonCmd string) error {
 	runtime.Command = pythonCmd
 
 	switch runtime.Framework {
@@ -393,7 +576,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		return nil
 
 	case "FastAPI":
-		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		appFile, err := resolvePythonEntrypoint(projectDir, "") // Auto-detect
 		if err != nil {
 			return fmt.Errorf("FastAPI: %w", err)
 		}
@@ -403,22 +586,17 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		return nil
 
 	case "Flask":
-		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		appFile, err := resolvePythonEntrypoint(projectDir, "") // Auto-detect
 		if err != nil {
 			return fmt.Errorf("flask: %w", err)
 		}
 		runtime.Args = []string{"-m", "flask", "run", "--host", "0.0.0.0", "--port", fmt.Sprintf("%d", runtime.Port)}
-		// Flask needs the .py extension in FLASK_APP
-		if entrypoint != "" {
-			runtime.Env["FLASK_APP"] = entrypoint
-		} else {
-			runtime.Env["FLASK_APP"] = appFile + ".py"
-		}
+		runtime.Env["FLASK_APP"] = appFile + ".py"
 		runtime.Env["FLASK_ENV"] = "development"
 		return nil
 
 	case "Streamlit":
-		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		appFile, err := resolvePythonEntrypoint(projectDir, "") // Auto-detect
 		if err != nil {
 			return fmt.Errorf("streamlit: %w", err)
 		}
@@ -427,7 +605,7 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 		return nil
 
 	case "Gradio", "Python":
-		appFile, err := resolvePythonEntrypoint(projectDir, entrypoint)
+		appFile, err := resolvePythonEntrypoint(projectDir, "") // Auto-detect
 		if err != nil {
 			return fmt.Errorf("%s: %w", runtime.Framework, err)
 		}
@@ -441,8 +619,52 @@ func buildPythonCommand(runtime *ServiceRuntime, projectDir, entrypoint, pythonC
 }
 
 // buildRunCommand builds the command and arguments to run the service.
-// If entrypoint is provided (from azure.yaml), it takes precedence over auto-detection.
-func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint string, runtimeMode string) error {
+//
+// Priority:
+//  1. command: Full shell command (e.g., "uvicorn main:app --reload") - PRIMARY
+//  2. entrypoint + command: Advanced Docker Compose style (rarely needed)
+//  3. Neither: Auto-detect based on framework
+func buildRunCommand(runtime *ServiceRuntime, projectDir, entrypoint, command, runtimeMode string) error {
+	// Primary: command alone (most common case)
+	if command != "" && entrypoint == "" {
+		return parseShellCommand(runtime, command)
+	}
+
+	// Advanced: entrypoint + command (Docker Compose style)
+	if entrypoint != "" {
+		if command != "" {
+			// Both provided: entrypoint is executable, command is args
+			runtime.Command = entrypoint
+			runtime.Args = strings.Fields(command)
+		} else {
+			// Only entrypoint: split it as full command
+			return parseShellCommand(runtime, entrypoint)
+		}
+		return nil
+	}
+
+	// Neither provided: use framework-specific defaults
+	return buildFrameworkCommand(runtime, projectDir, runtimeMode)
+}
+
+// parseShellCommand parses a user-provided shell command into command and args.
+// Handles both simple commands ("node server.js") and complex ones ("uvicorn main:app --reload").
+func parseShellCommand(runtime *ServiceRuntime, command string) error {
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return fmt.Errorf("empty command")
+	}
+	runtime.Command = parts[0]
+	if len(parts) > 1 {
+		runtime.Args = parts[1:]
+	} else {
+		runtime.Args = nil
+	}
+	return nil
+}
+
+// buildFrameworkCommand builds framework-specific commands using intelligent defaults.
+func buildFrameworkCommand(runtime *ServiceRuntime, projectDir, runtimeMode string) error {
 	// Handle Python frameworks with venv support
 	pythonFrameworks := map[string]struct{}{
 		"Django": {}, "FastAPI": {}, "Flask": {},
@@ -454,7 +676,7 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 		if venvPython := getPythonVenvPath(projectDir); venvPython != "" {
 			pythonCmd = venvPython
 		}
-		return buildPythonCommand(runtime, projectDir, entrypoint, pythonCmd)
+		return buildPythonDefaultCommand(runtime, projectDir, pythonCmd)
 	}
 
 	switch runtime.Framework {
@@ -498,17 +720,8 @@ func buildRunCommand(runtime *ServiceRuntime, projectDir string, entrypoint stri
 		return nil
 
 	case "Go":
-		// If entrypoint is provided, use it directly as a shell command
-		if entrypoint != "" {
-			parts := strings.Fields(entrypoint)
-			if len(parts) > 0 {
-				runtime.Command = parts[0]
-				runtime.Args = parts[1:]
-			}
-		} else {
-			runtime.Command = "go"
-			runtime.Args = []string{"run", "."}
-		}
+		runtime.Command = "go"
+		runtime.Args = []string{"run", "."}
 
 	case "Rust":
 		runtime.Command = "cargo"

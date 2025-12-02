@@ -91,6 +91,8 @@ type HealthCheckResult struct {
 	Port         int                    `json:"port,omitempty"`
 	PID          int                    `json:"pid,omitempty"`
 	Uptime       time.Duration          `json:"uptime,omitempty"`
+	ServiceType  string                 `json:"serviceType,omitempty"` // "http", "tcp", "process"
+	ServiceMode  string                 `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
 }
 
 // HealthReport contains aggregated health check results.
@@ -456,6 +458,10 @@ type serviceInfo struct {
 	StartTime      time.Time
 	HealthCheck    *healthCheckConfig
 	RegistryHealth string
+	Type           string // "http", "tcp", "process"
+	Mode           string // "watch", "build", "daemon", "task" (for type=process)
+	ExitCode       *int   // Exit code for completed build/task mode services (nil = still running)
+	EndTime        time.Time
 }
 
 type healthCheckConfig struct {
@@ -493,6 +499,10 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 			PID:            regSvc.PID,
 			StartTime:      regSvc.StartTime,
 			RegistryHealth: regSvc.Health,
+			Type:           regSvc.Type,
+			Mode:           regSvc.Mode,
+			ExitCode:       regSvc.ExitCode,
+			EndTime:        regSvc.EndTime,
 		}
 	}
 
@@ -507,6 +517,14 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 
 			// Parse healthcheck config (Docker Compose format)
 			info.HealthCheck = parseHealthCheckConfig(svc)
+
+			// Set type and mode from azure.yaml if not already set from registry
+			if info.Type == "" {
+				info.Type = svc.GetServiceType()
+			}
+			if info.Mode == "" && info.Type == service.ServiceTypeProcess {
+				info.Mode = svc.GetServiceMode()
+			}
 
 			serviceMap[name] = info
 		}
@@ -614,13 +632,45 @@ func filterServices(services []serviceInfo, filter []string) []serviceInfo {
 func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 	// Batch status updates to reduce lock contention
 	for _, result := range results {
-		status := "running"
-		if result.Status == HealthStatusUnhealthy {
-			status = "error"
-		} else if result.Status == HealthStatusDegraded {
-			status = "degraded"
-		} else if result.Status == HealthStatusStarting {
-			status = "starting"
+		var status string
+
+		// For build/task modes, use mode-appropriate status
+		if result.ServiceMode == service.ServiceModeBuild || result.ServiceMode == service.ServiceModeTask {
+			if result.Status == HealthStatusHealthy {
+				// Check if the process completed (has "state" in details)
+				if details, ok := result.Details["state"].(string); ok {
+					switch details {
+					case "built":
+						status = "built"
+					case "completed":
+						status = "completed"
+					case "building", "running":
+						status = "running"
+					case "failed":
+						status = "error"
+					default:
+						status = "running"
+					}
+				} else {
+					status = "running"
+				}
+			} else if result.Status == HealthStatusUnhealthy {
+				status = "error"
+			} else if result.Status == HealthStatusStarting {
+				status = "starting"
+			} else {
+				status = "running"
+			}
+		} else {
+			// Standard status mapping for non-build/task modes
+			status = "running"
+			if result.Status == HealthStatusUnhealthy {
+				status = "error"
+			} else if result.Status == HealthStatusDegraded {
+				status = "degraded"
+			} else if result.Status == HealthStatusStarting {
+				status = "starting"
+			}
 		}
 
 		// Update registry with health status
@@ -767,6 +817,10 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 		recordHealthCheck(result)
 	}
 
+	// Include service type and mode in result
+	result.ServiceType = svc.Type
+	result.ServiceMode = svc.Mode
+
 	log.Debug().
 		Str("service", serviceName).
 		Str("status", string(result.Status)).
@@ -795,6 +849,12 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 	isInStartupGracePeriod := svc.RegistryHealth == "starting" &&
 		!svc.StartTime.IsZero() &&
 		time.Since(svc.StartTime) < startupGracePeriod
+
+	// For process-type services, use process-based health checks directly
+	// Skip HTTP/port checks since they have no network endpoint
+	if svc.Type == service.ServiceTypeProcess {
+		return c.performProcessHealthCheck(ctx, svc, isInStartupGracePeriod)
+	}
 
 	// Check for custom healthcheck config first
 	if svc.HealthCheck != nil && len(svc.HealthCheck.Test) > 0 {
@@ -1162,6 +1222,130 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 	}
 
 	return nil
+}
+
+// performProcessHealthCheck handles health checks for process-type services.
+// These services have no network endpoint, so we check based on the service mode:
+// - daemon/watch: process must be running
+// - build/task: process completed with exit code 0 = healthy, non-zero = unhealthy
+func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc serviceInfo, isInStartupGracePeriod bool) HealthCheckResult {
+	result := HealthCheckResult{
+		ServiceName: svc.Name,
+		Timestamp:   time.Now(),
+		CheckType:   HealthCheckTypeProcess,
+		ServiceMode: svc.Mode,
+	}
+
+	// Calculate uptime/duration if we have start time
+	if !svc.StartTime.IsZero() {
+		if !svc.EndTime.IsZero() {
+			// Process has completed - show total duration
+			result.Uptime = svc.EndTime.Sub(svc.StartTime)
+		} else {
+			result.Uptime = time.Since(svc.StartTime)
+		}
+	}
+
+	// Special handling for build and task modes
+	// These are one-shot processes that complete and exit - success is based on exit code, not running state
+	if svc.Mode == service.ServiceModeBuild || svc.Mode == service.ServiceModeTask {
+		return c.performBuildTaskHealthCheck(svc, isInStartupGracePeriod, result)
+	}
+
+	// For daemon and watch modes, check if process is running
+	if svc.PID > 0 {
+		result.PID = svc.PID
+		if isProcessRunning(svc.PID) {
+			result.Status = HealthStatusHealthy
+		} else {
+			// Process not running
+			if isInStartupGracePeriod {
+				result.Status = HealthStatusStarting
+			} else {
+				result.Status = HealthStatusUnhealthy
+			}
+			result.Error = fmt.Sprintf("process %d not running", svc.PID)
+		}
+		return result
+	}
+
+	// No PID available
+	if isInStartupGracePeriod {
+		result.Status = HealthStatusStarting
+	} else {
+		result.Status = HealthStatusUnknown
+	}
+	result.Error = "no process ID available for health check"
+
+	return result
+}
+
+// performBuildTaskHealthCheck handles health checks for build and task mode services.
+// These are one-shot processes where success is determined by exit code, not running state.
+func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartupGracePeriod bool, result HealthCheckResult) HealthCheckResult {
+	result.PID = svc.PID
+
+	// Check if process is still running
+	if svc.PID > 0 && isProcessRunning(svc.PID) {
+		// Process is still running - show as "starting" or "running"
+		if isInStartupGracePeriod {
+			result.Status = HealthStatusStarting
+		} else {
+			result.Status = HealthStatusHealthy
+		}
+		if svc.Mode == service.ServiceModeBuild {
+			result.Details = map[string]interface{}{"state": "building"}
+		} else {
+			result.Details = map[string]interface{}{"state": "running"}
+		}
+		return result
+	}
+
+	// Process has exited - check exit code
+	if svc.ExitCode != nil {
+		if *svc.ExitCode == 0 {
+			// Exited successfully
+			result.Status = HealthStatusHealthy
+			if svc.Mode == service.ServiceModeBuild {
+				result.Details = map[string]interface{}{"state": "built", "exitCode": 0}
+			} else {
+				result.Details = map[string]interface{}{"state": "completed", "exitCode": 0}
+			}
+		} else {
+			// Exited with error
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("process exited with code %d", *svc.ExitCode)
+			result.Details = map[string]interface{}{"state": "failed", "exitCode": *svc.ExitCode}
+		}
+		return result
+	}
+
+	// Process not running and no exit code recorded
+	// This could mean:
+	// 1. Process hasn't started yet (startup grace period)
+	// 2. Process exited but exit code wasn't captured (treat as unknown)
+	if isInStartupGracePeriod {
+		result.Status = HealthStatusStarting
+		return result
+	}
+
+	// Try to determine if process exited - if PID was set but process is not running,
+	// and we don't have an exit code, we can't determine success/failure
+	if svc.PID > 0 {
+		// Had a PID but process is gone and no exit code - assume it completed
+		// This is a fallback for cases where exit code wasn't captured
+		result.Status = HealthStatusHealthy
+		if svc.Mode == service.ServiceModeBuild {
+			result.Details = map[string]interface{}{"state": "built", "note": "exit code not captured"}
+		} else {
+			result.Details = map[string]interface{}{"state": "completed", "note": "exit code not captured"}
+		}
+		return result
+	}
+
+	result.Status = HealthStatusUnknown
+	result.Error = "no process information available"
+	return result
 }
 
 func (c *HealthChecker) checkPort(ctx context.Context, port int) bool {

@@ -1,0 +1,20 @@
+# Ignore dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build outputs
+dist/
+bin/
+tmp/
+obj/
+
+# IDE
+.idea/
+.vscode/
+
+# azd
+.azd/
+.azure/

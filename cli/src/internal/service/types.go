@@ -10,6 +10,48 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Service type constants define how a service is accessed (protocol level).
+const (
+	// ServiceTypeHTTP indicates a service that serves HTTP/HTTPS traffic.
+	// Health checks use HTTP endpoint probing. This is the default for services with ports.
+	ServiceTypeHTTP = "http"
+
+	// ServiceTypeTCP indicates a service that accepts raw TCP connections (databases, gRPC).
+	// Health checks use TCP port connectivity.
+	ServiceTypeTCP = "tcp"
+
+	// ServiceTypeProcess indicates a service with no network endpoint.
+	// Health checks verify the process is running. This is the default for services without ports.
+	ServiceTypeProcess = "process"
+)
+
+// Service mode constants define the lifecycle behavior of process-type services.
+const (
+	// ServiceModeWatch indicates a continuous process that watches for file changes.
+	// Examples: tsc --watch, nodemon, air (Go), dotnet watch.
+	// Health: process alive + optional pattern match in stdout.
+	// Status display: "Watching" when healthy.
+	ServiceModeWatch = "watch"
+
+	// ServiceModeBuild indicates a one-time build process that exits on completion.
+	// Examples: tsc, go build, dotnet build, npm run build.
+	// Health: exit code 0 = success, non-zero = failure.
+	// Status display: "Building" → "Built" or "Failed".
+	ServiceModeBuild = "build"
+
+	// ServiceModeDaemon indicates a long-running background process.
+	// Examples: MCP servers, queue workers, file processors.
+	// Health: process alive.
+	// Status display: "Running" when healthy.
+	ServiceModeDaemon = "daemon"
+
+	// ServiceModeTask indicates a one-time task run on demand.
+	// Examples: database migrations, seed scripts.
+	// Health: exit code 0 = success, non-zero = failure.
+	// Status display: "Running" → "Complete" or "Failed".
+	ServiceModeTask = "task"
+)
+
 // AzureYaml represents the parsed azure.yaml file.
 type AzureYaml struct {
 	Name      string              `yaml:"name"`
@@ -31,7 +73,8 @@ type Service struct {
 	Host               string             `yaml:"host"`
 	Language           string             `yaml:"language,omitempty"`
 	Project            string             `yaml:"project,omitempty"`
-	Entrypoint         string             `yaml:"entrypoint,omitempty"` // Entry point file for Python/Node projects
+	Command            string             `yaml:"command,omitempty"`    // Full command to run (e.g., "uvicorn main:app --reload"). Primary way to override.
+	Entrypoint         string             `yaml:"entrypoint,omitempty"` // Advanced: executable only, use with command for args. Rarely needed.
 	Image              string             `yaml:"image,omitempty"`
 	Docker             *DockerConfig      `yaml:"docker,omitempty"`
 	Ports              []string           `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
@@ -40,6 +83,8 @@ type Service struct {
 	Logs               *LogsConfig        `yaml:"logs,omitempty"`        // Service-level logging configuration
 	Healthcheck        *HealthcheckConfig `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
 	HealthcheckEnabled *bool              `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
+	Type               string             `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
+	Mode               string             `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
 }
 
 // serviceRaw is used to handle both boolean and object healthcheck values.
@@ -49,6 +94,7 @@ type serviceRaw struct {
 	Language    string        `yaml:"language,omitempty"`
 	Project     string        `yaml:"project,omitempty"`
 	Entrypoint  string        `yaml:"entrypoint,omitempty"`
+	Command     string        `yaml:"command,omitempty"`
 	Image       string        `yaml:"image,omitempty"`
 	Docker      *DockerConfig `yaml:"docker,omitempty"`
 	Ports       []string      `yaml:"ports,omitempty"`
@@ -56,6 +102,8 @@ type serviceRaw struct {
 	Uses        []string      `yaml:"uses,omitempty"`
 	Logs        *LogsConfig   `yaml:"logs,omitempty"`
 	Healthcheck any           `yaml:"healthcheck,omitempty"`
+	Type        string        `yaml:"type,omitempty"`
+	Mode        string        `yaml:"mode,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
@@ -70,12 +118,15 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.Language = raw.Language
 	s.Project = raw.Project
 	s.Entrypoint = raw.Entrypoint
+	s.Command = raw.Command
 	s.Image = raw.Image
 	s.Docker = raw.Docker
 	s.Ports = raw.Ports
 	s.Environment = raw.Environment
 	s.Uses = raw.Uses
 	s.Logs = raw.Logs
+	s.Type = raw.Type
+	s.Mode = raw.Mode
 
 	// Handle healthcheck field
 	switch v := raw.Healthcheck.(type) {
@@ -131,6 +182,55 @@ func (s *Service) NeedsPort() bool {
 	// Only services with explicitly configured ports need a port assigned.
 	// Services without ports will use process-based health checks.
 	return len(s.Ports) > 0
+}
+
+// GetServiceType returns the service type, inferring from configuration if not explicitly set.
+// Returns: "http" (default if ports defined), "tcp", or "process" (default if no ports).
+func (s *Service) GetServiceType() string {
+	// If explicitly set, use that
+	if s.Type != "" {
+		return s.Type
+	}
+
+	// Infer from configuration
+	if s.NeedsPort() {
+		return ServiceTypeHTTP
+	}
+
+	return ServiceTypeProcess
+}
+
+// GetServiceMode returns the run mode for process-type services.
+// Returns: "watch", "build", "daemon" (default), or "task".
+// For non-process types, returns empty string.
+func (s *Service) GetServiceMode() string {
+	// Only applicable for process type
+	if s.GetServiceType() != ServiceTypeProcess {
+		return ""
+	}
+
+	// If explicitly set, use that
+	if s.Mode != "" {
+		return s.Mode
+	}
+
+	// Default to daemon for process services
+	return ServiceModeDaemon
+}
+
+// IsProcessService returns true if this is a process-type service (no network endpoint).
+func (s *Service) IsProcessService() bool {
+	return s.GetServiceType() == ServiceTypeProcess
+}
+
+// IsWatchMode returns true if this is a process service in watch mode.
+func (s *Service) IsWatchMode() bool {
+	return s.GetServiceType() == ServiceTypeProcess && s.GetServiceMode() == ServiceModeWatch
+}
+
+// IsBuildMode returns true if this is a process service in build mode.
+func (s *Service) IsBuildMode() bool {
+	return s.GetServiceType() == ServiceTypeProcess && s.GetServiceMode() == ServiceModeBuild
 }
 
 // HealthcheckConfig represents Docker Compose-compatible health check configuration.
@@ -342,7 +442,9 @@ type ServiceRuntime struct {
 	Protocol              string
 	Env                   map[string]string
 	HealthCheck           HealthCheckConfig
-	ShouldUpdateAzureYaml bool // True if user wants port added to azure.yaml
+	ShouldUpdateAzureYaml bool   // True if user wants port added to azure.yaml
+	Type                  string // Service type: "http", "tcp", "process"
+	Mode                  string // Run mode (for type=process): "watch", "build", "daemon", "task"
 }
 
 // PortMapping represents a port mapping (Docker Compose style).
