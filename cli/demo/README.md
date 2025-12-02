@@ -58,14 +58,10 @@ The API's `/items` endpoint doesn't validate the `price` field. When you POST an
 
 ```bash
 # This works correctly
-curl -X POST http://localhost:3000/items \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Widget", "price": 10}'
+curl -X POST http://localhost:3000/items -H "Content-Type: application/json" -d '{"name": "Widget", "price": 10}'
 
 # This triggers the bug (missing price)
-curl -X POST http://localhost:3000/items \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Broken Widget"}'
+curl -X POST http://localhost:3000/items -H "Content-Type: application/json" -d '{"name": "Broken Widget"}'
 ```
 
 ### Using Copilot to Debug
