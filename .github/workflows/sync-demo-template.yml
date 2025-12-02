@@ -98,7 +98,32 @@ jobs:
             exit 1
           fi
           
-          echo "✓ PAT is valid and has access to ${{ env.TARGET_REPO }}"
+          echo "✓ PAT is valid and has read access to ${{ env.TARGET_REPO }}"
+          
+          # Check if PAT has write (push) permissions by checking the permissions field
+          PUSH_PERMISSION=$(cat /tmp/gh_response.json | jq -r '.permissions.push // false')
+          if [ "$PUSH_PERMISSION" != "true" ]; then
+            echo ""
+            echo "=========================================="
+            echo "❌ ERROR: DEMO_REPO_PAT LACKS WRITE ACCESS"
+            echo "=========================================="
+            echo ""
+            echo "The PAT can read ${{ env.TARGET_REPO }} but cannot push to it."
+            echo ""
+            echo "This can happen if:"
+            echo "  1. The PAT is a fine-grained token without 'Contents: Read and write' permission"
+            echo "  2. The PAT is a classic token without 'repo' scope"
+            echo "  3. The repository has branch protection rules blocking the PAT"
+            echo ""
+            echo "To fix this:"
+            echo "  - For fine-grained PATs: Ensure 'Contents' permission is set to 'Read and write'"
+            echo "  - For classic PATs: Ensure 'repo' scope is enabled"
+            echo "  - Update the secret at: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo ""
+            exit 1
+          fi
+          
+          echo "✓ PAT has write access to ${{ env.TARGET_REPO }}"
 
       - name: Checkout source repository
         if: env.secret_configured == 'true'
