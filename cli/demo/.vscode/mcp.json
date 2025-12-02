@@ -1,10 +1,8 @@
 {
   "servers": {
-    "azd-app": {
-      "type": "stdio",
-      "command": "azd-app",
-      "args": ["mcp"],
-      "env": {}
+    "Azure Developer CLI - App Extension": {
+      "command": "azd",
+      "args": ["app", "mcp", "serve"]
     }
   }
 }
