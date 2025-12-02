@@ -20,8 +20,6 @@ concurrency:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
   pull-requests: write
 
 jobs:
@@ -66,9 +64,11 @@ jobs:
 
       - name: Upload production artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
+          name: production-build
           path: web/dist
+          retention-days: 1
 
       - name: Upload PR preview artifact
         if: github.event_name == 'pull_request'
@@ -83,13 +83,35 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Download production artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-build
+          path: _new_build
+
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Remove old production files (keep pr/ directory for previews)
+          find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name 'pr' ! -name '_new_build' -exec rm -rf {} +
+          
+          # Move new build files to root
+          mv _new_build/* .
+          rm -rf _new_build
+          
+          # Commit and push
+          git add -A
+          git commit -m "Deploy production website" --allow-empty
+          git push origin gh-pages
 
   # PR preview deploy - only on pull requests
   deploy-preview:
