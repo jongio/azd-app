@@ -42,6 +42,64 @@ jobs:
           echo "configured=true" >> $GITHUB_OUTPUT
           echo "secret_configured=true" >> $GITHUB_ENV
 
+      - name: Validate PAT is not expired
+        if: env.secret_configured == 'true'
+        env:
+          DEMO_REPO_PAT: ${{ secrets.DEMO_REPO_PAT }}
+        run: |
+          echo "Validating PAT has access to ${{ env.TARGET_REPO }}..."
+          
+          HTTP_STATUS=$(curl -s -o /tmp/gh_response.json -w "%{http_code}" \
+            -H "Authorization: Bearer $DEMO_REPO_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ env.TARGET_REPO }}")
+          
+          if [ "$HTTP_STATUS" = "401" ]; then
+            echo ""
+            echo "=========================================="
+            echo "❌ ERROR: DEMO_REPO_PAT HAS EXPIRED"
+            echo "=========================================="
+            echo ""
+            echo "The Personal Access Token (PAT) stored in DEMO_REPO_PAT is invalid or expired."
+            echo ""
+            echo "To fix this:"
+            echo "  1. Go to https://github.com/settings/tokens"
+            echo "  2. Create a new PAT with 'repo' scope for ${{ env.TARGET_REPO }}"
+            echo "  3. Update the DEMO_REPO_PAT secret at:"
+            echo "     https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo ""
+            exit 1
+          elif [ "$HTTP_STATUS" = "403" ]; then
+            echo ""
+            echo "=========================================="
+            echo "❌ ERROR: DEMO_REPO_PAT LACKS PERMISSIONS"
+            echo "=========================================="
+            echo ""
+            echo "The PAT does not have sufficient permissions for ${{ env.TARGET_REPO }}."
+            echo ""
+            echo "Required permissions:"
+            echo "  - Contents: Read and write"
+            echo ""
+            echo "Update the PAT at https://github.com/settings/tokens"
+            echo ""
+            exit 1
+          elif [ "$HTTP_STATUS" = "404" ]; then
+            echo ""
+            echo "=========================================="
+            echo "❌ ERROR: TARGET REPOSITORY NOT FOUND"
+            echo "=========================================="
+            echo ""
+            echo "Repository ${{ env.TARGET_REPO }} does not exist or PAT lacks access."
+            echo ""
+            exit 1
+          elif [ "$HTTP_STATUS" != "200" ]; then
+            echo "Unexpected response (HTTP $HTTP_STATUS):"
+            cat /tmp/gh_response.json
+            exit 1
+          fi
+          
+          echo "✓ PAT is valid and has access to ${{ env.TARGET_REPO }}"
+
       - name: Checkout source repository
         if: env.secret_configured == 'true'
         uses: actions/checkout@v4
