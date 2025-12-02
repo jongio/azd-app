@@ -144,4 +144,4 @@ cli/output-coverage
 
 
 
-.github/agents/**
+.github/agents/**tmp/
