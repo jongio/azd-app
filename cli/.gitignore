@@ -3,6 +3,9 @@ bin/
 dist/
 azd-app
 
+# Mage generated files
+mage_output_file.go
+
 # Coverage output files
 cov
 mcpcov
