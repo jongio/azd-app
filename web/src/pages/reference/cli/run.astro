@@ -50,14 +50,48 @@ const example7 = "azd app run -s web -v --runtime aspire";
       </tr>
     </thead>
     <tbody class="bg-neutral-100 dark:bg-neutral-800">
-      ${command.flags.map(f => `
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">${f.flag}</code></td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.short ? `<code class="bg-transparent">${f.short}</code>` : '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.type || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.default || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.description}</td>
-      </tr>`).join('')}
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-s</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Run specific service(s) only (comma-separated)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--runtime</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">azd</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--env-file</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Load environment variables from .env file</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--verbose</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-v</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable verbose logging</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--dry-run</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show what would be run without starting services</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--web</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-w</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Open dashboard in browser</td>
+      </tr>
     </tbody>
   </table>
 </div>

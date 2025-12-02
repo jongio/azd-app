@@ -51,14 +51,139 @@ const example8 = "azd app health --save-profiles";
       </tr>
     </thead>
     <tbody class="bg-neutral-100 dark:bg-neutral-800">
-      ${command.flags.map(f => `
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">${f.flag}</code></td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.short ? `<code class="bg-transparent">${f.short}</code>` : '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.type || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.default || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.description}</td>
-      </tr>`).join('')}
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-s</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Monitor specific service(s) only (comma-separated)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--stream</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable streaming mode for real-time updates</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--interval</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-i</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">5s</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Interval between health checks in streaming mode</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-o</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">text</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format: 'text', 'json', 'table'</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--endpoint</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">/health</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Default health endpoint path to check</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--timeout</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">5s</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Timeout for each health check</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--all</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show health for all projects on this machine</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--verbose</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-v</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show detailed health check information</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--profile</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Health profile: development, production, ci, staging, or custom</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--log-level</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">info</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Log level: debug, info, warn, error</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--log-format</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">pretty</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Log format: json, pretty, text</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--save-profiles</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Save sample health profiles to .azd/health-profiles.yaml</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--metrics</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable Prometheus metrics exposition</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--metrics-port</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">9090</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Port for Prometheus metrics endpoint</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--circuit-breaker</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable circuit breaker pattern</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--circuit-break-count</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">5</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Number of failures before opening circuit</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--circuit-break-timeout</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">60s</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Circuit breaker timeout duration</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--rate-limit</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">0</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Max health checks per second per service (0 = unlimited)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cache-ttl</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">0</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Cache TTL for health results (0 = no caching)</td>
+      </tr>
     </tbody>
   </table>
 </div>

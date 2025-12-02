@@ -48,14 +48,41 @@ const example5 = "azd app reqs --clear-cache";
       </tr>
     </thead>
     <tbody class="bg-neutral-100 dark:bg-neutral-800">
-      ${command.flags.map(f => `
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">${f.flag}</code></td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.short ? `<code class="bg-transparent">${f.short}</code>` : '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.type || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.default || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.description}</td>
-      </tr>`).join('')}
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--generate</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-g</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Generate reqs from detected project dependencies</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--dry-run</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Preview changes without modifying azure.yaml</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--no-cache</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Force fresh reqs check and bypass cached results</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--clear-cache</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Clear cached reqs results</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--fix</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Attempt to fix PATH issues for missing tools</td>
+      </tr>
     </tbody>
   </table>
 </div>

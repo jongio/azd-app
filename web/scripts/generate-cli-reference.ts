@@ -178,6 +178,16 @@ function parseCommandFromReference(content: string, commandName: string): Comman
 }
 
 function generateCommandPage(command: CommandInfo): string {
+  // Generate the flag rows at generation time, not runtime
+  const flagRows = command.flags.map(f => `
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">${f.flag}</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.short ? `<code class="bg-transparent">${f.short}</code>` : '-'}</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.type || '-'}</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.default || '-'}</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">${f.description}</td>
+      </tr>`).join('');
+
   const flagsTable = command.flags.length > 0 ? `
 <div class="overflow-x-auto my-8">
   <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -190,15 +200,7 @@ function generateCommandPage(command: CommandInfo): string {
         <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
       </tr>
     </thead>
-    <tbody class="bg-neutral-100 dark:bg-neutral-800">
-      \${command.flags.map(f => \`
-      <tr class="border-t border-neutral-200 dark:border-neutral-700">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">\${f.flag}</code></td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">\${f.short ? \`<code class="bg-transparent">\${f.short}</code>\` : '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">\${f.type || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">\${f.default || '-'}</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">\${f.description}</td>
-      </tr>\`).join('')}
+    <tbody class="bg-neutral-100 dark:bg-neutral-800">${flagRows}
     </tbody>
   </table>
 </div>` : '';
