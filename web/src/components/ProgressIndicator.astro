@@ -1,0 +1,300 @@
+---
+/**
+ * ProgressIndicator Component
+ * 
+ * Shows visual progress through the 4 quick start steps.
+ * Displays as horizontal on desktop/tablet, vertical on mobile.
+ */
+
+interface ProgressStep {
+  /** Step number (1-indexed) */
+  number: number;
+  /** Step label */
+  label: string;
+}
+
+interface Props {
+  /** Array of step configurations */
+  steps: ProgressStep[];
+  /** Currently active step (1-indexed) */
+  currentStep?: number;
+  /** Array of completed step numbers */
+  completedSteps?: number[];
+  /** Additional CSS classes */
+  class?: string;
+}
+
+const {
+  steps,
+  currentStep = 1,
+  completedSteps = [],
+  class: className = '',
+} = Astro.props;
+---
+
+<nav 
+  aria-label="Quick start progress" 
+  class:list={['progress-indicator', className]}
+>
+  <ol class="progress-list" role="list">
+    {steps.map((step, index) => {
+      const isActive = step.number === currentStep;
+      const isCompleted = completedSteps.includes(step.number);
+      const isLast = index === steps.length - 1;
+      
+      return (
+        <li 
+          class:list={[
+            'progress-step',
+            { 'progress-step--active': isActive },
+            { 'progress-step--completed': isCompleted },
+          ]}
+          aria-current={isActive ? 'step' : undefined}
+        >
+          <a 
+            href={`#step-${step.number}`}
+            class="progress-step-link"
+            aria-label={isCompleted ? `Completed: ${step.label}` : step.label}
+          >
+            <span class="progress-step-circle">
+              {isCompleted ? (
+                <svg 
+                  class="progress-check-icon" 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  stroke-width="3" 
+                  stroke-linecap="round" 
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              ) : (
+                <span class="progress-step-number">{step.number}</span>
+              )}
+            </span>
+            <span class="progress-step-label">{step.label}</span>
+          </a>
+          {!isLast && (
+            <span 
+              class:list={[
+                'progress-connector',
+                { 'progress-connector--completed': isCompleted },
+              ]}
+              aria-hidden="true"
+            ></span>
+          )}
+        </li>
+      );
+    })}
+  </ol>
+</nav>
+
+<style>
+  .progress-indicator {
+    padding: 1.5rem 0;
+  }
+
+  .progress-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .progress-step {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .progress-step-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    padding: 0.5rem 0;
+    transition: transform 150ms ease-out;
+  }
+
+  .progress-step-link:hover {
+    text-decoration: none;
+    transform: translateX(4px);
+  }
+
+  .progress-step-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 4px;
+    border-radius: 0.25rem;
+  }
+
+  .progress-step-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border-strong);
+    background: transparent;
+    flex-shrink: 0;
+    transition: all 200ms ease-out;
+  }
+
+  .progress-step-number {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+
+  .progress-step-label {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary);
+    font-weight: 500;
+    transition: color 150ms ease-out;
+  }
+
+  /* Connector (vertical on mobile) */
+  .progress-connector {
+    width: 2px;
+    height: 24px;
+    background: var(--color-border-default);
+    margin-left: 13px; /* Centered under the circle */
+  }
+
+  .progress-connector--completed {
+    background: var(--color-success);
+  }
+
+  /* Active State */
+  .progress-step--active .progress-step-circle {
+    background: var(--color-azure-500);
+    border-color: var(--color-azure-500);
+    animation: step-pulse 2s ease-in-out infinite;
+  }
+
+  .progress-step--active .progress-step-number {
+    color: white;
+  }
+
+  .progress-step--active .progress-step-label {
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+
+  /* Completed State */
+  .progress-step--completed .progress-step-circle {
+    background: var(--color-success);
+    border-color: var(--color-success);
+  }
+
+  .progress-step--completed .progress-check-icon {
+    color: white;
+    animation: check-appear 0.3s ease-out;
+  }
+
+  .progress-step--completed .progress-step-label {
+    color: var(--color-text-secondary);
+  }
+
+  /* Pulse Animation */
+  @keyframes step-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+    }
+  }
+
+  @keyframes check-appear {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Tablet and Desktop: Horizontal Layout */
+  @media (min-width: 768px) {
+    .progress-list {
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    .progress-step {
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .progress-step-link {
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.5rem;
+    }
+
+    .progress-step-link:hover {
+      transform: translateY(-2px);
+    }
+
+    .progress-step-circle {
+      width: 32px;
+      height: 32px;
+    }
+
+    .progress-step-number {
+      font-size: 0.875rem;
+    }
+
+    .progress-step-label {
+      font-size: 0.8125rem;
+      text-align: center;
+      max-width: 100px;
+    }
+
+    /* Connector (horizontal on tablet/desktop) */
+    .progress-connector {
+      width: 60px;
+      height: 2px;
+      margin: 0 0.5rem;
+      margin-top: -1.25rem; /* Align with circle center */
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .progress-connector {
+      width: 80px;
+    }
+
+    .progress-step-label {
+      max-width: 120px;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .progress-step--active .progress-step-circle {
+      animation: none;
+    }
+
+    .progress-step--completed .progress-check-icon {
+      animation: none;
+    }
+
+    .progress-step-link:hover {
+      transform: none;
+    }
+  }
+</style>

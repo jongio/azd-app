@@ -111,6 +111,7 @@ func SearchToolInSystemPath(toolName string) string {
 			filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "Python"),
 			filepath.Join(os.Getenv("APPDATA"), "npm"),
 			filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming", "npm"),
+			filepath.Join(os.Getenv("USERPROFILE"), "go", "bin"), // Go tools installed via 'go install'
 		}
 	} else {
 		homeDir, _ := os.UserHomeDir()
@@ -152,6 +153,8 @@ func GetInstallSuggestion(toolName string) string {
 		"dotnet": "Install from https://dotnet.microsoft.com/download",
 		"azd":    "Install from https://aka.ms/install-azd",
 		"az":     "Install from https://learn.microsoft.com/cli/azure/install-azure-cli",
+		"air":    "go install github.com/air-verse/air@latest",
+		"gh":     "Install from https://cli.github.com/",
 	}
 
 	if suggestion, ok := suggestions[toolName]; ok {

@@ -1,0 +1,563 @@
+---
+/**
+ * Quick Start Page
+ * 
+ * Streamlined onboarding experience that guides users through:
+ * 1. Installing Azure Developer CLI
+ * 2. Enabling extensions & installing azd-app
+ * 3. Cloning demo template & running
+ * 4. Fixing the bug with AI
+ * 
+ * Designed to be completable in ~5 minutes.
+ */
+
+import Layout from '../components/Layout.astro';
+import ProgressIndicator from '../components/ProgressIndicator.astro';
+import StepCard from '../components/StepCard.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import ChallengeCallout from '../components/ChallengeCallout.astro';
+import PlatformInstallTabs from '../components/PlatformInstallTabs.astro';
+
+// Progress steps configuration
+const progressSteps = [
+  { number: 1, label: "Install Azure CLI" },
+  { number: 2, label: "Enable Extensions" },
+  { number: 3, label: "Clone & Run" },
+  { number: 4, label: "Fix with AI" },
+];
+
+// Next steps configuration
+const nextSteps = [
+  {
+    icon: "🎯",
+    title: "Guided Tour",
+    description: "Take a comprehensive tour of all azd-app features",
+    href: import.meta.env.BASE_URL + "tour/",
+    isPrimary: true,
+  },
+  {
+    icon: "🤖",
+    title: "AI Features",
+    description: "Learn about MCP server and AI-powered debugging",
+    href: import.meta.env.BASE_URL + "mcp/",
+  },
+  {
+    icon: "📚",
+    title: "Documentation",
+    description: "Explore the full CLI reference and commands",
+    href: import.meta.env.BASE_URL + "cli/",
+  },
+];
+
+// Step 2 commands (same across platforms)
+const step2Commands = `# Enable extensions
+azd config set alpha.extensions.enabled on
+
+# Add azd-app extension source
+azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+
+# Install the extension
+azd extension install app`;
+
+// Step 3 commands
+const step3Commands = `# Initialize the demo project
+azd init -t jongio/azd-app-demo
+
+# Navigate to the project
+cd azd-app-demo
+
+# Start all services
+azd app run`;
+---
+
+<Layout 
+  title="Quick Start" 
+  description="Get up and running with azd-app in 5 minutes. Install, run a demo, and fix your first bug with AI!"
+  variant="default"
+>
+  <!-- Hero Section -->
+  <section class="quickstart-hero" aria-labelledby="quickstart-heading">
+    <h1 id="quickstart-heading" class="quickstart-title">Quick Start</h1>
+    <p class="quickstart-subtitle">
+      Get up and running with azd-app in 5 minutes.<br />
+      Install, run a demo, and fix your first bug with AI!
+    </p>
+    
+    <div class="time-estimate" role="status">
+      <svg 
+        width="18" 
+        height="18" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="2" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        aria-hidden="true"
+        class="time-estimate-icon"
+      >
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>~5 minutes</span>
+    </div>
+
+    <div class="challenge-teaser">
+      🎯 Challenge: Can you fix the bug using AI?
+    </div>
+  </section>
+
+  <!-- Progress Indicator -->
+  <ProgressIndicator steps={progressSteps} currentStep={1} />
+
+  <!-- Steps Container -->
+  <section class="steps-container" aria-labelledby="steps-heading">
+    <h2 id="steps-heading" class="sr-only">Quick Start Steps</h2>
+
+    <!-- Step 1: Install Azure Developer CLI -->
+    <StepCard 
+      number={1} 
+      title="Install Azure Developer CLI"
+      description="First, you'll need the Azure Developer CLI (azd) installed on your machine. Choose your platform below:"
+    >
+      <PlatformInstallTabs id="quickstart" />
+
+      <div class="step-tip">
+        <span class="step-tip-icon">💡</span>
+        <span>After installation, restart your terminal for the changes to apply.</span>
+      </div>
+    </StepCard>
+
+    <!-- Step 2: Enable Extensions & Install azd-app -->
+    <StepCard 
+      number={2} 
+      title="Enable Extensions & Install azd-app"
+      description="Enable the azd extensions feature and install the azd-app extension:"
+    >
+      <CodeBlock 
+        code={step2Commands}
+        language="bash"
+        showLanguage={true}
+        showCopy={true}
+      />
+    </StepCard>
+
+    <!-- Step 3: Clone Demo Template & Run -->
+    <StepCard 
+      number={3} 
+      title="Clone Demo Template & Run"
+      description="Initialize the demo template and start all services. This template includes an intentional bug for you to fix!"
+    >
+      <CodeBlock 
+        code={step3Commands}
+        language="bash"
+        showLanguage={true}
+        showCopy={true}
+      />
+
+      <div class="terminal-output">
+        <div class="terminal-output-header">
+          <span class="terminal-output-title">Expected Output</span>
+        </div>
+        <div class="terminal-output-content">
+          <div class="terminal-line">
+            <span class="terminal-prompt">$</span>
+            <span class="terminal-command">azd app run</span>
+          </div>
+          <div class="terminal-line terminal-output-text">Starting services...</div>
+          <div class="terminal-line terminal-success">✓ web started on http://localhost:3000</div>
+          <div class="terminal-line terminal-error">✗ api: Connection timeout to database</div>
+          <div class="terminal-line"></div>
+          <div class="terminal-line terminal-info">💡 There's a bug! Continue to Step 4 to fix it with AI.</div>
+        </div>
+      </div>
+
+      <div class="step-tip">
+        <span class="step-tip-icon">💡</span>
+        <span>The dashboard will open automatically at <code>http://localhost:5050</code></span>
+      </div>
+    </StepCard>
+
+    <!-- Step 4: Fix the Bug with AI -->
+    <StepCard 
+      number={4} 
+      title="Notice the API Error, Then Ask Copilot to Help Fix It!"
+      description="You'll see an error in the logs. Now it's time to use AI to diagnose and fix the issue!"
+    >
+      <p class="step-instruction">
+        Open the Copilot Chat panel in VS Code (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on Windows/Linux or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> on macOS) and ask about the error:
+      </p>
+
+      <ChallengeCallout 
+        title="Your Challenge"
+        description="The demo template has an intentional bug! The API service is failing with a connection timeout. Use GitHub Copilot to diagnose and fix the issue."
+        prompt="Why is my API service failing? Can you help me fix it?"
+        icon="🎯"
+      />
+    </StepCard>
+  </section>
+
+  <!-- Next Steps Section -->
+  <section class="next-steps" aria-labelledby="next-steps-heading">
+    <h2 id="next-steps-heading" class="next-steps-title">What's Next?</h2>
+    <p class="next-steps-description">
+      You've completed the quick start! Here's what to explore next:
+    </p>
+
+    <div class="next-steps-grid">
+      {nextSteps.map((step) => (
+        <a 
+          href={step.href} 
+          class:list={['next-step-card', { 'next-step-card--primary': step.isPrimary }]}
+        >
+          <span class="next-step-icon" aria-hidden="true">{step.icon}</span>
+          <span class="next-step-title">{step.title}</span>
+          <span class="next-step-description">{step.description}</span>
+          <span class="next-step-link">
+            {step.isPrimary ? 'Start Tour' : 'Learn more'}
+            <svg 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              stroke-width="2" 
+              stroke-linecap="round" 
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </span>
+        </a>
+      ))}
+    </div>
+  </section>
+</Layout>
+
+<style>
+  /* Screen Reader Only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ========================================
+     Hero Section
+     ======================================== */
+  .quickstart-hero {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+  }
+
+  .quickstart-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1rem 0;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .quickstart-subtitle {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    margin: 0 0 1.5rem 0;
+    line-height: 1.6;
+  }
+
+  .time-estimate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 9999px;
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 1rem;
+  }
+
+  .time-estimate-icon {
+    color: var(--color-azure-500);
+  }
+
+  .challenge-teaser {
+    display: inline-block;
+    padding: 0.625rem 1.25rem;
+    background: var(--color-mcp-badge-bg);
+    border: 1px solid var(--color-mcp-badge-border);
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-mcp-badge-text);
+  }
+
+  @media (min-width: 768px) {
+    .quickstart-hero {
+      padding: 3rem 0 2rem;
+    }
+
+    .quickstart-title {
+      font-size: 3rem;
+    }
+
+    .quickstart-subtitle {
+      font-size: 1.25rem;
+    }
+  }
+
+  /* ========================================
+     Steps Container
+     ======================================== */
+  .steps-container {
+    padding: 1rem 0 2rem;
+  }
+
+  /* ========================================
+     Terminal Output (Step 3)
+     ======================================== */
+  .terminal-output {
+    background: var(--terminal-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .terminal-output-header {
+    padding: 0.5rem 1rem;
+    background: var(--terminal-header-bg);
+    border-bottom: 1px solid var(--terminal-header-border);
+  }
+
+  .terminal-output-title {
+    font-size: 0.75rem;
+    color: var(--terminal-title-color);
+    font-weight: 500;
+  }
+
+  .terminal-output-content {
+    padding: 1rem;
+    font-family: var(--font-family-mono);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .terminal-line {
+    display: flex;
+    gap: 0.5rem;
+    min-height: 1.6em;
+  }
+
+  .terminal-prompt {
+    color: var(--terminal-prompt);
+    user-select: none;
+  }
+
+  .terminal-command {
+    color: var(--terminal-command);
+  }
+
+  .terminal-output-text {
+    color: var(--terminal-output);
+  }
+
+  .terminal-success {
+    color: var(--terminal-success);
+  }
+
+  .terminal-error {
+    color: var(--terminal-error);
+  }
+
+  .terminal-info {
+    color: var(--terminal-info);
+  }
+
+  /* ========================================
+     Step Tips
+     ======================================== */
+  .step-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #78350f;
+    line-height: 1.5;
+  }
+
+  :global([data-theme="dark"]) .step-tip {
+    background: #78350f;
+    border-color: #fbbf24;
+    color: #fef3c7;
+  }
+
+  .step-tip-icon {
+    flex-shrink: 0;
+    font-size: 1rem;
+    margin-top: 0.125rem;
+  }
+
+  .step-tip code {
+    background: var(--color-bg-tertiary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.8125rem;
+  }
+
+  :global([data-theme="dark"]) .step-tip code {
+    background: #451a03;
+    color: #fde68a;
+  }
+
+  /* ========================================
+     Step Instruction (Step 4)
+     ======================================== */
+  .step-instruction {
+    color: var(--color-text-secondary);
+    margin: 0 0 1rem 0;
+    line-height: 1.6;
+  }
+
+  .step-instruction kbd {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.25rem;
+    font-family: var(--font-family-mono);
+    font-size: 0.8125rem;
+    box-shadow: 0 1px 0 var(--color-border-strong);
+  }
+
+  /* ========================================
+     Next Steps Section
+     ======================================== */
+  .next-steps {
+    padding: 3rem 0;
+    border-top: 1px solid var(--color-border-default);
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  .next-steps-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .next-steps-description {
+    color: var(--color-text-secondary);
+    margin: 0 0 2rem 0;
+    font-size: 1.0625rem;
+  }
+
+  .next-steps-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 640px) {
+    .next-steps-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .next-step-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    transition: border-color 150ms ease-out, transform 150ms ease-out, box-shadow 150ms ease-out;
+  }
+
+  .next-step-card:hover {
+    border-color: var(--color-border-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+  }
+
+  .next-step-card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .next-step-card--primary {
+    border-color: var(--color-azure-300);
+    background: var(--color-bg-accent);
+  }
+
+  [data-theme="dark"] .next-step-card--primary {
+    border-color: var(--color-azure-700);
+  }
+
+  .next-step-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .next-step-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 0.375rem;
+  }
+
+  .next-step-description {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    flex: 1;
+  }
+
+  .next-step-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-interactive-default);
+  }
+
+  .next-step-card--primary .next-step-link {
+    padding: 0.5rem 1rem;
+    background: var(--color-interactive-default);
+    color: white;
+    border-radius: 0.375rem;
+  }
+
+  .next-step-card--primary:hover .next-step-link {
+    background: var(--color-interactive-hover);
+  }
+
+  /* ========================================
+     Reduced Motion
+     ======================================== */
+  @media (prefers-reduced-motion: reduce) {
+    .next-step-card:hover {
+      transform: none;
+    }
+  }
+</style>

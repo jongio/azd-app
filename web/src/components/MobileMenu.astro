@@ -1,0 +1,545 @@
+---
+/**
+ * MobileMenu Component
+ * Full-screen navigation overlay for mobile and tablet devices.
+ * Slides in from the right, provides access to all navigation items,
+ * and includes theme toggle.
+ */
+import ThemeToggle from './ThemeToggle.astro';
+
+interface Props {
+  currentPath?: string;
+}
+
+const { currentPath = Astro.url.pathname } = Astro.props;
+
+// Use BASE_URL from Astro config for proper path handling
+const base = import.meta.env.BASE_URL;
+
+const navigation = [
+  { label: 'Home', href: `${base}`, icon: 'home' },
+  { label: 'Quick Start', href: `${base}quick-start/`, icon: 'rocket' },
+  { label: 'MCP Server', href: `${base}mcp/`, icon: 'star', isProminent: true, badge: 'AI' },
+  { label: 'Guided Tour', href: `${base}tour/`, icon: 'book' },
+  { label: 'Reference', href: `${base}reference/cli/`, icon: 'library' },
+];
+
+function isActive(href: string, current: string): boolean {
+  const normalizedHref = href.replace(/\/$/, '');
+  const normalizedCurrent = current.replace(/\/$/, '');
+  
+  // Exact match
+  if (normalizedHref === normalizedCurrent) {
+    return true;
+  }
+  
+  // For non-home pages, check if current path starts with the nav item path
+  // This highlights parent nav items for sub-pages
+  const baseNormalized = base.replace(/\/$/, '');
+  if (normalizedHref !== baseNormalized && normalizedCurrent.startsWith(normalizedHref + '/')) {
+    return true;
+  }
+  
+  return false;
+}
+---
+
+<!-- Backdrop -->
+<div
+  class="mobile-menu-backdrop"
+  aria-hidden="true"
+  data-mobile-menu-backdrop
+></div>
+
+<!-- Menu -->
+<div
+  id="mobile-menu"
+  class="mobile-menu"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Main menu"
+  hidden
+  data-mobile-menu
+>
+  <div class="mobile-menu-header">
+    <a href={base} class="mobile-menu-logo" aria-label="azd app home">
+      <span>azd app</span>
+    </a>
+    <button
+      type="button"
+      class="mobile-menu-close"
+      aria-label="Close menu"
+      data-mobile-menu-close
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <nav class="mobile-menu-nav" aria-label="Main navigation">
+    <ul role="list">
+      {navigation.map((item) => (
+        <li>
+          <a
+            href={item.href}
+            class:list={[
+              'mobile-nav-item',
+              { 'mobile-nav-item--active': isActive(item.href, currentPath) },
+              { 'mobile-nav-item--prominent': item.isProminent }
+            ]}
+            aria-current={isActive(item.href, currentPath) ? 'page' : undefined}
+            data-mobile-nav-link
+          >
+            <!-- Icon -->
+            <span class="mobile-nav-icon" aria-hidden="true">
+              {item.icon === 'home' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+              )}
+              {item.icon === 'rocket' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+                  <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+                  <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+                  <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
+                </svg>
+              )}
+              {item.icon === 'star' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+              )}
+              {item.icon === 'book' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              )}
+              {item.icon === 'library' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                  <path d="M8 7h8"></path>
+                  <path d="M8 11h8"></path>
+                </svg>
+              )}
+            </span>
+            <span class="mobile-nav-label">{item.label}</span>
+            {item.badge && (
+              <span class="mobile-nav-badge" aria-label={`${item.badge} feature`}>
+                {item.badge}
+              </span>
+            )}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+
+  <div class="mobile-menu-divider" role="separator"></div>
+
+  <div class="mobile-menu-theme">
+    <span class="mobile-menu-theme-label">Theme</span>
+    <ThemeToggle showLabel />
+  </div>
+</div>
+
+<style>
+  /* Backdrop */
+  .mobile-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 200ms ease-out, visibility 0s 200ms;
+  }
+
+  .mobile-menu-backdrop[data-visible="true"] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 200ms ease-out;
+  }
+
+  @supports (backdrop-filter: blur(4px)) {
+    .mobile-menu-backdrop {
+      backdrop-filter: blur(4px);
+    }
+  }
+
+  /* Menu */
+  .mobile-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(100vw, 320px);
+    min-width: 280px;
+    z-index: 50;
+    background-color: var(--color-bg-primary);
+    transform: translateX(100%);
+    transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .mobile-menu[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .mobile-menu[hidden] {
+    display: none;
+  }
+
+  /* Header */
+  .mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    height: 3.5rem;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .mobile-menu-logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  .mobile-menu-logo:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .mobile-menu-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background-color 100ms ease-out, color 100ms ease-out;
+  }
+
+  .mobile-menu-close:hover {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .mobile-menu-close:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .mobile-menu-close svg {
+    transition: transform 150ms ease-out;
+  }
+
+  .mobile-menu-close:hover svg {
+    transform: rotate(90deg);
+  }
+
+  /* Navigation */
+  .mobile-menu-nav {
+    flex: 1;
+    padding: 0.5rem 0;
+  }
+
+  .mobile-menu-nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .mobile-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1.5rem;
+    height: 3.5rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition: background-color 100ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-nav-item:hover {
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .mobile-nav-item:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+  }
+
+  .mobile-nav-item:active {
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .mobile-nav-item--active {
+    color: var(--color-interactive-default);
+    background-color: var(--color-bg-accent);
+    border-left: 4px solid var(--color-interactive-default);
+    padding-left: calc(1.5rem - 4px);
+    font-weight: 600;
+  }
+
+  .mobile-nav-item--prominent {
+    font-weight: 600;
+    background-color: var(--color-mcp-badge-bg);
+    border: 1px solid var(--color-mcp-badge-border);
+    margin: 0.25rem 0.75rem;
+    border-radius: 0.5rem;
+    padding: 0 1rem;
+  }
+
+  .mobile-nav-item--prominent:hover {
+    background-color: var(--color-mcp-badge-bg);
+  }
+
+  .mobile-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-nav-label {
+    flex: 1;
+  }
+
+  .mobile-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    background-color: var(--color-mcp-badge-bg);
+    color: var(--color-mcp-badge-text);
+    border-radius: 0.25rem;
+  }
+
+  /* Divider */
+  .mobile-menu-divider {
+    height: 1px;
+    margin: 0.5rem 1.5rem;
+    background-color: var(--color-border-default);
+  }
+
+  /* Theme Section */
+  .mobile-menu-theme {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+  }
+
+  .mobile-menu-theme-label {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-menu {
+      transition: opacity 100ms ease-out;
+      transform: none !important;
+    }
+
+    .mobile-menu:not([data-open="true"]) {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .mobile-menu[data-open="true"] {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  /* Hide on desktop */
+  @media (min-width: 1024px) {
+    .mobile-menu-backdrop,
+    .mobile-menu {
+      display: none !important;
+    }
+  }
+</style>
+
+<script>
+  let previousFocus: Element | null = null;
+  let focusTrapCleanup: (() => void) | null = null;
+
+  function openMobileMenu(): void {
+    const menu = document.querySelector('[data-mobile-menu]') as HTMLElement;
+    const backdrop = document.querySelector('[data-mobile-menu-backdrop]') as HTMLElement;
+    const toggleButton = document.querySelector('[data-mobile-menu-toggle]') as HTMLElement;
+    
+    if (!menu || !backdrop) return;
+    
+    // Save current focus
+    previousFocus = document.activeElement;
+    
+    // Show menu
+    menu.hidden = false;
+    menu.setAttribute('data-open', 'true');
+    backdrop.setAttribute('data-visible', 'true');
+    toggleButton?.setAttribute('aria-expanded', 'true');
+    
+    // Lock body scroll
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.dataset.scrollLock = String(scrollY);
+    
+    // Focus first focusable element
+    requestAnimationFrame(() => {
+      const closeButton = menu.querySelector('[data-mobile-menu-close]') as HTMLElement;
+      closeButton?.focus();
+    });
+    
+    // Trap focus
+    focusTrapCleanup = trapFocus(menu);
+  }
+
+  function closeMobileMenu(): void {
+    const menu = document.querySelector('[data-mobile-menu]') as HTMLElement;
+    const backdrop = document.querySelector('[data-mobile-menu-backdrop]') as HTMLElement;
+    const toggleButton = document.querySelector('[data-mobile-menu-toggle]') as HTMLElement;
+    
+    if (!menu || !backdrop) return;
+    
+    // Hide menu
+    menu.setAttribute('data-open', 'false');
+    backdrop.setAttribute('data-visible', 'false');
+    toggleButton?.setAttribute('aria-expanded', 'false');
+    
+    // Release focus trap
+    focusTrapCleanup?.();
+    focusTrapCleanup = null;
+    
+    // Unlock body scroll
+    const scrollY = document.body.dataset.scrollLock || '0';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    delete document.body.dataset.scrollLock;
+    window.scrollTo(0, parseInt(scrollY));
+    
+    // Return focus
+    (previousFocus as HTMLElement)?.focus();
+    
+    // Hide after animation
+    setTimeout(() => {
+      if (menu.getAttribute('data-open') === 'false') {
+        menu.hidden = true;
+      }
+    }, 250);
+  }
+
+  function toggleMobileMenu(): void {
+    const menu = document.querySelector('[data-mobile-menu]') as HTMLElement;
+    const isOpen = menu?.getAttribute('data-open') === 'true';
+    
+    if (isOpen) {
+      closeMobileMenu();
+    } else {
+      openMobileMenu();
+    }
+  }
+
+  function trapFocus(element: HTMLElement): () => void {
+    const focusableElements = element.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+    
+    function handleKeydown(e: KeyboardEvent): void {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault();
+            lastFocusable?.focus();
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            e.preventDefault();
+            firstFocusable?.focus();
+          }
+        }
+      }
+      
+      if (e.key === 'Escape') {
+        closeMobileMenu();
+      }
+    }
+    
+    element.addEventListener('keydown', handleKeydown);
+    
+    return () => {
+      element.removeEventListener('keydown', handleKeydown);
+    };
+  }
+
+  function initMobileMenu(): void {
+    // Toggle button
+    document.querySelectorAll('[data-mobile-menu-toggle]').forEach(button => {
+      button.addEventListener('click', toggleMobileMenu);
+    });
+    
+    // Close button
+    document.querySelectorAll('[data-mobile-menu-close]').forEach(button => {
+      button.addEventListener('click', closeMobileMenu);
+    });
+    
+    // Backdrop click
+    document.querySelectorAll('[data-mobile-menu-backdrop]').forEach(backdrop => {
+      backdrop.addEventListener('click', closeMobileMenu);
+    });
+    
+    // Nav link clicks (close menu and navigate)
+    document.querySelectorAll('[data-mobile-nav-link]').forEach(link => {
+      link.addEventListener('click', () => {
+        closeMobileMenu();
+      });
+    });
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+  } else {
+    initMobileMenu();
+  }
+  
+  document.addEventListener('astro:after-swap', initMobileMenu);
+</script>

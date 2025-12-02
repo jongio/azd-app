@@ -642,7 +642,7 @@ azd app logs --level error
 azd app logs --format json
 
 # Write logs to file
-azd app logs --output debug.log
+azd app logs --file debug.log
 
 # Disable timestamps
 azd app logs --timestamps=false
@@ -663,7 +663,7 @@ azd app logs --no-color
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
 | `--format` | | string | `text` | Output format (text, json) |
-| `--output` | | string | | Write logs to file instead of stdout |
+| `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
@@ -714,7 +714,7 @@ azd app info
 azd app info --all
 
 # Show services from specific project directory
-azd app info --project /path/to/project
+azd app info --cwd /path/to/project
 ```
 
 ### Flags
@@ -722,7 +722,7 @@ azd app info --project /path/to/project
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--all` | | bool | `false` | Show services from all projects on this machine |
-| `--project` | | string | | Show services from a specific project directory |
+| `--cwd` | `-C` | string | | Sets the current working directory |
 
 ### Output
 
@@ -871,6 +871,62 @@ azd app extension version 0.5.1
 ```
 
 **→ [See full version command specification](commands/version.md)** for version format details.
+
+---
+
+## `azd app notifications`
+
+View and manage notifications for service state changes and events.
+
+### Usage
+
+```bash
+azd app notifications [command]
+```
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List notification history |
+| `mark-read` | Mark notification(s) as read |
+| `clear` | Clear notification history |
+| `stats` | Show notification statistics |
+| `test` | Send a test notification |
+| `enable` | Enable or disable OS notifications |
+
+### Examples
+
+```bash
+# View all recent notifications
+azd app notifications list
+
+# View unread notifications only
+azd app notifications list --unread
+
+# View notifications for a specific service
+azd app notifications list --service api
+
+# Mark all notifications as read
+azd app notifications mark-read --all
+
+# Clear notifications older than 7 days
+azd app notifications clear --older-than 168h
+
+# Show notification statistics
+azd app notifications stats
+
+# Send a test notification
+azd app notifications test
+
+# Enable OS notifications
+azd app notifications enable
+
+# Disable OS notifications
+azd app notifications enable --disable
+```
+
+**→ [See full notifications command specification](commands/notifications.md)** for complete subcommand documentation.
 
 ---
 

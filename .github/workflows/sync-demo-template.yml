@@ -1,0 +1,210 @@
+name: Sync Demo Template
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cli/demo/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (do not push changes)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  DEMO_SOURCE_PATH: cli/demo
+  TARGET_REPO: jongio/azd-app-demo
+
+jobs:
+  sync:
+    name: Sync Demo to Target Repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Validate source files exist
+        run: |
+          echo "Validating source demo directory exists..."
+          if [ ! -d "source/${{ env.DEMO_SOURCE_PATH }}" ]; then
+            echo "ERROR: Demo source directory not found at ${{ env.DEMO_SOURCE_PATH }}"
+            exit 1
+          fi
+          
+          echo "Source directory contents:"
+          ls -la "source/${{ env.DEMO_SOURCE_PATH }}"
+
+      - name: Validate required files
+        run: |
+          DEMO_PATH="source/${{ env.DEMO_SOURCE_PATH }}"
+          MISSING_FILES=""
+          
+          # Check for required files
+          REQUIRED_FILES=(
+            "azure.yaml"
+            ".vscode/mcp.json"
+          )
+          
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$DEMO_PATH/$file" ]; then
+              MISSING_FILES="$MISSING_FILES\n  - $file"
+            else
+              echo "✓ Found: $file"
+            fi
+          done
+          
+          if [ -n "$MISSING_FILES" ]; then
+            echo "ERROR: Required files missing:$MISSING_FILES"
+            exit 1
+          fi
+          
+          echo ""
+          echo "All required files present!"
+
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TARGET_REPO }}
+          token: ${{ secrets.DEMO_REPO_PAT }}
+          path: target
+          fetch-depth: 0
+
+      - name: Sync demo files to target
+        run: |
+          DEMO_PATH="source/${{ env.DEMO_SOURCE_PATH }}"
+          
+          echo "Syncing files from $DEMO_PATH to target repository..."
+          
+          # Remove all files from target except .git
+          cd target
+          find . -maxdepth 1 -not -name '.git' -not -name '.' -exec rm -rf {} \;
+          cd ..
+          
+          # Copy all files from demo source to target root
+          # Using rsync to handle hidden files properly
+          rsync -av --exclude='.git' "$DEMO_PATH/" target/
+          
+          echo ""
+          echo "Target repository contents after sync:"
+          ls -la target/
+          
+          # Show .vscode directory
+          if [ -d "target/.vscode" ]; then
+            echo ""
+            echo ".vscode directory contents:"
+            ls -la target/.vscode/
+          fi
+
+      - name: Check for changes
+        id: changes
+        working-directory: target
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git diff --staged --stat
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true' && (github.event.inputs.dry_run != 'true')
+        working-directory: target
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Get the source commit SHA for reference
+          SOURCE_SHA="${{ github.sha }}"
+          SHORT_SHA="${SOURCE_SHA:0:7}"
+          
+          git commit -m "chore: sync demo template from azd-app ($SHORT_SHA)" \
+            -m "Synced from: https://github.com/${{ github.repository }}/commit/$SOURCE_SHA" \
+            -m "Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          git push origin main
+          
+          echo "✓ Changes pushed to ${{ env.TARGET_REPO }}"
+
+      - name: Dry run summary
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "DRY RUN: Changes were not pushed"
+          echo "The following changes would have been made:"
+          cd target
+          git diff --staged --stat
+
+  smoke-test:
+    name: Smoke Test Demo
+    runs-on: ubuntu-latest
+    needs: sync
+    if: always() && needs.sync.result == 'success'
+    
+    steps:
+      - name: Checkout synced demo repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TARGET_REPO }}
+          token: ${{ secrets.DEMO_REPO_PAT }}
+
+      - name: Install azd
+        run: curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd-app extension
+        run: |
+          # Add the extension registry and install azd-app
+          azd extension source add jongio --location https://raw.githubusercontent.com/jongio/azd-app/main/registry.json --type url 2>/dev/null || true
+          azd extension install jongio.azd.app --source jongio || echo "Extension may not be published yet, continuing..."
+
+      - name: Validate azure.yaml exists
+        run: |
+          if [ ! -f "azure.yaml" ]; then
+            echo "ERROR: azure.yaml not found in demo repository"
+            exit 1
+          fi
+          echo "✓ azure.yaml exists"
+          cat azure.yaml
+
+      - name: Validate .vscode/mcp.json exists
+        run: |
+          if [ ! -f ".vscode/mcp.json" ]; then
+            echo "ERROR: .vscode/mcp.json not found in demo repository"
+            exit 1
+          fi
+          echo "✓ .vscode/mcp.json exists"
+          cat .vscode/mcp.json
+
+      - name: Run azd app reqs (smoke test)
+        continue-on-error: true
+        run: |
+          echo "Running: azd app reqs"
+          azd app reqs || echo "Note: azd app reqs may fail if extension is not yet published"
+
+      - name: Run azd app deps (smoke test)
+        continue-on-error: true
+        run: |
+          echo "Running: azd app deps"
+          azd app deps || echo "Note: azd app deps may fail if extension is not yet published"
+
+      - name: Smoke test summary
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "Smoke Test Summary"
+          echo "=========================================="
+          echo "✓ Demo repository structure validated"
+          echo "✓ Required files present"
+          echo ""
+          echo "Note: Full azd app commands may not work until:"
+          echo "  1. The azd-app extension is published"
+          echo "  2. The demo project has all required dependencies"
