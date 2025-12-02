@@ -1,0 +1,275 @@
+---
+/**
+ * TourLayout Component
+ * 
+ * Main layout wrapper for guided tour pages.
+ * Includes the progress sidebar and main content area.
+ */
+import Header from '../Header.astro';
+import Footer from '../Footer.astro';
+import MobileMenu from '../MobileMenu.astro';
+import Lightbox from '../Lightbox.astro';
+import TourProgressSidebar from './TourProgressSidebar.astro';
+import { tourSteps, getTotalEstimatedTime } from '../../data/tour-steps';
+import '../../styles/global.css';
+
+interface Props {
+  /** Page title */
+  title: string;
+  /** Page description */
+  description?: string;
+  /** Current step number (0 for overview) */
+  currentStep?: number;
+}
+
+const {
+  title,
+  description = 'Guided tour of azd-app features',
+  currentStep = 0,
+} = Astro.props;
+
+const currentPath = Astro.url.pathname;
+const fullTitle = `${title} | azd-app Guided Tour`;
+const totalTime = getTotalEstimatedTime();
+const base = import.meta.env.BASE_URL;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ffffff" />
+    <title>{fullTitle}</title>
+    
+    <!-- Prevent flash of wrong theme -->
+    <script is:inline>
+      (function() {
+        const stored = localStorage.getItem('azd-app:theme');
+        const theme = stored === 'dark' || 
+          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          ? 'dark' 
+          : 'light';
+        document.documentElement.setAttribute('data-theme', stored || 'system');
+        document.documentElement.style.colorScheme = theme;
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#1e293b' : '#ffffff');
+      })();
+    </script>
+  </head>
+  <body class="tour-layout">
+    <!-- Header -->
+    <Header currentPath={currentPath} />
+
+    <!-- Mobile Menu -->
+    <MobileMenu currentPath={currentPath} />
+
+    <!-- Tour Layout Container -->
+    <div class="tour-container">
+      <!-- Progress Sidebar -->
+      <TourProgressSidebar 
+        steps={tourSteps} 
+        currentStep={currentStep}
+        totalTime={totalTime}
+      />
+
+      <!-- Main Content -->
+      <main id="main-content" class="tour-main" role="main">
+        <slot />
+      </main>
+    </div>
+
+    <!-- Mobile Sidebar Trigger -->
+    <button 
+      type="button"
+      class="tour-sidebar-trigger"
+      aria-label="Show tour progress"
+      aria-expanded="false"
+      aria-controls="tour-sidebar"
+      data-tour-sidebar-trigger
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+      </svg>
+    </button>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div class="tour-sidebar-overlay" data-tour-sidebar-overlay hidden></div>
+
+    <!-- Footer -->
+    <Footer />
+
+    <!-- Lightbox -->
+    <Lightbox />
+
+    <script>
+      function initTourSidebar(): void {
+        const trigger = document.querySelector<HTMLButtonElement>('[data-tour-sidebar-trigger]');
+        const sidebar = document.querySelector<HTMLElement>('[data-tour-sidebar]');
+        const overlay = document.querySelector<HTMLElement>('[data-tour-sidebar-overlay]');
+        const closeBtn = document.querySelector<HTMLButtonElement>('[data-tour-sidebar-close]');
+
+        if (!trigger || !sidebar || !overlay) return;
+
+        function openSidebar(): void {
+          sidebar?.classList.add('tour-sidebar--open');
+          overlay?.removeAttribute('hidden');
+          trigger?.setAttribute('aria-expanded', 'true');
+          document.body.style.overflow = 'hidden';
+          // Focus first focusable element in sidebar
+          const firstFocusable = sidebar?.querySelector<HTMLElement>('a, button');
+          firstFocusable?.focus();
+        }
+
+        function closeSidebar(): void {
+          sidebar?.classList.remove('tour-sidebar--open');
+          overlay?.setAttribute('hidden', '');
+          trigger?.setAttribute('aria-expanded', 'false');
+          document.body.style.overflow = '';
+          trigger?.focus();
+        }
+
+        trigger.addEventListener('click', openSidebar);
+        overlay.addEventListener('click', closeSidebar);
+        closeBtn?.addEventListener('click', closeSidebar);
+
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && sidebar?.classList.contains('tour-sidebar--open')) {
+            closeSidebar();
+          }
+        });
+      }
+
+      // Initialize
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTourSidebar);
+      } else {
+        initTourSidebar();
+      }
+
+      document.addEventListener('astro:after-swap', initTourSidebar);
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  /* Skip Links */
+  .skip-links {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+  }
+
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-interactive-default);
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0 0 0.5rem 0.5rem;
+    transition: top 0.2s ease-out;
+  }
+
+  .skip-link:focus {
+    top: 0;
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Tour Layout */
+  .tour-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .tour-container {
+    display: flex;
+    flex: 1;
+  }
+
+  .tour-main {
+    flex: 1;
+    padding: 2rem 1.5rem;
+    max-width: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .tour-main {
+      padding: 3rem 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  }
+
+  /* Mobile Sidebar Trigger */
+  .tour-sidebar-trigger {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: var(--z-fixed);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--color-azure-500);
+    color: white;
+    border: none;
+    box-shadow: var(--shadow-lg);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .tour-sidebar-trigger:hover {
+    background: var(--color-azure-600);
+    transform: scale(1.05);
+  }
+
+  .tour-sidebar-trigger:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 1023px) {
+    .tour-sidebar-trigger {
+      display: flex;
+    }
+  }
+
+  /* Mobile Sidebar Overlay */
+  .tour-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal-backdrop);
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+  }
+
+  .tour-sidebar-overlay:not([hidden]) {
+    opacity: 1;
+  }
+
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+</style>

@@ -1,0 +1,371 @@
+---
+/**
+ * Layout Component
+ * Main structural foundation for all pages on the azd-app website.
+ * Orchestrates Header, Sidebar (optional), Footer, and main content area.
+ */
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import MobileMenu from './MobileMenu.astro';
+import Sidebar from './Sidebar.astro';
+import Lightbox from './Lightbox.astro';
+import '../styles/global.css';
+
+interface SidebarItem {
+  label: string;
+  href: string;
+  badge?: {
+    text: string;
+    variant: 'default' | 'new' | 'beta' | 'deprecated';
+  };
+  items?: SidebarItem[];
+}
+
+interface SidebarSection {
+  title: string;
+  id: string;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
+  items: SidebarItem[];
+}
+
+interface BreadcrumbItem {
+  label: string;
+  href?: string;
+}
+
+interface PageLink {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  /** Page variant */
+  variant?: 'default' | 'docs' | 'full-width' | 'landing';
+  /** Page title */
+  title: string;
+  /** Page description */
+  description?: string;
+  /** Show sidebar */
+  showSidebar?: boolean;
+  /** Sidebar navigation structure */
+  sidebarSections?: SidebarSection[];
+  /** Breadcrumb items */
+  breadcrumb?: BreadcrumbItem[];
+  /** Previous page link */
+  prevPage?: PageLink;
+  /** Next page link */
+  nextPage?: PageLink;
+  /** Custom content class */
+  contentClass?: string;
+}
+
+const {
+  variant = 'default',
+  title,
+  description = 'azd app - Azure Developer CLI Extension for running local development environments',
+  showSidebar = false,
+  sidebarSections = [],
+  breadcrumb = [],
+  prevPage,
+  nextPage,
+  contentClass = '',
+} = Astro.props;
+
+const currentPath = Astro.url.pathname;
+const fullTitle = title === 'Home' ? 'azd app | Azure Developer CLI Extension' : `${title} | azd app`;
+const base = import.meta.env.BASE_URL;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ffffff" />
+    <title>{fullTitle}</title>
+    
+    <!-- Prevent flash of wrong theme -->
+    <script is:inline>
+      (function() {
+        const stored = localStorage.getItem('azd-app:theme');
+        const theme = stored === 'dark' || 
+          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          ? 'dark' 
+          : 'light';
+        document.documentElement.setAttribute('data-theme', stored || 'system');
+        document.documentElement.style.colorScheme = theme;
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#1e293b' : '#ffffff');
+      })();
+    </script>
+  </head>
+  <body class:list={['layout', `layout--${variant}`]}>
+    <!-- Header -->
+    <Header currentPath={currentPath} />
+
+    <!-- Mobile Menu -->
+    <MobileMenu currentPath={currentPath} />
+
+    <!-- Main Layout Container -->
+    <div class="layout-container">
+      {showSidebar && sidebarSections.length > 0 && (
+        <Sidebar sections={sidebarSections} currentPath={currentPath} />
+      )}
+
+      <!-- Main Content -->
+      <main id="main-content" class:list={['layout-main', contentClass]} role="main">
+        <!-- Breadcrumb -->
+        {breadcrumb.length > 0 && (
+          <nav aria-label="Breadcrumb" class="breadcrumb">
+            <ol class="breadcrumb-list">
+              {breadcrumb.map((item, index) => (
+                <li class="breadcrumb-item">
+                  {item.href && index < breadcrumb.length - 1 ? (
+                    <>
+                      <a href={item.href} class="breadcrumb-link">{item.label}</a>
+                      <span class="breadcrumb-separator" aria-hidden="true">/</span>
+                    </>
+                  ) : (
+                    <span aria-current="page" class="breadcrumb-current">{item.label}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+
+        <!-- Page Content -->
+        <article class="layout-content">
+          <slot />
+        </article>
+
+        <!-- Page Navigation (Prev/Next) -->
+        {(prevPage || nextPage) && (
+          <nav aria-label="Page navigation" class="page-nav">
+            {prevPage ? (
+              <a href={prevPage.href} class="page-nav-link page-nav-link--prev" rel="prev">
+                <span class="page-nav-direction">Previous</span>
+                <span class="page-nav-title">{prevPage.label}</span>
+              </a>
+            ) : (
+              <div></div>
+            )}
+            {nextPage && (
+              <a href={nextPage.href} class="page-nav-link page-nav-link--next" rel="next">
+                <span class="page-nav-direction">Next</span>
+                <span class="page-nav-title">{nextPage.label}</span>
+              </a>
+            )}
+          </nav>
+        )}
+      </main>
+    </div>
+
+    <!-- Footer -->
+    <Footer />
+
+    <!-- Lightbox (global, for screenshots) -->
+    <Lightbox />
+  </body>
+</html>
+
+<style is:global>
+  /* Skip Links */
+  .skip-links {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+  }
+
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--color-interactive-default);
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0 0 0.5rem 0.5rem;
+    transition: top 0.2s ease-out;
+  }
+
+  .skip-link:focus {
+    top: 0;
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Layout */
+  .layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .layout-container {
+    display: flex;
+    flex: 1;
+  }
+
+  .layout-main {
+    flex: 1;
+    padding: 2rem 1.5rem;
+    max-width: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .layout-main {
+      padding: 3rem 2rem;
+    }
+  }
+
+  .layout--default .layout-main,
+  .layout--landing .layout-main {
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .layout--docs .layout-main {
+    max-width: 768px;
+  }
+
+  .layout--full-width .layout-main {
+    padding: 0;
+    max-width: none;
+  }
+
+  .layout-content {
+    min-height: 50vh;
+  }
+
+  /* Breadcrumb */
+  .breadcrumb {
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+  }
+
+  .breadcrumb-list {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .breadcrumb-item {
+    display: flex;
+    align-items: center;
+  }
+
+  .breadcrumb-link {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 100ms ease-out;
+  }
+
+  .breadcrumb-link:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+  }
+
+  .breadcrumb-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 0.125rem;
+  }
+
+  .breadcrumb-separator {
+    margin: 0 0.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .breadcrumb-current {
+    color: var(--color-text-primary);
+    font-weight: 500;
+  }
+
+  /* Page Navigation */
+  .page-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  @media (max-width: 480px) {
+    .page-nav {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .page-nav-link {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: border-color 100ms ease-out, background-color 100ms ease-out;
+  }
+
+  .page-nav-link:hover {
+    border-color: var(--color-border-strong);
+    background-color: var(--color-bg-secondary);
+  }
+
+  .page-nav-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .page-nav-link--prev {
+    align-items: flex-start;
+  }
+
+  .page-nav-link--next {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  @media (max-width: 480px) {
+    .page-nav-link--next {
+      align-items: flex-start;
+      text-align: left;
+    }
+  }
+
+  .page-nav-direction {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  .page-nav-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-interactive-default);
+  }
+
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+</style>

@@ -24,7 +24,7 @@ azd app info [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--all` | | bool | `false` | Show services from all projects on this machine |
-| `--project` | | string | | Show services from a specific project directory |
+| `--cwd` | `-C` | string | | Sets the current working directory |
 
 ## Execution Flow
 
@@ -36,7 +36,7 @@ azd app info [flags]
 ┌─────────────────────────────────────────────────────────────┐
 │  Determine Project Directory                                 │
 │  - Default: Current directory                                │
-│  - If --project: Use specified directory                     │
+│  - If --cwd: Use specified directory                         │
 │  - If --all: Get all registries (future)                     │
 └─────────────────────────────────────────────────────────────┘
                             ↓
@@ -327,7 +327,7 @@ azd app info
 
 ```bash
 # Show services in another project
-azd app info --project /path/to/other/project
+azd app info --cwd /path/to/other/project
 ```
 
 ### All Projects (Future)
@@ -642,7 +642,7 @@ $ azd app info --output json | jq '.services[] | {name, status: .local.status, u
 ### Example 3: Specific Project
 
 ```bash
-$ azd app info --project /Users/dev/other-project
+$ azd app info --cwd /Users/dev/other-project
 
 📦 Project: /Users/dev/other-project
 

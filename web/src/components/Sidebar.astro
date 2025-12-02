@@ -1,0 +1,424 @@
+---
+/**
+ * Sidebar Component
+ * Secondary navigation for documentation pages.
+ * Displays hierarchical structure with collapsible sections.
+ */
+
+interface SidebarItem {
+  label: string;
+  href: string;
+  badge?: {
+    text: string;
+    variant: 'default' | 'new' | 'beta' | 'deprecated';
+  };
+  items?: SidebarItem[];
+}
+
+interface SidebarSection {
+  title: string;
+  id: string;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
+  items: SidebarItem[];
+}
+
+interface Props {
+  sections: SidebarSection[];
+  currentPath?: string;
+}
+
+const { sections, currentPath = Astro.url.pathname } = Astro.props;
+
+function isActive(href: string, current: string): boolean {
+  const normalizedHref = href.replace(/\/$/, '');
+  const normalizedCurrent = current.replace(/\/$/, '');
+  
+  // Exact match
+  if (normalizedHref === normalizedCurrent) {
+    return true;
+  }
+  
+  // For non-home pages, check if current path starts with the nav item path
+  // This highlights parent nav items for sub-pages
+  if (normalizedHref !== '/azd-app' && normalizedCurrent.startsWith(normalizedHref + '/')) {
+    return true;
+  }
+  
+  return false;
+}
+
+function hasActiveChild(items: SidebarItem[], current: string): boolean {
+  return items.some(item => 
+    isActive(item.href, current) || 
+    (item.items && hasActiveChild(item.items, current))
+  );
+}
+---
+
+<aside class="sidebar" aria-label="Documentation navigation">
+  <nav class="sidebar-nav" id="sidebar-nav" aria-label="Documentation sections">
+    {sections.map((section) => {
+      const sectionHasActive = hasActiveChild(section.items, currentPath);
+      const isExpanded = section.defaultExpanded !== false || sectionHasActive;
+      
+      return (
+        <div 
+          class="sidebar-section" 
+          data-expanded={isExpanded ? 'true' : 'false'}
+          data-section
+        >
+          {section.collapsible !== false ? (
+            <button
+              type="button"
+              id={`section-${section.id}`}
+              class:list={['sidebar-section-header', { 'sidebar-section-header--has-active': sectionHasActive }]}
+              aria-expanded={isExpanded ? 'true' : 'false'}
+              aria-controls={`section-${section.id}-items`}
+              data-section-toggle
+            >
+              <span class="sidebar-section-title">{section.title}</span>
+              <svg 
+                class="sidebar-section-chevron" 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          ) : (
+            <div class="sidebar-section-header sidebar-section-header--static">
+              <span class="sidebar-section-title">{section.title}</span>
+            </div>
+          )}
+          
+          <ul 
+            id={`section-${section.id}-items`}
+            class="sidebar-section-items"
+            role="list"
+          >
+            {section.items.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  class:list={[
+                    'sidebar-link',
+                    { 'sidebar-link--active': isActive(item.href, currentPath) }
+                  ]}
+                  aria-current={isActive(item.href, currentPath) ? 'page' : undefined}
+                >
+                  <span class="sidebar-link-label">{item.label}</span>
+                  {item.badge && (
+                    <span 
+                      class:list={[
+                        'sidebar-badge',
+                        `sidebar-badge--${item.badge.variant}`
+                      ]}
+                      aria-label={item.badge.text}
+                    >
+                      {item.badge.text}
+                    </span>
+                  )}
+                </a>
+                {item.items && item.items.length > 0 && (
+                  <ul class="sidebar-nested-items" role="list">
+                    {item.items.map((nested) => (
+                      <li>
+                        <a
+                          href={nested.href}
+                          class:list={[
+                            'sidebar-link',
+                            'sidebar-link--nested',
+                            { 'sidebar-link--active': isActive(nested.href, currentPath) }
+                          ]}
+                          aria-current={isActive(nested.href, currentPath) ? 'page' : undefined}
+                        >
+                          <span class="sidebar-link-label">{nested.label}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    })}
+  </nav>
+</aside>
+
+<style>
+  .sidebar {
+    position: sticky;
+    top: 4rem;
+    height: calc(100vh - 4rem);
+    width: 16rem;
+    padding: 1rem 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background-color: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border-default);
+  }
+
+  @media (max-width: 1023px) {
+    .sidebar {
+      display: none;
+    }
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Section */
+  .sidebar-section {
+    padding: 0 0.5rem;
+  }
+
+  .sidebar-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-radius: 0.375rem;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 100ms ease-out;
+  }
+
+  .sidebar-section-header:hover {
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .sidebar-section-header:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .sidebar-section-header--static {
+    cursor: default;
+  }
+
+  .sidebar-section-header--static:hover {
+    background: transparent;
+  }
+
+  .sidebar-section-header--has-active {
+    background-color: var(--color-bg-accent);
+  }
+
+  .sidebar-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary);
+  }
+
+  .sidebar-section-chevron {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: transform 200ms ease-out;
+  }
+
+  .sidebar-section[data-expanded="true"] .sidebar-section-chevron {
+    transform: rotate(90deg);
+  }
+
+  /* Section Items */
+  .sidebar-section-items {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 200ms ease-out;
+    overflow: hidden;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sidebar-section[data-expanded="false"] .sidebar-section-items {
+    grid-template-rows: 0fr;
+  }
+
+  .sidebar-section-items > * {
+    overflow: hidden;
+  }
+
+  /* Links */
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem 0.5rem 1rem;
+    margin: 0.125rem 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: 0.375rem;
+    transition: background-color 100ms ease-out, color 100ms ease-out;
+    position: relative;
+  }
+
+  .sidebar-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%) scaleY(0);
+    width: 2px;
+    height: 1.5rem;
+    background-color: var(--color-interactive-default);
+    border-radius: 1px;
+    transition: transform 150ms ease-out;
+  }
+
+  .sidebar-link:hover {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .sidebar-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .sidebar-link--active {
+    color: var(--color-interactive-default);
+    background-color: var(--color-bg-accent);
+    font-weight: 600;
+  }
+
+  .sidebar-link--active::before {
+    transform: translateY(-50%) scaleY(1);
+  }
+
+  .sidebar-link--nested {
+    padding-left: 2rem;
+    font-size: 0.8125rem;
+  }
+
+  .sidebar-link-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Nested items */
+  .sidebar-nested-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Badges */
+  .sidebar-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .sidebar-badge--default {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-tertiary);
+  }
+
+  .sidebar-badge--new {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+
+  :global([data-theme="dark"]) .sidebar-badge--new {
+    background-color: #052e16;
+    color: #86efac;
+  }
+
+  .sidebar-badge--beta {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+
+  :global([data-theme="dark"]) .sidebar-badge--beta {
+    background-color: #1e3a8a;
+    color: #93c5fd;
+  }
+
+  .sidebar-badge--deprecated {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+
+  :global([data-theme="dark"]) .sidebar-badge--deprecated {
+    background-color: #450a0a;
+    color: #fca5a5;
+  }
+
+  /* Scroll indicators */
+  .sidebar::before,
+  .sidebar::after {
+    content: '';
+    position: sticky;
+    display: block;
+    height: 1.5rem;
+    pointer-events: none;
+  }
+
+  .sidebar::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--color-bg-secondary), transparent);
+  }
+
+  .sidebar::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--color-bg-secondary), transparent);
+  }
+</style>
+
+<script>
+  function initSidebar(): void {
+    // Section toggle
+    document.querySelectorAll('[data-section-toggle]').forEach(button => {
+      button.addEventListener('click', () => {
+        const section = button.closest('[data-section]');
+        if (!section) return;
+        
+        const isExpanded = section.getAttribute('data-expanded') === 'true';
+        section.setAttribute('data-expanded', isExpanded ? 'false' : 'true');
+        button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+      });
+    });
+
+    // Scroll active item into view
+    const activeItem = document.querySelector('.sidebar-link--active');
+    if (activeItem) {
+      activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSidebar);
+  } else {
+    initSidebar();
+  }
+  
+  document.addEventListener('astro:after-swap', initSidebar);
+</script>

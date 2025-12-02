@@ -52,6 +52,9 @@ jobs:
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
+      - name: Install Azure Developer CLI (azd)
+        run: curl -fsSL https://aka.ms/install-azd.sh | bash
+
       - name: Run preflight checks
         run: mage preflight
 

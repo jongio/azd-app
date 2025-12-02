@@ -238,6 +238,40 @@ Before submitting a PR, ensure:
 
 **Recommended:** Run `mage preflight` to execute all quality checks at once.
 
+## Website Screenshots
+
+The documentation website uses automated screenshot capture for visual consistency, but these must be run manually (they are not part of CI/CD).
+
+### Website Page Screenshots
+
+To update screenshots of the documentation website pages:
+
+```bash
+cd web
+pnpm install
+pnpm run dev  # Start the dev server in another terminal
+npx playwright test --update-snapshots --project=chromium
+```
+
+This captures screenshots of key pages in light/dark mode and at various viewport sizes.
+
+### Dashboard Screenshots
+
+To capture screenshots of the azd app dashboard for marketing purposes:
+
+```bash
+cd web
+npx tsx scripts/capture-screenshots.ts
+```
+
+This script:
+1. Starts the demo project with `azd app run`
+2. Waits for services to be ready
+3. Captures screenshots of different dashboard views
+4. Saves optimized images to `web/public/screenshots/`
+
+**Note:** Dashboard screenshots require a working `azd-app` binary in `cli/bin/`.
+
 ## Pull Request Process
 
 1. Update documentation with details of changes

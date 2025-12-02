@@ -1,0 +1,455 @@
+---
+/**
+ * TourProgressSidebar Component
+ * 
+ * Displays persistent progress through the 8-step tour with completion status.
+ * Uses localStorage for progress persistence.
+ */
+import type { TourStep } from '../../data/tour-steps';
+
+interface Props {
+  /** All tour steps */
+  steps: TourStep[];
+  /** Current step number (0 for overview) */
+  currentStep: number;
+  /** Total time estimate */
+  totalTime: number;
+}
+
+const { steps, currentStep, totalTime } = Astro.props;
+const baseUrl = import.meta.env.BASE_URL;
+---
+
+<aside 
+  class="tour-sidebar" 
+  aria-label="Tour progress"
+  id="tour-sidebar"
+  data-tour-sidebar
+>
+  <div class="tour-sidebar-inner">
+    <!-- Header with close button for mobile -->
+    <div class="tour-sidebar-header">
+      <div class="tour-sidebar-title-row">
+        <span class="tour-sidebar-icon" aria-hidden="true">🎯</span>
+        <h2 class="tour-sidebar-title">Guided Tour</h2>
+      </div>
+      <button 
+        type="button" 
+        class="tour-sidebar-close"
+        aria-label="Close tour progress"
+        data-tour-sidebar-close
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="tour-progress" role="status" aria-live="polite">
+      <span class="tour-progress-text" data-progress-text>
+        Progress: 0 of {steps.length}
+      </span>
+      <div class="tour-progress-bar">
+        <div 
+          class="tour-progress-fill" 
+          style="width: 0%"
+          data-progress-fill
+          role="progressbar"
+          aria-valuenow="0"
+          aria-valuemin="0"
+          aria-valuemax={steps.length}
+          aria-label="Tour progress"
+        ></div>
+      </div>
+    </div>
+
+    <!-- Step List -->
+    <nav aria-label="Tour steps">
+      <ol class="tour-step-list" role="list">
+        {steps.map((step) => (
+          <li>
+            <a
+              href={`${baseUrl}tour/${step.slug}/`}
+              class:list={[
+                'tour-step-item',
+                { 'tour-step-item--current': step.number === currentStep }
+              ]}
+              aria-current={step.number === currentStep ? 'page' : undefined}
+              data-step-item
+              data-step-number={step.number}
+            >
+              <span class="tour-step-icon" data-step-icon aria-hidden="true">
+                {step.number === currentStep ? '●' : '○'}
+              </span>
+              <span class="tour-step-content">
+                <span class="tour-step-number">{step.number}.</span>
+                <span class="tour-step-label">{step.title}</span>
+              </span>
+              <span class="tour-step-time">~{step.estimatedTime}m</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+
+    <!-- Footer Actions -->
+    <div class="tour-sidebar-footer">
+      <div class="tour-total-time">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Total: ~{totalTime} min</span>
+      </div>
+      <button 
+        type="button" 
+        class="tour-reset-button"
+        aria-label="Reset tour progress"
+        data-tour-reset
+      >
+        Reset Progress
+      </button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  .tour-sidebar {
+    position: sticky;
+    top: 4rem;
+    height: calc(100vh - 4rem);
+    width: 280px;
+    flex-shrink: 0;
+    background-color: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border-default);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  @media (max-width: 1023px) {
+    .tour-sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      height: 100vh;
+      width: 300px;
+      z-index: var(--z-modal);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease-out;
+    }
+
+    .tour-sidebar--open {
+      transform: translateX(0);
+    }
+  }
+
+  .tour-sidebar-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.5rem;
+  }
+
+  /* Header */
+  .tour-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .tour-sidebar-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tour-sidebar-icon {
+    font-size: 1.25rem;
+  }
+
+  .tour-sidebar-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .tour-sidebar-close {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+
+  .tour-sidebar-close:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 1023px) {
+    .tour-sidebar-close {
+      display: flex;
+    }
+  }
+
+  /* Progress */
+  .tour-progress {
+    margin-bottom: 1.5rem;
+  }
+
+  .tour-progress-text {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.5rem;
+  }
+
+  .tour-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--color-bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .tour-progress-fill {
+    height: 100%;
+    background: var(--color-azure-500);
+    border-radius: 4px;
+    transition: width 0.5s ease-out;
+  }
+
+  /* Step List */
+  .tour-step-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+  }
+
+  .tour-step-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: 0.5rem;
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+
+  .tour-step-item:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  .tour-step-item--current {
+    background: var(--color-azure-50);
+    color: var(--color-azure-700);
+    font-weight: 600;
+    border: 1px solid var(--color-azure-200);
+  }
+
+  [data-theme="dark"] .tour-step-item--current {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--color-azure-400);
+    border-color: var(--color-azure-800);
+  }
+
+  .tour-step-item--completed {
+    color: var(--color-success);
+  }
+
+  .tour-step-item--completed .tour-step-icon {
+    color: var(--color-success);
+  }
+
+  .tour-step-icon {
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    width: 1.25rem;
+    text-align: center;
+  }
+
+  .tour-step-content {
+    display: flex;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tour-step-number {
+    flex-shrink: 0;
+  }
+
+  .tour-step-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tour-step-time {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+
+  /* Footer */
+  .tour-sidebar-footer {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .tour-total-time {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+    margin-bottom: 1rem;
+  }
+
+  .tour-reset-button {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-error);
+    background: transparent;
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  .tour-reset-button:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--color-error);
+  }
+
+  .tour-reset-button:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+</style>
+
+<script>
+  import { STORAGE_KEY, defaultProgress, type TourProgress } from '../../data/tour-steps';
+
+  function loadTourProgress(): TourProgress {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return defaultProgress;
+      
+      const parsed = JSON.parse(stored);
+      if (parsed.version !== 1) {
+        return defaultProgress;
+      }
+      return parsed;
+    } catch {
+      return defaultProgress;
+    }
+  }
+
+  function saveTourProgress(progress: TourProgress): void {
+    try {
+      const updated = {
+        ...progress,
+        lastUpdated: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to save tour progress:', error);
+    }
+  }
+
+  function updateProgressUI(completedSteps: number[], totalSteps: number): void {
+    const progressText = document.querySelector('[data-progress-text]');
+    const progressFill = document.querySelector<HTMLElement>('[data-progress-fill]');
+    const stepItems = document.querySelectorAll('[data-step-item]');
+
+    const completedCount = completedSteps.length;
+    const percentage = Math.round((completedCount / totalSteps) * 100);
+
+    if (progressText) {
+      progressText.textContent = `Progress: ${completedCount} of ${totalSteps}`;
+    }
+
+    if (progressFill) {
+      progressFill.style.width = `${percentage}%`;
+      progressFill.setAttribute('aria-valuenow', String(completedCount));
+    }
+
+    stepItems.forEach(item => {
+      const stepNumber = parseInt(item.getAttribute('data-step-number') || '0', 10);
+      const icon = item.querySelector('[data-step-icon]');
+      
+      if (completedSteps.includes(stepNumber)) {
+        item.classList.add('tour-step-item--completed');
+        if (icon) icon.textContent = '✓';
+      } else {
+        item.classList.remove('tour-step-item--completed');
+        if (icon && !item.classList.contains('tour-step-item--current')) {
+          icon.textContent = '○';
+        }
+      }
+    });
+  }
+
+  function initTourProgress(): void {
+    const stepItems = document.querySelectorAll('[data-step-item]');
+    const totalSteps = stepItems.length;
+    
+    // Load and display current progress
+    const progress = loadTourProgress();
+    updateProgressUI(progress.completedSteps, totalSteps);
+
+    // Reset button handler
+    const resetButton = document.querySelector('[data-tour-reset]');
+    resetButton?.addEventListener('click', () => {
+      if (confirm('Are you sure you want to reset your tour progress?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        updateProgressUI([], totalSteps);
+        
+        // Announce to screen readers
+        const announcement = document.createElement('div');
+        announcement.setAttribute('role', 'status');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.className = 'sr-only';
+        announcement.textContent = 'Tour progress has been reset.';
+        document.body.appendChild(announcement);
+        setTimeout(() => announcement.remove(), 1000);
+      }
+    });
+  }
+
+  // Listen for progress updates from step pages
+  window.addEventListener('tour:progress-updated', ((event: CustomEvent<{ completedSteps: number[] }>) => {
+    const stepItems = document.querySelectorAll('[data-step-item]');
+    updateProgressUI(event.detail.completedSteps, stepItems.length);
+  }) as EventListener);
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTourProgress);
+  } else {
+    initTourProgress();
+  }
+
+  document.addEventListener('astro:after-swap', initTourProgress);
+</script>

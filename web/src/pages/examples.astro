@@ -1,0 +1,274 @@
+---
+/**
+ * Examples Gallery
+ * 
+ * Showcases Node.js, Python, .NET, and fullstack examples
+ * with Copilot debugging tips for each.
+ */
+import Layout from '../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+
+interface Example {
+  id: string;
+  title: string;
+  language: string;
+  icon: string;
+  description: string;
+  azureYaml: string;
+  structure: string[];
+  copilotTip: string;
+  copilotPrompts: string[];
+}
+
+const examples: Example[] = [
+  {
+    id: 'nodejs',
+    title: 'Node.js Express API',
+    language: 'JavaScript',
+    icon: '🟢',
+    description: 'A REST API with Express.js, featuring health endpoints and structured logging.',
+    azureYaml: `name: nodejs-api
+services:
+  api:
+    language: js
+    host: containerapp
+    project: ./src
+    ports:
+      - "3000"
+    healthCheck:
+      endpoint: /health`,
+    structure: [
+      'src/',
+      '  package.json',
+      '  index.js',
+      '  routes/',
+      '    health.js',
+      '    users.js',
+      '  middleware/',
+      '    logging.js',
+      'azure.yaml'
+    ],
+    copilotTip: 'Ask Copilot to analyze startup logs if the Express server fails to bind to the port.',
+    copilotPrompts: [
+      'Check if the API service is healthy and show any errors in the logs',
+      'Why is my Express app returning 500 errors? Check the logs for stack traces',
+      'Show me the last 50 lines of logs from the api service'
+    ]
+  },
+  {
+    id: 'python',
+    title: 'Python FastAPI',
+    language: 'Python',
+    icon: '🐍',
+    description: 'A modern Python API with FastAPI, automatic OpenAPI docs, and async support.',
+    azureYaml: `name: python-api
+services:
+  backend:
+    language: python
+    host: containerapp
+    project: ./api
+    ports:
+      - "8000"
+    healthCheck:
+      endpoint: /health`,
+    structure: [
+      'api/',
+      '  pyproject.toml',
+      '  main.py',
+      '  routers/',
+      '    health.py',
+      '    items.py',
+      '  models/',
+      '    item.py',
+      'azure.yaml'
+    ],
+    copilotTip: 'Use Copilot to debug uvicorn reload issues or import errors by checking startup logs.',
+    copilotPrompts: [
+      'Check the health of my FastAPI backend and show any import errors',
+      'My Python service is crashing on startup. What does the traceback show?',
+      'Show me all WARNING and ERROR level logs from the backend'
+    ]
+  },
+  {
+    id: 'fullstack',
+    title: 'Fullstack React + Node',
+    language: 'TypeScript',
+    icon: '⚛️',
+    description: 'A complete fullstack app with React frontend, Node.js API, and PostgreSQL.',
+    azureYaml: `name: fullstack-app
+services:
+  web:
+    language: js
+    host: containerapp
+    project: ./frontend
+    ports:
+      - "5173"
+  api:
+    language: js
+    host: containerapp
+    project: ./backend
+    ports:
+      - "3000"
+    healthCheck:
+      endpoint: /api/health
+resources:
+  database:
+    type: postgres.database`,
+    structure: [
+      'frontend/',
+      '  package.json',
+      '  src/',
+      '    App.tsx',
+      '    api/',
+      'backend/',
+      '  package.json',
+      '  src/',
+      '    index.ts',
+      '    routes/',
+      '    db/',
+      'azure.yaml'
+    ],
+    copilotTip: 'When debugging fullstack apps, check both services. CORS errors often appear in browser but the root cause is in the API.',
+    copilotPrompts: [
+      'Check the health of both web and api services',
+      'My frontend shows network errors. Are there any CORS issues in the api logs?',
+      'Show me the logs from api service filtered by ERROR level',
+      'Is the database connection working? Check for connection errors in the logs'
+    ]
+  }
+];
+---
+
+<Layout title="Examples" description="azd-app example projects for Node.js, Python, .NET, and fullstack applications">
+  <div class="max-w-6xl mx-auto px-4 py-12">
+    <!-- Header -->
+    <div class="text-center mb-12">
+      <h1 class="text-4xl font-bold mb-4">Example Projects</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300 max-w-2xl mx-auto">
+        Ready-to-use project configurations for popular frameworks. 
+        Each includes <strong>azure.yaml</strong> setup and <strong>Copilot debugging tips</strong>.
+      </p>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="flex flex-wrap justify-center gap-4 mb-12">
+      {examples.map(ex => (
+        <a 
+          href={`#${ex.id}`}
+          class="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors border border-neutral-200 dark:border-neutral-700"
+        >
+          <span class="mr-2">{ex.icon}</span>
+          {ex.title}
+        </a>
+      ))}
+    </div>
+
+    <!-- Examples -->
+    <div class="space-y-16">
+      {examples.map((ex, index) => (
+        <article id={ex.id} class="scroll-mt-20">
+          <!-- Example Header -->
+          <div class="flex items-start gap-4 mb-6">
+            <span class="text-4xl">{ex.icon}</span>
+            <div>
+              <h2 class="text-2xl font-bold">{ex.title}</h2>
+              <p class="text-neutral-700 dark:text-neutral-300">{ex.description}</p>
+            </div>
+          </div>
+
+          <div class="grid lg:grid-cols-2 gap-6">
+            <!-- azure.yaml -->
+            <div>
+              <h3 class="text-lg font-semibold mb-3">azure.yaml Configuration</h3>
+              <Code code={ex.azureYaml} lang="yaml" />
+            </div>
+
+            <!-- Project Structure -->
+            <div>
+              <h3 class="text-lg font-semibold mb-3">Project Structure</h3>
+              <Code code={ex.structure.join('\n')} lang="text" />
+            </div>
+          </div>
+
+          <!-- Copilot Debugging -->
+          <div class="mt-6 p-6 bg-purple-100 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-700">
+            <div class="flex items-start gap-4">
+              <span class="text-2xl">🤖</span>
+              <div class="flex-1">
+                <h3 class="font-semibold mb-2 text-neutral-900 dark:text-neutral-100">Copilot Debugging Tip</h3>
+                <p class="text-neutral-700 dark:text-neutral-300 mb-4">{ex.copilotTip}</p>
+                
+                <h4 class="font-medium text-sm mb-2 text-purple-800 dark:text-purple-300">Try these prompts:</h4>
+                <ul class="space-y-2">
+                  {ex.copilotPrompts.map(prompt => (
+                    <li class="flex items-start gap-2">
+                      <button 
+                        class="copy-prompt flex-shrink-0 p-1 text-neutral-500 dark:text-neutral-400 hover:text-purple-600 dark:hover:text-purple-400"
+                        data-prompt={prompt}
+                        title="Copy prompt"
+                      >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                      <code class="text-sm bg-purple-200/50 dark:bg-purple-800/50 text-neutral-800 dark:text-neutral-200 px-2 py-1 rounded">{prompt}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {index < examples.length - 1 && (
+            <hr class="mt-12 border-neutral-200 dark:border-neutral-700" />
+          )}
+        </article>
+      ))}
+    </div>
+
+    <!-- Demo Template CTA -->
+    <div class="mt-16 text-center p-8 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+      <h2 class="text-2xl font-bold mb-4 text-neutral-900 dark:text-neutral-100">Try the Demo Template</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-6 max-w-lg mx-auto">
+        Get hands-on with a working project that demonstrates all azd-app features including MCP debugging.
+      </p>
+      <div class="max-w-md mx-auto mb-4">
+        <Code code="azd init -t jongio/azd-app-demo" lang="bash" />
+      </div>
+      <a 
+        href="/azd-app/quick-start/" 
+        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
+      >
+        Follow the Quick Start guide →
+      </a>
+    </div>
+
+    <!-- MCP Setup -->
+    <div class="mt-8 text-center">
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Ready to debug with AI? Set up the MCP server for Copilot integration.
+      </p>
+      <a 
+        href="/azd-app/mcp/setup/" 
+        class="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+      >
+        <span>🤖</span>
+        Set up MCP Server
+      </a>
+    </div>
+  </div>
+
+  <script>
+    // Copy prompts
+    document.querySelectorAll('.copy-prompt').forEach(button => {
+      button.addEventListener('click', async () => {
+        const prompt = button.getAttribute('data-prompt');
+        if (prompt) {
+          await navigator.clipboard.writeText(prompt);
+          button.classList.add('text-green-500');
+          setTimeout(() => { button.classList.remove('text-green-500'); }, 1000);
+        }
+      });
+    });
+  </script>
+</Layout>

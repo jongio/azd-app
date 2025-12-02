@@ -4,11 +4,13 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -21,6 +23,7 @@ const (
 	coverageDir        = "coverage"
 	extensionFile      = "extension.yaml"
 	dashboardDir       = "dashboard"
+	websiteDir         = "../web"
 	defaultTestTimeout = "10m"
 	extensionID        = "jongio.azd.app"
 )
@@ -53,54 +56,45 @@ func All() error {
 	return Build()
 }
 
-// Build builds the dashboard and CLI binary for the current platform.
-// Set ALL_PLATFORMS=true to build for all platforms instead of current platform.
+// Build builds the dashboard and CLI binary, and installs it locally.
+// This is the main command for development - it builds everything and installs the extension.
+// Set ALL_PLATFORMS=true to build for all platforms (skip install).
+// Set SKIP_INSTALL=true to only build without installing.
 func Build() error {
 	mg.Deps(DashboardBuild)
 
 	if os.Getenv("ALL_PLATFORMS") == "true" {
 		return buildAllPlatforms()
 	}
-	return buildCurrentPlatform()
-}
 
-// buildCurrentPlatform compiles the CLI binary for the current platform.
-func buildCurrentPlatform() error {
-	fmt.Println("Building CLI for current platform...")
+	// Ensure azd extensions are set up
+	if err := ensureAzdExtensions(); err != nil {
+		return err
+	}
 
 	version, err := getVersion()
 	if err != nil {
 		return err
 	}
 
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-	platform := fmt.Sprintf("%s/%s", goos, goarch)
+	fmt.Println("Building and installing extension...")
 
 	env := map[string]string{
-		"EXTENSION_ID":       extensionID,
-		"EXTENSION_VERSION":  version,
-		"EXTENSION_PLATFORM": platform,
+		"EXTENSION_ID":      extensionID,
+		"EXTENSION_VERSION": version,
 	}
 
-	var buildScript string
-	if runtime.GOOS == "windows" {
-		buildScript = "build.ps1"
-		if err := sh.RunWithV(env, "pwsh", "-File", buildScript); err != nil {
-			return fmt.Errorf("build failed: %w", err)
-		}
-	} else {
-		buildScript = "build.sh"
-		if err := sh.RunWithV(env, "bash", buildScript); err != nil {
-			return fmt.Errorf("build failed: %w", err)
-		}
+	// Build and install directly using azd x build
+	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
+		return fmt.Errorf("build failed: %w", err)
 	}
 
-	fmt.Printf("✅ Build complete! Version: %s, Platform: %s\n", version, platform)
+	fmt.Printf("✅ Build complete! Version: %s\n", version)
+	fmt.Println("   Run 'azd app version' to verify")
 	return nil
 }
 
-// buildAllPlatforms compiles the CLI binary for all platforms.
+// buildAllPlatforms compiles the CLI binary for all platforms (used for releases).
 func buildAllPlatforms() error {
 	fmt.Println("Building CLI for all platforms...")
 
@@ -288,7 +282,8 @@ func TestCoverage() error {
 	coverageHTML := filepath.Join(absCoverageDir, "coverage.html")
 
 	// Run tests with coverage (use -short to skip integration tests)
-	if err := sh.RunV("go", "test", "-v", "-short", "-coverprofile="+coverageOut, "./src/..."); err != nil {
+	// Use -p for parallel package testing
+	if err := sh.RunV("go", "test", "-short", "-coverprofile="+coverageOut, "./src/..."); err != nil {
 		return fmt.Errorf("tests failed: %w", err)
 	}
 
@@ -315,7 +310,8 @@ func Coverage() error {
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
 	// Use same command as CI to ensure consistency
-	if err := sh.RunV("golangci-lint", "run", "--timeout=5m"); err != nil {
+	// --concurrency=0 uses all available CPUs
+	if err := sh.RunV("golangci-lint", "run", "--timeout=5m", "--concurrency=0"); err != nil {
 		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
 		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
 		return err
@@ -514,7 +510,19 @@ func CheckDeps() error {
 		fmt.Println("   " + strings.ReplaceAll(pnpmOutput, "\n", "\n   "))
 		hasIssues = true
 	} else {
-		fmt.Println("   ✅ All pnpm packages are up to date!")
+		fmt.Println("   ✅ All dashboard pnpm packages are up to date!")
+	}
+	fmt.Println()
+
+	// Check pnpm package updates for website
+	fmt.Println("📦 Checking website pnpm packages for updates...")
+	websitePnpmOutput, _ := sh.Output("pnpm", "outdated", "--dir", websiteDir)
+	if websitePnpmOutput != "" {
+		fmt.Println("   Available pnpm package updates:")
+		fmt.Println("   " + strings.ReplaceAll(websitePnpmOutput, "\n", "\n   "))
+		hasIssues = true
+	} else {
+		fmt.Println("   ✅ All website pnpm packages are up to date!")
 	}
 	fmt.Println()
 
@@ -537,94 +545,14 @@ func CheckDeps() error {
 
 	if hasIssues {
 		fmt.Println("💡 Tip: Run 'go get -u ./...' to update Go modules")
-		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update pnpm packages")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update dashboard packages")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir ../web' to update website packages")
 		fmt.Println("⚠️  Dependency updates available (continuing with preflight)")
 	} else {
 		fmt.Println("✅ All dependencies are up to date!")
 	}
 
 	// Don't fail the build - just warn
-	return nil
-}
-
-// Install builds and installs the extension locally using azd x build.
-// Requires azd to be installed and available in PATH.
-func Install() error {
-	// Ensure azd extensions are set up
-	if err := ensureAzdExtensions(); err != nil {
-		return err
-	}
-
-	// Get version
-	version, err := getVersion()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Building extension...")
-
-	// Set environment variables
-	env := map[string]string{
-		"EXTENSION_ID":      extensionID,
-		"EXTENSION_VERSION": version,
-	}
-
-	// Build the extension (skip install - we'll do it via extension install for proper registration)
-	if err := sh.RunWithV(env, "azd", "x", "build", "--skip-install"); err != nil {
-		return fmt.Errorf("build failed: %w", err)
-	}
-
-	// Get the absolute path to registry.json (cross-platform)
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-	registryPath := filepath.Join(filepath.Dir(cwd), "registry.json")
-
-	// Check if registry.json exists, if not use the one in the current directory's parent
-	if _, err := os.Stat(registryPath); os.IsNotExist(err) {
-		// Try current directory
-		registryPath = filepath.Join(cwd, "..", "registry.json")
-		registryPath, _ = filepath.Abs(registryPath)
-	}
-
-	// Ensure the local extension source exists
-	if err := ensureLocalExtensionSource(registryPath); err != nil {
-		return err
-	}
-
-	// Install the extension from the local source
-	fmt.Println("📦 Installing extension from local registry...")
-	if err := sh.RunV("azd", "extension", "install", extensionID, "--source", "local", "--force"); err != nil {
-		return fmt.Errorf("extension install failed: %w", err)
-	}
-
-	fmt.Printf("✅ Installed version: %s\n", version)
-	fmt.Println("   Run 'azd app version' to verify")
-	return nil
-}
-
-// ensureLocalExtensionSource adds a local extension source if it doesn't exist.
-func ensureLocalExtensionSource(registryPath string) error {
-	// Check if local source already exists
-	sourcesOutput, err := sh.Output("azd", "extension", "source", "list")
-	if err != nil {
-		sourcesOutput = ""
-	}
-
-	// Check if "local" source already exists
-	if strings.Contains(sourcesOutput, "local") {
-		fmt.Println("✅ Local extension source already configured")
-		return nil
-	}
-
-	fmt.Println("📦 Adding local extension source...")
-
-	// Add the local source
-	if err := sh.RunV("azd", "extension", "source", "add", "-n", "local", "-t", "file", "-l", registryPath); err != nil {
-		return fmt.Errorf("failed to add local extension source: %w", err)
-	}
-
 	return nil
 }
 
@@ -683,7 +611,9 @@ func Watch() error {
 }
 
 // WatchAll monitors both CLI and dashboard files, rebuilding on changes.
-// Runs azd x watch for CLI and vite dev server for dashboard concurrently.
+// Runs azd x watch for CLI and vite build --watch for dashboard concurrently.
+// The dashboard is built to the embedded location (src/internal/dashboard/dist)
+// so changes are automatically included when the CLI is rebuilt.
 // Note: On Windows, stop any running instances of the app before starting the watcher
 // to avoid "file in use" errors during installation.
 func WatchAll() error {
@@ -701,6 +631,12 @@ func WatchAll() error {
 	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
 		return fmt.Errorf("pnpm install failed: %w", err)
 	}
+
+	// Do an initial dashboard build to ensure embedded dist is up-to-date
+	fmt.Println("📦 Building dashboard for embedding...")
+	if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build"); err != nil {
+		return fmt.Errorf("initial dashboard build failed: %w", err)
+	}
 	fmt.Println()
 
 	// Create channels for error handling
@@ -717,10 +653,11 @@ func WatchAll() error {
 		}
 	}()
 
-	// Start dashboard watcher in goroutine
+	// Start dashboard watcher in goroutine - uses vite build --watch to output to embedded location
 	go func() {
-		fmt.Println("⚛️  Starting dashboard watcher (vite dev server)...")
-		if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev"); err != nil {
+		fmt.Println("⚛️  Starting dashboard watcher (vite build --watch)...")
+		fmt.Println("   Dashboard changes will be built to src/internal/dashboard/dist")
+		if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build", "--", "--watch"); err != nil {
 			errChan <- fmt.Errorf("dashboard watcher failed: %w", err)
 		}
 	}()
@@ -785,6 +722,9 @@ func Preflight() error {
 		{"Linting dashboard", DashboardLint},
 		{"Running dashboard unit tests", DashboardTest},
 		{"Running dashboard E2E tests", DashboardTestE2E},
+		{"Validating website CLI docs", WebsiteValidate},
+		{"Building website", WebsiteBuild},
+		{"Running website E2E tests", WebsiteTestE2E},
 		{"Building Go binary", Build},
 		{"Running go vet", Vet},
 		{"Running staticcheck", Staticcheck},
@@ -860,6 +800,7 @@ func runGosec() error {
 }
 
 // DashboardBuild builds the dashboard TypeScript/React code.
+// The build output goes to src/internal/dashboard/dist which is embedded in the CLI binary.
 func DashboardBuild() error {
 	fmt.Println("Building dashboard...")
 
@@ -870,12 +811,13 @@ func DashboardBuild() error {
 	}
 
 	// Run TypeScript compilation and build
-	fmt.Println("Building dashboard assets...")
+	// Output goes to src/internal/dashboard/dist (configured in vite.config.ts)
+	fmt.Println("Building dashboard assets to src/internal/dashboard/dist...")
 	if err := sh.RunV("pnpm", "--dir", dashboardDir, "run", "build"); err != nil {
 		return fmt.Errorf("dashboard build failed: %w", err)
 	}
 
-	fmt.Println("✅ Dashboard build complete!")
+	fmt.Println("✅ Dashboard build complete! Assets embedded in CLI binary.")
 	return nil
 }
 
@@ -908,30 +850,28 @@ func DashboardLint() error {
 func DashboardTestE2E() error {
 	fmt.Println("Running dashboard E2E tests...")
 
+	// Get absolute path to dashboard directory (safe for parallel execution)
+	absDashboardDir, err := filepath.Abs(dashboardDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute dashboard path: %w", err)
+	}
+
 	// Ensure Playwright browsers are installed
 	fmt.Println("Installing Playwright browsers (if needed)...")
-	// Change to dashboard directory to run playwright install
-	originalDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-	defer func() {
-		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to restore directory: %v\n", chdirErr)
-		}
-	}()
-
-	if err := os.Chdir(dashboardDir); err != nil {
-		return fmt.Errorf("failed to change to dashboard directory: %w", err)
-	}
-
-	if err := sh.RunV("npx", "playwright", "install", "--with-deps", "chromium"); err != nil {
+	installCmd := exec.Command("npx", "playwright", "install", "--with-deps", "chromium")
+	installCmd.Dir = absDashboardDir
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
 		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
 	}
 
 	// Run playwright with line reporter to avoid opening browser with HTML report on failure
-	// Stay in dashboard directory where playwright.config.ts is located
-	if err := sh.RunV("npx", "playwright", "test", "--reporter=line", "--project=chromium"); err != nil {
+	testCmd := exec.Command("npx", "playwright", "test", "--reporter=line", "--project=chromium")
+	testCmd.Dir = absDashboardDir
+	testCmd.Stdout = os.Stdout
+	testCmd.Stderr = os.Stderr
+	if err := testCmd.Run(); err != nil {
 		return fmt.Errorf("dashboard E2E tests failed: %w", err)
 	}
 
@@ -943,6 +883,171 @@ func DashboardTestE2E() error {
 func DashboardDev() error {
 	fmt.Println("Starting dashboard development server...")
 	return sh.RunV("pnpm", "--dir", dashboardDir, "run", "dev")
+}
+
+// ============================================================================
+// Website (Astro marketing site) targets
+// ============================================================================
+
+// WebsiteBuild builds the Astro website with validation and code generation.
+// Runs: validate CLI docs, generate CLI reference, generate changelog, then build.
+func WebsiteBuild() error {
+	fmt.Println("Building website...")
+
+	// Install dependencies
+	fmt.Println("Installing website dependencies...")
+	if err := sh.RunV("pnpm", "install", "--dir", websiteDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+
+	// Run build (which includes prebuild: validate, generate:cli, generate:changelog)
+	fmt.Println("Building Astro site...")
+	if err := sh.RunV("pnpm", "--dir", websiteDir, "run", "build"); err != nil {
+		return fmt.Errorf("website build failed: %w", err)
+	}
+
+	fmt.Println("✅ Website build complete!")
+	return nil
+}
+
+// WebsiteValidate validates that CLI command documentation matches actual commands.
+func WebsiteValidate() error {
+	fmt.Println("Validating website CLI documentation...")
+
+	// Install dependencies first
+	if err := sh.RunV("pnpm", "install", "--dir", websiteDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+
+	// Run validation script
+	if err := sh.RunV("pnpm", "--dir", websiteDir, "run", "validate"); err != nil {
+		return fmt.Errorf("website CLI validation failed: %w", err)
+	}
+
+	fmt.Println("✅ Website CLI documentation is valid!")
+	return nil
+}
+
+// WebsiteTestE2EUpdateSnapshots runs the website E2E tests and updates snapshots.
+func WebsiteTestE2EUpdateSnapshots() error {
+	return runWebsiteE2ETests(true)
+}
+
+// WebsiteTestE2E runs the website E2E tests with Playwright.
+func WebsiteTestE2E() error {
+	return runWebsiteE2ETests(false)
+}
+
+// runWebsiteE2ETests is the shared implementation for E2E tests.
+func runWebsiteE2ETests(updateSnapshots bool) error {
+	if updateSnapshots {
+		fmt.Println("Running website E2E tests (updating snapshots)...")
+	} else {
+		fmt.Println("Running website E2E tests...")
+	}
+
+	// Get absolute path to website directory (safe for parallel execution)
+	absWebsiteDir, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	// Install Playwright browsers
+	fmt.Println("Installing Playwright browsers (if needed)...")
+	installCmd := exec.Command("npx", "playwright", "install", "--with-deps", "chromium")
+	installCmd.Dir = absWebsiteDir
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
+	}
+
+	// Start the preview server in the background
+	fmt.Println("Starting preview server...")
+	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd.Dir = absWebsiteDir
+	serverCmd.Stdout = os.Stdout
+	serverCmd.Stderr = os.Stderr
+	if err := serverCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start preview server: %w", err)
+	}
+	defer func() {
+		if serverCmd.Process != nil {
+			_ = serverCmd.Process.Kill()
+		}
+	}()
+
+	// Wait for server to be ready
+	fmt.Println("Waiting for server to be ready...")
+	serverReady := false
+	for i := 0; i < 30; i++ {
+		resp, err := http.Get("http://localhost:4321/azd-app/")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				serverReady = true
+				break
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !serverReady {
+		return fmt.Errorf("server did not become ready within 30 seconds")
+	}
+	fmt.Println("Server is ready!")
+
+	// Run playwright tests
+	args := []string{"playwright", "test", "--reporter=line", "--project=chromium"}
+	if updateSnapshots {
+		args = append(args, "--update-snapshots")
+	}
+	testCmd := exec.Command("npx", args...)
+	testCmd.Dir = absWebsiteDir
+	testCmd.Stdout = os.Stdout
+	testCmd.Stderr = os.Stderr
+	if err := testCmd.Run(); err != nil {
+		return fmt.Errorf("website E2E tests failed: %w", err)
+	}
+
+	fmt.Println("✅ Website E2E tests passed!")
+	return nil
+}
+
+// WebsiteDev runs the website in development mode with hot reload.
+func WebsiteDev() error {
+	fmt.Println("Starting website development server...")
+	return sh.RunV("pnpm", "--dir", websiteDir, "run", "dev")
+}
+
+// WebsitePreview runs the website in preview mode (production build served locally).
+func WebsitePreview() error {
+	fmt.Println("Starting website preview server...")
+
+	// Build first
+	if err := WebsiteBuild(); err != nil {
+		return err
+	}
+
+	return sh.RunV("pnpm", "--dir", websiteDir, "run", "preview")
+}
+
+// WebsiteScreenshots captures dashboard screenshots for the marketing website.
+// Requires the demo project to be running with azd app run.
+func WebsiteScreenshots() error {
+	fmt.Println("Capturing dashboard screenshots...")
+
+	// Install dependencies first
+	if err := sh.RunV("pnpm", "install", "--dir", websiteDir); err != nil {
+		return fmt.Errorf("pnpm install failed: %w", err)
+	}
+
+	// Run screenshot capture script
+	if err := sh.RunV("pnpm", "--dir", websiteDir, "run", "screenshots"); err != nil {
+		return fmt.Errorf("screenshot capture failed: %w", err)
+	}
+
+	fmt.Println("✅ Screenshots captured!")
+	return nil
 }
 
 // Run builds and runs the app directly in a test project (without installing as extension).

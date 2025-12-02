@@ -1,0 +1,384 @@
+---
+/**
+ * Tour Step 8: MCP server integration
+ */
+import TourLayout from '../../components/tour/TourLayout.astro';
+import CompletionCheckbox from '../../components/tour/CompletionCheckbox.astro';
+import TourNavigation from '../../components/tour/TourNavigation.astro';
+import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
+import TryItYourself from '../../components/tour/TryItYourself.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
+
+const step = getStepByNumber(8)!;
+const prevStep = getPreviousStep(8);
+const nextStep = getNextStep(8);
+---
+
+<TourLayout 
+  title={step.title}
+  description={step.description}
+  currentStep={step.number}
+>
+  <article class="tour-step-page">
+    <!-- Step Header -->
+    <header class="tour-step-header">
+      <nav aria-label="Breadcrumb" class="tour-breadcrumb">
+        <a href={`${import.meta.env.BASE_URL}tour/`}>Guided Tour</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Step {step.number}</span>
+      </nav>
+      
+      <div class="tour-step-meta">
+        <span class="tour-step-icon" aria-hidden="true">{step.icon}</span>
+        <span class="tour-step-number">Step {step.number}</span>
+        <span class="tour-step-badge">AI Feature</span>
+      </div>
+      
+      <h1 class="tour-step-title">{step.title}</h1>
+      
+      <div class="tour-step-info">
+        <span class="tour-step-time">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          ~{step.estimatedTime} minutes
+        </span>
+      </div>
+
+      <CompletionCheckbox stepNumber={step.number} />
+    </header>
+
+    <!-- Step Content -->
+    <div class="tour-step-content">
+      <p class="tour-step-intro">
+        The Model Context Protocol (MCP) server connects GitHub Copilot to your running
+        services, enabling AI-powered debugging, monitoring, and code assistance.
+      </p>
+
+      <h2>What is MCP?</h2>
+      <p>
+        MCP (Model Context Protocol) is a protocol that allows AI assistants like GitHub
+        Copilot to access contextual information from your development environment. With
+        azd-app's MCP server, Copilot can:
+      </p>
+      <ul>
+        <li>View logs from your running services</li>
+        <li>Check health status of services</li>
+        <li>Understand your application architecture</li>
+        <li>Help debug issues with real-time data</li>
+      </ul>
+
+      <h2>Start the MCP Server</h2>
+      <p>Launch the MCP server:</p>
+
+      <CodeBlock 
+        code="azd app mcp"
+        language="bash"
+        showLanguage={true}
+        showCopy={true}
+      />
+
+      <h2>Configure VS Code</h2>
+      <p>Add the MCP server to your VS Code settings:</p>
+
+      <CodeBlock 
+        code={`{
+  "github.copilot.chat.experimental.mcp": true,
+  "github.copilot.chat.mcp.servers": {
+    "azd-app": {
+      "command": "azd",
+      "args": ["app", "mcp"]
+    }
+  }
+}`}
+        language="json"
+        filename="settings.json"
+        showLanguage={true}
+        showCopy={true}
+      />
+
+      <h2>Using MCP with Copilot</h2>
+      <p>Once configured, open Copilot Chat and try these prompts:</p>
+
+      <div class="prompt-examples">
+        <div class="prompt-example">
+          <span class="prompt-icon">💬</span>
+          <span class="prompt-text">"What services are running and what's their health status?"</span>
+        </div>
+        <div class="prompt-example">
+          <span class="prompt-icon">💬</span>
+          <span class="prompt-text">"Show me recent errors from the API service"</span>
+        </div>
+        <div class="prompt-example">
+          <span class="prompt-icon">💬</span>
+          <span class="prompt-text">"Why is my database connection failing?"</span>
+        </div>
+        <div class="prompt-example">
+          <span class="prompt-icon">💬</span>
+          <span class="prompt-text">"Help me debug the 500 error in the logs"</span>
+        </div>
+      </div>
+
+      <h2>Available MCP Tools</h2>
+      <p>The MCP server provides these tools to Copilot:</p>
+      <ul>
+        <li><strong>get_services</strong> - List all services and their status</li>
+        <li><strong>get_logs</strong> - Retrieve logs from services</li>
+        <li><strong>get_health</strong> - Get health information</li>
+        <li><strong>get_config</strong> - View service configuration</li>
+      </ul>
+
+      <TryItYourself 
+        prompt="With your services running and MCP configured, ask Copilot: 'What services are running and what's their health status?'"
+        expectedOutcome="Copilot should respond with information about your running services, including their names, ports, and health status."
+      />
+
+      <LearnMoreSection id="step8-mcp-advanced" title="Advanced MCP Configuration">
+        <h3>Environment Variables</h3>
+        <p>Set a project directory for MCP to use:</p>
+        <CodeBlock 
+          code='env AZD_APP_PROJECT_DIR="/path/to/project" azd app mcp serve'
+          language="bash"
+          showLanguage={true}
+          showCopy={true}
+        />
+
+        <h3>MCP in CI/CD</h3>
+        <p>
+          The MCP server can also be used in automated pipelines to provide context
+          to AI-powered testing and debugging tools.
+        </p>
+
+        <h3>Security Considerations</h3>
+        <p>
+          The MCP server only exposes read-only information about your services.
+          It does not allow execution of commands or modification of your application.
+        </p>
+
+        <h3>Troubleshooting</h3>
+        <ul>
+          <li>Ensure VS Code has the latest Copilot extension</li>
+          <li>Restart VS Code after updating settings</li>
+          <li>Check that <code>azd app mcp</code> runs without errors</li>
+        </ul>
+      </LearnMoreSection>
+
+      <div class="congratulations-banner">
+        <span class="congratulations-icon">🎉</span>
+        <div class="congratulations-content">
+          <h3>Congratulations!</h3>
+          <p>You've completed the final step of the guided tour!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <TourNavigation 
+      currentStep={step.number}
+      totalSteps={tourSteps.length}
+      previousStep={prevStep}
+      nextStep={nextStep}
+    />
+  </article>
+</TourLayout>
+
+<style>
+  .tour-step-page {
+    max-width: 100%;
+  }
+
+  .tour-step-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .tour-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+    margin-bottom: 1rem;
+  }
+
+  .tour-breadcrumb a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .tour-breadcrumb a:hover {
+    color: var(--color-interactive-default);
+    text-decoration: underline;
+  }
+
+  .tour-step-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tour-step-icon {
+    font-size: 1.5rem;
+  }
+
+  .tour-step-number {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-azure-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  [data-theme="dark"] .tour-step-number {
+    color: var(--color-azure-400);
+  }
+
+  .tour-step-badge {
+    display: inline-flex;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-mcp-badge-text);
+    background: var(--color-mcp-badge-bg);
+    border: 1px solid var(--color-mcp-badge-border);
+    border-radius: 9999px;
+  }
+
+  .tour-step-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1rem;
+  }
+
+  .tour-step-info {
+    margin-bottom: 1.5rem;
+  }
+
+  .tour-step-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .tour-step-content {
+    line-height: 1.7;
+  }
+
+  .tour-step-content h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 2rem 0 1rem;
+  }
+
+  .tour-step-content h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 1.5rem 0 0.75rem;
+  }
+
+  .tour-step-content p {
+    color: var(--color-text-secondary);
+    margin: 0 0 1rem;
+  }
+
+  .tour-step-content ul,
+  .tour-step-content ol {
+    color: var(--color-text-secondary);
+    padding-left: 1.5rem;
+    margin: 0 0 1rem;
+  }
+
+  .tour-step-content li {
+    margin: 0.5rem 0;
+  }
+
+  .tour-step-intro {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  /* Prompt Examples */
+  .prompt-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .prompt-example {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+  }
+
+  .prompt-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .prompt-text {
+    font-family: var(--font-family-mono);
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+  }
+
+  /* Congratulations Banner */
+  .congratulations-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    background: var(--color-azure-50);
+    border: 2px solid var(--color-azure-300);
+    border-radius: 0.75rem;
+  }
+
+  :global([data-theme="dark"]) .congratulations-banner {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: var(--color-azure-700);
+  }
+
+  .congratulations-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+  }
+
+  .congratulations-content h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.25rem;
+  }
+
+  .congratulations-content p {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    .tour-step-title {
+      font-size: 1.5rem;
+    }
+
+    .congratulations-banner {
+      flex-direction: column;
+      text-align: center;
+    }
+  }
+</style>

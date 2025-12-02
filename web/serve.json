@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/azd-app/:path*", "destination": "/:path*" },
+    { "source": "/azd-app", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "**/*",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+---
+import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+const usageCode = "azd app restart [flags]";
+const example0 = "azd app restart [flags]";
+const example1 = "azd app restart --service api";
+const example2 = "azd app restart --service \"api,web,worker\"";
+const example3 = "azd app restart --all";
+---
+
+<Layout title="restart - CLI Reference" description="Restart services.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">restart</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app restart</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">Restart services.</p>
+    </div>
+
+    <!-- Usage -->
+    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
+    <Code code={usageCode} lang="bash" frame="terminal" />
+
+    <!-- Flags -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
+    
+<div class="overflow-x-auto my-8">
+  <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+    <thead>
+      <tr class="bg-neutral-200 dark:bg-neutral-700">
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th>
+        <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
+      </tr>
+    </thead>
+    <tbody class="bg-neutral-100 dark:bg-neutral-800">
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-s</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Service name(s) to restart (comma-separated)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--all</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Restart all services</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+    <!-- Examples -->
+    
+<h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
+<div class="space-y-4">
+  <Code code={example0} lang="bash" frame="terminal" />
+  <Code code={example1} lang="bash" frame="terminal" />
+  <Code code={example2} lang="bash" frame="terminal" />
+  <Code code={example3} lang="bash" frame="terminal" />
+</div>
+
+    <!-- Link to detailed docs -->
+    
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
+      </p>
+      <a 
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/restart.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
+      >
+        View full restart specification →
+      </a>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          ← Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.copy-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied!';
+          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+  </script>
+</Layout>

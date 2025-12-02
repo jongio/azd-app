@@ -1,0 +1,714 @@
+---
+/**
+ * MCP Tools Reference
+ * 
+ * Complete documentation for all 10 MCP tools.
+ */
+import Layout from '../../components/Layout.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
+
+// All MCP tools with full documentation
+const mcpTools = [
+  {
+    name: "get_services",
+    category: "Observe",
+    description: "List all services with their current status, ports, and health information.",
+    parameters: [],
+    returns: "Array of service objects with name, status, port, and health fields",
+    example: {
+      prompt: "What services are running?",
+      output: `[
+  {
+    "name": "web",
+    "status": "running",
+    "port": 3000,
+    "health": "healthy"
+  },
+  {
+    "name": "api",
+    "status": "running",
+    "port": 8080,
+    "health": "unhealthy"
+  }
+]`,
+    },
+    useCases: [
+      "Check which services are currently running",
+      "Identify unhealthy services",
+      "Get port numbers for debugging",
+    ],
+  },
+  {
+    name: "get_service_logs",
+    category: "Observe",
+    description: "Retrieve logs from a specific service, with optional filtering by time range and log level.",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Name of the service" },
+      { name: "lines", type: "number", required: false, description: "Number of lines to return (default: 100)" },
+      { name: "level", type: "string", required: false, description: "Filter by log level: error, warn, info, debug" },
+      { name: "since", type: "string", required: false, description: "Time filter, e.g., '5m', '1h', '2024-01-01'" },
+    ],
+    returns: "Array of log entries with timestamp, level, and message",
+    example: {
+      prompt: "Show me errors from the API in the last 10 minutes",
+      output: `[
+  {
+    "timestamp": "2024-01-15T10:32:15Z",
+    "level": "error",
+    "message": "Connection refused to database at localhost:5432"
+  },
+  {
+    "timestamp": "2024-01-15T10:32:45Z",
+    "level": "error",
+    "message": "Failed to process request: DatabaseError"
+  }
+]`,
+    },
+    useCases: [
+      "Find errors causing service failures",
+      "Debug performance issues",
+      "Track request patterns",
+    ],
+  },
+  {
+    name: "get_project_info",
+    category: "Observe",
+    description: "Get project configuration from azure.yaml including services, dependencies, and settings.",
+    parameters: [],
+    returns: "Project configuration object with services, name, and metadata",
+    example: {
+      prompt: "What's configured in this project?",
+      output: `{
+  "name": "my-app",
+  "services": {
+    "web": {
+      "project": "./src/web",
+      "language": "js",
+      "host": "appservice"
+    },
+    "api": {
+      "project": "./src/api",
+      "language": "python",
+      "host": "containerapp"
+    }
+  }
+}`,
+    },
+    useCases: [
+      "Understand project architecture",
+      "Verify service configuration",
+      "Debug configuration issues",
+    ],
+  },
+  {
+    name: "run_services",
+    category: "Operate",
+    description: "Start all services or specific services by name.",
+    parameters: [
+      { name: "services", type: "string[]", required: false, description: "Optional list of service names to start" },
+    ],
+    returns: "Status of started services",
+    example: {
+      prompt: "Start all services",
+      output: `{
+  "started": ["web", "api", "worker"],
+  "status": "running"
+}`,
+    },
+    useCases: [
+      "Start development environment",
+      "Restart after code changes",
+      "Start specific services for testing",
+    ],
+  },
+  {
+    name: "stop_services",
+    category: "Operate",
+    description: "Stop all running services or specific services by name.",
+    parameters: [
+      { name: "services", type: "string[]", required: false, description: "Optional list of service names to stop" },
+    ],
+    returns: "Status of stopped services",
+    example: {
+      prompt: "Stop the worker service",
+      output: `{
+  "stopped": ["worker"],
+  "status": "stopped"
+}`,
+    },
+    useCases: [
+      "Stop services before making changes",
+      "Free up system resources",
+      "Isolate services for debugging",
+    ],
+  },
+  {
+    name: "restart_service",
+    category: "Operate",
+    description: "Restart a specific service to apply configuration changes or recover from errors.",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Name of the service to restart" },
+    ],
+    returns: "Restart status with timing information",
+    example: {
+      prompt: "Restart the API service",
+      output: `{
+  "service": "api",
+  "status": "restarted",
+  "duration": "2.3s"
+}`,
+    },
+    useCases: [
+      "Apply code changes without full restart",
+      "Recover from transient errors",
+      "Reset service state",
+    ],
+  },
+  {
+    name: "install_dependencies",
+    category: "Operate",
+    description: "Install dependencies for all services based on their project type (npm, pip, etc.).",
+    parameters: [
+      { name: "service", type: "string", required: false, description: "Optional specific service to install deps for" },
+    ],
+    returns: "Installation status for each service",
+    example: {
+      prompt: "Install all dependencies",
+      output: `{
+  "web": { "status": "installed", "packages": 145 },
+  "api": { "status": "installed", "packages": 32 }
+}`,
+    },
+    useCases: [
+      "Initial project setup",
+      "After pulling new changes",
+      "Fix missing dependency errors",
+    ],
+  },
+  {
+    name: "check_requirements",
+    category: "Configure",
+    description: "Verify that all prerequisites for the project are installed (Node.js, Python, Docker, etc.).",
+    parameters: [],
+    returns: "Requirements check results with version information",
+    example: {
+      prompt: "Are all requirements met?",
+      output: `{
+  "passed": true,
+  "requirements": [
+    { "name": "Node.js", "required": ">=18", "installed": "20.10.0", "met": true },
+    { "name": "Python", "required": ">=3.9", "installed": "3.11.0", "met": true },
+    { "name": "Docker", "required": ">=20", "installed": "24.0.7", "met": true }
+  ]
+}`,
+    },
+    useCases: [
+      "Initial project setup verification",
+      "Troubleshoot why services won't start",
+      "Check versions before upgrade",
+    ],
+  },
+  {
+    name: "get_environment_variables",
+    category: "Configure",
+    description: "Get environment variables for a service. Sensitive values are redacted.",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Name of the service" },
+    ],
+    returns: "Environment variables with sensitive values redacted",
+    example: {
+      prompt: "What environment variables does the API use?",
+      output: `{
+  "service": "api",
+  "variables": {
+    "DATABASE_URL": "postgresql://localhost:5432/mydb",
+    "API_KEY": "[REDACTED]",
+    "LOG_LEVEL": "debug",
+    "PORT": "8080"
+  }
+}`,
+    },
+    useCases: [
+      "Verify environment configuration",
+      "Debug configuration issues",
+      "Check for missing variables",
+    ],
+  },
+  {
+    name: "set_environment_variable",
+    category: "Configure",
+    description: "Set an environment variable for a service. Takes effect on next restart.",
+    parameters: [
+      { name: "service", type: "string", required: true, description: "Name of the service" },
+      { name: "name", type: "string", required: true, description: "Variable name" },
+      { name: "value", type: "string", required: true, description: "Variable value" },
+    ],
+    returns: "Confirmation of the variable being set",
+    example: {
+      prompt: "Set LOG_LEVEL to debug for the API",
+      output: `{
+  "service": "api",
+  "variable": "LOG_LEVEL",
+  "value": "debug",
+  "status": "set",
+  "note": "Restart the service for changes to take effect"
+}`,
+    },
+    useCases: [
+      "Enable debug logging",
+      "Configure feature flags",
+      "Set development overrides",
+    ],
+  },
+];
+
+// Group tools by category
+const categories = [
+  { name: "Observe", icon: "👁️", description: "View service status, logs, and configuration" },
+  { name: "Operate", icon: "⚙️", description: "Start, stop, and manage services" },
+  { name: "Configure", icon: "🔧", description: "Check requirements and manage environment" },
+];
+
+const toolsByCategory = categories.map(cat => ({
+  ...cat,
+  tools: mcpTools.filter(t => t.category === cat.name),
+}));
+---
+
+<Layout title="MCP Tools Reference" description="Complete documentation for all 10 MCP tools">
+  <main class="tools-page">
+    <!-- Header -->
+    <header class="tools-header">
+      <nav class="tools-breadcrumb" aria-label="Breadcrumb">
+        <a href={`${baseUrl}mcp/`}>MCP Server</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Tools Reference</span>
+      </nav>
+      <h1 class="tools-title">MCP Tools Reference</h1>
+      <p class="tools-description">
+        Complete documentation for all 10 MCP tools available to AI assistants.
+      </p>
+    </header>
+
+    <!-- Quick Navigation -->
+    <nav class="tools-nav" aria-label="Tool categories">
+      <h2 class="visually-hidden">Categories</h2>
+      <div class="tools-nav-grid">
+        {categories.map((cat) => (
+          <a href={`#${cat.name.toLowerCase()}`} class="tools-nav-item">
+            <span class="tools-nav-icon" aria-hidden="true">{cat.icon}</span>
+            <span class="tools-nav-name">{cat.name}</span>
+            <span class="tools-nav-count">
+              {mcpTools.filter(t => t.category === cat.name).length} tools
+            </span>
+          </a>
+        ))}
+      </div>
+    </nav>
+
+    <!-- Tools by Category -->
+    {toolsByCategory.map((category) => (
+      <section class="tools-category" id={category.name.toLowerCase()}>
+        <header class="tools-category-header">
+          <span class="tools-category-icon" aria-hidden="true">{category.icon}</span>
+          <div class="tools-category-info">
+            <h2 class="tools-category-title">{category.name}</h2>
+            <p class="tools-category-description">{category.description}</p>
+          </div>
+        </header>
+
+        <div class="tools-list">
+          {category.tools.map((tool) => (
+            <article class="tool-card" id={tool.name}>
+              <header class="tool-card-header">
+                <h3 class="tool-card-name">
+                  <code>{tool.name}</code>
+                </h3>
+              </header>
+
+              <p class="tool-card-description">{tool.description}</p>
+
+              {tool.parameters.length > 0 && (
+                <div class="tool-card-params">
+                  <h4 class="tool-card-section-title">Parameters</h4>
+                  <table class="tool-params-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tool.parameters.map((param) => (
+                        <tr>
+                          <td><code>{param.name}</code></td>
+                          <td><code>{param.type}</code></td>
+                          <td>{param.required ? 'Yes' : 'No'}</td>
+                          <td>{param.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div class="tool-card-returns">
+                <h4 class="tool-card-section-title">Returns</h4>
+                <p>{tool.returns}</p>
+              </div>
+
+              <div class="tool-card-example">
+                <h4 class="tool-card-section-title">Example</h4>
+                <div class="tool-example-prompt">
+                  <span class="tool-example-label">Prompt:</span>
+                  <code>"{tool.example.prompt}"</code>
+                </div>
+                <CodeBlock 
+                  code={tool.example.output}
+                  language="json"
+                  showCopy={true}
+                />
+              </div>
+
+              <div class="tool-card-use-cases">
+                <h4 class="tool-card-section-title">Use Cases</h4>
+                <ul>
+                  {tool.useCases.map((useCase) => (
+                    <li>{useCase}</li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    ))}
+
+    <!-- Related Pages -->
+    <section class="tools-related">
+      <h2 class="tools-related-title">Related</h2>
+      <div class="tools-related-grid">
+        <a href={`${baseUrl}mcp/prompts/`} class="tools-related-card">
+          <span aria-hidden="true">💬</span>
+          <span>Prompt Library</span>
+        </a>
+        <a href={`${baseUrl}mcp/ai-debugging/`} class="tools-related-card">
+          <span aria-hidden="true">🔍</span>
+          <span>AI Debugging Guide</span>
+        </a>
+        <a href={`${baseUrl}mcp/setup/`} class="tools-related-card">
+          <span aria-hidden="true">⚙️</span>
+          <span>Setup Guide</span>
+        </a>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<style>
+  .tools-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Header */
+  .tools-header {
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--color-border-default);
+    margin-bottom: 2rem;
+  }
+
+  .tools-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-tertiary);
+    margin-bottom: 1rem;
+  }
+
+  .tools-breadcrumb a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+
+  .tools-breadcrumb a:hover {
+    color: var(--color-interactive-default);
+    text-decoration: underline;
+  }
+
+  .tools-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 0.75rem;
+  }
+
+  .tools-description {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  /* Quick Nav */
+  .tools-nav {
+    margin-bottom: 2rem;
+  }
+
+  .tools-nav-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (max-width: 640px) {
+    .tools-nav-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .tools-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    transition: border-color 150ms ease-out;
+  }
+
+  .tools-nav-item:hover {
+    border-color: var(--color-azure-300);
+  }
+
+  .tools-nav-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tools-nav-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .tools-nav-count {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary);
+  }
+
+  /* Category */
+  .tools-category {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .tools-category-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tools-category-icon {
+    font-size: 2rem;
+  }
+
+  .tools-category-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .tools-category-description {
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary);
+    margin: 0.25rem 0 0;
+  }
+
+  /* Tool List */
+  .tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Tool Card */
+  .tool-card {
+    padding: 1.5rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+  }
+
+  .tool-card-header {
+    margin-bottom: 1rem;
+  }
+
+  .tool-card-name {
+    margin: 0;
+  }
+
+  .tool-card-name code {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-azure-600);
+    background: none;
+    padding: 0;
+  }
+
+  [data-theme="dark"] .tool-card-name code {
+    color: var(--color-azure-400);
+  }
+
+  .tool-card-description {
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary);
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+  }
+
+  .tool-card-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 0.75rem;
+  }
+
+  .tool-card-params,
+  .tool-card-returns,
+  .tool-card-example,
+  .tool-card-use-cases {
+    margin-bottom: 1.5rem;
+  }
+
+  .tool-card-use-cases:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Params Table */
+  .tool-params-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .tool-params-table th,
+  .tool-params-table td {
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .tool-params-table th {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+  }
+
+  .tool-params-table td {
+    color: var(--color-text-secondary);
+  }
+
+  .tool-params-table code {
+    background: var(--color-bg-secondary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.8125rem;
+  }
+
+  /* Returns */
+  .tool-card-returns p {
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  /* Example */
+  .tool-example-prompt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .tool-example-label {
+    color: var(--color-text-muted);
+  }
+
+  .tool-example-prompt code {
+    color: var(--color-text-primary);
+    background: none;
+  }
+
+  /* Use Cases */
+  .tool-card-use-cases ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.9375rem;
+    color: var(--color-text-secondary);
+  }
+
+  .tool-card-use-cases li {
+    margin: 0.375rem 0;
+  }
+
+  /* Related */
+  .tools-related {
+    padding-top: 2rem;
+  }
+
+  .tools-related-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 1rem;
+  }
+
+  .tools-related-grid {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .tools-related-card {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    font-size: 0.9375rem;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition: border-color 150ms ease-out;
+  }
+
+  .tools-related-card:hover {
+    border-color: var(--color-azure-300);
+  }
+</style>

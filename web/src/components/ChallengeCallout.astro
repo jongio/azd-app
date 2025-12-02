@@ -1,0 +1,215 @@
+---
+/**
+ * ChallengeCallout Component
+ * 
+ * Highlights the "Fix the Bug" challenge in Step 4 of the Quick Start.
+ * Features a visually distinct design with a copyable Copilot prompt.
+ */
+
+import CopyButton from './CopyButton.astro';
+
+interface Props {
+  /** Challenge title */
+  title?: string;
+  /** Challenge description */
+  description?: string;
+  /** Copilot prompt to copy */
+  prompt?: string;
+  /** Challenge icon/emoji */
+  icon?: string;
+  /** Additional CSS classes */
+  class?: string;
+}
+
+const {
+  title = "Your Challenge",
+  description = "The demo template has an intentional bug! The API service is failing with a connection timeout. Use GitHub Copilot to diagnose and fix the issue.",
+  prompt = "Why is my API service failing? Can you help me fix it?",
+  icon = "🎯",
+  class: className = '',
+} = Astro.props;
+---
+
+<aside 
+  class:list={['challenge-callout', className]}
+  role="region"
+  aria-label="Challenge"
+>
+  <div class="challenge-header">
+    <span class="challenge-icon" aria-hidden="true">{icon}</span>
+    <h4 class="challenge-title">{title}</h4>
+  </div>
+
+  <p class="challenge-description">{description}</p>
+
+  <div class="challenge-prompt">
+    <div class="challenge-prompt-label">
+      <svg 
+        width="18" 
+        height="18" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="2" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Ask Copilot:</span>
+    </div>
+    <div class="challenge-prompt-content">
+      <span class="challenge-prompt-text" aria-label="Copilot prompt to copy">
+        "{prompt}"
+      </span>
+      <CopyButton text={prompt} size="sm" label="Copy Copilot prompt to clipboard" />
+    </div>
+  </div>
+</aside>
+
+<style>
+  .challenge-callout {
+    background: linear-gradient(135deg, #fef3c7, #fef9c3);
+    border: 3px solid var(--color-mcp-badge-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    animation: challenge-attention 0.5s ease-out 0.5s both;
+  }
+
+  :global([data-theme="dark"]) .challenge-callout {
+    background: linear-gradient(135deg, #78350f, #92400e);
+    border-color: #fbbf24;
+  }
+
+  .challenge-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .challenge-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+
+  .challenge-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  :global([data-theme="dark"]) .challenge-title {
+    color: #fef3c7;
+  }
+
+  .challenge-description {
+    color: var(--color-text-secondary);
+    margin: 0 0 1.25rem 0;
+    line-height: 1.6;
+    font-size: 0.9375rem;
+  }
+
+  :global([data-theme="dark"]) .challenge-description {
+    color: #fde68a;
+  }
+
+  .challenge-prompt {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+
+  :global([data-theme="dark"]) .challenge-prompt {
+    background: #1c1917;
+    border-color: #44403c;
+  }
+
+  .challenge-prompt-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-azure-600);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  :global([data-theme="dark"]) .challenge-prompt-label {
+    color: var(--color-azure-400);
+  }
+
+  .challenge-prompt-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .challenge-prompt-text {
+    font-family: var(--font-family-mono);
+    font-size: 0.9375rem;
+    color: var(--color-text-primary);
+    font-style: italic;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Attention Animation */
+  @keyframes challenge-attention {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    50% {
+      transform: scale(1.02);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Responsive */
+  @media (min-width: 768px) {
+    .challenge-callout {
+      padding: 1.75rem;
+    }
+
+    .challenge-icon {
+      font-size: 2rem;
+    }
+
+    .challenge-title {
+      font-size: 1.375rem;
+    }
+
+    .challenge-description {
+      font-size: 1rem;
+    }
+  }
+
+  /* Mobile */
+  @media (max-width: 480px) {
+    .challenge-prompt-content {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .challenge-prompt-content :global(.copy-button) {
+      align-self: flex-end;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .challenge-callout {
+      animation: none;
+    }
+  }
+</style>

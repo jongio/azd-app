@@ -1,0 +1,330 @@
+---
+/**
+ * Header Component
+ * Primary navigation for the azd-app marketing website.
+ * Features sticky behavior, prominent MCP Server link, responsive design,
+ * hamburger menu, and integrated theme toggle.
+ */
+import ThemeToggle from './ThemeToggle.astro';
+import Search from './Search.astro';
+
+interface Props {
+  currentPath?: string;
+}
+
+const { currentPath = Astro.url.pathname } = Astro.props;
+
+// Use BASE_URL from Astro config for proper path handling
+const base = import.meta.env.BASE_URL;
+
+const navigation = [
+  { label: 'Home', href: `${base}` },
+  { label: 'Quick Start', href: `${base}quick-start/` },
+  { label: 'MCP Server', href: `${base}mcp/`, isProminent: true, badge: 'AI' },
+  { label: 'Guided Tour', href: `${base}tour/` },
+  { label: 'Examples', href: `${base}examples/` },
+  { label: 'CLI Reference', href: `${base}reference/cli/` },
+];
+
+function isActive(href: string, current: string): boolean {
+  // Normalize paths for comparison
+  const normalizedHref = href.replace(/\/$/, '');
+  const normalizedCurrent = current.replace(/\/$/, '');
+  
+  // Exact match
+  if (normalizedHref === normalizedCurrent) {
+    return true;
+  }
+  
+  // For non-home pages, check if current path starts with the nav item path
+  // This highlights parent nav items for sub-pages
+  const baseNormalized = base.replace(/\/$/, '');
+  if (normalizedHref !== baseNormalized && normalizedCurrent.startsWith(normalizedHref + '/')) {
+    return true;
+  }
+  
+  return false;
+}
+---
+
+<header class="header" role="banner" data-header>
+  <div class="header-container">
+    <!-- Logo -->
+    <a href={base} class="header-logo" aria-label="azd app home">
+      <span class="header-logo-text">azd app</span>
+    </a>
+
+    <!-- Desktop Navigation -->
+    <nav class="header-nav" aria-label="Main navigation">
+      <ul class="header-nav-list" role="list">
+        {navigation.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class:list={[
+                'header-nav-item',
+                { 'header-nav-item--active': isActive(item.href, currentPath) },
+                { 'header-nav-item--prominent': item.isProminent }
+              ]}
+              aria-current={isActive(item.href, currentPath) ? 'page' : undefined}
+              aria-describedby={item.badge ? `badge-${item.label.toLowerCase().replace(' ', '-')}` : undefined}
+            >
+              {item.label}
+              {item.badge && (
+                <span
+                  id={`badge-${item.label.toLowerCase().replace(' ', '-')}`}
+                  class="header-nav-badge"
+                  aria-label={`${item.badge} feature`}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <!-- Right side: Search + Theme Toggle + Mobile Menu Button -->
+    <div class="header-actions">
+      <Search />
+      <ThemeToggle />
+      
+      <!-- Mobile Menu Button -->
+      <button
+        type="button"
+        class="header-mobile-toggle"
+        aria-label="Open main menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        data-mobile-menu-toggle
+      >
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background-color: var(--color-bg-primary);
+    border-bottom: 1px solid var(--color-border-default);
+    transition: box-shadow 200ms ease-out;
+  }
+
+  .header--scrolled {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+
+  .header-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 4rem;
+  }
+
+  @media (max-width: 767px) {
+    .header-container {
+      height: 3.5rem;
+      padding: 0 1rem;
+    }
+  }
+
+  /* Logo */
+  .header-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--color-text-primary);
+  }
+
+  .header-logo:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .header-logo-text {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  @media (max-width: 767px) {
+    .header-logo-text {
+      font-size: 1.25rem;
+    }
+  }
+
+  /* Desktop Navigation */
+  .header-nav {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .header-nav {
+      display: block;
+    }
+  }
+
+  .header-nav-list {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .header-nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: 0.375rem;
+    transition: color 100ms ease-out, background-color 100ms ease-out;
+  }
+
+  .header-nav-item:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .header-nav-item:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  .header-nav-item--active {
+    color: var(--color-interactive-default);
+    font-weight: 600;
+  }
+
+  .header-nav-item--prominent {
+    font-weight: 600;
+  }
+
+  .header-nav-item--prominent:hover {
+    transform: scale(1.02);
+  }
+
+  /* Badge */
+  .header-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    background-color: var(--color-mcp-badge-bg);
+    color: var(--color-mcp-badge-text);
+    border-radius: 0.25rem;
+  }
+
+  /* Actions */
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Mobile Menu Toggle */
+  .header-mobile-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 100ms ease-out;
+  }
+
+  .header-mobile-toggle:hover {
+    background-color: var(--color-bg-tertiary);
+  }
+
+  .header-mobile-toggle:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  @media (min-width: 1024px) {
+    .header-mobile-toggle {
+      display: none;
+    }
+  }
+
+  .hamburger-line {
+    display: block;
+    width: 1.25rem;
+    height: 2px;
+    background-color: var(--color-text-primary);
+    border-radius: 1px;
+    transition: transform 200ms ease-out, opacity 150ms ease-out;
+  }
+
+  /* Hamburger to X animation */
+  .header-mobile-toggle[aria-expanded="true"] .hamburger-line:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+  }
+
+  .header-mobile-toggle[aria-expanded="true"] .hamburger-line:nth-child(2) {
+    opacity: 0;
+  }
+
+  .header-mobile-toggle[aria-expanded="true"] .hamburger-line:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+  }
+</style>
+
+<script>
+  function initHeader(): void {
+    const header = document.querySelector('[data-header]');
+    
+    // Scroll shadow
+    let ticking = false;
+    function onScroll(): void {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          if (window.scrollY > 20) {
+            header?.classList.add('header--scrolled');
+          } else {
+            header?.classList.remove('header--scrolled');
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }
+    
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // Initial check
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHeader);
+  } else {
+    initHeader();
+  }
+  
+  document.addEventListener('astro:after-swap', initHeader);
+</script>

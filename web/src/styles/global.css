@@ -1,0 +1,573 @@
+@import "tailwindcss";
+
+/* ============================================
+   Tailwind v4 Theme Configuration
+   ============================================ */
+
+/* Configure dark mode to use data-theme attribute */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* Azure-inspired colors */
+  --color-azure-50: #eff6ff;
+  --color-azure-100: #dbeafe;
+  --color-azure-200: #bfdbfe;
+  --color-azure-300: #93c5fd;
+  --color-azure-400: #60a5fa;
+  --color-azure-500: #3b82f6;
+  --color-azure-600: #2563eb;
+  --color-azure-700: #1d4ed8;
+  --color-azure-800: #1e40af;
+  --color-azure-900: #1e3a8a;
+
+  /* Font families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+/* ============================================
+   Design System Tokens
+   ============================================ */
+
+:root {
+  /* Color Scheme */
+  color-scheme: light;
+
+  /* Brand Colors (Azure-inspired) */
+  --color-azure-50: #eff6ff;
+  --color-azure-100: #dbeafe;
+  --color-azure-200: #bfdbfe;
+  --color-azure-300: #93c5fd;
+  --color-azure-400: #60a5fa;
+  --color-azure-500: #3b82f6;
+  --color-azure-600: #2563eb;
+  --color-azure-700: #1d4ed8;
+  --color-azure-800: #1e40af;
+  --color-azure-900: #1e3a8a;
+
+  /* Semantic Colors - Light Theme */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-tertiary: #f3f4f6;
+  --color-bg-accent: #eff6ff;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-text-inverse: #ffffff;
+
+  --color-border-default: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-border-focus: #3b82f6;
+
+  --color-interactive-default: #2563eb;
+  --color-interactive-hover: #1d4ed8;
+  --color-interactive-active: #1e40af;
+
+  --color-mcp-badge-bg: #fef3c7;
+  --color-mcp-badge-text: #92400e;
+  --color-mcp-badge-border: #f59e0b;
+
+  /* State Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Typography */
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Spacing */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.5);
+
+  /* Border Radius */
+  --radius-none: 0;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Z-Index */
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+
+  /* Animation */
+  --duration-instant: 0ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Component Tokens */
+  --header-height: 4rem;
+  --header-height-mobile: 3.5rem;
+  --sidebar-width: 16rem;
+  --sidebar-width-collapsed: 4rem;
+  --nav-item-height: 2.5rem;
+  --footer-padding-y: 3rem;
+
+  /* ============================================
+     Code Block Tokens - Light Theme
+     Note: Code blocks use dark background even in light theme for contrast
+     ============================================ */
+  --code-block-bg: #1e293b;
+  --code-header-bg: #0f172a;
+  --code-header-border: #334155;
+  --code-filename-color: #94a3b8;
+  --code-line-number-color: #64748b;
+  --code-line-highlight-bg: rgba(59, 130, 246, 0.15);
+  --code-line-highlight-border: #3b82f6;
+  --code-selection-bg: rgba(59, 130, 246, 0.3);
+  --code-scrollbar-track: #334155;
+  --code-scrollbar-thumb: #475569;
+  --code-scrollbar-thumb-hover: #64748b;
+  --code-font-size: 0.875rem;
+  --code-line-height: 1.5;
+  --code-border-radius: 0.5rem;
+  --code-padding: 1rem;
+
+  /* Terminal Tokens - Light Theme */
+  --terminal-bg: #1e293b;
+  --terminal-header-bg: #334155;
+  --terminal-header-border: #475569;
+  --terminal-title-color: #94a3b8;
+  --terminal-prompt: #10b981;
+  --terminal-command: #f8fafc;
+  --terminal-output: #cbd5e1;
+  --terminal-success: #4ade80;
+  --terminal-error: #f87171;
+  --terminal-info: #60a5fa;
+  --terminal-cursor: #f8fafc;
+  --terminal-dot-red: #f87171;
+  --terminal-dot-yellow: #fbbf24;
+  --terminal-dot-green: #4ade80;
+  --terminal-font-size: 0.875rem;
+  --terminal-line-height: 1.6;
+  --terminal-border-radius: 0.5rem;
+  --terminal-padding: 1rem;
+
+  /* Copy Button Tokens - Light Theme */
+  --copy-button-icon-color: #94a3b8;
+  --copy-button-icon-hover: #e2e8f0;
+  --copy-button-bg: transparent;
+  --copy-button-bg-hover: rgba(255, 255, 255, 0.1);
+  --copy-button-bg-active: rgba(255, 255, 255, 0.15);
+  --copy-button-success-icon: #34d399;
+  --copy-button-success-bg: rgba(52, 211, 153, 0.15);
+  --copy-button-success-text: #34d399;
+  --copy-button-error-icon: #f87171;
+  --copy-button-error-bg: rgba(248, 113, 113, 0.15);
+  --copy-button-error-text: #f87171;
+
+  /* Language Indicator Tokens */
+  --language-indicator-bg: rgba(255, 255, 255, 0.1);
+  --language-indicator-color: #94a3b8;
+
+  /* Syntax Highlighting Tokens - Light Theme (Dark Code Background) */
+  --syntax-text: #e2e8f0;
+  --syntax-comment: #64748b;
+  --syntax-keyword: #f472b6;
+  --syntax-string: #a5f3fc;
+  --syntax-number: #fcd34d;
+  --syntax-function: #a78bfa;
+  --syntax-variable: #93c5fd;
+  --syntax-operator: #f1f5f9;
+  --syntax-punctuation: #94a3b8;
+  --syntax-class: #67e8f9;
+  --syntax-property: #86efac;
+  --syntax-tag: #f472b6;
+  --syntax-attribute: #fcd34d;
+  --syntax-selector: #c4b5fd;
+  --syntax-builtin: #67e8f9;
+  --syntax-regex: #fca5a5;
+  --syntax-deleted: #fca5a5;
+  --syntax-inserted: #86efac;
+}
+
+/* Dark Theme */
+[data-theme="dark"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-tertiary: #334155;
+  --color-bg-accent: #1e3a5f;
+
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-tertiary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-text-inverse: #0f172a;
+
+  --color-border-default: #334155;
+  --color-border-strong: #475569;
+  --color-border-focus: #60a5fa;
+
+  --color-interactive-default: #3b82f6;
+  --color-interactive-hover: #60a5fa;
+  --color-interactive-active: #93c5fd;
+
+  --color-mcp-badge-bg: #422006;
+  --color-mcp-badge-text: #fcd34d;
+  --color-mcp-badge-border: #f59e0b;
+
+  /* Code Block Tokens - Dark Theme (Darker Background) */
+  --code-block-bg: #020617;
+  --code-header-bg: #010409;
+  --code-header-border: #1e293b;
+  --code-filename-color: #64748b;
+  --code-line-number-color: #475569;
+  --code-line-highlight-bg: rgba(96, 165, 250, 0.1);
+  --code-line-highlight-border: #60a5fa;
+  --code-scrollbar-track: #1e293b;
+  --code-scrollbar-thumb: #334155;
+  --code-scrollbar-thumb-hover: #475569;
+
+  /* Terminal Tokens - Dark Theme */
+  --terminal-bg: #0c0a09;
+  --terminal-header-bg: #1c1917;
+  --terminal-header-border: #292524;
+  --terminal-title-color: #78716c;
+  --terminal-prompt: #22c55e;
+  --terminal-command: #fafaf9;
+  --terminal-output: #a8a29e;
+  --terminal-success: #22c55e;
+  --terminal-error: #ef4444;
+  --terminal-info: #3b82f6;
+  --terminal-cursor: #fafaf9;
+
+  /* Copy Button Tokens - Dark Theme */
+  --copy-button-icon-color: #64748b;
+  --copy-button-icon-hover: #94a3b8;
+  --copy-button-bg-hover: rgba(255, 255, 255, 0.05);
+  --copy-button-bg-active: rgba(255, 255, 255, 0.1);
+
+  /* Language Indicator Tokens - Dark Theme */
+  --language-indicator-bg: rgba(255, 255, 255, 0.05);
+  --language-indicator-color: #64748b;
+
+  /* Syntax Highlighting Tokens - Dark Theme (Darker Background) */
+  --syntax-text: #e2e8f0;
+  --syntax-comment: #475569;
+  --syntax-keyword: #f472b6;
+  --syntax-string: #67e8f9;
+  --syntax-number: #fbbf24;
+  --syntax-function: #a78bfa;
+  --syntax-variable: #7dd3fc;
+  --syntax-operator: #f1f5f9;
+  --syntax-punctuation: #64748b;
+  --syntax-class: #5eead4;
+  --syntax-property: #4ade80;
+  --syntax-tag: #f472b6;
+  --syntax-attribute: #fbbf24;
+  --syntax-selector: #a78bfa;
+  --syntax-builtin: #5eead4;
+  --syntax-regex: #f87171;
+  --syntax-deleted: #f87171;
+  --syntax-inserted: #4ade80;
+}
+
+/* System theme - apply dark when system prefers and no explicit light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+
+    --color-bg-primary: #0f172a;
+    --color-bg-secondary: #1e293b;
+    --color-bg-tertiary: #334155;
+    --color-bg-accent: #1e3a5f;
+
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #cbd5e1;
+    --color-text-tertiary: #94a3b8;
+    --color-text-muted: #64748b;
+    --color-text-inverse: #0f172a;
+
+    --color-border-default: #334155;
+    --color-border-strong: #475569;
+    --color-border-focus: #60a5fa;
+
+    --color-interactive-default: #3b82f6;
+    --color-interactive-hover: #60a5fa;
+    --color-interactive-active: #93c5fd;
+
+    --color-mcp-badge-bg: #422006;
+    --color-mcp-badge-text: #fcd34d;
+    --color-mcp-badge-border: #f59e0b;
+
+    /* Code Block Tokens - Dark Theme (Darker Background) */
+    --code-block-bg: #020617;
+    --code-header-bg: #010409;
+    --code-header-border: #1e293b;
+    --code-filename-color: #64748b;
+    --code-line-number-color: #475569;
+    --code-line-highlight-bg: rgba(96, 165, 250, 0.1);
+    --code-line-highlight-border: #60a5fa;
+    --code-scrollbar-track: #1e293b;
+    --code-scrollbar-thumb: #334155;
+    --code-scrollbar-thumb-hover: #475569;
+
+    /* Terminal Tokens - Dark Theme */
+    --terminal-bg: #0c0a09;
+    --terminal-header-bg: #1c1917;
+    --terminal-header-border: #292524;
+    --terminal-title-color: #78716c;
+    --terminal-prompt: #22c55e;
+    --terminal-command: #fafaf9;
+    --terminal-output: #a8a29e;
+    --terminal-success: #22c55e;
+    --terminal-error: #ef4444;
+    --terminal-info: #3b82f6;
+    --terminal-cursor: #fafaf9;
+
+    /* Copy Button Tokens - Dark Theme */
+    --copy-button-icon-color: #64748b;
+    --copy-button-icon-hover: #94a3b8;
+    --copy-button-bg-hover: rgba(255, 255, 255, 0.05);
+    --copy-button-bg-active: rgba(255, 255, 255, 0.1);
+
+    /* Language Indicator Tokens - Dark Theme */
+    --language-indicator-bg: rgba(255, 255, 255, 0.05);
+    --language-indicator-color: #64748b;
+
+    /* Syntax Highlighting Tokens - Dark Theme */
+    --syntax-text: #e2e8f0;
+    --syntax-comment: #475569;
+    --syntax-keyword: #f472b6;
+    --syntax-string: #67e8f9;
+    --syntax-number: #fbbf24;
+    --syntax-function: #a78bfa;
+    --syntax-variable: #7dd3fc;
+    --syntax-operator: #f1f5f9;
+    --syntax-punctuation: #64748b;
+    --syntax-class: #5eead4;
+    --syntax-property: #4ade80;
+    --syntax-tag: #f472b6;
+    --syntax-attribute: #fbbf24;
+    --syntax-selector: #a78bfa;
+    --syntax-builtin: #5eead4;
+    --syntax-regex: #f87171;
+    --syntax-deleted: #f87171;
+    --syntax-inserted: #4ade80;
+  }
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+    font-family: var(--font-family-sans);
+  }
+  
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    @apply antialiased;
+    transition: background-color var(--duration-normal) var(--ease-default),
+                color var(--duration-normal) var(--ease-default);
+  }
+
+  /* Prevent transition on initial load */
+  body.no-transition,
+  body.no-transition * {
+    transition: none !important;
+  }
+
+  /* Focus styles */
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Typography defaults */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+  }
+
+  h1 {
+    font-size: var(--font-size-4xl);
+  }
+
+  h2 {
+    font-size: var(--font-size-3xl);
+  }
+
+  h3 {
+    font-size: var(--font-size-2xl);
+  }
+
+  h4 {
+    font-size: var(--font-size-xl);
+  }
+
+  p {
+    line-height: var(--line-height-relaxed);
+  }
+
+  a {
+    color: var(--color-interactive-default);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-default);
+  }
+
+  a:hover {
+    color: var(--color-interactive-hover);
+    text-decoration: underline;
+  }
+
+  code {
+    font-family: var(--font-family-mono);
+    font-size: 0.875em;
+    background-color: var(--color-bg-tertiary);
+    padding: 0.125rem 0.25rem;
+    border-radius: var(--radius-sm);
+  }
+
+  pre {
+    font-family: var(--font-family-mono);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    overflow-x: auto;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm transition-colors;
+    background-color: var(--color-interactive-default);
+    color: var(--color-text-inverse);
+    border: 1px solid transparent;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-interactive-hover);
+    text-decoration: none;
+  }
+
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+  
+  .btn-secondary {
+    @apply inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-default);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-bg-secondary);
+    text-decoration: none;
+  }
+
+  .btn-secondary:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Container */
+  .container {
+    width: 100%;
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  @media (max-width: 767px) {
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  .container--narrow {
+    max-width: 768px;
+  }
+
+  .container--wide {
+    max-width: 1536px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

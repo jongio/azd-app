@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: demo-project
+metadata:
+  template: demo-project
+
+reqs:
+  - name: node
+    minVersion: 18.0.0
+  - name: npm
+    minVersion: 9.0.0
+
+services:
+  api:
+    language: js
+    project: ./api
+    host: localhost
+    ports:
+      - "3000"
+    environment:
+      NODE_ENV: development
+      PORT: "3000"

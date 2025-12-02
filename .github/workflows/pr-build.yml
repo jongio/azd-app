@@ -300,11 +300,16 @@ jobs:
           SHORT_COMMIT=$(echo $COMMIT | cut -c1-7)
           # Use the branch where the scripts actually exist
           BRANCH="${{ github.ref_name }}"
+          WEBSITE_URL="https://jongio.github.io/azd-app/pr/$PR_NUM/"
           
           cat > ../instructions.md <<EOF
           ## 🚀 Test This PR
           
           A preview build (\`$VERSION\`) is ready for testing!
+          
+          ### 🌐 Website Preview
+          
+          **Live Preview:** [$WEBSITE_URL]($WEBSITE_URL)
           
           ### One-Line Install (Recommended)
           
