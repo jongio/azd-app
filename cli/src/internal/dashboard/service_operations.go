@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -354,25 +355,40 @@ func (h *serviceOperationHandler) validateState(entry *registry.ServiceRegistryE
 	return nil
 }
 
-// stopService stops a running service by PID.
+// stopService stops a running service by PID and ensures the port is freed.
 // Returns nil if service was stopped successfully or if there was no process to stop.
+// This function handles the case where the registry PID is stale but a different
+// process is holding the port (e.g., after a crash and manual restart).
 func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEntry, serviceName string) error {
-	if entry.PID <= 0 {
-		return nil
+	// First, try to stop by the registered PID
+	if entry.PID > 0 {
+		process, err := os.FindProcess(entry.PID)
+		if err != nil {
+			log.Printf("Warning: could not find process %d: %v", entry.PID, err)
+		} else {
+			serviceProcess := &service.ServiceProcess{
+				Name:    serviceName,
+				Process: process,
+			}
+			if err := service.StopServiceGraceful(serviceProcess, service.DefaultStopTimeout); err != nil {
+				// Log but continue - the PID might be stale, we'll try by port next
+				log.Printf("Warning: error stopping service %s by PID %d: %v", serviceName, entry.PID, err)
+			}
+		}
 	}
 
-	process, err := os.FindProcess(entry.PID)
-	if err != nil {
-		return fmt.Errorf("could not find process %d: %w", entry.PID, err)
+	// Also ensure the port is freed - this handles cases where:
+	// 1. The registry PID is stale (process crashed and was restarted outside azd)
+	// 2. PID was reused by OS for a different process
+	// 3. A child process is still holding the port after parent was killed
+	if entry.Port > 0 {
+		pm := portmanager.GetPortManager(h.server.projectDir)
+		if err := pm.KillProcessOnPort(entry.Port); err != nil {
+			// Not a fatal error - port might already be free
+			log.Printf("Warning: error freeing port %d for service %s: %v", entry.Port, serviceName, err)
+		}
 	}
 
-	serviceProcess := &service.ServiceProcess{
-		Name:    serviceName,
-		Process: process,
-	}
-	if err := service.StopServiceGraceful(serviceProcess, service.DefaultStopTimeout); err != nil {
-		return fmt.Errorf("error stopping service %s: %w", serviceName, err)
-	}
 	return nil
 }
 

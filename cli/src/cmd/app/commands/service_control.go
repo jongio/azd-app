@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -315,28 +317,38 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 }
 
 // performStop executes the stop logic for a service.
+// It stops the service by PID and ensures the port is freed to handle stale registry entries.
 func (c *ServiceController) performStop(entry *registry.ServiceRegistryEntry, serviceName string) error {
-	if entry.PID <= 0 {
-		_ = c.registry.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown)
-		return nil
-	}
-
 	// Update to stopping state
 	_ = c.registry.UpdateStatus(serviceName, constants.StatusStopping, entry.Health)
 
-	process, err := os.FindProcess(entry.PID)
-	if err != nil {
-		_ = c.registry.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown)
-		return nil // Process already gone
+	// First, try to stop by the registered PID
+	if entry.PID > 0 {
+		process, err := os.FindProcess(entry.PID)
+		if err != nil {
+			slog.Debug("could not find process", "pid", entry.PID, "error", err)
+		} else {
+			serviceProcess := &service.ServiceProcess{
+				Name:    serviceName,
+				Process: process,
+			}
+			if err := service.StopServiceGraceful(serviceProcess, service.DefaultStopTimeout); err != nil {
+				// Log but continue - the PID might be stale, we'll try by port next
+				slog.Debug("error stopping service by PID", "service", serviceName, "pid", entry.PID, "error", err)
+			}
+		}
 	}
 
-	serviceProcess := &service.ServiceProcess{
-		Name:    serviceName,
-		Process: process,
-	}
-	if err := service.StopServiceGraceful(serviceProcess, service.DefaultStopTimeout); err != nil {
-		_ = c.registry.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown)
-		return fmt.Errorf("error stopping service: %w", err)
+	// Also ensure the port is freed - this handles cases where:
+	// 1. The registry PID is stale (process crashed and was restarted outside azd)
+	// 2. PID was reused by OS for a different process
+	// 3. A child process is still holding the port after parent was killed
+	if entry.Port > 0 {
+		pm := portmanager.GetPortManager(c.projectDir)
+		if err := pm.KillProcessOnPort(entry.Port); err != nil {
+			// Not a fatal error - port might already be free
+			slog.Debug("error freeing port", "port", entry.Port, "service", serviceName, "error", err)
+		}
 	}
 
 	return c.registry.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown)
