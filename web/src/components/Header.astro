@@ -14,13 +14,16 @@ interface Props {
 
 const { currentPath = Astro.url.pathname } = Astro.props;
 
+// Use BASE_URL from Astro config for proper path handling
+const base = import.meta.env.BASE_URL;
+
 const navigation = [
-  { label: 'Home', href: '/azd-app/' },
-  { label: 'Quick Start', href: '/azd-app/quick-start/' },
-  { label: 'MCP Server', href: '/azd-app/mcp/', isProminent: true, badge: 'AI' },
-  { label: 'Guided Tour', href: '/azd-app/tour/' },
-  { label: 'Examples', href: '/azd-app/examples/' },
-  { label: 'CLI Reference', href: '/azd-app/reference/cli/' },
+  { label: 'Home', href: `${base}` },
+  { label: 'Quick Start', href: `${base}quick-start/` },
+  { label: 'MCP Server', href: `${base}mcp/`, isProminent: true, badge: 'AI' },
+  { label: 'Guided Tour', href: `${base}tour/` },
+  { label: 'Examples', href: `${base}examples/` },
+  { label: 'CLI Reference', href: `${base}reference/cli/` },
 ];
 
 function isActive(href: string, current: string): boolean {
@@ -35,7 +38,8 @@ function isActive(href: string, current: string): boolean {
   
   // For non-home pages, check if current path starts with the nav item path
   // This highlights parent nav items for sub-pages
-  if (normalizedHref !== '/azd-app' && normalizedCurrent.startsWith(normalizedHref + '/')) {
+  const baseNormalized = base.replace(/\/$/, '');
+  if (normalizedHref !== baseNormalized && normalizedCurrent.startsWith(normalizedHref + '/')) {
     return true;
   }
   
@@ -46,7 +50,7 @@ function isActive(href: string, current: string): boolean {
 <header class="header" role="banner" data-header>
   <div class="header-container">
     <!-- Logo -->
-    <a href="/azd-app/" class="header-logo" aria-label="azd app home">
+    <a href={base} class="header-logo" aria-label="azd app home">
       <span class="header-logo-text">azd app</span>
     </a>
 
