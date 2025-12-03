@@ -478,7 +478,7 @@ export function ModernLogsView({
   const [globalSearchTerm, setGlobalSearchTerm] = React.useState('')
   const [autoScrollEnabled, setAutoScrollEnabled] = React.useState(true)
   const [clearAllTrigger, setClearAllTrigger] = React.useState(0)
-  const [allLogs, setAllLogs] = React.useState<LogEntry[]>([])
+  const [allLogs, _setAllLogs] = React.useState<LogEntry[]>([])
   const [levelFilter, setLevelFilter] = React.useState<Set<'info' | 'warning' | 'error'>>(
     new Set(['info', 'warning', 'error'])
   )

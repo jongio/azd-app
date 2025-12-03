@@ -47,6 +47,18 @@ function App() {
     getServiceHealth 
   } = useHealthStream()
 
+  // Build health map for modern components (must be called unconditionally)
+  const healthMap = useMemo(() => {
+    const map = new Map<string, HealthCheckResult>()
+    for (const service of services) {
+      const health = getServiceHealth(service.name)
+      if (health) {
+        map.set(service.name, health)
+      }
+    }
+    return map
+  }, [services, getServiceHealth])
+
   // Helper to get health status for a specific service
   const getServiceHealthStatus = useCallback((serviceName: string): HealthCheckResult | undefined => {
     return getServiceHealth(serviceName)
@@ -298,18 +310,6 @@ function App() {
 
   // Modern mode placeholder - will be implemented in future tasks
   if (isModern) {
-    // Build health map for modern components
-    const healthMap = useMemo(() => {
-      const map = new Map<string, HealthCheckResult>()
-      for (const service of services) {
-        const health = getServiceHealth(service.name)
-        if (health) {
-          map.set(service.name, health)
-        }
-      }
-      return map
-    }, [services, getServiceHealth])
-
     return (
       <div data-design={designMode}>
         <ModernApp

@@ -131,7 +131,7 @@ func (s *Server) setupRoutes() {
 		if path == "/" {
 			path = "/index.html"
 		}
-		
+
 		// Try to open the file
 		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
 		if err != nil {
@@ -143,19 +143,19 @@ func (s *Server) setupRoutes() {
 				return
 			}
 			defer indexFile.Close()
-			
+
 			indexContent, readErr := io.ReadAll(indexFile)
 			if readErr != nil {
 				http.Error(w, "Failed to read index.html", http.StatusInternalServerError)
 				return
 			}
-			
+
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write(indexContent)
 			return
 		}
 		f.Close()
-		
+
 		// File exists, serve it normally
 		fileServer.ServeHTTP(w, r)
 	})

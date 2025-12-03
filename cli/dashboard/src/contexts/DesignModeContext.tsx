@@ -123,6 +123,7 @@ export function DesignModeProvider({ children }: DesignModeProviderProps) {
  * Hook to access the design mode context
  * @throws Error if used outside of DesignModeProvider
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDesignModeContext(): DesignModeContextValue {
   const context = useContext(DesignModeContext)
   if (context === undefined) {
@@ -130,5 +131,3 @@ export function useDesignModeContext(): DesignModeContextValue {
   }
   return context
 }
-
-export { DesignModeContext }
