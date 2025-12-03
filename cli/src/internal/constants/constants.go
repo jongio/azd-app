@@ -51,6 +51,8 @@ const (
 	ServerStartupDelay = 100 * time.Millisecond
 	// ToastAutoDismissTimeout is the timeout for auto-dismissing toast notifications
 	ToastAutoDismissTimeout = 10 * time.Second
+	// DashboardAPITimeout is the timeout for dashboard API HTTP client requests
+	DashboardAPITimeout = 5 * time.Second
 )
 
 // Buffer sizes
