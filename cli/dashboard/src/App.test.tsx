@@ -2,7 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@/App'
+import { DesignModeProvider } from '@/contexts/DesignModeContext'
 import { mockServices, mockProjectInfo, createMockFetchResponse } from '@/test/mocks'
+
+// Helper to render App with required providers
+function renderApp() {
+  return render(
+    <DesignModeProvider>
+      <App />
+    </DesignModeProvider>
+  )
+}
 
 // Mock the useServices hook
 vi.mock('@/hooks/useServices', () => ({
@@ -44,6 +54,9 @@ describe('App', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     localStorage.clear()
+    
+    // Set design mode to classic for these tests (which test the classic layout)
+    localStorage.setItem('dashboard-design-mode', 'classic')
 
     // Reset the useServices mock to default values
     const { useServices } = await import('@/hooks/useServices')
@@ -71,7 +84,7 @@ describe('App', () => {
   })
 
   it('should render the app with default resources view', async () => {
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -79,7 +92,7 @@ describe('App', () => {
   })
 
   it('should fetch and display project name', async () => {
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText(mockProjectInfo.name)).toBeInTheDocument()
@@ -88,7 +101,7 @@ describe('App', () => {
 
   it('should switch between table and grid view modes', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -114,7 +127,7 @@ describe('App', () => {
 
   it('should switch to console view', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -139,7 +152,7 @@ describe('App', () => {
       refetch: vi.fn(),
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(document.querySelector('.animate-spin')).toBeInTheDocument()
@@ -157,7 +170,7 @@ describe('App', () => {
       refetch: vi.fn(),
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText('Error Loading Services')).toBeInTheDocument()
@@ -175,7 +188,7 @@ describe('App', () => {
       refetch: vi.fn(),
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText('No Services Running')).toBeInTheDocument()
@@ -184,7 +197,7 @@ describe('App', () => {
   })
 
   it('should display services in table view by default', async () => {
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -201,7 +214,7 @@ describe('App', () => {
     // Set localStorage preference before rendering
     localStorage.setItem('dashboard-view-preference', 'cards')
 
-    render(<App />)
+    renderApp()
 
     // Wait for the Resources view to render
     await waitFor(() => {
@@ -232,7 +245,7 @@ describe('App', () => {
     } as unknown as Element
     vi.spyOn(document, 'querySelector').mockReturnValue(mockMainElement)
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -248,7 +261,7 @@ describe('App', () => {
   })
 
   it('should render header buttons', async () => {
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -261,7 +274,7 @@ describe('App', () => {
 
   it('should switch between resources and console views', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -287,7 +300,7 @@ describe('App', () => {
     })
     globalThis.fetch = mockFetch as unknown as typeof fetch
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -304,7 +317,7 @@ describe('App', () => {
 
   it('should filter services when search input is used', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()
@@ -337,7 +350,7 @@ describe('App', () => {
     const { useServiceErrors } = await import('@/hooks/useServiceErrors')
     vi.mocked(useServiceErrors).mockReturnValue({ hasActiveErrors: true })
     
-    render(<App />)
+    renderApp()
 
     // Wait for the component to fully render and settle
     await waitFor(() => {
@@ -354,7 +367,7 @@ describe('App', () => {
   })
 
   it('should render ServiceStatusCard in the header', async () => {
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       // Should show the service status button
@@ -365,7 +378,7 @@ describe('App', () => {
 
   it('should navigate to console when ServiceStatusCard is clicked', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Resources' })).toBeInTheDocument()

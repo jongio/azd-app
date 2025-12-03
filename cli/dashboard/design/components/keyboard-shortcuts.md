@@ -12,23 +12,17 @@ Modal dialog displaying all keyboard shortcuts grouped by category. Triggered by
 ├──────────────────────────────────────────────────────┤
 │                                                      │
 │  NAVIGATION                                          │
-│  ┌────┐ Resources view                               │
+│  ┌────┐ Console view                                 │
 │  │ 1  │                                              │
 │  └────┘                                              │
-│  ┌────┐ Console view                                 │
+│  ┌────┐ Services view                                │
 │  │ 2  │                                              │
 │  └────┘                                              │
-│  ┌────┐ Metrics view                                 │
+│  ┌────┐ Environment view                             │
 │  │ 3  │                                              │
 │  └────┘                                              │
-│  ┌────┐ Environment view                             │
+│  ┌────┐ Metrics view                                 │
 │  │ 4  │                                              │
-│  └────┘                                              │
-│  ┌────┐ Actions view                                 │
-│  │ 5  │                                              │
-│  └────┘                                              │
-│  ┌────┐ Dependencies view                            │
-│  │ 6  │                                              │
 │  └────┘                                              │
 │                                                      │
 │  ACTIONS                                             │
@@ -113,12 +107,10 @@ interface ShortcutGroupProps {
 ```typescript
 const shortcuts: Shortcut[] = [
   // Navigation
-  { key: '1', description: 'Resources view', category: 'navigation' },
-  { key: '2', description: 'Console view', category: 'navigation' },
-  { key: '3', description: 'Metrics view', category: 'navigation' },
-  { key: '4', description: 'Environment view', category: 'navigation' },
-  { key: '5', description: 'Actions view', category: 'navigation' },
-  { key: '6', description: 'Dependencies view', category: 'navigation' },
+  { key: '1', description: 'Console view', category: 'navigation' },
+  { key: '2', description: 'Services view', category: 'navigation' },
+  { key: '3', description: 'Environment view', category: 'navigation' },
+  { key: '4', description: 'Metrics view', category: 'navigation' },
   
   // Actions
   { key: 'R', description: 'Refresh all services', category: 'actions' },

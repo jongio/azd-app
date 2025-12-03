@@ -274,7 +274,7 @@ export function LogsMultiPaneView({ onFullscreenChange, healthReport, onServiceC
       />
 
       {/* Filters */}
-      <div className="p-4 bg-card border-b shrink-0">
+      <div className="p-4 bg-background dark:bg-card dark:border-b shrink-0">
         <div className="flex flex-wrap gap-8">
           {/* Services Filter */}
           <div>

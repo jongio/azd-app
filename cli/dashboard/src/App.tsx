@@ -1,17 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useServices } from '@/hooks/useServices'
 import { useHealthStream } from '@/hooks/useHealthStream'
+import { useDesignMode } from '@/hooks/useDesignMode'
 import { ServiceCard } from '@/components/ServiceCard'
 import { ServiceTable } from '@/components/ServiceTable'
 import { LogsMultiPaneView } from '@/components/LogsMultiPaneView'
 import { Sidebar } from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { DesignModeToggle } from '@/components/DesignModeToggle'
 import { ServiceStatusCard } from '@/components/ServiceStatusCard'
 import { EnvironmentPanel } from '@/components/EnvironmentPanel'
 import { PerformanceMetrics } from '@/components/views/PerformanceMetrics'
 // ServiceDependencies feature removed
 import { ServiceDetailPanel } from '@/components/panels/ServiceDetailPanel'
 import { KeyboardShortcuts } from '@/components/modals/KeyboardShortcuts'
+import { ModernApp } from '@/components/modern'
 import { shouldHandleShortcut, keyToView } from '@/lib/shortcuts-utils'
 import type { Service, HealthCheckResult } from '@/types'
 import { AlertCircle, Search, Filter, Github, HelpCircle, Settings, RefreshCw, Wifi, WifiOff } from 'lucide-react'
@@ -30,6 +33,9 @@ function App() {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false)
   const { services, loading, error } = useServices()
   const { hasActiveErrors } = useServiceErrors()
+  
+  // Design mode
+  const { designMode, isModern } = useDesignMode()
   
   // Real-time health monitoring
   const { 
@@ -84,7 +90,7 @@ function App() {
         return
       }
       
-      // Navigation shortcuts (1-6)
+      // Navigation shortcuts (1-4)
       const view = keyToView[key as keyof typeof keyToView]
       if (view) {
         event.preventDefault()
@@ -290,8 +296,47 @@ function App() {
     )
   }
 
+  // Modern mode placeholder - will be implemented in future tasks
+  if (isModern) {
+    // Build health map for modern components
+    const healthMap = useMemo(() => {
+      const map = new Map<string, HealthCheckResult>()
+      for (const service of services) {
+        const health = getServiceHealth(service.name)
+        if (health) {
+          map.set(service.name, health)
+        }
+      }
+      return map
+    }, [services, getServiceHealth])
+
+    return (
+      <div data-design={designMode}>
+        <ModernApp
+          projectName={projectName || 'Project'}
+          services={services}
+          connected={healthConnected}
+          healthSummary={healthSummary ?? { 
+            total: 0, 
+            healthy: 0, 
+            degraded: 0, 
+            unhealthy: 0, 
+            starting: 0,
+            stopped: 0,
+            unknown: 0,
+            overall: 'unknown' as const 
+          }}
+          healthReport={healthReport}
+          healthMap={healthMap}
+          healthError={healthError}
+          healthReconnect={healthReconnect}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-screen bg-background-tertiary relative">
+    <div data-design={designMode} className="flex h-screen bg-background-tertiary relative">
       {/* Connection Lost Overlay */}
       {healthError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background backdrop-blur-sm transition-opacity duration-300">
@@ -369,6 +414,7 @@ function App() {
                 healthConnected={healthConnected}
               />
               <div className="w-px h-5 bg-border mx-1" />
+              <DesignModeToggle />
               <ThemeToggle />
               <button className="p-2 hover:bg-secondary rounded-md transition-colors">
                 <Github className="w-4 h-4 text-foreground-secondary hover:text-foreground" />

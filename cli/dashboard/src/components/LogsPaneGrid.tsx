@@ -30,8 +30,9 @@ export function LogsPaneGrid({ children, columns, collapsedPanes = {} }: LogsPan
         return false
       })
       
-      // If all panes in row are collapsed, use auto height; otherwise use 1fr
-      rowTemplates.push(allCollapsed ? 'auto' : '1fr')
+      // If all panes in row are collapsed, use auto height; otherwise use minmax for flexible height
+      // minmax(200px, 1fr) ensures a minimum height but allows growth to fill available space
+      rowTemplates.push(allCollapsed ? 'auto' : 'minmax(200px, 1fr)')
     }
     
     return rowTemplates.join(' ')
@@ -39,11 +40,13 @@ export function LogsPaneGrid({ children, columns, collapsedPanes = {} }: LogsPan
   
   return (
     <div
-      className={cn("grid gap-4 w-full h-full p-4 overflow-auto box-border")}
+      className={cn("grid gap-4 w-full p-4 box-border overflow-hidden")}
       style={{
         gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
         gridTemplateRows: gridTemplateRows,
-        alignItems: 'stretch'
+        alignItems: 'stretch',
+        height: '100%',
+        minHeight: 0, // Critical for flex children to shrink properly
       } as React.CSSProperties}
     >
       {children}

@@ -12,11 +12,24 @@ function isValidTheme(value: string | null): value is Theme {
 function getStoredTheme(): Theme {
   if (typeof window === 'undefined') return DEFAULT_THEME
   const stored = localStorage.getItem(STORAGE_KEY)
-  return isValidTheme(stored) ? stored : DEFAULT_THEME
+  const theme = isValidTheme(stored) ? stored : DEFAULT_THEME
+  // Apply dark class immediately on load to prevent flash
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+  return theme
 }
 
 function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute('data-theme', theme)
+  // Also toggle the 'dark' class for Tailwind's dark: prefix
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
 }
 
 function persistTheme(theme: Theme): void {

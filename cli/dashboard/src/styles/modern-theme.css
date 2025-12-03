@@ -1,0 +1,431 @@
+/**
+ * Modern Dashboard Design System
+ * A fresh, contemporary design language using teal/cyan accent palette
+ * Based on design spec: cli/dashboard/design/modern/design-system.md
+ */
+
+/* ============================================
+   Modern Theme CSS Variables
+   ============================================ */
+
+:root {
+  /* ----------------------------------------
+     Brand / Primary - Teal/Cyan Palette
+     ---------------------------------------- */
+  --modern-primary-50: #ecfeff;
+  --modern-primary-100: #cffafe;
+  --modern-primary-200: #a5f3fc;
+  --modern-primary-300: #67e8f9;
+  --modern-primary-400: #22d3ee;
+  --modern-primary-500: #06b6d4;
+  --modern-primary-600: #0891b2;
+  --modern-primary-700: #0e7490;
+  --modern-primary-800: #155e75;
+  --modern-primary-900: #164e63;
+
+  /* Secondary - Warm Coral */
+  --modern-secondary-400: #fb7185;
+  --modern-secondary-500: #f43f5e;
+  --modern-secondary-600: #e11d48;
+
+  /* ----------------------------------------
+     Typography
+     ---------------------------------------- */
+  --modern-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --modern-font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+
+  /* Type Scale */
+  --modern-text-xs: 0.75rem;
+  --modern-text-sm: 0.875rem;
+  --modern-text-base: 1rem;
+  --modern-text-lg: 1.125rem;
+  --modern-text-xl: 1.25rem;
+  --modern-text-2xl: 1.5rem;
+  --modern-text-3xl: 1.875rem;
+
+  /* Font Weights */
+  --modern-font-normal: 400;
+  --modern-font-medium: 500;
+  --modern-font-semibold: 600;
+  --modern-font-bold: 700;
+
+  /* Letter Spacing */
+  --modern-tracking-tight: -0.025em;
+  --modern-tracking-normal: 0;
+  --modern-tracking-wide: 0.025em;
+  --modern-tracking-wider: 0.05em;
+
+  /* ----------------------------------------
+     Spacing System (8px base grid)
+     ---------------------------------------- */
+  --modern-space-0-5: 2px;
+  --modern-space-1: 4px;
+  --modern-space-2: 8px;
+  --modern-space-3: 12px;
+  --modern-space-4: 16px;
+  --modern-space-5: 20px;
+  --modern-space-6: 24px;
+  --modern-space-8: 32px;
+  --modern-space-10: 40px;
+  --modern-space-12: 48px;
+  --modern-space-16: 64px;
+
+  /* Container Widths */
+  --modern-container-xs: 320px;
+  --modern-container-sm: 640px;
+  --modern-container-md: 768px;
+  --modern-container-lg: 1024px;
+  --modern-container-xl: 1280px;
+  --modern-container-2xl: 1536px;
+
+  /* ----------------------------------------
+     Border Radius
+     ---------------------------------------- */
+  --modern-radius-none: 0;
+  --modern-radius-sm: 4px;
+  --modern-radius-md: 8px;
+  --modern-radius-lg: 12px;
+  --modern-radius-xl: 16px;
+  --modern-radius-2xl: 20px;
+  --modern-radius-3xl: 24px;
+  --modern-radius-full: 9999px;
+
+  /* ----------------------------------------
+     Animation Timing
+     ---------------------------------------- */
+  --modern-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --modern-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --modern-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --modern-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --modern-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --modern-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Duration Scale */
+  --modern-duration-instant: 0ms;
+  --modern-duration-fast: 100ms;
+  --modern-duration-normal: 200ms;
+  --modern-duration-slow: 300ms;
+  --modern-duration-slower: 500ms;
+  --modern-duration-slowest: 700ms;
+
+  /* ----------------------------------------
+     Z-Index Scale
+     ---------------------------------------- */
+  --modern-z-base: 0;
+  --modern-z-elevated: 10;
+  --modern-z-sticky: 100;
+  --modern-z-dropdown: 200;
+  --modern-z-overlay: 300;
+  --modern-z-modal: 400;
+  --modern-z-popover: 500;
+  --modern-z-toast: 600;
+  --modern-z-tooltip: 700;
+
+  /* ----------------------------------------
+     Breakpoints
+     ---------------------------------------- */
+  --modern-breakpoint-sm: 640px;
+  --modern-breakpoint-md: 768px;
+  --modern-breakpoint-lg: 1024px;
+  --modern-breakpoint-xl: 1280px;
+  --modern-breakpoint-2xl: 1536px;
+}
+
+/* ============================================
+   Light Mode - Modern Theme
+   ============================================ */
+[data-design="modern"][data-theme="light"],
+[data-design="modern"]:not(.dark):not([data-theme="dark"]) {
+  /* Backgrounds */
+  --modern-bg-primary: #ffffff;
+  --modern-bg-secondary: #f8fafc;
+  --modern-bg-tertiary: #f1f5f9;
+  --modern-bg-elevated: #ffffff;
+  --modern-bg-overlay: rgba(15, 23, 42, 0.4);
+
+  /* Foregrounds */
+  --modern-fg-primary: #0f172a;
+  --modern-fg-secondary: #334155;
+  --modern-fg-tertiary: #475569;
+  --modern-fg-muted: #64748b;
+  --modern-fg-placeholder: #94a3b8;
+
+  /* Borders */
+  --modern-border-default: #e2e8f0;
+  --modern-border-subtle: #f1f5f9;
+  --modern-border-strong: #cbd5e1;
+  --modern-border-focus: #06b6d4;
+
+  /* Shadows - Subtle with teal tint */
+  --modern-shadow-xs: 0 1px 2px 0 rgba(6, 182, 212, 0.03);
+  --modern-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(6, 182, 212, 0.05);
+  --modern-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(6, 182, 212, 0.05);
+  --modern-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(6, 182, 212, 0.05);
+  --modern-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(6, 182, 212, 0.05);
+  --modern-shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  --modern-shadow-focus: 0 0 0 3px rgba(6, 182, 212, 0.3);
+
+  /* Semantic Status Colors */
+  --modern-success: #10b981;
+  --modern-success-bg: #ecfdf5;
+  --modern-warning: #f59e0b;
+  --modern-warning-bg: #fffbeb;
+  --modern-error: #e11d48;
+  --modern-error-bg: #fff1f2;
+  --modern-info: #0284c7;
+  --modern-info-bg: #f0f9ff;
+
+  /* Map to standard tokens */
+  --background: var(--modern-bg-primary);
+  --background-secondary: var(--modern-bg-secondary);
+  --background-tertiary: var(--modern-bg-tertiary);
+  --background-elevated: var(--modern-bg-elevated);
+
+  --foreground: var(--modern-fg-primary);
+  --foreground-secondary: var(--modern-fg-secondary);
+  --foreground-tertiary: var(--modern-fg-tertiary);
+  --foreground-muted: var(--modern-fg-muted);
+
+  --primary: var(--modern-primary-600);
+  --primary-foreground: #ffffff;
+  --primary-hover: var(--modern-primary-700);
+
+  --border: var(--modern-border-default);
+  --border-secondary: var(--modern-border-strong);
+  --border-focus: var(--modern-border-focus);
+
+  --ring: var(--modern-primary-500);
+
+  --success: var(--modern-success);
+  --warning: var(--modern-warning);
+  --destructive: var(--modern-error);
+  --info: var(--modern-info);
+
+  --card: var(--modern-bg-primary);
+  --card-foreground: var(--modern-fg-primary);
+  --card-border: var(--modern-border-default);
+
+  --input-background: #ffffff;
+  --input-foreground: var(--modern-fg-primary);
+  --input-border: var(--modern-border-strong);
+  --input-placeholder: var(--modern-fg-placeholder);
+  --input-focus-border: var(--modern-primary-600);
+}
+
+/* ============================================
+   Dark Mode - Modern Theme
+   ============================================ */
+[data-design="modern"][data-theme="dark"],
+[data-design="modern"].dark,
+.dark [data-design="modern"] {
+  /* Backgrounds - Deep slate for reduced eye strain */
+  --modern-bg-primary: #0c1222;
+  --modern-bg-secondary: #111827;
+  --modern-bg-tertiary: #1e293b;
+  --modern-bg-elevated: #334155;
+  --modern-bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Foregrounds */
+  --modern-fg-primary: #f8fafc;
+  --modern-fg-secondary: #e2e8f0;
+  --modern-fg-tertiary: #cbd5e1;
+  --modern-fg-muted: #94a3b8;
+  --modern-fg-placeholder: #64748b;
+
+  /* Borders */
+  --modern-border-default: #334155;
+  --modern-border-subtle: #1e293b;
+  --modern-border-strong: #475569;
+  --modern-border-focus: #22d3ee;
+
+  /* Shadows - Glow effect for dark mode */
+  --modern-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --modern-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 0 1px 0 rgba(34, 211, 238, 0.1);
+  --modern-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 0 4px 0 rgba(34, 211, 238, 0.05);
+  --modern-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 0 10px 0 rgba(34, 211, 238, 0.05);
+  --modern-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px 0 rgba(34, 211, 238, 0.05);
+  --modern-shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  --modern-shadow-focus: 0 0 0 3px rgba(34, 211, 238, 0.4);
+
+  /* Semantic Status Colors - Brighter for dark mode */
+  --modern-success: #34d399;
+  --modern-success-bg: rgba(16, 185, 129, 0.15);
+  --modern-warning: #fbbf24;
+  --modern-warning-bg: rgba(245, 158, 11, 0.15);
+  --modern-error: #fb7185;
+  --modern-error-bg: rgba(225, 29, 72, 0.15);
+  --modern-info: #38bdf8;
+  --modern-info-bg: rgba(2, 132, 199, 0.15);
+
+  /* Map to standard tokens */
+  --background: var(--modern-bg-primary);
+  --background-secondary: var(--modern-bg-secondary);
+  --background-tertiary: var(--modern-bg-tertiary);
+  --background-elevated: var(--modern-bg-elevated);
+
+  --foreground: var(--modern-fg-primary);
+  --foreground-secondary: var(--modern-fg-secondary);
+  --foreground-tertiary: var(--modern-fg-tertiary);
+  --foreground-muted: var(--modern-fg-muted);
+
+  --primary: #22d3ee;
+  --primary-foreground: var(--modern-bg-primary);
+  --primary-hover: #67e8f9;
+
+  --border: var(--modern-border-default);
+  --border-secondary: var(--modern-border-strong);
+  --border-focus: var(--modern-border-focus);
+
+  --ring: #22d3ee;
+
+  --success: var(--modern-success);
+  --warning: var(--modern-warning);
+  --destructive: var(--modern-error);
+  --info: var(--modern-info);
+
+  --card: var(--modern-bg-secondary);
+  --card-foreground: var(--modern-fg-primary);
+  --card-border: var(--modern-border-default);
+
+  --input-background: var(--modern-bg-primary);
+  --input-foreground: var(--modern-fg-primary);
+  --input-border: var(--modern-border-default);
+  --input-placeholder: var(--modern-fg-placeholder);
+  --input-focus-border: #22d3ee;
+}
+
+/* ============================================
+   Modern Theme Animations
+   ============================================ */
+@keyframes modern-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modern-scale-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modern-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modern-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes modern-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 8px 4px currentColor;
+    opacity: 0.7;
+  }
+}
+
+@keyframes modern-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes modern-alert-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes modern-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes modern-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================
+   Modern Theme Utility Classes
+   ============================================ */
+[data-design="modern"] {
+  /* Base styles for modern design */
+  font-family: var(--modern-font-sans);
+}
+
+[data-design="modern"] code,
+[data-design="modern"] pre {
+  font-family: var(--modern-font-mono);
+}
+
+/* Modern animation utilities */
+[data-design="modern"] .modern-animate-fade-in {
+  animation: modern-fade-in var(--modern-duration-normal) var(--modern-ease-out);
+}
+
+[data-design="modern"] .modern-animate-scale-fade {
+  animation: modern-scale-fade var(--modern-duration-normal) var(--modern-ease-spring);
+}
+
+[data-design="modern"] .modern-animate-slide-up {
+  animation: modern-slide-up var(--modern-duration-slow) var(--modern-ease-spring);
+}
+
+[data-design="modern"] .modern-animate-slide-in-right {
+  animation: modern-slide-in-right var(--modern-duration-slow) var(--modern-ease-out);
+}
+
+[data-design="modern"] .modern-animate-shimmer {
+  animation: modern-shimmer 2s linear infinite;
+  background: linear-gradient(
+    90deg,
+    var(--modern-bg-tertiary) 0%,
+    var(--modern-bg-secondary) 50%,
+    var(--modern-bg-tertiary) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Modern focus states */
+[data-design="modern"] :focus-visible {
+  outline: 2px solid var(--modern-border-focus);
+  outline-offset: 2px;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  [data-design="modern"] *,
+  [data-design="modern"] *::before,
+  [data-design="modern"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
