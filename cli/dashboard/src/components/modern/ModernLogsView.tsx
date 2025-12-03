@@ -16,9 +16,7 @@ import {
   RefreshCw,
   StopCircle,
   PlayCircle,
-  Download,
   Settings,
-  ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogsPane, type LogEntry } from '@/components/LogsPane'
@@ -61,10 +59,7 @@ interface ModernLogsToolbarProps {
   searchTerm: string
   onSearchChange: (term: string) => void
   onClearAll: () => void
-  onExportLogs: (format: 'plaintext' | 'json' | 'csv' | 'markdown') => void
   onOpenSettings: () => void
-  gridColumns: number
-  onGridColumnsChange: (columns: number) => void
   onStartAll: () => void
   onStopAll: () => void
   onRestartAll: () => void
@@ -83,30 +78,12 @@ function ModernLogsToolbar({
   searchTerm,
   onSearchChange,
   onClearAll,
-  onExportLogs,
   onOpenSettings,
-  gridColumns,
-  onGridColumnsChange,
   onStartAll,
   onStopAll,
   onRestartAll,
   isBulkOperationInProgress,
 }: ModernLogsToolbarProps) {
-  const [isExportMenuOpen, setIsExportMenuOpen] = React.useState(false)
-  const exportMenuRef = React.useRef<HTMLDivElement>(null)
-
-  // Close export menu when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setIsExportMenuOpen(false)
-      }
-    }
-    if (isExportMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isExportMenuOpen])
   return (
     <div className="flex items-center gap-4 p-3 bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 shrink-0">
       {/* Left section - Actions */}
@@ -214,27 +191,6 @@ function ModernLogsToolbar({
 
       {/* Right section - View controls */}
       <div className="flex items-center gap-2">
-        {/* Grid columns */}
-        {viewMode === 'grid' && (
-          <div className="flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-md">
-            {[1, 2, 3, 4, 5, 6].map((cols) => (
-              <button
-                key={cols}
-                type="button"
-                onClick={() => onGridColumnsChange(cols)}
-                className={cn(
-                  'w-6 h-6 flex items-center justify-center rounded text-xs font-semibold transition-colors',
-                  gridColumns === cols
-                    ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                )}
-              >
-                {cols}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* View Mode Toggle */}
         <div className="flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-md">
           <button
@@ -263,42 +219,6 @@ function ModernLogsToolbar({
           >
             <List className="w-4 h-4" />
           </button>
-        </div>
-
-        {/* Export Dropdown */}
-        <div className="relative" ref={exportMenuRef}>
-          <button
-            type="button"
-            onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-            title="Export logs"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export</span>
-            <ChevronDown className={cn("w-3 h-3 transition-transform", isExportMenuOpen && "rotate-180")} />
-          </button>
-          {isExportMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
-              {[
-                { format: 'plaintext' as const, label: 'Plain Text (.txt)' },
-                { format: 'json' as const, label: 'JSON (.json)' },
-                { format: 'csv' as const, label: 'CSV (.csv)' },
-                { format: 'markdown' as const, label: 'Markdown (.md)' },
-              ].map(({ format, label }) => (
-                <button
-                  key={format}
-                  type="button"
-                  onClick={() => {
-                    onExportLogs(format)
-                    setIsExportMenuOpen(false)
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Settings */}
@@ -478,7 +398,6 @@ export function ModernLogsView({
   const [globalSearchTerm, setGlobalSearchTerm] = React.useState('')
   const [autoScrollEnabled, setAutoScrollEnabled] = React.useState(true)
   const [clearAllTrigger, setClearAllTrigger] = React.useState(0)
-  const [allLogs, _setAllLogs] = React.useState<LogEntry[]>([])
   const [levelFilter, setLevelFilter] = React.useState<Set<'info' | 'warning' | 'error'>>(
     new Set(['info', 'warning', 'error'])
   )
@@ -497,7 +416,6 @@ export function ModernLogsView({
   } = useServiceOperations()
 
   const viewMode = preferences.ui.viewMode
-  const gridColumns = Math.max(1, Math.min(6, preferences.ui.gridColumns))
 
   // Notify parent of fullscreen changes
   React.useEffect(() => {
@@ -619,56 +537,6 @@ export function ModernLogsView({
     showToast(`Copied ${logs.length} lines to clipboard`, 'success')
   }, [showToast, preferences.copy.defaultFormat])
 
-  // Export logs with format selection
-  const handleExportLogs = React.useCallback((format: 'plaintext' | 'json' | 'csv' | 'markdown') => {
-    // Collect logs from all selected services (in a real implementation, 
-    // this would aggregate from all LogsPane instances)
-    const logs = allLogs.filter(log => selectedServices.has(log.service))
-    
-    if (logs.length === 0) {
-      showToast('No logs to export', 'info')
-      return
-    }
-
-    let content = ''
-    let extension = 'txt'
-    let mimeType = 'text/plain'
-
-    switch (format) {
-      case 'json':
-        content = JSON.stringify(logs, null, 2)
-        extension = 'json'
-        mimeType = 'application/json'
-        break
-      case 'csv':
-        content = 'Service,Timestamp,Level,Message\n' +
-          logs.map(log => `"${log.service}","${log.timestamp}",${log.level},"${log.message.replace(/"/g, '""')}"`).join('\n')
-        extension = 'csv'
-        mimeType = 'text/csv'
-        break
-      case 'markdown':
-        content = `# Logs Export\n\nExported at: ${new Date().toISOString()}\n\n` +
-          logs.map(log => `**[${log.timestamp}]** \`${log.service}\` ${log.message}`).join('\n\n')
-        extension = 'md'
-        mimeType = 'text/markdown'
-        break
-      default: // plaintext
-        content = logs.map(log => `[${log.timestamp}] [${log.service}] ${log.message}`).join('\n')
-        extension = 'txt'
-        mimeType = 'text/plain'
-    }
-
-    const blob = new Blob([content], { type: mimeType })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `logs-${Date.now()}.${extension}`
-    a.click()
-    URL.revokeObjectURL(url)
-    
-    showToast(`Exported ${logs.length} logs as ${format.toUpperCase()}`, 'success')
-  }, [allLogs, selectedServices, showToast])
-
   // Filter and sort services
   const selectedServicesList = Array.from(selectedServices).sort((a, b) =>
     a.toLowerCase().localeCompare(b.toLowerCase())
@@ -682,8 +550,6 @@ export function ModernLogsView({
       healthReport?.services.find((s) => s.serviceName === serviceName)?.status ?? 'unknown'
     return healthFilter.has(serviceHealth)
   })
-
-  const effectiveColumns = typeof window !== 'undefined' && window.innerWidth < 600 ? 1 : gridColumns
 
   return (
     <div
@@ -709,10 +575,7 @@ export function ModernLogsView({
         searchTerm={globalSearchTerm}
         onSearchChange={setGlobalSearchTerm}
         onClearAll={handleClearAll}
-        onExportLogs={handleExportLogs}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        gridColumns={gridColumns}
-        onGridColumnsChange={(columns) => updateUI({ gridColumns: columns })}
         onStartAll={() => void startAll()}
         onStopAll={() => void stopAll()}
         onRestartAll={() => void restartAll()}
@@ -741,7 +604,7 @@ export function ModernLogsView({
               </div>
             </div>
           ) : (
-            <LogsPaneGrid columns={effectiveColumns} collapsedPanes={collapsedPanes}>
+            <LogsPaneGrid columns={2} collapsedPanes={collapsedPanes} autoFit={true}>
               {filteredServicesList.map((serviceName) => {
                 const service = services.find((s) => s.name === serviceName)
                 const serviceHealthStatus = healthReport?.services.find(
@@ -772,7 +635,15 @@ export function ModernLogsView({
             </LogsPaneGrid>
           )
         ) : (
-          <LogsView selectedServices={selectedServices} levelFilter={levelFilter} />
+          <LogsView 
+            selectedServices={selectedServices} 
+            levelFilter={levelFilter}
+            isPaused={isPaused}
+            autoScrollEnabled={autoScrollEnabled}
+            globalSearchTerm={globalSearchTerm}
+            clearAllTrigger={clearAllTrigger}
+            hideControls={true}
+          />
         )}
       </div>
 

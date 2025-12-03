@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink, CircleDot, PanelRight } from 'lucide-react'
-import { formatLogTimestamp, getLogPaneVisualStatus, type VisualStatus } from '@/lib/service-utils'
+import { formatLogTimestamp, getLogPaneVisualStatus, normalizeHealthStatus, type VisualStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
@@ -35,7 +35,7 @@ interface LogsPaneProps {
   levelFilter?: Set<'info' | 'warning' | 'error'>
   isCollapsed?: boolean           // NEW: controlled collapse state
   onToggleCollapse?: () => void   // NEW: collapse toggle callback
-  serviceHealth?: HealthStatus    // NEW: real-time health status from health stream
+  serviceHealth?: HealthStatus | 'starting'  // Real-time health from stream (may include 'starting')
   onShowDetails?: () => void      // Callback to open service details panel
 }
 
@@ -288,9 +288,12 @@ export function LogsPane({
   // Get process status from service
   const processStatus = service?.local?.status
 
+  // Normalize health status - backend may send 'starting' which we treat as 'unknown'
+  const normalizedHealth = serviceHealth ? normalizeHealthStatus(serviceHealth) : undefined
+
   // Border and header colors should follow service health (if available), not log content
   // Process status (stopped) takes priority over health status
-  const visualStatus: VisualStatus = getLogPaneVisualStatus(serviceHealth, paneStatus, processStatus)
+  const visualStatus: VisualStatus = getLogPaneVisualStatus(normalizedHealth, paneStatus, processStatus)
 
   const borderClass = {
     error: 'border-red-500',
@@ -357,27 +360,27 @@ export function LogsPane({
             </span>
           )}
           {/* Health status badge - from real-time health checks, only show when not stopped */}
-          {serviceHealth && processStatus !== 'stopped' && (
+          {normalizedHealth && processStatus !== 'stopped' && (
             <span 
               className={cn(
                 "inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium transition-all duration-200",
-                serviceHealth === 'healthy' && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
-                serviceHealth === 'degraded' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30",
-                serviceHealth === 'unhealthy' && "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30",
-                (serviceHealth === 'unknown' || serviceHealth === 'starting') && "bg-muted text-muted-foreground border border-border"
+                normalizedHealth === 'healthy' && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
+                normalizedHealth === 'degraded' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30",
+                normalizedHealth === 'unhealthy' && "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30",
+                normalizedHealth === 'unknown' && "bg-muted text-muted-foreground border border-border"
               )}
-              title={`Service health: ${serviceHealth} (from health checks)`}
+              title={`Service health: ${normalizedHealth} (from health checks)`}
             >
-              {serviceHealth === 'healthy' ? (
+              {normalizedHealth === 'healthy' ? (
                 <Heart className="w-3 h-3 shrink-0 animate-heartbeat" />
-              ) : serviceHealth === 'degraded' ? (
+              ) : normalizedHealth === 'degraded' ? (
                 <HeartPulse className="w-3 h-3 shrink-0 animate-caution-pulse" />
-              ) : serviceHealth === 'unhealthy' ? (
+              ) : normalizedHealth === 'unhealthy' ? (
                 <HeartPulse className="w-3 h-3 shrink-0 animate-status-flash" />
               ) : (
                 <HeartPulse className="w-3 h-3 shrink-0" />
               )}
-              <span className="leading-none">{serviceHealth}</span>
+              <span className="leading-none">{normalizedHealth}</span>
             </span>
           )}
         </div>

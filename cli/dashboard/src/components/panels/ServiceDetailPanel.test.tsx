@@ -317,8 +317,7 @@ describe('panel-utils', () => {
       expect(formatCheckType('http')).toBe('HTTP')
     })
 
-    it('formats port check', () => {
-      expect(formatCheckType('port')).toBe('Port')
+    it('formats tcp check', () => { expect(formatCheckType('tcp')).toBe('TCP')
     })
   })
 

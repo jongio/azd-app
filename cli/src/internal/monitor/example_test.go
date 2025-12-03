@@ -87,7 +87,6 @@ func ExampleStateMonitor_withRegistry() {
 		PID:       12345,
 		Port:      8080,
 		Status:    "running",
-		Health:    "healthy",
 		StartTime: time.Now(),
 	}
 	_ = reg.Register(entry)
@@ -105,7 +104,7 @@ func ExampleStateMonitor_withRegistry() {
 
 	// Simulate state change
 	time.Sleep(100 * time.Millisecond)
-	_ = reg.UpdateStatus("web-service", "error", "unhealthy")
+	_ = reg.UpdateStatus("web-service", "error")
 
 	// Monitor will detect the transition to error state
 	time.Sleep(200 * time.Millisecond)

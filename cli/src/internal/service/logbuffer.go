@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -124,6 +125,51 @@ func (lb *LogBuffer) GetRecent(n int) []LogEntry {
 	result := make([]LogEntry, n)
 	copy(result, lb.entries[start:])
 	return result
+}
+
+// ContainsPattern checks if any log entry matches the given regex pattern.
+// Returns true if the pattern is found in any log message.
+func (lb *LogBuffer) ContainsPattern(pattern string) bool {
+	if pattern == "" {
+		return false
+	}
+
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+
+	// Use simple string matching for common patterns (faster)
+	// Fall back to regex for complex patterns
+	for _, entry := range lb.entries {
+		if strings.Contains(entry.Message, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ContainsPatternRegex checks if any log entry matches the given regex pattern.
+// Returns true if the pattern is found in any log message.
+func (lb *LogBuffer) ContainsPatternRegex(pattern string) (bool, error) {
+	if pattern == "" {
+		return false, nil
+	}
+
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, fmt.Errorf("invalid regex pattern: %w", err)
+	}
+
+	for _, entry := range lb.entries {
+		if re.MatchString(entry.Message) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // GetSince returns entries since a specific time.

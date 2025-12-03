@@ -10,44 +10,74 @@ EXTENSION_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Change to the script directory
 cd "$EXTENSION_DIR" || exit
 
-# Check if .go files have changed by comparing timestamps
-# Only kill CLI processes if Go files need rebuilding
-SHOULD_KILL_PROCESSES=false
-
-if [ -d "src" ]; then
-    # Find newest .go file
-    NEWEST_GO_FILE=$(find src -name "*.go" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
-                     find src -name "*.go" -type f -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
-    
-    if [ -d "bin" ]; then
-        # Find newest binary (excluding .old files)
-        NEWEST_BINARY=$(find bin -type f ! -name "*.old" -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
-                        find bin -type f ! -name "*.old" -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
-        
-        if [ -n "$NEWEST_GO_FILE" ] && [ -n "$NEWEST_BINARY" ]; then
-            if [ "$NEWEST_GO_FILE" -gt "$NEWEST_BINARY" ]; then
-                SHOULD_KILL_PROCESSES=true
-            fi
-        elif [ -n "$NEWEST_GO_FILE" ]; then
-            # No binary exists, will need to build
-            SHOULD_KILL_PROCESSES=true
-        fi
-    else
-        # No bin directory, will need to build
-        SHOULD_KILL_PROCESSES=true
-    fi
-fi
-
-if [ "$SHOULD_KILL_PROCESSES" = true ]; then
-    # Kill any running app processes to allow rebuilding
-    echo "Go files changed - stopping any running app processes..."
+# Helper function to kill extension processes
+# This prevents "file in use" errors when azd x watch copies to ~/.azd/extensions/
+stop_extension_processes() {
     BINARY_NAME="app"
     EXTENSION_ID_FOR_KILL="jongio.azd.app"
     EXTENSION_BINARY_PREFIX="${EXTENSION_ID_FOR_KILL//./-}"
 
-    # Kill processes silently (ignore errors if not running)
+    # Kill processes by name silently (ignore errors if not running)
     pkill -f "$BINARY_NAME" 2>/dev/null || true
     pkill -f "$EXTENSION_BINARY_PREFIX" 2>/dev/null || true
+    
+    # Also kill any processes running from the installed extension directory
+    INSTALLED_EXT_DIR="$HOME/.azd/extensions/$EXTENSION_ID_FOR_KILL"
+    if [ -d "$INSTALLED_EXT_DIR" ]; then
+        pkill -f "$INSTALLED_EXT_DIR" 2>/dev/null || true
+    fi
+    
+    # Give processes time to fully terminate and release file handles
+    sleep 0.5
+}
+
+# Check if we need to rebuild the Go binary
+# This happens when: Go files changed OR embedded dashboard dist changed
+NEEDS_GO_BUILD=false
+
+if [ -d "bin" ]; then
+    # Find newest binary (excluding .old files)
+    NEWEST_BINARY_TIME=$(find bin -type f ! -name "*.old" -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
+                         find bin -type f ! -name "*.old" -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
+    
+    if [ -z "$NEWEST_BINARY_TIME" ]; then
+        NEEDS_GO_BUILD=true
+        echo "No existing binary found, will build"
+    else
+        # Check Go source files
+        if [ -d "src" ]; then
+            NEWEST_GO_TIME=$(find src -name "*.go" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
+                             find src -name "*.go" -type f -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
+            if [ -n "$NEWEST_GO_TIME" ] && [ "$NEWEST_GO_TIME" -gt "$NEWEST_BINARY_TIME" ]; then
+                NEEDS_GO_BUILD=true
+                echo "Go source files changed, will rebuild"
+            fi
+        fi
+        
+        # Check embedded dashboard dist (it's compiled into the binary)
+        DASHBOARD_DIST_PATH="src/internal/dashboard/dist"
+        if [ -d "$DASHBOARD_DIST_PATH" ]; then
+            NEWEST_DIST_TIME=$(find "$DASHBOARD_DIST_PATH" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -n | tail -1 || \
+                               find "$DASHBOARD_DIST_PATH" -type f -exec stat -f %m {} \; 2>/dev/null | sort -n | tail -1)
+            if [ -n "$NEWEST_DIST_TIME" ] && [ "$NEWEST_DIST_TIME" -gt "$NEWEST_BINARY_TIME" ]; then
+                NEEDS_GO_BUILD=true
+                echo "Embedded dashboard dist changed, will rebuild"
+            fi
+        fi
+    fi
+else
+    NEEDS_GO_BUILD=true
+    echo "No bin directory found, will build"
+fi
+
+# Only kill extension processes if we're actually going to rebuild the binary
+if [ "$NEEDS_GO_BUILD" = true ]; then
+    echo "Stopping extension processes before rebuild..."
+    stop_extension_processes
+else
+    # Nothing to rebuild - exit early to prevent azd x watch from trying to install
+    echo "  ✓ Binary up to date, skipping build"
+    exit 0
 fi
 
 echo "Building App Extension..."

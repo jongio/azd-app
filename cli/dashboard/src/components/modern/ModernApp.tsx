@@ -362,6 +362,9 @@ export function ModernApp({
         connected={connected}
         onShowSettings={handleShowSettings}
         onShowShortcuts={handleShowShortcuts}
+        services={services}
+        hasActiveErrors={false}
+        loading={!connected && services.length === 0}
       />
 
       {/* Settings Dialog */}

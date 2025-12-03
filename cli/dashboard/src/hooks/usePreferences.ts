@@ -5,6 +5,7 @@ export interface UserPreferences {
   ui: {
     gridColumns: number
     viewMode: 'grid' | 'unified'
+    gridAutoFit: boolean
     selectedServices: string[]
   }
   behavior: {
@@ -24,6 +25,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   ui: {
     gridColumns: 2,
     viewMode: 'grid',
+    gridAutoFit: true,
     selectedServices: []
   },
   behavior: {
@@ -75,6 +77,9 @@ function validatePreferences(data: unknown): UserPreferences {
     viewMode: isValidViewMode(rawUI.viewMode)
       ? rawUI.viewMode
       : DEFAULT_PREFERENCES.ui.viewMode,
+    gridAutoFit: typeof rawUI.gridAutoFit === 'boolean'
+      ? rawUI.gridAutoFit
+      : DEFAULT_PREFERENCES.ui.gridAutoFit,
     selectedServices: Array.isArray(rawUI.selectedServices) && 
       rawUI.selectedServices.every((s): s is string => typeof s === 'string')
       ? rawUI.selectedServices

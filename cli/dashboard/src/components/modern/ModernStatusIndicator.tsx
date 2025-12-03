@@ -12,6 +12,8 @@ import {
   HelpCircle,
   RefreshCw,
   Loader2,
+  Eye,
+  Hammer,
   type LucideIcon 
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -21,7 +23,7 @@ import type { HealthStatus } from '@/types'
 // Types
 // =============================================================================
 
-export type ProcessStatus = 'running' | 'starting' | 'stopping' | 'stopped' | 'error' | 'restarting' | 'not-running'
+export type ProcessStatus = 'running' | 'starting' | 'stopping' | 'stopped' | 'error' | 'restarting' | 'not-running' | 'watching' | 'building' | 'built' | 'completed' | 'failed'
 export type EffectiveStatus = ProcessStatus | HealthStatus
 
 export type StatusVariant = 'dot' | 'badge' | 'full'
@@ -153,6 +155,57 @@ const STATUS_CONFIG: Record<string, StatusConfig> = {
     textLight: 'text-slate-500',
     textDark: 'dark:text-slate-400',
   },
+  // Process service specific statuses
+  watching: {
+    color: 'success',
+    text: 'Watching',
+    icon: Eye,
+    animation: 'heartbeat',
+    bgLight: 'bg-emerald-50',
+    bgDark: 'dark:bg-emerald-500/15',
+    textLight: 'text-emerald-600',
+    textDark: 'dark:text-emerald-400',
+  },
+  building: {
+    color: 'warning',
+    text: 'Building',
+    icon: Hammer,
+    animation: 'pulse',
+    bgLight: 'bg-amber-50',
+    bgDark: 'dark:bg-amber-500/15',
+    textLight: 'text-amber-600',
+    textDark: 'dark:text-amber-400',
+  },
+  built: {
+    color: 'success',
+    text: 'Built',
+    icon: CheckCircle,
+    animation: null,
+    bgLight: 'bg-emerald-50',
+    bgDark: 'dark:bg-emerald-500/15',
+    textLight: 'text-emerald-600',
+    textDark: 'dark:text-emerald-400',
+  },
+  completed: {
+    color: 'success',
+    text: 'Completed',
+    icon: CheckCircle,
+    animation: null,
+    bgLight: 'bg-emerald-50',
+    bgDark: 'dark:bg-emerald-500/15',
+    textLight: 'text-emerald-600',
+    textDark: 'dark:text-emerald-400',
+  },
+  failed: {
+    color: 'error',
+    text: 'Failed',
+    icon: XCircle,
+    animation: 'flash',
+    bgLight: 'bg-rose-50',
+    bgDark: 'dark:bg-rose-500/15',
+    textLight: 'text-rose-600',
+    textDark: 'dark:text-rose-400',
+  },
 }
 
 // Animation class mapping
@@ -216,7 +269,7 @@ export function ModernStatusDot({
   return (
     <span
       className={cn(
-        'inline-block rounded-full flex-shrink-0',
+        'inline-block rounded-full shrink-0',
         sizeClasses[size],
         colorClasses[config.color as keyof typeof colorClasses],
         animated && getAnimationClass(config.animation, reduceMotion),

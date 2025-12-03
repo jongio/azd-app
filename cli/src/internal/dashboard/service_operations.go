@@ -258,20 +258,20 @@ func (h *serviceOperationHandler) executeBulkServiceOperation(entry *registry.Se
 // performStopBulk handles the stop operation without writing to HTTP response.
 func (h *serviceOperationHandler) performStopBulk(entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) error {
 	// Update registry to stopping state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStopping, entry.Health); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopping); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
 	if err := h.stopService(entry, serviceName); err != nil {
 		log.Printf("Warning: %v", err)
-		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
 		return err
 	}
 
 	// Update registry to stopped state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopped); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -299,7 +299,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthStarting); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStarting); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -310,7 +310,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 	functionsParser := service.NewFunctionsOutputParser(false)
 	process, err := service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
 	if err != nil {
-		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
 		return fmt.Errorf("failed to start service: %w", err)
@@ -327,7 +327,6 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		Language:    runtime.Language,
 		Framework:   runtime.Framework,
 		Status:      constants.StatusRunning,
-		Health:      constants.HealthStarting,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
 	}
@@ -395,14 +394,14 @@ func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEnt
 // performStop handles the stop operation.
 func (h *serviceOperationHandler) performStop(w http.ResponseWriter, entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) {
 	// Update registry to stopping state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStopping, entry.Health); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopping); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
 	if err := h.stopService(entry, serviceName); err != nil {
 		log.Printf("Warning: %v", err)
 		// Update registry to error state and notify clients
-		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
 		h.broadcastAndRespond(w, serviceName, constants.StatusError, nil)
@@ -410,7 +409,7 @@ func (h *serviceOperationHandler) performStop(w http.ResponseWriter, entry *regi
 	}
 
 	// Update registry to stopped state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStopped); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -441,7 +440,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthStarting); err != nil {
+	if err := reg.UpdateStatus(serviceName, constants.StatusStarting); err != nil {
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
@@ -452,7 +451,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	functionsParser := service.NewFunctionsOutputParser(false)
 	process, err := service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
 	if err != nil {
-		if regErr := reg.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown); regErr != nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
 		// Broadcast error state to WebSocket clients
@@ -474,7 +473,6 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 		Language:    runtime.Language,
 		Framework:   runtime.Framework,
 		Status:      constants.StatusRunning,
-		Health:      constants.HealthStarting,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
 	}

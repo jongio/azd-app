@@ -41,16 +41,33 @@ const ansiConverter = new AnsiConverter({
 
 /**
  * Converts ANSI escape codes to HTML for display.
- * Includes XSS sanitization for security.
+ * Includes XSS sanitization for security and URL linkification.
  */
 export function convertAnsiToHtml(text: string): string {
   try {
     const html = ansiConverter.toHtml(text)
-    return sanitizeHtml(html)
+    const sanitized = sanitizeHtml(html)
+    return linkifyUrls(sanitized)
   } catch {
     // If conversion fails, escape the text for safe display
     return escapeHtml(text)
   }
+}
+
+/**
+ * Pattern to match URLs (http/https) in text.
+ * Matches URLs while avoiding common punctuation at the end.
+ */
+const URL_PATTERN = /https?:\/\/[^\s<>"'`]+[^\s<>"'`.,;:!?\])]/g
+
+/**
+ * Converts URLs in text to clickable anchor tags.
+ * Opens links in a new tab with security attributes.
+ */
+function linkifyUrls(html: string): string {
+  return html.replace(URL_PATTERN, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${url}</a>`
+  })
 }
 
 /**

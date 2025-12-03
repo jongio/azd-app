@@ -52,7 +52,6 @@ func TestRegister(t *testing.T) {
 		Language:   "go",
 		Framework:  "gin",
 		Status:     "ready",
-		Health:     "healthy",
 		StartTime:  time.Now(),
 	}
 
@@ -119,7 +118,6 @@ func TestUpdateStatus(t *testing.T) {
 		Name:      "test-service",
 		Port:      8080,
 		Status:    "starting",
-		Health:    "unknown",
 		StartTime: time.Now(),
 	}
 
@@ -128,7 +126,7 @@ func TestUpdateStatus(t *testing.T) {
 	}
 
 	// Update status
-	err := registry.UpdateStatus("test-service", "ready", "healthy")
+	err := registry.UpdateStatus("test-service", "ready")
 	if err != nil {
 		t.Fatalf("UpdateStatus() error = %v, want nil", err)
 	}
@@ -143,10 +141,6 @@ func TestUpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() Status = %v, want ready", svc.Status)
 	}
 
-	if svc.Health != "healthy" {
-		t.Errorf("UpdateStatus() Health = %v, want healthy", svc.Health)
-	}
-
 	// Verify LastChecked was updated
 	if svc.LastChecked.IsZero() {
 		t.Errorf("UpdateStatus() did not update LastChecked")
@@ -157,7 +151,7 @@ func TestUpdateStatusNonexistent(t *testing.T) {
 	tempDir := t.TempDir()
 	registry := GetRegistry(tempDir)
 
-	err := registry.UpdateStatus("nonexistent-service", "ready", "healthy")
+	err := registry.UpdateStatus("nonexistent-service", "ready")
 	if err == nil {
 		t.Errorf("UpdateStatus() for nonexistent service should fail")
 	}
@@ -237,7 +231,6 @@ func TestSaveAndLoad(t *testing.T) {
 		URL:        "http://localhost:8080",
 		Language:   "go",
 		Status:     "ready",
-		Health:     "healthy",
 		StartTime:  time.Now(),
 	}
 
@@ -374,7 +367,6 @@ func TestRegisterWithError(t *testing.T) {
 		Name:      "test-service",
 		Port:      8080,
 		Status:    "error",
-		Health:    "unhealthy",
 		Error:     "failed to start",
 		StartTime: time.Now(),
 	}

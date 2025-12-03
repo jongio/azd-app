@@ -235,7 +235,7 @@
     },
     "healthcheck": {
       "type": "object",
-      "description": "Docker Compose-compatible health check configuration. For build/watch services that don't serve HTTP endpoints, use 'disable: true' or set healthcheck to false at the service level.",
+      "description": "Health check configuration for monitoring service status. Supports different check types: 'http' for web services, 'tcp' for port connectivity, 'process' for background workers, and 'output' for matching stdout patterns. For build/watch services that don't serve HTTP endpoints, use 'disable: true' or 'type: none'.",
       "properties": {
         "test": {
           "type": ["string", "array"],
@@ -254,7 +254,7 @@
         "type": {
           "type": "string",
           "enum": ["http", "tcp", "process", "output", "none"],
-          "description": "Type of health check to perform. 'http' checks an HTTP endpoint, 'tcp' checks if a port is listening, 'process' checks if the process is running, 'output' monitors stdout for a pattern, 'none' disables health checks.",
+          "description": "Type of health check to perform. 'http' checks an HTTP endpoint (default for services with ports), 'tcp' checks if a port is listening, 'process' checks if the process is running (default for services without ports), 'output' monitors stdout for a regex pattern (useful for watch mode services), 'none' disables health checks.",
           "default": "http"
         },
         "path": {
@@ -264,8 +264,8 @@
         },
         "pattern": {
           "type": "string",
-          "description": "Regex pattern to match in stdout (when type=output). Service is considered healthy when this pattern is matched.",
-          "examples": ["Found 0 errors", "Server started", "Listening on port"]
+          "description": "Regex pattern to match in stdout (when type=output). Service is considered healthy when this pattern is matched. Useful for watch mode services like TypeScript compiler.",
+          "examples": ["Found 0 errors", "Server started", "Listening on port", "Watching for file changes"]
         },
         "interval": {
           "type": "string",
@@ -592,6 +592,40 @@
         "postrun": {
           "run": "echo 'All services are ready!'",
           "shell": "sh"
+        }
+      }
+    },
+    {
+      "name": "process-services-example",
+      "description": "Example showing different service types and health check modes",
+      "services": {
+        "tsc-watch": {
+          "project": "./frontend",
+          "healthcheck": {
+            "type": "output",
+            "pattern": "Found 0 errors. Watching for file changes."
+          }
+        },
+        "build-assets": {
+          "project": "./assets",
+          "healthcheck": false
+        },
+        "worker": {
+          "language": "Python",
+          "project": "./worker",
+          "healthcheck": {
+            "type": "process"
+          }
+        },
+        "postgres": {
+          "image": "postgres:15",
+          "ports": ["5432"],
+          "healthcheck": {
+            "type": "tcp"
+          },
+          "environment": {
+            "POSTGRES_PASSWORD": "localdev"
+          }
         }
       }
     }

@@ -16,7 +16,7 @@ Services defined in `azure.yaml` that don't have explicit `ports` configuration 
 
 ## Example
 
-From `C:\code\songerator\azure.yaml`:
+Example `azure.yaml` with portless services:
 
 ```yaml
 services:

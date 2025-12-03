@@ -62,7 +62,7 @@ const mockHealthReport: HealthReportEvent = {
     { serviceName: 'api', status: 'healthy', checkType: 'http', responseTime: 45000000, timestamp: new Date().toISOString() },
     { serviceName: 'web', status: 'healthy', checkType: 'http', responseTime: 12000000, timestamp: new Date().toISOString() },
     { serviceName: 'worker', status: 'degraded', checkType: 'process', responseTime: 0, timestamp: new Date().toISOString() },
-    { serviceName: 'db', status: 'unhealthy', checkType: 'port', responseTime: 5000000000, timestamp: new Date().toISOString() },
+    { serviceName: 'db', status: 'unhealthy', checkType: 'tcp', responseTime: 5000000000, timestamp: new Date().toISOString() },
   ],
   summary: {
     total: 5,

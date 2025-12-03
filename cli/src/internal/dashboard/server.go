@@ -314,7 +314,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 			escapedFramework := html.EscapeString(svc.Framework)
 			escapedLanguage := html.EscapeString(svc.Language)
 			escapedStatus := html.EscapeString(svc.Status)
-			escapedHealth := html.EscapeString(svc.Health)
+			escapedHealth := "-" // Health is computed dynamically via health checks
 
 			fmt.Fprintf(w, `
     <div class="service">

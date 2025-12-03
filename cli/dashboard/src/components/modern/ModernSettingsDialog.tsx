@@ -1,13 +1,12 @@
 /**
  * ModernSettingsDialog - Settings dialog with modern styling
- * Includes design mode toggle, log classifications, and other settings
+ * Includes log classifications and other settings
  * Follows design patterns from ModernServiceDetailPanel
  */
 import * as React from 'react'
-import { X, Monitor, Sparkles, AlertCircle, Check } from 'lucide-react'
+import { X, AlertCircle, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
-import { useDesignMode, type DesignMode } from '@/hooks/useDesignMode'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
 import { ClassificationsEditor, type ClassificationChange } from '@/components/ClassificationsManager'
 
@@ -22,16 +21,6 @@ export interface ModernSettingsDialogProps {
   onClose: () => void
   /** Additional class names */
   className?: string
-}
-
-// =============================================================================
-// Helper: Update URL with design mode
-// =============================================================================
-
-function updateURLWithDesignMode(mode: DesignMode): void {
-  const url = new URL(window.location.href)
-  url.searchParams.set('design', mode)
-  window.history.replaceState({}, '', url.toString())
 }
 
 // =============================================================================
@@ -63,72 +52,6 @@ function SectionCard({ title, description, children }: SectionCardProps) {
 }
 
 // =============================================================================
-// Design Mode Option Component
-// =============================================================================
-
-interface DesignModeOptionProps {
-  mode: DesignMode
-  label: string
-  description: string
-  icon: React.ComponentType<{ className?: string }>
-  isSelected: boolean
-  onSelect: () => void
-}
-
-function DesignModeOption({ label, description, icon: Icon, isSelected, onSelect }: DesignModeOptionProps) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        'w-full flex items-start gap-3 p-3 rounded-lg text-left',
-        'transition-all duration-150 ease-out',
-        'border-2',
-        isSelected
-          ? 'border-cyan-500 dark:border-cyan-400 bg-cyan-50 dark:bg-cyan-500/10'
-          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-      )}
-      role="radio"
-      aria-checked={isSelected}
-    >
-      <div className={cn(
-        'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
-        isSelected
-          ? 'bg-cyan-100 dark:bg-cyan-500/20'
-          : 'bg-slate-100 dark:bg-slate-700'
-      )}>
-        <Icon className={cn(
-          'w-5 h-5',
-          isSelected
-            ? 'text-cyan-600 dark:text-cyan-400'
-            : 'text-slate-500 dark:text-slate-400'
-        )} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            'font-medium',
-            isSelected
-              ? 'text-cyan-700 dark:text-cyan-300'
-              : 'text-slate-900 dark:text-slate-100'
-          )}>
-            {label}
-          </span>
-          {isSelected && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500 text-white font-medium">
-              Active
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          {description}
-        </p>
-      </div>
-    </button>
-  )
-}
-
-// =============================================================================
 // ModernSettingsDialog Component
 // =============================================================================
 
@@ -138,12 +61,9 @@ export function ModernSettingsDialog({
   className,
 }: ModernSettingsDialogProps) {
   const dialogRef = React.useRef<HTMLDivElement>(null)
-  const { designMode, setDesignMode } = useDesignMode()
   const { classifications, addClassification, deleteClassification } = useLogClassifications()
-  const [announcement, setAnnouncement] = React.useState('')
   const [pendingChanges, setPendingChanges] = React.useState<ClassificationChange[]>([])
   const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const statusTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const hasPendingChanges = pendingChanges.length > 0
@@ -153,9 +73,6 @@ export function ModernSettingsDialog({
   // Cleanup timers on unmount
   React.useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current)
       }
@@ -177,22 +94,6 @@ export function ModernSettingsDialog({
       closeButton?.focus()
     }
   }, [isOpen])
-
-  // Handle design mode change
-  const handleModeChange = (mode: DesignMode) => {
-    setDesignMode(mode)
-    updateURLWithDesignMode(mode)
-
-    // Announce to screen readers
-    const modeLabel = mode === 'modern' ? 'Modern' : 'Classic'
-    setAnnouncement(`${modeLabel} design mode enabled`)
-
-    // Clear any existing timeout before setting a new one
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    timeoutRef.current = setTimeout(() => setAnnouncement(''), 1000)
-  }
 
   // Handle adding a pending change
   const handleAddChange = (change: ClassificationChange) => {
@@ -304,35 +205,6 @@ export function ModernSettingsDialog({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* Design Mode */}
-          <SectionCard
-            title="Design Mode"
-            description="Choose how the dashboard looks and feels"
-          >
-            <div 
-              className="space-y-2" 
-              role="radiogroup" 
-              aria-label="Design mode selection"
-            >
-              <DesignModeOption
-                mode="modern"
-                label="Modern"
-                description="Clean, contemporary design with enhanced visuals and animations"
-                icon={Sparkles}
-                isSelected={designMode === 'modern'}
-                onSelect={() => handleModeChange('modern')}
-              />
-              <DesignModeOption
-                mode="classic"
-                label="Classic"
-                description="Traditional layout with familiar interface patterns"
-                icon={Monitor}
-                isSelected={designMode === 'classic'}
-                onSelect={() => handleModeChange('classic')}
-              />
-            </div>
-          </SectionCard>
-
           {/* Log Classifications */}
           <SectionCard
             title="Log Classifications"
@@ -405,11 +277,6 @@ export function ModernSettingsDialog({
               </button>
             )}
           </div>
-        </div>
-
-        {/* Screen reader announcements */}
-        <div role="status" aria-live="polite" className="sr-only">
-          {announcement}
         </div>
       </div>
     </>
