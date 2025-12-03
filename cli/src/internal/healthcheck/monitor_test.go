@@ -31,7 +31,7 @@ func TestHealthStatus(t *testing.T) {
 func TestHealthCheckType(t *testing.T) {
 	types := []HealthCheckType{
 		HealthCheckTypeHTTP,
-		HealthCheckTypePort,
+		HealthCheckTypeTCP,
 		HealthCheckTypeProcess,
 	}
 
@@ -295,8 +295,8 @@ func TestCheckServiceFallback(t *testing.T) {
 
 	result := checker.CheckService(context.Background(), svc)
 
-	if result.CheckType != HealthCheckTypePort {
-		t.Errorf("Expected check type port, got %s", result.CheckType)
+	if result.CheckType != HealthCheckTypeTCP {
+		t.Errorf("Expected check type tcp, got %s", result.CheckType)
 	}
 
 	if result.Status != HealthStatusUnhealthy {
@@ -533,5 +533,60 @@ func TestTryHTTPHealthCheck_Skips400BadRequest(t *testing.T) {
 	// This allows cascading to port/process check
 	if result != nil {
 		t.Errorf("Expected nil result for 400 responses (cascade to port check), got status: %s", result.Status)
+	}
+}
+
+func TestCheckService_StoppedService(t *testing.T) {
+	// Test that stopped services skip health checks and return unknown status
+	// instead of being marked as unhealthy
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+
+	// Service with stopped status - should skip health check
+	svc := serviceInfo{
+		Name:           "stopped-service",
+		Port:           64998, // Port that isn't listening
+		RegistryStatus: "stopped",
+	}
+
+	result := checker.CheckService(context.Background(), svc)
+
+	// Stopped services should return unknown status, not unhealthy
+	if result.Status != HealthStatusUnknown {
+		t.Errorf("Expected status unknown for stopped service, got %s", result.Status)
+	}
+
+	if result.ServiceName != "stopped-service" {
+		t.Errorf("Expected service name 'stopped-service', got '%s'", result.ServiceName)
+	}
+}
+
+func TestCheckService_RunningService(t *testing.T) {
+	// Test that running services still get normal health checks
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+
+	// Service with running status and non-listening port - should be unhealthy
+	svc := serviceInfo{
+		Name:           "running-service",
+		Port:           64998, // Port that isn't listening
+		RegistryStatus: "running",
+	}
+
+	result := checker.CheckService(context.Background(), svc)
+
+	// Running services with non-listening ports should be marked as unhealthy
+	if result.Status != HealthStatusUnhealthy {
+		t.Errorf("Expected status unhealthy for running service with dead port, got %s", result.Status)
 	}
 }

@@ -21,11 +21,17 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useClipboard } from '@/hooks/useClipboard'
 import { ModernStatusBadge, type EffectiveStatus } from './ModernStatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
+import { useServiceOperations, type OperationState } from '@/hooks/useServiceOperations'
 import type { Service, HealthCheckResult } from '@/types'
 import { 
   formatUptime, 
   formatResponseTime,
   getCheckTypeDisplay,
+  getEffectiveStatus as getEffectiveStatusFromUtils,
+  getStatusDisplay,
+  isProcessService,
+  getServiceModeBadgeConfig,
+  getServiceTypeLabel,
 } from '@/lib/service-utils'
 
 // =============================================================================
@@ -51,19 +57,52 @@ type TabId = 'overview' | 'local' | 'azure' | 'environment'
 // Helper Functions
 // =============================================================================
 
-function getEffectiveStatus(service: Service, healthStatus?: HealthCheckResult): EffectiveStatus {
-  const processStatus = service.local?.status ?? service.status ?? 'not-running'
+/**
+ * Convert service status + health to EffectiveStatus for modern UI components.
+ * Uses the centralized getEffectiveStatus from service-utils for consistency
+ * with the classic view, then converts to the EffectiveStatus type used by modern components.
+ */
+function getEffectiveStatusForModern(
+  service: Service, 
+  healthStatus?: HealthCheckResult,
+  operationState?: OperationState
+): EffectiveStatus {
+  // Use centralized getEffectiveStatus from service-utils (same as classic view)
+  const { status, health } = getEffectiveStatusFromUtils(service, operationState)
   
-  if (processStatus === 'stopped') return 'stopped'
-  if (processStatus === 'stopping') return 'stopping'
-  if (processStatus === 'starting') return 'starting'
-  if (processStatus === 'error') return 'error'
-  if (processStatus === 'not-running') return 'not-running'
+  // Get the display info which normalizes status/health combinations
+  const statusDisplay = getStatusDisplay(status, health)
   
-  const health = healthStatus?.status ?? service.local?.health ?? service.health ?? 'unknown'
-  if (health === 'healthy') return 'healthy'
-  if (health === 'degraded') return 'degraded'
-  if (health === 'unhealthy') return 'unhealthy'
+  // Use real-time health from health stream if available and not in operation
+  // Normalize health to handle backend's 'starting' → 'unknown'
+  const normalizedStreamHealth = healthStatus?.status === 'starting' ? 'unknown' : healthStatus?.status
+  const effectiveHealth = (operationState === 'idle' || !operationState)
+    ? (normalizedStreamHealth ?? health)
+    : health
+  
+  // Map to EffectiveStatus based on display text (which is already normalized)
+  const displayText = statusDisplay.text.toLowerCase()
+  
+  // Process service specific statuses
+  if (status === 'watching') return 'watching'
+  if (status === 'building') return 'building'
+  if (status === 'built') return 'built'
+  if (status === 'completed') return 'completed'
+  if (status === 'failed') return 'failed'
+  
+  // Standard status mappings (lifecycle state takes priority)
+  if (displayText === 'stopped') return 'stopped'
+  if (displayText === 'stopping') return 'stopping'
+  if (displayText === 'starting' || displayText === 'restarting') return 'starting'
+  if (displayText === 'restarting') return 'restarting'
+  if (displayText === 'error') return 'error'
+  if (displayText === 'not running') return 'not-running'
+  
+  // Health-based statuses (when service is running)
+  // Note: 'starting' health is normalized to 'unknown', so it won't match here
+  if (effectiveHealth === 'healthy' || displayText === 'running') return 'healthy'
+  if (effectiveHealth === 'degraded' || displayText === 'degraded') return 'degraded'
+  if (effectiveHealth === 'unhealthy' || displayText === 'unhealthy') return 'unhealthy'
   
   return 'unknown'
 }
@@ -171,16 +210,52 @@ function InfoRow({ label, value, copyable, onCopy, copied }: InfoRowProps) {
 interface OverviewTabProps {
   service: Service
   healthStatus?: HealthCheckResult
+  operationState?: OperationState
 }
 
-function OverviewTab({ service, healthStatus }: OverviewTabProps) {
-  const effectiveStatus = getEffectiveStatus(service, healthStatus)
+function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps) {
+  const effectiveStatus = getEffectiveStatusForModern(service, healthStatus, operationState)
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
   const isDeployed = hasAzureDeployment(service)
   const azurePortalUrl = buildAzurePortalUrl(service)
+  
+  // Process service detection
+  const serviceType = service.local?.serviceType
+  const serviceMode = service.local?.serviceMode
+  const isProcess = isProcessService(serviceType)
+  const modeBadgeConfig = serviceMode ? getServiceModeBadgeConfig(serviceMode) : null
 
   return (
     <div>
+      {/* Service Type (for process services) */}
+      {isProcess && (
+        <SectionCard title="Service Type">
+          <div className="space-y-0">
+            <InfoRow label="Type" value={getServiceTypeLabel(serviceType)} />
+            {serviceMode && (
+              <InfoRow 
+                label="Mode" 
+                value={
+                  <span className="flex items-center gap-2">
+                    {modeBadgeConfig && (
+                      <span className={cn(
+                        'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold',
+                        modeBadgeConfig.color
+                      )}>
+                        {modeBadgeConfig.label}
+                      </span>
+                    )}
+                    <span className="text-slate-500 dark:text-slate-400 text-xs">
+                      {modeBadgeConfig?.description}
+                    </span>
+                  </span>
+                } 
+              />
+            )}
+          </div>
+        </SectionCard>
+      )}
+
       {/* Local Development */}
       <SectionCard title="Local Development">
         <div className="space-y-0">
@@ -204,7 +279,7 @@ function OverviewTab({ service, healthStatus }: OverviewTabProps) {
               } 
             />
           )}
-          {service.local?.port && service.local.port > 0 && (
+          {!isProcess && service.local?.port && service.local.port > 0 && (
             <InfoRow label="Port" value={service.local.port} />
           )}
         </div>
@@ -264,10 +339,11 @@ interface LocalTabProps {
   healthStatus?: HealthCheckResult
   copiedField: string | null
   onCopy: (text: string, field: string) => void
+  operationState?: OperationState
 }
 
-function LocalTab({ service, healthStatus, copiedField, onCopy }: LocalTabProps) {
-  const effectiveStatus = getEffectiveStatus(service, healthStatus)
+function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }: LocalTabProps) {
+  const effectiveStatus = getEffectiveStatusForModern(service, healthStatus, operationState)
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
 
   return (
@@ -544,6 +620,8 @@ export function ModernServiceDetailPanel({
   const [activeTab, setActiveTab] = React.useState<TabId>('overview')
   const panelRef = React.useRef<HTMLDivElement>(null)
   const { copiedField, copyToClipboard } = useClipboard()
+  const { getOperationState } = useServiceOperations()
+  const operationState = service ? getOperationState(service.name) : undefined
 
   useEscapeKey(onClose, isOpen)
 
@@ -570,7 +648,7 @@ export function ModernServiceDetailPanel({
     void copyToClipboard(text, field)
   }
 
-  const effectiveStatus = getEffectiveStatus(service, healthStatus)
+  const effectiveStatus = getEffectiveStatusForModern(service, healthStatus, operationState)
 
   const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'overview', label: 'Overview', icon: Server },
@@ -672,7 +750,7 @@ export function ModernServiceDetailPanel({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5">
           {activeTab === 'overview' && (
-            <OverviewTab service={service} healthStatus={healthStatus} />
+            <OverviewTab service={service} healthStatus={healthStatus} operationState={operationState} />
           )}
           {activeTab === 'local' && (
             <LocalTab 
@@ -680,6 +758,7 @@ export function ModernServiceDetailPanel({
               healthStatus={healthStatus}
               copiedField={copiedField}
               onCopy={handleCopy}
+              operationState={operationState}
             />
           )}
           {activeTab === 'azure' && (

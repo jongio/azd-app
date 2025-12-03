@@ -10,13 +10,22 @@ import {
   ChevronUp,
   ChevronDown,
   Package,
+  Cog,
+  Eye,
+  Hammer,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ModernStatusBadge, type EffectiveStatus } from './ModernStatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
-import { useServiceOperations } from '@/hooks/useServiceOperations'
+import { useServiceOperations, type OperationState } from '@/hooks/useServiceOperations'
 import type { Service, HealthReportEvent, HealthCheckResult } from '@/types'
-import { formatRelativeTime } from '@/lib/service-utils'
+import { 
+  formatRelativeTime, 
+  getEffectiveStatus as getEffectiveStatusFromUtils, 
+  getStatusDisplay,
+  isProcessService,
+  getServiceModeBadgeConfig,
+} from '@/lib/service-utils'
 
 // =============================================================================
 // Types
@@ -42,28 +51,52 @@ type SortDirection = 'asc' | 'desc'
 // Helper Functions
 // =============================================================================
 
-function getEffectiveStatus(
+/**
+ * Convert service status + health to EffectiveStatus for modern UI components.
+ * Uses the centralized getEffectiveStatus from service-utils for consistency
+ * with the classic view, then converts to the EffectiveStatus type used by modern components.
+ */
+function getEffectiveStatusForModern(
   service: Service, 
   healthStatus?: HealthCheckResult,
-  operationState?: string
+  operationState?: OperationState
 ): EffectiveStatus {
-  if (operationState && operationState !== 'idle') {
-    return operationState as EffectiveStatus
-  }
+  // Use centralized getEffectiveStatus from service-utils (same as classic view)
+  const { status, health } = getEffectiveStatusFromUtils(service, operationState)
   
-  const processStatus = service.local?.status ?? service.status ?? 'not-running'
+  // Get the display info which normalizes status/health combinations
+  const statusDisplay = getStatusDisplay(status, health)
   
-  if (processStatus === 'stopped') return 'stopped'
-  if (processStatus === 'stopping') return 'stopping'
-  if (processStatus === 'starting') return 'starting'
-  if (processStatus === 'error') return 'error'
-  if (processStatus === 'not-running') return 'not-running'
+  // Use real-time health from health stream if available and not in operation
+  // Normalize health to handle backend's 'starting' → 'unknown'
+  const normalizedStreamHealth = healthStatus?.status === 'starting' ? 'unknown' : healthStatus?.status
+  const effectiveHealth = (operationState === 'idle' || !operationState)
+    ? (normalizedStreamHealth ?? health)
+    : health
   
-  const health = healthStatus?.status ?? service.local?.health ?? service.health ?? 'unknown'
-  if (health === 'healthy') return 'healthy'
-  if (health === 'degraded') return 'degraded'
-  if (health === 'unhealthy') return 'unhealthy'
-  if (health === 'starting') return 'starting'
+  // Map to EffectiveStatus based on display text (which is already normalized)
+  const displayText = statusDisplay.text.toLowerCase()
+  
+  // Process service specific statuses
+  if (status === 'watching') return 'watching'
+  if (status === 'building') return 'building'
+  if (status === 'built') return 'built'
+  if (status === 'completed') return 'completed'
+  if (status === 'failed') return 'failed'
+  
+  // Standard status mappings (lifecycle state takes priority)
+  if (displayText === 'stopped') return 'stopped'
+  if (displayText === 'stopping') return 'stopping'
+  if (displayText === 'starting' || displayText === 'restarting') return 'starting'
+  if (displayText === 'restarting') return 'restarting'
+  if (displayText === 'error') return 'error'
+  if (displayText === 'not running') return 'not-running'
+  
+  // Health-based statuses (when service is running)
+  // Note: 'starting' health is normalized to 'unknown', so it won't match here
+  if (effectiveHealth === 'healthy' || displayText === 'running') return 'healthy'
+  if (effectiveHealth === 'degraded' || displayText === 'degraded') return 'degraded'
+  if (effectiveHealth === 'unhealthy' || displayText === 'unhealthy') return 'unhealthy'
   
   return 'unknown'
 }
@@ -87,11 +120,62 @@ function ModernServiceTableRow({
 }: ModernServiceTableRowProps) {
   const { getOperationState } = useServiceOperations()
   const operationState = getOperationState(service.name)
-  const effectiveStatus = getEffectiveStatus(service, healthStatus, operationState)
+  const effectiveStatus = getEffectiveStatusForModern(service, healthStatus, operationState)
   
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
   const azureUrl = service.azure?.url
   const startTime = service.local?.startTime ?? service.startTime
+  
+  // Process service detection
+  const serviceType = service.local?.serviceType
+  const serviceMode = service.local?.serviceMode
+  const isProcess = isProcessService(serviceType)
+  const modeBadgeConfig = serviceMode ? getServiceModeBadgeConfig(serviceMode) : null
+
+  // Get icon based on service type and status
+  const getServiceIcon = () => {
+    if (isProcess) {
+      // Process service icons based on mode/status
+      if (effectiveStatus === 'watching' || serviceMode === 'watch') {
+        return <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+      }
+      if (effectiveStatus === 'building' || serviceMode === 'build') {
+        return <Hammer className={cn(
+          'w-4 h-4',
+          effectiveStatus === 'building' 
+            ? 'text-amber-600 dark:text-amber-400 animate-pulse' 
+            : 'text-amber-600 dark:text-amber-400'
+        )} />
+      }
+      if (serviceMode === 'daemon') {
+        return <Cog className={cn(
+          'w-4 h-4 text-indigo-600 dark:text-indigo-400',
+          effectiveStatus === 'healthy' && 'animate-spin'
+        )} style={effectiveStatus === 'healthy' ? { animationDuration: '3s' } : undefined} />
+      }
+      // Default process icon
+      const isHealthyProcess = effectiveStatus === 'healthy' || effectiveStatus === 'built' || effectiveStatus === 'completed'
+      const isErrorProcess = effectiveStatus === 'error' || effectiveStatus === 'unhealthy' || effectiveStatus === 'failed'
+      return <Cog className={cn(
+        'w-4 h-4',
+        isHealthyProcess
+          ? 'text-emerald-600 dark:text-emerald-400'
+          : isErrorProcess
+          ? 'text-rose-600 dark:text-rose-400'
+          : 'text-slate-500 dark:text-slate-400'
+      )} />
+    }
+    
+    // Standard service icon
+    return <Server className={cn(
+      'w-4 h-4',
+      effectiveStatus === 'healthy' 
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-slate-500 dark:text-slate-400'
+    )} />
+  }
 
   return (
     <tr
@@ -115,31 +199,35 @@ function ModernServiceTableRow({
         <div className="flex items-center gap-3">
           <div className={cn(
             'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-            effectiveStatus === 'healthy' 
+            (effectiveStatus === 'healthy' || effectiveStatus === 'watching' || effectiveStatus === 'built' || effectiveStatus === 'completed')
               ? 'bg-emerald-100 dark:bg-emerald-500/20'
-              : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
+              : effectiveStatus === 'error' || effectiveStatus === 'unhealthy' || effectiveStatus === 'failed'
               ? 'bg-rose-100 dark:bg-rose-500/20'
+              : effectiveStatus === 'building'
+              ? 'bg-amber-100 dark:bg-amber-500/20'
               : 'bg-slate-100 dark:bg-slate-700'
           )}>
-            <Server className={cn(
-              'w-4 h-4',
-              effectiveStatus === 'healthy' 
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-slate-500 dark:text-slate-400'
-            )} />
+            {getServiceIcon()}
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
-              {service.name}
-            </p>
-            {(service.language || service.framework) && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {service.language}
-                {service.framework && ` • ${service.framework}`}
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                {service.name}
               </p>
-            )}
+              {/* Process service mode badge */}
+              {isProcess && modeBadgeConfig && (
+                <span className={cn(
+                  'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap',
+                  modeBadgeConfig.color
+                )}>
+                  {modeBadgeConfig.label}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {isProcess ? 'Process Service' : service.language}
+              {!isProcess && service.framework && ` • ${service.framework}`}
+            </p>
           </div>
         </div>
       </td>
@@ -176,9 +264,7 @@ function ModernServiceTableRow({
             <span className="truncate">{localUrl}</span>
             <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           </a>
-        ) : (
-          <span className="text-xs text-slate-400 dark:text-slate-500 italic">No URL</span>
-        )}
+        ) : null}
       </td>
 
       {/* Azure URL */}
@@ -202,7 +288,7 @@ function ModernServiceTableRow({
       {/* Actions */}
       <td className="py-3 px-4 text-right">
         <div 
-          className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+          className="flex items-center justify-end gap-1"
           onClick={(e) => e.stopPropagation()}
         >
           <ServiceActions service={service} variant="compact" />

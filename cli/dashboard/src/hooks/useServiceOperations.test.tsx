@@ -1,11 +1,17 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useServiceOperations } from './useServiceOperations'
+import { useServiceOperations, ServiceOperationsProvider } from './useServiceOperations'
 import type { Service } from '@/types'
+import type { ReactNode } from 'react'
 
 // Mock fetch globally
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
+
+// Wrapper component for providing context
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <ServiceOperationsProvider>{children}</ServiceOperationsProvider>
+)
 
 describe('useServiceOperations', () => {
   beforeEach(() => {
@@ -34,28 +40,28 @@ describe('useServiceOperations', () => {
 
   describe('getOperationState', () => {
     it('returns idle for unknown service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       expect(result.current.getOperationState('unknown-service')).toBe('idle')
     })
   })
 
   describe('isOperationInProgress', () => {
     it('returns false for idle service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       expect(result.current.isOperationInProgress('test-service')).toBe(false)
     })
   })
 
   describe('isBulkOperationInProgress', () => {
     it('returns false initially', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       expect(result.current.isBulkOperationInProgress()).toBe(false)
     })
   })
 
   describe('getAvailableActions', () => {
     it('returns start for stopped service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'stopped')
       const actions = result.current.getAvailableActions(service)
       expect(actions).toContain('start')
@@ -64,14 +70,14 @@ describe('useServiceOperations', () => {
     })
 
     it('returns start for not-running service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'not-running')
       const actions = result.current.getAvailableActions(service)
       expect(actions).toContain('start')
     })
 
     it('returns stop and restart for error service with PID (process alive)', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'error')
       // createMockService includes pid: 1234, so process is alive
       const actions = result.current.getAvailableActions(service)
@@ -81,7 +87,7 @@ describe('useServiceOperations', () => {
     })
 
     it('returns start for error service without PID (process dead)', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service: Service = {
         name: 'test',
         local: {
@@ -102,7 +108,7 @@ describe('useServiceOperations', () => {
     })
 
     it('returns restart and stop for running service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'running')
       const actions = result.current.getAvailableActions(service)
       expect(actions).toContain('restart')
@@ -111,7 +117,7 @@ describe('useServiceOperations', () => {
     })
 
     it('returns restart and stop for ready service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'ready')
       const actions = result.current.getAvailableActions(service)
       expect(actions).toContain('restart')
@@ -119,7 +125,7 @@ describe('useServiceOperations', () => {
     })
 
     it('returns stop for starting service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'starting')
       const actions = result.current.getAvailableActions(service)
       expect(actions).toContain('stop')
@@ -128,7 +134,7 @@ describe('useServiceOperations', () => {
     })
 
     it('returns empty for stopping service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'stopping')
       const actions = result.current.getAvailableActions(service)
       expect(actions).toHaveLength(0)
@@ -137,14 +143,14 @@ describe('useServiceOperations', () => {
 
   describe('canPerformAction', () => {
     it('returns true for valid action on stopped service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'stopped')
       expect(result.current.canPerformAction(service, 'start')).toBe(true)
       expect(result.current.canPerformAction(service, 'stop')).toBe(false)
     })
 
     it('returns true for valid action on running service', () => {
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
       const service = createMockService('test', 'running')
       expect(result.current.canPerformAction(service, 'stop')).toBe(true)
       expect(result.current.canPerformAction(service, 'restart')).toBe(true)
@@ -159,7 +165,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve({ success: true }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       let success: boolean = false
       await act(async () => {
@@ -179,7 +185,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve({ error: 'Service not found' }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       let success: boolean = true
       await act(async () => {
@@ -193,7 +199,7 @@ describe('useServiceOperations', () => {
     it('returns false on network error', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       let success: boolean = true
       await act(async () => {
@@ -212,7 +218,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve({ success: true }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.stopService('test-service')
@@ -232,7 +238,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve({ success: true }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.restartService('test-service')
@@ -260,7 +266,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve(mockResult),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       let bulkResult: typeof mockResult | null = null
       await act(async () => {
@@ -278,7 +284,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve({ error: 'Failed' }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       let bulkResult: unknown = 'initial'
       await act(async () => {
@@ -304,7 +310,7 @@ describe('useServiceOperations', () => {
         }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.stopAll()
@@ -328,7 +334,7 @@ describe('useServiceOperations', () => {
         }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.restartAll()
@@ -345,7 +351,7 @@ describe('useServiceOperations', () => {
         json: () => Promise.resolve({ error: 'Test error' }),
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.startService('test')
@@ -375,7 +381,7 @@ describe('useServiceOperations', () => {
         }))
       })
 
-      const { result } = renderHook(() => useServiceOperations())
+      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       // Start the operation
       let operationPromise: Promise<boolean>

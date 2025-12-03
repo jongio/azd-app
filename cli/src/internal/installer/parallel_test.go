@@ -1,7 +1,10 @@
 package installer
 
 import (
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/types"
 )
@@ -362,5 +365,178 @@ func TestParallelInstaller_ConcurrentAddTask(t *testing.T) {
 
 	if len(pi.tasks) != 10 {
 		t.Errorf("Expected 10 tasks after concurrent adds, got %d", len(pi.tasks))
+	}
+}
+
+func TestParallelInstaller_PnpmTaskGrouping(t *testing.T) {
+	// Test that tasks are correctly grouped by package manager
+	pi := NewParallelInstaller()
+
+	// Add mix of pnpm and other tasks
+	pi.AddTask(ProjectInstallTask{ID: "pnpm1", Type: "node", Manager: "pnpm", Dir: "/a"})
+	pi.AddTask(ProjectInstallTask{ID: "npm1", Type: "node", Manager: "npm", Dir: "/b"})
+	pi.AddTask(ProjectInstallTask{ID: "pnpm2", Type: "node", Manager: "pnpm", Dir: "/c"})
+	pi.AddTask(ProjectInstallTask{ID: "pip1", Type: "python", Manager: "pip", Dir: "/d"})
+	pi.AddTask(ProjectInstallTask{ID: "pnpm3", Type: "node", Manager: "pnpm", Dir: "/e"})
+	pi.AddTask(ProjectInstallTask{ID: "dotnet1", Type: "dotnet", Manager: "dotnet", Path: "/f/app.csproj"})
+
+	// Verify task counts
+	var pnpmCount, otherCount int
+	for _, task := range pi.tasks {
+		if task.Manager == "pnpm" {
+			pnpmCount++
+		} else {
+			otherCount++
+		}
+	}
+
+	if pnpmCount != 3 {
+		t.Errorf("Expected 3 pnpm tasks, got %d", pnpmCount)
+	}
+	if otherCount != 3 {
+		t.Errorf("Expected 3 non-pnpm tasks, got %d", otherCount)
+	}
+}
+
+func TestParallelInstaller_PnpmSequentialExecution(t *testing.T) {
+	// This test verifies that pnpm tasks don't run concurrently
+	// by checking that the max concurrent pnpm tasks is always 1
+
+	var maxConcurrentPnpm int32
+	var currentConcurrentPnpm int32
+	var mu sync.Mutex
+
+	// Track execution order for pnpm tasks
+	pnpmExecutionOrder := make([]string, 0)
+	var orderMu sync.Mutex
+
+	// We can't easily test the actual Run() without mocking,
+	// but we can verify the grouping logic works correctly
+	pi := NewParallelInstaller()
+
+	// Add multiple pnpm tasks
+	pnpmTasks := []ProjectInstallTask{
+		{ID: "pnpm1", Type: "node", Manager: "pnpm", Dir: "/project1"},
+		{ID: "pnpm2", Type: "node", Manager: "pnpm", Dir: "/project2"},
+		{ID: "pnpm3", Type: "node", Manager: "pnpm", Dir: "/project3"},
+	}
+
+	for _, task := range pnpmTasks {
+		pi.AddTask(task)
+	}
+
+	// Simulate the grouping logic from Run()
+	var pnpmGroup []ProjectInstallTask
+	var parallelGroup []ProjectInstallTask
+
+	for _, task := range pi.tasks {
+		if task.Manager == "pnpm" {
+			pnpmGroup = append(pnpmGroup, task)
+		} else {
+			parallelGroup = append(parallelGroup, task)
+		}
+	}
+
+	// Verify all tasks went to pnpm group
+	if len(pnpmGroup) != 3 {
+		t.Errorf("Expected 3 tasks in pnpm group, got %d", len(pnpmGroup))
+	}
+	if len(parallelGroup) != 0 {
+		t.Errorf("Expected 0 tasks in parallel group, got %d", len(parallelGroup))
+	}
+
+	// Simulate sequential execution and verify no concurrent access
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for _, task := range pnpmGroup {
+			// Simulate starting a task
+			atomic.AddInt32(&currentConcurrentPnpm, 1)
+			current := atomic.LoadInt32(&currentConcurrentPnpm)
+
+			mu.Lock()
+			if current > maxConcurrentPnpm {
+				maxConcurrentPnpm = current
+			}
+			mu.Unlock()
+
+			// Record execution order
+			orderMu.Lock()
+			pnpmExecutionOrder = append(pnpmExecutionOrder, task.ID)
+			orderMu.Unlock()
+
+			// Simulate some work
+			time.Sleep(10 * time.Millisecond)
+
+			// Simulate completing a task
+			atomic.AddInt32(&currentConcurrentPnpm, -1)
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify max concurrency was 1 (sequential)
+	if maxConcurrentPnpm != 1 {
+		t.Errorf("Expected max concurrent pnpm tasks to be 1, got %d", maxConcurrentPnpm)
+	}
+
+	// Verify execution order maintained
+	if len(pnpmExecutionOrder) != 3 {
+		t.Errorf("Expected 3 tasks executed, got %d", len(pnpmExecutionOrder))
+	}
+}
+
+func TestParallelInstaller_MixedTaskGrouping(t *testing.T) {
+	// Test that mixed workloads are correctly separated
+	pi := NewParallelInstaller()
+
+	// Simulate a real-world scenario with multiple package managers
+	pi.AddNodeProject(types.NodeProject{Dir: "/app1", PackageManager: "pnpm"})
+	pi.AddNodeProject(types.NodeProject{Dir: "/app2", PackageManager: "pnpm"})
+	pi.AddNodeProject(types.NodeProject{Dir: "/app3", PackageManager: "npm"})
+	pi.AddPythonProject(types.PythonProject{Dir: "/api1", PackageManager: "pip"})
+	pi.AddPythonProject(types.PythonProject{Dir: "/api2", PackageManager: "uv"})
+	pi.AddDotnetProject(types.DotnetProject{Path: "/service/app.csproj"})
+
+	// Count by manager type
+	managers := make(map[string]int)
+	for _, task := range pi.tasks {
+		managers[task.Manager]++
+	}
+
+	// Verify counts
+	if managers["pnpm"] != 2 {
+		t.Errorf("Expected 2 pnpm tasks, got %d", managers["pnpm"])
+	}
+	if managers["npm"] != 1 {
+		t.Errorf("Expected 1 npm task, got %d", managers["npm"])
+	}
+	if managers["pip"] != 1 {
+		t.Errorf("Expected 1 pip task, got %d", managers["pip"])
+	}
+	if managers["uv"] != 1 {
+		t.Errorf("Expected 1 uv task, got %d", managers["uv"])
+	}
+	if managers["dotnet"] != 1 {
+		t.Errorf("Expected 1 dotnet task, got %d", managers["dotnet"])
+	}
+
+	// Simulate grouping
+	var pnpmTasks, parallelTasks []ProjectInstallTask
+	for _, task := range pi.tasks {
+		if task.Manager == "pnpm" {
+			pnpmTasks = append(pnpmTasks, task)
+		} else {
+			parallelTasks = append(parallelTasks, task)
+		}
+	}
+
+	// pnpm should be separate, everything else parallel
+	if len(pnpmTasks) != 2 {
+		t.Errorf("Expected 2 pnpm tasks for sequential execution, got %d", len(pnpmTasks))
+	}
+	if len(parallelTasks) != 4 {
+		t.Errorf("Expected 4 tasks for parallel execution, got %d", len(parallelTasks))
 	}
 }

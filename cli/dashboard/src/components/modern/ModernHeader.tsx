@@ -16,7 +16,8 @@ import {
 import { cn } from '@/lib/utils'
 import { ModernThemeToggle } from './ModernThemeToggle'
 import { ModernHealthPill, ModernConnectionStatus } from './ModernStatusIndicator'
-import type { HealthSummary } from '@/types'
+import { ModernServiceStatusCard } from './ModernServiceStatusCard'
+import type { HealthSummary, Service } from '@/types'
 
 // =============================================================================
 // Types
@@ -46,6 +47,12 @@ export interface ModernHeaderProps {
   onShowShortcuts?: () => void
   /** Callback when settings button is clicked */
   onShowSettings?: () => void
+  /** Services for detailed status counts (optional - falls back to health pill) */
+  services?: Service[]
+  /** Whether there are active log errors */
+  hasActiveErrors?: boolean
+  /** Whether dashboard is loading */
+  loading?: boolean
   /** Additional class names */
   className?: string
 }
@@ -116,6 +123,9 @@ export function ModernHeader({
   connected,
   onShowShortcuts,
   onShowSettings,
+  services,
+  hasActiveErrors = false,
+  loading = false,
   className,
 }: ModernHeaderProps) {
   const navRef = React.useRef<HTMLDivElement>(null)
@@ -257,22 +267,35 @@ export function ModernHeader({
 
       {/* Utility Zone */}
       <div className="flex items-center gap-2">
-        {/* Health Status Pill - clickable to go to Console */}
-        {healthSummary && (
-          <button
-            type="button"
+        {/* Detailed Service Status Card (when services provided) */}
+        {services && services.length > 0 ? (
+          <ModernServiceStatusCard
+            services={services}
+            hasActiveErrors={hasActiveErrors}
+            loading={loading}
             onClick={() => onViewChange('console')}
-            className="focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 rounded-full"
-            aria-label="View Console"
-          >
-            <ModernHealthPill
-              total={healthSummary.total}
-              healthy={healthSummary.healthy}
-              degraded={healthSummary.degraded}
-              unhealthy={healthSummary.unhealthy}
-              starting={healthSummary.starting}
-            />
-          </button>
+            healthSummary={healthSummary}
+            healthConnected={connected}
+            className="hidden sm:flex"
+          />
+        ) : (
+          /* Fallback to Health Status Pill - clickable to go to Console */
+          healthSummary && (
+            <button
+              type="button"
+              onClick={() => onViewChange('console')}
+              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 rounded-full hidden sm:block"
+              aria-label="View Console"
+            >
+              <ModernHealthPill
+                total={healthSummary.total}
+                healthy={healthSummary.healthy}
+                degraded={healthSummary.degraded}
+                unhealthy={healthSummary.unhealthy}
+                starting={healthSummary.starting}
+              />
+            </button>
+          )
         )}
 
         {/* Connection Status (shown when disconnected) */}

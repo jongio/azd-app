@@ -280,23 +280,24 @@ The command uses a cascading strategy to determine the best health check method 
 
 ## Health Status Values
 
-### Service Health States
+Health status describes whether a running service is responding correctly. This is separate from lifecycle state (whether the process is running).
 
 | Status | Meaning | Criteria | Color |
 |--------|---------|----------|-------|
 | `healthy` | Service fully operational | HTTP 2xx/3xx, port listening, or process running | Green ✓ |
-| `degraded` | Service running but with issues | HTTP returns degraded status | Yellow ⚠ |
+| `degraded` | Service running but with issues | HTTP returns degraded status | Amber ⚠ |
 | `unhealthy` | Service not functioning | HTTP 4xx/5xx, port not listening, process dead | Red ✗ |
-| `starting` | Service initializing | Recently started, not yet ready | Yellow ○ |
-| `unknown` | Health cannot be determined | No health check available or check error | Gray ? |
+| `unknown` | Health not yet determined | Startup grace period or no health check available | Gray ? |
+
+> **Note**: `starting` is a **lifecycle state**, not a health status. A service in the `starting` lifecycle state has `unknown` health until health checks pass. See [Service States and Health](../features/service-states.md) for the full state model.
 
 ### Health Check Result
 
 ```go
 type HealthCheckResult struct {
     ServiceName  string                 `json:"serviceName"`
-    Status       string                 `json:"status"` // healthy, degraded, unhealthy, starting, unknown
-    CheckType    string                 `json:"checkType"` // http, port, process
+    Status       string                 `json:"status"` // healthy, degraded, unhealthy, unknown
+    CheckType    string                 `json:"checkType"` // http, tcp, process, output
     Endpoint     string                 `json:"endpoint,omitempty"` // For HTTP checks
     ResponseTime time.Duration          `json:"responseTime"` // Milliseconds
     StatusCode   int                    `json:"statusCode,omitempty"` // HTTP status code
@@ -507,14 +508,16 @@ services:
 
 **Health Check Behavior by Type/Mode:**
 
-| Type | Mode | Health Strategy | Status Values |
-|------|------|-----------------|---------------|
-| http | - | HTTP endpoint check | healthy, degraded, unhealthy |
-| tcp | - | Port listening check | healthy, unhealthy |
-| process | watch | Process alive check | watching, stopped, error |
-| process | build | Exit code check | building, built, failed |
-| process | daemon | Process alive check | running, stopped, error |
-| process | task | Exit code check | running, completed, failed |
+| Type | Mode | Health Strategy | Lifecycle States |
+|------|------|-----------------|------------------|
+| http | - | HTTP endpoint check | running (health: healthy/degraded/unhealthy) |
+| tcp | - | Port listening check | running (health: healthy/unhealthy) |
+| process | watch | Output pattern match | starting → watching |
+| process | build | Exit code check | starting → building → built/failed |
+| process | daemon | Process alive check | starting → running |
+| process | task | Exit code check | starting → completed/failed |
+
+> **Note**: For http/tcp services, the health column shows **health status** (healthy/unhealthy). For process services, the states shown are **lifecycle states** (watching, building, etc.) since they don't have traditional health checks.
 
 **Auto-Detection Rules:**
 
@@ -599,7 +602,7 @@ Health Check (2024-11-08 10:30:00)
     - queue: degraded (backlog: 1234)
   Uptime: 2h 10m
 
-✗ db                           unhealthy    (port)
+✗ db                           unhealthy    (tcp)
   Port: 5432
   Error: connection refused
   
@@ -620,7 +623,7 @@ Compact tabular view:
 │ web      │ healthy   │ http      │ http://localhost:3000/health         │ 45ms     │
 │ api      │ healthy   │ http      │ http://localhost:8080/api/health     │ 23ms     │
 │ worker   │ degraded  │ http      │ http://localhost:8081/health         │ 156ms    │
-│ db       │ unhealthy │ port      │ localhost:5432                       │ error    │
+│ db       │ unhealthy │ tcp       │ localhost:5432                       │ error    │
 └──────────┴───────────┴───────────┴──────────────────────────────────────┴──────────┘
 ```
 
@@ -677,7 +680,7 @@ Machine-readable format:
     {
       "serviceName": "db",
       "status": "unhealthy",
-      "checkType": "port",
+      "checkType": "tcp",
       "port": 5432,
       "error": "connection refused",
       "timestamp": "2024-11-08T10:30:00Z"
@@ -1083,6 +1086,11 @@ azd app health --export prometheus --output metrics.txt
 - [`azd app run`](./run.md) - Start services (health checks run during startup)
 - [`azd app info`](./info.md) - Show service information (includes last known health)
 - [`azd app logs`](./logs.md) - View service logs (useful when health checks fail)
+
+## Related Documentation
+
+- [Service States and Health](../features/service-states.md) - Understanding lifecycle states vs health status
+- [azure.yaml Health Configuration](../schema/azure.yaml.md#healthcheck-new) - Health check configuration reference
 
 ## Examples
 

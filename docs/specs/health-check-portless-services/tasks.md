@@ -71,18 +71,18 @@ Services like `electron` with debug/inspector ports (e.g., `--inspect=5858`) wer
 
 ---
 
-## Task 5: Test with songerator azure.yaml
+## Task 5: Integration Test with Portless Services
 
 **Agent**: Tester  
 **Status**: 🔲 TODO
 
 **Description**:
-Test the fix with the actual `C:\code\songerator\azure.yaml` file that has portless services like `api-tsc`, `preload-tsc`, and `main-tsc`, and services with debug ports like `electron`.
+Test the fix with a project that has portless services (e.g., TypeScript compilers in watch mode) and services with debug ports.
 
 **Acceptance Criteria**:
 - [ ] `azd app run` starts without assigning ports to portless services
 - [ ] Health checks use process-based monitoring for portless services
-- [ ] Services with ports (api, vite) get ports assigned correctly
-- [ ] Electron service shows "healthy" (not "degraded") via port check
+- [ ] Services with ports get ports assigned correctly
+- [ ] Services with debug ports show "healthy" (not "degraded") via port check
 - [ ] Dashboard shows correct health status for all services
 - [ ] No errors in logs related to health checks for portless services

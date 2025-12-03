@@ -9,7 +9,7 @@ interface URLCellProps {
 export function URLCell({ localUrl, azureUrl }: URLCellProps) {
   // No URLs available
   if (!localUrl && !azureUrl) {
-    return <span className="text-muted-foreground">-</span>
+    return null
   }
 
   // Truncate URL for display

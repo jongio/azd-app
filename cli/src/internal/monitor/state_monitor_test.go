@@ -99,7 +99,6 @@ func TestStateMonitor_DetectProcessCrash(t *testing.T) {
 		PID:       cmd.Process.Pid,
 		Port:      8080,
 		Status:    "running",
-		Health:    "healthy",
 		StartTime: time.Now(),
 	}
 	if err := reg.Register(entry); err != nil {
@@ -171,7 +170,6 @@ func TestStateMonitor_DetectHealthChange(t *testing.T) {
 		PID:       os.Getpid(), // Use our own PID
 		Port:      8080,
 		Status:    "running",
-		Health:    "healthy",
 		StartTime: time.Now(),
 	}
 	if err := reg.Register(entry); err != nil {
@@ -199,15 +197,15 @@ func TestStateMonitor_DetectHealthChange(t *testing.T) {
 	// Wait for initial state
 	time.Sleep(200 * time.Millisecond)
 
-	// Change health to unhealthy
-	if err := reg.UpdateStatus("test-service", "running", "unhealthy"); err != nil {
+	// Change status to error (health changes are now tracked via health stream, not registry)
+	if err := reg.UpdateStatus("test-service", "error"); err != nil {
 		t.Fatalf("Failed to update status: %v", err)
 	}
 
 	// Wait for detection
 	time.Sleep(300 * time.Millisecond)
 
-	// Check transitions
+	// Check transitions - now we detect status change instead of health change
 	transitionMu.Lock()
 	defer transitionMu.Unlock()
 
@@ -215,14 +213,14 @@ func TestStateMonitor_DetectHealthChange(t *testing.T) {
 	for _, trans := range transitions {
 		if trans.Severity == SeverityCritical &&
 			trans.ServiceName == "test-service" &&
-			trans.ToState.Health == "unhealthy" {
+			trans.ToState.Status == "error" {
 			found = true
-			t.Logf("Detected health change: %s", trans.Description)
+			t.Logf("Detected status change: %s", trans.Description)
 		}
 	}
 
 	if !found {
-		t.Error("Health change was not detected")
+		t.Error("Status change was not detected")
 	}
 }
 
@@ -236,7 +234,6 @@ func TestStateMonitor_DetectStatusChange(t *testing.T) {
 		PID:       os.Getpid(),
 		Port:      8080,
 		Status:    "running",
-		Health:    "healthy",
 		StartTime: time.Now(),
 	}
 	if err := reg.Register(entry); err != nil {
@@ -262,7 +259,7 @@ func TestStateMonitor_DetectStatusChange(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Change status to error
-	if err := reg.UpdateStatus("test-service", "error", "unhealthy"); err != nil {
+	if err := reg.UpdateStatus("test-service", "error"); err != nil {
 		t.Fatalf("Failed to update status: %v", err)
 	}
 
@@ -294,7 +291,6 @@ func TestStateMonitor_RateLimiting(t *testing.T) {
 		PID:       os.Getpid(),
 		Port:      8080,
 		Status:    "starting",
-		Health:    "unknown",
 		StartTime: time.Now(),
 	}
 	if err := reg.Register(entry); err != nil {
@@ -323,7 +319,7 @@ func TestStateMonitor_RateLimiting(t *testing.T) {
 	// Trigger multiple warning transitions rapidly
 	// These should be rate limited
 	for i := 0; i < 5; i++ {
-		if err := reg.UpdateStatus("test-service", "starting", "unknown"); err != nil {
+		if err := reg.UpdateStatus("test-service", "starting"); err != nil {
 			t.Fatalf("Failed to update status: %v", err)
 		}
 		time.Sleep(60 * time.Millisecond)
@@ -493,7 +489,6 @@ func TestStateMonitor_MultipleListeners(t *testing.T) {
 		Name:      "test-service",
 		PID:       os.Getpid(),
 		Status:    "running",
-		Health:    "healthy",
 		StartTime: time.Now(),
 	}
 	if err := reg.Register(entry); err != nil {
@@ -506,7 +501,7 @@ func TestStateMonitor_MultipleListeners(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Trigger transition
-	if err := reg.UpdateStatus("test-service", "error", "unhealthy"); err != nil {
+	if err := reg.UpdateStatus("test-service", "error"); err != nil {
 		t.Fatalf("Failed to update status: %v", err)
 	}
 
@@ -632,7 +627,6 @@ func TestStateMonitor_ConcurrentAccess(t *testing.T) {
 				Name:      "service-" + string(rune('A'+idx)),
 				PID:       os.Getpid(),
 				Status:    "running",
-				Health:    "healthy",
 				StartTime: time.Now(),
 			}
 			_ = reg.Register(entry)

@@ -11,6 +11,8 @@ import (
 )
 
 // ServiceRegistryEntry represents a running service in the registry.
+// NOTE: Health status is NOT stored here - it is computed dynamically via health checks.
+// This prevents stale cached health data from causing issues with the dashboard.
 type ServiceRegistryEntry struct {
 	Name        string    `json:"name"`
 	ProjectDir  string    `json:"projectDir"`
@@ -21,7 +23,6 @@ type ServiceRegistryEntry struct {
 	Language    string    `json:"language"`
 	Framework   string    `json:"framework"`
 	Status      string    `json:"status"` // "starting", "ready", "stopping", "stopped", "error", "building", "built", "completed", "failed", "watching"
-	Health      string    `json:"health"` // "healthy", "unhealthy", "unknown", "starting"
 	StartTime   time.Time `json:"startTime"`
 	LastChecked time.Time `json:"lastChecked"`
 	Error       string    `json:"error,omitempty"`
@@ -121,14 +122,14 @@ func (r *ServiceRegistry) Unregister(serviceName string) error {
 	return r.save()
 }
 
-// UpdateStatus updates the status of a service.
-func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error {
+// UpdateStatus updates the lifecycle status of a service.
+// NOTE: Health is not stored in registry - it is computed dynamically via health checks.
+func (r *ServiceRegistry) UpdateStatus(serviceName, status string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if svc, exists := r.services[serviceName]; exists {
 		svc.Status = status
-		svc.Health = health
 		svc.LastChecked = time.Now()
 		return r.save()
 	}

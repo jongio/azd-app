@@ -64,7 +64,6 @@ func TestMonitorCheck(t *testing.T) {
 		PID:       os.Getpid(),
 		StartTime: time.Now(),
 		Status:    "running",
-		Health:    "unknown",
 	})
 	if err != nil {
 		t.Fatalf("Failed to register service: %v", err)
@@ -253,7 +252,6 @@ func TestBuildServiceList(t *testing.T) {
 		PID:       12345,
 		StartTime: time.Now(),
 		Status:    "running",
-		Health:    "healthy",
 	})
 	if err != nil {
 		t.Fatalf("Failed to register service: %v", err)
@@ -315,7 +313,6 @@ func TestUpdateRegistry(t *testing.T) {
 		PID:       os.Getpid(),
 		StartTime: time.Now(),
 		Status:    "running",
-		Health:    "unknown",
 	})
 	if err != nil {
 		t.Fatalf("Failed to register service: %v", err)
@@ -342,13 +339,15 @@ func TestUpdateRegistry(t *testing.T) {
 
 	monitor.updateRegistry(results)
 
-	// Verify the update
+	// Verify the update - status should remain "running" for healthy services
 	services := reg.ListAll()
 	if len(services) != 1 {
 		t.Fatalf("Expected 1 service, got %d", len(services))
 	}
 
-	if services[0].Health != "healthy" {
-		t.Errorf("Expected health 'healthy', got '%s'", services[0].Health)
+	// Health is no longer stored in registry - it's computed dynamically via health checks
+	// Just verify the service is still registered with running status
+	if services[0].Status != "running" {
+		t.Errorf("Expected status 'running', got '%s'", services[0].Status)
 	}
 }

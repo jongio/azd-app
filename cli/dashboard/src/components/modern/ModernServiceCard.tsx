@@ -10,16 +10,25 @@ import {
   Globe,
   XCircle,
   AlertTriangle,
+  Eye,
+  Hammer,
+  Cog,
+  Cpu,
+  Plug,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ModernStatusBadge, ModernStatusDot, type EffectiveStatus } from './ModernStatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
-import { useServiceOperations } from '@/hooks/useServiceOperations'
+import { useServiceOperations, type OperationState } from '@/hooks/useServiceOperations'
 import type { Service, HealthCheckResult } from '@/types'
 import { 
   formatResponseTime, 
   formatUptime,
   getCheckTypeDisplay,
+  isProcessService,
+  getServiceModeBadgeConfig,
+  getEffectiveStatus as getEffectiveStatusFromUtils,
+  getStatusDisplay,
 } from '@/lib/service-utils'
 
 // =============================================================================
@@ -41,31 +50,52 @@ export interface ModernServiceCardProps {
 // Helper Functions
 // =============================================================================
 
-function getEffectiveStatusFromService(
+/**
+ * Convert service status + health to EffectiveStatus for modern UI components.
+ * Uses the centralized getEffectiveStatus from service-utils for consistency
+ * with the classic view, then converts to the EffectiveStatus type used by modern components.
+ */
+function getEffectiveStatusForModern(
   service: Service, 
   healthStatus?: HealthCheckResult,
-  operationState?: string
+  operationState?: OperationState
 ): EffectiveStatus {
-  // If operation is in progress, show that status
-  if (operationState && operationState !== 'idle') {
-    return operationState as EffectiveStatus
-  }
+  // Use centralized getEffectiveStatus from service-utils (same as classic view)
+  const { status, health } = getEffectiveStatusFromUtils(service, operationState)
   
-  const processStatus = service.local?.status ?? service.status ?? 'not-running'
+  // Get the display info which normalizes status/health combinations
+  const statusDisplay = getStatusDisplay(status, health)
   
-  // Process status takes priority
-  if (processStatus === 'stopped') return 'stopped'
-  if (processStatus === 'stopping') return 'stopping'
-  if (processStatus === 'starting') return 'starting'
-  if (processStatus === 'error') return 'error'
-  if (processStatus === 'not-running') return 'not-running'
+  // Use real-time health from health stream if available and not in operation
+  // Normalize health to handle backend's 'starting' → 'unknown'
+  const normalizedStreamHealth = healthStatus?.status === 'starting' ? 'unknown' : healthStatus?.status
+  const effectiveHealth = (operationState === 'idle' || !operationState)
+    ? (normalizedStreamHealth ?? health)
+    : health
   
-  // Then check health
-  const health = healthStatus?.status ?? service.local?.health ?? service.health ?? 'unknown'
-  if (health === 'healthy') return 'healthy'
-  if (health === 'degraded') return 'degraded'
-  if (health === 'unhealthy') return 'unhealthy'
-  if (health === 'starting') return 'starting'
+  // Map to EffectiveStatus based on display text (which is already normalized)
+  const displayText = statusDisplay.text.toLowerCase()
+  
+  // Process service specific statuses
+  if (status === 'watching') return 'watching'
+  if (status === 'building') return 'building'
+  if (status === 'built') return 'built'
+  if (status === 'completed') return 'completed'
+  if (status === 'failed') return 'failed'
+  
+  // Standard status mappings (lifecycle state takes priority)
+  if (displayText === 'stopped') return 'stopped'
+  if (displayText === 'stopping') return 'stopping'
+  if (displayText === 'starting' || displayText === 'restarting') return 'starting'
+  if (displayText === 'restarting') return 'restarting'
+  if (displayText === 'error') return 'error'
+  if (displayText === 'not running') return 'not-running'
+  
+  // Health-based statuses (when service is running)
+  // Note: 'starting' health is normalized to 'unknown', so it won't match here
+  if (effectiveHealth === 'healthy' || displayText === 'running') return 'healthy'
+  if (effectiveHealth === 'degraded' || displayText === 'degraded') return 'degraded'
+  if (effectiveHealth === 'unhealthy' || displayText === 'unhealthy') return 'unhealthy'
   
   return 'unknown'
 }
@@ -84,9 +114,15 @@ export function ModernServiceCard({
   const { getOperationState } = useServiceOperations()
   const operationState = getOperationState(service.name)
 
-  const effectiveStatus = getEffectiveStatusFromService(service, healthStatus, operationState)
-  const isHealthy = effectiveStatus === 'healthy' || effectiveStatus === 'running'
+  const effectiveStatus = getEffectiveStatusForModern(service, healthStatus, operationState)
+  const isHealthy = effectiveStatus === 'healthy' || effectiveStatus === 'running' || effectiveStatus === 'watching' || effectiveStatus === 'built' || effectiveStatus === 'completed'
   const hasError = !!service.error || healthStatus?.error
+
+  // Process service detection
+  const serviceType = service.local?.serviceType
+  const serviceMode = service.local?.serviceMode
+  const isProcess = isProcessService(serviceType)
+  const modeBadgeConfig = serviceMode ? getServiceModeBadgeConfig(serviceMode) : null
 
   // Health details from real-time data or service data
   const healthDetails = healthStatus ? {
@@ -101,6 +137,42 @@ export function ModernServiceCard({
   // Build URLs
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
   const azureUrl = service.azure?.url
+
+  // Get service icon based on type and status
+  const getServiceIcon = () => {
+    if (isProcess) {
+      // Process service specific icons based on mode/status
+      if (effectiveStatus === 'watching' || serviceMode === 'watch') {
+        return <Eye className={cn('w-5 h-5', isHealthy ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400')} />
+      }
+      if (effectiveStatus === 'building' || serviceMode === 'build') {
+        return <Hammer className={cn('w-5 h-5', effectiveStatus === 'building' ? 'text-amber-600 dark:text-amber-400 animate-pulse' : isHealthy ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400')} />
+      }
+      if (serviceMode === 'daemon') {
+        return <Cog className={cn('w-5 h-5', isHealthy ? 'text-emerald-600 dark:text-emerald-400 animate-spin' : 'text-slate-500 dark:text-slate-400')} style={{ animationDuration: '3s' }} />
+      }
+      // Default process icon
+      return <Cog className={cn('w-5 h-5', isHealthy ? 'text-emerald-600 dark:text-emerald-400' : effectiveStatus === 'error' || effectiveStatus === 'unhealthy' || effectiveStatus === 'failed' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400')} />
+    }
+    // Standard service icon
+    return <Server className={cn(
+      'w-5 h-5',
+      isHealthy 
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-slate-500 dark:text-slate-400'
+    )} />
+  }
+
+  // Get health check type icon for tooltip
+  const getCheckTypeIcon = () => {
+    const checkType = healthDetails?.checkType
+    if (checkType === 'http') return <Globe className="w-3.5 h-3.5" />
+    if (checkType === 'tcp') return <Plug className="w-3.5 h-3.5" />
+    if (checkType === 'process') return <Cpu className="w-3.5 h-3.5" />
+    return <Globe className="w-3.5 h-3.5" />
+  }
 
   return (
     <article
@@ -127,36 +199,48 @@ export function ModernServiceCard({
       aria-label={`${service.name} service - ${effectiveStatus}`}
     >
       {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-br from-cyan-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
       {/* Header */}
       <header className="relative flex items-start gap-3">
         {/* Service Icon */}
         <div className={cn(
-          'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105',
+          'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105',
           isHealthy 
-            ? 'bg-gradient-to-br from-emerald-100 to-emerald-50 dark:from-emerald-500/20 dark:to-emerald-500/10'
-            : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
-            ? 'bg-gradient-to-br from-rose-100 to-rose-50 dark:from-rose-500/20 dark:to-rose-500/10'
+            ? 'bg-linear-to-br from-emerald-100 to-emerald-50 dark:from-emerald-500/20 dark:to-emerald-500/10'
+            : effectiveStatus === 'error' || effectiveStatus === 'unhealthy' || effectiveStatus === 'failed'
+            ? 'bg-linear-to-br from-rose-100 to-rose-50 dark:from-rose-500/20 dark:to-rose-500/10'
+            : effectiveStatus === 'building'
+            ? 'bg-linear-to-br from-amber-100 to-amber-50 dark:from-amber-500/20 dark:to-amber-500/10'
             : 'bg-slate-100 dark:bg-slate-700'
         )}>
-          <Server className={cn(
-            'w-5 h-5',
-            isHealthy 
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
-              ? 'text-rose-600 dark:text-rose-400'
-              : 'text-slate-500 dark:text-slate-400'
-          )} />
+          {getServiceIcon()}
         </div>
 
         {/* Service Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-            {service.name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+              {service.name}
+            </h3>
+            {/* Process service mode badge */}
+            {isProcess && modeBadgeConfig && (
+              <span className={cn(
+                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap',
+                modeBadgeConfig.color
+              )}
+              title={modeBadgeConfig.description}
+              >
+                {serviceMode === 'watch' && <Eye className="w-3 h-3" />}
+                {serviceMode === 'build' && <Hammer className="w-3 h-3" />}
+                {serviceMode === 'daemon' && <Cog className="w-3 h-3" />}
+                {serviceMode === 'task' && <Cog className="w-3 h-3" />}
+                {modeBadgeConfig.label}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {service.language || 'Service'}
+            {isProcess ? 'Process Service' : (service.language || 'Service')}
             {service.framework && (
               <>
                 <span className="mx-1 text-slate-300 dark:text-slate-600">•</span>
@@ -173,7 +257,7 @@ export function ModernServiceCard({
       {/* Error Banner */}
       {hasError && (
         <div className="relative flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30">
-          <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
+          <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-rose-700 dark:text-rose-300">Error Detected</p>
             <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 line-clamp-2">
@@ -186,7 +270,7 @@ export function ModernServiceCard({
       {/* Degraded Warning Banner */}
       {!hasError && effectiveStatus === 'degraded' && (
         <div className="relative flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
-          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Performance Degraded</p>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
@@ -239,9 +323,9 @@ export function ModernServiceCard({
       )}
 
       {/* Metrics Row */}
-      <div className="relative flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-50 to-slate-50 dark:from-cyan-500/5 dark:to-slate-500/5 border border-slate-200 dark:border-slate-700">
-        {/* Port */}
-        {service.local?.port && service.local.port > 0 && (
+      <div className="relative flex items-center justify-between py-3 px-4 rounded-xl bg-linear-to-r from-cyan-50 to-slate-50 dark:from-cyan-500/5 dark:to-slate-500/5 border border-slate-200 dark:border-slate-700">
+        {/* Port display - only show for non-process services */}
+        {!isProcess && service.local?.port && service.local.port > 0 && (
           <div className="flex items-center gap-2">
             <ModernStatusDot status={effectiveStatus} size="sm" />
             <span className="text-xs text-slate-500 dark:text-slate-400">Port</span>
@@ -251,15 +335,36 @@ export function ModernServiceCard({
           </div>
         )}
         
-        {/* Health Badge */}
-        <div className="flex items-center gap-1.5">
+        {/* Process service mode indicator */}
+        {isProcess && serviceMode && (
+          <div className="flex items-center gap-2">
+            {serviceMode === 'watch' && <Eye className="w-4 h-4 text-emerald-500" />}
+            {serviceMode === 'build' && <Hammer className="w-4 h-4 text-amber-500" />}
+            {serviceMode === 'daemon' && <Cog className="w-4 h-4 text-indigo-500 animate-spin" style={{ animationDuration: '3s' }} />}
+            {serviceMode === 'task' && <Cog className="w-4 h-4 text-slate-500" />}
+            <span className="text-xs text-slate-500 dark:text-slate-400">Mode</span>
+            <span className="font-semibold text-sm text-slate-700 dark:text-slate-300 capitalize">{serviceMode}</span>
+          </div>
+        )}
+        
+        {/* Status Badge with health check type tooltip */}
+        <div 
+          className="flex items-center gap-1.5 group/status relative"
+          title={healthDetails?.checkType ? `Health check: ${getCheckTypeDisplay(healthDetails.checkType)}` : undefined}
+        >
+          {/* Health check type icon (shown on hover) */}
+          {healthDetails?.checkType && (
+            <span className="text-slate-400 dark:text-slate-500 opacity-0 group-hover/status:opacity-100 transition-opacity">
+              {getCheckTypeIcon()}
+            </span>
+          )}
           <ModernStatusDot status={effectiveStatus} size="md" />
           <span className={cn(
             'text-sm font-medium capitalize',
-            effectiveStatus === 'healthy' && 'text-emerald-600 dark:text-emerald-400',
-            effectiveStatus === 'degraded' && 'text-amber-600 dark:text-amber-400',
-            (effectiveStatus === 'unhealthy' || effectiveStatus === 'error') && 'text-rose-600 dark:text-rose-400',
-            !['healthy', 'degraded', 'unhealthy', 'error'].includes(effectiveStatus) && 'text-slate-500 dark:text-slate-400'
+            (effectiveStatus === 'healthy' || effectiveStatus === 'watching' || effectiveStatus === 'built' || effectiveStatus === 'completed') && 'text-emerald-600 dark:text-emerald-400',
+            (effectiveStatus === 'degraded' || effectiveStatus === 'building') && 'text-amber-600 dark:text-amber-400',
+            (effectiveStatus === 'unhealthy' || effectiveStatus === 'error' || effectiveStatus === 'failed') && 'text-rose-600 dark:text-rose-400',
+            !['healthy', 'degraded', 'unhealthy', 'error', 'watching', 'building', 'built', 'completed', 'failed'].includes(effectiveStatus) && 'text-slate-500 dark:text-slate-400'
           )}>
             {effectiveStatus}
           </span>
@@ -279,10 +384,12 @@ export function ModernServiceCard({
               {formatResponseTime(healthDetails.responseTime ? healthDetails.responseTime * 1_000_000 : undefined)}
             </p>
           </div>
-          {/* Check Type */}
+          {/* Check Type with dynamic icon */}
           <div className="bg-slate-50 dark:bg-slate-700/30 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-1 mb-0.5">
-              <Globe className="w-3 h-3 text-sky-500" />
+              <span className="text-sky-500">
+                {getCheckTypeIcon()}
+              </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400">Check</span>
             </div>
             <p className="font-semibold text-xs text-slate-800 dark:text-slate-200">

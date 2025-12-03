@@ -114,7 +114,7 @@ func TestPerformHealthCheck_ExponentialBackoff(t *testing.T) {
 	runtime := ServiceRuntime{
 		Name: "test-backoff-health",
 		HealthCheck: HealthCheckConfig{
-			Type:     "port",
+			Type:     "tcp",
 			Timeout:  5 * time.Second,
 			Interval: 100 * time.Millisecond, // Initial interval
 		},
@@ -153,7 +153,7 @@ func TestPerformHealthCheck_BackoffTimeout(t *testing.T) {
 	runtime := ServiceRuntime{
 		Name: "test-backoff-timeout",
 		HealthCheck: HealthCheckConfig{
-			Type:     "port",
+			Type:     "tcp",
 			Timeout:  2 * time.Second,
 			Interval: 100 * time.Millisecond,
 		},

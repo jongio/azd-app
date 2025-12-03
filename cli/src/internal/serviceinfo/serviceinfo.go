@@ -290,7 +290,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 		if existing, exists := serviceMap[normalizedName]; exists {
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
-				Health:      runningSvc.Health,
+				Health:      "", // Health is computed dynamically via health checks, not stored in registry
 				URL:         runningSvc.URL,
 				Port:        runningSvc.Port,
 				PID:         runningSvc.PID,

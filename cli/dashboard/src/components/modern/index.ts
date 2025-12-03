@@ -13,6 +13,10 @@ export type { ModernAppProps } from './ModernApp'
 export { ModernHeader } from './ModernHeader'
 export type { ModernHeaderProps, ModernView } from './ModernHeader'
 
+// Service Status Card (header status summary)
+export { ModernServiceStatusCard } from './ModernServiceStatusCard'
+export type { ModernServiceStatusCardProps } from './ModernServiceStatusCard'
+
 // Service Views
 export { ModernServiceCard } from './ModernServiceCard'
 export type { ModernServiceCardProps } from './ModernServiceCard'

@@ -61,16 +61,11 @@ func validateAndCleanServices(reg *registry.ServiceRegistry) error {
 			}
 		} else {
 			// Port is listening - service is running
-			health := "healthy"
-			if !pidExists {
-				// Port is listening but PID changed - update health but keep running
-				health = "unknown"
-			}
-
-			// Update the service status
-			if svc.Health != health {
-				if err := reg.UpdateStatus(svc.Name, "running", health); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to update service health: %v\n", err)
+			// NOTE: Health is computed dynamically via health checks, not stored in registry
+			// Status is updated if the process state changed
+			if svc.Status != "running" {
+				if err := reg.UpdateStatus(svc.Name, "running"); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to update service status: %v\n", err)
 				}
 			}
 		}

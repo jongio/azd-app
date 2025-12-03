@@ -6,10 +6,37 @@ export interface ClassificationOverride {
 }
 
 /** Type of health check performed */
-export type HealthCheckType = 'http' | 'port' | 'process'
+export type HealthCheckType = 'http' | 'tcp' | 'process'
 
-/** Health status values */
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'starting' | 'unknown'
+/**
+ * Health status - describes service's ability to handle requests
+ * This is determined by health checks (HTTP, port, or process checks)
+ * 
+ * IMPORTANT: Health is INDEPENDENT of lifecycle state
+ * - A running service can be unhealthy (process up, health checks fail)
+ * - A stopped service has no health status (n/a)
+ */
+export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown' | 'starting'
+
+/**
+ * Process lifecycle state - describes the process's current lifecycle phase
+ * This is managed by the service orchestrator
+ * 
+ * IMPORTANT: Lifecycle is INDEPENDENT of health status
+ * - starting: Process is being launched (not yet accepting requests)
+ * - running: Process is actively running (may or may not be healthy)
+ * - stopped: Process has been intentionally stopped
+ */
+export type LifecycleState = 
+  | 'not-started'  // Never been started
+  | 'not-running'  // Alias for not-started (backward compatibility)
+  | 'starting'     // Process is being launched
+  | 'running'      // Process is actively running
+  | 'stopping'     // Process is being terminated
+  | 'stopped'      // Process has been intentionally stopped
+  | 'restarting'   // Process is being restarted
+  | 'completed'    // Process finished successfully (build/task mode)
+  | 'failed'       // Process exited with error (build/task mode)
 
 /**
  * Service type - how the service is accessed (protocol level)
@@ -29,12 +56,10 @@ export type ServiceType = 'http' | 'tcp' | 'process'
 export type ServiceMode = 'watch' | 'build' | 'daemon' | 'task'
 
 /**
- * Extended status values including process-service specific statuses
+ * Service status - DEPRECATED, use LifecycleState instead
+ * Kept for backward compatibility during transition
  */
-export type ServiceStatus = 
-  | 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error' | 'not-running' | 'restarting'
-  // Process service specific statuses
-  | 'watching' | 'building' | 'built' | 'failed' | 'completed'
+export type ServiceStatus = LifecycleState | 'ready' | 'error' | 'watching' | 'building' | 'built'
 
 /** Detailed health check information */
 export interface HealthDetails {
@@ -49,8 +74,10 @@ export interface HealthDetails {
 }
 
 export interface LocalServiceInfo {
+  /** Process lifecycle state */
   status: ServiceStatus
-  health: 'healthy' | 'degraded' | 'unhealthy' | 'starting' | 'unknown'
+  /** Health check status - independent of lifecycle */
+  health: HealthStatus
   url?: string
   port?: number
   pid?: number
@@ -110,7 +137,11 @@ export interface HealthEvent {
 /** Health check result for a single service */
 export interface HealthCheckResult {
   serviceName: string
-  status: HealthStatus
+  /** 
+   * Health status from the health check
+   * Note: Backend may send 'starting' during grace period - treat as 'unknown'
+   */
+  status: HealthStatus | 'starting'  // 'starting' from backend = treat as unknown
   checkType: HealthCheckType
   endpoint?: string
   responseTime: number  // nanoseconds from Go, convert to ms
@@ -131,10 +162,10 @@ export interface HealthSummary {
   healthy: number
   degraded: number
   unhealthy: number
-  starting: number
-  stopped: number
+  starting: number  // Backend sends this - services in startup grace period
+  stopped: number   // Services that are stopped (not running)
   unknown: number
-  overall: HealthStatus
+  overall: HealthStatus | 'starting'  // Backend may send 'starting'
 }
 
 /** Full health report event */

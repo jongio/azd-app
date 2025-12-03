@@ -30,7 +30,8 @@ import {
   getHealthScoreVariant,
   getServiceUptime,
 } from '@/lib/metrics-utils'
-import type { Service, HealthReportEvent, HealthCheckResult } from '@/types'
+import { normalizeHealthStatus } from '@/lib/service-utils'
+import type { Service, HealthReportEvent, HealthCheckResult, HealthStatus } from '@/types'
 
 // =============================================================================
 // Types
@@ -55,7 +56,7 @@ interface MetricCardProps {
   trendValue?: string
 }
 
-type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'starting' | 'unknown' | 'stopped'
+// Use HealthStatus from @/types - no local redefinition
 
 // =============================================================================
 // MetricCard Component
@@ -172,10 +173,8 @@ function HealthBadge({ health }: { health?: string }) {
       label: 'Unhealthy',
       className: 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300',
     },
-    starting: {
-      label: 'Starting',
-      className: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300',
-    },
+    // Note: 'starting' is a lifecycle state, not a health status
+    // Health should be normalized to 'unknown' if backend sends 'starting'
   }
 
   const config = configs[health ?? 'unknown'] ?? {
@@ -235,15 +234,15 @@ export function ModernMetricsView({
     return result?.responseTime ? result.responseTime / 1_000_000 : null
   }
 
-  // Get health status from health report
+  // Get health status from health report, normalized to valid HealthStatus values
   const getServiceHealthStatus = (service: Service): HealthStatus => {
     if (healthReport) {
       const result = healthReport.services.find((s: HealthCheckResult) => s.serviceName === service.name)
       if (result) {
-        return result.status as HealthStatus
+        return normalizeHealthStatus(result.status)
       }
     }
-    return (service.local?.health ?? 'unknown') as HealthStatus
+    return normalizeHealthStatus(service.local?.health)
   }
 
   return (
