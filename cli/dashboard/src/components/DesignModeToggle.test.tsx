@@ -101,6 +101,7 @@ describe('DesignModeToggle', () => {
     })
 
     it('updates URL when mode changes', async () => {
+      const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
       const user = userEvent.setup()
       render(
         <DesignModeProvider>
@@ -111,7 +112,8 @@ describe('DesignModeToggle', () => {
       const button = screen.getByRole('button')
       await user.click(button)
 
-      expect(window.history.replaceState).toHaveBeenCalled()
+      expect(replaceStateSpy).toHaveBeenCalled()
+      replaceStateSpy.mockRestore()
     })
 
     it('announces mode change to screen readers', async () => {
@@ -431,6 +433,7 @@ describe('ModernDesignModeToggle', () => {
   })
 
   it('updates URL when mode changes', async () => {
+    const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
     const user = userEvent.setup()
     render(
       <DesignModeProvider>
@@ -441,7 +444,8 @@ describe('ModernDesignModeToggle', () => {
     const button = screen.getByRole('button')
     await user.click(button)
 
-    expect(window.history.replaceState).toHaveBeenCalled()
+    expect(replaceStateSpy).toHaveBeenCalled()
+    replaceStateSpy.mockRestore()
   })
 
   it('announces mode change to screen readers', async () => {
