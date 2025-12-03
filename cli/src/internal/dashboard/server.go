@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
 	"log"
 	"math/big"
@@ -125,6 +126,37 @@ func (s *Server) setupRoutes() {
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if the requested file exists in the embedded FS
+		path := r.URL.Path
+		if path == "/" {
+			path = "/index.html"
+		}
+		
+		// Try to open the file
+		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
+		if err != nil {
+			// File doesn't exist - serve index.html for client-side routing
+			// This handles routes like /console, /services, /environment, /metrics
+			indexFile, indexErr := distFS.Open("index.html")
+			if indexErr != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer indexFile.Close()
+			
+			indexContent, readErr := io.ReadAll(indexFile)
+			if readErr != nil {
+				http.Error(w, "Failed to read index.html", http.StatusInternalServerError)
+				return
+			}
+			
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(indexContent)
+			return
+		}
+		f.Close()
+		
+		// File exists, serve it normally
 		fileServer.ServeHTTP(w, r)
 	})
 }

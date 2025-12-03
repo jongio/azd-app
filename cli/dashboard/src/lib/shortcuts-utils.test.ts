@@ -186,46 +186,38 @@ describe('shortcuts-utils', () => {
   })
 
   describe('viewToKey', () => {
-    it('should map resources to 1', () => {
-      expect(viewToKey.resources).toBe('1')
+    it('should map console to 1', () => {
+      expect(viewToKey.console).toBe('1')
     })
 
-    it('should map console to 2', () => {
-      expect(viewToKey.console).toBe('2')
+    it('should map resources to 2', () => {
+      expect(viewToKey.resources).toBe('2')
     })
 
-    it('should map metrics to 3', () => {
-      expect(viewToKey.metrics).toBe('3')
+    it('should map environment to 3', () => {
+      expect(viewToKey.environment).toBe('3')
     })
 
-    it('should map environment to 4', () => {
-      expect(viewToKey.environment).toBe('4')
-    })
-
-    it('should map dependencies to 5', () => {
-      expect(viewToKey.dependencies).toBe('5')
+    it('should map metrics to 4', () => {
+      expect(viewToKey.metrics).toBe('4')
     })
   })
 
   describe('keyToView', () => {
-    it('should map 1 to resources', () => {
-      expect(keyToView['1']).toBe('resources')
+    it('should map 1 to console', () => {
+      expect(keyToView['1']).toBe('console')
     })
 
-    it('should map 2 to console', () => {
-      expect(keyToView['2']).toBe('console')
+    it('should map 2 to resources', () => {
+      expect(keyToView['2']).toBe('resources')
     })
 
-    it('should map 3 to metrics', () => {
-      expect(keyToView['3']).toBe('metrics')
+    it('should map 3 to environment', () => {
+      expect(keyToView['3']).toBe('environment')
     })
 
-    it('should map 4 to environment', () => {
-      expect(keyToView['4']).toBe('environment')
-    })
-
-    it('should map 5 to dependencies', () => {
-      expect(keyToView['5']).toBe('dependencies')
+    it('should map 4 to metrics', () => {
+      expect(keyToView['4']).toBe('metrics')
     })
   })
 

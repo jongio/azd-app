@@ -313,7 +313,8 @@ export function LogsPane({
       className={cn("flex flex-col border-4 rounded-lg overflow-hidden transition-all duration-200", borderClass)}
       style={{ 
         height: isCollapsed ? 'fit-content' : '100%',
-        minHeight: isCollapsed ? undefined : '150px'
+        minHeight: isCollapsed ? undefined : '150px',
+        maxHeight: '100%',
       }}
       role="region"
       aria-label={`Logs for ${serviceName}`}

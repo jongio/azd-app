@@ -15,11 +15,10 @@ export interface Shortcut {
  */
 export const shortcuts = [
   // Navigation
-  { key: '1', description: 'Resources view', category: 'navigation' },
-  { key: '2', description: 'Console view', category: 'navigation' },
-  { key: '3', description: 'Metrics view', category: 'navigation' },
-  { key: '4', description: 'Environment view', category: 'navigation' },
-  { key: '5', description: 'Dependencies view', category: 'navigation' },
+  { key: '1', description: 'Console view', category: 'navigation' },
+  { key: '2', description: 'Services view', category: 'navigation' },
+  { key: '3', description: 'Environment view', category: 'navigation' },
+  { key: '4', description: 'Metrics view', category: 'navigation' },
   
   // Actions
   { key: 'R', description: 'Refresh all services', category: 'actions' },
@@ -90,22 +89,20 @@ export function getCategoryDisplayName(category: ShortcutCategory): string {
  * Map view name to navigation key
  */
 export const viewToKey = {
-  resources: '1',
-  console: '2',
-  metrics: '3',
-  environment: '4',
-  dependencies: '5',
+  console: '1',
+  resources: '2',
+  environment: '3',
+  metrics: '4',
 } as const satisfies Record<string, string>
 
 /**
  * Map key to view name
  */
 export const keyToView = {
-  '1': 'resources',
-  '2': 'console',
-  '3': 'metrics',
-  '4': 'environment',
-  '5': 'dependencies',
+  '1': 'console',
+  '2': 'resources',
+  '3': 'environment',
+  '4': 'metrics',
 } as const satisfies Record<string, string>
 
 /**
