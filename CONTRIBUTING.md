@@ -54,12 +54,23 @@ go build -o bin/app.exe ./src/cmd/app
    ```bash
    cd cli
    
-   # First time setup: Uninstall any existing version and clean cache
-   azd extension uninstall jongio.azd.app
-   rm -r ~/.azd/extensions/jongio.azd.app  # On Windows: Remove-Item -Recurse -Force ~\.azd\extensions\jongio.azd.app
+   # First time setup: Add the local registry source (one-time)
+   azd extension source add -n app -t file -l "<path-to-repo>/registry.json"
+   # Example: azd extension source add -n app -t file -l "C:\code\azd-app\registry.json"
    
+   # Install the extension from the local registry
+   azd extension install jongio.azd.app --source app --force
+   
+   # Verify installation
+   azd app version
+   ```
+
+   After the initial setup, you can rebuild and reinstall with:
+   ```bash
    # Build and install extension
-   azd x build --skip-install=false
+   mage build
+   # or
+   azd x build
    
    # Verify installation
    azd app version
