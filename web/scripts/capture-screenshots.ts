@@ -51,13 +51,13 @@ interface ValidationRule {
 // Elements that should be present in the dashboard
 const REQUIRED_ELEMENTS: ValidationRule[] = [
   { 
-    selector: 'aside', 
-    description: 'Sidebar navigation',
+    selector: 'header[role="banner"]', 
+    description: 'Header navigation',
     mustBeVisible: true 
   },
   { 
-    selector: 'button', 
-    description: 'Navigation buttons',
+    selector: '[role="tablist"] [role="tab"]', 
+    description: 'Navigation tabs',
     minCount: 3
   },
 ];
@@ -65,8 +65,8 @@ const REQUIRED_ELEMENTS: ValidationRule[] = [
 // Elements that indicate a healthy dashboard with services
 const SERVICE_ELEMENTS: ValidationRule[] = [
   { 
-    selector: 'table tbody tr, [class*="service-card"], [class*="ServiceCard"]', 
-    description: 'Service rows or cards',
+    selector: 'table tbody tr, [class*="ServiceCard"], main > div, [class*="logs"]', 
+    description: 'Service rows, cards, or main content',
     minCount: 1
   },
 ];
@@ -104,7 +104,33 @@ interface ScreenshotAction {
 }
 
 const screenshots: ScreenshotConfig[] = [
-  // Resources view - Table (default)
+  // Console view (default landing page)
+  {
+    name: 'dashboard-console',
+    url: '', // Will be set dynamically from azd app run output
+    viewport: { width: 900, height: 600 },
+    delay: 2000,
+    validateElements: REQUIRED_ELEMENTS,
+    requireServices: true,
+    // Console is the default view, no navigation needed
+  },
+  // Resources view - Grid (default for resources)
+  {
+    name: 'dashboard-resources-grid',
+    url: '', // Will be set dynamically from azd app run output
+    viewport: { width: 900, height: 600 },
+    delay: 1500,
+    validateElements: REQUIRED_ELEMENTS,
+    requireServices: true,
+    actions: [
+      { type: 'click', selector: '[role="tab"]:has-text("Services")', description: 'Click Services tab' },
+      { type: 'wait', delay: 500, description: 'Wait for view to load' },
+      // Ensure grid view is selected (click Grid button if visible)
+      { type: 'click', selector: 'button:has-text("Grid")', description: 'Click Grid view button' },
+      { type: 'wait', delay: 500, description: 'Wait for grid to render' },
+    ],
+  },
+  // Resources view - Table
   {
     name: 'dashboard-resources-table',
     url: '', // Will be set dynamically from azd app run output
@@ -113,42 +139,11 @@ const screenshots: ScreenshotConfig[] = [
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
-      { type: 'click', selector: 'button:has-text("Resources")', description: 'Click Resources tab' },
+      { type: 'click', selector: '[role="tab"]:has-text("Services")', description: 'Click Services tab' },
       { type: 'wait', delay: 500, description: 'Wait for view to load' },
-      // Ensure table view is selected
-      { type: 'evaluate', script: `localStorage.setItem('dashboard-view-preference', 'table')`, description: 'Set table view preference' },
-      { type: 'evaluate', script: `window.location.reload()`, description: 'Reload to apply preference' },
-      { type: 'wait', delay: 2000, description: 'Wait for reload' },
-    ],
-  },
-  // Resources view - Cards
-  {
-    name: 'dashboard-resources-cards',
-    url: '', // Will be set dynamically from azd app run output
-    viewport: { width: 900, height: 600 },
-    delay: 1500,
-    validateElements: REQUIRED_ELEMENTS,
-    requireServices: true,
-    actions: [
-      { type: 'click', selector: 'button:has-text("Resources")', description: 'Click Resources tab' },
-      { type: 'wait', delay: 500, description: 'Wait for view to load' },
-      // Switch to cards view
-      { type: 'evaluate', script: `localStorage.setItem('dashboard-view-preference', 'cards')`, description: 'Set cards view preference' },
-      { type: 'evaluate', script: `window.location.reload()`, description: 'Reload to apply preference' },
-      { type: 'wait', delay: 2000, description: 'Wait for reload' },
-    ],
-  },
-  // Console view
-  {
-    name: 'dashboard-console',
-    url: '', // Will be set dynamically from azd app run output
-    viewport: { width: 900, height: 600 },
-    delay: 1500,
-    validateElements: REQUIRED_ELEMENTS,
-    requireServices: true,
-    actions: [
-      { type: 'click', selector: 'button:has-text("Console")', description: 'Click Console tab' },
-      { type: 'wait', delay: 1500, description: 'Wait for logs to load' },
+      // Switch to table view
+      { type: 'click', selector: 'button:has-text("Table")', description: 'Click Table view button' },
+      { type: 'wait', delay: 500, description: 'Wait for table to render' },
     ],
   },
 ];
@@ -373,15 +368,15 @@ async function waitForDashboardReady(page: Page, timeout = 30000): Promise<boole
     }
     
     // Check if main content is loaded
-    const hasTitle = await page.$('h1');
-    const hasSidebar = await page.$('aside');
-    
-    if (hasTitle && hasSidebar) {
-      // Check for services (table rows or cards)
+      const hasTitle = await page.$('h1, h2');
+      const hasHeader = await page.$('header[role="banner"]');
+    if (hasTitle && hasHeader) {
+      // Check for services (table rows, cards, or log entries)
       const tableRows = await page.$$('table tbody tr');
-      const serviceCards = await page.$$('[class*="ServiceCard"], [class*="service-card"]');
+      const serviceCards = await page.$$('[class*="ServiceCard"]');
+      const logPanes = await page.$$('[class*="LogsPane"], [class*="log-"], main[class] > div');
       
-      if (tableRows.length > 0 || serviceCards.length > 0) {
+      if (tableRows.length > 0 || serviceCards.length > 0 || logPanes.length > 0) {
         // Double check no reconnecting message
         const stillReconnecting = await page.$('text="Reconnecting"');
         if (stillReconnecting) {
@@ -393,7 +388,7 @@ async function waitForDashboardReady(page: Page, timeout = 30000): Promise<boole
           }
         }
         
-        console.log(`  ✓ Dashboard loaded with ${tableRows.length + serviceCards.length} service element(s)`);
+        console.log(`  ✓ Dashboard loaded with ${tableRows.length + serviceCards.length + logPanes.length} content element(s)`);
         return true;
       }
       
