@@ -149,6 +149,12 @@ func TestExecuteOperation_ConcurrentPrevention(t *testing.T) {
 	close(finish)
 	wg.Wait()
 
+	// Wait for any cleanup from the timed-out operation's goroutine.
+	// The timed-out operation spawns a goroutine that may acquire the lock after
+	// the first operation releases it, then immediately release it due to the
+	// done channel being closed. This small delay ensures that cleanup completes.
+	time.Sleep(100 * time.Millisecond)
+
 	// Now a new operation should succeed
 	result = mgr.ExecuteOperation(ctx, serviceName, OpStop, func(ctx context.Context) error {
 		return nil
