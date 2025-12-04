@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/spf13/cobra"
@@ -78,20 +79,38 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Get running services from registry (persisted to disk)
-	reg := registry.GetRegistry(cwd)
-	registeredServices := reg.ListAll()
-
 	// Get log manager for in-memory buffers (may be empty if called from subprocess)
 	logManager := service.GetLogManager(cwd)
 
-	// Build list of service names from registry
+	// Get running services via dashboard client (works across processes)
+	ctx := context.Background()
+	dashboardClient, err := dashboard.NewClient(ctx, cwd)
+	if err != nil {
+		output.Info("No services are currently running")
+		output.Item("Run 'azd app run' to start services")
+		return nil
+	}
+
+	// Check if dashboard is actually responding
+	if err := dashboardClient.Ping(ctx); err != nil {
+		output.Info("No services are currently running")
+		output.Item("Run 'azd app run' to start services")
+		return nil
+	}
+
+	// Get service list from dashboard
+	services, err := dashboardClient.GetServices(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get services from dashboard: %w", err)
+	}
+
+	// Build list of service names
 	var serviceNames []string
-	for _, svc := range registeredServices {
+	for _, svc := range services {
 		serviceNames = append(serviceNames, svc.Name)
 	}
 
-	// Check if any services are running
+	// Check if any services exist
 	if len(serviceNames) == 0 {
 		output.Info("No services are currently running")
 		output.Item("Run 'azd app run' to start services")
