@@ -262,7 +262,7 @@ describe('useHealthStream', () => {
         {
           serviceName: 'web',
           status: 'unhealthy',
-          checkType: 'port',
+          checkType: 'tcp',
           responseTime: 0,
           timestamp: '2024-11-27T10:30:00Z',
           error: 'connection refused',

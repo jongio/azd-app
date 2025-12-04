@@ -1,18 +1,16 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 
 	"github.com/spf13/cobra"
@@ -37,119 +35,6 @@ func NewInfoCommand() *cobra.Command {
 	return cmd
 }
 
-// validateAndCleanServices checks if registered processes are still running and cleans up stale entries.
-func validateAndCleanServices(reg *registry.ServiceRegistry) error {
-	services := reg.ListAll()
-	var servicesToRemove []string
-
-	for _, svc := range services {
-		// Primary check: is the port actually listening?
-		// This is more reliable than PID checking due to PID reuse
-		portListening := isPortReachable(svc.Port)
-		pidExists := isProcessRunning(svc.PID)
-
-		// If port is not listening, the service is effectively not running
-		// even if a process with that PID exists (could be PID reuse)
-		if !portListening {
-			if pidExists {
-				// PID exists but port isn't listening - likely PID reuse or crashed service
-				// Mark as not running and remove
-				servicesToRemove = append(servicesToRemove, svc.Name)
-			} else {
-				// Both PID and port are gone - definitely not running
-				servicesToRemove = append(servicesToRemove, svc.Name)
-			}
-		} else {
-			// Port is listening - service is running
-			health := "healthy"
-			if !pidExists {
-				// Port is listening but PID changed - update health but keep running
-				health = "unknown"
-			}
-
-			// Update the service status
-			if svc.Health != health {
-				if err := reg.UpdateStatus(svc.Name, "running", health); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to update service health: %v\n", err)
-				}
-			}
-		}
-	}
-
-	// Remove stale services
-	for _, serviceName := range servicesToRemove {
-		if err := reg.Unregister(serviceName); err != nil {
-			return fmt.Errorf("failed to unregister stale service %s: %w", serviceName, err)
-		}
-	}
-
-	return nil
-}
-
-// isProcessRunning checks if a process with the given PID is actually running.
-// Works on both Windows and Unix systems.
-func isProcessRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-
-	if runtime.GOOS == "windows" {
-		// On Windows, use tasklist command to check if process exists
-		// #nosec G204 -- tasklist command with validated PID (integer), safe usage
-		cmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(pid), "/NH")
-		output, err := cmd.Output()
-		if err != nil {
-			return false
-		}
-		// If the process exists, tasklist will return a line with the PID
-		return strings.Contains(string(output), strconv.Itoa(pid))
-	} else {
-		// On Unix systems, use os.FindProcess and send signal 0
-		process, err := os.FindProcess(pid)
-		if err != nil {
-			return false
-		}
-		err = process.Signal(syscall.Signal(0))
-		return err == nil
-	}
-}
-
-// isPortReachable checks if a port is reachable (simple health check).
-func isPortReachable(port int) bool {
-	// Check using netstat to see if port is listening
-	if runtime.GOOS == "windows" {
-		cmd := exec.Command("netstat", "-an")
-		output, err := cmd.Output()
-		if err != nil {
-			return false
-		}
-		portStr := fmt.Sprintf(":%d ", port)
-		// Check each line to ensure :PORT and LISTENING appear on the SAME line
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, portStr) && strings.Contains(line, "LISTENING") {
-				return true
-			}
-		}
-		return false
-	} else {
-		cmd := exec.Command("netstat", "-ln")
-		output, err := cmd.Output()
-		if err != nil {
-			return false
-		}
-		portStr := fmt.Sprintf(":%d ", port)
-		// Check each line to ensure the port appears with LISTEN state
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, portStr) && strings.Contains(line, "LISTEN") {
-				return true
-			}
-		}
-		return false
-	}
-}
-
 // runInfo executes the info command.
 func runInfo(cmd *cobra.Command, args []string) error {
 	output.CommandHeader("info", "Show information about services")
@@ -159,17 +44,29 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	reg := registry.GetRegistry(cwd)
+	ctx := context.Background()
 
-	// Validate and clean up stale processes in real-time
-	if err := validateAndCleanServices(reg); err != nil && !output.IsJSON() {
-		output.Warning("Failed to validate service status: %v", err)
-	}
-
-	// Use shared serviceinfo package to get merged service data
-	allServices, err := serviceinfo.GetServiceInfo(cwd)
-	if err != nil && !output.IsJSON() {
-		output.Warning("Failed to get service info: %v", err)
+	// Try to get services from dashboard API first (live state)
+	var allServices []*serviceinfo.ServiceInfo
+	dashboardClient, err := dashboard.NewClient(ctx, cwd)
+	if err == nil {
+		// Dashboard is running, get live state from it
+		allServices, err = dashboardClient.GetServices(ctx)
+		if err != nil && !output.IsJSON() {
+			output.Warning("Failed to get services from dashboard: %v", err)
+			// Fall back to azure.yaml only
+			allServices, err = serviceinfo.GetServiceInfo(cwd)
+			if err != nil && !output.IsJSON() {
+				output.Warning("Failed to get service info: %v", err)
+			}
+		}
+	} else {
+		// Dashboard not running - get service definitions from azure.yaml only
+		// Note: Runtime state (running, ports, PIDs) will not be available
+		allServices, err = serviceinfo.GetServiceInfo(cwd)
+		if err != nil && !output.IsJSON() {
+			output.Warning("Failed to get service info: %v", err)
+		}
 	}
 
 	// Get Azure environment values for environment variable display

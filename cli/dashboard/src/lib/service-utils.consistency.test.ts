@@ -62,7 +62,9 @@ describe('Status Display Consistency', () => {
   })
 
   describe('getHealthBadgeConfig should cover all health statuses', () => {
-    const healthStatuses = ['healthy', 'degraded', 'unhealthy', 'starting', 'unknown']
+    // Note: 'starting' is NOT a health status - it's a lifecycle state
+    // Backend may send 'starting' but normalizeHealthStatus converts it to 'unknown'
+    const healthStatuses = ['healthy', 'degraded', 'unhealthy', 'unknown']
 
     it.each(healthStatuses)('should return valid config for health: %s', (health) => {
       const badge = getHealthBadgeConfig(health)

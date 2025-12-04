@@ -10,40 +10,82 @@ $EXTENSION_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Change to the script directory
 Set-Location -Path $EXTENSION_DIR
 
-# Check if .go files have changed by comparing timestamps
-# Only kill CLI processes if Go files need rebuilding
-$shouldKillProcesses = $false
-$goFiles = Get-ChildItem -Path "src" -Recurse -Filter "*.go" -ErrorAction SilentlyContinue
-
-if ($goFiles) {
-    # Check if any binary exists to compare against
-    $existingBinaries = Get-ChildItem -Path "bin" -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.old" }
-    if ($existingBinaries) {
-        $newestBinary = $existingBinaries | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        $newestGoFile = $goFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($newestGoFile.LastWriteTime -gt $newestBinary.LastWriteTime) {
-            $shouldKillProcesses = $true
-        }
-    } else {
-        # No binary exists, will need to build (and kill any stale processes)
-        $shouldKillProcesses = $true
-    }
-}
-
-if ($shouldKillProcesses) {
-    # Kill any running app processes to allow rebuilding
-    # This is necessary on Windows where the binary cannot be overwritten while in use
-    Write-Host "Go files changed - stopping any running app processes..." -ForegroundColor Yellow
+# Helper function to kill extension processes
+# This is necessary on Windows where binaries cannot be overwritten while in use
+function Stop-ExtensionProcesses {
     $binaryName = "app"
     $extensionId = "jongio.azd.app"
     $extensionBinaryPrefix = $extensionId -replace '\.', '-'
 
-    # Kill processes silently (ignore errors if not running)
+    # Kill processes by name silently (ignore errors if not running)
     taskkill /F /IM "$binaryName.exe" 2>$null | Out-Null
     foreach ($arch in @("windows-amd64", "windows-arm64")) {
         $procName = "$extensionBinaryPrefix-$arch.exe"
         taskkill /F /IM $procName 2>$null | Out-Null
     }
+    
+    # Also kill any processes running from the installed extension directory
+    # This catches processes that azd x watch/install started
+    $installedExtensionDir = Join-Path $env:USERPROFILE ".azd\extensions\$extensionId"
+    if (Test-Path $installedExtensionDir) {
+        Get-Process | Where-Object { 
+            $_.Path -and $_.Path.StartsWith($installedExtensionDir) 
+        } | ForEach-Object {
+            Write-Host "  Stopping process: $($_.Name) (PID: $($_.Id))" -ForegroundColor Gray
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    # Give processes time to fully terminate and release file handles
+    Start-Sleep -Milliseconds 500
+}
+
+# Check if we need to rebuild the Go binary
+# This happens when: Go files changed OR embedded dashboard dist changed
+$needsGoBuild = $false
+$existingBinaries = Get-ChildItem -Path "bin" -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.old" }
+
+if (-not $existingBinaries) {
+    # No binary exists, definitely need to build
+    $needsGoBuild = $true
+    Write-Host "No existing binary found, will build" -ForegroundColor Yellow
+} else {
+    $newestBinary = $existingBinaries | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $binaryTime = $newestBinary.LastWriteTime
+    
+    # Check Go source files
+    $goFiles = Get-ChildItem -Path "src" -Recurse -Filter "*.go" -ErrorAction SilentlyContinue
+    if ($goFiles) {
+        $newestGoFile = $goFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newestGoFile.LastWriteTime -gt $binaryTime) {
+            $needsGoBuild = $true
+            Write-Host "Go source files changed, will rebuild" -ForegroundColor Yellow
+        }
+    }
+    
+    # Check embedded dashboard dist (it's compiled into the binary)
+    $dashboardDistPath = "src\internal\dashboard\dist"
+    if (Test-Path $dashboardDistPath) {
+        $distFiles = Get-ChildItem -Path $dashboardDistPath -Recurse -File -ErrorAction SilentlyContinue
+        if ($distFiles) {
+            $newestDistFile = $distFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($newestDistFile.LastWriteTime -gt $binaryTime) {
+                $needsGoBuild = $true
+                Write-Host "Embedded dashboard dist changed, will rebuild" -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
+# Only kill extension processes if we're actually going to rebuild the binary
+# This prevents unnecessary restarts when dashboard source changes (vite watcher handles that separately)
+if ($needsGoBuild) {
+    Write-Host "Stopping extension processes before rebuild..." -ForegroundColor Yellow
+    Stop-ExtensionProcesses
+} else {
+    # Nothing to rebuild - exit early to prevent azd x watch from trying to install
+    Write-Host "  ✓ Binary up to date, skipping build" -ForegroundColor Green
+    exit 0
 }
 
 Write-Host "Building App Extension..." -ForegroundColor Cyan

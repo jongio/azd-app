@@ -96,7 +96,10 @@ func (pi *ParallelInstaller) AddDotnetProject(project types.DotnetProject) {
 	pi.AddTask(task)
 }
 
-// Run executes all tasks in parallel with progress tracking.
+// Run executes all tasks with progress tracking.
+// Tasks are grouped by package manager to avoid race conditions:
+// - pnpm tasks run sequentially (shared global store causes conflicts)
+// - All other tasks (npm, yarn, pip, dotnet) run in parallel
 func (pi *ParallelInstaller) Run() error {
 	if len(pi.tasks) == 0 {
 		return nil
@@ -118,14 +121,26 @@ func (pi *ParallelInstaller) Run() error {
 	// Start rendering progress bars (mpb handles space automatically)
 	pi.multiProg.Start()
 
-	// Run all tasks in parallel
-	var wg sync.WaitGroup
+	// Separate pnpm tasks from others
+	// pnpm uses a shared global store that can cause race conditions when
+	// multiple pnpm install commands run concurrently
+	var pnpmTasks []ProjectInstallTask
+	var parallelTasks []ProjectInstallTask
+	for _, task := range pi.tasks {
+		if task.Manager == "pnpm" {
+			pnpmTasks = append(pnpmTasks, task)
+		} else {
+			parallelTasks = append(parallelTasks, task)
+		}
+	}
+
 	resultsChan := make(chan ProjectInstallResult, len(pi.tasks))
 
-	for _, task := range pi.tasks {
+	// Run non-pnpm tasks in parallel
+	var wg sync.WaitGroup
+	for _, task := range parallelTasks {
 		wg.Add(1)
 		go func(t ProjectInstallTask) {
-			// Recover from panics to prevent crash
 			defer func() {
 				if r := recover(); r != nil {
 					resultsChan <- ProjectInstallResult{
@@ -138,6 +153,19 @@ func (pi *ParallelInstaller) Run() error {
 			}()
 			pi.runTask(t, &wg, resultsChan)
 		}(task)
+	}
+
+	// Run pnpm tasks sequentially in a separate goroutine
+	// This prevents race conditions on pnpm's global store while still
+	// allowing other package managers to run in parallel
+	if len(pnpmTasks) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for _, task := range pnpmTasks {
+				pi.runTaskSync(task, resultsChan)
+			}
+		}()
 	}
 
 	// Wait for all tasks to complete
@@ -172,6 +200,62 @@ func (pi *ParallelInstaller) Run() error {
 func (pi *ParallelInstaller) runTask(task ProjectInstallTask, wg *sync.WaitGroup, resultsChan chan<- ProjectInstallResult) {
 	defer wg.Done()
 
+	// Get the progress bar for this task
+	bar := pi.multiProg.GetBar(task.ID)
+
+	// Mark as started
+	bar.Start()
+
+	// Create a spinner writer to track progress
+	spinnerWriter := output.NewSpinnerWriter(bar)
+
+	// Execute the installation based on type
+	var err error
+	switch task.Type {
+	case "node":
+		if project, ok := task.Project.(types.NodeProject); ok {
+			if pi.Verbose {
+				err = installNodeDependenciesWithWriter(project, os.Stdout)
+			} else {
+				err = installNodeDependenciesWithWriter(project, spinnerWriter)
+			}
+		}
+	case "python":
+		if project, ok := task.Project.(types.PythonProject); ok {
+			if pi.Verbose {
+				err = setupPythonVirtualEnvWithWriter(project, os.Stdout)
+			} else {
+				err = setupPythonVirtualEnvWithWriter(project, spinnerWriter)
+			}
+		}
+	case "dotnet":
+		if project, ok := task.Project.(types.DotnetProject); ok {
+			if pi.Verbose {
+				err = restoreDotnetProjectWithWriter(project, os.Stdout)
+			} else {
+				err = restoreDotnetProjectWithWriter(project, spinnerWriter)
+			}
+		}
+	}
+
+	// Mark as completed or failed
+	if err != nil {
+		bar.Fail(err.Error())
+	} else {
+		bar.Complete()
+	}
+
+	// Send result
+	resultsChan <- ProjectInstallResult{
+		Task:    task,
+		Success: err == nil,
+		Error:   err,
+	}
+}
+
+// runTaskSync executes a single installation task synchronously (for sequential execution).
+// This is used for pnpm tasks which cannot run in parallel due to shared global store.
+func (pi *ParallelInstaller) runTaskSync(task ProjectInstallTask, resultsChan chan<- ProjectInstallResult) {
 	// Get the progress bar for this task
 	bar := pi.multiProg.GetBar(task.ID)
 

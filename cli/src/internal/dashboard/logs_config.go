@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 
-	"github.com/jongio/azd-app/cli/src/internal/fileutil"
+	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 )
 
 // maxRequestBodySize is the maximum allowed size for HTTP request bodies (1MB).
@@ -47,77 +46,66 @@ type UserPreferences struct {
 
 var prefsMu sync.RWMutex
 
-// getUserConfigDir returns the user-level config directory (~/.azure/logs-dashboard/)
-func getUserConfigDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+// prefsConfigKey is the key used to store preferences in azdconfig
+const prefsConfigKey = "logs"
+
+// getDefaultPreferences returns the default user preferences
+func getDefaultPreferences() UserPreferences {
+	return UserPreferences{
+		Version: "1.0",
+		UI: UIPreferences{
+			GridColumns:      2,
+			ViewMode:         "grid",
+			SelectedServices: []string{},
+		},
+		Behavior: BehaviorPreferences{
+			AutoScroll:      true,
+			PauseOnScroll:   true,
+			TimestampFormat: "hh:mm:ss.sss",
+		},
+		Copy: CopyPreferences{
+			DefaultFormat:    "plaintext",
+			IncludeTimestamp: true,
+			IncludeService:   true,
+		},
 	}
-	configDir := filepath.Join(home, ".azure", "logs-dashboard")
-	if err := fileutil.EnsureDir(configDir); err != nil {
-		return "", err
-	}
-	return configDir, nil
 }
 
-// loadPreferences loads user preferences
-func loadPreferences() (UserPreferences, error) {
+// loadPreferencesWithClient loads user preferences using the provided config client.
+func loadPreferencesWithClient(client azdconfig.ConfigClient) (UserPreferences, error) {
 	prefsMu.RLock()
 	defer prefsMu.RUnlock()
 
-	userConfigDir, err := getUserConfigDir()
+	data, err := client.GetPreferenceSection(prefsConfigKey)
 	if err != nil {
-		return UserPreferences{}, err
+		slog.Debug("failed to load preferences from config", "error", err)
+		return getDefaultPreferences(), nil
 	}
 
-	prefsFile := filepath.Join(userConfigDir, "preferences.json")
-
-	data, err := os.ReadFile(prefsFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Return default preferences
-			return UserPreferences{
-				Version: "1.0",
-				UI: UIPreferences{
-					GridColumns:      2,
-					ViewMode:         "grid",
-					SelectedServices: []string{},
-				},
-				Behavior: BehaviorPreferences{
-					AutoScroll:      true,
-					PauseOnScroll:   true,
-					TimestampFormat: "hh:mm:ss.sss",
-				},
-				Copy: CopyPreferences{
-					DefaultFormat:    "plaintext",
-					IncludeTimestamp: true,
-					IncludeService:   true,
-				},
-			}, nil
-		}
-		return UserPreferences{}, err
+	if len(data) == 0 {
+		return getDefaultPreferences(), nil
 	}
 
 	var prefs UserPreferences
 	if err := json.Unmarshal(data, &prefs); err != nil {
-		return UserPreferences{}, err
+		slog.Warn("failed to parse preferences, using defaults", "error", err)
+		return getDefaultPreferences(), nil
 	}
 
 	return prefs, nil
 }
 
-// savePreferences saves user preferences
-func savePreferences(prefs UserPreferences) error {
+// savePreferencesWithClient saves user preferences using the provided config client.
+func savePreferencesWithClient(client azdconfig.ConfigClient, prefs UserPreferences) error {
 	prefsMu.Lock()
 	defer prefsMu.Unlock()
 
-	userConfigDir, err := getUserConfigDir()
+	data, err := json.Marshal(prefs)
 	if err != nil {
 		return err
 	}
 
-	prefsFile := filepath.Join(userConfigDir, "preferences.json")
-	return fileutil.AtomicWriteJSON(prefsFile, prefs)
+	return client.SetPreferenceSection(prefsConfigKey, data)
 }
 
 // HTTP Handlers
@@ -129,7 +117,8 @@ func (s *Server) handleGetPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prefs, err := loadPreferences()
+	client := s.getOrCreateConfigClient()
+	prefs, err := loadPreferencesWithClient(client)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "Failed to load preferences", err)
 		return
@@ -161,7 +150,8 @@ func (s *Server) handleSavePreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := savePreferences(prefs); err != nil {
+	client := s.getOrCreateConfigClient()
+	if err := savePreferencesWithClient(client, prefs); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "Failed to save preferences", err)
 		return
 	}

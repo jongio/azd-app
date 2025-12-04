@@ -73,7 +73,7 @@ type HealthCheckType string
 
 const (
 	HealthCheckTypeHTTP    HealthCheckType = "http"
-	HealthCheckTypePort    HealthCheckType = "port"
+	HealthCheckTypeTCP     HealthCheckType = "tcp"
 	HealthCheckTypeProcess HealthCheckType = "process"
 )
 
@@ -457,7 +457,7 @@ type serviceInfo struct {
 	PID            int
 	StartTime      time.Time
 	HealthCheck    *healthCheckConfig
-	RegistryHealth string
+	RegistryStatus string // "running", "stopped", "starting", etc.
 	Type           string // "http", "tcp", "process"
 	Mode           string // "watch", "build", "daemon", "task" (for type=process)
 	ExitCode       *int   // Exit code for completed build/task mode services (nil = still running)
@@ -466,6 +466,8 @@ type serviceInfo struct {
 
 type healthCheckConfig struct {
 	Test          []string
+	Type          string // "http", "tcp", "process", "output", "none"
+	Pattern       string // Regex pattern for output-based health checks
 	Interval      time.Duration
 	Timeout       time.Duration
 	Retries       int
@@ -498,7 +500,7 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 			Port:           regSvc.Port,
 			PID:            regSvc.PID,
 			StartTime:      regSvc.StartTime,
-			RegistryHealth: regSvc.Health,
+			RegistryStatus: regSvc.Status,
 			Type:           regSvc.Type,
 			Mode:           regSvc.Mode,
 			ExitCode:       regSvc.ExitCode,
@@ -526,6 +528,17 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 				info.Mode = svc.GetServiceMode()
 			}
 
+			// Set port from azure.yaml if not already set from registry
+			// This ensures HTTP health checks work even when registry doesn't have the port
+			if info.Port == 0 {
+				hostPort, containerPort, _ := svc.GetPrimaryPort()
+				if hostPort > 0 {
+					info.Port = hostPort
+				} else if containerPort > 0 {
+					info.Port = containerPort
+				}
+			}
+
 			serviceMap[name] = info
 		}
 	}
@@ -544,6 +557,7 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 	if svc.IsHealthcheckDisabled() {
 		return &healthCheckConfig{
 			Test: []string{"NONE"},
+			Type: "none",
 		}
 	}
 
@@ -554,6 +568,8 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 
 	config := &healthCheckConfig{
 		Retries: 3, // Default
+		Type:    svc.Healthcheck.Type,
+		Pattern: svc.Healthcheck.Pattern,
 	}
 
 	// Parse test field - can be string or array
@@ -632,6 +648,28 @@ func filterServices(services []serviceInfo, filter []string) []serviceInfo {
 func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 	// Batch status updates to reduce lock contention
 	for _, result := range results {
+		// Skip updating stopped services - they should retain their stopped status
+		// Check current registry status before updating
+		currentEntry, exists := m.registry.GetService(result.ServiceName)
+		if exists && currentEntry.Status == "stopped" {
+			log.Debug().
+				Str("service", result.ServiceName).
+				Msg("Skipping registry update for stopped service")
+			continue
+		}
+
+		// IMPORTANT: Don't regress "running" services back to "starting"
+		// The "starting" health status just means health checks haven't passed yet (grace period).
+		// If the process is already running (orchestrator set it to "running"), we should
+		// NOT overwrite that with "starting" just because health checks haven't passed yet.
+		// The dashboard should show the service as "running" with "unknown" health during grace period.
+		if exists && currentEntry.Status == "running" && result.Status == HealthStatusStarting {
+			log.Debug().
+				Str("service", result.ServiceName).
+				Msg("Keeping running status during health check grace period")
+			continue
+		}
+
 		var status string
 
 		// For build/task modes, use mode-appropriate status
@@ -673,9 +711,10 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 			}
 		}
 
-		// Update registry with health status
+		// Update registry with status
 		// Registry has internal locking, so this is safe
-		if err := m.registry.UpdateStatus(result.ServiceName, status, string(result.Status)); err != nil {
+		// NOTE: Health is NOT stored in registry - it's computed dynamically
+		if err := m.registry.UpdateStatus(result.ServiceName, status); err != nil {
 			if m.config.Verbose {
 				fmt.Fprintf(os.Stderr, "Warning: Failed to update registry for %s: %v\n", result.ServiceName, err)
 			}
@@ -725,6 +764,23 @@ func calculateSummary(results []HealthCheckResult) HealthSummary {
 func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) HealthCheckResult {
 	startTime := time.Now()
 	serviceName := svc.Name
+
+	// Skip health checks for stopped services - they should remain in their stopped state
+	// without being marked as unhealthy
+	if svc.RegistryStatus == "stopped" {
+		log.Debug().
+			Str("service", serviceName).
+			Msg("Skipping health check for stopped service")
+
+		return HealthCheckResult{
+			ServiceName:  serviceName,
+			Timestamp:    time.Now(),
+			Status:       HealthStatusUnknown,
+			ResponseTime: time.Since(startTime),
+			ServiceType:  svc.Type,
+			ServiceMode:  svc.Mode,
+		}
+	}
 
 	log.Debug().
 		Str("service", serviceName).
@@ -842,12 +898,13 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		result.Uptime = time.Since(svc.StartTime)
 	}
 
-	// If the service is in "starting" state in the registry and has been running for less than
-	// the startup grace period (30 seconds), keep it in "starting" state unless health checks pass.
-	// This prevents services from showing as "unhealthy" during normal startup.
+	// Startup grace period: If the service has been running for less than 30 seconds,
+	// keep it in "starting" state unless health checks pass. This prevents services
+	// from showing as "unhealthy" during normal startup.
+	// NOTE: Grace period is based solely on start time. Once the service has been running
+	// for more than 30 seconds OR a health check passes, it exits the grace period.
 	const startupGracePeriod = 30 * time.Second
-	isInStartupGracePeriod := svc.RegistryHealth == "starting" &&
-		!svc.StartTime.IsZero() &&
+	isInStartupGracePeriod := !svc.StartTime.IsZero() &&
 		time.Since(svc.StartTime) < startupGracePeriod
 
 	// For process-type services, use process-based health checks directly
@@ -903,9 +960,9 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		}
 	}
 
-	// 2. Fall back to port check
+	// 2. Fall back to TCP port check
 	if svc.Port > 0 {
-		result.CheckType = HealthCheckTypePort
+		result.CheckType = HealthCheckTypeTCP
 		result.Port = svc.Port
 		if c.checkPort(ctx, svc.Port) {
 			result.Status = HealthStatusHealthy
@@ -1228,6 +1285,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 // These services have no network endpoint, so we check based on the service mode:
 // - daemon/watch: process must be running
 // - build/task: process completed with exit code 0 = healthy, non-zero = unhealthy
+// - output type: pattern must be matched in service logs
 func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc serviceInfo, isInStartupGracePeriod bool) HealthCheckResult {
 	result := HealthCheckResult{
 		ServiceName: svc.Name,
@@ -1250,6 +1308,11 @@ func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc servi
 	// These are one-shot processes that complete and exit - success is based on exit code, not running state
 	if svc.Mode == service.ServiceModeBuild || svc.Mode == service.ServiceModeTask {
 		return c.performBuildTaskHealthCheck(svc, isInStartupGracePeriod, result)
+	}
+
+	// Check for output-based health check (pattern matching in logs)
+	if svc.HealthCheck != nil && svc.HealthCheck.Type == "output" && svc.HealthCheck.Pattern != "" {
+		return c.performOutputHealthCheck(svc, isInStartupGracePeriod, result)
 	}
 
 	// For daemon and watch modes, check if process is running
@@ -1324,16 +1387,13 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 	// This could mean:
 	// 1. Process hasn't started yet (startup grace period)
 	// 2. Process exited but exit code wasn't captured (treat as unknown)
-	if isInStartupGracePeriod {
-		result.Status = HealthStatusStarting
-		return result
-	}
 
-	// Try to determine if process exited - if PID was set but process is not running,
-	// and we don't have an exit code, we can't determine success/failure
+	// For build/task modes: If we have a PID but process is gone and no exit code,
+	// assume it completed successfully. These are one-shot processes where exit is expected.
+	// Don't wait for startup grace period since task completion is normal behavior.
 	if svc.PID > 0 {
 		// Had a PID but process is gone and no exit code - assume it completed
-		// This is a fallback for cases where exit code wasn't captured
+		// This is a fallback for cases where exit code wasn't captured yet
 		result.Status = HealthStatusHealthy
 		if svc.Mode == service.ServiceModeBuild {
 			result.Details = map[string]interface{}{"state": "built", "note": "exit code not captured"}
@@ -1343,8 +1403,98 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 		return result
 	}
 
+	// No PID - process hasn't started yet
+	if isInStartupGracePeriod {
+		result.Status = HealthStatusStarting
+		return result
+	}
+
 	result.Status = HealthStatusUnknown
 	result.Error = "no process information available"
+	return result
+}
+
+// performOutputHealthCheck handles health checks for services using output pattern matching.
+// The service is considered healthy when the specified pattern is found in the service's log output.
+// This is useful for build/watch services that log a success message (e.g., "Found 0 errors").
+func (c *HealthChecker) performOutputHealthCheck(svc serviceInfo, isInStartupGracePeriod bool, result HealthCheckResult) HealthCheckResult {
+	pattern := svc.HealthCheck.Pattern
+	result.PID = svc.PID
+	result.Details = map[string]interface{}{
+		"checkType": "output",
+		"pattern":   pattern,
+	}
+
+	// First, verify the process is still running
+	if svc.PID > 0 && !isProcessRunning(svc.PID) {
+		// Process died - check if it was a build/task that completed
+		if svc.ExitCode != nil {
+			if *svc.ExitCode == 0 {
+				// Process exited successfully - consider healthy
+				result.Status = HealthStatusHealthy
+				result.Details["state"] = "completed"
+				return result
+			}
+			// Process exited with error
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("process exited with code %d before pattern matched", *svc.ExitCode)
+			result.Details["state"] = "failed"
+			return result
+		}
+		// Process not running and no exit code
+		if isInStartupGracePeriod {
+			result.Status = HealthStatusStarting
+		} else {
+			result.Status = HealthStatusUnhealthy
+			result.Error = "process not running"
+		}
+		return result
+	}
+
+	// Get the log manager to check for pattern in output
+	// Use working directory from registry entry or fall back to current dir
+	projectDir, _ := os.Getwd()
+	logManager := service.GetLogManager(projectDir)
+	buffer, exists := logManager.GetBuffer(svc.Name)
+
+	if !exists {
+		// Log buffer not created yet - service may still be starting
+		if isInStartupGracePeriod {
+			result.Status = HealthStatusStarting
+			result.Details["state"] = "waiting_for_logs"
+		} else {
+			result.Status = HealthStatusUnknown
+			result.Error = "log buffer not available"
+		}
+		return result
+	}
+
+	// Check if the pattern has been matched in the logs
+	if buffer.ContainsPattern(pattern) {
+		result.Status = HealthStatusHealthy
+		result.Details["state"] = "pattern_matched"
+		return result
+	}
+
+	// Pattern not found yet
+	if isInStartupGracePeriod {
+		result.Status = HealthStatusStarting
+		result.Details["state"] = "waiting_for_pattern"
+	} else {
+		// Beyond grace period - if process is running but pattern not matched,
+		// check if this is a watch service that might still be compiling
+		if svc.Mode == service.ServiceModeWatch {
+			// Watch services are healthy as long as they're running,
+			// even if pattern hasn't matched yet (could be rebuilding)
+			result.Status = HealthStatusHealthy
+			result.Details["state"] = "watching"
+		} else {
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("pattern %q not found in output", pattern)
+			result.Details["state"] = "pattern_not_matched"
+		}
+	}
+
 	return result
 }
 

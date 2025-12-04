@@ -461,7 +461,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 
 		if result.err != nil {
 			// Update registry to trigger OS notification via state monitor
-			if regErr := reg.UpdateStatus(serviceName, "error", "unhealthy"); regErr != nil {
+			if regErr := reg.UpdateStatus(serviceName, "error"); regErr != nil {
 				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
 			}
 
@@ -479,22 +479,19 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 		} else {
 			// Update registry for clean exit
 			// Use mode-appropriate status
-			var status, health string
+			var status string
 			switch mode {
 			case service.ServiceModeBuild:
 				status = "built"
-				health = "healthy"
 				// Don't print message - build completion is expected, status visible in dashboard
 			case service.ServiceModeTask:
 				status = "completed"
-				health = "healthy"
 				// Don't print message - task completion is expected, status visible in dashboard
 			default:
 				status = "stopped"
-				health = "unknown"
 				output.Info("Service %s exited cleanly", serviceName)
 			}
-			if regErr := reg.UpdateStatus(serviceName, status, health); regErr != nil {
+			if regErr := reg.UpdateStatus(serviceName, status); regErr != nil {
 				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
 			}
 		}

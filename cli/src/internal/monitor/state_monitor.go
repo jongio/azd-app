@@ -197,11 +197,13 @@ func (m *StateMonitor) checkAllServices() {
 }
 
 // captureServiceState captures the current state of a service.
+// NOTE: Health is no longer stored in registry - it's computed dynamically via health checks.
+// The StateMonitor tracks status transitions; health transitions are tracked via health stream.
 func (m *StateMonitor) captureServiceState(svc *registry.ServiceRegistryEntry) *ServiceState {
 	state := &ServiceState{
 		Name:      svc.Name,
 		Status:    svc.Status,
-		Health:    svc.Health,
+		Health:    "", // Health is computed dynamically, not stored in registry
 		PID:       svc.PID,
 		Port:      svc.Port,
 		Timestamp: time.Now(),

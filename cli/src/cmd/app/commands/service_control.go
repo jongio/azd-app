@@ -283,7 +283,7 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 	}
 
 	// Update to starting state
-	_ = c.registry.UpdateStatus(serviceName, constants.StatusStarting, constants.HealthStarting)
+	_ = c.registry.UpdateStatus(serviceName, constants.StatusStarting)
 
 	// Load environment variables
 	envVars := c.loadEnvVars(runtime)
@@ -292,13 +292,18 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 	functionsParser := service.NewFunctionsOutputParser(false)
 	process, err := service.StartService(runtime, envVars, c.projectDir, functionsParser)
 	if err != nil {
-		_ = c.registry.UpdateStatus(serviceName, constants.StatusError, constants.HealthUnknown)
+		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
+	// Validate process was created successfully
+	if process == nil || process.Process == nil {
+		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
+		return fmt.Errorf("service process not created")
+	}
+
 	// Update registry with new process info
-	// Keep health as "starting" - the health monitor will transition to "healthy"
-	// once the service is actually responding to health checks
+	// Health will be determined dynamically by health checks
 	updatedEntry := &registry.ServiceRegistryEntry{
 		Name:        serviceName,
 		ProjectDir:  entry.ProjectDir,
@@ -309,9 +314,10 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 		Language:    runtime.Language,
 		Framework:   runtime.Framework,
 		Status:      constants.StatusRunning,
-		Health:      constants.HealthStarting,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
+		Type:        runtime.Type,
+		Mode:        runtime.Mode,
 	}
 	return c.registry.Register(updatedEntry)
 }
@@ -320,7 +326,7 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 // It stops the service by PID and ensures the port is freed to handle stale registry entries.
 func (c *ServiceController) performStop(entry *registry.ServiceRegistryEntry, serviceName string) error {
 	// Update to stopping state
-	_ = c.registry.UpdateStatus(serviceName, constants.StatusStopping, entry.Health)
+	_ = c.registry.UpdateStatus(serviceName, constants.StatusStopping)
 
 	// First, try to stop by the registered PID
 	if entry.PID > 0 {
@@ -351,7 +357,7 @@ func (c *ServiceController) performStop(entry *registry.ServiceRegistryEntry, se
 		}
 	}
 
-	return c.registry.UpdateStatus(serviceName, constants.StatusStopped, constants.HealthUnknown)
+	return c.registry.UpdateStatus(serviceName, constants.StatusStopped)
 }
 
 // loadEnvVars loads environment variables for the service.

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, ExternalLink, CircleDot, PanelRight } from 'lucide-react'
-import { formatLogTimestamp, getLogPaneVisualStatus, type VisualStatus } from '@/lib/service-utils'
+import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, HeartCrack, ExternalLink, CircleDot, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, HelpCircle, Eye, Hammer, CheckSquare, CircleX } from 'lucide-react'
+import { formatLogTimestamp, getLogPaneVisualStatus, normalizeHealthStatus, type VisualStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
@@ -35,7 +35,7 @@ interface LogsPaneProps {
   levelFilter?: Set<'info' | 'warning' | 'error'>
   isCollapsed?: boolean           // NEW: controlled collapse state
   onToggleCollapse?: () => void   // NEW: collapse toggle callback
-  serviceHealth?: HealthStatus    // NEW: real-time health status from health stream
+  serviceHealth?: HealthStatus  // Real-time health from stream
   onShowDetails?: () => void      // Callback to open service details panel
 }
 
@@ -288,9 +288,12 @@ export function LogsPane({
   // Get process status from service
   const processStatus = service?.local?.status
 
+  // Normalize health status - backend may send 'starting' which we treat as 'unknown'
+  const normalizedHealth = serviceHealth ? normalizeHealthStatus(serviceHealth) : undefined
+
   // Border and header colors should follow service health (if available), not log content
   // Process status (stopped) takes priority over health status
-  const visualStatus: VisualStatus = getLogPaneVisualStatus(serviceHealth, paneStatus, processStatus)
+  const visualStatus: VisualStatus = getLogPaneVisualStatus(normalizedHealth, paneStatus, processStatus)
 
   const borderClass = {
     error: 'border-red-500',
@@ -313,7 +316,8 @@ export function LogsPane({
       className={cn("flex flex-col border-4 rounded-lg overflow-hidden transition-all duration-200", borderClass)}
       style={{ 
         height: isCollapsed ? 'fit-content' : '100%',
-        minHeight: isCollapsed ? undefined : '150px'
+        minHeight: isCollapsed ? undefined : '150px',
+        maxHeight: '100%',
       }}
       role="region"
       aria-label={`Logs for ${serviceName}`}
@@ -345,38 +349,67 @@ export function LogsPane({
           <h3 className="font-semibold">
             {serviceName}{port && <span className="text-muted-foreground font-mono">:{port}</span>}
           </h3>
-          {/* Stopped badge - shows when service is stopped */}
-          {processStatus === 'stopped' && (
-            <span 
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/30"
-              title="Service is stopped"
-            >
-              <CircleDot className="w-3 h-3 shrink-0" />
-              <span className="leading-none">stopped</span>
-            </span>
-          )}
-          {/* Health status badge - from real-time health checks, only show when not stopped */}
-          {serviceHealth && processStatus !== 'stopped' && (
+          {/* Running State Badge - shows lifecycle state (running/stopped/starting/etc) - icon only */}
+          <span 
+            className={cn(
+              "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+              // Running states - green
+              (processStatus === 'running' || processStatus === 'watching' || processStatus === 'ready') && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
+              // Stopped/completed states - gray
+              (processStatus === 'stopped' || processStatus === 'not-started' || processStatus === 'not-running') && "bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-500/30",
+              // Completed build states - green (success)
+              (processStatus === 'built' || processStatus === 'completed') && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
+              // Transitional states - blue
+              (processStatus === 'starting' || processStatus === 'building') && "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30",
+              // Stopping state - yellow
+              processStatus === 'stopping' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30",
+              // Restarting - blue
+              processStatus === 'restarting' && "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30",
+              // Failed/error - red
+              (processStatus === 'failed' || processStatus === 'error') && "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30",
+              // Unknown
+              !processStatus && "bg-muted text-muted-foreground border border-border"
+            )}
+            title={`Process state: ${processStatus || 'unknown'}`}
+          >
+            {/* Running states */}
+            {(processStatus === 'running' || processStatus === 'ready') && <CheckCircle className="w-3 h-3 shrink-0" />}
+            {processStatus === 'watching' && <Eye className="w-3 h-3 shrink-0" />}
+            {/* Stopped states */}
+            {(processStatus === 'stopped' || processStatus === 'not-started' || processStatus === 'not-running') && <CircleOff className="w-3 h-3 shrink-0" />}
+            {/* Build states */}
+            {processStatus === 'building' && <Hammer className="w-3 h-3 shrink-0 animate-pulse" />}
+            {(processStatus === 'built' || processStatus === 'completed') && <CheckSquare className="w-3 h-3 shrink-0" />}
+            {/* Transitional states */}
+            {processStatus === 'starting' && <Loader2 className="w-3 h-3 shrink-0 animate-spin" />}
+            {processStatus === 'stopping' && <Loader2 className="w-3 h-3 shrink-0 animate-spin" />}
+            {processStatus === 'restarting' && <RotateCw className="w-3 h-3 shrink-0 animate-spin" />}
+            {/* Error states */}
+            {(processStatus === 'failed' || processStatus === 'error') && <CircleX className="w-3 h-3 shrink-0" />}
+            {/* Unknown */}
+            {!processStatus && <CircleDot className="w-3 h-3 shrink-0" />}
+          </span>
+          {/* Health Status Badge - from real-time health checks - icon only */}
+          {normalizedHealth && (
             <span 
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium transition-all duration-200",
-                serviceHealth === 'healthy' && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
-                serviceHealth === 'degraded' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30",
-                serviceHealth === 'unhealthy' && "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30",
-                (serviceHealth === 'unknown' || serviceHealth === 'starting') && "bg-muted text-muted-foreground border border-border"
+                "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+                normalizedHealth === 'healthy' && "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30",
+                normalizedHealth === 'degraded' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30",
+                normalizedHealth === 'unhealthy' && "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30",
+                normalizedHealth === 'unknown' && "bg-muted text-muted-foreground border border-border"
               )}
-              title={`Service health: ${serviceHealth} (from health checks)`}
+              title={`Service health: ${normalizedHealth} (from health checks)`}
             >
-              {serviceHealth === 'healthy' ? (
+              {normalizedHealth === 'healthy' ? (
                 <Heart className="w-3 h-3 shrink-0 animate-heartbeat" />
-              ) : serviceHealth === 'degraded' ? (
+              ) : normalizedHealth === 'degraded' ? (
                 <HeartPulse className="w-3 h-3 shrink-0 animate-caution-pulse" />
-              ) : serviceHealth === 'unhealthy' ? (
-                <HeartPulse className="w-3 h-3 shrink-0 animate-status-flash" />
+              ) : normalizedHealth === 'unhealthy' ? (
+                <HeartCrack className="w-3 h-3 shrink-0 animate-status-flash" />
               ) : (
-                <HeartPulse className="w-3 h-3 shrink-0" />
+                <HelpCircle className="w-3 h-3 shrink-0" />
               )}
-              <span className="leading-none">{serviceHealth}</span>
             </span>
           )}
         </div>

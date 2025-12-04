@@ -1,16 +1,19 @@
 // Package registry provides functionality for managing running service registrations.
+// NOTE: This package now uses in-memory storage only. No files are persisted.
+// Service state is transient and only valid while the dashboard/orchestrator is running.
 package registry
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"log/slog"
 	"path/filepath"
 	"sync"
 	"time"
 )
 
 // ServiceRegistryEntry represents a running service in the registry.
+// NOTE: Health status is NOT stored here - it is computed dynamically via health checks.
+// This prevents stale cached health data from causing issues with the dashboard.
 type ServiceRegistryEntry struct {
 	Name        string    `json:"name"`
 	ProjectDir  string    `json:"projectDir"`
@@ -21,7 +24,6 @@ type ServiceRegistryEntry struct {
 	Language    string    `json:"language"`
 	Framework   string    `json:"framework"`
 	Status      string    `json:"status"` // "starting", "ready", "stopping", "stopped", "error", "building", "built", "completed", "failed", "watching"
-	Health      string    `json:"health"` // "healthy", "unhealthy", "unknown", "starting"
 	StartTime   time.Time `json:"startTime"`
 	LastChecked time.Time `json:"lastChecked"`
 	Error       string    `json:"error,omitempty"`
@@ -32,10 +34,11 @@ type ServiceRegistryEntry struct {
 }
 
 // ServiceRegistry manages the registry of running services for a project.
+// NOTE: This is an in-memory only registry. No files are persisted.
 type ServiceRegistry struct {
-	mu       sync.RWMutex
-	services map[string]*ServiceRegistryEntry // key: serviceName
-	filePath string
+	mu         sync.RWMutex
+	services   map[string]*ServiceRegistryEntry // key: serviceName
+	projectDir string
 }
 
 var (
@@ -45,14 +48,10 @@ var (
 
 // GetRegistry returns the service registry instance for the given project directory.
 // If projectDir is empty, uses current working directory.
+// NOTE: Registry is in-memory only. No files are persisted or loaded.
 func GetRegistry(projectDir string) *ServiceRegistry {
 	if projectDir == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			projectDir = "."
-		} else {
-			projectDir = cwd
-		}
+		projectDir = "."
 	}
 
 	// Normalize path
@@ -68,35 +67,19 @@ func GetRegistry(projectDir string) *ServiceRegistry {
 		return reg
 	}
 
-	registryDir := filepath.Join(absPath, ".azure")
-	registryFile := filepath.Join(registryDir, "services.json")
-
 	registry := &ServiceRegistry{
-		services: make(map[string]*ServiceRegistryEntry),
-		filePath: registryFile,
+		services:   make(map[string]*ServiceRegistryEntry),
+		projectDir: absPath,
 	}
 
-	// Ensure directory exists
-	if err := os.MkdirAll(registryDir, 0750); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Failed to create registry directory: %v\n", err)
-	}
-
-	// Load existing registry
-	if err := registry.load(); err != nil {
-		// Ignore load errors on first run
-		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to load service registry: %v\n", err)
-		}
-	}
-
-	// Don't clean stale entries immediately on load - let services manage their own lifecycle
-	// This prevents removing recently started services that haven't had their LastChecked updated yet
+	slog.Debug("created new in-memory registry", "projectDir", absPath)
 
 	registryCache[absPath] = registry
 	return registry
 }
 
 // Register adds a service to the registry.
+// NOTE: In-memory only, no file persistence.
 func (r *ServiceRegistry) Register(entry *ServiceRegistryEntry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -104,33 +87,33 @@ func (r *ServiceRegistry) Register(entry *ServiceRegistryEntry) error {
 	r.services[entry.Name] = entry
 	entry.LastChecked = time.Now()
 
-	err := r.save()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Failed to save registry for %s: %v\n", entry.Name, err)
-	}
-	return err
+	slog.Debug("registered service", "name", entry.Name, "status", entry.Status)
+	return nil
 }
 
 // Unregister removes a service from the registry.
+// NOTE: In-memory only, no file persistence.
 func (r *ServiceRegistry) Unregister(serviceName string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	delete(r.services, serviceName)
 
-	return r.save()
+	slog.Debug("unregistered service", "name", serviceName)
+	return nil
 }
 
-// UpdateStatus updates the status of a service.
-func (r *ServiceRegistry) UpdateStatus(serviceName, status, health string) error {
+// UpdateStatus updates the lifecycle status of a service.
+// NOTE: Health is not stored in registry - it is computed dynamically via health checks.
+func (r *ServiceRegistry) UpdateStatus(serviceName, status string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if svc, exists := r.services[serviceName]; exists {
 		svc.Status = status
-		svc.Health = health
 		svc.LastChecked = time.Now()
-		return r.save()
+		slog.Debug("updated service status", "name", serviceName, "status", status)
+		return nil
 	}
 	return fmt.Errorf("service not found: %s", serviceName)
 }
@@ -145,7 +128,8 @@ func (r *ServiceRegistry) UpdateExitInfo(serviceName string, exitCode int, endTi
 		svc.ExitCode = &exitCode
 		svc.EndTime = endTime
 		svc.LastChecked = time.Now()
-		return r.save()
+		slog.Debug("updated service exit info", "name", serviceName, "exitCode", exitCode)
+		return nil
 	}
 	return fmt.Errorf("service not found: %s", serviceName)
 }
@@ -181,53 +165,13 @@ func (r *ServiceRegistry) ListAll() []*ServiceRegistryEntry {
 	return result
 }
 
-// save persists the registry to disk.
-func (r *ServiceRegistry) save() error {
-	data, err := json.MarshalIndent(r.services, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal registry: %w", err)
-	}
-
-	if err := os.WriteFile(r.filePath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write registry file: %w", err)
-	}
-
-	return nil
-}
-
-// load reads the registry from disk.
-func (r *ServiceRegistry) load() error {
-	data, err := os.ReadFile(r.filePath)
-	if err != nil {
-		return err
-	}
-
-	// Handle empty file gracefully
-	if len(data) == 0 {
-		r.services = make(map[string]*ServiceRegistryEntry)
-		return nil
-	}
-
-	// Unmarshal into a temporary map to preserve existing services on parse error
-	var loaded map[string]*ServiceRegistryEntry
-	if err := json.Unmarshal(data, &loaded); err != nil {
-		return fmt.Errorf("failed to unmarshal registry: %w", err)
-	}
-
-	if loaded != nil {
-		r.services = loaded
-	} else {
-		r.services = make(map[string]*ServiceRegistryEntry)
-	}
-
-	return nil
-}
-
 // Clear removes all entries from the registry.
+// NOTE: In-memory only, no file persistence.
 func (r *ServiceRegistry) Clear() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.services = make(map[string]*ServiceRegistryEntry)
-	return r.save()
+	slog.Debug("cleared registry")
+	return nil
 }
