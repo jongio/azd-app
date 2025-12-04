@@ -70,6 +70,15 @@ jobs:
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
+      - name: Install azd
+        run: curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd extensions
+        run: |
+          # Add the official azd extensions registry source
+          azd extension source add azd --location https://aka.ms/azd/extensions/registry --type url 2>/dev/null || true
+          azd extension install microsoft.azd.extensions --source azd
+
       - name: Run preflight checks
         run: mage preflight
 
