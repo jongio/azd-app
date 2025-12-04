@@ -658,6 +658,18 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 			continue
 		}
 
+		// IMPORTANT: Don't regress "running" services back to "starting"
+		// The "starting" health status just means health checks haven't passed yet (grace period).
+		// If the process is already running (orchestrator set it to "running"), we should
+		// NOT overwrite that with "starting" just because health checks haven't passed yet.
+		// The dashboard should show the service as "running" with "unknown" health during grace period.
+		if exists && currentEntry.Status == "running" && result.Status == HealthStatusStarting {
+			log.Debug().
+				Str("service", result.ServiceName).
+				Msg("Keeping running status during health check grace period")
+			continue
+		}
+
 		var status string
 
 		// For build/task modes, use mode-appropriate status
