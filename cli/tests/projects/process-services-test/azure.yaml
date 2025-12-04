@@ -87,7 +87,3 @@ resources: {}
 metadata:
     description: Test project for all service types (http/tcp/process) and modes (watch/build/daemon/task)
     template: process-services-test
-logs:
-    classifications:
-        - text: Foo
-          level: info

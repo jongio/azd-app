@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "./styles/modern-theme.css";
+@import "./styles/theme.css";
 
 /* Configure Tailwind v4 dark mode to use class-based selector */
 @custom-variant dark (&:where(.dark, .dark *));

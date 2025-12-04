@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useTheme } from './useTheme'
 
@@ -6,11 +6,13 @@ describe('useTheme', () => {
   beforeEach(() => {
     localStorage.clear()
     document.documentElement.removeAttribute('data-theme')
+    document.documentElement.classList.remove('dark')
   })
 
   afterEach(() => {
     localStorage.clear()
     document.documentElement.removeAttribute('data-theme')
+    document.documentElement.classList.remove('dark')
   })
 
   it('initializes with light theme by default', () => {
@@ -30,16 +32,49 @@ describe('useTheme', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
 
-  it('restores theme from localStorage', () => {
+  it('restores theme from localStorage cache', () => {
+    // localStorage acts as cache for fast initial render
     localStorage.setItem('dashboard-theme', 'dark')
     
     const { result } = renderHook(() => useTheme())
     
-    // Theme should be restored synchronously from localStorage
+    // Theme should be restored synchronously from localStorage cache
     expect(result.current.theme).toBe('dark')
     
     // After effect runs, document should also have the theme
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('syncs with API theme when provided', async () => {
+    const { result, rerender } = renderHook(
+      (props: { apiTheme?: 'light' | 'dark' }) => useTheme(props),
+      { initialProps: {} }
+    )
+    
+    // Initially light
+    expect(result.current.theme).toBe('light')
+    
+    // Rerender with API theme
+    rerender({ apiTheme: 'dark' })
+    
+    // Wait for effect
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+    
+    expect(result.current.theme).toBe('dark')
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('calls onThemeChange callback when theme changes', () => {
+    const onThemeChange = vi.fn()
+    const { result } = renderHook(() => useTheme({ onThemeChange }))
+    
+    act(() => {
+      result.current.setTheme('dark')
+    })
+    
+    expect(onThemeChange).toHaveBeenCalledWith('dark')
   })
 
   it('changes theme with setTheme', () => {
@@ -51,6 +86,7 @@ describe('useTheme', () => {
     
     expect(result.current.theme).toBe('dark')
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+    // localStorage is used as cache
     expect(localStorage.getItem('dashboard-theme')).toBe('dark')
   })
 
@@ -79,7 +115,7 @@ describe('useTheme', () => {
     expect(localStorage.getItem('dashboard-theme')).toBe('light')
   })
 
-  it('persists theme changes to localStorage', () => {
+  it('caches theme changes to localStorage', () => {
     const { result } = renderHook(() => useTheme())
     
     act(() => {
@@ -118,5 +154,21 @@ describe('useTheme', () => {
     })
     
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+  
+  it('adds dark class to document for Tailwind support', () => {
+    const { result } = renderHook(() => useTheme())
+    
+    act(() => {
+      result.current.setTheme('dark')
+    })
+    
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    
+    act(() => {
+      result.current.setTheme('light')
+    })
+    
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 })

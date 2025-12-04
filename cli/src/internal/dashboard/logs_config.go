@@ -82,7 +82,7 @@ func loadPreferencesWithClient(client azdconfig.ConfigClient) (UserPreferences, 
 		return getDefaultPreferences(), nil
 	}
 
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return getDefaultPreferences(), nil
 	}
 

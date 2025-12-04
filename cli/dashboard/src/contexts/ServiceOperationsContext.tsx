@@ -63,6 +63,7 @@ interface ServiceOperationsContextValue {
   
   // State queries
   getOperationState: (serviceName: string) => OperationState
+  getEffectiveOperationState: (serviceName: string) => OperationState
   isOperationInProgress: (serviceName: string) => boolean
   isBulkOperationInProgress: () => boolean
   getAvailableActions: (service: Service) => ServiceOperation[]
@@ -102,6 +103,38 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
   const getOperationState = useCallback((serviceName: string): OperationState => {
     return tracker.states.get(serviceName) ?? 'idle'
   }, [tracker.states])
+
+  /**
+   * Get the effective operation state for a service, including bulk operation fallback.
+   * This is the SINGLE SOURCE OF TRUTH for determining what operation state to display.
+   * 
+   * Priority:
+   * 1. Individual operation state (if not idle)
+   * 2. Bulk operation state (if bulk operation in progress)
+   * 3. 'idle' (no operation)
+   */
+  const getEffectiveOperationState = useCallback((serviceName: string): OperationState => {
+    const individualState = tracker.states.get(serviceName) ?? 'idle'
+    
+    // Individual operation takes priority
+    if (individualState !== 'idle') {
+      return individualState
+    }
+    
+    // During bulk operations, derive operation state from bulk operation type
+    if (tracker.bulkInProgress && tracker.bulkOperation) {
+      switch (tracker.bulkOperation) {
+        case 'stop':
+          return 'stopping'
+        case 'start':
+          return 'starting'
+        case 'restart':
+          return 'restarting'
+      }
+    }
+    
+    return 'idle'
+  }, [tracker.states, tracker.bulkInProgress, tracker.bulkOperation])
 
   /**
    * Check if any operation is in progress for a service.
@@ -364,6 +397,7 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
     
     // State queries
     getOperationState,
+    getEffectiveOperationState,
     isOperationInProgress,
     isBulkOperationInProgress,
     getAvailableActions,
@@ -389,6 +423,7 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
  * Hook for accessing service operations from the context.
  * Must be used within a ServiceOperationsProvider.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useServiceOperations(): ServiceOperationsContextValue {
   const context = useContext(ServiceOperationsContext)
   if (!context) {

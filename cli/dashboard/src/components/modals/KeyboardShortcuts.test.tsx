@@ -77,12 +77,6 @@ describe('KeyboardShortcuts', () => {
       expect(screen.getByText('Environment view')).toBeInTheDocument()
       expect(screen.getByText('3')).toBeInTheDocument()
     })
-
-    it('should display Metrics view shortcut', () => {
-      render(<KeyboardShortcuts {...defaultProps} />)
-      expect(screen.getByText('Metrics view')).toBeInTheDocument()
-      expect(screen.getByText('4')).toBeInTheDocument()
-    })
   })
 
   describe('action shortcuts', () => {

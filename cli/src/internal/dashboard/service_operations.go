@@ -316,6 +316,14 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
+	// Validate process was created successfully
+	if process == nil || process.Process == nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		return fmt.Errorf("service process not created")
+	}
+
 	// Create a fresh entry
 	updatedEntry := &registry.ServiceRegistryEntry{
 		Name:        serviceName,
@@ -342,11 +350,11 @@ func (h *serviceOperationHandler) validateState(entry *registry.ServiceRegistryE
 	switch h.operation {
 	case opStart:
 		if entry.Status == constants.StatusRunning || entry.Status == constants.StatusReady || entry.Status == constants.StatusStarting {
-			return fmt.Errorf("Service '%s' is already %s", serviceName, entry.Status)
+			return fmt.Errorf("service '%s' is already %s", serviceName, entry.Status)
 		}
 	case opStop:
 		if entry.Status == constants.StatusStopped || entry.Status == constants.StatusNotRunning {
-			return fmt.Errorf("Service '%s' is already stopped", serviceName)
+			return fmt.Errorf("service '%s' is already stopped", serviceName)
 		}
 	case opRestart:
 		// Restart is always valid
@@ -459,6 +467,15 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 			log.Printf("Warning: failed to broadcast error update: %v", broadcastErr)
 		}
 		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to %s service", h.getOperationVerb()), err)
+		return
+	}
+
+	// Validate process was created successfully
+	if process == nil || process.Process == nil {
+		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
+			log.Printf("Warning: failed to update status: %v", regErr)
+		}
+		writeJSONError(w, http.StatusInternalServerError, "Service process not created", nil)
 		return
 	}
 

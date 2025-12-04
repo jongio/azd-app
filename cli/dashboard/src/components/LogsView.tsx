@@ -26,9 +26,11 @@ interface LogEntry {
 }
 
 interface LogsViewProps {
+  /** Service names from parent with real-time WebSocket updates */
+  services?: string[]
   selectedServices?: Set<string>
   levelFilter?: Set<'info' | 'warning' | 'error'>
-  /** External pause control from parent (e.g., ModernLogsView toolbar) */
+  /** External pause control from parent (e.g., ConsoleView toolbar) */
   isPaused?: boolean
   /** External auto-scroll control from parent */
   autoScrollEnabled?: boolean
@@ -41,6 +43,7 @@ interface LogsViewProps {
 }
 
 export function LogsView({ 
+  services: servicesProp,
   selectedServices, 
   levelFilter,
   isPaused: externalIsPaused,
@@ -50,7 +53,7 @@ export function LogsView({
   hideControls = false,
 }: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [services, setServices] = useState<string[]>([])
+  const [internalServices, setInternalServices] = useState<string[]>([])
   const [selectedService, setSelectedService] = useState<string>('all')
   const [internalSearchTerm, setInternalSearchTerm] = useState('')
   const [internalIsPaused, setInternalIsPaused] = useState(false)
@@ -60,7 +63,10 @@ export function LogsView({
   const wsRef = useRef<WebSocket | null>(null)
   const isPausedRef = useRef(false)
   
-  // Use external values when provided (controlled mode from ModernLogsView), otherwise internal
+  // Use external services when provided (controlled mode), otherwise internal
+  const services = servicesProp ?? internalServices
+  
+  // Use external values when provided (controlled mode from parent), otherwise internal
   const isPaused = externalIsPaused ?? internalIsPaused
   const autoScroll = externalAutoScroll ?? true
   const searchTerm = globalSearchTerm ?? internalSearchTerm
@@ -70,8 +76,10 @@ export function LogsView({
     isPausedRef.current = isPaused
   }, [isPaused])
 
-  // Fetch services list
+  // Fetch services list only if not provided via prop
   useEffect(() => {
+    if (servicesProp) return // Skip fetch when services provided via prop
+    
     const fetchServices = async () => {
       try {
         const res = await fetch('/api/services')
@@ -80,13 +88,13 @@ export function LogsView({
         }
         const data = await res.json() as Service[]
         const serviceNames = data.map((s) => s.name)
-        setServices(serviceNames)
+        setInternalServices(serviceNames)
       } catch (err) {
         console.error('Failed to fetch services:', err)
       }
     }
     void fetchServices()
-  }, [])
+  }, [servicesProp])
 
   const fetchLogs = useCallback(async () => {
     const url = selectedService === 'all'

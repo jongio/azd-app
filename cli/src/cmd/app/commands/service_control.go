@@ -296,6 +296,12 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
+	// Validate process was created successfully
+	if process == nil || process.Process == nil {
+		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
+		return fmt.Errorf("service process not created")
+	}
+
 	// Update registry with new process info
 	// Health will be determined dynamically by health checks
 	updatedEntry := &registry.ServiceRegistryEntry{
@@ -310,6 +316,8 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 		Status:      constants.StatusRunning,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
+		Type:        runtime.Type,
+		Mode:        runtime.Mode,
 	}
 	return c.registry.Register(updatedEntry)
 }

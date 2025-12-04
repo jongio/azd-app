@@ -18,7 +18,6 @@ export const shortcuts = [
   { key: '1', description: 'Console view', category: 'navigation' },
   { key: '2', description: 'Services view', category: 'navigation' },
   { key: '3', description: 'Environment view', category: 'navigation' },
-  { key: '4', description: 'Metrics view', category: 'navigation' },
   
   // Actions
   { key: 'R', description: 'Refresh all services', category: 'actions' },
@@ -92,7 +91,6 @@ export const viewToKey = {
   console: '1',
   resources: '2',
   environment: '3',
-  metrics: '4',
 } as const satisfies Record<string, string>
 
 /**
@@ -102,7 +100,6 @@ export const keyToView = {
   '1': 'console',
   '2': 'resources',
   '3': 'environment',
-  '4': 'metrics',
 } as const satisfies Record<string, string>
 
 /**

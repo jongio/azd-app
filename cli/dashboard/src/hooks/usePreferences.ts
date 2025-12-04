@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 
+export type Theme = 'light' | 'dark'
+
 export interface UserPreferences {
   version: string
+  theme: Theme
   ui: {
     gridColumns: number
     viewMode: 'grid' | 'unified'
@@ -22,6 +25,7 @@ export interface UserPreferences {
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   version: '1.0',
+  theme: 'light',
   ui: {
     gridColumns: 2,
     viewMode: 'grid',
@@ -55,6 +59,13 @@ function isValidCopyFormat(value: unknown): value is 'plaintext' | 'json' | 'mar
 }
 
 /**
+ * Type guard to check if a value is a valid theme.
+ */
+function isValidTheme(value: unknown): value is Theme {
+  return value === 'light' || value === 'dark'
+}
+
+/**
  * Validates and sanitizes preferences data from the API.
  * Returns a valid UserPreferences object with defaults for any invalid/missing fields.
  */
@@ -64,6 +75,9 @@ function validatePreferences(data: unknown): UserPreferences {
   }
 
   const raw = data as Record<string, unknown>
+
+  // Validate theme
+  const theme = isValidTheme(raw.theme) ? raw.theme : DEFAULT_PREFERENCES.theme
 
   // Validate UI preferences
   const rawUI = (typeof raw.ui === 'object' && raw.ui !== null
@@ -122,13 +136,24 @@ function validatePreferences(data: unknown): UserPreferences {
 
   return {
     version: typeof raw.version === 'string' ? raw.version : DEFAULT_PREFERENCES.version,
+    theme,
     ui,
     behavior,
     copy
   }
 }
 
-export function usePreferences() {
+/** Return type of usePreferences hook */
+export interface UsePreferencesReturn {
+  preferences: UserPreferences
+  isLoading: boolean
+  savePreferences: (updates: Partial<UserPreferences>) => Promise<void>
+  updateUI: (updates: Partial<UserPreferences['ui']>) => void
+  setTheme: (theme: Theme) => void
+  reload: () => Promise<void>
+}
+
+export function usePreferences(): UsePreferencesReturn {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -175,11 +200,16 @@ export function usePreferences() {
     void savePreferences(updated)
   }, [preferences, savePreferences])
 
+  const setTheme = useCallback((theme: Theme) => {
+    void savePreferences({ ...preferences, theme })
+  }, [preferences, savePreferences])
+
   return {
     preferences,
     isLoading,
     savePreferences,
     updateUI,
+    setTheme,
     reload: loadPreferences
   }
 }

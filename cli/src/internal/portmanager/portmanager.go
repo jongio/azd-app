@@ -1137,22 +1137,6 @@ func (pm *PortManager) save() error {
 	return nil
 }
 
-// saveServicePort saves a single service port to the config.
-// This is more efficient than save() when only one service changed.
-func (pm *PortManager) saveServicePort(serviceName string, port int) error {
-	client, err := pm.getConfigClient()
-	if err != nil {
-		return fmt.Errorf("failed to get config client: %w", err)
-	}
-
-	if err := client.SetServicePort(pm.projectHash, serviceName, port); err != nil {
-		return fmt.Errorf("failed to save port for service %s: %w", serviceName, err)
-	}
-
-	slog.Debug("saved service port to config", "service", serviceName, "port", port)
-	return nil
-}
-
 // clearServicePort removes a service port from the config.
 func (pm *PortManager) clearServicePort(serviceName string) error {
 	client, err := pm.getConfigClient()
