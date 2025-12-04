@@ -351,3 +351,106 @@ func TestUpdateRegistry(t *testing.T) {
 		t.Errorf("Expected status 'running', got '%s'", services[0].Status)
 	}
 }
+// TestUpdateRegistry_NoRegressionFromRunningToStarting verifies that services that are
+// already running are NOT regressed to "starting" when health checks return HealthStatusStarting.
+// This fixes a bug where services would show "starting" indefinitely in the dashboard because
+// the health check grace period would overwrite the registry status from "running" back to "starting".
+func TestUpdateRegistry_NoRegressionFromRunningToStarting(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Register a test service that's already running
+	reg := registry.GetRegistry(tempDir)
+	err := reg.Register(&registry.ServiceRegistryEntry{
+		Name:      "test-service",
+		Port:      3000,
+		PID:       os.Getpid(),
+		StartTime: time.Now(),
+		Status:    "running", // Service is already running
+	})
+	if err != nil {
+		t.Fatalf("Failed to register service: %v", err)
+	}
+
+	config := MonitorConfig{
+		ProjectDir:      tempDir,
+		DefaultEndpoint: "/health",
+		Timeout:         5 * time.Second,
+		Verbose:         false,
+	}
+
+	monitor, err := NewHealthMonitor(config)
+	if err != nil {
+		t.Fatalf("Failed to create health monitor: %v", err)
+	}
+
+	// Health check returns "starting" (e.g., during grace period when health checks haven't passed yet)
+	results := []HealthCheckResult{
+		{
+			ServiceName: "test-service",
+			Status:      HealthStatusStarting, // This should NOT regress the registry status
+		},
+	}
+
+	monitor.updateRegistry(results)
+
+	// Verify the status was NOT regressed to "starting"
+	services := reg.ListAll()
+	if len(services) != 1 {
+		t.Fatalf("Expected 1 service, got %d", len(services))
+	}
+
+	if services[0].Status != "running" {
+		t.Errorf("BUG: Service status was regressed from 'running' to '%s' - this causes the dashboard to show 'starting' indefinitely", services[0].Status)
+	}
+}
+
+// TestUpdateRegistry_AllowsStartingForNewServices verifies that services that are
+// NOT yet running (e.g., just registered with "starting" status) can still be updated to "starting".
+func TestUpdateRegistry_AllowsStartingForNewServices(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Register a test service that's just starting
+	reg := registry.GetRegistry(tempDir)
+	err := reg.Register(&registry.ServiceRegistryEntry{
+		Name:      "test-service",
+		Port:      3000,
+		PID:       os.Getpid(),
+		StartTime: time.Now(),
+		Status:    "starting", // Service is still starting
+	})
+	if err != nil {
+		t.Fatalf("Failed to register service: %v", err)
+	}
+
+	config := MonitorConfig{
+		ProjectDir:      tempDir,
+		DefaultEndpoint: "/health",
+		Timeout:         5 * time.Second,
+		Verbose:         false,
+	}
+
+	monitor, err := NewHealthMonitor(config)
+	if err != nil {
+		t.Fatalf("Failed to create health monitor: %v", err)
+	}
+
+	// Health check returns "starting" (e.g., during grace period)
+	results := []HealthCheckResult{
+		{
+			ServiceName: "test-service",
+			Status:      HealthStatusStarting,
+		},
+	}
+
+	monitor.updateRegistry(results)
+
+	// Verify the status is still "starting" (allowed for non-running services)
+	services := reg.ListAll()
+	if len(services) != 1 {
+		t.Fatalf("Expected 1 service, got %d", len(services))
+	}
+
+	if services[0].Status != "starting" {
+		t.Errorf("Expected status 'starting', got '%s'", services[0].Status)
+	}
+}
