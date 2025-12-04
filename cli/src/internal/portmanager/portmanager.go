@@ -152,6 +152,12 @@ func GetPortManager(projectDir string) *PortManager {
 		absPath = projectDir
 	}
 
+	// Resolve symlinks to ensure consistent caching across different path representations.
+	// This is critical on macOS where temp directories use symlinks (e.g., /var -> /private/var).
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = resolved
+	}
+
 	slog.Debug("getting port manager", "path", projectDir, "normalized", absPath)
 
 	managerCacheMu.Lock()
