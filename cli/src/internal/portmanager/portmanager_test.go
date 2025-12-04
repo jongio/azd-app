@@ -677,9 +677,15 @@ func TestManagerCache(t *testing.T) {
 		t.Error("Expected cached manager instance")
 	}
 
-	// Verify cache contains entry
+	// Normalize the path the same way GetPortManager does (including symlink resolution)
+	normalizedPath, _ := filepath.Abs(tempDir)
+	if resolved, err := filepath.EvalSymlinks(normalizedPath); err == nil {
+		normalizedPath = resolved
+	}
+
+	// Verify cache contains entry using normalized path
 	managerCacheMu.RLock()
-	_, exists := managerCache[tempDir]
+	_, exists := managerCache[normalizedPath]
 	managerCacheMu.RUnlock()
 
 	if !exists {
@@ -696,8 +702,14 @@ func TestManagerCacheEviction(t *testing.T) {
 	// Create more managers than cache size (50)
 	// We'll create 55 to test eviction
 	tempDirs := make([]string, 55)
+	normalizedDirs := make([]string, 55)
 	for i := 0; i < 55; i++ {
 		tempDirs[i] = t.TempDir()
+		// Normalize the path the same way GetPortManager does
+		normalizedDirs[i], _ = filepath.Abs(tempDirs[i])
+		if resolved, err := filepath.EvalSymlinks(normalizedDirs[i]); err == nil {
+			normalizedDirs[i] = resolved
+		}
 		_ = GetPortManager(tempDirs[i])
 		// Small sleep to ensure different timestamps
 		time.Sleep(1 * time.Millisecond)
@@ -712,10 +724,10 @@ func TestManagerCacheEviction(t *testing.T) {
 		t.Errorf("Cache size %d exceeds maximum %d", cacheSize, maxCacheSize)
 	}
 
-	// First entries should have been evicted
+	// First entries should have been evicted (use normalized paths for lookup)
 	managerCacheMu.RLock()
-	_, existsOld := managerCache[tempDirs[0]]
-	_, existsNew := managerCache[tempDirs[54]]
+	_, existsOld := managerCache[normalizedDirs[0]]
+	_, existsNew := managerCache[normalizedDirs[54]]
 	managerCacheMu.RUnlock()
 
 	if existsOld {
