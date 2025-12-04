@@ -156,7 +156,7 @@ func (s *Server) setupRoutes() {
 			}
 
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write(indexContent)
+			_, _ = w.Write(indexContent)
 			return
 		}
 		f.Close()
@@ -174,7 +174,7 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 // handleGetServices returns services for the current project.

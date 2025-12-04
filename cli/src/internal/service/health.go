@@ -174,6 +174,9 @@ func PortHealthCheck(port int) error {
 
 // ProcessHealthCheck verifies that a process is running.
 func ProcessHealthCheck(process *ServiceProcess) error {
+	if process == nil {
+		return errors.New("service process is nil")
+	}
 	if process.Process == nil {
 		return errors.New("process not started")
 	}

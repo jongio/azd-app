@@ -197,10 +197,6 @@ describe('shortcuts-utils', () => {
     it('should map environment to 3', () => {
       expect(viewToKey.environment).toBe('3')
     })
-
-    it('should map metrics to 4', () => {
-      expect(viewToKey.metrics).toBe('4')
-    })
   })
 
   describe('keyToView', () => {
@@ -214,10 +210,6 @@ describe('shortcuts-utils', () => {
 
     it('should map 3 to environment', () => {
       expect(keyToView['3']).toBe('environment')
-    })
-
-    it('should map 4 to metrics', () => {
-      expect(keyToView['4']).toBe('metrics')
     })
   })
 

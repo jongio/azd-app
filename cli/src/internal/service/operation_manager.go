@@ -147,7 +147,7 @@ func (m *ServiceOperationManager) ExecuteOperation(
 
 	// Use a channel to implement lock with timeout
 	// The done channel signals the goroutine to release the lock if timeout fired
-	lockAcquired := make(chan struct{})
+	lockAcquired := make(chan struct{}, 1) // Buffered to prevent goroutine leak
 	done := make(chan struct{})
 	go func() {
 		mtx.Lock()
@@ -159,6 +159,9 @@ func (m *ServiceOperationManager) ExecuteOperation(
 		case lockAcquired <- struct{}{}:
 			// Successfully signaled that lock was acquired
 			// Caller will handle unlock via defer
+		default:
+			// Channel already closed or full, release lock
+			mtx.Unlock()
 		}
 	}()
 

@@ -15,8 +15,11 @@ export type HealthCheckType = 'http' | 'tcp' | 'process'
  * IMPORTANT: Health is INDEPENDENT of lifecycle state
  * - A running service can be unhealthy (process up, health checks fail)
  * - A stopped service has no health status (n/a)
+ * 
+ * NOTE: 'starting' is NOT a health status - it's a lifecycle state.
+ * Services that are starting have 'unknown' health until checked.
  */
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown' | 'starting'
+export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
 
 /**
  * Process lifecycle state - describes the process's current lifecycle phase
@@ -139,9 +142,9 @@ export interface HealthCheckResult {
   serviceName: string
   /** 
    * Health status from the health check
-   * Note: Backend may send 'starting' during grace period - treat as 'unknown'
+   * Note: Backend may send 'starting' during grace period
    */
-  status: HealthStatus | 'starting'  // 'starting' from backend = treat as unknown
+  status: HealthStatus
   checkType: HealthCheckType
   endpoint?: string
   responseTime: number  // nanoseconds from Go, convert to ms
@@ -165,7 +168,7 @@ export interface HealthSummary {
   starting: number  // Backend sends this - services in startup grace period
   stopped: number   // Services that are stopped (not running)
   unknown: number
-  overall: HealthStatus | 'starting'  // Backend may send 'starting'
+  overall: HealthStatus
 }
 
 /** Full health report event */

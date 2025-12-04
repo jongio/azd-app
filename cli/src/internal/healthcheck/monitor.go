@@ -466,8 +466,8 @@ type serviceInfo struct {
 
 type healthCheckConfig struct {
 	Test          []string
-	Type          string        // "http", "tcp", "process", "output", "none"
-	Pattern       string        // Regex pattern for output-based health checks
+	Type          string // "http", "tcp", "process", "output", "none"
+	Pattern       string // Regex pattern for output-based health checks
 	Interval      time.Duration
 	Timeout       time.Duration
 	Retries       int
@@ -526,6 +526,17 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 			}
 			if info.Mode == "" && info.Type == service.ServiceTypeProcess {
 				info.Mode = svc.GetServiceMode()
+			}
+
+			// Set port from azure.yaml if not already set from registry
+			// This ensures HTTP health checks work even when registry doesn't have the port
+			if info.Port == 0 {
+				hostPort, containerPort, _ := svc.GetPrimaryPort()
+				if hostPort > 0 {
+					info.Port = hostPort
+				} else if containerPort > 0 {
+					info.Port = containerPort
+				}
 			}
 
 			serviceMap[name] = info
@@ -1364,22 +1375,25 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 	// This could mean:
 	// 1. Process hasn't started yet (startup grace period)
 	// 2. Process exited but exit code wasn't captured (treat as unknown)
-	if isInStartupGracePeriod {
-		result.Status = HealthStatusStarting
-		return result
-	}
 
-	// Try to determine if process exited - if PID was set but process is not running,
-	// and we don't have an exit code, we can't determine success/failure
+	// For build/task modes: If we have a PID but process is gone and no exit code,
+	// assume it completed successfully. These are one-shot processes where exit is expected.
+	// Don't wait for startup grace period since task completion is normal behavior.
 	if svc.PID > 0 {
 		// Had a PID but process is gone and no exit code - assume it completed
-		// This is a fallback for cases where exit code wasn't captured
+		// This is a fallback for cases where exit code wasn't captured yet
 		result.Status = HealthStatusHealthy
 		if svc.Mode == service.ServiceModeBuild {
 			result.Details = map[string]interface{}{"state": "built", "note": "exit code not captured"}
 		} else {
 			result.Details = map[string]interface{}{"state": "completed", "note": "exit code not captured"}
 		}
+		return result
+	}
+
+	// No PID - process hasn't started yet
+	if isInStartupGracePeriod {
+		result.Status = HealthStatusStarting
 		return result
 	}
 

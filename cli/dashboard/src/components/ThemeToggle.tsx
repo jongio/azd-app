@@ -1,20 +1,39 @@
-import { useState, useRef, useEffect } from 'react'
+/**
+ * ThemeToggle - Theme toggle component with modern styling
+ * Implements light/dark mode switching with smooth transitions
+ */
+import * as React from 'react'
 import { Sun, Moon } from 'lucide-react'
-import { useTheme } from '@/hooks/useTheme'
+import { useTheme, type Theme } from '@/hooks/useTheme'
+import { usePreferencesContext } from '@/contexts/PreferencesContext'
 import { cn } from '@/lib/utils'
 
-interface ThemeToggleProps {
+// =============================================================================
+// Types
+// =============================================================================
+
+export interface ThemeToggleProps {
+  /** Additional class names */
   className?: string
-  onThemeChange?: (theme: 'light' | 'dark') => void
+  /** Callback when theme changes */
+  onThemeChange?: (theme: Theme) => void
 }
 
+// =============================================================================
+// ThemeToggle Component
+// =============================================================================
+
 export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
-  const { theme, toggleTheme } = useTheme()
-  const [announcement, setAnnouncement] = useState('')
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { preferences, setTheme: saveThemeToAPI } = usePreferencesContext()
+  const { theme, toggleTheme } = useTheme({
+    apiTheme: preferences.theme,
+    onThemeChange: saveThemeToAPI
+  })
+  const [announcement, setAnnouncement] = React.useState('')
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Cleanup timer on unmount
-  useEffect(() => {
+  React.useEffect(() => {
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
@@ -23,10 +42,10 @@ export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
   }, [])
 
   const handleToggle = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light'
     toggleTheme()
     
     // Announce to screen readers
-    const newTheme = theme === 'light' ? 'dark' : 'light'
     setAnnouncement(`${newTheme === 'light' ? 'Light' : 'Dark'} mode enabled`)
     
     // Clear any existing timeout before setting a new one
@@ -39,8 +58,8 @@ export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
     onThemeChange?.(newTheme)
   }
 
-  const Icon = theme === 'light' ? Sun : Moon
-  const label = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'
+  const isDark = theme === 'dark'
+  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode'
 
   return (
     <>
@@ -48,17 +67,42 @@ export function ThemeToggle({ className, onThemeChange }: ThemeToggleProps) {
         type="button"
         onClick={handleToggle}
         aria-label={label}
-        aria-pressed={theme === 'dark'}
+        title={label}
         className={cn(
-          'p-2 rounded-md transition-colors',
-          'hover:bg-secondary',
+          'relative p-2 rounded-lg',
+          'transition-all duration-200 ease-out',
+          'text-slate-500 dark:text-slate-400',
+          'hover:text-slate-700 dark:hover:text-slate-200',
+          'hover:bg-slate-100 dark:hover:bg-slate-800',
           'focus-visible:outline-none focus-visible:ring-2',
-          'focus-visible:ring-primary/50 focus-visible:ring-offset-2',
+          'focus-visible:ring-cyan-500 focus-visible:ring-offset-2',
+          'dark:focus-visible:ring-offset-slate-900',
           'active:scale-95',
           className
         )}
       >
-        <Icon className="w-4 h-4 text-foreground-secondary hover:text-foreground transition-colors" />
+        <div className="relative w-[18px] h-[18px]">
+          {/* Sun Icon */}
+          <Sun 
+            className={cn(
+              'absolute inset-0 w-[18px] h-[18px]',
+              'transition-all duration-300',
+              isDark 
+                ? 'opacity-100 rotate-0 scale-100' 
+                : 'opacity-0 rotate-90 scale-0'
+            )} 
+          />
+          {/* Moon Icon */}
+          <Moon 
+            className={cn(
+              'absolute inset-0 w-[18px] h-[18px]',
+              'transition-all duration-300',
+              isDark 
+                ? 'opacity-0 -rotate-90 scale-0' 
+                : 'opacity-100 rotate-0 scale-100'
+            )} 
+          />
+        </div>
       </button>
       
       {/* Screen reader announcements */}
