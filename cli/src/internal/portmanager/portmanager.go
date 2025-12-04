@@ -114,6 +114,11 @@ type cacheEntry struct {
 var (
 	managerCache   = make(map[string]*cacheEntry)
 	managerCacheMu sync.RWMutex
+
+	// sharedInMemoryClient is used when gRPC is not available (e.g., during tests).
+	// This ensures all port managers share the same in-memory storage for consistency.
+	sharedInMemoryClient     azdconfig.ConfigClient
+	sharedInMemoryClientOnce sync.Once
 )
 
 // GetPortManager returns a cached port manager instance for the given project directory.
@@ -217,6 +222,9 @@ func ClearCacheForTesting() {
 	managerCacheMu.Lock()
 	defer managerCacheMu.Unlock()
 	managerCache = make(map[string]*cacheEntry)
+	// Also reset the shared in-memory client for clean test isolation
+	sharedInMemoryClient = nil
+	sharedInMemoryClientOnce = sync.Once{}
 }
 
 // getPortRangeStart returns the configured port range start or default.
@@ -1067,7 +1075,8 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 }
 
 // getConfigClient returns the azdconfig client, creating it lazily if needed.
-// If no gRPC connection is available (e.g., during tests), falls back to in-memory storage.
+// If no gRPC connection is available (e.g., during tests), falls back to a shared
+// in-memory storage that persists across port manager instances.
 func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) {
 	if pm.configClient != nil {
 		return pm.configClient, nil
@@ -1075,9 +1084,14 @@ func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) {
 
 	client, err := azdconfig.NewClient(context.Background())
 	if err != nil {
-		// Fall back to in-memory client when gRPC is not available
-		slog.Debug("gRPC connection not available, using in-memory port storage", "error", err)
-		pm.configClient = azdconfig.NewInMemoryClient()
+		// Fall back to shared in-memory client when gRPC is not available.
+		// Using a shared client ensures port assignments are visible across
+		// all port manager instances within the same process (important for tests).
+		slog.Debug("gRPC connection not available, using shared in-memory port storage", "error", err)
+		sharedInMemoryClientOnce.Do(func() {
+			sharedInMemoryClient = azdconfig.NewInMemoryClient()
+		})
+		pm.configClient = sharedInMemoryClient
 		return pm.configClient, nil
 	}
 	pm.configClient = client
