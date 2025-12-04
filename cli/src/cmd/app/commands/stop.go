@@ -1,8 +1,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 
 	"github.com/spf13/cobra"
@@ -58,35 +62,79 @@ func runStop(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("specify --service <name> or --all to stop services")
 	}
 
-	// Create controller
-	ctrl, err := NewServiceController("")
+	// Get current working directory
+	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to initialize: %w", err)
+		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Set up context with signal handling
-	ctx, _, cleanup := setupContextWithSignalHandling()
-	defer cleanup()
+	ctx := context.Background()
 
-	// Determine which services to stop
-	var servicesToStop []string
+	// Try to get dashboard client
+	dashboardClient, err := dashboard.NewClient(ctx, cwd)
+	if err != nil {
+		output.Info("No services are running (dashboard not active)")
+		return nil
+	}
+
+	// Check if dashboard is actually responding
+	if err := dashboardClient.Ping(ctx); err != nil {
+		output.Info("No services are running (dashboard not responding)")
+		return nil
+	}
+
+	// Stop services via dashboard API
 	if stopAll {
-		servicesToStop = ctrl.GetRunningServices()
-		if len(servicesToStop) > 0 && !confirmBulkOperation(len(servicesToStop), "stop", stopYes) {
+		// Get service list first to show confirmation
+		services, err := dashboardClient.GetServices(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get services: %w", err)
+		}
+
+		var runningServices []string
+		for _, svc := range services {
+			if svc.Local != nil && (svc.Local.Status == "running" || svc.Local.Status == "ready") {
+				runningServices = append(runningServices, svc.Name)
+			}
+		}
+
+		if len(runningServices) == 0 {
+			output.Info("No services are currently running")
+			return nil
+		}
+
+		if !confirmBulkOperation(len(runningServices), "stop", stopYes) {
 			output.Info("Operation cancelled")
 			return nil
 		}
-		if len(servicesToStop) == 0 {
-			if handleNoServicesCase(ctrl, "running", "stop") {
-				return nil
+
+		if err := dashboardClient.StopAllServices(ctx); err != nil {
+			return fmt.Errorf("failed to stop services: %w", err)
+		}
+
+		output.Success("Stopped %d service(s)", len(runningServices))
+	} else {
+		// Stop specific service(s)
+		serviceNames := strings.Split(stopService, ",")
+		for i, name := range serviceNames {
+			serviceNames[i] = strings.TrimSpace(name)
+		}
+
+		var stopped, failed int
+		for _, name := range serviceNames {
+			if err := dashboardClient.StopService(ctx, name); err != nil {
+				output.Warning("Failed to stop '%s': %v", name, err)
+				failed++
+			} else {
+				output.Success("Stopped '%s'", name)
+				stopped++
 			}
 		}
-	} else {
-		servicesToStop, err = parseServiceList(stopService)
-		if err != nil {
-			return err
+
+		if failed > 0 {
+			return fmt.Errorf("failed to stop %d service(s)", failed)
 		}
 	}
 
-	return executeServiceOperation(ctx, servicesToStop, ctrl.StopService, ctrl.BulkStop, "stop")
+	return nil
 }

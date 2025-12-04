@@ -4,12 +4,15 @@
 package dashboard
 
 import (
+	"context"
 	"crypto/rand"
 	"embed"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
 	"log"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"os"
@@ -19,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
@@ -41,15 +45,16 @@ var (
 
 // Server represents the dashboard HTTP server.
 type Server struct {
-	port       int
-	mux        *http.ServeMux
-	server     *http.Server
-	projectDir string
-	clients    map[*clientConn]bool
-	clientsMu  sync.RWMutex
-	stopChan   chan struct{}
-	started    bool       // Track if server was successfully started
-	startedMu  sync.Mutex // Protect started flag
+	port         int
+	mux          *http.ServeMux
+	server       *http.Server
+	projectDir   string
+	clients      map[*clientConn]bool
+	clientsMu    sync.RWMutex
+	stopChan     chan struct{}
+	started      bool       // Track if server was successfully started
+	startedMu    sync.Mutex // Protect started flag
+	configClient azdconfig.ConfigClient
 }
 
 // GetServer returns the dashboard server instance for the specified project.
@@ -108,6 +113,7 @@ func (s *Server) setupRoutes() {
 	}
 
 	// API endpoints (these take precedence over the file server)
+	s.mux.HandleFunc("/api/ping", s.handlePing)
 	s.mux.HandleFunc("/api/project", s.handleGetProject)
 	s.mux.HandleFunc("/api/services", s.handleGetServices)
 	s.mux.HandleFunc("/api/services/start", s.handleStartService)
@@ -125,8 +131,50 @@ func (s *Server) setupRoutes() {
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if the requested file exists in the embedded FS
+		path := r.URL.Path
+		if path == "/" {
+			path = "/index.html"
+		}
+
+		// Try to open the file
+		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
+		if err != nil {
+			// File doesn't exist - serve index.html for client-side routing
+			// This handles routes like /console, /services, /environment, /metrics
+			indexFile, indexErr := distFS.Open("index.html")
+			if indexErr != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer indexFile.Close()
+
+			indexContent, readErr := io.ReadAll(indexFile)
+			if readErr != nil {
+				http.Error(w, "Failed to read index.html", http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(indexContent)
+			return
+		}
+		f.Close()
+
+		// File exists, serve it normally
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// handlePing is a simple health check endpoint to verify the dashboard is running.
+func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 // handleGetServices returns services for the current project.
@@ -282,7 +330,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 			escapedFramework := html.EscapeString(svc.Framework)
 			escapedLanguage := html.EscapeString(svc.Language)
 			escapedStatus := html.EscapeString(svc.Status)
-			escapedHealth := html.EscapeString(svc.Health)
+			escapedHealth := "-" // Health is computed dynamically via health checks
 
 			fmt.Fprintf(w, `
     <div class="service">
@@ -410,7 +458,52 @@ func (s *Server) Start() (string, error) {
 	}
 
 	url := fmt.Sprintf("http://localhost:%d", port)
+
+	// Store dashboard port in azdconfig for other commands to discover
+	s.registerPortInConfig(port)
+
 	return url, nil
+}
+
+// getOrCreateConfigClient returns the cached config client, creating it lazily if needed.
+func (s *Server) getOrCreateConfigClient() azdconfig.ConfigClient {
+	if s.configClient != nil {
+		return s.configClient
+	}
+
+	client, err := azdconfig.NewClient(context.Background())
+	if err != nil {
+		slog.Debug("failed to create azdconfig client, using in-memory fallback", "error", err)
+		s.configClient = azdconfig.NewInMemoryClient()
+		return s.configClient
+	}
+
+	s.configClient = client
+	return client
+}
+
+// registerPortInConfig stores the dashboard port in azdconfig for discovery by other commands.
+func (s *Server) registerPortInConfig(port int) {
+	client := s.getOrCreateConfigClient()
+
+	projectHash := azdconfig.ProjectHash(s.projectDir)
+	if err := client.SetDashboardPort(projectHash, port); err != nil {
+		slog.Debug("failed to register dashboard port in config", "error", err)
+	} else {
+		slog.Debug("registered dashboard port in config", "port", port, "projectHash", projectHash)
+	}
+}
+
+// clearPortFromConfig removes the dashboard port from azdconfig.
+func (s *Server) clearPortFromConfig() {
+	client := s.getOrCreateConfigClient()
+
+	projectHash := azdconfig.ProjectHash(s.projectDir)
+	if err := client.ClearDashboardPort(projectHash); err != nil {
+		slog.Debug("failed to clear dashboard port from config", "error", err)
+	} else {
+		slog.Debug("cleared dashboard port from config", "projectHash", projectHash)
+	}
 }
 
 // retryWithAlternativePort attempts to start the server on an alternative port.
@@ -486,7 +579,8 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			}
 			continue
 		default:
-			// Successfully started
+			// Successfully started - register the new port in azdconfig
+			s.registerPortInConfig(port)
 			fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
 			return port, nil
 		}
@@ -732,10 +826,14 @@ func (s *Server) Stop() error {
 
 	close(s.stopChan)
 
-	// Note: We intentionally do NOT release the port assignment here.
-	// The port is persisted to .azure/ports.json so that subsequent runs
-	// of azd app run in the same workspace use the same dashboard URL.
-	// The port will be reused on the next Start() call.
+	// Clear dashboard port from azdconfig so other commands know it's not running
+	s.clearPortFromConfig()
+
+	// Close the config client if it was created
+	if s.configClient != nil {
+		s.configClient.Close()
+		s.configClient = nil
+	}
 
 	if s.server != nil {
 		return s.server.Close()

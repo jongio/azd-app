@@ -19,5 +19,15 @@ export default defineConfig({
   build: {
     outDir: '../src/internal/dashboard/dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor libraries into separate chunks
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['lucide-react', '@radix-ui/react-dropdown-menu', '@radix-ui/react-slot'],
+          'vendor-utils': ['clsx', 'tailwind-merge', 'class-variance-authority', 'ansi-to-html'],
+        },
+      },
+    },
   },
 })

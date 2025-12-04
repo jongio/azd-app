@@ -12,32 +12,16 @@ interface LogEntry {
 /**
  * Hook to track active errors across all services by monitoring WebSocket log streams.
  * Returns true if any service has error-level logs in the last 30 seconds.
+ * @param serviceNames - Array of service names from parent (with real-time WebSocket updates)
  */
-export function useServiceErrors() {
+export function useServiceErrors(serviceNames: string[]) {
   const [hasActiveErrors, setHasActiveErrors] = useState(false)
-  const [services, setServices] = useState<string[]>([])
   const errorTimestampsRef = useRef<Map<string, number>>(new Map())
   const websocketsRef = useRef<Map<string, WebSocket>>(new Map())
 
-  // Fetch services
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const res = await fetch('/api/services')
-        if (!res.ok) return
-        const data = await res.json() as Array<{ name: string }>
-        const serviceNames = data.map(s => s.name)
-        setServices(serviceNames)
-      } catch (err) {
-        console.error('Failed to fetch services for error tracking:', err)
-      }
-    }
-    void fetchServices()
-  }, [])
-
   // Setup WebSocket connections for each service
   useEffect(() => {
-    if (services.length === 0) return
+    if (serviceNames.length === 0) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const websockets = websocketsRef.current
@@ -47,7 +31,7 @@ export function useServiceErrors() {
     websockets.clear()
 
     // Create new websockets for each service
-    services.forEach(serviceName => {
+    serviceNames.forEach(serviceName => {
       const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/stream?service=${serviceName}`)
 
       ws.onmessage = (event) => {
@@ -72,7 +56,7 @@ export function useServiceErrors() {
       websockets.forEach(ws => ws.close())
       websockets.clear()
     }
-  }, [services])
+  }, [serviceNames])
 
   // Periodically check for active errors (within last 30 seconds)
   useEffect(() => {

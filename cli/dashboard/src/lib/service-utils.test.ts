@@ -20,10 +20,70 @@ import {
   isOneTimeMode,
   getStatusIndicator,
   getStatusBadgeConfig,
+  normalizeHealthStatus,
+  normalizeLifecycleState,
 } from './service-utils'
 import type { Service, HealthCheckResult } from '@/types'
 
 describe('service-utils', () => {
+  describe('normalizeHealthStatus', () => {
+    it('should return unknown for undefined', () => {
+      expect(normalizeHealthStatus(undefined)).toBe('unknown')
+    })
+
+    it('should return unknown for empty string', () => {
+      expect(normalizeHealthStatus('')).toBe('unknown')
+    })
+
+    it('should normalize "starting" to "unknown"', () => {
+      // Backend sends "starting" during grace period - this is a lifecycle state, not health
+      expect(normalizeHealthStatus('starting')).toBe('unknown')
+    })
+
+    it('should pass through valid health statuses', () => {
+      expect(normalizeHealthStatus('healthy')).toBe('healthy')
+      expect(normalizeHealthStatus('degraded')).toBe('degraded')
+      expect(normalizeHealthStatus('unhealthy')).toBe('unhealthy')
+      expect(normalizeHealthStatus('unknown')).toBe('unknown')
+    })
+
+    it('should return unknown for invalid values', () => {
+      expect(normalizeHealthStatus('invalid')).toBe('unknown')
+      expect(normalizeHealthStatus('running')).toBe('unknown')
+    })
+  })
+
+  describe('normalizeLifecycleState', () => {
+    it('should return not-started for undefined', () => {
+      expect(normalizeLifecycleState(undefined)).toBe('not-started')
+    })
+
+    it('should map legacy status values', () => {
+      expect(normalizeLifecycleState('ready')).toBe('running')
+      expect(normalizeLifecycleState('error')).toBe('failed')
+      expect(normalizeLifecycleState('watching')).toBe('running')
+      expect(normalizeLifecycleState('building')).toBe('running')
+      expect(normalizeLifecycleState('built')).toBe('completed')
+      expect(normalizeLifecycleState('not-running')).toBe('not-started')
+    })
+
+    it('should pass through valid lifecycle states', () => {
+      expect(normalizeLifecycleState('not-started')).toBe('not-started')
+      expect(normalizeLifecycleState('starting')).toBe('starting')
+      expect(normalizeLifecycleState('running')).toBe('running')
+      expect(normalizeLifecycleState('stopping')).toBe('stopping')
+      expect(normalizeLifecycleState('stopped')).toBe('stopped')
+      expect(normalizeLifecycleState('restarting')).toBe('restarting')
+      expect(normalizeLifecycleState('completed')).toBe('completed')
+      expect(normalizeLifecycleState('failed')).toBe('failed')
+    })
+
+    it('should return not-started for invalid values', () => {
+      expect(normalizeLifecycleState('invalid')).toBe('not-started')
+      expect(normalizeLifecycleState('healthy')).toBe('not-started')
+    })
+  })
+
   describe('getEffectiveStatus', () => {
     it('should prefer local status when available', () => {
       const service: Service = {
@@ -283,8 +343,8 @@ describe('service-utils', () => {
       expect(getCheckTypeDisplay('http')).toBe('HTTP')
     })
 
-    it('should return Port for port', () => {
-      expect(getCheckTypeDisplay('port')).toBe('Port')
+    it('should return TCP for tcp', () => {
+      expect(getCheckTypeDisplay('tcp')).toBe('TCP')
     })
 
     it('should return Process for process', () => {
@@ -346,7 +406,7 @@ describe('service-utils', () => {
       const healthResult: HealthCheckResult = {
         serviceName: 'api',
         status: 'unhealthy',
-        checkType: 'port',
+        checkType: 'tcp',
         responseTime: 0,
         timestamp: '2024-01-01T00:00:00Z',
         error: 'connection refused',
@@ -444,8 +504,11 @@ describe('service-utils', () => {
       expect(getLogPaneVisualStatus('degraded', 'info')).toBe('warning')
     })
 
-    it('should return warning when serviceHealth is starting', () => {
-      expect(getLogPaneVisualStatus('starting', 'info')).toBe('warning')
+    it('should fall back to paneStatus for unknown health (including legacy "starting")', () => {
+      // 'starting' from backend should be normalized to 'unknown' before calling this function
+      // If 'starting' is passed directly, it's treated as invalid/unknown and falls back
+      expect(getLogPaneVisualStatus('starting' as never, 'info')).toBe('info')
+      expect(getLogPaneVisualStatus('starting' as never, 'warning')).toBe('warning')
     })
 
     it('should return healthy when serviceHealth is healthy', () => {

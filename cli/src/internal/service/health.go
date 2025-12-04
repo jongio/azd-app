@@ -31,7 +31,7 @@ const (
 // PerformHealthCheck verifies that a service is ready with exponential backoff.
 // Supports multiple health check types:
 // - "http": Check an HTTP endpoint (default)
-// - "tcp" or "port": Check if a port is listening
+// - "tcp": Check if a TCP port is listening
 // - "process": Check if the process is running
 // - "output": Monitor stdout for a pattern match (requires LogMatch to be set)
 // - "none": Skip health checks (service is immediately considered ready)
@@ -56,7 +56,7 @@ func PerformHealthCheck(process *ServiceProcess) error {
 		switch config.Type {
 		case "http":
 			err = HTTPHealthCheck(process.Port, config.Path)
-		case "port", "tcp":
+		case "tcp":
 			err = PortHealthCheck(process.Port)
 		case "process":
 			err = ProcessHealthCheck(process)
@@ -89,23 +89,32 @@ func PerformHealthCheck(process *ServiceProcess) error {
 
 // OutputHealthCheck checks if a specific pattern has been matched in the process output.
 // This is useful for build/watch services that log a success message but don't serve HTTP.
+// It searches the service's log buffer for the specified pattern.
 func OutputHealthCheck(process *ServiceProcess, pattern string) error {
 	if pattern == "" {
 		// No pattern specified - fall back to process check
 		return ProcessHealthCheck(process)
 	}
 
-	// Check if the process has output the expected pattern
-	// This requires the log buffer to have captured the output
-	// For now, we check if the process is running (actual pattern matching
-	// would require integration with the log streaming system)
-	if process.Ready {
-		return nil
+	// Get the log manager for the project to access log buffers
+	logManager := GetLogManager(process.Runtime.WorkingDir)
+	buffer, exists := logManager.GetBuffer(process.Name)
+	if !exists {
+		// Log buffer not created yet - service may still be starting
+		return fmt.Errorf("log buffer not ready for service %s", process.Name)
 	}
 
-	// Fall back to process check for now
-	// Full output pattern matching would require access to the service's log buffer
-	return ProcessHealthCheck(process)
+	// Check if the pattern has been matched in the logs
+	if buffer.ContainsPattern(pattern) {
+		return nil // Pattern found - service is healthy
+	}
+
+	// Pattern not found yet - also verify process is still running
+	if err := ProcessHealthCheck(process); err != nil {
+		return err // Process died - report that error
+	}
+
+	return fmt.Errorf("pattern %q not found in output", pattern)
 }
 
 // HTTPHealthCheck attempts HTTP requests to verify service is ready.
@@ -165,6 +174,9 @@ func PortHealthCheck(port int) error {
 
 // ProcessHealthCheck verifies that a process is running.
 func ProcessHealthCheck(process *ServiceProcess) error {
+	if process == nil {
+		return errors.New("service process is nil")
+	}
 	if process.Process == nil {
 		return errors.New("process not started")
 	}

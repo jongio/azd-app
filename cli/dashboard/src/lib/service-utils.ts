@@ -1,5 +1,57 @@
 import { CheckCircle, XCircle, Clock, AlertCircle, StopCircle, CircleDot, Circle, AlertTriangle, Eye, Hammer, type LucideIcon } from 'lucide-react'
-import type { Service, HealthCheckResult, HealthStatus, HealthSummary, ServiceType, ServiceMode } from '@/types'
+import type { Service, HealthCheckResult, HealthStatus, HealthSummary, ServiceType, ServiceMode, LifecycleState } from '@/types'
+
+// Re-export OperationState from context for backward compatibility
+export type { OperationState } from '@/contexts/ServiceOperationsContext'
+
+/**
+ * Normalize health status from backend
+ * Backend may send 'starting' during grace period - we treat this as 'unknown'
+ * since 'starting' is a lifecycle state, not a health status
+ */
+export function normalizeHealthStatus(status: string | undefined): HealthStatus {
+  if (!status) return 'unknown'
+  // 'starting' from backend means health checks haven't passed yet
+  // This is actually unknown health, not a health condition
+  if (status === 'starting') return 'unknown'
+  // Validate it's a known health status
+  if (['healthy', 'degraded', 'unhealthy', 'unknown'].includes(status)) {
+    return status as HealthStatus
+  }
+  return 'unknown'
+}
+
+/**
+ * Normalize lifecycle state from backend
+ * Maps various status values to clean LifecycleState
+ */
+export function normalizeLifecycleState(status: string | undefined): LifecycleState {
+  if (!status) return 'not-started'
+  
+  // Map legacy/alias values to clean lifecycle states
+  const stateMap: Record<string, LifecycleState> = {
+    'ready': 'running',
+    'error': 'failed',
+    'watching': 'running',
+    'building': 'running',
+    'built': 'completed',
+    'not-running': 'not-started',
+  }
+  
+  const mapped = stateMap[status]
+  if (mapped) return mapped
+  
+  // Check if it's already a valid lifecycle state
+  const validStates: LifecycleState[] = [
+    'not-started', 'starting', 'running', 'stopping', 
+    'stopped', 'restarting', 'completed', 'failed'
+  ]
+  if (validStates.includes(status as LifecycleState)) {
+    return status as LifecycleState
+  }
+  
+  return 'not-started'
+}
 
 /**
  * Status display configuration for a service
@@ -205,15 +257,18 @@ export function getHealthBadgeConfig(health?: string): HealthBadgeConfig {
   return configs[health as keyof typeof configs] ?? configs['unknown']
 }
 
-/**
- * Operation state type (from useServiceOperations hook)
- */
-export type OperationState = 'idle' | 'starting' | 'stopping' | 'restarting'
+// Import OperationState from context (re-exported at top of file)
+import type { OperationState } from '@/contexts/ServiceOperationsContext'
 
 /**
- * Get the effective status from a service, preferring local status.
+ * Get the effective lifecycle state and health from a service.
+ * 
+ * IMPORTANT: This returns TWO independent values:
+ * - status: The process lifecycle state (starting, running, stopped, etc.)
+ * - health: The service health status (healthy, unhealthy, degraded, unknown)
+ * 
  * If an operation state is provided (from useServiceOperations), it takes priority
- * to show optimistic UI updates while operations are in progress.
+ * for the lifecycle state to show optimistic UI updates.
  */
 export function getEffectiveStatus(
   service: Service,
@@ -222,18 +277,117 @@ export function getEffectiveStatus(
   status: string
   health: string
 } {
-  // If an operation is in progress, use that as the status
+  // If an operation is in progress, use that as the lifecycle state
   if (operationState && operationState !== 'idle') {
     return {
-      status: operationState, // 'starting', 'stopping', or 'restarting' maps to same display status
+      status: operationState, // 'starting', 'stopping', or 'restarting'
       health: 'unknown' // Health is unknown during operations
     }
   }
   
+  // Get raw values from service
+  const rawStatus = service.local?.status ?? service.status ?? 'not-running'
+  const rawHealth = service.local?.health ?? service.health ?? 'unknown'
+  
   return {
-    status: service.local?.status ?? service.status ?? 'not-running',
-    health: service.local?.health ?? service.health ?? 'unknown'
+    status: rawStatus,
+    health: normalizeHealthStatus(rawHealth)
   }
+}
+
+// =============================================================================
+// Unified Display State Types (Modern UI)
+// =============================================================================
+
+/**
+ * Effective display status for modern UI components.
+ * This is the SINGLE SOURCE OF TRUTH for how a service should be displayed.
+ * 
+ * Maps lifecycle state + health status to a unified display state.
+ */
+export type EffectiveDisplayStatus = 
+  // Lifecycle states (take priority)
+  | 'stopped'
+  | 'stopping'
+  | 'starting'
+  | 'restarting'
+  | 'not-running'
+  // Process service specific states
+  | 'watching'
+  | 'building'
+  | 'built'
+  | 'completed'
+  | 'failed'
+  | 'error'
+  // Health-based states (when running)
+  | 'healthy'
+  | 'degraded'
+  | 'unhealthy'
+  | 'unknown'
+  // Backwards compatibility alias
+  | 'running'
+
+/**
+ * Get the unified display status for a service.
+ * This is the SINGLE SOURCE OF TRUTH for determining how to display a service's state.
+ * 
+ * Used by UI components for consistent status display.
+ * 
+ * Priority order:
+ * 1. Operation state (starting/stopping/restarting from user action)
+ * 2. Process lifecycle state (stopped, starting, etc.)
+ * 3. Process-specific statuses (watching, building, etc.)
+ * 4. Health status (when running)
+ * 
+ * @param service - The service object
+ * @param healthStatus - Optional real-time health from SSE stream
+ * @param operationState - Optional operation state from useServiceOperations
+ * @returns The effective display status
+ */
+export function getServiceDisplayStatus(
+  service: Service,
+  healthStatus?: HealthCheckResult,
+  operationState?: OperationState
+): EffectiveDisplayStatus {
+  // Use centralized getEffectiveStatus for lifecycle + health
+  const { status, health } = getEffectiveStatus(service, operationState)
+  
+  // Use real-time health from health stream if available and not in operation
+  const effectiveHealth = (operationState === 'idle' || !operationState)
+    ? normalizeHealthStatus(healthStatus?.status ?? health)
+    : 'unknown'
+  
+  // 1. Operation states take absolute priority (user-initiated actions)
+  if (operationState && operationState !== 'idle') {
+    return operationState as EffectiveDisplayStatus
+  }
+  
+  // 2. Process-specific statuses (from backend)
+  if (status === 'watching') return 'watching'
+  if (status === 'building') return 'building'
+  if (status === 'built') return 'built'
+  if (status === 'completed') return 'completed'
+  if (status === 'failed') return 'failed'
+  if (status === 'error') return 'error'
+  
+  // 3. Lifecycle states take priority over health
+  if (status === 'stopped') return 'stopped'
+  if (status === 'stopping') return 'stopping'
+  if (status === 'starting') return 'starting'
+  if (status === 'restarting') return 'restarting'
+  if (status === 'not-running' || status === 'not-started') return 'not-running'
+  
+  // 4. When running/ready, use health status
+  if (status === 'running' || status === 'ready') {
+    if (effectiveHealth === 'healthy') return 'healthy'
+    if (effectiveHealth === 'degraded') return 'degraded'
+    if (effectiveHealth === 'unhealthy') return 'unhealthy'
+    // Running with unknown health shows as healthy (process is running)
+    return 'healthy'
+  }
+  
+  // Fallback
+  return 'unknown'
 }
 
 /**
@@ -320,8 +474,9 @@ export function getStatusDisplay(status: string, health: string): StatusDisplay 
     }
   }
 
-  // Starting or Restarting - check before health
-  if (status === 'starting' || status === 'restarting' || health === 'starting') {
+  // Starting or Restarting - only based on process status, NOT health status
+  // Health "starting" means health checks haven't passed yet, not that the process is starting
+  if (status === 'starting' || status === 'restarting') {
     return {
       text: status === 'restarting' ? 'Restarting' : 'Starting',
       color: 'bg-yellow-500',
@@ -384,6 +539,19 @@ export function getStatusDisplay(status: string, health: string): StatusDisplay 
       textColor: 'text-red-400',
       badgeVariant: 'destructive',
       icon: XCircle
+    }
+  }
+
+  // Running with unknown health (e.g., health checks still pending/warming up)
+  // Still show as Running since the process is confirmed running
+  // Note: normalizeHealthStatus() converts backend 'starting' to 'unknown'
+  if ((status === 'ready' || status === 'running') && health === 'unknown') {
+    return {
+      text: 'Running',
+      color: 'bg-green-500',
+      textColor: 'text-green-400',
+      badgeVariant: 'success',
+      icon: CheckCircle
     }
   }
 
@@ -499,7 +667,7 @@ export function formatUptime(nanos?: number): string {
 export function getCheckTypeDisplay(checkType?: string): string {
   const displayMap = {
     http: 'HTTP',
-    port: 'Port',
+    tcp: 'TCP',
     process: 'Process',
   } as const
   return displayMap[checkType as keyof typeof displayMap] ?? 'Unknown'
@@ -511,19 +679,44 @@ export type VisualStatus = 'error' | 'warning' | 'info' | 'healthy' | 'stopped'
 /**
  * Get the visual status for a log pane based on process status, health status, and log content.
  * Priority: process status (stopped) > health check status > log-based status
+ * 
+ * NOTE: serviceHealth should be normalized (no 'starting' - use normalizeHealthStatus first)
  */
 export function getLogPaneVisualStatus(
   serviceHealth: HealthStatus | undefined,
   fallbackStatus: 'error' | 'warning' | 'info',
   processStatus?: string
 ): VisualStatus {
-  // Process status takes priority - if service is stopped, show stopped state
-  if (processStatus === 'stopped') return 'stopped'
+  // Process status takes priority - terminal states show specific visual status
+  // Stopped/not-running states
+  if (processStatus === 'stopped' || processStatus === 'not-started' || processStatus === 'not-running') {
+    return 'stopped'
+  }
+  // Completed build/task states show as healthy (success)
+  if (processStatus === 'built' || processStatus === 'completed') {
+    return 'healthy'
+  }
+  // Failed state shows as error
+  if (processStatus === 'failed' || processStatus === 'error') {
+    return 'error'
+  }
+  // Running/watching states use health status if available
+  if (processStatus === 'running' || processStatus === 'watching' || processStatus === 'ready') {
+    if (serviceHealth) {
+      if (serviceHealth === 'unhealthy') return 'error'
+      if (serviceHealth === 'degraded') return 'warning'
+      if (serviceHealth === 'healthy') return 'healthy'
+    }
+    // Running with unknown health shows as healthy
+    return 'healthy'
+  }
   
+  // Transitional states (starting, stopping, building, restarting) use fallback/health
   if (serviceHealth) {
     if (serviceHealth === 'unhealthy') return 'error'
-    if (serviceHealth === 'degraded' || serviceHealth === 'starting') return 'warning'
+    if (serviceHealth === 'degraded') return 'warning'
     if (serviceHealth === 'healthy') return 'healthy'
+    // 'unknown' falls through to fallbackStatus
   }
   return fallbackStatus
 }
@@ -542,11 +735,7 @@ export function mergeHealthIntoService(
     local: {
       ...service.local,
       status: service.local?.status ?? 'not-running',
-      health: healthResult.status === 'healthy' ? 'healthy' 
-            : healthResult.status === 'degraded' ? 'degraded'
-            : healthResult.status === 'unhealthy' ? 'unhealthy'
-            : healthResult.status === 'starting' ? 'starting'
-            : 'unknown',
+      health: normalizeHealthStatus(healthResult.status),
       lastChecked: healthResult.timestamp,
       healthDetails: {
         checkType: healthResult.checkType,

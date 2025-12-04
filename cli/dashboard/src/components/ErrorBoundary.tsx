@@ -60,7 +60,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 {this.state.error.name}: {this.state.error.message}
               </p>
               {this.state.error.stack && (
-                <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-words">
+                <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap wrap-break-word">
                   {this.state.error.stack}
                 </pre>
               )}

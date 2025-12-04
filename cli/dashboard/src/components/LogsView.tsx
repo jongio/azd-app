@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Download, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
+import { cn } from '@/lib/utils'
 import type { Service } from '@/types'
 import {
   MAX_LOGS_IN_MEMORY,
@@ -25,23 +26,60 @@ interface LogEntry {
 }
 
 interface LogsViewProps {
+  /** Service names from parent with real-time WebSocket updates */
+  services?: string[]
   selectedServices?: Set<string>
   levelFilter?: Set<'info' | 'warning' | 'error'>
+  /** External pause control from parent (e.g., ConsoleView toolbar) */
+  isPaused?: boolean
+  /** External auto-scroll control from parent */
+  autoScrollEnabled?: boolean
+  /** External search term from parent */
+  globalSearchTerm?: string
+  /** Trigger to clear all logs (increment to trigger) */
+  clearAllTrigger?: number
+  /** Hide internal controls when parent provides them */
+  hideControls?: boolean
 }
 
-export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) {
+export function LogsView({ 
+  services: servicesProp,
+  selectedServices, 
+  levelFilter,
+  isPaused: externalIsPaused,
+  autoScrollEnabled: externalAutoScroll,
+  globalSearchTerm,
+  clearAllTrigger = 0,
+  hideControls = false,
+}: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [services, setServices] = useState<string[]>([])
+  const [internalServices, setInternalServices] = useState<string[]>([])
   const [selectedService, setSelectedService] = useState<string>('all')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isPaused, setIsPaused] = useState(false)
+  const [internalSearchTerm, setInternalSearchTerm] = useState('')
+  const [internalIsPaused, setInternalIsPaused] = useState(false)
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
-
-  // Fetch services list
+  const isPausedRef = useRef(false)
+  
+  // Use external services when provided (controlled mode), otherwise internal
+  const services = servicesProp ?? internalServices
+  
+  // Use external values when provided (controlled mode from parent), otherwise internal
+  const isPaused = externalIsPaused ?? internalIsPaused
+  const autoScroll = externalAutoScroll ?? true
+  const searchTerm = globalSearchTerm ?? internalSearchTerm
+  
+  // Keep ref in sync for WebSocket callback
   useEffect(() => {
+    isPausedRef.current = isPaused
+  }, [isPaused])
+
+  // Fetch services list only if not provided via prop
+  useEffect(() => {
+    if (servicesProp) return // Skip fetch when services provided via prop
+    
     const fetchServices = async () => {
       try {
         const res = await fetch('/api/services')
@@ -50,13 +88,13 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
         }
         const data = await res.json() as Service[]
         const serviceNames = data.map((s) => s.name)
-        setServices(serviceNames)
+        setInternalServices(serviceNames)
       } catch (err) {
         console.error('Failed to fetch services:', err)
       }
     }
     void fetchServices()
-  }, [])
+  }, [servicesProp])
 
   const fetchLogs = useCallback(async () => {
     const url = selectedService === 'all'
@@ -94,13 +132,15 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
     }
 
     ws.onmessage = (event: MessageEvent<string>) => {
-      if (!isPaused) {
-        try {
-          const entry = JSON.parse(event.data) as LogEntry
-          setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-        } catch (err) {
-          console.error('Failed to parse log entry:', err)
-        }
+      // Check pause state from ref to get current value (not stale closure)
+      if (isPausedRef.current) {
+        return
+      }
+      try {
+        const entry = JSON.parse(event.data) as LogEntry
+        setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
+      } catch (err) {
+        console.error('Failed to parse log entry:', err)
       }
     }
 
@@ -113,7 +153,7 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
     }
 
     wsRef.current = ws
-  }, [selectedService, isPaused])
+  }, [selectedService]) // Removed isPaused - WebSocket shouldn't reconnect on pause toggle
 
   // Fetch initial logs and setup WebSocket
   useEffect(() => {
@@ -127,14 +167,24 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
 
   // Auto-scroll to bottom - scroll the container, not the page
   useEffect(() => {
-    if (!isPaused && !isUserScrolling && logsContainerRef.current) {
+    if (autoScroll && !isPaused && !isUserScrolling && logsContainerRef.current) {
       const container = logsContainerRef.current
       container.scrollTop = container.scrollHeight
     }
-  }, [logs, isPaused, isUserScrolling])
+  }, [logs, isPaused, isUserScrolling, autoScroll])
 
-  // Detect manual scrolling
+  // Clear logs when global clear is triggered
+  useEffect(() => {
+    if (clearAllTrigger > 0) {
+      setLogs([])
+    }
+  }, [clearAllTrigger])
+
+  // Detect manual scrolling - only affects internal state in uncontrolled mode
   const handleScroll = () => {
+    // Skip scroll detection when externally controlled
+    if (externalIsPaused !== undefined) return
+    
     const container = logsContainerRef.current
     if (!container) return
 
@@ -144,11 +194,11 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
     if (!isAtBottom && !isUserScrolling) {
       // User scrolled up - pause auto-scroll
       setIsUserScrolling(true)
-      setIsPaused(true)
+      setInternalIsPaused(true)
     } else if (isAtBottom && isUserScrolling) {
       // User scrolled back to bottom - resume auto-scroll
       setIsUserScrolling(false)
-      setIsPaused(false)
+      setInternalIsPaused(false)
     }
   }
 
@@ -204,8 +254,8 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
   }, [logs.length])
 
   const togglePause = useCallback(() => {
-    const newPausedState = !isPaused
-    setIsPaused(newPausedState)
+    const newPausedState = !internalIsPaused
+    setInternalIsPaused(newPausedState)
     
     // If resuming, scroll to bottom
     if (!newPausedState) {
@@ -216,11 +266,11 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
         }
       }, 100)
     }
-  }, [isPaused])
+  }, [internalIsPaused])
 
   const scrollToBottom = useCallback(() => {
     setIsUserScrolling(false)
-    setIsPaused(false)
+    setInternalIsPaused(false)
     if (logsContainerRef.current) {
       logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
     }
@@ -240,53 +290,58 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
   }, [])
 
   return (
-    <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex gap-4 items-center flex-wrap">
-        <Select 
-          value={selectedService} 
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedService(e.target.value)}
-          className="min-w-[150px]"
-        >
-          <option value="all">All Services</option>
-          {services.map((service) => (
-            <option key={service} value={service}>{service}</option>
-          ))}
-        </Select>
+    <div className={cn(hideControls ? "flex flex-col h-full" : "space-y-4")}>
+      {/* Controls - only show when not controlled by parent */}
+      {!hideControls && (
+        <div className="flex gap-4 items-center flex-wrap">
+          <Select 
+            value={selectedService} 
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedService(e.target.value)}
+            className="min-w-[150px]"
+          >
+            <option value="all">All Services</option>
+            {services.map((service) => (
+              <option key={service} value={service}>{service}</option>
+            ))}
+          </Select>
 
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search logs..."
-            value={searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search logs..."
+              value={internalSearchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInternalSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={togglePause}
+            title={internalIsPaused ? 'Resume' : 'Pause'}
+          >
+            {internalIsPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+          </Button>
+
+          <Button variant="outline" size="icon" onClick={exportLogs} title="Export logs">
+            <Download className="w-4 h-4" />
+          </Button>
+
+          <Button variant="outline" size="icon" onClick={clearLogs} title="Clear logs">
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={togglePause}
-          title={isPaused ? 'Resume' : 'Pause'}
-        >
-          {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-        </Button>
-
-        <Button variant="outline" size="icon" onClick={exportLogs} title="Export logs">
-          <Download className="w-4 h-4" />
-        </Button>
-
-        <Button variant="outline" size="icon" onClick={clearLogs} title="Clear logs">
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
+      )}
 
       {/* Log Display */}
       <div 
         ref={logsContainerRef}
         onScroll={handleScroll}
-        className="bg-card border rounded-lg p-4 h-[600px] overflow-y-auto font-mono text-sm"
+        className={cn(
+          "bg-card border rounded-lg p-4 overflow-y-auto font-mono text-sm",
+          hideControls ? "flex-1" : "h-[600px]"
+        )}
       >
         {filteredLogs.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
@@ -316,20 +371,21 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
         )}
       </div>
 
-      {/* Status Bar */}
-      <div className="text-sm text-muted-foreground flex justify-between items-center">
-        <span>
-          Showing {filteredLogs.length} of {logs.length} log entries
-        </span>
-        <div className="flex items-center gap-4">
-          {isPaused && (
-            <>
-              <span className="text-yellow-600 font-medium">⏸ Paused - scroll stopped</span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={scrollToBottom}
-                className="flex items-center gap-2"
+      {/* Status Bar - only show when not controlled */}
+      {!hideControls && (
+        <div className="text-sm text-muted-foreground flex justify-between items-center">
+          <span>
+            Showing {filteredLogs.length} of {logs.length} log entries
+          </span>
+          <div className="flex items-center gap-4">
+            {internalIsPaused && (
+              <>
+                <span className="text-yellow-600 font-medium">⏸ Paused - scroll stopped</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={scrollToBottom}
+                  className="flex items-center gap-2"
               >
                 <ArrowDown className="w-4 h-4" />
                 Jump to Bottom
@@ -338,6 +394,7 @@ export function LogsView({ selectedServices, levelFilter }: LogsViewProps = {}) 
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

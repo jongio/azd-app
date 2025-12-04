@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -19,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
@@ -92,7 +92,8 @@ func (r *PortReservation) Release() error {
 type PortManager struct {
 	mu          sync.RWMutex
 	assignments map[string]*PortAssignment // key: serviceName
-	filePath    string
+	projectDir  string                     // absolute path to project directory
+	projectHash string                     // hash of projectDir for config keys
 	portRange   struct {
 		start int
 		end   int
@@ -100,6 +101,8 @@ type PortManager struct {
 	// portChecker is a function that checks if a port is available
 	// This can be overridden in tests to avoid network binding
 	portChecker func(port int) bool
+	// configClient is lazily initialized for azdconfig access
+	configClient azdconfig.ConfigClient
 }
 
 // cacheEntry holds a port manager with LRU tracking
@@ -111,6 +114,11 @@ type cacheEntry struct {
 var (
 	managerCache   = make(map[string]*cacheEntry)
 	managerCacheMu sync.RWMutex
+
+	// sharedInMemoryClient is used when gRPC is not available (e.g., during tests).
+	// This ensures all port managers share the same in-memory storage for consistency.
+	sharedInMemoryClient     azdconfig.ConfigClient
+	sharedInMemoryClientOnce sync.Once
 )
 
 // GetPortManager returns a cached port manager instance for the given project directory.
@@ -144,6 +152,12 @@ func GetPortManager(projectDir string) *PortManager {
 		absPath = projectDir
 	}
 
+	// Resolve symlinks to ensure consistent caching across different path representations.
+	// This is critical on macOS where temp directories use symlinks (e.g., /var -> /private/var).
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = resolved
+	}
+
 	slog.Debug("getting port manager", "path", projectDir, "normalized", absPath)
 
 	managerCacheMu.Lock()
@@ -163,12 +177,10 @@ func GetPortManager(projectDir string) *PortManager {
 
 	slog.Debug("creating new port manager", "path", absPath)
 
-	portsDir := filepath.Join(absPath, ".azure")
-	portsFile := filepath.Join(portsDir, "ports.json")
-
 	manager := &PortManager{
 		assignments: make(map[string]*PortAssignment),
-		filePath:    portsFile,
+		projectDir:  absPath,
+		projectHash: azdconfig.ProjectHash(absPath),
 	}
 
 	// Configure port range from environment or use defaults
@@ -179,14 +191,9 @@ func GetPortManager(projectDir string) *PortManager {
 	// Set default port checker (can be overridden in tests)
 	manager.portChecker = manager.defaultIsPortAvailable
 
-	// Ensure directory exists with strict permissions matching the file (0700)
-	if err := os.MkdirAll(portsDir, 0700); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Failed to create ports directory: %v\n", err)
-	}
-
-	// Load existing assignments
-	if err := manager.load(); err != nil && !os.IsNotExist(err) {
-		slog.Warn("failed to load port assignments", "error", err, "path", portsFile)
+	// Load existing assignments from azdconfig
+	if err := manager.load(); err != nil {
+		slog.Warn("failed to load port assignments from config", "error", err)
 	}
 
 	managerCache[absPath] = &cacheEntry{
@@ -221,6 +228,9 @@ func ClearCacheForTesting() {
 	managerCacheMu.Lock()
 	defer managerCacheMu.Unlock()
 	managerCache = make(map[string]*cacheEntry)
+	// Also reset the shared in-memory client for clean test isolation
+	sharedInMemoryClient = nil
+	sharedInMemoryClientOnce = sync.Once{}
 }
 
 // getPortRangeStart returns the configured port range start or default.
@@ -659,7 +669,7 @@ func (pm *PortManager) ReleasePort(serviceName string) error {
 	defer pm.mu.Unlock()
 
 	delete(pm.assignments, serviceName)
-	return pm.save()
+	return pm.clearServicePort(serviceName)
 }
 
 // GetAssignment returns the port assignment for a service.
@@ -673,20 +683,28 @@ func (pm *PortManager) GetAssignment(serviceName string) (int, bool) {
 	return 0, false
 }
 
-// CleanStalePorts removes assignments for ports that haven't been used in over 7 days.
+// staleThreshold defines how old an assignment must be to be considered stale.
+const staleThreshold = 7 * 24 * time.Hour // 7 days
+
+// CleanStalePorts removes port assignments older than the stale threshold.
+// Assignments are considered stale if they haven't been used in 7 days.
 func (pm *PortManager) CleanStalePorts() error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	cutoff := time.Now().Add(-7 * 24 * time.Hour)
+	threshold := time.Now().Add(-staleThreshold)
+
+	// Check each assignment for staleness
 	for name, assignment := range pm.assignments {
-		if assignment.LastUsed.Before(cutoff) {
+		if assignment.LastUsed.Before(threshold) {
+			if err := pm.clearServicePort(name); err != nil {
+				slog.Warn("failed to clear port for service", "service", name, "error", err)
+			}
 			delete(pm.assignments, name)
+			slog.Debug("removed stale port assignment", "service", name, "port", assignment.Port, "lastUsed", assignment.LastUsed)
 		}
 	}
-	if err := pm.save(); err != nil {
-		return fmt.Errorf("failed to save port assignments after cleanup: %w", err)
-	}
+
 	return nil
 }
 
@@ -1062,39 +1080,94 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	return nil
 }
 
-// load reads port assignments from disk.
-func (pm *PortManager) load() error {
-	data, err := os.ReadFile(pm.filePath)
-	if err != nil {
-		return err
+// getConfigClient returns the azdconfig client, creating it lazily if needed.
+// If no gRPC connection is available (e.g., during tests), falls back to a shared
+// in-memory storage that persists across port manager instances.
+func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) {
+	if pm.configClient != nil {
+		return pm.configClient, nil
 	}
 
-	return json.Unmarshal(data, &pm.assignments)
+	client, err := azdconfig.NewClient(context.Background())
+	if err != nil {
+		// Fall back to shared in-memory client when gRPC is not available.
+		// Using a shared client ensures port assignments are visible across
+		// all port manager instances within the same process (important for tests).
+		slog.Debug("gRPC connection not available, using shared in-memory port storage", "error", err)
+		sharedInMemoryClientOnce.Do(func() {
+			sharedInMemoryClient = azdconfig.NewInMemoryClient()
+		})
+		pm.configClient = sharedInMemoryClient
+		return pm.configClient, nil
+	}
+	pm.configClient = client
+	return client, nil
 }
 
-// save writes port assignments to disk using atomic write (temp file + rename).
-// This prevents file corruption when multiple processes write concurrently.
-func (pm *PortManager) save() error {
-	// Use MarshalIndent for human-readable output - the file is small (<1KB typically)
-	// and saved infrequently, so the performance impact is negligible
-	data, err := json.MarshalIndent(pm.assignments, "", "  ")
+// SetConfigClient sets a custom config client for testing purposes.
+func (pm *PortManager) SetConfigClient(client azdconfig.ConfigClient) {
+	pm.configClient = client
+}
+
+// load reads port assignments from azd's UserConfig service.
+func (pm *PortManager) load() error {
+	client, err := pm.getConfigClient()
 	if err != nil {
-		return fmt.Errorf("failed to marshal port assignments: %w", err)
+		// If we can't connect to azd, start with empty assignments
+		slog.Debug("could not connect to azdconfig, starting with empty assignments", "error", err)
+		return nil
 	}
 
-	// Atomic write: write to temp file, then rename
-	// This ensures the file is never in a partially-written state
-	tmpFile := pm.filePath + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0600); err != nil {
-		return fmt.Errorf("failed to write temp file: %w", err)
+	ports, err := client.GetAllServicePorts(pm.projectHash)
+	if err != nil {
+		// gRPC operation failed - fall back to in-memory storage
+		slog.Debug("gRPC operation failed, using in-memory port storage", "error", err)
+		pm.configClient = azdconfig.NewInMemoryClient()
+		return nil
 	}
 
-	// Rename is atomic on POSIX systems (and Windows with proper flags)
-	if err := os.Rename(tmpFile, pm.filePath); err != nil {
-		// Clean up temp file on failure
-		_ = os.Remove(tmpFile)
-		return fmt.Errorf("failed to rename temp file: %w", err)
+	// Convert map[string]int to map[string]*PortAssignment
+	for serviceName, port := range ports {
+		pm.assignments[serviceName] = &PortAssignment{
+			ServiceName: serviceName,
+			Port:        port,
+			LastUsed:    time.Now(), // We don't persist LastUsed anymore
+		}
 	}
 
+	slog.Debug("loaded port assignments from config", "count", len(pm.assignments))
+	return nil
+}
+
+// save writes port assignments to azd's UserConfig service.
+func (pm *PortManager) save() error {
+	client, err := pm.getConfigClient()
+	if err != nil {
+		return fmt.Errorf("failed to get config client: %w", err)
+	}
+
+	// Save each port assignment individually for efficient updates
+	for serviceName, assignment := range pm.assignments {
+		if err := client.SetServicePort(pm.projectHash, serviceName, assignment.Port); err != nil {
+			return fmt.Errorf("failed to save port for service %s: %w", serviceName, err)
+		}
+	}
+
+	slog.Debug("saved port assignments to config", "count", len(pm.assignments))
+	return nil
+}
+
+// clearServicePort removes a service port from the config.
+func (pm *PortManager) clearServicePort(serviceName string) error {
+	client, err := pm.getConfigClient()
+	if err != nil {
+		return fmt.Errorf("failed to get config client: %w", err)
+	}
+
+	if err := client.ClearServicePort(pm.projectHash, serviceName); err != nil {
+		return fmt.Errorf("failed to clear port for service %s: %w", serviceName, err)
+	}
+
+	slog.Debug("cleared service port from config", "service", serviceName)
 	return nil
 }

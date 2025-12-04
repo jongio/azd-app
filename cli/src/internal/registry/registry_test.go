@@ -1,9 +1,6 @@
 package registry
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -11,17 +8,18 @@ import (
 func TestGetRegistry(t *testing.T) {
 	tempDir := t.TempDir()
 
+	// Clear cache to ensure fresh instance
+	registryCacheMu.Lock()
+	delete(registryCache, tempDir)
+	registryCacheMu.Unlock()
+
 	registry := GetRegistry(tempDir)
 
 	if registry == nil {
 		t.Fatal("GetRegistry() returned nil")
 	}
 
-	// Verify .azure directory was created
-	azureDir := filepath.Join(tempDir, ".azure")
-	if _, err := os.Stat(azureDir); os.IsNotExist(err) {
-		t.Errorf(".azure directory was not created")
-	}
+	// Registry is now in-memory only, so no .azure directory check needed
 
 	// Get the same registry again - should return cached instance
 	registry2 := GetRegistry(tempDir)
@@ -52,7 +50,6 @@ func TestRegister(t *testing.T) {
 		Language:   "go",
 		Framework:  "gin",
 		Status:     "ready",
-		Health:     "healthy",
 		StartTime:  time.Now(),
 	}
 
@@ -119,7 +116,6 @@ func TestUpdateStatus(t *testing.T) {
 		Name:      "test-service",
 		Port:      8080,
 		Status:    "starting",
-		Health:    "unknown",
 		StartTime: time.Now(),
 	}
 
@@ -128,7 +124,7 @@ func TestUpdateStatus(t *testing.T) {
 	}
 
 	// Update status
-	err := registry.UpdateStatus("test-service", "ready", "healthy")
+	err := registry.UpdateStatus("test-service", "ready")
 	if err != nil {
 		t.Fatalf("UpdateStatus() error = %v, want nil", err)
 	}
@@ -143,10 +139,6 @@ func TestUpdateStatus(t *testing.T) {
 		t.Errorf("UpdateStatus() Status = %v, want ready", svc.Status)
 	}
 
-	if svc.Health != "healthy" {
-		t.Errorf("UpdateStatus() Health = %v, want healthy", svc.Health)
-	}
-
 	// Verify LastChecked was updated
 	if svc.LastChecked.IsZero() {
 		t.Errorf("UpdateStatus() did not update LastChecked")
@@ -157,7 +149,7 @@ func TestUpdateStatusNonexistent(t *testing.T) {
 	tempDir := t.TempDir()
 	registry := GetRegistry(tempDir)
 
-	err := registry.UpdateStatus("nonexistent-service", "ready", "healthy")
+	err := registry.UpdateStatus("nonexistent-service", "ready")
 	if err == nil {
 		t.Errorf("UpdateStatus() for nonexistent service should fail")
 	}
@@ -224,7 +216,13 @@ func TestListAll(t *testing.T) {
 }
 
 func TestSaveAndLoad(t *testing.T) {
+	// Registry is now in-memory only - test that clearing cache gives fresh instance
 	tempDir := t.TempDir()
+
+	// Clear cache to ensure fresh instance
+	registryCacheMu.Lock()
+	delete(registryCache, tempDir)
+	registryCacheMu.Unlock()
 
 	// Create first registry and add a service
 	registry1 := GetRegistry(tempDir)
@@ -237,7 +235,6 @@ func TestSaveAndLoad(t *testing.T) {
 		URL:        "http://localhost:8080",
 		Language:   "go",
 		Status:     "ready",
-		Health:     "healthy",
 		StartTime:  time.Now(),
 	}
 
@@ -246,25 +243,26 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Register() error = %v", err)
 	}
 
-	// Clear the cache to force reload
+	// Verify service is in current registry
+	svc, exists := registry1.GetService("test-service")
+	if !exists {
+		t.Errorf("GetService() in same instance: service not found")
+	}
+	if svc.Port != 8080 {
+		t.Errorf("GetService(): Port = %v, want 8080", svc.Port)
+	}
+
+	// Clear the cache to simulate process restart
 	registryCacheMu.Lock()
 	delete(registryCache, tempDir)
 	registryCacheMu.Unlock()
 
-	// Create new registry instance - should load from file
+	// Create new registry instance - should start empty (in-memory only)
 	registry2 := GetRegistry(tempDir)
 
-	svc, exists := registry2.GetService("test-service")
-	if !exists {
-		t.Errorf("GetService() after reload: service not found")
-	}
-
-	if svc.Name != "test-service" {
-		t.Errorf("GetService() after reload: Name = %v, want test-service", svc.Name)
-	}
-
-	if svc.Port != 8080 {
-		t.Errorf("GetService() after reload: Port = %v, want 8080", svc.Port)
+	_, exists = registry2.GetService("test-service")
+	if exists {
+		t.Errorf("GetService() after cache clear: expected service to NOT exist (in-memory registry)")
 	}
 }
 
@@ -303,8 +301,13 @@ func TestClear(t *testing.T) {
 }
 
 func TestRegistryPersistence(t *testing.T) {
+	// Registry is now in-memory only - this test verifies the in-memory behavior
 	tempDir := t.TempDir()
-	registryFile := filepath.Join(tempDir, ".azure", "services.json")
+
+	// Clear cache
+	registryCacheMu.Lock()
+	delete(registryCache, tempDir)
+	registryCacheMu.Unlock()
 
 	registry := GetRegistry(tempDir)
 
@@ -318,25 +321,16 @@ func TestRegistryPersistence(t *testing.T) {
 		t.Fatalf("failed to register: %v", err)
 	}
 
-	// Verify file was created
-	if _, err := os.Stat(registryFile); os.IsNotExist(err) {
-		t.Errorf("Registry file was not created")
+	// Verify service is in registry
+	svc, exists := registry.GetService("test-service")
+	if !exists {
+		t.Errorf("Service not found in registry after Register()")
+	}
+	if svc.Port != 8080 {
+		t.Errorf("Port = %v, want 8080", svc.Port)
 	}
 
-	// Read file and verify contents
-	data, err := os.ReadFile(registryFile)
-	if err != nil {
-		t.Fatalf("Failed to read registry file: %v", err)
-	}
-
-	var services map[string]*ServiceRegistryEntry
-	if err := json.Unmarshal(data, &services); err != nil {
-		t.Fatalf("Failed to unmarshal registry file: %v", err)
-	}
-
-	if _, exists := services["test-service"]; !exists {
-		t.Errorf("Service not found in persisted registry file")
-	}
+	// Note: No file persistence - state lives only in memory and azd config
 }
 
 func TestRegisterWithAzureURL(t *testing.T) {
@@ -374,7 +368,6 @@ func TestRegisterWithError(t *testing.T) {
 		Name:      "test-service",
 		Port:      8080,
 		Status:    "error",
-		Health:    "unhealthy",
 		Error:     "failed to start",
 		StartTime: time.Now(),
 	}

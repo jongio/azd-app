@@ -96,13 +96,21 @@ All services healthy!`}
       />
 
       <h2>Health Check Types</h2>
-      <p>azd app supports various health check types:</p>
+      <p>azd app supports various health check types based on your service type:</p>
       <ul>
-        <li><strong>HTTP</strong> - Checks HTTP endpoints for 2xx responses</li>
-        <li><strong>TCP</strong> - Verifies TCP port connectivity</li>
-        <li><strong>Command</strong> - Runs a command inside the container</li>
-        <li><strong>gRPC</strong> - For gRPC health checking protocol</li>
+        <li><strong>HTTP</strong> - Checks HTTP endpoints for 2xx responses (default for services with ports)</li>
+        <li><strong>TCP</strong> - Verifies TCP port connectivity (for databases, gRPC services)</li>
+        <li><strong>Process</strong> - Checks if the process is running (default for services without ports)</li>
+        <li><strong>Output</strong> - Matches a regex pattern in stdout (for watch/build services)</li>
       </ul>
+
+      <h2>Understanding Status vs Health</h2>
+      <p>azd app tracks two independent concepts:</p>
+      <ul>
+        <li><strong>Lifecycle State</strong> - Is the process running? (starting, running, stopped, etc.)</li>
+        <li><strong>Health Status</strong> - Is the service responding correctly? (healthy, unhealthy, degraded)</li>
+      </ul>
+      <p>A running service can be unhealthy (process up, but health checks failing), and a stopped service has no health status. The dashboard shows both clearly.</p>
 
       <h2>Streaming Mode</h2>
       <p>Continuously monitor health status in real-time:</p>

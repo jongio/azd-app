@@ -163,25 +163,35 @@ services:
 ```
 
 #### `healthcheck` ⭐ NEW
-**Type:** `object` (optional)
+**Type:** `object` or `boolean` (optional)
 
-Docker Compose-compatible health check configuration for `azd app health` command.
+Docker Compose-compatible health check configuration for `azd app health` command. Set to `false` to disable health checks entirely.
 
 **Properties:**
+- **`type`**: Type of health check (default: auto-detected)
+  - `http` - HTTP endpoint check (default when ports defined)
+  - `tcp` - TCP port connectivity check
+  - `process` - Process running check (default when no ports)
+  - `output` - Match regex pattern in stdout
+  - `none` - Disable health checks
 - **`test`**: Health check command (string or array)
   - **HTTP URL (recommended)**: `"http://localhost:8080/health"` - Cross-platform built-in HTTP check
   - String shell command: `"curl -f http://localhost/health || exit 1"` (requires curl installed)
   - Array CMD: `["CMD", "curl", "-f", "http://localhost/health"]` (requires curl installed)
   - Array CMD-SHELL: `["CMD-SHELL", "curl -f http://localhost/health || exit 1"]` (requires curl installed)
   - Disable: `["NONE"]`
+- **`path`**: HTTP path for health checks when type=http (default: `/health`)
+- **`pattern`**: Regex pattern to match in stdout when type=output
 - **`interval`**: Time between checks (default: `30s`)
 - **`timeout`**: Max time for check (default: `30s`)
 - **`retries`**: Consecutive failures before unhealthy (default: `3`)
 - **`start_period`**: Grace period for initialization (default: `0s`)
 - **`start_interval`**: Interval during start period (default: `5s`)
+- **`disable`**: Set to `true` to disable health checks (equivalent to `type: none`)
 
 ```yaml
 services:
+  # HTTP service with health endpoint
   api:
     language: python
     project: ./api
@@ -194,11 +204,26 @@ services:
       start_period: 40s
       start_interval: 5s
   
+  # Watch mode service (TypeScript compiler)
+  tsc-watch:
+    project: ./frontend
+    healthcheck:
+      type: output
+      pattern: "Found 0 errors. Watching for file changes."
+  
+  # Build service - disable health checks
+  build-assets:
+    project: ./assets
+    healthcheck: false
+  
+  # Background worker - process check
   worker:
     language: python
     project: ./worker
-    # No healthcheck - falls back to process check
+    healthcheck:
+      type: process
   
+  # Docker container with custom command
   redis:
     image: redis:7-alpine
     ports: ["6379"]
@@ -213,6 +238,76 @@ services:
 2. Fall back to TCP port check
 3. Fall back to process check
 
+See [Service States and Health](../features/service-states.md) for detailed documentation on service types, modes, and health states.
+
+
+## Service Types ⭐ NEW
+
+Service type defines how the service is accessed at the protocol level. This is auto-detected but can be configured via `healthcheck.type`.
+
+| Type | Description | Health Check | Auto-Detected When |
+|------|-------------|--------------|-------------------|
+| `http` | HTTP/HTTPS traffic | HTTP endpoint | Ports defined (default) |
+| `tcp` | Raw TCP connections | Port connectivity | Database images |
+| `process` | No network endpoint | Process running | No ports defined |
+
+```yaml
+services:
+  # HTTP service (default when ports defined)
+  api:
+    ports: ["8080"]
+    healthcheck:
+      test: "http://localhost:8080/health"
+  
+  # TCP service (database)
+  postgres:
+    image: postgres:15
+    ports: ["5432"]
+    healthcheck:
+      type: tcp  # Just check port is open
+  
+  # Process service (no network)
+  worker:
+    project: ./worker
+    healthcheck:
+      type: process  # Just check process is running
+```
+
+
+## Service Modes ⭐ NEW
+
+Service mode defines the lifecycle behavior for process-type services (services without HTTP endpoints):
+
+| Mode | Description | States | Use Case |
+|------|-------------|--------|----------|
+| `watch` | Continuous, watches for changes | starting → watching | `tsc --watch`, `nodemon` |
+| `build` | One-time build | starting → building → built/failed | `tsc`, `go build` |
+| `daemon` | Long-running background process | starting → running | MCP servers, workers |
+| `task` | One-time task | starting → completed/failed | Migrations, scripts |
+
+Mode is auto-detected from the service command and health check type.
+
+```yaml
+services:
+  # Watch mode - TypeScript compiler watching for changes
+  tsc:
+    project: ./frontend
+    healthcheck:
+      type: output
+      pattern: "Found 0 errors. Watching for file changes."
+  
+  # Build mode - One-time compilation
+  build:
+    project: ./assets
+    healthcheck:
+      type: process
+  
+  # Daemon mode - Background worker
+  worker:
+    project: ./worker
+    healthcheck:
+      type: process
+```
 
 
 ## DockerConfig Object
@@ -759,6 +854,7 @@ services:
 ## See Also
 
 - [azd app CLI Reference](../cli-reference.md)
+- [Service States and Health](../features/service-states.md) - Service types, modes, and health status
 - [Hooks Documentation](../hooks.md) - Comprehensive guide to lifecycle hooks
 - [Run Command Documentation](../commands/run.md) - Detailed run command documentation
 - [Port Configuration Guide](../features/ports.md)

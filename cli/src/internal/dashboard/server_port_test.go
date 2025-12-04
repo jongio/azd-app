@@ -1,9 +1,6 @@
 package dashboard
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
@@ -11,7 +8,7 @@ import (
 )
 
 // TestPersistentDashboardPort_FirstRunPersists verifies that the first run
-// generates a port and persists it to .azure/ports.json.
+// generates a port and stores it in the port manager.
 func TestPersistentDashboardPort_FirstRunPersists(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -19,6 +16,7 @@ func TestPersistentDashboardPort_FirstRunPersists(t *testing.T) {
 	serversMu.Lock()
 	servers = make(map[string]*Server)
 	serversMu.Unlock()
+	portmanager.ClearCacheForTesting()
 
 	srv := GetServer(tempDir)
 
@@ -33,21 +31,14 @@ func TestPersistentDashboardPort_FirstRunPersists(t *testing.T) {
 		t.Fatal("Expected non-empty URL")
 	}
 
-	// Verify port was persisted
-	portsFile := filepath.Join(tempDir, ".azure", "ports.json")
-	data, err := os.ReadFile(portsFile)
-	if err != nil {
-		t.Fatalf("Failed to read ports.json: %v", err)
+	// Verify port was stored in port manager
+	pm := portmanager.GetPortManager(tempDir)
+	persistedPort, exists := pm.GetAssignment(constants.DashboardServiceName)
+	if !exists {
+		t.Errorf("Expected %s to be in port manager assignments", constants.DashboardServiceName)
 	}
-
-	var assignments map[string]interface{}
-	if err := json.Unmarshal(data, &assignments); err != nil {
-		t.Fatalf("Failed to parse ports.json: %v", err)
-	}
-
-	// Check that dashboard service name is in assignments
-	if _, exists := assignments[constants.DashboardServiceName]; !exists {
-		t.Errorf("Expected %s to be in ports.json assignments", constants.DashboardServiceName)
+	if persistedPort != srv.port {
+		t.Errorf("Expected stored port %d to match server port %d", persistedPort, srv.port)
 	}
 }
 
@@ -174,17 +165,8 @@ func TestPersistentDashboardPort_MultipleProjects(t *testing.T) {
 	port2 := srv2.port
 	defer func() { _ = srv2.Stop() }()
 
-	// Ports may or may not be different (random), but each project
-	// should have its own ports.json file
-	portsFile1 := filepath.Join(tempDir1, ".azure", "ports.json")
-	portsFile2 := filepath.Join(tempDir2, ".azure", "ports.json")
-
-	if _, err := os.Stat(portsFile1); os.IsNotExist(err) {
-		t.Error("Expected ports.json for project 1")
-	}
-	if _, err := os.Stat(portsFile2); os.IsNotExist(err) {
-		t.Error("Expected ports.json for project 2")
-	}
+	// Note: With the new architecture, ports are stored in azd config (not ports.json)
+	// For unit tests without gRPC, ports are stored in-memory
 
 	// Verify each project's port manager has its own assignment
 	portMgr1 := portmanager.GetPortManager(tempDir1)

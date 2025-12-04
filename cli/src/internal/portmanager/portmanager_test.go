@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 )
 
 // mockPortChecker returns a port checker that simulates port availability without network binding.
@@ -19,13 +21,15 @@ func mockPortChecker(unavailablePorts map[int]bool) func(int) bool {
 	}
 }
 
-// setupTestManager creates a PortManager with a mocked port checker for testing.
+// setupTestManager creates a PortManager with a mocked port checker and in-memory config client for testing.
 func setupTestManager(tempDir string, unavailablePorts map[int]bool) *PortManager {
 	pm := GetPortManager(tempDir)
 	if unavailablePorts == nil {
 		unavailablePorts = make(map[int]bool)
 	}
 	pm.portChecker = mockPortChecker(unavailablePorts)
+	// Use in-memory config client to avoid needing azd gRPC connection
+	pm.SetConfigClient(azdconfig.NewInMemoryClient())
 	return pm
 }
 
@@ -120,30 +124,28 @@ func TestAssignPort_Flexible_FindsAlternative(t *testing.T) {
 }
 
 func TestAssignPort_Persistence(t *testing.T) {
+	// Test that same manager instance maintains assignments
+	// Cross-process persistence requires actual azd gRPC connection
 	tempDir := t.TempDir()
 
-	// First port manager instance
-	pm1 := setupTestManager(tempDir, nil)
-	port1, _, err := pm1.AssignPort("test-service", 9879, false)
+	pm := setupTestManager(tempDir, nil)
+	port1, _, err := pm.AssignPort("test-service", 9879, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	// Create new port manager instance for same project
-	// Clear the cache to force reload
-	managerCacheMu.Lock()
-	delete(managerCache, tempDir)
-	managerCacheMu.Unlock()
-
-	pm2 := setupTestManager(tempDir, nil)
-	port2, exists := pm2.GetAssignment("test-service")
+	// Verify assignment is retrievable from same instance
+	port2, exists := pm.GetAssignment("test-service")
 	if !exists {
-		t.Fatal("Expected assignment to be persisted")
+		t.Fatal("Expected assignment to exist in same manager instance")
 	}
 
 	if port2 != port1 {
-		t.Errorf("Expected persisted port %d, got %d", port1, port2)
+		t.Errorf("Expected stored port %d, got %d", port1, port2)
 	}
+
+	// Note: Cross-process persistence (cache clear and reload) requires
+	// the actual azd gRPC connection. Unit tests use in-memory storage.
 }
 
 func TestAssignPort_SameServiceTwice(t *testing.T) {
@@ -234,19 +236,16 @@ func TestCleanStaleAssignments(t *testing.T) {
 	tempDir := t.TempDir()
 	pm := setupTestManager(tempDir, nil)
 
-	// Create old assignment
+	// Add stale assignment directly to in-memory state (simulate loading old data)
 	pm.mu.Lock()
 	pm.assignments["stale-service"] = &PortAssignment{
 		ServiceName: "stale-service",
 		Port:        9883,
 		LastUsed:    time.Now().Add(-25 * time.Hour), // 25 hours ago
 	}
-	if err := pm.save(); err != nil {
-		t.Fatalf("failed to save: %v", err)
-	}
 	pm.mu.Unlock()
 
-	// Create recent assignment
+	// Create recent assignment via normal API
 	if _, _, err := pm.AssignPort("active-service", 9884, false); err != nil {
 		t.Fatalf("failed to assign port: %v", err)
 	}
@@ -319,8 +318,8 @@ func TestPortManagerDifferentProjects(t *testing.T) {
 	tempDir1 := t.TempDir()
 	tempDir2 := t.TempDir()
 
-	pm1 := GetPortManager(tempDir1)
-	pm2 := GetPortManager(tempDir2)
+	pm1 := setupTestManager(tempDir1, nil)
+	pm2 := setupTestManager(tempDir2, nil)
 
 	// Should be different instances
 	if pm1 == pm2 {
@@ -336,32 +335,28 @@ func TestPortManagerDifferentProjects(t *testing.T) {
 	}
 }
 
-func TestPortAssignmentFile(t *testing.T) {
+func TestPortAssignmentStorage(t *testing.T) {
+	// Test that port assignments are stored correctly in the config client
 	tempDir := t.TempDir()
 	pm := setupTestManager(tempDir, nil)
 
 	// Assign a port
-	if _, _, err := pm.AssignPort("test-service", 9886, false); err != nil {
+	port, _, err := pm.AssignPort("test-service", 9886, false)
+	if err != nil {
 		t.Fatalf("failed to assign port: %v", err)
 	}
 
-	// Verify file was created
-	portsFile := filepath.Join(tempDir, ".azure", "ports.json")
-	if _, err := os.Stat(portsFile); os.IsNotExist(err) {
-		t.Error("Expected ports.json file to be created")
+	// Verify assignment is accessible via GetAssignment
+	storedPort, exists := pm.GetAssignment("test-service")
+	if !exists {
+		t.Error("Expected assignment to exist after AssignPort")
+	}
+	if storedPort != port {
+		t.Errorf("Expected stored port %d, got %d", port, storedPort)
 	}
 
-	// Verify file permissions
-	info, err := os.Stat(portsFile)
-	if err != nil {
-		t.Fatalf("Failed to stat ports file: %v", err)
-	}
-
-	mode := info.Mode()
-	// On Windows, permissions may differ, so just check file exists
-	if mode == 0 {
-		t.Error("Expected file to have permissions set")
-	}
+	// Note: Actual persistence to azd config happens in production
+	// Tests use in-memory storage which doesn't create files
 }
 
 func TestMultipleServicesAssignment(t *testing.T) {
@@ -542,6 +537,8 @@ func TestFindAvailablePort_Exhaustion(t *testing.T) {
 }
 
 func TestSaveAndLoad(t *testing.T) {
+	// Test that assignments are stored and retrievable from same manager instance
+	// Cross-process persistence requires actual azd gRPC connection
 	tempDir := t.TempDir()
 	pm := setupTestManager(tempDir, nil)
 
@@ -553,30 +550,19 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("failed to assign port for service2: %v", err)
 	}
 
-	// Save is called automatically, but let's explicitly verify
-	err := pm.save()
-	if err != nil {
-		t.Fatalf("Failed to save: %v", err)
-	}
-
-	// Create new manager instance for same directory (should load from disk)
-	// Clear the cache first
-	managerCacheMu.Lock()
-	delete(managerCache, tempDir)
-	managerCacheMu.Unlock()
-
-	pm2 := setupTestManager(tempDir, nil)
-
-	// Verify loaded assignments
-	port1, exists1 := pm2.GetAssignment("service1")
+	// Verify assignments are accessible
+	port1, exists1 := pm.GetAssignment("service1")
 	if !exists1 || port1 != 9900 {
 		t.Errorf("Expected service1 port 9900, got %d (exists: %v)", port1, exists1)
 	}
 
-	port2, exists2 := pm2.GetAssignment("service2")
+	port2, exists2 := pm.GetAssignment("service2")
 	if !exists2 || port2 != 9901 {
 		t.Errorf("Expected service2 port 9901, got %d (exists: %v)", port2, exists2)
 	}
+
+	// Note: Cross-process persistence (cache clear and reload) requires
+	// the actual azd gRPC connection. Unit tests use in-memory storage.
 }
 
 func TestLoadCorruptedFile(t *testing.T) {
@@ -691,9 +677,15 @@ func TestManagerCache(t *testing.T) {
 		t.Error("Expected cached manager instance")
 	}
 
-	// Verify cache contains entry
+	// Normalize the path the same way GetPortManager does (including symlink resolution)
+	normalizedPath, _ := filepath.Abs(tempDir)
+	if resolved, err := filepath.EvalSymlinks(normalizedPath); err == nil {
+		normalizedPath = resolved
+	}
+
+	// Verify cache contains entry using normalized path
 	managerCacheMu.RLock()
-	_, exists := managerCache[tempDir]
+	_, exists := managerCache[normalizedPath]
 	managerCacheMu.RUnlock()
 
 	if !exists {
@@ -710,8 +702,14 @@ func TestManagerCacheEviction(t *testing.T) {
 	// Create more managers than cache size (50)
 	// We'll create 55 to test eviction
 	tempDirs := make([]string, 55)
+	normalizedDirs := make([]string, 55)
 	for i := 0; i < 55; i++ {
 		tempDirs[i] = t.TempDir()
+		// Normalize the path the same way GetPortManager does
+		normalizedDirs[i], _ = filepath.Abs(tempDirs[i])
+		if resolved, err := filepath.EvalSymlinks(normalizedDirs[i]); err == nil {
+			normalizedDirs[i] = resolved
+		}
 		_ = GetPortManager(tempDirs[i])
 		// Small sleep to ensure different timestamps
 		time.Sleep(1 * time.Millisecond)
@@ -726,10 +724,10 @@ func TestManagerCacheEviction(t *testing.T) {
 		t.Errorf("Cache size %d exceeds maximum %d", cacheSize, maxCacheSize)
 	}
 
-	// First entries should have been evicted
+	// First entries should have been evicted (use normalized paths for lookup)
 	managerCacheMu.RLock()
-	_, existsOld := managerCache[tempDirs[0]]
-	_, existsNew := managerCache[tempDirs[54]]
+	_, existsOld := managerCache[normalizedDirs[0]]
+	_, existsNew := managerCache[normalizedDirs[54]]
 	managerCacheMu.RUnlock()
 
 	if existsOld {

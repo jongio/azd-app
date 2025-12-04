@@ -60,34 +60,22 @@ describe('KeyboardShortcuts', () => {
   })
 
   describe('navigation shortcuts', () => {
-    it('should display Resources view shortcut', () => {
-      render(<KeyboardShortcuts {...defaultProps} />)
-      expect(screen.getByText('Resources view')).toBeInTheDocument()
-      expect(screen.getByText('1')).toBeInTheDocument()
-    })
-
     it('should display Console view shortcut', () => {
       render(<KeyboardShortcuts {...defaultProps} />)
       expect(screen.getByText('Console view')).toBeInTheDocument()
-      expect(screen.getByText('2')).toBeInTheDocument()
+      expect(screen.getByText('1')).toBeInTheDocument()
     })
 
-    it('should display Metrics view shortcut', () => {
+    it('should display Services view shortcut', () => {
       render(<KeyboardShortcuts {...defaultProps} />)
-      expect(screen.getByText('Metrics view')).toBeInTheDocument()
-      expect(screen.getByText('3')).toBeInTheDocument()
+      expect(screen.getByText('Services view')).toBeInTheDocument()
+      expect(screen.getByText('2')).toBeInTheDocument()
     })
 
     it('should display Environment view shortcut', () => {
       render(<KeyboardShortcuts {...defaultProps} />)
       expect(screen.getByText('Environment view')).toBeInTheDocument()
-      expect(screen.getByText('4')).toBeInTheDocument()
-    })
-
-    it('should display Dependencies view shortcut', () => {
-      render(<KeyboardShortcuts {...defaultProps} />)
-      expect(screen.getByText('Dependencies view')).toBeInTheDocument()
-      expect(screen.getByText('5')).toBeInTheDocument()
+      expect(screen.getByText('3')).toBeInTheDocument()
     })
   })
 
