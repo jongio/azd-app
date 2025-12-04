@@ -9,10 +9,14 @@ An Azure Developer CLI (azd) extension that automates development environment se
 ## Overview
 
 App automatically detects and manages dependencies for:
-- **Node.js**: npm, pnpm, yarn
-- **Python**: uv, poetry, pip (with automatic virtual environment setup)
-- **.NET**: dotnet restore for projects and solutions
+- **Node.js**: npm, pnpm, yarn (Express, Next.js, React, Vue, Angular, Svelte, Astro, NestJS)
+- **Python**: uv, poetry, pip (with automatic virtual environment setup) - FastAPI, Flask, Django, Streamlit, Gradio
+- **.NET**: dotnet restore for projects and solutions (ASP.NET Core)
 - **Aspire**: .NET Aspire application orchestration
+- **Java**: Maven, Gradle (Spring Boot, Quarkus)
+- **Go**: go mod for Go projects
+- **Rust**: cargo for Rust projects
+- **PHP**: composer (Laravel)
 - **Docker Compose**: Container orchestration
 
 ## Features
