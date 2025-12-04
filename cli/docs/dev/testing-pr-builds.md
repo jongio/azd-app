@@ -69,7 +69,7 @@ azd extension install jongio.azd.app --version 0.5.7-pr123
 azd app version
 # Should show: azd app extension version 0.5.7-pr123
 
-azd app hi
+azd app run
 azd app reqs
 ```
 

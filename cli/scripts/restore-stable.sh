@@ -76,6 +76,6 @@ fi
 
 echo ""
 echo -e "${CYAN}You can now use azd app normally:${NC}"
-echo -e "${WHITE}  azd app hi${NC}"
+echo -e "${WHITE}  azd app run${NC}"
 echo -e "${WHITE}  azd app reqs${NC}"
 echo -e "${WHITE}  azd app run${NC}"

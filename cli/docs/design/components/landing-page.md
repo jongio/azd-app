@@ -650,7 +650,7 @@ const installContent: PlatformInstall[] = [
       '# Enable extensions and install azd-app',
       'azd config set alpha.extensions.enabled on',
       'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
-      'azd extension install app',
+      'azd extension install jongio.azd.app',
     ],
   },
   {
@@ -664,7 +664,7 @@ const installContent: PlatformInstall[] = [
       '# Enable extensions and install azd-app',
       'azd config set alpha.extensions.enabled on',
       'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
-      'azd extension install app',
+      'azd extension install jongio.azd.app',
     ],
   },
   {
@@ -678,7 +678,7 @@ const installContent: PlatformInstall[] = [
       '# Enable extensions and install azd-app',
       'azd config set alpha.extensions.enabled on',
       'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
-      'azd extension install app',
+      'azd extension install jongio.azd.app',
     ],
   },
 ];
@@ -705,7 +705,7 @@ const installContent: PlatformInstall[] = [
 │  │ # Enable extensions and install azd-app                                    │  │
 │  │ azd config set alpha.extensions.enabled on                                 │  │
 │  │ azd extension source add app https://raw.githubusercontent.com/...         │  │
-│  │ azd extension install app                                                  │  │
+│  │ azd extension install jongio.azd.app                                       │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │
 │                        ┌─────────────────────────────┐                           │

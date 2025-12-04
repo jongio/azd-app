@@ -42,13 +42,13 @@ azd config set extension.registry https://raw.githubusercontent.com/jongio/azd-a
 Then install the extension:
 
 ```bash
-azd extension install app
+azd extension install jongio.azd.app
 ```
 
 Or install from a specific version:
 
 ```bash
-azd extension install app --version 0.1.0
+azd extension install jongio.azd.app --version 0.1.0
 ```
 
 To uninstall:
