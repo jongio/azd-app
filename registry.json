@@ -90,9 +90,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -161,9 +161,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -232,9 +232,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -303,9 +303,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -374,9 +374,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -445,9 +445,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -516,9 +516,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -587,9 +587,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -658,9 +658,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -729,9 +729,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -800,9 +800,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -871,9 +871,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -942,9 +942,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -1013,9 +1013,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -1084,9 +1084,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -1155,9 +1155,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -1226,9 +1226,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",
@@ -1297,9 +1297,9 @@
           "usage": "azd app \u003ccommand\u003e [options]",
           "examples": [
             {
-              "name": "hi",
-              "description": "Say hello and display extension info",
-              "usage": "azd app hi"
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
             },
             {
               "name": "reqs",

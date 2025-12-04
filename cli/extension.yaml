@@ -10,9 +10,9 @@ capabilities:
   - lifecycle-events
   - mcp-server
 examples:
-  - name: hi
-    description: Say hello and display extension info
-    usage: azd app hi
+  - name: run
+    description: Run services defined in azure.yaml
+    usage: azd app run
   - name: reqs
     description: Verify all prerequisites are installed
     usage: azd app reqs

@@ -75,6 +75,6 @@ if ($LASTEXITCODE -eq 0) {
 
 Write-Host ""
 Write-Host "You can now use azd app normally:" -ForegroundColor Cyan
-Write-Host "  azd app hi" -ForegroundColor White
+Write-Host "  azd app run" -ForegroundColor White
 Write-Host "  azd app reqs" -ForegroundColor White
 Write-Host "  azd app run" -ForegroundColor White

@@ -763,7 +763,7 @@ azd config set alpha.extensions.enabled on
 azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install the extension
-azd extension install app`,
+azd extension install jongio.azd.app`,
       },
     ],
     macos: [
@@ -778,7 +778,7 @@ azd config set alpha.extensions.enabled on
 azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install the extension
-azd extension install app`,
+azd extension install jongio.azd.app`,
       },
     ],
     linux: [
@@ -793,7 +793,7 @@ azd config set alpha.extensions.enabled on
 azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install the extension
-azd extension install app`,
+azd extension install jongio.azd.app`,
       },
     ],
   },

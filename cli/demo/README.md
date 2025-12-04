@@ -35,7 +35,7 @@ azd config set alpha.extensions.enabled on
 azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install the extension
-azd extension install app
+azd extension install jongio.azd.app
 ```
 
 ## Quick Start

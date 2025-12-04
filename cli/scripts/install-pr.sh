@@ -95,7 +95,7 @@ fi
 
 echo ""
 echo -e "${CYAN}Try these commands:${NC}"
-echo -e "${WHITE}  azd app hi${NC}"
+echo -e "${WHITE}  azd app run${NC}"
 echo -e "${WHITE}  azd app reqs${NC}"
 echo ""
 echo -e "${GRAY}To restore stable version, run:${NC}"

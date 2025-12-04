@@ -95,7 +95,7 @@ if ($LASTEXITCODE -eq 0) {
 
 Write-Host ""
 Write-Host "Try these commands:" -ForegroundColor Cyan
-Write-Host "  azd app hi" -ForegroundColor White
+Write-Host "  azd app run" -ForegroundColor White
 Write-Host "  azd app reqs" -ForegroundColor White
 Write-Host ""
 Write-Host "To restore stable version, run:" -ForegroundColor Gray
