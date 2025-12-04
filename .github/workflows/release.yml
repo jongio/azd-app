@@ -599,3 +599,11 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-website:
+    name: Deploy Website
+    needs: [release]
+    uses: ./.github/workflows/website.yml
+    permissions:
+      contents: write
+      pull-requests: write
