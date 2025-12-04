@@ -2,6 +2,7 @@ name: Website Deploy
 
 on:
   workflow_dispatch:  # Allow manual trigger
+  workflow_call:  # Allow being called from release workflow
   push:
     branches:
       - main
@@ -49,7 +50,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build website (Production)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         working-directory: web
         run: pnpm build
 
@@ -65,7 +66,7 @@ jobs:
           pnpm build
 
       - name: Upload production artifact
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: production-build
@@ -80,9 +81,9 @@ jobs:
           path: web/dist
           retention-days: 7
 
-  # Production deploy - only on main branch push
+  # Production deploy - on main branch push, workflow_call, or workflow_dispatch
   deploy-production:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     steps:
