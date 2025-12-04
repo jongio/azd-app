@@ -1,3 +1,32 @@
+## [0.8.0] - 2025-12-04
+
+- feat: add deploy-website job to release workflow and update website workflow for manual triggers (0d9e92b)
+- feat: add installation steps for azd and its extensions in release workflow (b9ccb2e)
+- feat: Dashboard redesign with modern UI and health check improvements (#84) (67311e2)
+- docs: update first-time setup instructions for local extension installation (ec82392)
+- Implement comprehensive support for process services (#83) (e1e97b0)
+- refactor: update references from 'azd-app' to 'Azure Developer CLI - App Extension' across documentation and codebase (07e6ba9)
+- docs: put curl commands on single lines (e308a59)
+- docs: remove incorrect dashboard auto-open statement (5811f34)
+- docs: update demo README with correct install instructions and MCP tools (385d473)
+- docs: add setup guide for sync-demo-template workflow (c1f5f6a)
+- fix: validate PAT has write permissions before attempting push (b5df917)
+- fix: clean up partial checkout before initializing empty repository (4086805)
+- fix: handle empty target repository in sync-demo-template workflow (415b2f1)
+- feat: update mcp.json to configure Azure Developer CLI - App Extension server (87fe124)
+- feat: add .vscode configuration for mcp server setup and include .vscode in .gitignore (19bde56)
+- feat: add workflow_dispatch trigger to website workflow (aaa5b6d)
+- feat: add clear error messages when DEMO_REPO_PAT is expired or invalid (3564df0)
+- fix: graceful handling when DEMO_REPO_PAT secret is not configured (1604d19)
+- feat: Add documentation website with guided tour and dashboard enhancements (#81) (51686c4)
+- fix: set default working directory for cleanup job in PR build workflow (#80) (3f0242c)
+- Refactor logging, enhance TypeScript type safety, and improve environment variable handling (#79) (170bc8f)
+- feat: enhance Go service detection and add worker service implementation (#78) (61d1fcf)
+- Dashboard Improvements & Health Status Enhancements (#77) (06c70f5)
+- Add comprehensive validation tests for various tools and introduce Codecov configuration (#76) (33f0b9a)
+- feat: add service control commands and enhance logging capabilities (#75) (d984560)
+- chore: update registry for v0.7.0 (5d5471f)
+
 ## [0.7.0] - 2025-11-30
 
 - Refactor and enhance tests, styles, and configurations (#73) (f508e5c)
