@@ -76,7 +76,7 @@ const nextStep = getNextStep(1);
 azd config set alpha.extensions.enabled on
 
 # Add the azd app extension source
-azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install the extension
 azd extension install app`}

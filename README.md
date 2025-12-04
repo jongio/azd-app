@@ -86,7 +86,7 @@ Works with your existing `azure.yaml`. No new config files, no complex setup. Ju
 ```bash
 # 1. Install the extension
 azd config set alpha.extension.enabled on
-azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
+azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 azd extension install jongio.azd.app
 
 # 2. Run your app
@@ -126,9 +126,14 @@ Ask Copilot things like:
 
 | Language | Package Managers | Frameworks |
 |----------|-----------------|------------|
-| **Node.js** | npm, pnpm, yarn | Express, Next.js, Vite |
-| **Python** | pip, uv, poetry | FastAPI, Flask, Django |
-| **.NET** | dotnet | ASP.NET, Aspire |
+| **Node.js** | npm, pnpm, yarn | Express, Next.js, React, Vue, Angular, Svelte, Astro, NestJS |
+| **Python** | pip, uv, poetry | FastAPI, Flask, Django, Streamlit, Gradio |
+| **.NET** | dotnet | ASP.NET Core, Aspire |
+| **Java** | Maven, Gradle | Spring Boot, Quarkus |
+| **Go** | go | - |
+| **Rust** | cargo | - |
+| **PHP** | composer | Laravel |
+| **Docker** | docker | Docker Compose |
 
 ---
 

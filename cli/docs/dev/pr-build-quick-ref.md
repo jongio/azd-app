@@ -58,7 +58,7 @@ azd extension source remove pr-PR_NUM
 rm pr-registry.json
 
 # Reinstall stable
-azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
+azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 azd extension install jongio.azd.app
 ```
 

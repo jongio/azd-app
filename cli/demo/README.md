@@ -32,7 +32,7 @@ Enable the azd extensions feature and install the azd app extension:
 azd config set alpha.extensions.enabled on
 
 # Add azd app extension source
-azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install the extension
 azd extension install app
