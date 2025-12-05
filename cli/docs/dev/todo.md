@@ -364,7 +364,267 @@ Replace hardcoded Python paths with dynamic detection in `pathutil/pathutil.go:1
 
 **Note**: Should update to include Python 3.13, 3.14 when they release.
 
+---
 
+### Logs Command: Refactor Global Flag Variables
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Medium (2-3 hours)
+
+**Description**
+Replace global variables for command flags with struct-based options for thread safety and testability.
+
+**Current State** (`commands/logs.go:22-32`)
+```go
+var (
+    logsFollow     bool
+    logsService    string
+    logsTail       int
+    logsSince      string
+    logsTimestamps bool
+    logsNoColor    bool
+    logsLevel      string
+    logsFormat     string
+    logsFile       string
+    logsExclude    string
+    logsNoBuiltins bool
+)
+```
+
+**Proposed Implementation**
+```go
+type LogsOptions struct {
+    Follow     bool
+    Service    string
+    Tail       int
+    Since      string
+    Timestamps bool
+    NoColor    bool
+    Level      string
+    Format     string
+    File       string
+    Exclude    string
+    NoBuiltins bool
+}
+
+func NewLogsCommand() *cobra.Command {
+    opts := &LogsOptions{Tail: 100, Timestamps: true}
+    cmd := &cobra.Command{
+        RunE: func(cmd *cobra.Command, args []string) error {
+            return runLogs(cmd, args, opts)
+        },
+    }
+    cmd.Flags().BoolVarP(&opts.Follow, "follow", "f", false, "...")
+    // ... bind other flags
+    return cmd
+}
+```
+
+**Benefits**
+- Thread-safe (no shared mutable state)
+- Easier unit testing (inject options directly)
+- Clearer function signatures
+- Consistent with Go best practices
+
+**Rationale for Deferral**
+- Would require refactoring all commands for consistency
+- Current implementation works correctly for CLI use
+- No concurrent command execution in practice
+
+---
+
+### Logs Command: Unbounded Memory When Reading Large Log Files
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Medium (1-2 hours)
+
+**Description**
+When reading rotated log files without a `--since` filter, all entries are loaded into memory before applying the tail limit. For services with heavy logging, this could load ~3MB of parsed JSON objects.
+
+**Current State** (`commands/logs.go:237-254`)
+```go
+for _, logFile := range logFiles {
+    entries, err := readSingleLogFile(logFile, serviceName, sinceTime)
+    // ...
+    allEntries = append(allEntries, entries...)  // All entries loaded
+}
+// Tail applied AFTER loading everything
+if tail > 0 && len(allEntries) > tail {
+    allEntries = allEntries[len(allEntries)-tail:]
+}
+```
+
+**Proposed Implementation**
+Use a streaming/ring buffer approach:
+```go
+// Keep only tail entries during reading
+ringBuffer := make([]service.LogEntry, 0, tail)
+for _, logFile := range logFiles {
+    readLogFileStreaming(logFile, func(entry service.LogEntry) {
+        if len(ringBuffer) >= tail {
+            ringBuffer = ringBuffer[1:]  // Drop oldest
+        }
+        ringBuffer = append(ringBuffer, entry)
+    })
+}
+```
+
+**Alternative**: Read files in reverse order (newest first), stop when tail limit reached.
+
+**Rationale for Deferral**
+- 3MB is acceptable for CLI memory usage
+- Most users use `--since` or reasonable `--tail` values
+- Would add complexity to log reading logic
+
+---
+
+### Logs Command: Dashboard Ping Latency
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Low (30 min)
+
+**Description**
+The `dashboardClient.Ping(ctx)` call blocks for up to `DashboardAPITimeout` (likely 30s) if the dashboard is unresponsive. This slows down the command when dashboard is down.
+
+**Current State** (`commands/logs.go:89-93`)
+```go
+if err := dashboardClient.Ping(ctx); err != nil {
+    output.Info("No services are currently running")
+    // ...
+}
+```
+
+**Proposed Implementation**
+1. Reduce ping timeout specifically for logs command:
+```go
+pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+defer cancel()
+if err := dashboardClient.Ping(pingCtx); err != nil {
+```
+
+2. Or make timeout configurable per-client:
+```go
+client := dashboard.NewClient(ctx, cwd, dashboard.WithPingTimeout(2*time.Second))
+```
+
+**Rationale for Deferral**
+- Dashboard is usually responsive when running
+- Only affects edge case (dashboard hung but not crashed)
+- Current behavior is safe (just slow)
+
+---
+
+### Logs Command: WebSocket Rate Limiting Warning
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Low (20 min)
+
+**Description**
+When WebSocket log streaming drops messages due to channel congestion, there's no warning to the user. Messages are silently lost.
+
+**Current State** (`dashboard/client.go:282-286`)
+```go
+select {
+case logs <- entry:
+case <-time.After(100 * time.Millisecond):
+    // Drop if channel is full/slow - NO WARNING
+case <-ctx.Done():
+    return ctx.Err()
+}
+```
+
+**Proposed Implementation**
+Add a dropped message counter and periodic warning:
+```go
+var droppedCount int64
+select {
+case logs <- entry:
+case <-time.After(100 * time.Millisecond):
+    atomic.AddInt64(&droppedCount, 1)
+    if droppedCount == 1 || droppedCount%100 == 0 {
+        slog.Warn("log entries dropped due to slow consumer", 
+            slog.Int64("dropped", droppedCount))
+    }
+case <-ctx.Done():
+    return ctx.Err()
+}
+```
+
+**Rationale for Deferral**
+- Dropped messages are rare in practice
+- User can increase terminal scroll buffer if needed
+- Adding warning may clutter output
+
+---
+
+### Logs Command: Add Grep/Search Functionality
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Medium (2-3 hours)
+
+**Description**
+Add `--grep` flag to filter log output by pattern matching, similar to `grep` or `docker logs --grep`.
+
+**Proposed Flags**
+- `--grep <pattern>`: Filter logs to show only lines matching the regex pattern
+- `--context <N>`: Show N lines before and after each match (like `grep -C`)
+- `--highlight`: Highlight matching text in output (ANSI colors)
+
+**Example Usage**
+```bash
+azd app logs --grep "error|warning" --context 2
+azd app logs -f --grep "database" --highlight
+azd app logs --service api --grep "request.*500"
+```
+
+**Implementation Approach**
+1. Add flags to `NewLogsCommand()`
+2. Compile regex pattern in `validateLogsInputs()`
+3. Filter in `displayLogsText()` before output
+4. For `--context`, maintain a ring buffer of recent lines
+5. For `--highlight`, wrap matches with ANSI color codes
+
+**Rationale for Deferral**
+- Users can pipe to `grep` as workaround (`azd app logs | grep pattern`)
+- Medium effort feature
+- Core logs functionality is complete
+
+---
+
+### Logs Command: Shell Completion for Service Names
+
+**Status:** Deferred  
+**Priority:** Low  
+**Effort:** Low (1 hour)
+
+**Description**
+Add shell completion for the `--service` flag to autocomplete available service names.
+
+**Implementation**
+```go
+cmd.RegisterFlagCompletionFunc("service", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+    // Read azure.yaml to get service names
+    services := getServiceNamesFromConfig()
+    return services, cobra.ShellCompDirectiveNoFileComp
+})
+```
+
+**Benefits**
+- Tab completion for service names
+- Reduces typos
+- Better CLI UX
+
+**Rationale for Deferral**
+- Project doesn't currently use shell completions anywhere
+- Would need to add completion infrastructure first
+- Low priority enhancement
+
+---
 
 ## 📝 LOW PRIORITY
 
@@ -559,125 +819,6 @@ Implement functional options pattern for internal packages (e.g., installer, run
 - Consider if APIs become public
 - Evaluate if configuration complexity grows significantly
 - Review if option combinations become problematic
-
----
-
-## 📋 DOCUMENTATION NEEDS
-
-### Security Review Documentation
-
-**Status:** ✅ Completed (Nov 14, 2025)  
-**Priority:** Documentation  
-
-**Description**
-Completed comprehensive security review of codebase covering:
-- Command injection prevention
-- Path traversal protection  
-- Race condition analysis
-- Resource leak detection
-- Error handling and panic recovery
-- File permissions and atomic writes
-
-**Findings**
-- ✅ No critical or high priority security vulnerabilities found
-- ✅ Strong security practices throughout codebase
-- ✅ Proper input validation and sanitization
-- ✅ Appropriate use of mutexes and locking
-- Several medium/low priority improvements documented
-
-**Files Reviewed**
-- dashboard/server.go - WebSocket security, TOCTOU handling
-- portmanager/portmanager.go - Port allocation, process management
-- installer/installer.go, parallel.go - Dependency installation
-- runner/runner.go - Service execution
-- executor/executor.go - Command execution
-- security/validation.go - Input validation
-- detector/detector.go - Project detection
-- pathutil/pathutil.go - PATH management
-- orchestrator/orchestrator.go - Dependency orchestration
-- registry/registry.go - Service registry
-- service/logbuffer.go - Log management
-
----
-
-## ✅ COMPLETED
-
-### WebSocket Origin Validation
-
-**Status:** ✅ Fixed (Nov 14, 2025)  
-**Priority:** Critical  
-
-**Description**
-Fixed Cross-Site WebSocket Hijacking (CSWSH) vulnerability in dashboard server.
-
-**Implementation**
-- Added origin validation to only allow localhost connections
-- Prevents malicious websites from connecting to local dashboard
-- Empty origin allowed for non-browser WebSocket clients
-
-**Location**: `dashboard/server.go:40-56`
-
----
-
-### WebSocket Security Tests
-
-**Status:** ✅ Completed (Nov 14, 2025)  
-**Priority:** High  
-
-**Description**
-Added comprehensive tests for WebSocket origin validation to prevent CSWSH vulnerability regressions.
-
-**Implementation**
-- 13 test cases covering allowed/blocked origins
-- Specific CSWSH attack scenario testing
-- Edge case coverage (IDN homograph, subdomain attacks)
-
-**Location**: `dashboard/server_security_test.go`
-**Test Results**: All passing
-
----
-
-### Document Windows PATH Refresh Limitations
-
-**Status:** ✅ Completed (Nov 14, 2025)  
-**Priority:** Medium  
-
-**Description**
-Added documentation explaining PATH refresh behavior and limitations for both Windows and Unix systems.
-
-**Implementation**
-- Added detailed PATH refresh behavior explanation
-- Documented Windows registry refresh limitations
-- Explained Unix shell profile requirements
-- Included troubleshooting steps for users
-
-**Location**: `cli/docs/commands/reqs.md` (troubleshooting section)
-
----
-
-### Unix Process Kill Command Injection
-
-**Status:** ✅ Fixed (PR #48)  
-**Priority:** High  
-
-**Description**
-Fixed command injection vulnerability in Unix process kill function.
-
-**Previous Code** (vulnerable):
-```go
-shScript := fmt.Sprintf("lsof -ti:%d | xargs -r kill -9", port)
-exec.Command("sh", "-c", shScript)
-```
-
-**Fixed Code**:
-```go
-output, err := exec.CommandContext(ctx, "lsof", "-ti:"+portStr).Output()
-pids := strings.Fields(strings.TrimSpace(string(output)))
-for _, pid := range pids {
-    if _, err := strconv.Atoi(pid); err != nil { continue }
-    exec.CommandContext(ctx, "kill", "-9", pid).Run()
-}
-```
 
 ---
 

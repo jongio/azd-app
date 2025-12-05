@@ -95,12 +95,6 @@ func setupProcessPipes(cmd *exec.Cmd, process *ServiceProcess) error {
 	return nil
 }
 
-// StopService stops a running service by sending termination signals.
-// Deprecated: Use StopServiceGraceful for better timeout control.
-func StopService(process *ServiceProcess) error {
-	return StopServiceGraceful(process, DefaultStopTimeout)
-}
-
 // StopServiceGraceful stops a service with graceful shutdown timeout.
 // Sends SIGINT, waits for timeout, then force kills if still running.
 // Returns nil if process stops successfully within timeout.

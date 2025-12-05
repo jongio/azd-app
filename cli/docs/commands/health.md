@@ -287,9 +287,8 @@ Health status describes whether a running service is responding correctly. This 
 | `healthy` | Service fully operational | HTTP 2xx/3xx, port listening, or process running | Green ✓ |
 | `degraded` | Service running but with issues | HTTP returns degraded status | Amber ⚠ |
 | `unhealthy` | Service not functioning | HTTP 4xx/5xx, port not listening, process dead | Red ✗ |
-| `unknown` | Health not yet determined | Startup grace period or no health check available | Gray ? |
-
-> **Note**: `starting` is a **lifecycle state**, not a health status. A service in the `starting` lifecycle state has `unknown` health until health checks pass. See [Service States and Health](../features/service-states.md) for the full state model.
+| `starting` | Service is initializing | Startup grace period, health not yet determined | Yellow ○ |
+| `unknown` | Health status cannot be determined | No health check available or check failed | Gray ? |
 
 ### Health Check Result
 
