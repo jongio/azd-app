@@ -13,19 +13,27 @@ import (
 	"time"
 )
 
+const (
+	// MaxLogFileSize is the maximum size of a log file before rotation (1MB)
+	MaxLogFileSize = 1 * 1024 * 1024
+	// MaxLogFileBackups is the number of backup log files to keep
+	MaxLogFileBackups = 2
+)
+
 // LogBuffer is a circular buffer for storing service logs with pub/sub support.
 type LogBuffer struct {
-	serviceName string
-	entries     []LogEntry
-	maxSize     int
-	mu          sync.RWMutex
-	subscribers map[chan LogEntry]bool
-	subMu       sync.RWMutex
-	filePath    string
-	fileWriter  *bufio.Writer
-	file        *os.File
-	fileMu      sync.Mutex
-	logFilter   *LogFilter // Optional filter for noisy log messages
+	serviceName     string
+	entries         []LogEntry
+	maxSize         int
+	mu              sync.RWMutex
+	subscribers     map[chan LogEntry]bool
+	subMu           sync.RWMutex
+	filePath        string
+	fileWriter      *bufio.Writer
+	file            *os.File
+	fileMu          sync.Mutex
+	logFilter       *LogFilter // Optional filter for noisy log messages
+	currentFileSize int64      // Track current file size for rotation
 }
 
 // NewLogBuffer creates a new log buffer for a service.
@@ -56,6 +64,11 @@ func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging b
 		file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
+		}
+
+		// Get initial file size for rotation tracking
+		if stat, err := file.Stat(); err == nil {
+			lb.currentFileSize = stat.Size()
 		}
 
 		lb.file = file
@@ -96,6 +109,11 @@ func (lb *LogBuffer) Add(entry LogEntry) {
 
 // writeToFile writes a log entry to the file (must be called with fileMu locked).
 func (lb *LogBuffer) writeToFile(entry LogEntry) {
+	// Check if rotation is needed
+	if lb.currentFileSize >= MaxLogFileSize {
+		lb.rotateLogFile()
+	}
+
 	timestamp := entry.Timestamp.Format("2006-01-02 15:04:05.000")
 	level := entry.Level.String()
 	stream := "OUT"
@@ -104,12 +122,54 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 	}
 
 	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, entry.Message)
-	if _, err := lb.fileWriter.WriteString(line); err != nil {
+	n, err := lb.fileWriter.WriteString(line)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to write log entry: %v\n", err)
+		return
 	}
+	lb.currentFileSize += int64(n)
+
 	if err := lb.fileWriter.Flush(); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to flush log buffer: %v\n", err)
 	}
+}
+
+// rotateLogFile rotates the current log file (must be called with fileMu locked).
+func (lb *LogBuffer) rotateLogFile() {
+	// Flush and close current file
+	if lb.fileWriter != nil {
+		lb.fileWriter.Flush()
+	}
+	if lb.file != nil {
+		lb.file.Close()
+	}
+
+	// Rotate existing backup files (delete oldest, shift others)
+	for i := MaxLogFileBackups - 1; i >= 1; i-- {
+		oldPath := fmt.Sprintf("%s.%d", lb.filePath, i)
+		newPath := fmt.Sprintf("%s.%d", lb.filePath, i+1)
+		os.Rename(oldPath, newPath) // Ignore errors - file may not exist
+	}
+
+	// Delete the oldest backup if it exceeds MaxLogFileBackups
+	oldestBackup := fmt.Sprintf("%s.%d", lb.filePath, MaxLogFileBackups+1)
+	os.Remove(oldestBackup) // Ignore errors
+
+	// Rename current file to .1
+	if err := os.Rename(lb.filePath, lb.filePath+".1"); err != nil {
+		slog.Debug("failed to rotate log file", "error", err)
+	}
+
+	// Open new file
+	file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create new log file after rotation: %v\n", err)
+		return
+	}
+
+	lb.file = file
+	lb.fileWriter = bufio.NewWriter(file)
+	lb.currentFileSize = 0
 }
 
 // GetRecent returns the last N entries from the buffer.

@@ -309,15 +309,3 @@ func getVariantDisplayName(variant string) string {
 		return "Azure Functions"
 	}
 }
-
-// RunLogicApp runs an Azure Logic Apps Standard project with Azure Functions Core Tools.
-// DEPRECATED: Use RunFunctionApp instead, which supports all Azure Functions variants.
-func RunLogicApp(ctx context.Context, project types.LogicAppProject, port int) error {
-	// Convert to FunctionAppProject and use unified runner
-	functionAppProject := types.FunctionAppProject{
-		Dir:      project.Dir,
-		Variant:  "logicapps",
-		Language: "Logic Apps",
-	}
-	return RunFunctionApp(ctx, functionAppProject, port)
-}

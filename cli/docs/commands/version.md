@@ -59,9 +59,12 @@ Example: 0.5.1
 
 ```bash
 $ azd app version
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+  version
+  Show version information
+
+  Version  0.5.1
+  Built    2024-11-04T10:00:00Z
 ```
 
 ### JSON Output

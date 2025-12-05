@@ -176,24 +176,24 @@ func TestStartService_Success(t *testing.T) {
 
 	// Now stop the process
 	if process.Process != nil {
-		_ = StopService(process)
+		_ = StopServiceGraceful(process, DefaultStopTimeout)
 		// Give Windows time to release file handles
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
-func TestStopService_NotStarted(t *testing.T) {
+func TestStopServiceGraceful_NotStarted(t *testing.T) {
 	process := &ServiceProcess{
 		Name:    "test",
 		Process: nil,
 	}
 
-	err := StopService(process)
+	err := StopServiceGraceful(process, DefaultStopTimeout)
 	if err == nil {
-		t.Error("StopService() expected error for nil process")
+		t.Error("StopServiceGraceful() expected error for nil process")
 	}
 	if !strings.Contains(err.Error(), "process not started") {
-		t.Errorf("StopService() error = %v, want error containing 'process not started'", err)
+		t.Errorf("StopServiceGraceful() error = %v, want error containing 'process not started'", err)
 	}
 }
 

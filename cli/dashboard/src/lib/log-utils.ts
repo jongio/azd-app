@@ -40,14 +40,36 @@ const ansiConverter = new AnsiConverter({
 })
 
 /**
+ * Pattern to match ANSI escape sequences for stripping.
+ */
+const ANSI_PATTERN = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\/g
+
+/**
+ * Strips ANSI escape codes from text.
+ */
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_PATTERN, '')
+}
+
+/**
  * Converts ANSI escape codes to HTML for display.
  * Includes XSS sanitization for security and URL linkification.
+ * 
+ * URL detection is done on the stripped text first to handle cases where
+ * ANSI codes might be embedded within URLs (e.g., colored port numbers).
  */
 export function convertAnsiToHtml(text: string): string {
   try {
+    // First, find URLs in the stripped text (without ANSI codes)
+    const strippedText = stripAnsi(text)
+    const urls = findUrls(strippedText)
+    
+    // Convert ANSI to HTML
     const html = ansiConverter.toHtml(text)
     const sanitized = sanitizeHtml(html)
-    return linkifyUrls(sanitized)
+    
+    // Linkify URLs, handling potential HTML tags within URLs
+    return linkifyUrlsWithHtmlAware(sanitized, urls)
   } catch {
     // If conversion fails, escape the text for safe display
     return escapeHtml(text)
@@ -61,13 +83,53 @@ export function convertAnsiToHtml(text: string): string {
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+[^\s<>"'`.,;:!?\])]/g
 
 /**
- * Converts URLs in text to clickable anchor tags.
- * Opens links in a new tab with security attributes.
+ * Finds all URLs in text and returns them.
  */
-function linkifyUrls(html: string): string {
-  return html.replace(URL_PATTERN, (url) => {
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${url}</a>`
-  })
+function findUrls(text: string): string[] {
+  const matches = text.match(URL_PATTERN)
+  return matches ? [...new Set(matches)] : [] // Dedupe URLs
+}
+
+/**
+ * Converts URLs in HTML to clickable anchor tags, handling cases where
+ * HTML tags (from ANSI conversion) might be embedded within URLs.
+ */
+function linkifyUrlsWithHtmlAware(html: string, urls: string[]): string {
+  if (urls.length === 0) return html
+  
+  let result = html
+  
+  for (const url of urls) {
+    // Create a pattern that matches the URL with potential HTML tags interspersed
+    // and HTML entity encoding (& becomes &amp;)
+    const urlChars = url.split('')
+    const flexiblePattern = urlChars
+      .map((char) => {
+        // Handle HTML entity encoding
+        if (char === '&') {
+          return '(?:&amp;|&)'
+        }
+        // Escape special regex chars
+        const escaped = char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        // Allow optional HTML tags between characters
+        return escaped + '(?:<[^>]*>)*'
+      })
+      .join('')
+    
+    // Remove the trailing tag matcher from the last character
+    const pattern = new RegExp(
+      flexiblePattern.replace(/\(\?:<\[\^>\]\*>\)\*$/, ''),
+      'g'
+    )
+    
+    result = result.replace(pattern, (match) => {
+      // Don't double-wrap if already linkified
+      if (match.includes('<a ')) return match
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${match}</a>`
+    })
+  }
+  
+  return result
 }
 
 /**
