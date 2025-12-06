@@ -1,3 +1,10 @@
+## [0.8.1] - 2025-12-06
+
+- feat: enhance logging, health checks, and Podman detection (#86) (f678422)
+- fix: update azd extension install command to use full identifier 'jongio.azd.app' across documentation and scripts (7ccbc80)
+- fix: update azd extension source command syntax across documentation (395f615)
+- chore: update registry for v0.8.0 (f61487f)
+
 ## [0.8.0] - 2025-12-04
 
 - feat: add deploy-website job to release workflow and update website workflow for manual triggers (0d9e92b)
