@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -13,10 +15,16 @@ import (
 
 // Database manages notification history persistence
 type Database struct {
-	db   *sql.DB
-	mu   sync.RWMutex
-	path string
+	db         *sql.DB
+	mu         sync.RWMutex
+	path       string
+	maxRecords int // Maximum number of records to keep
 }
+
+const (
+	// DefaultMaxRecords is the default maximum number of notification records to keep
+	DefaultMaxRecords = 10000
+)
 
 // NotificationRecord represents a persisted notification
 type NotificationRecord struct {
@@ -33,14 +41,29 @@ type NotificationRecord struct {
 
 // NewDatabase creates a new notification database
 func NewDatabase(path string) (*Database, error) {
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	}
+
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	// Configure connection pool for SQLite
+	// SQLite uses file-level locking, so multiple writers cause contention.
+	// Single connection is optimal for write-heavy workloads.
+	// For read-heavy scenarios, consider using WAL mode with multiple readers.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(time.Hour) // Prevent stale connections
+
 	d := &Database{
-		db:   db,
-		path: path,
+		db:         db,
+		path:       path,
+		maxRecords: DefaultMaxRecords,
 	}
 
 	if err := d.initialize(); err != nil {
@@ -101,7 +124,43 @@ func (d *Database) Save(ctx context.Context, event Event) error {
 		string(metadata),
 	)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to insert notification: %w", err)
+	}
+
+	// Enforce maximum record limit to prevent unbounded growth
+	if err := d.enforceMaxRecords(ctx); err != nil {
+		// Log but don't fail the save operation
+		return fmt.Errorf("saved notification but failed to enforce max records: %w", err)
+	}
+
+	return nil
+}
+
+// enforceMaxRecords removes oldest records when count exceeds maxRecords.
+// Must be called with d.mu held (write lock).
+func (d *Database) enforceMaxRecords(ctx context.Context) error {
+	var count int
+	err := d.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM notifications`).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count > d.maxRecords {
+		toDelete := count - d.maxRecords
+		query := `
+			DELETE FROM notifications 
+			WHERE id IN (
+				SELECT id FROM notifications 
+				ORDER BY timestamp ASC 
+				LIMIT ?
+			)
+		`
+		_, err = d.db.ExecContext(ctx, query, toDelete)
+		return err
+	}
+
+	return nil
 }
 
 // GetRecent retrieves recent notifications

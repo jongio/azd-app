@@ -4,6 +4,7 @@ package healthcheck
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,6 +26,22 @@ var (
 	// metricsEnabled controls whether Prometheus metrics are recorded.
 	// Uses atomic.Bool for thread-safe concurrent access from multiple goroutines.
 	metricsEnabled atomic.Bool
+
+	// sharedHTTPTransport is a shared HTTP transport for all health checkers
+	// to prevent resource exhaustion from creating multiple connection pools
+	sharedHTTPTransport = &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		DisableKeepAlives:   false,
+		// Add reasonable timeouts for dial and TLS handshake
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 )
 
 // HealthMonitor coordinates health checking operations.
@@ -88,23 +105,25 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 		log.Debug().Dur("ttl", config.CacheTTL).Msg("Health check caching enabled")
 	}
 
+	// Determine startup grace period
+	gracePeriod := config.StartupGracePeriod
+	if gracePeriod == 0 {
+		gracePeriod = startupGracePeriod // Use default
+	}
+
 	checker := &HealthChecker{
-		timeout:         config.Timeout,
-		defaultEndpoint: config.DefaultEndpoint,
-		breakers:        make(map[string]*gobreaker.CircuitBreaker),
-		rateLimiters:    make(map[string]*rate.Limiter),
-		enableBreaker:   config.EnableCircuitBreaker,
-		breakerFailures: config.CircuitBreakerFailures,
-		breakerTimeout:  config.CircuitBreakerTimeout,
-		rateLimit:       config.RateLimit,
+		timeout:            config.Timeout,
+		defaultEndpoint:    config.DefaultEndpoint,
+		breakers:           make(map[string]*gobreaker.CircuitBreaker),
+		rateLimiters:       make(map[string]*rate.Limiter),
+		enableBreaker:      config.EnableCircuitBreaker,
+		breakerFailures:    config.CircuitBreakerFailures,
+		breakerTimeout:     config.CircuitBreakerTimeout,
+		rateLimit:          config.RateLimit,
+		startupGracePeriod: gracePeriod,
 		httpClient: &http.Client{
-			Timeout: config.Timeout,
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 10,
-				IdleConnTimeout:     90 * time.Second,
-				DisableKeepAlives:   false,
-			},
+			Timeout:   config.Timeout,
+			Transport: sharedHTTPTransport,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -121,9 +140,22 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 
 // Check performs health checks on all or filtered services.
 func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*HealthReport, error) {
+	// Create a safe cache key that handles service names with special characters
+	// Use a delimiter that's unlikely to appear in service names and escape it if needed
 	cacheKey := "health_report"
 	if len(serviceFilter) > 0 {
-		cacheKey = fmt.Sprintf("health_report::%s", strings.Join(serviceFilter, "::"))
+		// Sort to ensure consistent cache keys regardless of filter order
+		sortedFilter := make([]string, len(serviceFilter))
+		copy(sortedFilter, serviceFilter)
+		// Use pipe as delimiter and URL encode service names to avoid collisions
+		var encodedServices []string
+		for _, svc := range sortedFilter {
+			// Replace special characters to prevent cache key collisions
+			encoded := strings.ReplaceAll(svc, "|", "%7C")
+			encoded = strings.ReplaceAll(encoded, ":", "%3A")
+			encodedServices = append(encodedServices, encoded)
+		}
+		cacheKey = fmt.Sprintf("health_report|%s", strings.Join(encodedServices, "|"))
 	}
 
 	if m.cache != nil {
@@ -159,6 +191,20 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 
 	for i, svc := range services {
 		go func(index int, svc serviceInfo) {
+			// Check context before attempting to acquire semaphore
+			if ctx.Err() != nil {
+				resultChan <- struct {
+					index  int
+					result HealthCheckResult
+				}{index, HealthCheckResult{
+					ServiceName: svc.Name,
+					Timestamp:   time.Now(),
+					Status:      HealthStatusUnknown,
+					Error:       "context cancelled before check started",
+				}}
+				return
+			}
+
 			select {
 			case semaphore <- struct{}{}:
 			case <-ctx.Done():
@@ -174,6 +220,20 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 				return
 			}
 			defer func() { <-semaphore }()
+
+			// Check context again after acquiring semaphore
+			if ctx.Err() != nil {
+				resultChan <- struct {
+					index  int
+					result HealthCheckResult
+				}{index, HealthCheckResult{
+					ServiceName: svc.Name,
+					Timestamp:   time.Now(),
+					Status:      HealthStatusUnknown,
+					Error:       "context cancelled",
+				}}
+				return
+			}
 
 			result := m.checker.CheckService(ctx, svc)
 			resultChan <- struct {

@@ -7,18 +7,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
-func TestValidateLogsInputs(t *testing.T) {
-	origTail := logsTail
-	origFormat := logsFormat
-	origLevel := logsLevel
-	origSince := logsSince
-	defer func() {
-		logsTail = origTail
-		logsFormat = origFormat
-		logsLevel = origLevel
-		logsSince = origSince
-	}()
-
+func TestValidateLogsOptions(t *testing.T) {
 	tests := []struct {
 		name      string
 		tail      int
@@ -45,48 +34,54 @@ func TestValidateLogsInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logsTail = tt.tail
-			logsFormat = tt.format
-			logsLevel = tt.level
-			logsSince = tt.since
+			opts := &logsOptions{
+				tail:   tt.tail,
+				format: tt.format,
+				level:  tt.level,
+				since:  tt.since,
+			}
 
-			err := validateLogsInputs()
+			err := validateLogsOptions(opts)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("validateLogsInputs() expected error containing %q, got nil", tt.errSubstr)
+					t.Errorf("validateLogsOptions() expected error containing %q, got nil", tt.errSubstr)
 				} else if !strings.Contains(err.Error(), tt.errSubstr) {
-					t.Errorf("validateLogsInputs() error = %v, want error containing %q", err, tt.errSubstr)
+					t.Errorf("validateLogsOptions() error = %v, want error containing %q", err, tt.errSubstr)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("validateLogsInputs() unexpected error: %v", err)
+					t.Errorf("validateLogsOptions() unexpected error: %v", err)
 				}
 			}
 		})
 	}
 
 	t.Run("tail capped value", func(t *testing.T) {
-		logsTail = 20000
-		logsFormat = "text"
-		logsLevel = "all"
-		logsSince = ""
-
-		if err := validateLogsInputs(); err != nil {
-			t.Fatalf("validateLogsInputs() unexpected error: %v", err)
+		opts := &logsOptions{
+			tail:   20000,
+			format: "text",
+			level:  "all",
+			since:  "",
 		}
-		if logsTail != maxTailLines {
-			t.Errorf("logsTail = %d, expected to be capped at %d", logsTail, maxTailLines)
+
+		if err := validateLogsOptions(opts); err != nil {
+			t.Fatalf("validateLogsOptions() unexpected error: %v", err)
+		}
+		if opts.tail != maxTailLines {
+			t.Errorf("opts.tail = %d, expected to be capped at %d", opts.tail, maxTailLines)
 		}
 	})
 
 	t.Run("zero tail is valid", func(t *testing.T) {
-		logsTail = 0
-		logsFormat = "text"
-		logsLevel = "all"
-		logsSince = ""
+		opts := &logsOptions{
+			tail:   0,
+			format: "text",
+			level:  "all",
+			since:  "",
+		}
 
-		if err := validateLogsInputs(); err != nil {
+		if err := validateLogsOptions(opts); err != nil {
 			t.Errorf("Unexpected error for tail=0: %v", err)
 		}
 	})
@@ -94,12 +89,14 @@ func TestValidateLogsInputs(t *testing.T) {
 	t.Run("case insensitive level", func(t *testing.T) {
 		levels := []string{"INFO", "Info", "WARNING", "Warning", "ERROR", "Error", "DEBUG", "Debug", "ALL", "All"}
 		for _, level := range levels {
-			logsTail = 100
-			logsFormat = "text"
-			logsLevel = level
-			logsSince = ""
+			opts := &logsOptions{
+				tail:   100,
+				format: "text",
+				level:  level,
+				since:  "",
+			}
 
-			if err := validateLogsInputs(); err != nil {
+			if err := validateLogsOptions(opts); err != nil {
 				t.Errorf("Unexpected error for level %q: %v", level, err)
 			}
 		}
@@ -108,12 +105,14 @@ func TestValidateLogsInputs(t *testing.T) {
 	t.Run("complex since durations", func(t *testing.T) {
 		durations := []string{"1h30m", "2h45m30s", "500ms", "1h", "30s"}
 		for _, d := range durations {
-			logsTail = 100
-			logsFormat = "text"
-			logsLevel = "all"
-			logsSince = d
+			opts := &logsOptions{
+				tail:   100,
+				format: "text",
+				level:  "all",
+				since:  d,
+			}
 
-			if err := validateLogsInputs(); err != nil {
+			if err := validateLogsOptions(opts); err != nil {
 				t.Errorf("Unexpected error for since %q: %v", d, err)
 			}
 		}

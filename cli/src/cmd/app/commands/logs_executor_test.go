@@ -69,7 +69,8 @@ func (m *mockLogManager) GetAllBuffers() map[string]*service.LogBuffer {
 // ==================== Executor unit tests ====================
 
 func TestLogsExecutor_ParseServiceFilter(t *testing.T) {
-	executor := &logsExecutor{}
+	opts := &logsOptions{}
+	executor := &logsExecutor{opts: opts}
 
 	t.Run("from positional args", func(t *testing.T) {
 		result := executor.parseServiceFilter([]string{"api"})
@@ -79,7 +80,7 @@ func TestLogsExecutor_ParseServiceFilter(t *testing.T) {
 	})
 
 	t.Run("from service flag", func(t *testing.T) {
-		executor.service = "api, web, worker"
+		opts.service = "api, web, worker"
 		result := executor.parseServiceFilter([]string{})
 		if len(result) != 3 {
 			t.Errorf("Expected 3 services, got %d", len(result))
@@ -87,11 +88,11 @@ func TestLogsExecutor_ParseServiceFilter(t *testing.T) {
 		if result[0] != "api" || result[1] != "web" || result[2] != "worker" {
 			t.Errorf("Unexpected services: %v", result)
 		}
-		executor.service = ""
+		opts.service = ""
 	})
 
 	t.Run("empty", func(t *testing.T) {
-		executor.service = ""
+		opts.service = ""
 		result := executor.parseServiceFilter([]string{})
 		if len(result) != 0 {
 			t.Errorf("Expected empty, got %v", result)
@@ -100,7 +101,8 @@ func TestLogsExecutor_ParseServiceFilter(t *testing.T) {
 }
 
 func TestLogsExecutor_ValidateServiceFilter(t *testing.T) {
-	executor := &logsExecutor{}
+	opts := &logsOptions{}
+	executor := &logsExecutor{opts: opts}
 
 	t.Run("valid service", func(t *testing.T) {
 		err := executor.validateServiceFilter([]string{"api"}, []string{"api", "web"})
@@ -128,11 +130,15 @@ func TestLogsExecutor_ValidateServiceFilter(t *testing.T) {
 }
 
 func TestLogsExecutor_ParseSinceTime(t *testing.T) {
-	executor := &logsExecutor{}
+	opts := &logsOptions{}
+	executor := &logsExecutor{opts: opts}
 
 	t.Run("valid duration", func(t *testing.T) {
-		executor.since = "5m"
-		result := executor.parseSinceTime()
+		opts.since = "5m"
+		result, err := executor.parseSinceTime()
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
 		if result.IsZero() {
 			t.Error("Expected non-zero time")
 		}
@@ -143,16 +149,22 @@ func TestLogsExecutor_ParseSinceTime(t *testing.T) {
 	})
 
 	t.Run("empty duration", func(t *testing.T) {
-		executor.since = ""
-		result := executor.parseSinceTime()
+		opts.since = ""
+		result, err := executor.parseSinceTime()
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
 		if !result.IsZero() {
 			t.Error("Expected zero time for empty since")
 		}
 	})
 
-	t.Run("invalid duration returns zero", func(t *testing.T) {
-		executor.since = "invalid"
-		result := executor.parseSinceTime()
+	t.Run("invalid duration returns error", func(t *testing.T) {
+		opts.since = "invalid"
+		result, err := executor.parseSinceTime()
+		if err == nil {
+			t.Error("Expected error for invalid duration")
+		}
 		if !result.IsZero() {
 			t.Error("Expected zero time for invalid duration")
 		}
@@ -162,7 +174,8 @@ func TestLogsExecutor_ParseSinceTime(t *testing.T) {
 func TestLogsExecutor_SetupOutputWriter(t *testing.T) {
 	t.Run("default writer", func(t *testing.T) {
 		var buf bytes.Buffer
-		executor := &logsExecutor{outputWriter: &buf}
+		opts := &logsOptions{}
+		executor := &logsExecutor{outputWriter: &buf, opts: opts}
 		writer, cleanup, err := executor.setupOutputWriter()
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -180,7 +193,8 @@ func TestLogsExecutor_SetupOutputWriter(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		outputFile := filepath.Join(tmpDir, "output.log")
-		executor := &logsExecutor{file: outputFile}
+		opts := &logsOptions{file: outputFile}
+		executor := &logsExecutor{opts: opts}
 
 		writer, cleanup, err := executor.setupOutputWriter()
 		if err != nil {
@@ -200,7 +214,8 @@ func TestLogsExecutor_SetupOutputWriter(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		outputFile := filepath.Join(tmpDir, "nested", "dir", "output.log")
-		executor := &logsExecutor{file: outputFile}
+		opts := &logsOptions{file: outputFile}
+		executor := &logsExecutor{opts: opts}
 
 		writer, cleanup, err := executor.setupOutputWriter()
 		if err != nil {
@@ -222,31 +237,53 @@ func TestLogsExecutor_CollectLogs(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
-	os.MkdirAll(logsDir, 0755)
+	_ = os.MkdirAll(logsDir, 0755)
 
 	logContent := `[2024-01-15 10:30:45.100] [INFO] [OUT] Message 1
 [2024-01-15 10:30:45.200] [INFO] [OUT] Message 2
 `
-	os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644)
+	_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644)
 
 	t.Run("from log files", func(t *testing.T) {
-		executor := &logsExecutor{tail: 100}
+		opts := &logsOptions{tail: 100}
+		executor := &logsExecutor{opts: opts}
 		mockLM := newMockLogManager()
 
-		logs := executor.collectLogs(tmpDir, []string{"api"}, mockLM, time.Time{})
+		logs, err := executor.collectLogs(context.Background(), tmpDir, []string{"api"}, mockLM, time.Time{})
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
 		if len(logs) != 2 {
 			t.Errorf("Expected 2 logs, got %d", len(logs))
 		}
 	})
 
 	t.Run("respects since filter", func(t *testing.T) {
-		executor := &logsExecutor{tail: 100, since: "1h"}
+		opts := &logsOptions{tail: 100, since: "1h"}
+		executor := &logsExecutor{opts: opts}
 		mockLM := newMockLogManager()
 
 		since := time.Date(2024, 1, 15, 10, 30, 45, 150000000, time.UTC)
-		logs := executor.collectLogs(tmpDir, []string{"api"}, mockLM, since)
+		logs, err := executor.collectLogs(context.Background(), tmpDir, []string{"api"}, mockLM, since)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
 		if len(logs) != 1 {
 			t.Errorf("Expected 1 log after since filter, got %d", len(logs))
+		}
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		opts := &logsOptions{tail: 100}
+		executor := &logsExecutor{opts: opts}
+		mockLM := newMockLogManager()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		_, err := executor.collectLogs(ctx, tmpDir, []string{"api"}, mockLM, time.Time{})
+		if err == nil {
+			t.Error("Expected context cancellation error")
 		}
 	})
 }
@@ -256,10 +293,11 @@ func TestLogsExecutor_BuildLogFilterInternal(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	t.Run("with exclude patterns", func(t *testing.T) {
-		executor := &logsExecutor{
+		opts := &logsOptions{
 			exclude:    "pattern1,pattern2",
 			noBuiltins: true,
 		}
+		executor := &logsExecutor{opts: opts}
 
 		filter, err := executor.buildLogFilterInternal(tmpDir)
 		if err != nil {
@@ -271,9 +309,10 @@ func TestLogsExecutor_BuildLogFilterInternal(t *testing.T) {
 	})
 
 	t.Run("with builtins", func(t *testing.T) {
-		executor := &logsExecutor{
+		opts := &logsOptions{
 			noBuiltins: false,
 		}
+		executor := &logsExecutor{opts: opts}
 
 		filter, err := executor.buildLogFilterInternal(tmpDir)
 		if err != nil {
@@ -292,14 +331,15 @@ func TestLogsExecutor_Execute(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
-	os.MkdirAll(logsDir, 0755)
+	_ = os.MkdirAll(logsDir, 0755)
 
 	logContent := `[2024-01-15 10:30:45.100] [INFO] [OUT] Test message
 `
-	os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644)
+	_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644)
 
 	t.Run("dashboard not running shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return nil, errors.New("dashboard not running")
@@ -309,10 +349,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "text"
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {
@@ -322,6 +360,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("dashboard ping fails shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{pingErr: errors.New("ping failed")}, nil
@@ -331,10 +370,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "text"
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {
@@ -344,6 +381,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("no services shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{services: []*serviceinfo.ServiceInfo{}}, nil
@@ -353,10 +391,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "text"
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {
@@ -366,6 +402,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("displays logs from file", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "text", timestamps: true, noColor: true}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -377,12 +414,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "text"
-		executor.timestamps = true
-		executor.noColor = true
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {
@@ -395,6 +428,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("JSON format output", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "json"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -406,10 +440,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "json"
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {
@@ -423,6 +455,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("service filter validation error", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -434,10 +467,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "text"
 
 		err := executor.execute(context.Background(), []string{"nonexistent"})
 		if err == nil {
@@ -447,6 +478,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("get services error", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "all", format: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -458,10 +490,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "all"
-		executor.format = "text"
 
 		err := executor.execute(context.Background(), []string{})
 		if err == nil {
@@ -471,6 +501,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("getwd error", func(t *testing.T) {
 		var buf bytes.Buffer
+		opts := &logsOptions{}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{}, nil
@@ -480,6 +511,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return "", errors.New("getwd failed") },
 			&buf,
+			opts,
 		)
 
 		err := executor.execute(context.Background(), []string{})
@@ -493,9 +525,10 @@ func TestLogsExecutor_Execute(t *testing.T) {
 [2024-01-15 10:30:45.200] [ERROR] [ERR] Error message
 [2024-01-15 10:30:45.300] [WARN] [OUT] Warn message
 `
-		os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(levelContent), 0644)
+		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(levelContent), 0644)
 
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 100, level: "error", format: "text", timestamps: true, noColor: true}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -507,12 +540,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 100
-		executor.level = "error"
-		executor.format = "text"
-		executor.timestamps = true
-		executor.noColor = true
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {
@@ -532,9 +561,10 @@ func TestLogsExecutor_Execute(t *testing.T) {
 		for i := 0; i < 50; i++ {
 			manyLogs.WriteString(fmt.Sprintf("[2024-01-15 10:30:%02d.000] [INFO] [OUT] Message %d\n", i, i))
 		}
-		os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(manyLogs.String()), 0644)
+		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(manyLogs.String()), 0644)
 
 		var buf bytes.Buffer
+		opts := &logsOptions{tail: 5, level: "all", format: "text", noColor: true}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -546,11 +576,8 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			},
 			func() (string, error) { return tmpDir, nil },
 			&buf,
+			opts,
 		)
-		executor.tail = 5
-		executor.level = "all"
-		executor.format = "text"
-		executor.noColor = true
 
 		err := executor.execute(context.Background(), []string{})
 		if err != nil {

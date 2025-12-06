@@ -20,8 +20,14 @@ import (
 // Timeout constants
 const (
 	defaultCommandTimeout    = 30 * time.Second
-	dependencyInstallTimeout = 5 * time.Minute
-	maxLogTailLines          = 10000 // Maximum number of log lines to retrieve
+	dependencyInstallTimeout = 15 * time.Minute // Increased to handle large projects
+	maxLogTailLines          = 10000            // Maximum number of log lines to retrieve
+)
+
+// Rate limiting constants
+const (
+	maxToolCallsPerMinute = 60 // Prevent MCP client abuse
+	burstSize             = 10 // Allow burst of 10 calls
 )
 
 // Command constants
@@ -170,6 +176,11 @@ func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args [
 	defer cancel()
 
 	cmd := exec.CommandContext(cmdCtx, azdCommand, append([]string{appSubcommand}, cmdArgs...)...)
+
+	// Set up process group to allow killing child processes
+	// This is platform-specific but helps ensure cleanup
+	setupProcessGroup(cmd)
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if parent context was cancelled
@@ -224,6 +235,17 @@ func marshalToolResult(data interface{}) (*mcp.CallToolResult, error) {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
 	}
 	return mcp.NewToolResultText(string(jsonBytes)), nil
+}
+
+// checkRateLimitWithName checks if the operation is allowed under rate limiting
+// Returns an error result if rate limit is exceeded
+// operationName is used for logging purposes
+func checkRateLimitWithName(operationName string) *mcp.CallToolResult {
+	if !globalRateLimiter.Allow() {
+		logRateLimitEvent(operationName)
+		return mcp.NewToolResultError("Rate limit exceeded. Please wait before making more requests.")
+	}
+	return nil
 }
 
 // extractProjectDirArg extracts projectDir argument and returns command args with --cwd flag
@@ -305,7 +327,12 @@ func isValidDuration(s string) bool {
 // Prevents path traversal attacks and ensures the directory exists
 func validateProjectDir(dir string) (string, error) {
 	if dir == "" || dir == "." {
-		return ".", nil
+		// Get current working directory for "." reference
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current directory: %w", err)
+		}
+		return cwd, nil
 	}
 
 	// Clean the path to resolve any . or .. components
@@ -317,24 +344,95 @@ func validateProjectDir(dir string) (string, error) {
 		return "", fmt.Errorf("invalid project directory path: %w", err)
 	}
 
-	// Check if directory exists
-	info, err := os.Stat(absPath)
+	// Resolve symbolic links to prevent symlink-based attacks
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
+		// If path doesn't exist, that's an error for project directories
 		if os.IsNotExist(err) {
 			return "", fmt.Errorf("project directory does not exist: %s", absPath)
 		}
+		return "", fmt.Errorf("cannot resolve project directory path: %w", err)
+	}
+
+	// Verify the resolved path is a directory
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
 		return "", fmt.Errorf("cannot access project directory: %w", err)
 	}
 
 	if !info.IsDir() {
-		return "", fmt.Errorf("path is not a directory: %s", absPath)
+		return "", fmt.Errorf("path is not a directory: %s", resolvedPath)
 	}
 
-	return absPath, nil
+	// Security check: Ensure the resolved path doesn't contain suspicious patterns
+	// This catches attempts to use .. after symlink resolution
+	cleanResolved := filepath.Clean(resolvedPath)
+	if strings.Contains(cleanResolved, "..") {
+		return "", fmt.Errorf("project directory path contains parent directory traversal")
+	}
+
+	// Get current working directory to establish a baseline for allowed paths
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Get user's home directory as an allowed boundary
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// If we can't get home dir, just ensure we're not in system directories
+		homeDir = ""
+	}
+
+	// Security: Only allow project directories under:
+	// 1. Current working directory tree
+	// 2. User's home directory tree
+	// 3. Explicitly disallow system directories (/etc, /usr, /bin, /sbin, etc.)
+	isUnderCwd := strings.HasPrefix(cleanResolved, cwd)
+	isUnderHome := homeDir != "" && strings.HasPrefix(cleanResolved, homeDir)
+
+	// Check for system directory access attempts (Unix-like systems)
+	systemDirs := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/sys", "/proc", "/dev", "/root"}
+	if strings.HasPrefix(cleanResolved, "/") { // Unix-like path
+		for _, sysDir := range systemDirs {
+			if strings.HasPrefix(cleanResolved, sysDir) {
+				return "", fmt.Errorf("access to system directories not allowed: %s", cleanResolved)
+			}
+		}
+	}
+
+	// Check for Windows system directory access attempts
+	if len(cleanResolved) >= 3 && cleanResolved[1] == ':' { // Windows path (e.g., C:\)
+		lowerPath := strings.ToLower(cleanResolved)
+		windowsSystemDirs := []string{
+			`c:\windows`,
+			`c:\program files`,
+			`c:\program files (x86)`,
+			`c:\programdata`,
+			`c:\users\public`,
+			`c:\users\default`,
+			`c:\recovery`,
+			`c:\$recycle.bin`,
+			`c:\system volume information`,
+		}
+		for _, sysDir := range windowsSystemDirs {
+			if strings.HasPrefix(lowerPath, sysDir) {
+				return "", fmt.Errorf("access to system directories not allowed: %s", cleanResolved)
+			}
+		}
+	}
+
+	// Allow if under CWD or home directory
+	if !isUnderCwd && !isUnderHome {
+		return "", fmt.Errorf("project directory must be under current directory or home directory")
+	}
+
+	return cleanResolved, nil
 }
 
 // getProjectDir gets the project directory from AZD_APP_PROJECT_DIR environment variable or defaults to current directory
 // This environment variable is set by azd when invoking the extension's MCP server
+// The returned path is validated for security
 func getProjectDir() string {
 	// First try AZD_APP_PROJECT_DIR (set via extension.yaml mcp.serve.env)
 	projectDir := os.Getenv("AZD_APP_PROJECT_DIR")
@@ -345,7 +443,18 @@ func getProjectDir() string {
 	if projectDir == "" {
 		projectDir = "."
 	}
-	return projectDir
+
+	// Validate the environment variable value to prevent injection attacks
+	// If validation fails, fall back to current directory
+	validated, err := validateProjectDir(projectDir)
+	if err != nil {
+		// Log the validation failure but don't expose details to client
+		// Use stderr since this is a server process
+		fmt.Fprintf(os.Stderr, "Warning: Invalid project directory from environment: %v, using current directory\n", err)
+		return "."
+	}
+
+	return validated
 }
 
 // ServiceInfo represents the output schema for get_services tool
@@ -396,5 +505,3 @@ type RequirementStatus struct {
 	Met            bool   `json:"met" jsonschema:"description=Whether requirement is satisfied"`
 	InstallCommand string `json:"installCommand,omitempty" jsonschema:"description=Command to install if missing"`
 }
-
-

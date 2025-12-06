@@ -73,6 +73,7 @@ export function LogsPane({
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const isPausedRef = useRef(isPaused)
+  const [isHovering, setIsHovering] = useState(false)
   
   const { addClassification, getClassificationForText } = useLogClassifications()
 
@@ -151,12 +152,13 @@ export function LogsPane({
   }, [serviceName]) // Removed isPaused - WebSocket shouldn't reconnect on pause toggle
 
   // Auto-scroll - scroll the container, not the page
+  // Pause auto-scroll when user is hovering over the logs
   useEffect(() => {
-    if (autoScrollEnabled && !isPaused && logsContainerRef.current) {
+    if (autoScrollEnabled && !isPaused && !isHovering && logsContainerRef.current) {
       const container = logsContainerRef.current
       container.scrollTop = container.scrollHeight
     }
-  }, [logs, autoScrollEnabled, isPaused])
+  }, [logs, autoScrollEnabled, isPaused, isHovering])
 
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection()
@@ -462,6 +464,8 @@ export function LogsPane({
           role="log"
           aria-live="polite"
           aria-atomic="false"
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
         >
         {filteredLogs.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">

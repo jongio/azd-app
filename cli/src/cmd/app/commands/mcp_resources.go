@@ -40,11 +40,23 @@ func newAzureYamlResource() server.ServerResource {
 
 			// Verify the file path is still within the project directory (defense in depth)
 			cleanPath := filepath.Clean(azureYamlPath)
-			if !strings.HasPrefix(cleanPath, validatedDir) && validatedDir != "." {
+
+			// Resolve symlinks to prevent symlink-based attacks
+			resolvedPath, err := filepath.EvalSymlinks(cleanPath)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, fmt.Errorf("failed to resolve azure.yaml path: %w", err)
+			}
+			// If file doesn't exist, use clean path for the error message
+			if err != nil {
+				resolvedPath = cleanPath
+			}
+
+			// Ensure resolved path is still within the validated directory
+			if !strings.HasPrefix(resolvedPath, validatedDir) {
 				return nil, fmt.Errorf("azure.yaml path escapes project directory")
 			}
 
-			content, err := os.ReadFile(cleanPath)
+			content, err := os.ReadFile(resolvedPath)
 			if err != nil {
 				if os.IsNotExist(err) {
 					return nil, fmt.Errorf("azure.yaml not found in project directory: %s", validatedDir)

@@ -22,6 +22,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Constants for log streaming configuration.
+const (
+	// logChannelBufferSize is the buffer size for log streaming channels.
+	// Set to 100 to balance memory usage with preventing blocking when logs arrive
+	// faster than they can be displayed (typical burst rate is ~50 logs/second).
+	logChannelBufferSize = 100
+
+	// defaultTailLines is the default number of log lines to show.
+	defaultTailLines = 100
+
+	// maxTailLines is the maximum number of lines that can be requested.
+	// Capped to prevent excessive memory usage (10K lines ≈ 1-2MB).
+	maxTailLines = 10000
+
+	// maxLogLineSize is the maximum size of a single log line (1MB).
+	// This handles extremely long log lines from stack traces or JSON dumps.
+	maxLogLineSize = 1 * 1024 * 1024
+
+	// scannerInitialBufferSize is the initial buffer for the log file scanner.
+	// 64KB handles most log lines without reallocation.
+	scannerInitialBufferSize = 64 * 1024
+
+	// dashboardOperationTimeout is the timeout for dashboard operations.
+	// Set to 5 seconds to prevent hanging on unresponsive dashboard.
+	dashboardOperationTimeout = 5 * time.Second
+
+	// filterCapacityEstimate is the estimated match rate for level filtering.
+	// Assumes ~25% of logs match a specific level filter.
+	filterCapacityEstimate = 4
+)
+
 // DashboardClient defines the interface for dashboard operations needed by logs.
 // This interface enables testing by allowing mock implementations.
 type DashboardClient interface {
@@ -35,61 +66,6 @@ type DashboardClient interface {
 type LogManagerInterface interface {
 	GetBuffer(serviceName string) (*service.LogBuffer, bool)
 	GetAllBuffers() map[string]*service.LogBuffer
-}
-
-// logsExecutor encapsulates the logs command execution with injectable dependencies.
-// This struct enables unit testing of the logs command logic.
-type logsExecutor struct {
-	// Dependencies (injectable for testing)
-	dashboardClientFactory func(ctx context.Context, projectDir string) (DashboardClient, error)
-	logManagerFactory      func(projectDir string) LogManagerInterface
-	getWorkingDir          func() (string, error)
-	outputWriter           io.Writer
-	signalChan             chan os.Signal
-
-	// Options from flags
-	follow     bool
-	service    string
-	tail       int
-	since      string
-	timestamps bool
-	noColor    bool
-	level      string
-	format     string
-	file       string
-	exclude    string
-	noBuiltins bool
-}
-
-// newLogsExecutor creates a logsExecutor with production dependencies.
-func newLogsExecutor() *logsExecutor {
-	return &logsExecutor{
-		dashboardClientFactory: func(ctx context.Context, projectDir string) (DashboardClient, error) {
-			return dashboard.NewClient(ctx, projectDir)
-		},
-		logManagerFactory: func(projectDir string) LogManagerInterface {
-			return service.GetLogManager(projectDir)
-		},
-		getWorkingDir: os.Getwd,
-		outputWriter:  os.Stdout,
-		signalChan:    nil, // Will be created on demand
-	}
-}
-
-// newLogsExecutorForTest creates a logsExecutor with custom dependencies for testing.
-func newLogsExecutorForTest(
-	dashboardClientFactory func(ctx context.Context, projectDir string) (DashboardClient, error),
-	logManagerFactory func(projectDir string) LogManagerInterface,
-	getWorkingDir func() (string, error),
-	outputWriter io.Writer,
-) *logsExecutor {
-	return &logsExecutor{
-		dashboardClientFactory: dashboardClientFactory,
-		logManagerFactory:      logManagerFactory,
-		getWorkingDir:          getWorkingDir,
-		outputWriter:           outputWriter,
-		signalChan:             make(chan os.Signal, 1),
-	}
 }
 
 // logsOptions holds the flag values for the logs command.
@@ -108,37 +84,59 @@ type logsOptions struct {
 	noBuiltins bool
 }
 
-// Constants for log streaming configuration.
-const (
-	// logChannelBufferSize is the buffer size for log streaming channels.
-	// A larger buffer prevents blocking when logs arrive faster than they can be displayed.
-	logChannelBufferSize = 100
+// logsExecutor encapsulates the logs command execution with injectable dependencies.
+// This struct enables unit testing of the logs command logic.
+type logsExecutor struct {
+	// Dependencies (injectable for testing)
+	dashboardClientFactory func(ctx context.Context, projectDir string) (DashboardClient, error)
+	logManagerFactory      func(projectDir string) LogManagerInterface
+	getWorkingDir          func() (string, error)
+	outputWriter           io.Writer
+	signalChan             chan os.Signal
 
-	// defaultTailLines is the default number of log lines to show.
-	defaultTailLines = 100
+	// Configuration options (stored directly to avoid duplication)
+	opts *logsOptions
+}
 
-	// maxTailLines is the maximum number of lines that can be requested.
-	maxTailLines = 10000
-)
+// newLogsExecutor creates a logsExecutor with production dependencies.
+func newLogsExecutor(opts *logsOptions) *logsExecutor {
+	return &logsExecutor{
+		dashboardClientFactory: func(ctx context.Context, projectDir string) (DashboardClient, error) {
+			return dashboard.NewClient(ctx, projectDir)
+		},
+		logManagerFactory: func(projectDir string) LogManagerInterface {
+			return service.GetLogManager(projectDir)
+		},
+		getWorkingDir: os.Getwd,
+		outputWriter:  os.Stdout,
+		signalChan:    nil, // Will be created on demand
+		opts:          opts,
+	}
+}
 
-// Global variables for backward compatibility with tests.
-// These are populated by the command flags.
-var (
-	logsFollow     bool
-	logsService    string
-	logsTail       int
-	logsSince      string
-	logsTimestamps bool
-	logsNoColor    bool
-	logsLevel      string
-	logsFormat     string
-	logsFile       string
-	logsExclude    string
-	logsNoBuiltins bool
-)
+// newLogsExecutorForTest creates a logsExecutor with custom dependencies for testing.
+func newLogsExecutorForTest(
+	dashboardClientFactory func(ctx context.Context, projectDir string) (DashboardClient, error),
+	logManagerFactory func(projectDir string) LogManagerInterface,
+	getWorkingDir func() (string, error),
+	outputWriter io.Writer,
+	opts *logsOptions,
+) *logsExecutor {
+	return &logsExecutor{
+		dashboardClientFactory: dashboardClientFactory,
+		logManagerFactory:      logManagerFactory,
+		getWorkingDir:          getWorkingDir,
+		outputWriter:           outputWriter,
+		signalChan:             make(chan os.Signal, 1),
+		opts:                   opts,
+	}
+}
 
 // NewLogsCommand creates the logs command.
 func NewLogsCommand() *cobra.Command {
+	// Create options for this command invocation
+	opts := &logsOptions{}
+
 	cmd := &cobra.Command{
 		Use:   "logs [service-name]",
 		Short: "View logs from running services",
@@ -166,52 +164,38 @@ Examples:
   # Output as JSON for processing
   azd app logs --format json`,
 		SilenceUsage: true,
-		RunE:         runLogs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLogsWithOptions(opts, args)
+		},
 	}
 
-	cmd.Flags().BoolVarP(&logsFollow, "follow", "f", false, "Follow log output (tail -f behavior)")
-	cmd.Flags().StringVarP(&logsService, "service", "s", "", "Filter by service name(s) (comma-separated)")
-	cmd.Flags().IntVarP(&logsTail, "tail", "n", defaultTailLines, "Number of lines to show from the end")
-	cmd.Flags().StringVar(&logsSince, "since", "", "Show logs since duration (e.g., 5m, 1h)")
-	cmd.Flags().BoolVar(&logsTimestamps, "timestamps", true, "Show timestamps with each log entry")
-	cmd.Flags().BoolVar(&logsNoColor, "no-color", false, "Disable colored output")
-	cmd.Flags().StringVar(&logsLevel, "level", "all", "Filter by log level (info, warn, error, debug, all)")
-	cmd.Flags().StringVar(&logsFormat, "format", "text", "Output format (text, json)")
-	cmd.Flags().StringVar(&logsFile, "file", "", "Write logs to file instead of stdout")
-	cmd.Flags().StringVarP(&logsExclude, "exclude", "e", "", "Regex patterns to exclude (comma-separated)")
-	cmd.Flags().BoolVar(&logsNoBuiltins, "no-builtins", false, "Disable built-in filter patterns")
+	cmd.Flags().BoolVarP(&opts.follow, "follow", "f", false, "Follow log output (tail -f behavior)")
+	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "Filter by service name(s) (comma-separated)")
+	cmd.Flags().IntVarP(&opts.tail, "tail", "n", defaultTailLines, "Number of lines to show from the end")
+	cmd.Flags().StringVar(&opts.since, "since", "", "Show logs since duration (e.g., 5m, 1h)")
+	cmd.Flags().BoolVar(&opts.timestamps, "timestamps", true, "Show timestamps with each log entry")
+	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
+	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
+	cmd.Flags().StringVar(&opts.format, "format", "text", "Output format (text, json)")
+	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
+	cmd.Flags().StringVarP(&opts.exclude, "exclude", "e", "", "Regex patterns to exclude (comma-separated)")
+	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 
 	return cmd
 }
 
-func runLogs(cmd *cobra.Command, args []string) error {
+func runLogsWithOptions(opts *logsOptions, args []string) error {
 	output.CommandHeader("logs", "View logs from running services")
 
 	// Validate inputs
-	if err := validateLogsInputs(); err != nil {
+	if err := validateLogsOptions(opts); err != nil {
 		return err
 	}
 
 	// Create executor with production dependencies
-	executor := newLogsExecutor()
-	executor.copyFromGlobalFlags()
+	executor := newLogsExecutor(opts)
 
 	return executor.execute(context.Background(), args)
-}
-
-// copyFromGlobalFlags copies global flag values to the executor.
-func (e *logsExecutor) copyFromGlobalFlags() {
-	e.follow = logsFollow
-	e.service = logsService
-	e.tail = logsTail
-	e.since = logsSince
-	e.timestamps = logsTimestamps
-	e.noColor = logsNoColor
-	e.level = logsLevel
-	e.format = logsFormat
-	e.file = logsFile
-	e.exclude = logsExclude
-	e.noBuiltins = logsNoBuiltins
 }
 
 // execute runs the logs command with the configured dependencies and options.
@@ -228,8 +212,12 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	// Get log manager for in-memory buffers (may be empty if called from subprocess)
 	logManager := e.logManagerFactory(cwd)
 
+	// Add timeout for dashboard operations to prevent hanging
+	dashCtx, dashCancel := context.WithTimeout(ctx, dashboardOperationTimeout)
+	defer dashCancel()
+
 	// Get running services via dashboard client (works across processes)
-	dashboardClient, err := e.dashboardClientFactory(ctx, cwd)
+	dashboardClient, err := e.dashboardClientFactory(dashCtx, cwd)
 	if err != nil {
 		// Debug: log actual error for troubleshooting
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
@@ -241,7 +229,7 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// Check if dashboard is actually responding
-	if err := dashboardClient.Ping(ctx); err != nil {
+	if err := dashboardClient.Ping(dashCtx); err != nil {
 		// Debug: log actual error for troubleshooting
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", err)
@@ -252,13 +240,13 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// Get service list from dashboard
-	services, err := dashboardClient.GetServices(ctx)
+	services, err := dashboardClient.GetServices(dashCtx)
 	if err != nil {
 		return fmt.Errorf("failed to get services from dashboard: %w", err)
 	}
 
 	// Build list of service names
-	var serviceNames []string
+	serviceNames := make([]string, 0, len(services))
 	for _, svc := range services {
 		serviceNames = append(serviceNames, svc.Name)
 	}
@@ -276,7 +264,7 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// Parse log level filter
-	levelFilter := parseLogLevel(e.level)
+	levelFilter := parseLogLevel(e.opts.level)
 
 	// Build log filter from flags and azure.yaml
 	logFilter, err := e.buildLogFilterInternal(cwd)
@@ -284,8 +272,11 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to build log filter: %w", err)
 	}
 
-	// Parse since duration
-	sinceTime := e.parseSinceTime()
+	// Parse since duration (returns error instead of silently failing)
+	sinceTime, err := e.parseSinceTime()
+	if err != nil {
+		return fmt.Errorf("invalid since duration: %w", err)
+	}
 
 	// Setup output writer
 	outputWriter, cleanup, err := e.setupOutputWriter()
@@ -303,7 +294,11 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// Get logs - try in-memory buffers first, fall back to log files
-	logs := e.collectLogs(cwd, targetServices, logManager, sinceTime)
+	// Pass context to allow cancellation during log collection
+	logs, err := e.collectLogs(ctx, cwd, targetServices, logManager, sinceTime)
+	if err != nil {
+		return fmt.Errorf("failed to collect logs: %w", err)
+	}
 
 	// Sort logs by timestamp
 	service.SortLogEntries(logs)
@@ -315,19 +310,19 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	logs = service.FilterLogEntries(logs, logFilter)
 
 	// Apply final tail limit after all filtering (for multi-service view)
-	if e.tail > 0 && len(logs) > e.tail {
-		logs = logs[len(logs)-e.tail:]
+	if e.opts.tail > 0 && len(logs) > e.opts.tail {
+		logs = logs[len(logs)-e.opts.tail:]
 	}
 
 	// Display initial logs
-	if e.format == "json" {
+	if e.opts.format == "json" {
 		displayLogsJSON(logs, outputWriter)
 	} else {
-		displayLogsText(logs, outputWriter, e.timestamps, e.noColor)
+		displayLogsText(logs, outputWriter, e.opts.timestamps, e.opts.noColor)
 	}
 
 	// Follow mode - subscribe to live logs
-	if e.follow {
+	if e.opts.follow {
 		return e.followLogs(ctx, cwd, logManager, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
 	}
 
@@ -340,9 +335,9 @@ func (e *logsExecutor) parseServiceFilter(args []string) []string {
 	if len(args) > 0 {
 		// Service name from positional argument
 		serviceFilter = []string{args[0]}
-	} else if e.service != "" {
+	} else if e.opts.service != "" {
 		// Service name(s) from --service flag
-		serviceFilter = strings.Split(e.service, ",")
+		serviceFilter = strings.Split(e.opts.service, ",")
 		for i := range serviceFilter {
 			serviceFilter[i] = strings.TrimSpace(serviceFilter[i])
 		}
@@ -351,49 +346,56 @@ func (e *logsExecutor) parseServiceFilter(args []string) []string {
 }
 
 // validateServiceFilter validates that all service names in the filter exist.
+// Optimized with O(n) lookup using a map instead of O(n*m) nested loops.
 func (e *logsExecutor) validateServiceFilter(serviceFilter, serviceNames []string) error {
-	if len(serviceFilter) > 0 {
-		for _, filterName := range serviceFilter {
-			found := false
-			for _, name := range serviceNames {
-				if name == filterName {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("service '%s' not found (available: %s)", filterName, strings.Join(serviceNames, ", "))
-			}
+	if len(serviceFilter) == 0 {
+		return nil
+	}
+
+	// Build lookup map for O(1) service existence check
+	serviceSet := make(map[string]struct{}, len(serviceNames))
+	for _, name := range serviceNames {
+		serviceSet[name] = struct{}{}
+	}
+
+	// Validate each filter service
+	for _, filterName := range serviceFilter {
+		if _, ok := serviceSet[filterName]; !ok {
+			return fmt.Errorf("service '%s' not found (available: %s)",
+				filterName, strings.Join(serviceNames, ", "))
 		}
 	}
 	return nil
 }
 
 // parseSinceTime parses the since duration and returns the cutoff time.
-func (e *logsExecutor) parseSinceTime() time.Time {
-	var sinceTime time.Time
-	if e.since != "" {
-		duration, err := time.ParseDuration(e.since)
-		if err == nil {
-			sinceTime = time.Now().Add(-duration)
-		}
+// Returns error instead of silently failing when duration is invalid.
+func (e *logsExecutor) parseSinceTime() (time.Time, error) {
+	if e.opts.since == "" {
+		return time.Time{}, nil
 	}
-	return sinceTime
+
+	duration, err := time.ParseDuration(e.opts.since)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse duration '%s': %w", e.opts.since, err)
+	}
+
+	return time.Now().Add(-duration), nil
 }
 
 // setupOutputWriter creates the output writer, returning a cleanup function if a file was opened.
 func (e *logsExecutor) setupOutputWriter() (io.Writer, func(), error) {
-	if e.file == "" {
+	if e.opts.file == "" {
 		return e.outputWriter, nil, nil
 	}
 
 	// Validate the output path to prevent path traversal attacks
-	if err := security.ValidatePath(e.file); err != nil {
+	if err := security.ValidatePath(e.opts.file); err != nil {
 		return nil, nil, fmt.Errorf("invalid output path: %w", err)
 	}
 
 	// Ensure parent directory exists
-	outputDir := filepath.Dir(e.file)
+	outputDir := filepath.Dir(e.opts.file)
 	if outputDir != "" && outputDir != "." {
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return nil, nil, fmt.Errorf("failed to create output directory: %w", err)
@@ -401,33 +403,51 @@ func (e *logsExecutor) setupOutputWriter() (io.Writer, func(), error) {
 	}
 
 	// #nosec G304 -- Path validated by security.ValidatePath above
-	file, err := os.Create(e.file)
+	file, err := os.Create(e.opts.file)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create output file: %w", err)
 	}
 
-	return file, func() { file.Close() }, nil
+	// Cleanup function that properly handles close errors
+	cleanup := func() {
+		if err := file.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close log file: %v\n", err)
+		}
+	}
+
+	return file, cleanup, nil
 }
 
 // collectLogs collects logs from all target services.
-func (e *logsExecutor) collectLogs(cwd string, targetServices []string, logManager LogManagerInterface, sinceTime time.Time) []service.LogEntry {
-	var logs []service.LogEntry
+// Now accepts context to allow cancellation during log collection.
+func (e *logsExecutor) collectLogs(ctx context.Context, cwd string, targetServices []string, logManager LogManagerInterface, sinceTime time.Time) ([]service.LogEntry, error) {
+	// Pre-allocate with estimated capacity
+	estimatedCap := len(targetServices) * e.opts.tail
+	logs := make([]service.LogEntry, 0, estimatedCap)
+
 	for _, serviceName := range targetServices {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		var serviceLogs []service.LogEntry
 
 		// Try in-memory buffer first
 		buffer, exists := logManager.GetBuffer(serviceName)
 		if exists {
-			if e.since != "" {
+			if e.opts.since != "" {
 				serviceLogs = buffer.GetSince(sinceTime)
 			} else {
-				serviceLogs = buffer.GetRecent(e.tail)
+				serviceLogs = buffer.GetRecent(e.opts.tail)
 			}
 		}
 
 		// If no logs in memory, try reading from log files
 		if len(serviceLogs) == 0 {
-			fileLogs, err := readLogsFromFile(cwd, serviceName, e.tail, sinceTime)
+			fileLogs, err := readLogsFromFile(cwd, serviceName, e.opts.tail, sinceTime)
 			if err == nil {
 				serviceLogs = fileLogs
 			}
@@ -435,7 +455,7 @@ func (e *logsExecutor) collectLogs(cwd string, targetServices []string, logManag
 
 		logs = append(logs, serviceLogs...)
 	}
-	return logs
+	return logs, nil
 }
 
 // buildLogFilterInternal creates a log filter from executor options and azure.yaml config.
@@ -443,8 +463,8 @@ func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, e
 	var customPatterns []string
 
 	// Parse command-line exclude patterns
-	if e.exclude != "" {
-		customPatterns = service.ParseExcludePatterns(e.exclude)
+	if e.opts.exclude != "" {
+		customPatterns = service.ParseExcludePatterns(e.opts.exclude)
 	}
 
 	// Try to load patterns from azure.yaml logs.filters section
@@ -455,10 +475,10 @@ func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, e
 	}
 
 	// Determine if we should include built-in patterns
-	includeBuiltins := !e.noBuiltins
+	includeBuiltins := !e.opts.noBuiltins
 	if filterConfig != nil {
 		// azure.yaml can override, but command-line takes precedence
-		if !e.noBuiltins {
+		if !e.opts.noBuiltins {
 			includeBuiltins = filterConfig.ShouldIncludeBuiltins()
 		}
 	}
@@ -468,6 +488,41 @@ func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, e
 		return service.NewLogFilterWithBuiltins(customPatterns)
 	}
 	return service.NewLogFilter(customPatterns)
+}
+
+// getOrCreateSignalChan gets or creates a signal channel with proper cleanup.
+// This avoids duplication and race conditions in signal handling setup.
+func (e *logsExecutor) getOrCreateSignalChan() (chan os.Signal, func()) {
+	if e.signalChan != nil {
+		// Test mode: return existing channel with no-op cleanup
+		return e.signalChan, func() {}
+	}
+
+	// Production mode: create new channel
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	cleanup := func() {
+		signal.Stop(sigChan)
+	}
+
+	return sigChan, cleanup
+}
+
+// shouldDisplayEntry checks if a log entry should be displayed based on filters.
+// Extracted to avoid code duplication between follow modes.
+func (e *logsExecutor) shouldDisplayEntry(entry service.LogEntry, levelFilter service.LogLevel, logFilter *service.LogFilter) bool {
+	// Filter by level
+	if levelFilter != LogLevelAll && entry.Level != levelFilter {
+		return false
+	}
+
+	// Filter by pattern
+	if logFilter != nil && logFilter.ShouldFilter(entry.Message) {
+		return false
+	}
+
+	return true
 }
 
 // followLogs subscribes to live log streams and displays them.
@@ -513,12 +568,8 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 	defer cancel()
 
 	// Setup signal handling for graceful exit
-	sigChan := e.signalChan
-	if sigChan == nil {
-		sigChan = make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		defer signal.Stop(sigChan)
-	}
+	sigChan, cleanupSignal := e.getOrCreateSignalChan()
+	defer cleanupSignal()
 
 	// Create channel for log entries
 	logs := make(chan service.LogEntry, logChannelBufferSize)
@@ -553,21 +604,16 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 				}
 			}
 
-			// Filter by level
-			if levelFilter != LogLevelAll && entry.Level != levelFilter {
-				continue
-			}
-
-			// Filter by pattern
-			if logFilter != nil && logFilter.ShouldFilter(entry.Message) {
+			// Use extracted filter method
+			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
 				continue
 			}
 
 			// Display log entry
-			if e.format == "json" {
+			if e.opts.format == "json" {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
-				displayLogsText([]service.LogEntry{entry}, outputWriter, e.timestamps, e.noColor)
+				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
 			}
 
 		case err := <-errChan:
@@ -586,12 +632,8 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 // followLogsInMemory uses in-memory log buffer subscriptions.
 func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.LogEntry, logManager LogManagerInterface, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Setup signal handling for graceful exit
-	sigChan := e.signalChan
-	if sigChan == nil {
-		sigChan = make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		defer signal.Stop(sigChan)
-	}
+	sigChan, cleanupSignal := e.getOrCreateSignalChan()
+	defer cleanupSignal()
 
 	// Create stop channel for goroutine cleanup
 	stopChan := make(chan struct{})
@@ -628,15 +670,19 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 		close(mergedChan)
 	}()
 
-	// Cleanup helper function
+	// Cleanup helper function with sync.Once to prevent double-close panics
+	var cleanupOnce sync.Once
 	cleanup := func() {
-		close(stopChan)
-		for serviceName, ch := range subscriptions {
-			buffer, exists := logManager.GetBuffer(serviceName)
-			if exists {
-				buffer.Unsubscribe(ch)
+		cleanupOnce.Do(func() {
+			close(stopChan)
+			wg.Wait() // Ensure all goroutines stopped before unsubscribing
+			for serviceName, ch := range subscriptions {
+				buffer, exists := logManager.GetBuffer(serviceName)
+				if exists {
+					buffer.Unsubscribe(ch)
+				}
 			}
-		}
+		})
 	}
 
 	// Display logs as they arrive
@@ -649,21 +695,16 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 				return nil
 			}
 
-			// Filter by level
-			if levelFilter != LogLevelAll && entry.Level != levelFilter {
-				continue
-			}
-
-			// Filter by pattern
-			if logFilter != nil && logFilter.ShouldFilter(entry.Message) {
+			// Use extracted filter method
+			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
 				continue
 			}
 
 			// Display log entry
-			if e.format == "json" {
+			if e.opts.format == "json" {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
-				displayLogsText([]service.LogEntry{entry}, outputWriter, e.timestamps, e.noColor)
+				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
 			}
 
 		case <-sigChan:
@@ -709,10 +750,6 @@ func readLogsFromFile(projectDir, serviceName string, tail int, sinceTime time.T
 	return allEntries, nil
 }
 
-// maxLogLineSize is the maximum size of a single log line (1MB).
-// This handles extremely long log lines from stack traces or JSON dumps.
-const maxLogLineSize = 1 * 1024 * 1024
-
 // readSingleLogFile reads log entries from a single log file.
 func readSingleLogFile(logFile, serviceName string, sinceTime time.Time) ([]service.LogEntry, error) {
 	file, err := os.Open(logFile)
@@ -724,7 +761,7 @@ func readSingleLogFile(logFile, serviceName string, sinceTime time.Time) ([]serv
 	var entries []service.LogEntry
 	scanner := bufio.NewScanner(file)
 	// Increase buffer size to handle long log lines (stack traces, JSON dumps)
-	scanner.Buffer(make([]byte, 64*1024), maxLogLineSize)
+	scanner.Buffer(make([]byte, scannerInitialBufferSize), maxLogLineSize)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -902,14 +939,14 @@ func parseLogLevel(level string) service.LogLevel {
 	}
 }
 
-// filterLogsByLevel filters logs by level.
+// filterLogsByLevel filters logs by level with pre-allocated capacity.
 func filterLogsByLevel(logs []service.LogEntry, level service.LogLevel) []service.LogEntry {
 	if level == LogLevelAll {
 		return logs
 	}
 
-	// Pre-allocate with estimated capacity (assume ~25% match rate)
-	estimatedCap := len(logs) / 4
+	// Pre-allocate with estimated capacity based on typical match rate
+	estimatedCap := len(logs) / filterCapacityEstimate
 	if estimatedCap < 10 {
 		estimatedCap = 10
 	}
@@ -922,14 +959,15 @@ func filterLogsByLevel(logs []service.LogEntry, level service.LogLevel) []servic
 	return filtered
 }
 
-// buildLogFilter creates a log filter from command-line flags and azure.yaml config.
-// Priority: command-line flags > azure.yaml project config > built-in patterns.
-func buildLogFilter(cwd string) (*service.LogFilter, error) {
+// buildLogFilter creates a log filter from options and azure.yaml config.
+// This is a test helper function that wraps buildLogFilterInternal.
+// Deprecated: Use executor.buildLogFilterInternal directly in new code.
+func buildLogFilter(cwd string, exclude string, noBuiltins bool) (*service.LogFilter, error) {
 	var customPatterns []string
 
 	// Parse command-line exclude patterns
-	if logsExclude != "" {
-		customPatterns = service.ParseExcludePatterns(logsExclude)
+	if exclude != "" {
+		customPatterns = service.ParseExcludePatterns(exclude)
 	}
 
 	// Try to load patterns from azure.yaml logs.filters section
@@ -940,10 +978,10 @@ func buildLogFilter(cwd string) (*service.LogFilter, error) {
 	}
 
 	// Determine if we should include built-in patterns
-	includeBuiltins := !logsNoBuiltins
+	includeBuiltins := !noBuiltins
 	if filterConfig != nil {
 		// azure.yaml can override, but command-line takes precedence
-		if !logsNoBuiltins {
+		if !noBuiltins {
 			includeBuiltins = filterConfig.ShouldIncludeBuiltins()
 		}
 	}
@@ -963,36 +1001,38 @@ func getFilterConfig(azureYaml *service.AzureYaml, err error) *service.LogFilter
 	return azureYaml.Logs.GetFilters()
 }
 
-// validateLogsInputs validates command-line flag values.
-func validateLogsInputs() error {
+// validateLogsOptions validates command-line flag values.
+func validateLogsOptions(opts *logsOptions) error {
 	// Validate tail is positive
-	if logsTail < 0 {
-		return fmt.Errorf("--tail must be a positive number, got %d", logsTail)
+	if opts.tail < 0 {
+		return fmt.Errorf("--tail must be a positive number, got %d", opts.tail)
 	}
-	if logsTail > maxTailLines {
-		logsTail = maxTailLines // Cap at maximum
+	if opts.tail > maxTailLines {
+		// Log warning before capping
+		fmt.Fprintf(os.Stderr, "Warning: --tail value %d exceeds maximum, capping at %d\n", opts.tail, maxTailLines)
+		opts.tail = maxTailLines
 	}
 
 	// Validate format
-	switch logsFormat {
+	switch opts.format {
 	case "text", "json":
 		// Valid formats
 	default:
-		return fmt.Errorf("--format must be 'text' or 'json', got '%s'", logsFormat)
+		return fmt.Errorf("--format must be 'text' or 'json', got '%s'", opts.format)
 	}
 
 	// Validate level
-	switch strings.ToLower(logsLevel) {
+	switch strings.ToLower(opts.level) {
 	case "info", "warn", "warning", "error", "debug", "all":
 		// Valid levels
 	default:
-		return fmt.Errorf("--level must be one of: info, warn, error, debug, all; got '%s'", logsLevel)
+		return fmt.Errorf("--level must be one of: info, warn, error, debug, all; got '%s'", opts.level)
 	}
 
 	// Validate since duration if provided
-	if logsSince != "" {
-		if _, err := time.ParseDuration(logsSince); err != nil {
-			return fmt.Errorf("--since must be a valid duration (e.g., 5m, 1h), got '%s': %w", logsSince, err)
+	if opts.since != "" {
+		if _, err := time.ParseDuration(opts.since); err != nil {
+			return fmt.Errorf("--since must be a valid duration (e.g., 5m, 1h), got '%s': %w", opts.since, err)
 		}
 	}
 

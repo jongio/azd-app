@@ -2,9 +2,11 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 )
@@ -43,6 +45,48 @@ type QuietHourRange struct {
 // ServiceNotificationSettings contains notification preferences for a specific service.
 type ServiceNotificationSettings struct {
 	Enabled bool `json:"enabled"`
+}
+
+// serviceNameRegex validates service names:
+// - Must start with a letter
+// - Can contain letters, digits, hyphens, underscores
+// - 1-63 characters (aligns with DNS naming conventions)
+var serviceNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`)
+
+// ValidateServiceName checks if a service name is valid.
+// Service names must:
+// - Be non-empty
+// - Start with a letter
+// - Contain only letters, digits, hyphens, and underscores
+// - Be 1-63 characters long
+func ValidateServiceName(name string) error {
+	if name == "" {
+		return errors.New("service name cannot be empty")
+	}
+	if !serviceNameRegex.MatchString(name) {
+		return fmt.Errorf("invalid service name %q: must start with a letter and contain only letters, digits, hyphens, and underscores (1-63 chars)", name)
+	}
+	return nil
+}
+
+// timeCache caches parsed time values to avoid repeated parsing in tight loops.
+// Thread-safe via sync.Map.
+var timeCache sync.Map
+
+// parseTimeCached parses a time string with caching.
+// Returns the parsed time or an error if the format is invalid.
+func parseTimeCached(timeStr string) (time.Time, error) {
+	if cached, ok := timeCache.Load(timeStr); ok {
+		return cached.(time.Time), nil
+	}
+
+	parsed, err := time.Parse("15:04", timeStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	timeCache.Store(timeStr, parsed)
+	return parsed, nil
 }
 
 var (
@@ -239,8 +283,12 @@ func (p *NotificationPreferences) isServiceEnabledLocked(serviceName string) boo
 }
 
 // SetServiceEnabled sets whether notifications are enabled for a specific service.
-// TODO: Add validation for serviceName format (e.g., non-empty, valid characters)
-func (p *NotificationPreferences) SetServiceEnabled(serviceName string, enabled bool) {
+// Returns an error if the service name is invalid.
+func (p *NotificationPreferences) SetServiceEnabled(serviceName string, enabled bool) error {
+	if err := ValidateServiceName(serviceName); err != nil {
+		return err
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -248,6 +296,7 @@ func (p *NotificationPreferences) SetServiceEnabled(serviceName string, enabled 
 		p.ServiceSettings = make(map[string]ServiceNotificationSettings)
 	}
 	p.ServiceSettings[serviceName] = ServiceNotificationSettings{Enabled: enabled}
+	return nil
 }
 
 // IsInQuietHours checks if the current time falls within any quiet hour range.
@@ -321,9 +370,9 @@ func (p *NotificationPreferences) GetRateLimitDuration() time.Duration {
 
 // isValidTimeFormat checks if a time string is in HH:MM format (24-hour).
 // Returns true if the string can be parsed as a valid time.
-// TODO: Consider caching parsed time values to avoid repeated parsing in tight loops
+// Uses cached parsing for performance in tight loops.
 func isValidTimeFormat(timeStr string) bool {
-	_, err := time.Parse("15:04", timeStr)
+	_, err := parseTimeCached(timeStr)
 	return err == nil
 }
 
@@ -331,10 +380,11 @@ func isValidTimeFormat(timeStr string) bool {
 // Handles ranges that cross midnight (e.g., 23:00 to 01:00).
 // All times must be in HH:MM format (24-hour).
 // Returns true if currentTime is >= start and < end.
+// Uses cached parsing for performance.
 func isTimeInRange(currentTime, start, end string) bool {
-	current, _ := time.Parse("15:04", currentTime)
-	startTime, _ := time.Parse("15:04", start)
-	endTime, _ := time.Parse("15:04", end)
+	current, _ := parseTimeCached(currentTime)
+	startTime, _ := parseTimeCached(start)
+	endTime, _ := parseTimeCached(end)
 
 	// Range doesn't cross midnight
 	if startTime.Before(endTime) {

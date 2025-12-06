@@ -42,6 +42,7 @@ const ansiConverter = new AnsiConverter({
 /**
  * Pattern to match ANSI escape sequences for stripping.
  */
+// eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\/g
 
 /**

@@ -58,6 +58,7 @@ export function LogsView({
   const [internalSearchTerm, setInternalSearchTerm] = useState('')
   const [internalIsPaused, setInternalIsPaused] = useState(false)
   const [isUserScrolling, setIsUserScrolling] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -166,12 +167,13 @@ export function LogsView({
   }, [fetchLogs, setupWebSocket, selectedService])
 
   // Auto-scroll to bottom - scroll the container, not the page
+  // Pause auto-scroll when user is hovering over the logs
   useEffect(() => {
-    if (autoScroll && !isPaused && !isUserScrolling && logsContainerRef.current) {
+    if (autoScroll && !isPaused && !isUserScrolling && !isHovering && logsContainerRef.current) {
       const container = logsContainerRef.current
       container.scrollTop = container.scrollHeight
     }
-  }, [logs, isPaused, isUserScrolling, autoScroll])
+  }, [logs, isPaused, isUserScrolling, autoScroll, isHovering])
 
   // Clear logs when global clear is triggered
   useEffect(() => {
@@ -338,6 +340,8 @@ export function LogsView({
       <div 
         ref={logsContainerRef}
         onScroll={handleScroll}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
         className={cn(
           "bg-card border rounded-lg p-4 overflow-y-auto font-mono text-sm",
           hideControls ? "flex-1" : "h-[600px]"

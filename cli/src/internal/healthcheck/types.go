@@ -101,6 +101,7 @@ type MonitorConfig struct {
 	EnableMetrics          bool
 	MetricsPort            int
 	CacheTTL               time.Duration
+	StartupGracePeriod     time.Duration // Grace period for services during startup (0 = use default)
 }
 
 // serviceInfo holds information about a service for health checking.

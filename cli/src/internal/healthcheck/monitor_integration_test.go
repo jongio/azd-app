@@ -351,6 +351,7 @@ func TestUpdateRegistry(t *testing.T) {
 		t.Errorf("Expected status 'running', got '%s'", services[0].Status)
 	}
 }
+
 // TestUpdateRegistry_NoRegressionFromRunningToStarting verifies that services that are
 // already running are NOT regressed to "starting" when health checks return HealthStatusStarting.
 // This fixes a bug where services would show "starting" indefinitely in the dashboard because
