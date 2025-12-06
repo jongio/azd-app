@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
@@ -113,6 +115,11 @@ func newNotificationsMarkReadCmd() *cobra.Command {
 				return fmt.Errorf("invalid notification ID: %w", err)
 			}
 
+			// Validate ID is positive
+			if id <= 0 {
+				return fmt.Errorf("notification ID must be positive, got %d", id)
+			}
+
 			if err := db.MarkAsRead(ctx, id); err != nil {
 				return fmt.Errorf("failed to mark as read: %w", err)
 			}
@@ -157,9 +164,26 @@ func newNotificationsClearCmd() *cobra.Command {
 				return nil
 			}
 
+			// Interactive confirmation with context-aware input
 			fmt.Print("Clear all notification history? (y/N): ")
+
+			// Create a channel to read user input
+			responseChan := make(chan string, 1)
+			go func() {
+				var response string
+				_, _ = fmt.Scanln(&response)
+				responseChan <- response
+			}()
+
+			// Wait for user input or context cancellation
 			var response string
-			_, _ = fmt.Scanln(&response)
+			select {
+			case response = <-responseChan:
+				// User provided input
+			case <-ctx.Done():
+				fmt.Println("\nCancelled by context")
+				return ctx.Err()
+			}
 
 			if response != "y" && response != "Y" {
 				fmt.Println("Cancelled")
@@ -230,7 +254,7 @@ func printNotifications(records []notifications.NotificationRecord) {
 		relTime := formatRelativeTime(r.Timestamp)
 		message := r.Message
 		if len(message) > 50 {
-			message = message[:47] + "..."
+			message = truncateUTF8(message, 47) + "..."
 		}
 
 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
@@ -265,13 +289,26 @@ func formatRelativeTime(t time.Time) string {
 }
 
 func getNotificationDBPath() string {
-	// Use XDG_DATA_HOME or fallback to ~/.local/share
+	// Use XDG_DATA_HOME on Linux, or platform-specific user data directory
 	dataHome := os.Getenv("XDG_DATA_HOME")
 	if dataHome == "" {
-		home, _ := os.UserHomeDir()
-		dataHome = home + "/.local/share"
+		home, err := os.UserHomeDir()
+		if err != nil {
+			// Fallback to temp directory if home directory is unavailable
+			return filepath.Join(os.TempDir(), "azd", "notifications.db")
+		}
+		// Platform-specific data directory
+		// Windows: %LOCALAPPDATA%\azd, Unix: ~/.local/share/azd
+		switch {
+		case os.Getenv("LOCALAPPDATA") != "":
+			dataHome = filepath.Join(os.Getenv("LOCALAPPDATA"), "azd")
+		default:
+			dataHome = filepath.Join(home, ".local", "share", "azd")
+		}
+	} else {
+		dataHome = filepath.Join(dataHome, "azd")
 	}
-	return dataHome + "/azd/notifications.db"
+	return filepath.Join(dataHome, "notifications.db")
 }
 
 func newNotificationsTestCmd() *cobra.Command {
@@ -374,4 +411,19 @@ func newNotificationsEnableCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&disable, "disable", false, "Disable OS notifications instead of enabling")
 
 	return cmd
+}
+
+// truncateUTF8 safely truncates a UTF-8 string to maxLen bytes,
+// ensuring we don't cut in the middle of a multi-byte character.
+func truncateUTF8(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	// Find the last valid UTF-8 character boundary before maxLen
+	for i := maxLen; i >= 0; i-- {
+		if utf8.RuneStart(s[i]) {
+			return s[:i]
+		}
+	}
+	return s[:maxLen]
 }

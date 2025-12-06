@@ -4,12 +4,10 @@ package commands
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
+	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
-	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/installer"
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
@@ -42,6 +40,24 @@ type DepsResult struct {
 	Projects []InstallResult `json:"projects"`
 	Message  string          `json:"message,omitempty"`
 	Error    string          `json:"error,omitempty"`
+}
+
+// CleanDependenciesError represents an error during dependency cleaning with details.
+type CleanDependenciesError struct {
+	Count   int
+	Details []string
+}
+
+// Error implements the error interface.
+func (e *CleanDependenciesError) Error() string {
+	if len(e.Details) == 0 {
+		return fmt.Sprintf("encountered %d error(s) while cleaning dependencies", e.Count)
+	}
+	if len(e.Details) == 1 {
+		return fmt.Sprintf("failed to clean dependencies: %s", e.Details[0])
+	}
+	return fmt.Sprintf("encountered %d error(s) while cleaning dependencies:\n  - %s",
+		e.Count, strings.Join(e.Details, "\n  - "))
 }
 
 const (
@@ -198,7 +214,10 @@ func executeReqs() error {
 
 // DependencyInstaller handles installation of project dependencies.
 type DependencyInstaller struct {
-	searchRoot string
+	searchRoot     string
+	nodeProjects   []types.NodeProject   // Pre-filtered Node.js projects (optional)
+	pythonProjects []types.PythonProject // Pre-filtered Python projects (optional)
+	dotnetProjects []types.DotnetProject // Pre-filtered .NET projects (optional)
 }
 
 // NewDependencyInstaller creates a new dependency installer.
@@ -219,36 +238,107 @@ type InstallResult struct {
 }
 
 // InstallAll installs dependencies for all detected project types.
+// Returns results for all attempted installations and any detection errors.
 func (di *DependencyInstaller) InstallAll() ([]InstallResult, error) {
 	var results []InstallResult
-	hasProjects := false
+	var detectionErrors []error
 
 	// Install Node.js dependencies
 	nodeResults, err := di.installNodeProjects()
-	if err == nil && len(nodeResults) > 0 {
-		hasProjects = true
-		results = append(results, nodeResults...)
+	if err != nil {
+		detectionErrors = append(detectionErrors, fmt.Errorf("node detection: %w", err))
 	}
+	results = append(results, nodeResults...)
 
 	// Install Python dependencies
 	pythonResults, err := di.installPythonProjects()
-	if err == nil && len(pythonResults) > 0 {
-		hasProjects = true
-		results = append(results, pythonResults...)
+	if err != nil {
+		detectionErrors = append(detectionErrors, fmt.Errorf("python detection: %w", err))
 	}
+	results = append(results, pythonResults...)
 
 	// Install .NET dependencies
 	dotnetResults, err := di.installDotnetProjects()
-	if err == nil && len(dotnetResults) > 0 {
-		hasProjects = true
-		results = append(results, dotnetResults...)
+	if err != nil {
+		detectionErrors = append(detectionErrors, fmt.Errorf("dotnet detection: %w", err))
 	}
+	results = append(results, dotnetResults...)
 
-	if !hasProjects {
-		return results, nil
+	// Return combined detection errors if any occurred
+	if len(detectionErrors) > 0 {
+		errMsgs := make([]string, len(detectionErrors))
+		for i, e := range detectionErrors {
+			errMsgs[i] = e.Error()
+		}
+		return results, fmt.Errorf("detection errors: %s", strings.Join(errMsgs, "; "))
 	}
 
 	return results, nil
+}
+
+// InstallAllFiltered installs dependencies for pre-filtered projects.
+// Use this when projects have already been detected and filtered (e.g., by service name).
+func (di *DependencyInstaller) InstallAllFiltered() ([]InstallResult, error) {
+	var results []InstallResult
+
+	// Install Node.js dependencies from pre-filtered list
+	if len(di.nodeProjects) > 0 {
+		nodeResults := di.installNodeProjectList(di.nodeProjects)
+		results = append(results, nodeResults...)
+	}
+
+	// Install Python dependencies from pre-filtered list
+	if len(di.pythonProjects) > 0 {
+		pythonResults := di.installPythonProjectList(di.pythonProjects)
+		results = append(results, pythonResults...)
+	}
+
+	// Install .NET dependencies from pre-filtered list
+	if len(di.dotnetProjects) > 0 {
+		dotnetResults := di.installDotnetProjectList(di.dotnetProjects)
+		results = append(results, dotnetResults...)
+	}
+
+	return results, nil
+}
+
+// installNodeProjectList installs dependencies for a list of Node.js projects.
+func (di *DependencyInstaller) installNodeProjectList(nodeProjects []types.NodeProject) []InstallResult {
+	var results []InstallResult
+	for _, nodeProject := range nodeProjects {
+		result := di.installProject("node", nodeProject.Dir, nodeProject.PackageManager, func() error {
+			return installer.InstallNodeDependencies(nodeProject)
+		})
+		results = append(results, result)
+	}
+	return results
+}
+
+// installPythonProjectList installs dependencies for a list of Python projects.
+func (di *DependencyInstaller) installPythonProjectList(pythonProjects []types.PythonProject) []InstallResult {
+	var results []InstallResult
+	for _, pyProject := range pythonProjects {
+		result := di.installProject("python", pyProject.Dir, pyProject.PackageManager, func() error {
+			return installer.SetupPythonVirtualEnv(pyProject)
+		})
+		results = append(results, result)
+	}
+	return results
+}
+
+// installDotnetProjectList installs dependencies for a list of .NET projects.
+func (di *DependencyInstaller) installDotnetProjectList(dotnetProjects []types.DotnetProject) []InstallResult {
+	var results []InstallResult
+	for _, dotnetProject := range dotnetProjects {
+		result := di.installProject("dotnet", filepath.Dir(dotnetProject.Path), "dotnet", func() error {
+			return installer.RestoreDotnetProject(dotnetProject)
+		})
+		// For dotnet, we use Path instead of Dir in the result
+		result.Path = dotnetProject.Path
+		result.Dir = ""
+		results = append(results, result)
+	}
+	return results
 }
 
 // installNodeProjects installs dependencies for Node.js projects.
@@ -370,120 +460,308 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
-	output.CommandHeader("deps", "Install project dependencies")
+	// Get options set by the command
+	opts := GetDepsOptions()
 
-	// Determine search root
-	searchRoot, err := getSearchRoot()
-	if err != nil {
-		if output.IsJSON() {
-			return output.PrintJSON(DepsResult{Error: err.Error()})
+	// Create executor with production dependencies and execute
+	executor := newDepsExecutor(opts)
+	return executor.execute()
+}
+
+// showDryRunSummary displays what would be installed without actually installing.
+func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, searchRoot string) error {
+	if output.IsJSON() {
+		// Build dry-run results
+		var results []InstallResult
+		for _, p := range nodeProjects {
+			results = append(results, InstallResult{
+				Type:    "node",
+				Dir:     p.Dir,
+				Manager: p.PackageManager,
+				Success: true, // Would succeed (dry-run)
+			})
 		}
-		return err
+		for _, p := range pythonProjects {
+			results = append(results, InstallResult{
+				Type:    "python",
+				Dir:     p.Dir,
+				Manager: p.PackageManager,
+				Success: true,
+			})
+		}
+		for _, p := range dotnetProjects {
+			results = append(results, InstallResult{
+				Type:    "dotnet",
+				Path:    p.Path,
+				Success: true,
+			})
+		}
+		return output.PrintJSON(DepsResult{
+			Success:  true,
+			Projects: results,
+			Message:  "dry-run: no changes made",
+		})
 	}
 
-	// Detect all projects
-	nodeProjects, err := detector.FindNodeProjects(searchRoot)
-	if err != nil {
-		if output.IsJSON() {
-			return output.PrintJSON(DepsResult{Error: fmt.Sprintf("failed to detect Node.js projects: %v", err)})
-		}
-		return fmt.Errorf("failed to detect Node.js projects: %w", err)
-	}
-	pythonProjects, err := detector.FindPythonProjects(searchRoot)
-	if err != nil {
-		if output.IsJSON() {
-			return output.PrintJSON(DepsResult{Error: fmt.Sprintf("failed to detect Python projects: %v", err)})
-		}
-		return fmt.Errorf("failed to detect Python projects: %w", err)
-	}
-	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
-	if err != nil {
-		if output.IsJSON() {
-			return output.PrintJSON(DepsResult{Error: fmt.Sprintf("failed to detect .NET projects: %v", err)})
-		}
-		return fmt.Errorf("failed to detect .NET projects: %w", err)
-	}
+	// Text output
+	output.Section("📋", "Dry Run - Projects that would be installed")
+	output.Newline()
 
-	totalProjects := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
-
-	// Handle no projects case
-	if totalProjects == 0 {
-		// Check if there are Logic Apps projects (which don't need dependency installation)
-		functionApps, _ := detector.FindFunctionApps(searchRoot)
-		hasLogicAppsOnly := false
-		if len(functionApps) > 0 {
-			hasLogicAppsOnly = true
-			for _, app := range functionApps {
-				if app.Variant != "logicapps" {
-					hasLogicAppsOnly = false
-					break
-				}
+	if len(nodeProjects) > 0 {
+		output.Step("📦", "Node.js projects (%d)", len(nodeProjects))
+		for _, p := range nodeProjects {
+			relDir := p.Dir
+			if rel, err := filepath.Rel(searchRoot, p.Dir); err == nil && rel != "." {
+				relDir = rel
 			}
+			output.Item("%s (%s)", relDir, p.PackageManager)
 		}
+		output.Newline()
+	}
 
+	if len(pythonProjects) > 0 {
+		output.Step("🐍", "Python projects (%d)", len(pythonProjects))
+		for _, p := range pythonProjects {
+			relDir := p.Dir
+			if rel, err := filepath.Rel(searchRoot, p.Dir); err == nil && rel != "." {
+				relDir = rel
+			}
+			output.Item("%s (%s)", relDir, p.PackageManager)
+		}
+		output.Newline()
+	}
+
+	if len(dotnetProjects) > 0 {
+		output.Step("🔷", ".NET projects (%d)", len(dotnetProjects))
+		for _, p := range dotnetProjects {
+			relPath := p.Path
+			if rel, err := filepath.Rel(searchRoot, p.Path); err == nil && rel != "." {
+				relPath = rel
+			}
+			output.Item("%s", relPath)
+		}
+		output.Newline()
+	}
+
+	total := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
+	output.Info("Total: %d project(s) would be installed", total)
+	output.Info("Run without --dry-run to install dependencies")
+
+	return nil
+}
+
+// handleDepsError returns an error with JSON output if in JSON mode.
+func handleDepsError(err error, message string) error {
+	fullErr := fmt.Errorf("%s: %w", message, err)
+	if output.IsJSON() {
+		return output.PrintJSON(DepsResult{Error: fullErr.Error()})
+	}
+	return fullErr
+}
+
+// handleNoProjectsCase handles the case when no projects are detected.
+func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
+	// If user specified services but none matched, show a helpful message
+	if len(serviceFilter) > 0 {
+		msg := fmt.Sprintf("No projects found matching services: %v", serviceFilter)
 		if output.IsJSON() {
 			return output.PrintJSON(DepsResult{
 				Success:  true,
 				Projects: []InstallResult{},
-				Message:  msgNoProjectsDetected,
+				Message:  msg,
 			})
 		}
-
-		// Only show "No projects detected" if it's not a Logic Apps-only workspace
-		if !hasLogicAppsOnly {
-			output.Info(msgNoProjectsDetected)
-		}
+		output.Info("%s", msg)
 		return nil
 	}
 
-	// Clean dependencies if requested
-	if depsClean {
-		if err := cleanDependencies(nodeProjects, pythonProjects, dotnetProjects); err != nil {
-			return fmt.Errorf("failed to clean dependencies: %w", err)
-		}
-	}
-
-	// Use parallel installer for concurrent installation with progress bars
-	if !output.IsJSON() {
-		parallelInstaller := installer.NewParallelInstaller()
-		parallelInstaller.Verbose = depsVerbose
-
-		// Handle npm/yarn/pnpm workspace scenarios using workspace handler
-		// When a workspace root exists, only install at the root level to avoid race conditions
-		// on Windows where parallel npm installs compete for the same node_modules directory
-		workspaceHandler := workspace.NewHandler()
-		filteredNodeProjects := workspaceHandler.FilterNodeProjects(nodeProjects)
-
-		for _, project := range filteredNodeProjects {
-			parallelInstaller.AddNodeProject(project)
-		}
-		for _, project := range pythonProjects {
-			parallelInstaller.AddPythonProject(project)
-		}
-		for _, project := range dotnetProjects {
-			parallelInstaller.AddDotnetProject(project)
-		}
-
-		// Run all installations in parallel
-		if err := parallelInstaller.Run(); err != nil {
-			return err
-		}
-
-		// Check for failures
-		if parallelInstaller.HasFailures() {
-			failedProjects := parallelInstaller.FailedProjects()
-			if len(failedProjects) > 0 {
-				return fmt.Errorf("failed to install %d of %d projects: %v", len(failedProjects), parallelInstaller.TotalProjects(), failedProjects)
+	// Check if there are Logic Apps projects (which don't need dependency installation)
+	functionApps, _ := detector.FindFunctionApps(searchRoot)
+	hasLogicAppsOnly := false
+	if len(functionApps) > 0 {
+		hasLogicAppsOnly = true
+		for _, app := range functionApps {
+			if app.Variant != "logicapps" {
+				hasLogicAppsOnly = false
+				break
 			}
-			return fmt.Errorf("some installations failed")
 		}
-
-		return nil
 	}
 
-	// JSON mode: use sequential installer
+	if output.IsJSON() {
+		return output.PrintJSON(DepsResult{
+			Success:  true,
+			Projects: []InstallResult{},
+			Message:  msgNoProjectsDetected,
+		})
+	}
+
+	// Only show "No projects detected" if it's not a Logic Apps-only workspace
+	if !hasLogicAppsOnly {
+		output.Info("%s", msgNoProjectsDetected)
+	}
+	return nil
+}
+
+// filterProjectsByService filters projects to only include those matching the specified service names.
+func filterProjectsByService(
+	nodeProjects []types.NodeProject,
+	pythonProjects []types.PythonProject,
+	dotnetProjects []types.DotnetProject,
+	services []string,
+	searchRoot string,
+) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject) {
+	// Build a set of service paths from azure.yaml
+	servicePaths := make(map[string]bool)
+
+	azureYamlPath, err := detector.FindAzureYaml(searchRoot)
+	if err != nil || azureYamlPath == "" {
+		// No azure.yaml found, can't filter by service
+		return nodeProjects, pythonProjects, dotnetProjects
+	}
+
+	azureYaml, err := parseAzureYaml(azureYamlPath)
+	if err != nil {
+		return nodeProjects, pythonProjects, dotnetProjects
+	}
+
+	azureYamlDir := filepath.Dir(azureYamlPath)
+
+	// Build map of service name to absolute path
+	for name, svc := range azureYaml.Services {
+		// Check if this service is in the filter list
+		for _, filterName := range services {
+			if name == filterName {
+				svcPath := filepath.Join(azureYamlDir, svc.Project)
+				absPath, err := filepath.Abs(svcPath)
+				if err != nil {
+					// Log warning but continue processing other services
+					if !output.IsJSON() {
+						output.Warning("Failed to resolve absolute path for service %s: %v", name, err)
+					}
+					continue
+				}
+				servicePaths[absPath] = true
+				break
+			}
+		}
+	}
+
+	// Filter Node.js projects
+	var filteredNode []types.NodeProject
+	for _, p := range nodeProjects {
+		absDir, _ := filepath.Abs(p.Dir)
+		if servicePaths[absDir] || isSubdirectory(absDir, servicePaths) {
+			filteredNode = append(filteredNode, p)
+		}
+	}
+
+	// Filter Python projects
+	var filteredPython []types.PythonProject
+	for _, p := range pythonProjects {
+		absDir, _ := filepath.Abs(p.Dir)
+		if servicePaths[absDir] || isSubdirectory(absDir, servicePaths) {
+			filteredPython = append(filteredPython, p)
+		}
+	}
+
+	// Filter .NET projects
+	var filteredDotnet []types.DotnetProject
+	for _, p := range dotnetProjects {
+		absPath, _ := filepath.Abs(p.Path)
+		absDir := filepath.Dir(absPath)
+		if servicePaths[absDir] || isSubdirectory(absDir, servicePaths) {
+			filteredDotnet = append(filteredDotnet, p)
+		}
+	}
+
+	return filteredNode, filteredPython, filteredDotnet
+}
+
+// isSubdirectory checks if path is a subdirectory of any path in the set.
+// Uses filepath.Rel for cross-platform path comparison.
+func isSubdirectory(path string, parentPaths map[string]bool) bool {
+	// Normalize the path
+	path = filepath.Clean(path)
+	for parent := range parentPaths {
+		parent = filepath.Clean(parent)
+		// Skip if path equals parent (we want strict subdirectory)
+		if path == parent {
+			continue
+		}
+		// Use filepath.Rel to check if path is relative to parent
+		rel, err := filepath.Rel(parent, path)
+		if err != nil {
+			continue
+		}
+		// If relative path doesn't start with "..", it's a subdirectory
+		// Check for both ".." prefix and "." to prevent path traversal
+		if !strings.HasPrefix(rel, "..") && rel != "." {
+			return true
+		}
+	}
+	return false
+}
+
+// parseAzureYaml parses the azure.yaml file.
+func parseAzureYaml(azureYamlPath string) (*service.AzureYaml, error) {
+	data, err := os.ReadFile(azureYamlPath)
+	if err != nil {
+		return nil, err
+	}
+	var azureYaml service.AzureYaml
+	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
+		return nil, err
+	}
+	return &azureYaml, nil
+}
+
+// runParallelInstallation runs the parallel installer for non-JSON mode.
+func runParallelInstallation(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, verbose bool) error {
+	parallelInstaller := installer.NewParallelInstaller()
+	parallelInstaller.Verbose = verbose
+
+	// Handle npm/yarn/pnpm workspace scenarios using workspace handler
+	// When a workspace root exists, only install at the root level to avoid race conditions
+	// on Windows where parallel npm installs compete for the same node_modules directory
+	workspaceHandler := workspace.NewHandler()
+	filteredNodeProjects := workspaceHandler.FilterNodeProjects(nodeProjects)
+
+	for _, project := range filteredNodeProjects {
+		parallelInstaller.AddNodeProject(project)
+	}
+	for _, project := range pythonProjects {
+		parallelInstaller.AddPythonProject(project)
+	}
+	for _, project := range dotnetProjects {
+		parallelInstaller.AddDotnetProject(project)
+	}
+
+	// Run all installations in parallel
+	if err := parallelInstaller.Run(); err != nil {
+		return err
+	}
+
+	// Check for failures
+	if parallelInstaller.HasFailures() {
+		failedProjects := parallelInstaller.FailedProjects()
+		if len(failedProjects) > 0 {
+			return fmt.Errorf("failed to install %d of %d projects: %v", len(failedProjects), parallelInstaller.TotalProjects(), failedProjects)
+		}
+		return fmt.Errorf("some installations failed")
+	}
+
+	return nil
+}
+
+// runJSONInstallation runs installation in JSON mode with sequential output.
+func runJSONInstallation(searchRoot string, nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
 	depInstaller := NewDependencyInstaller(searchRoot)
-	results, err := depInstaller.InstallAll()
+	depInstaller.nodeProjects = nodeProjects
+	depInstaller.pythonProjects = pythonProjects
+	depInstaller.dotnetProjects = dotnetProjects
+
+	results, err := depInstaller.InstallAllFiltered()
 	if err != nil {
 		return err
 	}
@@ -531,94 +809,6 @@ func executeRun() error {
 	return nil
 }
 
-// Deprecated: Legacy function kept for reference
-var _ = _runAzureYamlServices
-
-// runAzureYamlServices runs services defined in azure.yaml using service orchestration.
-// This is called from executeDeps to handle azure.yaml services in the orchestrator context.
-func _runAzureYamlServices(azureYaml *service.AzureYaml, azureYamlPath string) error {
-	// Import the runServicesFromAzureYaml logic by calling it directly
-	// We can't easily reuse the function from run.go due to package isolation,
-	// so we'll implement a simple version that calls the service orchestrator
-
-	// Get directory containing azure.yaml
-	azureYamlDir := filepath.Dir(azureYamlPath)
-
-	output.Section("🚀", "Starting development environment")
-
-	// Filter services if needed (for now, run all services)
-	services := azureYaml.Services
-
-	// Track used ports to avoid conflicts
-	usedPorts := make(map[int]bool)
-
-	// Detect runtime for each service
-	runtimes := make([]*service.ServiceRuntime, 0, len(services))
-	for name, svc := range services {
-		// Use "azd" mode by default for background service tracking
-		runtime, err := service.DetectServiceRuntime(name, svc, usedPorts, azureYamlDir, "azd")
-		if err != nil {
-			return fmt.Errorf("failed to detect runtime for service %s: %w", name, err)
-		}
-		usedPorts[runtime.Port] = true
-		runtimes = append(runtimes, runtime)
-	}
-
-	// Create logger
-	logger := service.NewServiceLogger(false)
-	logger.LogStartup(len(runtimes))
-
-	// Orchestrate services (using empty env vars)
-	envVars := make(map[string]string)
-	result, err := service.OrchestrateServices(runtimes, envVars, logger)
-	if err != nil {
-		return fmt.Errorf("service orchestration failed: %w", err)
-	}
-
-	// Validate that all services are ready
-	if err := service.ValidateOrchestration(result); err != nil {
-		service.StopAllServices(result.Processes)
-		return fmt.Errorf("service validation failed: %w", err)
-	}
-
-	// Get service URLs and log summary
-	urls := service.GetServiceURLs(result.Processes)
-	logger.LogSummary(urls)
-
-	// Start dashboard server (simplified version)
-	cwd, _ := os.Getwd()
-	dashboardServer := dashboard.GetServer(cwd)
-	dashboardURL, err := dashboardServer.Start()
-	if err != nil {
-		output.Warning("Failed to start dashboard: %v", err)
-	} else {
-		output.Newline()
-		output.Info("📊 Dashboard: %s", output.URL(dashboardURL))
-		output.Newline()
-	}
-
-	// Set up signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	// Wait for interrupt signal
-	<-sigChan
-
-	output.Newline()
-	output.Newline()
-	output.Warning("🛑 Shutting down services...")
-
-	// Stop dashboard
-	if err := dashboardServer.Stop(); err != nil {
-		output.Warning("Failed to stop dashboard: %v", err)
-	}
-
-	service.StopAllServices(result.Processes)
-	output.Success("All services stopped")
-
-	return nil
-}
-
 // checkRequirementsWithCache checks requirements with cache support.
 func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool) {
 	// Try cache first if enabled
@@ -642,8 +832,12 @@ func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cache
 // tryGetCachedResults attempts to retrieve and use cached results.
 func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool, bool) {
 	cachedResults, valid, err := cacheManager.GetCachedResults(azureYamlPath)
-	if err != nil && !output.IsJSON() {
-		output.Warning("Failed to read cache: %v", err)
+	if err != nil {
+		// Log cache read errors in both JSON and non-JSON modes for visibility
+		if !output.IsJSON() {
+			output.Warning("Failed to read cache: %v", err)
+		}
+		// In JSON mode, error is still visible in debug/log output but doesn't affect user output
 	}
 
 	if !valid || cachedResults == nil {
@@ -769,7 +963,66 @@ func (rf *ResultFormatter) PrintAll(results []ReqResult) {
 	}
 }
 
+// detectAllProjects detects all project types in the given directory.
+// This is a convenience wrapper for testing and backward compatibility.
+func detectAllProjects(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {
+	nodeProjects, err := detector.FindNodeProjects(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to detect Node.js projects: %w", err)
+	}
+
+	pythonProjects, err := detector.FindPythonProjects(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to detect Python projects: %w", err)
+	}
+
+	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to detect .NET projects: %w", err)
+	}
+
+	return nodeProjects, pythonProjects, dotnetProjects, nil
+}
+
 // cleanDependencies removes existing dependency directories for all detected projects.
+// cleanDirectory removes a directory if it exists and logs the operation.
+// Returns an error if removal fails.
+func cleanDirectory(path string) error {
+	if _, err := os.Stat(path); err != nil {
+		return nil // Directory doesn't exist, nothing to clean
+	}
+
+	// Validate that we're only cleaning expected dependency directories
+	// to prevent accidental deletion of important files
+	dirName := filepath.Base(path)
+	validDirs := map[string]bool{
+		"node_modules":  true,
+		".venv":         true,
+		"obj":           true,
+		"bin":           true,
+		"__pycache__":   true,
+		".pytest_cache": true,
+	}
+
+	if !validDirs[dirName] {
+		return fmt.Errorf("refusing to clean unexpected directory: %s (only dependency directories are allowed)", path)
+	}
+
+	if !output.IsJSON() {
+		output.Item("Removing %s", path)
+	}
+	if err := os.RemoveAll(path); err != nil {
+		if !output.IsJSON() {
+			output.ItemError("Failed: %v", err)
+		}
+		return fmt.Errorf("failed to remove %s: %w", path, err)
+	}
+	if !output.IsJSON() {
+		output.ItemSuccess("Removed successfully")
+	}
+	return nil
+}
+
 func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
 	if !output.IsJSON() {
 		output.Newline()
@@ -782,80 +1035,26 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 	// Clean Node.js projects
 	for _, project := range nodeProjects {
 		nodeModulesPath := filepath.Join(project.Dir, "node_modules")
-		if _, err := os.Stat(nodeModulesPath); err == nil {
-			if !output.IsJSON() {
-				output.Item("Removing %s", nodeModulesPath)
-			}
-			if err := os.RemoveAll(nodeModulesPath); err != nil {
-				errors = append(errors, fmt.Errorf("failed to remove %s: %w", nodeModulesPath, err))
-				if !output.IsJSON() {
-					output.ItemError("Failed: %v", err)
-				}
-			} else {
-				if !output.IsJSON() {
-					output.ItemSuccess("Removed successfully")
-				}
-			}
+		if err := cleanDirectory(nodeModulesPath); err != nil {
+			errors = append(errors, err)
 		}
 	}
 
 	// Clean Python projects
 	for _, project := range pythonProjects {
 		venvPath := filepath.Join(project.Dir, ".venv")
-		if _, err := os.Stat(venvPath); err == nil {
-			if !output.IsJSON() {
-				output.Item("Removing %s", venvPath)
-			}
-			if err := os.RemoveAll(venvPath); err != nil {
-				errors = append(errors, fmt.Errorf("failed to remove %s: %w", venvPath, err))
-				if !output.IsJSON() {
-					output.ItemError("Failed: %v", err)
-				}
-			} else {
-				if !output.IsJSON() {
-					output.ItemSuccess("Removed successfully")
-				}
-			}
+		if err := cleanDirectory(venvPath); err != nil {
+			errors = append(errors, err)
 		}
 	}
 
 	// Clean .NET projects (obj and bin directories)
 	for _, project := range dotnetProjects {
 		projectDir := filepath.Dir(project.Path)
-
-		// Remove obj directory
-		objPath := filepath.Join(projectDir, "obj")
-		if _, err := os.Stat(objPath); err == nil {
-			if !output.IsJSON() {
-				output.Item("Removing %s", objPath)
-			}
-			if err := os.RemoveAll(objPath); err != nil {
-				errors = append(errors, fmt.Errorf("failed to remove %s: %w", objPath, err))
-				if !output.IsJSON() {
-					output.ItemError("Failed: %v", err)
-				}
-			} else {
-				if !output.IsJSON() {
-					output.ItemSuccess("Removed successfully")
-				}
-			}
-		}
-
-		// Remove bin directory
-		binPath := filepath.Join(projectDir, "bin")
-		if _, err := os.Stat(binPath); err == nil {
-			if !output.IsJSON() {
-				output.Item("Removing %s", binPath)
-			}
-			if err := os.RemoveAll(binPath); err != nil {
-				errors = append(errors, fmt.Errorf("failed to remove %s: %w", binPath, err))
-				if !output.IsJSON() {
-					output.ItemError("Failed: %v", err)
-				}
-			} else {
-				if !output.IsJSON() {
-					output.ItemSuccess("Removed successfully")
-				}
+		for _, dir := range []string{"obj", "bin"} {
+			dirPath := filepath.Join(projectDir, dir)
+			if err := cleanDirectory(dirPath); err != nil {
+				errors = append(errors, err)
 			}
 		}
 	}
@@ -866,7 +1065,15 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("encountered %d error(s) while cleaning dependencies", len(errors))
+		// Build detailed error message with all failures
+		var errorDetails []string
+		for _, err := range errors {
+			errorDetails = append(errorDetails, err.Error())
+		}
+		return &CleanDependenciesError{
+			Count:   len(errors),
+			Details: errorDetails,
+		}
 	}
 
 	return nil

@@ -770,7 +770,7 @@ func TestGetVariantDisplayName(t *testing.T) {
 	}
 }
 
-func TestRunLogicApp(t *testing.T) {
+func TestRunFunctionApp_LogicApps(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -789,12 +789,14 @@ func TestRunLogicApp(t *testing.T) {
 		t.Fatalf("failed to create workflows directory: %v", err)
 	}
 
-	project := types.LogicAppProject{
-		Dir: tmpDir,
+	project := types.FunctionAppProject{
+		Dir:      tmpDir,
+		Variant:  "logicapps",
+		Language: "Logic Apps",
 	}
 
 	// This will error on execution if func isn't installed, but validation should pass
-	_ = RunLogicApp(context.Background(), project, 7071)
+	_ = RunFunctionApp(context.Background(), project, 7071)
 }
 
 // Helper function to check if a string contains a substring

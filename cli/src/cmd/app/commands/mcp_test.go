@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -498,8 +499,13 @@ func TestMarshalToolResult(t *testing.T) {
 }
 
 func TestExtractProjectDirArg(t *testing.T) {
-	// Create a temp directory for testing
-	tempDir := t.TempDir()
+	// Create a temp directory under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_extract_project_dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 
 	tests := []struct {
 		name      string
@@ -617,11 +623,20 @@ func TestValidateServiceName(t *testing.T) {
 }
 
 func TestValidateProjectDir(t *testing.T) {
-	// Create a temp directory and file for testing
-	tempDir := t.TempDir()
-	tempFile := filepath.Join(tempDir, "testfile.txt")
-	err := os.WriteFile(tempFile, []byte("test"), 0644)
+	// Create a temp directory under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
 	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_validate_project_dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+	tempFile := filepath.Join(tempDir, "testfile.txt")
+	err = os.WriteFile(tempFile, []byte("test"), 0644)
+	require.NoError(t, err)
+
+	// Create a symlink for testing
+	symlinkPath := filepath.Join(tempDir, "symlink_to_temp")
+	_ = os.Symlink(tempDir, symlinkPath) // Ignore error if symlink creation fails on Windows
 
 	tests := []struct {
 		name      string
@@ -639,7 +654,7 @@ func TestValidateProjectDir(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name:      "Empty string",
+			name:      "Empty string (should resolve to current directory)",
 			dir:       "",
 			wantError: false,
 		},
@@ -653,16 +668,29 @@ func TestValidateProjectDir(t *testing.T) {
 			dir:       tempFile,
 			wantError: true,
 		},
+		{
+			name:      "Path traversal attempt - relative",
+			dir:       "../../../../../../etc",
+			wantError: true, // Should fail either due to boundary check or non-existence
+		},
+		{
+			name:      "System directory access - /etc",
+			dir:       "/etc",
+			wantError: true, // Should fail due to system directory protection
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := validateProjectDir(tt.dir)
+			result, err := validateProjectDir(tt.dir)
 			if tt.wantError && err == nil {
-				t.Error("Expected error, got nil")
+				t.Errorf("Expected error for %s, got nil (result: %s)", tt.dir, result)
 			}
 			if !tt.wantError && err != nil {
-				t.Errorf("Expected no error, got %v", err)
+				t.Errorf("Expected no error for %s, got %v", tt.dir, err)
+			}
+			if !tt.wantError && result == "" {
+				t.Errorf("Expected non-empty result for %s", tt.dir)
 			}
 		})
 	}
@@ -1005,20 +1033,35 @@ func TestGetProjectDir(t *testing.T) {
 		}
 	}()
 
+	// Create a temp directory under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_project_dir")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	tests := []struct {
-		name     string
-		envValue string
-		expected string
+		name        string
+		envValue    string
+		expectValue bool // true = expect envValue back, false = expect fallback to "." or cwd
 	}{
 		{
-			name:     "With AZD_APP_PROJECT_DIR set",
-			envValue: "/custom/project/path",
-			expected: "/custom/project/path",
+			name:        "With valid AZD_APP_PROJECT_DIR set",
+			envValue:    tempDir,
+			expectValue: true,
 		},
 		{
-			name:     "Without AZD_APP_PROJECT_DIR set",
-			envValue: "",
-			expected: ".",
+			name:        "With invalid (non-existent) AZD_APP_PROJECT_DIR",
+			envValue:    "/nonexistent/custom/project/path",
+			expectValue: false, // Should fall back
+		},
+		{
+			name:        "Without AZD_APP_PROJECT_DIR set",
+			envValue:    "",
+			expectValue: false, // Should return "." or cwd
 		},
 	}
 
@@ -1031,8 +1074,16 @@ func TestGetProjectDir(t *testing.T) {
 			}
 
 			result := getProjectDir()
-			if result != tt.expected {
-				t.Errorf("Expected %s, got %s", tt.expected, result)
+			if tt.expectValue {
+				if result != tt.envValue {
+					t.Errorf("Expected %s, got %s", tt.envValue, result)
+				}
+			} else {
+				// Should return "." or current working directory
+				cwd, _ := os.Getwd()
+				if result != "." && result != cwd {
+					t.Errorf("Expected '.' or '%s', got %s", cwd, result)
+				}
 			}
 		})
 	}
@@ -1612,15 +1663,20 @@ func TestContextCancellation(t *testing.T) {
 
 // TestAzureYamlResourceHandler tests the azure.yaml resource handler
 func TestAzureYamlResourceHandler(t *testing.T) {
-	// Create temp directory with azure.yaml
-	tempDir := t.TempDir()
+	// Create temp directory under the current working directory with azure.yaml
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_azure_yaml_resource")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
 	content := `name: test-project
 services:
   api:
     language: python
 `
-	err := os.WriteFile(azureYamlPath, []byte(content), 0644)
+	err = os.WriteFile(azureYamlPath, []byte(content), 0644)
 	require.NoError(t, err)
 
 	// Set environment variable for project dir
@@ -1667,8 +1723,13 @@ services:
 
 // TestAzureYamlResourceHandlerMissingFile tests error handling when azure.yaml is missing
 func TestAzureYamlResourceHandlerMissingFile(t *testing.T) {
-	// Set environment variable for project dir to empty temp dir
-	tempDir := t.TempDir()
+	// Create temp directory under the current working directory
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_azure_yaml_missing")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 	originalEnv := os.Getenv("AZD_APP_PROJECT_DIR")
 	os.Setenv("AZD_APP_PROJECT_DIR", tempDir)
 	defer func() {
@@ -1688,7 +1749,7 @@ func TestAzureYamlResourceHandlerMissingFile(t *testing.T) {
 		},
 	}
 
-	_, err := resource.Handler(ctx, request)
+	_, err = resource.Handler(ctx, request)
 	if err == nil {
 		t.Error("Expected error when azure.yaml is missing")
 	}
@@ -1716,6 +1777,22 @@ func TestGetProjectDirWithFallback(t *testing.T) {
 		}
 	}()
 
+	// Create temp directories under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempAzdDir, err := os.MkdirTemp(cwd, "test_azd_dir")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempAzdDir)
+
+	tempFallbackDir, err := os.MkdirTemp(cwd, "test_fallback_dir")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempFallbackDir)
+
 	tests := []struct {
 		name             string
 		azdAppProjectDir string
@@ -1724,21 +1801,21 @@ func TestGetProjectDirWithFallback(t *testing.T) {
 	}{
 		{
 			name:             "AZD_APP_PROJECT_DIR takes precedence",
-			azdAppProjectDir: "/azd/path",
-			projectDir:       "/fallback/path",
-			expected:         "/azd/path",
+			azdAppProjectDir: tempAzdDir,
+			projectDir:       tempFallbackDir,
+			expected:         tempAzdDir,
 		},
 		{
 			name:             "Falls back to PROJECT_DIR",
 			azdAppProjectDir: "",
-			projectDir:       "/fallback/path",
-			expected:         "/fallback/path",
+			projectDir:       tempFallbackDir,
+			expected:         tempFallbackDir,
 		},
 		{
 			name:             "Returns current dir when both empty",
 			azdAppProjectDir: "",
 			projectDir:       "",
-			expected:         ".",
+			expected:         cwd, // validateProjectDir converts "." to absolute cwd
 		},
 	}
 
@@ -1765,4 +1842,137 @@ func TestGetProjectDirWithFallback(t *testing.T) {
 // containsSubstr is a helper function for string containment check
 func containsSubstr(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// TestTokenBucketRateLimit tests the token bucket rate limiter
+func TestTokenBucketRateLimit(t *testing.T) {
+	// Create a rate limiter with 3 tokens, refilling at 1 token per 100ms
+	limiter := NewTokenBucket(3, 100*time.Millisecond)
+
+	// First 3 calls should succeed (burst capacity)
+	for i := 0; i < 3; i++ {
+		if !limiter.Allow() {
+			t.Errorf("Call %d should be allowed (within burst)", i+1)
+		}
+	}
+
+	// 4th call should be blocked
+	if limiter.Allow() {
+		t.Error("4th call should be blocked (burst exhausted)")
+	}
+
+	// Wait for token refill
+	time.Sleep(150 * time.Millisecond)
+
+	// Should have 1 token now
+	if !limiter.Allow() {
+		t.Error("Call after refill should be allowed")
+	}
+
+	// Should be blocked again
+	if limiter.Allow() {
+		t.Error("Call should be blocked again")
+	}
+}
+
+// TestRateLimitIntegration tests rate limiting in MCP tools
+func TestRateLimitIntegration(t *testing.T) {
+	// Save and restore the global rate limiter
+	oldLimiter := globalRateLimiter
+	defer func() { globalRateLimiter = oldLimiter }()
+
+	// Create a strict rate limiter for testing
+	globalRateLimiter = NewTokenBucket(2, 10*time.Second)
+
+	tool := newRunServicesTool()
+	ctx := context.Background()
+
+	// First two calls should succeed (or fail with different error)
+	for i := 0; i < 2; i++ {
+		request := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{
+				Name:      "run_services",
+				Arguments: map[string]interface{}{},
+			},
+		}
+		result, _ := tool.Handler(ctx, request)
+		if result.IsError && strings.Contains(string(result.Content[0].(mcp.TextContent).Text), "Rate limit exceeded") {
+			t.Errorf("Call %d should not be rate limited", i+1)
+		}
+	}
+
+	// Third call should be rate limited
+	request := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      "run_services",
+			Arguments: map[string]interface{}{},
+		},
+	}
+	result, _ := tool.Handler(ctx, request)
+	if !result.IsError {
+		t.Error("3rd call should be rate limited")
+	}
+	if !strings.Contains(string(result.Content[0].(mcp.TextContent).Text), "Rate limit exceeded") {
+		t.Error("3rd call should return rate limit error")
+	}
+}
+
+// TestGetProjectDirValidation tests that environment variables are validated
+func TestGetProjectDirValidation(t *testing.T) {
+	// Save original values
+	originalAzdAppProjectDir := os.Getenv("AZD_APP_PROJECT_DIR")
+	defer func() {
+		if originalAzdAppProjectDir != "" {
+			os.Setenv("AZD_APP_PROJECT_DIR", originalAzdAppProjectDir)
+		} else {
+			os.Unsetenv("AZD_APP_PROJECT_DIR")
+		}
+	}()
+
+	// Create a valid temp directory under the current working directory
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	validTempDir, err := os.MkdirTemp(cwd, "test_validation_valid")
+	require.NoError(t, err)
+	defer os.RemoveAll(validTempDir)
+
+	tests := []struct {
+		name        string
+		envValue    string
+		shouldBeCwd bool // Should fall back to current dir
+	}{
+		{
+			name:        "Valid temp directory under cwd",
+			envValue:    validTempDir,
+			shouldBeCwd: false,
+		},
+		{
+			name:        "System directory should fail validation",
+			envValue:    "/etc",
+			shouldBeCwd: true, // Should fall back to current dir
+		},
+		{
+			name:        "Non-existent directory should fail validation",
+			envValue:    "/nonexistent/path/xyz",
+			shouldBeCwd: true, // Should fall back to current dir
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("AZD_APP_PROJECT_DIR", tt.envValue)
+			result := getProjectDir()
+
+			if tt.shouldBeCwd && result != "." && result != cwd {
+				t.Errorf("Expected current directory fallback, got %s", result)
+			}
+			if !tt.shouldBeCwd && (result == "." || result == cwd) {
+				// This might be OK if the env value is actually the cwd
+				if tt.envValue != cwd && !strings.HasPrefix(cwd, tt.envValue) {
+					t.Errorf("Expected valid directory, got current directory fallback")
+				}
+			}
+		})
+	}
 }

@@ -474,6 +474,11 @@ func getToolVersion(toolName string) (string, error) {
 func extractVersionFromOutput(output, prefix string, field int) string {
 	output = strings.TrimSpace(output)
 
+	// Handle Podman aliased to Docker (multi-line output with "Podman Engine")
+	if strings.Contains(output, "Podman Engine") {
+		return extractPodmanVersionFromOutput(output)
+	}
+
 	// Remove prefix if specified
 	if prefix != "" {
 		output = strings.TrimPrefix(output, prefix)
@@ -499,6 +504,26 @@ func extractVersionFromOutput(output, prefix string, field int) string {
 	}
 
 	return output
+}
+
+// extractPodmanVersionFromOutput extracts version from Podman multi-line output.
+func extractPodmanVersionFromOutput(output string) string {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Version:") {
+			// Extract version from "Version:      5.7.0"
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				versionRegex := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
+				if matches := versionRegex.FindStringSubmatch(parts[1]); len(matches) > 1 {
+					return matches[1]
+				}
+				return parts[1]
+			}
+		}
+	}
+	return ""
 }
 
 // normalizeVersion converts installed version to minimum version constraint.

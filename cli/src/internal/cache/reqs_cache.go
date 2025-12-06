@@ -44,7 +44,8 @@ type CacheManager struct {
 	cacheDir string
 	ttl      time.Duration
 	enabled  bool
-	statsMu  sync.Mutex
+	mu       sync.RWMutex // Protects all cache operations
+	statsMu  sync.Mutex   // Protects stats only (separate for granular locking)
 	stats    CacheStats
 }
 
@@ -150,6 +151,10 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 		return nil, false, nil
 	}
 
+	// Use read lock for cache read operations
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
 	// Calculate hash of azure.yaml
 	hash, err := calculateFileHash(azureYamlPath)
 	if err != nil {
@@ -160,9 +165,7 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 
 	// Check if cache file exists
 	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
-		cm.statsMu.Lock()
-		cm.stats.Misses++
-		cm.statsMu.Unlock()
+		cm.recordMiss()
 		return nil, false, nil // No cache exists
 	} else if err != nil {
 		return nil, false, fmt.Errorf("failed to stat cache file: %w", err)
@@ -182,9 +185,7 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 
 	// Check cache version - invalidate if schema changed
 	if cache.Version != CacheVersion {
-		cm.statsMu.Lock()
-		cm.stats.Misses++
-		cm.statsMu.Unlock()
+		cm.recordMiss()
 		return nil, false, nil // Cache schema version mismatch
 	}
 
@@ -195,23 +196,31 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 	// 3. Cache is less than TTL age (use timestamp from cache JSON, not file ModTime)
 
 	if cache.AzureYamlHash != hash {
-		cm.statsMu.Lock()
-		cm.stats.Misses++
-		cm.statsMu.Unlock()
+		cm.recordMiss()
 		return nil, false, nil // azure.yaml has changed - cache is invalid
 	}
 
 	if time.Since(cache.Timestamp) > cm.ttl {
-		cm.statsMu.Lock()
-		cm.stats.Misses++
-		cm.statsMu.Unlock()
+		cm.recordMiss()
 		return nil, false, nil // Cache is too old
 	}
 
+	cm.recordHit()
+	return &cache, true, nil
+}
+
+// recordHit records a cache hit (helper to avoid duplicate lock code)
+func (cm *CacheManager) recordHit() {
 	cm.statsMu.Lock()
 	cm.stats.Hits++
 	cm.statsMu.Unlock()
-	return &cache, true, nil
+}
+
+// recordMiss records a cache miss (helper to avoid duplicate lock code)
+func (cm *CacheManager) recordMiss() {
+	cm.statsMu.Lock()
+	cm.stats.Misses++
+	cm.statsMu.Unlock()
 }
 
 // SaveResults saves reqs check results to cache.
@@ -222,12 +231,15 @@ func (cm *CacheManager) SaveResults(azureYamlPath string, results []CachedReqRes
 		return nil
 	}
 
+	// Use write lock for cache write operations
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
 	// Only cache successful results - failed checks should always be re-run
 	// so users aren't blocked by stale failures after installing missing tools
 	if !allPassed {
 		// Clear any existing cache on failure to ensure fresh check next time
-		_ = cm.ClearCache()
-		return nil
+		return cm.clearCacheUnlocked() // Use unlocked version since we already have the lock
 	}
 
 	// Calculate hash of azure.yaml
@@ -272,6 +284,15 @@ func (cm *CacheManager) ClearCache() error {
 		return nil
 	}
 
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	return cm.clearCacheUnlocked()
+}
+
+// clearCacheUnlocked is the internal implementation without locking.
+// Use this when the caller already holds the lock.
+func (cm *CacheManager) clearCacheUnlocked() error {
 	cacheFile := filepath.Join(cm.cacheDir, "reqs_cache.json")
 	if err := os.Remove(cacheFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove cache file: %w", err)

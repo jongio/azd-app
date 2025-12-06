@@ -46,7 +46,10 @@ describe('log-utils', () => {
 
     it('should handle URLs with query strings', () => {
       const result = convertAnsiToHtml('API at http://localhost:8080/api?key=value&foo=bar')
-      expect(result).toContain('href="http://localhost:8080/api?key=value&amp;foo=bar"')
+      // The href should have the raw URL (browsers handle & in href correctly)
+      expect(result).toContain('href="http://localhost:8080/api?key=value&foo=bar"')
+      // The display text has &amp; because it's HTML-escaped
+      expect(result).toContain('>http://localhost:8080/api?key=value&amp;foo=bar</a>')
     })
 
     it('should add clickable link styling', () => {
@@ -58,6 +61,31 @@ describe('log-utils', () => {
       const result = convertAnsiToHtml('VITE v6.4.1 ready in 434 ms -> Local: http://localhost:5173/')
       expect(result).toContain('VITE v6.4.1 ready in 434 ms -&gt; Local:')
       expect(result).toContain('href="http://localhost:5173/"')
+    })
+
+    it('should linkify URLs with ANSI codes around the port', () => {
+      // ANSI code around the port number
+      const result = convertAnsiToHtml('http://localhost:\x1b[32m5555\x1b[0m')
+      expect(result).toContain('href="http://localhost:5555"')
+      expect(result).toContain('<a ')
+    })
+
+    it('should linkify URLs with ANSI codes around the colon', () => {
+      // ANSI code around the colon
+      const result = convertAnsiToHtml('http://localhost\x1b[36m:\x1b[0m5555')
+      expect(result).toContain('href="http://localhost:5555"')
+      expect(result).toContain('<a ')
+    })
+
+    it('should linkify URLs fully wrapped in ANSI codes', () => {
+      // Full URL wrapped in ANSI
+      const result = convertAnsiToHtml('Local: \x1b[36mhttp://localhost:5173/\x1b[0m')
+      expect(result).toContain('href="http://localhost:5173/"')
+    })
+
+    it('should linkify plain URLs without ports', () => {
+      const result = convertAnsiToHtml('Visit http://localhost for more info')
+      expect(result).toContain('href="http://localhost"')
     })
   })
 

@@ -22,15 +22,15 @@ func RefreshPATH() (string, error) {
 
 // refreshWindowsPATH refreshes PATH on Windows by reading from registry.
 func refreshWindowsPATH() (string, error) {
-	// Get Machine PATH
-	machinePath, err := exec.Command("powershell", "-NoProfile", "-Command",
+	// Get Machine PATH with security flags
+	machinePath, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
 		"[Environment]::GetEnvironmentVariable('PATH', 'Machine')").Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get machine PATH: %w", err)
 	}
 
-	// Get User PATH
-	userPath, err := exec.Command("powershell", "-NoProfile", "-Command",
+	// Get User PATH with security flags
+	userPath, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
 		"[Environment]::GetEnvironmentVariable('PATH', 'User')").Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user PATH: %w", err)

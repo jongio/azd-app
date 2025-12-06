@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -219,22 +220,33 @@ func runHealth(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create health monitor: %w", err)
 	}
 
-	// Start metrics server if enabled
+	// Set up context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start metrics server if enabled with proper shutdown
+	var metricsServer *http.Server
 	if config.EnableMetrics {
+		metricsServer = healthcheck.CreateMetricsServer(config.MetricsPort)
 		go func() {
-			if err := healthcheck.ServeMetrics(config.MetricsPort); err != nil {
+			if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				fmt.Fprintf(os.Stderr, "Warning: Metrics server failed: %v\n", err)
 			}
 		}()
 		fmt.Printf("Prometheus metrics available at http://localhost:%d/metrics\n", config.MetricsPort)
+
+		// Ensure metrics server shuts down gracefully
+		defer func() {
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+			if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Metrics server shutdown error: %v\n", err)
+			}
+		}()
 	}
 
 	// Parse service filter
 	serviceFilter := parseServiceFilter(healthService)
-
-	// Set up context with cancellation
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Handle interrupt signals for graceful shutdown
 	setupSignalHandler(ctx, cancel)
@@ -260,6 +272,17 @@ func validateHealthFlags() error {
 	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
 		return fmt.Errorf("invalid output format: must be 'text', 'json', or 'table'")
 	}
+	// Validate metrics port is in valid range
+	if healthEnableMetrics && (healthMetricsPort < 1 || healthMetricsPort > 65535) {
+		return fmt.Errorf("metrics port must be between 1 and 65535, got %d", healthMetricsPort)
+	}
+	// Validate circuit breaker settings
+	if healthCircuitBreaker && healthCircuitBreakCount < 1 {
+		return fmt.Errorf("circuit breaker count must be at least 1, got %d", healthCircuitBreakCount)
+	}
+	if healthCircuitBreaker && healthCircuitBreakTime < time.Second {
+		return fmt.Errorf("circuit breaker timeout must be at least 1s, got %v", healthCircuitBreakTime)
+	}
 	return nil
 }
 
@@ -282,16 +305,20 @@ func setupSignalHandler(ctx context.Context, cancel context.CancelFunc) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
+		defer func() {
+			// Always clean up signal handling when goroutine exits
+			signal.Stop(sigChan)
+			close(sigChan)
+		}()
+
 		select {
-		case <-sigChan:
-			// Signal received - cancel context
+		case sig := <-sigChan:
+			// Signal received - cancel context and log
+			fmt.Fprintf(os.Stderr, "\nReceived signal %v, shutting down gracefully...\n", sig)
 			cancel()
 		case <-ctx.Done():
 			// Context cancelled (normal exit) - just clean up
 		}
-		// Clean up signal handling
-		signal.Stop(sigChan)
-		close(sigChan)
 	}()
 }
 
@@ -359,6 +386,10 @@ func runStreamingMode(ctx context.Context, monitor *healthcheck.HealthMonitor, s
 func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor, serviceFilter []string, checkCount *int, prevReport **healthcheck.HealthReport, isTTY bool) error {
 	report, err := monitor.Check(ctx, serviceFilter)
 	if err != nil {
+		// Check if error is due to context cancellation - handle gracefully
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("health check failed: %w", err)
 	}
 

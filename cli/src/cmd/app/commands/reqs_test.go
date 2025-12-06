@@ -175,6 +175,31 @@ func TestCompareVersions(t *testing.T) {
 			required:  "1.2.3",
 			expected:  true,
 		},
+		// NEW: Test cases for the bug fix
+		{
+			name:      "installed fewer parts but equal (1.2 vs 1.2.0)",
+			installed: "1.2",
+			required:  "1.2.0",
+			expected:  true, // Fixed: Should treat 1.2 as 1.2.0
+		},
+		{
+			name:      "installed fewer parts but equal (18 vs 18.0.0)",
+			installed: "18",
+			required:  "18.0.0",
+			expected:  true, // Fixed: Should treat 18 as 18.0.0
+		},
+		{
+			name:      "installed fewer parts still less than required",
+			installed: "1.1",
+			required:  "1.2.0",
+			expected:  false, // Should still fail if actually less
+		},
+		{
+			name:      "required fewer parts than installed (edge case)",
+			installed: "1.2.3",
+			required:  "1.2",
+			expected:  true, // 1.2.3 >= 1.2.0 (implicit)
+		},
 	}
 
 	for _, tt := range tests {
@@ -230,6 +255,32 @@ func TestExtractVersion(t *testing.T) {
 			output:   "azd version 1.9.3 (commit abcd1234)\ncopyright info",
 			expected: "1.9.3",
 		},
+		{
+			name:   "podman aliased to docker",
+			config: toolRegistry["docker"],
+			output: `Client:       Podman Engine
+Version:      5.7.0
+API Version:  5.7.0
+Go Version:   go1.25.4
+Git Commit:   0370128fc8dcae93533334324ef838db8f8da8cb
+Built:        Tue Nov 11 10:57:57 2025
+OS/Arch:      windows/amd64
+
+Server:       Podman Engine
+Version:      5.7.0
+API Version:  5.7.0
+Go Version:   go1.24.9
+Git Commit:   0370128fc8dcae93533334324ef838db8f8da8cb
+Built:        Mon Nov 10 16:00:00 2025
+OS/Arch:      linux/amd64`,
+			expected: "5.7.0",
+		},
+		{
+			name:     "docker native version",
+			config:   toolRegistry["docker"],
+			output:   "Docker version 28.5.1, build abc123",
+			expected: "28.5.1",
+		},
 	}
 
 	for _, tt := range tests {
@@ -237,6 +288,60 @@ func TestExtractVersion(t *testing.T) {
 			result := extractVersion(tt.config, tt.output)
 			if result != tt.expected {
 				t.Errorf("extractVersion(%+v, %q) = %q, want %q", tt.config, tt.output, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractPodmanVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		expected string
+	}{
+		{
+			name: "full podman output",
+			output: `Client:       Podman Engine
+Version:      5.7.0
+API Version:  5.7.0
+Go Version:   go1.25.4
+Git Commit:   0370128fc8dcae93533334324ef838db8f8da8cb
+Built:        Tue Nov 11 10:57:57 2025
+OS/Arch:      windows/amd64
+
+Server:       Podman Engine
+Version:      5.7.0
+API Version:  5.7.0
+Go Version:   go1.24.9
+Git Commit:   0370128fc8dcae93533334324ef838db8f8da8cb
+Built:        Mon Nov 10 16:00:00 2025
+OS/Arch:      linux/amd64`,
+			expected: "5.7.0",
+		},
+		{
+			name: "client only",
+			output: `Client:       Podman Engine
+Version:      4.9.3
+API Version:  4.9.3`,
+			expected: "4.9.3",
+		},
+		{
+			name:     "version with extra spaces",
+			output:   "Version:      5.7.0",
+			expected: "5.7.0",
+		},
+		{
+			name:     "missing version line",
+			output:   "Client:       Podman Engine\nAPI Version:  5.7.0",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractPodmanVersion(tt.output)
+			if result != tt.expected {
+				t.Errorf("extractPodmanVersion(%q) = %q, want %q", tt.output, result, tt.expected)
 			}
 		})
 	}
@@ -846,7 +951,7 @@ func TestCheckIsRunning(t *testing.T) {
 				Name:         "unknown-tool",
 				CheckRunning: true,
 			},
-			expected: true, // Should default to true when no check is configured
+			expected: false, // Fixed: Should return false when check is not properly configured
 		},
 	}
 

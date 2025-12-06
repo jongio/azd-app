@@ -27,6 +27,8 @@ azd app deps
 | `--clean` | | bool | `false` | Remove existing dependencies before installing (clears node_modules, .venv, etc.) |
 | `--no-cache` | | bool | `false` | Force fresh dependency installation and bypass cached results |
 | `--force` | `-f` | bool | `false` | Force clean reinstall (combines --clean and --no-cache) |
+| `--dry-run` | | bool | `false` | Show what would be installed without actually installing |
+| `--service` | `-s` | string | | Install dependencies only for specific services (comma-separated or multiple -s flags) |
 
 ## Execution Flow
 

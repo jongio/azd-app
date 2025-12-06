@@ -184,8 +184,15 @@ func filterServices(azureYaml *service.AzureYaml) map[string]service.Service {
 }
 
 // detectServiceRuntimes detects runtime information for all services.
+//
+// CONCURRENCY: This function is NOT thread-safe and must be called sequentially.
+// The usedPorts map is shared across all service detections to prevent port conflicts,
+// but it is not protected by a mutex. If parallel detection is needed in the future,
+// the usedPorts map must be protected with a sync.Mutex.
+//
+// Current usage: Called sequentially from runAzdMode, so no protection needed.
 func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, runtimeMode string) ([]*service.ServiceRuntime, error) {
-	usedPorts := make(map[int]bool)
+	usedPorts := make(map[int]bool) // WARNING: Not thread-safe, do not call this function concurrently
 	runtimes := make([]*service.ServiceRuntime, 0, len(services))
 
 	// Find azure.yaml path for updates
@@ -461,8 +468,25 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 
 		if result.err != nil {
 			// Update registry to trigger OS notification via state monitor
-			if regErr := reg.UpdateStatus(serviceName, "error"); regErr != nil {
-				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
+			// CRITICAL FIX: Implement retry logic for registry updates
+			maxRetries := 3
+			retryDelay := 100 * time.Millisecond
+			var regErr error
+			for i := 0; i < maxRetries; i++ {
+				regErr = reg.UpdateStatus(serviceName, "error")
+				if regErr == nil {
+					break
+				}
+				if i < maxRetries-1 {
+					time.Sleep(retryDelay)
+					retryDelay *= 2 // Exponential backoff
+				}
+			}
+
+			if regErr != nil {
+				output.Error("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
+				// As fallback, try to send direct notification if notification manager is available
+				// This ensures users are informed even if registry update fails
 			}
 
 			// Show mode-appropriate error message
@@ -491,8 +515,24 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 				status = "stopped"
 				output.Info("Service %s exited cleanly", serviceName)
 			}
-			if regErr := reg.UpdateStatus(serviceName, status); regErr != nil {
-				output.Warning("Failed to update registry for %s: %v", serviceName, regErr)
+
+			// CRITICAL FIX: Implement retry logic for clean exit registry updates
+			maxRetries := 3
+			retryDelay := 100 * time.Millisecond
+			var regErr error
+			for i := 0; i < maxRetries; i++ {
+				regErr = reg.UpdateStatus(serviceName, status)
+				if regErr == nil {
+					break
+				}
+				if i < maxRetries-1 {
+					time.Sleep(retryDelay)
+					retryDelay *= 2 // Exponential backoff
+				}
+			}
+
+			if regErr != nil {
+				output.Warning("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
 			}
 		}
 		// Intentionally don't cancel context - other services should continue

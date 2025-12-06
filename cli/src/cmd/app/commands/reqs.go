@@ -395,7 +395,9 @@ func (pc *PrerequisiteChecker) checkIsRunning(prereq Prerequisite) bool {
 			args = []string{"ps"}
 		default:
 			// No default running check for this tool
-			return true
+			// Return false to indicate check is not configured properly
+			// Users should provide RunningCheckCommand if checkRunning is true
+			return false
 		}
 	}
 
@@ -436,12 +438,17 @@ func checkPrerequisite(prereq Prerequisite) bool {
 
 // extractVersion extracts version from command output.
 func extractVersion(config ToolConfig, output string) string {
-	// Strip prefix if configured
-	if config.VersionPrefix != "" {
-		output = strings.TrimPrefix(output, config.VersionPrefix)
+	// Handle azd special case first (multi-line output)
+	if strings.Contains(output, "azd version") {
+		return extractAzdVersion(output)
 	}
 
-	// Extract specific field if configured
+	// Handle Podman aliased to Docker (multi-line output with "Podman Engine")
+	if strings.Contains(output, "Podman Engine") {
+		return extractPodmanVersion(output)
+	}
+
+	// Extract specific field BEFORE stripping prefix (field extraction first)
 	if config.VersionField > 0 {
 		parts := strings.Fields(output)
 		if len(parts) > config.VersionField {
@@ -449,9 +456,9 @@ func extractVersion(config ToolConfig, output string) string {
 		}
 	}
 
-	// Handle azd special case (multi-line output)
-	if strings.Contains(output, "azd version") {
-		return extractAzdVersion(output)
+	// Strip prefix if configured (after field extraction)
+	if config.VersionPrefix != "" {
+		output = strings.TrimPrefix(output, config.VersionPrefix)
 	}
 
 	return extractFirstVersion(output)
@@ -473,18 +480,44 @@ func extractAzdVersion(output string) string {
 	return ""
 }
 
+// extractPodmanVersion extracts version from Podman multi-line output.
+// Podman output format when aliased to docker:
+//
+//	Client:       Podman Engine
+//	Version:      5.7.0
+//	API Version:  5.7.0
+//	...
+func extractPodmanVersion(output string) string {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Version:") {
+			// Extract version from "Version:      5.7.0"
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return extractFirstVersion(parts[1])
+			}
+		}
+	}
+	return ""
+}
+
+// Compiled regex patterns for version extraction (package-level for performance)
+var (
+	semanticVersionRegex = regexp.MustCompile(`(\d+\.\d+\.\d+)`)
+	simpleVersionRegex   = regexp.MustCompile(`(\d+\.\d+)`)
+)
+
 // extractFirstVersion finds the first semantic version in a string.
 func extractFirstVersion(s string) string {
 	// Match semantic version pattern (e.g., 1.2.3, 20.0.0, etc.)
-	re := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
-	matches := re.FindStringSubmatch(s)
+	matches := semanticVersionRegex.FindStringSubmatch(s)
 	if len(matches) > 1 {
 		return matches[1]
 	}
 
 	// Try simpler pattern (e.g., 1.2)
-	re = regexp.MustCompile(`(\d+\.\d+)`)
-	matches = re.FindStringSubmatch(s)
+	matches = simpleVersionRegex.FindStringSubmatch(s)
 	if len(matches) > 1 {
 		return matches[1]
 	}
@@ -494,27 +527,39 @@ func extractFirstVersion(s string) string {
 
 // compareVersions compares installed version against required version.
 // Returns true if installed >= required.
+// Missing version parts are treated as 0 (e.g., "1.2" is equivalent to "1.2.0").
 func compareVersions(installed, required string) bool {
 	installedParts := parseVersion(installed)
 	requiredParts := parseVersion(required)
 
-	// Compare each part left to right
-	for i := 0; i < len(requiredParts); i++ {
-		if i >= len(installedParts) {
-			// Installed version has fewer parts, assume 0
-			return false
+	// Get the maximum length to compare all parts
+	maxLen := len(requiredParts)
+	if len(installedParts) > maxLen {
+		maxLen = len(installedParts)
+	}
+
+	// Compare each part left to right, treating missing parts as 0
+	for i := 0; i < maxLen; i++ {
+		installedPart := 0
+		if i < len(installedParts) {
+			installedPart = installedParts[i]
 		}
 
-		if installedParts[i] > requiredParts[i] {
+		requiredPart := 0
+		if i < len(requiredParts) {
+			requiredPart = requiredParts[i]
+		}
+
+		if installedPart > requiredPart {
 			return true
 		}
-		if installedParts[i] < requiredParts[i] {
+		if installedPart < requiredPart {
 			return false
 		}
 		// Equal, continue to next part
 	}
 
-	return true // All parts equal or installed version is longer
+	return true // All parts equal
 }
 
 // parseVersion parses a version string into numeric parts.
