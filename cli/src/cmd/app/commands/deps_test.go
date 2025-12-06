@@ -867,9 +867,11 @@ func TestGetSearchRoot_NoAzureYaml(t *testing.T) {
 		t.Fatalf("getSearchRoot returned error: %v", err)
 	}
 
-	// Normalize paths for comparison
-	expectedPath := filepath.Clean(tmpDir)
-	actualPath := filepath.Clean(searchRoot)
+	// Normalize paths for comparison (resolve symlinks for macOS /var -> /private/var)
+	expectedPath, _ := filepath.EvalSymlinks(tmpDir)
+	expectedPath = filepath.Clean(expectedPath)
+	actualPath, _ := filepath.EvalSymlinks(searchRoot)
+	actualPath = filepath.Clean(actualPath)
 
 	if actualPath != expectedPath {
 		t.Errorf("getSearchRoot = %q, want %q", actualPath, expectedPath)
@@ -909,9 +911,11 @@ func TestGetSearchRoot_WithAzureYaml(t *testing.T) {
 		t.Fatalf("getSearchRoot returned error: %v", err)
 	}
 
-	// Normalize paths for comparison
-	expectedPath := filepath.Clean(tmpDir)
-	actualPath := filepath.Clean(searchRoot)
+	// Normalize paths for comparison (resolve symlinks for macOS /var -> /private/var)
+	expectedPath, _ := filepath.EvalSymlinks(tmpDir)
+	expectedPath = filepath.Clean(expectedPath)
+	actualPath, _ := filepath.EvalSymlinks(searchRoot)
+	actualPath = filepath.Clean(actualPath)
 
 	if actualPath != expectedPath {
 		t.Errorf("getSearchRoot = %q, want %q", actualPath, expectedPath)
@@ -1651,8 +1655,11 @@ func TestGetSearchRoot_CurrentDirectory(t *testing.T) {
 	}
 
 	// Should return current directory when no azure.yaml
-	expectedPath := filepath.Clean(tmpDir)
-	actualPath := filepath.Clean(searchRoot)
+	// Resolve symlinks for macOS /var -> /private/var
+	expectedPath, _ := filepath.EvalSymlinks(tmpDir)
+	expectedPath = filepath.Clean(expectedPath)
+	actualPath, _ := filepath.EvalSymlinks(searchRoot)
+	actualPath = filepath.Clean(actualPath)
 
 	if actualPath != expectedPath {
 		t.Errorf("searchRoot = %q, want %q", actualPath, expectedPath)
@@ -2065,8 +2072,11 @@ func TestGetSearchRoot_InSubdirectory(t *testing.T) {
 	}
 
 	// Should return the azure.yaml directory, not the subdirectory
-	expectedPath := filepath.Clean(tmpDir)
-	actualPath := filepath.Clean(searchRoot)
+	// Resolve symlinks for macOS /var -> /private/var
+	expectedPath, _ := filepath.EvalSymlinks(tmpDir)
+	expectedPath = filepath.Clean(expectedPath)
+	actualPath, _ := filepath.EvalSymlinks(searchRoot)
+	actualPath = filepath.Clean(actualPath)
 
 	if actualPath != expectedPath {
 		t.Errorf("searchRoot = %q, want %q", actualPath, expectedPath)
@@ -2650,8 +2660,11 @@ func TestGetSearchRoot_AzureYamlInRoot(t *testing.T) {
 		t.Fatalf("getSearchRoot returned error: %v", err)
 	}
 
-	expectedPath := filepath.Clean(tmpDir)
-	actualPath := filepath.Clean(searchRoot)
+	// Resolve symlinks for macOS /var -> /private/var
+	expectedPath, _ := filepath.EvalSymlinks(tmpDir)
+	expectedPath = filepath.Clean(expectedPath)
+	actualPath, _ := filepath.EvalSymlinks(searchRoot)
+	actualPath = filepath.Clean(actualPath)
 
 	if actualPath != expectedPath {
 		t.Errorf("searchRoot = %q, want %q", actualPath, expectedPath)
