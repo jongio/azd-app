@@ -499,8 +499,13 @@ func TestMarshalToolResult(t *testing.T) {
 }
 
 func TestExtractProjectDirArg(t *testing.T) {
-	// Create a temp directory for testing
-	tempDir := t.TempDir()
+	// Create a temp directory under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_extract_project_dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 
 	tests := []struct {
 		name      string
@@ -618,10 +623,15 @@ func TestValidateServiceName(t *testing.T) {
 }
 
 func TestValidateProjectDir(t *testing.T) {
-	// Create a temp directory and file for testing
-	tempDir := t.TempDir()
+	// Create a temp directory under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_validate_project_dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 	tempFile := filepath.Join(tempDir, "testfile.txt")
-	err := os.WriteFile(tempFile, []byte("test"), 0644)
+	err = os.WriteFile(tempFile, []byte("test"), 0644)
 	require.NoError(t, err)
 
 	// Create a symlink for testing
@@ -1023,8 +1033,11 @@ func TestGetProjectDir(t *testing.T) {
 		}
 	}()
 
-	// Create a temp directory for testing
-	tempDir, err := os.MkdirTemp("", "test_project_dir")
+	// Create a temp directory under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_project_dir")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -1650,15 +1663,20 @@ func TestContextCancellation(t *testing.T) {
 
 // TestAzureYamlResourceHandler tests the azure.yaml resource handler
 func TestAzureYamlResourceHandler(t *testing.T) {
-	// Create temp directory with azure.yaml
-	tempDir := t.TempDir()
+	// Create temp directory under the current working directory with azure.yaml
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_azure_yaml_resource")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
 	content := `name: test-project
 services:
   api:
     language: python
 `
-	err := os.WriteFile(azureYamlPath, []byte(content), 0644)
+	err = os.WriteFile(azureYamlPath, []byte(content), 0644)
 	require.NoError(t, err)
 
 	// Set environment variable for project dir
@@ -1705,8 +1723,13 @@ services:
 
 // TestAzureYamlResourceHandlerMissingFile tests error handling when azure.yaml is missing
 func TestAzureYamlResourceHandlerMissingFile(t *testing.T) {
-	// Set environment variable for project dir to empty temp dir
-	tempDir := t.TempDir()
+	// Create temp directory under the current working directory
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempDir, err := os.MkdirTemp(cwd, "test_azure_yaml_missing")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
 	originalEnv := os.Getenv("AZD_APP_PROJECT_DIR")
 	os.Setenv("AZD_APP_PROJECT_DIR", tempDir)
 	defer func() {
@@ -1726,7 +1749,7 @@ func TestAzureYamlResourceHandlerMissingFile(t *testing.T) {
 		},
 	}
 
-	_, err := resource.Handler(ctx, request)
+	_, err = resource.Handler(ctx, request)
 	if err == nil {
 		t.Error("Expected error when azure.yaml is missing")
 	}
@@ -1754,20 +1777,21 @@ func TestGetProjectDirWithFallback(t *testing.T) {
 		}
 	}()
 
-	// Create temp directories for testing
-	tempAzdDir, err := os.MkdirTemp("", "test_azd_dir")
+	// Create temp directories under the current working directory for testing
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	tempAzdDir, err := os.MkdirTemp(cwd, "test_azd_dir")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempAzdDir)
 
-	tempFallbackDir, err := os.MkdirTemp("", "test_fallback_dir")
+	tempFallbackDir, err := os.MkdirTemp(cwd, "test_fallback_dir")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempFallbackDir)
-
-	cwd, _ := os.Getwd()
 
 	tests := []struct {
 		name             string
@@ -1905,14 +1929,22 @@ func TestGetProjectDirValidation(t *testing.T) {
 		}
 	}()
 
+	// Create a valid temp directory under the current working directory
+	// This is needed because validateProjectDir requires directories to be under cwd or home
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	validTempDir, err := os.MkdirTemp(cwd, "test_validation_valid")
+	require.NoError(t, err)
+	defer os.RemoveAll(validTempDir)
+
 	tests := []struct {
 		name        string
 		envValue    string
 		shouldBeCwd bool // Should fall back to current dir
 	}{
 		{
-			name:        "Valid temp directory",
-			envValue:    os.TempDir(),
+			name:        "Valid temp directory under cwd",
+			envValue:    validTempDir,
 			shouldBeCwd: false,
 		},
 		{
@@ -1932,7 +1964,6 @@ func TestGetProjectDirValidation(t *testing.T) {
 			os.Setenv("AZD_APP_PROJECT_DIR", tt.envValue)
 			result := getProjectDir()
 
-			cwd, _ := os.Getwd()
 			if tt.shouldBeCwd && result != "." && result != cwd {
 				t.Errorf("Expected current directory fallback, got %s", result)
 			}
