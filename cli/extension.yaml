@@ -16,10 +16,14 @@ examples:
   - name: reqs
     description: Verify all prerequisites are installed
     usage: azd app reqs
+  - name: test
+    description: Run tests for all services with coverage
+    usage: azd app test --coverage
 tags:
   - developer
   - productivity
   - app
+  - testing
 mcp:
   serve:
     args: ["mcp", "serve"]

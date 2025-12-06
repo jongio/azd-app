@@ -66,6 +66,9 @@ Stream and filter logs from all services. Search, highlight, and export with eas
 ### 🔧 Auto Dependencies
 Automatically installs packages, creates virtual environments, and resolves requirements across Node.js, Python, .NET, and more.
 
+### 🧪 Multi-Language Testing
+Run tests across all services with `azd app test`. Supports Node.js, Python, and .NET with unified coverage reporting.
+
 ### 🤖 AI-Powered Debugging
 Connect GitHub Copilot via MCP to analyze logs, diagnose issues, and suggest fixes. Your AI pair programmer that understands your running app.
 
