@@ -1,7 +1,9 @@
 package installer
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -28,7 +30,8 @@ type ParallelInstaller struct {
 	mu          sync.Mutex
 	results     []ProjectInstallResult
 	statusLines []output.StatusLine
-	Verbose     bool // Show full installation output
+	Verbose     bool            // Show full installation output
+	ctx         context.Context // Context for cancellation
 }
 
 // ProjectInstallResult represents the result of a project installation.
@@ -44,6 +47,17 @@ func NewParallelInstaller() *ParallelInstaller {
 		tasks:       []ProjectInstallTask{},
 		results:     []ProjectInstallResult{},
 		statusLines: []output.StatusLine{},
+		ctx:         context.Background(),
+	}
+}
+
+// NewParallelInstallerWithContext creates a new parallel installer with cancellation support.
+func NewParallelInstallerWithContext(ctx context.Context) *ParallelInstaller {
+	return &ParallelInstaller{
+		tasks:       []ProjectInstallTask{},
+		results:     []ProjectInstallResult{},
+		statusLines: []output.StatusLine{},
+		ctx:         ctx,
 	}
 }
 
@@ -96,6 +110,50 @@ func (pi *ParallelInstaller) AddDotnetProject(project types.DotnetProject) {
 	pi.AddTask(task)
 }
 
+// executeTask is the unified task execution logic.
+// It handles all project types and writes output to the provided writer.
+func (pi *ParallelInstaller) executeTask(task ProjectInstallTask, writer io.Writer) error {
+	// Check for cancellation before starting
+	select {
+	case <-pi.ctx.Done():
+		return pi.ctx.Err()
+	default:
+	}
+
+	switch task.Type {
+	case "node":
+		if project, ok := task.Project.(types.NodeProject); ok {
+			return installNodeDependenciesWithWriter(project, writer)
+		}
+	case "python":
+		if project, ok := task.Project.(types.PythonProject); ok {
+			return setupPythonVirtualEnvWithWriter(project, writer)
+		}
+	case "dotnet":
+		if project, ok := task.Project.(types.DotnetProject); ok {
+			return restoreDotnetProjectWithWriter(project, writer)
+		}
+	}
+	return fmt.Errorf("unknown task type: %s", task.Type)
+}
+
+// addResult safely adds a result to the results slice.
+func (pi *ParallelInstaller) addResult(result ProjectInstallResult) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	pi.results = append(pi.results, result)
+
+	// Build status line
+	statusLine := output.StatusLine{
+		Description: result.Task.Description,
+		Success:     result.Success,
+	}
+	if result.Error != nil {
+		statusLine.Error = result.Error.Error()
+	}
+	pi.statusLines = append(pi.statusLines, statusLine)
+}
+
 // Run executes all tasks with progress tracking.
 // Tasks are grouped by package manager to avoid race conditions:
 // - pnpm tasks run sequentially (shared global store causes conflicts)
@@ -103,6 +161,13 @@ func (pi *ParallelInstaller) AddDotnetProject(project types.DotnetProject) {
 func (pi *ParallelInstaller) Run() error {
 	if len(pi.tasks) == 0 {
 		return nil
+	}
+
+	// Check for cancellation
+	select {
+	case <-pi.ctx.Done():
+		return pi.ctx.Err()
+	default:
 	}
 
 	// In verbose mode, skip progress bars and show full output
@@ -122,10 +187,65 @@ func (pi *ParallelInstaller) Run() error {
 	pi.multiProg.Start()
 
 	// Separate pnpm tasks from others
-	// pnpm uses a shared global store that can cause race conditions when
-	// multiple pnpm install commands run concurrently
-	var pnpmTasks []ProjectInstallTask
-	var parallelTasks []ProjectInstallTask
+	pnpmTasks, parallelTasks := pi.separateTasksByManager()
+
+	// Run all tasks
+	var wg sync.WaitGroup
+
+	// Run non-pnpm tasks in parallel
+	for _, task := range parallelTasks {
+		wg.Add(1)
+		go func(t ProjectInstallTask) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					pi.addResult(ProjectInstallResult{
+						Task:    t,
+						Success: false,
+						Error:   fmt.Errorf("panic during installation: %v", r),
+					})
+				}
+			}()
+			pi.runTaskWithProgress(t)
+		}(task)
+	}
+
+	// Run pnpm tasks sequentially in a separate goroutine
+	if len(pnpmTasks) > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for _, task := range pnpmTasks {
+				// Check for cancellation between tasks
+				select {
+				case <-pi.ctx.Done():
+					pi.addResult(ProjectInstallResult{
+						Task:    task,
+						Success: false,
+						Error:   pi.ctx.Err(),
+					})
+					return
+				default:
+				}
+				pi.runTaskWithProgress(task)
+			}
+		}()
+	}
+
+	// Wait for all tasks to complete
+	wg.Wait()
+
+	// Stop progress display
+	pi.multiProg.Stop()
+
+	// Print summary
+	pi.printSummary()
+
+	return nil
+}
+
+// separateTasksByManager separates pnpm tasks from other tasks.
+func (pi *ParallelInstaller) separateTasksByManager() (pnpmTasks, parallelTasks []ProjectInstallTask) {
 	for _, task := range pi.tasks {
 		if task.Manager == "pnpm" {
 			pnpmTasks = append(pnpmTasks, task)
@@ -133,235 +253,97 @@ func (pi *ParallelInstaller) Run() error {
 			parallelTasks = append(parallelTasks, task)
 		}
 	}
+	return
+}
 
-	resultsChan := make(chan ProjectInstallResult, len(pi.tasks))
+// runTaskWithProgress executes a task with progress bar tracking.
+func (pi *ParallelInstaller) runTaskWithProgress(task ProjectInstallTask) {
+	bar := pi.multiProg.GetBar(task.ID)
+	bar.Start()
+
+	spinnerWriter := output.NewSpinnerWriter(bar)
+
+	var writer io.Writer = spinnerWriter
+	if pi.Verbose {
+		writer = os.Stdout
+	}
+
+	err := pi.executeTask(task, writer)
+
+	if err != nil {
+		bar.Fail(err.Error())
+	} else {
+		bar.Complete()
+	}
+
+	pi.addResult(ProjectInstallResult{
+		Task:    task,
+		Success: err == nil,
+		Error:   err,
+	})
+}
+
+// runVerbose runs installations with full output instead of progress bars.
+func (pi *ParallelInstaller) runVerbose() error {
+	pnpmTasks, parallelTasks := pi.separateTasksByManager()
+
+	var wg sync.WaitGroup
 
 	// Run non-pnpm tasks in parallel
-	var wg sync.WaitGroup
 	for _, task := range parallelTasks {
 		wg.Add(1)
 		go func(t ProjectInstallTask) {
+			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					resultsChan <- ProjectInstallResult{
+					pi.addResult(ProjectInstallResult{
 						Task:    t,
 						Success: false,
 						Error:   fmt.Errorf("panic during installation: %v", r),
-					}
-					wg.Done()
+					})
 				}
 			}()
-			pi.runTask(t, &wg, resultsChan)
+			pi.runTaskVerbose(t)
 		}(task)
 	}
 
-	// Run pnpm tasks sequentially in a separate goroutine
-	// This prevents race conditions on pnpm's global store while still
-	// allowing other package managers to run in parallel
+	// Run pnpm tasks sequentially
 	if len(pnpmTasks) > 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for _, task := range pnpmTasks {
-				pi.runTaskSync(task, resultsChan)
+				select {
+				case <-pi.ctx.Done():
+					pi.addResult(ProjectInstallResult{
+						Task:    task,
+						Success: false,
+						Error:   pi.ctx.Err(),
+					})
+					return
+				default:
+				}
+				// Print task header for clarity
+				fmt.Fprintf(os.Stdout, "\n=== Installing: %s ===\n", task.Description)
+				pi.runTaskVerbose(task)
 			}
 		}()
 	}
 
-	// Wait for all tasks to complete
 	wg.Wait()
-	close(resultsChan)
-
-	// Stop progress display
-	pi.multiProg.Stop()
-
-	// Collect results
-	for result := range resultsChan {
-		pi.results = append(pi.results, result)
-
-		// Build status line
-		statusLine := output.StatusLine{
-			Description: result.Task.Description,
-			Success:     result.Success,
-		}
-		if result.Error != nil {
-			statusLine.Error = result.Error.Error()
-		}
-		pi.statusLines = append(pi.statusLines, statusLine)
-	}
-
-	// Print summary
 	pi.printSummary()
 
 	return nil
 }
 
-// runTask executes a single installation task with progress tracking.
-func (pi *ParallelInstaller) runTask(task ProjectInstallTask, wg *sync.WaitGroup, resultsChan chan<- ProjectInstallResult) {
-	defer wg.Done()
-
-	// Get the progress bar for this task
-	bar := pi.multiProg.GetBar(task.ID)
-
-	// Mark as started
-	bar.Start()
-
-	// Create a spinner writer to track progress
-	spinnerWriter := output.NewSpinnerWriter(bar)
-
-	// Execute the installation based on type
-	var err error
-	switch task.Type {
-	case "node":
-		if project, ok := task.Project.(types.NodeProject); ok {
-			if pi.Verbose {
-				err = installNodeDependenciesWithWriter(project, os.Stdout)
-			} else {
-				err = installNodeDependenciesWithWriter(project, spinnerWriter)
-			}
-		}
-	case "python":
-		if project, ok := task.Project.(types.PythonProject); ok {
-			if pi.Verbose {
-				err = setupPythonVirtualEnvWithWriter(project, os.Stdout)
-			} else {
-				err = setupPythonVirtualEnvWithWriter(project, spinnerWriter)
-			}
-		}
-	case "dotnet":
-		if project, ok := task.Project.(types.DotnetProject); ok {
-			if pi.Verbose {
-				err = restoreDotnetProjectWithWriter(project, os.Stdout)
-			} else {
-				err = restoreDotnetProjectWithWriter(project, spinnerWriter)
-			}
-		}
-	}
-
-	// Mark as completed or failed
-	if err != nil {
-		bar.Fail(err.Error())
-	} else {
-		bar.Complete()
-	}
-
-	// Send result
-	resultsChan <- ProjectInstallResult{
+// runTaskVerbose executes a single task with verbose output.
+func (pi *ParallelInstaller) runTaskVerbose(task ProjectInstallTask) {
+	err := pi.executeTask(task, os.Stdout)
+	pi.addResult(ProjectInstallResult{
 		Task:    task,
 		Success: err == nil,
 		Error:   err,
-	}
-}
-
-// runTaskSync executes a single installation task synchronously (for sequential execution).
-// This is used for pnpm tasks which cannot run in parallel due to shared global store.
-func (pi *ParallelInstaller) runTaskSync(task ProjectInstallTask, resultsChan chan<- ProjectInstallResult) {
-	// Get the progress bar for this task
-	bar := pi.multiProg.GetBar(task.ID)
-
-	// Mark as started
-	bar.Start()
-
-	// Create a spinner writer to track progress
-	spinnerWriter := output.NewSpinnerWriter(bar)
-
-	// Execute the installation based on type
-	var err error
-	switch task.Type {
-	case "node":
-		if project, ok := task.Project.(types.NodeProject); ok {
-			if pi.Verbose {
-				err = installNodeDependenciesWithWriter(project, os.Stdout)
-			} else {
-				err = installNodeDependenciesWithWriter(project, spinnerWriter)
-			}
-		}
-	case "python":
-		if project, ok := task.Project.(types.PythonProject); ok {
-			if pi.Verbose {
-				err = setupPythonVirtualEnvWithWriter(project, os.Stdout)
-			} else {
-				err = setupPythonVirtualEnvWithWriter(project, spinnerWriter)
-			}
-		}
-	case "dotnet":
-		if project, ok := task.Project.(types.DotnetProject); ok {
-			if pi.Verbose {
-				err = restoreDotnetProjectWithWriter(project, os.Stdout)
-			} else {
-				err = restoreDotnetProjectWithWriter(project, spinnerWriter)
-			}
-		}
-	}
-
-	// Mark as completed or failed
-	if err != nil {
-		bar.Fail(err.Error())
-	} else {
-		bar.Complete()
-	}
-
-	// Send result
-	resultsChan <- ProjectInstallResult{
-		Task:    task,
-		Success: err == nil,
-		Error:   err,
-	}
-}
-
-// runVerbose runs installations in parallel with full output instead of progress bars.
-func (pi *ParallelInstaller) runVerbose() error {
-	// Run all tasks in parallel
-	var wg sync.WaitGroup
-	resultsChan := make(chan ProjectInstallResult, len(pi.tasks))
-
-	for _, task := range pi.tasks {
-		wg.Add(1)
-		go pi.runTaskVerbose(task, &wg, resultsChan)
-	}
-
-	// Wait for all tasks to complete
-	wg.Wait()
-	close(resultsChan)
-
-	// Collect results
-	for result := range resultsChan {
-		pi.results = append(pi.results, result)
-	}
-
-	// Print summary
-	pi.printSummary()
-
-	return nil
-}
-
-// runTaskVerbose executes a single installation task with full output.
-func (pi *ParallelInstaller) runTaskVerbose(task ProjectInstallTask, wg *sync.WaitGroup, resultsChan chan<- ProjectInstallResult) {
-	defer wg.Done()
-
-	// Execute the installation based on type with full output to stdout
-	var err error
-	switch task.Type {
-	case "node":
-		if project, ok := task.Project.(types.NodeProject); ok {
-			err = installNodeDependenciesWithWriter(project, os.Stdout)
-		}
-	case "python":
-		if project, ok := task.Project.(types.PythonProject); ok {
-			err = setupPythonVirtualEnvWithWriter(project, os.Stdout)
-		}
-	case "dotnet":
-		if project, ok := task.Project.(types.DotnetProject); ok {
-			err = restoreDotnetProjectWithWriter(project, os.Stdout)
-		}
-	}
-
-	// Send result
-	resultsChan <- ProjectInstallResult{
-		Task:    task,
-		Success: err == nil,
-		Error:   err,
-	}
+	})
 }
 
 // printSummary prints the overall installation summary.

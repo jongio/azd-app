@@ -139,17 +139,25 @@ func isStopped(status string) bool {
 
 // StartService starts a single service.
 func (c *ServiceController) StartService(ctx context.Context, serviceName string) *ServiceControlResult {
-	entry, errResult := c.validateAndGetService(serviceName)
+	_, errResult := c.validateAndGetService(serviceName)
 	if errResult != nil {
 		return errResult
 	}
 
-	if isRunning(entry.Status) {
-		return newErrorResult(serviceName, fmt.Sprintf("service '%s' is already running", serviceName))
-	}
-
+	// Note: State check moved inside operation lock to prevent TOCTOU race
 	opResult := c.opManager.ExecuteOperation(ctx, serviceName, service.OpStart, func(ctx context.Context) error {
-		return c.performStart(entry, serviceName)
+		// Re-fetch entry inside lock to get current state
+		currentEntry, exists := c.registry.GetService(serviceName)
+		if !exists {
+			return fmt.Errorf("service '%s' no longer exists", serviceName)
+		}
+
+		// Check state after acquiring lock to prevent race conditions
+		if isRunning(currentEntry.Status) {
+			return fmt.Errorf("service '%s' is already running", serviceName)
+		}
+
+		return c.performStart(ctx, currentEntry, serviceName)
 	})
 
 	return c.buildResult(serviceName, opResult, "start", constants.StatusRunning)
@@ -157,17 +165,25 @@ func (c *ServiceController) StartService(ctx context.Context, serviceName string
 
 // StopService stops a single service.
 func (c *ServiceController) StopService(ctx context.Context, serviceName string) *ServiceControlResult {
-	entry, errResult := c.validateAndGetService(serviceName)
+	_, errResult := c.validateAndGetService(serviceName)
 	if errResult != nil {
 		return errResult
 	}
 
-	if isStopped(entry.Status) {
-		return newErrorResult(serviceName, fmt.Sprintf("service '%s' is already stopped", serviceName))
-	}
-
+	// Note: State check moved inside operation lock to prevent TOCTOU race
 	opResult := c.opManager.ExecuteOperation(ctx, serviceName, service.OpStop, func(ctx context.Context) error {
-		return c.performStop(entry, serviceName)
+		// Re-fetch entry inside lock to get current state
+		currentEntry, exists := c.registry.GetService(serviceName)
+		if !exists {
+			return fmt.Errorf("service '%s' no longer exists", serviceName)
+		}
+
+		// Check state after acquiring lock to prevent race conditions
+		if isStopped(currentEntry.Status) {
+			return fmt.Errorf("service '%s' is already stopped", serviceName)
+		}
+
+		return c.performStop(ctx, currentEntry, serviceName)
 	})
 
 	return c.buildResult(serviceName, opResult, "stop", constants.StatusStopped)
@@ -175,19 +191,32 @@ func (c *ServiceController) StopService(ctx context.Context, serviceName string)
 
 // RestartService restarts a single service.
 func (c *ServiceController) RestartService(ctx context.Context, serviceName string) *ServiceControlResult {
-	entry, errResult := c.validateAndGetService(serviceName)
+	_, errResult := c.validateAndGetService(serviceName)
 	if errResult != nil {
 		return errResult
 	}
 
 	opResult := c.opManager.ExecuteOperation(ctx, serviceName, service.OpRestart, func(ctx context.Context) error {
-		if isRunning(entry.Status) {
-			if err := c.performStop(entry, serviceName); err != nil {
+		// Re-fetch entry inside lock to get current state
+		currentEntry, exists := c.registry.GetService(serviceName)
+		if !exists {
+			return fmt.Errorf("service '%s' no longer exists", serviceName)
+		}
+
+		// Stop if running
+		if isRunning(currentEntry.Status) {
+			if err := c.performStop(ctx, currentEntry, serviceName); err != nil {
 				return fmt.Errorf("stop phase failed: %w", err)
 			}
-			entry, _ = c.registry.GetService(serviceName)
+
+			// Re-fetch entry after stop to ensure it still exists
+			currentEntry, exists = c.registry.GetService(serviceName)
+			if !exists {
+				return fmt.Errorf("service '%s' was unregistered during stop phase", serviceName)
+			}
 		}
-		return c.performStart(entry, serviceName)
+
+		return c.performStart(ctx, currentEntry, serviceName)
 	})
 
 	return c.buildResult(serviceName, opResult, "restart", constants.StatusRunning)
@@ -264,7 +293,16 @@ func (c *ServiceController) bulkOperation(
 }
 
 // performStart executes the start logic for a service.
-func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, serviceName string) error {
+// It now accepts a context for proper cancellation support and implements
+// comprehensive port cleanup on failures to prevent resource leaks.
+func (c *ServiceController) performStart(ctx context.Context, entry *registry.ServiceRegistryEntry, serviceName string) error {
+	// Check context before starting expensive operations
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("operation cancelled: %w", ctx.Err())
+	default:
+	}
+
 	// Parse azure.yaml to get service configuration
 	azureYaml, err := service.ParseAzureYaml(c.projectDir)
 	if err != nil {
@@ -282,6 +320,9 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 		return fmt.Errorf("failed to detect service runtime: %w", err)
 	}
 
+	// Track port for cleanup on failure
+	assignedPort := runtime.Port
+
 	// Update to starting state
 	_ = c.registry.UpdateStatus(serviceName, constants.StatusStarting)
 
@@ -293,12 +334,37 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 	process, err := service.StartService(runtime, envVars, c.projectDir, functionsParser)
 	if err != nil {
 		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
+
+		// CRITICAL FIX: Clean up port assignment on failure to prevent resource leak
+		// Note: Port manager uses service name as key, not port number
+		if assignedPort > 0 {
+			pm := portmanager.GetPortManager(c.projectDir)
+			if releaseErr := pm.ReleasePort(serviceName); releaseErr != nil {
+				slog.Warn("failed to release port after start failure",
+					"service", serviceName,
+					"port", assignedPort,
+					"error", releaseErr)
+			}
+		}
+
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
 	// Validate process was created successfully
 	if process == nil || process.Process == nil {
 		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
+
+		// CRITICAL FIX: Clean up port assignment on validation failure
+		if assignedPort > 0 {
+			pm := portmanager.GetPortManager(c.projectDir)
+			if releaseErr := pm.ReleasePort(serviceName); releaseErr != nil {
+				slog.Warn("failed to release port after validation failure",
+					"service", serviceName,
+					"port", assignedPort,
+					"error", releaseErr)
+			}
+		}
+
 		return fmt.Errorf("service process not created")
 	}
 
@@ -324,7 +390,15 @@ func (c *ServiceController) performStart(entry *registry.ServiceRegistryEntry, s
 
 // performStop executes the stop logic for a service.
 // It stops the service by PID and ensures the port is freed to handle stale registry entries.
-func (c *ServiceController) performStop(entry *registry.ServiceRegistryEntry, serviceName string) error {
+// Now accepts context for proper cancellation support.
+func (c *ServiceController) performStop(ctx context.Context, entry *registry.ServiceRegistryEntry, serviceName string) error {
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("operation cancelled: %w", ctx.Err())
+	default:
+	}
+
 	// Update to stopping state
 	_ = c.registry.UpdateStatus(serviceName, constants.StatusStopping)
 

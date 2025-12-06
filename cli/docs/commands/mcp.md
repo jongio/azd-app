@@ -57,7 +57,7 @@ The MCP server:
 
 ### Tools Provided
 
-The MCP server exposes 10 tools organized into three categories:
+The MCP server exposes 11 tools organized into three categories:
 
 #### Observability Tools (Read-Only)
 
@@ -72,8 +72,9 @@ The MCP server exposes 10 tools organized into three categories:
 | Tool | Description |
 |------|-------------|
 | `run_services` | Start development services defined in azure.yaml, Aspire, or docker compose |
-| `stop_services` | Get guidance on stopping running development services |
-| `restart_service` | Get guidance on restarting a specific service |
+| `stop_services` | Stop all running development services or a specific service |
+| `start_service` | Start a specific stopped service |
+| `restart_service` | Stop and start a specific service |
 | `install_dependencies` | Install dependencies for all detected projects (Node.js, Python, .NET) |
 | `check_requirements` | Check if all required prerequisites are installed and meet version requirements |
 
@@ -82,7 +83,7 @@ The MCP server exposes 10 tools organized into three categories:
 | Tool | Description |
 |------|-------------|
 | `get_environment_variables` | Get environment variables configured for services |
-| `set_environment_variable` | Get guidance on setting environment variables |
+| `set_environment_variable` | Get guidance on setting environment variables
 
 ### Resources Provided
 
@@ -404,6 +405,14 @@ After restarting Claude Desktop, you should see an MCP indicator showing that th
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `projectDir` | string | No | Project directory path. Defaults to current directory. |
+| `serviceName` | string | No | Optional specific service to stop. If not provided, stops all running services. |
+
+### start_service
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `serviceName` | string | **Yes** | Name of the service to start |
+| `projectDir` | string | No | Project directory path. Defaults to current directory. |
 
 ### restart_service
 
@@ -454,7 +463,7 @@ After restarting Claude Desktop, you should see an MCP indicator showing that th
 
 | Capability | Enabled | Details |
 |------------|---------|---------|
-| Tools | Yes | 10 tools for monitoring and operations |
+| Tools | Yes | 11 tools for monitoring and operations |
 | Resources | Yes | 2 resources (subscribe=false, listChanged=true) |
 | Prompts | No | Not currently implemented |
 | Instructions | Yes | Built-in best practices guidance |

@@ -16,9 +16,9 @@ func TestFormatStatus(t *testing.T) {
 		contains string
 	}{
 		{
-			name:     "ready status",
-			status:   "ready",
-			contains: "ready",
+			name:     "running status",
+			status:   "running",
+			contains: "running",
 		},
 		{
 			name:     "starting status",
@@ -34,6 +34,11 @@ func TestFormatStatus(t *testing.T) {
 			name:     "stopped status",
 			status:   "stopped",
 			contains: "stopped",
+		},
+		{
+			name:     "not-running status",
+			status:   "not-running",
+			contains: "not-running",
 		},
 		{
 			name:     "unknown status",
@@ -183,8 +188,8 @@ func TestInfoGetStatusIcon(t *testing.T) {
 		contains string
 	}{
 		{
-			name:     "ready and healthy",
-			status:   "ready",
+			name:     "running and healthy",
+			status:   "running",
 			health:   "healthy",
 			contains: "✓",
 		},
@@ -201,14 +206,20 @@ func TestInfoGetStatusIcon(t *testing.T) {
 			contains: "✗",
 		},
 		{
-			name:     "unhealthy but ready",
-			status:   "ready",
+			name:     "unhealthy but running",
+			status:   "running",
 			health:   "unhealthy",
 			contains: "✗",
 		},
 		{
 			name:     "stopped",
 			status:   "stopped",
+			health:   "unknown",
+			contains: "●",
+		},
+		{
+			name:     "not-running",
+			status:   "not-running",
 			health:   "unknown",
 			contains: "●",
 		},
@@ -227,75 +238,6 @@ func TestInfoGetStatusIcon(t *testing.T) {
 				t.Errorf("getInfoStatusIcon(%q, %q) returned empty string", tt.status, tt.health)
 			}
 		})
-	}
-}
-
-func TestGetAzureEndpoints(t *testing.T) {
-	// Set up test environment variables
-	testEnvVars := map[string]string{
-		"SERVICE_API_ENDPOINT_URL":     "https://api.example.com",
-		"SERVICE_WEB_URL":              "https://web.example.com",
-		"SERVICE_BACKEND_ENDPOINT_URL": "https://backend.example.com",
-		"OTHER_VAR":                    "not-a-service",
-		"SERVICE_CACHE_CONNECTION_STR": "redis://localhost:6379", // Should be ignored
-	}
-
-	// Set environment variables
-	for key, value := range testEnvVars {
-		os.Setenv(key, value)
-		defer os.Unsetenv(key)
-	}
-
-	endpoints := getAzureEndpoints()
-
-	tests := []struct {
-		serviceName string
-		expected    string
-		shouldExist bool
-	}{
-		{
-			serviceName: "api",
-			expected:    "https://api.example.com",
-			shouldExist: true,
-		},
-		{
-			serviceName: "web",
-			expected:    "https://web.example.com",
-			shouldExist: true,
-		},
-		{
-			serviceName: "backend",
-			expected:    "https://backend.example.com",
-			shouldExist: true,
-		},
-		{
-			serviceName: "nonexistent",
-			shouldExist: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.serviceName, func(t *testing.T) {
-			endpoint, exists := endpoints[tt.serviceName]
-			if exists != tt.shouldExist {
-				t.Errorf("getAzureEndpoints()[%q] exists = %v, want %v", tt.serviceName, exists, tt.shouldExist)
-			}
-			if tt.shouldExist && endpoint != tt.expected {
-				t.Errorf("getAzureEndpoints()[%q] = %q, want %q", tt.serviceName, endpoint, tt.expected)
-			}
-		})
-	}
-}
-
-func TestGetCurrentDir(t *testing.T) {
-	result := getCurrentDir()
-	if result == "" {
-		t.Error("getCurrentDir() returned empty string")
-	}
-
-	// Should return a valid path
-	if !filepath.IsAbs(result) && result != "." {
-		t.Errorf("getCurrentDir() = %q, expected absolute path or '.'", result)
 	}
 }
 
@@ -362,7 +304,7 @@ func TestRunInfoWithServices(t *testing.T) {
 			URL:         "http://localhost:8080",
 			Language:    "go",
 			Framework:   "net/http",
-			Status:      "ready",
+			Status:      "running",
 			StartTime:   now.Add(-5 * time.Minute),
 			LastChecked: now,
 		},
@@ -374,7 +316,7 @@ func TestRunInfoWithServices(t *testing.T) {
 			URL:         "http://localhost:3000",
 			Language:    "node",
 			Framework:   "next.js",
-			Status:      "ready",
+			Status:      "running",
 			StartTime:   now.Add(-10 * time.Minute),
 			LastChecked: now,
 		},
@@ -417,7 +359,7 @@ func TestRunInfoWithDifferentWorkingDirectory(t *testing.T) {
 		URL:         "http://localhost:9000",
 		Language:    "python",
 		Framework:   "fastapi",
-		Status:      "ready",
+		Status:      "running",
 		StartTime:   time.Now().Add(-1 * time.Hour),
 		LastChecked: time.Now(),
 	}
@@ -491,5 +433,176 @@ func TestRunInfoWithErrorService(t *testing.T) {
 	err = cmd.Execute()
 	if err != nil {
 		t.Errorf("runInfo() with error service failed: %v", err)
+	}
+}
+
+func TestGetServiceEnvironmentVars(t *testing.T) {
+	tests := []struct {
+		name        string
+		serviceName string
+		azureEnv    map[string]string
+		expected    map[string]string
+	}{
+		{
+			name:        "service with matching variables",
+			serviceName: "api",
+			azureEnv: map[string]string{
+				"SERVICE_API_DATABASE_URL":  "postgres://localhost:5432/db",
+				"SERVICE_API_PORT":          "8080",
+				"SERVICE_WEB_URL":           "http://localhost:3000",
+				"AZURE_API_STORAGE_ACCOUNT": "mystorageaccount",
+				"AZURE_WEB_CDN":             "mycdn.azureedge.net",
+				"UNRELATED_VAR":             "value",
+			},
+			expected: map[string]string{
+				"SERVICE_API_DATABASE_URL":  "postgres://localhost:5432/db",
+				"SERVICE_API_PORT":          "8080",
+				"AZURE_API_STORAGE_ACCOUNT": "mystorageaccount",
+			},
+		},
+		{
+			name:        "service with no matching variables",
+			serviceName: "api",
+			azureEnv: map[string]string{
+				"SERVICE_WEB_URL": "http://localhost:3000",
+				"UNRELATED_VAR":   "value",
+			},
+			expected: map[string]string{},
+		},
+		{
+			name:        "empty environment",
+			serviceName: "api",
+			azureEnv:    map[string]string{},
+			expected:    map[string]string{},
+		},
+		{
+			name:        "case insensitive service name",
+			serviceName: "API",
+			azureEnv: map[string]string{
+				"SERVICE_API_URL": "http://localhost:8080",
+				"service_api_db":  "postgres://localhost:5432",
+			},
+			expected: map[string]string{
+				"SERVICE_API_URL": "http://localhost:8080",
+				"service_api_db":  "postgres://localhost:5432",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getServiceEnvironmentVars(tt.serviceName, tt.azureEnv)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("getServiceEnvironmentVars() returned %d variables, want %d", len(result), len(tt.expected))
+			}
+
+			for key, expectedValue := range tt.expected {
+				if actualValue, exists := result[key]; !exists {
+					t.Errorf("getServiceEnvironmentVars() missing expected key %q", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("getServiceEnvironmentVars()[%q] = %q, want %q", key, actualValue, expectedValue)
+				}
+			}
+
+			// Check for unexpected keys
+			for key := range result {
+				if _, expected := tt.expected[key]; !expected {
+					t.Errorf("getServiceEnvironmentVars() returned unexpected key %q with value %q", key, result[key])
+				}
+			}
+		})
+	}
+}
+
+func TestFormatStatusEdgeCases(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+	}{
+		{"empty string", ""},
+		{"arbitrary value", "arbitrary"},
+		{"mixed case", "Running"},
+		{"with spaces", "running service"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatStatus(tt.status)
+			// Should not panic and should return something
+			if result == "" && tt.status != "" {
+				t.Errorf("formatStatus(%q) returned empty string", tt.status)
+			}
+		})
+	}
+}
+
+func TestFormatHealthEdgeCases(t *testing.T) {
+	tests := []struct {
+		name   string
+		health string
+	}{
+		{"empty string", ""},
+		{"arbitrary value", "arbitrary"},
+		{"mixed case", "Healthy"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatHealth(tt.health)
+			// Should not panic and should return something
+			if result == "" && tt.health != "" {
+				t.Errorf("formatHealth(%q) returned empty string", tt.health)
+			}
+		})
+	}
+}
+
+func TestGetInfoStatusIconEdgeCases(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		health string
+	}{
+		{"both empty", "", ""},
+		{"status empty", "", "healthy"},
+		{"health empty", "running", ""},
+		{"invalid combinations", "invalid", "invalid"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getInfoStatusIcon(tt.status, tt.health)
+			// Should always return something (default is "?")
+			if result == "" {
+				t.Errorf("getInfoStatusIcon(%q, %q) returned empty string", tt.status, tt.health)
+			}
+		})
+	}
+}
+
+func TestFormatInfoDurationEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		duration time.Duration
+		expected string
+	}{
+		{"zero duration", 0, "0s"},
+		{"negative duration", -5 * time.Second, "-5s"},
+		{"exactly 1 minute", 1 * time.Minute, "1m"},
+		{"exactly 1 hour", 1 * time.Hour, "1h"},
+		{"exactly 24 hours", 24 * time.Hour, "1d"},
+		{"59 seconds", 59 * time.Second, "59s"},
+		{"61 seconds", 61 * time.Second, "1m"},
+		{"90 minutes", 90 * time.Minute, "1h"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatInfoDuration(tt.duration)
+			if result != tt.expected {
+				t.Errorf("formatInfoDuration(%v) = %q, want %q", tt.duration, result, tt.expected)
+			}
+		})
 	}
 }

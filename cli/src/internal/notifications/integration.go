@@ -66,6 +66,7 @@ func NewNotificationManager(cfg NotificationManagerConfig) (*NotificationManager
 	var osHandler *OSNotificationHandler
 	if notifier != nil && prefs.OSNotifications && notifier.IsAvailable() {
 		osHandler = NewOSNotificationHandler(notifier, prefs)
+		osHandler.Start() // Start cleanup goroutine
 		pipeline.RegisterHandler(osHandler)
 	}
 

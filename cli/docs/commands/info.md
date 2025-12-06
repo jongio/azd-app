@@ -24,7 +24,7 @@ azd app info [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--all` | | bool | `false` | Show services from all projects on this machine |
-| `--cwd` | `-C` | string | | Sets the current working directory |
+| `--output` | `-o` | string | `text` | Output format: 'text' or 'json' |
 
 ## Execution Flow
 
@@ -191,7 +191,7 @@ The command validates running services by checking:
 
 | Status | Icon | Meaning | Color |
 |--------|------|---------|-------|
-| `running` | ✓ | Service is active and responding | Green |
+| `ready` | ✓ | Service is active and responding | Green |
 | `starting` | ○ | Service is initializing | Yellow |
 | `error` | ✗ | Service failed to start or crashed | Red |
 | `stopped` | ● | Service intentionally stopped | Gray |

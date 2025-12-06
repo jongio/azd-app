@@ -1,0 +1,48 @@
+---
+/**
+ * CopyButtonScript Component
+ * 
+ * A shared script for copy-to-clipboard functionality.
+ * Include this component once in pages that have .copy-button elements
+ * with data-code attributes.
+ * 
+ * This handles the legacy pattern used in CLI reference pages.
+ * For new development, prefer using the CopyButton.astro component directly.
+ */
+---
+
+<script>
+  function initLegacyCopyButtons(): void {
+    document.querySelectorAll<HTMLButtonElement>('.copy-button[data-code]').forEach(button => {
+      // Skip if already initialized
+      if (button.dataset.copyInitialized) return;
+      button.dataset.copyInitialized = 'true';
+      
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          try {
+            await navigator.clipboard.writeText(code);
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            setTimeout(() => { 
+              button.textContent = originalText || 'Copy'; 
+            }, 2000);
+          } catch (err) {
+            console.error('Failed to copy:', err);
+            button.textContent = 'Failed';
+            setTimeout(() => { 
+              button.textContent = 'Copy'; 
+            }, 2000);
+          }
+        }
+      });
+    });
+  }
+
+  // Initialize on load
+  initLegacyCopyButtons();
+
+  // Re-initialize on Astro page transitions
+  document.addEventListener('astro:page-load', initLegacyCopyButtons);
+</script>

@@ -224,7 +224,7 @@ func TestStopServiceGraceful_MultipleTimeouts(t *testing.T) {
 	}
 }
 
-func TestStopService_UsesGracefulDefault(t *testing.T) {
+func TestStopServiceGraceful_WithDefaultTimeout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping graceful default test in short mode")
 	}
@@ -251,18 +251,18 @@ func TestStopService_UsesGracefulDefault(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	})
 
-	// StopService should use StopServiceGraceful with default 5s timeout
+	// StopServiceGraceful with default 5s timeout
 	startTime := time.Now()
-	err = StopService(process)
+	err = StopServiceGraceful(process, DefaultStopTimeout)
 	elapsed := time.Since(startTime)
 
 	if err != nil {
-		t.Logf("StopService() returned error: %v (may be acceptable)", err)
+		t.Logf("StopServiceGraceful() returned error: %v (may be acceptable)", err)
 	}
 
 	// Should complete within reasonable time (5s timeout + buffer)
 	if elapsed > 7*time.Second {
-		t.Errorf("StopService() took %v, expected < 7s (5s default timeout + buffer)", elapsed)
+		t.Errorf("StopServiceGraceful() took %v, expected < 7s (5s default timeout + buffer)", elapsed)
 	}
 }
 

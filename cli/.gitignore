@@ -9,4 +9,9 @@ mage_output_file.go
 # Coverage output files
 cov
 mcpcov
+coverdata/
+*_cover
+cover
+*_coverage
+*_coverage.html
 *.out

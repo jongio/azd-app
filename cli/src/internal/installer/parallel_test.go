@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -22,6 +23,90 @@ func TestNewParallelInstaller(t *testing.T) {
 
 	if len(pi.results) != 0 {
 		t.Errorf("Expected 0 results, got %d", len(pi.results))
+	}
+
+	if pi.ctx == nil {
+		t.Error("Expected default context.Background(), got nil")
+	}
+}
+
+func TestNewParallelInstallerWithContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pi := NewParallelInstallerWithContext(ctx)
+
+	if pi == nil {
+		t.Fatal("NewParallelInstallerWithContext() returned nil")
+	}
+
+	if pi.ctx != ctx {
+		t.Error("Expected provided context, got different context")
+	}
+}
+
+func TestSeparateTasksByManager(t *testing.T) {
+	pi := NewParallelInstaller()
+
+	// Add mixed tasks
+	pi.AddTask(ProjectInstallTask{ID: "pnpm1", Type: "node", Manager: "pnpm", Dir: "/a"})
+	pi.AddTask(ProjectInstallTask{ID: "npm1", Type: "node", Manager: "npm", Dir: "/b"})
+	pi.AddTask(ProjectInstallTask{ID: "pnpm2", Type: "node", Manager: "pnpm", Dir: "/c"})
+	pi.AddTask(ProjectInstallTask{ID: "pip1", Type: "python", Manager: "pip", Dir: "/d"})
+
+	pnpmTasks, parallelTasks := pi.separateTasksByManager()
+
+	if len(pnpmTasks) != 2 {
+		t.Errorf("Expected 2 pnpm tasks, got %d", len(pnpmTasks))
+	}
+	if len(parallelTasks) != 2 {
+		t.Errorf("Expected 2 parallel tasks, got %d", len(parallelTasks))
+	}
+
+	// Verify pnpm tasks
+	for _, task := range pnpmTasks {
+		if task.Manager != "pnpm" {
+			t.Errorf("Expected pnpm manager, got %s", task.Manager)
+		}
+	}
+
+	// Verify parallel tasks don't have pnpm
+	for _, task := range parallelTasks {
+		if task.Manager == "pnpm" {
+			t.Error("Parallel tasks should not contain pnpm")
+		}
+	}
+}
+
+func TestAddResult_ThreadSafe(t *testing.T) {
+	pi := NewParallelInstaller()
+
+	var wg sync.WaitGroup
+	numResults := 100
+
+	// Add results concurrently
+	for i := 0; i < numResults; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			pi.addResult(ProjectInstallResult{
+				Task: ProjectInstallTask{
+					ID:          string(rune('0' + id)),
+					Description: "Test Task",
+				},
+				Success: true,
+			})
+		}(i)
+	}
+
+	wg.Wait()
+
+	if len(pi.results) != numResults {
+		t.Errorf("Expected %d results, got %d", numResults, len(pi.results))
+	}
+
+	if len(pi.statusLines) != numResults {
+		t.Errorf("Expected %d status lines, got %d", numResults, len(pi.statusLines))
 	}
 }
 
@@ -538,5 +623,54 @@ func TestParallelInstaller_MixedTaskGrouping(t *testing.T) {
 	}
 	if len(parallelTasks) != 4 {
 		t.Errorf("Expected 4 tasks for parallel execution, got %d", len(parallelTasks))
+	}
+}
+
+func TestParallelInstaller_VerboseModePnpmSequencing(t *testing.T) {
+	// Test that verbose mode still properly separates pnpm from other tasks
+	// This is a structural test - verifying the grouping logic is consistent
+	// with non-verbose mode
+	pi := NewParallelInstaller()
+	pi.Verbose = true
+
+	// Add mixed tasks
+	pi.AddNodeProject(types.NodeProject{Dir: "/app1", PackageManager: "pnpm"})
+	pi.AddNodeProject(types.NodeProject{Dir: "/app2", PackageManager: "pnpm"})
+	pi.AddNodeProject(types.NodeProject{Dir: "/app3", PackageManager: "npm"})
+	pi.AddPythonProject(types.PythonProject{Dir: "/api", PackageManager: "pip"})
+
+	// Verify tasks are added correctly
+	if len(pi.tasks) != 4 {
+		t.Fatalf("Expected 4 tasks, got %d", len(pi.tasks))
+	}
+
+	// Simulate the grouping logic from runVerbose
+	var pnpmTasks, parallelTasks []ProjectInstallTask
+	for _, task := range pi.tasks {
+		if task.Manager == "pnpm" {
+			pnpmTasks = append(pnpmTasks, task)
+		} else {
+			parallelTasks = append(parallelTasks, task)
+		}
+	}
+
+	// Verify pnpm tasks are separated
+	if len(pnpmTasks) != 2 {
+		t.Errorf("Expected 2 pnpm tasks for sequential execution, got %d", len(pnpmTasks))
+	}
+	if len(parallelTasks) != 2 {
+		t.Errorf("Expected 2 non-pnpm tasks for parallel execution, got %d", len(parallelTasks))
+	}
+
+	// Verify task managers
+	for _, task := range pnpmTasks {
+		if task.Manager != "pnpm" {
+			t.Errorf("pnpm task list contains non-pnpm task: %s", task.Manager)
+		}
+	}
+	for _, task := range parallelTasks {
+		if task.Manager == "pnpm" {
+			t.Errorf("parallel task list contains pnpm task")
+		}
 	}
 }

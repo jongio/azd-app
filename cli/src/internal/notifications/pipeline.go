@@ -164,10 +164,16 @@ type OSNotificationHandler struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	dashboardURL string // URL to dashboard for clickable notifications
+	started      bool   // Track if cleanup goroutine has started
 }
 
-// NewOSNotificationHandler creates a handler for OS notifications
+// NewOSNotificationHandler creates a handler for OS notifications.
+// IMPORTANT: Call Start() to begin the cleanup goroutine, and Close() when done
+// to prevent context/goroutine leaks.
 func NewOSNotificationHandler(notifier notify.Notifier, cfg *config.NotificationPreferences) *OSNotificationHandler {
+	// Note: context is created here but cleanup goroutine only starts in Start()
+	// This is intentional to allow configuration before starting.
+	// If Start() is never called, Close() must still be called to cancel the context.
 	ctx, cancel := context.WithCancel(context.Background())
 	h := &OSNotificationHandler{
 		notifier: notifier,
@@ -175,10 +181,19 @@ func NewOSNotificationHandler(notifier notify.Notifier, cfg *config.Notification
 		lastSent: make(map[string]time.Time),
 		ctx:      ctx,
 		cancel:   cancel,
+		started:  false,
 	}
-	// Start cleanup goroutine to prevent memory leak
-	go h.cleanupOldEntries()
 	return h
+}
+
+// Start begins the cleanup goroutine. Should be called after handler is fully initialized.
+func (h *OSNotificationHandler) Start() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.started {
+		h.started = true
+		go h.cleanupOldEntries()
+	}
 }
 
 // SetDashboardURL sets the dashboard URL for clickable notifications
@@ -223,7 +238,7 @@ func (h *OSNotificationHandler) Handle(ctx context.Context, event Event) error {
 		return nil
 	}
 
-	// Rate limiting
+	// Rate limiting - single lock acquisition
 	h.mu.Lock()
 	key := fmt.Sprintf("%s:%s", event.ServiceName, event.Type)
 	if lastSent, ok := h.lastSent[key]; ok {
@@ -233,13 +248,10 @@ func (h *OSNotificationHandler) Handle(ctx context.Context, event Event) error {
 		}
 	}
 	h.lastSent[key] = time.Now()
-	h.mu.Unlock()
-
-	// Send notification
-	h.mu.Lock()
 	dashURL := h.dashboardURL
 	h.mu.Unlock()
 
+	// Send notification (outside of lock)
 	notification := notify.Notification{
 		Title:     fmt.Sprintf("Azure Dev: %s", event.ServiceName),
 		Message:   event.Message,
