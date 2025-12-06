@@ -13,6 +13,51 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
+// osWindows is the GOOS value for Windows.
+const osWindows = "windows"
+
+// buildGetProcessOnPortCommand returns the command and args to find a process listening on a port.
+func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
+	if runtime.GOOS == osWindows {
+		psScript := fmt.Sprintf(`
+			$connections = netstat -ano | Select-String ":%d " | Select-String "LISTENING"
+			foreach ($line in $connections) {
+				$parts = $line -split '\s+' | Where-Object { $_ }
+				$procId = $parts[-1]
+				if ($procId -match '^\d+$') {
+					Write-Output $procId
+					exit 0
+				}
+			}
+		`, port)
+		return "powershell", []string{"-Command", psScript}
+	}
+	return "sh", []string{"-c", fmt.Sprintf("lsof -ti:%d | head -n 1", port)}
+}
+
+// buildGetProcessNameCommand returns the command and args to get a process name by PID.
+func buildGetProcessNameCommand(pid int) (cmd string, args []string) {
+	if runtime.GOOS == osWindows {
+		psScript := fmt.Sprintf(`
+			$proc = Get-Process -Id %d -ErrorAction SilentlyContinue
+			if ($proc) {
+				Write-Output $proc.ProcessName
+			}
+		`, pid)
+		return "powershell", []string{"-Command", psScript}
+	}
+	return "sh", []string{"-c", fmt.Sprintf("ps -p %d -o comm=", pid)}
+}
+
+// buildKillProcessCommand returns the command and args to kill a process by PID.
+func buildKillProcessCommand(pid int) (cmd string, args []string) {
+	if runtime.GOOS == osWindows {
+		psScript := fmt.Sprintf("Stop-Process -Id %d -Force -ErrorAction SilentlyContinue", pid)
+		return "powershell", []string{"-Command", psScript}
+	}
+	return "sh", []string{"-c", fmt.Sprintf("kill -9 %d 2>/dev/null || true", pid)}
+}
+
 // getProcessInfoOnPort retrieves the PID and name of the process listening on the specified port.
 func (pm *PortManager) getProcessInfoOnPort(port int) (*ProcessInfo, error) {
 	pid, err := pm.getProcessOnPort(port)
@@ -30,29 +75,7 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 		return 0, fmt.Errorf("invalid port number: %d (must be 1-65535)", port)
 	}
 
-	var cmd string
-	var args []string
-
-	if runtime.GOOS == "windows" {
-		// Windows: use netstat to find PID
-		cmd = "powershell"
-		psScript := fmt.Sprintf(`
-			$connections = netstat -ano | Select-String ":%d " | Select-String "LISTENING"
-			foreach ($line in $connections) {
-				$parts = $line -split '\s+' | Where-Object { $_ }
-				$procId = $parts[-1]
-				if ($procId -match '^\d+$') {
-					Write-Output $procId
-					exit 0
-				}
-			}
-		`, port)
-		args = []string{"-Command", psScript}
-	} else {
-		// Unix: use lsof to find PID
-		cmd = "sh"
-		args = []string{"-c", fmt.Sprintf("lsof -ti:%d | head -n 1", port)}
-	}
+	cmd, args := buildGetProcessOnPortCommand(port)
 
 	// Execute command to get PID
 	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), port is validated int
@@ -76,24 +99,7 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 
 // getProcessName retrieves the process name for a given PID.
 func (pm *PortManager) getProcessName(pid int) (string, error) {
-	var cmd string
-	var args []string
-
-	if runtime.GOOS == "windows" {
-		// Windows: use tasklist to get process name
-		cmd = "powershell"
-		psScript := fmt.Sprintf(`
-			$proc = Get-Process -Id %d -ErrorAction SilentlyContinue
-			if ($proc) {
-				Write-Output $proc.ProcessName
-			}
-		`, pid)
-		args = []string{"-Command", psScript}
-	} else {
-		// Unix: use ps to get process name
-		cmd = "sh"
-		args = []string{"-c", fmt.Sprintf("ps -p %d -o comm=", pid)}
-	}
+	cmd, args := buildGetProcessNameCommand(pid)
 
 	// Execute command to get process name
 	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), pid is validated int
@@ -114,11 +120,6 @@ func (pm *PortManager) getProcessName(pid int) (string, error) {
 // Returns nil if no process was using the port or if the process was successfully killed.
 // Returns an error only if the process could not be terminated (e.g., protected system process).
 func (pm *PortManager) KillProcessOnPort(port int) error {
-	return pm.killProcessOnPort(port)
-}
-
-// killProcessOnPort kills any process listening on the specified port.
-func (pm *PortManager) killProcessOnPort(port int) error {
 	// Get the PID first so we can provide feedback
 	pid, err := pm.getProcessOnPort(port)
 	if err != nil {
@@ -129,27 +130,14 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	// Log without exposing too much system info to prevent information disclosure
 	slog.Info("terminating process on port", "port", port, "pid", pid)
 
-	var cmd []string
-	var args []string
-
-	if runtime.GOOS == "windows" {
-		// Windows: use taskkill
-		cmd = []string{"powershell", "-Command"}
-		psScript := fmt.Sprintf("Stop-Process -Id %d -Force -ErrorAction SilentlyContinue", pid)
-		args = append(cmd, psScript)
-	} else {
-		// Unix: use kill
-		cmd = []string{"sh", "-c"}
-		shScript := fmt.Sprintf("kill -9 %d 2>/dev/null || true", pid)
-		args = append(cmd, shScript)
-	}
+	cmd, args := buildKillProcessCommand(pid)
 
 	// Execute the kill command
 	ctx, cancel := context.WithTimeout(context.Background(), killProcessTimeout)
 	defer cancel()
 	// #nosec G204 -- Command injection safe: cmd is hard-coded ("powershell" or "sh"),
 	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
-	if err := executor.RunCommand(ctx, cmd[0], args[1:], "."); err != nil {
+	if err := executor.RunCommand(ctx, cmd, args, "."); err != nil {
 		// Log error but don't fail - process might have already exited
 		slog.Debug("kill command completed with error", "pid", pid, "error", err)
 	}
@@ -168,4 +156,9 @@ func (pm *PortManager) killProcessOnPort(port int) error {
 	}
 
 	return nil
+}
+
+// killProcessOnPort is an alias for KillProcessOnPort for internal use and test compatibility.
+func (pm *PortManager) killProcessOnPort(port int) error {
+	return pm.KillProcessOnPort(port)
 }

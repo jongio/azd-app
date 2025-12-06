@@ -83,17 +83,7 @@ func TestBuildLogFilter(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	t.Run("no azure.yaml uses builtins", func(t *testing.T) {
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = false
-		logsExclude = ""
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "", false)
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}
@@ -106,17 +96,7 @@ func TestBuildLogFilter(t *testing.T) {
 	})
 
 	t.Run("custom exclude patterns", func(t *testing.T) {
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = true
-		logsExclude = "pattern1,pattern2"
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "pattern1,pattern2", true)
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}
@@ -129,17 +109,7 @@ func TestBuildLogFilter(t *testing.T) {
 	})
 
 	t.Run("both flags set", func(t *testing.T) {
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = true
-		logsExclude = "pattern1, pattern2 , pattern3"
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "pattern1, pattern2 , pattern3", true)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -149,17 +119,7 @@ func TestBuildLogFilter(t *testing.T) {
 	})
 
 	t.Run("empty exclude with builtins", func(t *testing.T) {
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = false
-		logsExclude = ""
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "", false)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -188,17 +148,7 @@ logs:
 			t.Fatal(err)
 		}
 
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = true
-		logsExclude = ""
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "", true)
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}
@@ -221,17 +171,7 @@ logs:
 			t.Fatal(err)
 		}
 
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = true
-		logsExclude = "cli_pattern1,cli_pattern2"
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "cli_pattern1,cli_pattern2", true)
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}
@@ -252,17 +192,7 @@ logs:
 			t.Fatal(err)
 		}
 
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = false
-		logsExclude = ""
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "", false)
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}
@@ -283,17 +213,7 @@ logs:
 			t.Fatal(err)
 		}
 
-		oldNoBuiltins := logsNoBuiltins
-		oldExclude := logsExclude
-		defer func() {
-			logsNoBuiltins = oldNoBuiltins
-			logsExclude = oldExclude
-		}()
-
-		logsNoBuiltins = true
-		logsExclude = ""
-
-		filter, err := buildLogFilter(tmpDir)
+		filter, err := buildLogFilter(tmpDir, "", true)
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}

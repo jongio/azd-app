@@ -148,7 +148,7 @@ func (lb *LogBuffer) rotateLogFile() {
 	for i := MaxLogFileBackups - 1; i >= 1; i-- {
 		oldPath := fmt.Sprintf("%s.%d", lb.filePath, i)
 		newPath := fmt.Sprintf("%s.%d", lb.filePath, i+1)
-		os.Rename(oldPath, newPath) // Ignore errors - file may not exist
+		_ = os.Rename(oldPath, newPath) // Ignore errors - file may not exist
 	}
 
 	// Delete the oldest backup if it exceeds MaxLogFileBackups

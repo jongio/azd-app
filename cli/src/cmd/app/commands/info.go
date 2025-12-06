@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -70,7 +71,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get Azure environment values for environment variable display
-	azureEnv := getAzureEnvironmentValues()
+	azureEnv := getAzureEnvironmentValues(ctx)
 
 	// For JSON output
 	if output.IsJSON() {
@@ -80,7 +81,9 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Default output
 	printInfoDefault(cwd, allServices, azureEnv)
 	return nil
-} // printInfoJSON outputs service information in JSON format.
+}
+
+// printInfoJSON outputs service information in JSON format.
 func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azureEnv map[string]string) error {
 	// Use serviceinfo.ServiceInfo directly - same schema as /api/services
 	outputServices := make([]serviceinfo.ServiceInfo, 0, len(services))
@@ -211,34 +214,6 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 	output.Newline()
 }
 
-// getAzureEndpoints extracts Azure endpoint URLs from environment variables.
-func getAzureEndpoints() map[string]string {
-	endpoints := make(map[string]string)
-
-	for _, env := range os.Environ() {
-		// Look for SERVICE_{name}_ENDPOINT_URL or SERVICE_{name}_URL
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := parts[0]
-		value := parts[1]
-
-		if strings.HasPrefix(key, "SERVICE_") && (strings.HasSuffix(key, "_ENDPOINT_URL") || strings.HasSuffix(key, "_URL")) {
-			// Extract service name
-			serviceName := strings.TrimPrefix(key, "SERVICE_")
-			serviceName = strings.TrimSuffix(serviceName, "_ENDPOINT_URL")
-			serviceName = strings.TrimSuffix(serviceName, "_URL")
-			serviceName = strings.ToLower(serviceName)
-
-			endpoints[serviceName] = value
-		}
-	}
-
-	return endpoints
-}
-
 // getServiceEnvironmentVars returns environment variables for a specific service,
 // filtering and organizing them by relevant prefixes.
 func getServiceEnvironmentVars(serviceName string, azureEnv map[string]string) map[string]string {
@@ -269,16 +244,19 @@ func getServiceEnvironmentVars(serviceName string, azureEnv map[string]string) m
 }
 
 // formatStatus returns a colored status string.
+// Valid statuses: "running", "starting", "error", "stopped", "not-running", "unknown"
 func formatStatus(status string) string {
 	switch status {
-	case "ready":
+	case "running":
 		return colorGreen + status + colorReset
 	case "starting":
 		return colorYellow + status + colorReset
 	case "error":
 		return colorRed + status + colorReset
-	case "stopped":
+	case "stopped", "not-running":
 		return colorGray + status + colorReset
+	case "unknown":
+		return colorYellow + status + colorReset
 	default:
 		return status
 	}
@@ -307,12 +285,8 @@ func formatTime(t time.Time) string {
 	now := time.Now()
 	duration := now.Sub(t)
 
-	// Show relative time for recent events
-	if duration < time.Minute {
-		return fmt.Sprintf("%s ago", formatInfoDuration(duration))
-	} else if duration < time.Hour {
-		return fmt.Sprintf("%s ago", formatInfoDuration(duration))
-	} else if duration < 24*time.Hour {
+	// Show relative time for recent events (within 24 hours)
+	if duration < 24*time.Hour {
 		return fmt.Sprintf("%s ago", formatInfoDuration(duration))
 	}
 
@@ -332,30 +306,31 @@ func formatInfoDuration(d time.Duration) string {
 	return fmt.Sprintf("%dd", int(d.Hours()/24))
 }
 
-// getStatusIcon returns a colored icon based on status and health.
+// getInfoStatusIcon returns a colored icon based on status and health.
+// Valid statuses: "running", "starting", "error", "stopped", "not-running", "unknown"
 func getInfoStatusIcon(status, health string) string {
-	if status == "ready" && health == "healthy" {
+	// Running and healthy - green check
+	if status == "running" && health == "healthy" {
 		return colorGreen + "✓" + colorReset
 	}
+	// Running but unhealthy - red X
+	if status == "running" && health == "unhealthy" {
+		return colorRed + "✗" + colorReset
+	}
+	// Starting - yellow circle
 	if status == "starting" {
 		return colorYellow + "○" + colorReset
 	}
-	if status == "error" || health == "unhealthy" {
+	// Error status - red X
+	if status == "error" {
 		return colorRed + "✗" + colorReset
 	}
-	if status == "stopped" {
+	// Stopped or not-running - gray dot
+	if status == "stopped" || status == "not-running" {
 		return colorGray + "●" + colorReset
 	}
+	// Unknown or any other status - yellow question mark
 	return colorYellow + "?" + colorReset
-}
-
-// getCurrentDir returns the current working directory.
-func getCurrentDir() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "."
-	}
-	return cwd
 }
 
 // ANSI color constants
@@ -367,22 +342,48 @@ const (
 	colorReset  = "\033[0m"
 )
 
-// getAzureEnvironmentValues gets environment values from azd env get-values.
+// getAzureEnvironmentValues gets environment values from azd env get-values with timeout.
 // Returns all environment variables defined in the azd environment.
-func getAzureEnvironmentValues() map[string]string {
+// Accepts a context to support cancellation and timeout.
+func getAzureEnvironmentValues(ctx context.Context) map[string]string {
 	allEnvVars := make(map[string]string)
 
-	// Get values from azd env get-values
-	cmd := exec.Command("azd", "env", "get-values", "--output", "json")
-	output, err := cmd.Output()
-	if err == nil {
-		var envVars map[string]string
-		if err := json.Unmarshal(output, &envVars); err == nil {
-			// Add all environment variables from azd
-			for key, value := range envVars {
-				allEnvVars[key] = value
+	// Set a reasonable timeout for the command (5 seconds)
+	cmdCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// Create command with context for timeout support
+	cmd := exec.CommandContext(cmdCtx, "azd", "env", "get-values", "--output", "json")
+
+	cmdOutput, err := cmd.Output()
+	if err != nil {
+		// Log error but don't fail - environment values are optional
+		// This can happen if azd is not installed, not logged in, or no environment is active
+		if !output.IsJSON() {
+			// Only log in non-JSON mode to avoid polluting JSON output
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				// Command failed with stderr
+				output.Warning("Failed to get Azure environment values: %s", string(exitErr.Stderr))
+			} else {
+				// Command not found or other error
+				output.Warning("Failed to get Azure environment values: %v", err)
 			}
 		}
+		return allEnvVars
+	}
+
+	var envVars map[string]string
+	if err := json.Unmarshal(cmdOutput, &envVars); err != nil {
+		if !output.IsJSON() {
+			output.Warning("Failed to parse Azure environment values: %v", err)
+		}
+		return allEnvVars
+	}
+
+	// Add all environment variables from azd
+	for key, value := range envVars {
+		allEnvVars[key] = value
 	}
 
 	return allEnvVars

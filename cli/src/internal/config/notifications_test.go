@@ -10,6 +10,36 @@ import (
 	"time"
 )
 
+func TestValidateServiceName(t *testing.T) {
+	tests := []struct {
+		name      string
+		service   string
+		wantError bool
+	}{
+		{"valid lowercase", "api", false},
+		{"valid with hyphen", "api-service", false},
+		{"valid with underscore", "api_service", false},
+		{"valid with numbers", "api123", false},
+		{"valid mixed", "MyService-v2_beta", false},
+		{"empty string", "", true},
+		{"starts with number", "123api", true},
+		{"starts with hyphen", "-api", true},
+		{"contains space", "api service", true},
+		{"contains special char", "api@service", true},
+		{"too long (64 chars)", "a123456789012345678901234567890123456789012345678901234567890123", true},
+		{"max length (63 chars)", "a12345678901234567890123456789012345678901234567890123456789012", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateServiceName(tt.service)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateServiceName(%q) error = %v, wantError = %v", tt.service, err, tt.wantError)
+			}
+		})
+	}
+}
+
 func TestDefaultNotificationPreferences(t *testing.T) {
 	prefs := DefaultNotificationPreferences()
 
@@ -172,13 +202,17 @@ func TestIsServiceEnabled(t *testing.T) {
 	}
 
 	// Disable a service
-	prefs.SetServiceEnabled("api-service", false)
+	if err := prefs.SetServiceEnabled("api-service", false); err != nil {
+		t.Errorf("SetServiceEnabled() error = %v", err)
+	}
 	if prefs.IsServiceEnabled("api-service") {
 		t.Error("Service should be disabled after SetServiceEnabled(false)")
 	}
 
 	// Enable a service
-	prefs.SetServiceEnabled("api-service", true)
+	if err := prefs.SetServiceEnabled("api-service", true); err != nil {
+		t.Errorf("SetServiceEnabled() error = %v", err)
+	}
 	if !prefs.IsServiceEnabled("api-service") {
 		t.Error("Service should be enabled after SetServiceEnabled(true)")
 	}
@@ -518,7 +552,9 @@ func TestLoadSaveNotificationPreferences(t *testing.T) {
 	// Modify preferences
 	prefs.OSNotifications = false
 	prefs.SeverityFilter = "warning"
-	prefs.SetServiceEnabled("api-service", false)
+	if err := prefs.SetServiceEnabled("api-service", false); err != nil {
+		t.Fatalf("SetServiceEnabled() error = %v", err)
+	}
 	prefs.QuietHours = []QuietHourRange{
 		{Start: "22:00", End: "08:00"},
 	}
@@ -745,8 +781,8 @@ func TestIsInQuietHoursRealTime(t *testing.T) {
 
 func TestConcurrentAccess(t *testing.T) {
 	prefs := DefaultNotificationPreferences()
-	prefs.SetServiceEnabled("service1", true)
-	prefs.SetServiceEnabled("service2", false)
+	_ = prefs.SetServiceEnabled("service1", true)
+	_ = prefs.SetServiceEnabled("service2", false)
 
 	var wg sync.WaitGroup
 	iterations := 100
@@ -772,7 +808,7 @@ func TestConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
 				serviceName := fmt.Sprintf("service%d", id)
-				prefs.SetServiceEnabled(serviceName, j%2 == 0)
+				_ = prefs.SetServiceEnabled(serviceName, j%2 == 0)
 			}
 		}(i)
 	}

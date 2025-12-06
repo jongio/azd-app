@@ -153,6 +153,14 @@ func containsAny(s string, substrs ...string) bool {
 
 // ServeMetrics starts a Prometheus metrics HTTP server.
 func ServeMetrics(port int) error {
+	server := CreateMetricsServer(port)
+	log.Info().Int("port", port).Str("endpoint", "/metrics").Msg("Starting Prometheus metrics server")
+	return server.ListenAndServe()
+}
+
+// CreateMetricsServer creates a configured HTTP server for Prometheus metrics.
+// This allows the caller to manage server lifecycle (start, shutdown).
+func CreateMetricsServer(port int) *http.Server {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
@@ -164,15 +172,11 @@ func ServeMetrics(port int) error {
 
 	addr := fmt.Sprintf(":%d", port)
 
-	log.Info().Int("port", port).Str("endpoint", "/metrics").Msg("Starting Prometheus metrics server")
-
-	server := &http.Server{
+	return &http.Server{
 		Addr:         addr,
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-
-	return server.ListenAndServe()
 }

@@ -24,16 +24,17 @@ import (
 
 // HealthChecker performs individual health checks with circuit breaker and rate limiting.
 type HealthChecker struct {
-	timeout         time.Duration
-	defaultEndpoint string
-	httpClient      *http.Client
-	breakers        map[string]*gobreaker.CircuitBreaker
-	rateLimiters    map[string]*rate.Limiter
-	mu              sync.RWMutex
-	enableBreaker   bool
-	breakerFailures int
-	breakerTimeout  time.Duration
-	rateLimit       int
+	timeout            time.Duration
+	defaultEndpoint    string
+	httpClient         *http.Client
+	breakers           map[string]*gobreaker.CircuitBreaker
+	rateLimiters       map[string]*rate.Limiter
+	mu                 sync.RWMutex
+	enableBreaker      bool
+	breakerFailures    int
+	breakerTimeout     time.Duration
+	rateLimit          int
+	startupGracePeriod time.Duration
 }
 
 // getOrCreateCircuitBreaker gets or creates a circuit breaker for a service.
@@ -173,53 +174,71 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 	var result HealthCheckResult
 
 	if breaker != nil {
-		output, err := breaker.Execute(func() (interface{}, error) {
-			res := c.performServiceCheck(ctx, svc)
-			if res.Status == HealthStatusUnhealthy {
-				return res, fmt.Errorf("health check failed: %s", res.Error)
-			}
-			return res, nil
-		})
+		// Add panic recovery for circuit breaker operations
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error().
+						Str("service", serviceName).
+						Interface("panic", r).
+						Msg("Panic recovered during circuit breaker operation")
+					result = HealthCheckResult{
+						ServiceName: serviceName,
+						Timestamp:   time.Now(),
+						Status:      HealthStatusUnknown,
+						Error:       fmt.Sprintf("internal error: panic during health check: %v", r),
+					}
+				}
+			}()
 
-		if err != nil {
-			if errors.Is(err, gobreaker.ErrOpenState) {
-				log.Warn().
-					Str("service", serviceName).
-					Msg("Circuit breaker open - skipping check")
+			output, err := breaker.Execute(func() (interface{}, error) {
+				res := c.performServiceCheck(ctx, svc)
+				if res.Status == HealthStatusUnhealthy {
+					return res, fmt.Errorf("health check failed: %s", res.Error)
+				}
+				return res, nil
+			})
 
-				result = HealthCheckResult{
-					ServiceName: serviceName,
-					Timestamp:   time.Now(),
-					Status:      HealthStatusUnhealthy,
-					Error:       "circuit breaker open - service unavailable",
+			if err != nil {
+				if errors.Is(err, gobreaker.ErrOpenState) {
+					log.Warn().
+						Str("service", serviceName).
+						Msg("Circuit breaker open - skipping check")
+
+					result = HealthCheckResult{
+						ServiceName: serviceName,
+						Timestamp:   time.Now(),
+						Status:      HealthStatusUnhealthy,
+						Error:       "circuit breaker open - service unavailable",
+					}
+				} else {
+					// Health check failed
+					result = HealthCheckResult{
+						ServiceName: serviceName,
+						Timestamp:   time.Now(),
+						Status:      HealthStatusUnhealthy,
+						Error:       err.Error(),
+					}
 				}
 			} else {
-				// Health check failed
-				result = HealthCheckResult{
-					ServiceName: serviceName,
-					Timestamp:   time.Now(),
-					Status:      HealthStatusUnhealthy,
-					Error:       err.Error(),
+				// Safe type assertion with ok-check to prevent panic
+				if typedResult, ok := output.(HealthCheckResult); ok {
+					result = typedResult
+				} else {
+					// Unexpected type returned from circuit breaker - should never happen
+					log.Error().
+						Str("service", serviceName).
+						Str("type", fmt.Sprintf("%T", output)).
+						Msg("Circuit breaker returned unexpected type")
+					result = HealthCheckResult{
+						ServiceName: serviceName,
+						Timestamp:   time.Now(),
+						Status:      HealthStatusUnknown,
+						Error:       "internal error: unexpected health check result type",
+					}
 				}
 			}
-		} else {
-			// Safe type assertion with ok-check to prevent panic
-			if typedResult, ok := output.(HealthCheckResult); ok {
-				result = typedResult
-			} else {
-				// Unexpected type returned from circuit breaker - should never happen
-				log.Error().
-					Str("service", serviceName).
-					Str("type", fmt.Sprintf("%T", output)).
-					Msg("Circuit breaker returned unexpected type")
-				result = HealthCheckResult{
-					ServiceName: serviceName,
-					Timestamp:   time.Now(),
-					Status:      HealthStatusUnknown,
-					Error:       "internal error: unexpected health check result type",
-				}
-			}
-		}
+		}()
 	} else {
 		// No circuit breaker - perform check directly
 		result = c.performServiceCheck(ctx, svc)
@@ -258,11 +277,15 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		result.Uptime = time.Since(svc.StartTime)
 	}
 
-	// Startup grace period: If the service has been running for less than 30 seconds,
+	// Startup grace period: If the service has been running for less than the configured grace period,
 	// keep it in "starting" state unless health checks pass. This prevents services
 	// from showing as "unhealthy" during normal startup.
+	gracePeriod := c.startupGracePeriod
+	if gracePeriod == 0 {
+		gracePeriod = startupGracePeriod // Fallback to default
+	}
 	isInStartupGracePeriod := !svc.StartTime.IsZero() &&
-		time.Since(svc.StartTime) < startupGracePeriod
+		time.Since(svc.StartTime) < gracePeriod
 
 	// For process-type services, use process-based health checks directly
 	// Skip HTTP/port checks since they have no network endpoint
@@ -411,7 +434,9 @@ func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *ht
 	// Read and close body
 	limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
 	body, readErr := io.ReadAll(limitedReader)
-	_ = resp.Body.Close()
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		log.Warn().Err(closeErr).Str("url", urlStr).Msg("Failed to close response body")
+	}
 
 	result := &httpHealthCheckResult{
 		Endpoint:     urlStr,
@@ -496,10 +521,9 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 	}
 
 	for _, endpoint := range endpoints {
-		select {
-		case <-ctx.Done():
+		// Check context before each attempt
+		if ctx.Err() != nil {
 			return nil
-		default:
 		}
 
 		url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
@@ -514,6 +538,10 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 		responseTime := time.Since(startTime)
 
 		if err != nil {
+			// Check if error is due to context cancellation
+			if ctx.Err() != nil {
+				return nil
+			}
 			continue
 		}
 
@@ -521,7 +549,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 		body, readErr := io.ReadAll(limitedReader)
 		closeErr := resp.Body.Close()
 		if closeErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", closeErr)
+			log.Warn().Err(closeErr).Str("url", url).Msg("Failed to close response body")
 		}
 
 		// Skip 404 and 400 responses

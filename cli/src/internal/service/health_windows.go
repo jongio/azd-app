@@ -22,8 +22,8 @@ func processIsRunning(pid int) error {
 	// if the process is still running by calling GetExitCodeProcess
 
 	// Open the process with limited rights just to query its status
-	const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-	handle, err := syscall.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(p.Pid))
+	const processQueryLimitedInformation = 0x1000
+	handle, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(p.Pid))
 	if err != nil {
 		return fmt.Errorf("process %d not accessible: %w", pid, err)
 	}
@@ -42,9 +42,9 @@ func processIsRunning(pid int) error {
 		return fmt.Errorf("failed to get exit code for process %d: %w", pid, err)
 	}
 
-	// STILL_ACTIVE = 259 (0x103) means the process is still running
-	const STILL_ACTIVE = 259
-	if exitCode != STILL_ACTIVE {
+	// stillActive (259/0x103) means the process is still running
+	const stillActive = 259
+	if exitCode != stillActive {
 		return fmt.Errorf("process %d has exited with code %d", pid, exitCode)
 	}
 

@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -139,9 +142,34 @@ func newGetServiceLogsTool() server.ServerTool {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v\nOutput: %s", err, string(output))), nil
 			}
 
-			// Parse line-by-line JSON output
+			// Parse line-by-line JSON output with memory limits
+			// Split output into lines but limit processing to prevent memory exhaustion
+			outputStr := strings.TrimSpace(string(output))
+			if len(outputStr) == 0 {
+				// Return empty array for no logs
+				return marshalToolResult([]map[string]interface{}{})
+			}
+
+			// Apply size limit before splitting to prevent memory exhaustion
+			maxOutputSize := maxLogTailLines * 512 // Assume ~512 bytes per log line average
+			if len(outputStr) > maxOutputSize {
+				// Truncate to reasonable size
+				outputStr = outputStr[len(outputStr)-maxOutputSize:]
+				// Find the first newline to avoid partial JSON
+				if idx := strings.Index(outputStr, "\n"); idx != -1 {
+					outputStr = outputStr[idx+1:]
+				}
+			}
+
 			logEntries := []map[string]interface{}{}
-			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			lines := strings.Split(outputStr, "\n")
+
+			// Limit the number of lines processed
+			lineLimit := maxLogTailLines
+			if len(lines) > lineLimit {
+				lines = lines[len(lines)-lineLimit:]
+			}
+
 			for _, line := range lines {
 				if line == "" {
 					continue
@@ -149,6 +177,10 @@ func newGetServiceLogsTool() server.ServerTool {
 				var entry map[string]interface{}
 				if err := json.Unmarshal([]byte(line), &entry); err == nil {
 					logEntries = append(logEntries, entry)
+				} else {
+					// Log parsing error to stderr for debugging, but continue
+					// Don't expose raw log content that might have secrets
+					fmt.Fprintf(os.Stderr, "Warning: Failed to parse log line as JSON (length: %d)\n", len(line))
 				}
 			}
 
@@ -230,6 +262,11 @@ func newRunServicesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			// Apply rate limiting to prevent abuse of expensive operations
+			if result := checkRateLimitWithName("run_services"); result != nil {
+				return result, nil
+			}
+
 			args := getArgsMap(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
@@ -250,19 +287,59 @@ func newRunServicesTool() server.ServerTool {
 			// The context is intentionally NOT used here because the process should continue running
 			cmd := exec.Command(azdCommand, append([]string{appSubcommand, "run"}, cmdArgs...)...)
 
-			// Detach process from current process group so it survives after MCP server exits
-			cmd.Stdout = nil
-			cmd.Stderr = nil
-			cmd.Stdin = nil
+			// Create pipes to capture startup errors without blocking
+			// This allows us to detect immediate failures while still detaching
+			stderrPipe, err := cmd.StderrPipe()
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to create stderr pipe: %v", err)), nil
+			}
 
-			// Start the command but don't wait for it
+			// Start the command
 			if err := cmd.Start(); err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to start services: %v", err)), nil
 			}
 
 			// Capture PID immediately after Start() to avoid race
 			// cmd.Process is guaranteed to be set after successful Start()
-			pid := cmd.Process.Pid
+			pid := 0
+			processStarted := false
+			if cmd.Process != nil {
+				pid = cmd.Process.Pid
+				processStarted = true
+			}
+
+			// Check for immediate startup failures (first 100ms)
+			// This catches obvious errors like missing executables
+			startupErrChan := make(chan string, 1)
+			go func() {
+				defer func() {
+					_ = stderrPipe.Close()
+				}()
+
+				buf := make([]byte, 4096)
+				n, _ := stderrPipe.Read(buf)
+				if n > 0 {
+					startupErrChan <- string(buf[:n])
+				}
+			}()
+
+			// Give it 100ms to detect immediate failures
+			time.Sleep(100 * time.Millisecond)
+
+			// Check if process is still running
+			if processStarted {
+				// Try to check if process is still alive
+				// On Unix, sending signal 0 checks existence without killing
+				if err := cmd.Process.Signal(syscall.Signal(0)); err != nil {
+					// Process already exited
+					select {
+					case errMsg := <-startupErrChan:
+						return mcp.NewToolResultError(fmt.Sprintf("Service failed to start: %s", errMsg)), nil
+					default:
+						return mcp.NewToolResultError("Service failed to start immediately"), nil
+					}
+				}
+			}
 
 			// Release the process so it's not a zombie when parent exits
 			// The process will be orphaned and adopted by init/systemd
@@ -273,7 +350,9 @@ func newRunServicesTool() server.ServerTool {
 			result := map[string]interface{}{
 				"status":  "started",
 				"message": "Services are starting in the background. Use get_services to check their status.",
-				"pid":     pid,
+			}
+			if pid > 0 {
+				result["pid"] = pid
 			}
 
 			return marshalToolResult(result)
@@ -451,6 +530,11 @@ func newInstallDependenciesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			// Apply rate limiting to prevent abuse of expensive operations
+			if result := checkRateLimitWithName("install_dependencies"); result != nil {
+				return result, nil
+			}
+
 			args := getArgsMap(request)
 
 			cmdArgs, err := extractProjectDirArg(args)

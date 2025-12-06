@@ -460,74 +460,12 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 
 // executeDeps is the core logic for the deps command.
 func executeDeps() error {
-	output.CommandHeader("deps", "Install project dependencies")
-
+	// Get options set by the command
 	opts := GetDepsOptions()
 
-	// Determine search root
-	searchRoot, err := getSearchRoot()
-	if err != nil {
-		return handleDepsError(err, "failed to determine search root")
-	}
-
-	// Detect all projects
-	nodeProjects, pythonProjects, dotnetProjects, err := detectAllProjects(searchRoot)
-	if err != nil {
-		return err
-	}
-
-	// Apply service filter if specified
-	if len(opts.Services) > 0 {
-		nodeProjects, pythonProjects, dotnetProjects = filterProjectsByService(
-			nodeProjects, pythonProjects, dotnetProjects, opts.Services, searchRoot)
-	}
-
-	totalProjects := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
-
-	// Handle no projects case
-	if totalProjects == 0 {
-		return handleNoProjectsCase(searchRoot, opts.Services)
-	}
-
-	// Dry-run mode: show what would be installed and exit
-	if opts.DryRun {
-		return showDryRunSummary(nodeProjects, pythonProjects, dotnetProjects, searchRoot)
-	}
-
-	// Clean dependencies if requested
-	if opts.Clean {
-		if err := cleanDependencies(nodeProjects, pythonProjects, dotnetProjects); err != nil {
-			return fmt.Errorf("failed to clean dependencies: %w", err)
-		}
-	}
-
-	// Use parallel installer for concurrent installation with progress bars
-	if !output.IsJSON() {
-		return runParallelInstallation(nodeProjects, pythonProjects, dotnetProjects, opts.Verbose)
-	}
-
-	// JSON mode: use sequential installer
-	return runJSONInstallation(searchRoot, nodeProjects, pythonProjects, dotnetProjects)
-}
-
-// detectAllProjects detects Node.js, Python, and .NET projects in the search root.
-func detectAllProjects(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {
-	nodeProjects, err := detector.FindNodeProjects(searchRoot)
-	if err != nil {
-		return nil, nil, nil, handleDepsError(err, "failed to detect Node.js projects")
-	}
-
-	pythonProjects, err := detector.FindPythonProjects(searchRoot)
-	if err != nil {
-		return nil, nil, nil, handleDepsError(err, "failed to detect Python projects")
-	}
-
-	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
-	if err != nil {
-		return nil, nil, nil, handleDepsError(err, "failed to detect .NET projects")
-	}
-
-	return nodeProjects, pythonProjects, dotnetProjects, nil
+	// Create executor with production dependencies and execute
+	executor := newDepsExecutor(opts)
+	return executor.execute()
 }
 
 // showDryRunSummary displays what would be installed without actually installing.
@@ -553,8 +491,8 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 		}
 		for _, p := range dotnetProjects {
 			results = append(results, InstallResult{
-				Type: "dotnet",
-				Path: p.Path,
+				Type:    "dotnet",
+				Path:    p.Path,
 				Success: true,
 			})
 		}
@@ -696,9 +634,14 @@ func filterProjectsByService(
 			if name == filterName {
 				svcPath := filepath.Join(azureYamlDir, svc.Project)
 				absPath, err := filepath.Abs(svcPath)
-				if err == nil {
-					servicePaths[absPath] = true
+				if err != nil {
+					// Log warning but continue processing other services
+					if !output.IsJSON() {
+						output.Warning("Failed to resolve absolute path for service %s: %v", name, err)
+					}
+					continue
 				}
+				servicePaths[absPath] = true
 				break
 			}
 		}
@@ -752,7 +695,8 @@ func isSubdirectory(path string, parentPaths map[string]bool) bool {
 			continue
 		}
 		// If relative path doesn't start with "..", it's a subdirectory
-		if len(rel) > 0 && rel[0] != '.' {
+		// Check for both ".." prefix and "." to prevent path traversal
+		if !strings.HasPrefix(rel, "..") && rel != "." {
 			return true
 		}
 	}
@@ -888,8 +832,12 @@ func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cache
 // tryGetCachedResults attempts to retrieve and use cached results.
 func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool, bool) {
 	cachedResults, valid, err := cacheManager.GetCachedResults(azureYamlPath)
-	if err != nil && !output.IsJSON() {
-		output.Warning("Failed to read cache: %v", err)
+	if err != nil {
+		// Log cache read errors in both JSON and non-JSON modes for visibility
+		if !output.IsJSON() {
+			output.Warning("Failed to read cache: %v", err)
+		}
+		// In JSON mode, error is still visible in debug/log output but doesn't affect user output
 	}
 
 	if !valid || cachedResults == nil {
@@ -1015,6 +963,27 @@ func (rf *ResultFormatter) PrintAll(results []ReqResult) {
 	}
 }
 
+// detectAllProjects detects all project types in the given directory.
+// This is a convenience wrapper for testing and backward compatibility.
+func detectAllProjects(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {
+	nodeProjects, err := detector.FindNodeProjects(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to detect Node.js projects: %w", err)
+	}
+
+	pythonProjects, err := detector.FindPythonProjects(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to detect Python projects: %w", err)
+	}
+
+	dotnetProjects, err := detector.FindDotnetProjects(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to detect .NET projects: %w", err)
+	}
+
+	return nodeProjects, pythonProjects, dotnetProjects, nil
+}
+
 // cleanDependencies removes existing dependency directories for all detected projects.
 // cleanDirectory removes a directory if it exists and logs the operation.
 // Returns an error if removal fails.
@@ -1022,6 +991,23 @@ func cleanDirectory(path string) error {
 	if _, err := os.Stat(path); err != nil {
 		return nil // Directory doesn't exist, nothing to clean
 	}
+
+	// Validate that we're only cleaning expected dependency directories
+	// to prevent accidental deletion of important files
+	dirName := filepath.Base(path)
+	validDirs := map[string]bool{
+		"node_modules":  true,
+		".venv":         true,
+		"obj":           true,
+		"bin":           true,
+		"__pycache__":   true,
+		".pytest_cache": true,
+	}
+
+	if !validDirs[dirName] {
+		return fmt.Errorf("refusing to clean unexpected directory: %s (only dependency directories are allowed)", path)
+	}
+
 	if !output.IsJSON() {
 		output.Item("Removing %s", path)
 	}
