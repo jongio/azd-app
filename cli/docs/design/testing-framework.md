@@ -1,5 +1,10 @@
 # Testing Framework Design
 
+> **Note**: This document contains the original architecture design. For current specification and implementation status, see:
+> - [Detailed Specification](../specs/azd-app-test/spec.md) - Current requirements
+> - [Implementation Tasks](../specs/azd-app-test/tasks.md) - Task tracking
+> - [Command Reference](../commands/test.md) - Usage documentation
+
 ## Overview
 
 This document outlines the complete architecture and design for the `azd app test` command suite, including test execution, coverage aggregation, and reporting across multi-language projects.

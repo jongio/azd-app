@@ -1,0 +1,317 @@
+---
+import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+const usageCode = "azd app test [flags]";
+const example1 = "azd app test";
+const example2 = "azd app test --coverage";
+const example3 = "azd app test --type unit --service web,api";
+const example4 = "azd app test --coverage --threshold 80";
+const example5 = "azd app test --watch";
+const example6 = "azd app test --output-format json --output-dir ./test-results";
+const example7 = "azd app test --fail-fast --verbose";
+const example8 = "azd app test --dry-run";
+const example9 = "azd app test --type integration --parallel=false";
+
+const configExample = `test:
+  parallel: true
+  coverageThreshold: 80
+  outputDir: ./test-results
+
+services:
+  web:
+    language: js
+    project: ./src/web
+    test:
+      framework: vitest
+      unit:
+        command: pnpm test:unit
+      integration:
+        command: pnpm test:integration
+        setup:
+          - docker-compose up -d postgres
+        teardown:
+          - docker-compose down
+      coverage:
+        threshold: 85
+
+  api:
+    language: python
+    project: ./src/api
+    test:
+      framework: pytest
+      unit:
+        markers: [unit]
+      integration:
+        markers: [integration]
+      coverage:
+        source: src
+        threshold: 90`;
+---
+
+<Layout title="test - CLI Reference" description="Run tests across multi-language applications with unified coverage aggregation.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">test</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app test</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">Run tests across multi-language applications with unified coverage aggregation.</p>
+    </div>
+
+    <!-- Usage -->
+    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
+    <Code code={usageCode} lang="bash" frame="terminal" />
+
+    <!-- Overview -->
+    <section class="mt-8 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">🧪 Multi-Language Testing</h3>
+      <p class="text-neutral-700 dark:text-neutral-300">
+        The <code>test</code> command provides unified test execution across Node.js, Python, .NET, and Go projects. 
+        It auto-detects test frameworks, runs tests in parallel, and generates aggregated coverage reports suitable for CI/CD pipelines.
+      </p>
+    </section>
+
+    <!-- Flags -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2>
+    
+    <div class="overflow-x-auto my-8">
+      <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+        <thead>
+          <tr class="bg-neutral-200 dark:bg-neutral-700">
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th>
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th>
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th>
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th>
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
+          </tr>
+        </thead>
+        <tbody class="bg-neutral-100 dark:bg-neutral-800">
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--type</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-t</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">all</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Test type: unit, integration, e2e, all</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--coverage</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-c</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable code coverage collection</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-s</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Filter to specific service(s) (comma-separated)</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--watch</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-w</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Watch mode for development</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--threshold</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">0</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Minimum coverage percentage (0-100)</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--fail-fast</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Stop on first failure</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--parallel</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-p</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">true</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Run services in parallel</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--verbose</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-v</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Verbose output</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--dry-run</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show what would be tested</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output-format</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">default</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format: default, json, junit, github</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output-dir</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Directory for test reports</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Supported Languages -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Supported Languages</h2>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+        <h4 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">🟨 Node.js</h4>
+        <p class="text-sm text-neutral-700 dark:text-neutral-300">Jest, Vitest, Mocha, npm test</p>
+      </div>
+      <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+        <h4 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">🐍 Python</h4>
+        <p class="text-sm text-neutral-700 dark:text-neutral-300">pytest, unittest, pytest-cov</p>
+      </div>
+      <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+        <h4 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">🔷 .NET</h4>
+        <p class="text-sm text-neutral-700 dark:text-neutral-300">xUnit, NUnit, MSTest, coverlet</p>
+      </div>
+      <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+        <h4 class="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">🐹 Go</h4>
+        <p class="text-sm text-neutral-700 dark:text-neutral-300">go test, go test -cover</p>
+      </div>
+    </div>
+
+    <!-- Examples -->
+    <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Run all tests for all services:</p>
+        <Code code={example1} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Run tests with coverage collection:</p>
+        <Code code={example2} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Run unit tests for specific services:</p>
+        <Code code={example3} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Run with coverage threshold (fail if below 80%):</p>
+        <Code code={example4} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Watch mode for development:</p>
+        <Code code={example5} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Generate JSON report in specific directory:</p>
+        <Code code={example6} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Stop on first failure with verbose output:</p>
+        <Code code={example7} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Dry run to see what would be tested:</p>
+        <Code code={example8} lang="bash" frame="terminal" />
+      </div>
+      <div>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Run integration tests sequentially:</p>
+        <Code code={example9} lang="bash" frame="terminal" />
+      </div>
+    </div>
+
+    <!-- Configuration -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Configuration (azure.yaml)</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+      Configure test behavior per service in your <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.yaml</code>:
+    </p>
+    <Code code={configExample} lang="yaml" frame="terminal" />
+
+    <!-- Output Formats -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">Output Formats</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+        <thead>
+          <tr class="bg-neutral-200 dark:bg-neutral-700">
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Format</th>
+            <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
+          </tr>
+        </thead>
+        <tbody class="bg-neutral-100 dark:bg-neutral-800">
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">default</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Colored console output with progress indicators</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">json</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Machine-readable JSON with full test details</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">junit</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Standard JUnit XML format for CI systems</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">github</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">GitHub Actions annotations and workflow summary</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Link to detailed docs -->
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        For complete documentation including setup/teardown commands, coverage aggregation details, and advanced usage, see the full command specification.
+      </p>
+      <a 
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/specs/azd-app-test/spec.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
+      >
+        View full test specification →
+      </a>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          ← Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.copy-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied!';
+          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+  </script>
+</Layout>

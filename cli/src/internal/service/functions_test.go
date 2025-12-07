@@ -5,8 +5,24 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
+
+// TestMain sets up test mode for all tests in this package.
+// This prevents interactive prompts when real ports are in use.
+func TestMain(m *testing.M) {
+	// Set test mode: all ports appear available
+	cleanup := portmanager.SetTestModeForTesting(func(port int) bool {
+		return true // All ports available in tests
+	})
+	defer cleanup()
+
+	// Clear any cached port managers
+	portmanager.ClearCacheForTesting()
+
+	os.Exit(m.Run())
+}
 
 // TestFunctionsVariant_String tests the String() method for all variants
 func TestFunctionsVariant_String(t *testing.T) {

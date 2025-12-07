@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: process-services-test
+services:
+    api:
+        host: localhost
+        language: python
+        project: ./api
+        command: uvicorn main:app --host 0.0.0.0 --port 5000
+        ports:
+            - "5000"
+        healthcheck:
+            test: http://localhost:5000/health
+    api-watch:
+        host: localhost
+        language: python
+        project: ./api
+        command: uvicorn main:app --host 0.0.0.0 --port 5001 --reload
+        ports:
+            - "5001"
+        healthcheck:
+            test: http://localhost:5001/health
+    cli-build:
+        host: ""
+        language: typescript
+        project: ./cli-tool
+        command: pnpm run build
+        type: process
+        mode: build
+    cli-watch:
+        host: ""
+        language: typescript
+        project: ./cli-tool
+        command: pnpm run dev
+        type: process
+        mode: watch
+    data-processor:
+        host: ""
+        language: python
+        project: ./data-processor
+        command: python process.py
+        type: process
+        mode: task
+    dotnet-watch:
+        host: ""
+        language: dotnet
+        project: ./dotnet-tool
+        command: dotnet watch run
+        ports:
+            - "5002"
+    go-build:
+        host: ""
+        language: go
+        project: ./go-tool
+        command: go build -o bin/tool .
+        type: process
+        mode: build
+    go-watch:
+        host: ""
+        language: go
+        project: ./go-tool
+        command: air
+        type: process
+    mcp-server:
+        host: ""
+        language: typescript
+        project: ./mcp-server
+        command: pnpm run dev
+        type: process
+        mode: daemon
+    tcp-server:
+        host: localhost
+        language: node
+        project: ./tcp-server
+        command: node server.js
+        ports:
+            - "9000"
+        type: tcp
+    web-watch:
+        host: localhost
+        language: typescript
+        project: ./web-watch
+        command: pnpm run dev
+        ports:
+            - "3001"
+        environment:
+            NODE_ENV: development
+resources: {}
+metadata:
+    description: Test project for all service types (http/tcp/process) and modes (watch/build/daemon/task)
+    template: process-services-test

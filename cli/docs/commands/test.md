@@ -6,7 +6,7 @@ The `test` command provides a comprehensive testing framework that automatically
 
 ## Purpose
 
-- **Multi-Language Testing**: Run tests for Node.js, Python, and .NET services
+- **Multi-Language Testing**: Run tests for Node.js, Python, Go, and .NET services
 - **Test Type Separation**: Run unit, integration, and e2e tests independently or together
 - **Auto-Detection**: Automatically detect test frameworks and configurations
 - **Code Coverage**: Generate and aggregate coverage reports across all services
@@ -241,6 +241,78 @@ services:
         outputFormat: lcov
 ```
 
+### Go Testing
+
+#### Supported Frameworks
+
+- **go test** (built-in, standard)
+
+#### Auto-Detection
+
+The command detects Go projects by checking:
+1. `go.mod` file exists
+2. Test file patterns: `*_test.go`
+3. Test function patterns: `func Test*`, `func Benchmark*`
+
+#### Default Test Commands
+
+```bash
+# All tests
+go test ./...
+
+# Unit tests (pattern-based)
+go test ./... -run "^Test[^Integration]"
+
+# Integration tests
+go test ./... -run "TestIntegration"
+
+# With coverage
+go test ./... -cover -coverprofile=coverage.out
+
+# Verbose output
+go test ./... -v
+```
+
+#### Coverage Tools
+
+- **go test -cover** (built-in coverage)
+- **go tool cover** (HTML report generation)
+
+#### Test Types via Patterns
+
+Go uses regex patterns with the `-run` flag for test filtering:
+
+| Type | Default Pattern | Description |
+|------|-----------------|-------------|
+| `unit` | `^Test[^Integration]` | Tests not containing "Integration" |
+| `integration` | `TestIntegration` | Tests containing "Integration" |
+| `e2e` | `TestE2E` | Tests containing "E2E" |
+
+#### Example Configuration
+
+```yaml
+# azure.yaml
+services:
+  gateway:
+    language: go
+    project: ./src/gateway
+    test:
+      framework: gotest
+      unit:
+        pattern: "^Test[^Integration]"
+      integration:
+        pattern: "TestIntegration"
+        setup:
+          - docker-compose up -d
+        teardown:
+          - docker-compose down
+      e2e:
+        pattern: "TestE2E"
+      coverage:
+        enabled: true
+        threshold: 80
+```
+
 ### Python Testing
 
 #### Supported Frameworks
@@ -401,20 +473,20 @@ When `--coverage` flag is used, the command:
 │  Run Tests with Coverage for Each Service                    │
 └─────────────────────────────────────────────────────────────┘
                             ↓
-        ┌───────────────────┼───────────────────┐
-        │                   │                   │
-    Node.js              Python              .NET
-        │                   │                   │
-        ↓                   ↓                   ↓
-   ┌─────────┐         ┌─────────┐        ┌──────────┐
-   │  Jest   │         │ pytest- │        │ coverlet │
-   │ coverage│         │   cov   │        │          │
-   └─────────┘         └─────────┘        └──────────┘
-        │                   │                   │
-        ↓                   ↓                   ↓
-   lcov.info           coverage.xml       coverage.cobertura.xml
-        │                   │                   │
-        └───────────────────┼───────────────────┘
+    ┌───────────────┬───────────────┬───────────────┬───────────────┐
+    │               │               │               │               │
+  Node.js        Python           Go             .NET
+    │               │               │               │
+    ↓               ↓               ↓               ↓
+┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────────┐
+│  Jest   │   │ pytest- │   │ go test │   │ coverlet │
+│ coverage│   │   cov   │   │ -cover  │   │          │
+└─────────┘   └─────────┘   └─────────┘   └──────────┘
+    │               │               │               │
+    ↓               ↓               ↓               ↓
+  lcov.info   coverage.xml  coverage.out   coverage.cobertura.xml
+    │               │               │               │
+    └───────────────┴───────────────┴───────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  Convert All to Common Format (Cobertura XML)                │
@@ -638,6 +710,26 @@ services:
         exclude:
           - "[*.Tests]*"
           - "[*]*.Migrations.*"
+
+  gateway:
+    language: go
+    project: ./src/gateway
+    test:
+      framework: gotest
+      
+      unit:
+        pattern: "^Test[^Integration]"
+        
+      integration:
+        pattern: "TestIntegration"
+        setup:
+          - docker-compose up -d redis
+        teardown:
+          - docker-compose down
+          
+      coverage:
+        enabled: true
+        threshold: 80
 ```
 
 ### Minimal Configuration (Auto-Detection)
@@ -1134,6 +1226,43 @@ services:
       coverage:
         threshold: 70  # UI code, harder to test
 ```
+
+## Security Considerations
+
+### Trust Model
+
+The `test` command executes commands defined in `azure.yaml` with your user permissions. When you run `azd app test`, you implicitly trust:
+
+- **Custom test commands** (defined via `command:` in test config)
+- **Setup/teardown scripts** (run before/after tests)
+- **Test framework commands** (pytest, jest, go test, dotnet test)
+
+**This follows the same trust model as:**
+- npm scripts (package.json)
+- Makefile targets
+- docker-compose.yml commands
+- Azure Developer CLI (azd) hooks
+
+### Security Guidance
+
+1. **Review azure.yaml before running**: Especially in cloned/downloaded projects
+2. **Inspect custom test commands**: Check what setup/teardown scripts do
+3. **Treat azure.yaml like code**: Test commands can execute arbitrary code
+4. **Use version control**: Track changes to test configurations
+
+### What the Test Command Can Execute
+
+- **Custom commands**: Any command specified via `command:` in test config
+- **Setup commands**: Pre-test scripts (e.g., `docker-compose up -d`)
+- **Teardown commands**: Post-test cleanup scripts
+- **Framework CLIs**: pytest, jest, go test, dotnet test with any arguments
+
+### Recommended Practices
+
+- **Audit third-party templates**: Review azure.yaml test config before running
+- **Isolate test environments**: Use containers for integration tests
+- **Don't run as root/admin**: Use least privilege principle
+- **Review setup scripts**: Especially `docker-compose` or database commands
 
 ## Troubleshooting
 

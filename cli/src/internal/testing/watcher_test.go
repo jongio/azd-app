@@ -26,16 +26,43 @@ func TestNewFileWatcher(t *testing.T) {
 	}
 }
 
+func TestNewFileWatcher_WithOptions(t *testing.T) {
+	tmpDir := t.TempDir()
+	serviceMap := map[string]string{
+		"/path/to/service": "api",
+	}
+
+	watcher := NewFileWatcher([]string{tmpDir},
+		WithDebounceDelay(500*time.Millisecond),
+		WithClearConsole(true),
+		WithShowElapsedTime(false),
+		WithServicePathMap(serviceMap),
+	)
+
+	if watcher.debounceDelay != 500*time.Millisecond {
+		t.Errorf("Expected debounce delay 500ms, got %v", watcher.debounceDelay)
+	}
+	if !watcher.clearConsole {
+		t.Error("Expected clearConsole to be true")
+	}
+	if watcher.showElapsedTime {
+		t.Error("Expected showElapsedTime to be false")
+	}
+	if len(watcher.servicePathMap) != 1 {
+		t.Errorf("Expected 1 service in path map, got %d", len(watcher.servicePathMap))
+	}
+}
+
 func TestFileWatcherScanFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create some test files
 	testFile1 := filepath.Join(tmpDir, "test1.js")
 	testFile2 := filepath.Join(tmpDir, "test2.py")
-	if err := os.WriteFile(testFile1, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(testFile1, []byte("content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file 1: %v", err)
 	}
-	if err := os.WriteFile(testFile2, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(testFile2, []byte("content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file 2: %v", err)
 	}
 
@@ -181,7 +208,7 @@ func TestFileWatcherIsRelevantFile(t *testing.T) {
 func TestFileWatcherCheckForChanges_NoChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.js")
-	if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -193,19 +220,19 @@ func TestFileWatcherCheckForChanges_NoChanges(t *testing.T) {
 	}
 
 	// Check for changes (should be none)
-	hasChanges, err := watcher.checkForChanges()
+	changedFiles, err := watcher.checkForChanges()
 	if err != nil {
 		t.Fatalf("checkForChanges failed: %v", err)
 	}
-	if hasChanges {
-		t.Error("Expected no changes on first check")
+	if len(changedFiles) > 0 {
+		t.Errorf("Expected no changes on first check, got %d changed files", len(changedFiles))
 	}
 }
 
 func TestFileWatcherCheckForChanges_WithChanges(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.js")
-	if err := os.WriteFile(testFile, []byte("initial content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("initial content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -218,24 +245,35 @@ func TestFileWatcherCheckForChanges_WithChanges(t *testing.T) {
 
 	// Modify the file
 	time.Sleep(10 * time.Millisecond) // Ensure different timestamp
-	if err := os.WriteFile(testFile, []byte("modified content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("modified content"), 0o644); err != nil {
 		t.Fatalf("Failed to modify test file: %v", err)
 	}
 
 	// Check for changes
-	hasChanges, err := watcher.checkForChanges()
+	changedFiles, err := watcher.checkForChanges()
 	if err != nil {
 		t.Fatalf("checkForChanges failed: %v", err)
 	}
-	if !hasChanges {
+	if len(changedFiles) == 0 {
 		t.Error("Expected changes to be detected")
+	}
+	// Verify the changed file is in the list
+	found := false
+	for _, f := range changedFiles {
+		if f == testFile {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected %s in changed files list", testFile)
 	}
 }
 
 func TestFileWatcherCheckForChanges_NewFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile1 := filepath.Join(tmpDir, "test1.js")
-	if err := os.WriteFile(testFile1, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(testFile1, []byte("content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -248,16 +286,16 @@ func TestFileWatcherCheckForChanges_NewFile(t *testing.T) {
 
 	// Add a new file
 	testFile2 := filepath.Join(tmpDir, "test2.js")
-	if err := os.WriteFile(testFile2, []byte("new file"), 0644); err != nil {
+	if err := os.WriteFile(testFile2, []byte("new file"), 0o644); err != nil {
 		t.Fatalf("Failed to create new test file: %v", err)
 	}
 
 	// Check for changes
-	hasChanges, err := watcher.checkForChanges()
+	changedFiles, err := watcher.checkForChanges()
 	if err != nil {
 		t.Fatalf("checkForChanges failed: %v", err)
 	}
-	if !hasChanges {
+	if len(changedFiles) == 0 {
 		t.Error("Expected new file to be detected as change")
 	}
 }
@@ -265,7 +303,7 @@ func TestFileWatcherCheckForChanges_NewFile(t *testing.T) {
 func TestFileWatcherCheckForChanges_IgnoresIrrelevantFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile1 := filepath.Join(tmpDir, "test1.js")
-	if err := os.WriteFile(testFile1, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(testFile1, []byte("content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -278,16 +316,120 @@ func TestFileWatcherCheckForChanges_IgnoresIrrelevantFiles(t *testing.T) {
 
 	// Add an irrelevant file (PNG image)
 	imgFile := filepath.Join(tmpDir, "logo.png")
-	if err := os.WriteFile(imgFile, []byte("fake image"), 0644); err != nil {
+	if err := os.WriteFile(imgFile, []byte("fake image"), 0o644); err != nil {
 		t.Fatalf("Failed to create image file: %v", err)
 	}
 
 	// Check for changes - should not detect irrelevant file
-	hasChanges, err := watcher.checkForChanges()
+	changedFiles, err := watcher.checkForChanges()
 	if err != nil {
 		t.Fatalf("checkForChanges failed: %v", err)
 	}
-	if hasChanges {
-		t.Error("Expected irrelevant file to be ignored")
+	if len(changedFiles) > 0 {
+		t.Errorf("Expected irrelevant file to be ignored, got %d changed files", len(changedFiles))
+	}
+}
+
+func TestFileWatcherGetAffectedServices(t *testing.T) {
+	tmpDir := t.TempDir()
+	apiDir := filepath.Join(tmpDir, "api")
+	webDir := filepath.Join(tmpDir, "web")
+
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
+		t.Fatalf("Failed to create api dir: %v", err)
+	}
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
+		t.Fatalf("Failed to create web dir: %v", err)
+	}
+
+	watcher := NewFileWatcher([]string{tmpDir},
+		WithServicePathMap(map[string]string{
+			apiDir: "api-service",
+			webDir: "web-service",
+		}),
+	)
+
+	tests := []struct {
+		name     string
+		changes  map[string]time.Time
+		expected []string
+	}{
+		{
+			name: "single service change",
+			changes: map[string]time.Time{
+				filepath.Join(apiDir, "handler.go"): time.Now(),
+			},
+			expected: []string{"api-service"},
+		},
+		{
+			name: "multiple services change",
+			changes: map[string]time.Time{
+				filepath.Join(apiDir, "handler.go"): time.Now(),
+				filepath.Join(webDir, "index.ts"):   time.Now(),
+			},
+			expected: []string{"api-service", "web-service"},
+		},
+		{
+			name:     "no changes",
+			changes:  map[string]time.Time{},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := watcher.getAffectedServices(tt.changes)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d affected services, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			// Create map for easier lookup
+			resultMap := make(map[string]bool)
+			for _, s := range result {
+				resultMap[s] = true
+			}
+
+			for _, exp := range tt.expected {
+				if !resultMap[exp] {
+					t.Errorf("Expected service %s to be in affected list", exp)
+				}
+			}
+		})
+	}
+}
+
+func TestFileWatcherAddIgnorePattern(t *testing.T) {
+	watcher := NewFileWatcher([]string{})
+	initialCount := len(watcher.ignorePatterns)
+
+	watcher.AddIgnorePattern("*.log")
+
+	if len(watcher.ignorePatterns) != initialCount+1 {
+		t.Errorf("Expected %d ignore patterns, got %d", initialCount+1, len(watcher.ignorePatterns))
+	}
+}
+
+func TestFileWatcherSetPollInterval(t *testing.T) {
+	watcher := NewFileWatcher([]string{})
+	watcher.SetPollInterval(1 * time.Second)
+
+	if watcher.pollInterval != 1*time.Second {
+		t.Errorf("Expected poll interval 1s, got %v", watcher.pollInterval)
+	}
+}
+
+func TestFileWatcherSetServicePathMap(t *testing.T) {
+	watcher := NewFileWatcher([]string{})
+	serviceMap := map[string]string{
+		"/path/to/api": "api",
+		"/path/to/web": "web",
+	}
+
+	watcher.SetServicePathMap(serviceMap)
+
+	if len(watcher.servicePathMap) != 2 {
+		t.Errorf("Expected 2 services in map, got %d", len(watcher.servicePathMap))
 	}
 }

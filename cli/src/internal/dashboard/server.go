@@ -127,6 +127,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
 	s.mux.HandleFunc("/api/health/stream", s.handleHealthStream)
+	s.mux.HandleFunc("/api/environment", s.handleGetEnvironment)
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
@@ -175,6 +176,35 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+// handleGetEnvironment returns environment information for Codespace detection.
+func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Detect GitHub Codespace environment
+	codespaceName := os.Getenv("CODESPACE_NAME")
+	codespacePortDomain := os.Getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+
+	// Default domain if not set but in Codespace
+	if codespaceName != "" && codespacePortDomain == "" {
+		codespacePortDomain = "app.github.dev"
+	}
+
+	response := map[string]interface{}{
+		"codespace": map[string]interface{}{
+			"enabled": codespaceName != "",
+			"name":    codespaceName,
+			"domain":  codespacePortDomain,
+		},
+	}
+
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
 }
 
 // handleGetServices returns services for the current project.

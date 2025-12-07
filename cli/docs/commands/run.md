@@ -1129,6 +1129,41 @@ dotnet workload list
 6. **Monitor Dashboard**: Use dashboard for real-time service monitoring
 7. **Graceful Shutdown**: Always use Ctrl+C to stop services cleanly
 
+## Security Considerations
+
+### Trust Model
+
+The `run` command executes commands defined in `azure.yaml` with your user permissions. When you run `azd app run`, you implicitly trust:
+
+- **Hook scripts** (prerun/postrun)
+- **Service commands** (command, entrypoint)
+- **Framework-detected commands** (npm run dev, python app.py, etc.)
+
+**This follows the same trust model as:**
+- npm scripts (package.json)
+- Makefile targets  
+- docker-compose.yml commands
+- Azure Developer CLI (azd) hooks
+
+### Security Guidance
+
+1. **Review azure.yaml before running**: Especially in cloned/downloaded projects
+2. **Inspect hook scripts**: Check what prerun/postrun scripts do
+3. **Treat azure.yaml like code**: It defines what commands execute
+4. **Use version control**: Track changes to commands and hooks
+
+### What the Run Command Can Execute
+
+- **Hooks**: Arbitrary shell commands via prerun/postrun
+- **Service commands**: Any command specified via `command` or `entrypoint`
+- **Detected commands**: Package manager scripts, framework CLIs
+
+### Recommended Practices
+
+- **Audit third-party templates**: Review azure.yaml before running
+- **Use explicit commands**: Prefer `command:` over auto-detection for clarity
+- **Don't run as root/admin**: Use least privilege principle
+
 ## Related Commands
 
 - [`azd app reqs`](./reqs.md) - Check prerequisites (runs automatically)

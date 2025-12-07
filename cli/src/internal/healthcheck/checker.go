@@ -29,6 +29,7 @@ type HealthChecker struct {
 	httpClient         *http.Client
 	breakers           map[string]*gobreaker.CircuitBreaker
 	rateLimiters       map[string]*rate.Limiter
+	endpointCache      map[string]string // Maps service:port to successful endpoint path
 	mu                 sync.RWMutex
 	enableBreaker      bool
 	breakerFailures    int
@@ -511,14 +512,48 @@ func (c *HealthChecker) performShellCheck(ctx context.Context, command string) *
 }
 
 // tryHTTPHealthCheck attempts HTTP health checks on common endpoints.
+// Uses endpoint caching to remember which endpoint worked for a service:port combination.
 func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
-	endpoints := []string{c.defaultEndpoint}
+	cacheKey := fmt.Sprintf("port:%d", port)
 
+	// Ensure endpointCache is initialized (for backward compatibility with tests)
+	c.mu.Lock()
+	if c.endpointCache == nil {
+		c.endpointCache = make(map[string]string)
+	}
+	c.mu.Unlock()
+
+	// Check if we have a cached endpoint for this port
+	c.mu.RLock()
+	cachedEndpoint, hasCached := c.endpointCache[cacheKey]
+	c.mu.RUnlock()
+
+	// If we have a cached endpoint, try it first
+	if hasCached {
+		result := c.checkSingleEndpoint(ctx, port, cachedEndpoint)
+		if result != nil && result.Status == HealthStatusHealthy {
+			return result
+		}
+		// Cached endpoint failed - clear cache and try all endpoints
+		c.mu.Lock()
+		delete(c.endpointCache, cacheKey)
+		c.mu.Unlock()
+		log.Debug().
+			Int("port", port).
+			Str("cached_endpoint", cachedEndpoint).
+			Msg("Cached health endpoint failed, trying all endpoints")
+	}
+
+	// Build list of endpoints to try
+	endpoints := []string{c.defaultEndpoint}
 	for _, path := range commonHealthPaths {
 		if path != c.defaultEndpoint {
 			endpoints = append(endpoints, path)
 		}
 	}
+
+	// Track the last non-nil result in case no healthy endpoint is found
+	var lastResult *httpHealthCheckResult
 
 	for _, endpoint := range endpoints {
 		// Check context before each attempt
@@ -526,52 +561,73 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 			return nil
 		}
 
-		url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
-
-		startTime := time.Now()
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			continue
-		}
-
-		resp, err := c.httpClient.Do(req)
-		responseTime := time.Since(startTime)
-
-		if err != nil {
-			// Check if error is due to context cancellation
-			if ctx.Err() != nil {
-				return nil
+		result := c.checkSingleEndpoint(ctx, port, endpoint)
+		if result != nil {
+			// If healthy, cache and return immediately
+			if result.Status == HealthStatusHealthy {
+				c.mu.Lock()
+				c.endpointCache[cacheKey] = endpoint
+				c.mu.Unlock()
+				log.Debug().
+					Int("port", port).
+					Str("endpoint", endpoint).
+					Msg("Cached successful health endpoint")
+				return result
 			}
-			continue
+			// Keep track of last non-nil result for fallback
+			lastResult = result
 		}
-
-		limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
-		body, readErr := io.ReadAll(limitedReader)
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			log.Warn().Err(closeErr).Str("url", url).Msg("Failed to close response body")
-		}
-
-		// Skip 404 and 400 responses
-		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
-			continue
-		}
-
-		result := &httpHealthCheckResult{
-			Endpoint:     url,
-			ResponseTime: responseTime,
-			StatusCode:   resp.StatusCode,
-			Status:       c.statusFromHTTPCode(resp.StatusCode),
-		}
-
-		if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			c.parseHealthResponseBody(body, result)
-		}
-
-		return result
 	}
 
-	return nil
+	// No healthy endpoint found - return the last result (if any)
+	return lastResult
+}
+
+// checkSingleEndpoint performs a single HTTP health check on a specific endpoint.
+func (c *HealthChecker) checkSingleEndpoint(ctx context.Context, port int, endpoint string) *httpHealthCheckResult {
+	url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
+
+	startTime := time.Now()
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil
+	}
+
+	resp, err := c.httpClient.Do(req)
+	responseTime := time.Since(startTime)
+
+	if err != nil {
+		// Check if error is due to context cancellation
+		if ctx.Err() != nil {
+			return nil
+		}
+		return nil
+	}
+
+	limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
+	body, readErr := io.ReadAll(limitedReader)
+	closeErr := resp.Body.Close()
+	if closeErr != nil {
+		log.Warn().Err(closeErr).Str("url", url).Msg("Failed to close response body")
+	}
+
+	// Skip 404 and 400 responses - these indicate endpoint doesn't exist
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
+		return nil
+	}
+
+	result := &httpHealthCheckResult{
+		Endpoint:     url,
+		ResponseTime: responseTime,
+		StatusCode:   resp.StatusCode,
+		Status:       c.statusFromHTTPCode(resp.StatusCode),
+	}
+
+	if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		c.parseHealthResponseBody(body, result)
+	}
+
+	return result
 }
 
 // statusFromHTTPCode determines health status from HTTP status code.

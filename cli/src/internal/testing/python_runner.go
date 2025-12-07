@@ -65,6 +65,11 @@ func (r *PythonTestRunner) RunTests(testType string, coverage bool) (*TestResult
 
 // buildTestCommand builds the test command based on framework and options.
 func (r *PythonTestRunner) buildTestCommand(testType string, coverage bool) (string, []string) {
+	// Handle nil config - return default command
+	if r.config == nil {
+		return r.buildPytestCommand(testType, coverage)
+	}
+
 	// Check if explicit command is configured
 	switch testType {
 	case "unit":
@@ -111,7 +116,7 @@ func (r *PythonTestRunner) buildPytestCommand(testType string, coverage bool) (s
 	}
 
 	// Add markers for test type filtering
-	if testType != "all" {
+	if testType != "all" && r.config != nil {
 		// Check if config has markers
 		var markers []string
 		switch testType {
@@ -139,12 +144,15 @@ func (r *PythonTestRunner) buildPytestCommand(testType string, coverage bool) (s
 		for _, marker := range markers {
 			args = append(args, "-m", marker)
 		}
+	} else if testType != "all" {
+		// Default markers when config is nil
+		args = append(args, "-m", testType)
 	}
 
 	// Add coverage flag
 	if coverage {
 		args = append(args, "--cov")
-		if r.config.Coverage != nil && r.config.Coverage.Source != "" {
+		if r.config != nil && r.config.Coverage != nil && r.config.Coverage.Source != "" {
 			args = append(args, fmt.Sprintf("--cov=%s", r.config.Coverage.Source))
 		}
 	}
@@ -188,12 +196,18 @@ func (r *PythonTestRunner) buildUnittestCommand(testType string, coverage bool) 
 		}
 	}
 
-	// Add test path if configured
+	// Add test path - either type-specific or general tests directory
 	if testType != "all" {
 		// Try to filter by directory
 		testDir := fmt.Sprintf("tests/%s", testType)
 		if _, err := os.Stat(filepath.Join(r.projectDir, testDir)); err == nil {
 			args = append(args, "-s", testDir)
+		}
+	} else {
+		// For "all", check if there's a tests directory
+		testsDir := filepath.Join(r.projectDir, "tests")
+		if _, err := os.Stat(testsDir); err == nil {
+			args = append(args, "-s", "tests")
 		}
 	}
 
@@ -202,7 +216,7 @@ func (r *PythonTestRunner) buildUnittestCommand(testType string, coverage bool) 
 
 // parseCommand parses a command string into command and args.
 func (r *PythonTestRunner) parseCommand(cmdStr string) (string, []string) {
-	parts := strings.Fields(cmdStr)
+	parts := ParseCommandString(cmdStr)
 	if len(parts) == 0 {
 		return "pytest", []string{}
 	}
@@ -342,6 +356,7 @@ func detectPythonPackageManager(dir string) string {
 
 	// Check for pyproject.toml with uv or poetry
 	pyprojectPath := filepath.Join(dir, "pyproject.toml")
+	// #nosec G304 -- pyprojectPath is constructed from dir which is validated
 	if data, err := os.ReadFile(pyprojectPath); err == nil {
 		content := string(data)
 		if strings.Contains(content, "[tool.uv]") {

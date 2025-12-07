@@ -369,6 +369,7 @@ azd app test --dry-run
 
 **Node.js**: Jest, Vitest, Mocha, AVA, Tap  
 **Python**: pytest, unittest, nose2  
+**Go**: go test (built-in)  
 **.NET**: xUnit, NUnit, MSTest
 
 ### Configuration
@@ -393,6 +394,18 @@ services:
       coverage:
         enabled: true
         threshold: 90
+  
+  gateway:
+    language: go
+    project: ./src/gateway
+    test:
+      framework: gotest
+      unit:
+        pattern: "^Test[^Integration]"
+      integration:
+        pattern: "TestIntegration"
+      coverage:
+        threshold: 80
 ```
 
 **→ [See full test command specification](commands/test.md)** for detailed documentation, auto-detection rules, and coverage aggregation.

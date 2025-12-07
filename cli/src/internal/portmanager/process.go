@@ -49,13 +49,30 @@ func buildGetProcessNameCommand(pid int) (cmd string, args []string) {
 	return "sh", []string{"-c", fmt.Sprintf("ps -p %d -o comm=", pid)}
 }
 
-// buildKillProcessCommand returns the command and args to kill a process by PID.
+// buildKillProcessCommand returns the command and args to kill a process and its children by PID.
+// On Windows, uses Get-CimInstance Win32_Process to find child processes by ParentProcessId.
+// On Unix, uses pkill -P to kill children first.
+// In both cases, children are killed first (recursively), then the parent.
 func buildKillProcessCommand(pid int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
-		psScript := fmt.Sprintf("Stop-Process -Id %d -Force -ErrorAction SilentlyContinue", pid)
+		// PowerShell script that recursively kills child processes first, then the parent.
+		// Uses Get-CimInstance Win32_Process to find children by ParentProcessId.
+		psScript := fmt.Sprintf(`
+			function Kill-ProcessTree {
+				param([int]$ParentId)
+				$children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentId" -ErrorAction SilentlyContinue
+				foreach ($child in $children) {
+					Kill-ProcessTree -ParentId $child.ProcessId
+				}
+				Stop-Process -Id $ParentId -Force -ErrorAction SilentlyContinue
+			}
+			Kill-ProcessTree -ParentId %d
+		`, pid)
 		return "powershell", []string{"-Command", psScript}
 	}
-	return "sh", []string{"-c", fmt.Sprintf("kill -9 %d 2>/dev/null || true", pid)}
+	// Unix: Use pkill -P to kill children first, then kill the parent
+	// pkill -TERM sends SIGTERM to children, sleep allows graceful shutdown, then SIGKILL parent
+	return "sh", []string{"-c", fmt.Sprintf("pkill -TERM -P %d 2>/dev/null; sleep 0.1; kill -9 %d 2>/dev/null || true", pid, pid)}
 }
 
 // getProcessInfoOnPort retrieves the PID and name of the process listening on the specified port.

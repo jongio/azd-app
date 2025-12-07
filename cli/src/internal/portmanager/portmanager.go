@@ -2,14 +2,12 @@
 package portmanager
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +37,9 @@ type cacheEntry struct {
 	lastUsed time.Time
 }
 
+// preferenceAlwaysKillPortConflicts is the config key for the always-kill preference.
+const preferenceAlwaysKillPortConflicts = "alwaysKillPortConflicts"
+
 var (
 	managerCache   = make(map[string]*cacheEntry)
 	managerCacheMu sync.RWMutex
@@ -47,6 +48,10 @@ var (
 	// This ensures all port managers share the same in-memory storage for consistency.
 	sharedInMemoryClient     azdconfig.ConfigClient
 	sharedInMemoryClientOnce sync.Once
+
+	// globalTestPortChecker is set by tests to bypass real port checking.
+	// When set, all new port managers will use this instead of the default checker.
+	globalTestPortChecker func(int) bool
 )
 
 // GetPortManager returns a cached port manager instance for the given project directory.
@@ -116,8 +121,12 @@ func GetPortManager(projectDir string) *PortManager {
 	manager.portRange.end = getPortRangeEnd()
 	slog.Debug("port range configured", "start", manager.portRange.start, "end", manager.portRange.end)
 
-	// Set default port checker (can be overridden in tests)
-	manager.portChecker = manager.defaultIsPortAvailable
+	// Set port checker - use global test checker if set, otherwise default
+	if globalTestPortChecker != nil {
+		manager.portChecker = globalTestPortChecker
+	} else {
+		manager.portChecker = manager.defaultIsPortAvailable
+	}
 
 	// Load existing assignments from azdconfig
 	if err := manager.load(); err != nil {
@@ -159,6 +168,25 @@ func ClearCacheForTesting() {
 	// Also reset the shared in-memory client for clean test isolation
 	sharedInMemoryClient = nil
 	sharedInMemoryClientOnce = sync.Once{}
+}
+
+// SetTestModeForTesting enables test mode where all ports appear available.
+// This prevents interactive prompts during tests when real ports are in use.
+// Call with nil to restore normal behavior.
+// Returns a cleanup function that should be deferred to restore normal mode.
+func SetTestModeForTesting(portChecker func(int) bool) func() {
+	managerCacheMu.Lock()
+	defer managerCacheMu.Unlock()
+
+	oldChecker := globalTestPortChecker
+	globalTestPortChecker = portChecker
+
+	// Return cleanup function
+	return func() {
+		managerCacheMu.Lock()
+		defer managerCacheMu.Unlock()
+		globalTestPortChecker = oldChecker
+	}
 }
 
 // getPortRangeStart returns the configured port range start or default.
@@ -236,138 +264,38 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 
 	// EXPLICIT PORT MODE: Port from azure.yaml - MUST be used, prompt if in use
 	if isExplicit {
-		// Validate port is in range
-		if preferredPort < pm.portRange.start || preferredPort > pm.portRange.end {
-			return 0, false, fmt.Errorf("explicit port %d for service '%s' is outside valid range %d-%d",
-				preferredPort, serviceName, pm.portRange.start, pm.portRange.end)
-		}
-
-		// Check if port is available
-		if pm.isPortAvailable(preferredPort) {
-			pm.assignments[serviceName] = &PortAssignment{
-				ServiceName: serviceName,
-				Port:        preferredPort,
-				LastUsed:    time.Now(),
-			}
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-			return preferredPort, false, nil
-		}
-
-		// Port is in use - prompt user with options
-		// Try to get process info to help user
-		processInfo := ""
-		if info, err := pm.getProcessInfoOnPort(preferredPort); err == nil {
-			if info.Name != "" {
-				processInfo = fmt.Sprintf(" by %s (PID %d)", info.Name, info.PID)
-			} else {
-				processInfo = fmt.Sprintf(" by PID %d", info.PID)
-			}
-		}
-
-		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' requires port %d (configured in azure.yaml)\n", serviceName, preferredPort)
-		fmt.Fprintf(os.Stderr, "This port is currently in use%s.\n\n", processInfo)
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", preferredPort)
-		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
-		fmt.Fprintf(os.Stderr, "  3) Cancel\n\n")
-		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
-
-		// Release mutex before blocking on user input to prevent deadlocks
-		// WARNING: TOCTOU race - state may change during user input. We re-validate after.
-		pm.mu.Unlock()
-		reader := bufio.NewReader(os.Stdin)
-		response, err := reader.ReadString('\n')
-		pm.mu.Lock()
-
-		if err != nil {
-			return 0, false, fmt.Errorf("failed to read user input: %w", err)
-		}
-
-		response = strings.TrimSpace(response)
-		switch response {
-		case "1":
-			// Re-validate port state after re-acquiring lock (state may have changed during user input)
-			if pm.isPortAvailable(preferredPort) {
-				// Port became available while waiting for user input - use it directly
-				pm.assignments[serviceName] = &PortAssignment{
-					ServiceName: serviceName,
-					Port:        preferredPort,
-					LastUsed:    time.Now(),
-				}
-				if err := pm.save(); err != nil {
-					return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-				}
-				fmt.Fprintf(os.Stderr, "✓ Port %d is now available and assigned to service '%s'\n\n", preferredPort, serviceName)
-				return preferredPort, false, nil
-			}
-
-			// Kill process
-			if err := pm.killProcessOnPort(preferredPort); err != nil {
-				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
-			}
-
-			// Verify port is now available with retries
-			if !pm.verifyPortCleanup(preferredPort) {
-				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
-			}
-
-			pm.assignments[serviceName] = &PortAssignment{
-				ServiceName: serviceName,
-				Port:        preferredPort,
-				LastUsed:    time.Now(),
-			}
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-			return preferredPort, false, nil
-
-		case "2":
-			// Assign random port
-			fmt.Fprintf(os.Stderr, "\nFinding available port for '%s'...\n", serviceName)
-			port, err := pm.findAvailablePort()
-			if err != nil {
-				return 0, false, err
-			}
-
-			pm.assignments[serviceName] = &PortAssignment{
-				ServiceName: serviceName,
-				Port:        port,
-				LastUsed:    time.Now(),
-			}
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-
-			fmt.Fprintf(os.Stderr, "\n✓ Assigned port %d to service '%s'\n", port, serviceName)
-			fmt.Fprintf(os.Stderr, "\n⚠️  IMPORTANT: Update your application code to use port %d\n", port)
-			fmt.Fprintf(os.Stderr, "Would you like to update azure.yaml to use port %d for future runs? (y/N): ", port)
-
-			// Release mutex before blocking on user input
-			pm.mu.Unlock()
-			updateResponse, err := reader.ReadString('\n')
-			pm.mu.Lock()
-			if err == nil {
-				updateResponse = strings.TrimSpace(strings.ToLower(updateResponse))
-				if updateResponse == "y" || updateResponse == "yes" {
-					return port, true, nil // Signal caller to update azure.yaml
-				}
-			}
-
-			return port, false, nil
-
-		default:
-			return 0, false, fmt.Errorf("operation cancelled by user")
-		}
+		return pm.assignExplicitPort(serviceName, preferredPort)
 	}
 
 	// FLEXIBLE PORT MODE: Port can be changed if needed, prompt user when conflicts detected
+	return pm.assignFlexiblePort(serviceName, preferredPort)
+}
 
+// assignExplicitPort handles port assignment when the port is explicit (from azure.yaml).
+// Must be called with pm.mu held. May temporarily release the lock for user input.
+func (pm *PortManager) assignExplicitPort(serviceName string, port int) (int, bool, error) {
+	// Validate port is in range
+	if port < pm.portRange.start || port > pm.portRange.end {
+		return 0, false, fmt.Errorf("explicit port %d for service '%s' is outside valid range %d-%d",
+			port, serviceName, pm.portRange.start, pm.portRange.end)
+	}
+
+	// Check if port is available
+	if pm.isPortAvailable(port) {
+		return pm.saveAssignment(serviceName, port, false)
+	}
+
+	// Port is in use - handle conflict
+	processInfo := getProcessInfoString(pm, port)
+	return pm.handleConflictAndAssign(serviceName, port, processInfo, true)
+}
+
+// assignFlexiblePort handles port assignment when the port is flexible (can be changed).
+// Must be called with pm.mu held. May temporarily release the lock for user input.
+func (pm *PortManager) assignFlexiblePort(serviceName string, preferredPort int) (int, bool, error) {
 	// Check if we already have an assignment
 	if assignment, exists := pm.assignments[serviceName]; exists {
 		assignment.LastUsed = time.Now()
-
 		slog.Debug("checking assigned port", "service", serviceName, "port", assignment.Port)
 
 		// Check if assigned port is available
@@ -379,203 +307,151 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 			return assignment.Port, false, nil
 		}
 
-		// Previously assigned port is now in use - prompt user
+		// Previously assigned port is now in use - handle conflict
 		slog.Debug("assigned port is in use", "service", serviceName, "port", assignment.Port)
-
-		// Try to get process info to help user
-		processInfo := ""
-		assignedPort := assignment.Port
-		if info, err := pm.getProcessInfoOnPort(assignedPort); err == nil {
-			if info.Name != "" {
-				processInfo = fmt.Sprintf(" (PID %d: %s)", info.PID, info.Name)
-			} else {
-				processInfo = fmt.Sprintf(" (PID %d)", info.PID)
-			}
-		}
-
-		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' port %d is already in use%s\n", serviceName, assignedPort, processInfo)
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", assignedPort)
-		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
-		fmt.Fprintf(os.Stderr, "  3) Cancel\n\n")
-		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
-
-		// Release mutex before blocking on user input to prevent deadlocks
-		// WARNING: TOCTOU race - state may change during user input. We re-validate after.
-		pm.mu.Unlock()
-		reader := bufio.NewReader(os.Stdin)
-		response, err := reader.ReadString('\n')
-		pm.mu.Lock()
-
-		if err != nil {
-			return 0, false, fmt.Errorf("failed to read user input: %w", err)
-		}
-
-		response = strings.TrimSpace(response)
-		switch response {
-		case "1":
-			// Re-validate port state after re-acquiring lock (state may have changed during user input)
-			if pm.isPortAvailable(assignedPort) {
-				// Port became available while waiting for user input - use it directly
-				if err := pm.save(); err != nil {
-					return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-				}
-				fmt.Fprintf(os.Stderr, "✓ Port %d is now available for service '%s'\n\n", assignedPort, serviceName)
-				return assignedPort, false, nil
-			}
-
-			// Kill process
-			if err := pm.killProcessOnPort(assignedPort); err != nil {
-				fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
-				fmt.Fprintf(os.Stderr, "\nTip: Choose option 2 to find a different available port\n\n")
-				return 0, false, fmt.Errorf("failed to free port %d: %w", assignedPort, err)
-			}
-
-			// Verify port is now available with retries
-			if !pm.verifyPortCleanup(assignedPort) {
-				fmt.Fprintf(os.Stderr, "\n⚠️  Port %d is still in use after cleanup\n", assignedPort)
-				fmt.Fprintf(os.Stderr, "Tip: Choose option 2 to find a different available port\n\n")
-				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", assignedPort)
-			}
-
-			// Keep the same port assignment
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-			fmt.Fprintf(os.Stderr, "✓ Port %d freed and ready for service '%s'\n\n", assignedPort, serviceName)
-			return assignedPort, false, nil
-
-		case "2":
-			// Find alternative port
-			fmt.Fprintf(os.Stderr, "\nFinding available port for '%s'...\n", serviceName)
-			port, err := pm.findAvailablePort()
-			if err != nil {
-				return 0, false, err
-			}
-
-			pm.assignments[serviceName] = &PortAssignment{
-				ServiceName: serviceName,
-				Port:        port,
-				LastUsed:    time.Now(),
-			}
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-
-			fmt.Fprintf(os.Stderr, "✓ Assigned port %d to service '%s'\n\n", port, serviceName)
-			return port, false, nil
-
-		default:
-			return 0, false, fmt.Errorf("operation cancelled by user")
-		}
+		processInfo := getProcessInfoString(pm, assignment.Port)
+		return pm.handleConflictAndAssign(serviceName, assignment.Port, processInfo, false)
 	}
 
-	// Try preferred port first (if provided)
+	// Try preferred port first (if provided and in range)
 	if preferredPort >= pm.portRange.start && preferredPort <= pm.portRange.end {
 		slog.Debug("checking preferred port", "service", serviceName, "port", preferredPort)
 
 		if pm.isPortAvailable(preferredPort) {
 			slog.Debug("preferred port is available", "service", serviceName, "port", preferredPort)
-			pm.assignments[serviceName] = &PortAssignment{
-				ServiceName: serviceName,
-				Port:        preferredPort,
-				LastUsed:    time.Now(),
-			}
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-			return preferredPort, false, nil
+			return pm.saveAssignment(serviceName, preferredPort, false)
 		}
 
-		// Preferred port unavailable - prompt user
+		// Preferred port unavailable - handle conflict
 		slog.Debug("preferred port is in use", "service", serviceName, "port", preferredPort)
-
-		// Try to get process info to help user
-		processInfo := ""
-		if info, err := pm.getProcessInfoOnPort(preferredPort); err == nil {
-			if info.Name != "" {
-				processInfo = fmt.Sprintf(" (PID %d: %s)", info.PID, info.Name)
-			} else {
-				processInfo = fmt.Sprintf(" (PID %d)", info.PID)
-			}
-		}
-
-		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' preferred port %d is already in use%s\n", serviceName, preferredPort, processInfo)
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", preferredPort)
-		fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
-		fmt.Fprintf(os.Stderr, "  3) Cancel\n\n")
-		fmt.Fprintf(os.Stderr, "Choose (1/2/3): ")
-
-		// Release mutex before blocking on user input to prevent deadlocks
-		// WARNING: TOCTOU race - state may change during user input. We re-validate after.
-		pm.mu.Unlock()
-		reader := bufio.NewReader(os.Stdin)
-		response, err := reader.ReadString('\n')
-		pm.mu.Lock()
-
-		if err != nil {
-			return 0, false, fmt.Errorf("failed to read user input: %w", err)
-		}
-
-		response = strings.TrimSpace(response)
-		switch response {
-		case "1":
-			// Re-validate port state after re-acquiring lock (state may have changed during user input)
-			if pm.isPortAvailable(preferredPort) {
-				// Port became available while waiting for user input - use it directly
-				pm.assignments[serviceName] = &PortAssignment{
-					ServiceName: serviceName,
-					Port:        preferredPort,
-					LastUsed:    time.Now(),
-				}
-				if err := pm.save(); err != nil {
-					return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-				}
-				fmt.Fprintf(os.Stderr, "✓ Port %d is now available and assigned to service '%s'\n\n", preferredPort, serviceName)
-				return preferredPort, false, nil
-			}
-
-			// Kill process
-			if err := pm.killProcessOnPort(preferredPort); err != nil {
-				fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
-				fmt.Fprintf(os.Stderr, "\nTip: Choose option 2 to use a different port automatically\n\n")
-				return 0, false, fmt.Errorf("failed to free port %d: %w", preferredPort, err)
-			}
-
-			// Verify port is now available with retries
-			if !pm.verifyPortCleanup(preferredPort) {
-				fmt.Fprintf(os.Stderr, "\n⚠️  Port %d is still in use after cleanup\n", preferredPort)
-				fmt.Fprintf(os.Stderr, "Tip: Choose option 2 to use a different port automatically\n\n")
-				return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", preferredPort)
-			}
-
-			pm.assignments[serviceName] = &PortAssignment{
-				ServiceName: serviceName,
-				Port:        preferredPort,
-				LastUsed:    time.Now(),
-			}
-			if err := pm.save(); err != nil {
-				return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
-			}
-			fmt.Fprintf(os.Stderr, "✓ Port %d freed and assigned to service '%s'\n\n", preferredPort, serviceName)
-			return preferredPort, false, nil
-
-		case "2":
-			// Find alternative port (fall through to auto-assign below)
-			fmt.Fprintf(os.Stderr, "\nFinding available port for '%s'...\n", serviceName)
-
-		default:
-			return 0, false, fmt.Errorf("operation cancelled by user")
-		}
+		processInfo := getProcessInfoString(pm, preferredPort)
+		return pm.handleConflictAndAssign(serviceName, preferredPort, processInfo, false)
 	}
 
 	// Find an available port automatically
+	return pm.autoAssignPort(serviceName)
+}
+
+// handleConflictAndAssign handles a port conflict by prompting the user and taking action.
+// Must be called with pm.mu held. Temporarily releases the lock for user input.
+func (pm *PortManager) handleConflictAndAssign(serviceName string, port int, processInfo string, isExplicit bool) (int, bool, error) {
+	// Release mutex before blocking on user input to prevent deadlocks
+	// WARNING: TOCTOU race - state may change during user input. We re-validate after.
+	pm.mu.Unlock()
+	action, err := handlePortConflict(pm, port, serviceName, processInfo, isExplicit)
+	pm.mu.Lock()
+
+	if err != nil {
+		return 0, false, err
+	}
+
+	switch action {
+	case ActionKill:
+		return pm.killAndAssign(serviceName, port)
+
+	case ActionReassign:
+		return pm.reassignPort(serviceName, port, isExplicit)
+
+	case ActionAlwaysKill:
+		if err := pm.setAlwaysKillPreference(true); err != nil {
+			slog.Warn("failed to save always-kill preference", "error", err)
+		}
+		printPreferenceSavedMessage()
+		return pm.killAndAssign(serviceName, port)
+
+	default: // ActionCancel
+		return 0, false, fmt.Errorf("operation cancelled by user")
+	}
+}
+
+// killAndAssign kills the process on the port and assigns it to the service.
+// Must be called with pm.mu held.
+func (pm *PortManager) killAndAssign(serviceName string, port int) (int, bool, error) {
+	// Re-validate port state after re-acquiring lock (state may have changed during user input)
+	if pm.isPortAvailable(port) {
+		// Port became available while waiting for user input - use it directly
+		result, _, err := pm.saveAssignment(serviceName, port, false)
+		if err != nil {
+			return 0, false, err
+		}
+		printPortAvailableMessage(serviceName, port)
+		return result, false, nil
+	}
+
+	// Kill process
+	if err := pm.killProcessOnPort(port); err != nil {
+		fmt.Fprintf(os.Stderr, "\n⚠️  %v\n", err)
+		printKillFailedTip()
+		return 0, false, fmt.Errorf("failed to free port %d: %w", port, err)
+	}
+
+	// Verify port is now available with retries
+	if !pm.verifyPortCleanup(port) {
+		printPortStillInUseMessage(port)
+		printKillFailedTip()
+		return 0, false, fmt.Errorf("port %d is still in use after cleanup attempt", port)
+	}
+
+	result, _, err := pm.saveAssignment(serviceName, port, false)
+	if err != nil {
+		return 0, false, err
+	}
+	printPortFreedMessage(serviceName, port)
+	return result, false, nil
+}
+
+// reassignPort finds an alternative port and assigns it to the service.
+// Must be called with pm.mu held. May temporarily release the lock for user input.
+func (pm *PortManager) reassignPort(serviceName string, originalPort int, isExplicit bool) (int, bool, error) {
+	printFindingPortMessage(serviceName)
+
 	port, err := pm.findAvailablePort()
 	if err != nil {
 		return 0, false, err
 	}
 
+	result, _, err := pm.saveAssignment(serviceName, port, false)
+	if err != nil {
+		return 0, false, err
+	}
+
+	printPortAssignedMessage(serviceName, port)
+
+	// For explicit ports, offer to update azure.yaml
+	if isExplicit {
+		// Release mutex before blocking on user input
+		pm.mu.Unlock()
+		wantsUpdate := promptUpdateAzureYaml(port)
+		pm.mu.Lock()
+
+		if wantsUpdate {
+			return result, true, nil // Signal caller to update azure.yaml
+		}
+	}
+
+	return result, false, nil
+}
+
+// autoAssignPort finds and assigns an available port automatically.
+// Must be called with pm.mu held.
+func (pm *PortManager) autoAssignPort(serviceName string) (int, bool, error) {
+	port, err := pm.findAvailablePort()
+	if err != nil {
+		return 0, false, err
+	}
+
+	result, _, err := pm.saveAssignment(serviceName, port, false)
+	if err != nil {
+		return 0, false, err
+	}
+
+	printAutoAssignedMessage(serviceName, port)
+	return result, false, nil
+}
+
+// saveAssignment saves a port assignment and returns the port.
+// Must be called with pm.mu held.
+func (pm *PortManager) saveAssignment(serviceName string, port int, wasAutoAssigned bool) (int, bool, error) {
 	pm.assignments[serviceName] = &PortAssignment{
 		ServiceName: serviceName,
 		Port:        port,
@@ -584,11 +460,7 @@ func (pm *PortManager) AssignPort(serviceName string, preferredPort int, isExpli
 	if err := pm.save(); err != nil {
 		return 0, false, fmt.Errorf("failed to save port assignment: %w", err)
 	}
-
-	// Notify user about auto-assigned port
-	fmt.Fprintf(os.Stderr, "✓ Auto-assigned port %d to service '%s'\n\n", port, serviceName)
-
-	return port, false, nil
+	return port, wasAutoAssigned, nil
 }
 
 // ReleasePort removes a port assignment.
@@ -660,6 +532,44 @@ func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) {
 // SetConfigClient sets a custom config client for testing purposes.
 func (pm *PortManager) SetConfigClient(client azdconfig.ConfigClient) {
 	pm.configClient = client
+}
+
+// getAlwaysKillPreference returns true if the user has set the preference to always kill
+// port conflicts without prompting.
+func (pm *PortManager) getAlwaysKillPreference() bool {
+	client, err := pm.getConfigClient()
+	if err != nil {
+		slog.Debug("failed to get config client for preference check", "error", err)
+		return false
+	}
+
+	value, err := client.GetPreference(preferenceAlwaysKillPortConflicts)
+	if err != nil {
+		slog.Debug("failed to get always-kill preference", "error", err)
+		return false
+	}
+
+	return value == "true"
+}
+
+// setAlwaysKillPreference sets the preference to always kill port conflicts without prompting.
+func (pm *PortManager) setAlwaysKillPreference(alwaysKill bool) error {
+	client, err := pm.getConfigClient()
+	if err != nil {
+		return fmt.Errorf("failed to get config client: %w", err)
+	}
+
+	value := "false"
+	if alwaysKill {
+		value = "true"
+	}
+
+	if err := client.SetPreference(preferenceAlwaysKillPortConflicts, value); err != nil {
+		return fmt.Errorf("failed to set always-kill preference: %w", err)
+	}
+
+	slog.Info("updated always-kill port conflicts preference", "value", alwaysKill)
+	return nil
 }
 
 // load reads port assignments from azd's UserConfig service.

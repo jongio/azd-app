@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/security"
@@ -354,8 +355,8 @@ func buildFunctionsRuntime(serviceName string, service Service, projectDir strin
 	runtime.HealthCheck = HealthCheckConfig{
 		Type:     "http",
 		Path:     variant.HealthCheckPath(),
-		Timeout:  60000000000, // 60 seconds in nanoseconds
-		Interval: 2000000000,  // 2 seconds in nanoseconds
+		Timeout:  60 * time.Second,
+		Interval: 2 * time.Second,
 	}
 
 	return runtime, nil

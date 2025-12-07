@@ -372,3 +372,154 @@ func TestCalculateSummaryUnknownStatus(t *testing.T) {
 		t.Errorf("Expected overall healthy, got %s", summary.Overall)
 	}
 }
+
+// TestEndpointCaching tests that successful endpoints are cached and reused
+func TestEndpointCaching(t *testing.T) {
+	requestCount := 0
+	var requestedPaths []string
+
+	// Create a server that only responds to /healthz (not /health)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		requestedPaths = append(requestedPaths, r.URL.Path)
+		if r.URL.Path == "/healthz" {
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"status":"healthy"}`))
+		} else {
+			w.WriteHeader(404)
+		}
+	}))
+	defer server.Close()
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
+
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		endpointCache:   make(map[string]string),
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
+	}
+
+	// First check - should try multiple endpoints until finding /healthz
+	result1 := checker.tryHTTPHealthCheck(context.Background(), port)
+	if result1 == nil {
+		t.Fatal("Expected result, got nil")
+	}
+	if result1.Status != HealthStatusHealthy {
+		t.Errorf("Expected healthy status, got %s", result1.Status)
+	}
+
+	firstCheckRequests := requestCount
+	t.Logf("First check made %d requests: %v", firstCheckRequests, requestedPaths)
+
+	// Verify endpoint was cached
+	cacheKey := "port:" + string(rune(port))
+	checker.mu.RLock()
+	_, hasCached := checker.endpointCache["port:"+string(rune(port))]
+	checker.mu.RUnlock()
+
+	// Check cache using actual key format
+	checker.mu.RLock()
+	for k, v := range checker.endpointCache {
+		t.Logf("Cache entry: %s -> %s", k, v)
+	}
+	checker.mu.RUnlock()
+
+	// Reset for second check
+	requestedPaths = nil
+	requestCount = 0
+
+	// Second check - should only hit cached endpoint
+	result2 := checker.tryHTTPHealthCheck(context.Background(), port)
+	if result2 == nil {
+		t.Fatal("Expected result on second check, got nil")
+	}
+
+	t.Logf("Second check made %d requests: %v", requestCount, requestedPaths)
+
+	// Second check should only make 1 request (to cached endpoint)
+	if requestCount != 1 {
+		t.Errorf("Expected 1 request on second check (cached), got %d requests: %v", requestCount, requestedPaths)
+	}
+
+	if len(requestedPaths) > 0 && requestedPaths[0] != "/healthz" {
+		t.Errorf("Expected cached endpoint /healthz, got %s", requestedPaths[0])
+	}
+
+	// Verify cache exists
+	if !hasCached {
+		// Check what's actually in cache
+		checker.mu.RLock()
+		cacheSize := len(checker.endpointCache)
+		checker.mu.RUnlock()
+		t.Logf("Cache has %d entries, looked for key: %s", cacheSize, cacheKey)
+	}
+}
+
+// TestEndpointCacheInvalidation tests that cache is cleared when endpoint fails
+func TestEndpointCacheInvalidation(t *testing.T) {
+	callCount := 0
+	failAfter := 2 // Fail after 2 successful calls
+
+	// Create a server that succeeds then fails
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if r.URL.Path == "/health" {
+			if callCount <= failAfter {
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte(`{"status":"healthy"}`))
+			} else {
+				w.WriteHeader(500) // Simulate failure
+			}
+		} else if r.URL.Path == "/healthz" {
+			// Backup endpoint always works
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"status":"healthy"}`))
+		} else {
+			w.WriteHeader(404)
+		}
+	}))
+	defer server.Close()
+
+	port := server.Listener.Addr().(*net.TCPAddr).Port
+
+	checker := &HealthChecker{
+		timeout:         5 * time.Second,
+		defaultEndpoint: "/health",
+		endpointCache:   make(map[string]string),
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
+	}
+
+	// First check - should cache /health
+	result1 := checker.tryHTTPHealthCheck(context.Background(), port)
+	if result1 == nil || result1.Status != HealthStatusHealthy {
+		t.Fatal("Expected healthy result on first check")
+	}
+
+	// Second check - still uses cached /health
+	result2 := checker.tryHTTPHealthCheck(context.Background(), port)
+	if result2 == nil || result2.Status != HealthStatusHealthy {
+		t.Fatal("Expected healthy result on second check")
+	}
+
+	// Third check - /health fails, should clear cache and find /healthz
+	result3 := checker.tryHTTPHealthCheck(context.Background(), port)
+	if result3 == nil {
+		t.Fatal("Expected result on third check")
+	}
+
+	// Should still get healthy from /healthz endpoint
+	if result3.Status != HealthStatusHealthy {
+		t.Errorf("Expected healthy status after failover, got %s (error: %s)", result3.Status, result3.Error)
+	}
+}

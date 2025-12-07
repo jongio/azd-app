@@ -178,9 +178,12 @@ func TestValidateFilePermissions(t *testing.T) {
 	}
 
 	// Test with secure permissions (0644)
-	err := ValidateFilePermissions(tmpFile)
+	warning, err := ValidateFilePermissions(tmpFile)
 	if err != nil {
 		t.Errorf("ValidateFilePermissions() with 0644 should pass, got error: %v", err)
+	}
+	if warning != "" {
+		t.Errorf("ValidateFilePermissions() with 0644 should not have warning, got: %v", warning)
 	}
 
 	// Skip world-writable test on Windows (uses ACLs)
@@ -190,16 +193,38 @@ func TestValidateFilePermissions(t *testing.T) {
 			t.Fatalf("Failed to chmod file: %v", err)
 		}
 
-		// Test with insecure permissions (0666)
-		err = ValidateFilePermissions(tmpFile)
+		// Test with insecure permissions (0666) - should fail in non-container environment
+		// Clear any container env vars to ensure we're testing non-container behavior
+		originalCodespaces := os.Getenv("CODESPACES")
+		originalRemoteContainers := os.Getenv("REMOTE_CONTAINERS")
+		originalK8s := os.Getenv("KUBERNETES_SERVICE_HOST")
+		os.Unsetenv("CODESPACES")
+		os.Unsetenv("REMOTE_CONTAINERS")
+		os.Unsetenv("KUBERNETES_SERVICE_HOST")
+		defer func() {
+			if originalCodespaces != "" {
+				os.Setenv("CODESPACES", originalCodespaces)
+			}
+			if originalRemoteContainers != "" {
+				os.Setenv("REMOTE_CONTAINERS", originalRemoteContainers)
+			}
+			if originalK8s != "" {
+				os.Setenv("KUBERNETES_SERVICE_HOST", originalK8s)
+			}
+		}()
+
+		warning, err = ValidateFilePermissions(tmpFile)
 		if err == nil {
-			t.Error("ValidateFilePermissions() with 0666 should fail on Unix")
+			t.Error("ValidateFilePermissions() with 0666 should fail on Unix in non-container environment")
+		}
+		if warning != "" {
+			t.Errorf("ValidateFilePermissions() error case should not have warning, got: %v", warning)
 		}
 	}
 
 	// Test with non-existent file (only fails on Unix, Windows returns nil)
 	if runtime.GOOS != "windows" {
-		err = ValidateFilePermissions("/nonexistent/file")
+		_, err = ValidateFilePermissions("/nonexistent/file")
 		if err == nil {
 			t.Error("ValidateFilePermissions() with non-existent file should fail on Unix")
 		}
@@ -262,5 +287,227 @@ func TestValidatePackageManager_Dotnet(t *testing.T) {
 	err := ValidatePackageManager("dotnet")
 	if err != nil {
 		t.Errorf("ValidatePackageManager(\"dotnet\") should be valid, got error: %v", err)
+	}
+}
+
+func TestIsContainerEnvironment(t *testing.T) {
+	tests := []struct {
+		name     string
+		envVars  map[string]string
+		expected bool
+	}{
+		{
+			name:     "no container environment",
+			envVars:  map[string]string{},
+			expected: false,
+		},
+		{
+			name:     "GitHub Codespaces",
+			envVars:  map[string]string{"CODESPACES": "true"},
+			expected: true,
+		},
+		{
+			name:     "CODESPACES not true",
+			envVars:  map[string]string{"CODESPACES": "false"},
+			expected: false,
+		},
+		{
+			name:     "VS Code Dev Containers",
+			envVars:  map[string]string{"REMOTE_CONTAINERS": "true"},
+			expected: true,
+		},
+		{
+			name:     "REMOTE_CONTAINERS not true",
+			envVars:  map[string]string{"REMOTE_CONTAINERS": "false"},
+			expected: false,
+		},
+		{
+			name:     "Kubernetes",
+			envVars:  map[string]string{"KUBERNETES_SERVICE_HOST": "10.0.0.1"},
+			expected: true,
+		},
+		{
+			name:     "Multiple container indicators",
+			envVars:  map[string]string{"CODESPACES": "true", "REMOTE_CONTAINERS": "true"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original env vars
+			originalCodespaces := os.Getenv("CODESPACES")
+			originalRemoteContainers := os.Getenv("REMOTE_CONTAINERS")
+			originalK8s := os.Getenv("KUBERNETES_SERVICE_HOST")
+
+			// Clear all container env vars
+			os.Unsetenv("CODESPACES")
+			os.Unsetenv("REMOTE_CONTAINERS")
+			os.Unsetenv("KUBERNETES_SERVICE_HOST")
+
+			// Set test env vars
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+
+			// Restore original env vars after test
+			defer func() {
+				os.Unsetenv("CODESPACES")
+				os.Unsetenv("REMOTE_CONTAINERS")
+				os.Unsetenv("KUBERNETES_SERVICE_HOST")
+				if originalCodespaces != "" {
+					os.Setenv("CODESPACES", originalCodespaces)
+				}
+				if originalRemoteContainers != "" {
+					os.Setenv("REMOTE_CONTAINERS", originalRemoteContainers)
+				}
+				if originalK8s != "" {
+					os.Setenv("KUBERNETES_SERVICE_HOST", originalK8s)
+				}
+			}()
+
+			result := IsContainerEnvironment()
+			if result != tt.expected {
+				t.Errorf("IsContainerEnvironment() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateFilePermissions_ContainerEnvironment(t *testing.T) {
+	// Skip on Windows as it uses ACLs
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping permission test on Windows")
+	}
+
+	tmpFile := t.TempDir() + "/test.txt"
+
+	// Create a test file with world-writable permissions
+	if err := os.WriteFile(tmpFile, []byte("test"), 0666); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		envVars     map[string]string
+		wantWarning bool
+		wantErr     bool
+	}{
+		{
+			name:        "non-container environment - should error",
+			envVars:     map[string]string{},
+			wantWarning: false,
+			wantErr:     true,
+		},
+		{
+			name:        "Codespaces - should warn",
+			envVars:     map[string]string{"CODESPACES": "true"},
+			wantWarning: true,
+			wantErr:     false,
+		},
+		{
+			name:        "Dev Containers - should warn",
+			envVars:     map[string]string{"REMOTE_CONTAINERS": "true"},
+			wantWarning: true,
+			wantErr:     false,
+		},
+		{
+			name:        "Kubernetes - should warn",
+			envVars:     map[string]string{"KUBERNETES_SERVICE_HOST": "10.0.0.1"},
+			wantWarning: true,
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original env vars
+			originalCodespaces := os.Getenv("CODESPACES")
+			originalRemoteContainers := os.Getenv("REMOTE_CONTAINERS")
+			originalK8s := os.Getenv("KUBERNETES_SERVICE_HOST")
+
+			// Clear all container env vars
+			os.Unsetenv("CODESPACES")
+			os.Unsetenv("REMOTE_CONTAINERS")
+			os.Unsetenv("KUBERNETES_SERVICE_HOST")
+
+			// Set test env vars
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+
+			// Restore original env vars after test
+			defer func() {
+				os.Unsetenv("CODESPACES")
+				os.Unsetenv("REMOTE_CONTAINERS")
+				os.Unsetenv("KUBERNETES_SERVICE_HOST")
+				if originalCodespaces != "" {
+					os.Setenv("CODESPACES", originalCodespaces)
+				}
+				if originalRemoteContainers != "" {
+					os.Setenv("REMOTE_CONTAINERS", originalRemoteContainers)
+				}
+				if originalK8s != "" {
+					os.Setenv("KUBERNETES_SERVICE_HOST", originalK8s)
+				}
+			}()
+
+			warning, err := ValidateFilePermissions(tmpFile)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateFilePermissions() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if (warning != "") != tt.wantWarning {
+				t.Errorf("ValidateFilePermissions() warning = %q, wantWarning %v", warning, tt.wantWarning)
+			}
+
+			// Verify warning message format
+			if tt.wantWarning && warning != "" {
+				if !strings.Contains(warning, "world-writable permissions") {
+					t.Errorf("Warning should mention 'world-writable permissions', got: %s", warning)
+				}
+				if !strings.Contains(warning, "container environments") {
+					t.Errorf("Warning should mention 'container environments', got: %s", warning)
+				}
+				if !strings.Contains(warning, "chmod 644") {
+					t.Errorf("Warning should include fix command 'chmod 644', got: %s", warning)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateFilePermissions_SecurePermissions_ContainerEnvironment(t *testing.T) {
+	// Skip on Windows as it uses ACLs
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping permission test on Windows")
+	}
+
+	tmpFile := t.TempDir() + "/test.txt"
+
+	// Create a test file with secure permissions
+	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Save original env vars
+	originalCodespaces := os.Getenv("CODESPACES")
+	os.Setenv("CODESPACES", "true")
+	defer func() {
+		if originalCodespaces != "" {
+			os.Setenv("CODESPACES", originalCodespaces)
+		} else {
+			os.Unsetenv("CODESPACES")
+		}
+	}()
+
+	// Even in container environment, secure permissions should not produce warning
+	warning, err := ValidateFilePermissions(tmpFile)
+	if err != nil {
+		t.Errorf("ValidateFilePermissions() with 0644 should not error, got: %v", err)
+	}
+	if warning != "" {
+		t.Errorf("ValidateFilePermissions() with 0644 should not warn, got: %v", warning)
 	}
 }

@@ -13,23 +13,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	testType            string
-	testCoverage        bool
-	testServiceFilter   string
-	testWatch           bool
-	testUpdateSnapshots bool
-	testFailFast        bool
-	testParallel        bool
-	testThreshold       int
-	testVerbose         bool
-	testDryRun          bool
-	testOutputFormat    string
-	testOutputDir       string
-)
+// TestOptions holds the options for the test command.
+// Using a struct instead of global variables for better testability and concurrency safety.
+type TestOptions struct {
+	Type            string
+	Coverage        bool
+	ServiceFilter   string
+	Watch           bool
+	UpdateSnapshots bool
+	FailFast        bool
+	Parallel        bool
+	Threshold       int
+	Verbose         bool
+	DryRun          bool
+	OutputFormat    string
+	OutputDir       string
+}
 
 // NewTestCommand creates the test command.
 func NewTestCommand() *cobra.Command {
+	// Create options for this command invocation
+	opts := &TestOptions{}
+
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Run tests for all services with coverage aggregation",
@@ -48,29 +53,29 @@ func NewTestCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTests(cmd, args)
+			return runTests(opts)
 		},
 	}
 
 	// Add flags
-	cmd.Flags().StringVarP(&testType, "type", "t", "all", "Test type to run: unit, integration, e2e, or all")
-	cmd.Flags().BoolVarP(&testCoverage, "coverage", "c", false, "Generate code coverage reports")
-	cmd.Flags().StringVarP(&testServiceFilter, "service", "s", "", "Run tests for specific service(s) (comma-separated)")
-	cmd.Flags().BoolVarP(&testWatch, "watch", "w", false, "Watch mode - re-run tests on file changes")
-	cmd.Flags().BoolVarP(&testUpdateSnapshots, "update-snapshots", "u", false, "Update test snapshots")
-	cmd.Flags().BoolVar(&testFailFast, "fail-fast", false, "Stop on first test failure")
-	cmd.Flags().BoolVarP(&testParallel, "parallel", "p", true, "Run tests for services in parallel")
-	cmd.Flags().IntVar(&testThreshold, "threshold", 0, "Minimum coverage threshold (0-100)")
-	cmd.Flags().BoolVarP(&testVerbose, "verbose", "v", false, "Enable verbose test output")
-	cmd.Flags().BoolVar(&testDryRun, "dry-run", false, "Show what would be tested without running tests")
-	cmd.Flags().StringVar(&testOutputFormat, "output-format", "default", "Output format: default, json, junit, github")
-	cmd.Flags().StringVar(&testOutputDir, "output-dir", "./test-results", "Directory for test reports and coverage")
+	cmd.Flags().StringVarP(&opts.Type, "type", "t", "all", "Test type to run: unit, integration, e2e, or all")
+	cmd.Flags().BoolVarP(&opts.Coverage, "coverage", "c", false, "Generate code coverage reports")
+	cmd.Flags().StringVarP(&opts.ServiceFilter, "service", "s", "", "Run tests for specific service(s) (comma-separated)")
+	cmd.Flags().BoolVarP(&opts.Watch, "watch", "w", false, "Watch mode - re-run tests on file changes")
+	cmd.Flags().BoolVarP(&opts.UpdateSnapshots, "update-snapshots", "u", false, "Update test snapshots")
+	cmd.Flags().BoolVar(&opts.FailFast, "fail-fast", false, "Stop on first test failure")
+	cmd.Flags().BoolVarP(&opts.Parallel, "parallel", "p", true, "Run tests for services in parallel")
+	cmd.Flags().IntVar(&opts.Threshold, "threshold", 0, "Minimum coverage threshold (0-100)")
+	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose test output")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be tested without running tests")
+	cmd.Flags().StringVar(&opts.OutputFormat, "output-format", "default", "Output format: default, json, junit, github")
+	cmd.Flags().StringVar(&opts.OutputDir, "output-dir", "./test-results", "Directory for test reports and coverage")
 
 	return cmd
 }
 
 // runTests executes tests for all services.
-func runTests(_ *cobra.Command, _ []string) error {
+func runTests(opts *TestOptions) error {
 	// Validate test type
 	validTypes := map[string]bool{
 		"unit":        true,
@@ -78,13 +83,13 @@ func runTests(_ *cobra.Command, _ []string) error {
 		"e2e":         true,
 		"all":         true,
 	}
-	if !validTypes[testType] {
-		return fmt.Errorf("invalid test type: %s (must be unit, integration, e2e, or all)", testType)
+	if !validTypes[opts.Type] {
+		return fmt.Errorf("invalid test type: %s (must be unit, integration, e2e, or all)", opts.Type)
 	}
 
 	// Validate threshold
-	if testThreshold < 0 || testThreshold > 100 {
-		return fmt.Errorf("invalid coverage threshold: %d (must be between 0 and 100)", testThreshold)
+	if opts.Threshold < 0 || opts.Threshold > 100 {
+		return fmt.Errorf("invalid coverage threshold: %d (must be between 0 and 100)", opts.Threshold)
 	}
 
 	// Validate output format
@@ -94,8 +99,8 @@ func runTests(_ *cobra.Command, _ []string) error {
 		"junit":   true,
 		"github":  true,
 	}
-	if !validFormats[testOutputFormat] {
-		return fmt.Errorf("invalid output format: %s (must be default, json, junit, or github)", testOutputFormat)
+	if !validFormats[opts.OutputFormat] {
+		return fmt.Errorf("invalid output format: %s (must be default, json, junit, or github)", opts.OutputFormat)
 	}
 
 	// Execute dependencies first (reqs)
@@ -115,11 +120,11 @@ func runTests(_ *cobra.Command, _ []string) error {
 
 	// Create test configuration
 	config := &testing.TestConfig{
-		Parallel:          testParallel,
-		FailFast:          testFailFast,
-		CoverageThreshold: float64(testThreshold),
-		OutputDir:         testOutputDir,
-		Verbose:           testVerbose,
+		Parallel:          opts.Parallel,
+		FailFast:          opts.FailFast,
+		CoverageThreshold: float64(opts.Threshold),
+		OutputDir:         opts.OutputDir,
+		Verbose:           opts.Verbose,
 	}
 
 	// Create orchestrator
@@ -131,47 +136,47 @@ func runTests(_ *cobra.Command, _ []string) error {
 	}
 
 	if !output.IsJSON() {
-		output.Step("🧪", "Running %s tests...", testType)
-		if testDryRun {
+		output.Step("🧪", "Running %s tests...", opts.Type)
+		if opts.DryRun {
 			output.Item("Dry run mode - showing configuration")
 		}
 	}
 
 	// Dry run - just show configuration
-	if testDryRun {
+	if opts.DryRun {
 		if !output.IsJSON() {
 			output.Step("📋", "Test configuration:")
-			output.Item("Type: %s", testType)
-			output.Item("Coverage: %v", testCoverage)
-			if testServiceFilter != "" {
-				output.Item("Services: %s", testServiceFilter)
+			output.Item("Type: %s", opts.Type)
+			output.Item("Coverage: %v", opts.Coverage)
+			if opts.ServiceFilter != "" {
+				output.Item("Services: %s", opts.ServiceFilter)
 			}
-			if testThreshold > 0 {
-				output.Item("Coverage threshold: %d%%", testThreshold)
+			if opts.Threshold > 0 {
+				output.Item("Coverage threshold: %d%%", opts.Threshold)
 			}
-			output.Item("Parallel: %v", testParallel)
-			output.Item("Output format: %s", testOutputFormat)
-			output.Item("Output directory: %s", testOutputDir)
+			output.Item("Parallel: %v", opts.Parallel)
+			output.Item("Output format: %s", opts.OutputFormat)
+			output.Item("Output directory: %s", opts.OutputDir)
 		}
 		return nil
 	}
 
 	// Parse service filter
 	var serviceFilter []string
-	if testServiceFilter != "" {
-		serviceFilter = strings.Split(testServiceFilter, ",")
+	if opts.ServiceFilter != "" {
+		serviceFilter = strings.Split(opts.ServiceFilter, ",")
 		for i := range serviceFilter {
 			serviceFilter[i] = strings.TrimSpace(serviceFilter[i])
 		}
 	}
 
 	// Watch mode
-	if testWatch {
-		return runWatchMode(orchestrator, testType, serviceFilter)
+	if opts.Watch {
+		return runWatchMode(orchestrator, opts.Type, serviceFilter)
 	}
 
 	// Execute tests
-	result, err := orchestrator.ExecuteTests(testType, serviceFilter)
+	result, err := orchestrator.ExecuteTests(opts.Type, serviceFilter)
 	if err != nil {
 		return fmt.Errorf("test execution failed: %w", err)
 	}
@@ -184,11 +189,11 @@ func runTests(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("tests failed")
 	}
 
-	if testCoverage && testThreshold > 0 {
-		if result.Coverage != nil {
+	if opts.Coverage && opts.Threshold > 0 {
+		if result.Coverage != nil && result.Coverage.Aggregate != nil {
 			overall := result.Coverage.Aggregate.Lines.Percent
-			if overall < float64(testThreshold) {
-				return fmt.Errorf("coverage %.1f%% is below threshold of %d%%", overall, testThreshold)
+			if overall < float64(opts.Threshold) {
+				return fmt.Errorf("coverage %.1f%% is below threshold of %d%%", overall, opts.Threshold)
 			}
 		}
 	}
@@ -235,7 +240,7 @@ func runWatchMode(orchestrator *testing.TestOrchestrator, testType string, servi
 // displayTestResults displays test results in the console.
 func displayTestResults(result *testing.AggregateResult) {
 	if output.IsJSON() {
-		// TODO: Output JSON format
+		_ = output.PrintJSON(result)
 		return
 	}
 
@@ -243,10 +248,10 @@ func displayTestResults(result *testing.AggregateResult) {
 
 	for _, svcResult := range result.Services {
 		if svcResult.Success {
-			output.Success("✓ %s: %d passed, %d total (%.2fs)",
+			output.Success("%s: %d passed, %d total (%.2fs)",
 				svcResult.Service, svcResult.Passed, svcResult.Total, svcResult.Duration)
 		} else {
-			output.Error("✗ %s: %d passed, %d failed, %d total (%.2fs)",
+			output.Error("%s: %d passed, %d failed, %d total (%.2fs)",
 				svcResult.Service, svcResult.Passed, svcResult.Failed, svcResult.Total, svcResult.Duration)
 			if svcResult.Error != "" {
 				output.Item("Error: %s", svcResult.Error)
@@ -256,9 +261,9 @@ func displayTestResults(result *testing.AggregateResult) {
 
 	output.Section("━", "Summary")
 	if result.Success {
-		output.Success("✓ All tests passed!")
+		output.Success("All tests passed!")
 	} else {
-		output.Error("✗ Tests failed")
+		output.Error("Tests failed")
 	}
 	output.Item("Total: %d passed, %d failed, %d skipped, %d total",
 		result.Passed, result.Failed, result.Skipped, result.Total)

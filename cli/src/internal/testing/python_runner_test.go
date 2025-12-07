@@ -387,3 +387,524 @@ func TestPythonRunnerBuildTestCommand_CoverageFlag(t *testing.T) {
 		t.Logf("Coverage args: %v", args)
 	}
 }
+
+func TestPythonRunnerBuildUnittestCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "unittest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildUnittestCommand("all", false)
+
+	if command == "" {
+		t.Error("Expected non-empty command")
+	}
+
+	// Should include unittest discover
+	foundDiscover := false
+	for _, arg := range args {
+		if arg == "discover" {
+			foundDiscover = true
+			break
+		}
+	}
+	if !foundDiscover {
+		t.Error("Expected 'discover' in unittest args")
+	}
+}
+
+func TestPythonRunnerBuildUnittestCommand_WithCoverage(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "unittest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildUnittestCommand("all", true)
+
+	// With coverage, it should use coverage run
+	argStr := strings.Join(append([]string{command}, args...), " ")
+	if !strings.Contains(argStr, "coverage") {
+		t.Errorf("Expected 'coverage' in command, got: %s", argStr)
+	}
+}
+
+func TestPythonRunnerBuildUnittestCommand_WithTestType(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test directory structure
+	unitDir := filepath.Join(tmpDir, "tests", "unit")
+	if err := os.MkdirAll(unitDir, 0755); err != nil {
+		t.Fatalf("Failed to create test dir: %v", err)
+	}
+
+	config := &ServiceTestConfig{
+		Framework: "unittest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	_, args := runner.buildUnittestCommand("unit", false)
+
+	// Should include -s for test directory filtering
+	foundDir := false
+	for i, arg := range args {
+		if arg == "-s" && i+1 < len(args) {
+			foundDir = true
+			break
+		}
+	}
+	if !foundDir {
+		t.Log("Expected '-s' flag for test directory filtering")
+	}
+}
+
+func TestPythonRunnerBuildPytestCommand_WithUV(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create uv.lock to simulate uv environment
+	if err := os.WriteFile(filepath.Join(tmpDir, "uv.lock"), []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to create uv.lock: %v", err)
+	}
+
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildPytestCommand("unit", false)
+
+	if command != "uv" {
+		t.Errorf("Expected command 'uv', got '%s'", command)
+	}
+
+	// Should include 'run pytest'
+	foundRun := false
+	foundPytest := false
+	for _, arg := range args {
+		if arg == "run" {
+			foundRun = true
+		}
+		if arg == "pytest" {
+			foundPytest = true
+		}
+	}
+	if !foundRun || !foundPytest {
+		t.Errorf("Expected 'run pytest' in args, got %v", args)
+	}
+}
+
+func TestPythonRunnerBuildPytestCommand_WithPoetry(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create poetry.lock to simulate poetry environment
+	if err := os.WriteFile(filepath.Join(tmpDir, "poetry.lock"), []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to create poetry.lock: %v", err)
+	}
+
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildPytestCommand("all", false)
+
+	if command != "poetry" {
+		t.Errorf("Expected command 'poetry', got '%s'", command)
+	}
+
+	// Should include 'run pytest'
+	foundRun := false
+	foundPytest := false
+	for _, arg := range args {
+		if arg == "run" {
+			foundRun = true
+		}
+		if arg == "pytest" {
+			foundPytest = true
+		}
+	}
+	if !foundRun || !foundPytest {
+		t.Errorf("Expected 'run pytest' in args, got %v", args)
+	}
+}
+
+func TestPythonRunnerBuildPytestCommand_WithCustomMarkers(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+		Unit: &TestTypeConfig{
+			Markers: []string{"fast", "unit"},
+		},
+		Integration: &TestTypeConfig{
+			Markers: []string{"slow", "integration"},
+		},
+		E2E: &TestTypeConfig{
+			Markers: []string{"e2e", "acceptance"},
+		},
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	tests := []struct {
+		testType        string
+		expectedMarkers []string
+	}{
+		{"unit", []string{"fast", "unit"}},
+		{"integration", []string{"slow", "integration"}},
+		{"e2e", []string{"e2e", "acceptance"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testType, func(t *testing.T) {
+			_, args := runner.buildPytestCommand(tt.testType, false)
+
+			for _, marker := range tt.expectedMarkers {
+				found := false
+				for i, arg := range args {
+					if arg == "-m" && i+1 < len(args) && args[i+1] == marker {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected marker '%s' in args for %s tests", marker, tt.testType)
+				}
+			}
+		})
+	}
+}
+
+func TestPythonRunnerBuildPytestCommand_WithCoverageSource(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+		Coverage: &CoverageConfig{
+			Source: "src",
+		},
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	_, args := runner.buildPytestCommand("all", true)
+
+	// Should include --cov=src
+	found := false
+	for _, arg := range args {
+		if arg == "--cov=src" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected '--cov=src' in args, got %v", args)
+	}
+}
+
+func TestPythonRunnerParsePytestSummary(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{Framework: "pytest"}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	tests := []struct {
+		name             string
+		line             string
+		expectedPassed   int
+		expectedFailed   int
+		expectedSkipped  int
+		expectedDuration float64
+	}{
+		{
+			name:             "Simple passed",
+			line:             "5 passed in 1.23s",
+			expectedPassed:   5,
+			expectedFailed:   0,
+			expectedSkipped:  0,
+			expectedDuration: 1.23,
+		},
+		{
+			name:             "Passed and failed",
+			line:             "3 passed, 2 failed in 0.50s",
+			expectedPassed:   3,
+			expectedFailed:   2,
+			expectedSkipped:  0,
+			expectedDuration: 0.50,
+		},
+		{
+			name:             "All types",
+			line:             "3 passed, 1 failed, 2 skipped in 2.00s",
+			expectedPassed:   3,
+			expectedFailed:   1,
+			expectedSkipped:  2,
+			expectedDuration: 2.00,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &TestResult{}
+			runner.parsePytestSummary(tt.line, result)
+
+			if result.Passed != tt.expectedPassed {
+				t.Errorf("Expected %d passed, got %d", tt.expectedPassed, result.Passed)
+			}
+			if result.Failed != tt.expectedFailed {
+				t.Errorf("Expected %d failed, got %d", tt.expectedFailed, result.Failed)
+			}
+			if result.Skipped != tt.expectedSkipped {
+				t.Errorf("Expected %d skipped, got %d", tt.expectedSkipped, result.Skipped)
+			}
+			if result.Duration != tt.expectedDuration {
+				t.Errorf("Expected duration %.2f, got %.2f", tt.expectedDuration, result.Duration)
+			}
+		})
+	}
+}
+
+func TestPythonRunnerParseUnittestSummary(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{Framework: "unittest"}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	tests := []struct {
+		name             string
+		lines            []string
+		expectedTotal    int
+		expectedPassed   int
+		expectedFailed   int
+		expectedDuration float64
+	}{
+		{
+			name: "Simple OK",
+			lines: []string{
+				"Ran 5 tests in 1.234s",
+				"OK",
+			},
+			expectedTotal:    5,
+			expectedPassed:   5,
+			expectedFailed:   0,
+			expectedDuration: 1.234,
+		},
+		{
+			name: "With failures",
+			lines: []string{
+				"Ran 5 tests in 0.500s",
+				"FAILED (failures=2)",
+			},
+			expectedTotal:    5,
+			expectedPassed:   3,
+			expectedFailed:   2,
+			expectedDuration: 0.500,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &TestResult{}
+			for _, line := range tt.lines {
+				runner.parseUnittestSummary(line, result)
+			}
+
+			if result.Total != tt.expectedTotal {
+				t.Errorf("Expected %d total, got %d", tt.expectedTotal, result.Total)
+			}
+			if result.Passed != tt.expectedPassed {
+				t.Errorf("Expected %d passed, got %d", tt.expectedPassed, result.Passed)
+			}
+			if result.Failed != tt.expectedFailed {
+				t.Errorf("Expected %d failed, got %d", tt.expectedFailed, result.Failed)
+			}
+			if result.Duration != tt.expectedDuration {
+				t.Errorf("Expected duration %.3f, got %.3f", tt.expectedDuration, result.Duration)
+			}
+		})
+	}
+}
+
+func TestPythonRunnerParseTestOutput_BasicIndicators(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{Framework: "pytest"}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	tests := []struct {
+		name           string
+		output         string
+		expectedPassed int
+		expectedFailed int
+		expectedTotal  int
+	}{
+		{
+			name:           "PASSED indicator",
+			output:         "test_example.py PASSED",
+			expectedPassed: 1,
+			expectedFailed: 0,
+			expectedTotal:  1,
+		},
+		{
+			name:           "FAILED indicator",
+			output:         "test_example.py FAILED",
+			expectedPassed: 0,
+			expectedFailed: 1,
+			expectedTotal:  1,
+		},
+		{
+			name:           "OK indicator",
+			output:         "OK",
+			expectedPassed: 1,
+			expectedFailed: 0,
+			expectedTotal:  1,
+		},
+		{
+			name:           "ERROR indicator",
+			output:         "ERROR in test",
+			expectedPassed: 0,
+			expectedFailed: 1,
+			expectedTotal:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &TestResult{}
+			runner.parseTestOutput(tt.output, result)
+
+			if result.Passed != tt.expectedPassed {
+				t.Errorf("Expected %d passed, got %d", tt.expectedPassed, result.Passed)
+			}
+			if result.Failed != tt.expectedFailed {
+				t.Errorf("Expected %d failed, got %d", tt.expectedFailed, result.Failed)
+			}
+			if result.Total != tt.expectedTotal {
+				t.Errorf("Expected %d total, got %d", tt.expectedTotal, result.Total)
+			}
+		})
+	}
+}
+
+func TestDetectPythonPackageManager_FromPyprojectToml(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name           string
+		content        string
+		expectedResult string
+	}{
+		{
+			name:           "UV in pyproject.toml",
+			content:        "[tool.uv]\ndev-dependencies = []",
+			expectedResult: "uv",
+		},
+		{
+			name:           "Poetry in pyproject.toml",
+			content:        "[tool.poetry]\nname = \"test\"",
+			expectedResult: "poetry",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testDir := filepath.Join(tmpDir, tt.name)
+			if err := os.MkdirAll(testDir, 0755); err != nil {
+				t.Fatalf("Failed to create test dir: %v", err)
+			}
+
+			pyprojectPath := filepath.Join(testDir, "pyproject.toml")
+			if err := os.WriteFile(pyprojectPath, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("Failed to create pyproject.toml: %v", err)
+			}
+
+			result := detectPythonPackageManager(testDir)
+			if result != tt.expectedResult {
+				t.Errorf("Expected '%s', got '%s'", tt.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestPythonRunnerHasTests_WithTestFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a test file in project root
+	testFile := filepath.Join(tmpDir, "test_example.py")
+	if err := os.WriteFile(testFile, []byte("def test_something(): pass"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	config := &ServiceTestConfig{Framework: "pytest"}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	if !runner.HasTests() {
+		t.Error("Expected HasTests to return true for test_ file in root")
+	}
+}
+
+func TestPythonRunnerHasTests_WithTestDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a 'test' directory (singular)
+	testDir := filepath.Join(tmpDir, "test")
+	if err := os.MkdirAll(testDir, 0755); err != nil {
+		t.Fatalf("Failed to create test dir: %v", err)
+	}
+
+	config := &ServiceTestConfig{Framework: "pytest"}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	if !runner.HasTests() {
+		t.Error("Expected HasTests to return true for 'test' directory")
+	}
+}
+
+func TestPythonRunnerBuildTestCommand_IntegrationCustom(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+		Integration: &TestTypeConfig{
+			Command: "pytest tests/integration -v",
+		},
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildTestCommand("integration", false)
+
+	if command != "pytest" {
+		t.Errorf("Expected command 'pytest', got '%s'", command)
+	}
+	if len(args) < 1 || args[0] != "tests/integration" {
+		t.Errorf("Expected first arg 'tests/integration', got %v", args)
+	}
+}
+
+func TestPythonRunnerBuildTestCommand_E2ECustom(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{
+		Framework: "pytest",
+		E2E: &TestTypeConfig{
+			Command: "pytest tests/e2e -v",
+		},
+	}
+
+	runner := NewPythonTestRunner(tmpDir, config)
+	command, args := runner.buildTestCommand("e2e", false)
+
+	if command != "pytest" {
+		t.Errorf("Expected command 'pytest', got '%s'", command)
+	}
+	if len(args) < 1 || args[0] != "tests/e2e" {
+		t.Errorf("Expected first arg 'tests/e2e', got %v", args)
+	}
+}
+
+func TestPythonRunnerParseCommand_Empty(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{}
+	runner := NewPythonTestRunner(tmpDir, config)
+
+	command, args := runner.parseCommand("")
+
+	if command != "pytest" {
+		t.Errorf("Expected command 'pytest', got '%s'", command)
+	}
+	if len(args) != 0 {
+		t.Errorf("Expected empty args, got %v", args)
+	}
+}

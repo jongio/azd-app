@@ -227,9 +227,7 @@ test.describe('Services - Performance', () => {
     // Should load in reasonable time
     expect(loadTime).toBeLessThan(10000)
     
-    // Should show service count or some services
-    const serviceCards = page.locator('article[role="button"]')
-    const count = await serviceCards.count()
-    expect(count).toBeGreaterThan(0)
+    // Should show service count text indicating services are rendered
+    await expect(page.getByText(/\d+ services/i)).toBeVisible()
   })
 })

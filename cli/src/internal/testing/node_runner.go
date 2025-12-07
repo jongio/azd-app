@@ -14,6 +14,14 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
+// ansiStripRegex matches ANSI escape sequences for removal.
+var ansiStripRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+// stripAnsi removes ANSI escape codes from a string.
+func stripAnsi(s string) string {
+	return ansiStripRegex.ReplaceAllString(s, "")
+}
+
 // NodeTestRunner runs tests for Node.js projects.
 type NodeTestRunner struct {
 	projectDir     string
@@ -71,6 +79,11 @@ func (r *NodeTestRunner) RunTests(testType string, coverage bool) (*TestResult, 
 func (r *NodeTestRunner) buildTestCommand(testType string, coverage bool) (string, []string) {
 	var args []string
 
+	// Handle nil config - return default command
+	if r.config == nil {
+		return r.packageManager, []string{"test"}
+	}
+
 	// Check if explicit command is configured
 	switch testType {
 	case "unit":
@@ -124,7 +137,7 @@ func (r *NodeTestRunner) buildTestCommand(testType string, coverage bool) (strin
 
 // parseCommand parses a command string into command and args.
 func (r *NodeTestRunner) parseCommand(cmdStr string) (string, []string) {
-	parts := strings.Fields(cmdStr)
+	parts := ParseCommandString(cmdStr)
 	if len(parts) == 0 {
 		return r.packageManager, []string{"test"}
 	}
@@ -136,15 +149,18 @@ func (r *NodeTestRunner) parseCommand(cmdStr string) (string, []string) {
 
 // parseTestOutput parses test output to extract results.
 func (r *NodeTestRunner) parseTestOutput(output string, result *TestResult) {
+	// Strip ANSI escape codes from output before parsing
+	output = stripAnsi(output)
+
 	// Try to parse Jest/Vitest output format
 	// Example: "Tests:  5 passed, 5 total"
-	// Example: "Tests:  4 passed, 1 failed, 5 total"
+	// Example: "Tests:       1 failed, 9 passed, 10 total"
 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		// Jest/Vitest summary line
+		// Jest/Vitest summary line - handle "Tests:" with variable whitespace
 		if strings.HasPrefix(line, "Tests:") {
 			r.parseJestSummary(line, result)
 		}
@@ -175,11 +191,11 @@ func (r *NodeTestRunner) parseTestOutput(output string, result *TestResult) {
 
 // parseJestSummary parses Jest/Vitest summary line.
 func (r *NodeTestRunner) parseJestSummary(line string, result *TestResult) {
-	// Remove "Tests:" prefix
+	// Remove "Tests:" prefix and normalize whitespace
 	line = strings.TrimPrefix(line, "Tests:")
 	line = strings.TrimSpace(line)
 
-	// Parse patterns like "5 passed, 5 total" or "4 passed, 1 failed, 5 total"
+	// Parse patterns like "5 passed, 5 total" or "1 failed, 9 passed, 10 total"
 	parts := strings.Split(line, ",")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
@@ -272,6 +288,7 @@ func (r *NodeTestRunner) HasTests() bool {
 
 	// Check if package.json has test script
 	packageJSON := filepath.Join(r.projectDir, "package.json")
+	// #nosec G304 -- packageJSON is constructed from projectDir which is validated
 	if data, err := os.ReadFile(packageJSON); err == nil {
 		return strings.Contains(string(data), `"test"`)
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/logging"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"gopkg.in/yaml.v3"
 )
@@ -69,6 +70,11 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 
 	// Convert to ServiceInfo
 	azureYamlDir := filepath.Dir(azureYamlPath)
+	azureYamlDirAbs, err := filepath.Abs(azureYamlDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve azure.yaml directory: %w", err)
+	}
+
 	for name, svc := range azureYaml.Services {
 		// Resolve project directory
 		projectDir := svc.Project
@@ -78,6 +84,18 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 
 		// Normalize the path
 		projectDir = filepath.Clean(projectDir)
+
+		// Security: Validate project directory stays within azure.yaml directory
+		// This prevents path traversal attacks via malicious azure.yaml
+		projectDirAbs, err := filepath.Abs(projectDir)
+		if err != nil {
+			return fmt.Errorf("failed to resolve project directory for service %s: %w", name, err)
+		}
+
+		// Check that the project directory is under the azure.yaml directory
+		if !strings.HasPrefix(projectDirAbs, azureYamlDirAbs) {
+			return fmt.Errorf("service %s project path '%s' escapes project boundary", name, svc.Project)
+		}
 
 		o.services = append(o.services, ServiceInfo{
 			Name:     name,
@@ -122,11 +140,41 @@ func (o *TestOrchestrator) DetectTestConfig(service ServiceInfo) (*ServiceTestCo
 		}
 		config.Framework = framework
 
+	case "go", "golang":
+		framework, err := detectGoTestFramework(service.Dir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect Go test framework: %w", err)
+		}
+		config.Framework = framework
+
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", service.Language)
 	}
 
+	// Auto-detect test type configurations if not specified
+	if config.Unit == nil && config.Integration == nil && config.E2E == nil {
+		detectedConfig := SuggestTestTypeConfig(service.Dir, service.Language)
+		config.Unit = detectedConfig.Unit
+		config.Integration = detectedConfig.Integration
+		config.E2E = detectedConfig.E2E
+	}
+
 	return config, nil
+}
+
+// GetAvailableTestTypesForService returns available test types for a service.
+func (o *TestOrchestrator) GetAvailableTestTypesForService(service ServiceInfo) []string {
+	detector := NewTestTypeDetector(service.Dir, service.Language)
+	return detector.GetAvailableTestTypes()
+}
+
+// GetAvailableTestTypes returns a map of available test types per service.
+func (o *TestOrchestrator) GetAvailableTestTypes() map[string][]string {
+	result := make(map[string][]string)
+	for _, service := range o.services {
+		result[service.Name] = o.GetAvailableTestTypesForService(service)
+	}
+	return result
 }
 
 // ExecuteTests runs tests for all services.
@@ -184,7 +232,10 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 
 		// Add coverage if available
 		if coverageAggregator != nil && testResult.Coverage != nil {
-			_ = coverageAggregator.AddCoverage(service.Name, testResult.Coverage)
+			if err := coverageAggregator.AddCoverage(service.Name, testResult.Coverage); err != nil {
+				log := logging.NewLogger("test")
+				log.Warn("failed to add coverage data", "service", service.Name, "error", err.Error())
+			}
 		}
 	}
 
@@ -200,9 +251,16 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 		}
 
 		// Generate coverage reports in multiple formats
-		_ = coverageAggregator.GenerateReport("json")
-		_ = coverageAggregator.GenerateReport("html")
-		_ = coverageAggregator.GenerateReport("cobertura")
+		log := logging.NewLogger("test")
+		if err := coverageAggregator.GenerateReport("json"); err != nil {
+			log.Warn("failed to generate JSON coverage report", "error", err.Error())
+		}
+		if err := coverageAggregator.GenerateReport("html"); err != nil {
+			log.Warn("failed to generate HTML coverage report", "error", err.Error())
+		}
+		if err := coverageAggregator.GenerateReport("cobertura"); err != nil {
+			log.Warn("failed to generate Cobertura coverage report", "error", err.Error())
+		}
 	}
 
 	return result, nil
@@ -240,7 +298,8 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 	defer func() {
 		if typeConfig != nil && len(typeConfig.Teardown) > 0 {
 			if err := o.executeCommands(service.Dir, typeConfig.Teardown, "teardown"); err != nil {
-				fmt.Printf("Warning: teardown failed for %s: %v\n", service.Name, err)
+				log := logging.NewLogger("test")
+				log.Warn("teardown failed", "service", service.Name, "error", err.Error())
 			}
 		}
 	}()
@@ -254,6 +313,8 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 		runner = NewPythonTestRunner(service.Dir, config)
 	case "csharp", "dotnet", "fsharp", "cs", "fs":
 		runner = NewDotnetTestRunner(service.Dir, config)
+	case "go", "golang":
+		runner = NewGoTestRunner(service.Dir, config)
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", service.Language)
 	}
@@ -382,6 +443,48 @@ func detectDotnetTestFramework(dir string) (string, error) {
 	return "xunit", nil // Default to xUnit
 }
 
+// detectGoTestFramework detects the Go test framework.
+func detectGoTestFramework(dir string) (string, error) {
+	// Go only has the standard testing package
+	// Check if go.mod exists and there are test files
+	goModPath := filepath.Join(dir, "go.mod")
+	if _, err := os.Stat(goModPath); err != nil {
+		return "", fmt.Errorf("go.mod not found in %s", dir)
+	}
+
+	// Check for *_test.go files
+	hasTests := false
+	entries, err := os.ReadDir(dir)
+	if err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), "_test.go") {
+				hasTests = true
+				break
+			}
+		}
+	}
+
+	// Also check subdirectories for test files
+	if !hasTests {
+		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if !d.IsDir() && strings.HasSuffix(d.Name(), "_test.go") {
+				hasTests = true
+				return filepath.SkipAll
+			}
+			return nil
+		})
+	}
+
+	if !hasTests {
+		return "", fmt.Errorf("no test files found in %s", dir)
+	}
+
+	return "gotest", nil
+}
+
 // filterServices filters services by name.
 func filterServices(services []ServiceInfo, filter []string) []ServiceInfo {
 	if len(filter) == 0 {
@@ -415,8 +518,12 @@ func FindAzureYaml() (string, error) {
 
 // executeCommands executes a list of commands in the specified directory.
 func (o *TestOrchestrator) executeCommands(dir string, commands []string, stage string) error {
+	log := logging.NewLogger("test").WithOperation(stage)
 	for i, cmd := range commands {
-		fmt.Printf("Running %s command %d/%d: %s\n", stage, i+1, len(commands), cmd)
+		if !logging.IsStructured() {
+			fmt.Printf("Running %s command %d/%d: %s\n", stage, i+1, len(commands), cmd)
+		}
+		log.Debug("executing command", "stage", stage, "index", i+1, "total", len(commands), "command", cmd)
 
 		// Execute command using os/exec
 		if err := runCommand(dir, cmd); err != nil {
@@ -426,12 +533,61 @@ func (o *TestOrchestrator) executeCommands(dir string, commands []string, stage 
 	return nil
 }
 
-// runCommand executes a shell command in the specified directory.
+// runCommand executes a command in the specified directory.
+// Parses the command string into command and arguments to avoid shell injection.
 func runCommand(dir, cmd string) error {
-	// #nosec G204 -- Commands are from user's azure.yaml configuration
-	exec := exec.Command("sh", "-c", cmd)
-	exec.Dir = dir
-	exec.Stdout = os.Stdout
-	exec.Stderr = os.Stderr
-	return exec.Run()
+	parts := parseCommandString(cmd)
+	if len(parts) == 0 {
+		return fmt.Errorf("empty command")
+	}
+
+	// #nosec G204 -- Command parts are validated and from azure.yaml
+	command := exec.Command(parts[0], parts[1:]...)
+	command.Dir = dir
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	return command.Run()
+}
+
+// parseCommandString parses a command string into command and arguments.
+// Handles quoted strings and basic shell-style arguments.
+func parseCommandString(cmd string) []string {
+	var parts []string
+	var current strings.Builder
+	inQuote := false
+	quoteChar := rune(0)
+
+	for _, r := range cmd {
+		switch {
+		case r == '"' || r == '\'':
+			if inQuote && r == quoteChar {
+				// End of quoted section
+				inQuote = false
+				quoteChar = 0
+			} else if !inQuote {
+				// Start of quoted section
+				inQuote = true
+				quoteChar = r
+			} else {
+				// Different quote inside - treat as literal
+				current.WriteRune(r)
+			}
+		case r == ' ' || r == '\t':
+			if inQuote {
+				current.WriteRune(r)
+			} else if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	// Add the last part if any
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+
+	return parts
 }

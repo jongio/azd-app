@@ -62,19 +62,22 @@ func (r *DotnetTestRunner) RunTests(testType string, coverage bool) (*TestResult
 func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (string, []string) {
 	args := []string{"test"}
 
-	// Check if explicit command is configured
-	switch testType {
-	case "unit":
-		if r.config.Unit != nil && r.config.Unit.Command != "" {
-			return r.parseCommand(r.config.Unit.Command)
-		}
-	case "integration":
-		if r.config.Integration != nil && r.config.Integration.Command != "" {
-			return r.parseCommand(r.config.Integration.Command)
-		}
-	case "e2e":
-		if r.config.E2E != nil && r.config.E2E.Command != "" {
-			return r.parseCommand(r.config.E2E.Command)
+	// Handle nil config - skip explicit command checks
+	if r.config != nil {
+		// Check if explicit command is configured
+		switch testType {
+		case "unit":
+			if r.config.Unit != nil && r.config.Unit.Command != "" {
+				return r.parseCommand(r.config.Unit.Command)
+			}
+		case "integration":
+			if r.config.Integration != nil && r.config.Integration.Command != "" {
+				return r.parseCommand(r.config.Integration.Command)
+			}
+		case "e2e":
+			if r.config.E2E != nil && r.config.E2E.Command != "" {
+				return r.parseCommand(r.config.E2E.Command)
+			}
 		}
 	}
 
@@ -110,21 +113,21 @@ func (r *DotnetTestRunner) getTestFilter(testType string) string {
 
 	switch testType {
 	case "unit":
-		if r.config.Unit != nil && r.config.Unit.Filter != "" {
+		if r.config != nil && r.config.Unit != nil && r.config.Unit.Filter != "" {
 			filter = r.config.Unit.Filter
 		} else {
 			// Default unit test filter
 			filter = "Category=Unit"
 		}
 	case "integration":
-		if r.config.Integration != nil && r.config.Integration.Filter != "" {
+		if r.config != nil && r.config.Integration != nil && r.config.Integration.Filter != "" {
 			filter = r.config.Integration.Filter
 		} else {
 			// Default integration test filter
 			filter = "Category=Integration"
 		}
 	case "e2e":
-		if r.config.E2E != nil && r.config.E2E.Filter != "" {
+		if r.config != nil && r.config.E2E != nil && r.config.E2E.Filter != "" {
 			filter = r.config.E2E.Filter
 		} else {
 			// Default E2E test filter
@@ -140,8 +143,15 @@ func (r *DotnetTestRunner) findTestProjects() []string {
 	var testProjects []string
 
 	// Check if config specifies test projects
-	if r.config.Unit != nil && len(r.config.Unit.Projects) > 0 {
-		return r.config.Unit.Projects
+	if r.config != nil && r.config.Unit != nil && len(r.config.Unit.Projects) > 0 {
+		// Resolve paths relative to project directory
+		for _, proj := range r.config.Unit.Projects {
+			if !filepath.IsAbs(proj) {
+				proj = filepath.Join(r.projectDir, proj)
+			}
+			testProjects = append(testProjects, proj)
+		}
+		return testProjects
 	}
 
 	// Find .csproj or .fsproj files with "Test" in the name
@@ -163,7 +173,7 @@ func (r *DotnetTestRunner) findTestProjects() []string {
 
 // parseCommand parses a command string into command and args.
 func (r *DotnetTestRunner) parseCommand(cmdStr string) (string, []string) {
-	parts := strings.Fields(cmdStr)
+	parts := ParseCommandString(cmdStr)
 	if len(parts) == 0 {
 		return "dotnet", []string{"test"}
 	}

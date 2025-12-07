@@ -134,9 +134,8 @@ services.json
 !tests/projects/**/*.yaml
 
 # Generated azure.yaml files from integration tests
-tests/projects/node/test-pnpm-project/azure.yaml
-tests/projects/python/test-uv-project/azure.yaml
-tests/projects/aspire-test/azure.yaml
+tests/projects/package-managers/node/test-pnpm-project/azure.yaml
+tests/projects/integration/aspire-test/azure.yaml
 
 
 azd-app.sln

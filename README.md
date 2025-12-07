@@ -86,13 +86,48 @@ Works with your existing `azure.yaml`. No new config files, no complex setup. Ju
 
 ## 🎯 Quick Start
 
-```bash
-# 1. Install the extension
-azd config set alpha.extension.enabled on
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
-azd extension install jongio.azd.app
+### 1. Install Azure Developer CLI
 
-# 2. Run your app
+<details>
+<summary><b>Windows</b></summary>
+
+```powershell
+winget install microsoft.azd
+```
+</details>
+
+<details>
+<summary><b>macOS</b></summary>
+
+```bash
+brew tap azure/azd && brew install azd
+```
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+```bash
+curl -fsSL https://aka.ms/install-azd.sh | bash
+```
+</details>
+
+### 2. Enable Extensions & Install azd-app
+
+```bash
+# Enable extensions
+azd config set alpha.extensions.enabled on
+
+# Add azd-app extension source
+azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+
+# Install the extension
+azd extension install jongio.azd.app
+```
+
+### 3. Run Your App
+
+```bash
 cd your-azd-project
 azd app run
 ```
@@ -101,7 +136,7 @@ azd app run
 
 ### 📚 Want the full walkthrough?
 
-[**Start the Guided Tour →**](https://jongio.github.io/azd-app/tour/1-introduction/)
+[**Start the Guided Tour →**](https://jongio.github.io/azd-app/tour/1-install/)
 
 </div>
 

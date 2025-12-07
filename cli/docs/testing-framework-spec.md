@@ -1,5 +1,9 @@
 # azd app test - Testing Framework Specification
 
+> **Note**: This document provides a high-level overview. For detailed implementation, see:
+> - [Detailed Specification](specs/azd-app-test/spec.md) - Requirements and design
+> - [Implementation Tasks](specs/azd-app-test/tasks.md) - Task tracking and status
+
 ## Quick Links
 
 - **Command Reference**: [commands/test.md](commands/test.md) - Complete usage guide
@@ -12,7 +16,7 @@
 
 The `azd app test` command provides comprehensive testing capabilities for multi-language applications, with support for:
 
-- **Multi-Language**: Node.js, Python, .NET
+- **Multi-Language**: Node.js, Python, .NET, Go
 - **Test Types**: Unit, Integration, E2E (run independently or together)
 - **Auto-Detection**: Smart framework detection with explicit configuration override
 - **Coverage**: Aggregated code coverage across all services
@@ -75,6 +79,23 @@ services:
       coverage:
         threshold: 90
   
+  # Go with go test
+  gateway:
+    language: go
+    project: ./src/gateway
+    test:
+      framework: gotest
+      unit:
+        pattern: "^Test[^Integration]"
+      integration:
+        pattern: "TestIntegration"
+        setup:
+          - docker-compose up -d
+        teardown:
+          - docker-compose down
+      coverage:
+        threshold: 80
+
   # .NET with xUnit
   apphost:
     language: csharp
@@ -93,6 +114,7 @@ services:
 |----------|------------|----------------|
 | **Node.js** | Jest, Vitest, Mocha, AVA, Tap | Jest (built-in), c8, nyc |
 | **Python** | pytest, unittest, nose2 | pytest-cov, coverage.py |
+| **Go** | go test | go test -cover |
 | **.NET** | xUnit, NUnit, MSTest | coverlet, dotCover |
 
 ## Key Features
@@ -188,15 +210,15 @@ vs. sequential: 9.8s
 │ - Aggregate results                 │
 └─────────────────────────────────────┘
                  ↓
-    ┌────────────┼────────────┐
-    ↓            ↓            ↓
-┌────────┐  ┌─────────┐  ┌─────────┐
-│ Node.js│  │ Python  │  │  .NET   │
-│ Runner │  │ Runner  │  │ Runner  │
-└────────┘  └─────────┘  └─────────┘
-    │            │            │
-    └────────────┼────────────┘
-                 ↓
+    ┌───────────┬────────────┬───────────┐
+    ↓           ↓            ↓           ↓
+┌────────┐  ┌─────────┐  ┌────────┐  ┌─────────┐
+│ Node.js│  │ Python  │  │   Go   │  │  .NET   │
+│ Runner │  │ Runner  │  │ Runner │  │ Runner  │
+└────────┘  └─────────┘  └────────┘  └─────────┘
+    │            │            │           │
+    └────────────┴────────────┴───────────┘
+                       ↓
 ┌─────────────────────────────────────┐
 │      Coverage Aggregator            │
 │ - Collect from all services         │
@@ -322,10 +344,16 @@ services:
     project: ./backend
     test:
       framework: pytest
-      
-  api-gateway:
-    language: csharp
+
+  gateway:
+    language: go
     project: ./gateway
+    test:
+      framework: gotest
+      
+  api:
+    language: csharp
+    project: ./api
     test:
       framework: xunit
 ```
@@ -337,9 +365,10 @@ azd app test --coverage
 # Output:
 # ✓ frontend (45 tests, 87.5% coverage)
 # ✓ backend (67 tests, 88.3% coverage)
-# ✓ api-gateway (28 tests, 89.0% coverage)
+# ✓ gateway (25 tests, 85.0% coverage)
+# ✓ api (28 tests, 89.0% coverage)
 # 
-# Aggregate: 140 tests, 88.2% coverage ✓
+# Aggregate: 165 tests, 87.5% coverage ✓
 ```
 
 ## CI/CD Examples
@@ -424,9 +453,18 @@ azd app test --coverage
 
 ## Status
 
-**Status**: 📝 Specification Complete, Implementation Planned
+**Status**: ✅ Core Implementation Complete
 
-**Version**: 0.6.0 (planned)
+**Version**: 0.7.0
+
+**Implemented**:
+- ✅ Multi-language support (Node.js, Python, .NET, Go)
+- ✅ Test type separation (unit, integration, e2e)
+- ✅ Framework auto-detection
+- ✅ Coverage aggregation
+- ✅ Output formats (JSON, JUnit, GitHub Actions)
+- ✅ Watch mode
+- ✅ Service filtering
 
 **Documentation**: Complete (6 documents, ~120KB total)
 
@@ -440,6 +478,6 @@ Have feedback on this design?
 
 ---
 
-**Last Updated**: 2025-11-08  
+**Last Updated**: 2025-01-15  
 **Authors**: GitHub Copilot, jongio  
 **License**: MIT

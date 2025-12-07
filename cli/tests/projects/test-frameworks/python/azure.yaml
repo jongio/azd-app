@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: python-frameworks
+metadata:
+  description: Python testing frameworks - pytest, unittest
+
+services:
+  pytest-service:
+    language: python
+    project: ./pytest-svc
+    test:
+      framework: pytest
+      unit:
+        command: pytest tests/ -v
+      coverage:
+        threshold: 80
+
+  unittest-service:
+    language: python
+    project: ./unittest-svc
+    test:
+      framework: unittest
+      unit:
+        command: python -m unittest discover -s tests -p "test_*.py" -v
+      coverage:
+        threshold: 80
