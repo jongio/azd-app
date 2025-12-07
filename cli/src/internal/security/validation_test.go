@@ -382,9 +382,13 @@ func TestValidateFilePermissions_ContainerEnvironment(t *testing.T) {
 
 	tmpFile := t.TempDir() + "/test.txt"
 
-	// Create a test file with world-writable permissions
-	if err := os.WriteFile(tmpFile, []byte("test"), 0666); err != nil {
+	// Create a test file and explicitly set world-writable permissions
+	// (os.WriteFile respects umask, so we need os.Chmod to ensure exact permissions)
+	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
+	}
+	if err := os.Chmod(tmpFile, 0666); err != nil {
+		t.Fatalf("Failed to set permissions: %v", err)
 	}
 
 	tests := []struct {
