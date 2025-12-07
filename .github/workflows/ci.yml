@@ -156,11 +156,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../coverage
+          # Exclude tests/test-tool (it's a standalone main package with no tests)
+          PACKAGES=$(go list ./... | grep -v '/tests/test-tool')
           # Race detector not supported on macOS without additional setup
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            go test -short -v -coverprofile=../coverage/coverage.out ./...
+            go test -short -v -coverprofile=../coverage/coverage.out $PACKAGES
           else
-            go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+            go test -short -v -race -coverprofile=../coverage/coverage.out $PACKAGES
           fi
 
       - name: Upload coverage to Codecov
