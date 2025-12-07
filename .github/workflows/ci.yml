@@ -353,7 +353,7 @@ jobs:
       - name: Install Python dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           for dir in api worker; do
             cd $dir
             python -m pip install -r requirements.txt
@@ -364,7 +364,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           foreach ($dir in @('api', 'worker')) {
             cd $dir
             python -m pip install -r requirements.txt
@@ -374,7 +374,7 @@ jobs:
       - name: Install Python dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           for dir in api worker; do
             cd $dir
             python -m pip install -r requirements.txt
@@ -383,7 +383,7 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           for dir in web admin database; do
             cd $dir
             npm install
@@ -412,7 +412,7 @@ jobs:
         with:
           name: integration-test-logs-${{ matrix.os }}
           path: |
-            cli/tests/projects/health-test/*.log
+            cli/tests/projects/integration/health-test/*.log
             cli/.azure/**/*.log
           if-no-files-found: ignore
 
