@@ -51,6 +51,11 @@ func AppendToArraySection(content string, opts ArrayAppendOptions) (string, int,
 		return appendNewSection(content, opts, toAdd)
 	}
 
+	// Handle inline empty array (e.g., "reqs: []")
+	if sectionInfo.hasInlineVal {
+		return replaceInlineEmptyArray(lines, sectionInfo, opts, toAdd)
+	}
+
 	// Find the end of the array
 	lastLineIdx, arrayIndent := findLastArrayLine(lines, sectionInfo)
 
@@ -61,6 +66,35 @@ func AppendToArraySection(content string, opts ArrayAppendOptions) (string, int,
 	result := insertLines(lines, lastLineIdx, newItemsText)
 
 	return result, len(toAdd), nil
+}
+
+// replaceInlineEmptyArray handles the case where a section has an inline empty array (e.g., "reqs: []").
+// It replaces the inline array with a proper multi-line array format.
+func replaceInlineEmptyArray(lines []string, section *sectionInfo, opts ArrayAppendOptions, items []map[string]any) (string, int, error) {
+	// Get the section line and extract the key part
+	sectionLine := lines[section.lineIdx]
+	keyPart := opts.SectionKey + ":"
+
+	// Find where the key ends and replace everything after with just the colon
+	keyIdx := strings.Index(sectionLine, keyPart)
+	if keyIdx == -1 {
+		return "", 0, fmt.Errorf("unexpected: section key not found in line")
+	}
+
+	// Replace the line with just the section key (removing the inline value)
+	newSectionLine := sectionLine[:keyIdx+len(keyPart)]
+	lines[section.lineIdx] = newSectionLine
+
+	// Determine indentation for array items (section indent + 2 spaces)
+	arrayIndent := section.indent + "  "
+
+	// Build new items as YAML text
+	newItemsText := buildItemsYaml(items, arrayIndent, opts.FormatItem)
+
+	// Insert the new items after the section line
+	result := insertLines(lines, section.lineIdx, newItemsText)
+
+	return result, len(items), nil
 }
 
 // appendNewSection creates a new section at the end of the file with the specified items.
@@ -92,8 +126,9 @@ func appendNewSection(content string, opts ArrayAppendOptions, items []map[strin
 
 // sectionInfo holds information about a YAML section location.
 type sectionInfo struct {
-	lineIdx int    // Line index where the section key appears
-	indent  string // Indentation of the section key line
+	lineIdx      int    // Line index where the section key appears
+	indent       string // Indentation of the section key line
+	hasInlineVal bool   // True if section has inline value (e.g., "reqs: []")
 }
 
 // getExistingIDs parses the YAML to extract existing item IDs.
@@ -126,9 +161,12 @@ func findSection(lines []string, sectionKey string) (*sectionInfo, error) {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == searchKey || strings.HasPrefix(trimmed, searchKey+" ") {
 			indent := getIndentation(line)
+			// Check if the section has an inline value (e.g., "reqs: []" or "reqs: {}")
+			hasInlineVal := strings.HasPrefix(trimmed, searchKey+" ")
 			return &sectionInfo{
-				lineIdx: i,
-				indent:  indent,
+				lineIdx:      i,
+				indent:       indent,
+				hasInlineVal: hasInlineVal,
 			}, nil
 		}
 	}

@@ -18,7 +18,9 @@ azd app version
 
 ### Flags
 
-None. This command has no additional flags.
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
 
 ## Execution Flow
 
@@ -34,8 +36,9 @@ None. This command has no additional flags.
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Display Version String                                      │
-│  Format: "azd app extension version X.Y.Z"                   │
+│  Display Version Information                                 │
+│  - Header with command name                                  │
+│  - Version number and build timestamp                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,11 +63,11 @@ Example: 0.5.1
 ```bash
 $ azd app version
 
-  version
-  Show version information
+azd app version
+──────────────────────────────
 
-  Version  0.5.1
-  Built    2024-11-04T10:00:00Z
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 ```
 
 ### JSON Output
@@ -83,21 +86,25 @@ $ azd app version --output json
 
 ```bash
 $ azd app version
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+azd app version
+──────────────────────────────
+
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 ```
 
 ### 2. Verify Installation
 
 ```bash
-$ which azd-app
-/usr/local/bin/azd-app
-
+# Check if azd app extension is available
 $ azd app version
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+azd app version
+──────────────────────────────
+
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 ```
 
 ### 3. Troubleshooting
@@ -106,9 +113,12 @@ When reporting issues, include version information:
 
 ```bash
 $ azd app version
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+azd app version
+──────────────────────────────
+
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 
 # Include in bug report
 ```
@@ -124,9 +134,12 @@ azd version 1.5.0
 
 # Check azd app version
 $ azd app version
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+azd app version
+──────────────────────────────
+
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 ```
 
 ## Version Compatibility
@@ -158,33 +171,37 @@ The extension is designed to be compatible with:
 
 ```bash
 $ azd app version
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+azd app version
+──────────────────────────────
+
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 ```
 
-### Example 2: In Scripts
+### Example 2: JSON Output for Scripts
 
 ```bash
-#!/bin/bash
+# Get version as JSON for parsing
+$ azd app version --output json
+{"version":"0.5.1","buildTime":"2024-11-04T10:00:00Z"}
 
-# Check if azd app is installed
-if ! command -v azd &> /dev/null; then
-    echo "azd app not found"
-    exit 1
-fi
-
-# Check version
-VERSION=$(azd app version | awk '{print $NF}')
+# Extract version in bash script
+VERSION=$(azd app version --output json | jq -r '.version')
 echo "Using azd app version: $VERSION"
 ```
 
 ### Example 3: Compare Versions
 
 ```bash
-$ azd version && azd app version
+$ azd version
 azd version 1.5.0
-azd app extension
-Version: 0.5.1
-Built: 2024-11-04T10:00:00Z
+
+$ azd app version
+
+azd app version
+──────────────────────────────
+
+   Version:     0.5.1
+   Built:       2024-11-04T10:00:00Z
 ```

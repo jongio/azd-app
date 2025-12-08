@@ -60,6 +60,10 @@
     "logs": {
       "$ref": "#/definitions/logsConfig",
       "description": "Project-level logging configuration"
+    },
+    "test": {
+      "$ref": "#/definitions/testConfig",
+      "description": "Global test configuration for the application"
     }
   },
   "definitions": {
@@ -135,6 +139,10 @@
         "logs": {
           "$ref": "#/definitions/logsConfig",
           "description": "Service-level logging configuration"
+        },
+        "test": {
+          "$ref": "#/definitions/serviceTestConfig",
+          "description": "Service-level test configuration"
         }
       }
     },
@@ -523,6 +531,137 @@
           "type": "boolean",
           "default": true,
           "description": "Whether to include built-in filter patterns for common noise (Electron DevTools errors, npm warnings, etc.). Defaults to true."
+        }
+      }
+    },
+    "testConfig": {
+      "type": "object",
+      "description": "Global test configuration for the application - azd app addition",
+      "additionalProperties": false,
+      "properties": {
+        "parallel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run tests for services in parallel"
+        },
+        "failFast": {
+          "type": "boolean",
+          "default": false,
+          "description": "Stop on first test failure"
+        },
+        "coverage": {
+          "$ref": "#/definitions/coverageConfig",
+          "description": "Global coverage configuration"
+        },
+        "outputDir": {
+          "type": "string",
+          "default": "./test-results",
+          "description": "Directory for test reports and coverage output"
+        },
+        "outputFormat": {
+          "type": "string",
+          "enum": ["default", "json", "junit", "github"],
+          "default": "default",
+          "description": "Output format for test results"
+        }
+      }
+    },
+    "serviceTestConfig": {
+      "type": "object",
+      "description": "Service-level test configuration - azd app addition",
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "$ref": "#/definitions/testTypeConfig",
+          "description": "Unit test configuration"
+        },
+        "integration": {
+          "$ref": "#/definitions/testTypeConfig",
+          "description": "Integration test configuration"
+        },
+        "e2e": {
+          "$ref": "#/definitions/testTypeConfig",
+          "description": "End-to-end test configuration"
+        },
+        "coverage": {
+          "$ref": "#/definitions/coverageConfig",
+          "description": "Service-specific coverage configuration"
+        }
+      }
+    },
+    "testTypeConfig": {
+      "type": "object",
+      "description": "Configuration for a specific test type (unit, integration, e2e)",
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Custom command to run tests",
+          "examples": ["npm test", "pytest", "go test ./...", "dotnet test"]
+        },
+        "args": {
+          "type": "array",
+          "description": "Additional arguments to pass to the test command",
+          "items": {
+            "type": "string"
+          }
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to test files or directory (relative to service project)",
+          "examples": ["tests/unit", "tests/integration", "tests/e2e"]
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Pattern to match test files or test names",
+          "examples": ["*_test.go", "test_*.py", "*.spec.ts"]
+        },
+        "env": {
+          "type": "object",
+          "description": "Environment variables for tests",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Timeout for test execution (e.g., 5m, 30s)",
+          "pattern": "^\\d+[smh]$"
+        }
+      }
+    },
+    "coverageConfig": {
+      "type": "object",
+      "description": "Code coverage configuration",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable coverage collection"
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum coverage threshold (0-100). Fail if coverage is below this percentage."
+        },
+        "exclude": {
+          "type": "array",
+          "description": "Patterns to exclude from coverage",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["**/vendor/**", "**/test/**", "**/*_test.go"]
+          ]
+        },
+        "include": {
+          "type": "array",
+          "description": "Patterns to include in coverage (if specified, only these are included)",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

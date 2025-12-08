@@ -581,14 +581,15 @@ export async function setupTest(page: Page, options: {
  * Wait for dashboard to be fully loaded
  */
 export async function waitForDashboardReady(page: Page) {
-  // Wait for project name to appear (indicates successful load)
-  await page.waitForSelector('[data-testid="project-name"], header:has-text("test-project")', {
-    timeout: 10000,
-  }).catch(() => {
-    // Fallback: wait for any main content
-    return page.waitForSelector('main', { timeout: 10000 })
+  // Wait for the main header/nav to be present with tabs
+  // This indicates the React app has mounted and rendered
+  // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+  await page.locator('[role="tablist"]:visible').first().waitFor({
+    state: 'visible',
+    timeout: 15000,
   })
-  await page.waitForLoadState('networkidle')
+  // Also wait for the page to stabilize
+  await page.waitForLoadState('domcontentloaded')
 }
 
 /**

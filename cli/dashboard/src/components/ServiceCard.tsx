@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils'
 import { DualStatusBadge, StatusDot, type EffectiveStatus } from './StatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
+import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
+import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
 import type { Service, HealthCheckResult } from '@/types'
 import { 
   formatResponseTime, 
@@ -59,6 +61,9 @@ export function ServiceCard({
   const { getEffectiveOperationState } = useServiceOperations()
   const operationState = getEffectiveOperationState(service.name)
 
+  // Get Codespace environment for URL transformation
+  const { config: codespaceConfig } = useCodespaceEnv()
+
   // Use unified display status from service-utils (SINGLE SOURCE OF TRUTH)
   const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState) as EffectiveStatus
   const isHealthy = effectiveStatus === 'healthy' || effectiveStatus === 'running' || effectiveStatus === 'watching' || effectiveStatus === 'built' || effectiveStatus === 'completed'
@@ -80,8 +85,8 @@ export function ServiceCard({
     lastError: healthStatus.error,
   } : service.local?.healthDetails
 
-  // Build URLs
-  const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
+  // Build URLs with Codespace transformation
+  const localUrl = getEffectiveServiceUrl(service.local?.url, service.local?.port, codespaceConfig)
   const azureUrl = service.azure?.url
 
   // Get service icon based on type and status

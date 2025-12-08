@@ -1,8 +1,0 @@
-name: test-npm-workspace
-services:
-  api:
-    project: ./packages/api
-    language: js
-  webapp:
-    project: ./packages/webapp
-    language: js

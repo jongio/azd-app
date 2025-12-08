@@ -264,6 +264,41 @@ Hooks inherit all environment variables from the parent process, including:
 - **0**: Success
 - **Non-zero**: Failure (behavior depends on `continueOnError`)
 
+## Security Considerations
+
+### Trust Model
+
+Hooks execute with the same permissions as your user account. When you run `azd app run`, you implicitly trust the commands defined in `azure.yaml`.
+
+**This follows the same trust model as:**
+- npm scripts (package.json)
+- Makefile targets
+- docker-compose.yml commands
+- GitHub Actions workflows
+- Azure Developer CLI (azd) hooks
+
+### Security Guidance
+
+1. **Review azure.yaml before running**: Especially in cloned/downloaded projects
+2. **Treat azure.yaml like code**: It can execute arbitrary commands
+3. **Use version control**: Track changes to hook commands
+4. **Don't commit secrets**: Use environment variables for sensitive data
+
+### What Hooks Can Do
+
+Hooks have full access to:
+- File system (read, write, delete)
+- Network (HTTP requests, downloads)
+- Other processes (start, stop)
+- Environment variables
+
+### Recommended Practices
+
+- **Audit third-party templates**: Review azure.yaml before running
+- **Use explicit script files**: Easier to review than inline commands
+- **Pin dependencies**: Avoid `curl | bash` patterns in hooks
+- **Principle of least privilege**: Don't run as root/admin if not needed
+
 ## Best Practices
 
 1. **Keep hooks simple**: Complex logic should be in separate scripts

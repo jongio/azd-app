@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+# Test: azure.yaml with ALL reqs already present
+# Expected: reqs --generate should NOT modify the file (no duplicates)
+
+name: reqs-generate-complete-reqs
+
+reqs:
+  - name: node
+    minVersion: "22.0.0"
+  - name: pnpm
+    minVersion: "9.0.0"
+
+services:
+  web:
+    project: .
+    host: staticwebapp
+    language: js

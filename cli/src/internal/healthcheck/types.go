@@ -29,6 +29,10 @@ var commonHealthPaths = []string{
 	"/ping",
 }
 
+// endpointCacheNone is a marker value indicating no HTTP health endpoint was found
+// during discovery, so future checks should skip HTTP and fall back to TCP/process.
+const endpointCacheNone = "__none__"
+
 // HealthStatus represents the health state of a service.
 type HealthStatus string
 

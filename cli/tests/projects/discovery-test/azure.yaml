@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+# Test project for manual testing of dynamic test discovery
+# NO test configuration - should be auto-detected
+name: discovery-test
+
+metadata:
+  template: discovery-test
+
+services:
+  # Node.js service with vitest (should detect vitest)
+  web:
+    project: ./web
+    language: js
+    host: staticwebapp
+
+  # TypeScript service with jest (should detect jest)
+  api:
+    project: ./api
+    language: ts
+    host: function
+
+  # Python service with pytest (should detect pytest)
+  backend:
+    project: ./backend
+    language: python
+    host: appservice
+
+  # Go service (should detect go test)
+  gateway:
+    project: ./gateway
+    language: go
+    host: containerapp
+
+  # Service with NO tests (should be skipped)
+  config:
+    project: ./config
+    language: js
+    host: staticwebapp
+
+  # Tricky: nested test files only
+  nested:
+    project: ./nested
+    language: ts
+    host: appservice
+
+reqs:
+  - name: azd
+    minVersion: "1.22.0"
+  - name: node
+    minVersion: "22.0.0"
+  - name: npm
+    minVersion: "11.0.0"

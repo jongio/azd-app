@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+# Test: azure.yaml with PARTIAL reqs (only node, missing pnpm)
+# Expected: reqs --generate should ADD pnpm to existing reqs without duplicating node
+
+name: reqs-generate-partial-reqs
+
+reqs:
+  - name: node
+    minVersion: "22.0.0"
+
+services:
+  web:
+    project: .
+    host: staticwebapp
+    language: js

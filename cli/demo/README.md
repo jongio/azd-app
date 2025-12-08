@@ -1,6 +1,6 @@
 # azd app Demo Project
 
-This demo project showcases how to use `azd app` with AI-powered debugging through the MCP (Model Context Protocol) integration with GitHub Copilot.
+This demo project showcases how to use `azd app` with AI-powered debugging through the MCP (Model Context Protocol) integration with GitHub Copilot, and demonstrates the unified testing framework.
 
 > 📚 **Full Documentation**: [jongio.github.io/azd-app](https://jongio.github.io/azd-app/)
 
@@ -46,7 +46,77 @@ azd app deps
 
 # Start the API service
 azd app run
+
+# Run tests with coverage
+azd app test --coverage
 ```
+
+## Testing with azd app test
+
+This demo showcases the `azd app test` command for unified test execution.
+
+### Running Tests
+
+```bash
+# Run all tests for all services
+azd app test
+
+# Run only unit tests
+azd app test --type unit
+
+# Run tests with coverage collection
+azd app test --coverage
+
+# Run tests with coverage threshold enforcement
+azd app test --coverage --threshold 80
+
+# Run tests for a specific service
+azd app test --service api
+
+# Verbose output showing test details
+azd app test --verbose
+
+# Dry run to see what would be tested
+azd app test --dry-run
+```
+
+### Test Configuration
+
+The `azure.yaml` file contains test configuration:
+
+```yaml
+# Global test configuration
+test:
+  parallel: true
+  outputDir: ./test-results
+  coverage:
+    enabled: true
+    threshold: 70
+
+services:
+  api:
+    test:
+      unit:
+        command: npm test
+      integration:
+        command: npm run test:integration
+      coverage:
+        threshold: 80
+```
+
+### Test Files
+
+The demo includes a test file (`api/server.test.js`) that:
+- Tests all CRUD operations (GET, POST, DELETE)
+- Validates input handling
+- Tests error cases (404, 400 responses)
+- Includes proper validation (demonstrating what the "bug" should have)
+
+### Coverage Reports
+
+When running with `--coverage`, reports are generated in:
+- `./test-results/` - Aggregated coverage reports
+- `./api/coverage/` - Service-specific coverage
 
 ## Demonstrating AI Debugging
 
@@ -133,12 +203,15 @@ See the full [MCP Tools Reference](https://jongio.github.io/azd-app/mcp/tools/) 
 
 ```
 demo/
-├── azure.yaml          # Service configuration
+├── azure.yaml          # Service and test configuration
+├── test-results/       # Aggregated test/coverage reports (generated)
 ├── .vscode/
 │   └── mcp.json        # MCP server configuration
 ├── api/
-│   ├── package.json    # Node.js dependencies
-│   └── server.js       # API with intentional bug
+│   ├── package.json    # Node.js dependencies and test scripts
+│   ├── server.js       # API with intentional bug
+│   ├── server.test.js  # Unit tests for the API
+│   └── coverage/       # Service coverage reports (generated)
 └── README.md           # This file
 ```
 
@@ -150,6 +223,18 @@ demo/
 | POST | /items | Create item (bug: no price validation) |
 | GET | /items/:id | Get item by ID |
 | DELETE | /items/:id | Delete item |
+
+## CLI Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `azd app deps` | Install dependencies for all services |
+| `azd app run` | Start all services |
+| `azd app stop` | Stop all services |
+| `azd app test` | Run tests for all services |
+| `azd app test --coverage` | Run tests with coverage collection |
+| `azd app test --type unit` | Run only unit tests |
+| `azd app logs` | View service logs |
 
 ## Learn More
 

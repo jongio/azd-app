@@ -3,12 +3,22 @@
 name: demo-project
 metadata:
   template: demo-project
+  description: Demo API with intentional bug for AI debugging and testing demonstration
 
 reqs:
   - name: node
     minVersion: 18.0.0
   - name: npm
     minVersion: 9.0.0
+
+# Global test configuration
+test:
+  parallel: true
+  outputDir: ./test-results
+  outputFormat: default
+  coverage:
+    enabled: true
+    threshold: 70
 
 services:
   api:
@@ -19,3 +29,12 @@ services:
       - "3000"
     environment:
       NODE_ENV: development
+    test:
+      unit:
+        command: npm test
+      integration:
+        command: npm run test:integration
+        env:
+          API_URL: http://localhost:3000
+      coverage:
+        threshold: 80

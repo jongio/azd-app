@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: dotnet-frameworks
+metadata:
+  description: .NET testing frameworks - xUnit, NUnit
+
+services:
+  xunit-service:
+    language: csharp
+    project: ./xunit/src/XunitApi
+    test:
+      framework: xunit
+      unit:
+        projects:
+          - ../../tests/XunitApi.Tests/XunitApi.Tests.csproj
+      coverage:
+        threshold: 80
+
+  nunit-service:
+    language: csharp
+    project: ./nunit/src/NunitApi
+    test:
+      framework: nunit
+      unit:
+        projects:
+          - ../../tests/NunitApi.Tests/NunitApi.Tests.csproj
+      coverage:
+        threshold: 80

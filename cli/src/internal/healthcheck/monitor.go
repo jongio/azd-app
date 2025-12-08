@@ -116,6 +116,7 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 		defaultEndpoint:    config.DefaultEndpoint,
 		breakers:           make(map[string]*gobreaker.CircuitBreaker),
 		rateLimiters:       make(map[string]*rate.Limiter),
+		endpointCache:      make(map[string]string),
 		enableBreaker:      config.EnableCircuitBreaker,
 		breakerFailures:    config.CircuitBreakerFailures,
 		breakerTimeout:     config.CircuitBreakerTimeout,

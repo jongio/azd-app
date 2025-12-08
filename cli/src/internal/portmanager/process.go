@@ -9,14 +9,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
+
+// commandTimeout is the maximum time to wait for process detection commands.
+// In containerized environments (e.g., Codespaces), lsof/ss can be slow.
+const commandTimeout = 5 * time.Second
 
 // osWindows is the GOOS value for Windows.
 const osWindows = "windows"
 
 // buildGetProcessOnPortCommand returns the command and args to find a process listening on a port.
+// On Unix/Linux, uses lsof -t -i:port which is reliable in Codespaces/containers.
 func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
 		psScript := fmt.Sprintf(`
@@ -32,7 +35,10 @@ func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 		`, port)
 		return "powershell", []string{"-Command", psScript}
 	}
-	return "sh", []string{"-c", fmt.Sprintf("lsof -ti:%d | head -n 1", port)}
+	// Unix: Use lsof -t -i:port which is proven to work reliably in Codespaces
+	// The -t flag outputs only PIDs (terse mode)
+	script := fmt.Sprintf(`lsof -t -i:%d 2>/dev/null | head -n 1`, port)
+	return "sh", []string{"-c", script}
 }
 
 // buildGetProcessNameCommand returns the command and args to get a process name by PID.
@@ -49,13 +55,38 @@ func buildGetProcessNameCommand(pid int) (cmd string, args []string) {
 	return "sh", []string{"-c", fmt.Sprintf("ps -p %d -o comm=", pid)}
 }
 
-// buildKillProcessCommand returns the command and args to kill a process by PID.
+// buildKillProcessCommand returns the command and args to kill a process and its children by PID.
+// On Windows, uses Get-CimInstance Win32_Process to find child processes by ParentProcessId.
+// On Unix, uses kill -9 directly which is reliable in Codespaces/containers.
+// In both cases, children are killed first (recursively), then the parent.
 func buildKillProcessCommand(pid int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
-		psScript := fmt.Sprintf("Stop-Process -Id %d -Force -ErrorAction SilentlyContinue", pid)
+		// PowerShell script that recursively kills child processes first, then the parent.
+		// Uses Get-CimInstance Win32_Process to find children by ParentProcessId.
+		psScript := fmt.Sprintf(`
+			function Kill-ProcessTree {
+				param([int]$ParentId)
+				$children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentId" -ErrorAction SilentlyContinue
+				foreach ($child in $children) {
+					Kill-ProcessTree -ParentId $child.ProcessId
+				}
+				Stop-Process -Id $ParentId -Force -ErrorAction SilentlyContinue
+			}
+			Kill-ProcessTree -ParentId %d
+		`, pid)
 		return "powershell", []string{"-Command", psScript}
 	}
-	return "sh", []string{"-c", fmt.Sprintf("kill -9 %d 2>/dev/null || true", pid)}
+	// Unix: Use kill -9 directly - proven to work reliably in Codespaces
+	// First try to kill children, then force kill the parent
+	script := fmt.Sprintf(`
+# Kill child processes first (if pgrep available)
+for child in $(pgrep -P %d 2>/dev/null); do
+    kill -9 "$child" 2>/dev/null
+done
+# Force kill the main process
+kill -9 %d 2>/dev/null || true
+`, pid, pid)
+	return "sh", []string{"-c", script}
 }
 
 // getProcessInfoOnPort retrieves the PID and name of the process listening on the specified port.
@@ -77,10 +108,20 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 
 	cmd, args := buildGetProcessOnPortCommand(port)
 
-	// Execute command to get PID
+	// Execute command with timeout to prevent hangs in containerized environments
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
 	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), port is validated int
-	output, err := exec.Command(cmd, args...).Output()
+	execCmd := exec.CommandContext(ctx, cmd, args...)
+	// Don't inherit stdin - prevents blocking in non-interactive environments
+	execCmd.Stdin = nil
+	output, err := execCmd.Output()
 	if err != nil {
+		// Check if it was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			return 0, fmt.Errorf("timed out getting process on port %d (this can happen in Codespaces)", port)
+		}
 		return 0, fmt.Errorf("failed to get process on port %d: %w", port, err)
 	}
 
@@ -101,10 +142,19 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 func (pm *PortManager) getProcessName(pid int) (string, error) {
 	cmd, args := buildGetProcessNameCommand(pid)
 
-	// Execute command to get process name
+	// Execute command with timeout to prevent hangs
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
 	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), pid is validated int
-	output, err := exec.Command(cmd, args...).Output()
+	execCmd := exec.CommandContext(ctx, cmd, args...)
+	// Don't inherit stdin - prevents blocking in non-interactive environments
+	execCmd.Stdin = nil
+	output, err := execCmd.Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("timed out getting process name for PID %d", pid)
+		}
 		return "", fmt.Errorf("failed to get process name for PID %d: %w", pid, err)
 	}
 
@@ -124,22 +174,60 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	pid, err := pm.getProcessOnPort(port)
 	if err != nil {
 		// Port might not be in use anymore
+		slog.Debug("no process found on port, nothing to kill", "port", port, "error", err)
 		return nil
 	}
 
+	// Get process name for diagnostics
+	processName, _ := pm.getProcessName(pid)
+
 	// Log without exposing too much system info to prevent information disclosure
-	slog.Info("terminating process on port", "port", port, "pid", pid)
+	slog.Info("terminating process on port", "port", port, "pid", pid, "processName", processName)
 
 	cmd, args := buildKillProcessCommand(pid)
 
-	// Execute the kill command
+	// Log the kill command for debugging (useful in CI/Codespaces)
+	slog.Debug("executing kill command", "cmd", cmd, "args", args, "pid", pid)
+
+	// Execute the kill command with timeout and without stdin inheritance
+	// Using exec.CommandContext directly instead of executor.RunCommand to avoid
+	// stdin inheritance which can cause hangs in Codespaces/containers
 	ctx, cancel := context.WithTimeout(context.Background(), killProcessTimeout)
 	defer cancel()
+
 	// #nosec G204 -- Command injection safe: cmd is hard-coded ("powershell" or "sh"),
 	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
-	if err := executor.RunCommand(ctx, cmd, args, "."); err != nil {
-		// Log error but don't fail - process might have already exited
-		slog.Debug("kill command completed with error", "pid", pid, "error", err)
+	execCmd := exec.CommandContext(ctx, cmd, args...)
+	execCmd.Stdin = nil // Don't inherit stdin - prevents blocking
+
+	// Capture output for diagnostics
+	var stdout, stderr strings.Builder
+	execCmd.Stdout = &stdout
+	execCmd.Stderr = &stderr
+
+	execErr := execCmd.Run()
+	if execErr != nil {
+		// Log detailed error information for debugging kill failures
+		slog.Debug("kill command completed with error",
+			"pid", pid,
+			"error", execErr,
+			"stdout", strings.TrimSpace(stdout.String()),
+			"stderr", strings.TrimSpace(stderr.String()),
+			"timeout", ctx.Err() == context.DeadlineExceeded)
+
+		// Check if it was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			slog.Warn("kill command timed out",
+				"port", port,
+				"pid", pid,
+				"processName", processName,
+				"timeout", killProcessTimeout)
+		}
+	} else {
+		slog.Debug("kill command completed successfully",
+			"pid", pid,
+			"stdout", strings.TrimSpace(stdout.String()),
+			"stderr", strings.TrimSpace(stderr.String()))
 	}
 
 	// Wait a moment for process to die
@@ -148,13 +236,22 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	// Verify the process was actually killed
 	// This is critical for protected/system processes that cannot be terminated
 	if stillRunningPid, err := pm.getProcessOnPort(port); err == nil && stillRunningPid == pid {
-		processName, _ := pm.getProcessName(pid)
+		currentProcessName, _ := pm.getProcessName(pid)
+
+		// Collect additional diagnostics for debugging
 		slog.Warn("process could not be terminated - likely a protected system process",
-			"port", port, "pid", pid, "name", processName)
+			"port", port,
+			"pid", pid,
+			"name", currentProcessName,
+			"killCmdOutput", strings.TrimSpace(stdout.String()),
+			"killCmdStderr", strings.TrimSpace(stderr.String()),
+			"killCmdError", execErr)
+
 		return fmt.Errorf("process %d (%s) could not be terminated - it may be a protected system process or require administrator privileges",
-			pid, processName)
+			pid, currentProcessName)
 	}
 
+	slog.Debug("process terminated successfully", "port", port, "pid", pid, "processName", processName)
 	return nil
 }
 

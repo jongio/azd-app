@@ -1,0 +1,9 @@
+{
+  "name": "reqs-generate-no-reqs",
+  "version": "1.0.0",
+  "description": "Test: azure.yaml with no reqs section",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "test": "echo 'No tests'"
+  }
+}

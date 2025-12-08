@@ -1,3 +1,5 @@
+// Package security provides security utilities for path validation, input sanitization,
+// and protection against common vulnerabilities like path traversal attacks.
 package security
 
 import (
@@ -134,25 +136,67 @@ func SanitizeScriptName(name string) error {
 	return nil
 }
 
+// IsContainerEnvironment detects if the code is running in a containerized environment.
+// It checks for:
+// - GitHub Codespaces (CODESPACES=true)
+// - VS Code Dev Containers (REMOTE_CONTAINERS=true)
+// - Docker containers (/.dockerenv file exists)
+// - Kubernetes pods (KUBERNETES_SERVICE_HOST set)
+func IsContainerEnvironment() bool {
+	// Check for GitHub Codespaces
+	if os.Getenv("CODESPACES") == "true" {
+		return true
+	}
+
+	// Check for VS Code Dev Containers
+	if os.Getenv("REMOTE_CONTAINERS") == "true" {
+		return true
+	}
+
+	// Check for Kubernetes
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		return true
+	}
+
+	// Check for Docker container (/.dockerenv file exists)
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	return false
+}
+
 // ValidateFilePermissions checks if a file has secure permissions.
 // On Unix systems, it ensures the file is not world-writable.
 // On Windows, this check is skipped as Windows uses ACLs differently.
-func ValidateFilePermissions(path string) error {
+// In container environments (Codespaces, Dev Containers, Docker, Kubernetes),
+// world-writable permissions generate a warning instead of an error.
+//
+// Returns:
+//   - warning: A non-empty string if there's a warning (container environment with insecure permissions)
+//   - err: An error if the file has insecure permissions in a non-container environment
+func ValidateFilePermissions(path string) (warning string, err error) {
 	// Skip permission check on Windows as it uses ACLs
 	if runtime.GOOS == "windows" {
-		return nil
+		return "", nil
 	}
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("failed to stat file: %w", err)
+		return "", fmt.Errorf("failed to stat file: %w", err)
 	}
 
 	// Check if file is world-writable (insecure)
 	if info.Mode().Perm()&0002 != 0 {
-		return fmt.Errorf("file %s is world-writable (permissions: %04o), please run: chmod 644 %s",
+		// In container environments, return a warning instead of an error
+		if IsContainerEnvironment() {
+			return fmt.Sprintf("azure.yaml has world-writable permissions (%04o). This is common in container environments. To fix: chmod 644 %s",
+				info.Mode().Perm(), path), nil
+		}
+
+		return "", fmt.Errorf("file %s is world-writable (permissions: %04o), please run: chmod 644 %s",
 			path, info.Mode().Perm(), path)
 	}
 
-	return nil
+	return "", nil
 }

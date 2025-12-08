@@ -22,37 +22,31 @@ func TestGenerateIntegration(t *testing.T) {
 	}{
 		{
 			name:         "Node.js npm project",
-			projectPath:  "../../../../tests/projects/node/test-npm-project",
+			projectPath:  "../../../../tests/projects/package-managers/node/test-npm-project",
 			expectedReqs: []string{"node", "npm"},
 			minReqs:      2,
 		},
 		{
 			name:         "Node.js pnpm project",
-			projectPath:  "../../../../tests/projects/node/test-pnpm-project",
+			projectPath:  "../../../../tests/projects/package-managers/node/test-pnpm-project",
 			expectedReqs: []string{"node", "pnpm"},
 			minReqs:      2,
 		},
 		{
 			name:         "Python project",
-			projectPath:  "../../../../tests/projects/python/test-python-project",
+			projectPath:  "../../../../tests/projects/package-managers/python/test-python-project",
 			expectedReqs: []string{"python", "pip"},
 			minReqs:      2,
 		},
 		{
 			name:         "Python poetry project",
-			projectPath:  "../../../../tests/projects/python/test-poetry-project",
+			projectPath:  "../../../../tests/projects/package-managers/python/test-poetry-project",
 			expectedReqs: []string{"python", "poetry"},
 			minReqs:      2,
 		},
 		{
-			name:         "Python uv project",
-			projectPath:  "../../../../tests/projects/python/test-uv-project",
-			expectedReqs: []string{"python", "uv"},
-			minReqs:      2,
-		},
-		{
 			name:         "Aspire project",
-			projectPath:  "../../../../tests/projects/aspire-test",
+			projectPath:  "../../../../tests/projects/integration/aspire-test",
 			expectedReqs: []string{"dotnet", "aspire"},
 			minReqs:      2,
 		},

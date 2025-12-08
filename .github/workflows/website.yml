@@ -11,9 +11,7 @@ on:
       - '.github/workflows/website.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    paths:
-      - 'web/**'
-      - '.github/workflows/website.yml'
+    # No paths filter - generate preview site for all PRs
 
 # Allow only one concurrent deployment per ref, cancel in-progress for the same ref
 concurrency:

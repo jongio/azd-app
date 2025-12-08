@@ -48,6 +48,7 @@ type ReqResult struct {
 	Running    bool   `json:"running,omitempty"`
 	CheckedRun bool   `json:"checkedRunning,omitempty"`
 	Message    string `json:"message,omitempty"`
+	IsPodman   bool   `json:"isPodman,omitempty"` // True when Podman is aliased to Docker
 }
 
 // ToolConfig defines how to check a specific tool.
@@ -263,7 +264,7 @@ func NewPrerequisiteChecker() *PrerequisiteChecker {
 
 // Check checks a prerequisite and returns structured result.
 func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
-	installed, version := pc.getInstalledVersion(prereq)
+	installed, version, isPodman := pc.getInstalledVersion(prereq)
 
 	result := ReqResult{
 		Name:      prereq.Name,
@@ -271,6 +272,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		Version:   version,
 		Required:  prereq.MinVersion,
 		Satisfied: false,
+		IsPodman:  isPodman,
 	}
 
 	if !installed {
@@ -281,7 +283,19 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		return result
 	}
 
-	if version == "" {
+	// When Podman is aliased to Docker, skip version comparison since version schemes differ.
+	// Podman uses its own versioning (e.g., 5.7.0) which is not comparable to Docker versions (e.g., 20.10.0).
+	if isPodman && prereq.Name == "docker" {
+		result.Message = "Podman detected (version check skipped)"
+		if !output.IsJSON() {
+			output.ItemSuccess("%s: %s via Podman (version check skipped)", prereq.Name, version)
+		}
+		// Continue to check if running if needed, otherwise mark satisfied
+		if !prereq.CheckRunning {
+			result.Satisfied = true
+			return result
+		}
+	} else if version == "" {
 		result.Message = "Version unknown"
 		if !output.IsJSON() {
 			output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.Name, prereq.MinVersion)
@@ -329,20 +343,25 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 }
 
 // getInstalledVersion gets the installed version of a prerequisite.
-func (pc *PrerequisiteChecker) getInstalledVersion(prereq Prerequisite) (installed bool, version string) {
+// Returns isPodman=true when Podman is detected aliased to Docker.
+func (pc *PrerequisiteChecker) getInstalledVersion(prereq Prerequisite) (installed bool, version string, isPodman bool) {
 	config := pc.getToolConfig(prereq)
 
 	// #nosec G204 -- Command and args come from toolRegistry or validated azure.yaml prerequisite configuration
 	cmd := exec.Command(config.Command, config.Args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, ""
+		return false, "", false
 	}
 
 	outputStr := strings.TrimSpace(string(output))
+
+	// Detect Podman aliased to Docker
+	isPodman = strings.Contains(outputStr, "Podman Engine")
+
 	version = extractVersion(config, outputStr)
 
-	return true, version
+	return true, version, isPodman
 }
 
 // getToolConfig gets the tool configuration for a prerequisite.

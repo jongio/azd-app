@@ -156,11 +156,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../coverage
+          # Exclude tests/test-tool (it's a standalone main package with no tests)
+          PACKAGES=$(go list ./... | grep -v '/tests/test-tool')
           # Race detector not supported on macOS without additional setup
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            go test -short -v -coverprofile=../coverage/coverage.out ./...
+            go test -short -v -coverprofile=../coverage/coverage.out $PACKAGES
           else
-            go test -short -v -race -coverprofile=../coverage/coverage.out ./...
+            go test -short -v -race -coverprofile=../coverage/coverage.out $PACKAGES
           fi
 
       - name: Upload coverage to Codecov
@@ -351,7 +353,7 @@ jobs:
       - name: Install Python dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           for dir in api worker; do
             cd $dir
             python -m pip install -r requirements.txt
@@ -362,7 +364,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           foreach ($dir in @('api', 'worker')) {
             cd $dir
             python -m pip install -r requirements.txt
@@ -372,7 +374,7 @@ jobs:
       - name: Install Python dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           for dir in api worker; do
             cd $dir
             python -m pip install -r requirements.txt
@@ -381,7 +383,7 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          cd tests/projects/health-test
+          cd tests/projects/integration/health-test
           for dir in web admin database; do
             cd $dir
             npm install
@@ -395,6 +397,14 @@ jobs:
           pnpm install
           pnpm run build
           cd ..
+
+      - name: Run port manager integration tests
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          go test -v -tags=integration -timeout=6m ./src/internal/portmanager/...
+        env:
+          CI: true
 
       - name: Run E2E integration tests
         shell: bash
@@ -410,7 +420,7 @@ jobs:
         with:
           name: integration-test-logs-${{ matrix.os }}
           path: |
-            cli/tests/projects/health-test/*.log
+            cli/tests/projects/integration/health-test/*.log
             cli/.azure/**/*.log
           if-no-files-found: ignore
 

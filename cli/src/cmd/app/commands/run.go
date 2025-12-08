@@ -492,9 +492,9 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 			// Show mode-appropriate error message
 			switch mode {
 			case service.ServiceModeBuild:
-				output.Error("✗ Build failed: %s (exit code %d)", serviceName, result.exitCode)
+				output.Error("Build failed: %s (exit code %d)", serviceName, result.exitCode)
 			case service.ServiceModeTask:
-				output.Error("✗ Task failed: %s (exit code %d)", serviceName, result.exitCode)
+				output.Error("Task failed: %s (exit code %d)", serviceName, result.exitCode)
 			default:
 				output.Error("⚠️  %v", result.err)
 				output.Warning("Service %s stopped. Other services continue running.", serviceName)

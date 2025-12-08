@@ -16,13 +16,12 @@ This command starts services that are currently in a stopped or error state. Use
 
 The start command operates on the service registry maintained by `azd app run`. If no services are registered, use `azd app run` to start your development environment first.
 
-## Options
+## Flags
 
-| Flag | Alias | Description |
-|------|-------|-------------|
-| `--service` | `-s` | Service name(s) to start (comma-separated) |
-| `--all` | | Start all stopped services |
-| `--output` | `-o` | Output format: `default`, `json` |
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Service name(s) to start (comma-separated) |
+| `--all` | | bool | `false` | Start all stopped services |
 
 ## Examples
 

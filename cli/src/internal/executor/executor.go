@@ -80,17 +80,18 @@ func StartCommand(ctx context.Context, name string, args []string, dir string) e
 	return nil
 }
 
-// RunCommandWithOutput executes a command and captures output with timeout.
+// RunCommandWithOutput executes a command and captures both stdout and stderr.
 // The command inherits all environment variables from the parent process.
 func RunCommandWithOutput(ctx context.Context, name string, args []string, dir string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
-	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ() // Inherit all environment variables from parent process
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("command failed: %w", err)
+		// Return partial output even on error - test frameworks often exit non-zero when tests fail
+		// but we still want to parse the results
+		return output, fmt.Errorf("command failed: %w", err)
 	}
 
 	return output, nil

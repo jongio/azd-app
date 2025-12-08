@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: polyglot-test
+metadata:
+  description: Multi-language test project for azd app test validation
+
+test:
+  parallel: true
+  coverageThreshold: 70
+
+services:
+  node-api:
+    language: js
+    project: ./services/node-api
+    test:
+      framework: vitest
+      unit:
+        command: pnpm test:unit
+      integration:
+        command: pnpm test:integration
+      coverage:
+        threshold: 80
+
+  python-worker:
+    language: python
+    project: ./services/python-worker
+    test:
+      framework: pytest
+      unit:
+        markers: [unit]
+      integration:
+        markers: [integration]
+      coverage:
+        source: src
+        threshold: 80
+
+  go-service:
+    language: go
+    project: ./services/go-service
+    test:
+      framework: gotest
+      unit:
+        pattern: "^TestUnit"
+      integration:
+        pattern: "^TestIntegration"
+      coverage:
+        threshold: 75
+
+  dotnet-api:
+    language: csharp
+    project: ./services/dotnet-api
+    test:
+      framework: xunit
+      unit:
+        filter: "Category=Unit"
+        projects:
+          - ./DotnetApi.Tests/DotnetApi.Tests.csproj
+      integration:
+        filter: "Category=Integration"
+      coverage:
+        threshold: 75

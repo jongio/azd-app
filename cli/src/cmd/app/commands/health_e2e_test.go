@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	testProjectPath   = "../../../../tests/projects/health-test"
+	testProjectPath   = "../../../../tests/projects/integration/health-test"
 	e2eHealthTimeout  = 5 * time.Minute
 	e2eServiceTimeout = 90 * time.Second
 )

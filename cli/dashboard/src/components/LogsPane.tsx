@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, HeartCrack, ExternalLink, CircleDot, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, HelpCircle, Eye, Hammer, CheckSquare, CircleX } from 'lucide-react'
 import { formatLogTimestamp, getLogPaneVisualStatus, normalizeHealthStatus, type VisualStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
+import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
+import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
 import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
 import { ServiceActions } from './ServiceActions'
@@ -68,6 +70,12 @@ export function LogsPane({
   
   // Use controlled state if provided, otherwise internal
   const isCollapsed = controlledIsCollapsed ?? internalIsCollapsed
+  
+  // Get Codespace config for URL transformation
+  const { config: codespaceConfig } = useCodespaceEnv()
+  
+  // Transform URL for Codespace environment
+  const effectiveUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
   
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
@@ -422,11 +430,11 @@ export function LogsPane({
               <ServiceActions service={service} variant="compact" />
             </div>
           )}
-          {url && (
+          {effectiveUrl && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+              onClick={() => window.open(effectiveUrl, '_blank', 'noopener,noreferrer')}
               title="Open in new tab"
               aria-label="Open service in new tab"
             >
@@ -505,7 +513,7 @@ export function LogsPane({
                       [{formatLogTimestamp(log.timestamp ?? '')}]
                     </span>
                     {' '}
-                    <span dangerouslySetInnerHTML={{ __html: convertAnsiToHtml(log.message ?? '') }} />
+                    <span dangerouslySetInnerHTML={{ __html: convertAnsiToHtml(log.message ?? '', codespaceConfig) }} />
                   </div>
                   
                   {/* Copy button - appears on hover */}

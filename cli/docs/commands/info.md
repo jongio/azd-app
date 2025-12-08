@@ -24,7 +24,7 @@ azd app info [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--all` | | bool | `false` | Show services from all projects on this machine |
-| `--output` | `-o` | string | `text` | Output format: 'text' or 'json' |
+| `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
 
 ## Execution Flow
 

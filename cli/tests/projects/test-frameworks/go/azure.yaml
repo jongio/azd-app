@@ -1,0 +1,15 @@
+name: go-frameworks
+services:
+  # Go built-in testing package (standard library)
+  # Most commonly used - built into Go, no dependencies
+  testing-service:
+    project: ./testing-svc
+    language: go
+    host: containerapp
+
+  # Testify - most popular third-party testing toolkit
+  # ~15K GitHub stars, assertions and mocking
+  testify-service:
+    project: ./testify-svc
+    language: go
+    host: containerapp

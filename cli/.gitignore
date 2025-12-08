@@ -15,3 +15,5 @@ cover
 *_coverage
 *_coverage.html
 *.out
+testcov
+testcov.txt

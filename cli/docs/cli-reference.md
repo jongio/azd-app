@@ -41,6 +41,7 @@ azd app deps --structured-logs
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
+| `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
 | `stop` | Stop running services | [→ Full Spec](commands/stop.md) |
 | `restart` | Restart services | [→ Full Spec](commands/restart.md) |
@@ -165,6 +166,8 @@ azd app deps --force
 | `--clean` | | bool | `false` | Remove existing dependencies before installing (clears node_modules, .venv, etc.) |
 | `--no-cache` | | bool | `false` | Force fresh dependency installation and bypass cached results |
 | `--force` | `-f` | bool | `false` | Force clean reinstall (combines --clean and --no-cache) |
+| `--dry-run` | | bool | `false` | Show what would be installed without actually installing |
+| `--service` | `-s` | strings | | Install dependencies only for specific services (can be specified multiple times) |
 
 ### Features
 
@@ -289,6 +292,150 @@ The `run` command supports lifecycle hooks that execute before and after service
 
 ---
 
+## `azd app test`
+
+Run tests for all services in your application with support for different test types and aggregated code coverage.
+
+### Usage
+
+```bash
+azd app test [flags]
+```
+
+### Examples
+
+```bash
+# Run all tests for all services
+azd app test
+
+# Run all tests with coverage
+azd app test --coverage
+
+# Run only unit tests
+azd app test --type unit
+
+# Run only integration tests
+azd app test --type integration
+
+# Run only e2e tests
+azd app test --type e2e
+
+# Run tests for specific service(s)
+azd app test --service api,web
+
+# Run unit tests with coverage for specific service
+azd app test --type unit --coverage --service api
+
+# Watch mode - re-run tests on file changes
+azd app test --watch
+
+# Fail fast - stop on first failure
+azd app test --fail-fast
+
+# Run tests in parallel
+azd app test --parallel
+
+# Set coverage threshold
+azd app test --coverage --threshold 80
+
+# Dry run - show what would be tested
+azd app test --dry-run
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--type` | `-t` | string | `all` | Test type to run: `unit`, `integration`, `e2e`, or `all` |
+| `--coverage` | `-c` | bool | `false` | Generate code coverage reports |
+| `--service` | `-s` | string | `""` | Run tests for specific service(s) (comma-separated) |
+| `--watch` | `-w` | bool | `false` | Watch mode - re-run tests on file changes |
+| `--update-snapshots` | `-u` | bool | `false` | Update test snapshots |
+| `--fail-fast` | | bool | `false` | Stop on first test failure |
+| `--parallel` | `-p` | bool | `true` | Run tests for services in parallel |
+| `--threshold` | | int | `0` | Minimum coverage threshold (0-100) |
+| `--verbose` | `-v` | bool | `false` | Enable verbose test output |
+| `--dry-run` | | bool | `false` | Show what would be tested without running tests |
+| `--output-format` | | string | `default` | Output format: `default`, `json`, `junit`, `github` |
+| `--output-dir` | | string | `./test-results` | Directory for test reports and coverage |
+| `--stream` | | bool | `false` | Force streaming output even in parallel mode |
+| `--no-stream` | | bool | `false` | Force progress bar mode (suppress streaming) |
+| `--timeout` | | duration | `10m` | Per-service timeout for test execution |
+| `--save` | | bool | `false` | Save auto-detected test config to azure.yaml |
+| `--no-save` | | bool | `false` | Don't prompt to save auto-detected test config |
+
+### Smart Output Modes
+
+The test command automatically selects the best output mode based on context:
+
+| Scenario | Output Mode | Description |
+|----------|-------------|-------------|
+| Single service | Streaming | Output streams directly to terminal |
+| Multiple services + `--parallel` | Progress bars | Shows progress bars for each service |
+| Multiple services + sequential | Prefixed streaming | Streams with `[service]` prefix |
+| CI/non-TTY environment | Streaming | Always streams for log compatibility |
+
+Use `--stream` to force streaming output even when running multiple services in parallel. Use `--no-stream` to force progress bar mode.
+
+> **💡 Troubleshooting Tip:** If tests appear to hang with no output, try using `--stream` to see real-time test output. This is especially useful when debugging long-running tests or investigating test failures.
+
+### Test Types
+
+| Type | Purpose | Speed | Examples |
+|------|---------|-------|----------|
+| `unit` | Test individual functions/classes | Fast | Pure functions, business logic |
+| `integration` | Test component interactions | Medium | Database ops, API calls |
+| `e2e` | Test complete workflows | Slow | UI flows, full scenarios |
+
+### Supported Frameworks
+
+**Node.js**: Jest, Vitest, Mocha, AVA, Tap  
+**Python**: pytest, unittest, nose2  
+**Go**: go test (built-in)  
+**.NET**: xUnit, NUnit, MSTest
+
+### Configuration
+
+Define test configuration in `azure.yaml`:
+
+```yaml
+services:
+  api:
+    language: python
+    project: ./src/api
+    test:
+      framework: pytest
+      unit:
+        command: pytest tests/unit -v
+      integration:
+        command: pytest tests/integration -v
+        setup:
+          - docker-compose up -d postgres
+        teardown:
+          - docker-compose down
+      coverage:
+        enabled: true
+        threshold: 90
+  
+  gateway:
+    language: go
+    project: ./src/gateway
+    test:
+      framework: gotest
+      unit:
+        pattern: "^Test[^Integration]"
+      integration:
+        pattern: "TestIntegration"
+      coverage:
+        threshold: 80
+```
+
+**→ [See full test command specification](commands/test.md)** for detailed documentation, auto-detection rules, and coverage aggregation.
+
+**→ [See test configuration schema](schema/test-configuration.md)** for complete YAML configuration reference.
+
+---
+
 ## `azd app start`
 
 Start stopped services.
@@ -356,6 +503,7 @@ azd app stop --all
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
 | `--all` | | bool | `false` | Stop all running services |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
 
 ### Description
 
@@ -394,6 +542,7 @@ azd app restart --all
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Service name(s) to restart (comma-separated) |
 | `--all` | | bool | `false` | Restart all services |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
 
 ### Description
 
