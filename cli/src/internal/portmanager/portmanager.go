@@ -583,10 +583,16 @@ func (pm *PortManager) load() error {
 
 	ports, err := client.GetAllServicePorts(pm.projectHash)
 	if err != nil {
-		// gRPC operation failed - fall back to in-memory storage
-		slog.Debug("gRPC operation failed, using in-memory port storage", "error", err)
-		pm.configClient = azdconfig.NewInMemoryClient()
-		return nil
+		// gRPC operation failed - switch to shared in-memory client.
+		// This can happen when gRPC connection was established but the server
+		// is not running or not responding properly.
+		slog.Debug("gRPC operation failed, switching to shared in-memory port storage", "error", err)
+		sharedInMemoryClientOnce.Do(func() {
+			sharedInMemoryClient = azdconfig.NewInMemoryClient()
+		})
+		pm.configClient = sharedInMemoryClient
+		// Try loading again from the in-memory client (will be empty on first access)
+		ports, _ = pm.configClient.GetAllServicePorts(pm.projectHash)
 	}
 
 	// Convert map[string]int to map[string]*PortAssignment
