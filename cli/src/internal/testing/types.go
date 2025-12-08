@@ -43,6 +43,9 @@ type TestConfig struct {
 	OutputDir string
 	// Verbose enables verbose test output
 	Verbose bool
+	// Timeout is the per-service test timeout duration
+	// Default is 10 minutes if not set
+	Timeout time.Duration
 }
 
 // ServiceTestConfig represents test configuration for a service.

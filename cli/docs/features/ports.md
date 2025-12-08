@@ -103,17 +103,17 @@ When a port is already in use, the port manager will prompt you with options:
 This port is currently in use by node (PID 1234).
 
 Options:
-  1) Kill the process using port 3000
-  2) Assign a different port automatically
-  3) Cancel
-  4) Always kill processes (don't ask again)
+  1) Always kill processes (don't ask again)
+  2) Kill the process using port 3000
+  3) Assign a different port automatically
+  4) Cancel
 
 Choose (1/2/3/4):
 ```
 
 ### Process Tree Killing
 
-When you choose to kill a process (options 1 or 4), the port manager kills the entire process tree:
+When you choose to kill a process (options 1 or 2), the port manager kills the entire process tree:
 
 - **Windows**: Uses `Get-CimInstance Win32_Process` to find child processes by `ParentProcessId`, then kills children recursively before the parent
 - **Unix**: Uses `pkill -P` to kill children first, then kills the parent with `kill -9`
@@ -122,7 +122,7 @@ This ensures that child processes (like Node.js workers or Python Flask workers)
 
 ### Always Kill Preference
 
-If you frequently want to automatically kill processes on port conflicts, choose option 4 to set the "always kill" preference. Once set:
+If you frequently want to automatically kill processes on port conflicts, choose option 1 to set the "always kill" preference. Once set:
 
 - Port conflicts will be resolved automatically without prompting
 - The process on the conflicting port will be killed immediately

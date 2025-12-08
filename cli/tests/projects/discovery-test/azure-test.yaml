@@ -1,0 +1,7 @@
+name: test-empty-reqs-array
+
+reqs: []
+
+services:
+  api:
+    project: .

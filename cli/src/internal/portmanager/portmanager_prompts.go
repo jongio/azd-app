@@ -52,10 +52,10 @@ func handlePortConflict(pm *PortManager, port int, serviceName string, processIn
 
 	// Print options
 	fmt.Fprintf(os.Stderr, "Options:\n")
-	fmt.Fprintf(os.Stderr, "  1) Kill the process using port %d\n", port)
-	fmt.Fprintf(os.Stderr, "  2) Assign a different port automatically\n")
-	fmt.Fprintf(os.Stderr, "  3) Cancel\n")
-	fmt.Fprintf(os.Stderr, "  4) Always kill processes (don't ask again)\n\n")
+	fmt.Fprintf(os.Stderr, "  1) Always kill processes (don't ask again)\n")
+	fmt.Fprintf(os.Stderr, "  2) Kill the process using port %d\n", port)
+	fmt.Fprintf(os.Stderr, "  3) Assign a different port automatically\n")
+	fmt.Fprintf(os.Stderr, "  4) Cancel\n\n")
 	fmt.Fprintf(os.Stderr, "Choose (1/2/3/4): ")
 
 	// Read user input
@@ -68,11 +68,11 @@ func handlePortConflict(pm *PortManager, port int, serviceName string, processIn
 	response = strings.TrimSpace(response)
 	switch response {
 	case "1":
-		return ActionKill, nil
-	case "2":
-		return ActionReassign, nil
-	case "4":
 		return ActionAlwaysKill, nil
+	case "2":
+		return ActionKill, nil
+	case "3":
+		return ActionReassign, nil
 	default:
 		return ActionCancel, nil
 	}

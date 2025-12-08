@@ -18,6 +18,16 @@ const CODESPACE_CONFIG = {
   },
 }
 
+// VS Code desktop connected to Codespace - localhost URLs work natively
+const VSCODE_DESKTOP_CONFIG = {
+  codespace: {
+    enabled: true,
+    name: 'silver-space-xyzzy',
+    domain: 'app.github.dev',
+    isVsCodeDesktop: true,
+  },
+}
+
 const NON_CODESPACE_CONFIG = {
   codespace: {
     enabled: false,
@@ -33,12 +43,16 @@ const NON_CODESPACE_CONFIG = {
 /**
  * Mock the /api/environment endpoint to return Codespace configuration
  */
-async function mockCodespaceEnvironment(page: Page, enabled: boolean = true) {
+async function mockCodespaceEnvironment(page: Page, enabled: boolean = true, isVsCodeDesktop: boolean = false) {
   await page.route('**/api/environment', async (route: Route) => {
+    let config = NON_CODESPACE_CONFIG
+    if (enabled) {
+      config = isVsCodeDesktop ? VSCODE_DESKTOP_CONFIG : CODESPACE_CONFIG
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(enabled ? CODESPACE_CONFIG : NON_CODESPACE_CONFIG),
+      body: JSON.stringify(config),
     })
   })
 }
@@ -231,6 +245,61 @@ test.describe('Codespace URL Forwarding', () => {
       // URL should fall back to localhost
       const urlLink = apiCard.locator('a[href*="localhost"]')
       await expect(urlLink).toBeVisible()
+    })
+  })
+
+  test.describe('VS Code Desktop in Codespace', () => {
+    test('keeps localhost URL when using VS Code desktop connected to Codespace', async ({ page }) => {
+      // Clear sessionStorage before any page loads
+      await page.addInitScript(() => {
+        sessionStorage.clear()
+      })
+      
+      // Setup test first
+      await setupTest(page, { scenario: scenarios.standard() })
+      
+      // Mock VS Code desktop connected to Codespace
+      // In this scenario, localhost URLs work natively and should NOT be transformed
+      await mockCodespaceEnvironment(page, true, true)
+      
+      await page.goto('/services')
+      await waitForDashboardReady(page)
+      
+      const apiCard = getServiceCard(page, 'api')
+      await expect(apiCard).toBeVisible()
+      
+      // Find the URL link - should be localhost, NOT transformed
+      const urlLink = apiCard.locator('a[href*="localhost"]')
+      await expect(urlLink).toBeVisible()
+      
+      const href = await urlLink.getAttribute('href')
+      expect(href).toBe('http://localhost:3001')
+    })
+
+    test('transforms URL in browser-based Codespace (not VS Code desktop)', async ({ page }) => {
+      // Clear sessionStorage before any page loads
+      await page.addInitScript(() => {
+        sessionStorage.clear()
+      })
+      
+      // Setup test first
+      await setupTest(page, { scenario: scenarios.standard() })
+      
+      // Mock browser-based Codespace (isVsCodeDesktop = false)
+      await mockCodespaceEnvironment(page, true, false)
+      
+      await page.goto('/services')
+      await waitForDashboardReady(page)
+      
+      const apiCard = getServiceCard(page, 'api')
+      await expect(apiCard).toBeVisible()
+      
+      // Find the URL link - should be Codespace URL, NOT localhost
+      const urlLink = apiCard.locator('a[href*="app.github.dev"]')
+      await expect(urlLink).toBeVisible()
+      
+      const href = await urlLink.getAttribute('href')
+      expect(href).toBe('https://silver-space-xyzzy-3001.app.github.dev/')
     })
   })
 })

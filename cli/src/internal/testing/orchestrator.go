@@ -2,11 +2,13 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
@@ -14,10 +16,47 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultTestTimeout is the default timeout for test execution per service.
+const DefaultTestTimeout = 10 * time.Minute
+
+// ProgressCallback is a function that gets called during test execution to report progress.
+type ProgressCallback func(event ProgressEvent)
+
+// ProgressEvent represents a progress update during test execution.
+type ProgressEvent struct {
+	// Type indicates the type of progress event
+	Type ProgressEventType
+	// Service is the name of the service (if applicable)
+	Service string
+	// Framework is the test framework being used (if applicable)
+	Framework string
+	// Message is an optional message for the event
+	Message string
+}
+
+// ProgressEventType represents the type of progress event.
+type ProgressEventType int
+
+const (
+	// ProgressEventValidationStart indicates validation is starting
+	ProgressEventValidationStart ProgressEventType = iota
+	// ProgressEventServiceValidated indicates a service has been validated
+	ProgressEventServiceValidated
+	// ProgressEventValidationComplete indicates validation is complete
+	ProgressEventValidationComplete
+	// ProgressEventTestStart indicates tests are starting for a service
+	ProgressEventTestStart
+	// ProgressEventTestComplete indicates tests have completed for a service
+	ProgressEventTestComplete
+	// ProgressEventServiceSkipped indicates a service was skipped
+	ProgressEventServiceSkipped
+)
+
 // TestOrchestrator manages test execution across services.
 type TestOrchestrator struct {
-	config   *TestConfig
-	services []ServiceInfo
+	config           *TestConfig
+	services         []ServiceInfo
+	progressCallback ProgressCallback
 }
 
 // ServiceInfo represents a service with its test configuration.
@@ -31,9 +70,54 @@ type ServiceInfo struct {
 // NewTestOrchestrator creates a new test orchestrator.
 func NewTestOrchestrator(config *TestConfig) *TestOrchestrator {
 	return &TestOrchestrator{
-		config:   config,
-		services: make([]ServiceInfo, 0),
+		config:           config,
+		services:         make([]ServiceInfo, 0),
+		progressCallback: nil,
 	}
+}
+
+// SetProgressCallback sets the callback function for progress updates.
+func (o *TestOrchestrator) SetProgressCallback(callback ProgressCallback) {
+	o.progressCallback = callback
+}
+
+// emitProgress emits a progress event if a callback is set.
+func (o *TestOrchestrator) emitProgress(event ProgressEvent) {
+	if o.progressCallback != nil {
+		o.progressCallback(event)
+	}
+}
+
+// GetServices returns the loaded services.
+func (o *TestOrchestrator) GetServices() []ServiceInfo {
+	return o.services
+}
+
+// ValidateAllServices validates all loaded services for testability.
+func (o *TestOrchestrator) ValidateAllServices() []ServiceValidation {
+	o.emitProgress(ProgressEvent{
+		Type:    ProgressEventValidationStart,
+		Message: fmt.Sprintf("Validating %d services", len(o.services)),
+	})
+
+	validations := make([]ServiceValidation, 0, len(o.services))
+	for _, service := range o.services {
+		validation := ValidateService(service)
+		validations = append(validations, validation)
+
+		o.emitProgress(ProgressEvent{
+			Type:      ProgressEventServiceValidated,
+			Service:   validation.Name,
+			Framework: validation.Framework,
+			Message:   validation.SkipReason,
+		})
+	}
+
+	o.emitProgress(ProgressEvent{
+		Type: ProgressEventValidationComplete,
+	})
+
+	return validations
 }
 
 // LoadServicesFromAzureYaml loads service information from azure.yaml.
@@ -206,9 +290,15 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 
 	// Execute tests for each service
 	for _, service := range services {
+		// Emit test start progress event
+		o.emitProgress(ProgressEvent{
+			Type:    ProgressEventTestStart,
+			Service: service.Name,
+		})
+
 		testResult, err := o.executeServiceTests(service, testType)
 		if err != nil {
-			if o.config.FailFast {
+			if o.config != nil && o.config.FailFast {
 				return nil, fmt.Errorf("test failed for service %s: %w", service.Name, err)
 			}
 			// Continue with other services
@@ -218,6 +308,12 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 				Error:   err.Error(),
 			}
 		}
+
+		// Emit test complete progress event
+		o.emitProgress(ProgressEvent{
+			Type:    ProgressEventTestComplete,
+			Service: service.Name,
+		})
 
 		result.Services = append(result.Services, testResult)
 		result.Passed += testResult.Passed
@@ -264,6 +360,160 @@ func (o *TestOrchestrator) ExecuteTests(testType string, serviceFilter []string)
 	}
 
 	return result, nil
+}
+
+// ExecuteTestsWithValidation validates services and runs tests only for testable services.
+// Returns validation results along with test results.
+func (o *TestOrchestrator) ExecuteTestsWithValidation(testType string, serviceFilter []string) (*AggregateResult, []ServiceValidation, error) {
+	result := &AggregateResult{
+		Services: make([]*TestResult, 0),
+		Success:  true,
+	}
+
+	// Filter services if needed
+	services := o.services
+	if len(serviceFilter) > 0 {
+		services = filterServices(o.services, serviceFilter)
+	}
+
+	if len(services) == 0 {
+		return nil, nil, fmt.Errorf("no services to test")
+	}
+
+	// Validate all services first
+	o.emitProgress(ProgressEvent{
+		Type:    ProgressEventValidationStart,
+		Message: fmt.Sprintf("Analyzing %d services", len(services)),
+	})
+
+	validations := make([]ServiceValidation, 0, len(services))
+	for _, service := range services {
+		validation := ValidateService(service)
+		validations = append(validations, validation)
+
+		o.emitProgress(ProgressEvent{
+			Type:      ProgressEventServiceValidated,
+			Service:   validation.Name,
+			Framework: validation.Framework,
+			Message:   validation.SkipReason,
+		})
+	}
+
+	o.emitProgress(ProgressEvent{
+		Type: ProgressEventValidationComplete,
+	})
+
+	// Get testable services
+	testableServices := make([]ServiceInfo, 0)
+	for i, v := range validations {
+		if v.CanTest {
+			testableServices = append(testableServices, services[i])
+		} else {
+			// Emit skip event for non-testable services
+			o.emitProgress(ProgressEvent{
+				Type:    ProgressEventServiceSkipped,
+				Service: v.Name,
+				Message: v.SkipReason,
+			})
+		}
+	}
+
+	if len(testableServices) == 0 {
+		return result, validations, nil
+	}
+
+	// Initialize coverage aggregator if coverage is enabled
+	var coverageAggregator *CoverageAggregator
+	if o.config != nil && o.config.CoverageThreshold > 0 {
+		outputDir := o.config.OutputDir
+		if outputDir == "" {
+			outputDir = "./coverage"
+		}
+		coverageAggregator = NewCoverageAggregator(o.config.CoverageThreshold, outputDir)
+	}
+
+	// Execute tests for each testable service
+	for _, service := range testableServices {
+		// Find the validation for this service to get framework info
+		var framework string
+		for _, v := range validations {
+			if v.Name == service.Name {
+				framework = v.Framework
+				break
+			}
+		}
+
+		// Emit test start progress event
+		o.emitProgress(ProgressEvent{
+			Type:      ProgressEventTestStart,
+			Service:   service.Name,
+			Framework: framework,
+		})
+
+		testResult, err := o.executeServiceTests(service, testType)
+		if err != nil {
+			if o.config != nil && o.config.FailFast {
+				return nil, validations, fmt.Errorf("test failed for service %s: %w", service.Name, err)
+			}
+			// Continue with other services
+			testResult = &TestResult{
+				Service: service.Name,
+				Success: false,
+				Error:   err.Error(),
+			}
+		}
+
+		// Emit test complete progress event
+		o.emitProgress(ProgressEvent{
+			Type:    ProgressEventTestComplete,
+			Service: service.Name,
+		})
+
+		result.Services = append(result.Services, testResult)
+		result.Passed += testResult.Passed
+		result.Failed += testResult.Failed
+		result.Skipped += testResult.Skipped
+		result.Total += testResult.Total
+		result.Duration += testResult.Duration
+
+		if !testResult.Success {
+			result.Success = false
+		}
+
+		// Add coverage if available
+		if coverageAggregator != nil && testResult.Coverage != nil {
+			if err := coverageAggregator.AddCoverage(service.Name, testResult.Coverage); err != nil {
+				log := logging.NewLogger("test")
+				log.Warn("failed to add coverage data", "service", service.Name, "error", err.Error())
+			}
+		}
+	}
+
+	// Aggregate coverage and check threshold
+	if coverageAggregator != nil {
+		result.Coverage = coverageAggregator.Aggregate()
+
+		// Check threshold
+		meetsThreshold, percentage := coverageAggregator.CheckThreshold()
+		if !meetsThreshold {
+			result.Success = false
+			result.Error = fmt.Sprintf("Coverage %.1f%% is below threshold %.1f%%", percentage, o.config.CoverageThreshold)
+		}
+
+		// Generate coverage reports in multiple formats
+		log := logging.NewLogger("test")
+		if err := coverageAggregator.GenerateReport("json"); err != nil {
+			log.Warn("failed to generate JSON coverage report", "error", err.Error())
+		}
+		if err := coverageAggregator.GenerateReport("html"); err != nil {
+			log.Warn("failed to generate HTML coverage report", "error", err.Error())
+		}
+		if err := coverageAggregator.GenerateReport("cobertura"); err != nil {
+			log.Warn("failed to generate Cobertura coverage report", "error", err.Error())
+		}
+	}
+
+	return result, validations, nil
 }
 
 // executeServiceTests runs tests for a single service.
@@ -325,13 +575,49 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 		coverageEnabled = true
 	}
 
-	result, testErr = runner.RunTests(testType, coverageEnabled)
+	// Determine timeout
+	timeout := DefaultTestTimeout
+	if o.config != nil && o.config.Timeout > 0 {
+		timeout = o.config.Timeout
+	}
+
+	// Execute tests with timeout
+	result, testErr = o.executeWithTimeout(runner, testType, coverageEnabled, timeout)
 	if testErr != nil {
 		return nil, testErr
 	}
 
 	result.Service = service.Name
 	return result, nil
+}
+
+// executeWithTimeout runs tests with a timeout.
+// Returns a clear error message if the timeout is exceeded.
+func (o *TestOrchestrator) executeWithTimeout(runner TestRunner, testType string, coverage bool, timeout time.Duration) (*TestResult, error) {
+	type runResult struct {
+		result *TestResult
+		err    error
+	}
+
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// Run tests in a goroutine
+	resultChan := make(chan runResult, 1)
+	go func() {
+		result, err := runner.RunTests(testType, coverage)
+		resultChan <- runResult{result: result, err: err}
+	}()
+
+	// Wait for either completion or timeout
+	select {
+	case <-ctx.Done():
+		// Timeout exceeded
+		return nil, fmt.Errorf("test execution timed out after %s", timeout)
+	case res := <-resultChan:
+		return res.result, res.err
+	}
 }
 
 // TestRunner interface for language-specific test runners.

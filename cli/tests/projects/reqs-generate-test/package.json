@@ -1,0 +1,9 @@
+{
+  "name": "reqs-generate-test",
+  "version": "1.0.0",
+  "description": "Test project for azd app reqs --generate",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "test": "echo 'No tests'"
+  }
+}

@@ -82,10 +82,10 @@ When a port conflict is detected:
 This port is currently in use by node (PID 1234).
 
 Options:
-  1) Kill the process using port 3000
-  2) Assign a different port automatically
-  3) Cancel
-  4) Always kill processes on port conflicts (don't ask again)
+  1) Always kill processes (don't ask again)
+  2) Kill the process using port 3000
+  3) Assign a different port automatically
+  4) Cancel
 
 Choose (1/2/3/4): 
 ```

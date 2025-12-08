@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestNewTestOrchestrator(t *testing.T) {
@@ -1159,4 +1160,405 @@ func TestParseCommandString_EdgeCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetProgressCallback(t *testing.T) {
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+
+	callCount := 0
+	callback := func(event ProgressEvent) {
+		callCount++
+	}
+
+	orchestrator.SetProgressCallback(callback)
+
+	// Emit a progress event
+	orchestrator.emitProgress(ProgressEvent{
+		Type:    ProgressEventValidationStart,
+		Message: "Test message",
+	})
+
+	if callCount != 1 {
+		t.Errorf("Expected callback to be called once, got %d", callCount)
+	}
+}
+
+func TestEmitProgress_NoCallback(t *testing.T) {
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+
+	// Should not panic when callback is nil
+	orchestrator.emitProgress(ProgressEvent{
+		Type:    ProgressEventValidationStart,
+		Message: "Test message",
+	})
+}
+
+func TestGetServices(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create service directories
+	webDir := filepath.Join(tmpDir, "web")
+	apiDir := filepath.Join(tmpDir, "api")
+	if err := os.MkdirAll(webDir, 0755); err != nil {
+		t.Fatalf("Failed to create web dir: %v", err)
+	}
+	if err := os.MkdirAll(apiDir, 0755); err != nil {
+		t.Fatalf("Failed to create api dir: %v", err)
+	}
+
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+	orchestrator.services = []ServiceInfo{
+		{Name: "web", Language: "js", Dir: webDir},
+		{Name: "api", Language: "python", Dir: apiDir},
+	}
+
+	services := orchestrator.GetServices()
+
+	if len(services) != 2 {
+		t.Errorf("Expected 2 services, got %d", len(services))
+	}
+}
+
+func TestValidateAllServices(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a service directory with tests
+	webDir := filepath.Join(tmpDir, "web")
+	if err := os.MkdirAll(webDir, 0755); err != nil {
+		t.Fatalf("Failed to create web dir: %v", err)
+	}
+
+	// Create vitest config
+	if err := os.WriteFile(filepath.Join(webDir, "vitest.config.ts"), []byte("export default {}"), 0644); err != nil {
+		t.Fatalf("Failed to create vitest config: %v", err)
+	}
+
+	// Create test file
+	if err := os.WriteFile(filepath.Join(webDir, "app.test.ts"), []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Create a service directory without tests
+	apiDir := filepath.Join(tmpDir, "api")
+	if err := os.MkdirAll(apiDir, 0755); err != nil {
+		t.Fatalf("Failed to create api dir: %v", err)
+	}
+
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+	orchestrator.services = []ServiceInfo{
+		{Name: "web", Language: "typescript", Dir: webDir},
+		{Name: "api", Language: "python", Dir: apiDir},
+	}
+
+	// Track progress events
+	events := make([]ProgressEvent, 0)
+	orchestrator.SetProgressCallback(func(event ProgressEvent) {
+		events = append(events, event)
+	})
+
+	validations := orchestrator.ValidateAllServices()
+
+	if len(validations) != 2 {
+		t.Errorf("Expected 2 validations, got %d", len(validations))
+	}
+
+	// Should have received validation start and complete events
+	hasStart := false
+	hasComplete := false
+	for _, e := range events {
+		if e.Type == ProgressEventValidationStart {
+			hasStart = true
+		}
+		if e.Type == ProgressEventValidationComplete {
+			hasComplete = true
+		}
+	}
+
+	if !hasStart {
+		t.Error("Expected ProgressEventValidationStart event")
+	}
+	if !hasComplete {
+		t.Error("Expected ProgressEventValidationComplete event")
+	}
+}
+
+func TestExecuteTestsWithValidation_NoServices(t *testing.T) {
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+
+	_, _, err := orchestrator.ExecuteTestsWithValidation("all", nil)
+	if err == nil {
+		t.Error("Expected error when no services to test")
+	}
+}
+
+func TestExecuteTestsWithValidation_AllSkipped(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create service directory without tests
+	apiDir := filepath.Join(tmpDir, "api")
+	if err := os.MkdirAll(apiDir, 0755); err != nil {
+		t.Fatalf("Failed to create api dir: %v", err)
+	}
+
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+	orchestrator.services = []ServiceInfo{
+		{Name: "api", Language: "python", Dir: apiDir},
+	}
+
+	result, validations, err := orchestrator.ExecuteTestsWithValidation("all", nil)
+	if err != nil {
+		t.Fatalf("ExecuteTestsWithValidation failed: %v", err)
+	}
+
+	if len(validations) != 1 {
+		t.Errorf("Expected 1 validation, got %d", len(validations))
+	}
+
+	if validations[0].CanTest {
+		t.Error("Expected service to be marked as not testable")
+	}
+
+	// Result should be empty but not nil
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+	if len(result.Services) != 0 {
+		t.Errorf("Expected 0 service results, got %d", len(result.Services))
+	}
+}
+
+func TestProgressEventTypes(t *testing.T) {
+	// Test that all progress event types are distinct
+	eventTypes := []ProgressEventType{
+		ProgressEventValidationStart,
+		ProgressEventServiceValidated,
+		ProgressEventValidationComplete,
+		ProgressEventTestStart,
+		ProgressEventTestComplete,
+		ProgressEventServiceSkipped,
+	}
+
+	seen := make(map[ProgressEventType]bool)
+	for _, et := range eventTypes {
+		if seen[et] {
+			t.Errorf("Duplicate event type value: %d", et)
+		}
+		seen[et] = true
+	}
+}
+
+func TestExecuteTestsWithValidation_ServiceFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create service directories
+	webDir := filepath.Join(tmpDir, "web")
+	apiDir := filepath.Join(tmpDir, "api")
+	if err := os.MkdirAll(webDir, 0755); err != nil {
+		t.Fatalf("Failed to create web dir: %v", err)
+	}
+	if err := os.MkdirAll(apiDir, 0755); err != nil {
+		t.Fatalf("Failed to create api dir: %v", err)
+	}
+
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+	orchestrator.services = []ServiceInfo{
+		{Name: "web", Language: "js", Dir: webDir},
+		{Name: "api", Language: "python", Dir: apiDir},
+	}
+
+	// Filter to only 'web' service - should get error since 'web' has no tests
+	_, validations, err := orchestrator.ExecuteTestsWithValidation("all", []string{"web"})
+	if err != nil {
+		t.Fatalf("ExecuteTestsWithValidation failed: %v", err)
+	}
+
+	// Should only validate the filtered service
+	if len(validations) != 1 {
+		t.Errorf("Expected 1 validation with filter, got %d", len(validations))
+	}
+	if validations[0].Name != "web" {
+		t.Errorf("Expected service name 'web', got '%s'", validations[0].Name)
+	}
+}
+
+func TestExecuteTestsWithValidation_ProgressEvents(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create service directory without tests
+	webDir := filepath.Join(tmpDir, "web")
+	if err := os.MkdirAll(webDir, 0755); err != nil {
+		t.Fatalf("Failed to create web dir: %v", err)
+	}
+
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+	orchestrator.services = []ServiceInfo{
+		{Name: "web", Language: "js", Dir: webDir},
+	}
+
+	// Track all progress events
+	events := make([]ProgressEvent, 0)
+	orchestrator.SetProgressCallback(func(event ProgressEvent) {
+		events = append(events, event)
+	})
+
+	_, _, _ = orchestrator.ExecuteTestsWithValidation("all", nil)
+
+	// Should have ValidationStart, ServiceValidated, ValidationComplete, and ServiceSkipped events
+	eventTypesSeen := make(map[ProgressEventType]bool)
+	for _, e := range events {
+		eventTypesSeen[e.Type] = true
+	}
+
+	expectedTypes := []ProgressEventType{
+		ProgressEventValidationStart,
+		ProgressEventServiceValidated,
+		ProgressEventValidationComplete,
+		ProgressEventServiceSkipped,
+	}
+
+	for _, et := range expectedTypes {
+		if !eventTypesSeen[et] {
+			t.Errorf("Expected event type %d but it was not emitted", et)
+		}
+	}
+}
+
+func TestValidateAllServices_EmptyServices(t *testing.T) {
+	config := &TestConfig{}
+	orchestrator := NewTestOrchestrator(config)
+	// No services added
+
+	validations := orchestrator.ValidateAllServices()
+
+	if len(validations) != 0 {
+		t.Errorf("Expected 0 validations for no services, got %d", len(validations))
+	}
+}
+
+func TestDefaultTestTimeout(t *testing.T) {
+	// Verify the default timeout constant is 10 minutes
+	expected := 10 * time.Minute
+	if DefaultTestTimeout != expected {
+		t.Errorf("Expected DefaultTestTimeout to be 10 minutes, got %v", DefaultTestTimeout)
+	}
+}
+
+func TestTestConfigWithTimeout(t *testing.T) {
+	// Test that TestConfig can hold timeout value
+	config := &TestConfig{
+		Parallel:          true,
+		FailFast:          false,
+		CoverageThreshold: 80.0,
+		Timeout:           5 * time.Minute,
+	}
+
+	orchestrator := NewTestOrchestrator(config)
+	if orchestrator.config.Timeout != config.Timeout {
+		t.Errorf("Expected timeout %v, got %v", config.Timeout, orchestrator.config.Timeout)
+	}
+}
+
+// mockTestRunner is a test runner that simulates test execution
+type mockTestRunner struct {
+	delay   int64 // delay in milliseconds
+	result  *TestResult
+	err     error
+	started chan struct{}
+}
+
+func (m *mockTestRunner) RunTests(testType string, coverage bool) (*TestResult, error) {
+	if m.started != nil {
+		close(m.started)
+	}
+	if m.delay > 0 {
+		// Use a select with time.After to simulate delay
+		select {
+		case <-make(chan struct{}): // never closes
+		case <-func() <-chan struct{} {
+			ch := make(chan struct{})
+			go func() {
+				// Simulate work
+				for i := int64(0); i < m.delay*1000000; i++ {
+					_ = i
+				}
+				close(ch)
+			}()
+			return ch
+		}():
+		}
+	}
+	return m.result, m.err
+}
+
+func TestExecuteWithTimeout_Success(t *testing.T) {
+	config := &TestConfig{
+		Timeout: 5 * time.Second,
+	}
+	orchestrator := NewTestOrchestrator(config)
+
+	runner := &mockTestRunner{
+		delay: 0, // no delay
+		result: &TestResult{
+			Service: "test-service",
+			Success: true,
+			Passed:  5,
+			Total:   5,
+		},
+	}
+
+	result, err := orchestrator.executeWithTimeout(runner, "unit", false, config.Timeout)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Expected result, got nil")
+	}
+	if !result.Success {
+		t.Error("Expected success to be true")
+	}
+	if result.Passed != 5 {
+		t.Errorf("Expected 5 passed, got %d", result.Passed)
+	}
+}
+
+func TestExecuteWithTimeout_Error(t *testing.T) {
+	config := &TestConfig{
+		Timeout: 5 * time.Second,
+	}
+	orchestrator := NewTestOrchestrator(config)
+
+	expectedErr := "test runner error"
+	runner := &mockTestRunner{
+		delay:  0,
+		result: nil,
+		err:    &testError{msg: expectedErr},
+	}
+
+	result, err := orchestrator.executeWithTimeout(runner, "unit", false, config.Timeout)
+	if err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error '%s', got '%s'", expectedErr, err.Error())
+	}
+	if result != nil {
+		t.Errorf("Expected nil result on error, got: %v", result)
+	}
+}
+
+// testError is a simple error type for testing
+type testError struct {
+	msg string
+}
+
+func (e *testError) Error() string {
+	return e.msg
 }

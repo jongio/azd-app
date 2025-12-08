@@ -28,6 +28,14 @@ const disabledConfig: CodespaceConfig = {
   domain: '',
 }
 
+// VS Code desktop connected to Codespace - localhost URLs work natively
+const vsCodeDesktopConfig: CodespaceConfig = {
+  enabled: true,
+  name: 'silver-space-xyzzy',
+  domain: 'app.github.dev',
+  isVsCodeDesktop: true,
+}
+
 // =============================================================================
 // isLocalhostUrl Tests
 // =============================================================================
@@ -190,6 +198,16 @@ describe('transformLocalhostUrl', () => {
     expect(transformLocalhostUrl('http://localhost', codespaceConfig))
       .toBe('https://silver-space-xyzzy-80.app.github.dev/')
   })
+
+  it('returns original URL in VS Code desktop (localhost works natively)', () => {
+    // When connected via VS Code desktop, localhost port forwarding works natively
+    expect(transformLocalhostUrl('http://localhost:3000', vsCodeDesktopConfig))
+      .toBe('http://localhost:3000')
+    expect(transformLocalhostUrl('http://127.0.0.1:8080', vsCodeDesktopConfig))
+      .toBe('http://127.0.0.1:8080')
+    expect(transformLocalhostUrl('http://localhost:3000/api', vsCodeDesktopConfig))
+      .toBe('http://localhost:3000/api')
+  })
 })
 
 // =============================================================================
@@ -216,6 +234,11 @@ describe('buildCodespaceUrl', () => {
     expect(buildCodespaceUrl(0, codespaceConfig)).toBe(null)
     expect(buildCodespaceUrl(-1, codespaceConfig)).toBe(null)
     expect(buildCodespaceUrl(99999, codespaceConfig)).toBe(null)
+  })
+
+  it('returns null in VS Code desktop (localhost works natively)', () => {
+    // When connected via VS Code desktop, we should return null to use localhost URL
+    expect(buildCodespaceUrl(3000, vsCodeDesktopConfig)).toBe(null)
   })
 })
 
@@ -255,5 +278,13 @@ describe('getEffectiveServiceUrl', () => {
   it('prefers URL over port when both provided', () => {
     expect(getEffectiveServiceUrl('http://localhost:3000/api', 8080, codespaceConfig))
       .toBe('https://silver-space-xyzzy-3000.app.github.dev/api')
+  })
+
+  it('returns localhost URL in VS Code desktop', () => {
+    // When connected via VS Code desktop, localhost URLs work natively
+    expect(getEffectiveServiceUrl('http://localhost:3000', 3000, vsCodeDesktopConfig))
+      .toBe('http://localhost:3000')
+    expect(getEffectiveServiceUrl(null, 3000, vsCodeDesktopConfig))
+      .toBe('http://localhost:3000')
   })
 })

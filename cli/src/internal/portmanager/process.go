@@ -9,14 +9,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
+
+// commandTimeout is the maximum time to wait for process detection commands.
+// In containerized environments (e.g., Codespaces), lsof/ss can be slow.
+const commandTimeout = 5 * time.Second
 
 // osWindows is the GOOS value for Windows.
 const osWindows = "windows"
 
 // buildGetProcessOnPortCommand returns the command and args to find a process listening on a port.
+// On Linux, prefers 'ss' (faster in containers) with 'lsof' fallback.
 func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
 		psScript := fmt.Sprintf(`
@@ -32,7 +35,19 @@ func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 		`, port)
 		return "powershell", []string{"-Command", psScript}
 	}
-	return "sh", []string{"-c", fmt.Sprintf("lsof -ti:%d | head -n 1", port)}
+	// Unix: Try ss first (faster in containers/Codespaces), fallback to lsof
+	// ss -tlnp is much faster than lsof in containerized environments
+	// The command tries ss first, and if it fails or returns empty, falls back to lsof
+	script := fmt.Sprintf(`
+pid=$(ss -tlnp 2>/dev/null | grep ':%d ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -n1)
+if [ -n "$pid" ]; then
+    echo "$pid"
+    exit 0
+fi
+# Fallback to lsof with timeout to prevent hangs
+timeout 3 lsof -ti:%d 2>/dev/null | head -n 1
+`, port, port)
+	return "sh", []string{"-c", script}
 }
 
 // buildGetProcessNameCommand returns the command and args to get a process name by PID.
@@ -70,9 +85,24 @@ func buildKillProcessCommand(pid int) (cmd string, args []string) {
 		`, pid)
 		return "powershell", []string{"-Command", psScript}
 	}
-	// Unix: Use pkill -P to kill children first, then kill the parent
-	// pkill -TERM sends SIGTERM to children, sleep allows graceful shutdown, then SIGKILL parent
-	return "sh", []string{"-c", fmt.Sprintf("pkill -TERM -P %d 2>/dev/null; sleep 0.1; kill -9 %d 2>/dev/null || true", pid, pid)}
+	// Unix: Kill children first, then parent. Use timeout to prevent hangs.
+	// The pkill command may not exist in all environments, so we try multiple approaches.
+	script := fmt.Sprintf(`
+# Kill child processes first
+for child in $(pgrep -P %d 2>/dev/null); do
+    kill -TERM "$child" 2>/dev/null
+done
+sleep 0.1
+# Force kill any remaining children
+for child in $(pgrep -P %d 2>/dev/null); do
+    kill -9 "$child" 2>/dev/null
+done
+# Kill the parent process
+kill -TERM %d 2>/dev/null
+sleep 0.1
+kill -9 %d 2>/dev/null || true
+`, pid, pid, pid, pid)
+	return "sh", []string{"-c", script}
 }
 
 // getProcessInfoOnPort retrieves the PID and name of the process listening on the specified port.
@@ -94,10 +124,20 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 
 	cmd, args := buildGetProcessOnPortCommand(port)
 
-	// Execute command to get PID
+	// Execute command with timeout to prevent hangs in containerized environments
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
 	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), port is validated int
-	output, err := exec.Command(cmd, args...).Output()
+	execCmd := exec.CommandContext(ctx, cmd, args...)
+	// Don't inherit stdin - prevents blocking in non-interactive environments
+	execCmd.Stdin = nil
+	output, err := execCmd.Output()
 	if err != nil {
+		// Check if it was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			return 0, fmt.Errorf("timed out getting process on port %d (this can happen in Codespaces)", port)
+		}
 		return 0, fmt.Errorf("failed to get process on port %d: %w", port, err)
 	}
 
@@ -118,10 +158,19 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 func (pm *PortManager) getProcessName(pid int) (string, error) {
 	cmd, args := buildGetProcessNameCommand(pid)
 
-	// Execute command to get process name
+	// Execute command with timeout to prevent hangs
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
+
 	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), pid is validated int
-	output, err := exec.Command(cmd, args...).Output()
+	execCmd := exec.CommandContext(ctx, cmd, args...)
+	// Don't inherit stdin - prevents blocking in non-interactive environments
+	execCmd.Stdin = nil
+	output, err := execCmd.Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("timed out getting process name for PID %d", pid)
+		}
 		return "", fmt.Errorf("failed to get process name for PID %d: %w", pid, err)
 	}
 
@@ -149,12 +198,17 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 
 	cmd, args := buildKillProcessCommand(pid)
 
-	// Execute the kill command
+	// Execute the kill command with timeout and without stdin inheritance
+	// Using exec.CommandContext directly instead of executor.RunCommand to avoid
+	// stdin inheritance which can cause hangs in Codespaces/containers
 	ctx, cancel := context.WithTimeout(context.Background(), killProcessTimeout)
 	defer cancel()
+
 	// #nosec G204 -- Command injection safe: cmd is hard-coded ("powershell" or "sh"),
 	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
-	if err := executor.RunCommand(ctx, cmd, args, "."); err != nil {
+	execCmd := exec.CommandContext(ctx, cmd, args...)
+	execCmd.Stdin = nil // Don't inherit stdin - prevents blocking
+	if err := execCmd.Run(); err != nil {
 		// Log error but don't fail - process might have already exited
 		slog.Debug("kill command completed with error", "pid", pid, "error", err)
 	}

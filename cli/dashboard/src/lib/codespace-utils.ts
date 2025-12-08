@@ -15,6 +15,8 @@ export interface CodespaceConfig {
   enabled: boolean
   name: string
   domain: string
+  /** True when running in VS Code desktop (including VS Code connected to Codespace) */
+  isVsCodeDesktop?: boolean
 }
 
 export interface EnvironmentInfo {
@@ -117,6 +119,13 @@ export function transformLocalhostUrl(url: string, config: CodespaceConfig | nul
     return url
   }
 
+  // If running in VS Code desktop (including VS Code connected to Codespace),
+  // localhost URLs work natively without transformation.
+  // Only transform URLs in browser-based Codespace.
+  if (config.isVsCodeDesktop) {
+    return url
+  }
+
   // Only transform localhost URLs
   if (!isLocalhostUrl(url)) {
     return url
@@ -140,7 +149,7 @@ export function transformLocalhostUrl(url: string, config: CodespaceConfig | nul
  * @param port - The port number
  * @param config - Codespace configuration
  * @param path - Optional path to append
- * @returns Codespace URL or null if not in Codespace
+ * @returns Codespace URL or null if not in Codespace or using VS Code desktop
  */
 export function buildCodespaceUrl(
   port: number,
@@ -148,6 +157,11 @@ export function buildCodespaceUrl(
   path: string = ''
 ): string | null {
   if (!config?.enabled || !config.name || !config.domain) {
+    return null
+  }
+
+  // If running in VS Code desktop, don't transform - localhost works natively
+  if (config.isVsCodeDesktop) {
     return null
   }
 
@@ -182,7 +196,8 @@ export function getEffectiveServiceUrl(
 
   // Fallback: build URL from port
   if (port && port > 0) {
-    if (config?.enabled) {
+    // Only use Codespace URL if in browser-based Codespace (not VS Code desktop)
+    if (config?.enabled && !config.isVsCodeDesktop) {
       return buildCodespaceUrl(port, config)
     }
     return `http://localhost:${port}`

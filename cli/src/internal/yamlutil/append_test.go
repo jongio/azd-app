@@ -364,6 +364,141 @@ version: 1.0
 			t.Error("Expected trailing content to be preserved")
 		}
 	})
+
+	t.Run("handles inline empty array", func(t *testing.T) {
+		content := `name: test
+items: []
+services:
+  api: {}
+`
+
+		opts := ArrayAppendOptions{
+			SectionKey: "items",
+			ItemIDKey:  "id",
+			Items: []map[string]any{
+				{"id": "item1", "value": "foo"},
+			},
+			FormatItem: func(item map[string]any, indent string) string {
+				return indent + "- id: " + item["id"].(string) + "\n" +
+					indent + "  value: " + item["value"].(string) + "\n"
+			},
+		}
+
+		result, added, err := AppendToArraySection(content, opts)
+		if err != nil {
+			t.Fatalf("AppendToArraySection failed: %v", err)
+		}
+
+		if added != 1 {
+			t.Errorf("Expected added=1, got %d", added)
+		}
+
+		// Should not have "items: []" anymore
+		if strings.Contains(result, "items: []") {
+			t.Error("Expected 'items: []' to be replaced with actual array")
+		}
+
+		if !strings.Contains(result, "- id: item1") {
+			t.Error("Expected item1 to be added")
+		}
+
+		// Should preserve services section
+		if !strings.Contains(result, "services:") {
+			t.Error("Expected services section to be preserved")
+		}
+	})
+
+	t.Run("handles inline empty array with indentation", func(t *testing.T) {
+		content := `name: test
+config:
+  items: []
+  other: value
+`
+
+		opts := ArrayAppendOptions{
+			SectionKey: "items",
+			ItemIDKey:  "id",
+			Items: []map[string]any{
+				{"id": "item1"},
+			},
+			FormatItem: func(item map[string]any, indent string) string {
+				return indent + "- id: " + item["id"].(string) + "\n"
+			},
+		}
+
+		result, added, err := AppendToArraySection(content, opts)
+		if err != nil {
+			t.Fatalf("AppendToArraySection failed: %v", err)
+		}
+
+		if added != 1 {
+			t.Errorf("Expected added=1, got %d", added)
+		}
+
+		// Should not have "items: []" anymore
+		if strings.Contains(result, "items: []") {
+			t.Error("Expected 'items: []' to be replaced with actual array")
+		}
+
+		// Verify indentation is correct (4 spaces for items under config)
+		lines := strings.Split(result, "\n")
+		foundItem := false
+		for _, line := range lines {
+			if strings.Contains(line, "- id: item1") {
+				// Should have 4 spaces (2 for config + 2 for array item)
+				if !strings.HasPrefix(line, "    - ") {
+					t.Errorf("Expected 4-space indent for item1, got: %q", line)
+				}
+				foundItem = true
+				break
+			}
+		}
+		if !foundItem {
+			t.Error("Could not find item1 in result")
+		}
+
+		// Should preserve other value
+		if !strings.Contains(result, "other: value") {
+			t.Error("Expected 'other: value' to be preserved")
+		}
+	})
+
+	t.Run("handles inline empty object treated as empty array", func(t *testing.T) {
+		// This tests that inline {} is also handled (should be replaced)
+		content := `name: test
+reqs: {}
+`
+
+		opts := ArrayAppendOptions{
+			SectionKey: "reqs",
+			ItemIDKey:  "name",
+			Items: []map[string]any{
+				{"name": "node", "minVersion": "20.0.0"},
+			},
+			FormatItem: func(item map[string]any, indent string) string {
+				return indent + "- name: " + item["name"].(string) + "\n" +
+					indent + "  minVersion: \"" + item["minVersion"].(string) + "\"\n"
+			},
+		}
+
+		result, added, err := AppendToArraySection(content, opts)
+		if err != nil {
+			t.Fatalf("AppendToArraySection failed: %v", err)
+		}
+
+		if added != 1 {
+			t.Errorf("Expected added=1, got %d", added)
+		}
+
+		// Should not have "reqs: {}" anymore
+		if strings.Contains(result, "reqs: {}") {
+			t.Error("Expected 'reqs: {}' to be replaced with actual array")
+		}
+
+		if !strings.Contains(result, "- name: node") {
+			t.Error("Expected node to be added")
+		}
+	})
 }
 
 func TestFindSection(t *testing.T) {

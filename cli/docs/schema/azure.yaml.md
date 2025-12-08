@@ -1008,9 +1008,10 @@ When an explicit port is in use:
 This port is currently in use.
 
 Options:
-  1) Kill the process using port 8000
-  2) Assign a different port automatically
-  3) Cancel
+  1) Always kill processes (don't ask again)
+  2) Kill the process using port 8000
+  3) Assign a different port automatically
+  4) Cancel
 ```
 
 Ports are persisted in `.azure/ports.json` for consistency.

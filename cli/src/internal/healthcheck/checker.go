@@ -511,8 +511,9 @@ func (c *HealthChecker) performShellCheck(ctx context.Context, command string) *
 	return result
 }
 
-// tryHTTPHealthCheck attempts HTTP health checks on common endpoints.
-// Uses endpoint caching to remember which endpoint worked for a service:port combination.
+// tryHTTPHealthCheck attempts HTTP health checks using smart endpoint discovery.
+// Uses endpoint caching to avoid spamming multiple endpoints on every check.
+// Discovery only happens on first check or when cached endpoint fails.
 func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
 	cacheKey := fmt.Sprintf("port:%d", port)
 
@@ -528,23 +529,37 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 	cachedEndpoint, hasCached := c.endpointCache[cacheKey]
 	c.mu.RUnlock()
 
-	// If we have a cached endpoint, try it first
+	// If we have a cached endpoint, ONLY check that endpoint first
 	if hasCached {
+		// Special marker indicates no HTTP endpoint exists - skip to TCP fallback
+		if cachedEndpoint == endpointCacheNone {
+			log.Debug().
+				Int("port", port).
+				Msg("Skipping HTTP check - no endpoint found in previous discovery")
+			return nil
+		}
+
 		result := c.checkSingleEndpoint(ctx, port, cachedEndpoint)
 		if result != nil && result.Status == HealthStatusHealthy {
 			return result
 		}
-		// Cached endpoint failed - clear cache and try all endpoints
+		// Cached endpoint failed - clear cache and rediscover
 		c.mu.Lock()
 		delete(c.endpointCache, cacheKey)
 		c.mu.Unlock()
 		log.Debug().
 			Int("port", port).
 			Str("cached_endpoint", cachedEndpoint).
-			Msg("Cached health endpoint failed, trying all endpoints")
+			Msg("Cached health endpoint failed, will rediscover on next check")
+		// Fall through to discovery - gives one chance to find a working endpoint
 	}
 
-	// Build list of endpoints to try
+	// No cached endpoint - perform endpoint discovery
+	log.Debug().
+		Int("port", port).
+		Msg("Discovering health endpoint (first check or cache miss)")
+
+	// Build list of endpoints to try, prioritizing common ones
 	endpoints := []string{c.defaultEndpoint}
 	for _, path := range commonHealthPaths {
 		if path != c.defaultEndpoint {
@@ -563,7 +578,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 
 		result := c.checkSingleEndpoint(ctx, port, endpoint)
 		if result != nil {
-			// If healthy, cache and return immediately
+			// If healthy, cache and return immediately - stop discovery
 			if result.Status == HealthStatusHealthy {
 				c.mu.Lock()
 				c.endpointCache[cacheKey] = endpoint
@@ -571,7 +586,7 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 				log.Debug().
 					Int("port", port).
 					Str("endpoint", endpoint).
-					Msg("Cached successful health endpoint")
+					Msg("Discovered and cached health endpoint")
 				return result
 			}
 			// Keep track of last non-nil result for fallback
@@ -579,7 +594,17 @@ func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpH
 		}
 	}
 
-	// No healthy endpoint found - return the last result (if any)
+	// No healthy endpoint found during discovery
+	// Cache a marker to skip HTTP checks in future (will fall back to TCP/process checks)
+	if lastResult == nil {
+		c.mu.Lock()
+		c.endpointCache[cacheKey] = endpointCacheNone
+		c.mu.Unlock()
+		log.Debug().
+			Int("port", port).
+			Msg("No HTTP health endpoint found, will use TCP fallback")
+	}
+
 	return lastResult
 }
 

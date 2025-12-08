@@ -356,6 +356,26 @@ azd app test --dry-run
 | `--dry-run` | | bool | `false` | Show what would be tested without running tests |
 | `--output-format` | | string | `default` | Output format: `default`, `json`, `junit`, `github` |
 | `--output-dir` | | string | `./test-results` | Directory for test reports and coverage |
+| `--stream` | | bool | `false` | Force streaming output even in parallel mode |
+| `--no-stream` | | bool | `false` | Force progress bar mode (suppress streaming) |
+| `--timeout` | | duration | `10m` | Per-service timeout for test execution |
+| `--save` | | bool | `false` | Save auto-detected test config to azure.yaml |
+| `--no-save` | | bool | `false` | Don't prompt to save auto-detected test config |
+
+### Smart Output Modes
+
+The test command automatically selects the best output mode based on context:
+
+| Scenario | Output Mode | Description |
+|----------|-------------|-------------|
+| Single service | Streaming | Output streams directly to terminal |
+| Multiple services + `--parallel` | Progress bars | Shows progress bars for each service |
+| Multiple services + sequential | Prefixed streaming | Streams with `[service]` prefix |
+| CI/non-TTY environment | Streaming | Always streams for log compatibility |
+
+Use `--stream` to force streaming output even when running multiple services in parallel. Use `--no-stream` to force progress bar mode.
+
+> **💡 Troubleshooting Tip:** If tests appear to hang with no output, try using `--stream` to see real-time test output. This is especially useful when debugging long-running tests or investigating test failures.
 
 ### Test Types
 

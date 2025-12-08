@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/testing"
@@ -28,6 +30,11 @@ type TestOptions struct {
 	DryRun          bool
 	OutputFormat    string
 	OutputDir       string
+	Stream          bool
+	NoStream        bool
+	Timeout         time.Duration
+	Save            bool
+	NoSave          bool
 }
 
 // NewTestCommand creates the test command.
@@ -70,6 +77,11 @@ func NewTestCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be tested without running tests")
 	cmd.Flags().StringVar(&opts.OutputFormat, "output-format", "default", "Output format: default, json, junit, github")
 	cmd.Flags().StringVar(&opts.OutputDir, "output-dir", "./test-results", "Directory for test reports and coverage")
+	cmd.Flags().BoolVar(&opts.Stream, "stream", false, "Force streaming output (direct test output)")
+	cmd.Flags().BoolVar(&opts.NoStream, "no-stream", false, "Force progress bar mode instead of streaming")
+	cmd.Flags().DurationVar(&opts.Timeout, "timeout", 10*time.Minute, "Per-service test timeout (e.g., 5m, 30s, 1h)")
+	cmd.Flags().BoolVar(&opts.Save, "save", false, "Save auto-detected test config to azure.yaml without prompting")
+	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "Don't prompt to save auto-detected test config")
 
 	return cmd
 }
@@ -103,6 +115,14 @@ func runTests(opts *TestOptions) error {
 		return fmt.Errorf("invalid output format: %s (must be default, json, junit, or github)", opts.OutputFormat)
 	}
 
+	// Validate mutually exclusive flags
+	if opts.Stream && opts.NoStream {
+		return fmt.Errorf("--stream and --no-stream are mutually exclusive")
+	}
+	if opts.Save && opts.NoSave {
+		return fmt.Errorf("--save and --no-save are mutually exclusive")
+	}
+
 	// Execute dependencies first (reqs)
 	if err := cmdOrchestrator.Run("test"); err != nil {
 		return fmt.Errorf("failed to execute command dependencies: %w", err)
@@ -125,6 +145,7 @@ func runTests(opts *TestOptions) error {
 		CoverageThreshold: float64(opts.Threshold),
 		OutputDir:         opts.OutputDir,
 		Verbose:           opts.Verbose,
+		Timeout:           opts.Timeout,
 	}
 
 	// Create orchestrator
@@ -133,32 +154,6 @@ func runTests(opts *TestOptions) error {
 	// Load services from azure.yaml
 	if err := orchestrator.LoadServicesFromAzureYaml(azureYamlPath); err != nil {
 		return fmt.Errorf("failed to load services: %w", err)
-	}
-
-	if !output.IsJSON() {
-		output.Step("🧪", "Running %s tests...", opts.Type)
-		if opts.DryRun {
-			output.Item("Dry run mode - showing configuration")
-		}
-	}
-
-	// Dry run - just show configuration
-	if opts.DryRun {
-		if !output.IsJSON() {
-			output.Step("📋", "Test configuration:")
-			output.Item("Type: %s", opts.Type)
-			output.Item("Coverage: %v", opts.Coverage)
-			if opts.ServiceFilter != "" {
-				output.Item("Services: %s", opts.ServiceFilter)
-			}
-			if opts.Threshold > 0 {
-				output.Item("Coverage threshold: %d%%", opts.Threshold)
-			}
-			output.Item("Parallel: %v", opts.Parallel)
-			output.Item("Output format: %s", opts.OutputFormat)
-			output.Item("Output directory: %s", opts.OutputDir)
-		}
-		return nil
 	}
 
 	// Parse service filter
@@ -170,15 +165,44 @@ func runTests(opts *TestOptions) error {
 		}
 	}
 
+	// Dry run - just show configuration and validation
+	if opts.DryRun {
+		return runTestDryRun(orchestrator, opts, serviceFilter)
+	}
+
+	// Set up progress callback for interactive output
+	if !output.IsJSON() {
+		orchestrator.SetProgressCallback(createProgressCallback())
+	}
+
 	// Watch mode
 	if opts.Watch {
 		return runWatchMode(orchestrator, opts.Type, serviceFilter)
 	}
 
-	// Execute tests
-	result, err := orchestrator.ExecuteTests(opts.Type, serviceFilter)
+	// Execute tests with validation
+	result, validations, err := orchestrator.ExecuteTestsWithValidation(opts.Type, serviceFilter)
 	if err != nil {
 		return fmt.Errorf("test execution failed: %w", err)
+	}
+
+	// Get services for config save checking
+	services := orchestrator.GetServices()
+
+	// Display validation summary if not JSON
+	if !output.IsJSON() {
+		displayValidationSummary(validations)
+	}
+
+	// Check for auto-detected services and prompt to save config
+	if !opts.NoSave {
+		autoDetected := testing.GetAutoDetectedServices(validations, services)
+		if len(autoDetected) > 0 {
+			if err := promptSaveTestConfig(opts, azureYamlPath, validations, services, autoDetected); err != nil {
+				// Log warning but don't fail the command
+				output.Warning("Failed to save test config: %v", err)
+			}
+		}
 	}
 
 	// Display results
@@ -196,6 +220,162 @@ func runTests(opts *TestOptions) error {
 				return fmt.Errorf("coverage %.1f%% is below threshold of %d%%", overall, opts.Threshold)
 			}
 		}
+	}
+
+	return nil
+}
+
+// runTestDryRun shows configuration and validation without running tests.
+func runTestDryRun(orchestrator *testing.TestOrchestrator, opts *TestOptions, serviceFilter []string) error {
+	if !output.IsJSON() {
+		output.Step("📋", "Test configuration:")
+		output.Item("Type: %s", opts.Type)
+		output.Item("Coverage: %v", opts.Coverage)
+		if opts.ServiceFilter != "" {
+			output.Item("Services: %s", opts.ServiceFilter)
+		}
+		if opts.Threshold > 0 {
+			output.Item("Coverage threshold: %d%%", opts.Threshold)
+		}
+		output.Item("Parallel: %v", opts.Parallel)
+		output.Item("Output format: %s", opts.OutputFormat)
+		output.Item("Output directory: %s", opts.OutputDir)
+		output.Item("Timeout: %s", opts.Timeout)
+		if opts.Stream {
+			output.Item("Output mode: streaming (forced)")
+		} else if opts.NoStream {
+			output.Item("Output mode: progress bars (forced)")
+		} else {
+			output.Item("Output mode: auto")
+		}
+		output.Newline()
+	}
+
+	// Validate services
+	services := orchestrator.GetServices()
+	if len(serviceFilter) > 0 {
+		filtered := make([]testing.ServiceInfo, 0)
+		filterMap := make(map[string]bool)
+		for _, name := range serviceFilter {
+			filterMap[strings.TrimSpace(name)] = true
+		}
+		for _, svc := range services {
+			if filterMap[svc.Name] {
+				filtered = append(filtered, svc)
+			}
+		}
+		services = filtered
+	}
+
+	validations := testing.ValidateServices(services)
+	displayValidationSummary(validations)
+
+	return nil
+}
+
+// createProgressCallback creates a callback function for progress updates.
+func createProgressCallback() testing.ProgressCallback {
+	var mu sync.Mutex
+	currentService := ""
+
+	return func(event testing.ProgressEvent) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		switch event.Type {
+		case testing.ProgressEventValidationStart:
+			output.Step("🔍", "Analyzing services...")
+
+		case testing.ProgressEventServiceValidated:
+			// Validation details are shown in displayValidationSummary
+
+		case testing.ProgressEventValidationComplete:
+			// Summary shown separately
+
+		case testing.ProgressEventTestStart:
+			currentService = event.Service
+			framework := event.Framework
+			if framework == "" {
+				framework = "tests"
+			}
+			output.Step("🧪", "Running tests...")
+			output.Item("▸ %s (%s) - Running...", event.Service, framework)
+
+		case testing.ProgressEventTestComplete:
+			// Test completed - result will be shown in displayTestResults
+			_ = currentService // Used for tracking state
+
+		case testing.ProgressEventServiceSkipped:
+			// Skipped services are shown in displayValidationSummary
+		}
+	}
+}
+
+// displayValidationSummary displays the validation results summary.
+func displayValidationSummary(validations []testing.ServiceValidation) {
+	if output.IsJSON() || len(validations) == 0 {
+		return
+	}
+
+	testable := testing.GetTestableServices(validations)
+	skipped := testing.GetSkippedServices(validations)
+
+	output.Newline()
+
+	// Show each service's validation status
+	for _, v := range validations {
+		if v.CanTest {
+			testFilesInfo := ""
+			if v.TestFiles > 0 {
+				testFilesInfo = fmt.Sprintf(" (%d test files)", v.TestFiles)
+			}
+			output.ItemSuccess("%s: %s detected%s", v.Name, v.Framework, testFilesInfo)
+		} else {
+			output.ItemWarning("%s: %s (skipping)", v.Name, v.SkipReason)
+		}
+	}
+
+	output.Newline()
+	if len(skipped) > 0 {
+		output.Info("Found %d testable services (%d skipped)", len(testable), len(skipped))
+	} else {
+		output.Info("Found %d testable services", len(testable))
+	}
+	output.Newline()
+}
+
+// promptSaveTestConfig prompts the user to save auto-detected test config to azure.yaml.
+func promptSaveTestConfig(opts *TestOptions, azureYamlPath string, validations []testing.ServiceValidation, services []testing.ServiceInfo, autoDetected []testing.ServiceValidation) error {
+	// If --save flag is set, save without prompting
+	if opts.Save {
+		if err := testing.SaveTestConfigToAzureYaml(azureYamlPath, validations, services); err != nil {
+			return err
+		}
+		if !output.IsJSON() {
+			output.Success("Test configuration saved to azure.yaml")
+		}
+		return nil
+	}
+
+	// If not running in TTY (non-interactive), skip prompting
+	if !testing.IsTTY() || output.IsJSON() {
+		return nil
+	}
+
+	// Display the discovered config
+	output.Newline()
+	output.Section("💾", "Auto-detected test configuration")
+	for _, v := range autoDetected {
+		output.Item("%s: %s", v.Name, v.Framework)
+	}
+	output.Newline()
+
+	// Prompt to save
+	if output.Confirm("Save test configuration to azure.yaml?") {
+		if err := testing.SaveTestConfigToAzureYaml(azureYamlPath, validations, services); err != nil {
+			return err
+		}
+		output.Success("Test configuration saved to azure.yaml")
 	}
 
 	return nil
