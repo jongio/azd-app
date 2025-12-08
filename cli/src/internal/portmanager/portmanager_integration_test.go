@@ -233,9 +233,11 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 	defer listener.Close()
 
 	// Second instance (new manager from same directory)
-	// Clear cache to simulate separate process
+	// Clear cache to simulate separate process.
+	// Use the normalized path (pm1.projectDir) as cache key since GetPortManager
+	// resolves symlinks (e.g., /var -> /private/var on macOS).
 	managerCacheMu.Lock()
-	delete(managerCache, tempDir)
+	delete(managerCache, pm1.projectDir)
 	managerCacheMu.Unlock()
 
 	pm2 := GetPortManager(tempDir)
@@ -278,9 +280,11 @@ func TestPortManager_SaveLoad(t *testing.T) {
 		assignments[serviceName] = port // Update with actual assigned port
 	}
 
-	// Clear cache and create new manager (simulates new process)
+	// Clear cache and create new manager (simulates new process).
+	// Use the normalized path (pm1.projectDir) as cache key since GetPortManager
+	// resolves symlinks (e.g., /var -> /private/var on macOS).
 	managerCacheMu.Lock()
-	delete(managerCache, tempDir)
+	delete(managerCache, pm1.projectDir)
 	managerCacheMu.Unlock()
 
 	pm2 := GetPortManager(tempDir)
