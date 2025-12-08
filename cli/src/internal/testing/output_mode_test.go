@@ -76,6 +76,23 @@ func TestSelectOutputMode_MultipleSequential(t *testing.T) {
 }
 
 func TestSelectOutputMode_MultipleParallel(t *testing.T) {
+	// Clear CI variables to test TTY behavior
+	ciVars := []string{"CI", "CONTINUOUS_INTEGRATION", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "TEAMCITY_VERSION", "TF_BUILD", "BUILDKITE", "CODEBUILD_BUILD_ID"}
+	oldVars := make(map[string]string)
+	for _, v := range ciVars {
+		oldVars[v] = os.Getenv(v)
+		os.Unsetenv(v)
+	}
+	defer func() {
+		for k, v := range oldVars {
+			if v == "" {
+				os.Unsetenv(k)
+			} else {
+				os.Setenv(k, v)
+			}
+		}
+	}()
+
 	opts := OutputModeOptions{
 		Parallel: true,
 	}
