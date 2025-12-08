@@ -20,6 +20,9 @@ azd app logs --follow
 # Show running services
 azd app info
 
+# Run tests with coverage
+azd app test --coverage
+
 # Start MCP server for AI debugging
 azd app mcp serve`;
 ---
@@ -50,6 +53,11 @@ azd app mcp serve`;
             </tr>
           </thead>
           <tbody class="bg-neutral-100 dark:bg-neutral-800">
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td>
+            </tr>
             <tr class="border-t border-neutral-200 dark:border-neutral-700">
               <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output</code></td>
               <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-o</code></td>
@@ -93,7 +101,7 @@ azd app mcp serve`;
       </div>
       <p class="text-neutral-700 dark:text-neutral-300">Automatically detects your project type and installs all dependencies.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        4 flags • 5 examples
+        6 flags • 5 examples
       </div>
     </a>
 
@@ -126,7 +134,7 @@ azd app mcp serve`;
       </div>
       <p class="text-neutral-700 dark:text-neutral-300">Stop running services.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        2 flags • 4 examples
+        3 flags • 4 examples
       </div>
     </a>
 
@@ -137,7 +145,7 @@ azd app mcp serve`;
       </div>
       <p class="text-neutral-700 dark:text-neutral-300">Restart services.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        2 flags • 4 examples
+        3 flags • 4 examples
       </div>
     </a>
 
@@ -170,7 +178,7 @@ azd app mcp serve`;
       </div>
       <p class="text-neutral-700 dark:text-neutral-300">Show comprehensive information about running services.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        2 flags • 4 examples
+        1 flag • 4 examples
       </div>
     </a>
 
@@ -193,6 +201,17 @@ azd app mcp serve`;
       <p class="text-neutral-700 dark:text-neutral-300">View and manage notifications for service state changes and events.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         0 flags • 10 examples
+      </div>
+    </a>
+
+    <a href="/azd-app/reference/cli/test/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+      <div class="flex items-start justify-between mb-2">
+        <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app test</code>
+        <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
+      </div>
+      <p class="text-neutral-700 dark:text-neutral-300">Run tests across multi-language applications with unified coverage aggregation.</p>
+      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+        18 flags • 9 examples
       </div>
     </a>
 

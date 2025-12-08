@@ -169,8 +169,50 @@ services:
             <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output-dir</code></td>
             <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
             <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">./test-results</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Directory for test reports and coverage</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--timeout</code></td>
             <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
-            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Directory for test reports</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">10m</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Per-service test timeout (e.g., 5m, 30s, 1h)</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--update-snapshots</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-u</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Update test snapshots</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--stream</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Force streaming output (direct test output)</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--no-stream</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Force progress bar mode instead of streaming</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--save</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Save auto-detected test config to azure.yaml without prompting</td>
+          </tr>
+          <tr class="border-t border-neutral-200 dark:border-neutral-700">
+            <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--no-save</code></td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
+            <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Don't prompt to save auto-detected test config</td>
           </tr>
         </tbody>
       </table>

@@ -10,4 +10,4 @@ services:
 
   worker:
     project: .
-    entrypoint: go run ./cmd/worker
+    command: go run ./cmd/worker

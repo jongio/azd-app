@@ -355,10 +355,10 @@ func (pc *PrerequisiteChecker) getInstalledVersion(prereq Prerequisite) (install
 	}
 
 	outputStr := strings.TrimSpace(string(output))
-	
+
 	// Detect Podman aliased to Docker
 	isPodman = strings.Contains(outputStr, "Podman Engine")
-	
+
 	version = extractVersion(config, outputStr)
 
 	return true, version, isPodman

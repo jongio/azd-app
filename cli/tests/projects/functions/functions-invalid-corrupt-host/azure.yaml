@@ -6,3 +6,7 @@ services:
     project: .
     language: js
     host: function
+
+
+reqs:
+  - name: func

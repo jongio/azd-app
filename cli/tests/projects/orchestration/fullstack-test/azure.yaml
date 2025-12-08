@@ -60,7 +60,7 @@ services:
     host: localhost
     ports:
       - "5002"
-    entrypoint: worker
+    command: python worker.py
     environment:
       WORKER_ENV: development
   
@@ -79,6 +79,6 @@ services:
     host: localhost
     ports:
       - "5432"
-    entrypoint: database
+    command: python database.py
     environment:
       DB_ENV: development

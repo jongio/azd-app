@@ -16,14 +16,13 @@ This command stops and then starts services. It works on both running and stoppe
 
 Services are stopped gracefully before being restarted. If a service doesn't respond to graceful shutdown, it will be forcefully terminated.
 
-## Options
+## Flags
 
-| Flag | Alias | Description |
-|------|-------|-------------|
-| `--service` | `-s` | Service name(s) to restart (comma-separated) |
-| `--all` | | Restart all services |
-| `--yes` | `-y` | Skip confirmation prompt for `--all` |
-| `--output` | `-o` | Output format: `default`, `json` |
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Service name(s) to restart (comma-separated) |
+| `--all` | | bool | `false` | Restart all services |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
 
 ## Examples
 

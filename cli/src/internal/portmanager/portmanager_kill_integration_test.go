@@ -26,7 +26,7 @@ func TestKillExternalProcess_SimpleServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to spawn Python HTTP server: %v", err)
 	}
-	defer server.Stop() // Cleanup in case test fails
+	defer func() { _ = server.Stop() }() // Cleanup in case test fails
 
 	t.Logf("Spawned Python HTTP server on port %d with PID %d", server.Port, server.PID)
 
@@ -81,7 +81,7 @@ func TestKillExternalProcess_VerifyPortFreed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to spawn Python HTTP server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	port := server.Port
 	t.Logf("Spawned server on port %d with PID %d", port, server.PID)
@@ -154,7 +154,7 @@ func TestKillExternalProcess_RapidRebind(t *testing.T) {
 
 		// Verify port is in use
 		if !isPortInUse(port) {
-			server.Stop()
+			_ = server.Stop()
 			t.Fatalf("Iteration %d: Port should be in use", i+1)
 		}
 
@@ -163,7 +163,7 @@ func TestKillExternalProcess_RapidRebind(t *testing.T) {
 		if err != nil {
 			diag := CollectDiagnostics(pm, port)
 			t.Logf("Iteration %d: Kill failed, diagnostics:\n%s", i+1, diag.String())
-			server.Stop()
+			_ = server.Stop()
 			t.Fatalf("Iteration %d: killProcessOnPort failed: %v", i+1, err)
 		}
 
@@ -172,12 +172,12 @@ func TestKillExternalProcess_RapidRebind(t *testing.T) {
 		if err != nil {
 			diag := CollectDiagnostics(pm, port)
 			t.Logf("Iteration %d: Port not freed, diagnostics:\n%s", i+1, diag.String())
-			server.Stop()
+			_ = server.Stop()
 			t.Fatalf("Iteration %d: Port not freed: %v", i+1, err)
 		}
 
 		// Explicit cleanup
-		server.Stop()
+		_ = server.Stop()
 
 		t.Logf("Iteration %d: Successfully killed and freed port", i+1)
 	}
@@ -198,7 +198,7 @@ func TestKillExternalProcess_ProcessDetection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to spawn server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	t.Logf("Spawned server on port %d with PID %d", server.Port, server.PID)
 
@@ -280,7 +280,7 @@ func TestKillExternalProcess_MultipleKills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to spawn server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	port := server.Port
 	t.Logf("Spawned server on port %d", port)
@@ -347,7 +347,7 @@ func TestDiagnostics_CollectInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to spawn server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	// Collect diagnostics
 	diag := CollectDiagnostics(pm, server.Port)

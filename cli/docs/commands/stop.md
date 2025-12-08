@@ -16,14 +16,13 @@ This command stops services that are currently running. Use `--service` to stop 
 
 Services are stopped gracefully with a timeout. If a service doesn't respond to graceful shutdown, it will be forcefully terminated.
 
-## Options
+## Flags
 
-| Flag | Alias | Description |
-|------|-------|-------------|
-| `--service` | `-s` | Service name(s) to stop (comma-separated) |
-| `--all` | | Stop all running services |
-| `--yes` | `-y` | Skip confirmation prompt for `--all` |
-| `--output` | `-o` | Output format: `default`, `json` |
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
+| `--all` | | bool | `false` | Stop all running services |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
 
 ## Examples
 

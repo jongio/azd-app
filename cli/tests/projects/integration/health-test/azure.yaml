@@ -65,7 +65,7 @@ services:
     language: python
     project: ./worker
     host: localhost
-    entrypoint: worker
+    command: python worker.py
     environment:
       WORKER_MODE: background
     # No port, no healthcheck - will use process check only

@@ -87,7 +87,7 @@ func SpawnPythonHTTPServer(port int, opts ...TestServerOption) (*TestServer, err
 
 	// Wait for server to be ready (port is listening)
 	if err := waitForPort(ctx, port, cfg.timeout); err != nil {
-		server.Stop()
+		_ = server.Stop()
 		return nil, fmt.Errorf("server failed to start listening on port %d: %w", port, err)
 	}
 

@@ -166,6 +166,8 @@ azd app deps --force
 | `--clean` | | bool | `false` | Remove existing dependencies before installing (clears node_modules, .venv, etc.) |
 | `--no-cache` | | bool | `false` | Force fresh dependency installation and bypass cached results |
 | `--force` | `-f` | bool | `false` | Force clean reinstall (combines --clean and --no-cache) |
+| `--dry-run` | | bool | `false` | Show what would be installed without actually installing |
+| `--service` | `-s` | strings | | Install dependencies only for specific services (can be specified multiple times) |
 
 ### Features
 
@@ -501,6 +503,7 @@ azd app stop --all
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
 | `--all` | | bool | `false` | Stop all running services |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
 
 ### Description
 
@@ -539,6 +542,7 @@ azd app restart --all
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Service name(s) to restart (comma-separated) |
 | `--all` | | bool | `false` | Restart all services |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
 
 ### Description
 
