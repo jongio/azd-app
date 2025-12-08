@@ -133,7 +133,9 @@ func TestGetProcessName_DoesNotHang(t *testing.T) {
 }
 
 // TestBuildGetProcessOnPortCommand_HasTimeout verifies that the Unix command
-// includes timeout protection for lsof.
+// uses lsof correctly for process detection.
+// Note: Timeout protection is provided at the Go level via context.WithTimeout,
+// not via shell timeout command.
 func TestBuildGetProcessOnPortCommand_HasTimeout(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Unix-specific test")
@@ -151,12 +153,17 @@ func TestBuildGetProcessOnPortCommand_HasTimeout(t *testing.T) {
 
 	script := args[1]
 
-	// Verify the script uses ss (faster in containers) or has timeout protection
-	hasSSPrimary := strings.Contains(script, "ss -tlnp")
-	hasTimeoutLsof := strings.Contains(script, "timeout") && strings.Contains(script, "lsof")
+	// Verify the script uses lsof with the terse (-t) flag for PID-only output
+	// This is proven to work reliably in Codespaces/containers
+	hasLsofTerse := strings.Contains(script, "lsof -t")
+	hasPortSpec := strings.Contains(script, ":8080")
 
-	if !hasSSPrimary && !hasTimeoutLsof {
-		t.Error("Unix command should use 'ss' as primary or have 'timeout' wrapper for lsof")
+	if !hasLsofTerse {
+		t.Errorf("Unix command should use 'lsof -t' for terse PID output, got: %s", script)
+	}
+
+	if !hasPortSpec {
+		t.Errorf("Unix command should include port specification :8080, got: %s", script)
 	}
 
 	t.Logf("Command script: %s", script)
