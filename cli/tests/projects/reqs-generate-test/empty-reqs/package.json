@@ -1,7 +1,7 @@
 {
-  "name": "reqs-generate-test",
+  "name": "reqs-generate-empty-reqs",
   "version": "1.0.0",
-  "description": "Test project for azd app reqs --generate",
+  "description": "Test: azure.yaml with empty reqs array",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "test": "echo 'No tests'"

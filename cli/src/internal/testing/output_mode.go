@@ -46,29 +46,29 @@ type OutputModeOptions struct {
 
 // SelectOutputMode determines the best output mode based on options and environment.
 // Selection logic:
+//   - --stream flag → OutputModeStream (explicit user preference)
+//   - --no-stream flag → OutputModeProgress (explicit user preference)
 //   - CI/non-TTY → always OutputModeStream (with prefix if multiple services)
-//   - --stream flag → OutputModeStream
-//   - --no-stream flag → OutputModeProgress
 //   - Single service → OutputModeStream (no prefix)
 //   - Multiple + sequential (parallel=false) → OutputModeStreamPrefixed
 //   - Multiple + parallel → OutputModeProgress
 func SelectOutputMode(opts OutputModeOptions, serviceCount int, isTTY bool) OutputMode {
+	// Explicit --stream flag: user preference takes precedence
+	if opts.ForceStream {
+		return OutputModeStream
+	}
+
+	// Explicit --no-stream flag: user preference takes precedence
+	if opts.ForceProgress {
+		return OutputModeProgress
+	}
+
 	// CI or non-TTY environments: use streaming (best for log capture)
 	if !isTTY || isCI() {
 		if serviceCount > 1 {
 			return OutputModeStreamPrefixed
 		}
 		return OutputModeStream
-	}
-
-	// Explicit --stream flag: use streaming
-	if opts.ForceStream {
-		return OutputModeStream
-	}
-
-	// Explicit --no-stream flag: use progress
-	if opts.ForceProgress {
-		return OutputModeProgress
 	}
 
 	// Single service: streaming without prefix

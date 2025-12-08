@@ -124,14 +124,14 @@ func TestSelectOutputMode_CI_OverridesForceProgress(t *testing.T) {
 	}()
 
 	opts := OutputModeOptions{
-		ForceProgress: true, // Should be ignored in CI
+		ForceProgress: true, // Explicit user flag takes precedence over CI
 		Parallel:      true,
 	}
 
-	// CI should override ForceProgress and use stream
+	// ForceProgress should take precedence over CI detection
 	mode := SelectOutputMode(opts, 1, true)
-	if mode != OutputModeStream {
-		t.Errorf("CI should use OutputModeStream regardless of ForceProgress, got %v", mode)
+	if mode != OutputModeProgress {
+		t.Errorf("ForceProgress should take precedence over CI, got %v", mode)
 	}
 }
 
