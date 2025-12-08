@@ -398,6 +398,14 @@ jobs:
           pnpm run build
           cd ..
 
+      - name: Run port manager integration tests
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          go test -v -tags=integration -timeout=6m ./src/internal/portmanager/...
+        env:
+          CI: true
+
       - name: Run E2E integration tests
         shell: bash
         timeout-minutes: 15

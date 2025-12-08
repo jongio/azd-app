@@ -190,13 +190,20 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	pid, err := pm.getProcessOnPort(port)
 	if err != nil {
 		// Port might not be in use anymore
+		slog.Debug("no process found on port, nothing to kill", "port", port, "error", err)
 		return nil
 	}
 
+	// Get process name for diagnostics
+	processName, _ := pm.getProcessName(pid)
+
 	// Log without exposing too much system info to prevent information disclosure
-	slog.Info("terminating process on port", "port", port, "pid", pid)
+	slog.Info("terminating process on port", "port", port, "pid", pid, "processName", processName)
 
 	cmd, args := buildKillProcessCommand(pid)
+
+	// Log the kill command for debugging (useful in CI/Codespaces)
+	slog.Debug("executing kill command", "cmd", cmd, "args", args, "pid", pid)
 
 	// Execute the kill command with timeout and without stdin inheritance
 	// Using exec.CommandContext directly instead of executor.RunCommand to avoid
@@ -208,9 +215,35 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
 	execCmd := exec.CommandContext(ctx, cmd, args...)
 	execCmd.Stdin = nil // Don't inherit stdin - prevents blocking
-	if err := execCmd.Run(); err != nil {
-		// Log error but don't fail - process might have already exited
-		slog.Debug("kill command completed with error", "pid", pid, "error", err)
+
+	// Capture output for diagnostics
+	var stdout, stderr strings.Builder
+	execCmd.Stdout = &stdout
+	execCmd.Stderr = &stderr
+
+	execErr := execCmd.Run()
+	if execErr != nil {
+		// Log detailed error information for debugging kill failures
+		slog.Debug("kill command completed with error",
+			"pid", pid,
+			"error", execErr,
+			"stdout", strings.TrimSpace(stdout.String()),
+			"stderr", strings.TrimSpace(stderr.String()),
+			"timeout", ctx.Err() == context.DeadlineExceeded)
+
+		// Check if it was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			slog.Warn("kill command timed out",
+				"port", port,
+				"pid", pid,
+				"processName", processName,
+				"timeout", killProcessTimeout)
+		}
+	} else {
+		slog.Debug("kill command completed successfully",
+			"pid", pid,
+			"stdout", strings.TrimSpace(stdout.String()),
+			"stderr", strings.TrimSpace(stderr.String()))
 	}
 
 	// Wait a moment for process to die
@@ -219,13 +252,22 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	// Verify the process was actually killed
 	// This is critical for protected/system processes that cannot be terminated
 	if stillRunningPid, err := pm.getProcessOnPort(port); err == nil && stillRunningPid == pid {
-		processName, _ := pm.getProcessName(pid)
+		currentProcessName, _ := pm.getProcessName(pid)
+
+		// Collect additional diagnostics for debugging
 		slog.Warn("process could not be terminated - likely a protected system process",
-			"port", port, "pid", pid, "name", processName)
+			"port", port,
+			"pid", pid,
+			"name", currentProcessName,
+			"killCmdOutput", strings.TrimSpace(stdout.String()),
+			"killCmdStderr", strings.TrimSpace(stderr.String()),
+			"killCmdError", execErr)
+
 		return fmt.Errorf("process %d (%s) could not be terminated - it may be a protected system process or require administrator privileges",
-			pid, processName)
+			pid, currentProcessName)
 	}
 
+	slog.Debug("process terminated successfully", "port", port, "pid", pid, "processName", processName)
 	return nil
 }
 
