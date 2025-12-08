@@ -5,6 +5,10 @@
  * Parses cli-reference.md and individual command docs to create:
  * - /reference/cli/index.astro (overview)
  * - /reference/cli/[command].astro (individual command pages)
+ * 
+ * Commands are discovered dynamically from:
+ * 1. The "Commands Overview" table in cli-reference.md
+ * 2. Individual .md files in cli/docs/commands/
  */
 
 import * as fs from 'fs';
@@ -42,21 +46,52 @@ const COMMANDS_DIR = path.join(CLI_DOCS_DIR, 'commands');
 const OUTPUT_DIR = path.resolve(__dirname, '../src/pages/reference/cli');
 const CONTENT_DIR = path.resolve(__dirname, '../src/content/cli-reference');
 
-// Commands to document (order matters for navigation)
-const COMMANDS = [
-  'reqs',
-  'deps', 
-  'run',
-  'start',
-  'stop',
-  'restart',
-  'health',
-  'logs',
-  'info',
-  'mcp',
-  'notifications',
-  'version'
-];
+// Commands to exclude from documentation (internal/hidden commands)
+const EXCLUDED_COMMANDS = ['listen'];
+
+/**
+ * Discovers commands dynamically from cli-reference.md Commands Overview table
+ * and cli/docs/commands/ directory.
+ */
+function discoverCommands(cliReference: string): string[] {
+  const commands = new Set<string>();
+  
+  // Method 1: Scan cli/docs/commands/ directory for .md files (most reliable)
+  if (fs.existsSync(COMMANDS_DIR)) {
+    const files = fs.readdirSync(COMMANDS_DIR);
+    for (const file of files) {
+      if (file.endsWith('.md')) {
+        const cmdName = file.replace('.md', '');
+        if (!EXCLUDED_COMMANDS.includes(cmdName)) {
+          commands.add(cmdName);
+        }
+      }
+    }
+  }
+  
+  // Method 2: Find all ## `azd app <command>` section headers in cli-reference.md
+  const sectionRegex = /^## `azd app (\w+)`/gm;
+  let match;
+  while ((match = sectionRegex.exec(cliReference)) !== null) {
+    const cmdName = match[1];
+    if (!EXCLUDED_COMMANDS.includes(cmdName)) {
+      commands.add(cmdName);
+    }
+  }
+  
+  // Sort commands: priority order first, then alphabetically
+  const priorityOrder = ['reqs', 'deps', 'run', 'start', 'stop', 'restart', 'health', 'logs', 'info', 'test'];
+  const sortedCommands = Array.from(commands).sort((a, b) => {
+    const aIndex = priorityOrder.indexOf(a);
+    const bIndex = priorityOrder.indexOf(b);
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  
+  return sortedCommands;
+}
 
 function parseFlags(content: string): Flag[] {
   const flags: Flag[] = [];
@@ -468,10 +503,14 @@ async function main() {
   
   const cliReference = fs.readFileSync(cliReferencePath, 'utf-8');
   
+  // Discover commands dynamically
+  const discoveredCommands = discoverCommands(cliReference);
+  console.log(`  📋 Discovered ${discoveredCommands.length} commands: ${discoveredCommands.join(', ')}\n`);
+  
   // Parse each command
   const commands: CommandInfo[] = [];
   
-  for (const cmdName of COMMANDS) {
+  for (const cmdName of discoveredCommands) {
     const cmd = parseCommandFromReference(cliReference, cmdName);
     if (cmd) {
       commands.push(cmd);

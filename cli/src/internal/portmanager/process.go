@@ -19,7 +19,7 @@ const commandTimeout = 5 * time.Second
 const osWindows = "windows"
 
 // buildGetProcessOnPortCommand returns the command and args to find a process listening on a port.
-// On Linux, prefers 'ss' (faster in containers) with 'lsof' fallback.
+// On Unix/Linux, uses lsof -t -i:port which is reliable in Codespaces/containers.
 func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
 		psScript := fmt.Sprintf(`
@@ -35,18 +35,9 @@ func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 		`, port)
 		return "powershell", []string{"-Command", psScript}
 	}
-	// Unix: Try ss first (faster in containers/Codespaces), fallback to lsof
-	// ss -tlnp is much faster than lsof in containerized environments
-	// The command tries ss first, and if it fails or returns empty, falls back to lsof
-	script := fmt.Sprintf(`
-pid=$(ss -tlnp 2>/dev/null | grep ':%d ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -n1)
-if [ -n "$pid" ]; then
-    echo "$pid"
-    exit 0
-fi
-# Fallback to lsof with timeout to prevent hangs
-timeout 3 lsof -ti:%d 2>/dev/null | head -n 1
-`, port, port)
+	// Unix: Use lsof -t -i:port which is proven to work reliably in Codespaces
+	// The -t flag outputs only PIDs (terse mode)
+	script := fmt.Sprintf(`lsof -t -i:%d 2>/dev/null | head -n 1`, port)
 	return "sh", []string{"-c", script}
 }
 
@@ -66,7 +57,7 @@ func buildGetProcessNameCommand(pid int) (cmd string, args []string) {
 
 // buildKillProcessCommand returns the command and args to kill a process and its children by PID.
 // On Windows, uses Get-CimInstance Win32_Process to find child processes by ParentProcessId.
-// On Unix, uses pkill -P to kill children first.
+// On Unix, uses kill -9 directly which is reliable in Codespaces/containers.
 // In both cases, children are killed first (recursively), then the parent.
 func buildKillProcessCommand(pid int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
@@ -85,23 +76,16 @@ func buildKillProcessCommand(pid int) (cmd string, args []string) {
 		`, pid)
 		return "powershell", []string{"-Command", psScript}
 	}
-	// Unix: Kill children first, then parent. Use timeout to prevent hangs.
-	// The pkill command may not exist in all environments, so we try multiple approaches.
+	// Unix: Use kill -9 directly - proven to work reliably in Codespaces
+	// First try to kill children, then force kill the parent
 	script := fmt.Sprintf(`
-# Kill child processes first
-for child in $(pgrep -P %d 2>/dev/null); do
-    kill -TERM "$child" 2>/dev/null
-done
-sleep 0.1
-# Force kill any remaining children
+# Kill child processes first (if pgrep available)
 for child in $(pgrep -P %d 2>/dev/null); do
     kill -9 "$child" 2>/dev/null
 done
-# Kill the parent process
-kill -TERM %d 2>/dev/null
-sleep 0.1
+# Force kill the main process
 kill -9 %d 2>/dev/null || true
-`, pid, pid, pid, pid)
+`, pid, pid)
 	return "sh", []string{"-c", script}
 }
 
