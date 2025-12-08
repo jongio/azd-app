@@ -532,6 +532,85 @@
         "filters": {
           "$ref": "#/definitions/logFilterConfig",
           "description": "Filter configuration to suppress noisy log output"
+        },
+        "azure": {
+          "$ref": "#/definitions/azureLogsConfig",
+          "description": "Azure cloud log streaming configuration"
+        }
+      }
+    },
+    "azureLogsConfig": {
+      "type": "object",
+      "description": "Configuration for streaming logs from Azure-deployed services",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Azure log streaming. When true, logs from Azure-deployed services can be viewed in the dashboard."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["auto", "local", "azure"],
+          "default": "auto",
+          "description": "Default log source mode. 'auto' shows Azure logs when services aren't running locally, 'local' forces local logs only, 'azure' forces Azure logs only."
+        },
+        "workspace": {
+          "type": "string",
+          "description": "Log Analytics workspace ID. If not specified, auto-detected from Azure resource diagnostic settings.",
+          "examples": ["/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.OperationalInsights/workspaces/{name}"]
+        },
+        "pollingInterval": {
+          "type": "string",
+          "pattern": "^\\d+[smh]$",
+          "default": "10s",
+          "description": "Polling interval for Log Analytics queries (e.g., '10s', '30s', '1m')."
+        },
+        "defaultTimespan": {
+          "type": "string",
+          "pattern": "^\\d+[smh]$",
+          "default": "30m",
+          "description": "Default time window for historical log queries (e.g., '15m', '1h', '24h')."
+        },
+        "realtime": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable real-time streaming using service-specific APIs where available (lower latency than polling)."
+        },
+        "queries": {
+          "$ref": "#/definitions/azureLogQueries",
+          "description": "Custom KQL queries per resource type. Overrides default queries."
+        },
+        "query": {
+          "type": "string",
+          "description": "Custom KQL query for this specific service. Use {serviceName} and {timespan} placeholders. Overrides resource-type defaults."
+        }
+      }
+    },
+    "azureLogQueries": {
+      "type": "object",
+      "description": "Custom KQL queries for different Azure resource types. Use {serviceName} and {timespan} placeholders.",
+      "additionalProperties": false,
+      "properties": {
+        "containerApp": {
+          "type": "string",
+          "description": "KQL query for Azure Container Apps logs. Default queries ContainerAppConsoleLogs_CL table."
+        },
+        "appService": {
+          "type": "string",
+          "description": "KQL query for Azure App Service logs. Default queries AppServiceConsoleLogs table."
+        },
+        "function": {
+          "type": "string",
+          "description": "KQL query for Azure Functions logs. Default queries FunctionAppLogs table."
+        },
+        "aks": {
+          "type": "string",
+          "description": "KQL query for Azure Kubernetes Service logs. Default queries ContainerLogV2 table."
+        },
+        "containerInstance": {
+          "type": "string",
+          "description": "KQL query for Azure Container Instances logs."
         }
       }
     },
@@ -692,6 +771,17 @@
   "examples": [
     {
       "name": "fullstack-app",
+      "logs": {
+        "filters": {
+          "exclude": ["npm warn", "Debugger listening"]
+        },
+        "azure": {
+          "enabled": true,
+          "source": "auto",
+          "pollingInterval": "10s",
+          "defaultTimespan": "30m"
+        }
+      },
       "services": {
         "web": {
           "language": "TypeScript",
@@ -723,7 +813,12 @@
             "retries": 3,
             "start_period": "30s"
           },
-          "uses": ["db"]
+          "uses": ["db"],
+          "logs": {
+            "azure": {
+              "query": "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'api' | where Log_s !contains 'health'"
+            }
+          }
         }
       },
       "resources": {
