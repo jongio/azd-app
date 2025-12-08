@@ -71,7 +71,7 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 		return fmt.Errorf("hook %s failed: %w", hookName, err)
 	}
 
-	output.Success("✓ Hook %s completed successfully", hookName)
+	output.Success("Hook %s completed successfully", hookName)
 	output.Newline()
 	return nil
 }

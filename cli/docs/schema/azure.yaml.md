@@ -17,6 +17,7 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 - **`healthcheck`**: Docker Compose-compatible health checks for monitoring
 - **`reqs`**: Prerequisite tool validation (top-level, not per-service)
 - **`hooks`**: Lifecycle hooks for prerun/postrun automation (similar to azd's preprovision/postprovision)
+- **`test`**: Test configuration for multi-language testing with coverage aggregation
 
 All standard `azd` fields remain fully compatible.
 
@@ -64,6 +65,22 @@ hooks:
 ```
 
 See [Hook Object](#hook-object) for full configuration options.
+
+### `test` ⭐ NEW
+Global test configuration for multi-language testing with coverage aggregation.
+
+```yaml
+test:
+  parallel: true
+  failFast: false
+  outputDir: ./test-results
+  outputFormat: default  # default, json, junit, github
+  coverage:
+    enabled: true
+    threshold: 80
+```
+
+See [Test Config Object](#test-config-object) for full configuration options.
 
 
 ## Service Object
@@ -239,6 +256,36 @@ services:
 3. Fall back to process check
 
 See [Service States and Health](../features/service-states.md) for detailed documentation on service types, modes, and health states.
+
+#### `test` ⭐ NEW
+**Type:** `object` (optional)
+
+Service-level test configuration for unit, integration, and e2e tests.
+
+```yaml
+services:
+  api:
+    language: Python
+    project: ./backend
+    test:
+      unit:
+        command: pytest
+        path: tests/unit
+        args: ["-v"]
+      integration:
+        command: pytest
+        path: tests/integration
+        args: ["-v", "--slow"]
+      e2e:
+        command: pytest
+        path: tests/e2e
+      coverage:
+        enabled: true
+        threshold: 85
+        exclude: ["**/test/**", "**/*_test.py"]
+```
+
+See [Service Test Config Object](#service-test-config-object) for full configuration options.
 
 
 ## Service Types ⭐ NEW
@@ -516,6 +563,134 @@ hooks:
 
 
 
+## Test Config Object
+
+Global test configuration that applies to all services.
+
+### Properties
+
+- **`parallel`**: Run tests for services in parallel (default: `true`)
+- **`failFast`**: Stop on first test failure (default: `false`)
+- **`outputDir`**: Directory for test reports and coverage (default: `./test-results`)
+- **`outputFormat`**: Output format (`default`, `json`, `junit`, `github`)
+- **`coverage`**: Global coverage configuration (see [Coverage Config](#coverage-config))
+
+```yaml
+test:
+  parallel: true
+  failFast: false
+  outputDir: ./test-results
+  outputFormat: junit  # For CI/CD integration
+  coverage:
+    enabled: true
+    threshold: 80
+```
+
+
+## Service Test Config Object
+
+Service-level test configuration with support for different test types.
+
+### Properties
+
+- **`unit`**: Unit test configuration (see [Test Type Config](#test-type-config))
+- **`integration`**: Integration test configuration
+- **`e2e`**: End-to-end test configuration
+- **`coverage`**: Service-specific coverage configuration
+
+```yaml
+services:
+  api:
+    test:
+      unit:
+        command: pytest
+        path: tests/unit
+      integration:
+        command: pytest
+        path: tests/integration
+        env:
+          DATABASE_URL: "postgresql://localhost:5432/test"
+      coverage:
+        enabled: true
+        threshold: 85
+```
+
+
+## Test Type Config
+
+Configuration for a specific test type (unit, integration, or e2e).
+
+### Properties
+
+- **`command`**: Custom command to run tests (auto-detected if omitted)
+- **`args`**: Additional arguments to pass to the test command
+- **`path`**: Path to test files or directory (relative to service project)
+- **`pattern`**: Pattern to match test files or test names
+- **`env`**: Environment variables for tests
+- **`timeout`**: Timeout for test execution (e.g., `5m`, `30s`)
+
+### Language-Specific Defaults
+
+| Language | Default Command | Unit Path | Integration Path | E2E Path |
+|----------|-----------------|-----------|------------------|----------|
+| Node.js | `npm test` | `tests/unit` | `tests/integration` | `tests/e2e` |
+| Python | `pytest` | `tests/unit` | `tests/integration` | `tests/e2e` |
+| Go | `go test` | `./...` | `./...` | `./...` |
+| .NET | `dotnet test` | auto-detected | auto-detected | auto-detected |
+
+```yaml
+services:
+  # Node.js service
+  web:
+    language: TypeScript
+    test:
+      unit:
+        command: npm test
+        args: ["--", "--testPathPattern=unit"]
+      e2e:
+        command: npx playwright test
+        timeout: 10m
+  
+  # Go service
+  gateway:
+    language: go
+    test:
+      unit:
+        command: go test
+        args: ["-v", "-race", "./..."]
+        pattern: "^Test[^Integration]"
+      integration:
+        command: go test
+        args: ["-v", "-tags=integration", "./..."]
+        pattern: "TestIntegration"
+```
+
+
+## Coverage Config
+
+Code coverage configuration for test runs.
+
+### Properties
+
+- **`enabled`**: Enable coverage collection (default: `false`)
+- **`threshold`**: Minimum coverage percentage (0-100). Fail if below threshold.
+- **`exclude`**: Patterns to exclude from coverage
+- **`include`**: Patterns to include in coverage (if specified, only these are included)
+
+```yaml
+test:
+  coverage:
+    enabled: true
+    threshold: 80
+    exclude:
+      - "**/vendor/**"
+      - "**/test/**"
+      - "**/*_test.go"
+      - "**/mocks/**"
+```
+
+
+
 ## Complete Example
 
 ```yaml
@@ -540,6 +715,15 @@ hooks:
     run: "echo '✅ All services running at http://localhost:3000'"
     shell: sh
 
+# Global test configuration
+test:
+  parallel: true
+  failFast: false
+  outputDir: ./test-results
+  coverage:
+    enabled: true
+    threshold: 80
+
 services:
   web:
     language: TypeScript
@@ -549,6 +733,15 @@ services:
     environment:
       API_URL: "http://localhost:8000"
     uses: ["api"]
+    test:
+      unit:
+        command: npm test
+        args: ["--", "--testPathPattern=unit"]
+      e2e:
+        command: npx playwright test
+        timeout: 10m
+      coverage:
+        threshold: 85
   
   api:
     language: Python
@@ -568,6 +761,20 @@ services:
       retries: 3
       start_period: 30s
     uses: ["database"]
+    test:
+      unit:
+        command: pytest
+        path: tests/unit
+        args: ["-v"]
+      integration:
+        command: pytest
+        path: tests/integration
+        env:
+          DATABASE_URL: "postgresql://localhost:5432/test"
+      coverage:
+        enabled: true
+        threshold: 90
+        exclude: ["**/test/**"]
   
   database:
     image: postgres:15-alpine
@@ -801,9 +1008,10 @@ When an explicit port is in use:
 This port is currently in use.
 
 Options:
-  1) Kill the process using port 8000
-  2) Assign a different port automatically
-  3) Cancel
+  1) Always kill processes (don't ask again)
+  2) Kill the process using port 8000
+  3) Assign a different port automatically
+  4) Cancel
 ```
 
 Ports are persisted in `.azure/ports.json` for consistency.
@@ -857,6 +1065,7 @@ services:
 - [Service States and Health](../features/service-states.md) - Service types, modes, and health status
 - [Hooks Documentation](../hooks.md) - Comprehensive guide to lifecycle hooks
 - [Run Command Documentation](../commands/run.md) - Detailed run command documentation
+- [Test Command Documentation](../commands/test.md) - Multi-language testing with coverage
 - [Port Configuration Guide](../features/ports.md)
 - [Port Management Design](../design/ports.md)
 - [Azure Functions Support](../features/azure-functions.md) - Comprehensive Azure Functions documentation

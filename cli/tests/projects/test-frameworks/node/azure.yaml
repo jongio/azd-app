@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: node-frameworks
+metadata:
+  description: Node.js testing frameworks - Jest, Vitest, Mocha & Jasmine
+
+services:
+  jest-service:
+    language: js
+    project: ./jest
+    test:
+      framework: jest
+      unit:
+        command: npm test
+      coverage:
+        threshold: 80
+
+  vitest-service:
+    language: js
+    project: ./vitest
+    test:
+      framework: vitest
+      unit:
+        command: npm test
+      coverage:
+        threshold: 80
+
+  alternatives-service:
+    language: js
+    project: ./alternatives
+    test:
+      framework: mocha
+      unit:
+        command: npm test
+      coverage:
+        threshold: 80

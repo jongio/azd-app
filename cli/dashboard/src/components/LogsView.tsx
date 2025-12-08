@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Search, Download, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
+import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import type { Service } from '@/types'
 import {
   MAX_LOGS_IN_MEMORY,
@@ -63,6 +64,9 @@ export function LogsView({
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const isPausedRef = useRef(false)
+  
+  // Get Codespace config for URL transformation in logs
+  const { config: codespaceConfig } = useCodespaceEnv()
   
   // Use external services when provided (controlled mode), otherwise internal
   const services = servicesProp ?? internalServices
@@ -365,7 +369,7 @@ export function LogsView({
                 {' '}
                 <span 
                   dangerouslySetInnerHTML={{ 
-                    __html: convertAnsiToHtml(log?.message ?? '') 
+                    __html: convertAnsiToHtml(log?.message ?? '', codespaceConfig) 
                   }} 
                 />
               </div>

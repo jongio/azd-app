@@ -26,11 +26,11 @@ func TestRunAspireIntegration(t *testing.T) {
 	}
 
 	// Check if aspire is available
-	if _, err := os.Stat("../../tests/projects/aspire-test/TestAppHost/TestAppHost.csproj"); os.IsNotExist(err) {
+	if _, err := os.Stat("../../../tests/projects/integration/aspire-test/TestAppHost/TestAppHost.csproj"); os.IsNotExist(err) {
 		t.Skip("Aspire test project not found")
 	}
 
-	projectDir := filepath.Join("..", "..", "tests", "projects", "aspire-test", "TestAppHost")
+	projectDir := filepath.Join("..", "..", "..", "tests", "projects", "integration", "aspire-test", "TestAppHost")
 	absPath, err := filepath.Abs(projectDir)
 	if err != nil {
 		t.Fatal(err)

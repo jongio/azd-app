@@ -3,6 +3,8 @@
  * This module provides consistent log level detection, ANSI conversion, and constants.
  */
 import AnsiConverter from 'ansi-to-html'
+import type { CodespaceConfig } from '@/lib/codespace-utils'
+import { isLocalhostUrl, transformLocalhostUrl } from '@/lib/codespace-utils'
 
 // ============================================================================
 // Constants
@@ -58,8 +60,11 @@ function stripAnsi(text: string): string {
  * 
  * URL detection is done on the stripped text first to handle cases where
  * ANSI codes might be embedded within URLs (e.g., colored port numbers).
+ * 
+ * @param text - The text with ANSI codes to convert
+ * @param codespaceConfig - Optional Codespace config to transform localhost URLs
  */
-export function convertAnsiToHtml(text: string): string {
+export function convertAnsiToHtml(text: string, codespaceConfig?: CodespaceConfig | null): string {
   try {
     // First, find URLs in the stripped text (without ANSI codes)
     const strippedText = stripAnsi(text)
@@ -70,7 +75,8 @@ export function convertAnsiToHtml(text: string): string {
     const sanitized = sanitizeHtml(html)
     
     // Linkify URLs, handling potential HTML tags within URLs
-    return linkifyUrlsWithHtmlAware(sanitized, urls)
+    // Pass codespace config for localhost URL transformation
+    return linkifyUrlsWithHtmlAware(sanitized, urls, codespaceConfig)
   } catch {
     // If conversion fails, escape the text for safe display
     return escapeHtml(text)
@@ -94,8 +100,16 @@ function findUrls(text: string): string[] {
 /**
  * Converts URLs in HTML to clickable anchor tags, handling cases where
  * HTML tags (from ANSI conversion) might be embedded within URLs.
+ * 
+ * When codespaceConfig is provided, localhost URLs are transformed to
+ * Codespace-forwarded URLs in the href attribute while keeping the
+ * original display text.
  */
-function linkifyUrlsWithHtmlAware(html: string, urls: string[]): string {
+function linkifyUrlsWithHtmlAware(
+  html: string,
+  urls: string[],
+  codespaceConfig?: CodespaceConfig | null
+): string {
   if (urls.length === 0) return html
   
   let result = html
@@ -123,10 +137,15 @@ function linkifyUrlsWithHtmlAware(html: string, urls: string[]): string {
       'g'
     )
     
+    // Determine the href URL - transform if localhost and in Codespace
+    const hrefUrl = codespaceConfig && isLocalhostUrl(url)
+      ? transformLocalhostUrl(url, codespaceConfig)
+      : url
+    
     result = result.replace(pattern, (match) => {
       // Don't double-wrap if already linkified
       if (match.includes('<a ')) return match
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${match}</a>`
+      return `<a href="${hrefUrl}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${match}</a>`
     })
   }
   

@@ -221,7 +221,7 @@ docs/                 # Documentation
 
 1. Add detection logic in `src/internal/detector/`
 2. Add installation logic in `src/internal/installer/`
-3. Create test project in `tests/projects/`
+3. Create test project in `tests/projects/package-managers/`
 4. Add unit tests
 5. Update documentation
 
@@ -230,7 +230,7 @@ docs/                 # Documentation
 Use the test projects in `tests/projects/` for integration testing:
 
 ```bash
-cd tests/projects/node/test-npm-project
+cd tests/projects/package-managers/node/test-npm-project
 azd app install
 azd app run
 ```

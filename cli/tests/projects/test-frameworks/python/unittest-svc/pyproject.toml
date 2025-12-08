@@ -1,0 +1,6 @@
+[project]
+name = "unittest-service"
+version = "1.0.0"
+description = "unittest testing framework demo"
+requires-python = ">=3.9"
+dependencies = []

@@ -6,7 +6,10 @@ Support detecting Docker version when Podman is aliased to Docker. When users ha
 
 ## Problem
 
-Currently, `azd app reqs` fails to extract the Docker version when Podman is used as a Docker drop-in replacement.
+When Podman is used as a Docker drop-in replacement:
+1. `azd app reqs` needs to extract the version from Podman's multi-line output format
+2. **Version schemes are incompatible**: Docker uses versions like `20.10.0`, `28.5.1` while Podman uses `4.x`, `5.x`
+3. A typical azure.yaml might specify `minVersion: "20.10.0"` which Podman's `5.7.0` would fail
 
 **Docker native output:**
 ```
@@ -32,6 +35,24 @@ Built:        Mon Nov 10 16:00:00 2025
 OS/Arch:      linux/amd64
 ```
 
+## Solution
+
+### Version Check Behavior
+
+When Podman is detected aliased to Docker:
+1. **Version extraction**: Parse Podman version from "Version:" line
+2. **Version comparison**: **SKIPPED** - Podman and Docker versions are not comparable
+3. **Result**: Mark as satisfied if Podman is installed and running (when `checkRunning: true`)
+
+This means:
+- `docker` requirement with `minVersion: "20.10.0"` will pass if Podman 5.7.0 is installed
+- The output will show: `docker: 5.7.0 via Podman (version check skipped)`
+- JSON output includes `"isPodman": true` field
+
+### Rationale
+
+Podman is designed as a Docker-compatible container runtime. Rather than maintain a complex version mapping table or require users to specify separate `podman` requirements, we trust that any reasonably recent Podman version provides Docker-compatible functionality.
+
 ## Requirements
 
 ### Version Extraction
@@ -41,9 +62,9 @@ OS/Arch:      linux/amd64
 - Extract semantic version (X.Y.Z) from "Version: X.Y.Z" line
 
 ### Output Handling
-- When Podman is detected, report version as found
-- The extracted version should work with version comparison logic
-- Display should indicate Docker is satisfied (regardless of underlying engine)
+- When Podman is detected, skip version comparison (versions are incompatible)
+- Display indicates Docker is satisfied via Podman
+- JSON output includes `isPodman: true` flag
 
 ### Test Coverage
 - Unit tests for Podman multi-line version output parsing
@@ -52,18 +73,18 @@ OS/Arch:      linux/amd64
 
 ## Implementation
 
-### Files to Modify
-- `cli/src/cmd/app/commands/reqs.go` - Update `extractVersion` function
-- `cli/src/cmd/app/commands/reqs_test.go` - Add tests for Podman output format
-- `cli/src/cmd/app/commands/generate.go` - Update `extractVersionFromOutput` if needed
+### Files Modified
+- `cli/src/cmd/app/commands/reqs.go` - `extractVersion`, `Check`, `getInstalledVersion`
+- `cli/src/cmd/app/commands/reqs_test.go` - Tests for Podman output format
 
 ### Approach
-1. In `extractVersion`, check if output matches Podman multi-line format
-2. If Podman format detected, parse "Version:" line from Client section
-3. Fall back to existing Docker parsing logic for native Docker output
+1. In `getInstalledVersion`, detect "Podman Engine" in output and return `isPodman` flag
+2. In `Check`, when `isPodman` is true for `docker` requirement, skip version comparison
+3. Continue to `checkRunning` verification if configured
 
 ## Acceptance Criteria
-- `azd app reqs` correctly reports Docker version when Podman is aliased
-- Native Docker version detection continues to work
+- `azd app reqs` correctly reports Docker satisfied when Podman is aliased
+- Version comparison skipped for Podman (avoids false negatives)
+- Native Docker version detection and comparison continues to work
 - Unit tests pass for both Docker and Podman formats
-- Version comparison works correctly with extracted Podman versions
+- JSON output includes `isPodman` field when applicable

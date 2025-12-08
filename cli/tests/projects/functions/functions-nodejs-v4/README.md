@@ -1,85 +1,160 @@
-# Azure Functions Node.js v4 Programming Model
+# Node.js v4 Azure Functions Test Project
 
-This is a test project for Azure Functions using the Node.js v4 programming model.
+## Purpose
 
-## Features
+This test project validates that `azd app` correctly detects and runs **Azure Functions with Node.js v4** runtime, the modern and recommended Node.js programming model for Azure Functions.
 
-- **Modern decorator-based model** - Uses `@azure/functions` v4
-- **HTTP Trigger** - GET/POST endpoint at `/api/httpTrigger`
-- **Timer Trigger** - Runs every 5 minutes
+## What Is Being Tested
+
+### Azure Functions Detection
+When a directory is detected as an Azure Functions project:
+1. Correct runtime identification (Node.js v4)
+2. Programming model validation (modern decorator-based)
+3. Function definitions are properly parsed
+4. `azd app reqs` validates prerequisites
+5. `azd app run` successfully starts the Functions host
+
+### Validation Points
+- ✅ host.json is valid and recognized
+- ✅ functions/ directory with function definitions
+- ✅ @azure/functions v4 dependency
+- ✅ HTTP triggers properly configured
+- ✅ Timer triggers properly configured
+- ✅ Azure Functions Core Tools v4.0+ detected
+- ✅ Node.js 18+ and npm detected
+- ✅ func CLI properly starts the host
 
 ## Project Structure
 
 ```
 functions-nodejs-v4/
-├── host.json              # Functions runtime configuration
-├── package.json           # Node.js dependencies
-└── src/
-    └── functions/
-        ├── httpTrigger.js    # HTTP GET/POST handler
-        └── timerTrigger.js   # Timer trigger (every 5 min)
+├── host.json                    # Azure Functions host configuration
+├── package.json                 # npm with @azure/functions v4
+├── src/
+│   └── functions/
+│       ├── httpTrigger.js      # HTTP-triggered function
+│       └── timerTrigger.js     # Timer-triggered function
+└── README.md                    # This file
 ```
 
-## Trigger Types
+## Key Configuration
 
-### HTTP Trigger (`httpTrigger.js`)
-
-- **Methods**: GET, POST
-- **Auth Level**: Anonymous
-- **Endpoint**: `http://localhost:7071/api/httpTrigger`
-- **Query Param**: `?name=YourName`
-
-**Example**:
-```bash
-curl http://localhost:7071/api/httpTrigger?name=Azure
-```
-
-**Response**:
+In `package.json`:
 ```json
 {
-  "message": "Hello, Azure!",
-  "timestamp": "2024-01-01T12:00:00.000Z",
-  "method": "GET"
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  }
 }
 ```
 
-### Timer Trigger (`timerTrigger.js`)
-
-- **Schedule**: Every 5 minutes (`0 */5 * * * *`)
-- **Logs**: Execution time and schedule status
-
-## Running Locally
-
-### With Azure Functions Core Tools
-
-```bash
-npm install
-func start
+In `host.json`:
+```json
+{
+  "version": "2.0",
+  "functionTimeout": "00:05:00"
+}
 ```
 
-### With azd
+This is the current standard for Azure Functions Node.js v4.
 
-From workspace root:
+## Running Tests
+
+### Prerequisites Check
 ```bash
+cd cli/tests/projects/functions/functions-nodejs-v4
+
+# Verify all requirements met
+azd app reqs
+
+# Expected output:
+# ✓ Azure Functions Core Tools: 4.x.x
+# ✓ Node.js: v18.x or v20.x
+# ✓ npm: 9.x or higher
+# All prerequisites met.
+```
+
+### Manual Test
+```bash
+# Install dependencies
+azd app deps
+
+# Start the Functions host
 azd app run
+
+# Expected output:
+# Worker process started and initialized.
+# Available Functions:
+# - httpTrigger: [GET,POST] http://localhost:7071/api/httpTrigger
+# - timerTrigger: [Timer Schedule Pattern: "0 */5 * * * *"]
 ```
 
-## Testing with azd
+### Testing HTTP Trigger
+```bash
+# In another terminal
+curl http://localhost:7071/api/httpTrigger?name=World
 
-This project is designed to test the Azure Functions detector in `azd app run`:
+# Expected response:
+# Welcome, World!
+```
 
-1. **Detection**: Should detect as Node.js v4 Functions
-2. **Health Check**: Should use HTTP trigger-based health check
-3. **Port**: Should default to 7071
-4. **Dashboard**: Should appear in the azd dashboard
+### Automated Tests
+This project is tested via:
+- `cli/src/internal/service/functions_test.go` - Detection logic
+- `cli/src/internal/service/functions_integration_test.go` - End-to-end tests
+- CI/CD pipeline integration tests
 
-## Dependencies
+## Why This Test Exists
 
-- `@azure/functions` v4.x - Azure Functions Node.js library
-- `azure-functions-core-tools` v4.x - Local development tools
+### Problem It Solves
+Without this test, we wouldn't validate:
+- Correct detection of Node.js v4 Functions
+- Modern async/await patterns
+- Proper trigger configuration
+- HTTP and Timer trigger support
+- Correct health check endpoints
 
-## Notes
+### Real-World Scenario
+Node.js v4 is the current standard for Azure Functions. New projects should use this model. This test ensures production-ready support for the modern runtime.
 
-- Uses v4 programming model (recommended)
-- No `function.json` files needed (legacy v3 model)
-- Functions defined using `app.http()` and `app.timer()` decorators
+## Test Matrix
+
+| Aspect | Expected | Status |
+|--------|----------|--------|
+| Runtime | Node.js v4 | ✅ |
+| Framework | @azure/functions ^4.0.0 | ✅ |
+| Host Version | 2.0 | ✅ |
+| HTTP Triggers | Supported | ✅ |
+| Timer Triggers | Supported | ✅ |
+| Decorators | Supported | ✅ |
+| Prerequisites | func 4.0+, Node.js 18+ | ✅ |
+| Port | 7071 (default) | ✅ |
+
+## Troubleshooting
+
+**"Azure Functions Core Tools not found"**
+- Install func CLI: `winget install Microsoft.Azure.FunctionsCoreTools` (Windows)
+- Verify: `func --version` (should be 4.0+)
+
+**"No functions found"**
+- Ensure functions/ directory exists
+- Verify functions are exported with @Function decorators
+- Check function.json exists for each function
+
+**"HTTP trigger not responding"**
+- Check URL is correct: http://localhost:7071/api/httpTrigger
+- Verify function is listed in "Available Functions" output
+- Check logs for errors
+
+**"Timer trigger not firing"**
+- Verify schedule pattern in function.json: `"0 */5 * * * *"`
+- Check logs for trigger events
+- Note: Timer triggers log to console every 5 minutes
+
+## Related Test Projects
+
+- [functions-nodejs-v3](../functions-nodejs-v3/) - Legacy Node.js v3 model
+- [functions-typescript-v4](../functions-typescript-v4/) - TypeScript variant
+- [functions-python-v2](../functions-python-v2/) - Python alternative
+- [functions-dotnet-isolated](../functions-dotnet-isolated/) - .NET alternative
+

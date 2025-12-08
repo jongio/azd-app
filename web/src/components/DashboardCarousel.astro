@@ -21,6 +21,7 @@ const { class: className = '', interval = 4000 } = Astro.props;
 const baseUrl = import.meta.env.BASE_URL;
 
 // Define the carousel slides
+// Note: Screenshots are captured by scripts/capture-screenshots.ts
 const slides = [
   {
     src: `${baseUrl}screenshots/dashboard-console.png`,
@@ -30,13 +31,13 @@ const slides = [
   },
   {
     src: `${baseUrl}screenshots/dashboard-resources-table.png`,
-    alt: 'Resources view showing services in a table format with status, ports, and health indicators',
+    alt: 'Services view showing services in a table format with status, ports, and health indicators',
     title: 'Table View',
     description: 'View all services at a glance',
   },
   {
-    src: `${baseUrl}screenshots/dashboard-resources-cards.png`,
-    alt: 'Resources view showing services as cards with detailed status information',
+    src: `${baseUrl}screenshots/dashboard-resources-grid.png`,
+    alt: 'Services view showing services as cards with detailed status information',
     title: 'Grid View',
     description: 'Detailed service cards',
   },
@@ -317,11 +318,11 @@ const slides = [
       let autoplayTimer: number | null = null;
       let isPaused = false;
       
-      // Slide data for updating info
+      // Slide data for updating info - must match the order of slides defined in Astro
       const slideData = [
-        { title: 'Resources Table', description: 'View all services at a glance' },
-        { title: 'Resources Cards', description: 'Detailed service cards' },
         { title: 'Console View', description: 'Real-time logs & monitoring' },
+        { title: 'Table View', description: 'View all services at a glance' },
+        { title: 'Grid View', description: 'Detailed service cards' },
       ];
 
       function goToSlide(index: number) {

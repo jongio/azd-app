@@ -2,6 +2,8 @@
  * Helper functions for ServiceDependencies component
  */
 import type { Service } from '@/types'
+import type { CodespaceConfig } from '@/lib/codespace-utils'
+import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
 
 // Re-export status indicator from unified service-utils
 export { getStatusIndicator, type StatusIndicator } from '@/lib/service-utils'
@@ -108,9 +110,29 @@ function isValidUrl(url: string): boolean {
 }
 
 /**
- * Get the local URL for a service
+ * Get the local URL for a service.
+ * When in a Codespace, transforms localhost URLs to forwarded URLs.
+ * 
+ * @param service - The service to get URL for
+ * @param codespaceConfig - Optional Codespace config for URL transformation
  */
-export function getServiceUrl(service: Service): string | null {
+export function getServiceUrl(
+  service: Service,
+  codespaceConfig?: CodespaceConfig | null
+): string | null {
+  // Use the centralized effective URL function which handles Codespace transformation
+  return getEffectiveServiceUrl(
+    service.local?.url,
+    service.local?.port,
+    codespaceConfig ?? null
+  )
+}
+
+/**
+ * Get the raw local URL for a service (without Codespace transformation).
+ * Use this when you specifically need the localhost URL.
+ */
+export function getRawServiceUrl(service: Service): string | null {
   // Check for URL in local info and validate it
   if (service.local?.url && isValidUrl(service.local.url)) {
     return service.local.url

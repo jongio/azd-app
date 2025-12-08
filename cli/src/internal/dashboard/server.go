@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -127,6 +128,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
 	s.mux.HandleFunc("/api/health/stream", s.handleHealthStream)
+	s.mux.HandleFunc("/api/environment", s.handleGetEnvironment)
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
@@ -175,6 +177,68 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+// handleGetEnvironment returns environment information for Codespace detection.
+func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Detect GitHub Codespace environment
+	codespaceName := os.Getenv("CODESPACE_NAME")
+	codespacePortDomain := os.Getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+
+	// Default domain if not set but in Codespace
+	if codespaceName != "" && codespacePortDomain == "" {
+		codespacePortDomain = "app.github.dev"
+	}
+
+	// Detect if running in VS Code (desktop) vs browser-based Codespace
+	// In VS Code desktop (including VS Code connected to Codespace), localhost URLs work natively
+	// Only in browser-based Codespace do we need to transform localhost URLs
+	isVsCodeDesktop := runningOnVsCodeDesktop()
+
+	response := map[string]interface{}{
+		"codespace": map[string]interface{}{
+			"enabled":         codespaceName != "",
+			"name":            codespaceName,
+			"domain":          codespacePortDomain,
+			"isVsCodeDesktop": isVsCodeDesktop,
+		},
+	}
+
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
+}
+
+// runningOnVsCodeDesktop detects if VS Code desktop is available.
+// When VS Code desktop is available (including when connected to Codespace),
+// localhost URLs work natively without transformation.
+// In browser-based Codespace, 'code --status' returns:
+// "The --status argument is not yet supported in browsers."
+// Reference: azure/azure-dev cli/azd/cmd/auth_login.go runningOnCodespacesBrowser
+func runningOnVsCodeDesktop() bool {
+	// Check if running in Codespace first - if not, no need to check
+	if os.Getenv("CODESPACES") != "true" {
+		return false
+	}
+
+	// Try to run 'code --status' to detect VS Code desktop vs browser
+	// This command returns specific output in browser-based VS Code
+	cmd := exec.Command("code", "--status")
+	output, err := cmd.Output()
+	if err != nil {
+		// If code command fails or doesn't exist, we're likely in browser Codespace
+		// or some environment where VS Code CLI isn't available
+		return false
+	}
+
+	// If output contains the browser-specific message, we're in browser Codespace
+	// Otherwise, we're in VS Code desktop connected to Codespace
+	return !strings.Contains(string(output), "The --status argument is not yet supported in browsers")
 }
 
 // handleGetServices returns services for the current project.

@@ -359,6 +359,37 @@ reqs:
 └─────────┘   └──────────┘
 ```
 
+### Podman Support
+
+When Podman is installed and aliased to Docker (common in rootless container setups), the `docker` command returns Podman's multi-line version format instead of Docker's single-line format.
+
+**Behavior:**
+- Podman is detected by checking for "Podman Engine" in the output
+- **Version comparison is skipped** because Docker and Podman use incompatible version schemes (Docker: `20.x`, `28.x` vs Podman: `4.x`, `5.x`)
+- The requirement is marked satisfied if Podman is installed
+- If `checkRunning: true`, the runtime check still executes
+
+**Example Output:**
+```
+✓ docker: 5.7.0 via Podman (version check skipped)
+  ✓ RUNNING
+```
+
+**JSON Output:**
+```json
+{
+  "name": "docker",
+  "installed": true,
+  "version": "5.7.0",
+  "required": "20.0.0",
+  "satisfied": true,
+  "isPodman": true,
+  "message": "Podman detected (version check skipped)"
+}
+```
+
+This ensures that users with Podman configured as a Docker replacement can use `azd app reqs` without false failures due to version mismatches.
+
 ## Caching Mechanism
 
 ### Cache Location

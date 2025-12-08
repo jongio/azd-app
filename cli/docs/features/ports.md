@@ -94,6 +94,50 @@ All save operations now return errors instead of logging warnings:
 
 **Mitigation**: Callers should handle port binding failures gracefully and may trigger port reassignment on binding errors.
 
+## Port Conflict Resolution
+
+When a port is already in use, the port manager will prompt you with options:
+
+```
+⚠️  Service 'api' requires port 3000 (configured in azure.yaml)
+This port is currently in use by node (PID 1234).
+
+Options:
+  1) Always kill processes (don't ask again)
+  2) Kill the process using port 3000
+  3) Assign a different port automatically
+  4) Cancel
+
+Choose (1/2/3/4):
+```
+
+### Process Tree Killing
+
+When you choose to kill a process (options 1 or 2), the port manager kills the entire process tree:
+
+- **Windows**: Uses `Get-CimInstance Win32_Process` to find child processes by `ParentProcessId`, then kills children recursively before the parent
+- **Unix**: Uses `pkill -P` to kill children first, then kills the parent with `kill -9`
+
+This ensures that child processes (like Node.js workers or Python Flask workers) that may be holding the port are also terminated.
+
+### Always Kill Preference
+
+If you frequently want to automatically kill processes on port conflicts, choose option 1 to set the "always kill" preference. Once set:
+
+- Port conflicts will be resolved automatically without prompting
+- The process on the conflicting port will be killed immediately
+- A message confirms the auto-kill: `"auto-killing (always-kill enabled)"`
+
+The preference is stored in azd's user config at `app.preferences.alwaysKillPortConflicts`.
+
+#### Resetting the Preference
+
+To reset the always-kill preference and return to being prompted:
+
+```bash
+azd config unset app.preferences.alwaysKillPortConflicts
+```
+
 ## Best Practices
 
 1. **Set port ranges** for containerized/isolated environments to avoid conflicts
@@ -101,6 +145,7 @@ All save operations now return errors instead of logging warnings:
 3. **Handle binding errors** in your service startup code
 4. **Use explicit ports** in azure.yaml for production services
 5. **Clean stale assignments** regularly in long-running environments
+6. **Use always-kill preference** in development to avoid repeated prompts
 
 ## Examples
 
