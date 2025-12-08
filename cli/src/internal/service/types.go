@@ -554,7 +554,27 @@ type LogEntry struct {
 	Level     LogLevel  `json:"level"`
 	Timestamp time.Time `json:"timestamp"`
 	IsStderr  bool      `json:"isStderr"`
+
+	// Source indicates where the log came from: "local" or "azure"
+	Source string `json:"source,omitempty"`
+
+	// AzureMetadata contains Azure-specific log information (only set when Source="azure")
+	AzureMetadata *AzureLogMetadata `json:"azureMetadata,omitempty"`
 }
+
+// AzureLogMetadata contains Azure-specific metadata for log entries.
+type AzureLogMetadata struct {
+	ResourceID    string `json:"resourceId,omitempty"`
+	ResourceType  string `json:"resourceType,omitempty"`
+	ContainerName string `json:"containerName,omitempty"`
+	InstanceID    string `json:"instanceId,omitempty"`
+}
+
+// LogSource constants for log entry source field.
+const (
+	LogSourceLocal = "local"
+	LogSourceAzure = "azure"
+)
 
 // LogLevel represents the severity of a log message.
 type LogLevel int

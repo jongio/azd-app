@@ -56,7 +56,7 @@ func newGetServiceLogsTool() server.ServerTool {
 		Tool: mcp.NewTool(
 			"get_service_logs",
 			mcp.WithTitleAnnotation("Get Service Logs"),
-			mcp.WithDescription("Get logs from running services. Can filter by service name, log level, and time range. Supports both recent logs and live streaming."),
+			mcp.WithDescription("Get logs from running services. Can filter by service name, log level, and time range. Supports both local and Azure cloud logs via the source parameter."),
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
@@ -74,6 +74,9 @@ func newGetServiceLogsTool() server.ServerTool {
 			),
 			mcp.WithString("since",
 				mcp.Description("Show logs since duration (e.g., '5m', '1h', '30s'). If provided, overrides tail parameter."),
+			),
+			mcp.WithString("source",
+				mcp.Description("Log source: 'local' for locally running services, 'azure' for Azure cloud services, 'both' for combined logs. Default is 'local'."),
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -117,6 +120,18 @@ func newGetServiceLogsTool() server.ServerTool {
 					return mcp.NewToolResultError("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
 				}
 				cmdArgs = append(cmdArgs, "--since", since)
+			}
+
+			// Handle source parameter for local/azure/both log sources
+			if source, ok := getStringParam(args, "source"); ok {
+				// Validate source parameter
+				allowedSources := map[string]bool{"local": true, "azure": true, "both": true}
+				if err := validateEnumParam(source, allowedSources, "source"); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				if source != "local" { // local is default, only add flag for other values
+					cmdArgs = append(cmdArgs, "--source", source)
+				}
 			}
 
 			// Add format flag for JSON output

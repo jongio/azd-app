@@ -77,3 +77,11 @@ export type { NotificationHistoryItem } from './NotificationCenter'
 export { NotificationStack } from './NotificationStack'
 export type { Notification } from './NotificationStack'
 export { NotificationToast } from './NotificationToast'
+
+// Mode & Azure Status
+export { ModeToggle } from './ModeToggle'
+export type { ModeToggleProps, LogMode } from './ModeToggle'
+export { AzureConnectionStatus, AzureStatusBadge } from './AzureConnectionStatus'
+export type { AzureConnectionStatusProps, AzureConnectionState, AzureStatusBadgeProps } from './AzureConnectionStatus'
+export { LogSourceBadge, InlineLogSource } from './LogSourceBadge'
+export type { LogSourceBadgeProps, LogSource, InlineLogSourceProps } from './LogSourceBadge'

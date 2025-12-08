@@ -13,10 +13,11 @@ import (
 
 // LogManager manages log buffers for all services in a project.
 type LogManager struct {
-	projectDir string
-	buffers    map[string]*LogBuffer // key: serviceName
-	logFilter  *LogFilter            // Optional log filter for all buffers
-	mu         sync.RWMutex
+	projectDir     string
+	buffers        map[string]*LogBuffer // key: serviceName
+	logFilter      *LogFilter            // Optional log filter for all buffers
+	azureLogBuffer *AzureLogBuffer       // Azure log buffer for cloud logs
+	mu             sync.RWMutex
 }
 
 var (
@@ -314,6 +315,20 @@ func (lm *LogManager) ClearBuffer(serviceName string) error {
 
 	buffer.Clear()
 	return nil
+}
+
+// GetAzureLogBuffer returns the Azure log buffer, if configured.
+func (lm *LogManager) GetAzureLogBuffer() *AzureLogBuffer {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	return lm.azureLogBuffer
+}
+
+// SetAzureLogBuffer sets the Azure log buffer for cloud log streaming.
+func (lm *LogManager) SetAzureLogBuffer(buffer *AzureLogBuffer) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	lm.azureLogBuffer = buffer
 }
 
 // SortLogEntries sorts log entries by timestamp (ascending).
