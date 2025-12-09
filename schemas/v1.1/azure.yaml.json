@@ -368,6 +368,12 @@
         "runningCheckExitCode": {
           "type": "integer",
           "description": "Expected exit code for running check (default: 0)"
+        },
+        "installUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to installation page for this tool. Displayed when requirement check fails. Built-in tools have default URLs that can be overridden.",
+          "examples": ["https://nodejs.org/", "https://www.docker.com/products/docker-desktop"]
         }
       }
     },
@@ -720,6 +726,13 @@
         {
           "name": "docker",
           "checkRunning": true
+        },
+        {
+          "name": "mytool",
+          "minVersion": "1.0.0",
+          "command": "mytool",
+          "args": ["--version"],
+          "installUrl": "https://example.com/mytool/install"
         }
       ],
       "hooks": {

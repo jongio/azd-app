@@ -141,19 +141,27 @@ func SearchToolInSystemPath(toolName string) string {
 // GetInstallSuggestion returns a suggestion for how to install a missing tool.
 func GetInstallSuggestion(toolName string) string {
 	suggestions := map[string]string{
-		"node":   "Install from https://nodejs.org/ or use nvm/fnm",
-		"pnpm":   "npm install -g pnpm",
+		"node":   "Install from https://nodejs.org/",
+		"pnpm":   "Install from https://pnpm.io/installation",
 		"npm":    "Install Node.js from https://nodejs.org/",
-		"yarn":   "npm install -g yarn",
+		"yarn":   "Install from https://yarnpkg.com/getting-started/install",
 		"python": "Install from https://www.python.org/downloads/",
 		"pip":    "Install Python from https://www.python.org/downloads/",
+		"poetry": "Install from https://python-poetry.org/docs/#installation",
+		"uv":     "Install from https://docs.astral.sh/uv/getting-started/installation/",
+		"pipenv": "Install from https://pipenv.pypa.io/en/latest/installation.html",
 		"docker": "Install Docker Desktop from https://www.docker.com/products/docker-desktop",
 		"git":    "Install from https://git-scm.com/downloads",
 		"go":     "Install from https://go.dev/dl/",
 		"dotnet": "Install from https://dotnet.microsoft.com/download",
+		"aspire": "Install from https://learn.microsoft.com/dotnet/aspire/fundamentals/setup-tooling",
 		"azd":    "Install from https://aka.ms/install-azd",
-		"az":     "Install from https://learn.microsoft.com/cli/azure/install-azure-cli",
-		"air":    "go install github.com/air-verse/air@latest",
+		"az":     "Install from https://aka.ms/installazurecli",
+		"air":    "Install from https://github.com/air-verse/air#installation",
+		"func":   "Install from https://learn.microsoft.com/azure/azure-functions/functions-run-local#install-the-azure-functions-core-tools",
+		"java":   "Install from https://adoptium.net/",
+		"mvn":    "Install from https://maven.apache.org/install.html",
+		"gradle": "Install from https://gradle.org/install/",
 		"gh":     "Install from https://cli.github.com/",
 	}
 
