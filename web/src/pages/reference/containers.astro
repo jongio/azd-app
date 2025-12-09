@@ -1,0 +1,438 @@
+---
+import Layout from '../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+
+const addCommand = `# List available container services
+azd app add --list
+
+# Add a service to your project
+azd app add azurite`;
+
+const yamlBasic = `services:
+  api:
+    path: ./src/api
+    language: node
+    
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"`;
+
+const yamlWithEnv = `services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app`;
+
+const yamlWithVolume = `services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data`;
+
+const yamlWithHealth = `services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5`;
+
+const yamlFullExample = `services:
+  api:
+    path: ./src/api
+    language: node
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+      REDIS_URL: redis://localhost:6379
+      AZURE_STORAGE_CONNECTION_STRING: UseDevelopmentStorage=true
+    
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports:
+      - "10000:10000"  # Blob
+      - "10001:10001"  # Queue
+      - "10002:10002"  # Table`;
+
+const runCommand = `# Run all services including containers
+azd app run
+
+# Run specific services
+azd app run --service api,postgres
+
+# Dry run to see what would start
+azd app run --dry-run`;
+---
+
+<Layout title="Container Services Guide" description="Learn how to add and configure container services like databases, caches, and Azure emulators in your azd app projects.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">Container Services</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">Container Services Guide</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">
+        Add databases, caches, and Azure emulators to your development environment with Docker containers managed by azd app.
+      </p>
+    </div>
+
+    <!-- Overview -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Overview</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        azd app supports running Docker containers alongside your application services. This is perfect for local development with databases, caches, message queues, and Azure service emulators without needing to install them directly on your machine.
+      </p>
+      <div class="grid gap-4 md:grid-cols-3 mt-6">
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div class="text-2xl mb-2">🐘</div>
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100">Databases</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">PostgreSQL, MySQL, MongoDB</div>
+        </div>
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div class="text-2xl mb-2">⚡</div>
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100">Caches</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">Redis, Memcached</div>
+        </div>
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div class="text-2xl mb-2">☁️</div>
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100">Azure Emulators</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">Azurite, Cosmos DB</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Quick Start</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        The fastest way to add a container service is using the <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azd app add</code> command:
+      </p>
+      <Code code={addCommand} lang="bash" frame="terminal" />
+      <p class="text-neutral-700 dark:text-neutral-300 mt-4">
+        This automatically adds the service to your <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.yaml</code> with optimal defaults for ports, environment variables, and health checks.
+      </p>
+    </section>
+
+    <!-- Built-in Services -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Built-in Container Services</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        azd app includes pre-configured definitions for common services. Use <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azd app add --list</code> to see all available services.
+      </p>
+      
+      <div class="overflow-x-auto my-8">
+        <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+          <thead>
+            <tr class="bg-neutral-200 dark:bg-neutral-700">
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Service</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Image</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Ports</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Use Case</th>
+            </tr>
+          </thead>
+          <tbody class="bg-neutral-100 dark:bg-neutral-800">
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">azurite</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">mcr.microsoft.com/azure-storage/azurite</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">10000-10002</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Azure Blob, Queue, Table storage</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">cosmos</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">8081, 10250-10254</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Azure Cosmos DB NoSQL</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">postgres</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">postgres:16</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">5432</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Relational database</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">redis</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">redis:7-alpine</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">6379</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">In-memory cache, sessions</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Manual Configuration -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Manual Configuration</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        You can also manually add container services to your <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.yaml</code>. Any service with an <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">image</code> property is treated as a container service.
+      </p>
+      
+      <h3 class="text-lg font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">Basic Container Service</h3>
+      <Code code={yamlBasic} lang="yaml" frame="code" />
+      
+      <h3 class="text-lg font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">With Environment Variables</h3>
+      <Code code={yamlWithEnv} lang="yaml" frame="code" />
+      
+      <h3 class="text-lg font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">With Volume Persistence</h3>
+      <Code code={yamlWithVolume} lang="yaml" frame="code" />
+      
+      <h3 class="text-lg font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">With Health Check</h3>
+      <Code code={yamlWithHealth} lang="yaml" frame="code" />
+    </section>
+
+    <!-- Configuration Options -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Configuration Options</h2>
+      <div class="overflow-x-auto my-8">
+        <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+          <thead>
+            <tr class="bg-neutral-200 dark:bg-neutral-700">
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Property</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Required</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
+            </tr>
+          </thead>
+          <tbody class="bg-neutral-100 dark:bg-neutral-800">
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">image</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Yes</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Docker image name with optional tag</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">ports</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string[]</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">No</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Port mappings in "host:container" format</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">env</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">map</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">No</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Environment variables for the container</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">volumes</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string[]</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">No</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Volume mounts for data persistence</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">healthcheck</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">object</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">No</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Docker Compose-compatible health check</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">command</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string[]</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">No</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Override the container's default command</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Health Check Options -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Health Check Configuration</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Health checks help azd app know when a container service is ready to accept connections. The format is compatible with Docker Compose.
+      </p>
+      <div class="overflow-x-auto my-8">
+        <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+          <thead>
+            <tr class="bg-neutral-200 dark:bg-neutral-700">
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Property</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
+            </tr>
+          </thead>
+          <tbody class="bg-neutral-100 dark:bg-neutral-800">
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">test</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string[]</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Command to run for health check</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">interval</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">30s</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Time between health checks</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">timeout</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">30s</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Time to wait for health check</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">retries</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">3</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Number of retries before unhealthy</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">start_period</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">duration</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">0s</td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Grace period before starting checks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Connection Strings -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Connection Strings</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Use these connection strings in your application services to connect to the container services:
+      </p>
+      <div class="overflow-x-auto my-8">
+        <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+          <thead>
+            <tr class="bg-neutral-200 dark:bg-neutral-700">
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Service</th>
+              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Connection String / URL</th>
+            </tr>
+          </thead>
+          <tbody class="bg-neutral-100 dark:bg-neutral-800">
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">azurite</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="text-xs">UseDevelopmentStorage=true</code></td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">cosmos</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="text-xs break-all">AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==</code></td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">postgres</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="text-xs break-all">postgresql://postgres:postgres@localhost:5432/app?sslmode=disable</code></td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">redis</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="text-xs">redis://localhost:6379</code> or <code class="text-xs">localhost:6379</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Full Example -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Complete Example</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Here's a complete azure.yaml with an API service connected to multiple container services:
+      </p>
+      <Code code={yamlFullExample} lang="yaml" frame="code" />
+    </section>
+
+    <!-- Running Containers -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Running Container Services</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Container services are managed automatically when you run your project:
+      </p>
+      <Code code={runCommand} lang="bash" frame="terminal" />
+      
+      <div class="mt-6 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+        <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">How it Works</h3>
+        <ul class="list-disc list-inside text-neutral-700 dark:text-neutral-300 space-y-2">
+          <li>Container services are started before application services</li>
+          <li>Health checks are monitored to ensure containers are ready</li>
+          <li>Logs from containers are streamed to the dashboard</li>
+          <li>Containers are stopped when you stop the development session</li>
+          <li>Named volumes persist data between sessions</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Requirements -->
+    <section class="mb-12">
+      <div class="p-6 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg border border-yellow-300 dark:border-yellow-700">
+        <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">Requirements</h3>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+          Container services require Docker to be installed and running on your machine. The <a href="/azd-app/reference/cli/reqs/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app reqs</a> command will automatically check for Docker when container services are defined in your project.
+        </p>
+        <ul class="list-disc list-inside text-neutral-700 dark:text-neutral-300 space-y-1">
+          <li><a href="https://docs.docker.com/desktop/" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">Docker Desktop</a> (Windows/macOS)</li>
+          <li><a href="https://docs.docker.com/engine/install/" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">Docker Engine</a> (Linux)</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- See Also -->
+    <h2 class="text-2xl font-bold mt-12 mb-4">See Also</h2>
+    <ul class="list-disc list-inside text-neutral-700 dark:text-neutral-300 space-y-2">
+      <li><a href="/azd-app/reference/cli/add/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app add</a> - Add container services to your project</li>
+      <li><a href="/azd-app/reference/cli/run/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app run</a> - Start all services including containers</li>
+      <li><a href="/azd-app/reference/cli/health/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app health</a> - Monitor container health status</li>
+      <li><a href="/azd-app/reference/cli/logs/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app logs</a> - View container logs</li>
+    </ul>
+
+    <!-- Navigation -->
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>

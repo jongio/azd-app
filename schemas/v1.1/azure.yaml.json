@@ -89,6 +89,23 @@
           "type": "string",
           "description": "Entry point file for the service (e.g., main.py, app.py) - azd app addition"
         },
+        "command": {
+          "type": "string",
+          "description": "Full command to run the service (e.g., 'uvicorn main:app --reload'). Primary way to override the auto-detected run command.",
+          "examples": ["uvicorn main:app --reload", "npm run dev", "go run main.go"]
+        },
+        "type": {
+          "type": "string",
+          "description": "Service type defining how the service is accessed. 'http' for HTTP/HTTPS services (default if ports defined), 'tcp' for raw TCP connections like databases, 'process' for services with no network endpoint (default if no ports), 'container' for Docker container services (auto-detected if image is set).",
+          "enum": ["http", "tcp", "process", "container"],
+          "default": "http"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Run mode for process-type services. 'watch' for continuous file-watching processes (tsc --watch, nodemon), 'build' for one-time build processes that exit, 'daemon' for long-running background processes (default), 'task' for one-time tasks run on demand.",
+          "enum": ["watch", "build", "daemon", "task"],
+          "default": "daemon"
+        },
         "image": {
           "type": "string",
           "description": "Docker image name for the service (from original schema)"
