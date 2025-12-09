@@ -543,6 +543,32 @@ func (l LogLevel) String() string {
 	}
 }
 
+// LogContext contains log lines before and after a log entry for debugging context.
+type LogContext struct {
+	Before []string `json:"before,omitempty"`
+	After  []string `json:"after,omitempty"`
+}
+
+// LogEntryWithContext represents a log entry with surrounding context.
+// Used when filtering logs by level and including context lines for debugging.
+type LogEntryWithContext struct {
+	Service   string     `json:"service"`
+	Message   string     `json:"message"`
+	Level     LogLevel   `json:"level"`
+	Timestamp time.Time  `json:"timestamp"`
+	IsStderr  bool       `json:"isStderr"`
+	Context   LogContext `json:"context,omitempty"`
+	Count     int        `json:"count,omitempty"` // For deduplication: how many times this entry occurred
+}
+
+// ErrorEntry is deprecated: use LogEntryWithContext instead.
+// Deprecated: This type alias exists for backward compatibility.
+type ErrorEntry = LogEntryWithContext
+
+// ErrorContext is deprecated: use LogContext instead.
+// Deprecated: This type alias exists for backward compatibility.
+type ErrorContext = LogContext
+
 // FrameworkDefaults contains default configuration for known frameworks.
 type FrameworkDefaults struct {
 	Name           string

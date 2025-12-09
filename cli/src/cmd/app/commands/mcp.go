@@ -90,11 +90,17 @@ This server complements azd's core MCP capabilities:
 **Best Practices:**
 1. Always use get_services to check current state before starting/stopping services
 2. Use check_requirements before installing dependencies to see what's needed
-3. Use get_service_logs to diagnose issues when services fail to start
-4. Read azure://project/azure.yaml resource to understand project structure before operations
+3. Use get_service_errors FIRST when debugging - it returns only errors with context
+4. Use get_service_logs for full log history when you need more detail
+5. Read azure://project/azure.yaml resource to understand project structure before operations
+
+**Debugging Workflow:**
+1. get_service_errors: Start here - returns errors with surrounding context for quick diagnosis
+2. get_service_logs: Use if you need full log history or non-error messages
+3. restart_service: After fixing issues, restart the affected service
 
 **Tool Categories:**
-- Observability: get_services, get_service_logs, get_project_info
+- Observability: get_services, get_service_errors, get_service_logs, get_project_info
 - Operations: run_services, stop_services, start_service, restart_service, install_dependencies
 - Configuration: check_requirements, get_environment_variables, set_environment_variable
 
@@ -124,6 +130,7 @@ This server complements azd's core MCP capabilities:
 		// Observability tools
 		newGetServicesTool(),
 		newGetServiceLogsTool(),
+		newGetServiceErrorsTool(),
 		newGetProjectInfoTool(),
 		// Operational tools
 		newRunServicesTool(),

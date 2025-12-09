@@ -34,6 +34,13 @@ const (
 	// DefaultWebSocketWriteTimeout is the timeout for WebSocket write operations.
 	DefaultWebSocketWriteTimeout = 10 * time.Second
 
+	// MaxContextLines is the maximum number of context lines before/after a log entry.
+	// Used when filtering logs by level with surrounding context for debugging.
+	MaxContextLines = 10
+
+	// DefaultContextLines is the default number of context lines when not specified.
+	DefaultContextLines = 3
+
 	// Environment variable prefixes and patterns
 	// EnvServiceURLPrefix is the prefix for service URL environment variables (e.g., SERVICE_WEB_URL)
 	EnvServiceURLPrefix = "SERVICE_"

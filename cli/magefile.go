@@ -983,16 +983,30 @@ func WebsiteTestE2E() error {
 
 // runWebsiteE2ETests is the shared implementation for E2E tests.
 func runWebsiteE2ETests(updateSnapshots bool) error {
-	if updateSnapshots {
-		fmt.Println("Running website E2E tests (updating snapshots)...")
-	} else {
-		fmt.Println("Running website E2E tests...")
-	}
-
 	// Get absolute path to website directory (safe for parallel execution)
 	absWebsiteDir, err := filepath.Abs(websiteDir)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	// Auto-generate baseline snapshots if they don't exist
+	snapshotsDir := filepath.Join(absWebsiteDir, "e2e", "screenshots.spec.ts-snapshots")
+	if _, err := os.Stat(snapshotsDir); os.IsNotExist(err) {
+		fmt.Println("📸 Baseline snapshots not found - will auto-generate them...")
+		updateSnapshots = true
+	} else if err == nil {
+		// Check if directory is empty
+		entries, err := os.ReadDir(snapshotsDir)
+		if err == nil && len(entries) == 0 {
+			fmt.Println("📸 Baseline snapshots directory is empty - will auto-generate them...")
+			updateSnapshots = true
+		}
+	}
+
+	if updateSnapshots {
+		fmt.Println("Running website E2E tests (updating snapshots)...")
+	} else {
+		fmt.Println("Running website E2E tests...")
 	}
 
 	// Install Playwright browsers
