@@ -31,6 +31,8 @@ type Prerequisite struct {
 	RunningCheckArgs     []string `yaml:"runningCheckArgs,omitempty"`     // Arguments for running check command
 	RunningCheckExpected string   `yaml:"runningCheckExpected,omitempty"` // Expected substring in output (optional)
 	RunningCheckExitCode *int     `yaml:"runningCheckExitCode,omitempty"` // Expected exit code (default: 0)
+	// Install URL configuration (optional)
+	InstallUrl string `yaml:"installUrl,omitempty"` // URL to installation page (overrides built-in)
 }
 
 // AzureYaml represents the structure of azure.yaml.
@@ -48,7 +50,8 @@ type ReqResult struct {
 	Running    bool   `json:"running,omitempty"`
 	CheckedRun bool   `json:"checkedRunning,omitempty"`
 	Message    string `json:"message,omitempty"`
-	IsPodman   bool   `json:"isPodman,omitempty"` // True when Podman is aliased to Docker
+	IsPodman   bool   `json:"isPodman,omitempty"`   // True when Podman is aliased to Docker
+	InstallUrl string `json:"installUrl,omitempty"` // URL to installation page
 }
 
 // ToolConfig defines how to check a specific tool.
@@ -165,6 +168,32 @@ var toolAliases = map[string]string{
 	"azure-functions-core-tools": "func",
 }
 
+// installURLRegistry maps tool names to their installation page URLs.
+var installURLRegistry = map[string]string{
+	"node":   "https://nodejs.org/",
+	"npm":    "https://nodejs.org/",
+	"pnpm":   "https://pnpm.io/installation",
+	"yarn":   "https://yarnpkg.com/getting-started/install",
+	"python": "https://www.python.org/downloads/",
+	"pip":    "https://www.python.org/downloads/",
+	"poetry": "https://python-poetry.org/docs/#installation",
+	"uv":     "https://docs.astral.sh/uv/getting-started/installation/",
+	"pipenv": "https://pipenv.pypa.io/en/latest/installation.html",
+	"dotnet": "https://dotnet.microsoft.com/download",
+	"aspire": "https://learn.microsoft.com/dotnet/aspire/fundamentals/setup-tooling",
+	"docker": "https://www.docker.com/products/docker-desktop",
+	"git":    "https://git-scm.com/downloads",
+	"go":     "https://go.dev/dl/",
+	"azd":    "https://aka.ms/install-azd",
+	"az":     "https://aka.ms/installazurecli",
+	"air":    "https://github.com/air-verse/air#installation",
+	"func":   "https://learn.microsoft.com/azure/azure-functions/functions-run-local#install-the-azure-functions-core-tools",
+	"java":   "https://adoptium.net/",
+	"mvn":    "https://maven.apache.org/install.html",
+	"gradle": "https://gradle.org/install/",
+	"gh":     "https://cli.github.com/",
+}
+
 // NewReqsCommand creates the reqs command.
 func NewReqsCommand() *cobra.Command {
 	var generateMode bool
@@ -266,19 +295,26 @@ func NewPrerequisiteChecker() *PrerequisiteChecker {
 func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 	installed, version, isPodman := pc.getInstalledVersion(prereq)
 
+	// Resolve install URL (custom overrides built-in)
+	installUrl := pc.getInstallUrl(prereq)
+
 	result := ReqResult{
-		Name:      prereq.Name,
-		Installed: installed,
-		Version:   version,
-		Required:  prereq.MinVersion,
-		Satisfied: false,
-		IsPodman:  isPodman,
+		Name:       prereq.Name,
+		Installed:  installed,
+		Version:    version,
+		Required:   prereq.MinVersion,
+		Satisfied:  false,
+		IsPodman:   isPodman,
+		InstallUrl: installUrl,
 	}
 
 	if !installed {
 		result.Message = "Not installed"
 		if !output.IsJSON() {
 			output.ItemError("%s: NOT INSTALLED (required: %s)", prereq.Name, prereq.MinVersion)
+			if installUrl != "" {
+				output.Item("   Install: %s", installUrl)
+			}
 		}
 		return result
 	}
@@ -307,6 +343,9 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
 			if !output.IsJSON() {
 				output.ItemError("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
+				if installUrl != "" {
+					output.Item("   Install: %s", installUrl)
+				}
 			}
 			return result
 		}
@@ -340,6 +379,28 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		result.Message = "Satisfied"
 	}
 	return result
+}
+
+// getInstallUrl returns the install URL for a prerequisite.
+// Custom InstallUrl in prerequisite takes precedence over built-in registry.
+func (pc *PrerequisiteChecker) getInstallUrl(prereq Prerequisite) string {
+	// Custom URL takes precedence
+	if prereq.InstallUrl != "" {
+		return prereq.InstallUrl
+	}
+
+	// Resolve aliases to canonical name
+	tool := prereq.Name
+	if canonical, isAlias := pc.aliases[tool]; isAlias {
+		tool = canonical
+	}
+
+	// Look up in registry
+	if url, found := installURLRegistry[tool]; found {
+		return url
+	}
+
+	return ""
 }
 
 // getInstalledVersion gets the installed version of a prerequisite.
