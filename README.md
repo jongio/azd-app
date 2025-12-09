@@ -56,7 +56,7 @@ Monitor all your services in one place with live status updates and health check
 ![Dashboard Resources](web/public/screenshots/dashboard-resources-cards.png)
 
 ### 📝 Unified Logs
-Stream and filter logs from all services. Search, highlight, and export with ease. No more switching between terminal windows.
+Stream and filter logs from all services—both local and Azure. Search, highlight, and export with ease. Switch between local and cloud logs with a single click.
 
 ![Console Logs](web/public/screenshots/dashboard-console.png)
 

@@ -138,6 +138,24 @@ type LogsConfig struct {
 	Filters *LogFilterConfig `yaml:"filters,omitempty"`
 	// Classifications for overriding log levels based on text matches
 	Classifications []LogClassification `yaml:"classifications,omitempty" json:"classifications,omitempty"`
+	// Azure log streaming configuration
+	Azure *AzureLogsConfig `yaml:"azure,omitempty" json:"azure,omitempty"`
+}
+
+// GetAzure returns the Azure logs config, or nil if not set.
+func (c *LogsConfig) GetAzure() *AzureLogsConfig {
+	if c == nil {
+		return nil
+	}
+	return c.Azure
+}
+
+// IsAzureEnabled returns true if Azure logging is enabled.
+func (c *LogsConfig) IsAzureEnabled() bool {
+	if c == nil || c.Azure == nil {
+		return false
+	}
+	return c.Azure.Enabled
 }
 
 // GetFilters returns the filter config, or nil if not set.

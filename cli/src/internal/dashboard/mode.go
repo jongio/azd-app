@@ -9,6 +9,16 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+// modeNotConfiguredMessage provides actionable guidance when trying to switch to Azure mode.
+const modeNotConfiguredMessage = `Azure logging not configured. To enable:
+1. Add to azure.yaml:
+   logs:
+     azure:
+       enabled: true
+2. Restart 'azd app run'
+
+For more info: https://aka.ms/azd-app/azure-logs`
+
 // ModeRequest represents a request to change the log source mode.
 type ModeRequest struct {
 	Mode string `json:"mode"` // "local" or "azure"
@@ -88,7 +98,7 @@ func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
 	azBuffer := logMgr.GetAzureLogBuffer()
 
 	if azBuffer == nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "Azure logging not configured", nil)
+		writeJSONError(w, http.StatusServiceUnavailable, modeNotConfiguredMessage, nil)
 		return
 	}
 

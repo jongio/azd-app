@@ -99,7 +99,9 @@ func (d *ResourceDiscovery) Discover(ctx context.Context) (*DiscoveryResult, err
 	for key, value := range envValues {
 		matches := servicePattern.FindStringSubmatch(key)
 		if matches != nil {
-			serviceName := strings.ToLower(matches[1])
+			// Normalize service name: lowercase and replace underscores with hyphens
+			// to match azure.yaml naming convention (e.g., containerapp-api)
+			serviceName := strings.ToLower(strings.ReplaceAll(matches[1], "_", "-"))
 			field := matches[2]
 			if services[serviceName] == nil {
 				services[serviceName] = make(map[string]string)

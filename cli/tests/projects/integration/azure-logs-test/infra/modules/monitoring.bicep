@@ -1,6 +1,5 @@
 // =============================================================================
 // MONITORING MODULE - Log Analytics Workspace + Application Insights
-// Uses Azure Verified Modules for consistent, production-ready configuration
 // =============================================================================
 
 @description('Name for the Log Analytics workspace')
@@ -13,43 +12,35 @@ param location string = resourceGroup().location
 param tags object = {}
 
 // =============================================================================
-// Log Analytics Workspace - Using Azure Verified Module
+// Log Analytics Workspace
 // This is the central hub for all Azure service logs
 // =============================================================================
 
-module logAnalyticsWorkspace 'br/public:avm/res/operational-insights/workspace:0.10.0' = {
-  name: 'log-analytics'
-  params: {
-    name: name
-    location: location
-    tags: tags
-    // Retain logs for 30 days (default for test environments)
-    dataRetention: 30
-    // Enable all relevant solutions for log streaming
-    gallerySolutions: [
-      {
-        name: 'ContainerInsights'
-        product: 'OMSGallery/ContainerInsights'
-        publisher: 'Microsoft'
-      }
-    ]
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-07-01' = {
+  name: name
+  location: location
+  tags: tags
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
   }
 }
 
 // =============================================================================
-// Application Insights - Using Azure Verified Module
+// Application Insights
 // Required for Azure Functions telemetry and logging
 // =============================================================================
 
-module appInsights 'br/public:avm/res/insights/component:0.6.0' = {
-  name: 'app-insights'
-  params: {
-    name: 'appi-${name}'
-    location: location
-    tags: tags
-    workspaceResourceId: logAnalyticsWorkspace.outputs.resourceId
-    // Application type for general web apps and functions
-    applicationType: 'web'
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: 'appi-${name}'
+  location: location
+  tags: tags
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
   }
 }
 
@@ -58,13 +49,13 @@ module appInsights 'br/public:avm/res/insights/component:0.6.0' = {
 // =============================================================================
 
 @description('The resource ID of the Log Analytics workspace')
-output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.outputs.resourceId
+output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
 
 @description('The name of the Log Analytics workspace')
-output logAnalyticsWorkspaceName string = logAnalyticsWorkspace.outputs.name
+output logAnalyticsWorkspaceName string = logAnalyticsWorkspace.name
 
 @description('The Application Insights connection string')
-output appInsightsConnectionString string = appInsights.outputs.connectionString
+output appInsightsConnectionString string = appInsights.properties.ConnectionString
 
 @description('The Application Insights instrumentation key')
-output appInsightsInstrumentationKey string = appInsights.outputs.instrumentationKey
+output appInsightsInstrumentationKey string = appInsights.properties.InstrumentationKey

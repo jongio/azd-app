@@ -8,6 +8,22 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+// azureNotConfiguredMessage provides actionable guidance when Azure logging is not configured.
+const azureNotConfiguredMessage = `Azure logging not configured. To enable:
+1. Add to azure.yaml:
+   logs:
+     azure:
+       enabled: true
+2. Restart 'azd app run'
+
+For more info: https://aka.ms/azd-app/azure-logs`
+
+// EnableAzureResponse represents the response from enabling Azure logging.
+type EnableAzureResponse struct {
+	Enabled bool   `json:"enabled"`
+	Message string `json:"message"`
+}
+
 // AzureStatusResponse represents the Azure log streaming status.
 type AzureStatusResponse struct {
 	Mode          string            `json:"mode"`
@@ -55,6 +71,85 @@ func (s *Server) handleAzureStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleEnableAzureLogging enables Azure logging by adding the config to azure.yaml.
+// POST /api/azure/enable
+func (s *Server) handleEnableAzureLogging(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	classificationsMu.Lock()
+	defer classificationsMu.Unlock()
+
+	// Load existing azure.yaml
+	azureYaml, err := loadAzureYaml(s.projectDir)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to load azure.yaml", err)
+		return
+	}
+
+	// Check if already enabled in config
+	if azureYaml.Logs != nil && azureYaml.Logs.Azure != nil && azureYaml.Logs.Azure.Enabled {
+		// Config already has it enabled, but buffer might not be initialized
+		// Initialize it now if needed
+		logMgr := service.GetLogManager(s.projectDir)
+		if logMgr.GetAzureLogBuffer() == nil {
+			azBuffer := service.NewAzureLogBuffer(azureYaml.Logs.Azure, s.projectDir)
+			logMgr.SetAzureLogBuffer(azBuffer)
+			log.Printf("Azure log buffer initialized (was configured but not running): %s", s.projectDir)
+		}
+
+		response := EnableAzureResponse{
+			Enabled: true,
+			Message: "Azure logging is enabled. Switch to Azure mode to view logs.",
+		}
+		if err := writeJSON(w, response); err != nil {
+			log.Printf("Failed to write enable azure response: %v", err)
+		}
+		return
+	}
+
+	// Initialize logs section if needed
+	if azureYaml.Logs == nil {
+		azureYaml.Logs = &service.LogsConfig{}
+	}
+
+	// Initialize azure section if needed
+	if azureYaml.Logs.Azure == nil {
+		azureYaml.Logs.Azure = &service.AzureLogsConfig{}
+	}
+
+	// Enable Azure logging
+	azureYaml.Logs.Azure.Enabled = true
+
+	// Save azure.yaml
+	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+		return
+	}
+
+	log.Printf("Azure logging enabled in azure.yaml for project: %s", s.projectDir)
+
+	// Initialize Azure log buffer immediately so user doesn't need to restart
+	logMgr := service.GetLogManager(s.projectDir)
+	if logMgr.GetAzureLogBuffer() == nil {
+		azBuffer := service.NewAzureLogBuffer(azureYaml.Logs.Azure, s.projectDir)
+		logMgr.SetAzureLogBuffer(azBuffer)
+		log.Printf("Azure log buffer initialized for project: %s", s.projectDir)
+	}
+
+	response := EnableAzureResponse{
+		Enabled: true,
+		Message: "Azure logging enabled! Switch to Azure mode to view logs.",
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write enable azure response: %v", err)
+	}
+}
+
 // handleAzureLogs returns recent Azure logs.
 func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -80,7 +175,7 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 	azBuffer := logMgr.GetAzureLogBuffer()
 
 	if azBuffer == nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "Azure logging not configured", nil)
+		writeJSONError(w, http.StatusServiceUnavailable, azureNotConfiguredMessage, nil)
 		return
 	}
 
@@ -115,7 +210,7 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	azBuffer := logMgr.GetAzureLogBuffer()
 
 	if azBuffer == nil {
-		if err := conn.writeWebSocketJSON(map[string]string{"error": "Azure logging not configured"}); err != nil {
+		if err := conn.writeWebSocketJSON(map[string]string{"error": azureNotConfiguredMessage}); err != nil {
 			log.Printf("Failed to write error to websocket: %v", err)
 		}
 		return
