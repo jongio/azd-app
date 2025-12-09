@@ -83,6 +83,7 @@ func main() {
 		commands.NewStartCommand(),
 		commands.NewStopCommand(),
 		commands.NewRestartCommand(),
+		commands.NewAddCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

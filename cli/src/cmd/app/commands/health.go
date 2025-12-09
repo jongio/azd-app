@@ -140,8 +140,8 @@ func runHealth(cmd *cobra.Command, args []string) error {
 
 	// Handle profile saving
 	if healthProfileSave {
-		if err := healthcheck.SaveSampleProfiles(projectDir); err != nil {
-			return fmt.Errorf("failed to save sample profiles: %w", err)
+		if saveErr := healthcheck.SaveSampleProfiles(projectDir); saveErr != nil {
+			return fmt.Errorf("failed to save sample profiles: %w", saveErr)
 		}
 		fmt.Println("Sample health profiles saved to .azd/health-profiles.yaml")
 		fmt.Println("You can customize these profiles or create new ones.")
@@ -174,9 +174,9 @@ func runHealth(cmd *cobra.Command, args []string) error {
 
 	// Apply profile if specified
 	if healthProfile != "" && profiles != nil {
-		profile, err := profiles.GetProfile(healthProfile)
-		if err != nil {
-			return fmt.Errorf("%w", err)
+		profile, profileErr := profiles.GetProfile(healthProfile)
+		if profileErr != nil {
+			return fmt.Errorf("%w", profileErr)
 		}
 
 		// Apply profile settings (CLI flags take precedence)

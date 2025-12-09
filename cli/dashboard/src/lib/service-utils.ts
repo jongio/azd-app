@@ -774,6 +774,7 @@ export function getServiceTypeBadgeConfig(serviceType?: ServiceType): ServiceTyp
     http: { color: 'bg-blue-500/10 text-blue-500 border-blue-500/20', label: 'HTTP', icon: '🌐' },
     tcp: { color: 'bg-purple-500/10 text-purple-500 border-purple-500/20', label: 'TCP', icon: '🔌' },
     process: { color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20', label: 'Process', icon: '⚙️' },
+    container: { color: 'bg-sky-500/10 text-sky-500 border-sky-500/20', label: 'Container', icon: '📦' },
   }
   return configs[serviceType ?? 'http']
 }
@@ -799,6 +800,7 @@ export function getServiceTypeLabel(serviceType?: ServiceType): string {
     http: 'HTTP Service',
     tcp: 'TCP Service',
     process: 'Process Service',
+    container: 'Container',
   }
   return labels[serviceType ?? 'http']
 }
@@ -821,6 +823,13 @@ export function getServiceModeLabel(serviceMode?: ServiceMode): string {
  */
 export function isProcessService(serviceType?: ServiceType): boolean {
   return serviceType === 'process'
+}
+
+/**
+ * Check if a service type is a container service
+ */
+export function isContainerService(serviceType?: ServiceType): boolean {
+  return serviceType === 'container'
 }
 
 /**

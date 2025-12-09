@@ -15,6 +15,7 @@ import {
   Cog,
   Cpu,
   Plug,
+  Box,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DualStatusBadge, StatusDot, type EffectiveStatus } from './StatusIndicator'
@@ -28,6 +29,7 @@ import {
   formatUptime,
   getCheckTypeDisplay,
   isProcessService,
+  isContainerService,
   getServiceModeBadgeConfig,
   getServiceDisplayStatus,
 } from '@/lib/service-utils'
@@ -73,6 +75,7 @@ export function ServiceCard({
   const serviceType = service.local?.serviceType
   const serviceMode = service.local?.serviceMode
   const isProcess = isProcessService(serviceType)
+  const isContainer = isContainerService(serviceType)
   const modeBadgeConfig = serviceMode ? getServiceModeBadgeConfig(serviceMode) : null
 
   // Health details from real-time data or service data
@@ -91,6 +94,17 @@ export function ServiceCard({
 
   // Get service icon based on type and status
   const getServiceIcon = () => {
+    // Container service icon
+    if (isContainer) {
+      return <Box className={cn(
+        'w-5 h-5',
+        isHealthy 
+          ? 'text-sky-600 dark:text-sky-400'
+          : effectiveStatus === 'error' || effectiveStatus === 'unhealthy'
+          ? 'text-rose-600 dark:text-rose-400'
+          : 'text-slate-500 dark:text-slate-400'
+      )} />
+    }
     if (isProcess) {
       // Process service specific icons based on mode/status
       if (effectiveStatus === 'watching' || serviceMode === 'watch') {
@@ -157,7 +171,9 @@ export function ServiceCard({
         {/* Service Icon */}
         <div className={cn(
           'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105',
-          isHealthy 
+          isContainer && isHealthy
+            ? 'bg-linear-to-br from-sky-100 to-sky-50 dark:from-sky-500/20 dark:to-sky-500/10'
+            : isHealthy 
             ? 'bg-linear-to-br from-emerald-100 to-emerald-50 dark:from-emerald-500/20 dark:to-emerald-500/10'
             : effectiveStatus === 'error' || effectiveStatus === 'unhealthy' || effectiveStatus === 'failed'
             ? 'bg-linear-to-br from-rose-100 to-rose-50 dark:from-rose-500/20 dark:to-rose-500/10'
@@ -191,7 +207,7 @@ export function ServiceCard({
             )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isProcess ? 'Process Service' : (service.language || 'Service')}
+            {isContainer ? 'Container' : isProcess ? 'Process Service' : (service.language || 'Service')}
             {service.framework && (
               <>
                 <span className="mx-1 text-slate-300 dark:text-slate-600">•</span>

@@ -14,12 +14,118 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 - **`ports`**: Explicit port mappings (Docker Compose style)
 - **`environment`**: Environment variables (Docker Compose compatible formats)
 - **`entrypoint`**: Custom entry point files for Python/Node services
+- **`command`**: Override auto-detected run commands
+- **`type`**: Service type (http, tcp, process, container)
+- **`mode`**: Run mode for process services (watch, build, daemon, task)
 - **`healthcheck`**: Docker Compose-compatible health checks for monitoring
 - **`reqs`**: Prerequisite tool validation (top-level, not per-service)
 - **`hooks`**: Lifecycle hooks for prerun/postrun automation (similar to azd's preprovision/postprovision)
 - **`test`**: Test configuration for multi-language testing with coverage aggregation
 
 All standard `azd` fields remain fully compatible.
+
+## Container Services
+
+`azd app` provides built-in support for common container services like databases and emulators. You can add them manually or use the `azd app add` command.
+
+### Quick Start with `azd app add`
+
+The fastest way to add container services:
+
+```bash
+# Add Azure Storage emulator
+azd app add azurite
+
+# Add Azure Cosmos DB emulator
+azd app add cosmos
+
+# Add Redis cache
+azd app add redis
+
+# Add PostgreSQL database
+azd app add postgres
+```
+
+This automatically configures the service with:
+- Correct Docker image and ports
+- Health checks for reliable startup
+- Environment variables for connecting from your services
+- Connection strings for easy integration
+
+### Built-in Services
+
+| Service | Image | Ports | Description |
+|---------|-------|-------|-------------|
+| `azurite` | `mcr.microsoft.com/azure-storage/azurite` | 10000-10002 | Azure Storage emulator (Blob, Queue, Table) |
+| `cosmos` | `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator` | 8081, 10250-10255 | Azure Cosmos DB emulator |
+| `redis` | `redis:7-alpine` | 6379 | Redis cache |
+| `postgres` | `postgres:16-alpine` | 5432 | PostgreSQL database |
+
+### Connection Strings
+
+When you add a service with `uses`, connection strings are automatically injected:
+
+```yaml
+services:
+  api:
+    project: ./api
+    uses: [postgres, redis]
+    # Automatically gets:
+    # - POSTGRES_CONNECTION_STRING
+    # - REDIS_CONNECTION_STRING
+
+  postgres:
+    image: postgres:16-alpine
+    ports: ["5432"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379"]
+```
+
+### Manual Configuration
+
+You can also configure containers manually using standard Docker Compose-style properties:
+
+```yaml
+services:
+  # Custom PostgreSQL with specific version
+  database:
+    image: postgres:15-alpine
+    ports: ["5432"]
+    type: tcp  # TCP health check (just check port)
+    environment:
+      POSTGRES_USER: myapp
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: mydb
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "myapp"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Custom Redis with authentication
+  cache:
+    image: redis:7-alpine
+    ports: ["6379"]
+    command: "redis-server --requirepass mypassword"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "mypassword", "ping"]
+```
+
+### Container Service Properties
+
+Container services support these properties:
+- **`image`**: Docker image name (triggers container mode)
+- **`ports`**: Port mappings (`["5432"]` or `["5432:5432"]`)
+- **`environment`**: Environment variables for the container
+- **`healthcheck`**: Health check configuration
+- **`type`**: Auto-detected as `container` when `image` is set
+- **`command`**: Override the container's default command
 
 ## Root Properties
 
@@ -108,6 +214,92 @@ services:
     language: Python
     project: ./backend
     entrypoint: main.py  # Instead of default app.py
+```
+
+#### `command` ⭐ NEW
+**Type:** `string` (optional)
+
+Full command to run the service. This is the primary way to override auto-detected run commands.
+
+```yaml
+services:
+  api:
+    language: Python
+    project: ./backend
+    command: "uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+  
+  worker:
+    project: ./worker
+    command: "npm run worker:start"
+```
+
+#### `type` ⭐ NEW
+**Type:** `string` (optional)
+
+Service type defining how the service is accessed. Controls health check behavior and network handling.
+
+**Values:**
+- `http` - HTTP/HTTPS traffic (default when ports defined). Health checks use HTTP endpoint probing.
+- `tcp` - Raw TCP connections like databases or gRPC. Health checks use TCP port connectivity.
+- `process` - No network endpoint (default when no ports). Health checks verify process is running.
+- `container` - Docker container service (auto-detected when `image` is set). Started via Docker.
+
+```yaml
+services:
+  # HTTP service (default when ports defined)
+  api:
+    project: ./api
+    ports: ["8080"]
+    # type: http  # Inferred from ports
+
+  # Database service with TCP health check
+  postgres:
+    image: postgres:15
+    ports: ["5432"]
+    type: tcp  # Just check port is open
+
+  # Background worker with no network endpoint
+  processor:
+    project: ./worker
+    type: process
+```
+
+#### `mode` ⭐ NEW
+**Type:** `string` (optional)
+
+Run mode for process-type services. Defines lifecycle behavior and status display.
+
+**Values:**
+- `daemon` - Long-running background process (default). Status: "Running" when healthy.
+- `watch` - Continuous file-watching process (tsc --watch, nodemon). Status: "Watching" when healthy.
+- `build` - One-time build that exits on completion. Status: "Building" → "Built" or "Failed".
+- `task` - One-time task run on demand. Status: "Running" → "Complete" or "Failed".
+
+```yaml
+services:
+  # TypeScript compiler in watch mode
+  tsc:
+    project: ./frontend
+    command: "npx tsc --watch"
+    type: process
+    mode: watch
+    healthcheck:
+      type: output
+      pattern: "Found 0 errors"
+
+  # One-time build step
+  build-assets:
+    project: ./assets
+    command: "npm run build"
+    type: process
+    mode: build
+    healthcheck: false
+
+  # Background queue processor
+  queue-worker:
+    project: ./worker
+    type: process
+    mode: daemon
 ```
 
 #### `ports` ⭐ NEW

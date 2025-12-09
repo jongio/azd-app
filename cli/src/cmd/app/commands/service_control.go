@@ -13,6 +13,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/docker"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
@@ -295,6 +296,7 @@ func (c *ServiceController) bulkOperation(
 // performStart executes the start logic for a service.
 // It now accepts a context for proper cancellation support and implements
 // comprehensive port cleanup on failures to prevent resource leaks.
+// For container services, uses StartContainerService instead of StartService.
 func (c *ServiceController) performStart(ctx context.Context, entry *registry.ServiceRegistryEntry, serviceName string) error {
 	// Check context before starting expensive operations
 	select {
@@ -320,24 +322,38 @@ func (c *ServiceController) performStart(ctx context.Context, entry *registry.Se
 		return fmt.Errorf("failed to detect service runtime: %w", err)
 	}
 
-	// Track port for cleanup on failure
+	// Track port for cleanup on failure (native services only)
 	assignedPort := runtime.Port
 
 	// Update to starting state
 	_ = c.registry.UpdateStatus(serviceName, constants.StatusStarting)
 
-	// Load environment variables
-	envVars := c.loadEnvVars(runtime)
+	// Start the service - use container runner for container services
+	var process *service.ServiceProcess
+	if runtime.Type == service.ServiceTypeContainer {
+		process, err = service.StartContainerService(runtime, c.projectDir, true) // restartContainers=true for restart/start ops
+		if err == nil {
+			// Start container log collection
+			if logErr := service.StartContainerLogCollection(process, c.projectDir); logErr != nil {
+				slog.Warn("failed to start container log collection",
+					"service", serviceName,
+					"error", logErr)
+			}
+		}
+	} else {
+		// Load environment variables for native services
+		envVars := c.loadEnvVars(runtime)
+		functionsParser := service.NewFunctionsOutputParser(false)
+		process, err = service.StartService(runtime, envVars, c.projectDir, functionsParser)
+	}
 
-	// Start the service
-	functionsParser := service.NewFunctionsOutputParser(false)
-	process, err := service.StartService(runtime, envVars, c.projectDir, functionsParser)
 	if err != nil {
 		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
 
 		// CRITICAL FIX: Clean up port assignment on failure to prevent resource leak
 		// Note: Port manager uses service name as key, not port number
-		if assignedPort > 0 {
+		// Only for native services - containers manage their own ports
+		if runtime.Type != service.ServiceTypeContainer && assignedPort > 0 {
 			pm := portmanager.GetPortManager(c.projectDir)
 			if releaseErr := pm.ReleasePort(serviceName); releaseErr != nil {
 				slog.Warn("failed to release port after start failure",
@@ -351,29 +367,42 @@ func (c *ServiceController) performStart(ctx context.Context, entry *registry.Se
 	}
 
 	// Validate process was created successfully
-	if process == nil || process.Process == nil {
+	// Container services have ContainerID instead of Process.Pid
+	if process == nil {
 		_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
-
-		// CRITICAL FIX: Clean up port assignment on validation failure
-		if assignedPort > 0 {
-			pm := portmanager.GetPortManager(c.projectDir)
-			if releaseErr := pm.ReleasePort(serviceName); releaseErr != nil {
-				slog.Warn("failed to release port after validation failure",
-					"service", serviceName,
-					"port", assignedPort,
-					"error", releaseErr)
-			}
-		}
-
 		return fmt.Errorf("service process not created")
+	}
+
+	if runtime.Type == service.ServiceTypeContainer {
+		if process.ContainerID == "" {
+			_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
+			return fmt.Errorf("container not created")
+		}
+	} else {
+		if process.Process == nil {
+			_ = c.registry.UpdateStatus(serviceName, constants.StatusError)
+
+			// CRITICAL FIX: Clean up port assignment on validation failure
+			if assignedPort > 0 {
+				pm := portmanager.GetPortManager(c.projectDir)
+				if releaseErr := pm.ReleasePort(serviceName); releaseErr != nil {
+					slog.Warn("failed to release port after validation failure",
+						"service", serviceName,
+						"port", assignedPort,
+						"error", releaseErr)
+				}
+			}
+
+			return fmt.Errorf("native service process not created")
+		}
 	}
 
 	// Update registry with new process info
 	// Health will be determined dynamically by health checks
+	// Preserve Type and Mode for container services
 	updatedEntry := &registry.ServiceRegistryEntry{
 		Name:        serviceName,
 		ProjectDir:  entry.ProjectDir,
-		PID:         process.Process.Pid,
 		Port:        runtime.Port,
 		URL:         entry.URL,
 		AzureURL:    entry.AzureURL,
@@ -385,11 +414,16 @@ func (c *ServiceController) performStart(ctx context.Context, entry *registry.Se
 		Type:        runtime.Type,
 		Mode:        runtime.Mode,
 	}
+	// Set PID only for native processes
+	if process.Process != nil {
+		updatedEntry.PID = process.Process.Pid
+	}
 	return c.registry.Register(updatedEntry)
 }
 
 // performStop executes the stop logic for a service.
 // It stops the service by PID and ensures the port is freed to handle stale registry entries.
+// For container services, uses Docker stop by container name instead of PID/port killing.
 // Now accepts context for proper cancellation support.
 func (c *ServiceController) performStop(ctx context.Context, entry *registry.ServiceRegistryEntry, serviceName string) error {
 	// Check context before starting
@@ -402,7 +436,12 @@ func (c *ServiceController) performStop(ctx context.Context, entry *registry.Ser
 	// Update to stopping state
 	_ = c.registry.UpdateStatus(serviceName, constants.StatusStopping)
 
-	// First, try to stop by the registered PID
+	// Container services: use Docker stop by name
+	if entry.Type == service.ServiceTypeContainer {
+		return c.stopContainerByName(serviceName)
+	}
+
+	// Native processes: stop by PID and ensure port is freed
 	if entry.PID > 0 {
 		process, err := os.FindProcess(entry.PID)
 		if err != nil {
@@ -429,6 +468,25 @@ func (c *ServiceController) performStop(ctx context.Context, entry *registry.Ser
 			// Not a fatal error - port might already be free
 			slog.Debug("error freeing port", "port", entry.Port, "service", serviceName, "error", err)
 		}
+	}
+
+	return c.registry.UpdateStatus(serviceName, constants.StatusStopped)
+}
+
+// stopContainerByName stops a Docker container by its deterministic name (azd-{serviceName}).
+// This is safer than port killing which might kill Docker's port forwarding proxy.
+func (c *ServiceController) stopContainerByName(serviceName string) error {
+	client := docker.NewClient()
+	containerName := fmt.Sprintf("azd-%s", serviceName)
+
+	// Stop container with grace period
+	if err := client.Stop(containerName, 10); err != nil {
+		slog.Warn("failed to stop container", "container", containerName, "error", err)
+	}
+
+	// Remove container to allow fresh start
+	if err := client.Remove(containerName); err != nil {
+		slog.Warn("failed to remove container", "container", containerName, "error", err)
 	}
 
 	return c.registry.UpdateStatus(serviceName, constants.StatusStopped)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-app/cli/src/internal/docker"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/security"
@@ -303,12 +304,23 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		log.Printf("Warning: failed to update status: %v", err)
 	}
 
-	// Load environment variables
-	envVars := h.loadEnvironmentVariables(runtime)
+	// Start the service - use container runner for container services
+	var process *service.ServiceProcess
+	if runtime.Type == service.ServiceTypeContainer {
+		process, err = service.StartContainerService(runtime, h.server.projectDir, true) // restartContainers=true for restart/start ops
+		if err == nil {
+			// Start container log collection
+			if logErr := service.StartContainerLogCollection(process, h.server.projectDir); logErr != nil {
+				log.Printf("Warning: failed to start container log collection for %s: %v", serviceName, logErr)
+			}
+		}
+	} else {
+		// Load environment variables for native services
+		envVars := h.loadEnvironmentVariables(runtime)
+		functionsParser := service.NewFunctionsOutputParser(false)
+		process, err = service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
+	}
 
-	// Start the service
-	functionsParser := service.NewFunctionsOutputParser(false)
-	process, err := service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
 	if err != nil {
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
@@ -317,18 +329,33 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 	}
 
 	// Validate process was created successfully
-	if process == nil || process.Process == nil {
+	// Container services have ContainerID instead of Process.Pid
+	if process == nil {
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
 		return fmt.Errorf("service process not created")
 	}
+	if runtime.Type == service.ServiceTypeContainer {
+		if process.ContainerID == "" {
+			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
+				log.Printf("Warning: failed to update status: %v", regErr)
+			}
+			return fmt.Errorf("container not created")
+		}
+	} else {
+		if process.Process == nil {
+			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
+				log.Printf("Warning: failed to update status: %v", regErr)
+			}
+			return fmt.Errorf("native service process not created")
+		}
+	}
 
-	// Create a fresh entry
+	// Create a fresh entry - preserve Type and Mode for container services
 	updatedEntry := &registry.ServiceRegistryEntry{
 		Name:        serviceName,
 		ProjectDir:  entry.ProjectDir,
-		PID:         process.Process.Pid,
 		Port:        runtime.Port,
 		URL:         entry.URL,
 		AzureURL:    entry.AzureURL,
@@ -337,6 +364,12 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		Status:      constants.StatusRunning,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
+		Type:        runtime.Type,
+		Mode:        runtime.Mode,
+	}
+	// Set PID only for native processes
+	if process.Process != nil {
+		updatedEntry.PID = process.Process.Pid
 	}
 	if err := reg.Register(updatedEntry); err != nil {
 		log.Printf("Warning: failed to register service: %v", err)
@@ -366,8 +399,14 @@ func (h *serviceOperationHandler) validateState(entry *registry.ServiceRegistryE
 // Returns nil if service was stopped successfully or if there was no process to stop.
 // This function handles the case where the registry PID is stale but a different
 // process is holding the port (e.g., after a crash and manual restart).
+// For container services, uses Docker stop by container name instead of PID/port killing.
 func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEntry, serviceName string) error {
-	// First, try to stop by the registered PID
+	// Container services: use Docker stop by name
+	if entry.Type == service.ServiceTypeContainer {
+		return h.stopContainerByName(serviceName)
+	}
+
+	// Native processes: stop by PID and ensure port is freed
 	if entry.PID > 0 {
 		process, err := os.FindProcess(entry.PID)
 		if err != nil {
@@ -394,6 +433,25 @@ func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEnt
 			// Not a fatal error - port might already be free
 			log.Printf("Warning: error freeing port %d for service %s: %v", entry.Port, serviceName, err)
 		}
+	}
+
+	return nil
+}
+
+// stopContainerByName stops a Docker container by its deterministic name (azd-{serviceName}).
+// This is safer than port killing which might kill Docker's port forwarding proxy.
+func (h *serviceOperationHandler) stopContainerByName(serviceName string) error {
+	client := docker.NewClient()
+	containerName := fmt.Sprintf("azd-%s", serviceName)
+
+	// Stop container with grace period
+	if err := client.Stop(containerName, 10); err != nil {
+		log.Printf("Warning: failed to stop container %s: %v", containerName, err)
+	}
+
+	// Remove container to allow fresh start
+	if err := client.Remove(containerName); err != nil {
+		log.Printf("Warning: failed to remove container %s: %v", containerName, err)
 	}
 
 	return nil
@@ -448,16 +506,27 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStarting); err != nil {
-		log.Printf("Warning: failed to update status: %v", err)
+	if statusErr := reg.UpdateStatus(serviceName, constants.StatusStarting); statusErr != nil {
+		log.Printf("Warning: failed to update status: %v", statusErr)
 	}
 
-	// Load environment variables
-	envVars := h.loadEnvironmentVariables(runtime)
+	// Start the service - use container runner for container services
+	var process *service.ServiceProcess
+	if runtime.Type == service.ServiceTypeContainer {
+		process, err = service.StartContainerService(runtime, h.server.projectDir, true) // restartContainers=true for restart/start ops
+		if err == nil {
+			// Start container log collection
+			if logErr := service.StartContainerLogCollection(process, h.server.projectDir); logErr != nil {
+				log.Printf("Warning: failed to start container log collection for %s: %v", serviceName, logErr)
+			}
+		}
+	} else {
+		// Load environment variables for native services
+		envVars := h.loadEnvironmentVariables(runtime)
+		functionsParser := service.NewFunctionsOutputParser(false)
+		process, err = service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
+	}
 
-	// Start the service
-	functionsParser := service.NewFunctionsOutputParser(false)
-	process, err := service.StartService(runtime, envVars, h.server.projectDir, functionsParser)
 	if err != nil {
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
@@ -471,19 +540,37 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	}
 
 	// Validate process was created successfully
-	if process == nil || process.Process == nil {
+	// Container services have ContainerID instead of Process.Pid
+	if process == nil {
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
 		writeJSONError(w, http.StatusInternalServerError, "Service process not created", nil)
 		return
 	}
+	if runtime.Type == service.ServiceTypeContainer {
+		if process.ContainerID == "" {
+			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
+				log.Printf("Warning: failed to update status: %v", regErr)
+			}
+			writeJSONError(w, http.StatusInternalServerError, "Container not created", nil)
+			return
+		}
+	} else {
+		if process.Process == nil {
+			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
+				log.Printf("Warning: failed to update status: %v", regErr)
+			}
+			writeJSONError(w, http.StatusInternalServerError, "Native service process not created", nil)
+			return
+		}
+	}
 
 	// Create a fresh entry to avoid race conditions with the copy from GetService
+	// Preserve Type and Mode for container services
 	updatedEntry := &registry.ServiceRegistryEntry{
 		Name:        serviceName,
 		ProjectDir:  entry.ProjectDir,
-		PID:         process.Process.Pid,
 		Port:        runtime.Port,
 		URL:         entry.URL,
 		AzureURL:    entry.AzureURL,
@@ -492,6 +579,12 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 		Status:      constants.StatusRunning,
 		StartTime:   time.Now(),
 		LastChecked: time.Now(),
+		Type:        runtime.Type,
+		Mode:        runtime.Mode,
+	}
+	// Set PID only for native processes
+	if process.Process != nil {
+		updatedEntry.PID = process.Process.Pid
 	}
 	if err := reg.Register(updatedEntry); err != nil {
 		log.Printf("Warning: failed to register service: %v", err)

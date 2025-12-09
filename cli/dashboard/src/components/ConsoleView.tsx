@@ -460,11 +460,15 @@ export function ConsoleView({
   }, [isFullscreen, onFullscreenChange])
 
   // Initialize selected services when services change
+  // Always sync selectedServices with the full service list to ensure all services are displayed
   React.useEffect(() => {
-    if (services.length > 0 && selectedServices.size === 0) {
-      setSelectedServices(new Set(services.map((s) => s.name)))
+    if (services.length > 0) {
+      const currentServiceNames = new Set(services.map((s) => s.name))
+      // Update selected services to match the current service list
+      // This ensures new services are added even if they arrive after initial load
+      setSelectedServices(currentServiceNames)
     }
-  }, [services, selectedServices.size])
+  }, [services])
 
   // Keyboard shortcuts
   React.useEffect(() => {

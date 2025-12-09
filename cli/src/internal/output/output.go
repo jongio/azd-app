@@ -1,3 +1,6 @@
+// Package output provides structured output formatting for CLI commands.
+// It supports multiple output formats including human-readable text and JSON,
+// with consistent styling using ANSI colors and Unicode symbols.
 package output
 
 import (
@@ -79,6 +82,8 @@ var (
 	IconRocket  = "🚀"
 	IconWarning = "⚠️"
 	IconError   = "❌"
+	IconInfo    = "ℹ️"
+	IconFolder  = "📁"
 )
 
 // Global output format setting
@@ -267,6 +272,13 @@ func Item(format string, args ...interface{}) {
 	fmt.Printf("   %s\n", msg)
 }
 
+// Bullet prints a bulleted list item
+func Bullet(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	bullet := getIcon(SymbolDot, "*")
+	fmt.Printf("  %s %s\n", bullet, msg)
+}
+
 // ItemSuccess prints an indented success item
 func ItemSuccess(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
@@ -405,9 +417,10 @@ func ProgressBar(current, total int, width int) string {
 	return fmt.Sprintf("[%s] %d%%", bar, int(percent*100))
 }
 
-// Table prints a simple table
+// TableRow represents a row in a table as a map of column header to value.
 type TableRow map[string]string
 
+// Table prints a simple table with the given headers and rows.
 func Table(headers []string, rows []TableRow) {
 	if len(rows) == 0 {
 		return

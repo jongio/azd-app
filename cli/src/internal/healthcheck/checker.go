@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/docker"
 	"github.com/jongio/azd-app/cli/src/internal/procutil"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/rs/zerolog/log"
@@ -296,7 +297,7 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 
 	// Check for custom healthcheck config first
 	if svc.HealthCheck != nil && len(svc.HealthCheck.Test) > 0 {
-		if httpResult := c.tryCustomHealthCheck(ctx, svc.HealthCheck); httpResult != nil {
+		if httpResult := c.tryCustomHealthCheck(ctx, svc.HealthCheck, svc); httpResult != nil {
 			return c.buildResultFromHTTPCheck(result, httpResult, svc.Port, isInStartupGracePeriod)
 		}
 	}
@@ -377,7 +378,9 @@ func (c *HealthChecker) buildResultFromHTTPCheck(result HealthCheckResult, httpR
 }
 
 // tryCustomHealthCheck performs a health check using custom configuration from azure.yaml.
-func (c *HealthChecker) tryCustomHealthCheck(ctx context.Context, config *healthCheckConfig) *httpHealthCheckResult {
+// For container services (svc.Type == "container"), CMD and CMD-SHELL health checks
+// are executed inside the container using docker exec.
+func (c *HealthChecker) tryCustomHealthCheck(ctx context.Context, config *healthCheckConfig, svc serviceInfo) *httpHealthCheckResult {
 	if len(config.Test) == 0 {
 		return nil
 	}
@@ -393,9 +396,9 @@ func (c *HealthChecker) tryCustomHealthCheck(ctx context.Context, config *health
 	if len(config.Test) > 1 {
 		switch config.Test[0] {
 		case "CMD":
-			return c.performCommandCheck(ctx, config.Test[1:])
+			return c.performCommandCheck(ctx, config.Test[1:], svc)
 		case "CMD-SHELL":
-			return c.performShellCheck(ctx, config.Test[1])
+			return c.performShellCheck(ctx, config.Test[1], svc)
 		case "NONE":
 			return &httpHealthCheckResult{
 				Endpoint: "none",
@@ -405,7 +408,7 @@ func (c *HealthChecker) tryCustomHealthCheck(ctx context.Context, config *health
 	}
 
 	// Single string that's not a URL - treat as shell command
-	return c.performShellCheck(ctx, test)
+	return c.performShellCheck(ctx, test, svc)
 }
 
 // performHTTPCheck performs a direct HTTP health check to a specific URL.
@@ -457,20 +460,42 @@ func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *ht
 }
 
 // performCommandCheck executes a command for health check (CMD format).
-func (c *HealthChecker) performCommandCheck(ctx context.Context, args []string) *httpHealthCheckResult {
+// For container services, the command is executed inside the container using docker exec.
+func (c *HealthChecker) performCommandCheck(ctx context.Context, args []string, svc serviceInfo) *httpHealthCheckResult {
 	if len(args) == 0 {
 		return nil
 	}
 
 	startTime := time.Now()
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	err := cmd.Run()
-	responseTime := time.Since(startTime)
-
 	result := &httpHealthCheckResult{
 		Endpoint:     strings.Join(args, " "),
-		ResponseTime: responseTime,
+		ResponseTime: 0,
 	}
+
+	// For container services, execute inside the container
+	if svc.Type == service.ServiceTypeContainer {
+		containerName := fmt.Sprintf("azd-%s", svc.Name)
+		client := docker.NewClient()
+
+		exitCode, output, err := client.Exec(containerName, args)
+		result.ResponseTime = time.Since(startTime)
+
+		if err != nil {
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("docker exec failed: %v", err)
+		} else if exitCode != 0 {
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("command exited with code %d: %s", exitCode, output)
+		} else {
+			result.Status = HealthStatusHealthy
+		}
+		return result
+	}
+
+	// For native services, execute on host
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	err := cmd.Run()
+	result.ResponseTime = time.Since(startTime)
 
 	if err != nil {
 		result.Status = HealthStatusUnhealthy
@@ -483,9 +508,35 @@ func (c *HealthChecker) performCommandCheck(ctx context.Context, args []string) 
 }
 
 // performShellCheck executes a shell command for health check (CMD-SHELL format).
-func (c *HealthChecker) performShellCheck(ctx context.Context, command string) *httpHealthCheckResult {
+// For container services, the command is executed inside the container using docker exec sh -c.
+func (c *HealthChecker) performShellCheck(ctx context.Context, command string, svc serviceInfo) *httpHealthCheckResult {
 	startTime := time.Now()
+	result := &httpHealthCheckResult{
+		Endpoint:     command,
+		ResponseTime: 0,
+	}
 
+	// For container services, execute inside the container
+	if svc.Type == service.ServiceTypeContainer {
+		containerName := fmt.Sprintf("azd-%s", svc.Name)
+		client := docker.NewClient()
+
+		exitCode, output, err := client.ExecShell(containerName, command)
+		result.ResponseTime = time.Since(startTime)
+
+		if err != nil {
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("docker exec failed: %v", err)
+		} else if exitCode != 0 {
+			result.Status = HealthStatusUnhealthy
+			result.Error = fmt.Sprintf("command exited with code %d: %s", exitCode, output)
+		} else {
+			result.Status = HealthStatusHealthy
+		}
+		return result
+	}
+
+	// For native services, execute on host
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		cmd = exec.CommandContext(ctx, "cmd", "/C", command)
@@ -494,12 +545,7 @@ func (c *HealthChecker) performShellCheck(ctx context.Context, command string) *
 	}
 
 	err := cmd.Run()
-	responseTime := time.Since(startTime)
-
-	result := &httpHealthCheckResult{
-		Endpoint:     command,
-		ResponseTime: responseTime,
-	}
+	result.ResponseTime = time.Since(startTime)
 
 	if err != nil {
 		result.Status = HealthStatusUnhealthy

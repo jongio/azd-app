@@ -254,10 +254,10 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// Check if dashboard is actually responding
-	if err := dashboardClient.Ping(dashCtx); err != nil {
+	if pingErr := dashboardClient.Ping(dashCtx); pingErr != nil {
 		// Debug: log actual error for troubleshooting
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", pingErr)
 		}
 		output.Info("No services are currently running")
 		output.Item("Run 'azd app run' to start services")
@@ -284,8 +284,8 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// Validate service filter
-	if err := e.validateServiceFilter(serviceFilter, serviceNames); err != nil {
-		return err
+	if valErr := e.validateServiceFilter(serviceFilter, serviceNames); valErr != nil {
+		return valErr
 	}
 
 	// Parse log level filter

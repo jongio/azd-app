@@ -35,9 +35,45 @@ type Prerequisite struct {
 	InstallUrl string `yaml:"installUrl,omitempty"` // URL to installation page (overrides built-in)
 }
 
+// ReqsService represents a minimal service definition for reqs parsing.
+// Only includes fields needed to detect container services.
+type ReqsService struct {
+	Image  string            `yaml:"image,omitempty"`
+	Docker *ReqsDockerConfig `yaml:"docker,omitempty"`
+}
+
+// ReqsDockerConfig represents minimal Docker configuration for reqs parsing.
+type ReqsDockerConfig struct {
+	Image string `yaml:"image,omitempty"`
+}
+
 // AzureYaml represents the structure of azure.yaml.
 type AzureYaml struct {
-	Reqs []Prerequisite `yaml:"reqs"`
+	Reqs     []Prerequisite         `yaml:"reqs"`
+	Services map[string]ReqsService `yaml:"services,omitempty"`
+}
+
+// hasContainerServices returns true if any service is a container service.
+func (a *AzureYaml) hasContainerServices() bool {
+	for _, svc := range a.Services {
+		if svc.Image != "" {
+			return true
+		}
+		if svc.Docker != nil && svc.Docker.Image != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasDockerReq returns true if Docker is already in the reqs list.
+func (a *AzureYaml) hasDockerReq() bool {
+	for _, req := range a.Reqs {
+		if strings.EqualFold(req.Name, "docker") {
+			return true
+		}
+	}
+	return false
 }
 
 // ReqResult represents the result of checking a requirement.

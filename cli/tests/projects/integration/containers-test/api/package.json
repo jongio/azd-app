@@ -1,0 +1,17 @@
+{
+  "name": "containers-test-api",
+  "version": "1.0.0",
+  "description": "Test API for container services integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["test", "containers", "azurite", "cosmos", "redis", "postgres"],
+  "license": "MIT",
+  "dependencies": {
+    "@azure/storage-blob": "^12.17.0",
+    "@azure/cosmos": "^4.0.0",
+    "redis": "^4.6.12",
+    "pg": "^8.11.3"
+  }
+}

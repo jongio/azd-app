@@ -1060,6 +1060,9 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 	}
 	testCmd := exec.Command("npx", args...)
 	testCmd.Dir = absWebsiteDir
+	// Set CI=true to skip visual regression (screenshot comparison) since
+	// baseline snapshots are platform-specific and gitignored
+	testCmd.Env = append(os.Environ(), "CI=true")
 	testCmd.Stdout = os.Stdout
 	testCmd.Stderr = os.Stderr
 	if err := testCmd.Run(); err != nil {

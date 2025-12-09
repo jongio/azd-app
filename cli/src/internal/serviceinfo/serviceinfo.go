@@ -87,6 +87,8 @@ type LocalServiceInfo struct {
 	PID         int        `json:"pid,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`
 	LastChecked *time.Time `json:"lastChecked,omitempty"`
+	ServiceType string     `json:"serviceType,omitempty"` // "http", "tcp", "process", "container"
+	ServiceMode string     `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
 }
 
 // AzureServiceInfo contains Azure-specific service information.
@@ -296,6 +298,8 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				PID:         runningSvc.PID,
 				StartTime:   &runningSvc.StartTime,
 				LastChecked: &runningSvc.LastChecked,
+				ServiceType: runningSvc.Type,
+				ServiceMode: runningSvc.Mode,
 			}
 		}
 	}
