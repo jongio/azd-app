@@ -53,7 +53,13 @@ AppServiceConsoleLogs
 FunctionAppLogs
 | where _ResourceId contains "{serviceName}"
 | where TimeGenerated > ago({timespan})
-| project TimeGenerated, Message, Level, FunctionName, Category
+| project TimeGenerated, Message, Level, FunctionName, Category, HostInstanceId, ExceptionDetails
+| union (
+    traces
+    | where _ResourceId contains "{serviceName}" or cloud_RoleName contains "{serviceName}"
+    | where TimeGenerated > ago({timespan})
+    | project TimeGenerated, Message=message, Level=tostring(severityLevel), FunctionName=operation_Name, Category="traces", HostInstanceId="", ExceptionDetails=""
+)
 | order by TimeGenerated desc
 | take 1000`,
 
@@ -125,6 +131,15 @@ func (c *LogAnalyticsClient) QueryLogsSince(ctx context.Context, serviceName str
 	return c.QueryLogs(ctx, serviceName, resourceType, since, customQuery)
 }
 
+// sanitizeKQLString escapes special characters to prevent KQL injection.
+func sanitizeKQLString(s string) string {
+	// Escape single quotes (KQL string delimiter)
+	s = strings.ReplaceAll(s, "'", "''")
+	// Escape backslashes
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	return s
+}
+
 // buildQuery constructs the KQL query with substituted placeholders.
 func (c *LogAnalyticsClient) buildQuery(serviceName string, resourceType ResourceType, timespan time.Duration, customQuery string) string {
 	var query string
@@ -137,8 +152,8 @@ func (c *LogAnalyticsClient) buildQuery(serviceName string, resourceType Resourc
 		}
 	}
 
-	// Replace placeholders
-	query = strings.ReplaceAll(query, "{serviceName}", serviceName)
+	// Replace placeholders with sanitized values
+	query = strings.ReplaceAll(query, "{serviceName}", sanitizeKQLString(serviceName))
 	query = strings.ReplaceAll(query, "{timespan}", formatTimespan(timespan))
 
 	return strings.TrimSpace(query)
@@ -200,7 +215,20 @@ func (c *LogAnalyticsClient) extractMessage(row []any, colIndex map[string]int, 
 	case ResourceTypeAppService:
 		return getStringFromRow(row, colIndex, "ResultDescription", "Message")
 	case ResourceTypeFunction:
-		return getStringFromRow(row, colIndex, "Message")
+		// For Function Apps, include FunctionName context in the message if available
+		msg := getStringFromRow(row, colIndex, "Message")
+		funcName := getStringFromRow(row, colIndex, "FunctionName")
+		category := getStringFromRow(row, colIndex, "Category")
+
+		if funcName != "" && msg != "" {
+			// Prepend function name to message for context
+			return "[" + funcName + "] " + msg
+		}
+		if category != "" && msg != "" && funcName == "" {
+			// If no function name but has category, include it
+			return "[" + category + "] " + msg
+		}
+		return msg
 	case ResourceTypeAKS:
 		return getStringFromRow(row, colIndex, "LogMessage", "Message")
 	case ResourceTypeContainerInstance:

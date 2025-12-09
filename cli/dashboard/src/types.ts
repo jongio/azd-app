@@ -5,6 +5,35 @@ export interface ClassificationOverride {
   createdAt: string
 }
 
+// ============================================================================
+// Azure Error Types
+// ============================================================================
+
+/**
+ * Specific Azure error types for actionable error handling
+ * Each type has specific UI treatment and guidance
+ */
+export type AzureErrorType = 
+  | 'auth'        // Authentication required (401, missing credentials)
+  | 'permission'  // Permission denied (403, RBAC issues)
+  | 'not-found'   // Resource not found (404, not deployed)
+  | 'rate-limit'  // Rate limited (429, throttling)
+  | 'network'     // Network error (timeout, connection refused)
+  | 'workspace'   // Log Analytics not configured
+  | 'query'       // Invalid KQL query syntax
+  | 'generic'     // Unknown/fallback error
+
+/**
+ * Parsed Azure error with type and metadata
+ */
+export interface ParsedAzureError {
+  type: AzureErrorType
+  message: string
+  statusCode?: number
+  retryAfter?: number  // Seconds to wait before retry (for rate limits)
+  details?: string     // Additional error details
+}
+
 /** Type of health check performed */
 export type HealthCheckType = 'http' | 'tcp' | 'process'
 

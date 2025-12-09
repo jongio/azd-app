@@ -149,3 +149,103 @@ func TestLogEntryStruct(t *testing.T) {
 		t.Errorf("Expected LogLevelInfo, got %v", entry.Level)
 	}
 }
+
+func TestExtractMessageForFunctionApp(t *testing.T) {
+	// Create a client for testing
+	client := &LogAnalyticsClient{}
+
+	tests := []struct {
+		name     string
+		row      []any
+		colIndex map[string]int
+		expected string
+	}{
+		{
+			name: "function app with function name and message",
+			row:  []any{"MyFunction", "User logged in successfully", "Host.Function"},
+			colIndex: map[string]int{
+				"FunctionName": 0,
+				"Message":      1,
+				"Category":     2,
+			},
+			expected: "[MyFunction] User logged in successfully",
+		},
+		{
+			name: "function app with category only (no function name)",
+			row:  []any{"", "Starting host", "Host.Startup"},
+			colIndex: map[string]int{
+				"FunctionName": 0,
+				"Message":      1,
+				"Category":     2,
+			},
+			expected: "[Host.Startup] Starting host",
+		},
+		{
+			name: "function app with message only",
+			row:  []any{"", "Simple message", ""},
+			colIndex: map[string]int{
+				"FunctionName": 0,
+				"Message":      1,
+				"Category":     2,
+			},
+			expected: "Simple message",
+		},
+		{
+			name: "function app with empty message",
+			row:  []any{"MyFunction", "", "Host.Function"},
+			colIndex: map[string]int{
+				"FunctionName": 0,
+				"Message":      1,
+				"Category":     2,
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := client.extractMessage(tc.row, tc.colIndex, ResourceTypeFunction)
+			if result != tc.expected {
+				t.Errorf("extractMessage() = %q, want %q", result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestFunctionAppDefaultQuery(t *testing.T) {
+	query := GetDefaultQuery(ResourceTypeFunction)
+
+	// Verify query is not empty
+	if query == "" {
+		t.Error("Function App default query should not be empty")
+	}
+
+	// Verify query contains expected tables
+	if !containsString(query, "FunctionAppLogs") {
+		t.Error("Function App query should query FunctionAppLogs table")
+	}
+
+	if !containsString(query, "traces") {
+		t.Error("Function App query should query traces table for Application Insights")
+	}
+
+	// Verify query contains expected fields
+	expectedFields := []string{"Message", "Level", "FunctionName", "Category"}
+	for _, field := range expectedFields {
+		if !containsString(query, field) {
+			t.Errorf("Function App query should contain field: %s", field)
+		}
+	}
+
+	// Verify query contains placeholders
+	if !containsString(query, "{serviceName}") {
+		t.Error("Function App query should contain {serviceName} placeholder")
+	}
+	if !containsString(query, "{timespan}") {
+		t.Error("Function App query should contain {timespan} placeholder")
+	}
+}
+
+func containsString(s, substr string) bool {
+	return indexOf(s, substr) >= 0
+}

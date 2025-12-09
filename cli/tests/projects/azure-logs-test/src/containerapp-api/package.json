@@ -1,0 +1,13 @@
+{
+  "name": "containerapp-api",
+  "version": "1.0.0",
+  "description": "Container Apps API for Azure log streaming test",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

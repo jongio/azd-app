@@ -32,7 +32,7 @@ func TestNewAzureLogBufferWithConfig(t *testing.T) {
 		PollingInterval: 1 * time.Minute,
 		DefaultTimespan: 2 * time.Hour,
 	}
-	
+
 	buffer := NewAzureLogBuffer(config, "/tmp/project")
 	if buffer == nil {
 		t.Fatal("NewAzureLogBuffer returned nil")
@@ -59,7 +59,7 @@ func TestLogModeConstants(t *testing.T) {
 
 func TestAzureLogBufferSetMode(t *testing.T) {
 	buffer := NewAzureLogBuffer(nil, "/tmp/project")
-	
+
 	// Initial mode should be local
 	if buffer.GetMode() != LogModeLocal {
 		t.Errorf("Expected initial mode local, got %v", buffer.GetMode())
@@ -95,23 +95,23 @@ func TestAzureLogBufferSetMode(t *testing.T) {
 
 func TestAzureLogBufferSubscription(t *testing.T) {
 	buffer := NewAzureLogBuffer(nil, "/tmp/project")
-	
+
 	// Subscribe
 	ch := buffer.Subscribe()
 	if ch == nil {
 		t.Fatal("Subscribe returned nil channel")
 	}
-	
+
 	// Check that subscriber was added
 	buffer.subMu.RLock()
 	if len(buffer.subscribers) != 1 {
 		t.Errorf("Expected 1 subscriber, got %d", len(buffer.subscribers))
 	}
 	buffer.subMu.RUnlock()
-	
+
 	// Unsubscribe
 	buffer.Unsubscribe(ch)
-	
+
 	// Check that subscriber was removed
 	buffer.subMu.RLock()
 	if len(buffer.subscribers) != 0 {
@@ -122,19 +122,19 @@ func TestAzureLogBufferSubscription(t *testing.T) {
 
 func TestAzureLogBufferClose(t *testing.T) {
 	buffer := NewAzureLogBuffer(nil, "/tmp/project")
-	
+
 	// Subscribe
 	ch := buffer.Subscribe()
 	if ch == nil {
 		t.Fatal("Subscribe returned nil channel")
 	}
-	
+
 	// Close buffer
 	err := buffer.Close()
 	if err != nil {
 		t.Errorf("Close returned error: %v", err)
 	}
-	
+
 	// Subscribers should be closed
 	buffer.subMu.RLock()
 	if len(buffer.subscribers) != 0 {
@@ -148,7 +148,7 @@ func TestAzureLogBufferGetAzureStatus(t *testing.T) {
 		Enabled: true,
 	}
 	buffer := NewAzureLogBuffer(config, "/tmp/project")
-	
+
 	status := buffer.GetAzureStatus()
 	if status.Mode != LogModeLocal {
 		t.Errorf("Expected mode local, got %v", status.Mode)
@@ -169,7 +169,7 @@ func TestAzureStatusStruct(t *testing.T) {
 		ResourceCount: 3,
 		LastError:     "",
 	}
-	
+
 	if status.Mode != LogModeAzure {
 		t.Errorf("Expected mode azure, got %v", status.Mode)
 	}

@@ -276,7 +276,7 @@ Files to modify:
 
 ### Task 1.12: MCP Tool Extensions
 **Assigned**: Developer
-**Status**: DONE
+**Status**: DONE (partial - dedicated Azure tools deferred to P2)
 
 Extend MCP `get_service_logs` tool with source parameter:
 - Add `source: auto|local|azure` parameter
@@ -286,9 +286,10 @@ Extend MCP `get_service_logs` tool with source parameter:
   3. azure.yaml config
   4. Auto-detect
 
-Add new MCP tools:
-- `get_azure_logs` - dedicated Azure query tool
-- `get_azure_status` - Azure connection and resource info
+~~Add new MCP tools:~~
+~~- `get_azure_logs` - dedicated Azure query tool~~
+~~- `get_azure_status` - Azure connection and resource info~~
+*Note: Dedicated Azure MCP tools deferred to Phase 3 (3.3 KQL Query Builder). Core functionality available via `get_service_logs --source azure`.*
 
 Modify:
 - `cli/src/cmd/app/commands/mcp_tools.go`
@@ -297,7 +298,7 @@ Modify:
 **Acceptance Criteria**:
 - Existing tool backward compatible
 - Source parameter works correctly
-- New tools documented with schemas
+- ~~New tools documented with schemas~~
 - Mode sync works when dashboard running
 
 ---
@@ -324,7 +325,7 @@ Write integration tests for core Azure log functionality:
 
 ### Task 2.1: Azure Functions Log Support
 **Assigned**: Developer
-**Status**: TODO
+**Status**: DONE
 
 Add Azure Functions log streaming:
 - Detect Function App resources
