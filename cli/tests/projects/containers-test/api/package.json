@@ -1,0 +1,11 @@
+{
+  "name": "containers-test-api",
+  "version": "1.0.0",
+  "description": "Test API for container services integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["test", "containers", "azurite", "cosmos", "redis", "postgres"],
+  "license": "MIT"
+}

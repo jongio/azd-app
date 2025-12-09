@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: containers-test
+
+# Test project for well-known container services
+# Tests azurite, cosmos, redis, and postgres running as Docker containers
+
+services:
+  # Azure Storage Emulator (Azurite)
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports:
+      - "10000:10000"  # Blob
+      - "10001:10001"  # Queue  
+      - "10002:10002"  # Table
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:10000/", "--connect-timeout", "5"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Azure Cosmos DB Emulator
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    ports:
+      - "8081:8081"
+      - "10250:10250"
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: "10"
+      AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Simple API that depends on the containers
+  api:
+    project: ./api
+    language: javascript
+    ports:
+      - "3000:3000"
+    uses:
+      - azurite
+      - cosmos
+      - redis
+      - postgres
+    environment:
+      AZURE_STORAGE_CONNECTION_STRING: "UseDevelopmentStorage=true"
+      COSMOS_ENDPOINT: "https://localhost:8081"
+      REDIS_URL: "redis://localhost:6379"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/testdb"

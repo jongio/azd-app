@@ -893,9 +893,38 @@ resources:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `language` | string | ✅ | Project language (js/python/csharp/dotnet) |
+| `language` | string | ✅* | Project language (js/python/csharp/dotnet) |
 | `host` | string | ✅ | Deployment target (containerapp, etc.) |
-| `project` | string | ✅ | Relative path to project directory |
+| `project` | string | ✅* | Relative path to project directory |
+| `image` | string | ❌ | Docker image for container services |
+| `ports` | []string | ❌ | Port mappings (e.g., "3000:3000") |
+| `environment` | map | ❌ | Environment variables for the service |
+
+*Required for application services, not required for container services.
+
+### Container Services
+
+Container services are defined using the `image` field instead of `language` and `project`. They are started as Docker containers alongside your application services.
+
+```yaml
+services:
+  # Application service
+  api:
+    language: python
+    project: ./backend
+  
+  # Container service
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+```
+
+Container services require Docker to be installed and running. The `azd app reqs` command will automatically check for Docker when container services are defined.
+
+Use `azd app add` to easily add well-known container services like Azurite, Cosmos DB emulator, Redis, or PostgreSQL.
 
 ### Environment File Format
 

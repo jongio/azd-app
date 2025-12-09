@@ -1163,3 +1163,289 @@ func TestServiceHelperMethods(t *testing.T) {
 		})
 	}
 }
+
+// TestContainerServiceDetection tests the IsContainerService and GetContainerImage methods.
+func TestContainerServiceDetection(t *testing.T) {
+	tests := []struct {
+		name          string
+		svc           service.Service
+		isContainer   bool
+		expectedImage string
+	}{
+		{
+			name: "service with direct image is container",
+			svc: service.Service{
+				Image: "mcr.microsoft.com/azure-storage/azurite",
+				Ports: []string{"10000:10000"},
+			},
+			isContainer:   true,
+			expectedImage: "mcr.microsoft.com/azure-storage/azurite",
+		},
+		{
+			name: "service with docker.image is container",
+			svc: service.Service{
+				Docker: &service.DockerConfig{
+					Image: "redis:7-alpine",
+				},
+				Ports: []string{"6379"},
+			},
+			isContainer:   true,
+			expectedImage: "redis:7-alpine",
+		},
+		{
+			name: "service with project is not container",
+			svc: service.Service{
+				Project:  "./api",
+				Language: "python",
+				Ports:    []string{"8000"},
+			},
+			isContainer:   false,
+			expectedImage: "",
+		},
+		{
+			name: "service with both image and project - image takes precedence",
+			svc: service.Service{
+				Image:   "postgres:16",
+				Project: "./db", // This would be ignored
+				Ports:   []string{"5432"},
+			},
+			isContainer:   true,
+			expectedImage: "postgres:16",
+		},
+		{
+			name:          "empty service is not container",
+			svc:           service.Service{},
+			isContainer:   false,
+			expectedImage: "",
+		},
+		{
+			name: "service with empty docker config is not container",
+			svc: service.Service{
+				Docker: &service.DockerConfig{},
+			},
+			isContainer:   false,
+			expectedImage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.svc.IsContainerService(); got != tt.isContainer {
+				t.Errorf("IsContainerService() = %v, want %v", got, tt.isContainer)
+			}
+			if got := tt.svc.GetContainerImage(); got != tt.expectedImage {
+				t.Errorf("GetContainerImage() = %q, want %q", got, tt.expectedImage)
+			}
+		})
+	}
+}
+
+// TestContainerRuntimeDetection tests that container services get the correct runtime type.
+func TestContainerRuntimeDetection(t *testing.T) {
+	// Create a temp directory for the test
+	tmpDir := t.TempDir()
+
+	// Create azure.yaml for container service
+	azureYaml := `name: test-app
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+    healthcheck:
+      type: tcp
+`
+	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	// Parse azure.yaml
+	parsed, err := service.ParseAzureYaml(azureYamlPath)
+	if err != nil {
+		t.Fatalf("Failed to parse azure.yaml: %v", err)
+	}
+
+	// Get the azurite service
+	svc, ok := parsed.Services["azurite"]
+	if !ok {
+		t.Fatalf("Service 'azurite' not found in azure.yaml")
+	}
+
+	// Verify it's detected as a container service
+	if !svc.IsContainerService() {
+		t.Errorf("Expected azurite to be detected as container service")
+	}
+
+	// Detect runtime
+	usedPorts := make(map[int]bool)
+	runtime, err := service.DetectServiceRuntime("azurite", svc, usedPorts, tmpDir, "azd")
+	if err != nil {
+		t.Fatalf("DetectServiceRuntime failed: %v", err)
+	}
+
+	// Verify runtime type
+	if runtime.Type != service.ServiceTypeContainer {
+		t.Errorf("Expected Type = %q, got %q", service.ServiceTypeContainer, runtime.Type)
+	}
+
+	// Verify image is stored in Command
+	if runtime.Command != "mcr.microsoft.com/azure-storage/azurite" {
+		t.Errorf("Expected Command (image) = %q, got %q", "mcr.microsoft.com/azure-storage/azurite", runtime.Command)
+	}
+
+	// Verify health check type
+	if runtime.HealthCheck.Type != "tcp" {
+		t.Errorf("Expected HealthCheck.Type = %q, got %q", "tcp", runtime.HealthCheck.Type)
+	}
+
+	// Verify port assignment
+	if runtime.Port != 10000 {
+		t.Errorf("Expected Port = 10000, got %d", runtime.Port)
+	}
+}
+
+// TestAllWellKnownContainerServices tests parsing all stock container services (azurite, cosmos, redis, postgres).
+func TestAllWellKnownContainerServices(t *testing.T) {
+	// Create a temp directory for the test
+	tmpDir := t.TempDir()
+
+	// Create azure.yaml with all well-known container services
+	azureYaml := `name: wellknown-containers-test
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    ports:
+      - "8081:8081"
+      - "10250:10250"
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: "10"
+      AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+`
+	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	// Parse azure.yaml
+	parsed, err := service.ParseAzureYaml(azureYamlPath)
+	if err != nil {
+		t.Fatalf("Failed to parse azure.yaml: %v", err)
+	}
+
+	// Define expected services
+	expectedServices := []struct {
+		name        string
+		image       string
+		port        int
+		hasEnv      bool
+		envVarCheck string
+	}{
+		{"azurite", "mcr.microsoft.com/azure-storage/azurite:latest", 10000, false, ""},
+		{"cosmos", "mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest", 8081, true, "AZURE_COSMOS_EMULATOR_PARTITION_COUNT"},
+		{"redis", "redis:7-alpine", 6379, false, ""},
+		{"postgres", "postgres:16-alpine", 5432, true, "POSTGRES_USER"},
+	}
+
+	usedPorts := make(map[int]bool)
+
+	for _, expected := range expectedServices {
+		t.Run(expected.name, func(t *testing.T) {
+			// Get the service
+			svc, ok := parsed.Services[expected.name]
+			if !ok {
+				t.Fatalf("Service %q not found in azure.yaml", expected.name)
+			}
+
+			// Verify it's detected as a container service
+			if !svc.IsContainerService() {
+				t.Errorf("%s: Expected to be detected as container service", expected.name)
+			}
+
+			// Verify image
+			if got := svc.GetContainerImage(); got != expected.image {
+				t.Errorf("%s: Expected image %q, got %q", expected.name, expected.image, got)
+			}
+
+			// Verify environment if expected
+			if expected.hasEnv {
+				if _, ok := svc.Environment[expected.envVarCheck]; !ok {
+					t.Errorf("%s: Expected environment variable %q not found", expected.name, expected.envVarCheck)
+				}
+			}
+
+			// Verify healthcheck is set
+			if svc.Healthcheck == nil {
+				t.Errorf("%s: Expected healthcheck to be set", expected.name)
+			} else if svc.Healthcheck.Test == nil {
+				t.Errorf("%s: Expected healthcheck test command to be set", expected.name)
+			}
+
+			// Detect runtime
+			runtime, err := service.DetectServiceRuntime(expected.name, svc, usedPorts, tmpDir, "azd")
+			if err != nil {
+				t.Fatalf("%s: DetectServiceRuntime failed: %v", expected.name, err)
+			}
+
+			// Verify runtime type
+			if runtime.Type != service.ServiceTypeContainer {
+				t.Errorf("%s: Expected Type = %q, got %q", expected.name, service.ServiceTypeContainer, runtime.Type)
+			}
+
+			// Verify port
+			if runtime.Port != expected.port {
+				t.Errorf("%s: Expected Port = %d, got %d", expected.name, expected.port, runtime.Port)
+			}
+
+			// Mark port as used
+			usedPorts[runtime.Port] = true
+		})
+	}
+
+	// Verify we have the expected number of services
+	if len(parsed.Services) != 4 {
+		t.Errorf("Expected 4 services, got %d", len(parsed.Services))
+	}
+}

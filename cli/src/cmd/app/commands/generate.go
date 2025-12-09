@@ -724,7 +724,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	var azureYaml struct {
 		Reqs []Prerequisite `yaml:"reqs"`
 	}
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
+	if err = yaml.Unmarshal(data, &azureYaml); err != nil {
 		return 0, 0, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 

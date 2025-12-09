@@ -27,6 +27,11 @@ const (
 
 // DetectServiceRuntime determines how to run a service based on its configuration and project structure.
 func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string, runtimeMode string) (*ServiceRuntime, error) {
+	// Check for container services first (identified by image field)
+	if service.IsContainerService() {
+		return detectContainerRuntime(serviceName, service, usedPorts, azureYamlDir)
+	}
+
 	projectDir := service.Project
 	if projectDir == "" {
 		return nil, fmt.Errorf("service %s has no project directory", serviceName)
@@ -139,6 +144,77 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	if runtime.Type == ServiceTypeProcess {
 		// Detect mode from explicit config, command, or project structure
 		runtime.Mode = detectServiceMode(service, runtime, projectDir)
+	}
+
+	return runtime, nil
+}
+
+// detectContainerRuntime creates a ServiceRuntime for a Docker container service.
+// Container services are identified by having an `image` field set.
+func detectContainerRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string) (*ServiceRuntime, error) {
+	image := service.GetContainerImage()
+	if image == "" {
+		return nil, fmt.Errorf("container service %s has no image", serviceName)
+	}
+
+	// Determine default health check type - TCP for containers (port connectivity)
+	defaultHealthCheckType := "tcp"
+	if service.IsHealthcheckDisabled() {
+		defaultHealthCheckType = "none"
+	} else if service.Healthcheck != nil && service.Healthcheck.Type != "" {
+		defaultHealthCheckType = service.Healthcheck.Type
+	}
+
+	runtime := &ServiceRuntime{
+		Name:       serviceName,
+		WorkingDir: azureYamlDir, // Container runs from project root
+		Protocol:   "tcp",
+		Env:        make(map[string]string),
+		Type:       ServiceTypeContainer,
+		HealthCheck: HealthCheckConfig{
+			Type:     defaultHealthCheckType,
+			Timeout:  60 * time.Second,
+			Interval: 2 * time.Second,
+		},
+	}
+
+	// Store container image in the runtime (using Command field for now)
+	// TODO: Add dedicated Image field to ServiceRuntime
+	runtime.Command = image
+	runtime.Language = "container"
+	runtime.Framework = "docker"
+
+	// Copy environment variables from service config
+	for key, value := range service.GetEnvironment() {
+		runtime.Env[key] = value
+	}
+
+	// Handle port assignment for container services
+	if service.NeedsPort() {
+		// Get port mappings from service config
+		mappings, isExplicit := service.GetPortMappings()
+		if len(mappings) > 0 {
+			// Use the first port mapping's host port (or container port if host not specified)
+			hostPort := mappings[0].HostPort
+			containerPort := mappings[0].ContainerPort
+
+			if hostPort == 0 {
+				// Auto-assign host port using port manager
+				portMgr := portmanager.GetPortManager(azureYamlDir)
+				assignedPort, shouldUpdate, err := portMgr.AssignPort(serviceName, containerPort, isExplicit)
+				if err != nil {
+					return nil, fmt.Errorf("failed to assign port for container: %w", err)
+				}
+				runtime.Port = assignedPort
+				runtime.ShouldUpdateAzureYaml = shouldUpdate
+			} else {
+				runtime.Port = hostPort
+			}
+
+			// Update health check port
+			runtime.HealthCheck.Port = runtime.Port
+			usedPorts[runtime.Port] = true
+		}
 	}
 
 	return runtime, nil
