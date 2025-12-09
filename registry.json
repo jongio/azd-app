@@ -1428,12 +1428,89 @@
               "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.8.1/jongio-azd-app-windows-arm64.zip"
             }
           }
+        },
+        {
+          "version": "0.9.0",
+          "capabilities": [
+            "custom-commands",
+            "lifecycle-events",
+            "mcp-server"
+          ],
+          "usage": "azd app \u003ccommand\u003e [options]",
+          "examples": [
+            {
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
+            },
+            {
+              "name": "reqs",
+              "description": "Verify all prerequisites are installed",
+              "usage": "azd app reqs"
+            },
+            {
+              "name": "test",
+              "description": "Run tests for all services with coverage",
+              "usage": "azd app test --coverage"
+            }
+          ],
+          "artifacts": {
+            "darwin/amd64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "3f98546ee13b4a11783fc0bc3214fd21c20037cd33ced405a67fc3060233679b"
+              },
+              "entryPoint": "jongio-azd-app-darwin-amd64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.9.0/jongio-azd-app-darwin-amd64.zip"
+            },
+            "darwin/arm64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "8a64a6d74551271e12fb0219f73d25e4e6aeb279c1059c7351a1bc5094b89063"
+              },
+              "entryPoint": "jongio-azd-app-darwin-arm64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.9.0/jongio-azd-app-darwin-arm64.zip"
+            },
+            "linux/amd64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "2db89139646230df315c7feb7574ee9bb613257e9d512e70bff9c11f7acbe88c"
+              },
+              "entryPoint": "jongio-azd-app-linux-amd64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.9.0/jongio-azd-app-linux-amd64.tar.gz"
+            },
+            "linux/arm64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "64227f7b5ef11bd45fccf8144bf4306b97dd97a78a96be32493193cbeeae98e1"
+              },
+              "entryPoint": "jongio-azd-app-linux-arm64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.9.0/jongio-azd-app-linux-arm64.tar.gz"
+            },
+            "windows/amd64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "afa1a359e31aeb6d22363d48e3c405e428aad4df55912df983f748e731e72696"
+              },
+              "entryPoint": "jongio-azd-app-windows-amd64.exe",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.9.0/jongio-azd-app-windows-amd64.zip"
+            },
+            "windows/arm64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "a4d8c66835ba633c9098099b490a7ff0f567e3ba150b6d8728103003f9386e1b"
+              },
+              "entryPoint": "jongio-azd-app-windows-arm64.exe",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.9.0/jongio-azd-app-windows-arm64.zip"
+            }
+          }
         }
       ],
       "tags": [
         "developer",
         "productivity",
-        "app"
+        "app",
+        "testing"
       ]
     }
   ]
