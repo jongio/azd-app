@@ -260,6 +260,196 @@ func (lb *LogBuffer) GetByLevel(level LogLevel) []LogEntry {
 	return result
 }
 
+// GetLogsWithContext returns log entries matching the specified level with surrounding context.
+// Parameters:
+//   - level: log level to filter by (LogLevelError, LogLevelWarn, etc.)
+//   - limit: maximum number of entries to return (0 = no limit)
+//   - contextLines: number of log lines before and after each match (0-10)
+//   - since: only return entries after this time (zero time = no filter)
+//
+// Returns entries in reverse chronological order (most recent first).
+func (lb *LogBuffer) GetLogsWithContext(level LogLevel, limit int, contextLines int, since time.Time) []LogEntryWithContext {
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+
+	// Clamp contextLines to valid range
+	if contextLines < 0 {
+		contextLines = 0
+	}
+	if contextLines > MaxContextLines {
+		contextLines = MaxContextLines
+	}
+
+	// Find all matching indices
+	type matchIndex struct {
+		index int
+		entry LogEntry
+	}
+	var matchIndices []matchIndex
+
+	for i, entry := range lb.entries {
+		// Apply time filter
+		if !since.IsZero() && entry.Timestamp.Before(since) {
+			continue
+		}
+
+		// Check if this entry matches the requested level
+		if entry.Level == level {
+			matchIndices = append(matchIndices, matchIndex{index: i, entry: entry})
+		}
+	}
+
+	// Reverse to get most recent first
+	for i, j := 0, len(matchIndices)-1; i < j; i, j = i+1, j-1 {
+		matchIndices[i], matchIndices[j] = matchIndices[j], matchIndices[i]
+	}
+
+	// Apply limit
+	if limit > 0 && len(matchIndices) > limit {
+		matchIndices = matchIndices[:limit]
+	}
+
+	// Build entries with context
+	result := make([]LogEntryWithContext, 0, len(matchIndices))
+
+	for _, mi := range matchIndices {
+		logEntry := LogEntryWithContext{
+			Service:   mi.entry.Service,
+			Message:   mi.entry.Message,
+			Level:     mi.entry.Level,
+			Timestamp: mi.entry.Timestamp,
+			IsStderr:  mi.entry.IsStderr,
+			Count:     1,
+		}
+
+		// Extract context lines
+		if contextLines > 0 {
+			// Before context
+			startBefore := mi.index - contextLines
+			if startBefore < 0 {
+				startBefore = 0
+			}
+			before := make([]string, 0, contextLines)
+			for i := startBefore; i < mi.index; i++ {
+				before = append(before, lb.entries[i].Message)
+			}
+			logEntry.Context.Before = before
+
+			// After context
+			endAfter := mi.index + contextLines + 1
+			if endAfter > len(lb.entries) {
+				endAfter = len(lb.entries)
+			}
+			after := make([]string, 0, contextLines)
+			for i := mi.index + 1; i < endAfter; i++ {
+				after = append(after, lb.entries[i].Message)
+			}
+			logEntry.Context.After = after
+		}
+
+		result = append(result, logEntry)
+	}
+
+	return result
+}
+
+// GetErrors is deprecated: use GetLogsWithContext instead.
+// Deprecated: This method exists for backward compatibility.
+// Parameters:
+//   - limit: maximum number of error entries to return (0 = no limit)
+//   - contextLines: number of log lines before and after each error (0-10)
+//   - includeStderr: if true, all stderr output is considered an error
+//   - since: only return errors after this time (zero time = no filter)
+func (lb *LogBuffer) GetErrors(limit int, contextLines int, includeStderr bool, since time.Time) []LogEntryWithContext {
+	lb.mu.RLock()
+	defer lb.mu.RUnlock()
+
+	// Clamp contextLines to valid range
+	if contextLines < 0 {
+		contextLines = 0
+	}
+	if contextLines > MaxContextLines {
+		contextLines = MaxContextLines
+	}
+
+	// Find all error indices
+	type errorIndex struct {
+		index int
+		entry LogEntry
+	}
+	var errorIndices []errorIndex
+
+	for i, entry := range lb.entries {
+		// Apply time filter
+		if !since.IsZero() && entry.Timestamp.Before(since) {
+			continue
+		}
+
+		// Check if this is an error
+		isError := entry.Level == LogLevelError
+		if includeStderr && entry.IsStderr {
+			isError = true
+		}
+
+		if isError {
+			errorIndices = append(errorIndices, errorIndex{index: i, entry: entry})
+		}
+	}
+
+	// Reverse to get most recent first
+	for i, j := 0, len(errorIndices)-1; i < j; i, j = i+1, j-1 {
+		errorIndices[i], errorIndices[j] = errorIndices[j], errorIndices[i]
+	}
+
+	// Apply limit
+	if limit > 0 && len(errorIndices) > limit {
+		errorIndices = errorIndices[:limit]
+	}
+
+	// Build error entries with context
+	result := make([]LogEntryWithContext, 0, len(errorIndices))
+
+	for _, ei := range errorIndices {
+		errEntry := LogEntryWithContext{
+			Service:   ei.entry.Service,
+			Message:   ei.entry.Message,
+			Level:     ei.entry.Level,
+			Timestamp: ei.entry.Timestamp,
+			IsStderr:  ei.entry.IsStderr,
+			Count:     1,
+		}
+
+		// Extract context lines
+		if contextLines > 0 {
+			// Before context
+			startBefore := ei.index - contextLines
+			if startBefore < 0 {
+				startBefore = 0
+			}
+			before := make([]string, 0, contextLines)
+			for i := startBefore; i < ei.index; i++ {
+				before = append(before, lb.entries[i].Message)
+			}
+			errEntry.Context.Before = before
+
+			// After context
+			endAfter := ei.index + contextLines + 1
+			if endAfter > len(lb.entries) {
+				endAfter = len(lb.entries)
+			}
+			after := make([]string, 0, contextLines)
+			for i := ei.index + 1; i < endAfter; i++ {
+				after = append(after, lb.entries[i].Message)
+			}
+			errEntry.Context.After = after
+		}
+
+		result = append(result, errEntry)
+	}
+
+	return result
+}
+
 // Subscribe creates a new subscription channel for live log streaming.
 func (lb *LogBuffer) Subscribe() chan LogEntry {
 	lb.subMu.Lock()

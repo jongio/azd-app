@@ -22,6 +22,7 @@ const mcpTools = [
     tools: [
       { name: "get_services", description: "List all services with status" },
       { name: "get_service_logs", description: "Stream/filter logs" },
+      { name: "get_service_errors", description: "Errors with context for AI" },
       { name: "get_project_info", description: "Project configuration" },
     ],
   },
@@ -299,7 +300,7 @@ const featuredPrompts = [
 
     <!-- Available Tools -->
     <section class="mcp-tools-preview" aria-labelledby="tools-heading">
-      <h2 id="tools-heading" class="section-title">10 MCP Tools Available</h2>
+      <h2 id="tools-heading" class="section-title">12 MCP Tools Available</h2>
       <div class="mcp-tools-grid">
         {mcpTools.map((category) => (
           <div class="mcp-tools-category">

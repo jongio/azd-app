@@ -43,6 +43,8 @@ func (m *mockDashboardClient) StreamLogs(ctx context.Context, serviceName string
 			return ctx.Err()
 		}
 	}
+	// Keep streaming until context is cancelled (simulating real stream behavior)
+	<-ctx.Done()
 	return m.streamLogsErr
 }
 

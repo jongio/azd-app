@@ -31,6 +31,7 @@ azd app logs [service-name] [flags]
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
@@ -458,8 +459,14 @@ azd app logs -f --service web
 # Show only errors
 azd app logs --level error
 
+# Show errors with 3 lines of context before and after each error
+azd app logs --level error --context 3
+
 # Follow errors in real-time
 azd app logs -f --level error
+
+# Export errors with context as JSON for analysis
+azd app logs --level error --context 5 --format json --file errors.jsonl
 ```
 
 ### 4. Time-Based Investigation

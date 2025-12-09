@@ -638,6 +638,9 @@ azd app logs --since 5m
 # Filter by log level
 azd app logs --level error
 
+# Show errors with 3 lines of context before and after
+azd app logs --level error --context 3
+
 # Output as JSON
 azd app logs --format json
 
@@ -662,6 +665,7 @@ azd app logs --no-color
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
