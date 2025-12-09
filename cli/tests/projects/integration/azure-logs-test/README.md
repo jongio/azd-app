@@ -160,18 +160,20 @@ services:
 
 ## Infrastructure Details
 
-### Azure Verified Modules Used
+### Bicep Resources
 
-| Module | Version | Purpose |
-|--------|---------|---------|
-| `avm/res/operational-insights/workspace` | 0.10.0 | Log Analytics workspace |
-| `avm/res/insights/component` | 0.6.0 | Application Insights |
-| `avm/res/container-registry/registry` | 0.8.0 | Container Registry |
-| `avm/res/app/managed-environment` | 0.10.0 | Container Apps Environment |
-| `avm/res/app/container-app` | 0.13.0 | Container App |
-| `avm/res/web/serverfarm` | 0.4.0 | App Service Plan |
-| `avm/res/web/site` | 0.13.0 | Web App / Function App |
-| `avm/res/storage/storage-account` | 0.15.0 | Storage for Functions |
+All infrastructure uses native Bicep resources with diagnostic settings configured to send logs to the central Log Analytics workspace:
+
+| Resource Type | Purpose |
+|---------------|---------|
+| `Microsoft.OperationalInsights/workspaces` | Log Analytics workspace |
+| `Microsoft.Insights/components` | Application Insights |
+| `Microsoft.ContainerRegistry/registries` | Container Registry |
+| `Microsoft.App/managedEnvironments` | Container Apps Environment |
+| `Microsoft.App/containerApps` | Container App |
+| `Microsoft.Web/serverfarms` | App Service Plan |
+| `Microsoft.Web/sites` | Web App / Function App |
+| `Microsoft.Storage/storageAccounts` | Storage for Functions |
 
 ### Diagnostic Settings
 

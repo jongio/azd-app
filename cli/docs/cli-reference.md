@@ -243,6 +243,7 @@ azd app run -s web -v --runtime aspire
 - Works with all project types
 - Provides unified experience across languages
 - Service orchestration and monitoring
+- Log source switcher for local/Azure logs
 
 #### aspire
 - Uses native .NET Aspire dashboard via `dotnet run`
@@ -842,6 +843,18 @@ Machine-readable JSON format:
 ```json
 {"timestamp":"2024-01-15T10:30:45Z","service":"web","level":"info","message":"Starting server on port 3000"}
 ```
+
+### Dashboard Log Viewer
+
+The dashboard provides a visual log viewer with additional features:
+
+- **Log Source Switcher**: Toggle between local and Azure logs
+  - Local (💻): Logs from locally running services
+  - Azure (☁️): Logs from Azure-deployed services via Log Analytics
+  - Keyboard shortcut: `Ctrl+Shift+M` to toggle modes
+- **Grid/Unified View**: Switch between per-service panes or unified log stream
+- **Real-time Search**: Filter logs as you type
+- **Export**: Download logs in multiple formats
 
 **→ [See full logs command specification](commands/logs.md)** for log streaming flows, filtering mechanisms, and detailed documentation.
 

@@ -71,7 +71,7 @@ def error():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get('PORT', 8293))
     logger.info(f'{SERVICE_NAME} started on port {port}')
     logger.info(f'Health check: http://localhost:{port}/health')
     logger.info(f'Generate logs: http://localhost:{port}/generate-logs?count=10')

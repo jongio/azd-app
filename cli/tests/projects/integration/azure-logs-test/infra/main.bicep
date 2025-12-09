@@ -61,10 +61,10 @@ module containerApps './modules/containerapp.bicep' = {
   name: 'containerapp-api'
   scope: rg
   params: {
-    name: 'containerapp-api'
+    name: 'ca-${resourceToken}'
+    serviceName: 'containerapp-api'
     location: location
     tags: tags
-    environmentName: environmentName
     containerRegistryName: acr.outputs.name
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     targetPort: 3000

@@ -138,6 +138,9 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
+	// Initialize Azure log buffer if configured
+	initializeAzureLogBuffer(azureYaml, azureYamlDir)
+
 	// Execute prerun hook before starting services
 	if err = executePrerunHook(azureYaml, azureYamlDir); err != nil {
 		return err
@@ -750,4 +753,24 @@ func launchDashboardBrowser(dashboardURL string) bool {
 		output.Info("Dashboard available at: %s", dashboardURL)
 	}
 	return true
+}
+
+// initializeAzureLogBuffer sets up Azure log streaming if configured in azure.yaml.
+// This creates an AzureLogBuffer and registers it with the LogManager so the
+// dashboard can stream Azure logs when the user switches to Azure mode.
+func initializeAzureLogBuffer(azureYaml *service.AzureYaml, projectDir string) {
+	// Check if Azure logging is configured
+	if azureYaml.Logs == nil || azureYaml.Logs.Azure == nil || !azureYaml.Logs.Azure.Enabled {
+		return
+	}
+
+	// Create Azure log buffer with config from azure.yaml
+	azureConfig := azureYaml.Logs.Azure
+	azBuffer := service.NewAzureLogBuffer(azureConfig, projectDir)
+
+	// Register with log manager so dashboard can access it
+	logMgr := service.GetLogManager(projectDir)
+	logMgr.SetAzureLogBuffer(azBuffer)
+
+	output.Info("Azure log streaming enabled")
 }

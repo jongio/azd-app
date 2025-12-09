@@ -1,6 +1,5 @@
 // =============================================================================
 // CONTAINER REGISTRY MODULE
-// Uses Azure Verified Module for ACR
 // =============================================================================
 
 @description('Name of the container registry')
@@ -16,29 +15,40 @@ param tags object = {}
 param logAnalyticsWorkspaceId string
 
 // =============================================================================
-// Azure Container Registry - Using Azure Verified Module
+// Azure Container Registry
 // =============================================================================
 
-module registry 'br/public:avm/res/container-registry/registry:0.8.0' = {
-  name: 'acr-deployment'
-  params: {
-    name: name
-    location: location
-    tags: tags
-    acrSku: 'Basic'
-    // Enable admin user for simple auth in test scenarios
-    acrAdminUserEnabled: true
-    // Configure diagnostic settings to send logs to Log Analytics
-    diagnosticSettings: [
+resource registry 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
+  name: name
+  location: location
+  tags: tags
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: true
+  }
+}
+
+// =============================================================================
+// Diagnostic Settings
+// =============================================================================
+
+resource acrDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'acr-diagnostics'
+  scope: registry
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
       {
-        name: 'acr-diagnostics'
-        workspaceResourceId: logAnalyticsWorkspaceId
-        logCategoriesAndGroups: [
-          { categoryGroup: 'allLogs' }
-        ]
-        metricCategories: [
-          { category: 'AllMetrics' }
-        ]
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
       }
     ]
   }
@@ -49,10 +59,10 @@ module registry 'br/public:avm/res/container-registry/registry:0.8.0' = {
 // =============================================================================
 
 @description('The name of the container registry')
-output name string = registry.outputs.name
+output name string = registry.name
 
 @description('The login server URL')
-output loginServer string = registry.outputs.loginServer
+output loginServer string = registry.properties.loginServer
 
 @description('The resource ID of the container registry')
-output resourceId string = registry.outputs.resourceId
+output resourceId string = registry.id

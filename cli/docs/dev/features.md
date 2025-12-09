@@ -88,6 +88,20 @@ This document provides a comprehensive overview of all features implemented in t
   - Options: 100, 500, 1000, All
   - Limits log buffer for performance
 
+#### Log Source Switcher
+- **Mode Toggle**: Switch between local and Azure log sources
+  - Local mode (💻) - View logs from locally running services
+  - Azure mode (☁️) - View logs from Azure-deployed services via Log Analytics
+  - Keyboard shortcut: `Ctrl+Shift+M` to toggle modes
+  - Visual indicators for active mode
+  - Connection status indicator (green/amber/red dot)
+  - Disabled state when Azure not configured
+
+- **Azure Integration**:
+  - Auto-detects Azure configuration from services
+  - Shows connection status in real-time
+  - Graceful fallback when Azure unavailable
+
 ### 3. Navigation & Layout
 
 #### Sidebar Navigation

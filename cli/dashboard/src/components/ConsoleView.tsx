@@ -17,12 +17,23 @@ import {
   StopCircle,
   PlayCircle,
   Settings,
+  Info,
+  AlertTriangle,
+  XCircle,
+  CheckCircle,
+  Circle,
+  Loader2,
+  Heart,
+  HeartPulse,
+  HeartCrack,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LogsPane, type LogEntry } from '@/components/LogsPane'
 import { LogsPaneGrid } from '@/components/LogsPaneGrid'
 import { LogsView } from '@/components/LogsView'
 import { SettingsDialog } from './SettingsDialog'
+import { ModeToggle, type LogMode } from './ModeToggle'
 import { usePreferences } from '@/hooks/usePreferences'
 import { useToast } from '@/components/ui/toast'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
@@ -65,6 +76,11 @@ interface LogsToolbarProps {
   onStopAll: () => void
   onRestartAll: () => void
   isBulkOperationInProgress: boolean
+  logMode: LogMode
+  onLogModeChange: (mode: LogMode) => void
+  azureEnabled: boolean
+  azureStatus: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+  onAzureEnabled?: () => void
 }
 
 function LogsToolbar({
@@ -84,6 +100,11 @@ function LogsToolbar({
   onStopAll,
   onRestartAll,
   isBulkOperationInProgress,
+  logMode,
+  onLogModeChange,
+  azureEnabled,
+  azureStatus,
+  onAzureEnabled,
 }: LogsToolbarProps) {
   return (
     <div className="flex items-center gap-4 p-3 bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 shrink-0">
@@ -192,6 +213,21 @@ function LogsToolbar({
 
       {/* Right section - View controls */}
       <div className="flex items-center gap-2">
+        {/* Log Source Toggle (Local/Azure) */}
+        <ModeToggle
+          mode={logMode}
+          onModeChange={onLogModeChange}
+          azureEnabled={azureEnabled}
+          azureStatus={azureStatus}
+          onAzureEnabled={onAzureEnabled}
+          size="compact"
+          showLabels={false}
+          showStatus={true}
+        />
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-slate-300 dark:bg-slate-700" />
+
         {/* View Mode Toggle */}
         <div className="flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-md">
           <button
@@ -300,34 +336,52 @@ function FiltersBar({
       {/* Log Levels */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-slate-500">Log Levels</span>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={levelFilter.has('info')}
-              onChange={() => onToggleLevel('info')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-sky-500 focus:ring-sky-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-sky-600 dark:text-sky-400">Info</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={levelFilter.has('warning')}
-              onChange={() => onToggleLevel('warning')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-amber-500 focus:ring-amber-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-amber-600 dark:text-amber-400">Warning</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={levelFilter.has('error')}
-              onChange={() => onToggleLevel('error')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-rose-500 focus:ring-rose-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-rose-600 dark:text-rose-400">Error</span>
-          </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onToggleLevel('info')}
+            aria-label="Info"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              levelFilter.has('info')
+                ? 'bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 ring-1 ring-sky-300 dark:ring-sky-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Info logs"
+          >
+            <Info className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-sky-700/95 text-white text-xs px-2 py-1">Info</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleLevel('warning')}
+            aria-label="Warning"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              levelFilter.has('warning')
+                ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-1 ring-amber-300 dark:ring-amber-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Warning logs"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-amber-700/95 text-white text-xs px-2 py-1">Warning</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleLevel('error')}
+            aria-label="Error"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              levelFilter.has('error')
+                ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 ring-1 ring-rose-300 dark:ring-rose-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Error logs"
+          >
+            <XCircle className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-rose-700/95 text-white text-xs px-2 py-1">Error</span>
+          </button>
         </div>
       </div>
 
@@ -336,34 +390,52 @@ function FiltersBar({
       {/* State Filter */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-slate-500">State</span>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={stateFilter.has('running')}
-              onChange={() => onToggleState('running')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-emerald-600 dark:text-emerald-400">Running</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={stateFilter.has('stopped')}
-              onChange={() => onToggleState('stopped')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 focus:ring-slate-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-slate-600 dark:text-slate-400">Stopped</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={stateFilter.has('starting')}
-              onChange={() => onToggleState('starting')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-sky-500 focus:ring-sky-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-sky-600 dark:text-sky-400">Starting</span>
-          </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onToggleState('running')}
+            aria-label="Running"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              stateFilter.has('running')
+                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-300 dark:ring-emerald-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Running services"
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-emerald-700/95 text-white text-xs px-2 py-1">Running</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleState('stopped')}
+            aria-label="Stopped"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              stateFilter.has('stopped')
+                ? 'bg-slate-200 dark:bg-slate-600/40 text-slate-700 dark:text-slate-300 ring-1 ring-slate-300 dark:ring-slate-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Stopped services"
+          >
+            <Circle className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-slate-700/95 text-white text-xs px-2 py-1">Stopped</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleState('starting')}
+            aria-label="Starting"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              stateFilter.has('starting')
+                ? 'bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 ring-1 ring-sky-300 dark:ring-sky-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Starting services"
+          >
+            <Loader2 className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-sky-700/95 text-white text-xs px-2 py-1">Starting</span>
+          </button>
         </div>
       </div>
 
@@ -372,43 +444,67 @@ function FiltersBar({
       {/* Health Status */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-slate-500">Health Status</span>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={healthFilter.has('healthy')}
-              onChange={() => onToggleHealth('healthy')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-emerald-500 focus:ring-emerald-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-emerald-600 dark:text-emerald-400">Healthy</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={healthFilter.has('degraded')}
-              onChange={() => onToggleHealth('degraded')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-amber-500 focus:ring-amber-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-amber-600 dark:text-amber-400">Degraded</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={healthFilter.has('unhealthy')}
-              onChange={() => onToggleHealth('unhealthy')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-rose-500 focus:ring-rose-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-rose-600 dark:text-rose-400">Unhealthy</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={healthFilter.has('unknown')}
-              onChange={() => onToggleHealth('unknown')}
-              className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 focus:ring-slate-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-            />
-            <span className="text-xs text-slate-600 dark:text-slate-400">Unknown</span>
-          </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onToggleHealth('healthy')}
+            aria-label="Healthy"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              healthFilter.has('healthy')
+                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-300 dark:ring-emerald-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Healthy services"
+          >
+            <Heart className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-emerald-700/95 text-white text-xs px-2 py-1">Healthy</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleHealth('degraded')}
+            aria-label="Degraded"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              healthFilter.has('degraded')
+                ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-1 ring-amber-300 dark:ring-amber-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Degraded services"
+          >
+            <HeartPulse className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-amber-700/95 text-white text-xs px-2 py-1">Degraded</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleHealth('unhealthy')}
+            aria-label="Unhealthy"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              healthFilter.has('unhealthy')
+                ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 ring-1 ring-rose-300 dark:ring-rose-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Unhealthy services"
+          >
+            <HeartCrack className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-rose-700/95 text-white text-xs px-2 py-1">Unhealthy</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleHealth('unknown')}
+            aria-label="Unknown"
+            className={cn(
+              'relative flex items-center justify-center w-9 h-9 rounded-md transition-all',
+              healthFilter.has('unknown')
+                ? 'bg-slate-200 dark:bg-slate-600/40 text-slate-700 dark:text-slate-300 ring-1 ring-slate-300 dark:ring-slate-500/50'
+                : 'bg-transparent text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+            )}
+            title="Toggle Unknown services"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span className="sr-only group-hover:not-sr-only absolute -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap rounded bg-slate-700/95 text-white text-xs px-2 py-1">Unknown</span>
+          </button>
         </div>
       </div>
     </div>
@@ -442,6 +538,36 @@ export function ConsoleView({
     new Set(['healthy', 'degraded', 'unhealthy', 'unknown'])
   )
   const [collapsedPanes, setCollapsedPanes] = React.useState<Record<string, boolean>>({})
+  
+  // Log source mode state (local vs azure)
+  const [logMode, setLogMode] = React.useState<LogMode>('local')
+  
+  // Azure status from API
+  const [azureEnabled, setAzureEnabled] = React.useState(false)
+  const [azureStatus, setAzureStatus] = React.useState<'connected' | 'disconnected' | 'connecting' | 'disabled'>('disabled')
+
+  // Fetch Azure status from API
+  const fetchAzureStatus = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/mode')
+      if (res.ok) {
+        const data = await res.json()
+        setAzureEnabled(data.azureEnabled || false)
+        if (data.azureEnabled) {
+          setAzureStatus(data.azureStatus || 'disconnected')
+        } else {
+          setAzureStatus('disabled')
+        }
+      }
+    } catch {
+      // Ignore errors - status will remain disabled
+    }
+  }, [])
+
+  // Fetch Azure status on mount and when services change
+  React.useEffect(() => {
+    fetchAzureStatus()
+  }, [fetchAzureStatus, services])
 
   const { preferences, updateUI } = usePreferences()
   const { showToast, ToastContainer } = useToast()
@@ -484,6 +610,13 @@ export function ConsoleView({
         e.preventDefault()
         updateUI({ viewMode: viewMode === 'grid' ? 'unified' : 'grid' })
       }
+      // Ctrl+Shift+M: Toggle log source mode (local/azure)
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM') {
+        e.preventDefault()
+        if (azureEnabled) {
+          setLogMode((prev) => prev === 'local' ? 'azure' : 'local')
+        }
+      }
       if (e.key === 'F11' || (e.ctrlKey && e.shiftKey && e.code === 'KeyF')) {
         e.preventDefault()
         setIsFullscreen((prev) => !prev)
@@ -494,7 +627,7 @@ export function ConsoleView({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [viewMode, updateUI, isFullscreen])
+  }, [viewMode, updateUI, isFullscreen, azureEnabled])
 
   const handleToggleService = (serviceName: string) => {
     setSelectedServices((prev) => {
@@ -641,6 +774,11 @@ export function ConsoleView({
         onStopAll={() => void stopAll()}
         onRestartAll={() => void restartAll()}
         isBulkOperationInProgress={isBulkOperationInProgress()}
+        logMode={logMode}
+        onLogModeChange={setLogMode}
+        azureEnabled={azureEnabled}
+        azureStatus={azureStatus}
+        onAzureEnabled={fetchAzureStatus}
       />
 
       {/* Filters */}
