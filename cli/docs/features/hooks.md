@@ -326,7 +326,8 @@ Hooks have full access to:
 **Solutions**:
 - Use absolute paths or paths relative to azure.yaml
 - Verify script file exists: `ls -la scripts/setup.sh`
-- Check file permissions: `chmod +x scripts/setup.sh`
+
+> **Note**: Scripts no longer need to be executable. When you specify a script file path (like `./scripts/setup.sh`), it's executed directly via the shell (e.g., `bash ./scripts/setup.sh`) rather than requiring `chmod +x`. This makes it easier to work with repositories right after cloning.
 
 ### Hook Fails Every Time
 
