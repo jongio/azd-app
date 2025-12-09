@@ -172,6 +172,13 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 	return envVars
 }
 
+// normalizeServiceName converts a service name from environment variable format to azure.yaml format.
+// Environment variables use underscores (SERVICE_CONTAINERAPP_API_NAME) while azure.yaml uses hyphens (containerapp-api).
+func normalizeServiceName(name string) string {
+	// Convert to lowercase and replace underscores with hyphens
+	return strings.ReplaceAll(strings.ToLower(name), "_", "-")
+}
+
 // extractAzureServiceInfo extracts Azure service information from environment variables.
 func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceInfo {
 	azureServices := make(map[string]AzureServiceInfo)
@@ -190,7 +197,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 			(strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")) {
 			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
 			serviceName = strings.TrimSuffix(serviceName, "_URL")
-			serviceName = strings.ToLower(serviceName)
+			serviceName = normalizeServiceName(serviceName)
 
 			if serviceName != "" {
 				info := azureServices[serviceName]
@@ -204,7 +211,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 		if strings.HasSuffix(keyUpper, "_URL") &&
 			(strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")) {
 			serviceName := strings.TrimSuffix(keyUpper, "_URL")
-			serviceName = strings.ToLower(serviceName)
+			serviceName = normalizeServiceName(serviceName)
 
 			if serviceName != "" {
 				// Only set if not already set by higher priority pattern
@@ -220,7 +227,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_NAME") && !strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
 			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
 			serviceName = strings.TrimSuffix(serviceName, "_NAME")
-			serviceName = strings.ToLower(serviceName)
+			serviceName = normalizeServiceName(serviceName)
 
 			if serviceName != "" {
 				info := azureServices[serviceName]
@@ -233,7 +240,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 		// Pattern 2: {SERVICE_NAME}_NAME -> Azure resource name (without SERVICE_ prefix)
 		if strings.HasSuffix(keyUpper, "_NAME") && !strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
 			serviceName := strings.TrimSuffix(keyUpper, "_NAME")
-			serviceName = strings.ToLower(serviceName)
+			serviceName = normalizeServiceName(serviceName)
 
 			if serviceName != "" {
 				// Only set if not already set by higher priority pattern
@@ -249,7 +256,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
 			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
 			serviceName = strings.TrimSuffix(serviceName, "_IMAGE_NAME")
-			serviceName = strings.ToLower(serviceName)
+			serviceName = normalizeServiceName(serviceName)
 
 			if serviceName != "" {
 				info := azureServices[serviceName]

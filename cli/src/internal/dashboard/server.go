@@ -127,6 +127,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/mode", s.handleModeRouter)
 	s.mux.HandleFunc("/api/azure/status", s.handleAzureStatus)
+	s.mux.HandleFunc("/api/azure/enable", s.handleEnableAzureLogging)
 	s.mux.HandleFunc("/api/azure/logs", s.handleAzureLogs)
 	s.mux.HandleFunc("/api/azure/logs/stream", s.handleAzureLogsStream)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)

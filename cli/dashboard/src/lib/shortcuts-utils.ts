@@ -27,6 +27,8 @@ export const shortcuts = [
   
   // Views
   { key: 'T', description: 'Toggle table/grid view', category: 'views' },
+  { key: 'Ctrl+Shift+M', description: 'Toggle Local/Azure logs', category: 'views' },
+  { key: 'Ctrl+Shift+L', description: 'Toggle grid/unified log view', category: 'views' },
   { key: '?', description: 'Show keyboard shortcuts', category: 'views' },
   { key: 'Esc', description: 'Close dialogs/modals', category: 'views' },
 ] as const satisfies readonly Shortcut[]

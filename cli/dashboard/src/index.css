@@ -83,6 +83,18 @@
     --blue-500: #3b82f6;
     --blue-600: #2563eb;
     
+    /* Azure brand colors */
+    --azure-50: #eff6ff;
+    --azure-100: #dbeafe;
+    --azure-200: #bfdbfe;
+    --azure-300: #93c5fd;
+    --azure-400: #60a5fa;
+    --azure-500: #0078d4;  /* Official Azure blue */
+    --azure-600: #106ebe;
+    --azure-700: #005a9e;
+    --azure-800: #004578;
+    --azure-900: #002d4d;
+    
     /* Spacing, typography, etc. */
     --radius: 0.5rem;
   }
@@ -282,6 +294,22 @@
 }
 
 @layer utilities {
+  /* Azure brand color utilities */
+  .bg-azure-50 { background-color: var(--azure-50); }
+  .bg-azure-100 { background-color: var(--azure-100); }
+  .bg-azure-500 { background-color: var(--azure-500); }
+  .bg-azure-500\/10 { background-color: rgba(0, 120, 212, 0.1); }
+  .bg-azure-500\/20 { background-color: rgba(0, 120, 212, 0.2); }
+  .text-azure-400 { color: var(--azure-400); }
+  .text-azure-500 { color: var(--azure-500); }
+  .text-azure-600 { color: var(--azure-600); }
+  .hover\:text-azure-400:hover { color: var(--azure-400); }
+  .hover\:text-azure-600:hover { color: var(--azure-600); }
+  .hover\:bg-azure-50:hover { background-color: var(--azure-50); }
+  .hover\:bg-azure-500\/10:hover { background-color: rgba(0, 120, 212, 0.1); }
+  .ring-azure-500 { --tw-ring-color: var(--azure-500); }
+  .focus-visible\:ring-azure-500:focus-visible { --tw-ring-color: var(--azure-500); }
+  
   /* Screen reader only */
   .sr-only {
     position: absolute;

@@ -1,9 +1,11 @@
 /**
  * ModeToggle - Log source mode toggle component
  * Switches between local and Azure log sources
+ * 
+ * @see cli/docs/design/components/log-source-switcher.md
  */
 import * as React from 'react'
-import { Monitor, Cloud, Loader2 } from 'lucide-react'
+import { Monitor, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // =============================================================================
@@ -18,13 +20,81 @@ export interface ModeToggleProps {
   /** Whether Azure logging is enabled/available */
   azureEnabled?: boolean
   /** Azure connection status */
-  azureStatus?: 'connected' | 'disconnected' | 'disabled'
+  azureStatus?: 'connected' | 'disconnected' | 'connecting' | 'disabled'
   /** Loading state during mode switch */
   isLoading?: boolean
+  /** Size variant */
+  size?: 'compact' | 'standard' | 'large'
+  /** Show text labels */
+  showLabels?: boolean
+  /** Show connection status indicator */
+  showStatus?: boolean
   /** Callback when mode changes */
   onModeChange?: (mode: LogMode) => void
+  /** Callback after Azure is enabled (to refresh status) */
+  onAzureEnabled?: () => void
   /** Additional class names */
   className?: string
+}
+
+// =============================================================================
+// Azure Icon Component
+// =============================================================================
+
+interface AzureIconProps {
+  className?: string
+}
+
+/**
+ * Azure cloud icon with brand styling
+ */
+function AzureIcon({ className }: AzureIconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Cloud shape */}
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+    </svg>
+  )
+}
+
+// =============================================================================
+// Size Configuration
+// =============================================================================
+
+const sizeConfig = {
+  compact: {
+    container: 'p-1 rounded-lg',
+    button: 'p-2 rounded-md',
+    icon: 'w-4 h-4',
+    label: 'hidden',
+    gap: 'gap-0.5',
+    statusDot: 'w-1.5 h-1.5',
+  },
+  standard: {
+    container: 'p-1 rounded-lg',
+    button: 'px-3 py-1.5 rounded-md gap-1.5',
+    icon: 'w-4 h-4',
+    label: 'text-sm font-medium',
+    gap: 'gap-1',
+    statusDot: 'w-1.5 h-1.5',
+  },
+  large: {
+    container: 'p-1.5 rounded-xl',
+    button: 'px-4 py-2 rounded-lg gap-2',
+    icon: 'w-5 h-5',
+    label: 'text-sm font-medium',
+    gap: 'gap-1.5',
+    statusDot: 'w-2 h-2',
+  },
 }
 
 // =============================================================================
@@ -36,11 +106,17 @@ export function ModeToggle({
   azureEnabled = false,
   azureStatus = 'disabled',
   isLoading = false,
+  size = 'standard',
+  showLabels = true,
+  showStatus = true,
   onModeChange,
+  onAzureEnabled,
   className 
 }: ModeToggleProps) {
   const [announcement, setAnnouncement] = React.useState('')
+  const [enabling, setEnabling] = React.useState(false)
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const config = sizeConfig[size]
 
   // Cleanup timer on unmount
   React.useEffect(() => {
@@ -51,10 +127,8 @@ export function ModeToggle({
     }
   }, [])
 
-  const handleToggle = () => {
-    if (isLoading) return
-    
-    const newMode: LogMode = mode === 'local' ? 'azure' : 'local'
+  const handleModeChange = (newMode: LogMode) => {
+    if (isLoading || mode === newMode) return
     
     // Check if Azure is available before switching to it
     if (newMode === 'azure' && !azureEnabled) {
@@ -74,35 +148,87 @@ export function ModeToggle({
     timeoutRef.current = setTimeout(() => setAnnouncement(''), 1000)
   }
 
+  // Handle keyboard navigation within radio group
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      const newMode = mode === 'local' ? 'azure' : 'local'
+      handleModeChange(newMode)
+    }
+  }
+
   const isLocal = mode === 'local'
-  const label = isLocal 
-    ? 'Switch to Azure logs' 
-    : 'Switch to local logs'
   
   // Determine if Azure button should be disabled
   const azureDisabled = !azureEnabled || azureStatus === 'disabled'
+
+  // Status indicator component
+  const StatusDot = ({ status }: { status: typeof azureStatus }) => {
+    if (!showStatus || !azureEnabled) return null
+    
+    return (
+      <span 
+        className={cn(
+          'rounded-full',
+          config.statusDot,
+          status === 'connected' && 'bg-emerald-500',
+          status === 'connecting' && 'bg-amber-500 animate-pulse',
+          status === 'disconnected' && 'bg-red-500',
+          status === 'disabled' && 'bg-slate-400',
+        )}
+        aria-hidden="true"
+      />
+    )
+  }
+
+  // Handle enabling Azure logging
+  const handleEnableAzure = async () => {
+    if (enabling) return
+    setEnabling(true)
+    try {
+      const res = await fetch('/api/azure/enable', { method: 'POST' })
+      if (res.ok) {
+        setAnnouncement('Azure logging enabled!')
+        onAzureEnabled?.()
+      } else {
+        const data = await res.json()
+        setAnnouncement(data.message || 'Failed to enable Azure logging')
+      }
+    } catch {
+      setAnnouncement('Failed to enable Azure logging')
+    } finally {
+      setEnabling(false)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = setTimeout(() => setAnnouncement(''), 3000)
+    }
+  }
 
   return (
     <>
       <div 
         className={cn(
-          'flex items-center gap-1 p-1 rounded-lg',
-          'bg-slate-100 dark:bg-slate-800',
+          'flex items-center bg-slate-100 dark:bg-slate-800',
+          config.container,
+          config.gap,
           className
         )}
         role="radiogroup"
         aria-label="Log source"
+        onKeyDown={handleKeyDown}
       >
         {/* Local Mode Button */}
         <button
           type="button"
           role="radio"
           aria-checked={isLocal}
-          onClick={() => mode !== 'local' && onModeChange?.('local')}
+          aria-label="View local logs"
+          onClick={() => handleModeChange('local')}
           disabled={isLoading}
+          title={size === 'compact' ? 'Local logs' : undefined}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium',
-            'transition-all duration-200 ease-out',
+            'flex items-center justify-center',
+            'transition-all duration-150 ease-out',
+            config.button,
             isLocal ? [
               'bg-white dark:bg-slate-700',
               'text-slate-900 dark:text-slate-100',
@@ -110,14 +236,19 @@ export function ModeToggle({
             ] : [
               'text-slate-500 dark:text-slate-400',
               'hover:text-slate-700 dark:hover:text-slate-300',
+              'hover:bg-slate-50 dark:hover:bg-slate-700/50',
             ],
             'focus-visible:outline-none focus-visible:ring-2',
             'focus-visible:ring-cyan-500 focus-visible:ring-offset-1',
+            'focus-visible:ring-offset-slate-100 dark:focus-visible:ring-offset-slate-800',
             'disabled:opacity-50 disabled:cursor-not-allowed',
+            'active:scale-95',
           )}
         >
-          <Monitor className="w-4 h-4" />
-          <span>Local</span>
+          <Monitor className={config.icon} aria-hidden="true" />
+          {showLabels && size !== 'compact' && (
+            <span className={config.label}>Local</span>
+          )}
         </button>
 
         {/* Azure Mode Button */}
@@ -125,45 +256,67 @@ export function ModeToggle({
           type="button"
           role="radio"
           aria-checked={!isLocal}
-          onClick={handleToggle}
+          aria-label="View Azure logs"
+          aria-disabled={azureDisabled}
+          onClick={() => handleModeChange('azure')}
           disabled={isLoading || azureDisabled}
-          title={azureDisabled ? 'Azure logging not configured' : label}
+          title={
+            azureDisabled 
+              ? 'Add logs.azure.enabled: true to azure.yaml' 
+              : size === 'compact' 
+                ? 'Azure logs' 
+                : undefined
+          }
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium',
-            'transition-all duration-200 ease-out',
+            'flex items-center justify-center',
+            'transition-all duration-150 ease-out',
+            config.button,
             !isLocal ? [
-              'bg-white dark:bg-slate-700',
-              'text-slate-900 dark:text-slate-100',
+              'bg-azure-100 dark:bg-azure-500/20',
+              'text-azure-600 dark:text-azure-400',
               'shadow-sm',
             ] : [
               'text-slate-500 dark:text-slate-400',
-              'hover:text-slate-700 dark:hover:text-slate-300',
+              'hover:text-azure-600 dark:hover:text-azure-400',
+              'hover:bg-azure-50 dark:hover:bg-azure-500/10',
             ],
-            azureDisabled && 'opacity-50 cursor-not-allowed',
+            azureDisabled && 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-slate-500',
             'focus-visible:outline-none focus-visible:ring-2',
-            'focus-visible:ring-cyan-500 focus-visible:ring-offset-1',
+            'focus-visible:ring-azure-500 focus-visible:ring-offset-1',
+            'focus-visible:ring-offset-slate-100 dark:focus-visible:ring-offset-slate-800',
             'disabled:opacity-50 disabled:cursor-not-allowed',
+            'active:scale-95',
           )}
         >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+          {isLoading && !isLocal ? (
+            <Loader2 className={cn(config.icon, 'animate-spin')} aria-hidden="true" />
           ) : (
-            <Cloud className="w-4 h-4" />
+            <AzureIcon className={config.icon} />
           )}
-          <span>Azure</span>
-          {/* Status indicator dot */}
-          {azureEnabled && (
-            <span 
-              className={cn(
-                'w-1.5 h-1.5 rounded-full ml-0.5',
-                azureStatus === 'connected' && 'bg-green-500',
-                azureStatus === 'disconnected' && 'bg-yellow-500',
-                azureStatus === 'disabled' && 'bg-slate-400',
-              )}
-              aria-hidden="true"
-            />
+          {showLabels && size !== 'compact' && (
+            <span className={config.label}>Azure</span>
           )}
+          <StatusDot status={azureStatus} />
         </button>
+
+        {/* Enable Azure button when disabled */}
+        {azureDisabled && (
+          <button
+            type="button"
+            onClick={handleEnableAzure}
+            disabled={enabling}
+            title="Enable Azure logging in azure.yaml"
+            className={cn(
+              'ml-1 px-2 py-1 text-xs rounded-md',
+              'bg-azure-600 text-white hover:bg-azure-700',
+              'focus:outline-none focus:ring-2 focus:ring-azure-500',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'transition-colors',
+            )}
+          >
+            {enabling ? '...' : 'Enable'}
+          </button>
+        )}
       </div>
       
       {/* Screen reader announcements */}

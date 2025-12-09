@@ -32,12 +32,12 @@ services:
     host: containerapp
     language: js
     project: ./src/containerapp-api
-    ports: ["3000"]
+    ports: ["9847"]
     environment:
       NODE_ENV: production
       LOG_LEVEL: info
     healthcheck:
-      test: "http://localhost:3000/health"
+      test: "http://localhost:9847/health"
       interval: 10s
       timeout: 5s
       retries: 3
@@ -47,12 +47,12 @@ services:
     host: appservice
     language: python
     project: ./src/appservice-web
-    ports: ["8000"]
+    ports: ["8293"]
     environment:
       FLASK_ENV: production
       LOG_LEVEL: INFO
     healthcheck:
-      test: "http://localhost:8000/health"
+      test: "http://localhost:8293/health"
       interval: 10s
       timeout: 5s
 
