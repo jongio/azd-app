@@ -31,12 +31,13 @@ const (
 )
 
 var (
-	runServiceFilter string
-	runEnvFile       string
-	runVerbose       bool
-	runDryRun        bool
-	runRuntime       string
-	runWeb           bool
+	runServiceFilter     string
+	runEnvFile           string
+	runVerbose           bool
+	runDryRun            bool
+	runRuntime           string
+	runWeb               bool
+	runRestartContainers bool
 )
 
 // NewRunCommand creates the run command.
@@ -58,6 +59,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runDryRun, "dry-run", false, "Show what would be run without starting services")
 	cmd.Flags().StringVar(&runRuntime, "runtime", runtimeModeAzd, "Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)")
 	cmd.Flags().BoolVarP(&runWeb, "web", "w", false, "Open dashboard in browser")
+	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 
 	return cmd
 }
@@ -137,7 +139,7 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Execute prerun hook before starting services
-	if err := executePrerunHook(azureYaml, azureYamlDir); err != nil {
+	if err = executePrerunHook(azureYaml, azureYamlDir); err != nil {
 		return err
 	}
 
@@ -233,8 +235,8 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, a
 		return err
 	}
 
-	// Orchestrate services
-	result, err := service.OrchestrateServices(runtimes, envVars, logger)
+	// Orchestrate services with dependency ordering
+	result, err := service.OrchestrateServices(runtimes, azureYaml.Services, envVars, logger, runRestartContainers)
 	if err != nil {
 		return fmt.Errorf("service orchestration failed: %w", err)
 	}

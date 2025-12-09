@@ -152,6 +152,19 @@ export function createProcessService(options: Omit<CreateServiceOptions, 'servic
   })
 }
 
+/**
+ * Create a container service (Docker container)
+ */
+export function createContainerService(options: Omit<CreateServiceOptions, 'serviceType'> = {}): Service {
+  return createService({
+    ...options,
+    serviceType: 'container',
+    name: options.name ?? 'redis',
+    framework: options.framework ?? 'Docker',
+    port: options.port ?? 6379,
+  })
+}
+
 // =============================================================================
 // Preset Service Factories by Mode
 // =============================================================================

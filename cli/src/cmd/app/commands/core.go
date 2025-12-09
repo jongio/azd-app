@@ -116,8 +116,21 @@ func executeReqs() error {
 		return err
 	}
 
+	// Build effective requirements list
+	effectiveReqs := azureYaml.Reqs
+
+	// Auto-inject Docker requirement if container services are detected
+	if azureYaml.hasContainerServices() && !azureYaml.hasDockerReq() {
+		dockerReq := Prerequisite{
+			Name:         "docker",
+			MinVersion:   "20.0.0",
+			CheckRunning: true,
+		}
+		effectiveReqs = append(effectiveReqs, dockerReq)
+	}
+
 	// If no reqs section exists, skip checks gracefully
-	if len(azureYaml.Reqs) == 0 {
+	if len(effectiveReqs) == 0 {
 		if output.IsJSON() {
 			return output.PrintJSON(ReqsResult{
 				Satisfied: true,
@@ -131,7 +144,7 @@ func executeReqs() error {
 	cacheManager := createCacheManager(execContext.CacheEnabled)
 
 	// Check requirements (with caching)
-	results, allSatisfied := checkRequirementsWithCache(azureYaml.Reqs, azureYamlPath, cacheManager)
+	results, allSatisfied := checkRequirementsWithCache(effectiveReqs, azureYamlPath, cacheManager)
 
 	// JSON output
 	if output.IsJSON() {

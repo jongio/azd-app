@@ -23,6 +23,11 @@ const (
 	// ServiceTypeProcess indicates a service with no network endpoint.
 	// Health checks verify the process is running. This is the default for services without ports.
 	ServiceTypeProcess = "process"
+
+	// ServiceTypeContainer indicates a Docker container service.
+	// Health checks use TCP port connectivity by default.
+	// Container services are started via Docker rather than native processes.
+	ServiceTypeContainer = "container"
 )
 
 // Service mode constants define the lifecycle behavior of process-type services.
@@ -185,11 +190,16 @@ func (s *Service) NeedsPort() bool {
 }
 
 // GetServiceType returns the service type, inferring from configuration if not explicitly set.
-// Returns: "http" (default if ports defined), "tcp", or "process" (default if no ports).
+// Returns: "container" (if image is defined), "http" (default if ports defined), "tcp", or "process" (default if no ports).
 func (s *Service) GetServiceType() string {
 	// If explicitly set, use that
 	if s.Type != "" {
 		return s.Type
+	}
+
+	// Container services have priority - they have an image field
+	if s.IsContainerService() {
+		return ServiceTypeContainer
 	}
 
 	// Infer from configuration
@@ -221,6 +231,34 @@ func (s *Service) GetServiceMode() string {
 // IsProcessService returns true if this is a process-type service (no network endpoint).
 func (s *Service) IsProcessService() bool {
 	return s.GetServiceType() == ServiceTypeProcess
+}
+
+// IsContainerService returns true if this service should run as a Docker container.
+// A service is a container service when it has an `image` field (direct image reference)
+// or a `docker.image` field (Docker config with image).
+// Container services are launched via Docker rather than running as native processes.
+func (s *Service) IsContainerService() bool {
+	// Direct image reference
+	if s.Image != "" {
+		return true
+	}
+	// Docker config with image
+	if s.Docker != nil && s.Docker.Image != "" {
+		return true
+	}
+	return false
+}
+
+// GetContainerImage returns the Docker image for a container service.
+// Returns empty string if not a container service.
+func (s *Service) GetContainerImage() string {
+	if s.Image != "" {
+		return s.Image
+	}
+	if s.Docker != nil && s.Docker.Image != "" {
+		return s.Docker.Image
+	}
+	return ""
 }
 
 // IsWatchMode returns true if this is a process service in watch mode.
@@ -479,6 +517,7 @@ type ServiceProcess struct {
 	Ready       bool
 	HealthCheck chan error
 	Env         map[string]string
+	ContainerID string // Container ID for container services (Type=container)
 }
 
 // DependencyGraph represents service dependencies.

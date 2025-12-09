@@ -135,6 +135,64 @@ resources:
       'Show me the logs from api service filtered by ERROR level',
       'Is the database connection working? Check for connection errors in the logs'
     ]
+  },
+  {
+    id: 'containers',
+    title: 'API with Container Services',
+    language: 'Node.js + Docker',
+    icon: '🐳',
+    description: 'A Node.js API with PostgreSQL database and Redis cache running as container services.',
+    azureYaml: `name: api-with-containers
+services:
+  api:
+    language: js
+    project: ./src
+    ports:
+      - "3000"
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+      REDIS_URL: redis://localhost:6379
+    healthCheck:
+      endpoint: /health
+      
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]`,
+    structure: [
+      'src/',
+      '  package.json',
+      '  index.js',
+      '  routes/',
+      '    health.js',
+      '    users.js',
+      '  db/',
+      '    connection.js',
+      '  cache/',
+      '    redis.js',
+      'azure.yaml'
+    ],
+    copilotTip: 'Container services start before your app. If you see connection errors, check if the database container is healthy first.',
+    copilotPrompts: [
+      'Check if the postgres container is running and healthy',
+      'Show me the postgres logs to see if the database is ready',
+      'My API can\'t connect to Redis. Is the redis container healthy?',
+      'What is the connection string I should use for PostgreSQL?'
+    ]
   }
 ];
 ---

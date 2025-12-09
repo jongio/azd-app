@@ -46,8 +46,9 @@ export type LifecycleState =
  * - http: Serves HTTP/HTTPS traffic (default when ports defined)
  * - tcp: Raw TCP connections (databases, gRPC)
  * - process: No network endpoint (default when no ports)
+ * - container: Docker container service (requires Docker)
  */
-export type ServiceType = 'http' | 'tcp' | 'process'
+export type ServiceType = 'http' | 'tcp' | 'process' | 'container'
 
 /**
  * Service run mode - lifecycle behavior for process-type services

@@ -87,8 +87,8 @@ func newGetServiceLogsTool() server.ServerTool {
 
 			if serviceName, ok := getStringParam(args, "serviceName"); ok {
 				// Validate service name to prevent injection
-				if err := security.ValidateServiceName(serviceName, true); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
 				cmdArgs = append(cmdArgs, serviceName)
 			}
@@ -103,8 +103,8 @@ func newGetServiceLogsTool() server.ServerTool {
 
 			if level, ok := getStringParam(args, "level"); ok {
 				// Validate level parameter
-				if err := validateEnumParam(level, allowedLogLevels, "level"); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := validateEnumParam(level, allowedLogLevels, "level"); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
 				if level != "all" {
 					cmdArgs = append(cmdArgs, "--level", level)
@@ -123,8 +123,8 @@ func newGetServiceLogsTool() server.ServerTool {
 			cmdArgs = append(cmdArgs, "--format", "json")
 
 			// Check context before starting
-			if err := ctx.Err(); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", err)), nil
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", ctxErr)), nil
 			}
 
 			// Execute logs command with context
@@ -417,8 +417,8 @@ func newRunServicesTool() server.ServerTool {
 
 			if runtime, ok := getStringParam(args, "runtime"); ok {
 				// Validate runtime parameter
-				if err := validateEnumParam(runtime, allowedRuntimes, "runtime"); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := validateEnumParam(runtime, allowedRuntimes, "runtime"); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
 				cmdArgs = append(cmdArgs, "--runtime", runtime)
 			}
@@ -535,8 +535,8 @@ func newStopServicesTool() server.ServerTool {
 
 			// Check if a specific service was requested
 			if serviceName, ok := getStringParam(args, "serviceName"); ok {
-				if err := security.ValidateServiceName(serviceName, false); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
 				result := ctrl.StopService(ctx, serviceName)
 				return marshalToolResult(result)
@@ -585,8 +585,8 @@ func newStartServiceTool() server.ServerTool {
 			}
 
 			// Validate service name to prevent injection
-			if err := security.ValidateServiceName(serviceName, false); err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
+				return mcp.NewToolResultError(valErr.Error()), nil
 			}
 
 			// Get project directory
@@ -634,8 +634,8 @@ func newRestartServiceTool() server.ServerTool {
 			}
 
 			// Validate service name to prevent injection
-			if err := security.ValidateServiceName(serviceName, false); err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
+				return mcp.NewToolResultError(valErr.Error()), nil
 			}
 
 			// Get project directory
@@ -684,8 +684,8 @@ func newInstallDependenciesTool() server.ServerTool {
 			}
 
 			// Check context before starting long operation
-			if err := ctx.Err(); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", err)), nil
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", ctxErr)), nil
 			}
 
 			// Use longer timeout for dependency installation (can be slow)
@@ -777,8 +777,8 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 			// Validate service name if provided
 			serviceName, hasFilter := getStringParam(args, "serviceName")
 			if hasFilter {
-				if err := security.ValidateServiceName(serviceName, true); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
 			}
 

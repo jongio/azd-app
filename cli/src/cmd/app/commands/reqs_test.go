@@ -519,7 +519,8 @@ reqs: []
 			name: "no reqs section - default output",
 			yamlContent: `name: test
 services:
-  - name: web
+  web:
+    language: javascript
 `,
 			useJSONOutput: false,
 			expectedError: false,
@@ -536,7 +537,8 @@ reqs: []
 			name: "no reqs section - JSON output",
 			yamlContent: `name: test
 services:
-  - name: api
+  api:
+    language: python
 `,
 			useJSONOutput: true,
 			expectedError: false,

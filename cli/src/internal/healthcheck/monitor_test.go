@@ -422,7 +422,7 @@ func TestCustomHealthCheck_HTTPUrl(t *testing.T) {
 		Test: []string{server.URL + "/ready"},
 	}
 
-	result := checker.tryCustomHealthCheck(context.Background(), config)
+	result := checker.tryCustomHealthCheck(context.Background(), config, serviceInfo{})
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
@@ -456,7 +456,7 @@ func TestCustomHealthCheck_HTTPUrl_Unhealthy(t *testing.T) {
 		Test: []string{server.URL + "/health"},
 	}
 
-	result := checker.tryCustomHealthCheck(context.Background(), config)
+	result := checker.tryCustomHealthCheck(context.Background(), config, serviceInfo{})
 
 	if result == nil {
 		t.Fatal("Expected non-nil result")
