@@ -1,3 +1,12 @@
+## [0.9.0] - 2025-12-09
+
+- feat: Container services support and testing framework (#91) (df8332b)
+- feat: Enhance `azd app reqs` command to display installation URLs for requirements (#90) (5772923)
+- feat: Enhance MCP error logging with context retrieval (#89) (d1885b4)
+- feat: enhance hook execution to support script file paths without requiring executable permissions (#88) (bf52071)
+- feat: implement azd app test command with multi-language support and coverage aggregation (#35) (b480db0)
+- chore: update registry for v0.8.1 (fb9808f)
+
 ## [0.8.1] - 2025-12-06
 
 - feat: enhance logging, health checks, and Podman detection (#86) (f678422)
