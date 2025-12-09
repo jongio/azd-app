@@ -11,9 +11,9 @@ func TestNewAzureCredential(t *testing.T) {
 	// Clear any existing environment variables that might affect the test
 	originalToken := os.Getenv("AZD_ACCESS_TOKEN")
 	defer os.Setenv("AZD_ACCESS_TOKEN", originalToken)
-	
+
 	os.Unsetenv("AZD_ACCESS_TOKEN")
-	
+
 	// This test verifies the function doesn't panic
 	cred, err := NewAzureCredential()
 	if err != nil {
@@ -30,7 +30,7 @@ func TestNewAzureCredential(t *testing.T) {
 func TestAzdTokenCredential(t *testing.T) {
 	// Test creating token credential with valid token
 	testToken := "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxOTk5OTk5OTk5fQ.sig"
-	
+
 	cred, err := NewAzdTokenCredential(testToken)
 	if err != nil {
 		t.Logf("NewAzdTokenCredential returned error (may be expected for invalid token format): %v", err)

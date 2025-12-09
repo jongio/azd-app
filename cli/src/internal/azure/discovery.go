@@ -197,7 +197,7 @@ func (d *ResourceDiscovery) detectResourceType(ctx context.Context, subscription
 
 		for _, resource := range page.Value {
 			if resource.Name != nil && strings.EqualFold(*resource.Name, resourceName) {
-				resourceType := mapARMTypeToResourceType(*resource.Type)
+				resourceType := mapARMTypeToResourceType(*resource.Type, resource.Kind)
 				return resourceType, *resource.ID
 			}
 		}
@@ -257,13 +257,18 @@ func (d *ResourceDiscovery) GetResource(ctx context.Context, serviceName string)
 }
 
 // mapARMTypeToResourceType maps Azure ARM resource types to our ResourceType enum.
-func mapARMTypeToResourceType(armType string) ResourceType {
+// The kind parameter is used to differentiate between similar resource types (e.g., App Service vs Function App).
+func mapARMTypeToResourceType(armType string, kind *string) ResourceType {
 	armType = strings.ToLower(armType)
 	switch {
 	case strings.Contains(armType, "microsoft.app/containerapps"):
 		return ResourceTypeContainerApp
 	case strings.Contains(armType, "microsoft.web/sites"):
-		// Could be App Service or Function App - need to check kind
+		// Differentiate between App Service and Function App using the "kind" property
+		// Function Apps have kind values like "functionapp", "functionapp,linux", "functionapp,workflowapp"
+		if kind != nil && isFunctionAppKind(*kind) {
+			return ResourceTypeFunction
+		}
 		return ResourceTypeAppService
 	case strings.Contains(armType, "microsoft.containerservice/managedclusters"):
 		return ResourceTypeAKS
@@ -272,6 +277,15 @@ func mapARMTypeToResourceType(armType string) ResourceType {
 	default:
 		return ResourceTypeUnknown
 	}
+}
+
+// isFunctionAppKind checks if the kind string indicates a Function App.
+// Function Apps have kind values like "functionapp", "functionapp,linux",
+// "functionapp,workflowapp", "functionapp,linux,container", etc.
+func isFunctionAppKind(kind string) bool {
+	kindLower := strings.ToLower(kind)
+	// Check if "functionapp" is present anywhere in the kind value
+	return strings.Contains(kindLower, "functionapp")
 }
 
 // inferResourceTypeFromURL tries to determine resource type from the URL pattern.
