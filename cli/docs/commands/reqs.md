@@ -575,6 +575,7 @@ reqs:
 | `runningCheckArgs` | []string | ❌ | Arguments for running check |
 | `runningCheckExpected` | string | ❌ | Expected substring in output |
 | `runningCheckExitCode` | int | ❌ | Expected exit code (default: 0) |
+| `installUrl` | string | ❌ | URL to installation page (shown on failure) |
 
 ## Output Formats
 
@@ -587,8 +588,59 @@ reqs:
 ✓ docker: 24.0.7 (required: 20.0.0)
   - ✓ RUNNING
 ✗ python: NOT INSTALLED (required: 3.11.0)
+   Install: https://www.python.org/downloads/
 
 ✗ Some prerequisites are not satisfied
+```
+
+### Install URLs
+
+When a requirement check fails (not installed or version too old), the command displays an install URL to help users quickly find installation instructions.
+
+**Built-in Install URLs**:
+
+The following tools have built-in install URLs:
+
+| Tool | Install URL |
+|------|-------------|
+| node | https://nodejs.org/ |
+| npm | https://nodejs.org/ |
+| pnpm | https://pnpm.io/installation |
+| yarn | https://yarnpkg.com/getting-started/install |
+| python | https://www.python.org/downloads/ |
+| pip | https://www.python.org/downloads/ |
+| poetry | https://python-poetry.org/docs/#installation |
+| uv | https://docs.astral.sh/uv/getting-started/installation/ |
+| pipenv | https://pipenv.pypa.io/en/latest/installation.html |
+| dotnet | https://dotnet.microsoft.com/download |
+| aspire | https://learn.microsoft.com/dotnet/aspire/fundamentals/setup-tooling |
+| docker | https://www.docker.com/products/docker-desktop |
+| git | https://git-scm.com/downloads |
+| go | https://go.dev/dl/ |
+| azd | https://aka.ms/install-azd |
+| az | https://aka.ms/installazurecli |
+| func | https://learn.microsoft.com/azure/azure-functions/functions-run-local |
+| java | https://adoptium.net/ |
+| mvn | https://maven.apache.org/install.html |
+| gradle | https://gradle.org/install/ |
+
+**Custom Install URLs**:
+
+For custom tools or to override the built-in URL, specify `installUrl` in your azure.yaml:
+
+```yaml
+reqs:
+  - name: mytool
+    minVersion: "1.0.0"
+    command: "mytool"
+    args: ["--version"]
+    installUrl: "https://example.com/mytool/install"
+```
+
+**Output with Custom Install URL**:
+```
+✗ mytool: NOT INSTALLED (required: 1.0.0)
+   Install: https://example.com/mytool/install
 ```
 
 ### JSON Output (`--output json`)
@@ -603,7 +655,8 @@ reqs:
       "version": "20.11.0",
       "required": "18.0.0",
       "satisfied": true,
-      "message": "Satisfied"
+      "message": "Satisfied",
+      "installUrl": "https://nodejs.org/"
     },
     {
       "name": "docker",
@@ -613,14 +666,16 @@ reqs:
       "satisfied": true,
       "running": true,
       "checkedRunning": true,
-      "message": "Running"
+      "message": "Running",
+      "installUrl": "https://www.docker.com/products/docker-desktop"
     },
     {
       "name": "python",
       "installed": false,
       "required": "3.11.0",
       "satisfied": false,
-      "message": "Not installed"
+      "message": "Not installed",
+      "installUrl": "https://www.python.org/downloads/"
     }
   ]
 }

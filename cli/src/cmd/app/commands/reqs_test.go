@@ -688,6 +688,109 @@ func TestToolRegistryCompleteness(t *testing.T) {
 	}
 }
 
+func TestInstallURLRegistry(t *testing.T) {
+	// Ensure all tools in toolRegistry have a corresponding install URL
+	for tool := range toolRegistry {
+		t.Run(tool, func(t *testing.T) {
+			url, found := installURLRegistry[tool]
+			if !found {
+				t.Errorf("Tool %s has no install URL in registry", tool)
+				return
+			}
+			if url == "" {
+				t.Errorf("Tool %s has empty install URL", tool)
+			}
+			// Verify URL starts with https://
+			if !strings.HasPrefix(url, "https://") {
+				t.Errorf("Tool %s install URL should start with https://, got: %s", tool, url)
+			}
+		})
+	}
+}
+
+func TestGetInstallUrl(t *testing.T) {
+	checker := NewPrerequisiteChecker()
+
+	tests := []struct {
+		name     string
+		prereq   Prerequisite
+		expected string
+	}{
+		{
+			name: "built-in tool gets URL from registry",
+			prereq: Prerequisite{
+				Name:       "node",
+				MinVersion: "18.0.0",
+			},
+			expected: "https://nodejs.org/",
+		},
+		{
+			name: "alias resolves to canonical tool URL",
+			prereq: Prerequisite{
+				Name:       "nodejs",
+				MinVersion: "18.0.0",
+			},
+			expected: "https://nodejs.org/",
+		},
+		{
+			name: "custom tool with custom URL",
+			prereq: Prerequisite{
+				Name:       "mytool",
+				MinVersion: "1.0.0",
+				InstallUrl: "https://example.com/mytool/install",
+			},
+			expected: "https://example.com/mytool/install",
+		},
+		{
+			name: "custom URL overrides built-in",
+			prereq: Prerequisite{
+				Name:       "node",
+				MinVersion: "18.0.0",
+				InstallUrl: "https://custom.example.com/node",
+			},
+			expected: "https://custom.example.com/node",
+		},
+		{
+			name: "unknown tool without custom URL returns empty",
+			prereq: Prerequisite{
+				Name:       "unknown-tool-xyz",
+				MinVersion: "1.0.0",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := checker.getInstallUrl(tt.prereq)
+			if result != tt.expected {
+				t.Errorf("getInstallUrl(%s) = %q, want %q", tt.prereq.Name, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCheckPrerequisiteIncludesInstallUrl(t *testing.T) {
+	checker := NewPrerequisiteChecker()
+
+	// Test with a tool that doesn't exist - should include install URL in result
+	prereq := Prerequisite{
+		Name:       "nonexistent-tool-for-install-url-test",
+		MinVersion: "1.0.0",
+		InstallUrl: "https://example.com/install",
+	}
+
+	result := checker.Check(prereq)
+
+	if result.Satisfied {
+		t.Skip("Tool unexpectedly exists, skipping test")
+	}
+
+	if result.InstallUrl != "https://example.com/install" {
+		t.Errorf("Result InstallUrl = %q, want %q", result.InstallUrl, "https://example.com/install")
+	}
+}
+
 func TestFuncToolRegistry(t *testing.T) {
 	tests := []struct {
 		name     string
