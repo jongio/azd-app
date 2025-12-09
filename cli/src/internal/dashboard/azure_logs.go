@@ -20,10 +20,10 @@ type AzureStatusResponse struct {
 
 // ResourceSummary provides a summary of a discovered Azure resource.
 type ResourceSummary struct {
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	ResourceID   string `json:"resourceId,omitempty"`
-	HasLogs      bool   `json:"hasLogs"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	ResourceID string `json:"resourceId,omitempty"`
+	HasLogs    bool   `json:"hasLogs"`
 }
 
 // handleAzureStatus returns the Azure log streaming status.

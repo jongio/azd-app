@@ -2,7 +2,6 @@
  * LogSourceBadge - Badge indicating the source of a log entry
  * Shows whether a log came from local services or Azure
  */
-import * as React from 'react'
 import { Monitor, Cloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

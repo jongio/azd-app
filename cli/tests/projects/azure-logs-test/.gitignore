@@ -1,0 +1,29 @@
+# Azure environment
+.azure/
+
+# Node.js
+node_modules/
+dist/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Go
+*.exe
+*.test
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local settings
+local.settings.json
+*.local
