@@ -2,7 +2,7 @@
 /**
  * MCP Tools Reference
  * 
- * Complete documentation for all 10 MCP tools.
+ * Complete documentation for all 12 MCP tools.
  */
 import Layout from '../../components/Layout.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
@@ -43,16 +43,16 @@ const mcpTools = [
   {
     name: "get_service_logs",
     category: "Observe",
-    description: "Retrieve logs from a specific service, with optional filtering by time range and log level.",
+    description: "Retrieve logs from services, with optional filtering by service name, time range, and log level. Use tail parameter for large log retrieval (up to 10,000 lines).",
     parameters: [
-      { name: "service", type: "string", required: true, description: "Name of the service" },
-      { name: "lines", type: "number", required: false, description: "Number of lines to return (default: 100)" },
-      { name: "level", type: "string", required: false, description: "Filter by log level: error, warn, info, debug" },
-      { name: "since", type: "string", required: false, description: "Time filter, e.g., '5m', '1h', '2024-01-01'" },
+      { name: "serviceName", type: "string", required: false, description: "Name of the service (optional, omit for all services)" },
+      { name: "tail", type: "number", required: false, description: "Number of lines to return (default: 100, max: 10000)" },
+      { name: "level", type: "string", required: false, description: "Filter by log level: error, warn, info, debug, all" },
+      { name: "since", type: "string", required: false, description: "Time filter, e.g., '5m', '1h', '30s'" },
     ],
     returns: "Array of log entries with timestamp, level, and message",
     example: {
-      prompt: "Show me errors from the API in the last 10 minutes",
+      prompt: "Show me all logs from the API service",
       output: `[
   {
     "timestamp": "2024-01-15T10:32:15Z",
@@ -61,15 +61,54 @@ const mcpTools = [
   },
   {
     "timestamp": "2024-01-15T10:32:45Z",
-    "level": "error",
-    "message": "Failed to process request: DatabaseError"
+    "level": "info",
+    "message": "Retrying database connection..."
   }
 ]`,
     },
     useCases: [
-      "Find errors causing service failures",
-      "Debug performance issues",
-      "Track request patterns",
+      "Get complete log history for a service",
+      "Find specific patterns across all log levels",
+      "Track request patterns and debug performance",
+    ],
+  },
+  {
+    name: "get_service_errors",
+    category: "Observe",
+    description: "Get only error logs with surrounding context lines for AI debugging. Optimized for quickly identifying and understanding errors.",
+    parameters: [
+      { name: "serviceName", type: "string", required: false, description: "Filter to a specific service (optional)" },
+      { name: "since", type: "string", required: false, description: "Time filter, e.g., '5m', '10m', '1h' (default: 10m)" },
+      { name: "tail", type: "number", required: false, description: "Max log lines to scan (default: 500)" },
+      { name: "contextLines", type: "number", required: false, description: "Lines of context before/after each error (default: 3, max: 10)" },
+    ],
+    returns: "Summary with error count and array of errors with context",
+    example: {
+      prompt: "What errors are happening in my services?",
+      output: `{
+  "summary": {
+    "totalErrors": 2,
+    "totalLogs": 150,
+    "since": "10m"
+  },
+  "errors": [
+    {
+      "service": "api",
+      "message": "Connection refused to database",
+      "level": "ERROR",
+      "timestamp": "2024-01-15T10:32:15Z",
+      "context": {
+        "before": ["Attempting database connection..."],
+        "after": ["Retrying in 5 seconds..."]
+      }
+    }
+  ]
+}`,
+    },
+    useCases: [
+      "Quick diagnosis - find all errors across services",
+      "AI debugging - context helps understand error cause",
+      "Triage - see error summary before diving into full logs",
     ],
   },
   {
@@ -277,7 +316,7 @@ const toolsByCategory = categories.map(cat => ({
 }));
 ---
 
-<Layout title="MCP Tools Reference" description="Complete documentation for all 10 MCP tools">
+<Layout title="MCP Tools Reference" description="Complete documentation for all 12 MCP tools">
   <main class="tools-page">
     <!-- Header -->
     <header class="tools-header">
@@ -288,7 +327,7 @@ const toolsByCategory = categories.map(cat => ({
       </nav>
       <h1 class="tools-title">MCP Tools Reference</h1>
       <p class="tools-description">
-        Complete documentation for all 10 MCP tools available to AI assistants.
+        Complete documentation for all 12 MCP tools available to AI assistants.
       </p>
     </header>
 

@@ -22,6 +22,11 @@ const promptCategories = [
         when: "Quick overview of service status",
       },
       {
+        title: "Find All Errors",
+        prompt: "What errors are happening in my services?",
+        when: "Quick triage - AI gets errors with context automatically",
+      },
+      {
         title: "Find Errors",
         prompt: "Are there any errors in my service logs?",
         when: "Something seems wrong but you're not sure what",
@@ -92,6 +97,11 @@ const promptCategories = [
     icon: "📝",
     description: "Search and analyze log output",
     prompts: [
+      {
+        title: "All Logs",
+        prompt: "Get all logs from [service-name]",
+        when: "Need complete log history for deep analysis",
+      },
       {
         title: "Recent Logs",
         prompt: "Show me the last 50 log lines from [service-name]",

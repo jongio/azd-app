@@ -9,9 +9,9 @@ const example3 = "azd app logs --service web,api";
 const example4 = "azd app logs --tail 50";
 const example5 = "azd app logs --since 5m";
 const example6 = "azd app logs --level error";
-const example7 = "azd app logs --format json";
-const example8 = "azd app logs --file debug.log";
-const example9 = "azd app logs --timestamps=false";
+const example7 = "azd app logs --level error --context 3";
+const example8 = "azd app logs --format json";
+const example9 = "azd app logs --file debug.log";
 ---
 
 <Layout title="logs - CLI Reference" description="View logs from running services with filtering and follow support.">
@@ -100,6 +100,13 @@ const example9 = "azd app logs --timestamps=false";
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">all</td>
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Filter by log level (info, warn, error, debug, all)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--context</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">int</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">0</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Number of context lines before/after matching entries (0-10, requires --level)</td>
       </tr>
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
         <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--format</code></td>

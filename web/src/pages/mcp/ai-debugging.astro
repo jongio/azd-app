@@ -257,6 +257,10 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
           <p class="debug-tool-desc">Lists all services with their current status (running, stopped, error)</p>
         </div>
         <div class="debug-tool">
+          <code class="debug-tool-name">get_service_errors</code>
+          <p class="debug-tool-desc">Gets only errors with context lines - optimized for AI debugging (use this first!)</p>
+        </div>
+        <div class="debug-tool">
           <code class="debug-tool-name">get_service_logs</code>
           <p class="debug-tool-desc">Retrieves logs from a specific service, optionally filtered by time or level</p>
         </div>
@@ -275,7 +279,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
       </div>
       <div class="debug-tools-cta">
         <a href={`${baseUrl}mcp/tools/`} class="btn-secondary">
-          View All 10 Tools
+          View All 12 Tools
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <line x1="5" y1="12" x2="19" y2="12"></line>
             <polyline points="12 5 19 12 12 19"></polyline>

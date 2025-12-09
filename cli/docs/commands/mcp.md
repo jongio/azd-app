@@ -57,13 +57,14 @@ The MCP server:
 
 ### Tools Provided
 
-The MCP server exposes 11 tools organized into three categories:
+The MCP server exposes 12 tools organized into three categories:
 
 #### Observability Tools (Read-Only)
 
 | Tool | Description |
 |------|-------------|
 | `get_services` | Get comprehensive information about all running services including status, health, URLs, ports, and environment variables |
+| `get_service_errors` | Get error logs with surrounding context for debugging - optimized for AI-assisted troubleshooting |
 | `get_service_logs` | Retrieve logs from running services with filtering by service name, log level, and time range |
 | `get_project_info` | Get project metadata and configuration from azure.yaml |
 
@@ -102,8 +103,14 @@ The MCP server includes built-in guidance for AI assistants:
 Best Practices:
 1. Always use get_services to check current state before starting/stopping services
 2. Use check_requirements before installing dependencies to see what's needed
-3. Use get_service_logs to diagnose issues when services fail to start
-4. Read azure.yaml resource to understand project structure before operations
+3. Use get_service_errors FIRST when debugging - it returns only errors with context
+4. Use get_service_logs for full log history when you need more detail
+5. Read azure.yaml resource to understand project structure before operations
+
+Debugging Workflow:
+1. get_service_errors: Start here - returns errors with surrounding context for quick diagnosis
+2. get_service_logs: Use if you need full log history or non-error messages
+3. restart_service: After fixing issues, restart the affected service
 ```
 
 ## Quick Start
@@ -387,6 +394,43 @@ After restarting Claude Desktop, you should see an MCP indicator showing that th
 | `level` | string | No | Filter by log level: `info`, `warn`, `error`, `debug`, or `all` (default: `all`) |
 | `since` | string | No | Show logs since duration (e.g., `5m`, `1h`, `30s`) |
 
+### get_service_errors
+
+Optimized for AI-assisted debugging. Uses the logs command filtered to errors, with surrounding context extracted for quick diagnosis.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `projectDir` | string | No | Project directory path. Defaults to current directory. |
+| `serviceName` | string | No | Filter errors to a specific service |
+| `since` | string | No | Show errors since duration (e.g., `5m`, `1h`). Default is `10m`. |
+| `tail` | number | No | Number of log lines to retrieve for context extraction (default: 500) |
+| `contextLines` | number | No | Number of log lines before/after each error (default: 3, max: 10) |
+
+**Response Structure:**
+
+```json
+{
+  "summary": {
+    "totalErrors": 2,
+    "totalLogs": 150,
+    "since": "10m"
+  },
+  "errors": [
+    {
+      "service": "api",
+      "timestamp": "2025-12-08T10:15:00Z",
+      "message": "Error: Connection refused",
+      "level": "ERROR",
+      "isStderr": true,
+      "context": {
+        "before": ["Connecting to database...", "Retry attempt 3"],
+        "after": ["Service shutting down"]
+      }
+    }
+  ]
+}
+```
+
 ### get_project_info
 
 | Parameter | Type | Required | Description |
@@ -463,7 +507,7 @@ After restarting Claude Desktop, you should see an MCP indicator showing that th
 
 | Capability | Enabled | Details |
 |------------|---------|---------|
-| Tools | Yes | 11 tools for monitoring and operations |
+| Tools | Yes | 12 tools for monitoring and operations |
 | Resources | Yes | 2 resources (subscribe=false, listChanged=true) |
 | Prompts | No | Not currently implemented |
 | Instructions | Yes | Built-in best practices guidance |

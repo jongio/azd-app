@@ -9,36 +9,44 @@ import (
 
 func TestValidateLogsOptions(t *testing.T) {
 	tests := []struct {
-		name      string
-		tail      int
-		format    string
-		level     string
-		since     string
-		wantErr   bool
-		errSubstr string
+		name         string
+		tail         int
+		format       string
+		level        string
+		since        string
+		contextLines int
+		wantErr      bool
+		errSubstr    string
 	}{
-		{"valid defaults", 100, "text", "all", "", false, ""},
-		{"valid json format", 100, "json", "all", "", false, ""},
-		{"valid level info", 100, "text", "info", "", false, ""},
-		{"valid level warn", 100, "text", "warn", "", false, ""},
-		{"valid level error", 100, "text", "error", "", false, ""},
-		{"valid level debug", 100, "text", "debug", "", false, ""},
-		{"valid since 5m", 100, "text", "all", "5m", false, ""},
-		{"valid since 1h", 100, "text", "all", "1h", false, ""},
-		{"negative tail", -1, "text", "all", "", true, "--tail must be a positive"},
-		{"invalid format", 100, "xml", "all", "", true, "--format must be"},
-		{"invalid level", 100, "text", "trace", "", true, "--level must be one of"},
-		{"invalid since", 100, "text", "all", "5x", true, "--since must be a valid duration"},
-		{"tail capped at max", 20000, "text", "all", "", false, ""},
+		{"valid defaults", 100, "text", "all", "", 0, false, ""},
+		{"valid json format", 100, "json", "all", "", 0, false, ""},
+		{"valid level info", 100, "text", "info", "", 0, false, ""},
+		{"valid level warn", 100, "text", "warn", "", 0, false, ""},
+		{"valid level error", 100, "text", "error", "", 0, false, ""},
+		{"valid level debug", 100, "text", "debug", "", 0, false, ""},
+		{"valid since 5m", 100, "text", "all", "5m", 0, false, ""},
+		{"valid since 1h", 100, "text", "all", "1h", 0, false, ""},
+		{"negative tail", -1, "text", "all", "", 0, true, "--tail must be a positive"},
+		{"invalid format", 100, "xml", "all", "", 0, true, "--format must be"},
+		{"invalid level", 100, "text", "trace", "", 0, true, "--level must be one of"},
+		{"invalid since", 100, "text", "all", "5x", 0, true, "--since must be a valid duration"},
+		{"tail capped at max", 20000, "text", "all", "", 0, false, ""},
+		// Context flag tests
+		{"context with level error", 100, "text", "error", "", 3, false, ""},
+		{"context with level warn", 100, "text", "warn", "", 5, false, ""},
+		{"context without level", 100, "text", "all", "", 3, true, "--context requires --level"},
+		{"context negative clamped", 100, "text", "error", "", -1, false, ""},
+		{"context above max clamped", 100, "text", "error", "", 20, false, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := &logsOptions{
-				tail:   tt.tail,
-				format: tt.format,
-				level:  tt.level,
-				since:  tt.since,
+				tail:         tt.tail,
+				format:       tt.format,
+				level:        tt.level,
+				since:        tt.since,
+				contextLines: tt.contextLines,
 			}
 
 			err := validateLogsOptions(opts)
@@ -117,6 +125,40 @@ func TestValidateLogsOptions(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("context negative clamped to zero", func(t *testing.T) {
+		opts := &logsOptions{
+			tail:         100,
+			format:       "text",
+			level:        "error",
+			since:        "",
+			contextLines: -5,
+		}
+
+		if err := validateLogsOptions(opts); err != nil {
+			t.Fatalf("validateLogsOptions() unexpected error: %v", err)
+		}
+		if opts.contextLines != 0 {
+			t.Errorf("opts.contextLines = %d, expected to be clamped to 0", opts.contextLines)
+		}
+	})
+
+	t.Run("context above max clamped to 10", func(t *testing.T) {
+		opts := &logsOptions{
+			tail:         100,
+			format:       "text",
+			level:        "error",
+			since:        "",
+			contextLines: 20,
+		}
+
+		if err := validateLogsOptions(opts); err != nil {
+			t.Fatalf("validateLogsOptions() unexpected error: %v", err)
+		}
+		if opts.contextLines != service.MaxContextLines {
+			t.Errorf("opts.contextLines = %d, expected to be capped at %d", opts.contextLines, service.MaxContextLines)
+		}
+	})
 }
 
 func TestLogsConstants(t *testing.T) {
@@ -186,7 +228,7 @@ func TestLogsCommandStructure(t *testing.T) {
 	t.Run("flags exist", func(t *testing.T) {
 		flags := []string{
 			"follow", "service", "tail", "since", "timestamps",
-			"no-color", "level", "format", "file", "exclude", "no-builtins",
+			"no-color", "level", "format", "file", "exclude", "no-builtins", "context",
 		}
 		for _, flag := range flags {
 			if cmd.Flags().Lookup(flag) == nil {
@@ -230,23 +272,29 @@ func TestLogsCommandStructure(t *testing.T) {
 		if formatFlag.DefValue != "text" {
 			t.Errorf("format default = %q, want %q", formatFlag.DefValue, "text")
 		}
+
+		contextFlag := cmd.Flags().Lookup("context")
+		if contextFlag.DefValue != "0" {
+			t.Errorf("context default = %q, want %q", contextFlag.DefValue, "0")
+		}
 	})
 }
 
 // TestLogsOptionsDocumentation verifies the logsOptions struct is properly defined.
 func TestLogsOptionsDocumentation(t *testing.T) {
 	opts := logsOptions{
-		follow:     true,
-		service:    "api",
-		tail:       100,
-		since:      "5m",
-		timestamps: true,
-		noColor:    false,
-		level:      "info",
-		format:     "text",
-		file:       "output.log",
-		exclude:    "pattern",
-		noBuiltins: false,
+		follow:       true,
+		service:      "api",
+		tail:         100,
+		since:        "5m",
+		timestamps:   true,
+		noColor:      false,
+		level:        "info",
+		format:       "text",
+		file:         "output.log",
+		exclude:      "pattern",
+		noBuiltins:   false,
+		contextLines: 3,
 	}
 
 	if opts.follow != true {
@@ -281,5 +329,8 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	}
 	if opts.noBuiltins != false {
 		t.Error("noBuiltins field")
+	}
+	if opts.contextLines != 3 {
+		t.Error("contextLines field")
 	}
 }

@@ -68,20 +68,38 @@ type LogManagerInterface interface {
 	GetAllBuffers() map[string]*service.LogBuffer
 }
 
+// LogEntryWithContext represents a log entry with surrounding context lines.
+// Used when --context flag is specified to include lines before/after matches.
+type LogEntryWithContext struct {
+	Service   string      `json:"service"`
+	Message   string      `json:"message"`
+	Level     string      `json:"level"`
+	Timestamp time.Time   `json:"timestamp"`
+	IsStderr  bool        `json:"isStderr,omitempty"`
+	Context   *LogContext `json:"context,omitempty"`
+}
+
+// LogContext contains log lines before and after a matching entry.
+type LogContext struct {
+	Before []string `json:"before,omitempty"`
+	After  []string `json:"after,omitempty"`
+}
+
 // logsOptions holds the flag values for the logs command.
 // Using a struct avoids global state pollution between command invocations.
 type logsOptions struct {
-	follow     bool
-	service    string
-	tail       int
-	since      string
-	timestamps bool
-	noColor    bool
-	level      string
-	format     string
-	file       string
-	exclude    string
-	noBuiltins bool
+	follow       bool
+	service      string
+	tail         int
+	since        string
+	timestamps   bool
+	noColor      bool
+	level        string
+	format       string
+	file         string
+	exclude      string
+	noBuiltins   bool
+	contextLines int // Number of context lines before/after matching entries (0-10)
 }
 
 // logsExecutor encapsulates the logs command execution with injectable dependencies.
@@ -155,6 +173,9 @@ Examples:
   # Filter by log level
   azd app logs --level error
 
+  # View errors with 3 lines of context before and after
+  azd app logs --level error --context 3
+
   # View logs from the last 5 minutes
   azd app logs --since 5m
 
@@ -162,7 +183,10 @@ Examples:
   azd app logs --file logs.txt
 
   # Output as JSON for processing
-  azd app logs --format json`,
+  azd app logs --format json
+
+  # Output errors as JSON with context
+  azd app logs --level error --context 3 --format json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLogsWithOptions(opts, args)
@@ -180,6 +204,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVarP(&opts.exclude, "exclude", "e", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
+	cmd.Flags().IntVar(&opts.contextLines, "context", 0, "Number of context lines before/after matching entries (0-10, requires --level)")
 
 	return cmd
 }
@@ -303,22 +328,40 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	// Sort logs by timestamp
 	service.SortLogEntries(logs)
 
-	// Filter by level
-	logs = filterLogsByLevel(logs, levelFilter)
-
-	// Filter by pattern
+	// Filter by pattern first (applies to all logs regardless of context mode)
 	logs = service.FilterLogEntries(logs, logFilter)
 
-	// Apply final tail limit after all filtering (for multi-service view)
-	if e.opts.tail > 0 && len(logs) > e.opts.tail {
-		logs = logs[len(logs)-e.opts.tail:]
-	}
+	// Handle context mode vs regular mode
+	if e.opts.contextLines > 0 && levelFilter != LogLevelAll {
+		// Context mode: extract matching entries with surrounding context
+		logsWithContext := e.extractLogsWithContext(logs, levelFilter, e.opts.contextLines)
 
-	// Display initial logs
-	if e.opts.format == "json" {
-		displayLogsJSON(logs, outputWriter)
+		// Apply tail limit to the number of matching entries
+		if e.opts.tail > 0 && len(logsWithContext) > e.opts.tail {
+			logsWithContext = logsWithContext[len(logsWithContext)-e.opts.tail:]
+		}
+
+		// Display logs with context
+		if e.opts.format == "json" {
+			displayLogsWithContextJSON(logsWithContext, outputWriter)
+		} else {
+			displayLogsWithContextText(logsWithContext, outputWriter, e.opts.timestamps, e.opts.noColor)
+		}
 	} else {
-		displayLogsText(logs, outputWriter, e.opts.timestamps, e.opts.noColor)
+		// Regular mode: filter by level and display
+		logs = filterLogsByLevel(logs, levelFilter)
+
+		// Apply final tail limit after all filtering (for multi-service view)
+		if e.opts.tail > 0 && len(logs) > e.opts.tail {
+			logs = logs[len(logs)-e.opts.tail:]
+		}
+
+		// Display initial logs
+		if e.opts.format == "json" {
+			displayLogsJSON(logs, outputWriter)
+		} else {
+			displayLogsText(logs, outputWriter, e.opts.timestamps, e.opts.noColor)
+		}
 	}
 
 	// Follow mode - subscribe to live logs
@@ -456,6 +499,101 @@ func (e *logsExecutor) collectLogs(ctx context.Context, cwd string, targetServic
 		logs = append(logs, serviceLogs...)
 	}
 	return logs, nil
+}
+
+// extractLogsWithContext finds log entries matching the level filter and extracts
+// surrounding context lines. Handles deduplication of overlapping context ranges.
+func (e *logsExecutor) extractLogsWithContext(logs []service.LogEntry, levelFilter service.LogLevel, contextLines int) []LogEntryWithContext {
+	if len(logs) == 0 || contextLines <= 0 {
+		return nil
+	}
+
+	// Find indices of matching entries
+	var matchIndices []int
+	for i, entry := range logs {
+		if entry.Level == levelFilter {
+			matchIndices = append(matchIndices, i)
+		}
+	}
+
+	if len(matchIndices) == 0 {
+		return nil
+	}
+
+	// Build entries with context, handling overlapping ranges
+	result := make([]LogEntryWithContext, 0, len(matchIndices))
+	usedIndices := make(map[int]bool) // Track indices already shown in context
+
+	for _, matchIdx := range matchIndices {
+		entry := logs[matchIdx]
+
+		// Extract before context
+		startBefore := matchIdx - contextLines
+		if startBefore < 0 {
+			startBefore = 0
+		}
+		before := make([]string, 0, contextLines)
+		for i := startBefore; i < matchIdx; i++ {
+			// Skip if this line was already shown (to avoid duplicating context)
+			if !usedIndices[i] {
+				before = append(before, logs[i].Message)
+				usedIndices[i] = true
+			}
+		}
+
+		// Extract after context
+		endAfter := matchIdx + contextLines + 1
+		if endAfter > len(logs) {
+			endAfter = len(logs)
+		}
+		after := make([]string, 0, contextLines)
+		for i := matchIdx + 1; i < endAfter; i++ {
+			// Skip if this line was already shown (to avoid duplicating context)
+			if !usedIndices[i] {
+				after = append(after, logs[i].Message)
+				usedIndices[i] = true
+			}
+		}
+
+		// Mark the match itself as used
+		usedIndices[matchIdx] = true
+
+		// Build context only if we have any lines
+		var ctx *LogContext
+		if len(before) > 0 || len(after) > 0 {
+			ctx = &LogContext{
+				Before: before,
+				After:  after,
+			}
+		}
+
+		result = append(result, LogEntryWithContext{
+			Service:   entry.Service,
+			Message:   entry.Message,
+			Level:     logLevelToString(entry.Level),
+			Timestamp: entry.Timestamp,
+			IsStderr:  entry.IsStderr,
+			Context:   ctx,
+		})
+	}
+
+	return result
+}
+
+// logLevelToString converts a LogLevel to its string representation.
+func logLevelToString(level service.LogLevel) string {
+	switch level {
+	case service.LogLevelInfo:
+		return "info"
+	case service.LogLevelWarn:
+		return "warn"
+	case service.LogLevelError:
+		return "error"
+	case service.LogLevelDebug:
+		return "debug"
+	default:
+		return "info"
+	}
 }
 
 // buildLogFilterInternal creates a log filter from executor options and azure.yaml config.
@@ -918,6 +1056,88 @@ func displayLogsJSON(logs []service.LogEntry, w io.Writer) {
 	}
 }
 
+// displayLogsWithContextJSON displays logs with context in JSON format.
+// Each entry includes optional before/after context lines.
+func displayLogsWithContextJSON(logs []LogEntryWithContext, w io.Writer) {
+	encoder := json.NewEncoder(w)
+	for _, entry := range logs {
+		if err := encoder.Encode(entry); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to encode log entry: %v\n", err)
+		}
+	}
+}
+
+// displayLogsWithContextText displays logs with context in text format.
+// Context lines are shown with indentation and separators between entries.
+func displayLogsWithContextText(logs []LogEntryWithContext, w io.Writer, showTimestamps, noColor bool) {
+	for i, entry := range logs {
+		// Add separator between entries (not before first)
+		if i > 0 {
+			fmt.Fprintln(w, "---")
+		}
+
+		// Show before context (if any)
+		if entry.Context != nil && len(entry.Context.Before) > 0 {
+			for _, line := range entry.Context.Before {
+				if noColor {
+					fmt.Fprintf(w, "  %s\n", line)
+				} else {
+					fmt.Fprintf(w, "  %s%s%s\n", colorGray, line, colorReset)
+				}
+			}
+		}
+
+		// Show the matching entry
+		var line strings.Builder
+
+		// Timestamp
+		if showTimestamps {
+			timestamp := entry.Timestamp.Format("15:04:05.000")
+			if noColor {
+				line.WriteString(fmt.Sprintf("[%s] ", timestamp))
+			} else {
+				line.WriteString(colorGray + "[" + timestamp + "]" + colorReset + " ")
+			}
+		}
+
+		// Service name
+		if noColor {
+			line.WriteString(fmt.Sprintf("[%s] ", entry.Service))
+		} else {
+			line.WriteString(colorCyan + "[" + entry.Service + "]" + colorReset + " ")
+		}
+
+		// Message with color based on level
+		if noColor {
+			line.WriteString(entry.Message)
+		} else {
+			switch entry.Level {
+			case "error":
+				line.WriteString(colorRed + entry.Message + colorReset)
+			case "warn":
+				line.WriteString(colorYellow + entry.Message + colorReset)
+			case "debug":
+				line.WriteString(colorGray + entry.Message + colorReset)
+			default:
+				line.WriteString(entry.Message)
+			}
+		}
+
+		fmt.Fprintln(w, line.String())
+
+		// Show after context (if any)
+		if entry.Context != nil && len(entry.Context.After) > 0 {
+			for _, contextLine := range entry.Context.After {
+				if noColor {
+					fmt.Fprintf(w, "  %s\n", contextLine)
+				} else {
+					fmt.Fprintf(w, "  %s%s%s\n", colorGray, contextLine, colorReset)
+				}
+			}
+		}
+	}
+}
+
 // LogLevelAll is a sentinel value indicating no level filtering should be applied.
 const LogLevelAll service.LogLevel = -1
 
@@ -1027,6 +1247,22 @@ func validateLogsOptions(opts *logsOptions) error {
 		// Valid levels
 	default:
 		return fmt.Errorf("--level must be one of: info, warn, error, debug, all; got '%s'", opts.level)
+	}
+
+	// Validate context requires level to be set (not "all")
+	if opts.contextLines > 0 {
+		if strings.ToLower(opts.level) == "all" {
+			return fmt.Errorf("--context requires --level to be set (info, warn, error, or debug)")
+		}
+	}
+
+	// Clamp context to valid range (0-MaxContextLines)
+	if opts.contextLines < 0 {
+		opts.contextLines = 0
+	}
+	if opts.contextLines > service.MaxContextLines {
+		fmt.Fprintf(os.Stderr, "Warning: --context value %d exceeds maximum, capping at %d\n", opts.contextLines, service.MaxContextLines)
+		opts.contextLines = service.MaxContextLines
 	}
 
 	// Validate since duration if provided
