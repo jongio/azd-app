@@ -687,3 +687,203 @@ func TestNewPlatformHook_WithNilValues(t *testing.T) {
 		t.Error("Expected Interactive to be nil")
 	}
 }
+
+func TestIsScriptFilePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		script   string
+		expected bool
+	}{
+		// Should be detected as file paths
+		{
+			name:     "relative path with ./",
+			script:   "./scripts/setup.sh",
+			expected: true,
+		},
+		{
+			name:     "relative path with ../",
+			script:   "../scripts/setup.sh",
+			expected: true,
+		},
+		{
+			name:     "absolute path",
+			script:   "/home/user/scripts/setup.sh",
+			expected: true,
+		},
+		{
+			name:     "Windows relative path with .\\",
+			script:   ".\\scripts\\setup.ps1",
+			expected: true,
+		},
+		{
+			name:     "Windows relative path with ..\\",
+			script:   "..\\scripts\\setup.ps1",
+			expected: true,
+		},
+		{
+			name:     "path with leading whitespace",
+			script:   "  ./scripts/setup.sh",
+			expected: true,
+		},
+		// Should NOT be detected as file paths (inline commands)
+		{
+			name:     "simple echo command",
+			script:   "echo test",
+			expected: false,
+		},
+		{
+			name:     "command with pipes",
+			script:   "ls -la | grep test",
+			expected: false,
+		},
+		{
+			name:     "multi-line command",
+			script:   "echo hello\necho world",
+			expected: false,
+		},
+		{
+			name:     "npm run command",
+			script:   "npm run build",
+			expected: false,
+		},
+		{
+			name:     "script path with arguments (not a single file)",
+			script:   "./scripts/setup.sh --flag value",
+			expected: false,
+		},
+		{
+			name:     "chained commands",
+			script:   "./setup.sh && echo done",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			script:   "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isScriptFilePath(tt.script)
+			if result != tt.expected {
+				t.Errorf("isScriptFilePath(%q) = %v, want %v", tt.script, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrepareHookCommand_ScriptFilePath(t *testing.T) {
+	tests := []struct {
+		name       string
+		shell      string
+		script     string
+		expectArgs []string // Expected arguments (excluding shell binary)
+	}{
+		{
+			name:       "inline command uses -c",
+			shell:      "bash",
+			script:     "echo test",
+			expectArgs: []string{"-c", "echo test"},
+		},
+		{
+			name:       "script file path executed directly",
+			shell:      "bash",
+			script:     "./scripts/setup.sh",
+			expectArgs: []string{"./scripts/setup.sh"},
+		},
+		{
+			name:       "absolute script path executed directly",
+			shell:      "sh",
+			script:     "/home/user/setup.sh",
+			expectArgs: []string{"/home/user/setup.sh"},
+		},
+		{
+			name:       "relative parent path executed directly",
+			shell:      "bash",
+			script:     "../scripts/setup.sh",
+			expectArgs: []string{"../scripts/setup.sh"},
+		},
+		{
+			name:       "powershell ps1 file uses -File",
+			shell:      "pwsh",
+			script:     "./scripts/setup.ps1",
+			expectArgs: []string{"-File", "./scripts/setup.ps1"},
+		},
+		{
+			name:       "powershell inline command uses -Command with UTF8",
+			shell:      "pwsh",
+			script:     "Write-Host test",
+			expectArgs: []string{"-Command", "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host test"},
+		},
+		{
+			name:       "powershell non-ps1 path uses -Command",
+			shell:      "pwsh",
+			script:     "./scripts/setup.sh",
+			expectArgs: []string{"-Command", "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ./scripts/setup.sh"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			cmd := prepareHookCommand(ctx, tt.shell, tt.script, "/tmp", nil)
+
+			// Check that arguments match expected
+			// cmd.Args[0] is the shell, the rest are arguments
+			actualArgs := cmd.Args[1:]
+			if len(actualArgs) != len(tt.expectArgs) {
+				t.Fatalf("Expected %d args %v, got %d args %v", len(tt.expectArgs), tt.expectArgs, len(actualArgs), actualArgs)
+			}
+
+			for i, expected := range tt.expectArgs {
+				if actualArgs[i] != expected {
+					t.Errorf("arg[%d] = %q, want %q", i, actualArgs[i], expected)
+				}
+			}
+		})
+	}
+}
+
+func TestExecuteHook_ScriptFileWithoutExecutePermission(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping hook execution test in short mode")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping POSIX-specific test on Windows")
+	}
+
+	// Create a temporary directory and script file WITHOUT executable permission
+	tmpDir := t.TempDir()
+	scriptPath := tmpDir + "/test-script.sh"
+
+	// Write a simple script without making it executable
+	scriptContent := `#!/bin/bash
+echo "Script executed successfully"
+exit 0
+`
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+		t.Fatalf("Failed to create script file: %v", err)
+	}
+
+	// Verify the file is NOT executable
+	info, err := os.Stat(scriptPath)
+	if err != nil {
+		t.Fatalf("Failed to stat script file: %v", err)
+	}
+	if info.Mode()&0111 != 0 {
+		t.Fatal("Script should not be executable for this test")
+	}
+
+	ctx := context.Background()
+	config := HookConfig{
+		Run:   "./test-script.sh",
+		Shell: "bash",
+	}
+
+	// This should succeed because we execute via "bash ./script.sh" not "bash -c './script.sh'"
+	err = ExecuteHook(ctx, "test", config, tmpDir)
+	if err != nil {
+		t.Errorf("Expected script to execute without executable permission, got error: %v", err)
+	}
+}

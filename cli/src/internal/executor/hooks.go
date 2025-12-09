@@ -76,25 +76,69 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 	return nil
 }
 
+// isScriptFilePath checks if the run value appears to be a path to a script file
+// rather than inline commands. This helps determine how to execute the script.
+func isScriptFilePath(script string) bool {
+	trimmed := strings.TrimSpace(script)
+	if trimmed == "" {
+		return false
+	}
+
+	// Check for common script file patterns (single path, no arguments)
+	// - Starts with ./ or ../ (relative path on POSIX)
+	// - Starts with .\ or ..\ (relative path on Windows)
+	// - Starts with / (absolute path on POSIX)
+	pathPrefixes := []string{"./", "../", "/", ".\\", "..\\"}
+	for _, prefix := range pathPrefixes {
+		if strings.HasPrefix(trimmed, prefix) {
+			// Only treat as file path if it's a single token (no arguments/commands after)
+			parts := strings.Fields(trimmed)
+			return len(parts) == 1
+		}
+	}
+	return false
+}
+
 // prepareHookCommand prepares the command based on the shell and script.
 // envVars is an optional list of additional environment variables to pass to the hook (in KEY=VALUE format)
+//
+// For script files (paths like ./scripts/setup.sh), this function executes them directly
+// via the shell without requiring executable permissions. This improves the user experience
+// after cloning repositories, as users don't need to run chmod +x on scripts.
 func prepareHookCommand(ctx context.Context, shell, script, workingDir string, envVars []string) *exec.Cmd {
 	var cmd *exec.Cmd
 
 	// Determine shell arguments based on shell type
 	shellLower := strings.ToLower(shell)
+	isFilePath := isScriptFilePath(script)
+
 	switch {
 	case strings.Contains(shellLower, "pwsh") || strings.Contains(shellLower, "powershell"):
-		// PowerShell: use -Command for inline scripts
-		// Set OutputEncoding to UTF-8 to properly display Unicode characters (emojis)
-		wrappedScript := fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; %s", script)
-		cmd = exec.CommandContext(ctx, shell, "-Command", wrappedScript)
+		// PowerShell handling
+		if isFilePath && strings.HasSuffix(strings.ToLower(strings.TrimSpace(script)), ".ps1") {
+			// For .ps1 script files, use -File flag which doesn't require execution policy changes
+			// and handles paths more reliably
+			cmd = exec.CommandContext(ctx, shell, "-File", strings.TrimSpace(script))
+		} else {
+			// For inline commands or non-.ps1 files, use -Command
+			// Set OutputEncoding to UTF-8 to properly display Unicode characters (emojis)
+			wrappedScript := fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; %s", script)
+			cmd = exec.CommandContext(ctx, shell, "-Command", wrappedScript)
+		}
 	case strings.Contains(shellLower, "cmd"):
 		// Windows CMD: use /c for commands
 		cmd = exec.CommandContext(ctx, shell, "/c", script)
 	default:
-		// POSIX shells (sh, bash, zsh, etc.): use -c for commands
-		cmd = exec.CommandContext(ctx, shell, "-c", script)
+		// POSIX shells (sh, bash, zsh, etc.)
+		if isFilePath {
+			// For script files, execute directly without -c flag
+			// This allows scripts to run without executable permissions (chmod +x)
+			// e.g., "bash ./scripts/setup.sh" instead of "bash -c './scripts/setup.sh'"
+			cmd = exec.CommandContext(ctx, shell, script)
+		} else {
+			// For inline commands, use -c flag
+			cmd = exec.CommandContext(ctx, shell, "-c", script)
+		}
 	}
 
 	cmd.Dir = workingDir
