@@ -1,4 +1,8 @@
 // Package wellknown provides definitions for commonly-used Azure emulator services.
+//
+// SECURITY NOTE: The credentials defined in this package (e.g., postgres/postgres)
+// are intended ONLY for local development use. These are well-known default credentials
+// for development emulators and should never be used in production environments.
 package wellknown
 
 import (

@@ -12,6 +12,15 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/docker"
 )
 
+const (
+	// containerIDDisplayLength is the number of characters to display from container IDs in logs.
+	// Docker typically uses the first 12 characters for display.
+	containerIDDisplayLength = 12
+
+	// containerStopGracePeriod is the timeout in seconds before forcefully stopping a container.
+	containerStopGracePeriod = 5
+)
+
 // serviceNameRegex validates service names for container naming.
 // Pattern: [a-zA-Z][a-zA-Z0-9_-]* (must start with letter)
 var serviceNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -37,7 +46,7 @@ func validateServiceNameForContainer(name string) error {
 //   - runtime: ServiceRuntime containing service configuration
 //   - projectDir: Project directory path
 //   - restartContainers: If true, always restart containers even if already running.
-//                        If false, skip starting if container is already running and healthy.
+//     If false, skip starting if container is already running and healthy.
 func StartContainerService(runtime *ServiceRuntime, projectDir string, restartContainers bool) (*ServiceProcess, error) {
 	// Validate service name before using it in container names
 	if err := validateServiceNameForContainer(runtime.Name); err != nil {
@@ -58,7 +67,7 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		return nil, fmt.Errorf("Docker is not available - please ensure Docker Desktop or Docker daemon is running")
 	}
 
-	slog.Info("starting container service",
+	slog.Debug("starting container service",
 		slog.String("service", runtime.Name),
 		slog.String("image", image),
 		slog.Int("port", runtime.Port))
@@ -78,11 +87,15 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		if container, err := client.InspectByName(containerName); err == nil && container != nil {
 			// Container exists
 			if client.IsRunning(container.ID) {
-				slog.Info("container already running, reusing existing container",
+				displayID := container.ID
+				if len(displayID) > containerIDDisplayLength {
+					displayID = displayID[:containerIDDisplayLength]
+				}
+				slog.Debug("container already running, reusing existing container",
 					slog.String("service", runtime.Name),
 					slog.String("container_name", containerName),
-					slog.String("container_id", container.ID[:min(12, len(container.ID))]))
-				
+					slog.String("container_id", displayID))
+
 				// Return existing container process
 				process := &ServiceProcess{
 					Name:        runtime.Name,
@@ -111,7 +124,7 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		// If container already exists, try to remove and recreate
 		if strings.Contains(err.Error(), "is already in use") {
 			slog.Info("removing existing container", slog.String("name", config.Name))
-			if stopErr := client.Stop(config.Name, 5); stopErr != nil {
+			if stopErr := client.Stop(config.Name, containerStopGracePeriod); stopErr != nil {
 				slog.Debug("failed to stop existing container", slog.String("error", stopErr.Error()))
 			}
 			if rmErr := client.Remove(config.Name); rmErr != nil {
@@ -127,9 +140,13 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		}
 	}
 
-	slog.Info("container started",
+	displayID := containerID
+	if len(displayID) > containerIDDisplayLength {
+		displayID = displayID[:containerIDDisplayLength]
+	}
+	slog.Debug("container started",
 		slog.String("service", runtime.Name),
-		slog.String("container_id", containerID[:12]),
+		slog.String("container_id", displayID),
 		slog.Int("port", runtime.Port))
 
 	// Create process handle for the container
@@ -177,9 +194,13 @@ func StopContainerService(process *ServiceProcess, timeout time.Duration) error 
 
 	client := docker.NewClient()
 
-	slog.Info("stopping container service",
+	displayID := containerID
+	if len(displayID) > containerIDDisplayLength {
+		displayID = displayID[:containerIDDisplayLength]
+	}
+	slog.Debug("stopping container service",
 		slog.String("service", process.Name),
-		slog.String("container_id", containerID[:min(12, len(containerID))]))
+		slog.String("container_id", displayID))
 
 	// Stop container with timeout
 	timeoutSeconds := int(timeout.Seconds())
@@ -200,7 +221,7 @@ func StopContainerService(process *ServiceProcess, timeout time.Duration) error 
 			slog.String("error", err.Error()))
 	}
 
-	slog.Info("container stopped",
+	slog.Debug("container stopped",
 		slog.String("service", process.Name))
 
 	return nil

@@ -31,13 +31,13 @@ const (
 )
 
 var (
-	runServiceFilter      string
-	runEnvFile            string
-	runVerbose            bool
-	runDryRun             bool
-	runRuntime            string
-	runWeb                bool
-	runRestartContainers  bool
+	runServiceFilter     string
+	runEnvFile           string
+	runVerbose           bool
+	runDryRun            bool
+	runRuntime           string
+	runWeb               bool
+	runRestartContainers bool
 )
 
 // NewRunCommand creates the run command.

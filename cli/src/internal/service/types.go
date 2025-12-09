@@ -190,11 +190,16 @@ func (s *Service) NeedsPort() bool {
 }
 
 // GetServiceType returns the service type, inferring from configuration if not explicitly set.
-// Returns: "http" (default if ports defined), "tcp", or "process" (default if no ports).
+// Returns: "container" (if image is defined), "http" (default if ports defined), "tcp", or "process" (default if no ports).
 func (s *Service) GetServiceType() string {
 	// If explicitly set, use that
 	if s.Type != "" {
 		return s.Type
+	}
+
+	// Container services have priority - they have an image field
+	if s.IsContainerService() {
+		return ServiceTypeContainer
 	}
 
 	// Infer from configuration

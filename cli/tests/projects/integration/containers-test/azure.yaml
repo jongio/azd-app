@@ -13,11 +13,8 @@ services:
       - "10000:10000"  # Blob
       - "10001:10001"  # Queue  
       - "10002:10002"  # Table
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:10000/", "--connect-timeout", "5"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    # No healthcheck - Azurite doesn't have a dedicated health endpoint and the
+    # Alpine-based image doesn't include curl/wget. The service starts quickly.
 
   # Azure Cosmos DB Emulator
   cosmos:
@@ -63,7 +60,7 @@ services:
   # Simple API that depends on the containers
   api:
     project: ./api
-    language: javascript
+    language: js
     ports:
       - "3000:3000"
     uses:
@@ -72,7 +69,16 @@ services:
       - redis
       - postgres
     environment:
-      AZURE_STORAGE_CONNECTION_STRING: "UseDevelopmentStorage=true"
-      COSMOS_ENDPOINT: "https://localhost:8081"
-      REDIS_URL: "redis://localhost:6379"
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/testdb"
+      # Connection strings use container hostnames for inter-container communication
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1"
+      COSMOS_ENDPOINT: "https://cosmos:8081"
+      COSMOS_KEY: "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      REDIS_URL: "redis://redis:6379"
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/testdb"
+
+reqs:
+  - name: azd
+    minVersion: "1.22.0"
+  - name: docker
+    checkRunning: true
+

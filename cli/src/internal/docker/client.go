@@ -39,4 +39,12 @@ type Client interface {
 	// InspectByName finds and inspects a container by name.
 	// Returns the container if found (running or not), nil if not found.
 	InspectByName(containerName string) (*Container, error)
+
+	// Exec runs a command inside a running container.
+	// Returns the exit code, command output, and any error.
+	Exec(containerName string, command []string) (int, string, error)
+
+	// ExecShell runs a shell command inside a running container using sh -c.
+	// Returns the exit code, command output, and any error.
+	ExecShell(containerName string, shellCommand string) (int, string, error)
 }

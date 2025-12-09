@@ -7,6 +7,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // ExecClient implements the Client interface using the docker CLI.
@@ -167,6 +168,8 @@ func (c *ExecClient) Remove(containerID string) error {
 }
 
 // Logs returns a reader for the container's stdout/stderr stream.
+// Uses concurrent readers to properly multiplex stdout and stderr since
+// io.MultiReader reads sequentially (would block on stdout, never read stderr).
 func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 	if containerID == "" {
 		return nil, fmt.Errorf("container ID cannot be empty")
@@ -190,10 +193,36 @@ func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("failed to start docker logs: %w", err)
 	}
 
-	// Combine stdout and stderr into a single reader
+	// Create pipe to combine stdout and stderr concurrently
+	// io.MultiReader reads sequentially which blocks on stdout in follow mode
+	pr, pw := io.Pipe()
+
+	// Copy both streams concurrently to the pipe writer
+	go func() {
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Copy stdout
+		go func() {
+			defer wg.Done()
+			_, _ = io.Copy(pw, stdout)
+		}()
+
+		// Copy stderr
+		go func() {
+			defer wg.Done()
+			_, _ = io.Copy(pw, stderr)
+		}()
+
+		// Wait for both to complete, then close the writer
+		wg.Wait()
+		pw.Close()
+	}()
+
 	return &combinedReadCloser{
-		reader: io.MultiReader(stdout, stderr),
+		reader: pr,
 		cmd:    cmd,
+		pipe:   pw,
 	}, nil
 }
 
@@ -201,6 +230,7 @@ func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 type combinedReadCloser struct {
 	reader io.Reader
 	cmd    *exec.Cmd
+	pipe   *io.PipeWriter
 }
 
 func (c *combinedReadCloser) Read(p []byte) (int, error) {
@@ -208,6 +238,10 @@ func (c *combinedReadCloser) Read(p []byte) (int, error) {
 }
 
 func (c *combinedReadCloser) Close() error {
+	// Close the pipe writer to unblock any pending reads
+	if c.pipe != nil {
+		c.pipe.Close()
+	}
 	if c.cmd.Process != nil {
 		_ = c.cmd.Process.Kill()
 	}
@@ -293,6 +327,46 @@ func (c *ExecClient) InspectByName(containerName string) (*Container, error) {
 
 	// Try to inspect by name (docker inspect accepts names as well as IDs)
 	return c.Inspect(containerName)
+}
+
+// Exec runs a command inside a running container and returns the exit code.
+// Returns 0 if the command succeeds, non-zero on failure.
+func (c *ExecClient) Exec(containerName string, command []string) (int, string, error) {
+	if containerName == "" {
+		return -1, "", fmt.Errorf("container name cannot be empty")
+	}
+	if len(command) == 0 {
+		return -1, "", fmt.Errorf("command cannot be empty")
+	}
+
+	args := append([]string{"exec", containerName}, command...)
+	cmd := exec.Command("docker", args...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	output := strings.TrimSpace(stdout.String())
+	if output == "" {
+		output = strings.TrimSpace(stderr.String())
+	}
+
+	if err != nil {
+		// Try to get exit code from error
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return exitErr.ExitCode(), output, nil
+		}
+		return -1, output, fmt.Errorf("failed to exec in container %q: %w", containerName, err)
+	}
+
+	return 0, output, nil
+}
+
+// ExecShell runs a shell command inside a running container.
+// Uses sh -c for Unix-like execution inside the container.
+func (c *ExecClient) ExecShell(containerName string, shellCommand string) (int, string, error) {
+	return c.Exec(containerName, []string{"sh", "-c", shellCommand})
 }
 
 // Ensure ExecClient implements Client interface.
