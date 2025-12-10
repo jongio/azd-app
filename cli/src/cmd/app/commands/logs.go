@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
@@ -116,6 +117,7 @@ type logsOptions struct {
 	noBuiltins   bool
 	contextLines int    // Number of context lines before/after matching entries (0-10)
 	source       string // Log source: "local", "azure", or "all"
+	pollInterval int    // Poll interval in seconds for Azure log streaming (default 30)
 }
 
 // logsExecutor encapsulates the logs command execution with injectable dependencies.
@@ -231,6 +233,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 	cmd.Flags().IntVar(&opts.contextLines, "context", 0, "Number of context lines before/after matching entries (0-10, requires --level)")
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
+	cmd.Flags().IntVarP(&opts.pollInterval, "poll-interval", "i", 30, "Azure log polling interval in seconds (5-300, only for --source azure with --follow)")
 
 	return cmd
 }
@@ -274,6 +277,12 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard client creation failed: %v\n", err)
 		}
+
+		// For Azure-only logs, try standalone mode without dashboard
+		if e.opts.source == "azure" {
+			return e.executeStandaloneAzureLogs(ctx, cwd, serviceFilter)
+		}
+
 		output.Info("No services are currently running")
 		output.Item("Run 'azd app run' to start services")
 		return nil
@@ -285,6 +294,12 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", pingErr)
 		}
+
+		// For Azure-only logs, try standalone mode without dashboard
+		if e.opts.source == "azure" {
+			return e.executeStandaloneAzureLogs(ctx, cwd, serviceFilter)
+		}
+
 		output.Info("No services are currently running")
 		output.Item("Run 'azd app run' to start services")
 		return nil
@@ -604,6 +619,214 @@ func (e *logsExecutor) collectAllLogs(ctx context.Context, cwd string, dashboard
 	}
 
 	return allLogs, nil
+}
+
+// executeStandaloneAzureLogs fetches Azure logs directly without requiring the dashboard.
+// This is used when `--source azure` is specified but no services are running locally.
+// Supports both one-shot fetch and streaming mode (--follow).
+func (e *logsExecutor) executeStandaloneAzureLogs(ctx context.Context, cwd string, serviceFilter []string) error {
+	// If --follow is specified, use streaming mode
+	if e.opts.follow {
+		return e.streamStandaloneAzureLogs(ctx, cwd, serviceFilter)
+	}
+
+	// One-shot fetch mode
+	// Parse since duration
+	since := 1 * time.Hour // default
+	if e.opts.since != "" {
+		d, err := time.ParseDuration(e.opts.since)
+		if err != nil {
+			return fmt.Errorf("invalid since duration: %w", err)
+		}
+		since = d
+	}
+
+	// Configure standalone Azure logs fetch
+	config := azure.StandaloneLogsConfig{
+		ProjectDir: cwd,
+		Services:   serviceFilter,
+		Since:      since,
+		Limit:      e.opts.tail,
+	}
+
+	output.Info("Fetching Azure logs...")
+
+	// Fetch logs directly from Azure
+	azureLogs, err := azure.FetchAzureLogsStandalone(ctx, config)
+	if err != nil {
+		// AzureLogsError has actionable messages
+		return err
+	}
+
+	if len(azureLogs) == 0 {
+		output.Info("No Azure logs found")
+		output.Item("Azure logs may take 2-5 minutes to appear in Log Analytics")
+		return nil
+	}
+
+	// Convert azure.LogEntry to service.LogEntry for display
+	logs := make([]service.LogEntry, 0, len(azureLogs))
+	for _, entry := range azureLogs {
+		logs = append(logs, service.LogEntry{
+			Service:   entry.Service,
+			Message:   entry.Message,
+			Level:     mapAzureLogLevel(entry.Level),
+			Timestamp: entry.Timestamp,
+			IsStderr:  entry.Level == azure.LogLevelError,
+			Source:    "azure",
+		})
+	}
+
+	// Sort by timestamp (most recent last)
+	service.SortLogEntries(logs)
+
+	// Setup output writer
+	outputWriter, cleanup, err := e.setupOutputWriter()
+	if err != nil {
+		return err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	// Parse level filter
+	levelFilter := parseLogLevel(e.opts.level)
+
+	// Build log filter from flags
+	logFilter, err := e.buildLogFilterInternal(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to build log filter: %w", err)
+	}
+
+	// Filter by pattern
+	logs = service.FilterLogEntries(logs, logFilter)
+
+	// Filter by level
+	logs = filterLogsByLevel(logs, levelFilter)
+
+	// Apply tail limit
+	if e.opts.tail > 0 && len(logs) > e.opts.tail {
+		logs = logs[len(logs)-e.opts.tail:]
+	}
+
+	// Display logs
+	if e.opts.format == "json" {
+		displayLogsJSON(logs, outputWriter)
+	} else {
+		displayLogsText(logs, outputWriter, e.opts.timestamps, e.opts.noColor)
+	}
+
+	output.Success("Showing %d Azure log entries", len(logs))
+	return nil
+}
+
+// streamStandaloneAzureLogs streams Azure logs by polling Log Analytics directly.
+// This enables `azd app logs -f --source azure` without requiring `azd app run`.
+func (e *logsExecutor) streamStandaloneAzureLogs(ctx context.Context, cwd string, serviceFilter []string) error {
+	// Validate and set poll interval
+	pollInterval := e.opts.pollInterval
+	if pollInterval < 5 {
+		pollInterval = 5
+	} else if pollInterval > 300 {
+		pollInterval = 300
+	}
+
+	output.Info(fmt.Sprintf("Streaming Azure logs (polling every %ds)...", pollInterval))
+	output.Item("Press Ctrl+C to stop")
+
+	// Setup signal handling for graceful exit
+	sigChan, cleanupSignal := e.getOrCreateSignalChan()
+	defer cleanupSignal()
+
+	// Create context that can be cancelled
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Configure streaming
+	config := azure.StreamConfig{
+		ProjectDir:   cwd,
+		Services:     serviceFilter,
+		PollInterval: time.Duration(pollInterval) * time.Second,
+	}
+
+	// Setup output writer
+	outputWriter, cleanup, err := e.setupOutputWriter()
+	if err != nil {
+		return err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	// Parse level filter
+	levelFilter := parseLogLevel(e.opts.level)
+
+	// Build log filter from flags
+	logFilter, err := e.buildLogFilterInternal(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to build log filter: %w", err)
+	}
+
+	// Create channel for log entries
+	logs := make(chan azure.LogEntry, 100)
+
+	// Start streaming in background
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- azure.StreamAzureLogsStandalone(streamCtx, config, logs)
+	}()
+
+	// Display logs as they arrive
+	for {
+		select {
+		case entry := <-logs:
+			// Convert to service.LogEntry
+			svcEntry := service.LogEntry{
+				Service:   entry.Service,
+				Message:   entry.Message,
+				Level:     mapAzureLogLevel(entry.Level),
+				Timestamp: entry.Timestamp,
+				IsStderr:  entry.Level == azure.LogLevelError,
+				Source:    "azure",
+			}
+
+			// Apply filters
+			if !e.shouldDisplayEntry(svcEntry, levelFilter, logFilter) {
+				continue
+			}
+
+			// Display log entry
+			if e.opts.format == "json" {
+				displayLogsJSON([]service.LogEntry{svcEntry}, outputWriter)
+			} else {
+				displayLogsText([]service.LogEntry{svcEntry}, outputWriter, e.opts.timestamps, e.opts.noColor)
+			}
+
+		case err := <-errChan:
+			if err != nil && err != context.Canceled {
+				return fmt.Errorf("Azure log stream error: %w", err)
+			}
+			return nil
+
+		case <-sigChan:
+			cancel()
+			return nil
+		}
+	}
+}
+
+// mapAzureLogLevel maps azure.LogLevel to service.LogLevel.
+func mapAzureLogLevel(level azure.LogLevel) service.LogLevel {
+	switch level {
+	case azure.LogLevelError:
+		return service.LogLevelError
+	case azure.LogLevelWarn:
+		return service.LogLevelWarn
+	case azure.LogLevelDebug:
+		return service.LogLevelDebug
+	default:
+		return service.LogLevelInfo
+	}
 }
 
 // extractLogsWithContext finds log entries matching the level filter and extracts

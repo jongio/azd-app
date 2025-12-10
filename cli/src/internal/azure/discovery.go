@@ -2,10 +2,9 @@ package azure
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os/exec"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -160,30 +159,21 @@ func (d *ResourceDiscovery) Discover(ctx context.Context) (*DiscoveryResult, err
 	return result, nil
 }
 
-// getAzdEnvValues runs 'azd env get-values' and parses the output.
+// getAzdEnvValues reads Azure environment variables from the process environment.
+// When running as an azd extension, all Azure environment variables are already available
+// via os.Environ() - no need to shell out to 'azd env get-values'.
 func (d *ResourceDiscovery) getAzdEnvValues(ctx context.Context) (map[string]string, error) {
-	cmd := exec.CommandContext(ctx, "azd", "env", "get-values", "--output", "json")
-	if d.projectDir != "" {
-		cmd.Dir = d.projectDir
-	}
+	values := make(map[string]string)
 
-	output, err := cmd.Output()
-	if err != nil {
-		// If azd env get-values fails, return empty map (not provisioned yet)
-		return make(map[string]string), nil
-	}
-
-	var values map[string]string
-	if err := json.Unmarshal(output, &values); err != nil {
-		// Try parsing as key=value pairs (older azd versions)
-		values = make(map[string]string)
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if idx := strings.Index(line, "="); idx > 0 {
-				key := line[:idx]
-				value := strings.Trim(line[idx+1:], `"'`)
-				values[key] = value
+	// Get Azure environment variables from the process environment
+	// The azd extension framework provides these automatically: AZURE_*, SERVICE_*
+	for _, line := range os.Environ() {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := parts[0]
+			// Only collect Azure and Service environment variables
+			if strings.HasPrefix(key, "AZURE_") || strings.HasPrefix(key, "SERVICE_") {
+				values[key] = parts[1]
 			}
 		}
 	}
