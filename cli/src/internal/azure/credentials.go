@@ -116,6 +116,21 @@ func NewAzureCredential() (azcore.TokenCredential, error) {
 	return chain, nil
 }
 
+// NewLogAnalyticsCredential creates credentials specifically for Log Analytics API.
+// This skips the AZD_ACCESS_TOKEN because that token is typically scoped to ARM
+// and won't work for Log Analytics API (api.loganalytics.io) which requires
+// a different audience. Instead, it uses DefaultAzureCredential which can
+// obtain tokens for any requested scope.
+func NewLogAnalyticsCredential() (azcore.TokenCredential, error) {
+	// Skip AZD_ACCESS_TOKEN - it's scoped to ARM and won't work for Log Analytics
+	// Use DefaultAzureCredential which includes CLI, env vars, and managed identity
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrAuthNotConfigured, err)
+	}
+	return cred, nil
+}
+
 // ValidateCredentials tests that the credentials work by requesting a token.
 // This can be used to provide early feedback to users about authentication issues.
 func ValidateCredentials(ctx context.Context, cred azcore.TokenCredential) error {

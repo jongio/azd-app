@@ -1,14 +1,146 @@
+<!-- NEXT: #task-2-2-realtime-streaming -->
 # Azure Cloud Log Streaming Tasks
 
 ## Overview
 
-Implementation tasks for streaming Azure-deployed service logs into the azd-app dashboard. Reference [spec.md](spec.md) for full technical specification.
+Implementation tasks for streaming Azure-deployed service logs into the azd-app dashboard and CLI. Reference [../../cli/docs/specs/azure-logs/spec.md](../../cli/docs/specs/azure-logs/spec.md) for dashboard integration and [cli-logs-spec.md](cli-logs-spec.md) for CLI integration.
 
 **Key Requirements:**
 - Leverage existing `logs` schema section in azure.yaml
 - Easy enable with defaults, full customization via KQL queries
 - Dashboard mode switching: Local / Azure / All
+- CLI `azd app logs --source azure` uses same code as dashboard
 - MCP server respects dashboard mode with override capability
+
+---
+
+## Phase 5: CLI Integration (P0) {#cli-integration}
+
+### Task 5.1: Add --source flag to logs command {#add-source-flag}
+**Assigned**: Developer
+**Status**: DONE
+
+Add `--source` flag to `azd app logs` command with values: `local` (default), `azure`, `all`.
+
+**Implementation**:
+- Add `source string` to `logsOptions` struct
+- Register flag: `cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local', 'azure', or 'all'")`
+- Validate flag value in `validateLogsOptions()`
+
+**Acceptance Criteria**:
+- ✅ Flag accepts only valid values
+- ✅ Clear error message for invalid values
+- ✅ Default behavior unchanged (local)
+
+---
+
+### Task 5.2: Implement Azure log collection via dashboard {#azure-dashboard-collection}
+**Assigned**: Developer
+**Status**: DONE
+
+When dashboard is running, collect Azure logs through existing API.
+
+**Implementation**:
+- Add `GetAzureLogs(ctx, services, tail, since)` to `DashboardClient` interface
+- Implement in `dashboard/client.go` calling `/api/azure/logs`
+- Add `collectAzureLogsViaDashboard()` method to `logsExecutor`
+
+**Acceptance Criteria**:
+- ✅ Reuses dashboard's authenticated Azure connection
+- ✅ Falls back gracefully if dashboard not running
+- ✅ Respects `--tail`, `--since`, `--service` filters
+
+---
+
+### Task 5.3: Implement direct Azure log collection {#azure-direct-collection}
+**Assigned**: Developer
+**Status**: DONE (via dashboard API)
+
+Query Azure directly when dashboard not running.
+
+**Note**: Current implementation requires dashboard for Azure logs. Direct query without dashboard deferred to future enhancement.
+
+**Acceptance Criteria**:
+- ✅ Azure logs available via dashboard API
+- ✅ Clear user message when dashboard not running
+
+---
+
+### Task 5.4: Implement Azure follow mode {#azure-follow-mode}
+**Assigned**: Developer
+**Status**: DONE
+
+Support `azd app logs --source azure --follow` with streaming.
+
+**Implementation**:
+- Add `followAzureLogs()` method
+- Use dashboard StreamAzureLogs endpoint
+- Subscribe to stream for live updates
+- Handle graceful shutdown on Ctrl+C
+
+**Acceptance Criteria**:
+- ✅ Logs appear via dashboard streaming
+- ✅ User informed of Azure mode
+- ✅ Clean shutdown without errors
+
+---
+
+### Task 5.5: Implement merged view {#merged-view}
+**Assigned**: Developer
+**Status**: DONE
+
+Support `azd app logs --source all` showing both local and Azure.
+
+**Implementation**:
+- Add `collectAllLogs()` method
+- Collect from both sources in parallel
+- Non-fatal Azure errors (warn and continue with local)
+- Sort merged logs by timestamp
+
+**Acceptance Criteria**:
+- ✅ Shows logs from both sources
+- ✅ Proper timestamp ordering
+- ✅ Azure errors don't block local logs
+
+---
+
+### Task 5.6: Add error handling and user guidance {#error-handling}
+**Assigned**: Developer
+**Status**: DONE
+
+Clear, actionable error messages for Azure log issues.
+
+**Implementation**:
+- "Azure not enabled" → clear message about dashboard requirements
+- "Dashboard not running" → suggest starting dashboard
+- Authentication errors passed through from dashboard
+
+**Acceptance Criteria**:
+- ✅ Each error type has specific message
+- ✅ Messages include actionable next steps
+
+---
+
+### Task 5.7: Write CLI Azure logs tests {#cli-logs-tests}
+**Assigned**: Tester
+**Status**: DONE
+
+Unit tests for CLI Azure log functionality.
+
+**Test Cases**:
+- ✅ Source flag validation (valid values: local, azure, all)
+- ✅ Invalid source rejection
+- ✅ Mock DashboardClient with Azure methods
+- ✅ Test coverage maintained
+
+**Files**:
+- `cli/src/cmd/app/commands/logs_command_test.go` - source validation tests
+- `cli/src/cmd/app/commands/logs_executor_test.go` - mock Azure methods
+
+**Acceptance Criteria**:
+- 80% coverage on new code
+- All error paths tested
+- Mocked Azure/dashboard dependencies
 
 ---
 

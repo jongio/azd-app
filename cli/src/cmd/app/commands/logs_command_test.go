@@ -14,29 +14,33 @@ func TestValidateLogsOptions(t *testing.T) {
 		format       string
 		level        string
 		since        string
+		source       string
 		contextLines int
 		wantErr      bool
 		errSubstr    string
 	}{
-		{"valid defaults", 100, "text", "all", "", 0, false, ""},
-		{"valid json format", 100, "json", "all", "", 0, false, ""},
-		{"valid level info", 100, "text", "info", "", 0, false, ""},
-		{"valid level warn", 100, "text", "warn", "", 0, false, ""},
-		{"valid level error", 100, "text", "error", "", 0, false, ""},
-		{"valid level debug", 100, "text", "debug", "", 0, false, ""},
-		{"valid since 5m", 100, "text", "all", "5m", 0, false, ""},
-		{"valid since 1h", 100, "text", "all", "1h", 0, false, ""},
-		{"negative tail", -1, "text", "all", "", 0, true, "--tail must be a positive"},
-		{"invalid format", 100, "xml", "all", "", 0, true, "--format must be"},
-		{"invalid level", 100, "text", "trace", "", 0, true, "--level must be one of"},
-		{"invalid since", 100, "text", "all", "5x", 0, true, "--since must be a valid duration"},
-		{"tail capped at max", 20000, "text", "all", "", 0, false, ""},
+		{"valid defaults", 100, "text", "all", "", "local", 0, false, ""},
+		{"valid json format", 100, "json", "all", "", "local", 0, false, ""},
+		{"valid level info", 100, "text", "info", "", "local", 0, false, ""},
+		{"valid level warn", 100, "text", "warn", "", "local", 0, false, ""},
+		{"valid level error", 100, "text", "error", "", "local", 0, false, ""},
+		{"valid level debug", 100, "text", "debug", "", "local", 0, false, ""},
+		{"valid since 5m", 100, "text", "all", "5m", "local", 0, false, ""},
+		{"valid since 1h", 100, "text", "all", "1h", "local", 0, false, ""},
+		{"valid source azure", 100, "text", "all", "", "azure", 0, false, ""},
+		{"valid source all", 100, "text", "all", "", "all", 0, false, ""},
+		{"negative tail", -1, "text", "all", "", "local", 0, true, "--tail must be a positive"},
+		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--format must be"},
+		{"invalid level", 100, "text", "trace", "", "local", 0, true, "--level must be one of"},
+		{"invalid since", 100, "text", "all", "5x", "local", 0, true, "--since must be a valid duration"},
+		{"invalid source", 100, "text", "all", "", "remote", 0, true, "--source must be"},
+		{"tail capped at max", 20000, "text", "all", "", "local", 0, false, ""},
 		// Context flag tests
-		{"context with level error", 100, "text", "error", "", 3, false, ""},
-		{"context with level warn", 100, "text", "warn", "", 5, false, ""},
-		{"context without level", 100, "text", "all", "", 3, true, "--context requires --level"},
-		{"context negative clamped", 100, "text", "error", "", -1, false, ""},
-		{"context above max clamped", 100, "text", "error", "", 20, false, ""},
+		{"context with level error", 100, "text", "error", "", "local", 3, false, ""},
+		{"context with level warn", 100, "text", "warn", "", "local", 5, false, ""},
+		{"context without level", 100, "text", "all", "", "local", 3, true, "--context requires --level"},
+		{"context negative clamped", 100, "text", "error", "", "local", -1, false, ""},
+		{"context above max clamped", 100, "text", "error", "", "local", 20, false, ""},
 	}
 
 	for _, tt := range tests {
@@ -46,6 +50,7 @@ func TestValidateLogsOptions(t *testing.T) {
 				format:       tt.format,
 				level:        tt.level,
 				since:        tt.since,
+				source:       tt.source,
 				contextLines: tt.contextLines,
 			}
 
@@ -71,6 +76,7 @@ func TestValidateLogsOptions(t *testing.T) {
 			format: "text",
 			level:  "all",
 			since:  "",
+			source: "local",
 		}
 
 		if err := validateLogsOptions(opts); err != nil {
@@ -87,6 +93,7 @@ func TestValidateLogsOptions(t *testing.T) {
 			format: "text",
 			level:  "all",
 			since:  "",
+			source: "local",
 		}
 
 		if err := validateLogsOptions(opts); err != nil {
@@ -102,6 +109,7 @@ func TestValidateLogsOptions(t *testing.T) {
 				format: "text",
 				level:  level,
 				since:  "",
+				source: "local",
 			}
 
 			if err := validateLogsOptions(opts); err != nil {
@@ -118,6 +126,7 @@ func TestValidateLogsOptions(t *testing.T) {
 				format: "text",
 				level:  "all",
 				since:  d,
+				source: "local",
 			}
 
 			if err := validateLogsOptions(opts); err != nil {
@@ -132,6 +141,7 @@ func TestValidateLogsOptions(t *testing.T) {
 			format:       "text",
 			level:        "error",
 			since:        "",
+			source:       "local",
 			contextLines: -5,
 		}
 
@@ -149,6 +159,7 @@ func TestValidateLogsOptions(t *testing.T) {
 			format:       "text",
 			level:        "error",
 			since:        "",
+			source:       "local",
 			contextLines: 20,
 		}
 
@@ -295,6 +306,7 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 		exclude:      "pattern",
 		noBuiltins:   false,
 		contextLines: 3,
+		source:       "local",
 	}
 
 	if opts.follow != true {
@@ -332,5 +344,8 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	}
 	if opts.contextLines != 3 {
 		t.Error("contextLines field")
+	}
+	if opts.source != "local" {
+		t.Error("source field")
 	}
 }

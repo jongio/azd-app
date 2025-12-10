@@ -9,6 +9,11 @@ capabilities:
   - custom-commands
   - lifecycle-events
   - mcp-server
+  - service-target-provider
+providers:
+  - name: local
+    type: service-target
+    description: Local-only container services for development (skipped during deploy)
 examples:
   - name: run
     description: Run services defined in azure.yaml

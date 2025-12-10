@@ -20,6 +20,9 @@ type ServiceDefinition struct {
 	// Description provides a brief description of the service
 	Description string
 
+	// Host is the Azure hosting target (e.g., "containerapp") - required for azd compatibility
+	Host string
+
 	// Image is the Docker image to use
 	Image string
 
@@ -46,6 +49,7 @@ var Registry = map[string]ServiceDefinition{
 		Name:        "azurite",
 		DisplayName: "Azurite (Azure Storage Emulator)",
 		Description: "Local Azure Storage emulator for Blob, Queue, and Table services",
+		Host:        "containerapp",
 		Image:       "mcr.microsoft.com/azure-storage/azurite:latest",
 		Ports:       []string{"10000:10000", "10001:10001", "10002:10002"},
 		Environment: map[string]string{},
@@ -67,6 +71,7 @@ var Registry = map[string]ServiceDefinition{
 		Name:        "cosmos",
 		DisplayName: "Azure Cosmos DB Emulator",
 		Description: "Local Azure Cosmos DB emulator for NoSQL API",
+		Host:        "containerapp",
 		Image:       "mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest",
 		Ports:       []string{"8081:8081", "10250:10250", "10251:10251", "10252:10252", "10253:10253", "10254:10254"},
 		Environment: map[string]string{
@@ -88,6 +93,7 @@ var Registry = map[string]ServiceDefinition{
 		Name:        "redis",
 		DisplayName: "Redis",
 		Description: "In-memory data store for caching and messaging",
+		Host:        "containerapp",
 		Image:       "redis:7-alpine",
 		Ports:       []string{"6379:6379"},
 		Environment: map[string]string{},
@@ -106,6 +112,7 @@ var Registry = map[string]ServiceDefinition{
 		Name:        "postgres",
 		DisplayName: "PostgreSQL",
 		Description: "Open source relational database",
+		Host:        "containerapp",
 		Image:       "postgres:16-alpine",
 		Ports:       []string{"5432:5432"},
 		Environment: map[string]string{
@@ -175,6 +182,7 @@ func (d *ServiceDefinition) ToServiceConfig() service.Service {
 	}
 
 	return service.Service{
+		Host:        d.Host,
 		Image:       d.Image,
 		Ports:       d.Ports,
 		Environment: env,

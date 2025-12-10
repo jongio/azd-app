@@ -938,7 +938,7 @@ services:
   api:
     language: Python
     project: ./backend
-    host: containerapp
+    host: local
     entrypoint: main.py
     ports: ["8000"]
     environment:

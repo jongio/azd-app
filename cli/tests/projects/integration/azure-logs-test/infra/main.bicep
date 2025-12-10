@@ -113,6 +113,7 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = acr.outputs.loginServer
 // Log Analytics workspace - required for Azure log streaming
 output AZURE_LOG_ANALYTICS_WORKSPACE_ID string = monitoring.outputs.logAnalyticsWorkspaceId
 output AZURE_LOG_ANALYTICS_WORKSPACE_NAME string = monitoring.outputs.logAnalyticsWorkspaceName
+output AZURE_LOG_ANALYTICS_WORKSPACE_GUID string = monitoring.outputs.logAnalyticsWorkspaceGuid
 
 // Application Insights - for Functions telemetry
 output AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING string = monitoring.outputs.appInsightsConnectionString

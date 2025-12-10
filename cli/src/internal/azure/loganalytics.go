@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -35,7 +36,7 @@ type LogEntry struct {
 var defaultQueries = map[ResourceType]string{
 	ResourceTypeContainerApp: `
 ContainerAppConsoleLogs_CL
-| where ContainerAppName_s == "{serviceName}" or ContainerName_s contains "{serviceName}"
+| where ContainerAppName_s =~ "{serviceName}" or ContainerName_s =~ "{serviceName}"
 | where TimeGenerated > ago({timespan})
 | project TimeGenerated, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s
 | order by TimeGenerated desc
@@ -45,7 +46,7 @@ ContainerAppConsoleLogs_CL
 AppServiceConsoleLogs
 | where _ResourceId contains "{serviceName}"
 | where TimeGenerated > ago({timespan})
-| project TimeGenerated, ResultDescription, Level
+| project TimeGenerated, Message=ResultDescription, Level
 | order by TimeGenerated desc
 | take 1000`,
 
@@ -53,13 +54,7 @@ AppServiceConsoleLogs
 FunctionAppLogs
 | where _ResourceId contains "{serviceName}"
 | where TimeGenerated > ago({timespan})
-| project TimeGenerated, Message, Level, FunctionName, Category, HostInstanceId, ExceptionDetails
-| union (
-    traces
-    | where _ResourceId contains "{serviceName}" or cloud_RoleName contains "{serviceName}"
-    | where TimeGenerated > ago({timespan})
-    | project TimeGenerated, Message=message, Level=tostring(severityLevel), FunctionName=operation_Name, Category="traces", HostInstanceId="", ExceptionDetails=""
-)
+| project TimeGenerated, Message, Level=case(Level == "Error", "ERROR", Level == "Warning", "WARN", Level == "Information", "INFO", Level == "Debug", "DEBUG", Level == "Trace", "TRACE", "INFO"), FunctionName
 | order by TimeGenerated desc
 | take 1000`,
 
@@ -111,15 +106,20 @@ func (c *LogAnalyticsClient) QueryLogs(ctx context.Context, serviceName string, 
 	// Format timespan as ISO8601 duration (e.g., "PT1H" for 1 hour)
 	timespan := azlogs.TimeInterval(formatTimespan(since))
 
+	slog.Debug("executing KQL query", "workspace", workspaceID, "service", serviceName, "resourceType", resourceType, "timespan", timespan, "query", query)
+
 	resp, err := c.client.QueryWorkspace(ctx, workspaceID, azlogs.QueryBody{
 		Query:    &query,
 		Timespan: &timespan,
 	}, nil)
 	if err != nil {
+		slog.Debug("KQL query failed", "error", err)
 		return nil, fmt.Errorf("Log Analytics query failed: %w", err)
 	}
 
-	return c.parseResults(resp, serviceName, resourceType)
+	entries, err := c.parseResults(resp, serviceName, resourceType)
+	slog.Debug("KQL query results", "service", serviceName, "rowCount", len(entries))
+	return entries, err
 }
 
 // QueryLogsSince queries logs since a specific timestamp.
@@ -143,18 +143,24 @@ func sanitizeKQLString(s string) string {
 // buildQuery constructs the KQL query with substituted placeholders.
 func (c *LogAnalyticsClient) buildQuery(serviceName string, resourceType ResourceType, timespan time.Duration, customQuery string) string {
 	var query string
+	var querySource string
 	if customQuery != "" {
 		query = customQuery
+		querySource = "custom"
 	} else {
 		query = defaultQueries[resourceType]
+		querySource = string(resourceType)
 		if query == "" {
 			query = defaultQueries[ResourceTypeContainerApp] // fallback
+			querySource = "fallback-containerApp"
 		}
 	}
 
+	slog.Debug("building KQL query", "serviceName", serviceName, "resourceType", resourceType, "querySource", querySource)
+
 	// Replace placeholders with sanitized values
 	query = strings.ReplaceAll(query, "{serviceName}", sanitizeKQLString(serviceName))
-	query = strings.ReplaceAll(query, "{timespan}", formatTimespan(timespan))
+	query = strings.ReplaceAll(query, "{timespan}", formatKQLTimespan(timespan))
 
 	return strings.TrimSpace(query)
 }
@@ -289,7 +295,7 @@ func getStringFromRow(row []any, colIndex map[string]int, columns ...string) str
 }
 
 func formatTimespan(d time.Duration) string {
-	// Azure Monitor uses ISO 8601 duration format
+	// Azure Monitor API uses ISO 8601 duration format for the timespan parameter
 	hours := int(d.Hours())
 	minutes := int(d.Minutes()) % 60
 	seconds := int(d.Seconds()) % 60
@@ -301,6 +307,29 @@ func formatTimespan(d time.Duration) string {
 		return fmt.Sprintf("PT%dM%dS", minutes, seconds)
 	}
 	return fmt.Sprintf("PT%dS", seconds)
+}
+
+// formatKQLTimespan formats a duration for use in KQL ago() function.
+// KQL expects formats like "30m", "1h", "1d", not ISO 8601.
+func formatKQLTimespan(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+
+	if hours >= 24 {
+		days := hours / 24
+		return fmt.Sprintf("%dd", days)
+	}
+	if hours > 0 {
+		if minutes > 0 {
+			return fmt.Sprintf("%dh%dm", hours, minutes)
+		}
+		return fmt.Sprintf("%dh", hours)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+	seconds := int(d.Seconds())
+	return fmt.Sprintf("%ds", seconds)
 }
 
 func extractWorkspaceID(fullID string) string {

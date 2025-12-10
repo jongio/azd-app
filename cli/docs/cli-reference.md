@@ -268,11 +268,11 @@ name: my-app
 services:
   web:
     language: js
-    host: containerapp
+    host: local
     project: ./src/web
   api:
     language: python
-    host: containerapp
+    host: local
     project: ./src/api
 ```
 

@@ -26,10 +26,12 @@ type ModeRequest struct {
 
 // ModeResponse represents the current mode state.
 type ModeResponse struct {
-	Mode          string `json:"mode"`
-	AzureEnabled  bool   `json:"azureEnabled"`
-	AzureStatus   string `json:"azureStatus"` // "connected", "disconnected", "error"
-	ResourceCount int    `json:"resourceCount"`
+	Mode              string `json:"mode"`
+	AzureEnabled      bool   `json:"azureEnabled"`
+	AzureStatus       string `json:"azureStatus"` // "connected", "disconnected", "error"
+	ResourceCount     int    `json:"resourceCount"`
+	ConnectionIssue   string `json:"connectionIssue,omitempty"`
+	ConnectionMessage string `json:"connectionMessage,omitempty"`
 }
 
 // handleGetMode returns the current log source mode.
@@ -53,6 +55,8 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 		response.Mode = string(status.Mode)
 		response.AzureEnabled = status.Enabled
 		response.ResourceCount = status.ResourceCount
+		response.ConnectionIssue = status.ConnectionIssue
+		response.ConnectionMessage = status.ConnectionMessage
 
 		if status.Connected {
 			response.AzureStatus = "connected"

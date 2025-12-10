@@ -300,14 +300,26 @@
   .bg-azure-500 { background-color: var(--azure-500); }
   .bg-azure-500\/10 { background-color: rgba(0, 120, 212, 0.1); }
   .bg-azure-500\/20 { background-color: rgba(0, 120, 212, 0.2); }
+  .bg-azure-600 { background-color: var(--azure-600); }
+  .bg-azure-700 { background-color: var(--azure-700); }
+  .bg-azure-900\/30 { background-color: rgba(0, 45, 77, 0.3); }
+  .text-azure-300 { color: var(--azure-300); }
   .text-azure-400 { color: var(--azure-400); }
+  .text-azure-400\/70 { color: rgba(96, 165, 250, 0.7); }
   .text-azure-500 { color: var(--azure-500); }
+  .text-azure-500\/70 { color: rgba(0, 120, 212, 0.7); }
   .text-azure-600 { color: var(--azure-600); }
+  .text-azure-700 { color: var(--azure-700); }
+  .border-azure-200 { border-color: var(--azure-200); }
+  .border-azure-700 { border-color: var(--azure-700); }
   .hover\:text-azure-400:hover { color: var(--azure-400); }
   .hover\:text-azure-600:hover { color: var(--azure-600); }
   .hover\:bg-azure-50:hover { background-color: var(--azure-50); }
   .hover\:bg-azure-500\/10:hover { background-color: rgba(0, 120, 212, 0.1); }
+  .hover\:bg-azure-600:hover { background-color: var(--azure-600); }
+  .hover\:bg-azure-700:hover { background-color: var(--azure-700); }
   .ring-azure-500 { --tw-ring-color: var(--azure-500); }
+  .focus\:ring-azure-500:focus { --tw-ring-color: var(--azure-500); }
   .focus-visible\:ring-azure-500:focus-visible { --tw-ring-color: var(--azure-500); }
   
   /* Screen reader only */

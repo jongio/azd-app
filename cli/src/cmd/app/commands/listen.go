@@ -9,6 +9,7 @@ import (
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-app/cli/src/internal/servicetarget"
 	"github.com/spf13/cobra"
 )
 
@@ -32,10 +33,13 @@ func NewListenCommand() *cobra.Command {
 			}
 			defer azdClient.Close()
 
-			// Create an extension host and subscribe to postprovision events
-			// This allows us to push real-time updates to the dashboard when azd provision completes
-			// Note: We don't filter by Host or Language, so this will apply to all services
+			// Create an extension host and register:
+			// 1. Service target provider for "local" host type (for local-only containers)
+			// 2. Event handler for postprovision to update dashboard
 			host := azdext.NewExtensionHost(azdClient).
+				WithServiceTarget("local", func() azdext.ServiceTargetProvider {
+					return servicetarget.NewLocalServiceTargetProvider(azdClient)
+				}).
 				WithServiceEventHandler("postprovision", handlePostProvision, &azdext.ServiceEventOptions{})
 
 			// Start the extension host

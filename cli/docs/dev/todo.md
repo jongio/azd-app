@@ -6,7 +6,43 @@ This document tracks improvements identified during code review, organized by pr
 
 ## 🔴 HIGH PRIORITY
 
-*All high priority items have been completed.*
+### Request: azd Extension Framework Auth Service for Custom Scopes
+
+**Status:** Blocked (upstream dependency)  
+**Priority:** High  
+**Effort:** N/A (external)
+
+**Description**
+The azd extension framework provides `AZD_ACCESS_TOKEN` for gRPC communication, but this token is scoped to Azure Resource Manager (`management.azure.com`). Extensions that need to call other Azure APIs (like Log Analytics `api.loganalytics.io`) cannot use this token.
+
+**Ask for azd Core Team**
+Add a gRPC service to request tokens with custom scopes:
+
+```protobuf
+service AuthService {
+  rpc GetToken(GetTokenRequest) returns (GetTokenResponse);
+}
+
+message GetTokenRequest {
+  repeated string scopes = 1;  // e.g., ["https://api.loganalytics.io/.default"]
+}
+
+message GetTokenResponse {
+  string token = 1;
+  string expires_on = 2;  // RFC3339
+}
+```
+
+**Current Workaround**
+Using `DefaultAzureCredential` which relies on Azure CLI credentials from `azd auth login`. This works but bypasses the extension framework's auth model.
+
+**Impact**
+- Azure Logs feature must use `DefaultAzureCredential` instead of native extension auth
+- Inconsistent credential handling between ARM calls and Log Analytics calls
+- Cannot leverage azd's token caching/refresh for non-ARM APIs
+
+**Related Files**
+- `cli/src/internal/azure/credentials.go` - `NewLogAnalyticsCredential()` workaround
 
 ---
 

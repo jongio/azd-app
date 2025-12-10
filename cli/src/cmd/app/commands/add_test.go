@@ -20,6 +20,7 @@ services:
     language: python
     project: ./api
   azurite:
+    host: containerapp
     image: mcr.microsoft.com/azure-storage/azurite:latest
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")

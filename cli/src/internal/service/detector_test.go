@@ -1249,6 +1249,7 @@ func TestContainerRuntimeDetection(t *testing.T) {
 	azureYaml := `name: test-app
 services:
   azurite:
+    host: containerapp
     image: mcr.microsoft.com/azure-storage/azurite
     ports:
       - "10000:10000"
@@ -1315,6 +1316,7 @@ func TestAllWellKnownContainerServices(t *testing.T) {
 	azureYaml := `name: wellknown-containers-test
 services:
   azurite:
+    host: containerapp
     image: mcr.microsoft.com/azure-storage/azurite:latest
     ports:
       - "10000:10000"
@@ -1327,6 +1329,7 @@ services:
       retries: 3
 
   cosmos:
+    host: containerapp
     image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
     ports:
       - "8081:8081"
@@ -1341,6 +1344,7 @@ services:
       retries: 5
 
   redis:
+    host: containerapp
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -1351,6 +1355,7 @@ services:
       retries: 3
 
   postgres:
+    host: containerapp
     image: postgres:16-alpine
     ports:
       - "5432:5432"

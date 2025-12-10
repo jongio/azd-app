@@ -50,6 +50,7 @@ This adds the following to your azure.yaml:
 ```yaml
 services:
   azurite:
+    host: local
     image: mcr.microsoft.com/azure-storage/azurite:latest
     ports:
       - "10000:10000"  # Blob
