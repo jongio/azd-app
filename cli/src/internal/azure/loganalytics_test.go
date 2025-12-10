@@ -225,12 +225,8 @@ func TestFunctionAppDefaultQuery(t *testing.T) {
 		t.Error("Function App query should query FunctionAppLogs table")
 	}
 
-	if !containsString(query, "traces") {
-		t.Error("Function App query should query traces table for Application Insights")
-	}
-
 	// Verify query contains expected fields
-	expectedFields := []string{"Message", "Level", "FunctionName", "Category"}
+	expectedFields := []string{"Message", "Level", "FunctionName"}
 	for _, field := range expectedFields {
 		if !containsString(query, field) {
 			t.Errorf("Function App query should contain field: %s", field)

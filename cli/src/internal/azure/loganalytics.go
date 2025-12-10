@@ -204,6 +204,11 @@ func (c *LogAnalyticsClient) parseResults(resp azlogs.QueryWorkspaceResponse, se
 			entry.ContainerName = getStringFromRow(row, colIndex, "ContainerName_s", "ContainerName")
 			entry.InstanceID = getStringFromRow(row, colIndex, "RevisionName_s", "PodName", "InstanceId")
 
+			// If service name is empty, try to extract from data
+			if entry.Service == "" {
+				entry.Service = getStringFromRow(row, colIndex, "ContainerAppName_s", "ContainerName_s", "ServiceName")
+			}
+
 			if entry.Message != "" {
 				entries = append(entries, entry)
 			}

@@ -1,5 +1,18 @@
 # Azure Logs v2: Simplified & Reliable Design
 
+## Implementation Status
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| CLI `--source azure` flag | ✅ Done | Works standalone without `azd app run` |
+| CLI `--source azure -f` streaming | ✅ Done | Polls every 30s, no `azd app run` required |
+| Standalone Azure logs fetcher | ✅ Done | `azure/standalone_logs.go` |
+| DefaultAzureCredential auth | ✅ Done | Uses `azd auth login` credentials |
+| Log Analytics SDK integration | ✅ Done | `azlogs` SDK queries work |
+| Dashboard UI auto-load | ⏳ Pending | Next phase |
+| Visual loading/error states | ⏳ Pending | Next phase |
+| Auto-refresh countdown | ⏳ Pending | Next phase |
+
 ## Executive Summary
 
 The current Azure logs implementation has proven unreliable due to:
@@ -9,6 +22,50 @@ The current Azure logs implementation has proven unreliable due to:
 4. **Silent Failures**: When something goes wrong, user sees nothing - no feedback
 
 This v2 spec proposes a **simplified, transparent approach** that works reliably with clear status feedback.
+
+## CLI Interface
+
+### Requirements by Source
+
+| Command | Requires `azd app run`? | Notes |
+|---------|-------------------------|-------|
+| `azd app logs` | Yes | Local logs need services running |
+| `azd app logs -f` | Yes | Local streaming needs services running |
+| `azd app logs --source azure` | **No** | Queries Log Analytics directly |
+| `azd app logs --source azure -f` | **No** | Polls Log Analytics directly (30s) |
+| `azd app logs --source all` | Yes | Local component needs services |
+| `azd app logs --source all -f` | Yes | Local component needs services |
+
+### Command Examples
+
+```bash
+# Local logs (requires azd app run)
+azd app run                     # Start services first
+azd app logs                    # View local logs
+azd app logs -f                 # Follow local logs in real-time
+
+# Azure logs (standalone - no azd app run required)
+azd app logs --source azure             # View logs from Azure Log Analytics
+azd app logs --source azure -f          # Follow Azure logs (30s polling)
+azd app logs --source azure --since 1h  # Logs from last hour
+azd app logs --source azure -s api      # Filter by service
+
+# Combined (requires azd app run for local component)
+azd app run                     # Start services first
+azd app logs --source all       # Both local and Azure logs
+```
+
+### Flag Definition
+
+```go
+cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
+```
+
+| Value | Description |
+|-------|-------------|
+| `local` | Logs from locally running services (default) |
+| `azure` | Logs from Azure Log Analytics (standalone) |
+| `all` | Logs from both sources |
 
 ## Design Principles
 

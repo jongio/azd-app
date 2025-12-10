@@ -1,9 +1,7 @@
 package serviceinfo
 
 import (
-	"encoding/json"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -138,25 +136,23 @@ func parseAzureYaml(projectDir string) (*service.AzureYaml, error) {
 	return azureYaml, nil
 }
 
-// getAzureEnvironmentValues reads Azure environment variables from azd env get-values.
-// This returns all environment variables defined in the azd environment, not system variables.
+// getAzureEnvironmentValues reads Azure environment variables from the process environment.
+// When running as an azd extension, all Azure environment variables are already available
+// via os.Environ() - no need to shell out to 'azd env get-values'.
 // Additionally, it merges in values from the event-driven environment cache which is updated
 // when azd provision completes.
 func getAzureEnvironmentValues(projectDir string) map[string]string {
 	envVars := make(map[string]string)
 
-	// Get environment variables from azd env get-values
-	cmd := exec.Command("azd", "env", "get-values", "--output", "json")
-	if projectDir != "" {
-		cmd.Dir = projectDir
-	}
-	output, err := cmd.Output()
-	if err == nil {
-		var azdEnvVars map[string]string
-		if err := json.Unmarshal(output, &azdEnvVars); err == nil {
-			// Add all environment variables from azd
-			for key, value := range azdEnvVars {
-				envVars[key] = value
+	// Get Azure environment variables from the process environment
+	// The azd extension framework provides these automatically: AZURE_*, SERVICE_*
+	for _, line := range os.Environ() {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := parts[0]
+			// Only collect Azure and Service environment variables
+			if strings.HasPrefix(key, "AZURE_") || strings.HasPrefix(key, "SERVICE_") {
+				envVars[key] = parts[1]
 			}
 		}
 	}

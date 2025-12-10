@@ -1,4 +1,4 @@
-<!-- NEXT: #simplify-credential-init -->
+<!-- NEXT: #loading-state -->
 # Azure Logs v2 Tasks
 
 ## Summary
@@ -177,7 +177,58 @@ Clean up v1 implementation:
 
 ## Done
 
-(none yet)
+### DONE: CLI service filtering for Azure logs {#cli-service-filter}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented service filtering for `azd app logs --source azure -s <service>`:
+- Added `resolveServiceNames()` to map azure.yaml service names to Azure resource names
+- Uses `SERVICE_*_NAME` environment variables from `azd env get-values`
+- Both one-shot and streaming modes support service filter
+- Service name is now properly extracted from query results (`ContainerAppName_s`)
+
+**Example**:
+```bash
+# azure.yaml has "containerapp-api", Azure resource is "ca-k7zjfgph5a6jk"
+azd app logs --source azure -s containerapp-api  # Works!
+# Debug shows: [containerapp-api] -> [ca-k7zjfgph5a6jk]
+```
+
+**Note**: Only Container App logs are currently supported. App Service and Functions
+would need additional table queries (FunctionAppLogs, AppServiceHTTPLogs).
+
+### DONE: Standalone Azure log streaming {#standalone-streaming}
+**Assigned**: Developer
+**Completed**: 2025-01-10
+
+Implemented `azd app logs -f --source azure` without requiring `azd app run`:
+- Added `StreamAzureLogsStandalone()` to `standalone_logs.go`
+- Added `streamStandaloneAzureLogs()` to `logs.go`
+- Polls Log Analytics every 30s
+- Uses 24h initial window to catch recent logs even if container idle
+- Iterates oldest-to-newest to display all logs in chronological order
+- Tracks last seen timestamp to avoid duplicates on subsequent polls
+- Graceful shutdown on Ctrl+C
+- Debug logging available via `AZD_APP_DEBUG=true`
+
+**Bug Fixes Applied**:
+- Fixed iteration order (was newest-to-oldest, which caused only 1 log to display)
+- Increased initial fetch window from 1h to 24h for idle containers
+
+### DONE: Verify SDK integration works {#verify-sdk}
+**Assigned**: Developer
+**Completed**: 2025-01-10
+
+Verified Azure SDK integration:
+- Phase 1 (Auth): `azd auth token` returns valid token
+- Phase 2 (Discovery): Workspace GUID in env vars, logs exist
+- Phase 3 (SDK): Integration test returns logs with P1D timespan
+- Phase 4 (CLI): `azd app logs --source azure` works standalone
+
+Key implementation:
+- Created `standalone_logs.go` for dashboard-independent Azure logs
+- Modified `logs.go` to use standalone path when dashboard not running
+- Returns 99 log entries from Log Analytics successfully
 
 ---
 

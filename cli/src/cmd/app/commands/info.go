@@ -2,11 +2,8 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -342,48 +339,24 @@ const (
 	colorReset  = "\033[0m"
 )
 
-// getAzureEnvironmentValues gets environment values from azd env get-values with timeout.
+// getAzureEnvironmentValues gets environment values from the process environment.
+// When running as an azd extension, all Azure environment variables are already available
+// via os.Environ() - no need to shell out to 'azd env get-values'.
 // Returns all environment variables defined in the azd environment.
-// Accepts a context to support cancellation and timeout.
 func getAzureEnvironmentValues(ctx context.Context) map[string]string {
 	allEnvVars := make(map[string]string)
 
-	// Set a reasonable timeout for the command (5 seconds)
-	cmdCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	// Create command with context for timeout support
-	cmd := exec.CommandContext(cmdCtx, "azd", "env", "get-values", "--output", "json")
-
-	cmdOutput, err := cmd.Output()
-	if err != nil {
-		// Log error but don't fail - environment values are optional
-		// This can happen if azd is not installed, not logged in, or no environment is active
-		if !output.IsJSON() {
-			// Only log in non-JSON mode to avoid polluting JSON output
-			var exitErr *exec.ExitError
-			if errors.As(err, &exitErr) {
-				// Command failed with stderr
-				output.Warning("Failed to get Azure environment values: %s", string(exitErr.Stderr))
-			} else {
-				// Command not found or other error
-				output.Warning("Failed to get Azure environment values: %v", err)
+	// Get Azure environment variables from the process environment
+	// The azd extension framework provides these automatically: AZURE_*, SERVICE_*
+	for _, line := range os.Environ() {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := parts[0]
+			// Only collect Azure and Service environment variables
+			if strings.HasPrefix(key, "AZURE_") || strings.HasPrefix(key, "SERVICE_") {
+				allEnvVars[key] = parts[1]
 			}
 		}
-		return allEnvVars
-	}
-
-	var envVars map[string]string
-	if err := json.Unmarshal(cmdOutput, &envVars); err != nil {
-		if !output.IsJSON() {
-			output.Warning("Failed to parse Azure environment values: %v", err)
-		}
-		return allEnvVars
-	}
-
-	// Add all environment variables from azd
-	for key, value := range envVars {
-		allEnvVars[key] = value
 	}
 
 	return allEnvVars
