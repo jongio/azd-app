@@ -35,7 +35,16 @@ func (pm *PortManager) IsPortAvailable(port int) bool {
 //   - *PortReservation: Holds the port open. Call Release() before binding.
 //   - error: Non-nil if port cannot be reserved
 func (pm *PortManager) ReservePort(port int) (*PortReservation, error) {
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	// First check if any process is listening on this port via netstat/lsof
+	// This catches processes that use SO_REUSEADDR which would allow our bind
+	// but would still cause listen conflicts for the actual service
+	if _, err := pm.getProcessOnPort(port); err == nil {
+		return nil, fmt.Errorf("port %d is in use by another process", port)
+	}
+
+	// Use just ":port" to let Go choose the appropriate address family
+	// This typically creates a dual-stack listener that binds both IPv4 and IPv6
+	addr := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("port %d is not available: %w", port, err)
@@ -136,10 +145,26 @@ func (pm *PortManager) isPortAvailable(port int) bool {
 	return pm.defaultIsPortAvailable(port)
 }
 
-// defaultIsPortAvailable is the default implementation that actually binds to check port availability.
+// defaultIsPortAvailable is the default implementation that checks port availability.
+// It first checks if any process is listening on the port (via netstat/lsof),
+// then verifies with a bind test. This dual approach catches both:
+// - Processes with SO_REUSEADDR that allow bind but will cause listen conflicts
+// - Processes with exclusive address use that will fail bind
 func (pm *PortManager) defaultIsPortAvailable(port int) bool {
-	// Bind to localhost to avoid Windows Firewall prompts
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	// First, check if any process is listening on this port
+	// This catches processes that use SO_REUSEADDR which would allow our bind
+	// but would still cause listen conflicts for the actual service
+	_, err := pm.getProcessOnPort(port)
+	if err == nil {
+		// A process is listening on this port
+		slog.Debug("port in use by another process", "port", port)
+		return false
+	}
+
+	// If no process found listening, verify with a bind test
+	// Use tcp6 with [::] to check both IPv4 and IPv6 on dual-stack systems
+	// Go's dual-stack listener will fail if either IPv4 or IPv6 is in use
+	addr := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		slog.Debug("port bind test failed", "port", port, "error", err)

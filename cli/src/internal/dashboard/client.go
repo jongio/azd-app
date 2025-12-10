@@ -303,3 +303,145 @@ func (c *Client) StreamLogs(ctx context.Context, serviceName string, logs chan<-
 		}
 	}
 }
+
+// GetAzureLogs retrieves Azure logs from the dashboard's /api/azure/logs endpoint.
+// The services parameter filters logs to specific services (nil for all services).
+// The tail parameter limits the number of logs returned.
+// The since parameter filters logs to those after the specified time.
+func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, since time.Time) ([]service.LogEntry, error) {
+	// Build URL with query parameters
+	url := c.baseURL + "/api/azure/logs"
+	params := []string{}
+
+	if len(services) == 1 {
+		params = append(params, "service="+services[0])
+	}
+	if tail > 0 {
+		params = append(params, fmt.Sprintf("tail=%d", tail))
+	}
+	// Note: since is handled by filtering results client-side for now
+	// The API doesn't support since parameter directly
+
+	if len(params) > 0 {
+		url += "?" + strings.Join(params, "&")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("dashboard returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var logs []service.LogEntry
+	if err := json.NewDecoder(resp.Body).Decode(&logs); err != nil {
+		return nil, fmt.Errorf("failed to decode logs: %w", err)
+	}
+
+	// Filter by services if multiple specified
+	if len(services) > 1 {
+		serviceSet := make(map[string]bool)
+		for _, s := range services {
+			serviceSet[s] = true
+		}
+		filtered := make([]service.LogEntry, 0, len(logs))
+		for _, log := range logs {
+			if serviceSet[log.Service] {
+				filtered = append(filtered, log)
+			}
+		}
+		logs = filtered
+	}
+
+	// Filter by since time if specified
+	if !since.IsZero() {
+		filtered := make([]service.LogEntry, 0, len(logs))
+		for _, log := range logs {
+			if !log.Timestamp.Before(since) {
+				filtered = append(filtered, log)
+			}
+		}
+		logs = filtered
+	}
+
+	return logs, nil
+}
+
+// GetAzureStatus retrieves the Azure connection status from the dashboard.
+func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/azure/status", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("dashboard returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var status service.AzureStatus
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return nil, fmt.Errorf("failed to decode status: %w", err)
+	}
+
+	return &status, nil
+}
+
+// StreamAzureLogs connects to the dashboard's Azure log stream via WebSocket.
+// The function blocks until the context is cancelled or an error occurs.
+func (c *Client) StreamAzureLogs(ctx context.Context, logs chan<- service.LogEntry) error {
+	// Build WebSocket URL
+	wsURL := c.GetWebSocketURL() + "/api/azure/logs/stream"
+
+	// Connect to WebSocket with timeout
+	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(dialCtx, wsURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Azure log stream: %w", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "client closing")
+
+	// Read log entries from WebSocket
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			var entry service.LogEntry
+			if err := wsjson.Read(ctx, conn, &entry); err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+					return nil
+				}
+				return fmt.Errorf("failed to read Azure log entry: %w", err)
+			}
+
+			select {
+			case logs <- entry:
+			case <-time.After(100 * time.Millisecond):
+				// Drop if channel is full/slow
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+}

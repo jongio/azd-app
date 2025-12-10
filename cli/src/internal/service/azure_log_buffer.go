@@ -99,7 +99,7 @@ func (a *AzureLogBuffer) SetMode(mode LogMode) error {
 	oldMode := a.mode
 	a.mode = mode
 
-	slog.Info("switching log mode", "from", oldMode, "to", mode)
+	slog.Debug("switching log mode", "from", oldMode, "to", mode)
 
 	// Stop Azure polling when switching to local
 	if mode == LogModeLocal && a.pollCancel != nil {
@@ -128,6 +128,8 @@ func (a *AzureLogBuffer) Initialize(ctx context.Context, subscriptionID, resourc
 	a.resourceGroup = resourceGroup
 	a.environmentName = environmentName
 
+	slog.Debug("initializing Azure log buffer", "subscriptionID", subscriptionID, "resourceGroup", resourceGroup)
+
 	// Create credential
 	cred, err := azure.NewAzureCredential()
 	if err != nil {
@@ -135,18 +137,41 @@ func (a *AzureLogBuffer) Initialize(ctx context.Context, subscriptionID, resourc
 	}
 	a.credential = cred
 
-	// Create Log Analytics client
-	if a.config.WorkspaceID != "" {
-		client, err := azure.NewLogAnalyticsClient(cred, a.config.WorkspaceID)
-		if err != nil {
-			return err
-		}
-		a.logClient = client
-	}
-
-	// Create resource discovery
+	// Create resource discovery (do this first to get workspace ID from env)
 	discovery := azure.NewResourceDiscovery(cred, a.projectDir)
 	a.resourceDiscov = discovery
+
+	// Determine workspace ID: config > env var > auto-discovery
+	workspaceID := a.config.WorkspaceID
+	if workspaceID == "" {
+		// Try to get from azd env (AZURE_LOG_ANALYTICS_WORKSPACE_GUID or WORKSPACE_ID)
+		result, err := discovery.Discover(ctx)
+		if err == nil && result != nil && result.LogAnalyticsWorkspaceID != "" {
+			workspaceID = result.LogAnalyticsWorkspaceID
+			slog.Debug("auto-detected Log Analytics workspace from environment", "workspaceId", workspaceID)
+		}
+	}
+
+	// Create Log Analytics client if we have a workspace ID
+	// Note: Use NewLogAnalyticsCredential() which skips AZD_ACCESS_TOKEN since
+	// that token is scoped to ARM and won't work for Log Analytics API
+	if workspaceID != "" {
+		slog.Debug("creating Log Analytics client", "workspaceId", workspaceID)
+		logAnalyticsCred, err := azure.NewLogAnalyticsCredential()
+		if err != nil {
+			slog.Warn("failed to create Log Analytics credential", "error", err)
+		} else {
+			client, err := azure.NewLogAnalyticsClient(logAnalyticsCred, workspaceID)
+			if err != nil {
+				slog.Warn("failed to create Log Analytics client", "error", err)
+			} else {
+				a.logClient = client
+				slog.Debug("Log Analytics client created successfully")
+			}
+		}
+	} else {
+		slog.Warn("no Log Analytics workspace ID found, polling will be disabled")
+	}
 
 	// Initialize streamer manager for real-time streaming
 	a.streamerManager = azure.NewStreamerManager()
@@ -168,6 +193,8 @@ func (a *AzureLogBuffer) startAzurePolling() error {
 	useRealtime := a.realtimeMode && a.config.RealtimeEnabled
 	a.realtimeMu.RUnlock()
 
+	slog.Debug("starting Azure polling", "useRealtime", useRealtime, "hasLogClient", a.logClient != nil, "pollingInterval", a.config.PollingInterval)
+
 	if useRealtime {
 		// Start real-time streaming
 		if err := a.startRealtimeStreaming(); err != nil {
@@ -181,7 +208,10 @@ func (a *AzureLogBuffer) startAzurePolling() error {
 		}
 	} else if a.logClient != nil {
 		// Use standard polling
+		slog.Debug("starting Log Analytics polling goroutine")
 		go a.pollAzureLogs()
+	} else {
+		slog.Debug("cannot start Azure polling: no Log Analytics client available")
 	}
 
 	return nil
@@ -208,16 +238,23 @@ func (a *AzureLogBuffer) pollAzureLogs() {
 
 // fetchAzureLogs fetches logs from Azure for all discovered services.
 func (a *AzureLogBuffer) fetchAzureLogs() {
-	if a.resourceDiscov == nil || a.logClient == nil {
+	if a.resourceDiscov == nil {
+		slog.Debug("azure log fetch skipped: no resource discovery")
+		return
+	}
+	if a.logClient == nil {
+		slog.Debug("azure log fetch skipped: no Log Analytics client")
 		return
 	}
 
 	// Discover resources
 	result, err := a.resourceDiscov.Discover(a.pollCtx)
 	if err != nil {
-		slog.Debug("failed to discover azure resources", "error", err)
+		slog.Warn("failed to discover azure resources", "error", err)
 		return
 	}
+
+	slog.Debug("fetching azure logs", "resourceCount", len(result.Resources), "workspaceId", result.LogAnalyticsWorkspaceID)
 
 	for _, resource := range result.Resources {
 		a.fetchServiceLogs(*resource)
@@ -240,16 +277,30 @@ func (a *AzureLogBuffer) fetchServiceLogs(resource azure.AzureResource) {
 		customQuery = a.config.Queries[resource.ServiceName]
 	}
 
+	// Use the Azure resource name for KQL queries, not the azure.yaml service name.
+	// Example: azure.yaml has "containerapp-api" but Azure resource is "ca-k7zjfgph5a6jk"
+	queryName := resource.Name
+	if queryName == "" {
+		queryName = resource.ServiceName // Fallback if Name not available
+	}
+
+	slog.Debug("querying azure logs",
+		"service", resource.ServiceName,
+		"azureName", queryName,
+		"resourceType", resource.ResourceType,
+		"resourceID", resource.ResourceID,
+		"hasLastTime", hasLastTime)
+
 	if hasLastTime {
 		// Incremental query since last fetch
-		azureEntries, err = a.logClient.QueryLogsSince(a.pollCtx, resource.ServiceName, resource.ResourceType, lastTime, customQuery)
+		azureEntries, err = a.logClient.QueryLogsSince(a.pollCtx, queryName, resource.ResourceType, lastTime, customQuery)
 	} else {
 		// Initial query with default timespan
-		azureEntries, err = a.logClient.QueryLogs(a.pollCtx, resource.ServiceName, resource.ResourceType, a.config.DefaultTimespan, customQuery)
+		azureEntries, err = a.logClient.QueryLogs(a.pollCtx, queryName, resource.ResourceType, a.config.DefaultTimespan, customQuery)
 	}
 
 	if err != nil {
-		slog.Debug("failed to query azure logs", "service", resource.ServiceName, "error", err)
+		slog.Warn("failed to query azure logs", "service", resource.ServiceName, "resourceType", resource.ResourceType, "error", err)
 		return
 	}
 
@@ -259,8 +310,10 @@ func (a *AzureLogBuffer) fetchServiceLogs(resource azure.AzureResource) {
 	a.lastQueryMu.Unlock()
 
 	// Convert and add entries to buffer
+	// Use the azure.yaml service name (not Azure resource name) for dashboard display
 	for _, azEntry := range azureEntries {
 		entry := convertAzureLogEntry(azEntry)
+		entry.Service = resource.ServiceName // Override with azure.yaml service name
 		a.addEntry(entry)
 	}
 
@@ -589,28 +642,162 @@ func (a *AzureLogBuffer) GetAzureStatus() AzureStatus {
 	a.modeMu.RUnlock()
 
 	status := AzureStatus{
-		Mode:      mode,
-		Connected: a.logClient != nil,
-		Enabled:   a.config.Enabled,
+		Mode:    mode,
+		Enabled: a.config.Enabled,
 	}
 
+	// Check credential status
+	status.HasCredentials = a.credential != nil
+
+	// Check Log Analytics client
+	status.HasLogAnalytics = a.logClient != nil
+
+	// Check resource discovery and count resources
 	if a.resourceDiscov != nil {
-		result, _ := a.resourceDiscov.Discover(context.Background())
-		if result != nil {
+		result, err := a.resourceDiscov.Discover(context.Background())
+		if err != nil {
+			status.LastError = err.Error()
+		} else if result != nil {
 			status.ResourceCount = len(result.Resources)
+			status.HasResourceDiscovery = true
+		}
+	}
+
+	// Connected means we have credentials and can discover resources
+	// We can stream logs via real-time APIs even without Log Analytics workspace
+	status.Connected = status.HasCredentials && status.HasResourceDiscovery && status.ResourceCount > 0
+
+	// Determine connection issue for UI guidance
+	if !status.Connected && status.Enabled {
+		if !status.HasCredentials {
+			status.ConnectionIssue = "auth"
+			status.ConnectionMessage = "Azure authentication required. Run 'az login' or 'azd auth login'."
+		} else if !status.HasResourceDiscovery {
+			status.ConnectionIssue = "discovery"
+			status.ConnectionMessage = "Cannot discover Azure resources. Run 'azd provision' or 'azd deploy' first."
+		} else if status.ResourceCount == 0 {
+			status.ConnectionIssue = "no-resources"
+			status.ConnectionMessage = "No Azure resources found. Deploy your app with 'azd deploy'."
 		}
 	}
 
 	return status
 }
 
+// GetServiceResourceInfo returns the resource type and Azure resource name for a service.
+// Returns empty strings if the service is not found or not discovered.
+func (a *AzureLogBuffer) GetServiceResourceInfo(serviceName string) (resourceType string, resourceName string) {
+	if a.resourceDiscov == nil {
+		slog.Debug("GetServiceResourceInfo: no resource discovery")
+		return "", ""
+	}
+
+	result, err := a.resourceDiscov.Discover(context.Background())
+	if err != nil {
+		slog.Debug("GetServiceResourceInfo: discovery error", "error", err)
+		return "", ""
+	}
+
+	slog.Debug("GetServiceResourceInfo: looking up service", "serviceName", serviceName, "resourceCount", len(result.Resources))
+	for name, res := range result.Resources {
+		slog.Debug("GetServiceResourceInfo: available resource", "name", name, "type", res.ResourceType, "azureName", res.Name)
+	}
+
+	resource, ok := result.Resources[serviceName]
+	if !ok {
+		slog.Debug("GetServiceResourceInfo: service not found", "serviceName", serviceName)
+		return "", ""
+	}
+
+	slog.Debug("GetServiceResourceInfo: found resource", "serviceName", serviceName, "type", resource.ResourceType, "azureName", resource.Name)
+	return string(resource.ResourceType), resource.Name
+}
+
 // AzureStatus represents the current Azure log streaming status.
 type AzureStatus struct {
-	Mode          LogMode `json:"mode"`
-	Connected     bool    `json:"connected"`
-	Enabled       bool    `json:"enabled"`
-	ResourceCount int     `json:"resourceCount"`
-	LastError     string  `json:"lastError,omitempty"`
+	Mode                 LogMode `json:"mode"`
+	Connected            bool    `json:"connected"`
+	Enabled              bool    `json:"enabled"`
+	ResourceCount        int     `json:"resourceCount"`
+	HasCredentials       bool    `json:"hasCredentials"`
+	HasLogAnalytics      bool    `json:"hasLogAnalytics"`
+	HasResourceDiscovery bool    `json:"hasResourceDiscovery"`
+	ConnectionIssue      string  `json:"connectionIssue,omitempty"`
+	ConnectionMessage    string  `json:"connectionMessage,omitempty"`
+	LastError            string  `json:"lastError,omitempty"`
+}
+
+// HistoricalQueryResult contains the results of a historical log query.
+type HistoricalQueryResult struct {
+	Logs          []LogEntry `json:"logs"`
+	Total         int        `json:"total"`
+	HasMore       bool       `json:"hasMore"`
+	ExecutionTime int64      `json:"executionTime"` // milliseconds
+}
+
+// QueryHistoricalLogs executes a historical log query against Azure Log Analytics.
+func (a *AzureLogBuffer) QueryHistoricalLogs(ctx context.Context, serviceName string, timespan time.Duration, customQuery string, limit, offset int) (*HistoricalQueryResult, error) {
+	if a.logClient == nil {
+		return nil, fmt.Errorf("log client not initialized")
+	}
+
+	if a.resourceDiscov == nil {
+		return nil, fmt.Errorf("resource discovery not initialized")
+	}
+
+	// Get resource type for the service
+	resourceType, _ := a.GetServiceResourceInfo(serviceName)
+	if resourceType == "" {
+		return nil, fmt.Errorf("service %q not found or not discovered", serviceName)
+	}
+
+	startTime := time.Now()
+
+	// Query logs from Azure
+	azureEntries, err := a.logClient.QueryLogs(ctx, serviceName, azure.ResourceType(resourceType), timespan, customQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query logs: %w", err)
+	}
+
+	executionTime := time.Since(startTime).Milliseconds()
+
+	total := len(azureEntries)
+
+	// Apply pagination
+	if offset >= len(azureEntries) {
+		return &HistoricalQueryResult{
+			Logs:          []LogEntry{},
+			Total:         total,
+			HasMore:       false,
+			ExecutionTime: executionTime,
+		}, nil
+	}
+
+	end := offset + limit
+	if end > len(azureEntries) {
+		end = len(azureEntries)
+	}
+
+	// Convert azure.LogEntry to service.LogEntry
+	logs := make([]LogEntry, 0, end-offset)
+	for _, ae := range azureEntries[offset:end] {
+		// Convert azure.LogLevel to service.LogLevel (same underlying values)
+		level := LogLevel(ae.Level)
+		logs = append(logs, LogEntry{
+			Service:   ae.Service,
+			Message:   ae.Message,
+			Level:     level,
+			Timestamp: ae.Timestamp,
+			IsStderr:  level >= LogLevelError,
+		})
+	}
+
+	return &HistoricalQueryResult{
+		Logs:          logs,
+		Total:         total,
+		HasMore:       end < total,
+		ExecutionTime: executionTime,
+	}, nil
 }
 
 // Close stops polling and cleans up resources.

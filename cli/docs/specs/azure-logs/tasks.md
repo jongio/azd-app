@@ -1,3 +1,4 @@
+<!-- NEXT: #task-2-2-realtime-streaming -->
 # Azure Cloud Log Streaming Tasks
 
 ## Overview
@@ -9,6 +10,139 @@ Implementation tasks for streaming Azure-deployed service logs into the azd-app 
 - Easy enable with defaults, full customization via KQL queries
 - Dashboard mode switching: Local / Azure / All
 - MCP server respects dashboard mode with override capability
+
+---
+
+## HOTFIX: Connection & Credential Issues (P0)
+
+*Discovered during integration testing - blocking user experience*
+
+### HF-1: Workspace GUID Auto-Detection
+**Assigned**: Developer
+**Status**: IN PROGRESS
+
+**Problem**: Log Analytics API requires workspace GUID (customerId), not resource ID. Users must manually set `AZURE_LOG_ANALYTICS_WORKSPACE_GUID` env var.
+
+**Solution**: Auto-detect GUID from workspace ID/name using Azure Resource Manager API.
+
+**Implementation**:
+1. ✅ Add `AZURE_LOG_ANALYTICS_WORKSPACE_GUID` env var support in discovery.go
+2. ✅ Update bicep to output `logAnalyticsWorkspaceGuid` using `workspace.properties.customerId`
+3. ⬜ Auto-detect GUID from resource ID via ARM API when env var missing
+4. ⬜ Update documentation with required bicep outputs
+
+**Files**:
+- `cli/src/internal/azure/discovery.go` - Add ARM API call to get workspace properties
+- `cli/docs/features/azure-logs.md` - Document setup requirements
+
+**Acceptance Criteria**:
+- Works without manual GUID env var (auto-detects from workspace ID)
+- Clear error message if workspace not found
+- Example bicep in documentation
+
+---
+
+### HF-2: Log Analytics Credential Scope
+**Assigned**: Developer
+**Status**: IN PROGRESS
+
+**Problem**: AZD_ACCESS_TOKEN is ARM-scoped, doesn't work for Log Analytics API (api.loganalytics.io).
+
+**Solution**: Use separate credential chain for Log Analytics that skips AZD token.
+
+**Implementation**:
+1. ✅ Create `NewLogAnalyticsCredential()` in credentials.go
+2. ✅ Update AzureLogBuffer to use separate credential for Log Analytics
+3. ⬜ Verify logs actually appear after credential fix
+4. ⬜ Add integration test for credential scoping
+
+**Files**:
+- `cli/src/internal/azure/credentials.go` - NewLogAnalyticsCredential()
+- `cli/src/internal/service/azure_log_buffer.go` - Use correct credential
+
+**Acceptance Criteria**:
+- Log Analytics queries succeed with DefaultAzureCredential
+- AZD token still used for ARM queries (resource discovery)
+- No auth errors in dashboard
+
+---
+
+### HF-3: Connection Error UX
+**Assigned**: Developer
+**Status**: IN PROGRESS
+
+**Problem**: Red dot doesn't help users fix issues. Need actionable guidance.
+
+**Solution**: Show amber indicator with tooltip explaining what's missing and how to fix.
+
+**Implementation**:
+1. ✅ Update AzureStatus to include ConnectionIssue and ConnectionMessage
+2. ✅ Change StatusDot to StatusIndicator with tooltip
+3. ⬜ Add setup guide panel when not configured
+4. ⬜ Link to documentation in error messages
+
+**Files**:
+- `cli/src/internal/dashboard/mode.go` - Add detailed status fields
+- `cli/dashboard/src/components/ModeToggle.tsx` - StatusIndicator with tooltip
+- `cli/dashboard/src/components/AzureSetupGuide.tsx` - New component
+
+**Acceptance Criteria**:
+- Tooltip shows specific issue (missing workspace, auth error, etc.)
+- Users can click to see setup instructions
+- Links to docs for detailed guidance
+
+---
+
+### HF-4: Verify Log Pipeline
+**Assigned**: Developer
+**Status**: DONE
+
+**Problem**: Even with correct credentials, logs may not appear if apps aren't sending to Log Analytics.
+
+**Solution**: Verify diagnostic settings and provide guidance.
+
+**Checklist**:
+1. ✅ Container App has diagnostic settings pointing to Log Analytics
+2. ✅ App Service has diagnostic settings enabled
+3. ✅ Log Analytics workspace is receiving data
+4. ✅ KQL query matches actual log schema
+
+**Documentation Created**: `cli/docs/features/azure-logs.md` includes:
+- Complete bicep examples for diagnostic settings
+- Verification commands
+- Troubleshooting guide
+
+**Acceptance Criteria**:
+- ✅ Diagnostic settings documented in example bicep
+- ✅ Verification steps documented
+- ✅ Dashboard shows logs when apps are properly configured
+
+---
+
+### HF-5: Documentation Update
+**Assigned**: Developer
+**Status**: DONE
+
+**Required Documentation**:
+1. ✅ Required bicep outputs:
+   - `AZURE_LOG_ANALYTICS_WORKSPACE_ID` (resource ID)
+   - `AZURE_LOG_ANALYTICS_WORKSPACE_NAME`
+   - `AZURE_LOG_ANALYTICS_WORKSPACE_GUID` (customerId)
+2. ✅ Example bicep for monitoring module with outputs
+3. ✅ Diagnostic settings configuration for each service type
+4. ✅ Troubleshooting guide for common issues
+5. ✅ Update CLI reference docs
+6. ✅ Update /web docs with Azure logs section
+
+**Files Created/Updated**:
+- `cli/docs/features/azure-logs.md` - Main feature documentation (DONE)
+- `web/src/pages/reference/cli/logs.astro` - CLI reference with --source flag (DONE)
+- `web/src/pages/tour/6-logs.astro` - Tour page mentions Azure logs (already present)
+
+**Acceptance Criteria**:
+- ✅ Complete setup guide from scratch
+- ✅ All required outputs documented
+- ✅ Troubleshooting covers credential and workspace issues
 
 ---
 

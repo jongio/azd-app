@@ -1,73 +1,76 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
 
 name: azure-logs-test
-
 # Project-level Azure logs configuration
 logs:
-  filters:
-    exclude: ["health check", "readiness probe"]
-    includeBuiltins: true
-  azure:
-    enabled: true
-    source: auto
-    pollingInterval: 10s
-    defaultTimespan: 30m
-    realtime: false
-
+    filters:
+        exclude: ["health check", "readiness probe"]
+        includeBuiltins: true
+    azure:
+        enabled: true
+        source: auto
+        pollingInterval: 10s
+        defaultTimespan: 30m
+        realtime: false
 reqs:
-  - name: node
-    minVersion: "18.0.0"
-  - name: python
-    minVersion: "3.10"
-  - name: func
-    minVersion: "4.0.0"
-  - name: docker
-    checkRunning: true
-  - name: azd
-    minVersion: "1.0.0"
-
+    - name: node
+      minVersion: "18.0.0"
+    - name: python
+      minVersion: "3.10"
+    - name: func
+      minVersion: "4.0.0"
+    - name: docker
+      checkRunning: true
+    - name: azd
+      minVersion: "1.0.0"
 services:
-  # Azure Container Apps - P0 Priority
-  containerapp-api:
-    host: containerapp
-    language: js
-    project: ./src/containerapp-api
-    ports: ["9847"]
-    environment:
-      NODE_ENV: production
-      LOG_LEVEL: info
-    healthcheck:
-      test: "http://localhost:9847/health"
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # Azure App Service - P0 Priority
-  appservice-web:
-    host: appservice
-    language: python
-    project: ./src/appservice-web
-    ports: ["8293"]
-    environment:
-      FLASK_ENV: production
-      LOG_LEVEL: INFO
-    healthcheck:
-      test: "http://localhost:8293/health"
-      interval: 10s
-      timeout: 5s
-
-  # Azure Functions - P1 Priority
-  functions-worker:
-    host: function
-    project: ./src/functions-worker
-    ports: ["7071"]
-    environment:
-      AzureWebJobsStorage: UseDevelopmentStorage=true
-    logs:
-      azure:
-        query: |
-          FunctionAppLogs
-          | where _ResourceId contains "{serviceName}"
-          | where TimeGenerated > ago({timespan})
-          | project TimeGenerated, FunctionName, Message, Level
-          | order by TimeGenerated desc
+    # Azure Container Apps - P0 Priority
+    containerapp-api:
+        host: containerapp
+        language: js
+        project: ./src/containerapp-api
+        ports: ["9847"]
+        environment:
+            NODE_ENV: production
+            LOG_LEVEL: info
+        healthcheck:
+            test: "http://localhost:9847/health"
+            interval: 10s
+            timeout: 5s
+            retries: 3
+    # Azure App Service - P0 Priority
+    appservice-web:
+        host: appservice
+        language: python
+        project: ./src/appservice-web
+        ports: ["8293"]
+        environment:
+            FLASK_ENV: production
+            LOG_LEVEL: INFO
+        healthcheck:
+            test: "http://localhost:8293/health"
+            interval: 10s
+            timeout: 5s
+    # Azure Functions - P1 Priority
+    functions-worker:
+        host: function
+        language: ts
+        project: ./src/functions-worker
+        ports: ["7071"]
+        environment:
+            AzureWebJobsStorage: UseDevelopmentStorage=true
+        logs:
+            azure:
+                query: |
+                    FunctionAppLogs
+                    | where _ResourceId contains "{serviceName}"
+                    | where TimeGenerated > ago({timespan})
+                    | project TimeGenerated, FunctionName, Message, Level
+                    | order by TimeGenerated desc
+    azurite:
+        host: local
+        image: mcr.microsoft.com/azure-storage/azurite:latest
+        ports:
+            - 10000:10000
+            - 10001:10001
+            - 10002:10002

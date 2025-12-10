@@ -483,7 +483,7 @@ logs:
 
 services:
   api:
-    host: containerapp
+    host: local
     project: ./api
     # Service-level log configuration (overrides project-level)
     logs:

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/browser"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
@@ -768,9 +769,29 @@ func initializeAzureLogBuffer(azureYaml *service.AzureYaml, projectDir string) {
 	azureConfig := azureYaml.Logs.Azure
 	azBuffer := service.NewAzureLogBuffer(azureConfig, projectDir)
 
+	// Get Azure environment info for initialization
+	subscriptionID, resourceGroup, envName, err := azure.GetAzureEnvInfo(projectDir)
+	if err != nil {
+		output.Warning("Azure log streaming: could not get Azure environment info: %v", err)
+		output.Info("Run 'azd provision' or 'azd deploy' to set up Azure environment")
+		// Still register the buffer so UI shows as enabled but disconnected
+		logMgr := service.GetLogManager(projectDir)
+		logMgr.SetAzureLogBuffer(azBuffer)
+		return
+	}
+
+	// Initialize the buffer with Azure credentials and resource discovery
+	if err := azBuffer.Initialize(context.Background(), subscriptionID, resourceGroup, envName); err != nil {
+		output.Warning("Azure log streaming: initialization failed: %v", err)
+		// Still register the buffer so UI shows as enabled but disconnected
+		logMgr := service.GetLogManager(projectDir)
+		logMgr.SetAzureLogBuffer(azBuffer)
+		return
+	}
+
 	// Register with log manager so dashboard can access it
 	logMgr := service.GetLogManager(projectDir)
 	logMgr.SetAzureLogBuffer(azBuffer)
 
-	output.Info("Azure log streaming enabled")
+	output.Info("Azure log streaming enabled (subscription: %s, resource group: %s)", subscriptionID, resourceGroup)
 }

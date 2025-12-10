@@ -10,7 +10,7 @@ app.http('health', {
     authLevel: 'anonymous',
     route: 'health',
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
-        context.log(`[INFO] Health check invoked - ${SERVICE_NAME}`);
+        context.log(`[INFO] Health endpoint hit - ${SERVICE_NAME} is healthy`);
         
         return {
             status: 200,
@@ -82,17 +82,33 @@ app.http('error', {
 
 /**
  * Timer trigger function - Periodic log generation for testing
- * Runs every 5 minutes
+ * Runs every 30 seconds for active log streaming testing
  */
+let timerCounter = 0;
 app.timer('periodicLogger', {
-    schedule: '0 */5 * * * *',
+    schedule: '*/30 * * * * *',
     handler: async (myTimer: any, context: InvocationContext): Promise<void> => {
+        timerCounter++;
         context.log(`[INFO] Periodic logger invoked at ${new Date().toISOString()}`);
-        context.log(`[INFO] Service: ${SERVICE_NAME}, Timer scheduled next: ${myTimer.scheduleStatus?.next}`);
+        context.log(`[INFO] Service: ${SERVICE_NAME}, iteration: ${timerCounter}`);
         
-        // Generate some sample logs
-        for (let i = 0; i < 3; i++) {
-            context.log(`[INFO] Periodic log entry ${i + 1}/3 from ${SERVICE_NAME}`);
+        // Generate varied log messages
+        const messages = [
+            'Function processing scheduled task',
+            'Background job completed successfully', 
+            'Queue message processed',
+            'Timer trigger heartbeat - service healthy',
+            'Scheduled maintenance check passed',
+        ];
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        context.log(`[INFO] ${message} - run #${timerCounter}`);
+        
+        // Occasionally log warnings/errors for variety
+        if (timerCounter % 5 === 0) {
+            context.warn(`[WARN] High latency detected at iteration ${timerCounter} - ${SERVICE_NAME}`);
+        }
+        if (timerCounter % 12 === 0) {
+            context.error(`[ERROR] Transient storage timeout at iteration ${timerCounter} - ${SERVICE_NAME} (auto-retry succeeded)`);
         }
     }
 });
@@ -105,7 +121,7 @@ app.http('root', {
     authLevel: 'anonymous',
     route: '',
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
-        context.log(`[INFO] Root endpoint accessed - ${SERVICE_NAME}`);
+        context.log(`[INFO] Root endpoint hit - Welcome to ${SERVICE_NAME}`);
         
         return {
             status: 200,

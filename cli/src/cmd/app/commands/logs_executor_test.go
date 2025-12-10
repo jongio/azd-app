@@ -20,11 +20,15 @@ import (
 
 // mockDashboardClient implements DashboardClient for testing.
 type mockDashboardClient struct {
-	pingErr        error
-	services       []*serviceinfo.ServiceInfo
-	getServicesErr error
-	streamLogsErr  error
-	logEntries     []service.LogEntry
+	pingErr          error
+	services         []*serviceinfo.ServiceInfo
+	getServicesErr   error
+	streamLogsErr    error
+	logEntries       []service.LogEntry
+	azureLogs        []service.LogEntry
+	getAzureLogsErr  error
+	azureStatus      *service.AzureStatus
+	getAzureStatusErr error
 }
 
 func (m *mockDashboardClient) Ping(ctx context.Context) error {
@@ -46,6 +50,35 @@ func (m *mockDashboardClient) StreamLogs(ctx context.Context, serviceName string
 	// Keep streaming until context is cancelled (simulating real stream behavior)
 	<-ctx.Done()
 	return m.streamLogsErr
+}
+
+func (m *mockDashboardClient) GetAzureLogs(ctx context.Context, services []string, tail int, since time.Time) ([]service.LogEntry, error) {
+	if m.getAzureLogsErr != nil {
+		return nil, m.getAzureLogsErr
+	}
+	return m.azureLogs, nil
+}
+
+func (m *mockDashboardClient) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
+	if m.getAzureStatusErr != nil {
+		return nil, m.getAzureStatusErr
+	}
+	if m.azureStatus == nil {
+		return &service.AzureStatus{Enabled: false}, nil
+	}
+	return m.azureStatus, nil
+}
+
+func (m *mockDashboardClient) StreamAzureLogs(ctx context.Context, logs chan<- service.LogEntry) error {
+	for _, entry := range m.azureLogs {
+		select {
+		case logs <- entry:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	<-ctx.Done()
+	return nil
 }
 
 // mockLogManager implements LogManagerInterface for testing.

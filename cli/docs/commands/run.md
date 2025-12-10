@@ -859,19 +859,19 @@ services:
   # Frontend service
   web:
     language: js
-    host: containerapp
+    host: local
     project: ./src/web
   
   # Backend API
   api:
     language: python
-    host: containerapp
+    host: local
     project: ./src/api
   
   # .NET Aspire AppHost
   apphost:
     language: csharp
-    host: containerapp
+    host: local
     project: ./src/apphost
 
 # Resources (databases, caches, etc.)
@@ -915,6 +915,7 @@ services:
   
   # Container service
   azurite:
+    host: local
     image: mcr.microsoft.com/azure-storage/azurite:latest
     ports:
       - "10000:10000"

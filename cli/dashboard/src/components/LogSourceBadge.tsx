@@ -87,15 +87,15 @@ export function InlineLogSource({ source, className }: InlineLogSourceProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center w-4 h-4 rounded',
+        'inline-flex items-center justify-center rounded',
         isLocal 
-          ? 'text-slate-400 dark:text-slate-500'
-          : 'text-cyan-500 dark:text-cyan-400',
+          ? 'w-4 h-4 text-slate-400 dark:text-slate-500'
+          : 'w-5 h-5 -mt-0.5 text-emerald-500 dark:text-emerald-400',
         className
       )}
       title={isLocal ? 'Local' : 'Azure'}
     >
-      <Icon className="w-3 h-3" aria-hidden="true" />
+      <Icon className={isLocal ? 'w-3 h-3' : 'w-3.5 h-3.5'} aria-hidden="true" />
     </span>
   )
 }

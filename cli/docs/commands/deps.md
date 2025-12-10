@@ -478,21 +478,21 @@ services:
   # Node.js service
   frontend:
     language: js
-    host: containerapp
+    host: local
     project: ./src/frontend
     # Deps will auto-detect pnpm/npm/yarn
   
   # Python service
   backend:
     language: python
-    host: containerapp
+    host: local
     project: ./src/backend
     # Deps will auto-detect uv/poetry/pip
   
   # .NET service
   api:
     language: csharp
-    host: containerapp
+    host: local
     project: ./src/api
     # Deps will run dotnet restore
 ```

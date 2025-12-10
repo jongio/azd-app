@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, HeartCrack, ExternalLink, CircleDot, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, HelpCircle, Eye, Hammer, CheckSquare, CircleX } from 'lucide-react'
+import { Copy, AlertTriangle, Info, XCircle, Check, ChevronDown, ChevronRight, Heart, HeartPulse, HeartCrack, ExternalLink, CircleDot, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, HelpCircle, Eye, Hammer, CheckSquare, CircleX, Monitor, Cloud, Code, Pencil, Save, Undo2 } from 'lucide-react'
 import { formatLogTimestamp, getLogPaneVisualStatus, normalizeHealthStatus, type VisualStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
@@ -8,6 +8,7 @@ import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
 import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
 import { ServiceActions } from './ServiceActions'
+import type { LogMode } from './ModeToggle'
 import {
   MAX_LOGS_IN_MEMORY,
   LOG_LEVELS,
@@ -39,6 +40,8 @@ interface LogsPaneProps {
   onToggleCollapse?: () => void   // NEW: collapse toggle callback
   serviceHealth?: HealthStatus  // Real-time health from stream
   onShowDetails?: () => void      // Callback to open service details panel
+  logMode?: LogMode               // Current log source mode (local or azure)
+  isModeSwitching?: boolean       // Whether mode is currently being switched
 }
 
 export function LogsPane({ 
@@ -55,13 +58,21 @@ export function LogsPane({
   isCollapsed: controlledIsCollapsed,
   onToggleCollapse,
   serviceHealth,
-  onShowDetails
+  onShowDetails,
+  logMode = 'local',
+  isModeSwitching = false
 }: LogsPaneProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [selectedText, setSelectedText] = useState<string>('')
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null)
   const [showClassificationConfirmation, setShowClassificationConfirmation] = useState(false)
   const [copiedLineIndex, setCopiedLineIndex] = useState<number | null>(null)
+  const [showQueryModal, setShowQueryModal] = useState(false)
+  const [queryInfo, setQueryInfo] = useState<{ query: string; resourceType: string } | null>(null)
+  const [editedQuery, setEditedQuery] = useState<string>('')
+  const [isEditingQuery, setIsEditingQuery] = useState(false)
+  const [isSavingQuery, setIsSavingQuery] = useState(false)
+  const [querySaveMessage, setQuerySaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   // Internal state as fallback for uncontrolled mode
   const [internalIsCollapsed, setInternalIsCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem(`logs-pane-collapsed-${serviceName}`)
@@ -74,8 +85,14 @@ export function LogsPane({
   // Get Codespace config for URL transformation
   const { config: codespaceConfig } = useCodespaceEnv()
   
-  // Transform URL for Codespace environment
-  const effectiveUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
+  // Transform URL for Codespace environment (local mode)
+  const effectiveLocalUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
+  
+  // Get Azure URL from service info
+  const azureUrl = service?.azure?.url
+  
+  // Use Azure URL when in Azure mode, otherwise local URL
+  const effectiveUrl = logMode === 'azure' && azureUrl ? azureUrl : effectiveLocalUrl
   
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
@@ -90,6 +107,59 @@ export function LogsPane({
     isPausedRef.current = isPaused
   }, [isPaused])
 
+  // Fetch the KQL query for this service
+  const handleShowQuery = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/azure/query?service=${serviceName}`)
+      if (res.ok) {
+        const data = await res.json() as { query: string; resourceType: string }
+        setQueryInfo(data)
+        setEditedQuery(data.query)
+        setIsEditingQuery(false)
+        setQuerySaveMessage(null)
+        setShowQueryModal(true)
+      }
+    } catch (err) {
+      console.error('Failed to fetch query:', err)
+    }
+  }, [serviceName])
+
+  // Save the edited KQL query
+  const handleSaveQuery = useCallback(async () => {
+    if (!editedQuery.trim()) {
+      setQuerySaveMessage({ type: 'error', text: 'Query cannot be empty' })
+      return
+    }
+    
+    setIsSavingQuery(true)
+    setQuerySaveMessage(null)
+    
+    try {
+      const res = await fetch('/api/azure/query', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service: serviceName, query: editedQuery })
+      })
+      
+      if (res.ok) {
+        const data = await res.json() as { query: string; resourceType: string }
+        setQueryInfo(data)
+        setIsEditingQuery(false)
+        setQuerySaveMessage({ type: 'success', text: 'Query saved to azure.yaml' })
+        // Clear success message after 3 seconds
+        setTimeout(() => setQuerySaveMessage(null), 3000)
+      } else {
+        const error = await res.json() as { error?: string }
+        setQuerySaveMessage({ type: 'error', text: error.error || 'Failed to save query' })
+      }
+    } catch (err) {
+      console.error('Failed to save query:', err)
+      setQuerySaveMessage({ type: 'error', text: 'Failed to save query' })
+    } finally {
+      setIsSavingQuery(false)
+    }
+  }, [serviceName, editedQuery])
+
   // Toggle function - use callback if provided, otherwise internal
   const toggleCollapsed = useCallback(() => {
     if (onToggleCollapse) {
@@ -103,24 +173,33 @@ export function LogsPane({
     }
   }, [serviceName, onToggleCollapse])
 
-  // Clear logs when global clear is triggered
+  // Clear logs when global clear is triggered or mode changes
   useEffect(() => {
     if (clearAllTrigger > 0) {
       setLogs([])
     }
   }, [clearAllTrigger])
 
-  // Fetch initial logs and setup WebSocket
+  // Clear logs and refetch when mode changes
   useEffect(() => {
+    setLogs([]) // Clear logs when switching modes
+  }, [logMode])
+
+  // Fetch initial logs and setup WebSocket - reconnect when mode changes
+  useEffect(() => {
+    // Choose endpoint based on mode
+    const logsEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
+    const streamEndpoint = logMode === 'azure' ? '/api/azure/logs/stream' : '/api/logs/stream'
+
     const fetchLogs = async () => {
       try {
-        const res = await fetch(`/api/logs?service=${serviceName}&tail=500`)
+        const res = await fetch(`${logsEndpoint}?service=${serviceName}&tail=500`)
         if (res.ok) {
           const data = await res.json() as LogEntry[]
           setLogs(data ?? [])
         }
       } catch (err) {
-        console.error(`Failed to fetch logs for ${serviceName}:`, err)
+        console.error(`Failed to fetch ${logMode} logs for ${serviceName}:`, err)
       }
     }
 
@@ -128,7 +207,7 @@ export function LogsPane({
 
     // Setup WebSocket
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/stream?service=${serviceName}`)
+    const ws = new WebSocket(`${protocol}//${window.location.host}${streamEndpoint}?service=${serviceName}`)
 
     ws.onmessage = (event) => {
       // Check pause state from ref to get current value (not stale closure)
@@ -145,7 +224,7 @@ export function LogsPane({
     }
 
     ws.onerror = (err) => {
-      console.error(`WebSocket error for ${serviceName}:`, err)
+      console.error(`WebSocket error for ${serviceName} (${logMode}):`, err)
     }
 
     wsRef.current = ws
@@ -153,11 +232,11 @@ export function LogsPane({
     return () => {
       // Ensure clean disconnection
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close(1000, 'Component unmounting')
+        ws.close(1000, 'Mode change or unmount')
       }
       wsRef.current = null
     }
-  }, [serviceName]) // Removed isPaused - WebSocket shouldn't reconnect on pause toggle
+  }, [serviceName, logMode]) // Reconnect when mode changes
 
   // Auto-scroll - scroll the container, not the page
   // Pause auto-scroll when user is hovering over the logs
@@ -435,8 +514,8 @@ export function LogsPane({
               variant="outline"
               size="sm"
               onClick={() => window.open(effectiveUrl, '_blank', 'noopener,noreferrer')}
-              title="Open in new tab"
-              aria-label="Open service in new tab"
+              title={effectiveUrl}
+              aria-label={logMode === 'azure' && azureUrl ? 'Open Azure endpoint in new tab' : 'Open local service in new tab'}
             >
               <ExternalLink className="w-4 h-4" />
             </Button>
@@ -463,6 +542,51 @@ export function LogsPane({
           </Button>
         </div>
       </div>
+
+      {/* Log Source Mode Indicator - shows which log source is active */}
+      {!isCollapsed && (
+        <div 
+          className={cn(
+            "flex items-center justify-between gap-2 px-3 py-1.5 text-xs font-medium border-b transition-colors",
+            logMode === 'azure' 
+              ? "bg-azure-50 dark:bg-azure-900/30 text-azure-700 dark:text-azure-300 border-azure-200 dark:border-azure-700"
+              : "bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {isModeSwitching ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Switching to {logMode === 'azure' ? 'Azure' : 'Local'} logs...</span>
+              </>
+            ) : logMode === 'azure' ? (
+              <>
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Viewing Azure Logs</span>
+                <span className="text-azure-500 dark:text-azure-400">•</span>
+                <span className="text-azure-500/70 dark:text-azure-400/70">Live from Azure resources</span>
+              </>
+            ) : (
+              <>
+                <Monitor className="w-3.5 h-3.5" />
+                <span>Viewing Local Logs</span>
+                <span className="text-slate-400 dark:text-slate-500">•</span>
+                <span className="text-slate-500/70 dark:text-slate-400/70">From local development server</span>
+              </>
+            )}
+          </div>
+          {logMode === 'azure' && (
+            <button
+              onClick={() => void handleShowQuery()}
+              className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-azure-100 dark:hover:bg-azure-800/50 transition-colors"
+              title="View KQL query"
+            >
+              <Code className="w-3.5 h-3.5" />
+              <span>View Query</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Log Display - only show when not collapsed */}
       {!isCollapsed && (
@@ -591,6 +715,165 @@ export function LogsPane({
         >
           <Check className="w-4 h-4" />
           <span>Classification saved</span>
+        </div>
+      )}
+
+      {/* KQL Query Modal */}
+      {showQueryModal && queryInfo && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          role="presentation"
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            onClick={() => {
+              setShowQueryModal(false)
+              setIsEditingQuery(false)
+              setQuerySaveMessage(null)
+            }}
+          />
+          {/* Modal */}
+          <div 
+            className="relative z-50 bg-popover border border-border rounded-lg shadow-lg max-w-3xl w-full mx-4 max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-muted-foreground" />
+                <span className="font-semibold">KQL Query for {serviceName}</span>
+                <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
+                  {queryInfo.resourceType}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isEditingQuery && (
+                  <button 
+                    onClick={() => setIsEditingQuery(true)}
+                    className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
+                    title="Edit query"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    setShowQueryModal(false)
+                    setIsEditingQuery(false)
+                    setQuerySaveMessage(null)
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Save message */}
+            {querySaveMessage && (
+              <div className={cn(
+                "px-4 py-2 text-sm flex items-center gap-2",
+                querySaveMessage.type === 'success' 
+                  ? "bg-green-500/10 text-green-600 dark:text-green-400" 
+                  : "bg-red-500/10 text-red-600 dark:text-red-400"
+              )}>
+                {querySaveMessage.type === 'success' ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                {querySaveMessage.text}
+              </div>
+            )}
+            
+            <div className="p-4 overflow-auto max-h-[55vh]">
+              {isEditingQuery ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Edit the KQL query below. Changes will be saved to your azure.yaml file under logs.azure.queries.{serviceName}
+                  </p>
+                  <textarea
+                    value={editedQuery}
+                    onChange={(e) => setEditedQuery(e.target.value)}
+                    className="w-full h-64 text-sm font-mono bg-muted p-4 rounded border border-border focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                    placeholder="Enter your KQL query..."
+                    spellCheck={false}
+                  />
+                </div>
+              ) : (
+                <pre className="text-sm font-mono bg-muted p-4 rounded overflow-x-auto whitespace-pre-wrap">
+                  {queryInfo.query}
+                </pre>
+              )}
+            </div>
+            <div className="flex justify-between gap-2 px-4 py-3 border-t border-border bg-muted/50 rounded-b-lg">
+              <div>
+                {isEditingQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditedQuery(queryInfo.query)
+                      setIsEditingQuery(false)
+                      setQuerySaveMessage(null)
+                    }}
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    Cancel
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {isEditingQuery ? (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => void handleSaveQuery()}
+                    disabled={isSavingQuery}
+                  >
+                    {isSavingQuery ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-1" />
+                    )}
+                    Save to azure.yaml
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(queryInfo.query)
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingQuery(true)}
+                    >
+                      <Pencil className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => {
+                        setShowQueryModal(false)
+                        setIsEditingQuery(false)
+                        setQuerySaveMessage(null)
+                      }}
+                    >
+                      Close
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
