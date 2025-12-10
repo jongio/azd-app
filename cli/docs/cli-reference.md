@@ -767,14 +767,26 @@ View logs from running services with filtering and follow support.
 azd app logs [flags]
 ```
 
+### Prerequisites by Source
+
+| Source | Requires `azd app run`? | Notes |
+|--------|-------------------------|-------|
+| `local` (default) | Yes | Services must be running locally |
+| `azure` | **No** | Queries Azure Log Analytics directly |
+| `all` | Yes | Local component requires services |
+
 ### Examples
 
 ```bash
-# View logs from all services
-azd app logs
+# Local logs (requires azd app run)
+azd app run                       # Start services first
+azd app logs                      # View logs from all services
+azd app logs --follow             # Follow logs in real-time
 
-# Follow logs in real-time
-azd app logs --follow
+# Azure logs (standalone - no azd app run required)
+azd app logs --source azure               # View logs from Azure
+azd app logs --source azure -f            # Stream Azure logs (polls every 30s)
+azd app logs --source azure --since 1h    # Logs from last hour
 
 # View logs for specific service(s)
 azd app logs --service web,api
@@ -809,6 +821,7 @@ azd app logs --no-color
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--follow` | `-f` | bool | `false` | Follow log output (tail -f behavior) |
+| `--source` | | string | `local` | Log source: `local`, `azure`, or `all` |
 | `--service` | `-s` | string | | Filter by service name(s) (comma-separated) |
 | `--tail` | `-n` | int | `100` | Number of lines to show from the end |
 | `--since` | | string | | Show logs since duration (e.g., 5m, 1h) |
@@ -820,6 +833,14 @@ azd app logs --no-color
 | `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
+
+### Log Sources
+
+| Source | Description | Streaming |
+|--------|-------------|-----------|
+| `local` | Logs from locally running services (default) | Real-time via process stdout/stderr |
+| `azure` | Logs from Azure Log Analytics | Polls every 30s (30-90s ingestion delay) |
+| `all` | Both local and Azure logs merged | Mixed |
 
 ### Log Levels
 
