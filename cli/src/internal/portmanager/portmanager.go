@@ -29,6 +29,9 @@ type PortManager struct {
 	portChecker func(port int) bool
 	// configClient is lazily initialized for azdconfig access
 	configClient azdconfig.ConfigClient
+	// sessionAlwaysKill tracks if user selected "always kill" during this session.
+	// This ensures the preference is honored immediately without waiting for config reload.
+	sessionAlwaysKill bool
 }
 
 // cacheEntry holds a port manager with LRU tracking
@@ -353,6 +356,8 @@ func (pm *PortManager) handleConflictAndAssign(serviceName string, port int, pro
 		return pm.reassignPort(serviceName, port, isExplicit)
 
 	case ActionAlwaysKill:
+		// Set session-level flag immediately so subsequent conflicts in this run are auto-killed
+		pm.sessionAlwaysKill = true
 		if err := pm.setAlwaysKillPreference(true); err != nil {
 			slog.Warn("failed to save always-kill preference", "error", err)
 		}
@@ -535,8 +540,14 @@ func (pm *PortManager) SetConfigClient(client azdconfig.ConfigClient) {
 }
 
 // getAlwaysKillPreference returns true if the user has set the preference to always kill
-// port conflicts without prompting.
+// port conflicts without prompting. Checks session-level flag first for immediate effect.
 func (pm *PortManager) getAlwaysKillPreference() bool {
+	// Check session-level flag first - this ensures the preference is honored
+	// immediately within the same run, even before config is reloaded
+	if pm.sessionAlwaysKill {
+		return true
+	}
+
 	client, err := pm.getConfigClient()
 	if err != nil {
 		slog.Debug("failed to get config client for preference check", "error", err)

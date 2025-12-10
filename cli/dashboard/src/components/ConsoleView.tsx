@@ -80,6 +80,7 @@ interface LogsToolbarProps {
   onLogModeChange: (mode: LogMode) => void
   azureEnabled: boolean
   azureStatus: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+  azureConnectionMessage?: string
   onAzureEnabled?: () => void
 }
 
@@ -104,6 +105,7 @@ function LogsToolbar({
   onLogModeChange,
   azureEnabled,
   azureStatus,
+  azureConnectionMessage,
   onAzureEnabled,
 }: LogsToolbarProps) {
   return (
@@ -219,6 +221,7 @@ function LogsToolbar({
           onModeChange={onLogModeChange}
           azureEnabled={azureEnabled}
           azureStatus={azureStatus}
+          connectionMessage={azureConnectionMessage}
           onAzureEnabled={onAzureEnabled}
           size="compact"
           showLabels={false}
@@ -541,10 +544,12 @@ export function ConsoleView({
   
   // Log source mode state (local vs azure)
   const [logMode, setLogMode] = React.useState<LogMode>('local')
+  const [isModeSwitching, setIsModeSwitching] = React.useState(false)
   
   // Azure status from API
   const [azureEnabled, setAzureEnabled] = React.useState(false)
   const [azureStatus, setAzureStatus] = React.useState<'connected' | 'disconnected' | 'connecting' | 'disabled'>('disabled')
+  const [azureConnectionMessage, setAzureConnectionMessage] = React.useState<string | undefined>(undefined)
 
   // Fetch Azure status from API
   const fetchAzureStatus = React.useCallback(async () => {
@@ -552,7 +557,12 @@ export function ConsoleView({
       const res = await fetch('/api/mode')
       if (res.ok) {
         const data = await res.json()
+        // Set the current mode from backend (important for initial page load)
+        if (data.mode === 'local' || data.mode === 'azure') {
+          setLogMode(data.mode)
+        }
         setAzureEnabled(data.azureEnabled || false)
+        setAzureConnectionMessage(data.connectionMessage || undefined)
         if (data.azureEnabled) {
           setAzureStatus(data.azureStatus || 'disconnected')
         } else {
@@ -563,6 +573,34 @@ export function ConsoleView({
       // Ignore errors - status will remain disabled
     }
   }, [])
+
+  // Handle mode change with loading indicator
+  const handleLogModeChange = React.useCallback(async (newMode: LogMode) => {
+    if (newMode === logMode) return
+    setIsModeSwitching(true)
+    
+    try {
+      // Call backend API to switch mode - this starts/stops Azure polling
+      const res = await fetch('/api/mode', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode }),
+      })
+      
+      if (res.ok) {
+        setLogMode(newMode)
+        // Refresh Azure status after mode change
+        await fetchAzureStatus()
+      } else {
+        console.error('Failed to switch mode:', await res.text())
+      }
+    } catch (err) {
+      console.error('Error switching mode:', err)
+    } finally {
+      // Clear switching state after a short delay to let panes reconnect
+      setTimeout(() => setIsModeSwitching(false), 1500)
+    }
+  }, [logMode, fetchAzureStatus])
 
   // Fetch Azure status on mount and when services change
   React.useEffect(() => {
@@ -775,9 +813,10 @@ export function ConsoleView({
         onRestartAll={() => void restartAll()}
         isBulkOperationInProgress={isBulkOperationInProgress()}
         logMode={logMode}
-        onLogModeChange={setLogMode}
+        onLogModeChange={handleLogModeChange}
         azureEnabled={azureEnabled}
         azureStatus={azureStatus}
+        azureConnectionMessage={azureConnectionMessage}
         onAzureEnabled={fetchAzureStatus}
       />
 
@@ -830,6 +869,8 @@ export function ConsoleView({
                     onShowDetails={
                       service && onServiceClick ? () => onServiceClick(service) : undefined
                     }
+                    logMode={logMode}
+                    isModeSwitching={isModeSwitching}
                   />
                 )
               })}
@@ -844,6 +885,8 @@ export function ConsoleView({
             globalSearchTerm={globalSearchTerm}
             clearAllTrigger={clearAllTrigger}
             hideControls={true}
+            logMode={logMode}
+            isModeSwitching={isModeSwitching}
           />
         )}
       </div>

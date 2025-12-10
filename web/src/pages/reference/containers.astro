@@ -14,12 +14,14 @@ const yamlBasic = `services:
     language: node
     
   postgres:
+    host: containerapp
     image: postgres:16
     ports:
       - "5432:5432"`;
 
 const yamlWithEnv = `services:
   postgres:
+    host: containerapp
     image: postgres:16
     ports:
       - "5432:5432"
@@ -30,6 +32,7 @@ const yamlWithEnv = `services:
 
 const yamlWithVolume = `services:
   postgres:
+    host: containerapp
     image: postgres:16
     ports:
       - "5432:5432"
@@ -42,6 +45,7 @@ const yamlWithVolume = `services:
 
 const yamlWithHealth = `services:
   postgres:
+    host: containerapp
     image: postgres:16
     ports:
       - "5432:5432"
@@ -64,6 +68,7 @@ const yamlFullExample = `services:
       AZURE_STORAGE_CONNECTION_STRING: UseDevelopmentStorage=true
     
   postgres:
+    host: containerapp
     image: postgres:16
     ports:
       - "5432:5432"
@@ -80,6 +85,7 @@ const yamlFullExample = `services:
       retries: 5
       
   redis:
+    host: containerapp
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -90,6 +96,7 @@ const yamlFullExample = `services:
       retries: 5
       
   azurite:
+    host: containerapp
     image: mcr.microsoft.com/azure-storage/azurite:latest
     ports:
       - "10000:10000"  # Blob

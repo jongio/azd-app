@@ -54,6 +54,9 @@ output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
 @description('The name of the Log Analytics workspace')
 output logAnalyticsWorkspaceName string = logAnalyticsWorkspace.name
 
+@description('The workspace GUID (customerId) used for Log Analytics queries')
+output logAnalyticsWorkspaceGuid string = logAnalyticsWorkspace.properties.customerId
+
 @description('The Application Insights connection string')
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
 

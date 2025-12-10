@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Download, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
+import { Search, Download, Trash2, Pause, Play, ArrowDown, Monitor, Cloud, Loader2 } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import type { Service } from '@/types'
+import type { LogMode } from './ModeToggle'
 import {
   MAX_LOGS_IN_MEMORY,
   INITIAL_LOG_TAIL,
@@ -41,6 +42,10 @@ interface LogsViewProps {
   clearAllTrigger?: number
   /** Hide internal controls when parent provides them */
   hideControls?: boolean
+  /** Current log source mode (local or azure) */
+  logMode?: LogMode
+  /** Whether mode is currently being switched */
+  isModeSwitching?: boolean
 }
 
 export function LogsView({ 
@@ -52,6 +57,8 @@ export function LogsView({
   globalSearchTerm,
   clearAllTrigger = 0,
   hideControls = false,
+  logMode = 'local',
+  isModeSwitching = false,
 }: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [internalServices, setInternalServices] = useState<string[]>([])
@@ -102,9 +109,10 @@ export function LogsView({
   }, [servicesProp])
 
   const fetchLogs = useCallback(async () => {
+    const baseEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
     const url = selectedService === 'all'
-      ? `/api/logs?tail=${INITIAL_LOG_TAIL}`
-      : `/api/logs?service=${selectedService}&tail=${INITIAL_LOG_TAIL}`
+      ? `${baseEndpoint}?tail=${INITIAL_LOG_TAIL}`
+      : `${baseEndpoint}?service=${selectedService}&tail=${INITIAL_LOG_TAIL}`
 
     try {
       const res = await fetch(url)
@@ -114,10 +122,10 @@ export function LogsView({
       const data = await res.json() as LogEntry[]
       setLogs(data ?? [])
     } catch (err) {
-      console.error('Failed to fetch logs:', err)
+      console.error(`Failed to fetch ${logMode} logs:`, err)
       setLogs([])
     }
-  }, [selectedService])
+  }, [selectedService, logMode])
 
   const setupWebSocket = useCallback(() => {
     // Close existing connection
@@ -126,9 +134,10 @@ export function LogsView({
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const baseStreamEndpoint = logMode === 'azure' ? '/api/azure/logs/stream' : '/api/logs/stream'
     const url = selectedService === 'all'
-      ? `${protocol}//${window.location.host}/api/logs/stream`
-      : `${protocol}//${window.location.host}/api/logs/stream?service=${selectedService}`
+      ? `${protocol}//${window.location.host}${baseStreamEndpoint}`
+      : `${protocol}//${window.location.host}${baseStreamEndpoint}?service=${selectedService}`
 
     const ws = new WebSocket(url)
 
@@ -150,7 +159,7 @@ export function LogsView({
     }
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
+      console.error(`WebSocket error (${logMode}):`, error)
     }
 
     ws.onclose = () => {
@@ -158,7 +167,7 @@ export function LogsView({
     }
 
     wsRef.current = ws
-  }, [selectedService]) // Removed isPaused - WebSocket shouldn't reconnect on pause toggle
+  }, [selectedService, logMode]) // Reconnect when mode changes
 
   // Fetch initial logs and setup WebSocket
   useEffect(() => {
@@ -169,6 +178,11 @@ export function LogsView({
       wsRef.current?.close()
     }
   }, [fetchLogs, setupWebSocket, selectedService])
+
+  // Clear logs when mode changes
+  useEffect(() => {
+    setLogs([]) // Clear logs when switching modes
+  }, [logMode])
 
   // Auto-scroll to bottom - scroll the container, not the page
   // Pause auto-scroll when user is hovering over the logs
@@ -340,6 +354,37 @@ export function LogsView({
         </div>
       )}
 
+      {/* Log Source Mode Indicator */}
+      <div 
+        className={cn(
+          "flex items-center gap-2 px-3 py-1.5 text-xs font-medium border-b rounded-t-lg transition-colors",
+          logMode === 'azure' 
+            ? "bg-azure-50 dark:bg-azure-900/30 text-azure-700 dark:text-azure-300 border-azure-200 dark:border-azure-700"
+            : "bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+        )}
+      >
+        {isModeSwitching ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span>Switching to {logMode === 'azure' ? 'Azure' : 'Local'} logs...</span>
+          </>
+        ) : logMode === 'azure' ? (
+          <>
+            <Cloud className="w-3.5 h-3.5" />
+            <span>Viewing Azure Logs</span>
+            <span className="text-azure-500 dark:text-azure-400">•</span>
+            <span className="text-azure-500/70 dark:text-azure-400/70">Live from Azure resources</span>
+          </>
+        ) : (
+          <>
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Viewing Local Logs</span>
+            <span className="text-slate-400 dark:text-slate-500">•</span>
+            <span className="text-slate-500/70 dark:text-slate-400/70">From local development server</span>
+          </>
+        )}
+      </div>
+
       {/* Log Display */}
       <div 
         ref={logsContainerRef}
@@ -347,7 +392,7 @@ export function LogsView({
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         className={cn(
-          "bg-card border rounded-lg p-4 overflow-y-auto font-mono text-sm",
+          "bg-card border rounded-b-lg p-4 overflow-y-auto font-mono text-sm",
           hideControls ? "flex-1" : "h-[600px]"
         )}
       >

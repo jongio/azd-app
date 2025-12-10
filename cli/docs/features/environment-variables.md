@@ -198,7 +198,7 @@ services:
   # Frontend - Map format
   web:
     language: node
-    host: containerapp
+    host: local
     project: ./web
     ports:
       - "3000"
@@ -210,7 +210,7 @@ services:
   # Backend - Array of strings format
   api:
     language: python
-    host: containerapp
+    host: local
     project: ./api
     ports:
       - "5000"
@@ -222,7 +222,7 @@ services:
   # Worker - Object format with substitution
   worker:
     language: python
-    host: containerapp
+    host: local
     project: ./worker
     environment:
       - name: QUEUE_URL
@@ -241,7 +241,7 @@ name: microservices-app
 services:
   auth:
     language: node
-    host: containerapp
+    host: local
     environment:
       SERVICE_NAME: auth
       PORT: "3001"
@@ -250,7 +250,7 @@ services:
   
   users:
     language: node
-    host: containerapp
+    host: local
     environment:
       SERVICE_NAME: users
       PORT: "3002"
@@ -351,7 +351,7 @@ services:
 services:
   web:
     language: node
-    host: containerapp
+    host: local
     project: ./web
     environment:
       NODE_ENV: production
@@ -372,7 +372,7 @@ services:
 services:
   api:
     language: node
-    host: containerapp
+    host: local
     environment:
       - NODE_ENV=production
       - PORT=5000

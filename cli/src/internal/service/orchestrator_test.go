@@ -238,10 +238,10 @@ func TestTopologicalSort_ContainerDependencies(t *testing.T) {
 	// Simulates containers-test azure.yaml pattern:
 	// api depends on: azurite, cosmos, redis, postgres
 	services := map[string]Service{
-		"azurite":  {Image: "mcr.microsoft.com/azure-storage/azurite:latest"},
-		"cosmos":   {Image: "mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest"},
-		"redis":    {Image: "redis:7-alpine"},
-		"postgres": {Image: "postgres:16-alpine"},
+		"azurite":  {Host: "containerapp", Image: "mcr.microsoft.com/azure-storage/azurite:latest"},
+		"cosmos":   {Host: "containerapp", Image: "mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest"},
+		"redis":    {Host: "containerapp", Image: "redis:7-alpine"},
+		"postgres": {Host: "containerapp", Image: "postgres:16-alpine"},
 		"api":      {Project: "./api", Language: "javascript", Uses: []string{"azurite", "cosmos", "redis", "postgres"}},
 	}
 

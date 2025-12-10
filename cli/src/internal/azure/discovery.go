@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -120,21 +121,33 @@ func (d *ResourceDiscovery) Discover(ctx context.Context) (*DiscoveryResult, err
 			Name:           fields["NAME"],
 		}
 
+		slog.Debug("discovery: processing service", "serviceName", serviceName, "azureName", fields["NAME"], "url", fields["URL"])
+
 		// Determine resource type from ARM if we have subscription and resource group
 		if result.SubscriptionID != "" && result.ResourceGroup != "" && fields["NAME"] != "" {
 			resourceType, resourceID := d.detectResourceType(ctx, result.SubscriptionID, result.ResourceGroup, fields["NAME"])
 			resource.ResourceType = resourceType
 			resource.ResourceID = resourceID
+			slog.Debug("discovery: detected resource type", "serviceName", serviceName, "type", resourceType, "resourceID", resourceID)
 		} else {
 			// Infer from URL pattern
 			resource.ResourceType = inferResourceTypeFromURL(fields["URL"])
+			slog.Debug("discovery: inferred resource type from URL", "serviceName", serviceName, "type", resource.ResourceType)
 		}
 
 		result.Resources[serviceName] = resource
 	}
 
-	// Try to detect Log Analytics workspace
-	if result.SubscriptionID != "" && result.ResourceGroup != "" {
+	// Get Log Analytics workspace ID (GUID) for querying
+	// Priority: GUID env var > resource ID env var (extract name) > auto-detection
+	if wsGUID := envValues["AZURE_LOG_ANALYTICS_WORKSPACE_GUID"]; wsGUID != "" {
+		// Prefer the GUID directly if available
+		result.LogAnalyticsWorkspaceID = wsGUID
+	} else if wsID := envValues["AZURE_LOG_ANALYTICS_WORKSPACE_ID"]; wsID != "" {
+		// Fall back to resource ID (will need to extract workspace name or query for GUID)
+		result.LogAnalyticsWorkspaceID = wsID
+	} else if result.SubscriptionID != "" && result.ResourceGroup != "" {
+		// Last resort: auto-detection from resource group
 		workspaceID := d.detectLogAnalyticsWorkspace(ctx, result.SubscriptionID, result.ResourceGroup)
 		result.LogAnalyticsWorkspaceID = workspaceID
 	}
@@ -181,11 +194,13 @@ func (d *ResourceDiscovery) getAzdEnvValues(ctx context.Context) (map[string]str
 // detectResourceType queries ARM to determine the resource type.
 func (d *ResourceDiscovery) detectResourceType(ctx context.Context, subscriptionID, resourceGroup, resourceName string) (ResourceType, string) {
 	if d.credential == nil {
+		slog.Debug("detectResourceType: no credential available")
 		return ResourceTypeUnknown, ""
 	}
 
 	client, err := armresources.NewClient(subscriptionID, d.credential, nil)
 	if err != nil {
+		slog.Debug("detectResourceType: failed to create ARM client", "error", err)
 		return ResourceTypeUnknown, ""
 	}
 
@@ -194,17 +209,24 @@ func (d *ResourceDiscovery) detectResourceType(ctx context.Context, subscription
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
+			slog.Debug("detectResourceType: pager error", "error", err)
 			break
 		}
 
 		for _, resource := range page.Value {
 			if resource.Name != nil && strings.EqualFold(*resource.Name, resourceName) {
+				var kindStr string
+				if resource.Kind != nil {
+					kindStr = *resource.Kind
+				}
+				slog.Debug("detectResourceType: found resource", "name", *resource.Name, "type", *resource.Type, "kind", kindStr)
 				resourceType := mapARMTypeToResourceType(*resource.Type, resource.Kind)
 				return resourceType, *resource.ID
 			}
 		}
 	}
 
+	slog.Debug("detectResourceType: resource not found in ARM", "resourceName", resourceName)
 	return ResourceTypeUnknown, ""
 }
 

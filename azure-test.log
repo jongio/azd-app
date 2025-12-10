@@ -1,0 +1,6 @@
+
+Error: failed to execute command dependencies: dependency deps failed for run: dependency reqs failed for deps: command reqs failed: no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one
+failed to execute command dependencies: dependency deps failed for run: dependency reqs failed for deps: command reqs failed: no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one
+[1mazd app run[0m
+ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+

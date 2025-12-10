@@ -21,6 +21,8 @@ export interface ModeToggleProps {
   azureEnabled?: boolean
   /** Azure connection status */
   azureStatus?: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+  /** Message explaining connection issue (shown in tooltip when disconnected) */
+  connectionMessage?: string
   /** Loading state during mode switch */
   isLoading?: boolean
   /** Size variant */
@@ -54,7 +56,7 @@ function AzureIcon({ className }: AzureIconProps) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={2.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
@@ -105,6 +107,7 @@ export function ModeToggle({
   mode, 
   azureEnabled = false,
   azureStatus = 'disabled',
+  connectionMessage,
   isLoading = false,
   size = 'standard',
   showLabels = true,
@@ -162,23 +165,51 @@ export function ModeToggle({
   // Determine if Azure button should be disabled
   const azureDisabled = !azureEnabled || azureStatus === 'disabled'
 
-  // Status indicator component
-  const StatusDot = ({ status }: { status: typeof azureStatus }) => {
+  // Get Azure icon color based on connection status
+  const getAzureIconColor = (status: typeof azureStatus) => {
+    if (!azureEnabled) return ''
+    if (status === 'connected') return 'text-emerald-500 dark:text-emerald-400'
+    if (status === 'connecting') return 'text-amber-500 dark:text-amber-400 animate-pulse'
+    if (status === 'disconnected') return 'text-amber-500 dark:text-amber-400'
+    return ''
+  }
+
+  // Status indicator component - only shows tooltip for connection issues
+  const StatusIndicator = ({ status }: { status: typeof azureStatus }) => {
     if (!showStatus || !azureEnabled) return null
     
-    return (
-      <span 
-        className={cn(
-          'rounded-full',
-          config.statusDot,
-          status === 'connected' && 'bg-emerald-500',
-          status === 'connecting' && 'bg-amber-500 animate-pulse',
-          status === 'disconnected' && 'bg-red-500',
-          status === 'disabled' && 'bg-slate-400',
-        )}
-        aria-hidden="true"
-      />
-    )
+    // For disconnected status, show an info icon with tooltip
+    if (status === 'disconnected' && connectionMessage) {
+      return (
+        <span 
+          className="relative group"
+          title={connectionMessage}
+        >
+          <span 
+            className={cn(
+              'flex items-center justify-center rounded-full bg-amber-500',
+              config.statusDot,
+            )}
+            aria-hidden="true"
+          >
+            <span className="text-white text-[6px] font-bold">!</span>
+          </span>
+          {/* Tooltip */}
+          <span className={cn(
+            'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1',
+            'bg-slate-900 dark:bg-slate-700 text-white text-xs rounded whitespace-nowrap',
+            'opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity',
+            'z-50 shadow-lg',
+          )}>
+            {connectionMessage}
+            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700" />
+          </span>
+        </span>
+      )
+    }
+    
+    // No dot indicator - color is shown on the cloud icon itself
+    return null
   }
 
   // Handle enabling Azure logging
@@ -291,12 +322,12 @@ export function ModeToggle({
           {isLoading && !isLocal ? (
             <Loader2 className={cn(config.icon, 'animate-spin')} aria-hidden="true" />
           ) : (
-            <AzureIcon className={config.icon} />
+            <AzureIcon className={cn(config.icon, showStatus && getAzureIconColor(azureStatus))} />
           )}
           {showLabels && size !== 'compact' && (
             <span className={config.label}>Azure</span>
           )}
-          <StatusDot status={azureStatus} />
+          <StatusIndicator status={azureStatus} />
         </button>
 
         {/* Enable Azure button when disabled */}
