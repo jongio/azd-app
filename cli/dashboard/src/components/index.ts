@@ -53,6 +53,10 @@ export type { ThemeToggleProps } from './ThemeToggle'
 export { SettingsDialog } from './SettingsDialog'
 export type { SettingsDialogProps } from './SettingsDialog'
 
+// Diagnostics Modal
+export { DiagnosticsModal } from './DiagnosticsModal'
+export type { DiagnosticsModalProps } from './DiagnosticsModal'
+
 // Environment Panel
 export { EnvironmentPanel } from './EnvironmentPanel'
 export type { EnvironmentPanelProps } from './EnvironmentPanel'
@@ -93,3 +97,9 @@ export { TimeRangeSelector } from './TimeRangeSelector'
 export type { TimeRangeSelectorProps } from './TimeRangeSelector'
 export { KqlQueryInput } from './KqlQueryInput'
 export type { KqlQueryInputProps } from './KqlQueryInput'
+
+// Log Config Panel
+export { LogConfigPanel } from './LogConfigPanel'
+export type { LogConfigPanelProps } from './LogConfigPanel'
+export { TableSelector } from './TableSelector'
+export type { TableSelectorProps } from './TableSelector'

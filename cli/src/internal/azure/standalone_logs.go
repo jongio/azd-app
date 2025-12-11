@@ -4,7 +4,9 @@ package azure
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -122,7 +124,19 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	// Get workspace ID from environment if not provided
 	workspaceID := config.WorkspaceID
 	if workspaceID == "" {
-		workspaceID = getWorkspaceIDFromEnv(config.ProjectDir)
+		workspaceID = GetWorkspaceIDFromEnv(config.ProjectDir)
+		if workspaceID == "" {
+			// Try auto-discovery
+			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx, config.ProjectDir); err == nil && wasDiscovered {
+				workspaceID = discovered
+				if os.Getenv("AZD_APP_DEBUG") == "true" {
+					fmt.Fprintf(os.Stderr, "[DEBUG] Auto-discovered workspace ID: %s\n", workspaceID)
+				}
+			} else if err != nil && os.Getenv("AZD_APP_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Workspace discovery failed: %v\n", err)
+			}
+		}
+		
 		if workspaceID == "" {
 			return nil, &AzureLogsError{
 				Code:    "NO_WORKSPACE",
@@ -135,6 +149,8 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	// Get credential
 	cred, err := NewLogAnalyticsCredential()
 	if err != nil {
+		// Clear token cache on credential errors
+		ClearTokenCacheOnError(err)
 		return nil, &AzureLogsError{
 			Code:    "AUTH_REQUIRED",
 			Message: "Azure authentication required",
@@ -146,6 +162,8 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	// Create client
 	client, err := NewLogAnalyticsClient(cred, workspaceID)
 	if err != nil {
+		// Clear token cache on client creation errors
+		ClearTokenCacheOnError(err)
 		return nil, &AzureLogsError{
 			Code:    "CLIENT_ERROR",
 			Message: fmt.Sprintf("Failed to create Log Analytics client: %v", err),
@@ -166,9 +184,12 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	// Get all services from azure.yaml with their host types
 	allServices, err := getServicesFromAzureYAML(config.ProjectDir)
 	if err != nil {
+		slog.Warn("Failed to read azure.yaml services", "error", err)
 		// Fall back to Container App only if we can't read azure.yaml
 		allServices = []ServiceInfo{{ResourceType: ResourceTypeContainerApp}}
 	}
+
+	slog.Debug("Read azure.yaml services", "count", len(allServices), "services", allServices)
 
 	// Filter services if specific ones requested
 	var targetServices []ServiceInfo
@@ -182,6 +203,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 				targetServices = append(targetServices, svc)
 			}
 		}
+		slog.Debug("Filtered services", "requested", config.Services, "matched", targetServices)
 	} else {
 		targetServices = allServices
 	}
@@ -209,21 +231,23 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 
 		query := buildStandaloneQueryForType(resourceType, azureNames, since, limit)
 
-		if os.Getenv("AZD_APP_DEBUG") == "true" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Query for %s: %s\n", resourceType, strings.ReplaceAll(query, "\n", " | "))
-		}
+		slog.Debug("Executing KQL query", "resourceType", resourceType, "azureNames", azureNames, "query", query)
 
 		entries, err := client.QueryLogs(ctx, "", resourceType, since, query)
 		if err != nil {
 			// Log error but continue with other resource types
+			slog.Warn("Query failed for resource type", "resourceType", resourceType, "error", err)
 			if os.Getenv("AZD_APP_DEBUG") == "true" {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
 			}
 			continue
 		}
 
+		slog.Debug("Query succeeded", "resourceType", resourceType, "entries", len(entries))
 		allEntries = append(allEntries, entries...)
 	}
+
+	slog.Debug("Total entries collected", "count", len(allEntries))
 
 	// Sort all entries by timestamp descending
 	sortLogEntriesByTimeDesc(allEntries)
@@ -276,9 +300,9 @@ func (e *AzureLogsError) Error() string {
 	return e.Message
 }
 
-// getWorkspaceIDFromEnv attempts to get the workspace GUID from azd environment.
+// GetWorkspaceIDFromEnv attempts to get the workspace GUID from azd environment.
 // Uses environment variables directly since the azd extension framework provides them.
-func getWorkspaceIDFromEnv(projectDir string) string {
+func GetWorkspaceIDFromEnv(projectDir string) string {
 	// When running as an azd extension, environment variables are already available.
 	// Try AZURE_LOG_ANALYTICS_WORKSPACE_GUID first (set by azd provision)
 	if guid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID"); guid != "" {
@@ -296,6 +320,131 @@ func getWorkspaceIDFromEnv(projectDir string) string {
 	}
 
 	return ""
+}
+
+// DiscoverAndStoreWorkspaceID attempts to find Log Analytics workspace ID and store it.
+// Returns (workspaceGUID, wasDiscovered, error)
+func DiscoverAndStoreWorkspaceID(ctx context.Context, projectDir string) (string, bool, error) {
+	// Check if already set
+	if guid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID"); guid != "" {
+		return guid, false, nil
+	}
+
+	// Get resource group from environment
+	resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP")
+	if resourceGroup == "" {
+		return "", false, fmt.Errorf("AZURE_RESOURCE_GROUP not set")
+	}
+
+	// Try to discover workspace using az CLI
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Attempting to discover workspace in resource group: %s\n", resourceGroup)
+	}
+
+	workspaceID, err := discoverWorkspaceViaAzCLI(ctx, resourceGroup)
+	if err != nil {
+		return "", false, err
+	}
+
+	if workspaceID == "" {
+		return "", false, fmt.Errorf("no workspace found in resource group %s", resourceGroup)
+	}
+
+	// Store in .env file
+	envName := getDefaultEnvName(projectDir)
+	if envName == "" {
+		return "", false, fmt.Errorf("could not determine environment name")
+	}
+
+	envPath := filepath.Join(projectDir, ".azure", envName, ".env")
+	if err := appendToEnvFile(envPath, "AZURE_LOG_ANALYTICS_WORKSPACE_GUID", workspaceID); err != nil {
+		return "", false, fmt.Errorf("failed to store workspace ID: %w", err)
+	}
+
+	// Update current process environment
+	os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", workspaceID)
+
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Discovered and stored workspace ID: %s\n", workspaceID)
+	}
+
+	return workspaceID, true, nil
+}
+
+// discoverWorkspaceViaAzCLI calls az CLI to discover Log Analytics workspace.
+func discoverWorkspaceViaAzCLI(ctx context.Context, resourceGroup string) (string, error) {
+	// Build command: az monitor log-analytics workspace list --resource-group <rg> --query "[0].customerId" -o tsv
+	args := []string{
+		"monitor", "log-analytics", "workspace", "list",
+		"--resource-group", resourceGroup,
+		"--query", "[0].customerId",
+		"-o", "tsv",
+	}
+
+	// Execute with timeout
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(timeoutCtx, "az", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if az CLI is not available
+		if strings.Contains(err.Error(), "executable file not found") {
+			return "", fmt.Errorf("az CLI not found in PATH")
+		}
+		return "", fmt.Errorf("az CLI failed: %w (output: %s)", err, string(output))
+	}
+
+	workspaceID := strings.TrimSpace(string(output))
+	if workspaceID == "" {
+		return "", fmt.Errorf("no workspace found in output")
+	}
+
+	return workspaceID, nil
+}
+
+// appendToEnvFile appends or updates a variable in .env file.
+func appendToEnvFile(envPath, key, value string) error {
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(envPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Read existing content
+	var lines []string
+	if content, err := os.ReadFile(envPath); err == nil {
+		lines = strings.Split(string(content), "\n")
+	}
+
+	// Check if key already exists
+	keyPrefix := key + "="
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, keyPrefix) {
+			lines[i] = keyPrefix + value
+			found = true
+			break
+		}
+	}
+
+	// Append if not found
+	if !found {
+		// Ensure last line has newline if file is not empty
+		if len(lines) > 0 && lines[len(lines)-1] != "" {
+			lines = append(lines, "")
+		}
+		lines = append(lines, keyPrefix+value)
+	}
+
+	// Write back
+	newContent := strings.Join(lines, "\n")
+	// #nosec G306 -- .env file permissions 0644 are standard for config files
+	if err := os.WriteFile(envPath, []byte(newContent), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
 // getDefaultEnvName gets the default environment name for azd.
@@ -528,7 +677,19 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	// Get workspace ID from environment if not provided
 	workspaceID := config.WorkspaceID
 	if workspaceID == "" {
-		workspaceID = getWorkspaceIDFromEnv(config.ProjectDir)
+		workspaceID = GetWorkspaceIDFromEnv(config.ProjectDir)
+		if workspaceID == "" {
+			// Try auto-discovery
+			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx, config.ProjectDir); err == nil && wasDiscovered {
+				workspaceID = discovered
+				if os.Getenv("AZD_APP_DEBUG") == "true" {
+					fmt.Fprintf(os.Stderr, "[DEBUG] Auto-discovered workspace ID: %s\n", workspaceID)
+				}
+			} else if err != nil && os.Getenv("AZD_APP_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Workspace discovery failed: %v\n", err)
+			}
+		}
+		
 		if workspaceID == "" {
 			return &AzureLogsError{
 				Code:    "NO_WORKSPACE",
@@ -541,6 +702,8 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	// Get credential
 	cred, err := NewLogAnalyticsCredential()
 	if err != nil {
+		// Clear token cache on credential errors
+		ClearTokenCacheOnError(err)
 		return &AzureLogsError{
 			Code:    "AUTH_REQUIRED",
 			Message: "Azure authentication required",
@@ -552,6 +715,8 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	// Create client
 	client, err := NewLogAnalyticsClient(cred, workspaceID)
 	if err != nil {
+		// Clear token cache on client creation errors
+		ClearTokenCacheOnError(err)
 		return &AzureLogsError{
 			Code:    "CLIENT_ERROR",
 			Message: fmt.Sprintf("Failed to create Log Analytics client: %v", err),

@@ -190,3 +190,56 @@ export function hasAzureDeployment(service: Service): boolean {
     service.azure?.url
   )
 }
+
+/**
+ * Resource types that fully support Azure Log Analytics log viewing.
+ * Other types (like AKS, ACI) are planned but not yet fully supported.
+ */
+export const SUPPORTED_AZURE_LOG_RESOURCE_TYPES = [
+  'containerapp',
+  'appservice',
+  'webapp',
+  'function',
+] as const
+
+/**
+ * Check if a host/resource type supports Azure log viewing.
+ * Currently supported: Container Apps, App Service, Functions.
+ * Coming soon: AKS, ACI, Static Web Apps, etc.
+ */
+export function isAzureLogViewingSupported(hostOrResourceType?: string): boolean {
+  if (!hostOrResourceType) return false
+  const normalized = hostOrResourceType.toLowerCase()
+  return SUPPORTED_AZURE_LOG_RESOURCE_TYPES.includes(
+    normalized as typeof SUPPORTED_AZURE_LOG_RESOURCE_TYPES[number]
+  )
+}
+
+/**
+ * Get a friendly name for unsupported resource types
+ */
+export function getUnsupportedResourceTypeInfo(hostOrResourceType?: string): { 
+  displayName: string
+  comingSoon: boolean 
+} {
+  if (!hostOrResourceType) {
+    return { displayName: 'Unknown', comingSoon: false }
+  }
+  
+  const normalized = hostOrResourceType.toLowerCase()
+  
+  // Map of unsupported types that are planned (coming soon)
+  const plannedTypes: Record<string, string> = {
+    'aks': 'Azure Kubernetes Service (AKS)',
+    'aci': 'Azure Container Instances',
+    'containerinstance': 'Azure Container Instances',
+    'staticwebapp': 'Static Web Apps',
+    'springapp': 'Azure Spring Apps',
+  }
+  
+  if (plannedTypes[normalized]) {
+    return { displayName: plannedTypes[normalized], comingSoon: true }
+  }
+  
+  return { displayName: formatResourceType(hostOrResourceType), comingSoon: false }
+}

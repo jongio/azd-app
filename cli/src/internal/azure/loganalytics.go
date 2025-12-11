@@ -114,6 +114,8 @@ func (c *LogAnalyticsClient) QueryLogs(ctx context.Context, serviceName string, 
 	}, nil)
 	if err != nil {
 		slog.Debug("KQL query failed", "error", err)
+		// Clear token cache on auth errors to force fresh token on next attempt
+		ClearTokenCacheOnError(err)
 		return nil, fmt.Errorf("Log Analytics query failed: %w", err)
 	}
 
@@ -350,4 +352,84 @@ func extractWorkspaceID(fullID string) string {
 		return parts[len(parts)-1]
 	}
 	return fullID
+}
+
+// ListAvailableTables queries the Log Analytics workspace to discover available tables.
+// It uses a search query to find distinct table names that have data.
+func (c *LogAnalyticsClient) ListAvailableTables(ctx context.Context) ([]TableInfo, error) {
+	// Query to get distinct table names from the workspace
+	// Using search * to find all tables with data in the last 24 hours
+	query := `search * 
+| where TimeGenerated > ago(24h)
+| distinct $table
+| order by $table asc
+| take 100`
+
+	workspaceID := extractWorkspaceID(c.workspaceID)
+	timespan := azlogs.TimeInterval("P1D") // Last 24 hours
+
+	slog.Debug("listing available tables", "workspace", workspaceID)
+
+	resp, err := c.client.QueryWorkspace(ctx, workspaceID, azlogs.QueryBody{
+		Query:    &query,
+		Timespan: &timespan,
+	}, nil)
+	if err != nil {
+		slog.Debug("failed to list tables", "error", err)
+		ClearTokenCacheOnError(err)
+		return nil, fmt.Errorf("failed to query tables: %w", err)
+	}
+
+	// Parse the results to extract table names
+	var tables []TableInfo
+	seenTables := make(map[string]bool)
+
+	for _, table := range resp.Tables {
+		// Find the $table column
+		tableColIdx := -1
+		for i, col := range table.Columns {
+			if col.Name != nil && *col.Name == "$table" {
+				tableColIdx = i
+				break
+			}
+		}
+
+		if tableColIdx < 0 {
+			continue
+		}
+
+		// Extract table names from rows
+		for _, row := range table.Rows {
+			if tableColIdx < len(row) {
+				if tableName, ok := row[tableColIdx].(string); ok && tableName != "" {
+					if !seenTables[tableName] {
+						seenTables[tableName] = true
+						info := GetTableInfo(tableName)
+						tables = append(tables, info)
+					}
+				}
+			}
+		}
+	}
+
+	slog.Debug("found available tables", "count", len(tables))
+	return tables, nil
+}
+
+// ListTablesWithFallback returns available tables, falling back to known tables if query fails.
+func (c *LogAnalyticsClient) ListTablesWithFallback(ctx context.Context, resourceType ResourceType) []TableInfo {
+	// Try to query available tables
+	tables, err := c.ListAvailableTables(ctx)
+	if err != nil {
+		slog.Debug("falling back to known tables", "error", err, "resourceType", resourceType)
+		// Fall back to known tables for the resource type
+		return GetAllKnownTables()
+	}
+
+	// Mark recommended tables
+	for i := range tables {
+		tables[i].Recommended = IsRecommendedTable(tables[i].Name, resourceType)
+	}
+
+	return tables
 }

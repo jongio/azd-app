@@ -65,7 +65,7 @@ The MCP server exposes 12 tools organized into three categories:
 |------|-------------|
 | `get_services` | Get comprehensive information about all running services including status, health, URLs, ports, and environment variables |
 | `get_service_errors` | Get error logs with surrounding context for debugging - optimized for AI-assisted troubleshooting |
-| `get_service_logs` | Retrieve logs from running services with filtering by service name, log level, and time range |
+| `get_service_logs` | Retrieve logs from running services (local or Azure) with filtering by source, service name, log level, and time range |
 | `get_project_info` | Get project metadata and configuration from azure.yaml |
 
 #### Operational Tools
@@ -390,9 +390,28 @@ After restarting Claude Desktop, you should see an MCP indicator showing that th
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `serviceName` | string | No | Filter logs to a specific service |
+| `source` | string | No | Log source: `local`, `azure`, or `all` (default: respects dashboard mode or `local`) |
 | `tail` | number | No | Number of recent log lines to retrieve (default: 100) |
 | `level` | string | No | Filter by log level: `info`, `warn`, `error`, `debug`, or `all` (default: `all`) |
 | `since` | string | No | Show logs since duration (e.g., `5m`, `1h`, `30s`) |
+
+**Log Sources:**
+- `local`: Logs from locally running services (requires `azd app run`)
+- `azure`: Logs from Azure Log Analytics (works standalone)
+- `all`: Combined local + Azure logs
+- When dashboard is running, defaults to current dashboard mode
+- When dashboard not running, defaults to `local`
+
+**Example Queries:**
+```
+Get Azure logs for API service:
+- Tool: get_service_logs
+- Parameters: { "serviceName": "api", "source": "azure", "since": "1h" }
+
+Get all error logs from both local and Azure:
+- Tool: get_service_logs
+- Parameters: { "source": "all", "level": "error", "since": "30m" }
+```
 
 ### get_service_errors
 

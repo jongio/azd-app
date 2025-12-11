@@ -1,17 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
 
 name: azure-logs-test
-# Project-level Azure logs configuration
+# Project-level Log Analytics configuration
 logs:
     filters:
         exclude: ["health check", "readiness probe"]
-        includeBuiltins: true
-    azure:
-        enabled: true
-        source: auto
+    analytics:
         pollingInterval: 10s
         defaultTimespan: 30m
-        realtime: false
 reqs:
     - name: node
       minVersion: "18.0.0"
@@ -60,7 +56,7 @@ services:
         environment:
             AzureWebJobsStorage: UseDevelopmentStorage=true
         logs:
-            azure:
+            analytics:
                 query: |
                     FunctionAppLogs
                     | where _ResourceId contains "{serviceName}"

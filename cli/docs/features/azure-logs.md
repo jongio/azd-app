@@ -14,13 +14,13 @@ Azure log streaming enables you to view logs from Container Apps, App Service, a
 
 ## Quick Start
 
-1. **Enable Azure logs in azure.yaml:**
+1. **Provision Azure resources with Log Analytics:**
 
-```yaml
-logs:
-  azure:
-    enabled: true
+```bash
+azd provision
 ```
+
+This creates your Log Analytics workspace and configures diagnostic settings. The workspace ID is automatically detected from bicep outputs.
 
 2. **Start the dashboard:**
 
@@ -28,10 +28,20 @@ logs:
 azd app run
 ```
 
-3. **Switch to Azure mode** using the mode toggle in the dashboard header, or use the CLI:
+3. **Switch to Azure mode** using the mode toggle in the dashboard header
 
-```bash
-azd app logs --source azure
+The dashboard now shows:
+- **Timeframe selector**: Choose `15m`, `30m`, `1h`, `6h`, or `24h` to control the time window
+- **Sync interval**: Configure auto-refresh at `10s`, `30s`, `1m`, or `5m`
+- **View Query**: Inspect or edit the KQL query used for each service
+
+4. **Optional: Configure analytics in azure.yaml**
+
+```yaml
+logs:
+  analytics:
+    pollingInterval: "30s"     # Auto-refresh interval
+    defaultTimespan: "1h"      # Default time window
 ```
 
 ## Required Infrastructure
@@ -158,44 +168,87 @@ resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
 
 ### azure.yaml Schema
 
+The new analytics-based configuration separates global workspace settings from service-level table/query overrides:
+
+#### Project-Level (Global) Configuration
+
+Configure workspace connection and default polling behavior:
+
 ```yaml
 logs:
-  azure:
-    enabled: true                    # Enable Azure log streaming
-    pollingInterval: 10s             # How often to fetch new logs (default: 10s)
-    defaultTimespan: 30m             # Initial log history to fetch (default: 30m)
-    
-    # Custom KQL queries per resource type (optional)
-    queries:
-      containerApp: |
-        ContainerAppConsoleLogs_CL
-        | where ContainerAppName_s == '{serviceName}'
-        | project TimeGenerated, Log_s, Stream_s
-        | order by TimeGenerated desc
-      appService: |
-        AppServiceConsoleLogs
-        | where _ResourceId contains '{serviceName}'
-        | project TimeGenerated, ResultDescription
-        | order by TimeGenerated desc
+  analytics:
+    workspace: "my-workspace-id"      # Log Analytics workspace ID (optional, auto-detected from bicep outputs)
+    pollingInterval: "30s"            # How often to fetch new logs (default: 10s)
+    defaultTimespan: "1h"             # Initial log history to fetch (default: 30m)
 ```
 
-### Service-Level Overrides
+- **workspace**: Azure Log Analytics workspace ID. If omitted, automatically detected from bicep outputs (`AZURE_LOG_ANALYTICS_WORKSPACE_ID`)
+- **pollingInterval**: Frequency of auto-refresh in Azure mode. Options: `10s`, `30s`, `1m`, `5m`
+- **defaultTimespan**: Default time window for queries. Options: `15m`, `30m`, `1h`, `6h`, `24h`
 
-Override Azure log settings for specific services:
+#### Service-Level Configuration
+
+Override log tables or provide custom KQL queries per service:
 
 ```yaml
 services:
   api:
     host: containerApp
     logs:
-      azure:
-        enabled: true
-        queries:
-          containerApp: |
-            ContainerAppConsoleLogs_CL
-            | where ContainerAppName_s == 'api'
-            | where Log_s !contains "health"
-            | project TimeGenerated, Log_s
+      analytics:
+        # Option 1: Specify tables to query (uses auto-generated KQL)
+        tables:
+          - ContainerAppConsoleLogs_CL
+          - ContainerAppSystemLogs_CL
+        
+        # Option 2: Provide custom KQL query (takes precedence over tables)
+        query: |
+          ContainerAppConsoleLogs_CL
+          | where ContainerAppName_s == 'api'
+          | where Log_s !contains "health"
+          | project TimeGenerated, Log_s, Stream_s
+          | order by TimeGenerated desc
+```
+
+**Service analytics options:**
+
+- **tables**: Array of Log Analytics table names. When specified, azd generates a KQL query using these tables with automatic service name filtering.
+- **query**: Custom KQL query string. Use `{serviceName}` and `{timespan}` placeholders. This takes precedence over `tables`.
+
+**Examples:**
+
+```yaml
+# Example 1: Container App with default tables
+services:
+  web:
+    host: containerApp
+    logs:
+      analytics: {}  # Uses default ContainerAppConsoleLogs_CL
+
+# Example 2: Azure Functions with specific tables
+services:
+  api:
+    host: function
+    logs:
+      analytics:
+        tables:
+          - FunctionAppLogs
+          - AppServiceConsoleLogs
+
+# Example 3: Custom query with filters
+services:
+  worker:
+    host: containerApp
+    logs:
+      analytics:
+        query: |
+          union ContainerAppConsoleLogs_CL, ContainerAppSystemLogs_CL
+          | where ContainerAppName_s == '{serviceName}'
+          | where TimeGenerated > ago({timespan})
+          | where Log_s !contains "DEBUG"
+          | project TimeGenerated, Log_s, Level_s
+          | order by TimeGenerated desc
+          | take 1000
 ```
 
 ## CLI Usage
@@ -203,13 +256,19 @@ services:
 ### View Azure Logs
 
 ```bash
-# View recent Azure logs
+# View recent Azure logs (uses default timespan from config)
 azd app logs --source azure
 
 # View specific service
 azd app logs --source azure api
 
-# Follow Azure logs (live streaming)
+# View last hour of logs
+azd app logs --source azure --since 1h
+
+# View logs from specific time range
+azd app logs --source azure --start "2025-12-10T10:00:00Z" --end "2025-12-10T12:00:00Z"
+
+# Follow Azure logs (live streaming with polling)
 azd app logs --source azure --follow
 
 # View both local and Azure logs
@@ -217,9 +276,6 @@ azd app logs --source all
 
 # Filter by log level
 azd app logs --source azure --level error
-
-# View last hour of logs
-azd app logs --source azure --since 1h
 ```
 
 ### Dashboard Mode
@@ -227,7 +283,10 @@ azd app logs --source azure --since 1h
 The dashboard supports three log modes:
 
 - **Local** (default) - Logs from locally running services
-- **Azure** - Logs from Azure-deployed services
+- **Azure** - Logs from Azure-deployed services with:
+  - **Timeframe selector**: Adjust time window (15m, 30m, 1h, 6h, 24h, or custom)
+  - **Sync interval**: Control auto-refresh frequency (10s, 30s, 1m, 5m)
+  - **Query viewer**: View and edit KQL queries per service
 - **All** - Combined view of both sources
 
 Toggle modes using the mode selector in the dashboard header or with keyboard shortcut `Ctrl+Shift+M`.
@@ -242,10 +301,11 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 1. Ensure your bicep outputs include `AZURE_LOG_ANALYTICS_WORKSPACE_ID` and `AZURE_LOG_ANALYTICS_WORKSPACE_GUID`
 2. Run `azd provision` to update environment values
 3. Verify with `azd env get-values | grep LOG_ANALYTICS`
+4. Alternatively, set `logs.analytics.workspace` explicitly in azure.yaml
 
 ### "No Azure logs found"
 
-**Cause**: Diagnostic settings not configured or logs not yet ingested.
+**Cause**: Diagnostic settings not configured, logs not yet ingested, or time window too narrow.
 
 **Solution**:
 1. Verify diagnostic settings exist:
@@ -258,7 +318,8 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
      -w <workspace-id> \
      --analytics-query "ContainerAppConsoleLogs_CL | take 10"
    ```
-3. Note: Log Analytics has ingestion delay of 1-5 minutes
+3. **Expand time window**: Use the timeframe selector in the dashboard to try `1h`, `6h`, or `24h`
+4. Note: Log Analytics has ingestion delay of 1-5 minutes
 
 ### "Authentication failed"
 
@@ -285,15 +346,42 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
    az monitor log-analytics workspace show --resource-group <rg> --workspace-name <name>
    ```
 2. Check you have Reader access to the workspace
+3. Verify `AZURE_LOG_ANALYTICS_WORKSPACE_ID` in `.azure/<env>/.env` matches the actual workspace
 
 ### Logs appear in Azure Portal but not in dashboard
 
-**Cause**: KQL query mismatch or different log table schema.
+**Cause**: Table name mismatch, KQL syntax error, or service name filtering issue.
 
 **Solution**:
-1. Test the default query in Azure Portal Log Analytics
-2. Check if custom query in azure.yaml has syntax errors
-3. Verify service names match between azd and Azure resources
+1. Click **View Query** in the dashboard's Azure logs bar to see the KQL being executed
+2. Copy the query and test it in Azure Portal's Log Analytics query editor
+3. Check if the service name placeholder `{serviceName}` matches your Azure resource name
+4. Override with a custom query in azure.yaml if default tables don't match your setup:
+   ```yaml
+   services:
+     myservice:
+       logs:
+         analytics:
+           query: |
+             ContainerAppConsoleLogs_CL
+             | where TimeGenerated > ago({timespan})
+             | project TimeGenerated, Log_s
+   ```
+
+### Slow or stale logs in Azure mode
+
+**Cause**: Polling interval too long, or Log Analytics ingestion delay.
+
+**Solution**:
+1. Adjust **Sync interval** in the dashboard to `10s` for faster refresh
+2. Use the **Refresh** button to manually fetch latest logs
+3. Set shorter `pollingInterval` in azure.yaml:
+   ```yaml
+   logs:
+     analytics:
+       pollingInterval: "10s"
+   ```
+4. Note: Azure Log Analytics has a 1-5 minute ingestion delay; you cannot get true real-time logs
 
 ## Permissions Required
 

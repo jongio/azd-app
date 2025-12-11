@@ -85,7 +85,7 @@ type Service struct {
 	Ports              []string           `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
 	Environment        Environment        `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
 	Uses               []string           `yaml:"uses,omitempty"`
-	Logs               *LogsConfig        `yaml:"logs,omitempty"`        // Service-level logging configuration
+	Logs               *ServiceLogsConfig `yaml:"logs,omitempty"`        // Service-level logging configuration
 	Healthcheck        *HealthcheckConfig `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
 	HealthcheckEnabled *bool              `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
 	Type               string             `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
@@ -95,20 +95,20 @@ type Service struct {
 // serviceRaw is used to handle both boolean and object healthcheck values.
 // It duplicates all fields from Service except Healthcheck to avoid infinite recursion.
 type serviceRaw struct {
-	Host        string        `yaml:"host"`
-	Language    string        `yaml:"language,omitempty"`
-	Project     string        `yaml:"project,omitempty"`
-	Entrypoint  string        `yaml:"entrypoint,omitempty"`
-	Command     string        `yaml:"command,omitempty"`
-	Image       string        `yaml:"image,omitempty"`
-	Docker      *DockerConfig `yaml:"docker,omitempty"`
-	Ports       []string      `yaml:"ports,omitempty"`
-	Environment Environment   `yaml:"environment,omitempty"`
-	Uses        []string      `yaml:"uses,omitempty"`
-	Logs        *LogsConfig   `yaml:"logs,omitempty"`
-	Healthcheck any           `yaml:"healthcheck,omitempty"`
-	Type        string        `yaml:"type,omitempty"`
-	Mode        string        `yaml:"mode,omitempty"`
+	Host        string             `yaml:"host"`
+	Language    string             `yaml:"language,omitempty"`
+	Project     string             `yaml:"project,omitempty"`
+	Entrypoint  string             `yaml:"entrypoint,omitempty"`
+	Command     string             `yaml:"command,omitempty"`
+	Image       string             `yaml:"image,omitempty"`
+	Docker      *DockerConfig      `yaml:"docker,omitempty"`
+	Ports       []string           `yaml:"ports,omitempty"`
+	Environment Environment        `yaml:"environment,omitempty"`
+	Uses        []string           `yaml:"uses,omitempty"`
+	Logs        *ServiceLogsConfig `yaml:"logs,omitempty"`
+	Healthcheck any                `yaml:"healthcheck,omitempty"`
+	Type        string             `yaml:"type,omitempty"`
+	Mode        string             `yaml:"mode,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.

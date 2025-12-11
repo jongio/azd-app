@@ -41,30 +41,11 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the azure log buffer from log manager
-	logMgr := service.GetLogManager(s.projectDir)
-	azBuffer := logMgr.GetAzureLogBuffer()
-
+	// Mode switching is deprecated - always return local mode
 	response := ModeResponse{
 		Mode:         string(service.LogModeLocal),
 		AzureEnabled: false,
-	}
-
-	if azBuffer != nil {
-		status := azBuffer.GetAzureStatus()
-		response.Mode = string(status.Mode)
-		response.AzureEnabled = status.Enabled
-		response.ResourceCount = status.ResourceCount
-		response.ConnectionIssue = status.ConnectionIssue
-		response.ConnectionMessage = status.ConnectionMessage
-
-		if status.Connected {
-			response.AzureStatus = "connected"
-		} else if status.Enabled {
-			response.AzureStatus = "disconnected"
-		} else {
-			response.AzureStatus = "disabled"
-		}
+		AzureStatus:  "disabled",
 	}
 
 	if err := writeJSON(w, response); err != nil {
@@ -85,52 +66,8 @@ func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate mode
-	var mode service.LogMode
-	switch req.Mode {
-	case "local":
-		mode = service.LogModeLocal
-	case "azure":
-		mode = service.LogModeAzure
-	default:
-		writeJSONError(w, http.StatusBadRequest, "Invalid mode. Use 'local' or 'azure'", nil)
-		return
-	}
-
-	// Get the azure log buffer from log manager
-	logMgr := service.GetLogManager(s.projectDir)
-	azBuffer := logMgr.GetAzureLogBuffer()
-
-	if azBuffer == nil {
-		writeJSONError(w, http.StatusServiceUnavailable, modeNotConfiguredMessage, nil)
-		return
-	}
-
-	// Set the mode
-	if err := azBuffer.SetMode(mode); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to set mode", err)
-		return
-	}
-
-	// Return updated status
-	status := azBuffer.GetAzureStatus()
-	response := ModeResponse{
-		Mode:          string(status.Mode),
-		AzureEnabled:  status.Enabled,
-		ResourceCount: status.ResourceCount,
-	}
-
-	if status.Connected {
-		response.AzureStatus = "connected"
-	} else if status.Enabled {
-		response.AzureStatus = "disconnected"
-	} else {
-		response.AzureStatus = "disabled"
-	}
-
-	if err := writeJSON(w, response); err != nil {
-		log.Printf("Failed to write mode response: %v", err)
-	}
+	// Mode switching is deprecated - return error
+	writeJSONError(w, http.StatusBadRequest, "Mode switching is deprecated. Use /api/azure/logs endpoint directly.", nil)
 }
 
 // handleModeRouter routes mode requests to the appropriate handler.

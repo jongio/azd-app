@@ -11,6 +11,7 @@ import {
   Loader2, 
   Inbox,
   Cloud,
+  Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
@@ -24,6 +25,7 @@ import {
 import { TimeRangeSelector } from './TimeRangeSelector'
 import { KqlQueryInput } from './KqlQueryInput'
 import { AzureErrorDisplay } from './AzureErrorDisplay'
+import { LogConfigPanel } from './LogConfigPanel'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import { 
   convertAnsiToHtml, 
@@ -239,6 +241,9 @@ export function HistoricalLogPanel({
   // KQL query state
   const [kqlQuery, setKqlQuery] = React.useState('')
   const [kqlCollapsed, setKqlCollapsed] = React.useState(true)
+  
+  // Config panel state
+  const [configPanelOpen, setConfigPanelOpen] = React.useState(false)
 
   // Historical logs hook
   const {
@@ -320,6 +325,23 @@ export function HistoricalLogPanel({
     onClose()
   }, [onClose])
 
+  // Handle config panel
+  const handleOpenConfigPanel = React.useCallback(() => {
+    setConfigPanelOpen(true)
+  }, [])
+
+  const handleCloseConfigPanel = React.useCallback(() => {
+    setConfigPanelOpen(false)
+  }, [])
+
+  const handleConfigSaved = React.useCallback(() => {
+    // Re-execute query with potentially new config
+    if (azureConnected) {
+      void executeQuery(timeRange, undefined) // Clear custom KQL, use new config
+      setKqlQuery('') // Reset KQL input
+    }
+  }, [azureConnected, executeQuery, timeRange])
+
   if (!isOpen) {
     return null
   }
@@ -368,15 +390,28 @@ export function HistoricalLogPanel({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            data-close-button
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-            aria-label="Close panel"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Configure Button - always available since local services can also write to Log Analytics */}
+            <button
+              type="button"
+              onClick={handleOpenConfigPanel}
+              className="p-2 rounded-lg text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Configure log sources"
+              title="Configure log sources"
+            >
+              <Settings2 className="w-5 h-5" />
+            </button>
+            {/* Close Button */}
+            <button
+              type="button"
+              data-close-button
+              onClick={onClose}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Close panel"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Azure Not Connected Overlay */}
@@ -554,6 +589,14 @@ export function HistoricalLogPanel({
           </>
         )}
       </div>
+
+      {/* Log Config Panel */}
+      <LogConfigPanel
+        serviceName={serviceName}
+        isOpen={configPanelOpen}
+        onClose={handleCloseConfigPanel}
+        onSave={handleConfigSaved}
+      />
     </>
   )
 }

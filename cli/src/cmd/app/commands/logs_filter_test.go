@@ -180,11 +180,10 @@ logs:
 		}
 	})
 
-	t.Run("azure.yaml with includeBuiltins false", func(t *testing.T) {
+	t.Run("azure.yaml exclude patterns always include builtins", func(t *testing.T) {
 		azureYaml := `name: test-project
 logs:
   filters:
-    includeBuiltins: false
     exclude:
       - custom_only
 `
@@ -196,16 +195,16 @@ logs:
 		if err != nil {
 			t.Fatalf("buildLogFilter() error: %v", err)
 		}
-		if filter.PatternCount() != 1 {
-			t.Errorf("Expected 1 pattern (builtins disabled via includeBuiltins: false), got %d", filter.PatternCount())
+		// Should have custom_only + all built-in patterns
+		if filter.PatternCount() < 2 {
+			t.Errorf("Expected at least 2 patterns (custom + builtins), got %d", filter.PatternCount())
 		}
 	})
 
-	t.Run("CLI --no-builtins overrides azure.yaml includeBuiltins", func(t *testing.T) {
+	t.Run("CLI --no-builtins disables built-in patterns", func(t *testing.T) {
 		azureYaml := `name: test-project
 logs:
   filters:
-    includeBuiltins: true
     exclude:
       - custom_pattern
 `
