@@ -120,8 +120,6 @@ func (lf *LogFilter) PatternCount() int {
 type LogFilterConfig struct {
 	// Patterns to filter out (suppress) from output
 	Exclude []string `yaml:"exclude,omitempty"`
-	// Whether to include built-in patterns (default: true)
-	IncludeBuiltins *bool `yaml:"includeBuiltins,omitempty"`
 }
 
 // LogClassification represents a user-defined text classification for logs.
@@ -131,31 +129,26 @@ type LogClassification struct {
 	Level string `yaml:"level" json:"level"` // "info", "warning", or "error"
 }
 
-// LogsConfig represents the logs configuration section in azure.yaml.
+// LogsConfig represents the project-level logs configuration section in azure.yaml.
 // This is the root-level configuration for all logging-related settings.
 type LogsConfig struct {
 	// Filters for suppressing noisy log output
 	Filters *LogFilterConfig `yaml:"filters,omitempty"`
 	// Classifications for overriding log levels based on text matches
 	Classifications []LogClassification `yaml:"classifications,omitempty" json:"classifications,omitempty"`
-	// Azure log streaming configuration
-	Azure *AzureLogsConfig `yaml:"azure,omitempty" json:"azure,omitempty"`
+	// Analytics is the global Azure Log Analytics configuration (workspace, polling, timespan)
+	Analytics *AnalyticsConfigGlobal `yaml:"analytics,omitempty" json:"analytics,omitempty"`
 }
 
-// GetAzure returns the Azure logs config, or nil if not set.
-func (c *LogsConfig) GetAzure() *AzureLogsConfig {
-	if c == nil {
-		return nil
-	}
-	return c.Azure
-}
-
-// IsAzureEnabled returns true if Azure logging is enabled.
-func (c *LogsConfig) IsAzureEnabled() bool {
-	if c == nil || c.Azure == nil {
-		return false
-	}
-	return c.Azure.Enabled
+// ServiceLogsConfig represents service-level logs configuration in azure.yaml.
+// Used for service-specific overrides like custom tables or KQL queries.
+type ServiceLogsConfig struct {
+	// Filters for suppressing noisy log output (can override project-level)
+	Filters *LogFilterConfig `yaml:"filters,omitempty"`
+	// Classifications for overriding log levels based on text matches
+	Classifications []LogClassification `yaml:"classifications,omitempty" json:"classifications,omitempty"`
+	// Analytics is the service-specific Azure Log Analytics configuration (tables, query)
+	Analytics *AnalyticsConfigService `yaml:"analytics,omitempty" json:"analytics,omitempty"`
 }
 
 // GetFilters returns the filter config, or nil if not set.
@@ -179,25 +172,13 @@ func ValidateClassificationLevel(level string) bool {
 	return level == "info" || level == "warning" || level == "error"
 }
 
-// ShouldIncludeBuiltins returns true if built-in patterns should be included.
-// Defaults to true if not specified.
-func (c *LogFilterConfig) ShouldIncludeBuiltins() bool {
-	if c == nil || c.IncludeBuiltins == nil {
-		return true
-	}
-	return *c.IncludeBuiltins
-}
-
 // BuildLogFilter creates a LogFilter from the config.
+// Always includes built-in patterns.
 func (c *LogFilterConfig) BuildLogFilter() (*LogFilter, error) {
 	if c == nil {
 		return NewLogFilterWithBuiltins(nil)
 	}
-
-	if c.ShouldIncludeBuiltins() {
-		return NewLogFilterWithBuiltins(c.Exclude)
-	}
-	return NewLogFilter(c.Exclude)
+	return NewLogFilterWithBuiltins(c.Exclude)
 }
 
 // FilterLogEntries filters a slice of log entries based on the filter patterns.

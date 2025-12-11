@@ -62,6 +62,7 @@ type ServiceInfo struct {
 	Name string `json:"name"`
 
 	// Azure.yaml definition info
+	Host      string `json:"host,omitempty"`      // Host type from azure.yaml: "local", "containerapp", "appservice", "function", etc.
 	Language  string `json:"language,omitempty"`
 	Framework string `json:"framework,omitempty"`
 	Project   string `json:"project,omitempty"`
@@ -276,6 +277,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 			normalizedName := strings.ToLower(name)
 			serviceMap[normalizedName] = &ServiceInfo{
 				Name:            name, // Preserve original casing for display
+				Host:            svc.Host,
 				Language:        svc.Language,
 				Project:         svc.Project,
 				Framework:       detectFramework(svc),

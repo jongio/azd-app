@@ -126,11 +126,14 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/logs/classifications/", s.handleClassificationsRouter)
 	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
 	s.mux.HandleFunc("/api/mode", s.handleModeRouter)
-	s.mux.HandleFunc("/api/azure/status", s.handleAzureStatus)
-	s.mux.HandleFunc("/api/azure/enable", s.handleEnableAzureLogging)
+	// V2 Azure endpoints (request/response model)
+	s.mux.HandleFunc("/api/azure/enable", s.handleEnableAzureLogging) // Enable Azure logging in azure.yaml
+	s.mux.HandleFunc("/api/azure/services", s.handleAzureServices)
 	s.mux.HandleFunc("/api/azure/logs", s.handleAzureLogs)
-	s.mux.HandleFunc("/api/azure/logs/stream", s.handleAzureLogsStream)
-	s.mux.HandleFunc("/api/azure/logs/query", s.handleAzureLogsQuery)
+	s.mux.HandleFunc("/api/azure/logs/stream", s.handleAzureLogsStream) // WebSocket streaming for Azure logs
+	s.mux.HandleFunc("/api/azure/logs/health", s.handleAzureLogsHealth)
+	s.mux.HandleFunc("/api/azure/logs/config", s.handleAzureLogConfigRouter) // Get/save log config per service
+	s.mux.HandleFunc("/api/azure/tables", s.handleAzureTables)               // List available Log Analytics tables
 	s.mux.HandleFunc("/api/azure/query", s.handleAzureQueryRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)

@@ -151,9 +151,9 @@ export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
       className="fixed inset-0 z-50 flex items-center justify-center"
       role="presentation"
     >
-      {/* Backdrop */}
+      {/* Backdrop - using solid opacity instead of blur for performance */}
       <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
+        className="absolute inset-0 bg-black/50 dark:bg-black/70 animate-in fade-in duration-200"
         onClick={onClose}
         data-testid="shortcuts-backdrop"
       />

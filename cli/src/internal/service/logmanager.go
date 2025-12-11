@@ -13,11 +13,10 @@ import (
 
 // LogManager manages log buffers for all services in a project.
 type LogManager struct {
-	projectDir     string
-	buffers        map[string]*LogBuffer // key: serviceName
-	logFilter      *LogFilter            // Optional log filter for all buffers
-	azureLogBuffer *AzureLogBuffer       // Azure log buffer for cloud logs
-	mu             sync.RWMutex
+	projectDir string
+	buffers    map[string]*LogBuffer // key: serviceName
+	logFilter  *LogFilter            // Optional log filter for all buffers
+	mu         sync.RWMutex
 }
 
 var (
@@ -72,19 +71,13 @@ func loadLogFilterForProject(projectDir string) *LogFilter {
 	// Get filter config from azure.yaml
 	filterConfig := azureYaml.Logs.GetFilters()
 	var customPatterns []string
-	includeBuiltins := true
 
 	if filterConfig != nil {
 		customPatterns = filterConfig.Exclude
-		includeBuiltins = filterConfig.ShouldIncludeBuiltins()
 	}
 
-	var filter *LogFilter
-	if includeBuiltins {
-		filter, _ = NewLogFilterWithBuiltins(customPatterns)
-	} else {
-		filter, _ = NewLogFilter(customPatterns)
-	}
+	// Always include built-in patterns per schema
+	filter, _ := NewLogFilterWithBuiltins(customPatterns)
 	return filter
 }
 
@@ -315,20 +308,6 @@ func (lm *LogManager) ClearBuffer(serviceName string) error {
 
 	buffer.Clear()
 	return nil
-}
-
-// GetAzureLogBuffer returns the Azure log buffer, if configured.
-func (lm *LogManager) GetAzureLogBuffer() *AzureLogBuffer {
-	lm.mu.RLock()
-	defer lm.mu.RUnlock()
-	return lm.azureLogBuffer
-}
-
-// SetAzureLogBuffer sets the Azure log buffer for cloud log streaming.
-func (lm *LogManager) SetAzureLogBuffer(buffer *AzureLogBuffer) {
-	lm.mu.Lock()
-	defer lm.mu.Unlock()
-	lm.azureLogBuffer = buffer
 }
 
 // SortLogEntries sorts log entries by timestamp (ascending).

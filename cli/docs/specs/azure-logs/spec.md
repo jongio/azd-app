@@ -275,8 +275,7 @@ The existing tool gains a `source` parameter:
 **Source Resolution Logic:**
 1. If `source` parameter provided → use that
 2. Else if dashboard is running → match dashboard's current mode
-3. Else use azure.yaml `logs.azure.source` setting
-4. Else default to `auto` (local if services running, else azure)
+3. Else default to `auto` (local if services running, else azure)
 
 #### New `get_azure_logs` Tool
 
@@ -386,8 +385,7 @@ When `source: auto` is configured:
 #### Mode Persistence
 
 1. **Session State**: Current mode persists in browser session storage
-2. **Config Default**: `logs.azure.source` in azure.yaml sets initial default
-3. **URL Parameter**: `?source=azure` allows deep linking to specific mode
+2. **URL Parameter**: `?source=azure` allows deep linking to specific mode
 
 #### Visual Indicators
 

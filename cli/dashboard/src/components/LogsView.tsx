@@ -46,6 +46,8 @@ interface LogsViewProps {
   logMode?: LogMode
   /** Whether mode is currently being switched */
   isModeSwitching?: boolean
+  /** Azure service filter (only used in Azure mode) */
+  azureServiceFilter?: string
 }
 
 export function LogsView({ 
@@ -59,6 +61,7 @@ export function LogsView({
   hideControls = false,
   logMode = 'local',
   isModeSwitching = false,
+  azureServiceFilter = '',
 }: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [internalServices, setInternalServices] = useState<string[]>([])
@@ -110,9 +113,17 @@ export function LogsView({
 
   const fetchLogs = useCallback(async () => {
     const baseEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
-    const url = selectedService === 'all'
+    
+    // Build URL with service parameter
+    let serviceParam = selectedService
+    if (logMode === 'azure' && azureServiceFilter) {
+      // In Azure mode with filter, use the filter
+      serviceParam = azureServiceFilter
+    }
+    
+    const url = serviceParam === 'all' || serviceParam === ''
       ? `${baseEndpoint}?tail=${INITIAL_LOG_TAIL}`
-      : `${baseEndpoint}?service=${selectedService}&tail=${INITIAL_LOG_TAIL}`
+      : `${baseEndpoint}?service=${serviceParam}&tail=${INITIAL_LOG_TAIL}`
 
     try {
       const res = await fetch(url)
@@ -125,7 +136,7 @@ export function LogsView({
       console.error(`Failed to fetch ${logMode} logs:`, err)
       setLogs([])
     }
-  }, [selectedService, logMode])
+  }, [selectedService, logMode, azureServiceFilter])
 
   const setupWebSocket = useCallback(() => {
     // Close existing connection
@@ -135,9 +146,17 @@ export function LogsView({
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const baseStreamEndpoint = logMode === 'azure' ? '/api/azure/logs/stream' : '/api/logs/stream'
-    const url = selectedService === 'all'
+    
+    // Build URL with service parameter
+    let serviceParam = selectedService
+    if (logMode === 'azure' && azureServiceFilter) {
+      // In Azure mode with filter, use the filter
+      serviceParam = azureServiceFilter
+    }
+    
+    const url = serviceParam === 'all' || serviceParam === ''
       ? `${protocol}//${window.location.host}${baseStreamEndpoint}`
-      : `${protocol}//${window.location.host}${baseStreamEndpoint}?service=${selectedService}`
+      : `${protocol}//${window.location.host}${baseStreamEndpoint}?service=${serviceParam}`
 
     const ws = new WebSocket(url)
 
@@ -177,12 +196,12 @@ export function LogsView({
     return () => {
       wsRef.current?.close()
     }
-  }, [fetchLogs, setupWebSocket, selectedService])
+  }, [fetchLogs, setupWebSocket, selectedService, azureServiceFilter])
 
-  // Clear logs when mode changes
+  // Clear logs when mode changes or filter changes
   useEffect(() => {
-    setLogs([]) // Clear logs when switching modes
-  }, [logMode])
+    setLogs([]) // Clear logs when switching modes or changing filter
+  }, [logMode, azureServiceFilter])
 
   // Auto-scroll to bottom - scroll the container, not the page
   // Pause auto-scroll when user is hovering over the logs
