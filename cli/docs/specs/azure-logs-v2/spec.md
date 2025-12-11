@@ -6,12 +6,20 @@
 |-----------|--------|---------|
 | CLI `--source azure` flag | ✅ Done | Works standalone without `azd app run` |
 | CLI `--source azure -f` streaming | ✅ Done | Polls every 30s, no `azd app run` required |
+| CLI service filtering `-s` | ✅ Done | Maps azure.yaml names to Azure resources |
 | Standalone Azure logs fetcher | ✅ Done | `azure/standalone_logs.go` |
 | DefaultAzureCredential auth | ✅ Done | Uses `azd auth login` credentials |
 | Log Analytics SDK integration | ✅ Done | `azlogs` SDK queries work |
-| Dashboard UI auto-load | ⏳ Pending | Next phase |
-| Visual loading/error states | ⏳ Pending | Next phase |
-| Auto-refresh countdown | ⏳ Pending | Next phase |
+| **Next Phase: Dashboard Integration** | | |
+| Dashboard API endpoint | ⏳ Next | `GET /api/azure/logs` with structured errors |
+| Dashboard UI auto-load | ⏳ Next | Load logs when Azure mode selected |
+| Visual loading/error states | ⏳ Next | Spinner, error panel, status footer |
+| Auto-refresh countdown | ⏳ Next | 30s poll with visible countdown |
+| **Diagnostics & Documentation** | | |
+| Health check endpoint | ⏳ Next | `GET /api/azure/logs/health` |
+| Auto-resolve missing workspace | ⏳ Next | Discover and store workspace GUID |
+| Documentation URLs | ⏳ Next | All errors link to docs |
+| Diagnostics UI modal | ⏳ Next | Interactive health check panel |
 
 ## Executive Summary
 
@@ -459,9 +467,121 @@ function StatusFooter({ count, lastUpdated, nextRefreshIn }) {
 }
 ```
 
+## Diagnostics & Auto-Resolution
+
+### Automatic Issue Resolution
+
+When Azure logs fail, attempt to auto-resolve before showing error:
+
+```go
+func (s *Server) diagnoseAndResolveAzureLogs(ctx context.Context) *ErrorInfo {
+    // 1. Check if workspace GUID is missing from env vars
+    workspaceID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID")
+    if workspaceID == "" {
+        // Try to discover and store it
+        resolved, err := s.discoverAndStoreWorkspaceID(ctx)
+        if err == nil && resolved {
+            // Successfully resolved - retry will work now
+            return nil
+        }
+        
+        return &ErrorInfo{
+            Message: "Log Analytics workspace not configured",
+            Code:    "NO_WORKSPACE",
+            Action:  "Run this command to configure:",
+            Command: "azd env refresh",
+            DocsURL: "https://aka.ms/azd/app/logs/setup",
+        }
+    }
+    
+    // 2. Check if diagnostic settings are configured
+    hasDiagnostics, err := s.checkDiagnosticSettings(ctx)
+    if err == nil && !hasDiagnostics {
+        return &ErrorInfo{
+            Message: "Azure diagnostic settings not configured",
+            Code:    "NO_DIAGNOSTICS",
+            Action:  "Your services aren't sending logs to Log Analytics",
+            Command: "",
+            DocsURL: "https://aka.ms/azd/app/logs/configure",
+        }
+    }
+    
+    // 3. Check if services are deployed
+    servicesDeployed, err := s.checkServicesDeployed(ctx)
+    if err == nil && !servicesDeployed {
+        return &ErrorInfo{
+            Message: "No services deployed to Azure",
+            Code:    "NOT_DEPLOYED",
+            Action:  "Deploy your app first:",
+            Command: "azd up",
+            DocsURL: "https://aka.ms/azd/app/logs/troubleshoot",
+        }
+    }
+    
+    return nil
+}
+
+// Try to discover workspace GUID and store in .env
+func (s *Server) discoverAndStoreWorkspaceID(ctx context.Context) (bool, error) {
+    // Query Azure for Log Analytics workspace
+    resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP")
+    if resourceGroup == "" {
+        return false, errors.New("no resource group")
+    }
+    
+    cmd := exec.Command("az", "monitor", "log-analytics", "workspace", "list",
+        "--resource-group", resourceGroup,
+        "--query", "[0].customerId",
+        "--output", "tsv")
+    
+    output, err := cmd.Output()
+    if err != nil {
+        return false, err
+    }
+    
+    workspaceID := strings.TrimSpace(string(output))
+    if workspaceID == "" {
+        return false, errors.New("no workspace found")
+    }
+    
+    // Store in .env file
+    envPath := filepath.Join(s.projectDir, ".azure", s.envName, ".env")
+    if err := appendEnvVar(envPath, "AZURE_LOG_ANALYTICS_WORKSPACE_ID", workspaceID); err != nil {
+        return false, err
+    }
+    
+    // Update current environment
+    os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID", workspaceID)
+    
+    return true, nil
+}
+```
+
+### Documentation Links
+
+Every error should include a documentation URL:
+
+```go
+type ErrorInfo struct {
+    Message string `json:"message"`
+    Code    string `json:"code"`
+    Action  string `json:"action"`
+    Command string `json:"command"`
+    DocsURL string `json:"docsUrl"`  // NEW: Link to documentation
+}
+```
+
+**Documentation Structure:**
+
+- `https://aka.ms/azd/app/logs/setup` - Initial setup guide
+- `https://aka.ms/azd/app/logs/configure` - Configuration & customization
+- `https://aka.ms/azd/app/logs/troubleshoot` - Troubleshooting guide
+- `https://aka.ms/azd/app/logs/kql` - Writing custom KQL queries
+- `https://aka.ms/azd/app/logs/services` - Per-service configuration
+
 ## Error Handling Strategy
 
-Map Azure errors to actionable guidance:
+Map Azure errors to actionable guidance with docs:
 
 ```go
 func mapAzureError(err error) *ErrorInfo {
@@ -474,6 +594,7 @@ func mapAzureError(err error) *ErrorInfo {
             Code:    "AUTH_EXPIRED",
             Action:  "Run this command to fix:",
             Command: "azd auth login",
+            DocsURL: "https://aka.ms/azd/app/logs/troubleshoot#auth",
         }
         
     case strings.Contains(errStr, "ResourceNotFound") || strings.Contains(errStr, "404"):
@@ -482,38 +603,158 @@ func mapAzureError(err error) *ErrorInfo {
             Code:    "NOT_DEPLOYED",
             Action:  "Deploy your app first:",
             Command: "azd up",
+            DocsURL: "https://aka.ms/azd/app/logs/setup",
         }
         
     case strings.Contains(errStr, "AuthorizationFailed") || strings.Contains(errStr, "403"):
         return &ErrorInfo{
             Message: "Missing permissions on Log Analytics workspace",
             Code:    "NO_PERMISSION",
-            Action:  "Grant 'Log Analytics Reader' role in Azure Portal",
+            Action:  "Grant 'Log Analytics Reader' role",
             Command: "",
+            DocsURL: "https://aka.ms/azd/app/logs/troubleshoot#permissions",
         }
         
     case strings.Contains(errStr, "WorkspaceNotFound"):
         return &ErrorInfo{
             Message: "Log Analytics workspace not configured",
             Code:    "NO_WORKSPACE",
-            Action:  "Configure diagnostic settings in Azure Portal",
+            Action:  "Configure diagnostic settings",
+            Command: "azd env refresh",
+            DocsURL: "https://aka.ms/azd/app/logs/configure",
+        }
+        
+    case strings.Contains(errStr, "no logs returned"):
+        return &ErrorInfo{
+            Message: "No logs found for your services",
+            Code:    "NO_LOGS",
+            Action:  "Check if services are running and sending logs",
             Command: "",
+            DocsURL: "https://aka.ms/azd/app/logs/troubleshoot#no-logs",
         }
         
     default:
         return &ErrorInfo{
             Message: errStr,
             Code:    "UNKNOWN",
-            Action:  "Check Azure Portal for details",
+            Action:  "See troubleshooting guide",
             Command: "",
+            DocsURL: "https://aka.ms/azd/app/logs/troubleshoot",
         }
     }
 }
 ```
 
+### Diagnostic Health Check
+
+Add a diagnostic endpoint for troubleshooting:
+
+```go
+// GET /api/azure/logs/health
+type HealthCheckResponse struct {
+    Status  string            `json:"status"`  // "healthy" | "degraded" | "error"
+    Checks  []HealthCheck     `json:"checks"`
+    DocsURL string            `json:"docsUrl"`
+}
+
+type HealthCheck struct {
+    Name    string `json:"name"`
+    Status  string `json:"status"`  // "pass" | "warn" | "fail"
+    Message string `json:"message"`
+    Fix     string `json:"fix,omitempty"`
+}
+
+func (s *Server) handleAzureLogsHealth(w http.ResponseWriter, r *http.Request) {
+    checks := []HealthCheck{}
+    
+    // 1. Authentication
+    if _, err := getCredential(s.projectDir); err != nil {
+        checks = append(checks, HealthCheck{
+            Name:    "Authentication",
+            Status:  "fail",
+            Message: "Not authenticated",
+            Fix:     "Run: azd auth login",
+        })
+    } else {
+        checks = append(checks, HealthCheck{
+            Name:    "Authentication",
+            Status:  "pass",
+            Message: "Credentials valid",
+        })
+    }
+    
+    // 2. Workspace ID
+    workspaceID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID")
+    if workspaceID == "" {
+        checks = append(checks, HealthCheck{
+            Name:    "Log Analytics Workspace",
+            Status:  "fail",
+            Message: "Workspace ID not configured",
+            Fix:     "Run: azd env refresh",
+        })
+    } else {
+        checks = append(checks, HealthCheck{
+            Name:    "Log Analytics Workspace",
+            Status:  "pass",
+            Message: fmt.Sprintf("Workspace: %s", workspaceID[:8]+"..."),
+        })
+    }
+    
+    // 3. Services deployed
+    services := discoverServices()
+    if len(services) == 0 {
+        checks = append(checks, HealthCheck{
+            Name:    "Azure Services",
+            Status:  "warn",
+            Message: "No services found in environment",
+            Fix:     "Run: azd up",
+        })
+    } else {
+        checks = append(checks, HealthCheck{
+            Name:    "Azure Services",
+            Status:  "pass",
+            Message: fmt.Sprintf("%d services discovered", len(services)),
+        })
+    }
+    
+    // 4. Connectivity test
+    if err := testLogAnalyticsConnection(workspaceID); err != nil {
+        checks = append(checks, HealthCheck{
+            Name:    "Log Analytics Connection",
+            Status:  "fail",
+            Message: err.Error(),
+            Fix:     "Check network and firewall settings",
+        })
+    } else {
+        checks = append(checks, HealthCheck{
+            Name:    "Log Analytics Connection",
+            Status:  "pass",
+            Message: "Successfully connected",
+        })
+    }
+    
+    // Determine overall status
+    status := "healthy"
+    for _, check := range checks {
+        if check.Status == "fail" {
+            status = "error"
+            break
+        } else if check.Status == "warn" {
+            status = "degraded"
+        }
+    }
+    
+    writeJSON(w, HealthCheckResponse{
+        Status:  status,
+        Checks:  checks,
+        DocsURL: "https://aka.ms/azd/app/logs/troubleshoot",
+    })
+}
+```
+
 ## UI Changes
 
-### Azure Logs Tab Design
+### Azure Logs View Design
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -528,30 +769,195 @@ func mapAzureError(err error) *ErrorInfo {
 │  2024-01-15 10:32:12  ERROR  Failed to parse request body        │
 │                                                                  │
 │  ─────────────────────────────────────────────────────────────── │
-│  📊 100 logs fetched from Container App logs • 2.3s              │
-│  [ ] Auto-refresh every 30s                                      │
+│  📊 100 logs • Updated 5s ago • ↻ 25s   [Run Diagnostics]       │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Error State Design
+### Error State with Docs Link
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Services: [api ▼]  Time Range: [Last 30m ▼]  [🔄 Refresh]      │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ⚠️  Authentication Expired                                      │
+│  ⚠️  Log Analytics Workspace Not Configured                      │
 │                                                                  │
-│  Your Azure login session has expired.                           │
+│  Your services aren't configured to send logs to Log Analytics.  │
 │                                                                  │
 │  To fix, run in your terminal:                                   │
 │  ┌──────────────────────────────────┐                           │
-│  │  az login                        │  [Copy]                    │
+│  │  azd env refresh                 │  [Copy]                    │
 │  └──────────────────────────────────┘                           │
 │                                                                  │
-│  Then click Refresh to try again.                                │
+│  [Retry Now]  [Run Diagnostics]  [View Setup Guide →]           │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
+```
+
+### Diagnostics Panel
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Azure Logs Diagnostics                                   [×]    │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ✓  Authentication                                               │
+│      Credentials valid                                           │
+│                                                                  │
+│  ✗  Log Analytics Workspace                                      │
+│      Workspace ID not configured                                 │
+│      Fix: Run 'azd env refresh'                                  │
+│                                                                  │
+│  ✓  Azure Services                                               │
+│      3 services discovered (api, web, functions)                 │
+│                                                                  │
+│  ⚠  Log Analytics Connection                                     │
+│      No logs returned in last query                              │
+│      Services may not be sending logs yet                        │
+│                                                                  │
+│  ─────────────────────────────────────────────────────────────── │
+│  Status: Degraded                                                │
+│                                                                  │
+│  [View Troubleshooting Guide →]  [Copy Diagnostics]  [Close]    │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Error Panel Component with Docs
+
+```typescript
+interface ErrorPanelProps {
+  error: ErrorInfo;
+  onRetry: () => void;
+  onDiagnostics?: () => void;
+}
+
+function ErrorPanel({ error, onRetry, onDiagnostics }: ErrorPanelProps) {
+  return (
+    <div className="error-panel">
+      <div className="error-header">
+        <WarningIcon />
+        <h3>{error.message}</h3>
+      </div>
+      
+      {error.action && (
+        <p className="error-action">{error.action}</p>
+      )}
+      
+      {error.command && (
+        <div className="command-block">
+          <code>{error.command}</code>
+          <button onClick={() => copyToClipboard(error.command)}>
+            Copy
+          </button>
+        </div>
+      )}
+      
+      <div className="error-actions">
+        <button onClick={onRetry} className="primary">
+          Retry Now
+        </button>
+        {onDiagnostics && (
+          <button onClick={onDiagnostics} className="secondary">
+            Run Diagnostics
+          </button>
+        )}
+        {error.docsUrl && (
+          <a href={error.docsUrl} target="_blank" className="docs-link">
+            View Setup Guide →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### Diagnostics Modal Component
+
+```typescript
+interface DiagnosticsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function DiagnosticsModal({ isOpen, onClose }: DiagnosticsModalProps) {
+  const [health, setHealth] = useState<HealthCheckResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    setLoading(true);
+    fetch('/api/azure/logs/health')
+      .then(r => r.json())
+      .then(data => {
+        setHealth(data);
+        setLoading(false);
+      });
+  }, [isOpen]);
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Azure Logs Diagnostics</h2>
+          <button onClick={onClose}>×</button>
+        </div>
+        
+        {loading ? (
+          <LoadingSpinner />
+        ) : (
+          <div className="diagnostics-results">
+            {health.checks.map(check => (
+              <div key={check.name} className={`check check-${check.status}`}>
+                <div className="check-header">
+                  <StatusIcon status={check.status} />
+                  <h4>{check.name}</h4>
+                </div>
+                <p className="check-message">{check.message}</p>
+                {check.fix && (
+                  <p className="check-fix">
+                    <strong>Fix:</strong> {check.fix}
+                  </p>
+                )}
+              </div>
+            ))}
+            
+            <div className="diagnostics-footer">
+              <div className="status-badge">
+                Status: <strong>{health.status}</strong>
+              </div>
+              
+              <div className="actions">
+                <a href={health.docsUrl} target="_blank">
+                  View Troubleshooting Guide →
+                </a>
+                <button onClick={() => copyDiagnostics(health)}>
+                  Copy Diagnostics
+                </button>
+                <button onClick={onClose} className="primary">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case 'pass': return <span className="icon-pass">✓</span>;
+    case 'warn': return <span className="icon-warn">⚠</span>;
+    case 'fail': return <span className="icon-fail">✗</span>;
+    default: return null;
+  }
+}
 ```
 
 ## Migration Path

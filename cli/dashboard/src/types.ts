@@ -10,6 +10,18 @@ export interface ClassificationOverride {
 // ============================================================================
 
 /**
+ * ErrorInfo from API - structured error with actionable guidance
+ * Returned by /api/azure/logs when status=error
+ */
+export interface ErrorInfo {
+  message: string   // Human-readable error message
+  code: string      // Error code: "AUTH_REQUIRED", "NOT_DEPLOYED", "NO_WORKSPACE", etc.
+  action: string    // What the user should do
+  command?: string  // CLI command to run (optional)
+  docsUrl?: string  // Documentation URL
+}
+
+/**
  * Specific Azure error types for actionable error handling
  * Each type has specific UI treatment and guidance
  */
@@ -135,6 +147,7 @@ export interface AzureServiceInfo {
 
 export interface Service {
   name: string
+  host?: string  // Host type from azure.yaml: "local", "containerapp", "appservice", "function", etc.
   language?: string
   framework?: string
   project?: string

@@ -298,6 +298,7 @@ export function AzureConnectionStatus({
                 'px-2 py-1 text-xs rounded-md',
                 'bg-azure-600 text-white hover:bg-azure-700',
                 'focus:outline-none focus:ring-2 focus:ring-azure-500',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
               )}
               title="Enable Azure logging in azure.yaml"
               aria-label="Enable Azure logging"
@@ -320,7 +321,14 @@ export function AzureConnectionStatus({
 
       {/* Enable result message */}
       {enableMessage && (
-        <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">{enableMessage}</div>
+        <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+          {enableMessage}
+          {!enabling && enableMessage.includes('enabled') && (
+            <span className="ml-1 text-slate-500">
+              (or add <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-xs">logs.azure.enabled: true</code> to azure.yaml manually)
+            </span>
+          )}
+        </div>
       )}
     </div>
   )

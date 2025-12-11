@@ -377,29 +377,48 @@ func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, 
 }
 
 // GetAzureStatus retrieves the Azure connection status from the dashboard.
+// Checks if Azure logging is configured in azure.yaml.
 func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/azure/status", nil)
+	// Check if Azure services are available (indicates Azure is configured)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/azure/services", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to check Azure status: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("dashboard returned status %d: %s", resp.StatusCode, string(body))
+		// Azure not configured
+		return &service.AzureStatus{
+			Mode:      service.LogModeLocal,
+			Connected: false,
+			Enabled:   false,
+		}, nil
 	}
 
-	var status service.AzureStatus
-	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
-		return nil, fmt.Errorf("failed to decode status: %w", err)
+	// Try to read response
+	var result struct {
+		Services []string `json:"services"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err == nil && len(result.Services) > 0 {
+		// Azure services found - enabled
+		return &service.AzureStatus{
+			Mode:      service.LogModeAzure,
+			Connected: true,
+			Enabled:   true,
+		}, nil
 	}
 
-	return &status, nil
+	// No services but API responded - Azure configured but no deployments yet
+	return &service.AzureStatus{
+		Mode:      service.LogModeLocal,
+		Connected: false,
+		Enabled:   true,
+	}, nil
 }
 
 // StreamAzureLogs connects to the dashboard's Azure log stream via WebSocket.

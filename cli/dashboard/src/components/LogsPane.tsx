@@ -42,6 +42,8 @@ interface LogsPaneProps {
   onShowDetails?: () => void      // Callback to open service details panel
   logMode?: LogMode               // Current log source mode (local or azure)
   isModeSwitching?: boolean       // Whether mode is currently being switched
+  timeRange?: { preset: '15m' | '1h' | '6h' | '24h' | 'custom'; start?: Date; end?: Date }  // Optional, only used for Azure logs
+  syncInterval?: number           // Auto-refresh interval in milliseconds
 }
 
 export function LogsPane({ 
@@ -60,7 +62,9 @@ export function LogsPane({
   serviceHealth,
   onShowDetails,
   logMode = 'local',
-  isModeSwitching = false
+  isModeSwitching = false,
+  timeRange = { preset: '15m' },  // Default to 15m for Azure logs
+  syncInterval,
 }: LogsPaneProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [selectedText, setSelectedText] = useState<string>('')
@@ -99,6 +103,9 @@ export function LogsPane({
   const wsRef = useRef<WebSocket | null>(null)
   const isPausedRef = useRef(isPaused)
   const [isHovering, setIsHovering] = useState(false)
+  
+  // Countdown timer for next refresh
+  const [secondsUntilRefresh, setSecondsUntilRefresh] = useState<number>(0)
   
   const { addClassification, getClassificationForText } = useLogClassifications()
 
@@ -185,7 +192,7 @@ export function LogsPane({
     setLogs([]) // Clear logs when switching modes
   }, [logMode])
 
-  // Fetch initial logs and setup WebSocket - reconnect when mode changes
+  // Fetch initial logs and setup WebSocket - reconnect when mode or timeframe changes
   useEffect(() => {
     // Choose endpoint based on mode
     const logsEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
@@ -193,10 +200,28 @@ export function LogsPane({
 
     const fetchLogs = async () => {
       try {
-        const res = await fetch(`${logsEndpoint}?service=${serviceName}&tail=500`)
+        // Build query params
+        const params = new URLSearchParams({ service: serviceName, tail: '500' })
+        if (logMode === 'azure' && timeRange) {
+          if (timeRange.preset === 'custom' && timeRange.start && timeRange.end) {
+            params.set('start', timeRange.start.toISOString())
+            params.set('end', timeRange.end.toISOString())
+          } else {
+            params.set('since', timeRange.preset)
+          }
+        }
+        const res = await fetch(`${logsEndpoint}?${params.toString()}`)
         if (res.ok) {
-          const data = await res.json() as LogEntry[]
-          setLogs(data ?? [])
+          const data = await res.json()
+
+          if (logMode === 'azure') {
+            const azurePayload = data as { status?: string; logs?: LogEntry[] }
+            const nextLogs = Array.isArray(azurePayload) ? azurePayload : azurePayload.logs
+            setLogs(nextLogs ?? [])
+          } else {
+            const nextLogs = Array.isArray(data) ? data as LogEntry[] : []
+            setLogs(nextLogs)
+          }
         }
       } catch (err) {
         console.error(`Failed to fetch ${logMode} logs for ${serviceName}:`, err)
@@ -236,7 +261,7 @@ export function LogsPane({
       }
       wsRef.current = null
     }
-  }, [serviceName, logMode]) // Reconnect when mode changes
+  }, [serviceName, logMode, timeRange]) // Reconnect when mode or timeframe changes
 
   // Auto-scroll - scroll the container, not the page
   // Pause auto-scroll when user is hovering over the logs
@@ -246,6 +271,29 @@ export function LogsPane({
       container.scrollTop = container.scrollHeight
     }
   }, [logs, autoScrollEnabled, isPaused, isHovering])
+
+  // Countdown timer for next refresh
+  useEffect(() => {
+    if (!syncInterval || isPaused) {
+      setSecondsUntilRefresh(0)
+      return
+    }
+
+    // Initialize countdown
+    setSecondsUntilRefresh(Math.ceil(syncInterval / 1000))
+
+    const interval = setInterval(() => {
+      setSecondsUntilRefresh((prev) => {
+        const next = prev - 1
+        if (next <= 0) {
+          return Math.ceil(syncInterval / 1000)
+        }
+        return next
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [syncInterval, isPaused])
 
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection()
@@ -874,6 +922,16 @@ export function LogsPane({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Refresh Countdown Footer */}
+      {!isCollapsed && syncInterval && !isPaused && secondsUntilRefresh > 0 && (
+        <div className="flex items-center justify-center gap-2 px-3 py-1.5 text-xs border-t border-border bg-muted/30">
+          <RotateCw className="w-3 h-3 text-muted-foreground" />
+          <span className="text-muted-foreground">
+            Next refresh in <span className="font-medium text-foreground">{secondsUntilRefresh}s</span>
+          </span>
         </div>
       )}
 

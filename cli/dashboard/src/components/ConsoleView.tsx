@@ -27,8 +27,16 @@ import {
   HeartPulse,
   HeartCrack,
   HelpCircle,
+  Globe,
+  Server,
+  Database,
+  Box,
+  Cpu,
+  Zap,
+  Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { normalizeHealthStatus } from '@/lib/service-utils'
 import { LogsPane, type LogEntry } from '@/components/LogsPane'
 import { LogsPaneGrid } from '@/components/LogsPaneGrid'
 import { LogsView } from '@/components/LogsView'
@@ -286,6 +294,64 @@ function LogsToolbar({
 }
 
 // =============================================================================
+// Helper Functions  
+// =============================================================================
+
+interface ServiceIconColor {
+  icon: typeof Globe
+  colorScheme: {
+    selected: string
+    unselected: string
+  }
+}
+
+function getServiceIconAndColor(serviceName: string, health: HealthStatus = 'unknown'): ServiceIconColor {
+  const lowerName = serviceName.toLowerCase()
+  
+  // Determine icon based on service name patterns
+  let icon = Package // default
+  if (lowerName.includes('web') || lowerName.includes('frontend') || lowerName.includes('ui') || lowerName.includes('app')) {
+    icon = Globe
+  } else if (lowerName.includes('api') || lowerName.includes('backend') || lowerName.includes('server')) {
+    icon = Server
+  } else if (lowerName.includes('worker') || lowerName.includes('queue') || lowerName.includes('background')) {
+    icon = Cpu
+  } else if (lowerName.includes('function') || lowerName.includes('func')) {
+    icon = Zap
+  } else if (lowerName.includes('container')) {
+    icon = Box
+  } else if (lowerName.includes('db') || lowerName.includes('database') || lowerName.includes('postgres') || lowerName.includes('redis') || lowerName.includes('mongo') || lowerName.includes('mysql')) {
+    icon = Database
+  }
+  
+  // Health-based colors matching log pane indicators
+  // Red (unhealthy), Yellow (degraded/unknown), Green (healthy)
+  const healthColorSchemes: Record<HealthStatus, { selected: string; unselected: string }> = {
+    healthy: {
+      selected: 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 ring-1 ring-green-500',
+      unselected: 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10'
+    },
+    degraded: {
+      selected: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500',
+      unselected: 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10'
+    },
+    unhealthy: {
+      selected: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 ring-1 ring-red-500',
+      unselected: 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10'
+    },
+    unknown: {
+      selected: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500',
+      unselected: 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10'
+    }
+  }
+  
+  return {
+    icon,
+    colorScheme: healthColorSchemes[health]
+  }
+}
+
+// =============================================================================
 // FiltersBar Component
 // =============================================================================
 
@@ -301,6 +367,7 @@ interface FiltersBarProps {
   onToggleState: (state: FilterableLifecycleState) => void
   healthFilter: Set<HealthStatus>
   onToggleHealth: (status: HealthStatus) => void
+  healthReport?: HealthReportEvent | null
 }
 
 function FiltersBar({
@@ -313,6 +380,7 @@ function FiltersBar({
   onToggleState,
   healthFilter,
   onToggleHealth,
+  healthReport,
 }: FiltersBarProps) {
   return (
     <div className="flex flex-wrap gap-6 p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shrink-0">
@@ -320,17 +388,35 @@ function FiltersBar({
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-slate-500">Services</span>
         <div className="flex flex-wrap gap-2">
-          {services.sort((a, b) => a.name.localeCompare(b.name)).map((service) => (
-            <label key={service.name} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedServices.has(service.name)}
-                onChange={() => onToggleService(service.name)}
-                className="w-3.5 h-3.5 rounded border-slate-400 dark:border-slate-600 bg-white dark:bg-slate-800 text-cyan-500 focus:ring-cyan-500/30 focus:ring-offset-white dark:focus:ring-offset-slate-900"
-              />
-              <span className="text-xs text-slate-700 dark:text-slate-300">{service.name}</span>
-            </label>
-          ))}
+          {services.sort((a, b) => a.name.localeCompare(b.name)).map((service) => {
+            // Get health status from health report
+            const serviceHealth = healthReport?.services.find(
+              (s) => s.serviceName === service.name
+            )?.status ?? 'unknown'
+            const normalizedHealth = normalizeHealthStatus(serviceHealth)
+            
+            const { icon: IconComponent, colorScheme } = getServiceIconAndColor(service.name, normalizedHealth)
+            const isSelected = selectedServices.has(service.name)
+            
+            return (
+              <button
+                key={service.name}
+                type="button"
+                onClick={() => onToggleService(service.name)}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all max-w-[150px]',
+                  isSelected
+                    ? colorScheme.selected
+                    : cn('bg-transparent', colorScheme.unselected)
+                )}
+                aria-label={`Toggle ${service.name}`}
+                title={`${service.name} - ${normalizedHealth}`}
+              >
+                <IconComponent className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-xs font-medium truncate">{service.name}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -831,6 +917,7 @@ export function ConsoleView({
         onToggleState={toggleStateFilter}
         healthFilter={healthFilter}
         onToggleHealth={toggleHealthFilter}
+        healthReport={healthReport}
       />
 
       {/* Content - Constrain to remaining viewport height */}
@@ -850,6 +937,8 @@ export function ConsoleView({
                 const serviceHealthStatus = healthReport?.services.find(
                   (s) => s.serviceName === serviceName
                 )?.status
+                // Services with host: local always show local logs regardless of global mode
+                const effectiveLogMode = service?.host === 'local' ? 'local' : logMode
                 return (
                   <LogsPane
                     key={serviceName}
@@ -869,8 +958,10 @@ export function ConsoleView({
                     onShowDetails={
                       service && onServiceClick ? () => onServiceClick(service) : undefined
                     }
-                    logMode={logMode}
+                    logMode={effectiveLogMode}
                     isModeSwitching={isModeSwitching}
+                    timeRange={{ preset: '15m' }}
+                    syncInterval={30000}
                   />
                 )
               })}

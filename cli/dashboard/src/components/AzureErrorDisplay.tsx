@@ -18,8 +18,10 @@ import {
   ExternalLink,
   RefreshCw,
   Monitor,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { ErrorInfo } from '@/types'
 
 // =============================================================================
 // Types
@@ -37,9 +39,9 @@ export type AzureErrorType =
 
 export interface AzureErrorDisplayProps {
   /** Parsed error type */
-  errorType: AzureErrorType
+  errorType?: AzureErrorType
   /** Original error message */
-  message: string
+  message?: string
   /** Service name context */
   serviceName?: string
   /** Retry callback */
@@ -54,6 +56,10 @@ export interface AzureErrorDisplayProps {
   compact?: boolean
   /** Additional class names */
   className?: string
+  /** ErrorInfo from API - structured error with actionable guidance */
+  errorInfo?: ErrorInfo
+  /** Callback to open diagnostics modal */
+  onRunDiagnostics?: () => void
 }
 
 // =============================================================================
@@ -239,6 +245,19 @@ function CommandCopy({ command }: CommandCopyProps) {
   )
 }
 
+// Helper to map error code to error type
+function mapErrorCodeToType(code: string): AzureErrorType {
+  const normalized = code.toUpperCase()
+  if (normalized.includes('AUTH')) return 'auth'
+  if (normalized.includes('PERMISSION') || normalized.includes('FORBIDDEN')) return 'permission'
+  if (normalized.includes('NOT_DEPLOYED') || normalized.includes('NOT_FOUND')) return 'not-found'
+  if (normalized.includes('RATE') || normalized.includes('THROTTLE')) return 'rate-limit'
+  if (normalized.includes('NETWORK') || normalized.includes('TIMEOUT')) return 'network'
+  if (normalized.includes('WORKSPACE')) return 'workspace'
+  if (normalized.includes('QUERY')) return 'query'
+  return 'generic'
+}
+
 interface CodeSnippetProps {
   lines: string[]
 }
@@ -310,19 +329,27 @@ function CountdownTimer({ seconds, onComplete }: CountdownTimerProps) {
 export function AzureErrorDisplay({
   errorType,
   message,
-  serviceName,
   onRetry,
   onViewLocal,
   onResetQuery,
   retryAfter,
   compact = false,
   className,
+  errorInfo,
+  onRunDiagnostics,
 }: AzureErrorDisplayProps) {
-  const config = errorConfigs[errorType]
+  // If errorInfo is provided, use it; otherwise fallback to legacy props
+  const effectiveErrorType = errorInfo ? mapErrorCodeToType(errorInfo.code) : errorType ?? 'generic'
+  const effectiveMessage = errorInfo?.message ?? message ?? 'An error occurred'
+  const actionMessage = errorInfo?.action
+  const commandToRun = errorInfo?.command
+  const docsUrl = errorInfo?.docsUrl
+  
+  const config = errorConfigs[effectiveErrorType]
   const Icon = config.icon
 
   // Permission-specific details
-  const permissionDetails = errorType === 'permission' && (
+  const permissionDetails = effectiveErrorType === 'permission' && (
     <div className="mt-3 text-sm text-slate-600 dark:text-slate-400">
       <div className="font-medium mb-1">Required permissions:</div>
       <ul className="list-disc list-inside space-y-1">
@@ -333,7 +360,7 @@ export function AzureErrorDisplay({
   )
 
   // Query error shows the original error message
-  const queryErrorDetails = errorType === 'query' && message && (
+  const queryErrorDetails = effectiveErrorType === 'query' && effectiveMessage && (
     <pre className={cn(
       'mt-3 px-3 py-2 rounded-md font-mono text-xs overflow-x-auto',
       'bg-slate-100 dark:bg-slate-800',
@@ -341,7 +368,7 @@ export function AzureErrorDisplay({
       'border border-slate-200 dark:border-slate-700',
       'max-h-24',
     )}>
-      {message}
+      {effectiveMessage}
     </pre>
   )
 
@@ -414,7 +441,7 @@ export function AzureErrorDisplay({
             {config.title}
           </div>
           <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
-            {config.description(serviceName)}
+            {effectiveMessage}
           </div>
         </div>
         {onRetry && (
@@ -461,20 +488,27 @@ export function AzureErrorDisplay({
 
       {/* Description */}
       <p className="text-sm text-slate-600 dark:text-slate-400 max-w-xs mb-4">
-        {config.description(serviceName)}
+        {effectiveMessage}
       </p>
+
+      {/* Action message from ErrorInfo */}
+      {actionMessage && (
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 max-w-md mb-3">
+          {actionMessage}
+        </p>
+      )}
 
       {/* Additional details */}
       {permissionDetails}
       {queryErrorDetails}
 
-      {/* Command to copy */}
-      {config.command && (
+      {/* Command to copy - prioritize ErrorInfo.command over config.command */}
+      {(commandToRun || config.command) && (
         <div className="w-full max-w-sm">
           <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">
             Run this command in your terminal:
           </p>
-          <CommandCopy command={config.command} />
+          <CommandCopy command={commandToRun ?? config.command!} />
         </div>
       )}
 
@@ -489,7 +523,7 @@ export function AzureErrorDisplay({
       )}
 
       {/* Countdown timer for rate limits */}
-      {errorType === 'rate-limit' && retryAfter && retryAfter > 0 && (
+      {effectiveErrorType === 'rate-limit' && retryAfter && retryAfter > 0 && (
         <div className="w-full max-w-xs">
           <CountdownTimer seconds={retryAfter} onComplete={onRetry} />
         </div>
@@ -497,10 +531,46 @@ export function AzureErrorDisplay({
 
       {/* Action buttons */}
       <div className="flex items-center gap-3 mt-6">
-        {/* External link */}
-        {config.externalLink && (
+        {/* Primary action - Retry button */}
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
+              'bg-cyan-500 hover:bg-cyan-600',
+              'text-white',
+              'transition-colors duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2',
+            )}
+          >
+            <RefreshCw className="w-4 h-4" />
+            {config.primaryAction ?? 'Retry Now'}
+          </button>
+        )}
+
+        {/* Run Diagnostics button */}
+        {onRunDiagnostics && (
+          <button
+            type="button"
+            onClick={onRunDiagnostics}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
+              'text-slate-700 dark:text-slate-200',
+              'hover:bg-slate-100 dark:hover:bg-slate-800',
+              'transition-colors duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-cyan-500',
+            )}
+          >
+            <Settings className="w-4 h-4" />
+            Run Diagnostics
+          </button>
+        )}
+
+        {/* Docs link - prioritize ErrorInfo.docsUrl over config.externalLink */}
+        {(docsUrl || config.externalLink) && (
           <a
-            href={config.externalLink.url}
+            href={docsUrl ?? config.externalLink!.url}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
@@ -511,32 +581,13 @@ export function AzureErrorDisplay({
               'focus:outline-none focus:ring-2 focus:ring-cyan-500',
             )}
           >
-            {config.externalLink.label}
+            {docsUrl ? 'View Setup Guide' : config.externalLink!.label}
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         )}
 
         {/* Secondary action */}
         {secondaryButton}
-
-        {/* Primary action */}
-        {config.primaryAction && onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
-              'bg-slate-100 dark:bg-slate-800',
-              'text-slate-700 dark:text-slate-200',
-              'hover:bg-slate-200 dark:hover:bg-slate-700',
-              'transition-colors duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-cyan-500',
-            )}
-          >
-            <RefreshCw className="w-4 h-4" />
-            {config.primaryAction}
-          </button>
-        )}
       </div>
     </div>
   )

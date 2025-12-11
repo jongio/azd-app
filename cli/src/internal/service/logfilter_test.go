@@ -136,48 +136,6 @@ func TestNewLogFilterWithBuiltins_CustomPatterns(t *testing.T) {
 	}
 }
 
-func TestLogFilterConfig_ShouldIncludeBuiltins(t *testing.T) {
-	tests := []struct {
-		name   string
-		config *LogFilterConfig
-		want   bool
-	}{
-		{
-			name:   "nil config",
-			config: nil,
-			want:   true,
-		},
-		{
-			name:   "nil includeBuiltins",
-			config: &LogFilterConfig{},
-			want:   true,
-		},
-		{
-			name: "includeBuiltins true",
-			config: &LogFilterConfig{
-				IncludeBuiltins: boolPtr(true),
-			},
-			want: true,
-		},
-		{
-			name: "includeBuiltins false",
-			config: &LogFilterConfig{
-				IncludeBuiltins: boolPtr(false),
-			},
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.config.ShouldIncludeBuiltins()
-			if got != tt.want {
-				t.Errorf("ShouldIncludeBuiltins() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestLogFilterConfig_BuildLogFilter(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -192,22 +150,23 @@ func TestLogFilterConfig_BuildLogFilter(t *testing.T) {
 			shouldFilter: true,
 		},
 		{
-			name:         "config with builtins",
-			config:       &LogFilterConfig{IncludeBuiltins: boolPtr(true)},
+			name:         "empty config uses builtins",
+			config:       &LogFilterConfig{},
 			testMessage:  "npm warn Unknown env config",
 			shouldFilter: true,
 		},
 		{
-			name:         "config without builtins",
-			config:       &LogFilterConfig{IncludeBuiltins: boolPtr(false)},
+			name: "config with custom patterns also includes builtins",
+			config: &LogFilterConfig{
+				Exclude: []string{"custom pattern"},
+			},
 			testMessage:  "npm warn Unknown env config",
-			shouldFilter: false,
+			shouldFilter: true,
 		},
 		{
-			name: "config with custom patterns",
+			name: "config with custom patterns filters custom",
 			config: &LogFilterConfig{
-				Exclude:         []string{"custom pattern"},
-				IncludeBuiltins: boolPtr(false),
+				Exclude: []string{"custom pattern"},
 			},
 			testMessage:  "this has custom pattern",
 			shouldFilter: true,

@@ -25,6 +25,7 @@ azd app logs [service-name] [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--follow` | `-f` | bool | `false` | Follow log output (tail -f behavior) |
+| `--source` | | string | `local` | Log source: `local`, `azure`, or `all` |
 | `--service` | `-s` | string | | Filter by service name(s) (comma-separated) |
 | `--tail` | `-n` | int | `100` | Number of lines to show from the end |
 | `--since` | | string | | Show logs since duration (e.g., 5m, 1h) |
@@ -38,6 +39,33 @@ azd app logs [service-name] [flags]
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
 ## Execution Flow
+
+### Log Source Selection
+
+The logs command supports three sources:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  --source flag determines log origin                         │
+└─────────────────────────────────────────────────────────────┘
+            │
+            ├─► local (default)
+            │   - Logs from locally running services
+            │   - Real-time streaming via process stdout/stderr
+            │   - Requires `azd app run` to be active
+            │
+            ├─► azure
+            │   - Logs from Azure Log Analytics
+            │   - Queries ContainerAppConsoleLogs, AppServiceConsoleLogs, FunctionAppLogs
+            │   - Works standalone (no `azd app run` needed)
+            │   - 1-5 minute ingestion delay
+            │   - Polls every 30s in follow mode
+            │
+            └─► all
+                - Merged view of local + Azure logs
+                - Sorted by timestamp
+                - Local component requires `azd app run`
+```
 
 ### Basic Log Retrieval
 
@@ -731,6 +759,81 @@ For 10 services: ~2 MB total
 
 - [`azd app run`](./run.md) - Start services that generate logs
 - [`azd app info`](./info.md) - Show running services
+
+## Azure Log Analytics Integration
+
+View logs from Azure-deployed services using Log Analytics. See [Azure Logs feature guide](../features/azure-logs.md) for detailed setup.
+
+### Quick Start
+
+```bash
+# View Azure logs (works standalone, no azd app run needed)
+azd app logs --source azure
+
+# Follow Azure logs (polls every 30s)
+azd app logs --source azure -f
+
+# View both local and Azure logs
+azd app logs --source all
+```
+
+### Prerequisites
+
+1. Azure environment provisioned with `azd provision`
+2. Log Analytics workspace configured in bicep
+3. Diagnostic settings enabled for Container Apps/App Service/Functions
+4. Authenticated with `azd auth login`
+
+### Azure-Specific Examples
+
+```bash
+# View last hour of Azure logs
+azd app logs --source azure --since 1h
+
+# Filter Azure logs by service
+azd app logs --source azure --service api
+
+# Azure error logs only
+azd app logs --source azure --level error
+
+# Export Azure logs to file
+azd app logs --source azure --since 24h --file azure-logs.txt
+
+# Combined local + Azure logs with JSON format
+azd app logs --source all --format json
+```
+
+### Configuration
+
+Optional configuration in `azure.yaml`:
+
+```yaml
+logs:
+  analytics:
+    pollingInterval: 10s     # How often to fetch new logs
+    defaultTimespan: 30m     # Initial log history window
+    
+services:
+  api:
+    logs:
+      analytics:
+        # Custom KQL query for this service
+        query: |
+          ContainerAppConsoleLogs
+          | where ContainerAppName_s == 'api'
+          | where Log_s !contains "health"
+```
+
+### Troubleshooting Azure Logs
+
+| Issue | Solution |
+|-------|----------|
+| "Log Analytics not configured" | Add bicep outputs for workspace, run `azd provision` |
+| "Authentication failed" | Run `azd auth login` |
+| "No logs found" | Check diagnostic settings, note 1-5min ingestion delay |
+| "Permission denied" | Request "Log Analytics Reader" role on workspace |
+
+See the [Azure Logs feature guide](../features/azure-logs.md) for complete troubleshooting and setup instructions.
 
 ## Examples
 
