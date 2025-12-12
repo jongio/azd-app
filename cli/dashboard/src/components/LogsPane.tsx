@@ -654,7 +654,7 @@ export function LogsPane({
               </>
             )}
           </div>
-          {logMode === 'azure' && (
+          {logMode === 'azure' && !isModeSwitching && (
             <button
               onClick={() => void handleShowQuery()}
               className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-azure-100 dark:hover:bg-azure-800/50 transition-colors"
