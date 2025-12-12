@@ -89,7 +89,6 @@ interface LogsToolbarProps {
   azureEnabled: boolean
   azureStatus: 'connected' | 'disconnected' | 'connecting' | 'disabled'
   azureConnectionMessage?: string
-  onAzureEnabled?: () => void
 }
 
 function LogsToolbar({
@@ -114,7 +113,6 @@ function LogsToolbar({
   azureEnabled,
   azureStatus,
   azureConnectionMessage,
-  onAzureEnabled,
 }: LogsToolbarProps) {
   return (
     <div className="flex items-center gap-4 p-3 bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 shrink-0">
@@ -230,7 +228,6 @@ function LogsToolbar({
           azureEnabled={azureEnabled}
           azureStatus={azureStatus}
           connectionMessage={azureConnectionMessage}
-          onAzureEnabled={onAzureEnabled}
           size="compact"
           showLabels={false}
           showStatus={true}
@@ -662,23 +659,33 @@ export function ConsoleView({
 
   // Handle mode change with loading indicator
   const handleLogModeChange = React.useCallback(async (newMode: LogMode) => {
-    if (newMode === logMode) return
+    console.log('[ConsoleView] handleLogModeChange called:', { newMode, currentMode: logMode })
+    if (newMode === logMode) {
+      console.log('[ConsoleView] Blocked: same mode')
+      return
+    }
     setIsModeSwitching(true)
     
     try {
       // Call backend API to switch mode - this starts/stops Azure polling
+      console.log('[ConsoleView] Calling /api/mode with:', { mode: newMode })
       const res = await fetch('/api/mode', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: newMode }),
       })
       
+      console.log('[ConsoleView] API response status:', res.status, res.ok)
       if (res.ok) {
+        const data = await res.json()
+        console.log('[ConsoleView] API response data:', data)
         setLogMode(newMode)
+        console.log('[ConsoleView] Mode set to:', newMode)
         // Refresh Azure status after mode change
         await fetchAzureStatus()
       } else {
-        console.error('Failed to switch mode:', await res.text())
+        const errorText = await res.text()
+        console.error('[ConsoleView] Failed to switch mode:', errorText)
       }
     } catch (err) {
       console.error('Error switching mode:', err)
@@ -903,7 +910,6 @@ export function ConsoleView({
         azureEnabled={azureEnabled}
         azureStatus={azureStatus}
         azureConnectionMessage={azureConnectionMessage}
-        onAzureEnabled={fetchAzureStatus}
       />
 
       {/* Filters */}
