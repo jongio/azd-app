@@ -34,6 +34,7 @@ import {
   Cpu,
   Zap,
   Package,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeHealthStatus } from '@/lib/service-utils'
@@ -41,7 +42,9 @@ import { LogsPane, type LogEntry } from '@/components/LogsPane'
 import { LogsPaneGrid } from '@/components/LogsPaneGrid'
 import { LogsView } from '@/components/LogsView'
 import { SettingsDialog } from './SettingsDialog'
+import { DiagnosticsModal } from './DiagnosticsModal'
 import { ModeToggle, type LogMode } from './ModeToggle'
+import { Select } from '@/components/ui/select'
 import { usePreferences } from '@/hooks/usePreferences'
 import { useToast } from '@/components/ui/toast'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
@@ -89,6 +92,12 @@ interface LogsToolbarProps {
   azureEnabled: boolean
   azureStatus: 'connected' | 'disconnected' | 'connecting' | 'disabled'
   azureConnectionMessage?: string
+  // Azure log controls
+  timeRange: { preset: '15m' | '1h' | '6h' | '24h' }
+  onTimeRangeChange: (preset: '15m' | '1h' | '6h' | '24h') => void
+  syncInterval: number
+  onSyncIntervalChange: (interval: number) => void
+  onRunDiagnostics: () => void
 }
 
 function LogsToolbar({
@@ -113,6 +122,11 @@ function LogsToolbar({
   azureEnabled,
   azureStatus,
   azureConnectionMessage,
+  timeRange,
+  onTimeRangeChange,
+  syncInterval,
+  onSyncIntervalChange,
+  onRunDiagnostics,
 }: LogsToolbarProps) {
   return (
     <div className="flex items-center gap-4 p-3 bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 shrink-0">
@@ -232,6 +246,53 @@ function LogsToolbar({
           showLabels={false}
           showStatus={true}
         />
+
+        {/* Azure Log Controls - Show when Azure mode is active */}
+        {logMode === 'azure' && azureEnabled && (
+          <>
+            {/* Timeframe selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-600 dark:text-slate-400">Timeframe:</span>
+              <Select
+                value={timeRange.preset}
+                onChange={(e) => onTimeRangeChange(e.target.value as '15m' | '1h' | '6h' | '24h')}
+                className="h-7 w-24 text-xs bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 px-2 py-0"
+              >
+                <option value="15m">15 min</option>
+                <option value="1h">1 hour</option>
+                <option value="6h">6 hours</option>
+                <option value="24h">24 hours</option>
+              </Select>
+            </div>
+            
+            {/* Refresh interval selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-600 dark:text-slate-400">Refresh:</span>
+              <Select
+                value={String(syncInterval)}
+                onChange={(e) => onSyncIntervalChange(Number(e.target.value))}
+                className="h-7 w-20 text-xs bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 px-2 py-0"
+              >
+                <option value="10000">10s</option>
+                <option value="30000">30s</option>
+                <option value="60000">1m</option>
+                <option value="120000">2m</option>
+                <option value="300000">5m</option>
+              </Select>
+            </div>
+            
+            {/* Diagnostics button */}
+            <button
+              type="button"
+              onClick={onRunDiagnostics}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-azure-100 dark:bg-azure-500/20 text-azure-700 dark:text-azure-300 hover:bg-azure-200 dark:hover:bg-azure-500/30 transition-colors border border-azure-300 dark:border-azure-700"
+              title="Run Azure logs diagnostics"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Diagnostics</span>
+            </button>
+          </>
+        )}
 
         {/* Divider */}
         <div className="w-px h-6 bg-slate-300 dark:bg-slate-700" />
@@ -633,6 +694,11 @@ export function ConsoleView({
   const [azureEnabled, setAzureEnabled] = React.useState(false)
   const [azureStatus, setAzureStatus] = React.useState<'connected' | 'disconnected' | 'connecting' | 'disabled'>('disabled')
   const [azureConnectionMessage, setAzureConnectionMessage] = React.useState<string | undefined>(undefined)
+  
+  // Azure logs settings
+  const [timeRange, setTimeRange] = React.useState<{ preset: '15m' | '1h' | '6h' | '24h' }>({ preset: '15m' })
+  const [syncInterval, setSyncInterval] = React.useState<number>(30000) // 30 seconds default
+  const [showDiagnostics, setShowDiagnostics] = React.useState(false)
 
   // Fetch Azure status from API
   const fetchAzureStatus = React.useCallback(async () => {
@@ -910,6 +976,11 @@ export function ConsoleView({
         azureEnabled={azureEnabled}
         azureStatus={azureStatus}
         azureConnectionMessage={azureConnectionMessage}
+        timeRange={timeRange}
+        onTimeRangeChange={(preset) => setTimeRange({ preset })}
+        syncInterval={syncInterval}
+        onSyncIntervalChange={setSyncInterval}
+        onRunDiagnostics={() => setShowDiagnostics(true)}
       />
 
       {/* Filters */}
@@ -966,8 +1037,8 @@ export function ConsoleView({
                     }
                     logMode={effectiveLogMode}
                     isModeSwitching={isModeSwitching}
-                    timeRange={{ preset: '15m' }}
-                    syncInterval={30000}
+                    timeRange={timeRange}
+                    syncInterval={syncInterval}
                   />
                 )
               })}
@@ -987,6 +1058,12 @@ export function ConsoleView({
           />
         )}
       </div>
+
+      {/* Diagnostics Modal */}
+      <DiagnosticsModal
+        isOpen={showDiagnostics}
+        onClose={() => setShowDiagnostics(false)}
+      />
 
       {/* Settings Dialog */}
       <SettingsDialog
