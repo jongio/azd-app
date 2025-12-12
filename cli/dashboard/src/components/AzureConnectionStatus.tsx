@@ -25,8 +25,6 @@ export interface AzureConnectionStatusProps {
   showDetails?: boolean
   /** Callback to retry connection */
   onRetry?: () => void
-  /** Callback after Azure logging is enabled (to refresh status) */
-  onEnabled?: () => void
   /** Additional class names */
   className?: string
 }
@@ -72,8 +70,8 @@ const statusConfig: Record<AzureConnectionState, {
   },
   disabled: {
     icon: CloudOff,
-    label: 'Disabled',
-    description: 'Add logs.azure.enabled: true to azure.yaml',
+    label: 'Not Configured',
+    description: 'Add logs.analytics section to azure.yaml',
     colorClass: 'text-slate-500 dark:text-slate-400',
     bgClass: 'bg-slate-100 dark:bg-slate-800',
   },
@@ -166,7 +164,6 @@ export function AzureConnectionStatus({
   errorMessage,
   showDetails = false,
   onRetry,
-  onEnabled,
   className,
 }: AzureConnectionStatusProps) {
   const [showErrorPopover, setShowErrorPopover] = React.useState(false)
@@ -184,32 +181,6 @@ export function AzureConnectionStatus({
   const handleRetry = () => {
     setShowErrorPopover(false)
     onRetry?.()
-  }
-
-  // Enable Azure logging (call API)
-  const [enabling, setEnabling] = React.useState(false)
-  const [enableMessage, setEnableMessage] = React.useState<string | null>(null)
-
-  const handleEnableAzure = async (e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    if (enabling) return
-    setEnabling(true)
-    setEnableMessage(null)
-    try {
-      const res = await fetch('/api/azure/enable', { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) {
-        setEnableMessage(data.message || 'Azure logging enabled!')
-        // Notify parent to refresh status - Azure is now available
-        onEnabled?.()
-      } else {
-        setEnableMessage(data.message || data.error || 'Failed to enable Azure logging')
-      }
-    } catch (err: any) {
-      setEnableMessage(err?.message || String(err))
-    } finally {
-      setEnabling(false)
-    }
   }
 
   return (
@@ -287,27 +258,6 @@ export function AzureConnectionStatus({
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         )}
-
-        {/* Enable button when Azure disabled */}
-        {status === 'disabled' && !showDetails && (
-          <div className="ml-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={(e) => handleEnableAzure(e)}
-              className={cn(
-                'px-2 py-1 text-xs rounded-md',
-                'bg-azure-600 text-white hover:bg-azure-700',
-                'focus:outline-none focus:ring-2 focus:ring-azure-500',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-              )}
-              title="Enable Azure logging in azure.yaml"
-              aria-label="Enable Azure logging"
-              disabled={enabling}
-            >
-              {enabling ? 'Enabling...' : 'Enable'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Error details popover */}
@@ -317,18 +267,6 @@ export function AzureConnectionStatus({
           onRetry={handleRetry}
           onClose={() => setShowErrorPopover(false)}
         />
-      )}
-
-      {/* Enable result message */}
-      {enableMessage && (
-        <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-          {enableMessage}
-          {!enabling && enableMessage.includes('enabled') && (
-            <span className="ml-1 text-slate-500">
-              (or add <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-xs">logs.azure.enabled: true</code> to azure.yaml manually)
-            </span>
-          )}
-        </div>
       )}
     </div>
   )

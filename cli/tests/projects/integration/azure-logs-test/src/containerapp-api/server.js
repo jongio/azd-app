@@ -77,11 +77,11 @@ app.listen(port, () => {
   console.log(`[INFO] ${serviceName} started on port ${port}`);
   console.log(`[INFO] Health check: http://localhost:${port}/health`);
   console.log(`[INFO] Generate logs: http://localhost:${port}/generate-logs?count=10`);
-  console.log(`[INFO] Auto-logging enabled - generating logs every 5 seconds`);
+  console.log(`[INFO] Auto-logging enabled - generating logs every 60 seconds`);
   
   // Start auto-logging after 2 second delay
   setTimeout(() => {
-    setInterval(autoGenerateLogs, 5000);
+    setInterval(autoGenerateLogs, 60000);
     autoGenerateLogs(); // Generate first log immediately
   }, 2000);
 });

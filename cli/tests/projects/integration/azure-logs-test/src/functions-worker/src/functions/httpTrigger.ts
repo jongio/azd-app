@@ -82,11 +82,11 @@ app.http('error', {
 
 /**
  * Timer trigger function - Periodic log generation for testing
- * Runs every 30 seconds for active log streaming testing
+ * Runs every 60 seconds for active log streaming testing
  */
 let timerCounter = 0;
 app.timer('periodicLogger', {
-    schedule: '*/30 * * * * *',
+    schedule: '0 * * * * *',
     handler: async (myTimer: any, context: InvocationContext): Promise<void> => {
         timerCounter++;
         context.log(`[INFO] Periodic logger invoked at ${new Date().toISOString()}`);

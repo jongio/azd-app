@@ -24,7 +24,7 @@ log_counter = 0
 
 
 def auto_generate_logs():
-    """Background thread to generate logs every 5 seconds."""
+    """Background thread to generate logs every 60 seconds."""
     global log_counter
     messages = [
         'Processing web request batch',
@@ -34,7 +34,7 @@ def auto_generate_logs():
         'Background task completed',
     ]
     while True:
-        time.sleep(5)
+        time.sleep(60)
         log_counter += 1
         message = random.choice(messages)
         logger.info(f'{message} #{log_counter} - {SERVICE_NAME}')
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     logger.info(f'{SERVICE_NAME} started on port {port}')
     logger.info(f'Health check: http://localhost:{port}/health')
     logger.info(f'Generate logs: http://localhost:{port}/generate-logs?count=10')
-    logger.info('Auto-logging enabled - generating logs every 5 seconds')
+    logger.info('Auto-logging enabled - generating logs every 60 seconds')
     
     # Start auto-logging background thread
     log_thread = threading.Thread(target=auto_generate_logs, daemon=True)
