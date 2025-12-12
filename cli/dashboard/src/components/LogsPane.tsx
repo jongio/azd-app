@@ -192,8 +192,9 @@ export function LogsPane({
     setLogs([]) // Clear logs when switching modes
   }, [logMode])
 
-  // Fetch initial logs and setup WebSocket - reconnect when mode or timeframe changes
+  // Fetch initial logs and setup streaming - reconnect when mode or timeframe changes
   useEffect(() => {
+    console.log(`[LogsPane:${serviceName}] Effect triggered - mode:`, logMode, 'timeRange:', timeRange)
     // Choose endpoint based on mode
     const logsEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
     const streamEndpoint = logMode === 'azure' ? '/api/azure/logs/stream' : '/api/logs/stream'
@@ -210,27 +211,51 @@ export function LogsPane({
             params.set('since', timeRange.preset)
           }
         }
-        const res = await fetch(`${logsEndpoint}?${params.toString()}`)
+        const url = `${logsEndpoint}?${params.toString()}`
+        console.log(`[LogsPane:${serviceName}] Fetching logs from:`, url)
+        const res = await fetch(url)
+        console.log(`[LogsPane:${serviceName}] Response status:`, res.status, res.ok)
         if (res.ok) {
           const data = await res.json()
+          console.log(`[LogsPane:${serviceName}] Response data:`, data)
 
           if (logMode === 'azure') {
             const azurePayload = data as { status?: string; logs?: LogEntry[] }
             const nextLogs = Array.isArray(azurePayload) ? azurePayload : azurePayload.logs
+            console.log(`[LogsPane:${serviceName}] Setting ${nextLogs?.length || 0} Azure logs`)
             setLogs(nextLogs ?? [])
           } else {
             const nextLogs = Array.isArray(data) ? data as LogEntry[] : []
+            console.log(`[LogsPane:${serviceName}] Setting ${nextLogs.length} local logs`)
             setLogs(nextLogs)
           }
         }
       } catch (err) {
-        console.error(`Failed to fetch ${logMode} logs for ${serviceName}:`, err)
+        console.error(`[LogsPane:${serviceName}] Failed to fetch ${logMode} logs:`, err)
       }
     }
 
     void fetchLogs()
 
-    // Setup WebSocket
+    // For Azure logs, use polling instead of WebSocket
+    if (logMode === 'azure') {
+      console.log(`[LogsPane:${serviceName}] Starting Azure polling (10s interval)`)
+      // Poll for new logs every 10 seconds
+      const pollInterval = setInterval(() => {
+        if (!isPausedRef.current) {
+          console.log(`[LogsPane:${serviceName}] Polling Azure logs...`)
+          void fetchLogs()
+        }
+      }, 10000)
+
+      return () => {
+        console.log(`[LogsPane:${serviceName}] Stopping Azure polling`)
+        clearInterval(pollInterval)
+      }
+    }
+
+    console.log(`[LogsPane:${serviceName}] Starting WebSocket for local logs`)
+    // For local logs, use WebSocket streaming
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const ws = new WebSocket(`${protocol}//${window.location.host}${streamEndpoint}?service=${serviceName}`)
 
@@ -249,19 +274,25 @@ export function LogsPane({
     }
 
     ws.onerror = (err) => {
-      console.error(`WebSocket error for ${serviceName} (${logMode}):`, err)
+      // Suppress error logging for expected closure during mode switches
+      if (ws.readyState !== WebSocket.CLOSED) {
+        console.error(`WebSocket error for ${serviceName} (${logMode}):`, err)
+      }
     }
 
     wsRef.current = ws
 
     return () => {
       // Ensure clean disconnection
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close(1000, 'Mode change or unmount')
+      if (wsRef.current) {
+        const currentWs = wsRef.current
+        if (currentWs.readyState === WebSocket.OPEN || currentWs.readyState === WebSocket.CONNECTING) {
+          currentWs.close(1000, 'Mode change or unmount')
+        }
+        wsRef.current = null
       }
-      wsRef.current = null
     }
-  }, [serviceName, logMode, timeRange]) // Reconnect when mode or timeframe changes
+  }, [serviceName, logMode]) // Reconnect when service name or mode changes (not timeRange for local)
 
   // Auto-scroll - scroll the container, not the page
   // Pause auto-scroll when user is hovering over the logs

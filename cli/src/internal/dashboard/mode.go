@@ -13,8 +13,8 @@ import (
 const modeNotConfiguredMessage = `Azure logging not configured. To enable:
 1. Add to azure.yaml:
    logs:
-     azure:
-       enabled: true
+     analytics:
+       workspace: <optional-workspace-guid>
 2. Restart 'azd app run'
 
 For more info: https://aka.ms/azd-app/azure-logs`
@@ -41,11 +41,26 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mode switching is deprecated - always return local mode
+	// Get current mode from server state
+	s.modeMu.RLock()
+	currentMode := s.currentMode
+	s.modeMu.RUnlock()
+
+	// Check if Azure logging is configured (logs.analytics section exists)
+	azureEnabled := false
+	azureStatus := "disabled"
+	
+	azureYaml, err := loadAzureYaml(s.projectDir)
+	if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
+		// Azure logging is configured
+		azureEnabled = true
+		azureStatus = "connected" // Assume connected if configured
+	}
+
 	response := ModeResponse{
-		Mode:         string(service.LogModeLocal),
-		AzureEnabled: false,
-		AzureStatus:  "disabled",
+		Mode:         string(currentMode),
+		AzureEnabled: azureEnabled,
+		AzureStatus:  azureStatus,
 	}
 
 	if err := writeJSON(w, response); err != nil {
@@ -66,8 +81,47 @@ func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mode switching is deprecated - return error
-	writeJSONError(w, http.StatusBadRequest, "Mode switching is deprecated. Use /api/azure/logs endpoint directly.", nil)
+	// Validate mode
+	if req.Mode != string(service.LogModeLocal) && req.Mode != string(service.LogModeAzure) {
+		writeJSONError(w, http.StatusBadRequest, "Invalid mode. Must be 'local' or 'azure'", nil)
+		return
+	}
+
+	// If switching to Azure mode, verify it's configured
+	if req.Mode == string(service.LogModeAzure) {
+		azureYaml, err := loadAzureYaml(s.projectDir)
+		if err != nil || azureYaml.Logs == nil || azureYaml.Logs.Analytics == nil {
+			writeJSONError(w, http.StatusBadRequest, "Azure logging not configured. Add logs.analytics section to azure.yaml", nil)
+			return
+		}
+	}
+
+	// Mode is tracked client-side only - just return success with current status
+	// The frontend will use the mode to determine which API endpoints to call
+	
+	// Store the mode in server state
+	s.modeMu.Lock()
+	s.currentMode = service.LogMode(req.Mode)
+	s.modeMu.Unlock()
+	
+	azureEnabled := false
+	azureStatus := "disabled"
+	
+	azureYaml, err := loadAzureYaml(s.projectDir)
+	if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
+		azureEnabled = true
+		azureStatus = "connected"
+	}
+
+	response := ModeResponse{
+		Mode:         req.Mode,
+		AzureEnabled: azureEnabled,
+		AzureStatus:  azureStatus,
+	}
+
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Failed to write mode response: %v", err)
+	}
 }
 
 // handleModeRouter routes mode requests to the appropriate handler.

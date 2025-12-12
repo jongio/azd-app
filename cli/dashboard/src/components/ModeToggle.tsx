@@ -33,8 +33,6 @@ export interface ModeToggleProps {
   showStatus?: boolean
   /** Callback when mode changes */
   onModeChange?: (mode: LogMode) => void
-  /** Callback after Azure is enabled (to refresh status) */
-  onAzureEnabled?: () => void
   /** Additional class names */
   className?: string
 }
@@ -113,11 +111,9 @@ export function ModeToggle({
   showLabels = true,
   showStatus = true,
   onModeChange,
-  onAzureEnabled,
   className 
 }: ModeToggleProps) {
   const [announcement, setAnnouncement] = React.useState('')
-  const [enabling, setEnabling] = React.useState(false)
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const config = sizeConfig[size]
 
@@ -131,16 +127,22 @@ export function ModeToggle({
   }, [])
 
   const handleModeChange = (newMode: LogMode) => {
-    if (isLoading || mode === newMode) return
+    console.log('[ModeToggle] handleModeChange called:', { newMode, currentMode: mode, isLoading, azureEnabled, azureStatus })
+    if (isLoading || mode === newMode) {
+      console.log('[ModeToggle] Blocked: isLoading or same mode')
+      return
+    }
     
     // Check if Azure is available before switching to it
     if (newMode === 'azure' && !azureEnabled) {
+      console.log('[ModeToggle] Blocked: Azure not enabled')
       setAnnouncement('Azure logging is not configured')
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       timeoutRef.current = setTimeout(() => setAnnouncement(''), 2000)
       return
     }
     
+    console.log('[ModeToggle] Calling onModeChange')
     onModeChange?.(newMode)
     
     // Announce to screen readers
@@ -212,28 +214,6 @@ export function ModeToggle({
     return null
   }
 
-  // Handle enabling Azure logging
-  const handleEnableAzure = async () => {
-    if (enabling) return
-    setEnabling(true)
-    try {
-      const res = await fetch('/api/azure/enable', { method: 'POST' })
-      if (res.ok) {
-        setAnnouncement('Azure logging enabled!')
-        onAzureEnabled?.()
-      } else {
-        const data = await res.json()
-        setAnnouncement(data.message || 'Failed to enable Azure logging')
-      }
-    } catch {
-      setAnnouncement('Failed to enable Azure logging')
-    } finally {
-      setEnabling(false)
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      timeoutRef.current = setTimeout(() => setAnnouncement(''), 3000)
-    }
-  }
-
   return (
     <>
       <div 
@@ -293,7 +273,7 @@ export function ModeToggle({
           disabled={isLoading || azureDisabled}
           title={
             azureDisabled 
-              ? 'Add logs.azure.enabled: true to azure.yaml' 
+              ? 'Azure logging not configured. Add logs.analytics section to azure.yaml' 
               : size === 'compact' 
                 ? 'Azure logs' 
                 : undefined
@@ -329,25 +309,6 @@ export function ModeToggle({
           )}
           <StatusIndicator status={azureStatus} />
         </button>
-
-        {/* Enable Azure button when disabled */}
-        {azureDisabled && (
-          <button
-            type="button"
-            onClick={handleEnableAzure}
-            disabled={enabling}
-            title="Enable Azure logging in azure.yaml"
-            className={cn(
-              'ml-1 px-2 py-1 text-xs rounded-md',
-              'bg-azure-600 text-white hover:bg-azure-700',
-              'focus:outline-none focus:ring-2 focus:ring-azure-500',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'transition-colors',
-            )}
-          >
-            {enabling ? '...' : 'Enable'}
-          </button>
-        )}
       </div>
       
       {/* Screen reader announcements */}
