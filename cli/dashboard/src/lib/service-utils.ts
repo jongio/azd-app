@@ -616,14 +616,32 @@ export function formatStartTime(timeStr?: string): string {
   }
 }
 
+function formatTimezoneOffset(date: Date, original: string): string {
+  const offsetMatch = original.match(/([+-]\d{2}:?\d{2}|Z)$/)
+  if (offsetMatch) {
+    const raw = offsetMatch[1]
+    if (raw === 'Z') return 'Z'
+    if (raw.includes(':')) return raw
+    return `${raw.slice(0, 3)}:${raw.slice(3)}`
+  }
+
+  const offsetMinutes = date.getTimezoneOffset()
+  const sign = offsetMinutes > 0 ? '-' : '+'
+  const absMinutes = Math.abs(offsetMinutes)
+  const hours = Math.floor(absMinutes / 60).toString().padStart(2, '0')
+  const minutes = (absMinutes % 60).toString().padStart(2, '0')
+  return `${sign}${hours}:${minutes}`
+}
+
 /**
- * Format a timestamp for log display (YYYY-MM-DD HH:MM:SS.mmm)
+ * Format a timestamp for log display (YYYY-MM-DD HH:MM:SS.mmm ±HH:MM)
  */
 export function formatLogTimestamp(timestamp: string): string {
+  const trimmed = (timestamp ?? '').trim()
   try {
-    const date = new Date(timestamp)
+    const date = new Date(trimmed)
     if (Number.isNaN(date.getTime())) {
-      return timestamp
+      return trimmed
     }
 
     const year = date.getFullYear().toString().padStart(4, '0')
@@ -633,10 +651,11 @@ export function formatLogTimestamp(timestamp: string): string {
     const minutes = date.getMinutes().toString().padStart(2, '0')
     const seconds = date.getSeconds().toString().padStart(2, '0')
     const ms = date.getMilliseconds().toString().padStart(3, '0')
+    const offset = formatTimezoneOffset(date, trimmed)
 
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms} ${offset}`
   } catch {
-    return timestamp
+    return trimmed
   }
 }
 

@@ -605,6 +605,9 @@ function LogsPaneLogArea({
           {filteredLogs.map((log, idx) => {
             const logLevel = getPaneLogLevel(log)
             const logKey = `${log.timestamp}-${log.service}-${idx}`
+            const formattedTimestamp = formatLogTimestamp(log.timestamp ?? '')
+            const cleanedMessage = stripEmbeddedTimestamp(log.message ?? '')
+            const serviceLabel = log.service ? ` | ${log.service}` : ''
 
             return (
               <div
@@ -623,11 +626,11 @@ function LogsPaneLogArea({
                 
                 <div className="flex-1 min-w-0 select-text">
                   <span className="text-muted-foreground text-xs">
-                    [{formatLogTimestamp(log.timestamp ?? '')}]
+                    [{formattedTimestamp}{serviceLabel}]
                   </span>
                   {' '}
                   <span dangerouslySetInnerHTML={{ __html: convertAnsiToHtml(
-                    logMode === 'azure' ? stripEmbeddedTimestamp(log.message ?? '') : (log.message ?? ''),
+                    cleanedMessage,
                     codespaceConfig
                   ) }} />
                 </div>
@@ -1193,7 +1196,10 @@ export function LogsPane({
   }
 
   const handleCopyLine = (log: LogEntry, index?: number) => {
-    const text = `[${log.timestamp}] [${log.service}] ${log.message}`
+    const formattedTimestamp = formatLogTimestamp(log.timestamp ?? '')
+    const cleanedMessage = stripEmbeddedTimestamp(log.message ?? '')
+    const serviceLabel = log.service ? ` | ${log.service}` : ''
+    const text = `[${formattedTimestamp}${serviceLabel}] ${cleanedMessage}`
     void navigator.clipboard.writeText(text)
     if (index !== undefined) {
       setCopiedLineIndex(index)
