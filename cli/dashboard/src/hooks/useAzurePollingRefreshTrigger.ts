@@ -23,6 +23,9 @@ export function useAzurePollingRefreshTrigger(params: {
       return
     }
 
+    // Reset schedule when dependencies change so the next tick uses the latest interval/state.
+    nextRefreshAtMsRef.current = null
+
     const intervalMs = Math.max(1000, syncInterval)
 
     const computeSecondsRemaining = (nowMs: number): number => {

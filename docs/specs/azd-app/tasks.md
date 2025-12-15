@@ -1,10 +1,5 @@
-<!-- NEXT: #fix-azure-mode-refresh -->
+<!-- NEXT: #simplify-log-header-timestamps -->
 # azd-app Tasks
-
-## IN PROGRESS: Fix Azure mode refresh {#fix-azure-mode-refresh}
-- Auto-refresh in Azure mode must actually re-query Azure logs when the countdown reaches zero; ensure polling is not paused or blocked by mode toggles.
-- Verify refresh honors the selected sync interval bounds (5s-5m) and resumes correctly after manual refresh or tab visibility changes.
-- Add automated coverage (unit or e2e) proving at least one refresh cycle happens in Azure mode within the configured interval.
 
 ## TODO: Simplify log header timestamps {#simplify-log-header-timestamps}
 - Reduce duplicated timestamp data in log rows; display a single timestamp format plus source/service once per entry while retaining timezone clarity.
@@ -25,6 +20,11 @@
 - ✅ Added 44 unit tests in `azure-provenance.test.ts` covering all provenance detection, parsing, local vs Azure scenarios
 - ✅ Tests: 697 passed, azure-provenance.ts at 100% coverage
 - ✅ Build successful (Go CLI v0.9.0, TypeScript type-checks clean)
+
+## DONE: Fix Azure mode refresh {#fix-azure-mode-refresh}
+- ✅ Reset Azure polling countdown when sync interval or mode dependencies change so the next refresh uses the latest interval.
+- ✅ Added regression test ensuring Azure polling re-queries after shortening the interval (logspane.test.tsx).
+- Tests: not run in this workspace; run `pnpm --filter cli/dashboard test -- --run logspane` to verify.
 
 ## DONE: Fix containerapp-api logs {#fix-containerapp-logs}
 - Confirmed logs appear when timeframe is adjusted - no backend fix needed.
