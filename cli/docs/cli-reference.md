@@ -890,7 +890,7 @@ azd app logs --no-color
 | Source | Description | Streaming |
 |--------|-------------|-----------|
 | `local` | Logs from locally running services (default) | Real-time via process stdout/stderr |
-| `azure` | Logs from Azure Log Analytics | Polls every 30s (30-90s ingestion delay) |
+| `azure` | Logs from Azure Log Analytics | Polls every 30s (1-5 minute ingestion delay) |
 | `all` | Both local and Azure logs merged | Mixed |
 
 ### Log Levels

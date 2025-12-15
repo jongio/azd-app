@@ -105,18 +105,27 @@ describe('LogsPane', () => {
   })
 
   it('deduplicates embedded timestamps and service prefixes while keeping timezone', async () => {
-    fetchMock.mockImplementationOnce(() => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = normalizeRequestUrl(input)
+      if (url.includes('/api/azure/logs')) {
+        capturedAzureUrls.push(url)
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            logs: [{
+              timestamp: '2025-12-13T05:45:49.1071934-08:00',
+              service: 'appservice-web',
+              message: '[2025-12-13T05:45:49.1071934-08:00] [appservice-web] [2025-12-13 05:45:49] Health endpoint hit',
+              level: 1,
+              isStderr: false,
+            }],
+          }),
+        } as unknown as Response)
+      }
+
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({
-          logs: [{
-            timestamp: '2025-12-13T05:45:49.1071934-08:00',
-            service: 'appservice-web',
-            message: '[2025-12-13T05:45:49.1071934-08:00] [appservice-web] [2025-12-13 05:45:49] Health endpoint hit',
-            level: 1,
-            isStderr: false,
-          }],
-        }),
+        json: () => Promise.resolve({ logs: [] }),
       } as unknown as Response)
     })
 
@@ -130,26 +139,6 @@ describe('LogsPane', () => {
     expect(rowText).toMatch(/-08:00/)
     const serviceMatches = rowText.match(/appservice-web/g) ?? []
     expect(serviceMatches.length).toBe(1)
-  })
-
-  it('uses custom timeRange when provided', async () => {
-    const start = new Date('2024-01-01T00:00:00.000Z')
-    const end = new Date('2024-01-01T01:00:00.000Z')
-
-    render(
-      <LogsPane
-        serviceName="api"
-        onCopy={() => {}}
-        isPaused={false}
-        logMode="azure"
-        timeRange={{ preset: 'custom', start, end }}
-      />
-    )
-
-    await waitFor(() => expect(capturedAzureUrls.length).toBeGreaterThan(0))
-    
-    expect(String(capturedAzureUrls[0])).toContain(`start=${encodeURIComponent(start.toISOString())}`)
-    expect(String(capturedAzureUrls[0])).toContain(`end=${encodeURIComponent(end.toISOString())}`)
   })
 
   it('does not fetch Azure logs in local mode', async () => {
@@ -174,7 +163,18 @@ describe('LogsPane', () => {
 
     const deferred = createDeferred<Response>()
 
-    fetchMock.mockImplementationOnce(() => deferred.promise)
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = normalizeRequestUrl(input)
+      if (url.includes('/api/azure/logs')) {
+        capturedAzureUrls.push(url)
+        return deferred.promise
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ logs: [] }),
+      } as unknown as Response)
+    })
 
     render(
       <LogsPane
@@ -211,7 +211,7 @@ describe('LogsPane', () => {
     ).toBeInTheDocument()
   })
 
-  it('suggests a custom range when timeframe is already 24h', async () => {
+  it('suggests a wider range when timeframe is already 24h', async () => {
     const fixedEnd = new Date('2025-12-14T12:00:00.000Z')
 
     render(
@@ -231,7 +231,7 @@ describe('LogsPane', () => {
     })
 
     expect(
-      screen.getByText(/Try changing the timeframe to a custom range\./)
+      screen.getByText(/Try changing the timeframe to a wider range\./)
     ).toBeInTheDocument()
   })
 
@@ -239,48 +239,33 @@ describe('LogsPane', () => {
     it('refreshTrigger in useEffect deps causes fetch on state change', async () => {
       // This test verifies the component structure - the refresh mechanism
       // is tested by observing that timeRange changes trigger re-fetch
-      const start1 = new Date('2024-01-01T00:00:00.000Z')
-      const end1 = new Date('2024-01-01T01:00:00.000Z')
-
       const { rerender } = render(
         <LogsPane
           serviceName="api"
           onCopy={() => {}}
           isPaused={false}
           logMode="azure"
-          timeRange={{ preset: 'custom', start: start1, end: end1 }}
+          timeRange={{ preset: '15m' }}
         />
       )
 
-      const start1Query = `start=${encodeURIComponent(start1.toISOString())}`
-      await waitFor(() => {
-        expect(capturedAzureUrls.some((url) => String(url).includes(start1Query))).toBe(true)
-      })
+      await waitFor(() => expect(capturedAzureUrls.some((url) => String(url).includes('since=15m'))).toBe(true))
 
       // Change timeRange to trigger re-fetch (similar mechanism to refreshTrigger)
-      const start2 = new Date('2024-01-02T00:00:00.000Z')
-      const end2 = new Date('2024-01-02T01:00:00.000Z')
-
       rerender(
         <LogsPane
           serviceName="api"
           onCopy={() => {}}
           isPaused={false}
           logMode="azure"
-          timeRange={{ preset: 'custom', start: start2, end: end2 }}
+          timeRange={{ preset: '24h' }}
         />
       )
 
-      const start2Query = `start=${encodeURIComponent(start2.toISOString())}`
-      await waitFor(() => {
-        expect(capturedAzureUrls.some((url) => String(url).includes(start2Query))).toBe(true)
-      })
+      await waitFor(() => expect(capturedAzureUrls.some((url) => String(url).includes('since=24h'))).toBe(true))
     })
 
     it('polls again within the updated sync interval when the interval is shortened', async () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'))
-
       const { rerender } = render(
         <LogsPane
           serviceName="api"
@@ -292,7 +277,9 @@ describe('LogsPane', () => {
         />
       )
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      await waitFor(() => {
+        expect(capturedAzureUrls.length).toBeGreaterThan(0)
+      })
 
       rerender(
         <LogsPane
@@ -300,18 +287,14 @@ describe('LogsPane', () => {
           onCopy={() => {}}
           isPaused={false}
           logMode="azure"
-          syncInterval={5000}
+          syncInterval={1000}
           azureRealtime={false}
         />
       )
 
-      act(() => {
-        vi.advanceTimersByTime(5000)
-      })
-
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-
-      vi.useRealTimers()
+      await waitFor(() => {
+        expect(capturedAzureUrls.length).toBeGreaterThanOrEqual(2)
+      }, { timeout: 3000 })
     })
   })
 })
