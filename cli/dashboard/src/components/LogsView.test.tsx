@@ -289,8 +289,8 @@ describe('LogsView', () => {
     render(<LogsView />)
 
     await waitFor(() => {
-      // Should display formatted timestamps in HH:MM:SS.mmm format
-      const timestamps = screen.getAllByText(/\[\d{2}:\d{2}:\d{2}\.\d{3}\]/)
+      // Should display formatted timestamps in YYYY-MM-DD HH:MM:SS.mmm format
+      const timestamps = screen.getAllByText(/\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\]/)
       expect(timestamps.length).toBeGreaterThan(0)
     })
   })

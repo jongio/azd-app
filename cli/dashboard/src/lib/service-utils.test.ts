@@ -268,16 +268,15 @@ describe('service-utils', () => {
   })
 
   describe('formatLogTimestamp', () => {
-    it('should format timestamp as HH:MM:SS.mmm', () => {
+    it('should format timestamp as YYYY-MM-DD HH:MM:SS.mmm', () => {
       const result = formatLogTimestamp('2024-01-15T10:30:45.123Z')
-      // The exact format may vary by locale, but should contain the milliseconds
+      expect(result).toMatch(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}/)
       expect(result).toContain('123')
     })
 
     it('should handle invalid timestamp gracefully', () => {
-      // Invalid timestamps result in Invalid Date but don't throw
       const result = formatLogTimestamp('invalid')
-      expect(result).toContain('Invalid Date')
+      expect(result).toBe('invalid')
     })
   })
 

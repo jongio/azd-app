@@ -13,27 +13,27 @@ import (
 
 // mockTokenCredential implements azcore.TokenCredential for testing token cache.
 type mockTokenCredential struct {
-	token      string
-	err        error
-	callCount  int
-	mu         sync.Mutex
-	expiresOn  time.Time
+	token     string
+	err       error
+	callCount int
+	mu        sync.Mutex
+	expiresOn time.Time
 }
 
 func (m *mockTokenCredential) GetToken(ctx context.Context, options policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.callCount++
-	
+
 	if m.err != nil {
 		return azcore.AccessToken{}, m.err
 	}
-	
+
 	expiresOn := m.expiresOn
 	if expiresOn.IsZero() {
 		expiresOn = time.Now().Add(1 * time.Hour)
 	}
-	
+
 	return azcore.AccessToken{
 		Token:     m.token,
 		ExpiresOn: expiresOn,
@@ -254,38 +254,38 @@ func TestClearTokenCacheOnError_AuthErrors(t *testing.T) {
 	logAnalyticsTokenCache.Set("test-token")
 
 	testCases := []struct {
-		name      string
-		err       error
+		name        string
+		err         error
 		shouldClear bool
 	}{
 		{
-			name:      "401 error",
-			err:       errors.New("HTTP 401 Unauthorized"),
+			name:        "401 error",
+			err:         errors.New("HTTP 401 Unauthorized"),
 			shouldClear: true,
 		},
 		{
-			name:      "403 error",
-			err:       errors.New("HTTP 403 Forbidden"),
+			name:        "403 error",
+			err:         errors.New("HTTP 403 Forbidden"),
 			shouldClear: true,
 		},
 		{
-			name:      "AADSTS error",
-			err:       errors.New("AADSTS50058: token expired"),
+			name:        "AADSTS error",
+			err:         errors.New("AADSTS50058: token expired"),
 			shouldClear: true,
 		},
 		{
-			name:      "AuthenticationFailed",
-			err:       errors.New("AuthenticationFailed: invalid credentials"),
+			name:        "AuthenticationFailed",
+			err:         errors.New("AuthenticationFailed: invalid credentials"),
 			shouldClear: true,
 		},
 		{
-			name:      "Non-auth error",
-			err:       errors.New("network timeout"),
+			name:        "Non-auth error",
+			err:         errors.New("network timeout"),
 			shouldClear: false,
 		},
 		{
-			name:      "Nil error",
-			err:       nil,
+			name:        "Nil error",
+			err:         nil,
 			shouldClear: false,
 		},
 	}
@@ -294,10 +294,10 @@ func TestClearTokenCacheOnError_AuthErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup: ensure cache has a token
 			logAnalyticsTokenCache.Set("test-token")
-			
+
 			// Act
 			ClearTokenCacheOnError(tc.err)
-			
+
 			// Assert
 			token := logAnalyticsTokenCache.Get()
 			if tc.shouldClear {

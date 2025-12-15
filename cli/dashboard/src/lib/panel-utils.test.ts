@@ -1,15 +1,264 @@
 /**
  * Tests for panel-utils helper functions
  */
-import { describe, it, expect } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import type { AzureServiceInfo, Service } from '@/types'
 import { 
+  buildAzurePortalUrl,
+  formatCheckType,
   isAzureLogViewingSupported, 
+  isSensitiveKey,
+  maskValue,
+  formatTimestamp,
+  formatUptime,
+  getHealthColor,
+  getHealthDisplay,
+  getStatusColor,
+  getStatusDisplay,
   getUnsupportedResourceTypeInfo,
+  hasAzureDeployment,
   SUPPORTED_AZURE_LOG_RESOURCE_TYPES,
   formatResourceType,
 } from './panel-utils'
 
 describe('panel-utils', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  describe('formatUptime', () => {
+    it('should return N/A for undefined start time', () => {
+      expect(formatUptime(undefined)).toBe('N/A')
+    })
+
+    it('should return N/A for future timestamps', () => {
+      vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'))
+      const future = new Date('2025-01-01T00:01:00.000Z')
+      expect(formatUptime(future.toISOString())).toBe('N/A')
+    })
+
+    it('should format seconds-only uptime', () => {
+      vi.setSystemTime(new Date('2025-01-01T00:00:10.000Z'))
+      const start = new Date('2025-01-01T00:00:00.000Z')
+      expect(formatUptime(start.toISOString())).toBe('10s')
+    })
+
+    it('should format minutes uptime', () => {
+      vi.setSystemTime(new Date('2025-01-01T00:02:10.000Z'))
+      const start = new Date('2025-01-01T00:00:00.000Z')
+      expect(formatUptime(start.toISOString())).toBe('2m 10s')
+    })
+
+    it('should format hours uptime', () => {
+      vi.setSystemTime(new Date('2025-01-01T01:02:03.000Z'))
+      const start = new Date('2025-01-01T00:00:00.000Z')
+      expect(formatUptime(start.toISOString())).toBe('1h 2m 3s')
+    })
+  })
+
+  describe('formatTimestamp', () => {
+    it('should return N/A for undefined timestamp', () => {
+      expect(formatTimestamp(undefined)).toBe('N/A')
+    })
+
+    it('should return N/A for invalid timestamp', () => {
+      expect(formatTimestamp('not-a-date')).toBe('N/A')
+    })
+
+    it('should format valid timestamp using locale string', () => {
+      const ts = '2025-01-01T00:00:00.000Z'
+      const expected = new Date(ts).toLocaleString()
+      expect(formatTimestamp(ts)).toBe(expected)
+    })
+  })
+
+  describe('getStatusColor', () => {
+    it('should return the correct colors for known statuses', () => {
+      expect(getStatusColor('running')).toBe('text-green-500')
+      expect(getStatusColor('ready')).toBe('text-green-500')
+      expect(getStatusColor('starting')).toBe('text-yellow-500')
+      expect(getStatusColor('stopping')).toBe('text-yellow-500')
+      expect(getStatusColor('stopped')).toBe('text-gray-500')
+      expect(getStatusColor('error')).toBe('text-red-500')
+      expect(getStatusColor('not-running')).toBe('text-gray-500')
+    })
+
+    it('should fall back to not-running color for unknown status', () => {
+      expect(getStatusColor('something-else')).toBe('text-gray-500')
+      expect(getStatusColor(undefined)).toBe('text-gray-500')
+    })
+  })
+
+  describe('getHealthColor', () => {
+    it('should return the correct colors for known health values', () => {
+      expect(getHealthColor('healthy')).toBe('text-green-500')
+      expect(getHealthColor('degraded')).toBe('text-yellow-500')
+      expect(getHealthColor('unhealthy')).toBe('text-red-500')
+      expect(getHealthColor('starting')).toBe('text-yellow-500')
+      expect(getHealthColor('unknown')).toBe('text-gray-500')
+    })
+
+    it('should fall back to unknown color for unknown health', () => {
+      expect(getHealthColor('mystery')).toBe('text-gray-500')
+      expect(getHealthColor(undefined)).toBe('text-gray-500')
+    })
+  })
+
+  describe('buildAzurePortalUrl', () => {
+    it('should return null when required azure fields are missing', () => {
+      const service: Service = { name: 'svc' }
+      expect(buildAzurePortalUrl(service)).toBeNull()
+
+      const azurePartial1: AzureServiceInfo = { subscriptionId: 'sub' }
+      expect(buildAzurePortalUrl({ ...service, azure: azurePartial1 })).toBeNull()
+
+      const azurePartial2: AzureServiceInfo = { subscriptionId: 'sub', resourceGroup: 'rg' }
+      expect(
+        buildAzurePortalUrl({ ...service, azure: azurePartial2 })
+      ).toBeNull()
+    })
+
+    it('should build a Container Apps portal url by default', () => {
+      const service: Service = {
+        name: 'svc',
+        azure: {
+          subscriptionId: 'sub',
+          resourceGroup: 'rg',
+          resourceName: 'app',
+          resourceType: 'containerapp',
+        },
+      }
+      const url = buildAzurePortalUrl(service)
+      expect(url).toContain('/providers/Microsoft.App/containerApps/app')
+    })
+
+    it('should build an App Service portal url for appservice/webapp/function', () => {
+      const base: Service = {
+        name: 'svc',
+        azure: { subscriptionId: 'sub', resourceGroup: 'rg', resourceName: 'site' },
+      }
+      expect(buildAzurePortalUrl({ ...base, azure: { ...base.azure, resourceType: 'appservice' } })).toContain(
+        '/providers/Microsoft.Web/sites/site'
+      )
+      expect(buildAzurePortalUrl({ ...base, azure: { ...base.azure, resourceType: 'webapp' } })).toContain(
+        '/providers/Microsoft.Web/sites/site'
+      )
+      expect(buildAzurePortalUrl({ ...base, azure: { ...base.azure, resourceType: 'function' } })).toContain(
+        '/providers/Microsoft.Web/sites/site'
+      )
+    })
+
+    it('should build an AKS portal url for aks', () => {
+      const service: Service = {
+        name: 'svc',
+        azure: {
+          subscriptionId: 'sub',
+          resourceGroup: 'rg',
+          resourceName: 'cluster',
+          resourceType: 'aks',
+        },
+      }
+      const url = buildAzurePortalUrl(service)
+      expect(url).toContain('/providers/Microsoft.ContainerService/managedClusters/cluster')
+    })
+  })
+
+  describe('isSensitiveKey', () => {
+    it('should detect sensitive keys case-insensitively', () => {
+      expect(isSensitiveKey('PASSWORD')).toBe(true)
+      expect(isSensitiveKey('clientSecret')).toBe(true)
+      expect(isSensitiveKey('apiKey')).toBe(true)
+      expect(isSensitiveKey('authToken')).toBe(true)
+      expect(isSensitiveKey('connectionString')).toBe(true)
+      expect(isSensitiveKey('privateKey')).toBe(true)
+      expect(isSensitiveKey('credential')).toBe(true)
+    })
+
+    it('should return false for non-sensitive keys', () => {
+      expect(isSensitiveKey('name')).toBe(false)
+      expect(isSensitiveKey('port')).toBe(false)
+      expect(isSensitiveKey('replicas')).toBe(false)
+    })
+  })
+
+  describe('maskValue', () => {
+    it('should mask short values with the same length', () => {
+      expect(maskValue('')).toBe('')
+      expect(maskValue('a')).toBe('•')
+      expect(maskValue('abcd')).toBe('••••')
+    })
+
+    it('should mask longer values up to 16 characters', () => {
+      expect(maskValue('abcde')).toBe('•••••')
+      expect(maskValue('0123456789')).toBe('••••••••••')
+      expect(maskValue('0123456789abcdefg')).toBe('••••••••••••••••')
+    })
+  })
+
+  describe('getStatusDisplay', () => {
+    it('should return defaults for undefined/unknown', () => {
+      expect(getStatusDisplay(undefined)).toEqual({ text: 'Not Running', indicator: '○' })
+      expect(getStatusDisplay('unknown-status')).toEqual({ text: 'Not Running', indicator: '○' })
+    })
+
+    it('should return known displays', () => {
+      expect(getStatusDisplay('running')).toEqual({ text: 'Running', indicator: '●' })
+      expect(getStatusDisplay('starting')).toEqual({ text: 'Starting', indicator: '◐' })
+      expect(getStatusDisplay('stopping')).toEqual({ text: 'Stopping', indicator: '◑' })
+      expect(getStatusDisplay('stopped')).toEqual({ text: 'Stopped', indicator: '◉' })
+      expect(getStatusDisplay('error')).toEqual({ text: 'Error', indicator: '⚠' })
+    })
+  })
+
+  describe('getHealthDisplay', () => {
+    it('should return defaults for undefined/unknown', () => {
+      expect(getHealthDisplay(undefined)).toEqual({ text: 'Unknown', indicator: '○' })
+      expect(getHealthDisplay('unknown-health')).toEqual({ text: 'Unknown', indicator: '○' })
+    })
+
+    it('should return known displays', () => {
+      expect(getHealthDisplay('healthy')).toEqual({ text: 'Healthy', indicator: '●' })
+      expect(getHealthDisplay('degraded')).toEqual({ text: 'Degraded', indicator: '◐' })
+      expect(getHealthDisplay('unhealthy')).toEqual({ text: 'Unhealthy', indicator: '●' })
+      expect(getHealthDisplay('starting')).toEqual({ text: 'Starting', indicator: '◐' })
+    })
+  })
+
+  describe('formatCheckType', () => {
+    it('should format known types', () => {
+      expect(formatCheckType('http')).toBe('HTTP')
+      expect(formatCheckType('port')).toBe('Port')
+      expect(formatCheckType('process')).toBe('Process')
+      expect(formatCheckType('tcp')).toBe('TCP')
+    })
+
+    it('should fall back for unknown/undefined', () => {
+      expect(formatCheckType(undefined)).toBe('Unknown')
+      expect(formatCheckType('grpc')).toBe('grpc')
+    })
+  })
+
+  describe('hasAzureDeployment', () => {
+    it('should return true if resourceName is present', () => {
+      const service: Service = { name: 'svc', azure: { resourceName: 'x' } }
+      expect(hasAzureDeployment(service)).toBe(true)
+    })
+
+    it('should return true if url is present', () => {
+      const service: Service = { name: 'svc', azure: { url: 'https://example.com' } }
+      expect(hasAzureDeployment(service)).toBe(true)
+    })
+
+    it('should return false otherwise', () => {
+      expect(hasAzureDeployment({ name: 'svc' })).toBe(false)
+      expect(hasAzureDeployment({ name: 'svc', azure: {} })).toBe(false)
+    })
+  })
+
   describe('isAzureLogViewingSupported', () => {
     it('should return true for Container Apps', () => {
       expect(isAzureLogViewingSupported('containerapp')).toBe(true)

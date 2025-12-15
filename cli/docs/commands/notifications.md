@@ -84,7 +84,7 @@ azd app notifications clear [flags]
 azd app notifications clear
 
 # Clear notifications older than 7 days
-azd app notifications clear --older-than 7d
+azd app notifications clear --older-than 168h
 
 # Clear notifications older than 24 hours
 azd app notifications clear --older-than 24h
@@ -92,7 +92,7 @@ azd app notifications clear --older-than 24h
 
 **Duration Formats:**
 - `24h` - 24 hours
-- `7d` - 7 days (use `168h`)
+- `168h` - 7 days
 - `30m` - 30 minutes
 
 ---

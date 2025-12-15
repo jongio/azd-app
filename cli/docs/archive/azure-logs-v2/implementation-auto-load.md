@@ -177,7 +177,7 @@ cli/dashboard/src/components/LogsPane.tsx
 ## Files Created
 
 ```
-cli/docs/specs/azure-logs-v2/TESTING_AUTO_LOAD.md
+cli/docs/specs/azure-logs-v2/testing-auto-load.md
   - Comprehensive testing guide
   - Manual testing steps
   - Edge cases to verify
@@ -258,7 +258,7 @@ azd app run
 
 ## Related Documentation
 
-- [Testing Guide](cli/docs/specs/azure-logs-v2/TESTING_AUTO_LOAD.md)
+- [Testing Guide](cli/docs/specs/azure-logs-v2/testing-auto-load.md)
 - [Azure Logs Spec](cli/docs/specs/azure-logs-v2/spec.md)
 - [Dashboard Components](cli/dashboard/src/components/)
 

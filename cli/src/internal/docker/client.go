@@ -20,6 +20,10 @@ type Client interface {
 	// The timeout is in seconds - Docker will wait this long before forcefully killing.
 	Stop(containerID string, timeoutSeconds int) error
 
+	// Start starts an existing stopped container.
+	// Returns an error if the container doesn't exist or cannot be started.
+	Start(containerID string) error
+
 	// Remove removes a container.
 	// The container must be stopped first.
 	Remove(containerID string) error

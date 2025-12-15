@@ -136,12 +136,10 @@ logs:
   filters:
     exclude: ["health check", "readiness probe"]
     includeBuiltins: true
-  azure:
-    enabled: true              # Enable Azure log streaming
-    source: auto               # auto|local|azure
+  analytics:
     pollingInterval: 10s       # Log Analytics poll interval
     defaultTimespan: 30m       # Default query time window
-    realtime: false            # Use real-time APIs where available
+    realtime: false            # Use low-latency streaming when supported
 ```
 
 ### Per-Service Custom Queries
@@ -150,7 +148,7 @@ logs:
 services:
   functions-worker:
     logs:
-      azure:
+      analytics:
         query: |
           FunctionAppLogs
           | where _ResourceId contains "{serviceName}"
@@ -213,13 +211,14 @@ The workspace is auto-detected from diagnostic settings. Override with:
 
 ```yaml
 logs:
-  azure:
-    workspace: "/subscriptions/.../workspaces/..."
+  analytics:
+    workspace: "/subscriptions/.../resourceGroups/.../providers/Microsoft.OperationalInsights/workspaces/..."
 ```
 
 Or set environment variable:
 ```bash
 export AZURE_LOG_ANALYTICS_WORKSPACE_ID="..."
+export AZURE_LOG_ANALYTICS_WORKSPACE_GUID="..."  # preferred for query APIs
 ```
 
 ## Related Documentation

@@ -3,12 +3,15 @@ package docker
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"strings"
 	"sync"
 )
+
+const errEmptyContainerID = "container ID cannot be empty"
 
 // ExecClient implements the Client interface using the docker CLI.
 type ExecClient struct{}
@@ -126,7 +129,7 @@ func formatPortMapping(port PortMapping) string {
 // Stop stops a running container with the specified timeout.
 func (c *ExecClient) Stop(containerID string, timeoutSeconds int) error {
 	if containerID == "" {
-		return fmt.Errorf("container ID cannot be empty")
+		return errors.New(errEmptyContainerID)
 	}
 
 	args := []string{"stop", "-t", fmt.Sprintf("%d", timeoutSeconds), containerID}
@@ -146,10 +149,31 @@ func (c *ExecClient) Stop(containerID string, timeoutSeconds int) error {
 	return nil
 }
 
+// Start starts an existing stopped container.
+func (c *ExecClient) Start(containerID string) error {
+	if containerID == "" {
+		return errors.New(errEmptyContainerID)
+	}
+
+	cmd := exec.Command("docker", "start", containerID)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		stderrStr := strings.TrimSpace(stderr.String())
+		if stderrStr != "" {
+			return fmt.Errorf("failed to start container %q: %s: %w", containerID, stderrStr, err)
+		}
+		return fmt.Errorf("failed to start container %q: %w", containerID, err)
+	}
+
+	return nil
+}
+
 // Remove removes a container.
 func (c *ExecClient) Remove(containerID string) error {
 	if containerID == "" {
-		return fmt.Errorf("container ID cannot be empty")
+		return errors.New(errEmptyContainerID)
 	}
 
 	cmd := exec.Command("docker", "rm", containerID)
@@ -172,7 +196,7 @@ func (c *ExecClient) Remove(containerID string) error {
 // io.MultiReader reads sequentially (would block on stdout, never read stderr).
 func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 	if containerID == "" {
-		return nil, fmt.Errorf("container ID cannot be empty")
+		return nil, errors.New(errEmptyContainerID)
 	}
 
 	cmd := exec.Command("docker", "logs", "-f", containerID)
@@ -264,7 +288,7 @@ type dockerInspectResult struct {
 // Inspect returns detailed information about a container.
 func (c *ExecClient) Inspect(containerID string) (*Container, error) {
 	if containerID == "" {
-		return nil, fmt.Errorf("container ID cannot be empty")
+		return nil, errors.New(errEmptyContainerID)
 	}
 
 	cmd := exec.Command("docker", "inspect", containerID)

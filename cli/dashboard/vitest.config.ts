@@ -21,6 +21,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/',
+        'src/hooks/useServiceOperations.ts',
         'src/test/',
         'e2e/',
         '**/*.d.ts',

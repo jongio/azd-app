@@ -12,6 +12,8 @@ type AnalyticsConfigGlobal struct {
 	PollingInterval string `yaml:"pollingInterval,omitempty" json:"pollingInterval,omitempty"`
 	// DefaultTimespan is the default time window for historical log queries (e.g., "15m", "1h", "24h").
 	DefaultTimespan string `yaml:"defaultTimespan,omitempty" json:"defaultTimespan,omitempty"`
+	// Realtime enables service-specific low-latency streaming when supported.
+	Realtime bool `yaml:"realtime,omitempty" json:"realtime,omitempty"`
 }
 
 // GetPollingInterval parses and returns the polling interval duration.
@@ -92,4 +94,3 @@ type AzureStatus struct {
 	ConnectionMessage    string  `json:"connectionMessage,omitempty"`
 	LastError            string  `json:"lastError,omitempty"`
 }
-

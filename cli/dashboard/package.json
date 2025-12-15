@@ -17,7 +17,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage --maxConcurrency=1",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

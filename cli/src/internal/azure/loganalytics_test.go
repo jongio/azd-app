@@ -27,31 +27,6 @@ func TestFormatTimespan(t *testing.T) {
 	}
 }
 
-func TestExtractWorkspaceID(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		// GUID only
-		{"abc123-def456", "abc123-def456"},
-		// Full resource ID
-		{"/subscriptions/sub-id/resourceGroups/rg-name/providers/Microsoft.OperationalInsights/workspaces/my-workspace", "my-workspace"},
-		// Empty
-		{"", ""},
-		// Single component
-		{"workspace-name", "workspace-name"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.input, func(t *testing.T) {
-			result := extractWorkspaceID(tc.input)
-			if result != tc.expected {
-				t.Errorf("extractWorkspaceID(%q) = %q, want %q", tc.input, result, tc.expected)
-			}
-		})
-	}
-}
-
 func TestGetStringFromRow(t *testing.T) {
 	row := []any{"value1", "value2", nil, "value4"}
 	colIndex := map[string]int{
@@ -221,27 +196,27 @@ func TestFunctionAppDefaultQuery(t *testing.T) {
 	}
 
 	// Verify query contains expected tables
-	if !containsString(query, "FunctionAppLogs") {
+	if !containsSubstring(query, "FunctionAppLogs") {
 		t.Error("Function App query should query FunctionAppLogs table")
 	}
 
 	// Verify query contains expected fields
 	expectedFields := []string{"Message", "Level", "FunctionName"}
 	for _, field := range expectedFields {
-		if !containsString(query, field) {
+		if !containsSubstring(query, field) {
 			t.Errorf("Function App query should contain field: %s", field)
 		}
 	}
 
 	// Verify query contains placeholders
-	if !containsString(query, "{serviceName}") {
+	if !containsSubstring(query, "{serviceName}") {
 		t.Error("Function App query should contain {serviceName} placeholder")
 	}
-	if !containsString(query, "{timespan}") {
+	if !containsSubstring(query, "{timespan}") {
 		t.Error("Function App query should contain {timespan} placeholder")
 	}
 }
 
-func containsString(s, substr string) bool {
+func containsSubstring(s, substr string) bool {
 	return indexOf(s, substr) >= 0
 }

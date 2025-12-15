@@ -1,6 +1,6 @@
 /**
  * TimeRangeSelector - Time range picker for historical log queries
- * Provides preset buttons (15m, 1h, 6h, 24h) and custom datetime inputs.
+ * Provides preset buttons (15m, 30m, 6h, 24h) and custom datetime inputs.
  */
 import * as React from 'react'
 import { Calendar, Clock } from 'lucide-react'
@@ -28,7 +28,7 @@ export interface TimeRangeSelectorProps {
 
 const TIME_PRESETS: { value: TimeRangePreset; label: string }[] = [
   { value: '15m', label: '15m' },
-  { value: '1h', label: '1h' },
+  { value: '30m', label: '30m' },
   { value: '6h', label: '6h' },
   { value: '24h', label: '24h' },
   { value: 'custom', label: 'Custom' },
@@ -87,7 +87,7 @@ export function TimeRangeSelector({
   onChange,
   disabled = false,
   className,
-}: TimeRangeSelectorProps) {
+}: Readonly<TimeRangeSelectorProps>) {
   // Local state for custom range inputs
   const [customStart, setCustomStart] = React.useState<string>(() => 
     formatDateTimeLocal(value.start ?? getDefaultStart())

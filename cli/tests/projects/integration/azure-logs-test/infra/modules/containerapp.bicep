@@ -107,7 +107,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        // Keep at least 1 replica running so the app doesn't scale-to-zero and stop producing logs.
+        minReplicas: 1
         maxReplicas: 3
       }
     }

@@ -86,8 +86,8 @@ func (e *logsExecutor) collectAzureLogs(ctx context.Context, cwd string,
     // 1. Load azure.yaml to get Azure config
     azureYaml, err := service.ParseAzureYaml(cwd)
     if err != nil || azureYaml.Logs == nil || 
-       azureYaml.Logs.Azure == nil || !azureYaml.Logs.Azure.Enabled {
-        return nil, fmt.Errorf("Azure logging not configured. Add logs.azure.enabled: true to azure.yaml")
+       azureYaml.Logs.Analytics == nil {
+        return nil, fmt.Errorf("Azure logging not configured. Add logs.analytics to azure.yaml")
     }
     
     // 2. Try dashboard first (if running)
@@ -143,7 +143,7 @@ func (e *logsExecutor) collectAzureLogsDirect(ctx context.Context,
     targetServices []string, sinceTime time.Time) ([]service.LogEntry, error) {
     
     // Create temporary Azure log buffer (not persisted)
-    azBuffer := service.NewAzureLogBuffer(azureYaml.Logs.Azure, cwd)
+    azBuffer := service.NewAzureLogBuffer(azureYaml.Logs.Analytics, cwd)
     
     // Get Azure context from azd env
     envValues, err := getAzdEnvValues(cwd)
@@ -186,7 +186,7 @@ func (e *logsExecutor) followAzureLogs(ctx context.Context, cwd string,
     logFilter *service.LogFilter, outputWriter io.Writer) error {
     
     // Create and initialize Azure buffer
-    azBuffer := service.NewAzureLogBuffer(azureYaml.Logs.Azure, cwd)
+    azBuffer := service.NewAzureLogBuffer(azureYaml.Logs.Analytics, cwd)
     // ... initialize ...
     
     // Switch to Azure mode to start polling
@@ -199,7 +199,7 @@ func (e *logsExecutor) followAzureLogs(ctx context.Context, cwd string,
     defer azBuffer.Unsubscribe(subscription)
     
     output.Info("Streaming Azure logs (polling every %s)...", 
-        azureYaml.Logs.Azure.PollingInterval)
+        azureYaml.Logs.Analytics.PollingInterval)
     
     // Similar to followLogsInMemory but for Azure
     for {
@@ -281,8 +281,7 @@ Error: Azure logging not configured.
 To enable Azure log viewing:
   1. Add to azure.yaml:
      logs:
-       azure:
-         enabled: true
+             analytics: {}
   2. Run 'azd provision' to deploy resources
 
 For more info: https://aka.ms/azd-app/azure-logs
@@ -305,8 +304,8 @@ Run 'az login' or 'azd auth login' to authenticate.
 Warning: No Log Analytics workspace configured.
 Azure logs require a Log Analytics workspace. Configure one in azure.yaml:
   logs:
-    azure:
-      workspace: <workspace-guid>
+        analytics:
+            workspace: /subscriptions/.../resourceGroups/.../providers/Microsoft.OperationalInsights/workspaces/...
 
 Or enable diagnostic settings on your Azure resources.
 ```

@@ -11,22 +11,22 @@ func TestNormalizeServiceName(t *testing.T) {
 		{"CONTAINERAPP_API", "containerapp-api"},
 		{"APPSERVICE_WEB", "appservice-web"},
 		{"FUNCTIONS_WORKER", "functions-worker"},
-		
+
 		// Already hyphenated names should stay as-is (after lowercase)
 		{"containerapp-api", "containerapp-api"},
 		{"appservice-web", "appservice-web"},
-		
+
 		// Mixed case should become lowercase
 		{"ContainerApp_API", "containerapp-api"},
 		{"MyService_Name", "myservice-name"},
-		
+
 		// Multiple underscores
 		{"MY_LONG_SERVICE_NAME", "my-long-service-name"},
-		
+
 		// No underscores (simple name)
 		{"API", "api"},
 		{"web", "web"},
-		
+
 		// Empty string
 		{"", ""},
 	}

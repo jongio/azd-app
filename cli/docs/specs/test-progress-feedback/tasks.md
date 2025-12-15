@@ -1,3 +1,4 @@
+<!-- NEXT: -->
 # Test Command Progress Feedback - Implementation Tasks
 
 ## Status Key

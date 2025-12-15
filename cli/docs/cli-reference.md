@@ -21,6 +21,7 @@ These flags are available for all commands:
 | `--output` | `-o` | string | `default` | Output format (default, json) |
 | `--debug` | | bool | `false` | Enable debug logging |
 | `--structured-logs` | | bool | `false` | Enable structured JSON logging to stderr |
+| `--cwd` | `-C` | string | `""` | Sets the current working directory |
 
 **Examples:**
 ```bash
@@ -32,6 +33,9 @@ azd app run --debug
 
 # Enable structured logs for log aggregation
 azd app deps --structured-logs
+
+# Run from a specific project directory
+azd app run --cwd ./my-project
 ```
 
 ## Commands Overview
@@ -40,6 +44,7 @@ azd app deps --structured-logs
 |---------|-------------|---------------|
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
+| `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
@@ -51,7 +56,7 @@ azd app deps --structured-logs
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
-| `listen` | Extension framework integration (hidden, used by azd internally) | |
+| `listen` | Extension framework integration (hidden, used by azd internally) | [→ Full Spec](commands/listen.md) |
 
 ---
 
@@ -187,6 +192,50 @@ azd app deps --force
 This command depends on `reqs` and will automatically run prerequisite checks before installing dependencies.
 
 **→ [See full deps command specification](commands/deps.md)** for package manager detection flows and detailed documentation.
+
+---
+
+## `azd app add`
+
+Add a well-known container service to your azure.yaml configuration.
+
+### Usage
+
+```bash
+azd app add [service] [flags]
+```
+
+### Examples
+
+```bash
+# List available services
+azd app add --list
+
+# Add Azurite storage emulator
+azd app add azurite
+
+# Add PostgreSQL and show connection string
+azd app add postgres --show-connection
+
+# JSON output
+azd app add redis --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--list` | | bool | `false` | List all available services |
+| `--show-connection` | | bool | `false` | Show connection string after adding |
+
+### Available Services
+
+- `azurite` - Azure Storage emulator (Blob, Queue, Table)
+- `cosmos` - Azure Cosmos DB emulator
+- `redis` - Redis in-memory cache
+- `postgres` - PostgreSQL database
+
+**→ [See full add command specification](commands/add.md)** for examples and configuration details.
 
 ---
 
@@ -1113,6 +1162,23 @@ azd app notifications enable --disable
 ```
 
 **→ [See full notifications command specification](commands/notifications.md)** for complete subcommand documentation.
+
+---
+
+## `azd app listen`
+
+Start the extension server (internal, required by the azd extension framework).
+
+This command is invoked by `azd` to communicate with the extension over JSON-RPC on stdio.
+It is hidden from `azd app --help` and is not intended to be run directly.
+
+### Usage
+
+```bash
+azd app listen
+```
+
+**→ [See full listen command specification](commands/listen.md)** for integration notes.
 
 ---
 

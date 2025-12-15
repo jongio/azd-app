@@ -17,7 +17,7 @@ type TableCategory struct {
 	Tables      []string `json:"tables"`
 }
 
-// Predefined table categories for Azure resource types.
+// TableCategories defines predefined table categories for Azure resource types.
 var TableCategories = map[string]TableCategory{
 	"containerapp": {
 		Name:        "containerapp",
@@ -72,31 +72,31 @@ var TableCategories = map[string]TableCategory{
 // TableDescriptions provides human-readable descriptions for common tables.
 var TableDescriptions = map[string]string{
 	// Container Apps
-	"ContainerAppConsoleLogs_CL":  "Console output (stdout/stderr) from Container Apps",
-	"ContainerAppSystemLogs_CL":   "System-level logs from Container Apps platform",
+	"ContainerAppConsoleLogs_CL": "Console output (stdout/stderr) from Container Apps",
+	"ContainerAppSystemLogs_CL":  "System-level logs from Container Apps platform",
 
 	// App Service
-	"AppServiceConsoleLogs":     "Console output from App Service applications",
-	"AppServiceHTTPLogs":        "HTTP request logs from App Service",
-	"AppServicePlatformLogs":    "Platform-level logs from App Service",
-	"AppServiceAppLogs":         "Application logs from App Service",
-	"AppServiceAuditLogs":       "Audit logs from App Service",
+	"AppServiceConsoleLogs":  "Console output from App Service applications",
+	"AppServiceHTTPLogs":     "HTTP request logs from App Service",
+	"AppServicePlatformLogs": "Platform-level logs from App Service",
+	"AppServiceAppLogs":      "Application logs from App Service",
+	"AppServiceAuditLogs":    "Audit logs from App Service",
 
 	// Functions
-	"FunctionAppLogs":           "Logs from Azure Functions executions",
+	"FunctionAppLogs": "Logs from Azure Functions executions",
 
 	// AKS
-	"ContainerLogV2":            "Container logs (v2 schema) from Kubernetes",
-	"ContainerLog":              "Container logs (legacy schema) from Kubernetes",
-	"KubeEvents":                "Kubernetes cluster events",
-	"KubePodInventory":          "Inventory of Kubernetes pods",
-	"KubeNodeInventory":         "Inventory of Kubernetes nodes",
-	"KubeServices":              "Kubernetes service definitions",
-	"InsightsMetrics":           "Performance metrics from Container Insights",
+	"ContainerLogV2":    "Container logs (v2 schema) from Kubernetes",
+	"ContainerLog":      "Container logs (legacy schema) from Kubernetes",
+	"KubeEvents":        "Kubernetes cluster events",
+	"KubePodInventory":  "Inventory of Kubernetes pods",
+	"KubeNodeInventory": "Inventory of Kubernetes nodes",
+	"KubeServices":      "Kubernetes service definitions",
+	"InsightsMetrics":   "Performance metrics from Container Insights",
 
 	// Container Instances
-	"ContainerInstanceLog_CL":   "Console output from Container Instances",
-	"ContainerEvent_CL":         "Events from Container Instances",
+	"ContainerInstanceLog_CL": "Console output from Container Instances",
+	"ContainerEvent_CL":       "Events from Container Instances",
 }
 
 // TableColumns provides common columns for known tables.

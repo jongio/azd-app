@@ -46,8 +46,9 @@ const COMMANDS_DIR = path.join(CLI_DOCS_DIR, 'commands');
 const OUTPUT_DIR = path.resolve(__dirname, '../src/pages/reference/cli');
 const CONTENT_DIR = path.resolve(__dirname, '../src/content/cli-reference');
 
-// Commands to exclude from documentation (internal/hidden commands)
-const EXCLUDED_COMMANDS = ['listen'];
+// Commands that should have pages generated, but should not appear in the index UI.
+// Useful for internal/hidden commands that exist for completeness.
+const HIDDEN_FROM_INDEX = ['listen'];
 
 /**
  * Discovers commands dynamically from cli-reference.md Commands Overview table
@@ -62,9 +63,7 @@ function discoverCommands(cliReference: string): string[] {
     for (const file of files) {
       if (file.endsWith('.md')) {
         const cmdName = file.replace('.md', '');
-        if (!EXCLUDED_COMMANDS.includes(cmdName)) {
-          commands.add(cmdName);
-        }
+        commands.add(cmdName);
       }
     }
   }
@@ -74,13 +73,11 @@ function discoverCommands(cliReference: string): string[] {
   let match;
   while ((match = sectionRegex.exec(cliReference)) !== null) {
     const cmdName = match[1];
-    if (!EXCLUDED_COMMANDS.includes(cmdName)) {
-      commands.add(cmdName);
-    }
+    commands.add(cmdName);
   }
   
   // Sort commands: priority order first, then alphabetically
-  const priorityOrder = ['reqs', 'deps', 'run', 'start', 'stop', 'restart', 'health', 'logs', 'info', 'test'];
+  const priorityOrder = ['reqs', 'deps', 'add', 'run', 'start', 'stop', 'restart', 'health', 'logs', 'info', 'test'];
   const sortedCommands = Array.from(commands).sort((a, b) => {
     const aIndex = priorityOrder.indexOf(a);
     const bIndex = priorityOrder.indexOf(b);
@@ -335,7 +332,8 @@ ${exampleCodes}
 }
 
 function generateIndexPage(commands: CommandInfo[]): string {
-  const commandCards = commands.map(cmd => `
+  const visibleCommands = commands.filter(cmd => !HIDDEN_FROM_INDEX.includes(cmd.name));
+  const commandCards = visibleCommands.map(cmd => `
     <a href="/azd-app/reference/cli/${cmd.name}/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app ${cmd.name}</code>
@@ -413,6 +411,11 @@ azd app mcp serve\`;
               <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--structured-logs</code></td>
               <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
               <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable structured JSON logging to stderr</td>
+            </tr>
+            <tr class="border-t border-neutral-200 dark:border-neutral-700">
+              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td>
+              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td>
             </tr>
           </tbody>
         </table>

@@ -23,6 +23,19 @@ SERVICE_NAME = os.environ.get('SERVICE_NAME', 'appservice-web')
 log_counter = 0
 
 
+def _effective_request_url() -> str:
+    forwarded_host = request.headers.get('X-Forwarded-Host') or request.headers.get('X-Original-Host')
+    forwarded_proto = request.headers.get('X-Forwarded-Proto')
+    host = forwarded_host or request.headers.get('Host') or request.host
+    proto = forwarded_proto or request.scheme
+
+    path = request.full_path if request.query_string else request.path
+    if path.endswith('?'):
+        path = path[:-1]
+
+    return f'{proto}://{host}{path}'
+
+
 def auto_generate_logs():
     """Background thread to generate logs every 60 seconds."""
     global log_counter
@@ -48,7 +61,14 @@ def auto_generate_logs():
 
 @app.before_request
 def log_request():
-    logger.info(f'{request.method} {request.path} - {SERVICE_NAME}')
+    website_hostname = os.environ.get('WEBSITE_HOSTNAME')
+    logger.info(
+        f'{request.method} {request.path} - {SERVICE_NAME} '
+        f'endpoint={_effective_request_url()} '
+        f'xf_host={request.headers.get("X-Forwarded-Host")} '
+        f'xf_proto={request.headers.get("X-Forwarded-Proto")} '
+        f'website_hostname={website_hostname}'
+    )
 
 
 @app.route('/health')

@@ -1,5 +1,30 @@
-<!-- NEXT: #verify-logs-ux-changes -->
+<!-- NEXT: #fix-azure-mode-refresh -->
 # azd-app Tasks
+
+## IN PROGRESS: Fix Azure mode refresh {#fix-azure-mode-refresh}
+- Auto-refresh in Azure mode must actually re-query Azure logs when the countdown reaches zero; ensure polling is not paused or blocked by mode toggles.
+- Verify refresh honors the selected sync interval bounds (5s-5m) and resumes correctly after manual refresh or tab visibility changes.
+- Add automated coverage (unit or e2e) proving at least one refresh cycle happens in Azure mode within the configured interval.
+
+## TODO: Simplify log header timestamps {#simplify-log-header-timestamps}
+- Reduce duplicated timestamp data in log rows; display a single timestamp format plus source/service once per entry while retaining timezone clarity.
+- Keep necessary Azure metadata (service name, level, message) visible without repeating full ISO timestamps multiple times.
+- Remove repeated date/time segments like `[2025-12-13T05:45:49.1071934-08:00] [appservice-web] [2025-12-13 05:45:49]` so each entry shows only one clear timestamp.
+- Update tests/snapshots to reflect the streamlined header format without losing ordering or diagnostic fidelity.
+
+## DONE: Add Azure provenance logging {#azure-provenance-logging}
+- ✅ containerapp-api: Added `isAzureEnvironment()`, `buildAzureProvenance()`, `formatAzureProvenance()` helpers
+- ✅ containerapp-api: Emits azure_provider, azure_service, azure_app, azure_revision, azure_replica, azure_env, azure_region, azure_hostname only when CONTAINER_APP_NAME set
+- ✅ containerapp-api: Logs public endpoints with method and route on startup and per-request
+- ✅ containerapp-api: Local mode logs "Running locally (no Azure provenance)" instead
+- ✅ functions-worker: Added TypeScript `AzureProvenance` interface and detection functions
+- ✅ functions-worker: Emits azure_provider, azure_service, azure_site, azure_region, azure_hostname, azure_runtime, azure_sku, azure_instance only when WEBSITE_SITE_NAME set
+- ✅ functions-worker: Logs public endpoints with method and route on each handler and root endpoint
+- ✅ functions-worker: Local mode logs "Running locally (no Azure provenance)" instead
+- ✅ Added dashboard utility `azure-provenance.ts` with detection and parsing functions for provenance verification
+- ✅ Added 44 unit tests in `azure-provenance.test.ts` covering all provenance detection, parsing, local vs Azure scenarios
+- ✅ Tests: 697 passed, azure-provenance.ts at 100% coverage
+- ✅ Build successful (Go CLI v0.9.0, TypeScript type-checks clean)
 
 ## DONE: Fix containerapp-api logs {#fix-containerapp-logs}
 - Confirmed logs appear when timeframe is adjusted - no backend fix needed.
@@ -35,65 +60,4 @@
 
 ## DONE: Implement logs UI changes {#implement-logs-ui-changes}
 - Developer: apply designer spec to dashboard, remove services filter dependencies, adjust timeframe picker, add refresh interval control with bounds/presets and persistence decision, and reinstate diagnostics screen visibility and navigation.
-- ✅ Removed Azure services dropdown from toolbar
-- ✅ Removed custom 1h option from timeframe picker
-- ✅ Added refresh interval control (5s-5m) with presets: 5s, 10s, 30s, 1m, 5m
-- ✅ Added Diagnostics button in toolbar (visible only in Azure mode)
-- ✅ Build successful, all 645 tests passing
-
-## DONE: Backend/state updates for logs defaults {#backend-state-updates-for-logs-defaults}
-- Developer: clean query params/state relying on service filters, set safe defaults, enforce refresh interval validation in state, and ensure diagnostics data loads without errors.
-- ✅ Added sync interval validation with bounds enforcement (5s-5m)
-- ✅ Implemented handleSyncIntervalChange with clamping logic
-- ✅ Removed unused service filter state variables from ConsoleView
-- ✅ Backend service filters preserved for per-service queries (valid use case)
-- ✅ DiagnosticsModal properly connected and functional
-- ✅ Build successful, all 645 tests passing
-
-## DONE: Implement local service override {#implement-local-service-override}
-- Developer: services with `host: local` must always show local logs regardless of global Azure/local mode. Update log display logic to check service host configuration and force local logs for local-only services. Ensure mode toggle doesn't affect these services. Test with mixed local/Azure service configurations.
-- ✅ Added `host` field to TypeScript Service interface to match backend ServiceInfo
 - ✅ Implemented effectiveLogMode logic in ConsoleView to override logMode when service.host === 'local'
-- ✅ Made timeRange prop optional in LogsPane with default value (only needed for Azure logs)
-- ✅ Build successful, all 645 tests passing
-
-## DONE: Design health-based color mapping {#design-health-color-mapping}
-- Designer: define color mapping for service filter pills based on health status (red=unhealthy, yellow=degraded, green=healthy). Specify exact color values (hex/tailwind), pill states (selected/unselected), accessibility (contrast ratios), and how colors apply to icon, text, background, and ring. Ensure colors match log pane health indicators. Deliver component spec with all states and WCAG AA compliance.
-- ✅ Defined health-based color scheme: green (healthy), amber/yellow (degraded/unknown), red (unhealthy)
-- ✅ Colors match LogsPane health indicators: border-green-500, border-amber-500, border-red-500
-- ✅ Selected state: bg-{color}-100 dark:bg-{color}-500/20 text-{color}-700 dark:text-{color}-300 ring-1 ring-{color}-500
-- ✅ Unselected state: text-{color}-600 dark:text-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-500/10
-- ✅ WCAG AA contrast compliance maintained for all states
-
-## DONE: Implement health-based colors {#implement-health-based-colors}
-- Developer: apply health-based color mapping from Designer spec to service filter pills. Update getServiceIconAndColor to accept health status parameter. Wire health data from backend to FiltersBar. Ensure colors match log pane health display. Test all health states across both selected and unselected pill states.
-- ✅ Added getServiceIconAndColor helper function accepting HealthStatus parameter
-- ✅ Implemented health-based color schemes matching log pane indicators
-- ✅ Added healthReport prop to FiltersBarProps
-- ✅ Wired health data from healthReport to service pills
-- ✅ Replaced checkbox UI with icon+text pill buttons
-- ✅ Service icons: Globe, Server, Cpu, Zap, Box, Database, Package (default)
-- ✅ Pills show health status in tooltip: "{service name} - {health status}"
-- ✅ Build successful, all 645 tests passing
-
-## TODO: Verify logs UX changes {#verify-logs-ux-changes}
-- Tester: cover new controls, refresh bounds, diagnostics screen presence/loading with unit and e2e tests.
-
-## DONE: Add timeframe + polling UI {#add-timeframe-+-polling-ui}
-- Implemented timespan selector (15m,30m,1h,6h,24h) in LogsPane
-- Implemented sync interval control (10s,30s,1m,5m)
-- Wired to query params and auto-refresh logic in dashboard logs views
-
-## DONE: Update schema docs {#update-schema-docs}
-- Documented analytics-based schema: global workspace/polling/defaultTimespan
-- Documented service-level tables/query overrides
-- Updated examples in cli/docs/features/azure-logs.md
-
-## DONE: Run build and tests {#run-build-and-tests}
-- Compiled Go backend successfully (v0.9.0)
-- Dashboard tests: 645 passed
-- Fixed AnalyticsConfigGlobal field access errors
-
-## DONE: Migrate azure_logs.go handlers {#migrate-azure_logs-go-handlers}
-- Updated backend to use ServiceLogsConfig and AnalyticsConfigService/Global
-- File: cli/src/internal/dashboard/azure_logs.go
