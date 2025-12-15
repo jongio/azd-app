@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, waitFor, waitForElementToBeRemoved, screen } from '@testing-library/react'
+import { render, cleanup, waitFor, waitForElementToBeRemoved, screen, act } from '@testing-library/react'
 import { LogsPane } from './LogsPane'
 
 const DATETIME_LIKE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b|\b\d{2}:\d{2}(:\d{2})?\b/
@@ -247,6 +247,43 @@ describe('LogsPane', () => {
       await waitFor(() => {
         expect(capturedAzureUrls.some((url) => String(url).includes(start2Query))).toBe(true)
       })
+    })
+
+    it('polls again within the updated sync interval when the interval is shortened', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'))
+
+      const { rerender } = render(
+        <LogsPane
+          serviceName="api"
+          onCopy={() => {}}
+          isPaused={false}
+          logMode="azure"
+          syncInterval={30000}
+          azureRealtime={false}
+        />
+      )
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+      rerender(
+        <LogsPane
+          serviceName="api"
+          onCopy={() => {}}
+          isPaused={false}
+          logMode="azure"
+          syncInterval={5000}
+          azureRealtime={false}
+        />
+      )
+
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+      vi.useRealTimers()
     })
   })
 })
