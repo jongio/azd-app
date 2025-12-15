@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { NotificationStack } from './NotificationStack'
 import type { Notification } from './NotificationStack'
 
@@ -32,6 +32,11 @@ describe('NotificationStack', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('renders visible notifications', () => {
@@ -89,6 +94,77 @@ describe('NotificationStack', () => {
     )
 
     expect(screen.getByText('+2 more notifications')).toBeInTheDocument()
+  })
+
+  it('uses singular overflow text when exactly one notification is queued', () => {
+    const manyNotifications = Array.from({ length: 2 }, (_, i) => ({
+      id: `${i}`,
+      title: `Notification ${i}`,
+      message: `Message ${i}`,
+      severity: 'info' as const,
+      timestamp: new Date(),
+    }))
+
+    render(
+      <NotificationStack
+        notifications={manyNotifications}
+        onDismiss={mockOnDismiss}
+        maxVisible={1}
+      />
+    )
+
+    expect(screen.getByText('+1 more notification')).toBeInTheDocument()
+  })
+
+  it('filters out dismissed notifications', () => {
+    const notifications: Notification[] = [
+      { ...mockNotifications[0], dismissed: true },
+      mockNotifications[1],
+    ]
+
+    render(
+      <NotificationStack
+        notifications={notifications}
+        onDismiss={mockOnDismiss}
+        maxVisible={3}
+      />
+    )
+
+    expect(screen.queryByText('Service Started')).not.toBeInTheDocument()
+    expect(screen.getByText('Warning')).toBeInTheDocument()
+  })
+
+  it('dismisses a notification after toast + stack animation delays', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0)
+      return 0
+    })
+
+    render(
+      <NotificationStack
+        notifications={[mockNotifications[0]]}
+        onDismiss={mockOnDismiss}
+        maxVisible={3}
+      />
+    )
+
+    expect(screen.getByText('Service Started')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+
+    // After the toast exit duration, the stack starts its own exit animation and removes it from visible list.
+    expect(screen.queryByText('Service Started')).not.toBeInTheDocument()
+    expect(mockOnDismiss).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+
+    expect(mockOnDismiss).toHaveBeenCalledWith('1')
   })
 
   it('does not show overflow indicator when notifications fit within maxVisible', () => {

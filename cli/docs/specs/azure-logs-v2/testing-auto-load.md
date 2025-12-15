@@ -144,7 +144,7 @@ The dashboard URL will be shown in the terminal output, e.g., `http://localhost:
 #### 5. Test Error State
 
 **To trigger an error (Azure not configured):**
-1. Ensure `logs.azure.enabled: false` in `azure.yaml` OR
+1. Ensure `logs.analytics` is missing in `azure.yaml` OR
 2. Don't have Azure credentials configured
 3. Switch to Azure mode
 
@@ -255,7 +255,7 @@ test('Azure logs auto-load with loading state', async ({ page }) => {
 - Verify `/api/azure/logs` endpoint responds
 
 **Fix:**
-- Check `azure.yaml` has `logs.azure.enabled: true`
+- Check `azure.yaml` has `logs.analytics` configured
 - Verify Azure credentials are configured
 - Check backend logs for API errors
 

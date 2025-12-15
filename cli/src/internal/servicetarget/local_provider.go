@@ -50,7 +50,7 @@ func (p *LocalServiceTargetProvider) Endpoints(
 // Local services don't have Azure target resources.
 func (p *LocalServiceTargetProvider) GetTargetResource(
 	ctx context.Context,
-	subscriptionId string,
+	subscriptionID string,
 	serviceConfig *azdext.ServiceConfig,
 	defaultResolver func() (*azdext.TargetResource, error),
 ) (*azdext.TargetResource, error) {
@@ -71,7 +71,9 @@ func (p *LocalServiceTargetProvider) Package(
 	progress azdext.ProgressReporter,
 ) (*azdext.ServicePackageResult, error) {
 	log.Printf("[azd-app] Package called for local service: %s (skipping - local only)", serviceConfig.GetName())
-	progress("Skipping package for local-only service")
+	if progress != nil {
+		progress("Skipping package for local-only service")
+	}
 	return &azdext.ServicePackageResult{
 		Artifacts: []*azdext.Artifact{},
 	}, nil
@@ -88,7 +90,9 @@ func (p *LocalServiceTargetProvider) Publish(
 	progress azdext.ProgressReporter,
 ) (*azdext.ServicePublishResult, error) {
 	log.Printf("[azd-app] Publish called for local service: %s (skipping - local only)", serviceConfig.GetName())
-	progress("Skipping publish for local-only service")
+	if progress != nil {
+		progress("Skipping publish for local-only service")
+	}
 	return &azdext.ServicePublishResult{}, nil
 }
 
@@ -102,7 +106,9 @@ func (p *LocalServiceTargetProvider) Deploy(
 	progress azdext.ProgressReporter,
 ) (*azdext.ServiceDeployResult, error) {
 	log.Printf("[azd-app] Deploy called for local service: %s (skipping - local only)", serviceConfig.GetName())
-	progress("Skipping deploy for local-only service (use 'azd app run' for local containers)")
+	if progress != nil {
+		progress("Skipping deploy for local-only service (use 'azd app run' for local containers)")
+	}
 	return &azdext.ServiceDeployResult{
 		Artifacts: []*azdext.Artifact{},
 	}, nil

@@ -48,7 +48,7 @@ export function LogConfigPanel({
   onClose,
   onSave,
   className,
-}: LogConfigPanelProps) {
+}: Readonly<LogConfigPanelProps>) {
   const panelRef = React.useRef<HTMLDivElement>(null)
 
   // Hooks for data fetching
@@ -122,8 +122,10 @@ export function LogConfigPanel({
 
   // Handle test query (for custom mode)
   const handleTestQuery = () => {
-    // TODO: Implement query testing
-    console.log('Test query:', customQuery)
+    // Query testing isn't implemented yet; keep the hook point and validate input.
+    if (customQuery.trim().length === 0) {
+      return
+    }
   }
 
   // Check if form is valid
@@ -359,7 +361,7 @@ export function LogConfigPanel({
             </button>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={!isValid || isSaving || !hasChanges}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium',

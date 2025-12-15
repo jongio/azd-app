@@ -20,14 +20,14 @@ import (
 
 // mockDashboardClient implements DashboardClient for testing.
 type mockDashboardClient struct {
-	pingErr          error
-	services         []*serviceinfo.ServiceInfo
-	getServicesErr   error
-	streamLogsErr    error
-	logEntries       []service.LogEntry
-	azureLogs        []service.LogEntry
-	getAzureLogsErr  error
-	azureStatus      *service.AzureStatus
+	pingErr           error
+	services          []*serviceinfo.ServiceInfo
+	getServicesErr    error
+	streamLogsErr     error
+	logEntries        []service.LogEntry
+	azureLogs         []service.LogEntry
+	getAzureLogsErr   error
+	azureStatus       *service.AzureStatus
 	getAzureStatusErr error
 }
 

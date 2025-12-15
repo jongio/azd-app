@@ -18,6 +18,7 @@ export function createServiceFixture(options: {
   serviceType?: 'http' | 'tcp' | 'process'
   serviceMode?: 'watch' | 'build' | 'daemon' | 'task'
   error?: string
+  host?: 'local'
   azure?: { url: string; resourceName: string }
 }): Service {
   const port = options.port ?? 3000 + Math.floor(Math.random() * 5000)
@@ -25,6 +26,7 @@ export function createServiceFixture(options: {
 
   return {
     name: options.name,
+    host: options.host,
     language: options.language ?? 'TypeScript',
     framework: options.framework ?? 'Express',
     project: `./src/${options.name}`,
@@ -184,8 +186,8 @@ export function createHealthCheckFixture(
 // =============================================================================
 
 export interface TestScenario {
-  services: Service[]
-  healthChecks: HealthCheckResult[]
+  services: ReadonlyArray<Service>
+  healthChecks: ReadonlyArray<HealthCheckResult>
   healthSummary: HealthSummary
 }
 
@@ -413,9 +415,21 @@ export async function mockApiRoutes(page: Page, options: {
   scenario?: TestScenario
   projectName?: string
   logs?: Array<{ service: string; message: string; level: number; timestamp: string; isStderr: boolean }>
+  azure?: {
+    enabled?: boolean
+    status?: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+    mode?: 'local' | 'azure'
+    connectionMessage?: string
+  }
+  azureLogs?: Array<{ service: string; message: string; level: number; timestamp: string; isStderr: boolean }>
 } = {}) {
   const { projectName = 'test-project', logs = [] } = options
   const scenario = options.scenario ?? scenarios.standard()
+  const azureEnabled = options.azure?.enabled ?? false
+  const azureStatus = options.azure?.status ?? (azureEnabled ? 'connected' : 'disabled')
+  const connectionMessage = options.azure?.connectionMessage
+  let currentMode: 'local' | 'azure' = options.azure?.mode ?? 'local'
+  const azureLogs = options.azureLogs ?? []
 
   // Project info
   await page.route('/api/project', async route => {
@@ -474,12 +488,88 @@ export async function mockApiRoutes(page: Page, options: {
     }
   })
 
+  // Mode (local/azure) and Azure availability status
+  await page.route('/api/mode', async route => {
+    const method = route.request().method()
+
+    if (method === 'PUT') {
+      try {
+        const body = route.request().postDataJSON() as { mode?: 'local' | 'azure' }
+        if (body?.mode === 'local' || body?.mode === 'azure') {
+          currentMode = body.mode
+        }
+      } catch {
+        // Ignore invalid JSON
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          mode: currentMode,
+          azureEnabled,
+          azureStatus,
+          connectionMessage,
+        }),
+      })
+      return
+    }
+
+    // GET
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        mode: currentMode,
+        azureEnabled,
+        azureStatus,
+        connectionMessage,
+      }),
+    })
+  })
+
   // Logs
   await page.route('/api/logs*', async route => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(logs),
+    })
+  })
+
+  // Azure logs endpoints used by the Console/LogsPane and diagnostics
+  await page.route('/api/azure/logs*', async route => {
+    const url = new URL(route.request().url())
+    const service = url.searchParams.get('service')
+    const filtered = service ? azureLogs.filter(l => l.service === service) : azureLogs
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', logs: filtered }),
+    })
+  })
+
+  await page.route('/api/azure/logs/health*', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'healthy', checks: [] }),
+    })
+  })
+
+  await page.route('/api/azure/tables*', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ tables: [] }),
+    })
+  })
+
+  await page.route('/api/azure/query*', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ query: '// mocked', resourceType: 'mock' }),
     })
   })
 
@@ -559,8 +649,14 @@ export async function setupTest(page: Page, options: {
   scenario?: TestScenario
   projectName?: string
   clearStorage?: boolean
+  azure?: {
+    enabled?: boolean
+    status?: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+    mode?: 'local' | 'azure'
+    connectionMessage?: string
+  }
 } = {}) {
-  const { scenario, projectName = 'test-project', clearStorage = true } = options
+  const { scenario, projectName = 'test-project', clearStorage = true, azure } = options
   
   // Clear storage
   if (clearStorage) {
@@ -570,7 +666,7 @@ export async function setupTest(page: Page, options: {
   // Setup mocks
   await mockEventSource(page, scenario)
   await mockWebSocket(page)
-  await mockApiRoutes(page, { scenario, projectName })
+  await mockApiRoutes(page, { scenario, projectName, azure })
 }
 
 // =============================================================================

@@ -43,7 +43,7 @@ func (qb *QueryBuilder) Build() string {
 // buildSingleTableQuery generates a query for a single table.
 func (qb *QueryBuilder) buildSingleTableQuery(tableName string) string {
 	filter := qb.getServiceFilter(tableName)
-	
+
 	query := fmt.Sprintf(`%s
 | where TimeGenerated > ago(%s)
 %s
@@ -55,14 +55,14 @@ func (qb *QueryBuilder) buildSingleTableQuery(tableName string) string {
 		filter,
 		qb.getProjectColumns(tableName),
 	)
-	
+
 	return strings.TrimSpace(query)
 }
 
 // buildUnionQuery generates a union query for multiple tables.
 func (qb *QueryBuilder) buildUnionQuery() string {
 	var parts []string
-	
+
 	for _, tableName := range qb.tables {
 		filter := qb.getServiceFilter(tableName)
 		part := fmt.Sprintf(`(%s | where TimeGenerated > ago(%s) %s | project TimeGenerated, Table="%s", %s)`,
@@ -74,13 +74,13 @@ func (qb *QueryBuilder) buildUnionQuery() string {
 		)
 		parts = append(parts, part)
 	}
-	
+
 	query := fmt.Sprintf(`union %s
 | order by TimeGenerated desc
 | take 1000`,
 		strings.Join(parts, ", "),
 	)
-	
+
 	return strings.TrimSpace(query)
 }
 
@@ -89,13 +89,13 @@ func (qb *QueryBuilder) getServiceFilter(tableName string) string {
 	if qb.serviceName == "" {
 		return ""
 	}
-	
+
 	// Get the appropriate column for filtering based on table
 	filterCol := getServiceFilterColumn(tableName)
 	if filterCol == "" {
 		return ""
 	}
-	
+
 	// Use case-insensitive comparison
 	return fmt.Sprintf("| where %s =~ '%s'", filterCol, sanitizeKQLString(qb.serviceName))
 }
@@ -129,7 +129,7 @@ func (qb *QueryBuilder) getProjectColumns(tableName string) string {
 		// Default columns if table is not known
 		return "Message=tostring(column_ifexists('Message', '')), Level=tostring(column_ifexists('Level', 'INFO'))"
 	}
-	
+
 	// Build projection with column aliases for common fields
 	var parts []string
 	for _, col := range columns {
@@ -138,13 +138,13 @@ func (qb *QueryBuilder) getProjectColumns(tableName string) string {
 		}
 		parts = append(parts, col)
 	}
-	
+
 	// Add Message alias for display
 	messageCol := getMessageColumn(tableName)
 	if messageCol != "" && !containsString(parts, "Message") {
 		parts = append(parts, fmt.Sprintf("Message=%s", messageCol))
 	}
-	
+
 	return strings.Join(parts, ", ")
 }
 

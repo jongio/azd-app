@@ -1,4 +1,4 @@
-// azure_logs.go provides API endpoints for Azure log streaming.
+// Package dashboard provides API endpoints for the local dashboard.
 package dashboard
 
 import (
@@ -14,6 +14,19 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+const (
+	errMethodNotAllowed    = "Method not allowed"
+	errLoadAzureYamlFailed = "Failed to load azure.yaml"
+	errSaveAzureYamlFailed = "Failed to save azure.yaml"
+	logsTroubleshootURL    = "https://aka.ms/azd/app/logs/troubleshoot"
+)
+
+var fetchAzureLogsStandalone = azure.FetchAzureLogsStandalone
+var newLogAnalyticsCredential = azure.NewLogAnalyticsCredential
+var validateCredentials = azure.ValidateCredentials
+var getWorkspaceIDFromEnv = azure.GetWorkspaceIDFromEnv
+var newLogAnalyticsClient = azure.NewLogAnalyticsClient
+
 // REMOVED: handleAzureStatus - deprecated v1 endpoint
 
 // AzureServicesResponse represents the list of available services.
@@ -25,7 +38,7 @@ type AzureServicesResponse struct {
 // GET /api/azure/services
 func (s *Server) handleAzureServices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -51,7 +64,7 @@ type EnableAzureResponse struct {
 // POST /api/azure/enable
 func (s *Server) handleEnableAzureLogging(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -61,7 +74,7 @@ func (s *Server) handleEnableAzureLogging(w http.ResponseWriter, r *http.Request
 	// Load existing azure.yaml
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to load azure.yaml", err)
+		writeJSONError(w, http.StatusInternalServerError, errLoadAzureYamlFailed, err)
 		return
 	}
 
@@ -89,7 +102,7 @@ func (s *Server) handleEnableAzureLogging(w http.ResponseWriter, r *http.Request
 
 	// Save azure.yaml
 	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+		writeJSONError(w, http.StatusInternalServerError, errSaveAzureYamlFailed, err)
 		return
 	}
 
@@ -110,27 +123,27 @@ func (s *Server) handleEnableAzureLogging(w http.ResponseWriter, r *http.Request
 
 // AzureLogsResponse represents the structured response for Azure logs.
 type AzureLogsResponse struct {
-	Status    string              `json:"status"`              // "ok" | "error"
-	Logs      []service.LogEntry  `json:"logs,omitempty"`      // Log entries
-	Count     int                 `json:"count"`               // Number of logs returned
-	Timestamp time.Time           `json:"timestamp"`           // Response timestamp
-	Error     *ErrorInfo          `json:"error,omitempty"`     // Error details if status=error
+	Status    string             `json:"status"`          // "ok" | "error"
+	Logs      []service.LogEntry `json:"logs,omitempty"`  // Log entries
+	Count     int                `json:"count"`           // Number of logs returned
+	Timestamp time.Time          `json:"timestamp"`       // Response timestamp
+	Error     *ErrorInfo         `json:"error,omitempty"` // Error details if status=error
 }
 
 // ErrorInfo provides actionable error information with documentation links.
 type ErrorInfo struct {
-	Message string `json:"message"`         // Human-readable error message
-	Code    string `json:"code"`            // Error code: "AUTH_EXPIRED", "NOT_DEPLOYED", etc.
-	Action  string `json:"action"`          // What the user should do
-	Command string `json:"command"`         // CLI command to run (optional)
-	DocsURL string `json:"docsUrl"`         // Documentation URL
+	Message string `json:"message"` // Human-readable error message
+	Code    string `json:"code"`    // Error code: "AUTH_EXPIRED", "NOT_DEPLOYED", etc.
+	Action  string `json:"action"`  // What the user should do
+	Command string `json:"command"` // CLI command to run (optional)
+	DocsURL string `json:"docsUrl"` // Documentation URL
 }
 
 // handleAzureLogs returns recent Azure logs with structured error handling.
 // GET /api/azure/logs?service=<name>&since=<duration>
 func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -171,24 +184,17 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 		Limit:      tail,
 	}
 
-	// Debug logging
-	log.Printf("[DEBUG] Azure logs request - service: %q, since: %v, tail: %d", serviceName, since, tail)
+	azureLogs, err := fetchAzureLogsStandalone(ctx, config)
 
-	azureLogs, err := azure.FetchAzureLogsStandalone(ctx, config)
-	
-	// Debug logging
-	log.Printf("[DEBUG] Azure logs response - count: %d, err: %v", len(azureLogs), err)
-	
 	response := AzureLogsResponse{
 		Timestamp: time.Now(),
 	}
 
 	if err != nil {
-		// Map error to structured ErrorInfo
 		response.Status = "error"
 		response.Count = 0
 		response.Error = mapAzureErrorToInfo(err)
-		
+
 		// Set appropriate HTTP status code
 		statusCode := http.StatusInternalServerError
 		if response.Error.Code == "AUTH_EXPIRED" || response.Error.Code == "AUTH_REQUIRED" {
@@ -198,10 +204,11 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 		} else if response.Error.Code == "NO_PERMISSION" {
 			statusCode = http.StatusForbidden
 		}
-		
+
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		if err := writeJSON(w, response); err != nil {
-			log.Printf("Failed to write azure logs error response: %v", err)
+		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+			log.Printf("Failed to write azure logs error response: %v", encodeErr)
 		}
 		return
 	}
@@ -214,6 +221,7 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 			Message:   azLog.Message,
 			Level:     convertAzureLogLevel(azLog.Level),
 			Timestamp: azLog.Timestamp,
+			IsStderr:  false,
 			Source:    service.LogSourceAzure,
 			AzureMetadata: &service.AzureLogMetadata{
 				ResourceType:  azLog.ResourceType,
@@ -258,7 +266,7 @@ func mapAzureErrorToInfo(err error) *ErrorInfo {
 			Action:  azErr.Action,
 			Command: azErr.Command,
 		}
-		
+
 		// Add documentation URLs based on error code
 		switch azErr.Code {
 		case "AUTH_EXPIRED", "AUTH_REQUIRED":
@@ -270,18 +278,18 @@ func mapAzureErrorToInfo(err error) *ErrorInfo {
 		case "NO_PERMISSION":
 			info.DocsURL = "https://aka.ms/azd/app/logs/troubleshoot#permissions"
 		default:
-			info.DocsURL = "https://aka.ms/azd/app/logs/troubleshoot"
+			info.DocsURL = logsTroubleshootURL
 		}
-		
+
 		return info
 	}
-	
+
 	// Generic error
 	return &ErrorInfo{
 		Message: err.Error(),
 		Code:    "UNKNOWN",
 		Action:  "Check logs for more details",
-		DocsURL: "https://aka.ms/azd/app/logs/troubleshoot",
+		DocsURL: logsTroubleshootURL,
 	}
 }
 
@@ -289,6 +297,20 @@ func mapAzureErrorToInfo(err error) *ErrorInfo {
 // WS /api/azure/logs/stream?service=<name>
 func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
+	realtimeParam := r.URL.Query().Get("realtime")
+
+	realtime := false
+	if realtimeParam != "" {
+		realtime = parseBoolQueryParam(realtimeParam)
+	} else {
+		// Default from azure.yaml when not explicitly specified
+		classificationsMu.RLock()
+		azureYaml, err := loadAzureYaml(s.projectDir)
+		classificationsMu.RUnlock()
+		if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
+			realtime = azureYaml.Logs.Analytics.Realtime
+		}
+	}
 
 	// Upgrade connection to WebSocket
 	rawConn, err := acceptWebSocket(w, r)
@@ -307,23 +329,46 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	// Track last seen timestamp to avoid duplicates
 	lastTimestamp := time.Now().Add(-30 * time.Minute) // Start with 30m ago
 
+	ctx := r.Context()
+	log.Printf("Azure logs WebSocket connected for service: %s (realtime=%v)", serviceName, realtime)
+
+	// If realtime is requested and a specific service is selected, attempt service-specific streaming.
+	if realtime && serviceName != "" {
+		if err := streamAzureLogsRealtime(ctx, s.projectDir, serviceName, conn); err != nil {
+			log.Printf("Azure realtime streaming failed; falling back to polling: %v", err)
+			// fall back to polling below
+		} else {
+			return
+		}
+	}
+
+	// Polling fallback (default behavior)
+	streamAzureLogsViaPolling(ctx, s, serviceName, conn, lastTimestamp, &lastTimestamp)
+}
+
+func parseBoolQueryParam(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func streamAzureLogsViaPolling(ctx context.Context, s *Server, serviceName string, conn *clientConn, since time.Time, lastTimestamp *time.Time) {
 	// Poll for new logs every 5 seconds
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	log.Printf("Azure logs WebSocket connected for service: %s", serviceName)
-
 	// Initial fetch
-	ctx := r.Context()
-	if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, lastTimestamp, conn, &lastTimestamp); err != nil {
+	if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, since, conn, lastTimestamp); err != nil {
 		log.Printf("Initial Azure logs fetch failed: %v", err)
 	}
 
-	// Stream updates
 	for {
 		select {
 		case <-ticker.C:
-			if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, lastTimestamp, conn, &lastTimestamp); err != nil {
+			if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, *lastTimestamp, conn, lastTimestamp); err != nil {
 				log.Printf("Azure logs fetch failed: %v", err)
 				return
 			}
@@ -331,6 +376,76 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-ctx.Done():
 			return
+		}
+	}
+}
+
+func streamAzureLogsRealtime(ctx context.Context, projectDir string, serviceName string, conn *clientConn) error {
+	cred, err := azure.NewAzureCredential()
+	if err != nil {
+		return err
+	}
+
+	discovery := azure.NewResourceDiscovery(cred, projectDir)
+	resource, err := discovery.GetResource(ctx, serviceName)
+	if err != nil {
+		return err
+	}
+
+	streamer, err := azure.NewRealtimeStreamer(resource.ResourceType, azure.StreamerConfig{
+		SubscriptionID: resource.SubscriptionID,
+		ResourceGroup:  resource.ResourceGroup,
+		ResourceName:   resource.Name,
+		ServiceName:    serviceName,
+		Credential:     cred,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if stopErr := streamer.Stop(); stopErr != nil {
+			log.Printf("Error stopping streamer: %v", stopErr)
+		}
+	}()
+
+	logsCh := make(chan azure.LogEntry, 250)
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- streamer.Start(ctx, logsCh)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case err := <-errCh:
+			if err == nil {
+				return nil
+			}
+			return err
+		case azLog, ok := <-logsCh:
+			if !ok {
+				return nil
+			}
+			entry := service.LogEntry{
+				Service:   azLog.Service,
+				Message:   azLog.Message,
+				Level:     convertAzureLogLevel(azLog.Level),
+				Timestamp: azLog.Timestamp,
+				Source:    service.LogSourceAzure,
+				AzureMetadata: &service.AzureLogMetadata{
+					ResourceType:  azLog.ResourceType,
+					ContainerName: azLog.ContainerName,
+					InstanceID:    azLog.InstanceID,
+				},
+			}
+			if err := conn.writeWebSocketJSON(entry); err != nil {
+				if !isExpectedCloseError(err) {
+					log.Printf("Azure logs WebSocket write error: %v", err)
+				}
+				return err
+			}
 		}
 	}
 }
@@ -349,7 +464,7 @@ func fetchAndSendAzureLogs(ctx context.Context, projectDir string, serviceName s
 		Limit:      100,
 	}
 
-	azureLogs, err := azure.FetchAzureLogsStandalone(ctx, config)
+	azureLogs, err := fetchAzureLogsStandalone(ctx, config)
 	if err != nil {
 		// Send error message to client
 		errMsg := map[string]string{
@@ -465,76 +580,6 @@ type HistoricalQueryResponse struct {
 
 // REMOVED: handleAzureLogsQuery - deprecated v1 endpoint (use /api/azure/logs with query params)
 
-// parseISODuration parses an ISO 8601 duration string like "PT1H" or "PT30M".
-func parseISODuration(s string) (time.Duration, error) {
-	if s == "" {
-		return time.Hour, nil // Default to 1 hour
-	}
-
-	// Simple parser for common durations: PT1H, PT30M, PT15M, PT6H, PT24H, P1D
-	if len(s) < 3 {
-		return 0, fmt.Errorf("invalid duration: %s", s)
-	}
-
-	if s[0] != 'P' {
-		return 0, fmt.Errorf("duration must start with P: %s", s)
-	}
-
-	// Handle P1D (days) format
-	if s[len(s)-1] == 'D' {
-		var days int
-		if _, err := parseIntFromString(s[1:len(s)-1], &days); err != nil {
-			return 0, fmt.Errorf("invalid day value: %s", s)
-		}
-		return time.Duration(days) * 24 * time.Hour, nil
-	}
-
-	// Handle PTnH, PTnM, PTnS format
-	if len(s) < 4 || s[1] != 'T' {
-		return 0, fmt.Errorf("invalid duration format: %s", s)
-	}
-
-	remaining := s[2:] // After "PT"
-	var duration time.Duration
-
-	for len(remaining) > 0 {
-		// Find the number
-		numEnd := 0
-		for numEnd < len(remaining) && remaining[numEnd] >= '0' && remaining[numEnd] <= '9' {
-			numEnd++
-		}
-
-		if numEnd == 0 || numEnd >= len(remaining) {
-			return 0, fmt.Errorf("invalid duration format: %s", s)
-		}
-
-		var value int
-		if _, err := parseIntFromString(remaining[:numEnd], &value); err != nil {
-			return 0, fmt.Errorf("invalid numeric value in duration: %s", s)
-		}
-
-		unit := remaining[numEnd]
-		remaining = remaining[numEnd+1:]
-
-		switch unit {
-		case 'H':
-			duration += time.Duration(value) * time.Hour
-		case 'M':
-			duration += time.Duration(value) * time.Minute
-		case 'S':
-			duration += time.Duration(value) * time.Second
-		default:
-			return 0, fmt.Errorf("unknown duration unit: %c", unit)
-		}
-	}
-
-	if duration == 0 {
-		return time.Hour, nil // Default fallback
-	}
-
-	return duration, nil
-}
-
 // handleAzureQueryRouter routes query API requests.
 // GET /api/azure/query?service=<name> - get query for service
 // PUT /api/azure/query - save custom query for service
@@ -545,7 +590,7 @@ func (s *Server) handleAzureQueryRouter(w http.ResponseWriter, r *http.Request) 
 	case http.MethodPut:
 		s.handleSaveAzureQuery(w, r)
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -638,7 +683,7 @@ type SaveQueryRequest struct {
 // PUT /api/azure/query
 func (s *Server) handleSaveAzureQuery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -650,8 +695,8 @@ func (s *Server) handleSaveAzureQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req SaveQueryRequest
-	if err := decodeJSON(body, &req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid JSON", err)
+	if decodeErr := decodeJSON(body, &req); decodeErr != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON", decodeErr)
 		return
 	}
 
@@ -670,7 +715,7 @@ func (s *Server) handleSaveAzureQuery(w http.ResponseWriter, r *http.Request) {
 	// Load existing azure.yaml
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to load azure.yaml", err)
+		writeJSONError(w, http.StatusInternalServerError, errLoadAzureYamlFailed, err)
 		return
 	}
 
@@ -695,7 +740,7 @@ func (s *Server) handleSaveAzureQuery(w http.ResponseWriter, r *http.Request) {
 
 	// Save azure.yaml
 	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+		writeJSONError(w, http.StatusInternalServerError, errSaveAzureYamlFailed, err)
 		return
 	}
 
@@ -783,23 +828,23 @@ type HealthCheckResponse struct {
 
 // HealthCheck represents an individual health check result.
 type HealthCheck struct {
-	Name    string `json:"name"`            // Check name
-	Status  string `json:"status"`          // "pass" | "warn" | "fail"
-	Message string `json:"message"`         // Result message
-	Fix     string `json:"fix,omitempty"`   // Fix instructions for failures
+	Name    string `json:"name"`          // Check name
+	Status  string `json:"status"`        // "pass" | "warn" | "fail"
+	Message string `json:"message"`       // Result message
+	Fix     string `json:"fix,omitempty"` // Fix instructions for failures
 }
 
 // handleAzureLogsHealth performs diagnostic checks for Azure logs troubleshooting.
 // GET /api/azure/logs/health
 func (s *Server) handleAzureLogsHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	response := HealthCheckResponse{
 		Checks:    make([]HealthCheck, 0, 4),
-		DocsURL:   "https://aka.ms/azd/app/logs/troubleshoot",
+		DocsURL:   logsTroubleshootURL,
 		Timestamp: time.Now(),
 	}
 
@@ -834,11 +879,11 @@ func (s *Server) checkAuthentication() HealthCheck {
 	}
 
 	// Try to create credentials
-	cred, err := azure.NewLogAnalyticsCredential()
+	cred, err := newLogAnalyticsCredential()
 	if err != nil {
 		check.Status = "fail"
 		check.Message = "Azure credentials not available"
-		check.Fix = "Run: azd auth login"
+		check.Fix = "azd auth login"
 		return check
 	}
 
@@ -846,11 +891,11 @@ func (s *Server) checkAuthentication() HealthCheck {
 	ctx, cancel := timeoutContext(5 * time.Second)
 	defer cancel()
 
-	err = azure.ValidateCredentials(ctx, cred)
+	err = validateCredentials(ctx, cred)
 	if err != nil {
 		check.Status = "fail"
 		check.Message = "Azure credentials invalid or expired"
-		check.Fix = "Run: azd auth login"
+		check.Fix = "azd auth login"
 		return check
 	}
 
@@ -865,11 +910,11 @@ func (s *Server) checkWorkspaceID() HealthCheck {
 		Name: "Workspace ID",
 	}
 
-	workspaceID := azure.GetWorkspaceIDFromEnv(s.projectDir)
+	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
 	if workspaceID == "" {
 		check.Status = "fail"
 		check.Message = "Log Analytics workspace not configured"
-		check.Fix = "Run: azd env refresh"
+		check.Fix = "azd env refresh"
 		return check
 	}
 
@@ -885,7 +930,7 @@ func (s *Server) checkServicesDeployed() HealthCheck {
 	}
 
 	serviceCount := 0
-	
+
 	// Count SERVICE_*_NAME environment variables
 	envVars := getAllEnvironmentVars()
 	for key := range envVars {
@@ -897,7 +942,7 @@ func (s *Server) checkServicesDeployed() HealthCheck {
 	if serviceCount == 0 {
 		check.Status = "fail"
 		check.Message = "No deployed services found"
-		check.Fix = "Run: azd up"
+		check.Fix = "azd up"
 		return check
 	}
 
@@ -918,8 +963,8 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 		return check
 	}
 
-	workspaceID := azure.GetWorkspaceIDFromEnv(s.projectDir)
-	cred, err := azure.NewLogAnalyticsCredential()
+	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
+	cred, err := newLogAnalyticsCredential()
 	if err != nil {
 		check.Status = "warn"
 		check.Message = "Cannot create credentials for connectivity test"
@@ -927,7 +972,7 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 	}
 
 	// Try to create client (this doesn't make actual queries)
-	_, err = azure.NewLogAnalyticsClient(cred, workspaceID)
+	_, err = newLogAnalyticsClient(cred, workspaceID)
 	if err != nil {
 		check.Status = "fail"
 		check.Message = fmt.Sprintf("Failed to create Log Analytics client: %v", err)
@@ -978,10 +1023,10 @@ func extractServiceNamesFromEnv() []string {
 				key := parts[0]
 				key = strings.TrimPrefix(key, "SERVICE_")
 				key = strings.TrimSuffix(key, "_NAME")
-				
+
 				// Convert to lowercase with hyphens (azure.yaml format)
 				serviceName := strings.ToLower(strings.ReplaceAll(key, "_", "-"))
-				
+
 				if serviceName != "" {
 					serviceMap[serviceName] = true
 				}
@@ -994,7 +1039,7 @@ func extractServiceNamesFromEnv() []string {
 	for name := range serviceMap {
 		services = append(services, name)
 	}
-	
+
 	// Sort alphabetically for consistent ordering
 	for i := 0; i < len(services); i++ {
 		for j := i + 1; j < len(services); j++ {
@@ -1015,7 +1060,7 @@ func truncateMiddle(s string, maxLen int) string {
 	if maxLen < 3 {
 		return s[:maxLen]
 	}
-	
+
 	prefixLen := (maxLen - 3) / 2
 	suffixLen := maxLen - 3 - prefixLen
 	return s[:prefixLen] + "..." + s[len(s)-suffixLen:]
@@ -1057,7 +1102,7 @@ type TableCategory struct {
 // GET /api/azure/tables?resourceType=containerapp
 func (s *Server) handleAzureTables(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -1068,16 +1113,16 @@ func (s *Server) handleAzureTables(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	workspaceID := azure.GetWorkspaceIDFromEnv(s.projectDir)
-	
+	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
+
 	var tables []azure.TableInfo
 	var err error
 
 	// Try to get live tables from Log Analytics
 	if workspaceID != "" {
-		cred, credErr := azure.NewLogAnalyticsCredential()
+		cred, credErr := newLogAnalyticsCredential()
 		if credErr == nil {
-			client, clientErr := azure.NewLogAnalyticsClient(cred, workspaceID)
+			client, clientErr := newLogAnalyticsClient(cred, workspaceID)
 			if clientErr == nil {
 				tables, err = client.ListAvailableTables(ctx)
 			}
@@ -1148,7 +1193,7 @@ func (s *Server) handleAzureLogConfigRouter(w http.ResponseWriter, r *http.Reque
 	case http.MethodPut:
 		s.handleSaveLogConfig(w, r)
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, errMethodNotAllowed, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -1224,8 +1269,8 @@ func (s *Server) handleSaveLogConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req SaveLogConfigRequest
-	if err := decodeJSON(body, &req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid JSON", err)
+	if decodeErr := decodeJSON(body, &req); decodeErr != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON", decodeErr)
 		return
 	}
 
@@ -1255,7 +1300,7 @@ func (s *Server) handleSaveLogConfig(w http.ResponseWriter, r *http.Request) {
 
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to load azure.yaml", err)
+		writeJSONError(w, http.StatusInternalServerError, errLoadAzureYamlFailed, err)
 		return
 	}
 
@@ -1288,7 +1333,7 @@ func (s *Server) handleSaveLogConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Save azure.yaml
 	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+		writeJSONError(w, http.StatusInternalServerError, errSaveAzureYamlFailed, err)
 		return
 	}
 

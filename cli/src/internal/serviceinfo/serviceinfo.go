@@ -62,7 +62,7 @@ type ServiceInfo struct {
 	Name string `json:"name"`
 
 	// Azure.yaml definition info
-	Host      string `json:"host,omitempty"`      // Host type from azure.yaml: "local", "containerapp", "appservice", "function", etc.
+	Host      string `json:"host,omitempty"` // Host type from azure.yaml: "local", "containerapp", "appservice", "function", etc.
 	Language  string `json:"language,omitempty"`
 	Framework string `json:"framework,omitempty"`
 	Project   string `json:"project,omitempty"`

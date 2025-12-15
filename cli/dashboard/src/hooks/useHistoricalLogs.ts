@@ -10,7 +10,7 @@ import { createParsedAzureError } from '@/lib/azure-errors'
 // Types
 // =============================================================================
 
-export type TimeRangePreset = '15m' | '1h' | '6h' | '24h' | 'custom'
+export type TimeRangePreset = '15m' | '30m' | '6h' | '24h' | 'custom'
 
 export interface TimeRange {
   preset: TimeRangePreset
@@ -97,14 +97,14 @@ export function timeRangeToTimespan(timeRange: TimeRange): string {
     switch (timeRange.preset) {
       case '15m':
         return 'PT15M'
-      case '1h':
-        return 'PT1H'
+      case '30m':
+        return 'PT30M'
       case '6h':
         return 'PT6H'
       case '24h':
         return 'PT24H'
       default:
-        return 'PT1H'
+        return 'PT30M'
     }
   }
 
@@ -124,7 +124,7 @@ export function timeRangeToTimespan(timeRange: TimeRange): string {
     }
   }
 
-  return 'PT1H' // Default fallback
+  return 'PT30M' // Default fallback
 }
 
 /**
@@ -135,8 +135,8 @@ export function formatTimeRangeDisplay(timeRange: TimeRange): string {
     switch (timeRange.preset) {
       case '15m':
         return 'last 15 minutes'
-      case '1h':
-        return 'last hour'
+      case '30m':
+        return 'last 30 minutes'
       case '6h':
         return 'last 6 hours'
       case '24h':
@@ -310,7 +310,7 @@ export function useHistoricalLogs({
     if (currentQueryRef.current) {
       const { timeRange } = currentQueryRef.current
       // Re-execute with no custom query
-      void executeQuery(timeRange, undefined)
+      void executeQuery(timeRange)
     }
   }, [executeQuery])
 

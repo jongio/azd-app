@@ -173,22 +173,17 @@ Extend azure.yaml schema (`schemas/v1.1/azure.yaml.json`) to add Azure log confi
 ```yaml
 logs:
   filters: { ... }  # existing
-  azure:            # new
-    enabled: true
-    source: auto|local|azure
+  analytics:        # new
     workspace: ""
     pollingInterval: 10s
     defaultTimespan: 30m
     realtime: false
-    queries:
-      containerApp: "KQL..."
-      appService: "KQL..."
 ```
 
-Also support service-level `logs.azure` override.
+Also support service-level `logs.analytics` override.
 
 **Acceptance Criteria**:
-- Schema validates new `logs.azure` section
+- Schema validates new `logs.analytics` section
 - Service-level config inherits/overrides project-level
 - Backward compatible (existing configs work)
 - Schema documentation updated
@@ -480,7 +475,7 @@ Implement low-latency streaming using service-specific APIs:
 - Container Apps: Real-time log stream API
 - App Service: Kudu logstream endpoint
 - Toggle between polling and real-time modes
-- Configurable via `logs.azure.realtime: true`
+- Configurable via `logs.analytics.realtime: true`
 - Automatic fallback on API failures
 
 **Acceptance Criteria**:
@@ -523,6 +518,32 @@ Improve error handling UI for Azure logs:
 - Each error type has specific UI treatment
 - Actionable guidance provided
 - Non-blocking to other dashboard functions
+
+---
+
+### Task 2.5: Restore realtime/polling toggle UI
+**Assigned**: Developer
+**Status**: TODO
+
+Reintroduce the realtime/polling control in the dashboard when the Azure realtime experience is stable.
+
+**Acceptance Criteria**:
+- Toggle visible in ConsoleView toolbar
+- Clear label/tooltip describing realtime vs polling
+- No regression in Azure logs stability
+
+---
+
+### Task 2.6: Restore “View Query” (KQL) UI
+**Assigned**: Developer
+**Status**: TODO
+
+Reintroduce the “View Query” affordance (and any associated modal) once the KQL UX and persistence behavior are finalized.
+
+**Acceptance Criteria**:
+- Button available in Azure mode
+- Query shown in a copy-friendly view
+- Edit/save behavior aligned with azure.yaml schema expectations
 
 ---
 

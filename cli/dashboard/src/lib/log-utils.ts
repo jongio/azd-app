@@ -51,7 +51,7 @@ const ANSI_PATTERN = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\/g
  * Strips ANSI escape codes from text.
  */
 function stripAnsi(text: string): string {
-  return text.replace(ANSI_PATTERN, '')
+  return text.replaceAll(ANSI_PATTERN, '')
 }
 
 /**
@@ -125,7 +125,7 @@ function linkifyUrlsWithHtmlAware(
           return '(?:&amp;|&)'
         }
         // Escape special regex chars
-        const escaped = char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const escaped = char.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
         // Allow optional HTML tags between characters
         return escaped + '(?:<[^>]*>)*'
       })
@@ -158,9 +158,9 @@ function linkifyUrlsWithHtmlAware(
  */
 function sanitizeHtml(html: string): string {
   return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+=/gi, '')
+    .replaceAll(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replaceAll(/javascript:/gi, '')
+    .replaceAll(/on\w+=/gi, '')
 }
 
 /**
@@ -168,9 +168,9 @@ function sanitizeHtml(html: string): string {
  */
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
 }
 
 // ============================================================================
@@ -271,7 +271,10 @@ const SERVICE_COLORS = [
  * Uses hash-based selection for deterministic colors.
  */
 export function getServiceColor(serviceName: string): string {
-  const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  let hash = 0
+	for (const char of serviceName) {
+		hash += char.codePointAt(0) ?? 0
+	}
   return SERVICE_COLORS[hash % SERVICE_COLORS.length]
 }
 
@@ -288,4 +291,84 @@ export function getLogColor(level: LogLevelName): string {
     default:
       return 'text-foreground-tertiary'
   }
+}
+
+// ============================================================================
+// Timestamp Deduplication
+// ============================================================================
+
+/**
+ * Pattern to match common embedded timestamp formats at the start of log messages:
+ * - [2025-12-13 05:45:49] - bracketed date time
+ * - [2025-12-13T05:45:49.123Z] - ISO format
+ * - 2025-12-13 05:45:49 - plain date time
+ * - [05:45:49] - bracketed time only
+ * - [serviceName] - service name prefix (when already displayed in header)
+ * 
+ * These are commonly added by application loggers but we already display
+ * the timestamp from the structured log entry, so they're redundant.
+ */
+const EMBEDDED_TIMESTAMP_PATTERNS = [
+  // ISO 8601 with brackets: [2025-12-13T05:45:49.1071934-08:00] or [2025-12-13T05:45:49Z]
+  /^\s*\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\]]*\]\s*/,
+  // Date time with brackets: [2025-12-13 05:45:49]
+  /^\s*\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\]\s*/,
+  // Time only with brackets at start: [05:45:49] or [08:20:50.670]
+  /^\s*\[\d{2}:\d{2}:\d{2}(?:\.\d+)?\]\s*/,
+]
+
+/**
+ * Pattern to match service name prefix in messages: [appservice-web]
+ * These are redundant when we already show the service name in the log header.
+ * Must contain lowercase letters and be at least 3 chars. Does NOT match [INFO], [WARN], etc.
+ */
+const SERVICE_NAME_PREFIX_PATTERN = /^\s*\[([a-z][a-z0-9_-]{2,})\]\s*/
+
+/**
+ * Known log level prefixes that should NOT be stripped (case insensitive check)
+ */
+const KNOWN_LOG_LEVELS = new Set(['info', 'warn', 'warning', 'error', 'debug', 'trace', 'fatal', 'critical', 'verbose'])
+
+/**
+ * Strips embedded timestamps and redundant service names from log messages.
+ * This cleans up messages that already contain timestamp/source prefixes
+ * when we're displaying that information in the structured log header.
+ * 
+ * @param message - The raw log message
+ * @param stripServiceName - If true, also strips [serviceName] prefix
+ * @returns The cleaned message without redundant prefixes
+ */
+export function stripEmbeddedTimestamp(message: string, stripServiceName = true): string {
+  const stripOneTimestampPrefix = (input: string): string => {
+    for (const pattern of EMBEDDED_TIMESTAMP_PATTERNS) {
+      if (pattern.test(input)) {
+        return input.replace(pattern, '')
+      }
+    }
+    return input
+  }
+
+  const stripOneServicePrefix = (input: string): string => {
+    const match = SERVICE_NAME_PREFIX_PATTERN.exec(input)
+    if (!match) return input
+
+    const captured = match[1].toLowerCase()
+    if (KNOWN_LOG_LEVELS.has(captured)) return input
+    return input.replace(SERVICE_NAME_PREFIX_PATTERN, '')
+  }
+
+  let result = message
+
+  // Strip embedded timestamps and service names in multiple passes
+  // to handle nested patterns like: [timestamp] [service] [timestamp] [level] message
+  for (let i = 0; i < 5; i++) {
+    const before = result
+    result = stripOneTimestampPrefix(result)
+    if (stripServiceName) {
+      result = stripOneServicePrefix(result)
+    }
+    if (result === before) break
+  }
+
+  return result.trim()
 }
