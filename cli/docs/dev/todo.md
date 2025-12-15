@@ -138,6 +138,20 @@ services:
 - Reduces manual azure.yaml editing errors
 - Leverages full schema capabilities
 
+### Historical Azure Logs + Custom KQL
+
+**Status:** Deferred (backend gap)
+**Priority:** Medium
+**Effort:** Medium
+
+**Description**
+Re-enable historical Azure log queries and custom KQL once a backend query endpoint exists (e.g., `/api/azure/logs/query`) with time range support. Current UI and hooks were removed because the route never shipped and time range parameters were ignored.
+
+**Needed**
+- Add server route for historical queries with pagination and timespan handling.
+- Re-introduce dashboard components for time range selection/KQL input wired to the new route.
+- Tests for query execution, pagination, and empty/error states.
+
 ---
 
 ### Add Animations to Dashboard UI Components

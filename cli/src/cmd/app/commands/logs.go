@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
@@ -63,6 +64,12 @@ type DashboardClient interface {
 	GetAzureStatus(ctx context.Context) (*service.AzureStatus, error)
 	StreamAzureLogs(ctx context.Context, logs chan<- service.LogEntry) error
 }
+
+// Standalone Azure helpers (overridable for tests).
+var (
+	fetchAzureLogsStandalone  = azure.FetchAzureLogsStandalone
+	streamAzureLogsStandalone = azure.StreamAzureLogsStandalone
+)
 
 // LogManagerInterface defines the interface for log manager operations.
 // This interface enables testing by allowing mock implementations.
@@ -251,6 +258,11 @@ func runLogsWithOptions(opts *logsOptions, args []string) error {
 
 // execute runs the logs command with the configured dependencies and options.
 func (e *logsExecutor) execute(ctx context.Context, args []string) error {
+	// Default to local logs when source is not explicitly set (test safety)
+	if e.opts.source == "" {
+		e.opts.source = string(LogSourceLocal)
+	}
+
 	// Get current working directory
 	cwd, err := e.getWorkingDir()
 	if err != nil {
@@ -269,8 +281,8 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 
 	// Get running services via dashboard client (works across processes)
 	dashboardClient, err := e.dashboardClientFactory(dashCtx, cwd)
-	if err != nil {
-		// Debug: log actual error for troubleshooting
+	if err != nil && e.opts.source == string(LogSourceLocal) {
+		// Local logs require dashboard; Azure can fall back to standalone
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard client creation failed: %v\n", err)
 		}
@@ -279,39 +291,47 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	// Check if dashboard is actually responding
-	if pingErr := dashboardClient.Ping(dashCtx); pingErr != nil {
-		// Debug: log actual error for troubleshooting
-		if os.Getenv("AZD_APP_DEBUG") == "true" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", pingErr)
+	var serviceNames []string
+	if dashboardClient != nil {
+		// Check if dashboard is actually responding
+		if pingErr := dashboardClient.Ping(dashCtx); pingErr != nil {
+			if os.Getenv("AZD_APP_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", pingErr)
+			}
+			if e.opts.source == string(LogSourceLocal) {
+				output.Info("No services are currently running")
+				output.Item("Run 'azd app run' to start services")
+				return nil
+			}
+			// For Azure-only flows, continue without dashboard
+			dashboardClient = nil
 		}
-		output.Info("No services are currently running")
-		output.Item("Run 'azd app run' to start services")
-		return nil
 	}
 
-	// Get service list from dashboard
-	services, err := dashboardClient.GetServices(dashCtx)
-	if err != nil {
-		return fmt.Errorf("failed to get services from dashboard: %w", err)
-	}
+	if dashboardClient != nil {
+		// Get service list from dashboard
+		services, err := dashboardClient.GetServices(dashCtx)
+		if err != nil {
+			return fmt.Errorf("failed to get services from dashboard: %w", err)
+		}
 
-	// Build list of service names
-	serviceNames := make([]string, 0, len(services))
-	for _, svc := range services {
-		serviceNames = append(serviceNames, svc.Name)
-	}
+		// Build list of service names
+		serviceNames = make([]string, 0, len(services))
+		for _, svc := range services {
+			serviceNames = append(serviceNames, svc.Name)
+		}
 
-	// Check if any services exist
-	if len(serviceNames) == 0 {
-		output.Info("No services are currently running")
-		output.Item("Run 'azd app run' to start services")
-		return nil
-	}
+		// Check if any services exist (local mode)
+		if len(serviceNames) == 0 && e.opts.source == string(LogSourceLocal) {
+			output.Info("No services are currently running")
+			output.Item("Run 'azd app run' to start services")
+			return nil
+		}
 
-	// Validate service filter
-	if valErr := e.validateServiceFilter(serviceFilter, serviceNames); valErr != nil {
-		return valErr
+		// Validate service filter when we have a service list
+		if valErr := e.validateServiceFilter(serviceFilter, serviceNames); valErr != nil {
+			return valErr
+		}
 	}
 
 	// Parse log level filter
@@ -355,7 +375,7 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		// Show helpful message if no Azure logs found
 		if len(logs) == 0 && !e.opts.follow {
 			output.Info("No Azure logs found")
-			output.Item("Azure logs may take 2-5 minutes to appear in Log Analytics")
+			output.Item("Azure logs may take 1-5 minutes to appear in Log Analytics")
 			output.Item("Use --follow (-f) to wait for new logs")
 			return nil
 		}
@@ -365,6 +385,9 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 			return fmt.Errorf("failed to collect logs: %w", err)
 		}
 	default: // "local"
+		if dashboardClient == nil {
+			return fmt.Errorf("cannot collect local logs: dashboard not running (run 'azd app run')")
+		}
 		logs, err = e.collectLogs(ctx, cwd, targetServices, logManager, sinceTime)
 		if err != nil {
 			return fmt.Errorf("failed to collect logs: %w", err)
@@ -550,28 +573,69 @@ func (e *logsExecutor) collectLogs(ctx context.Context, cwd string, targetServic
 // collectAzureLogs collects logs from Azure-deployed services.
 // It first tries the dashboard API (if running), then returns an error with guidance.
 func (e *logsExecutor) collectAzureLogs(ctx context.Context, cwd string, dashboardClient DashboardClient, targetServices []string, sinceTime time.Time) ([]service.LogEntry, error) {
-	// Check Azure status first
-	status, err := dashboardClient.GetAzureStatus(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Azure status: %w", err)
-	}
+	// Prefer dashboard when available and configured
+	if dashboardClient != nil {
+		status, err := dashboardClient.GetAzureStatus(ctx)
+		if err == nil && status.Enabled {
+			if !status.Connected {
+				msg := "Azure connection not established."
+				if status.ConnectionMessage != "" {
+					msg = status.ConnectionMessage
+				}
+				return nil, fmt.Errorf("%s", msg)
+			}
 
-	if !status.Enabled {
-		return nil, fmt.Errorf("Azure logging not configured.\n\nTo enable Azure log viewing:\n  1. Add to azure.yaml:\n     logs:\n       azure:\n         enabled: true\n  2. Restart 'azd app run'\n\nFor more info: https://aka.ms/azd-app/azure-logs")
-	}
-
-	if !status.Connected {
-		msg := "Azure connection not established."
-		if status.ConnectionMessage != "" {
-			msg = status.ConnectionMessage
+			logs, err := dashboardClient.GetAzureLogs(ctx, targetServices, e.opts.tail, sinceTime)
+			if err == nil {
+				return logs, nil
+			}
+			// If dashboard path fails, fall through to standalone for resiliency
+			output.Warning("Dashboard Azure logs failed, falling back to standalone: %v", err)
 		}
-		return nil, fmt.Errorf("%s", msg)
 	}
 
-	// Get logs from dashboard
-	logs, err := dashboardClient.GetAzureLogs(ctx, targetServices, e.opts.tail, sinceTime)
+	return e.collectAzureLogsStandalone(ctx, cwd, targetServices, sinceTime)
+}
+
+func (e *logsExecutor) collectAzureLogsStandalone(ctx context.Context, cwd string, targetServices []string, sinceTime time.Time) ([]service.LogEntry, error) {
+	// Convert sinceTime to duration window for standalone fetch
+	since := 1 * time.Hour
+	if !sinceTime.IsZero() {
+		since = time.Since(sinceTime)
+		if since < time.Minute {
+			since = time.Minute
+		}
+	}
+
+	tail := e.opts.tail
+	if tail <= 0 {
+		tail = 500
+	}
+
+	azLogs, err := fetchAzureLogsStandalone(ctx, azure.StandaloneLogsConfig{
+		ProjectDir: cwd,
+		Services:   targetServices,
+		Since:      since,
+		Limit:      tail,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Azure logs: %w", err)
+		return nil, err
+	}
+
+	logs := make([]service.LogEntry, 0, len(azLogs))
+	for _, azLog := range azLogs {
+		logs = append(logs, service.LogEntry{
+			Service:   azLog.Service,
+			Message:   azLog.Message,
+			Level:     convertAzureLogLevel(azLog.Level),
+			Timestamp: azLog.Timestamp,
+			Source:    service.LogSourceAzure,
+			AzureMetadata: &service.AzureLogMetadata{
+				ResourceType:  azLog.ResourceType,
+				ContainerName: azLog.ContainerName,
+				InstanceID:    azLog.InstanceID,
+			},
+		})
 	}
 
 	return logs, nil
@@ -582,23 +646,23 @@ func (e *logsExecutor) collectAzureLogs(ctx context.Context, cwd string, dashboa
 func (e *logsExecutor) collectAllLogs(ctx context.Context, cwd string, dashboardClient DashboardClient, targetServices []string, logManager LogManagerInterface, sinceTime time.Time) ([]service.LogEntry, error) {
 	var allLogs []service.LogEntry
 
-	// Collect local logs
-	localLogs, err := e.collectLogs(ctx, cwd, targetServices, logManager, sinceTime)
-	if err != nil {
-		output.Warning("Failed to collect local logs: %s", err)
+	// Collect local logs (requires dashboard)
+	if dashboardClient != nil {
+		localLogs, err := e.collectLogs(ctx, cwd, targetServices, logManager, sinceTime)
+		if err != nil {
+			output.Warning("Failed to collect local logs: %s", err)
+		} else {
+			allLogs = append(allLogs, localLogs...)
+		}
 	} else {
-		allLogs = append(allLogs, localLogs...)
+		output.Warning("Dashboard not running; local logs unavailable. Showing Azure logs only.")
 	}
 
 	// Collect Azure logs (non-fatal if not configured)
 	azureLogs, err := e.collectAzureLogs(ctx, cwd, dashboardClient, targetServices, sinceTime)
 	if err != nil {
-		// Only warn if Azure is enabled but failing
-		status, statusErr := dashboardClient.GetAzureStatus(ctx)
-		if statusErr == nil && status.Enabled {
-			output.Warning("Azure logs unavailable: %s", err)
-		}
-		// Otherwise, silently skip - Azure not configured
+		// Only warn if Azure is expected
+		output.Warning("Azure logs unavailable: %s", err)
 	} else {
 		allLogs = append(allLogs, azureLogs...)
 	}
@@ -701,6 +765,22 @@ func logLevelToString(level service.LogLevel) string {
 	}
 }
 
+// convertAzureLogLevel maps azure.LogLevel to the shared service.LogLevel enum.
+func convertAzureLogLevel(level azure.LogLevel) service.LogLevel {
+	switch level {
+	case azure.LogLevelWarn:
+		return service.LogLevelWarn
+	case azure.LogLevelError:
+		return service.LogLevelError
+	case azure.LogLevelDebug:
+		return service.LogLevelDebug
+	case azure.LogLevelInfo:
+		fallthrough
+	default:
+		return service.LogLevelInfo
+	}
+}
+
 // buildLogFilterInternal creates a log filter from executor options and azure.yaml config.
 func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, error) {
 	var customPatterns []string
@@ -768,7 +848,7 @@ func (e *logsExecutor) followLogs(ctx context.Context, projectDir string, logMan
 	// Handle source-specific follow modes
 	switch e.opts.source {
 	case "azure":
-		return e.followAzureLogs(ctx, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followAzureLogs(ctx, dashboardClient, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
 	case "all":
 		return e.followAllLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
 	default: // "local"
@@ -966,7 +1046,22 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 }
 
 // followAzureLogs streams Azure logs via the dashboard's WebSocket.
-func (e *logsExecutor) followAzureLogs(ctx context.Context, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followAzureLogs(ctx context.Context, dashboardClient DashboardClient, projectDir string, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+	// If dashboard is available, prefer its streaming API
+	if dashboardClient != nil {
+		if err := dashboardClient.Ping(ctx); err == nil {
+			status, err := dashboardClient.GetAzureStatus(ctx)
+			if err == nil && status.Enabled {
+				return e.followAzureLogsViaDashboard(ctx, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
+			}
+		}
+	}
+
+	// Fallback: standalone polling (no dashboard needed)
+	return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
+}
+
+func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Check if dashboard is responding
 	if err := dashboardClient.Ping(ctx); err != nil {
 		return fmt.Errorf("cannot follow Azure logs: dashboard not responding (run 'azd app run' first)")
@@ -979,7 +1074,7 @@ func (e *logsExecutor) followAzureLogs(ctx context.Context, dashboardClient Dash
 	}
 
 	if !status.Enabled {
-		return fmt.Errorf("Azure logging not configured.\n\nTo enable Azure log streaming:\n  1. Add to azure.yaml:\n     logs:\n       azure:\n         enabled: true\n  2. Restart 'azd app run'\n\nFor more info: https://aka.ms/azd-app/azure-logs")
+		return fmt.Errorf("Azure logging not configured.\n\nTo enable Azure logs:\n  1. Add a Log Analytics configuration to azure.yaml:\n     logs:\n       analytics:\n         pollingInterval: \"30s\"\n         defaultTimespan: \"1h\"\n  2. Ensure your azd environment has workspace outputs (run 'azd provision' if needed)\n  3. Restart 'azd app run'\n\nFor more info: https://aka.ms/azd-app/azure-logs")
 	}
 
 	output.Info("Streaming Azure logs (polling every 30s)...")
@@ -1048,11 +1143,106 @@ func (e *logsExecutor) followAzureLogs(ctx context.Context, dashboardClient Dash
 	}
 }
 
+// followAzureLogsStandalone streams Azure logs without requiring the dashboard.
+func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir string, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+	output.Info("Streaming Azure logs (standalone, polling)...")
+
+	// Create context for streaming that can be cancelled
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Setup signal handling for graceful exit
+	sigChan, cleanupSignal := e.getOrCreateSignalChan()
+	defer cleanupSignal()
+
+	logs := make(chan azure.LogEntry, logChannelBufferSize)
+	errChan := make(chan error, 1)
+
+	initialWindow := time.Hour
+	if e.opts.since != "" {
+		if sinceDuration, err := time.ParseDuration(e.opts.since); err == nil {
+			if sinceDuration < time.Minute {
+				sinceDuration = time.Minute
+			}
+			initialWindow = sinceDuration
+		}
+	}
+
+	pollInterval := 30 * time.Second
+
+	go func() {
+		errChan <- streamAzureLogsStandalone(streamCtx, azure.StreamConfig{
+			ProjectDir:    projectDir,
+			Services:      serviceFilter,
+			PollInterval:  pollInterval,
+			InitialWindow: initialWindow,
+		}, logs)
+	}()
+
+	var serviceSet map[string]bool
+	if len(serviceFilter) > 1 {
+		serviceSet = make(map[string]bool)
+		for _, svc := range serviceFilter {
+			serviceSet[svc] = true
+		}
+	}
+
+	for {
+		select {
+		case azEntry := <-logs:
+			entry := service.LogEntry{
+				Service:   azEntry.Service,
+				Message:   azEntry.Message,
+				Level:     convertAzureLogLevel(azEntry.Level),
+				Timestamp: azEntry.Timestamp,
+				Source:    service.LogSourceAzure,
+				AzureMetadata: &service.AzureLogMetadata{
+					ResourceType:  azEntry.ResourceType,
+					ContainerName: azEntry.ContainerName,
+					InstanceID:    azEntry.InstanceID,
+				},
+			}
+
+			if serviceSet != nil && !serviceSet[entry.Service] {
+				continue
+			}
+			if len(serviceFilter) == 1 && entry.Service != serviceFilter[0] {
+				continue
+			}
+			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
+				continue
+			}
+
+			if e.opts.format == "json" {
+				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
+			} else {
+				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
+			}
+
+		case err := <-errChan:
+			if err != nil && err != context.Canceled {
+				return fmt.Errorf("Azure log stream error: %w", err)
+			}
+			return nil
+
+		case <-sigChan:
+			cancel()
+			return nil
+		}
+	}
+}
+
 // followAllLogs streams logs from both local and Azure sources.
 func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+	if dashboardClient == nil {
+		output.Warning("Dashboard not running; following Azure logs only.")
+		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
+	}
+
 	// Check if dashboard is responding
 	if err := dashboardClient.Ping(ctx); err != nil {
-		return fmt.Errorf("cannot follow logs: dashboard not responding (run 'azd app run' first)")
+		output.Warning("Dashboard not responding; following Azure logs only.")
+		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
 	}
 
 	output.Info("Streaming logs from local and Azure sources...")

@@ -227,6 +227,16 @@ func (c *LogAnalyticsClient) parseResults(resp azlogs.QueryWorkspaceResponse, se
 			entry.ContainerName = getStringFromRow(row, colIndex, "ContainerName_s", "ContainerName")
 			entry.InstanceID = getStringFromRow(row, colIndex, "RevisionName_s", "PodName", "InstanceId")
 
+			// Extract service name from resource id when absent
+			if entry.Service == "" {
+				if resourceID := getStringFromRow(row, colIndex, "_ResourceId", "ResourceId", "resourceId"); resourceID != "" {
+					parts := strings.Split(resourceID, "/")
+					if len(parts) > 0 {
+						entry.Service = parts[len(parts)-1]
+					}
+				}
+			}
+
 			// If service name is empty, try to extract from data
 			if entry.Service == "" {
 				entry.Service = getStringFromRow(row, colIndex, "ContainerAppName_s", "ContainerName_s", "ServiceName")

@@ -33,8 +33,7 @@ type PaneLogLevel = 'info' | 'warning' | 'error'
 type ClassificationLevel = 'info' | 'warning' | 'error'
 
 type AzureTimeRange = {
-  preset: '15m' | '30m' | '6h' | '24h' | 'custom'
-  start?: Date
+  preset: '15m' | '30m' | '6h' | '24h'
   end?: Date
 }
 
@@ -116,13 +115,6 @@ function useSmoothedLoadingIndicator(isActive: boolean): boolean {
 }
 
 function getAzureTimeRangeBounds(timeRange: AzureTimeRange, now: Date): AzureTimeRangeBounds | null {
-  if (timeRange.preset === 'custom') {
-    if (!timeRange.start || !timeRange.end) {
-      return null
-    }
-    return { start: timeRange.start, end: timeRange.end }
-  }
-
   const end = timeRange.end ?? now
   const durationMs = {
     '15m': 15 * 60 * 1000,
@@ -149,38 +141,46 @@ function formatAzureTimeRangePreset(preset: AzureTimeRange['preset']): string {
       return '6 hours'
     case '24h':
       return '24 hours'
-    case 'custom':
-      return 'custom range'
   }
 }
 
 function suggestAzureTimeRangePreset(preset: AzureTimeRange['preset']): string {
-  // Prefer suggesting 24h when current range is shorter.
   if (preset === '15m' || preset === '30m' || preset === '6h') {
     return '24 hours'
-  }
-
-  // Already at 24h or custom; suggest widening beyond the current selection.
-  if (preset === '24h') {
-    return 'a custom range'
   }
 
   return 'a wider range'
 }
 
 function LogsPaneEmptyState({
+  errorMessage,
   isLoading,
   isWaiting,
   logMode,
   timeRange,
   hasLogs,
 }: Readonly<{
+  errorMessage: string | null
   isLoading: boolean
   isWaiting: boolean
   logMode: LogMode
   timeRange: AzureTimeRange
   hasLogs: boolean
 }>): ReactNode {
+  if (errorMessage) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400 mb-2" role="alert">
+          <XCircle className="w-4 h-4" aria-hidden="true" />
+          <span>{logMode === 'azure' ? 'Failed to load Azure logs' : 'Failed to load local logs'}</span>
+        </div>
+        <div className="text-sm text-muted-foreground max-w-sm">
+          {errorMessage}
+        </div>
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
@@ -557,6 +557,7 @@ function LogsPaneLogArea({
   codespaceConfig,
   isLoading,
   isWaiting,
+  errorMessage,
   timeRange,
   getPaneLogLevel,
   copiedLineIndex,
@@ -572,6 +573,7 @@ function LogsPaneLogArea({
   codespaceConfig: ReturnType<typeof useCodespaceEnv>['config']
   isLoading: boolean
   isWaiting: boolean
+  errorMessage: string | null
   timeRange: AzureTimeRange
   getPaneLogLevel: (log: LogEntry) => PaneLogLevel
   copiedLineIndex: number | null
@@ -594,6 +596,7 @@ function LogsPaneLogArea({
     >
       {filteredLogs.length === 0 ? (
         <LogsPaneEmptyState
+          errorMessage={errorMessage}
           isLoading={isLoading}
           isWaiting={isWaiting}
           logMode={logMode}
@@ -638,7 +641,7 @@ function LogsPaneLogArea({
                 <button
                   type="button"
                   onClick={() => handleCopyLine(log, idx)}
-                  className="opacity-0 group-hover:opacity-100 shrink-0 p-1 hover:bg-muted rounded transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 shrink-0 p-1 hover:bg-muted rounded transition-opacity"
                   title="Copy log line"
                   aria-label="Copy this log line"
                 >
@@ -769,9 +772,10 @@ function useLogsStream(params: {
   refreshTrigger: number
   isPausedRef: { current: boolean }
   setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
+  setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>
   onFetchSettled?: () => void
 }): void {
-  const { serviceName, fetchKey, logMode, timeRange, azureRealtime, refreshTrigger, isPausedRef, setLogs, onFetchSettled } = params
+  const { serviceName, fetchKey, logMode, timeRange, azureRealtime, refreshTrigger, isPausedRef, setLogs, setErrorMessage, onFetchSettled } = params
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -782,14 +786,21 @@ function useLogsStream(params: {
     let cancelled = false
     const fetchLogs = async () => {
       try {
+        setErrorMessage(null)
         const url = buildLogsFetchUrl(logsEndpoint, serviceName, logMode, timeRange)
         const res = await fetch(url)
-        if (res.ok) {
-          const data: unknown = await res.json()
-          const nextLogs = parseLogsPayload(logMode, data)
-          setLogs(nextLogs)
+        if (!res.ok) {
+          const message = (await res.text()) || `HTTP ${res.status}`
+          setErrorMessage(message)
+          return
         }
+
+        const data: unknown = await res.json()
+        const nextLogs = parseLogsPayload(logMode, data)
+        setLogs(nextLogs)
       } catch (err) {
+        const message = err instanceof Error ? err.message : 'Request failed'
+        setErrorMessage(message)
         console.error(`[LogsPane:${serviceName}] Failed to fetch ${logMode} logs:`, err)
       } finally {
         if (!cancelled) {
@@ -836,6 +847,7 @@ function useLogsStream(params: {
 
       ws.onerror = (err) => {
         if (ws.readyState !== WebSocket.CLOSED) {
+          setErrorMessage('WebSocket connection error')
           console.error(`WebSocket error for ${serviceName} (${logMode}):`, err)
         }
       }
@@ -863,6 +875,7 @@ function useLogsStream(params: {
 
     ws.onerror = (err) => {
       if (ws.readyState !== WebSocket.CLOSED) {
+        setErrorMessage('WebSocket connection error')
         console.error(`WebSocket error for ${serviceName} (${logMode}):`, err)
       }
     }
@@ -884,12 +897,7 @@ function buildLogsFetchUrl(
   const params = new URLSearchParams({ service: serviceName, tail: '500' })
 
   if (logMode === 'azure' && timeRange) {
-    if (timeRange.preset === 'custom' && timeRange.start && timeRange.end) {
-      params.set('start', timeRange.start.toISOString())
-      params.set('end', timeRange.end.toISOString())
-    } else {
-      params.set('since', timeRange.preset)
-    }
+    params.set('since', timeRange.preset)
   }
 
   return `${endpoint}?${params.toString()}`
@@ -929,7 +937,7 @@ interface LogsPaneProps {
   onShowDetails?: () => void      // Callback to open service details panel
   logMode?: LogMode               // Current log source mode (local or azure)
   isModeSwitching?: boolean       // Whether mode is currently being switched
-  timeRange?: { preset: '15m' | '30m' | '6h' | '24h' | 'custom'; start?: Date; end?: Date }  // Optional, only used for Azure logs
+  timeRange?: { preset: '15m' | '30m' | '6h' | '24h'; end?: Date }  // Optional, only used for Azure logs
   syncInterval?: number           // Auto-refresh interval in milliseconds
   azureRealtime?: boolean         // Whether to use WebSocket realtime streaming for Azure logs
 }
@@ -957,6 +965,7 @@ export function LogsPane({
 }: Readonly<LogsPaneProps>) {
   const resolvedTimeRange = timeRange ?? DEFAULT_AZURE_TIME_RANGE
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [hasFetchedForKey, setHasFetchedForKey] = useState(false)
   const fetchKey = useMemo(() => {
     // Local logs are not scoped by timeframe; keeping them independent avoids unnecessary reconnects
@@ -965,13 +974,13 @@ export function LogsPane({
       return `${logMode}:stream`
     }
 
-    const start = resolvedTimeRange.start ? resolvedTimeRange.start.toISOString() : ''
     const end = resolvedTimeRange.end ? resolvedTimeRange.end.toISOString() : ''
-    return `azure:${resolvedTimeRange.preset}:${start}:${end}:${azureRealtime ? 'realtime' : 'poll'}`
-  }, [logMode, resolvedTimeRange.preset, resolvedTimeRange.start, resolvedTimeRange.end, azureRealtime])
+    return `azure:${resolvedTimeRange.preset}:${end}:${azureRealtime ? 'realtime' : 'poll'}`
+  }, [logMode, resolvedTimeRange.preset, resolvedTimeRange.end, azureRealtime])
 
   useEffect(() => {
     setHasFetchedForKey(false)
+    setErrorMessage(null)
   }, [fetchKey])
 
   const [selectedText, setSelectedText] = useState<string>('')
@@ -1041,6 +1050,7 @@ export function LogsPane({
   // Clear logs and refetch when mode changes
   useEffect(() => {
     setLogs([]) // Clear logs when switching modes
+    setErrorMessage(null)
   }, [logMode])
 
   // Fetch initial logs and setup streaming - reconnect when mode or timeframe changes
@@ -1054,6 +1064,7 @@ export function LogsPane({
     refreshTrigger,
     isPausedRef,
     setLogs,
+    setErrorMessage,
     onFetchSettled: () => {
       setHasFetchedForKey(true)
     },
@@ -1278,6 +1289,7 @@ export function LogsPane({
         codespaceConfig={codespaceConfig}
         isLoading={showLoadingIndicator}
         isWaiting={isWaitingForFirstFetch}
+        errorMessage={errorMessage}
         timeRange={resolvedTimeRange}
         getPaneLogLevel={getPaneLogLevel}
         copiedLineIndex={copiedLineIndex}
