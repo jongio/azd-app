@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Azure Logs v2 Tasks
 
 ## Summary

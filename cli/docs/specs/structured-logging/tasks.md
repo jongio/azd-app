@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Structured Logging - Implementation Tasks
 
 ## Status Key

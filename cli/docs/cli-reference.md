@@ -56,6 +56,7 @@ azd app run --cwd ./my-project
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
+| `completion` | Generate shell autocompletion scripts | [→ Full Spec](commands/completion.md) |
 | `listen` | Extension framework integration (hidden, used by azd internally) | [→ Full Spec](commands/listen.md) |
 
 ---
@@ -283,6 +284,7 @@ azd app run -s web -v --runtime aspire
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
+| `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ### Runtime Modes
@@ -306,7 +308,7 @@ azd app run -s web -v --runtime aspire
 - **.NET Aspire**: Projects with AppHost.cs
 - **Node.js**: pnpm dev/start scripts
 - **Docker Compose**: Container orchestration
-- **Logic Apps Standard**: Azure Logic Apps workflows (see [Logic Apps Support](commands/logicapps-support.md))
+- **Logic Apps Standard**: Azure Logic Apps workflows (see [Azure Functions + Logic Apps](features/azure-functions.md))
 
 ### Service Configuration
 
@@ -1106,6 +1108,48 @@ azd app extension version 0.5.1
 ```
 
 **→ [See full version command specification](commands/version.md)** for version format details.
+
+---
+
+## `azd app completion`
+
+Generate shell autocompletion scripts for `azd app`.
+
+### Usage
+
+```bash
+azd app completion [command]
+```
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `bash` | Generate the autocompletion script for bash |
+| `fish` | Generate the autocompletion script for fish |
+| `powershell` | Generate the autocompletion script for PowerShell |
+| `zsh` | Generate the autocompletion script for zsh |
+
+### Examples
+
+```bash
+# Bash (add to ~/.bashrc)
+azd app completion bash > ~/.azd-app-completion.bash
+
+# Zsh (add to ~/.zshrc)
+azd app completion zsh > ~/.azd-app-completion.zsh
+
+# PowerShell (current session)
+azd app completion powershell | Out-String | Invoke-Expression
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--help` | `-h` | bool | `false` | Show help for completion |
+
+**→ [See full completion command specification](commands/completion.md)** for shell-specific install instructions.
 
 ---
 

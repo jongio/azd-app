@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # azd app test Output Fix - Tasks
 
 ## Tasks

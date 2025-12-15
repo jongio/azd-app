@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # azd app test - Implementation Tasks
 
 ## Status Key

@@ -30,6 +30,7 @@ azd app run [flags]
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
+| `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ## Dashboard Browser Launch

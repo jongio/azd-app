@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Dependency-Ordered Service Startup Tasks
 
 All tasks complete.
