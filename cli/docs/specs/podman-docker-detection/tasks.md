@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Podman Docker Detection Tasks
 
 ## Status Key

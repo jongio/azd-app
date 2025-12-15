@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 7 -->
 # Test Projects Reorganization Tasks
 
 ## Status Legend
