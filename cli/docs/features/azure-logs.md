@@ -31,7 +31,7 @@ azd app run
 3. **Switch to Azure mode** using the mode toggle in the dashboard header
 
 The dashboard now shows:
-- **Timeframe selector**: Choose `15m`, `30m`, `1h`, `6h`, or `24h` to control the time window
+- **Timeframe selector**: Choose `15m`, `30m`, `6h`, or `24h` to control the time window
 - **Sync interval**: Configure auto-refresh at `10s`, `30s`, `1m`, or `5m`
 - **View Query**: Inspect or edit the KQL query used for each service
 
@@ -264,9 +264,6 @@ azd app logs --source azure api
 
 # View last hour of logs
 azd app logs --source azure --since 1h
-
-# View logs from specific time range
-azd app logs --source azure --start "2025-12-10T10:00:00Z" --end "2025-12-10T12:00:00Z"
 
 # Follow Azure logs (live streaming with polling)
 azd app logs --source azure --follow

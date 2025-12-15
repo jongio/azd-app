@@ -48,6 +48,15 @@ interface LogsViewProps {
   isModeSwitching?: boolean
   /** Azure service filter (only used in Azure mode) */
   azureServiceFilter?: string
+
+  /** Azure timeframe preset (only used in Azure mode) */
+  timeRange?: { preset: '15m' | '30m' | '6h' | '24h' }
+
+  /** Azure polling refresh interval in milliseconds (only used when azureRealtime is false) */
+  syncInterval?: number
+
+  /** Whether to use WebSocket realtime streaming for Azure logs */
+  azureRealtime?: boolean
 }
 
 export function LogsView({ 
@@ -62,6 +71,9 @@ export function LogsView({
   logMode = 'local',
   isModeSwitching = false,
   azureServiceFilter = '',
+  timeRange,
+  syncInterval,
+  azureRealtime = false,
 }: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [internalServices, setInternalServices] = useState<string[]>([])
@@ -113,17 +125,19 @@ export function LogsView({
 
   const fetchLogs = useCallback(async () => {
     const baseEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
-    
-    // Build URL with service parameter
-    let serviceParam = selectedService
-    if (logMode === 'azure' && azureServiceFilter) {
-      // In Azure mode with filter, use the filter
-      serviceParam = azureServiceFilter
+    const serviceValue = (logMode === 'azure' && azureServiceFilter)
+      ? azureServiceFilter
+      : selectedService
+
+    const params = new URLSearchParams({ tail: String(INITIAL_LOG_TAIL) })
+    if (serviceValue !== 'all' && serviceValue !== '') {
+      params.set('service', serviceValue)
     }
-    
-    const url = serviceParam === 'all' || serviceParam === ''
-      ? `${baseEndpoint}?tail=${INITIAL_LOG_TAIL}`
-      : `${baseEndpoint}?service=${serviceParam}&tail=${INITIAL_LOG_TAIL}`
+    if (logMode === 'azure') {
+      params.set('since', timeRange?.preset ?? '15m')
+    }
+
+    const url = `${baseEndpoint}?${params.toString()}`
 
     try {
       const res = await fetch(url)
@@ -136,7 +150,7 @@ export function LogsView({
       console.error(`Failed to fetch ${logMode} logs:`, err)
       setLogs([])
     }
-  }, [selectedService, logMode, azureServiceFilter])
+  }, [selectedService, logMode, azureServiceFilter, timeRange?.preset])
 
   const setupWebSocket = useCallback(() => {
     // Close existing connection
@@ -144,19 +158,30 @@ export function LogsView({
       wsRef.current.close()
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const baseStreamEndpoint = logMode === 'azure' ? '/api/azure/logs/stream' : '/api/logs/stream'
-    
-    // Build URL with service parameter
-    let serviceParam = selectedService
-    if (logMode === 'azure' && azureServiceFilter) {
-      // In Azure mode with filter, use the filter
-      serviceParam = azureServiceFilter
+    // Azure logs only stream via WebSocket when realtime is enabled.
+    if (logMode === 'azure' && !azureRealtime) {
+      return
     }
-    
-    const url = serviceParam === 'all' || serviceParam === ''
-      ? `${protocol}//${window.location.host}${baseStreamEndpoint}`
-      : `${protocol}//${window.location.host}${baseStreamEndpoint}?service=${serviceParam}`
+
+    const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const baseStreamEndpoint = logMode === 'azure' ? '/api/azure/logs/stream' : '/api/logs/stream'
+
+    const serviceValue = (logMode === 'azure' && azureServiceFilter)
+      ? azureServiceFilter
+      : selectedService
+
+    const params = new URLSearchParams()
+    if (serviceValue !== 'all' && serviceValue !== '') {
+      params.set('service', serviceValue)
+    }
+    if (logMode === 'azure') {
+      params.set('realtime', 'true')
+    }
+
+    const query = params.toString()
+    const url = query.length > 0
+      ? `${protocol}//${globalThis.location.host}${baseStreamEndpoint}?${query}`
+      : `${protocol}//${globalThis.location.host}${baseStreamEndpoint}`
 
     const ws = new WebSocket(url)
 
@@ -186,22 +211,39 @@ export function LogsView({
     }
 
     wsRef.current = ws
-  }, [selectedService, logMode, azureServiceFilter]) // Reconnect when mode/filter changes
+  }, [selectedService, logMode, azureServiceFilter, azureRealtime]) // Reconnect when mode/filter changes
 
-  // Fetch initial logs and setup WebSocket
+  // Fetch initial logs and setup WebSocket (when applicable)
   useEffect(() => {
     void fetchLogs()
-    void setupWebSocket()
+    setupWebSocket()
 
     return () => {
       wsRef.current?.close()
     }
-  }, [fetchLogs, setupWebSocket, selectedService, azureServiceFilter])
+  }, [fetchLogs, setupWebSocket, selectedService, azureServiceFilter, logMode, azureRealtime, timeRange?.preset])
 
-  // Clear logs when mode changes or filter changes
+  // Azure polling (non-realtime): periodically refetch logs.
+  useEffect(() => {
+    if (logMode !== 'azure') return
+    if (azureRealtime) return
+    if (!syncInterval || syncInterval <= 0) return
+    if (isPaused) return
+
+    const intervalMs = Math.max(1000, syncInterval)
+    const id = globalThis.setInterval(() => {
+      void fetchLogs()
+    }, intervalMs)
+
+    return () => {
+      globalThis.clearInterval(id)
+    }
+  }, [logMode, azureRealtime, syncInterval, isPaused, fetchLogs])
+
+  // Clear logs when mode/filter/timeframe changes
   useEffect(() => {
     setLogs([]) // Clear logs when switching modes or changing filter
-  }, [logMode, azureServiceFilter])
+  }, [logMode, azureServiceFilter, timeRange?.preset])
 
   // Auto-scroll to bottom - scroll the container, not the page
   // Pause auto-scroll when user is hovering over the logs
@@ -414,6 +456,9 @@ export function LogsView({
           "bg-card border rounded-b-lg p-4 overflow-y-auto font-mono text-sm",
           hideControls ? "flex-1" : "h-[600px]"
         )}
+        role="log"
+        aria-live="polite"
+        aria-atomic="false"
       >
         {filteredLogs.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
@@ -421,8 +466,10 @@ export function LogsView({
           </div>
         ) : (
           <div className="space-y-0.5">
-            {filteredLogs.map((log, idx) => (
-              <div key={idx} className={getLogColor(log)}>
+            {filteredLogs.map((log, idx) => {
+              const key = `${log?.timestamp ?? ''}-${log?.service ?? 'unknown'}-${idx}`
+              return (
+              <div key={key} className={getLogColor(log)}>
                 <span className="text-muted-foreground text-xs">
                   [{formatLogTimestamp(String(log?.timestamp ?? ''))}]
                 </span>
@@ -437,7 +484,8 @@ export function LogsView({
                   }} 
                 />
               </div>
-            ))}
+              )
+            })}
             <div ref={logsEndRef} />
           </div>
         )}

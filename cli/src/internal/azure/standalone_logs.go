@@ -222,6 +222,8 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 
 	// Query each resource type and collect all entries
 	var allEntries []LogEntry
+	var queryErrors []string
+	var successCount int
 	for resourceType, services := range servicesByType {
 		// Get Azure names for filtering
 		var azureNames []string
@@ -231,7 +233,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 
 		query := buildStandaloneQueryForType(resourceType, azureNames, since, limit)
 
-		slog.Debug("Executing KQL query", "resourceType", resourceType, "azureNames", azureNames, "query", query)
+		slog.Debug("Executing KQL query", "resourceType", resourceType, "services", services, "azureNames", azureNames, "query", query)
 
 		entries, err := client.QueryLogs(ctx, "", resourceType, since, query)
 		if err != nil {
@@ -240,14 +242,57 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 			if os.Getenv("AZD_APP_DEBUG") == "true" {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
 			}
+			queryErrors = append(queryErrors, fmt.Sprintf("%s: %v", resourceType, err))
 			continue
 		}
 
-		slog.Debug("Query succeeded", "resourceType", resourceType, "entries", len(entries))
+		successCount++
+
+		// Map Azure resource names back to logical service names from azure.yaml
+		entries = mapServiceNames(entries, services)
+
+		slog.Debug("Query succeeded", "resourceType", resourceType, "services", services, "entries", len(entries))
 		allEntries = append(allEntries, entries...)
 	}
 
 	slog.Debug("Total entries collected", "count", len(allEntries))
+
+	// Fix 2: Bubble error when all queries fail with actionable guidance
+	if successCount == 0 {
+		errMsg := "Azure log queries failed for all resource types"
+		if len(queryErrors) > 0 {
+			errMsg += fmt.Sprintf(":\n  %s", strings.Join(queryErrors, "\n  "))
+		}
+		return nil, &AzureLogsError{
+			Code:    "QUERY_FAILED",
+			Message: errMsg,
+			Action:  "Verify Log Analytics workspace access and service permissions",
+		}
+	}
+
+	// Fix 2: Provide actionable guidance when queries succeed but return zero results
+	if len(allEntries) == 0 {
+		if len(queryErrors) > 0 {
+			errMsg := fmt.Sprintf("Azure log queries returned no results. Some queries failed:\n  %s", strings.Join(queryErrors, "\n  "))
+			return nil, &AzureLogsError{
+				Code:    "NO_RESULTS",
+				Message: errMsg,
+				Action:  "Check service names, verify workspace has data (ingestion delay is 1-5 minutes), and confirm permissions",
+			}
+		} else if len(config.Services) > 0 {
+			return nil, &AzureLogsError{
+				Code:    "NO_RESULTS",
+				Message: fmt.Sprintf("Azure logs returned no results for service(s): %s", strings.Join(config.Services, ", ")),
+				Action:  "Verify service names match azure.yaml, check if services are deployed and generating logs, and note that ingestion delay is 1-5 minutes",
+			}
+		} else {
+			return nil, &AzureLogsError{
+				Code:    "NO_RESULTS",
+				Message: "Azure logs returned no results",
+				Action:  "Verify services are deployed and generating logs. Note: Azure logs have a 1-5 minute ingestion delay",
+			}
+		}
+	}
 
 	// Sort all entries by timestamp descending
 	sortLogEntriesByTimeDesc(allEntries)
@@ -594,10 +639,11 @@ func formatKQLDuration(d time.Duration) string {
 
 // StreamConfig holds configuration for standalone Azure log streaming.
 type StreamConfig struct {
-	ProjectDir   string
-	WorkspaceID  string        // Log Analytics workspace GUID
-	Services     []string      // Service names to filter (empty = all)
-	PollInterval time.Duration // How often to poll (default 30s)
+	ProjectDir    string
+	WorkspaceID   string        // Log Analytics workspace GUID
+	Services      []string      // Service names to filter (empty = all)
+	PollInterval  time.Duration // How often to poll (default 30s)
+	InitialWindow time.Duration // How far back to look on first poll
 }
 
 // StreamAzureLogsStandalone streams Azure logs by polling Log Analytics.
@@ -689,9 +735,16 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 		servicesByType[svc.ResourceType] = append(servicesByType[svc.ResourceType], svc)
 	}
 
-	// Track last seen timestamp to avoid duplicates
-	// Use 24h initial window to catch recent logs, even if container has been idle
-	lastSeen := time.Now().Add(-24 * time.Hour) // Start with last 24 hours
+	// Fix 4: Align streaming window with user-requested time range
+	// Use InitialWindow if provided, otherwise default to 1 hour (not 24h)
+	window := config.InitialWindow
+	if window <= 0 {
+		window = 1 * time.Hour
+	}
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Streaming initial window: %v\n", window)
+	}
+	lastSeen := time.Now().Add(-window)
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
@@ -744,6 +797,8 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 
 	// Collect all entries from all resource types
 	var allEntries []LogEntry
+	var successCount int
+	var errorCount int
 	for resourceType, services := range servicesByType {
 		var azureNames []string
 		for _, svc := range services {
@@ -761,10 +816,18 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 			if os.Getenv("AZD_APP_DEBUG") == "true" {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
 			}
+			errorCount++
 			continue
 		}
 
+		successCount++
+		entries = mapServiceNames(entries, services)
+
 		allEntries = append(allEntries, entries...)
+	}
+
+	if successCount == 0 && errorCount > 0 {
+		return fmt.Errorf("azure log queries failed for all resource types")
 	}
 
 	// Sort by timestamp ascending for streaming (oldest first)
@@ -792,8 +855,42 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 		fmt.Fprintf(os.Stderr, "[DEBUG] Sent %d entries to channel\n", sentCount)
 	}
 
-	// Show last poll timestamp
-	fmt.Fprintf(os.Stderr, "[%s] Last polled\n", time.Now().Format("15:04:05"))
+	// Fix 3: Last poll timestamp only shown in debug mode (was always shown, spamming stderr)
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] [%s] Last polled (sent %d entries)\n", time.Now().Format("15:04:05"), sentCount)
+	}
 
 	return nil
+}
+
+// mapServiceNames remaps Azure resource names to logical service names from azure.yaml.
+func mapServiceNames(entries []LogEntry, services []ServiceInfo) []LogEntry {
+	if len(entries) == 0 || len(services) == 0 {
+		return entries
+	}
+
+	mapping := make(map[string]string, len(services)*2)
+	for _, svc := range services {
+		logical := strings.ToLower(svc.Name)
+		if svc.AzureName != "" {
+			mapping[strings.ToLower(svc.AzureName)] = logical
+		}
+		mapping[logical] = logical
+	}
+
+	for i := range entries {
+		entry := &entries[i]
+		candidates := []string{entry.Service, entry.ContainerName, entry.InstanceID}
+		for _, candidate := range candidates {
+			if candidate == "" {
+				continue
+			}
+			if logical, ok := mapping[strings.ToLower(candidate)]; ok {
+				entry.Service = logical
+				break
+			}
+		}
+	}
+
+	return entries
 }

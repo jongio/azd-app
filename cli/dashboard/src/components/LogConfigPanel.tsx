@@ -1,14 +1,13 @@
 /**
  * LogConfigPanel - Modal panel for configuring log sources per service
- * Provides table selection mode and custom KQL query mode.
+ * Currently supports table selection only (custom KQL deferred until backend support exists).
  */
 import * as React from 'react'
-import { X, Settings2, Table2, Code, Loader2, AlertCircle, Check } from 'lucide-react'
+import { X, Settings2, Loader2, AlertCircle, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useAvailableTables, useLogConfig } from '@/hooks/useLogConfig'
 import { TableSelector } from './TableSelector'
-import { KqlQueryInput } from './KqlQueryInput'
 
 // =============================================================================
 // Types
@@ -28,8 +27,6 @@ export interface LogConfigPanelProps {
   /** Additional class names */
   className?: string
 }
-
-type ConfigMode = 'tables' | 'custom'
 
 // =============================================================================
 // Constants
@@ -71,9 +68,7 @@ export function LogConfigPanel({
   } = useLogConfig({ serviceName, autoFetch: false })
 
   // Local state
-  const [mode, setMode] = React.useState<ConfigMode>('tables')
   const [selectedTables, setSelectedTables] = React.useState<string[]>([])
-  const [customQuery, setCustomQuery] = React.useState('')
   const [saveSuccess, setSaveSuccess] = React.useState(false)
 
   // Close on Escape
@@ -91,9 +86,7 @@ export function LogConfigPanel({
   // Sync local state with fetched config
   React.useEffect(() => {
     if (config) {
-      setMode(config.mode || 'tables')
       setSelectedTables(config.tables || [])
-      setCustomQuery(config.query || '')
     }
   }, [config])
 
@@ -107,10 +100,10 @@ export function LogConfigPanel({
 
   // Handle save
   const handleSave = async () => {
-    // Save with either tables or query - mode is inferred by backend
+    // Save with table selection only; custom queries are disabled until backend support lands.
     const success = await saveConfig({
-      tables: mode === 'tables' ? selectedTables : undefined,
-      query: mode === 'custom' ? customQuery : undefined,
+      tables: selectedTables,
+      query: undefined,
     })
 
     if (success) {
@@ -120,30 +113,16 @@ export function LogConfigPanel({
     }
   }
 
-  // Handle test query (for custom mode)
-  const handleTestQuery = () => {
-    // Query testing isn't implemented yet; keep the hook point and validate input.
-    if (customQuery.trim().length === 0) {
-      return
-    }
-  }
-
   // Check if form is valid
-  const isValid = mode === 'tables' 
-    ? selectedTables.length > 0 
-    : customQuery.trim().length > 0
+  const isValid = selectedTables.length > 0
 
   // Check if form has changes
   const hasChanges = React.useMemo(() => {
     if (!config) return true
-    if (mode !== config.mode) return true
-    if (mode === 'tables') {
-      const configTables = config.tables || []
-      if (selectedTables.length !== configTables.length) return true
-      return !selectedTables.every(t => configTables.includes(t))
-    }
-    return customQuery !== (config.query || '')
-  }, [config, mode, selectedTables, customQuery])
+    const configTables = config.tables || []
+    if (selectedTables.length !== configTables.length) return true
+    return !selectedTables.every(t => configTables.includes(t))
+  }, [config, selectedTables])
 
   const isLoading = isLoadingTables || isLoadingConfig
   const error = tablesError || configError
@@ -207,40 +186,6 @@ export function LogConfigPanel({
           </button>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
-          <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-            <button
-              type="button"
-              onClick={() => setMode('tables')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
-                'transition-colors duration-200',
-                mode === 'tables'
-                  ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
-              )}
-            >
-              <Table2 className="w-4 h-4" />
-              Tables
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('custom')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
-                'transition-colors duration-200',
-                mode === 'custom'
-                  ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200',
-              )}
-            >
-              <Code className="w-4 h-4" />
-              Custom KQL
-            </button>
-          </div>
-        </div>
-
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {/* Loading State */}
@@ -269,7 +214,7 @@ export function LogConfigPanel({
           )}
 
           {/* Tables Mode */}
-          {!isLoading && !error && mode === 'tables' && (
+          {!isLoading && !error && (
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
@@ -290,53 +235,13 @@ export function LogConfigPanel({
               />
             </div>
           )}
-
-          {/* Custom KQL Mode */}
-          {!isLoading && !error && mode === 'custom' && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-                  Custom KQL Query
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  Write a custom KQL query for advanced filtering.
-                  Use <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">{'{serviceName}'}</code> and{' '}
-                  <code className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">{'{timespan}'}</code> placeholders.
-                </p>
-              </div>
-
-              <KqlQueryInput
-                value={customQuery}
-                onChange={setCustomQuery}
-                onRunQuery={handleTestQuery}
-                isCollapsed={false}
-                placeholder={`ContainerAppConsoleLogs_CL
-| where ContainerAppName_s =~ "{serviceName}"
-| where TimeGenerated > ago({timespan})
-| project TimeGenerated, Log_s, Stream_s
-| order by TimeGenerated desc
-| take 1000`}
-              />
-
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  <strong>Tip:</strong> Make sure your query includes{' '}
-                  <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 rounded">TimeGenerated</code>{' '}
-                  in the projection for proper timestamp display.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 p-4 border-t border-slate-200 dark:border-slate-700 shrink-0 bg-slate-50 dark:bg-slate-800/50">
           <div className="text-sm text-slate-500 dark:text-slate-400">
-            {mode === 'tables' && selectedTables.length > 0 && (
+            {selectedTables.length > 0 && (
               <span>{selectedTables.length} table{selectedTables.length !== 1 ? 's' : ''} selected</span>
-            )}
-            {mode === 'custom' && customQuery.trim() && (
-              <span>Custom query configured</span>
             )}
           </div>
 

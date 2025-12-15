@@ -224,3 +224,36 @@ func TestGetWorkspaceIDFromEnv_NotFound(t *testing.T) {
 		t.Errorf("Expected empty GUID, got %q", guid)
 	}
 }
+
+func TestMapServiceNames_UsesAzureNameMapping(t *testing.T) {
+	entries := []LogEntry{{
+		Service:       "api-azure",
+		ContainerName: "api-azure",
+	}}
+	services := []ServiceInfo{{
+		Name:      "api",
+		AzureName: "api-azure",
+	}}
+
+	result := mapServiceNames(entries, services)
+	if result[0].Service != "api" {
+		t.Fatalf("expected logical service name 'api', got %q", result[0].Service)
+	}
+}
+
+func TestMapServiceNames_PrefersContainerNameWhenServiceEmpty(t *testing.T) {
+	entries := []LogEntry{{
+		Service:       "",
+		ContainerName: "web-backend",
+		InstanceID:    "rev-123",
+	}}
+	services := []ServiceInfo{{
+		Name:      "web",
+		AzureName: "web-backend",
+	}}
+
+	result := mapServiceNames(entries, services)
+	if result[0].Service != "web" {
+		t.Fatalf("expected logical service name 'web', got %q", result[0].Service)
+	}
+}

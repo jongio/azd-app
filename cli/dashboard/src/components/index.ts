@@ -90,14 +90,6 @@ export type { AzureConnectionStatusProps, AzureConnectionState, AzureStatusBadge
 export { LogSourceBadge, InlineLogSource } from './LogSourceBadge'
 export type { LogSourceBadgeProps, LogSource, InlineLogSourceProps } from './LogSourceBadge'
 
-// Historical Log Panel
-export { HistoricalLogPanel } from './HistoricalLogPanel'
-export type { HistoricalLogPanelProps } from './HistoricalLogPanel'
-export { TimeRangeSelector } from './TimeRangeSelector'
-export type { TimeRangeSelectorProps } from './TimeRangeSelector'
-export { KqlQueryInput } from './KqlQueryInput'
-export type { KqlQueryInputProps } from './KqlQueryInput'
-
 // Log Config Panel
 export { LogConfigPanel } from './LogConfigPanel'
 export type { LogConfigPanelProps } from './LogConfigPanel'

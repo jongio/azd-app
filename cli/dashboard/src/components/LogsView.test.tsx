@@ -290,7 +290,7 @@ describe('LogsView', () => {
 
     await waitFor(() => {
       // Should display formatted timestamps in YYYY-MM-DD HH:MM:SS.mmm format
-      const timestamps = screen.getAllByText(/\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\]/)
+      const timestamps = screen.getAllByText(/\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}(?:\s*(?:Z|[+-]\d{2}:\d{2}))?\]/)
       expect(timestamps.length).toBeGreaterThan(0)
     })
   })

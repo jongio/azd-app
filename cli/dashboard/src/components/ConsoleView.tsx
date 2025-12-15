@@ -1070,7 +1070,7 @@ export function ConsoleView({
       if (isToggleLogModeShortcut(e)) {
         e.preventDefault()
         if (azureEnabled) {
-          setLogMode((prev) => prev === 'local' ? 'azure' : 'local')
+          handleLogModeChange(logMode === 'local' ? 'azure' : 'local')
         }
         return
       }
@@ -1088,7 +1088,7 @@ export function ConsoleView({
 
     globalThis.addEventListener('keydown', handleKeyDown)
     return () => globalThis.removeEventListener('keydown', handleKeyDown)
-  }, [viewMode, updateUI, isFullscreen, azureEnabled])
+  }, [viewMode, updateUI, isFullscreen, azureEnabled, logMode, handleLogModeChange])
 
   const handleToggleService = (serviceName: string) => {
     setServiceSelectionMode('custom')
@@ -1253,6 +1253,9 @@ export function ConsoleView({
         hideControls={true}
         logMode={logMode}
         isModeSwitching={isModeSwitching}
+        timeRange={logMode === 'azure' ? timeRange : undefined}
+        syncInterval={syncInterval}
+        azureRealtime={azureRealtime}
       />
     )
   }

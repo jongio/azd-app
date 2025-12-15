@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 )
@@ -623,4 +624,53 @@ func TestLogsExecutor_Execute(t *testing.T) {
 			t.Errorf("Expected 5 lines with tail=5, got %d", len(lines))
 		}
 	})
+}
+
+func TestLogsExecutor_AzureStandaloneFallback(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
+	defer os.RemoveAll(tmpDir)
+
+	// Stub standalone fetcher
+	originalFetch := fetchAzureLogsStandalone
+	called := false
+	fetchAzureLogsStandalone = func(ctx context.Context, config azure.StandaloneLogsConfig) ([]azure.LogEntry, error) {
+		called = true
+		if len(config.Services) != 1 || config.Services[0] != "api" {
+			t.Fatalf("expected service filter [api], got %v", config.Services)
+		}
+		return []azure.LogEntry{{
+			Service:   "api",
+			Message:   "hello from azure",
+			Level:     azure.LogLevelInfo,
+			Timestamp: time.Now(),
+		}}, nil
+	}
+	defer func() { fetchAzureLogsStandalone = originalFetch }()
+
+	var buf bytes.Buffer
+	opts := &logsOptions{tail: 50, level: "all", format: "text", timestamps: true, noColor: true, source: "azure"}
+
+	executor := newLogsExecutorForTest(
+		func(ctx context.Context, projectDir string) (DashboardClient, error) {
+			return nil, errors.New("dashboard not running")
+		},
+		func(projectDir string) LogManagerInterface {
+			return newMockLogManager()
+		},
+		func() (string, error) { return tmpDir, nil },
+		&buf,
+		opts,
+	)
+
+	if err := executor.execute(context.Background(), []string{"api"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !called {
+		t.Fatal("expected standalone Azure fetch to be called")
+	}
+
+	if !strings.Contains(buf.String(), "hello from azure") {
+		t.Fatalf("expected output to contain Azure log message, got: %s", buf.String())
+	}
 }
