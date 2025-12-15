@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Service Filters UI Redesign Tasks
 
 ## Done

@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Docs Policy Sweep Tasks
 
 ## Done

@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Log Pane Visibility Defaults Tasks
 
 ## TODO

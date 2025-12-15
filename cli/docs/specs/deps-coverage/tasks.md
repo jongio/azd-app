@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Deps Coverage Improvement Tasks
 
 ## Status Key

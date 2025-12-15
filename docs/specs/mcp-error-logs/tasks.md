@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # MCP Error Logs Tasks
 
 ## Completed Tasks

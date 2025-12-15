@@ -1,4 +1,4 @@
-<!-- NEXT: -->
+<!-- NEXT: 0 -->
 # Refactoring Tasks
 
 ## Phase 1: COMPLETE ✅ (10/10 tasks)
