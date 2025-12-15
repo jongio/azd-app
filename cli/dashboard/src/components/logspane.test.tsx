@@ -104,6 +104,34 @@ describe('LogsPane', () => {
     expect(title.textContent ?? '').not.toMatch(DATETIME_LIKE_PATTERN)
   })
 
+  it('deduplicates embedded timestamps and service prefixes while keeping timezone', async () => {
+    fetchMock.mockImplementationOnce(() => {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          logs: [{
+            timestamp: '2025-12-13T05:45:49.1071934-08:00',
+            service: 'appservice-web',
+            message: '[2025-12-13T05:45:49.1071934-08:00] [appservice-web] [2025-12-13 05:45:49] Health endpoint hit',
+            level: 1,
+            isStderr: false,
+          }],
+        }),
+      } as unknown as Response)
+    })
+
+    render(<LogsPane serviceName="appservice-web" onCopy={() => {}} isPaused={false} logMode="azure" />)
+
+    const logLine = await screen.findByText(/Health endpoint hit/)
+    const rowText = logLine.parentElement?.textContent ?? ''
+
+    const timestampMatches = rowText.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g) ?? []
+    expect(timestampMatches.length).toBe(1)
+    expect(rowText).toMatch(/-08:00/)
+    const serviceMatches = rowText.match(/appservice-web/g) ?? []
+    expect(serviceMatches.length).toBe(1)
+  })
+
   it('uses custom timeRange when provided', async () => {
     const start = new Date('2024-01-01T00:00:00.000Z')
     const end = new Date('2024-01-01T01:00:00.000Z')

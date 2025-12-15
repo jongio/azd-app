@@ -1,13 +1,13 @@
-<!-- NEXT: #simplify-log-header-timestamps -->
+<!-- NEXT: - -->
 # azd-app Tasks
 
-## TODO: Simplify log header timestamps {#simplify-log-header-timestamps}
-- Reduce duplicated timestamp data in log rows; display a single timestamp format plus source/service once per entry while retaining timezone clarity.
-- Keep necessary Azure metadata (service name, level, message) visible without repeating full ISO timestamps multiple times.
-- Remove repeated date/time segments like `[2025-12-13T05:45:49.1071934-08:00] [appservice-web] [2025-12-13 05:45:49]` so each entry shows only one clear timestamp.
-- Update tests/snapshots to reflect the streamlined header format without losing ordering or diagnostic fidelity.
+## DONE: 1 Simplify log header timestamps {#1-simplify-log-header-timestamps}
+- Reduced duplicated timestamp data in log rows; log entries now render a single timezone-aware timestamp with an optional service label once per entry.
+- Applied embedded timestamp and service-prefix stripping to both Azure and local logs to avoid repeated ISO/local time segments.
+- Updated clipboard copy formatting to match the on-screen single-prefix format for diagnostic clarity.
+- Added regression coverage to ensure deduplication and timezone preservation in the log pane.
 
-## DONE: Add Azure provenance logging {#azure-provenance-logging}
+## DONE: 2 Add Azure provenance logging {#2-azure-provenance-logging}
 - ✅ containerapp-api: Added `isAzureEnvironment()`, `buildAzureProvenance()`, `formatAzureProvenance()` helpers
 - ✅ containerapp-api: Emits azure_provider, azure_service, azure_app, azure_revision, azure_replica, azure_env, azure_region, azure_hostname only when CONTAINER_APP_NAME set
 - ✅ containerapp-api: Logs public endpoints with method and route on startup and per-request
@@ -21,43 +21,18 @@
 - ✅ Tests: 697 passed, azure-provenance.ts at 100% coverage
 - ✅ Build successful (Go CLI v0.9.0, TypeScript type-checks clean)
 
-## DONE: Fix Azure mode refresh {#fix-azure-mode-refresh}
+## DONE: 3 Fix Azure mode refresh {#3-fix-azure-mode-refresh}
 - ✅ Reset Azure polling countdown when sync interval or mode dependencies change so the next refresh uses the latest interval.
 - ✅ Added regression test ensuring Azure polling re-queries after shortening the interval (logspane.test.tsx).
 - Tests: not run in this workspace; run `pnpm --filter cli/dashboard test -- --run logspane` to verify.
 
-## DONE: Fix containerapp-api logs {#fix-containerapp-logs}
-- Confirmed logs appear when timeframe is adjusted - no backend fix needed.
+## DONE: 10 Review azlogs diffs and fix regressions {#10-review-azlogs-diffs-and-fix-regressions}
+- Removed stray inline code injected into the LogsPane header badge and restored the process badge icon render path.
+- Corrected service label formatting in log rows to avoid corrupted characters and preserve single timestamp + optional service label view.
+- Attempted targeted vitest run for logspane.test.tsx; runner not detected by automation here—tests recommended locally.
 
-## DONE: Implement service filters UI redesign {#implement-service-filters-ui}
-- ✅ Added getServiceIconAndColor helper function with contextual icons
-- ✅ Icons: Globe (web/frontend), Server (api/backend), Database (db), Box (container), Cpu (worker), Zap (functions), Package (default)
-- ✅ Replaced checkboxes with pill buttons (icon + text) in FiltersBar
-- ✅ 8-color cycling palette (emerald, purple, blue, rose, cyan, violet, amber, teal)
-- ✅ Max-width 150px with text truncate and title tooltip
-- ✅ Selected state: colored bg/text/ring, Unselected: transparent with hover
-- ✅ Maintains all existing filter toggle behavior
-- ✅ Build successful, all 645 tests passing
+## DONE: 11 Refine LogsPane timestamp/service label formatting {#11-refine-logspane-timestamp-service-label-formatting}
+- Unified log row formatting to display `[timestamp | service]` once per entry with stripEmbeddedTimestamp applied to payloads.
+- Aligned copy-to-clipboard text with on-screen formatting while keeping timezone offsets intact via formatLogTimestamp.
 
-## DONE: Move timeframe/refresh to both modes {#timeframe-refresh-both-modes}
-- ✅ Removed 'Azure mode only' conditional from timeframe picker in toolbar
-- ✅ Timeframe control (15m, 1h, 6h, 24h) now available for both local and cloud modes
-- ✅ Refresh interval already available for both modes (no change needed)
-- ✅ Build successful, all 645 tests passing
-
-## DONE: Add countdown timer to LogsPane {#logspane-countdown-timer}
-- ✅ Added syncInterval prop to LogsPaneProps interface
-- ✅ Added secondsUntilRefresh state with countdown logic
-- ✅ Implemented countdown effect that updates every second
-- ✅ Added footer component showing "Next refresh in Xs"
-- ✅ Only displays when not collapsed, syncInterval set, not paused, and countdown > 0
-- ✅ Uses RotateCw icon and muted styling for subtle appearance
-- ✅ Passed syncInterval prop from ConsoleView to LogsPane
-- ✅ Build successful, all 645 tests passing
-
-## DONE: Design logs UI simplification {#design-logs-ui-simplification}
-- Designer: remove services dropdown, drop custom 1h window option, add refresh interval control with 5s-5m bounds, and restore diagnostics screen entry points; deliver component specs with states, validation, and responsive guidance.
-
-## DONE: Implement logs UI changes {#implement-logs-ui-changes}
-- Developer: apply designer spec to dashboard, remove services filter dependencies, adjust timeframe picker, add refresh interval control with bounds/presets and persistence decision, and reinstate diagnostics screen visibility and navigation.
-- ✅ Implemented effectiveLogMode logic in ConsoleView to override logMode when service.host === 'local'
+## DONE: 4-9 archived to docs/archive/azd-app-archive-002.md
