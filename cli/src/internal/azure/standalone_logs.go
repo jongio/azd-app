@@ -136,7 +136,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 				fmt.Fprintf(os.Stderr, "[DEBUG] Workspace discovery failed: %v\n", err)
 			}
 		}
-		
+
 		if workspaceID == "" {
 			return nil, &AzureLogsError{
 				Code:    "NO_WORKSPACE",
@@ -309,12 +309,35 @@ func GetWorkspaceIDFromEnv(projectDir string) string {
 		return guid
 	}
 
+	// Next: if we have a workspace resource ID, resolve its customerId via ARM.
+	if wsID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID"); wsID != "" {
+		if cred, err := NewAzureCredential(); err == nil {
+			if guid, err := ResolveWorkspaceCustomerID(context.Background(), cred, wsID); err == nil {
+				os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", guid)
+				return guid
+			}
+		}
+	}
+
 	// Try the .env file directly
 	envFile := filepath.Join(projectDir, ".azure", getDefaultEnvName(projectDir), ".env")
 	if content, err := os.ReadFile(envFile); err == nil {
+		var workspaceID string
 		for _, line := range strings.Split(string(content), "\n") {
 			if strings.HasPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_GUID=") {
 				return strings.TrimPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_GUID=")
+			}
+			if strings.HasPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_ID=") {
+				workspaceID = strings.TrimPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_ID=")
+			}
+		}
+
+		if workspaceID != "" {
+			if cred, err := NewAzureCredential(); err == nil {
+				if guid, err := ResolveWorkspaceCustomerID(context.Background(), cred, workspaceID); err == nil {
+					os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", guid)
+					return guid
+				}
 			}
 		}
 	}
@@ -333,7 +356,10 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context, projectDir string) (string
 	// Get resource group from environment
 	resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP")
 	if resourceGroup == "" {
-		return "", false, fmt.Errorf("AZURE_RESOURCE_GROUP not set")
+		resourceGroup = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
+	}
+	if resourceGroup == "" {
+		return "", false, fmt.Errorf("AZURE_RESOURCE_GROUP_NAME not set")
 	}
 
 	// Try to discover workspace using az CLI
@@ -461,58 +487,6 @@ func getDefaultEnvName(projectDir string) string {
 	return ""
 }
 
-// resolveServiceNames maps azure.yaml service names to Azure resource names.
-// For example, "containerapp-api" -> "ca-k7zjfgph5a6jk" using SERVICE_*_NAME env vars.
-func resolveServiceNames(projectDir string, services []string) []string {
-	if len(services) == 0 {
-		return services
-	}
-
-	// Build lookup map from environment
-	serviceNameMap := make(map[string]string)
-
-	// Get env values from environment (provided by azd extension framework)
-	for _, line := range os.Environ() {
-		// Look for SERVICE_*_NAME entries
-		// Format: SERVICE_CONTAINERAPP_API_NAME="ca-k7zjfgph5a6jk"
-		if strings.HasPrefix(line, "SERVICE_") && strings.Contains(line, "_NAME=") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				// Extract service name from key: SERVICE_CONTAINERAPP_API_NAME -> containerapp-api
-				key := parts[0]
-				key = strings.TrimPrefix(key, "SERVICE_")
-				key = strings.TrimSuffix(key, "_NAME")
-				key = strings.ToLower(strings.ReplaceAll(key, "_", "-"))
-
-				// Get the Azure resource name
-				value := strings.Trim(parts[1], "\"")
-				if value != "" {
-					serviceNameMap[key] = value
-				}
-			}
-		}
-	}
-
-	// Resolve service names
-	resolved := make([]string, 0, len(services))
-	for _, svc := range services {
-		svcLower := strings.ToLower(svc)
-		if azureName, ok := serviceNameMap[svcLower]; ok {
-			resolved = append(resolved, azureName)
-		} else {
-			// Keep original if no mapping found
-			resolved = append(resolved, svc)
-		}
-	}
-
-	return resolved
-}
-
-// buildStandaloneQuery builds a KQL query for standalone log fetching (Container Apps only - legacy).
-func buildStandaloneQuery(services []string, since time.Duration, limit int) string {
-	return buildStandaloneQueryForType(ResourceTypeContainerApp, services, since, limit)
-}
-
 // buildStandaloneQueryForType builds a KQL query for a specific resource type.
 func buildStandaloneQueryForType(resourceType ResourceType, services []string, since time.Duration, limit int) string {
 	var sb strings.Builder
@@ -618,50 +592,6 @@ func formatKQLDuration(d time.Duration) string {
 	return fmt.Sprintf("%ds", seconds)
 }
 
-// mapQueryError maps Azure SDK errors to actionable AzureLogsError.
-func mapQueryError(err error) *AzureLogsError {
-	errStr := err.Error()
-
-	switch {
-	case strings.Contains(errStr, "AADSTS") || strings.Contains(errStr, "401"):
-		return &AzureLogsError{
-			Code:    "AUTH_EXPIRED",
-			Message: "Authentication expired",
-			Action:  "Run this command to fix:",
-			Command: "azd auth login",
-		}
-
-	case strings.Contains(errStr, "ResourceNotFound") || strings.Contains(errStr, "404"):
-		return &AzureLogsError{
-			Code:    "NOT_DEPLOYED",
-			Message: "Azure resources not found",
-			Action:  "Deploy your app first:",
-			Command: "azd up",
-		}
-
-	case strings.Contains(errStr, "AuthorizationFailed") || strings.Contains(errStr, "403"):
-		return &AzureLogsError{
-			Code:    "NO_PERMISSION",
-			Message: "Missing permissions on Log Analytics workspace",
-			Action:  "Grant 'Log Analytics Reader' role in Azure Portal",
-		}
-
-	case strings.Contains(errStr, "WorkspaceNotFound"):
-		return &AzureLogsError{
-			Code:    "NO_WORKSPACE",
-			Message: "Log Analytics workspace not found",
-			Action:  "Check AZURE_LOG_ANALYTICS_WORKSPACE_GUID is correct",
-		}
-
-	default:
-		return &AzureLogsError{
-			Code:    "UNKNOWN",
-			Message: errStr,
-			Action:  "Check Azure Portal for details",
-		}
-	}
-}
-
 // StreamConfig holds configuration for standalone Azure log streaming.
 type StreamConfig struct {
 	ProjectDir   string
@@ -689,7 +619,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 				fmt.Fprintf(os.Stderr, "[DEBUG] Workspace discovery failed: %v\n", err)
 			}
 		}
-		
+
 		if workspaceID == "" {
 			return &AzureLogsError{
 				Code:    "NO_WORKSPACE",
@@ -793,6 +723,18 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	}
 }
 
+// buildStreamingQueryForType builds a KQL query optimized for streaming (ordered by time asc).
+func buildStreamingQueryForType(resourceType ResourceType, services []string, since time.Duration) string {
+	// Use the standalone query builder with a reasonable limit for streaming
+	query := buildStandaloneQueryForType(resourceType, services, since, 500)
+	// Replace the final "| take N" with streaming-optimized order
+	if strings.Contains(query, "| take") {
+		query = query[:strings.LastIndex(query, "| take")]
+	}
+	query += "| order by TimeGenerated asc\n| take 500"
+	return query
+}
+
 // fetchAndSendLogsMultiType fetches logs from multiple resource types and sends them to the channel.
 func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, since time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
 	sinceAgo := time.Since(since)
@@ -854,133 +796,4 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 	fmt.Fprintf(os.Stderr, "[%s] Last polled\n", time.Now().Format("15:04:05"))
 
 	return nil
-}
-
-// fetchAndSendLogs fetches logs newer than lastSeen and sends them to the channel (legacy - Container Apps only).
-func fetchAndSendLogs(ctx context.Context, client *LogAnalyticsClient, services []string, since time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
-	// Query for logs since last seen time
-	sinceAgo := time.Since(since)
-	if sinceAgo < time.Minute {
-		sinceAgo = time.Minute // Minimum 1 minute window
-	}
-
-	query := buildStreamingQuery(services, sinceAgo)
-
-	// Debug: log query
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Query: %s\n", strings.ReplaceAll(query, "\n", " | "))
-	}
-
-	entries, err := client.QueryLogs(ctx, "", ResourceTypeContainerApp, sinceAgo, query)
-	if err != nil {
-		return mapQueryError(err)
-	}
-
-	// Debug: log fetch results
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Fetched %d entries, lastSeen=%v, sinceAgo=%v\n", len(entries), lastSeen.Format(time.RFC3339), sinceAgo)
-	}
-
-	// Send new entries (in chronological order - oldest to newest)
-	sentCount := 0
-	for _, entry := range entries {
-		if entry.Timestamp.After(*lastSeen) {
-			select {
-			case logs <- entry:
-				sentCount++
-				*lastSeen = entry.Timestamp
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-	}
-
-	// Debug: log sent count
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Sent %d entries to channel\n", sentCount)
-	}
-
-	return nil
-}
-
-// buildStreamingQuery builds a KQL query optimized for streaming (ordered by time asc) - legacy Container Apps only.
-func buildStreamingQuery(services []string, since time.Duration) string {
-	return buildStreamingQueryForType(ResourceTypeContainerApp, services, since)
-}
-
-// buildStreamingQueryForType builds a KQL query optimized for streaming for a specific resource type.
-func buildStreamingQueryForType(resourceType ResourceType, services []string, since time.Duration) string {
-	var sb strings.Builder
-
-	switch resourceType {
-	case ResourceTypeContainerApp:
-		sb.WriteString("ContainerAppConsoleLogs_CL\n")
-		sb.WriteString(fmt.Sprintf("| where TimeGenerated > ago(%s)\n", formatKQLDuration(since)))
-		if len(services) > 0 {
-			var conditions []string
-			for _, svc := range services {
-				conditions = append(conditions, fmt.Sprintf("ContainerAppName_s =~ '%s'", sanitizeKQLString(svc)))
-				conditions = append(conditions, fmt.Sprintf("ContainerName_s =~ '%s'", sanitizeKQLString(svc)))
-			}
-			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
-		}
-		sb.WriteString("| project TimeGenerated, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s\n")
-
-	case ResourceTypeAppService:
-		sb.WriteString("AppServiceConsoleLogs\n")
-		sb.WriteString(fmt.Sprintf("| where TimeGenerated > ago(%s)\n", formatKQLDuration(since)))
-		if len(services) > 0 {
-			var conditions []string
-			for _, svc := range services {
-				conditions = append(conditions, fmt.Sprintf("_ResourceId contains '%s'", sanitizeKQLString(svc)))
-			}
-			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
-		}
-		sb.WriteString("| project TimeGenerated, Message=ResultDescription, Level, _ResourceId\n")
-
-	case ResourceTypeFunction:
-		sb.WriteString("FunctionAppLogs\n")
-		sb.WriteString(fmt.Sprintf("| where TimeGenerated > ago(%s)\n", formatKQLDuration(since)))
-		if len(services) > 0 {
-			var conditions []string
-			for _, svc := range services {
-				conditions = append(conditions, fmt.Sprintf("_ResourceId contains '%s'", sanitizeKQLString(svc)))
-			}
-			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
-		}
-		sb.WriteString("| project TimeGenerated, Message, Level, FunctionName, _ResourceId\n")
-
-	case ResourceTypeAKS:
-		sb.WriteString("ContainerLogV2\n")
-		sb.WriteString(fmt.Sprintf("| where TimeGenerated > ago(%s)\n", formatKQLDuration(since)))
-		if len(services) > 0 {
-			var conditions []string
-			for _, svc := range services {
-				conditions = append(conditions, fmt.Sprintf("PodName contains '%s'", sanitizeKQLString(svc)))
-				conditions = append(conditions, fmt.Sprintf("ContainerName contains '%s'", sanitizeKQLString(svc)))
-			}
-			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
-		}
-		sb.WriteString("| project TimeGenerated, LogMessage, PodName, ContainerName, PodNamespace\n")
-
-	case ResourceTypeContainerInstance:
-		sb.WriteString("ContainerInstanceLog_CL\n")
-		sb.WriteString(fmt.Sprintf("| where TimeGenerated > ago(%s)\n", formatKQLDuration(since)))
-		if len(services) > 0 {
-			var conditions []string
-			for _, svc := range services {
-				conditions = append(conditions, fmt.Sprintf("ContainerGroup_s contains '%s'", sanitizeKQLString(svc)))
-			}
-			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
-		}
-		sb.WriteString("| project TimeGenerated, Message_s, ContainerName_s\n")
-
-	default:
-		return buildStreamingQueryForType(ResourceTypeContainerApp, services, since)
-	}
-
-	sb.WriteString("| order by TimeGenerated asc\n") // Chronological for streaming
-	sb.WriteString("| take 500")                     // Reasonable batch size
-
-	return sb.String()
 }

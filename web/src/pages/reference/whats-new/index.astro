@@ -49,10 +49,47 @@ import Layout from '../../../components/Layout.astro';
     <article class="mb-12 pb-8 border-b-2 border-blue-200 dark:border-blue-800">
       <header class="flex items-center gap-4 mb-4">
         <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
+          v0.9.0
+        </h2>
+        <time class="text-sm text-neutral-500" datetime="2025-12-09">2025-12-09</time>
+        <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">Latest</span>
+      </header>
+      <ul class="space-y-1">
+        
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: Container services support and testing framework (<a href="https://github.com/jongio/azd-app/pull/91" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#91</a>) (<a href="https://github.com/jongio/azd-app/commit/df8332b" class="text-neutral-500 hover:underline" target="_blank">df8332b</a>)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: Enhance `azd app reqs` command to display installation URLs for requirements (<a href="https://github.com/jongio/azd-app/pull/90" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#90</a>) (<a href="https://github.com/jongio/azd-app/commit/5772923" class="text-neutral-500 hover:underline" target="_blank">5772923</a>)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: Enhance MCP error logging with context retrieval (<a href="https://github.com/jongio/azd-app/pull/89" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#89</a>) (<a href="https://github.com/jongio/azd-app/commit/d1885b4" class="text-neutral-500 hover:underline" target="_blank">d1885b4</a>)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: enhance hook execution to support script file paths without requiring executable permissions (<a href="https://github.com/jongio/azd-app/pull/88" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#88</a>) (<a href="https://github.com/jongio/azd-app/commit/bf52071" class="text-neutral-500 hover:underline" target="_blank">bf52071</a>)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: implement azd app test command with multi-language support and coverage aggregation (<a href="https://github.com/jongio/azd-app/pull/35" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#35</a>) (<a href="https://github.com/jongio/azd-app/commit/b480db0" class="text-neutral-500 hover:underline" target="_blank">b480db0</a>)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.8.1 (<a href="https://github.com/jongio/azd-app/commit/fb9808f" class="text-neutral-500 hover:underline" target="_blank">fb9808f</a>)</span>
+        </li>
+      </ul>
+    </article>
+
+    <article class="mb-12 ">
+      <header class="flex items-center gap-4 mb-4">
+        <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
           v0.8.1
         </h2>
         <time class="text-sm text-neutral-500" datetime="2025-12-06">2025-12-06</time>
-        <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">Latest</span>
+        
       </header>
       <ul class="space-y-1">
         
@@ -188,35 +225,6 @@ import Layout from '../../../components/Layout.astro';
         <li class="flex items-start gap-3 py-2">
           <span class="shrink-0 text-lg">🔧</span>
           <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.7.0 (<a href="https://github.com/jongio/azd-app/commit/5d5471f" class="text-neutral-500 hover:underline" target="_blank">5d5471f</a>)</span>
-        </li>
-      </ul>
-    </article>
-
-    <article class="mb-12 ">
-      <header class="flex items-center gap-4 mb-4">
-        <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
-          v0.7.0
-        </h2>
-        <time class="text-sm text-neutral-500" datetime="2025-11-30">2025-11-30</time>
-        
-      </header>
-      <ul class="space-y-1">
-        
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">📝</span>
-          <span class="text-neutral-700 dark:text-neutral-300">Refactor and enhance tests, styles, and configurations (<a href="https://github.com/jongio/azd-app/pull/73" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#73</a>) (<a href="https://github.com/jongio/azd-app/commit/f508e5c" class="text-neutral-500 hover:underline" target="_blank">f508e5c</a>)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">📝</span>
-          <span class="text-neutral-700 dark:text-neutral-300">Implement service control commands and enhance UI (<a href="https://github.com/jongio/azd-app/pull/72" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#72</a>) (<a href="https://github.com/jongio/azd-app/commit/4d0a676" class="text-neutral-500 hover:underline" target="_blank">4d0a676</a>)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">📝</span>
-          <span class="text-neutral-700 dark:text-neutral-300">Implement production-ready MCP server for azd app extension with tools, resources, prompts, and comprehensive testing (<a href="https://github.com/jongio/azd-app/pull/37" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#37</a>) (<a href="https://github.com/jongio/azd-app/commit/02330a3" class="text-neutral-500 hover:underline" target="_blank">02330a3</a>)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🔧</span>
-          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.6.1 (<a href="https://github.com/jongio/azd-app/commit/397300a" class="text-neutral-500 hover:underline" target="_blank">397300a</a>)</span>
         </li>
       </ul>
     </article>

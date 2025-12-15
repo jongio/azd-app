@@ -3,18 +3,15 @@ import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 const usageCode = "azd app logs [flags]";
 const example0 = "azd app logs [flags]";
-const example1 = "azd app logs";
-const example2 = "azd app logs --follow";
-const example3 = "azd app logs --service web,api";
-const example4 = "azd app logs --tail 50";
-const example5 = "azd app logs --since 5m";
-const example6 = "azd app logs --level error";
-const example7 = "azd app logs --level error --context 3";
-const example8 = "azd app logs --format json";
-const example9 = "azd app logs --file debug.log";
-const example10 = "azd app logs --source azure";
-const example11 = "azd app logs --source all";
-const example12 = "azd app logs --source azure --follow";
+const example1 = "azd app run                       # Start services first";
+const example2 = "azd app logs                      # View logs from all services";
+const example3 = "azd app logs --follow             # Follow logs in real-time";
+const example4 = "azd app logs --source azure               # View logs from Azure";
+const example5 = "azd app logs --source azure -f            # Stream Azure logs (polls every 30s)";
+const example6 = "azd app logs --source azure --since 1h    # Logs from last hour";
+const example7 = "azd app logs --service web,api";
+const example8 = "azd app logs --tail 50";
+const example9 = "azd app logs --since 5m";
 ---
 
 <Layout title="logs - CLI Reference" description="View logs from running services with filtering and follow support.">
@@ -56,18 +53,18 @@ const example12 = "azd app logs --source azure --follow";
     </thead>
     <tbody class="bg-neutral-100 dark:bg-neutral-800">
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
-        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--source</code></td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">local</td>
-        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Log source: local, azure, or all</td>
-      </tr>
-      <tr class="border-t border-neutral-200 dark:border-neutral-700">
         <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--follow</code></td>
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-f</code></td>
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td>
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td>
         <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Follow log output (tail -f behavior)</td>
+      </tr>
+      <tr class="border-t border-neutral-200 dark:border-neutral-700">
+        <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--source</code></td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">local</td>
+        <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Log source: `local`, `azure`, or `all`</td>
       </tr>
       <tr class="border-t border-neutral-200 dark:border-neutral-700">
         <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td>
@@ -166,61 +163,10 @@ const example12 = "azd app logs --source azure --follow";
   <Code code={example9} lang="bash" frame="terminal" />
 </div>
 
-<h2 class="text-2xl font-bold mt-12 mb-6">Azure Log Streaming</h2>
-<p class="text-neutral-700 dark:text-neutral-300 mb-4">
-  View logs from your Azure-deployed services using the <code>--source</code> flag.
-  This requires the dashboard to be running (<code>azd app run</code>).
-</p>
-
-<h3 class="text-xl font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">View Azure Logs</h3>
-<div class="space-y-4">
-  <Code code={example10} lang="bash" frame="terminal" />
-</div>
-
-<h3 class="text-xl font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">View All Sources (Local + Azure)</h3>
-<div class="space-y-4">
-  <Code code={example11} lang="bash" frame="terminal" />
-</div>
-
-<h3 class="text-xl font-semibold mt-6 mb-3 text-neutral-900 dark:text-neutral-100">Follow Azure Logs</h3>
-<div class="space-y-4">
-  <Code code={example12} lang="bash" frame="terminal" />
-</div>
-
-<div class="mt-6 p-6 bg-amber-100 dark:bg-amber-900/40 rounded-lg border border-amber-300 dark:border-amber-700">
-  <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">☁️ Azure Logs Setup</h3>
-  <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-    Azure log streaming requires:
-  </p>
-  <ul class="text-neutral-700 dark:text-neutral-300 list-disc pl-5 space-y-1 mb-4">
-    <li><strong>Log Analytics Workspace</strong> - With proper bicep outputs configured</li>
-    <li><strong>Diagnostic Settings</strong> - Container Apps/App Service sending logs to Log Analytics</li>
-    <li><strong>Azure Authentication</strong> - Via <code>az login</code> or <code>azd auth login</code></li>
-    <li><strong>Dashboard Running</strong> - Start with <code>azd app run</code></li>
-  </ul>
-  <p class="text-neutral-700 dark:text-neutral-300 text-sm">
-    See the <a href="https://github.com/jongio/azd-app/blob/main/cli/docs/features/azure-logs.md" class="text-blue-700 dark:text-blue-400 hover:underline">Azure Logs Setup Guide</a> for complete configuration instructions.
-  </p>
-</div>
-
     <!-- Link to detailed docs -->
     
     <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
-      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">� Dashboard Log Viewer</h3>
-      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-        The dashboard provides a visual log viewer with additional features:
-      </p>
-      <ul class="text-neutral-700 dark:text-neutral-300 list-disc pl-5 space-y-1 mb-4">
-        <li><strong>Log Source Switcher</strong> - Toggle between local (💻) and Azure (☁️) logs</li>
-        <li><strong>Keyboard Shortcut</strong> - Press <code>Ctrl+Shift+M</code> to switch log sources</li>
-        <li><strong>Grid/Unified View</strong> - Switch between per-service panes or unified stream</li>
-        <li><strong>Real-time Search</strong> - Filter logs as you type</li>
-        <li><strong>Export</strong> - Download logs in JSON, text, or CSV format</li>
-      </ul>
-    </div>
-    
-    <div class="mt-6 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
-      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">�📚 Detailed Documentation</h3>
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3>
       <p class="text-neutral-700 dark:text-neutral-300 mb-4">
         For complete documentation including flows, diagrams, and advanced usage, see the full command specification.
       </p>

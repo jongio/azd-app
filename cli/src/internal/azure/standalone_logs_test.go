@@ -174,7 +174,7 @@ func TestGetWorkspaceIDFromEnv_FromFile(t *testing.T) {
 
 	// Create temp directory with .azure/test-env/.env file
 	tmpDir := t.TempDir()
-	
+
 	// Create .azure/.env with env name
 	defaultEnvFile := filepath.Join(tmpDir, ".azure", ".env")
 	if err := os.MkdirAll(filepath.Dir(defaultEnvFile), 0755); err != nil {
@@ -189,7 +189,7 @@ func TestGetWorkspaceIDFromEnv_FromFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(envFile), 0755); err != nil {
 		t.Fatalf("Failed to create env directory: %v", err)
 	}
-	
+
 	testGuid := "test-workspace-id-from-file"
 	envContent := "AZURE_RESOURCE_GROUP=test-rg\nAZURE_LOG_ANALYTICS_WORKSPACE_GUID=" + testGuid + "\n"
 	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {

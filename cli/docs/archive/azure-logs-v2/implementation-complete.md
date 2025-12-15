@@ -75,9 +75,9 @@ type ErrorInfo struct {
 
 ## Files Created
 
-1. `IMPLEMENTATION_SUMMARY.md` - Detailed implementation documentation
+1. `cli/docs/archive/azure-logs-v2/implementation-summary.md` - Detailed implementation documentation
 2. `cli/test-azure-logs-api.ps1` - Automated test script
-3. `cli/TEST_COMMANDS.md` - Manual test commands and examples
+3. `cli/docs/dev/test-commands-azure-logs-api.md` - Manual test commands and examples
 
 ## Testing
 

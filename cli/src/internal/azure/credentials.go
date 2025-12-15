@@ -17,9 +17,11 @@ import (
 // Common errors for Azure authentication.
 var (
 	ErrNoCredentials     = errors.New("no Azure credentials available")
-	ErrTokenExpired      = errors.New("Azure token has expired")
-	ErrAuthNotConfigured = errors.New("Azure authentication not configured. Run 'azd auth login' to authenticate")
+	ErrTokenExpired      = errors.New("azure token has expired")
+	ErrAuthNotConfigured = errors.New("azure authentication not configured. run 'azd auth login' to authenticate")
 )
+
+const wrapAuthFmt = "%w: %v"
 
 // AzdTokenCredential implements azcore.TokenCredential using an azd access token.
 // This credential is used when running within the azd extension context.
@@ -85,7 +87,8 @@ func (c *CredentialChain) GetToken(ctx context.Context, options policy.TokenRequ
 // NewCredentialChain creates a new credential chain that tries multiple credential sources.
 // Priority order:
 // 1. AZD_ACCESS_TOKEN environment variable (from azd extension context)
-// 2. Azure CLI credentials (from 'azd auth login' or 'az login')
+// 2. Azure Developer CLI credentials (from 'azd auth login')
+// 3. Azure CLI credentials (from 'az login')
 // 3. Environment variables (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET)
 // 4. Managed Identity (when running in Azure)
 func NewCredentialChain() (*CredentialChain, error) {
@@ -97,13 +100,24 @@ func NewCredentialChain() (*CredentialChain, error) {
 		}
 	}
 
-	// Try DefaultAzureCredential which includes CLI, env vars, and managed identity
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	// Prefer Azure Developer CLI credential (azd auth login) when available, then fall back
+	// to DefaultAzureCredential (Azure CLI, env vars, managed identity, etc.).
+	azdCred, err := azidentity.NewAzureDeveloperCLICredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrAuthNotConfigured, err)
+		return nil, fmt.Errorf(wrapAuthFmt, ErrAuthNotConfigured, err)
 	}
 
-	return &CredentialChain{credential: cred, source: "default-credential-chain"}, nil
+	defaultCred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return nil, fmt.Errorf(wrapAuthFmt, ErrAuthNotConfigured, err)
+	}
+
+	chained, err := azidentity.NewChainedTokenCredential([]azcore.TokenCredential{azdCred, defaultCred}, nil)
+	if err != nil {
+		return nil, fmt.Errorf(wrapAuthFmt, ErrAuthNotConfigured, err)
+	}
+
+	return &CredentialChain{credential: chained, source: "azd+default-credential-chain"}, nil
 }
 
 // NewAzureCredential creates the best available Azure credential.
@@ -122,25 +136,44 @@ func NewAzureCredential() (azcore.TokenCredential, error) {
 // a different audience. Instead, it uses DefaultAzureCredential which can
 // obtain tokens for any requested scope.
 func NewLogAnalyticsCredential() (azcore.TokenCredential, error) {
-	// Skip AZD_ACCESS_TOKEN - it's scoped to ARM and won't work for Log Analytics
-	// Use DefaultAzureCredential which includes CLI, env vars, and managed identity
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	// Prefer Azure Developer CLI credential (azd auth login). This obtains tokens for
+	// arbitrary scopes via `azd auth token --scope ...`.
+	azdCred, err := azidentity.NewAzureDeveloperCLICredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrAuthNotConfigured, err)
+		return nil, fmt.Errorf(wrapAuthFmt, ErrAuthNotConfigured, err)
 	}
+
+	// Fall back to DefaultAzureCredential (Azure CLI, env vars, managed identity, etc.).
+	defaultCred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return nil, fmt.Errorf(wrapAuthFmt, ErrAuthNotConfigured, err)
+	}
+
+	cred, err := azidentity.NewChainedTokenCredential([]azcore.TokenCredential{azdCred, defaultCred}, nil)
+	if err != nil {
+		return nil, fmt.Errorf(wrapAuthFmt, ErrAuthNotConfigured, err)
+	}
+
 	return cred, nil
 }
 
 // ValidateCredentials tests that the credentials work by requesting a token.
 // This can be used to provide early feedback to users about authentication issues.
 func ValidateCredentials(ctx context.Context, cred azcore.TokenCredential) error {
-	// Request a token for Azure Resource Manager scope
-	_, err := cred.GetToken(ctx, policy.TokenRequestOptions{
+	// Validate ARM scope (needed for discovery / workspace resolution).
+	if _, err := cred.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{"https://management.azure.com/.default"},
-	})
-	if err != nil {
-		return fmt.Errorf("credential validation failed: %w", err)
+	}); err != nil {
+		return fmt.Errorf("credential validation failed for Azure Resource Manager scope: %w", err)
 	}
+
+	// Validate Log Analytics scope (needed for api.loganalytics.io queries).
+	if _, err := cred.GetToken(ctx, policy.TokenRequestOptions{
+		Scopes: []string{"https://api.loganalytics.io/.default"},
+	}); err != nil {
+		return fmt.Errorf("credential validation failed for Log Analytics scope: %w", err)
+	}
+
 	return nil
 }
 

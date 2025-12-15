@@ -186,7 +186,7 @@ export function LogsView({
     }
 
     wsRef.current = ws
-  }, [selectedService, logMode]) // Reconnect when mode changes
+  }, [selectedService, logMode, azureServiceFilter]) // Reconnect when mode/filter changes
 
   // Fetch initial logs and setup WebSocket
   useEffect(() => {

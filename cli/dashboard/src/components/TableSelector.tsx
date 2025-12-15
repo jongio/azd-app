@@ -85,28 +85,41 @@ export function TableSelector({
   isLoading = false,
   className,
 }: TableSelectorProps) {
+  const safeTables = React.useMemo(() => Array.isArray(tables) ? tables : [], [tables])
+  const safeCategories = React.useMemo(() => Array.isArray(categories) ? categories : [], [categories])
+  const safeSelectedTables = Array.isArray(selectedTables) ? selectedTables : []
+  const safeRecommendedTables = Array.isArray(recommendedTables) ? recommendedTables : []
+
   const [searchQuery, setSearchQuery] = React.useState('')
   const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(
-    new Set(categories.map(c => c.name))
+    new Set<string>()
   )
+
+  // Initialize expanded categories once categories are available.
+  React.useEffect(() => {
+    setExpandedCategories((prev) => {
+      if (prev.size > 0) return prev
+      return new Set(safeCategories.map((c) => c.name))
+    })
+  }, [safeCategories])
 
   // Filter tables by search query
   const filteredTables = React.useMemo(() => {
     if (!searchQuery.trim()) {
-      return tables
+      return safeTables
     }
     const query = searchQuery.toLowerCase()
-    return tables.filter(
+    return safeTables.filter(
       t => t.name.toLowerCase().includes(query) ||
            t.description?.toLowerCase().includes(query) ||
            t.category?.toLowerCase().includes(query)
     )
-  }, [tables, searchQuery])
+  }, [safeTables, searchQuery])
 
   // Group filtered tables by category
   const groupedTables = React.useMemo(
-    () => groupTablesByCategory(filteredTables, categories),
-    [filteredTables, categories]
+    () => groupTablesByCategory(filteredTables, safeCategories),
+    [filteredTables, safeCategories]
   )
 
   // Toggle category expansion
@@ -126,10 +139,10 @@ export function TableSelector({
   const toggleTable = (tableName: string) => {
     if (disabled) return
     
-    if (selectedTables.includes(tableName)) {
-      onSelectionChange(selectedTables.filter(t => t !== tableName))
+    if (safeSelectedTables.includes(tableName)) {
+      onSelectionChange(safeSelectedTables.filter(t => t !== tableName))
     } else {
-      onSelectionChange([...selectedTables, tableName])
+      onSelectionChange([...safeSelectedTables, tableName])
     }
   }
 
@@ -139,7 +152,7 @@ export function TableSelector({
     
     const categoryTables = groupedTables.get(category) || []
     const categoryTableNames = categoryTables.map(t => t.name)
-    const newSelection = new Set(selectedTables)
+    const newSelection = new Set(safeSelectedTables)
     
     for (const name of categoryTableNames) {
       newSelection.add(name)
@@ -155,13 +168,13 @@ export function TableSelector({
     const categoryTables = groupedTables.get(category) || []
     const categoryTableNames = new Set(categoryTables.map(t => t.name))
     
-    onSelectionChange(selectedTables.filter(t => !categoryTableNames.has(t)))
+    onSelectionChange(safeSelectedTables.filter(t => !categoryTableNames.has(t)))
   }
 
   // Select all tables
   const selectAll = () => {
     if (disabled) return
-    onSelectionChange(tables.map(t => t.name))
+    onSelectionChange(safeTables.map(t => t.name))
   }
 
   // Clear all selections
@@ -173,7 +186,7 @@ export function TableSelector({
   // Select recommended tables
   const selectRecommended = () => {
     if (disabled) return
-    onSelectionChange(recommendedTables)
+    onSelectionChange(safeRecommendedTables)
   }
 
   // Check if all tables in a category are selected
@@ -197,7 +210,7 @@ export function TableSelector({
           {selectedTables.length} of {tables.length} tables selected
         </div>
         <div className="flex items-center gap-2">
-          {recommendedTables.length > 0 && (
+          {safeRecommendedTables.length > 0 && (
             <button
               type="button"
               onClick={selectRecommended}
@@ -348,7 +361,7 @@ export function TableSelector({
                   <div>
                     {categoryTables.map((table) => {
                       const isSelected = selectedTables.includes(table.name)
-                      const isRecommended = recommendedTables.includes(table.name)
+                      const isRecommended = safeRecommendedTables.includes(table.name)
                       
                       return (
                         <button

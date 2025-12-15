@@ -119,10 +119,16 @@ export function useAvailableTables({
 
       const data = await response.json() as TablesResponse
 
-      setTables(data.tables ?? [])
-      setCategories(data.categories ?? [])
-      setRecommended(data.recommended ?? [])
-      setWorkspace(data.workspace ?? '')
+      // Defensive: backend/network issues can return unexpected shapes.
+      // Normalize to arrays to avoid runtime errors in components using `.filter`, `.map`, etc.
+      const tables = Array.isArray(data.tables) ? data.tables : []
+      const categories = Array.isArray(data.categories) ? data.categories : []
+      const recommended = Array.isArray(data.recommended) ? data.recommended : []
+
+      setTables(tables)
+      setCategories(categories)
+      setRecommended(recommended)
+      setWorkspace(typeof data.workspace === 'string' ? data.workspace : '')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch tables'
       setError(message)

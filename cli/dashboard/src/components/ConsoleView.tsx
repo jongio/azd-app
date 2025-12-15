@@ -51,9 +51,178 @@ import { useServiceOperations } from '@/hooks/useServiceOperations'
 import { useServicesContext } from '@/contexts/ServicesContext'
 import type { Service, HealthReportEvent, HealthStatus } from '@/types'
 
+const MIN_SYNC_INTERVAL = 5000
+const MAX_SYNC_INTERVAL = 300000
+
+function clampSyncInterval(value: number): number {
+  if (!Number.isFinite(value)) return MIN_SYNC_INTERVAL
+  return Math.min(MAX_SYNC_INTERVAL, Math.max(MIN_SYNC_INTERVAL, value))
+}
+
 // =============================================================================
 // Types
 // =============================================================================
+
+type TimeRangePreset = '15m' | '30m' | '6h' | '24h'
+
+type LogLevel = 'info' | 'warning' | 'error'
+
+type ConsoleServiceSelectionMode = 'all' | 'custom'
+
+type SavedConsoleFiltersV1 = {
+  version: 1
+  serviceSelectionMode: ConsoleServiceSelectionMode
+  selectedServices?: string[]
+  levelFilter: LogLevel[]
+  stateFilter: FilterableLifecycleState[]
+  healthFilter: HealthStatus[]
+}
+
+type AzureConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'disabled'
+
+interface ModeApiResponse {
+  mode?: LogMode
+  azureEnabled?: boolean
+  azureStatus?: AzureConnectionStatus
+  azureRealtime?: boolean
+  connectionMessage?: string
+}
+
+function isLogMode(value: unknown): value is LogMode {
+  return value === 'local' || value === 'azure'
+}
+
+function isAzureConnectionStatus(value: unknown): value is AzureConnectionStatus {
+  return value === 'connected' || value === 'disconnected' || value === 'connecting' || value === 'disabled'
+}
+
+function parseModeApiResponse(value: unknown): ModeApiResponse {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+
+  const record = value as Record<string, unknown>
+
+  const mode = isLogMode(record.mode) ? record.mode : undefined
+  const azureEnabled = typeof record.azureEnabled === 'boolean' ? record.azureEnabled : undefined
+  const azureStatus = isAzureConnectionStatus(record.azureStatus) ? record.azureStatus : undefined
+  const azureRealtime = typeof record.azureRealtime === 'boolean' ? record.azureRealtime : undefined
+  const connectionMessage = typeof record.connectionMessage === 'string' ? record.connectionMessage : undefined
+
+  return { mode, azureEnabled, azureStatus, azureRealtime, connectionMessage }
+}
+
+function getSavedSyncInterval(): number {
+  if (globalThis.localStorage === undefined) {
+    return 30000
+  }
+
+  try {
+    const saved = Number(globalThis.localStorage.getItem('logs-sync-interval'))
+    return clampSyncInterval(Number.isFinite(saved) ? saved : 30000)
+  } catch {
+    return 30000
+  }
+}
+
+function setSavedSyncInterval(interval: number): void {
+  if (globalThis.localStorage === undefined) {
+    return
+  }
+
+  try {
+    globalThis.localStorage.setItem('logs-sync-interval', String(interval))
+  } catch {
+    // Ignore persistence failures
+  }
+}
+
+const CONSOLE_FILTERS_STORAGE_KEY = 'console-filters-v1'
+
+function isLogLevel(value: unknown): value is LogLevel {
+  return value === 'info' || value === 'warning' || value === 'error'
+}
+
+function isFilterableLifecycleState(value: unknown): value is FilterableLifecycleState {
+  return value === 'running' || value === 'stopped' || value === 'starting'
+}
+
+function isHealthStatus(value: unknown): value is HealthStatus {
+  return value === 'healthy' || value === 'degraded' || value === 'unhealthy' || value === 'unknown'
+}
+
+function loadSavedConsoleFilters(): SavedConsoleFiltersV1 | null {
+  if (globalThis.localStorage === undefined) {
+    return null
+  }
+
+  try {
+    const raw = globalThis.localStorage.getItem(CONSOLE_FILTERS_STORAGE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) {
+      return null
+    }
+
+    const record = parsed as Record<string, unknown>
+    if (record.version !== 1) {
+      return null
+    }
+
+    const serviceSelectionMode = record.serviceSelectionMode === 'custom' ? 'custom' : 'all'
+    const selectedServices = Array.isArray(record.selectedServices)
+      ? record.selectedServices.filter((v): v is string => typeof v === 'string')
+      : undefined
+
+    const levelFilter = Array.isArray(record.levelFilter)
+      ? record.levelFilter.filter(isLogLevel)
+      : []
+    const stateFilter = Array.isArray(record.stateFilter)
+      ? record.stateFilter.filter(isFilterableLifecycleState)
+      : []
+    const healthFilter = Array.isArray(record.healthFilter)
+      ? record.healthFilter.filter(isHealthStatus)
+      : []
+
+    return {
+      version: 1,
+      serviceSelectionMode,
+      selectedServices,
+      levelFilter,
+      stateFilter,
+      healthFilter,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveConsoleFilters(value: SavedConsoleFiltersV1): void {
+  if (globalThis.localStorage === undefined) {
+    return
+  }
+
+  try {
+    globalThis.localStorage.setItem(CONSOLE_FILTERS_STORAGE_KEY, JSON.stringify(value))
+  } catch {
+    // Ignore persistence failures
+  }
+}
+
+function getSavedAzureRealtime(): boolean {
+  if (globalThis.localStorage === undefined) {
+    return false
+  }
+
+  try {
+    return globalThis.localStorage.getItem('azure-logs-realtime') === 'true'
+  } catch {
+    return false
+  }
+}
 
 export interface ConsoleViewProps {
   /** Callback when fullscreen changes */
@@ -90,11 +259,11 @@ interface LogsToolbarProps {
   logMode: LogMode
   onLogModeChange: (mode: LogMode) => void
   azureEnabled: boolean
-  azureStatus: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+  azureStatus: AzureConnectionStatus
   azureConnectionMessage?: string
   // Azure log controls
-  timeRange: { preset: '15m' | '1h' | '6h' | '24h' }
-  onTimeRangeChange: (preset: '15m' | '1h' | '6h' | '24h') => void
+  timeRange: { preset: TimeRangePreset }
+  onTimeRangeChange: (preset: TimeRangePreset) => void
   syncInterval: number
   onSyncIntervalChange: (interval: number) => void
   onRunDiagnostics: () => void
@@ -127,7 +296,7 @@ function LogsToolbar({
   syncInterval,
   onSyncIntervalChange,
   onRunDiagnostics,
-}: LogsToolbarProps) {
+}: Readonly<LogsToolbarProps>) {
   return (
     <div className="flex items-center gap-4 p-3 bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 shrink-0">
       {/* Left section - Actions */}
@@ -255,11 +424,11 @@ function LogsToolbar({
               <span className="text-xs text-slate-600 dark:text-slate-400">Timeframe:</span>
               <Select
                 value={timeRange.preset}
-                onChange={(e) => onTimeRangeChange(e.target.value as '15m' | '1h' | '6h' | '24h')}
+                onChange={(e) => onTimeRangeChange(e.target.value as TimeRangePreset)}
                 className="h-7 w-24 text-xs bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 px-2 py-0"
               >
                 <option value="15m">15 min</option>
-                <option value="1h">1 hour</option>
+                <option value="30m">30 min</option>
                 <option value="6h">6 hours</option>
                 <option value="24h">24 hours</option>
               </Select>
@@ -273,13 +442,15 @@ function LogsToolbar({
                 onChange={(e) => onSyncIntervalChange(Number(e.target.value))}
                 className="h-7 w-20 text-xs bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 px-2 py-0"
               >
+                <option value="5000">5s</option>
                 <option value="10000">10s</option>
                 <option value="30000">30s</option>
                 <option value="60000">1m</option>
-                <option value="120000">2m</option>
                 <option value="300000">5m</option>
               </Select>
             </div>
+
+            {/* Realtime/polling toggle is temporarily removed; tracked in docs/specs/azure-logs/tasks.md. */}
             
             {/* Diagnostics button */}
             <button
@@ -419,8 +590,8 @@ interface FiltersBarProps {
   services: Service[]
   selectedServices: Set<string>
   onToggleService: (name: string) => void
-  levelFilter: Set<'info' | 'warning' | 'error'>
-  onToggleLevel: (level: 'info' | 'warning' | 'error') => void
+  levelFilter: Set<LogLevel>
+  onToggleLevel: (level: LogLevel) => void
   stateFilter: Set<FilterableLifecycleState>
   onToggleState: (state: FilterableLifecycleState) => void
   healthFilter: Set<HealthStatus>
@@ -439,14 +610,18 @@ function FiltersBar({
   healthFilter,
   onToggleHealth,
   healthReport,
-}: FiltersBarProps) {
+}: Readonly<FiltersBarProps>) {
+  const sortedServices = React.useMemo(() => {
+    return [...services].sort((a, b) => a.name.localeCompare(b.name))
+  }, [services])
+
   return (
     <div className="flex flex-wrap gap-6 p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shrink-0">
       {/* Services */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-slate-500">Services</span>
         <div className="flex flex-wrap gap-2">
-          {services.sort((a, b) => a.name.localeCompare(b.name)).map((service) => {
+          {sortedServices.map((service) => {
             // Get health status from health report
             const serviceHealth = healthReport?.services.find(
               (s) => s.serviceName === service.name
@@ -666,23 +841,29 @@ export function ConsoleView({
   onFullscreenChange,
   healthReport,
   onServiceClick,
-}: ConsoleViewProps) {
+}: Readonly<ConsoleViewProps>) {
   const { services } = useServicesContext()
-  const [selectedServices, setSelectedServices] = React.useState<Set<string>>(new Set())
+  const savedFilters = React.useMemo(() => loadSavedConsoleFilters(), [])
+  const [serviceSelectionMode, setServiceSelectionMode] = React.useState<ConsoleServiceSelectionMode>(
+    () => savedFilters?.serviceSelectionMode ?? 'all'
+  )
+  const [selectedServices, setSelectedServices] = React.useState<Set<string>>(
+    () => new Set(serviceSelectionMode === 'custom' ? (savedFilters?.selectedServices ?? []) : [])
+  )
   const [isPaused, setIsPaused] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [globalSearchTerm, setGlobalSearchTerm] = React.useState('')
   const [autoScrollEnabled, setAutoScrollEnabled] = React.useState(true)
   const [clearAllTrigger, setClearAllTrigger] = React.useState(0)
-  const [levelFilter, setLevelFilter] = React.useState<Set<'info' | 'warning' | 'error'>>(
-    new Set(['info', 'warning', 'error'])
+  const [levelFilter, setLevelFilter] = React.useState<Set<LogLevel>>(
+    () => new Set(savedFilters?.levelFilter?.length ? savedFilters.levelFilter : ['info', 'warning', 'error'])
   )
   const [stateFilter, setStateFilter] = React.useState<Set<FilterableLifecycleState>>(
-    new Set(['running', 'stopped', 'starting'])
+    () => new Set(savedFilters?.stateFilter?.length ? savedFilters.stateFilter : ['running', 'stopped', 'starting'])
   )
   const [healthFilter, setHealthFilter] = React.useState<Set<HealthStatus>>(
-    new Set(['healthy', 'degraded', 'unhealthy', 'unknown'])
+    () => new Set(savedFilters?.healthFilter?.length ? savedFilters.healthFilter : ['healthy', 'degraded', 'unhealthy', 'unknown'])
   )
   const [collapsedPanes, setCollapsedPanes] = React.useState<Record<string, boolean>>({})
   
@@ -692,28 +873,56 @@ export function ConsoleView({
   
   // Azure status from API
   const [azureEnabled, setAzureEnabled] = React.useState(false)
-  const [azureStatus, setAzureStatus] = React.useState<'connected' | 'disconnected' | 'connecting' | 'disabled'>('disabled')
+  const [azureStatus, setAzureStatus] = React.useState<AzureConnectionStatus>('disabled')
   const [azureConnectionMessage, setAzureConnectionMessage] = React.useState<string | undefined>(undefined)
   
   // Azure logs settings
-  const [timeRange, setTimeRange] = React.useState<{ preset: '15m' | '1h' | '6h' | '24h' }>({ preset: '15m' })
-  const [syncInterval, setSyncInterval] = React.useState<number>(30000) // 30 seconds default
+  const [timeRange, setTimeRange] = React.useState<{ preset: TimeRangePreset }>({ preset: '15m' })
+  const [syncInterval, setSyncInterval] = React.useState<number>(() => getSavedSyncInterval())
+  const [azureRealtime, setAzureRealtime] = React.useState<boolean>(() => getSavedAzureRealtime())
   const [showDiagnostics, setShowDiagnostics] = React.useState(false)
+
+  const azureRealtimeInitializedRef = React.useRef(false)
+
+  const maybeInitializeAzureRealtimeFromConfig = React.useCallback((azureRealtimeFromConfig: boolean | undefined) => {
+    if (azureRealtimeInitializedRef.current) {
+      return
+    }
+
+    azureRealtimeInitializedRef.current = true
+
+    try {
+      const hasSavedPreference = globalThis.localStorage?.getItem('azure-logs-realtime') !== null
+      if (!hasSavedPreference && typeof azureRealtimeFromConfig === 'boolean') {
+        setAzureRealtime(azureRealtimeFromConfig)
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [])
 
   // Fetch Azure status from API
   const fetchAzureStatus = React.useCallback(async () => {
     try {
       const res = await fetch('/api/mode')
       if (res.ok) {
-        const data = await res.json()
+        const raw: unknown = await res.json()
+        const data = parseModeApiResponse(raw)
+
         // Set the current mode from backend (important for initial page load)
-        if (data.mode === 'local' || data.mode === 'azure') {
+        if (data.mode) {
           setLogMode(data.mode)
         }
-        setAzureEnabled(data.azureEnabled || false)
-        setAzureConnectionMessage(data.connectionMessage || undefined)
-        if (data.azureEnabled) {
-          setAzureStatus(data.azureStatus || 'disconnected')
+
+        const enabled = data.azureEnabled ?? false
+        setAzureEnabled(enabled)
+        setAzureConnectionMessage(data.connectionMessage)
+
+        // Default realtime toggle from config unless user has explicitly set a preference.
+        maybeInitializeAzureRealtimeFromConfig(data.azureRealtime)
+
+        if (enabled) {
+          setAzureStatus(data.azureStatus ?? 'disconnected')
         } else {
           setAzureStatus('disabled')
         }
@@ -721,49 +930,45 @@ export function ConsoleView({
     } catch {
       // Ignore errors - status will remain disabled
     }
-  }, [])
+  }, [maybeInitializeAzureRealtimeFromConfig])
 
   // Handle mode change with loading indicator
-  const handleLogModeChange = React.useCallback(async (newMode: LogMode) => {
-    console.log('[ConsoleView] handleLogModeChange called:', { newMode, currentMode: logMode })
-    if (newMode === logMode) {
-      console.log('[ConsoleView] Blocked: same mode')
-      return
-    }
-    setIsModeSwitching(true)
-    
-    try {
-      // Call backend API to switch mode - this starts/stops Azure polling
-      console.log('[ConsoleView] Calling /api/mode with:', { mode: newMode })
-      const res = await fetch('/api/mode', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: newMode }),
-      })
-      
-      console.log('[ConsoleView] API response status:', res.status, res.ok)
-      if (res.ok) {
-        const data = await res.json()
-        console.log('[ConsoleView] API response data:', data)
-        setLogMode(newMode)
-        console.log('[ConsoleView] Mode set to:', newMode)
-        // Refresh Azure status after mode change
-        await fetchAzureStatus()
-      } else {
-        const errorText = await res.text()
-        console.error('[ConsoleView] Failed to switch mode:', errorText)
+  const handleLogModeChange = React.useCallback((newMode: LogMode) => {
+    void (async () => {
+      if (newMode === logMode) {
+        return
       }
-    } catch (err) {
-      console.error('Error switching mode:', err)
-    } finally {
-      // Clear switching state after a short delay to let panes reconnect
-      setTimeout(() => setIsModeSwitching(false), 1500)
-    }
+
+      setIsModeSwitching(true)
+
+      try {
+        // Call backend API to switch mode - this starts/stops Azure polling
+        const res = await fetch('/api/mode', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: newMode }),
+        })
+
+        if (res.ok) {
+          setLogMode(newMode)
+          // Refresh Azure status after mode change
+          await fetchAzureStatus()
+        } else {
+          const errorText = await res.text()
+          console.error('[ConsoleView] Failed to switch mode:', errorText)
+        }
+      } catch (err) {
+        console.error('Error switching mode:', err)
+      } finally {
+        // Clear switching state after a short delay to let panes reconnect
+        setTimeout(() => setIsModeSwitching(false), 1500)
+      }
+    })()
   }, [logMode, fetchAzureStatus])
 
   // Fetch Azure status on mount and when services change
   React.useEffect(() => {
-    fetchAzureStatus()
+    void fetchAzureStatus()
   }, [fetchAzureStatus, services])
 
   const { preferences, updateUI } = usePreferences()
@@ -782,51 +987,111 @@ export function ConsoleView({
     onFullscreenChange?.(isFullscreen)
   }, [isFullscreen, onFullscreenChange])
 
-  // Initialize selected services when services change
-  // Always sync selectedServices with the full service list to ensure all services are displayed
   React.useEffect(() => {
     if (services.length > 0) {
       const currentServiceNames = new Set(services.map((s) => s.name))
-      // Update selected services to match the current service list
-      // This ensures new services are added even if they arrive after initial load
-      setSelectedServices(currentServiceNames)
+
+      if (serviceSelectionMode === 'all') {
+        setSelectedServices(currentServiceNames)
+        return
+      }
+
+      // Custom selection: preserve user's choices, but drop services that no longer exist.
+      setSelectedServices((prev) => {
+        const next = new Set(Array.from(prev).filter((name) => currentServiceNames.has(name)))
+        return next.size > 0 ? next : currentServiceNames
+      })
     }
-  }, [services])
+  }, [services, serviceSelectionMode])
+
+  // Persist filter state to localStorage.
+  React.useEffect(() => {
+    const currentServiceNames = new Set(services.map((s) => s.name))
+
+    const isAllSelected =
+      currentServiceNames.size > 0 &&
+      selectedServices.size === currentServiceNames.size &&
+      Array.from(selectedServices).every((name) => currentServiceNames.has(name))
+
+    saveConsoleFilters({
+      version: 1,
+      serviceSelectionMode: isAllSelected ? 'all' : 'custom',
+      selectedServices: isAllSelected ? undefined : Array.from(selectedServices).sort((a, b) => a.localeCompare(b)),
+      levelFilter: Array.from(levelFilter),
+      stateFilter: Array.from(stateFilter),
+      healthFilter: Array.from(healthFilter),
+    })
+  }, [services, selectedServices, levelFilter, stateFilter, healthFilter])
 
   // Keyboard shortcuts
   React.useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      const el = target as HTMLElement | null
+      if (!el) return false
+      if (el.isContentEditable) return true
+      return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+    }
+
+    const isSpaceToggle = (e: KeyboardEvent): boolean => {
+      return e.code === 'Space' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey
+    }
+
+    const isToggleViewMode = (e: KeyboardEvent): boolean => {
+      return e.ctrlKey && e.shiftKey && e.code === 'KeyL'
+    }
+
+    const isToggleLogModeShortcut = (e: KeyboardEvent): boolean => {
+      return e.ctrlKey && e.shiftKey && e.code === 'KeyM'
+    }
+
+    const isToggleFullscreen = (e: KeyboardEvent): boolean => {
+      return e.key === 'F11' || (e.ctrlKey && e.shiftKey && e.code === 'KeyF')
+    }
+
+    const isExitFullscreen = (e: KeyboardEvent): boolean => {
+      return e.key === 'Escape' && isFullscreen
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-        const target = e.target as HTMLElement
-        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+      if (isSpaceToggle(e)) {
+        if (!isEditableTarget(e.target)) {
           e.preventDefault()
           setIsPaused((prev) => !prev)
         }
+        return
       }
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyL') {
+
+      if (isToggleViewMode(e)) {
         e.preventDefault()
         updateUI({ viewMode: viewMode === 'grid' ? 'unified' : 'grid' })
+        return
       }
-      // Ctrl+Shift+M: Toggle log source mode (local/azure)
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM') {
+
+      if (isToggleLogModeShortcut(e)) {
         e.preventDefault()
         if (azureEnabled) {
           setLogMode((prev) => prev === 'local' ? 'azure' : 'local')
         }
+        return
       }
-      if (e.key === 'F11' || (e.ctrlKey && e.shiftKey && e.code === 'KeyF')) {
+
+      if (isToggleFullscreen(e)) {
         e.preventDefault()
         setIsFullscreen((prev) => !prev)
+        return
       }
-      if (e.key === 'Escape' && isFullscreen) {
+
+      if (isExitFullscreen(e)) {
         setIsFullscreen(false)
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+
+    globalThis.addEventListener('keydown', handleKeyDown)
+    return () => globalThis.removeEventListener('keydown', handleKeyDown)
   }, [viewMode, updateUI, isFullscreen, azureEnabled])
 
   const handleToggleService = (serviceName: string) => {
+    setServiceSelectionMode('custom')
     setSelectedServices((prev) => {
       const next = new Set(prev)
       if (next.has(serviceName)) {
@@ -838,7 +1103,7 @@ export function ConsoleView({
     })
   }
 
-  const toggleLevelFilter = (level: 'info' | 'warning' | 'error') => {
+  const toggleLevelFilter = (level: LogLevel) => {
     setLevelFilter((prev) => {
       const next = new Set(prev)
       if (next.has(level)) {
@@ -879,6 +1144,12 @@ export function ConsoleView({
     showToast('All logs cleared', 'success')
   }
 
+  const handleSyncIntervalChange = React.useCallback((value: number) => {
+    const clamped = clampSyncInterval(value)
+    setSyncInterval(clamped)
+    setSavedSyncInterval(clamped)
+  }, [])
+
   const togglePaneCollapse = (serviceName: string) => {
     setCollapsedPanes((prev) => ({
       ...prev,
@@ -896,7 +1167,7 @@ export function ConsoleView({
         break
       case 'csv':
         content = 'Service,Timestamp,Level,Message\n' +
-          logs.map(log => `"${log.service}","${log.timestamp}",${log.level},"${log.message.replace(/"/g, '""')}"`).join('\n')
+          logs.map(log => `"${log.service}","${log.timestamp}",${log.level},"${log.message.replaceAll('"', '""')}"`).join('\n')
         break
       case 'markdown':
         content = logs.map(log => `**[${log.timestamp}]** \`${log.service}\` ${log.message}`).join('\n\n')
@@ -914,33 +1185,77 @@ export function ConsoleView({
     a.toLowerCase().localeCompare(b.toLowerCase())
   )
 
-  const filteredServicesList = selectedServicesList.filter((serviceName) => {
-    const service = services.find((s) => s.name === serviceName)
-    const processStatus = service?.local?.status
-    
-    // Map process status to filterable state
-    // Transitional states (starting, stopping, restarting) map to 'starting' category
-    let mappedState: FilterableLifecycleState = 'stopped'
-    if (processStatus === 'running' || processStatus === 'ready' || processStatus === 'watching') {
-      mappedState = 'running'
-    } else if (processStatus === 'starting' || processStatus === 'restarting' || processStatus === 'stopping' || processStatus === 'building') {
-      // All transitional states show under "Starting" filter
-      mappedState = 'starting'
-    } else if (processStatus === 'stopped' || processStatus === 'not-started' || processStatus === 'not-running' || processStatus === 'completed' || processStatus === 'built' || processStatus === 'failed' || !processStatus) {
-      mappedState = 'stopped'
+  // Pane visibility is controlled only by explicit service selection.
+  // State/health filters must not hide panes (see docs/specs/log-pane-visibility/spec.md).
+  const paneServicesList = selectedServicesList
+
+  let content: React.ReactNode
+
+  if (viewMode === 'grid') {
+    if (paneServicesList.length === 0) {
+      content = (
+        <div className="flex items-center justify-center h-full text-slate-500">
+          <div className="text-center">
+            <p className="text-lg font-medium">No services selected</p>
+            <p className="text-sm mt-2">Select one or more services to view their logs</p>
+          </div>
+        </div>
+      )
+    } else {
+      content = (
+        <LogsPaneGrid columns={2} collapsedPanes={collapsedPanes} autoFit={true}>
+          {paneServicesList.map((serviceName) => {
+            const service = services.find((s) => s.name === serviceName)
+            const serviceHealthStatus = healthReport?.services.find(
+              (s) => s.serviceName === serviceName
+            )?.status
+            // Services with host: local always show local logs regardless of global mode
+            const effectiveLogMode = service?.host === 'local' ? 'local' : logMode
+            return (
+              <LogsPane
+                key={serviceName}
+                serviceName={serviceName}
+                port={service?.local?.port}
+                url={service?.local?.url}
+                service={service}
+                onCopy={handleCopyPane}
+                isPaused={isPaused}
+                globalSearchTerm={globalSearchTerm}
+                autoScrollEnabled={autoScrollEnabled}
+                clearAllTrigger={clearAllTrigger}
+                levelFilter={levelFilter}
+                isCollapsed={collapsedPanes[serviceName] ?? false}
+                onToggleCollapse={() => togglePaneCollapse(serviceName)}
+                serviceHealth={serviceHealthStatus}
+                onShowDetails={
+                  service && onServiceClick ? () => onServiceClick(service) : undefined
+                }
+                logMode={effectiveLogMode}
+                isModeSwitching={isModeSwitching}
+                timeRange={effectiveLogMode === 'azure' ? timeRange : undefined}
+                syncInterval={syncInterval}
+                azureRealtime={azureRealtime}
+              />
+            )
+          })}
+        </LogsPaneGrid>
+      )
     }
-    
-    // Check state filter
-    if (!stateFilter.has(mappedState)) return false
-    
-    // Stopped/transitional services skip health filter (health not meaningful during transitions)
-    if (mappedState === 'stopped' || mappedState === 'starting') return true
-    
-    // Check health filter for running services
-    const serviceHealth =
-      healthReport?.services.find((s) => s.serviceName === serviceName)?.status ?? 'unknown'
-    return healthFilter.has(serviceHealth)
-  })
+  } else {
+    content = (
+      <LogsView
+        selectedServices={selectedServices}
+        levelFilter={levelFilter}
+        isPaused={isPaused}
+        autoScrollEnabled={autoScrollEnabled}
+        globalSearchTerm={globalSearchTerm}
+        clearAllTrigger={clearAllTrigger}
+        hideControls={true}
+        logMode={logMode}
+        isModeSwitching={isModeSwitching}
+      />
+    )
+  }
 
   return (
     <div
@@ -977,9 +1292,9 @@ export function ConsoleView({
         azureStatus={azureStatus}
         azureConnectionMessage={azureConnectionMessage}
         timeRange={timeRange}
-        onTimeRangeChange={(preset) => setTimeRange({ preset })}
+        onTimeRangeChange={(preset) => setTimeRange(prev => (prev.preset === preset ? prev : { preset }))}
         syncInterval={syncInterval}
-        onSyncIntervalChange={setSyncInterval}
+        onSyncIntervalChange={handleSyncIntervalChange}
         onRunDiagnostics={() => setShowDiagnostics(true)}
       />
 
@@ -999,64 +1314,7 @@ export function ConsoleView({
 
       {/* Content - Constrain to remaining viewport height */}
       <div className="flex-1 overflow-hidden min-h-0">
-        {viewMode === 'grid' ? (
-          filteredServicesList.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-slate-500">
-              <div className="text-center">
-                <p className="text-lg font-medium">No services match the current filters</p>
-                <p className="text-sm mt-2">Try adjusting your service, state, or health status filters</p>
-              </div>
-            </div>
-          ) : (
-            <LogsPaneGrid columns={2} collapsedPanes={collapsedPanes} autoFit={true}>
-              {filteredServicesList.map((serviceName) => {
-                const service = services.find((s) => s.name === serviceName)
-                const serviceHealthStatus = healthReport?.services.find(
-                  (s) => s.serviceName === serviceName
-                )?.status
-                // Services with host: local always show local logs regardless of global mode
-                const effectiveLogMode = service?.host === 'local' ? 'local' : logMode
-                return (
-                  <LogsPane
-                    key={serviceName}
-                    serviceName={serviceName}
-                    port={service?.local?.port}
-                    url={service?.local?.url}
-                    service={service}
-                    onCopy={handleCopyPane}
-                    isPaused={isPaused}
-                    globalSearchTerm={globalSearchTerm}
-                    autoScrollEnabled={autoScrollEnabled}
-                    clearAllTrigger={clearAllTrigger}
-                    levelFilter={levelFilter}
-                    isCollapsed={collapsedPanes[serviceName] ?? false}
-                    onToggleCollapse={() => togglePaneCollapse(serviceName)}
-                    serviceHealth={serviceHealthStatus}
-                    onShowDetails={
-                      service && onServiceClick ? () => onServiceClick(service) : undefined
-                    }
-                    logMode={effectiveLogMode}
-                    isModeSwitching={isModeSwitching}
-                    timeRange={timeRange}
-                    syncInterval={syncInterval}
-                  />
-                )
-              })}
-            </LogsPaneGrid>
-          )
-        ) : (
-          <LogsView 
-            selectedServices={selectedServices} 
-            levelFilter={levelFilter}
-            isPaused={isPaused}
-            autoScrollEnabled={autoScrollEnabled}
-            globalSearchTerm={globalSearchTerm}
-            clearAllTrigger={clearAllTrigger}
-            hideControls={true}
-            logMode={logMode}
-            isModeSwitching={isModeSwitching}
-          />
-        )}
+        {content}
       </div>
 
       {/* Diagnostics Modal */}

@@ -48,7 +48,7 @@ interface AzureIconProps {
 /**
  * Azure cloud icon with brand styling
  */
-function AzureIcon({ className }: AzureIconProps) {
+function AzureIcon({ className }: Readonly<AzureIconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -97,6 +97,53 @@ const sizeConfig = {
   },
 }
 
+interface StatusIndicatorProps {
+  showStatus: boolean
+  azureEnabled: boolean
+  status: ModeToggleProps['azureStatus']
+  connectionMessage?: string
+  statusDotClassName: string
+}
+
+function StatusIndicator({
+  showStatus,
+  azureEnabled,
+  status,
+  connectionMessage,
+  statusDotClassName,
+}: Readonly<StatusIndicatorProps>) {
+  if (!showStatus || !azureEnabled) return null
+
+  if (status === 'disconnected' && connectionMessage) {
+    return (
+      <span className="relative group" title={connectionMessage}>
+        <span
+          className={cn(
+            'flex items-center justify-center rounded-full bg-amber-500',
+            statusDotClassName,
+          )}
+          aria-hidden="true"
+        >
+          <span className="text-white text-[6px] font-bold">!</span>
+        </span>
+        <span
+          className={cn(
+            'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1',
+            'bg-slate-900 dark:bg-slate-700 text-white text-xs rounded whitespace-nowrap',
+            'opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity',
+            'z-50 shadow-lg',
+          )}
+        >
+          {connectionMessage}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700" />
+        </span>
+      </span>
+    )
+  }
+
+  return null
+}
+
 // =============================================================================
 // ModeToggle Component
 // =============================================================================
@@ -112,7 +159,7 @@ export function ModeToggle({
   showStatus = true,
   onModeChange,
   className 
-}: ModeToggleProps) {
+}: Readonly<ModeToggleProps>) {
   const [announcement, setAnnouncement] = React.useState('')
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const config = sizeConfig[size]
@@ -127,22 +174,18 @@ export function ModeToggle({
   }, [])
 
   const handleModeChange = (newMode: LogMode) => {
-    console.log('[ModeToggle] handleModeChange called:', { newMode, currentMode: mode, isLoading, azureEnabled, azureStatus })
     if (isLoading || mode === newMode) {
-      console.log('[ModeToggle] Blocked: isLoading or same mode')
       return
     }
     
     // Check if Azure is available before switching to it
     if (newMode === 'azure' && !azureEnabled) {
-      console.log('[ModeToggle] Blocked: Azure not enabled')
       setAnnouncement('Azure logging is not configured')
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
       timeoutRef.current = setTimeout(() => setAnnouncement(''), 2000)
       return
     }
     
-    console.log('[ModeToggle] Calling onModeChange')
     onModeChange?.(newMode)
     
     // Announce to screen readers
@@ -174,44 +217,6 @@ export function ModeToggle({
     if (status === 'connecting') return 'text-amber-500 dark:text-amber-400 animate-pulse'
     if (status === 'disconnected') return 'text-amber-500 dark:text-amber-400'
     return ''
-  }
-
-  // Status indicator component - only shows tooltip for connection issues
-  const StatusIndicator = ({ status }: { status: typeof azureStatus }) => {
-    if (!showStatus || !azureEnabled) return null
-    
-    // For disconnected status, show an info icon with tooltip
-    if (status === 'disconnected' && connectionMessage) {
-      return (
-        <span 
-          className="relative group"
-          title={connectionMessage}
-        >
-          <span 
-            className={cn(
-              'flex items-center justify-center rounded-full bg-amber-500',
-              config.statusDot,
-            )}
-            aria-hidden="true"
-          >
-            <span className="text-white text-[6px] font-bold">!</span>
-          </span>
-          {/* Tooltip */}
-          <span className={cn(
-            'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1',
-            'bg-slate-900 dark:bg-slate-700 text-white text-xs rounded whitespace-nowrap',
-            'opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity',
-            'z-50 shadow-lg',
-          )}>
-            {connectionMessage}
-            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-700" />
-          </span>
-        </span>
-      )
-    }
-    
-    // No dot indicator - color is shown on the cloud icon itself
-    return null
   }
 
   return (
@@ -307,7 +312,13 @@ export function ModeToggle({
           {showLabels && size !== 'compact' && (
             <span className={config.label}>Azure</span>
           )}
-          <StatusIndicator status={azureStatus} />
+          <StatusIndicator
+            showStatus={showStatus}
+            azureEnabled={azureEnabled}
+            status={azureStatus}
+            connectionMessage={connectionMessage}
+            statusDotClassName={config.statusDot}
+          />
         </button>
       </div>
       

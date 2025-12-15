@@ -173,24 +173,13 @@ Update `go.mod` and `go.sum` in `cli/` directory.
 Extend azure.yaml schema (`schemas/v1.1/azure.yaml.json`) to add Azure log config under existing `logs` section:
 
 ```yaml
-logs:
-  filters: { ... }  # existing
-  azure:            # new
-    enabled: true
-    source: auto|local|azure
-    workspace: ""
-    pollingInterval: 10s
-    defaultTimespan: 30m
-    realtime: false
-    queries:
-      containerApp: "KQL..."
-      appService: "KQL..."
+logs: { filters: { ... }, analytics: { workspace: "", pollingInterval: 10s, defaultTimespan: 30m, realtime: false } }
 ```
 
-Also support service-level `logs.azure` override.
+Also support service-level `logs.analytics` override.
 
 **Acceptance Criteria**:
-- Schema validates new `logs.azure` section
+- Schema validates new `logs.analytics` section
 - Service-level config inherits/overrides project-level
 - Backward compatible (existing configs work)
 - Schema documentation updated
@@ -482,7 +471,7 @@ Implement low-latency streaming using service-specific APIs:
 - Container Apps: Real-time log stream API
 - App Service: Kudu logstream endpoint
 - Toggle between polling and real-time modes
-- Configurable via `logs.azure.realtime: true`
+- Configurable via `logs.analytics.realtime: true`
 - Automatic fallback on API failures
 
 **Acceptance Criteria**:
@@ -498,7 +487,7 @@ Implement low-latency streaming using service-specific APIs:
 **Status**: TODO
 
 Add historical log query UI:
-- Time range picker (last 15m, 1h, 6h, 24h, custom)
+- Time range picker (last 15m, 30m, 6h, 24h, custom)
 - KQL query input (collapsible advanced section)
 - Load more pagination
 - Export to file (JSON/text)

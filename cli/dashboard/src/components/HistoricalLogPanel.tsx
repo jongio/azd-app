@@ -228,7 +228,7 @@ export function HistoricalLogPanel({
   serviceName,
   isOpen,
   onClose,
-  defaultTimeRange = '1h',
+  defaultTimeRange = '30m',
   azureConnected,
   className,
 }: HistoricalLogPanelProps) {

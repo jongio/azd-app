@@ -1,4 +1,4 @@
-<!-- ALL TASKS COMPLETE -->
+<!-- NEXT: -->
 # Azure Logs v2 Tasks
 
 ## Summary

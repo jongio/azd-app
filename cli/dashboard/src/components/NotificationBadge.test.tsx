@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, act } from '@testing-library/react'
 import { NotificationBadge } from './NotificationBadge'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('NotificationBadge', () => {
   it('renders count correctly', () => {
@@ -74,5 +78,42 @@ describe('NotificationBadge', () => {
     // Initially should have pulse animation
     // Animation is applied via useEffect
     expect(badge).toBeInTheDocument()
+  })
+
+  it('pulses on count increase and then clears', () => {
+    vi.useFakeTimers()
+
+    const { rerender } = render(<NotificationBadge count={0} showZero />)
+    const badge = screen.getByRole('status')
+    expect(badge.className).not.toContain('animate-notification-pulse')
+
+    rerender(<NotificationBadge count={1} showZero />)
+    expect(screen.getByRole('status').className).toContain('animate-notification-pulse')
+
+    act(() => {
+      vi.advanceTimersByTime(1200)
+    })
+
+    expect(screen.getByRole('status').className).not.toContain('animate-notification-pulse')
+  })
+
+  it('announces unread notifications after debounce (including severity + pluralization)', () => {
+    vi.useFakeTimers()
+
+    const { rerender } = render(<NotificationBadge count={1} variant="warning" />)
+
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(screen.getByText('1 warning unread notification')).toBeInTheDocument()
+
+    rerender(<NotificationBadge count={2} variant="critical" />)
+
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(screen.getByText('2 critical unread notifications')).toBeInTheDocument()
   })
 })

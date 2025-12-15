@@ -617,19 +617,24 @@ export function formatStartTime(timeStr?: string): string {
 }
 
 /**
- * Format a timestamp for log display (HH:MM:SS.mmm)
+ * Format a timestamp for log display (YYYY-MM-DD HH:MM:SS.mmm)
  */
 export function formatLogTimestamp(timestamp: string): string {
   try {
     const date = new Date(timestamp)
-    const time = date.toLocaleTimeString('en-US', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
-    })
+    if (Number.isNaN(date.getTime())) {
+      return timestamp
+    }
+
+    const year = date.getFullYear().toString().padStart(4, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    const seconds = date.getSeconds().toString().padStart(2, '0')
     const ms = date.getMilliseconds().toString().padStart(3, '0')
-    return `${time}.${ms}`
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`
   } catch {
     return timestamp
   }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -77,9 +78,11 @@ ContainerInstanceLog_CL
 
 // LogAnalyticsClient provides methods to query Azure Log Analytics.
 type LogAnalyticsClient struct {
-	client      *azlogs.Client
-	workspaceID string
-	credential  azcore.TokenCredential
+	client        *azlogs.Client
+	workspaceID   string
+	credential    azcore.TokenCredential
+	workspaceGUID string
+	workspaceMu   sync.Mutex
 }
 
 // NewLogAnalyticsClient creates a new Log Analytics client.
@@ -96,12 +99,30 @@ func NewLogAnalyticsClient(credential azcore.TokenCredential, workspaceID string
 	}, nil
 }
 
+func (c *LogAnalyticsClient) getWorkspaceGUID(ctx context.Context) (string, error) {
+	c.workspaceMu.Lock()
+	defer c.workspaceMu.Unlock()
+
+	if c.workspaceGUID != "" {
+		return c.workspaceGUID, nil
+	}
+
+	guid, err := NormalizeWorkspaceID(ctx, c.credential, c.workspaceID)
+	if err != nil {
+		return "", err
+	}
+	c.workspaceGUID = guid
+	return guid, nil
+}
+
 // QueryLogs queries logs for a specific service.
 func (c *LogAnalyticsClient) QueryLogs(ctx context.Context, serviceName string, resourceType ResourceType, since time.Duration, customQuery string) ([]LogEntry, error) {
 	query := c.buildQuery(serviceName, resourceType, since, customQuery)
 
-	// Extract workspace ID from full resource ID if needed
-	workspaceID := extractWorkspaceID(c.workspaceID)
+	workspaceID, err := c.getWorkspaceGUID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Log Analytics workspace configuration: %w", err)
+	}
 
 	// Format timespan as ISO8601 duration (e.g., "PT1H" for 1 hour)
 	timespan := azlogs.TimeInterval(formatTimespan(since))
@@ -116,7 +137,7 @@ func (c *LogAnalyticsClient) QueryLogs(ctx context.Context, serviceName string, 
 		slog.Debug("KQL query failed", "error", err)
 		// Clear token cache on auth errors to force fresh token on next attempt
 		ClearTokenCacheOnError(err)
-		return nil, fmt.Errorf("Log Analytics query failed: %w", err)
+		return nil, fmt.Errorf("log analytics query failed: %w", err)
 	}
 
 	entries, err := c.parseResults(resp, serviceName, resourceType)
@@ -339,21 +360,6 @@ func formatKQLTimespan(d time.Duration) string {
 	return fmt.Sprintf("%ds", seconds)
 }
 
-func extractWorkspaceID(fullID string) string {
-	// If it's already just the GUID, return as-is
-	if !strings.Contains(fullID, "/") {
-		return fullID
-	}
-
-	// Extract workspace ID from full resource ID
-	// Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.OperationalInsights/workspaces/{name}
-	parts := strings.Split(fullID, "/")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return fullID
-}
-
 // ListAvailableTables queries the Log Analytics workspace to discover available tables.
 // It uses a search query to find distinct table names that have data.
 func (c *LogAnalyticsClient) ListAvailableTables(ctx context.Context) ([]TableInfo, error) {
@@ -365,7 +371,10 @@ func (c *LogAnalyticsClient) ListAvailableTables(ctx context.Context) ([]TableIn
 | order by $table asc
 | take 100`
 
-	workspaceID := extractWorkspaceID(c.workspaceID)
+	workspaceID, err := c.getWorkspaceGUID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Log Analytics workspace configuration: %w", err)
+	}
 	timespan := azlogs.TimeInterval("P1D") // Last 24 hours
 
 	slog.Debug("listing available tables", "workspace", workspaceID)

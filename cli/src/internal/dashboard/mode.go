@@ -9,16 +9,6 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
-// modeNotConfiguredMessage provides actionable guidance when trying to switch to Azure mode.
-const modeNotConfiguredMessage = `Azure logging not configured. To enable:
-1. Add to azure.yaml:
-   logs:
-     analytics:
-       workspace: <optional-workspace-guid>
-2. Restart 'azd app run'
-
-For more info: https://aka.ms/azd-app/azure-logs`
-
 // ModeRequest represents a request to change the log source mode.
 type ModeRequest struct {
 	Mode string `json:"mode"` // "local" or "azure"
@@ -29,6 +19,7 @@ type ModeResponse struct {
 	Mode              string `json:"mode"`
 	AzureEnabled      bool   `json:"azureEnabled"`
 	AzureStatus       string `json:"azureStatus"` // "connected", "disconnected", "error"
+	AzureRealtime     bool   `json:"azureRealtime"`
 	ResourceCount     int    `json:"resourceCount"`
 	ConnectionIssue   string `json:"connectionIssue,omitempty"`
 	ConnectionMessage string `json:"connectionMessage,omitempty"`
@@ -49,18 +40,21 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 	// Check if Azure logging is configured (logs.analytics section exists)
 	azureEnabled := false
 	azureStatus := "disabled"
-	
+	azureRealtime := false
+
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
 		// Azure logging is configured
 		azureEnabled = true
 		azureStatus = "connected" // Assume connected if configured
+		azureRealtime = azureYaml.Logs.Analytics.Realtime
 	}
 
 	response := ModeResponse{
-		Mode:         string(currentMode),
-		AzureEnabled: azureEnabled,
-		AzureStatus:  azureStatus,
+		Mode:          string(currentMode),
+		AzureEnabled:  azureEnabled,
+		AzureStatus:   azureStatus,
+		AzureRealtime: azureRealtime,
 	}
 
 	if err := writeJSON(w, response); err != nil {
@@ -98,25 +92,28 @@ func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
 
 	// Mode is tracked client-side only - just return success with current status
 	// The frontend will use the mode to determine which API endpoints to call
-	
+
 	// Store the mode in server state
 	s.modeMu.Lock()
 	s.currentMode = service.LogMode(req.Mode)
 	s.modeMu.Unlock()
-	
+
 	azureEnabled := false
 	azureStatus := "disabled"
-	
+	azureRealtime := false
+
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
 		azureEnabled = true
 		azureStatus = "connected"
+		azureRealtime = azureYaml.Logs.Analytics.Realtime
 	}
 
 	response := ModeResponse{
-		Mode:         req.Mode,
-		AzureEnabled: azureEnabled,
-		AzureStatus:  azureStatus,
+		Mode:          req.Mode,
+		AzureEnabled:  azureEnabled,
+		AzureStatus:   azureStatus,
+		AzureRealtime: azureRealtime,
 	}
 
 	if err := writeJSON(w, response); err != nil {

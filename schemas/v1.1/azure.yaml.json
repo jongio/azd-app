@@ -605,6 +605,11 @@
           "pattern": "^\\d+[smh]$",
           "default": "30m",
           "description": "Default time window for historical log queries (e.g., '15m', '1h', '24h')."
+        },
+        "realtime": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable service-specific low-latency log streaming when supported. Falls back to polling when unavailable."
         }
       }
     },
