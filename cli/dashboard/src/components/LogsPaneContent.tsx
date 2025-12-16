@@ -6,6 +6,7 @@ import type { LogEntry } from '@/components/LogsPane'
 import type { PaneLogLevel } from '@/hooks/useLogFiltering'
 import type { LogMode } from './ModeToggle'
 import type { AzureTimeRange } from '@/hooks/useAzureTimeRange'
+import type { CodespaceConfig } from '@/lib/codespace-utils'
 import { LogsPaneEmptyState } from './LogsPaneEmptyState'
 
 export interface LogsPaneContentProps {
@@ -15,7 +16,7 @@ export interface LogsPaneContentProps {
   filteredLogs: LogEntry[]
   logs: LogEntry[]
   logMode: LogMode
-  codespaceConfig: { isCodespace: boolean; domain?: string; name?: string }
+  codespaceConfig: CodespaceConfig
   isLoading: boolean
   isWaiting: boolean
   errorMessage: string | null

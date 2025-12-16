@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, waitFor, waitForElementToBeRemoved, screen, act } from '@testing-library/react'
+import { render, cleanup, waitFor, waitForElementToBeRemoved, screen } from '@testing-library/react'
 import { LogsPane } from './LogsPane'
 
 const DATETIME_LIKE_PATTERN = /\b\d{4}-\d{2}-\d{2}\b|\b\d{2}:\d{2}(:\d{2})?\b/

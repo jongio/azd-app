@@ -14,7 +14,7 @@ import { LogsPaneModeBar } from './LogsPaneAzureControls'
 import { LogsPaneClassificationOverlay, LogsPaneClassificationToast } from './LogsPaneClassifications'
 import { LogsPaneRefreshFooter } from './LogsPaneRefreshFooter'
 import { useLogFiltering } from '@/hooks/useLogFiltering'
-import { useAzureTimeRange, type AzureTimeRange, DEFAULT_AZURE_TIME_RANGE } from '@/hooks/useAzureTimeRange'
+import { useAzureTimeRange } from '@/hooks/useAzureTimeRange'
 import { useLogScrolling } from '@/hooks/useLogScrolling'
 import { useSmoothedLoadingIndicator } from '@/hooks/useSmoothedLoadingIndicator'
 import { useLogsStream } from '@/hooks/useLogsStream'
@@ -169,7 +169,7 @@ export function LogsPane({
     levelFilter
   )
 
-  const { logsContainerRef, logsEndRef, isHovering, setIsHovering } = useLogScrolling(
+  const { logsContainerRef, logsEndRef, setIsHovering } = useLogScrolling(
     logs,
     autoScrollEnabled,
     isPaused
@@ -256,7 +256,7 @@ export function LogsPane({
 
   const processStatus = service?.local?.status
   const normalizedHealth = serviceHealth ? normalizeHealthStatus(serviceHealth) : undefined
-  const visualStatus = getLogPaneVisualStatus(normalizedHealth, paneStatus, processStatus)
+  const visualStatus = getLogPaneVisualStatus(normalizedHealth, paneStatus as 'info' | 'warning' | 'error', processStatus)
   const { borderClass, headerBgClass } = useMemo(() => getPaneStyleClasses(visualStatus), [visualStatus])
   const healthIcon = useMemo(() => getHealthIcon(normalizedHealth), [normalizedHealth])
 
@@ -300,7 +300,7 @@ export function LogsPane({
         filteredLogs={filteredLogs}
         logs={logs}
         logMode={logMode}
-        codespaceConfig={codespaceConfig}
+        codespaceConfig={codespaceConfig ?? { enabled: false, name: '', domain: '' }}
         isLoading={showLoadingIndicator}
         isWaiting={isWaitingForFirstFetch}
         errorMessage={errorMessage}
