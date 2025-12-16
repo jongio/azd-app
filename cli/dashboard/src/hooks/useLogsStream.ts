@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import type { LogEntry } from '@/components/LogsPane'
 import type { LogMode } from '@/components/ModeToggle'
 import type { AzureTimeRange } from '@/hooks/useAzureTimeRange'
@@ -160,5 +160,5 @@ export function useLogsStream(params: UseLogsStreamParams): void {
       cancelled = true
       closeSocket()
     }
-  }, [serviceName, fetchKey, refreshTrigger, isPausedRef, setLogs, onFetchSettled, azureRealtime, logMode, timeRange])
+  }, [serviceName, fetchKey, refreshTrigger, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange])
 }

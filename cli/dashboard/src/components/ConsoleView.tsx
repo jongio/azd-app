@@ -75,7 +75,7 @@ export function ConsoleView({
   // Fetch Azure status on mount and when services change
   React.useEffect(() => {
     void azureConnection.fetchAzureStatus()
-  }, [azureConnection.fetchAzureStatus, services])
+  }, [azureConnection, services])
 
   // Keyboard shortcuts
   React.useEffect(() => {

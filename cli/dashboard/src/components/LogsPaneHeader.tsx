@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Copy, ExternalLink, ChevronDown, ChevronRight, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, HelpCircle, Eye, Hammer, CheckSquare, CircleX, CircleDot } from 'lucide-react'
+import { Copy, ExternalLink, ChevronDown, ChevronRight, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, Eye, Hammer, CheckSquare, CircleX, CircleDot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeHealthStatus } from '@/lib/service-utils'
 import type { Service } from '@/types'

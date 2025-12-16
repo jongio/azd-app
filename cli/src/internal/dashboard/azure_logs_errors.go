@@ -7,12 +7,12 @@ import (
 
 // Azure Logs error codes
 const (
-	ErrorCodeAuthExpired   = "AUTH_EXPIRED"
-	ErrorCodeAuthRequired  = "AUTH_REQUIRED"
-	ErrorCodeNotDeployed   = "NOT_DEPLOYED"
-	ErrorCodeNoWorkspace   = "NO_WORKSPACE"
-	ErrorCodeNoPermission  = "NO_PERMISSION"
-	ErrorCodeUnknown       = "UNKNOWN"
+	ErrorCodeAuthExpired  = "AUTH_EXPIRED"
+	ErrorCodeAuthRequired = "AUTH_REQUIRED"
+	ErrorCodeNotDeployed  = "NOT_DEPLOYED"
+	ErrorCodeNoWorkspace  = "NO_WORKSPACE"
+	ErrorCodeNoPermission = "NO_PERMISSION"
+	ErrorCodeUnknown      = "UNKNOWN"
 )
 
 // ErrorInfo provides actionable error information with documentation links.
