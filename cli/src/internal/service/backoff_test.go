@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 func TestWaitForPort_ExponentialBackoff(t *testing.T) {
@@ -30,7 +32,7 @@ func TestWaitForPort_ExponentialBackoff(t *testing.T) {
 	port := <-serverReady
 
 	startTime := time.Now()
-	err := WaitForPort(port, 5*time.Second)
+	err := WaitForPort(port, constants.TestServiceTimeout)
 	elapsed := time.Since(startTime)
 
 	if err != nil {
@@ -78,7 +80,7 @@ func TestWaitForPort_ImmediateSuccess(t *testing.T) {
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	startTime := time.Now()
-	err := WaitForPort(port, 5*time.Second)
+	err := WaitForPort(port, constants.TestServiceTimeout)
 	elapsed := time.Since(startTime)
 
 	if err != nil {
@@ -115,7 +117,7 @@ func TestPerformHealthCheck_ExponentialBackoff(t *testing.T) {
 		Name: "test-backoff-health",
 		HealthCheck: HealthCheckConfig{
 			Type:     "tcp",
-			Timeout:  5 * time.Second,
+			Timeout:  constants.TestServiceTimeout,
 			Interval: 100 * time.Millisecond, // Initial interval
 		},
 	}
@@ -211,7 +213,7 @@ func TestPerformHealthCheck_HTTPBackoff(t *testing.T) {
 		HealthCheck: HealthCheckConfig{
 			Type:     "http",
 			Path:     "/",
-			Timeout:  5 * time.Second,
+			Timeout:  constants.TestServiceTimeout,
 			Interval: 100 * time.Millisecond,
 		},
 	}
@@ -272,7 +274,7 @@ func TestBackoffConfiguration_MaxInterval(t *testing.T) {
 
 	// Use longer timeout to see max interval effect
 	startTime := time.Now()
-	_ = WaitForPort(port, 5*time.Second)
+	_ = WaitForPort(port, constants.TestServiceTimeout)
 	elapsed := time.Since(startTime)
 
 	// Should timeout around 5 seconds

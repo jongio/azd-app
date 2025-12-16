@@ -198,7 +198,9 @@ func buildContainerPortMappings(runtime *ServiceRuntime) []docker.PortMapping {
 		})
 	}
 
-	// TODO: Parse additional ports from runtime if needed
+	// TODO(#1001): Parse additional ports from runtime if needed
+	// Currently only maps the primary port from runtime.Port. Need to support multiple port mappings
+	// for services that expose additional ports (e.g., debug ports, metrics endpoints).
 
 	return mappings
 }

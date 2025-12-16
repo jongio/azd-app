@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 const (
@@ -102,7 +104,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 			runCancel()
 			if runCmd != nil && runCmd.Process != nil {
 				// Give graceful shutdown a chance
-				time.Sleep(2 * time.Second)
+				time.Sleep(constants.TestShortSleepDuration)
 				if runtime.GOOS == "windows" {
 					// On Windows, we may need to force kill
 					_ = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", runCmd.Process.Pid)).Run()

@@ -1,5 +1,6 @@
 import { ReactNode, Children, useMemo, isValidElement, useState, useRef, useLayoutEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { UI_CONSTANTS } from '@/lib/constants'
 
 interface LogsPaneGridProps {
   children: ReactNode
@@ -19,10 +20,10 @@ function calculateAutoFitColumns(serviceCount: number, containerWidth: number, c
   if (serviceCount === 2) return 2
   
   // Try different column counts and pick the one that gives best pane size
-  const gap = 16
-  const padding = 16
-  const minPaneWidth = 250
-  const minPaneHeight = 120
+  const gap = UI_CONSTANTS.GRID_GAP
+  const padding = UI_CONSTANTS.GRID_PADDING
+  const minPaneWidth = UI_CONSTANTS.MIN_PANE_WIDTH
+  const minPaneHeight = UI_CONSTANTS.MIN_PANE_HEIGHT
   
   let bestColumns = 2
   let bestPaneArea = 0
@@ -55,11 +56,11 @@ function calculateAutoFitColumns(serviceCount: number, containerWidth: number, c
 }
 
 /** Gap between grid items in pixels */
-const GRID_GAP = 16
+const GRID_GAP = UI_CONSTANTS.GRID_GAP
 /** Padding on the grid container */
-const GRID_PADDING = 16
+const GRID_PADDING = UI_CONSTANTS.GRID_PADDING
 /** Collapsed pane header height */
-const COLLAPSED_HEIGHT = 48
+const COLLAPSED_HEIGHT = UI_CONSTANTS.COLLAPSED_PANE_HEIGHT
 
 export function LogsPaneGrid({ children, columns, collapsedPanes = {}, autoFit = false }: LogsPaneGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { HealthReportEvent, HealthChangeEvent, HealthCheckResult, HealthSummary } from '@/types'
+import { WEBSOCKET_CONSTANTS, HEALTH_CONSTANTS } from '@/lib/constants'
 
 /** Configuration options for the health stream hook */
 export interface UseHealthStreamOptions {
@@ -42,10 +43,10 @@ export interface UseHealthStreamReturn {
 }
 
 const API_BASE = ''
-const DEFAULT_INTERVAL = 5
-const DEFAULT_RECONNECT_DELAY = 3000
-const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5
-const MAX_CHANGES_TO_KEEP = 50
+const DEFAULT_INTERVAL = HEALTH_CONSTANTS.DEFAULT_INTERVAL
+const DEFAULT_RECONNECT_DELAY = WEBSOCKET_CONSTANTS.DEFAULT_RECONNECT_DELAY
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = WEBSOCKET_CONSTANTS.MAX_RECONNECT_ATTEMPTS
+const MAX_CHANGES_TO_KEEP = HEALTH_CONSTANTS.MAX_CHANGES_TO_KEEP
 
 /**
  * Hook for consuming health check data from the SSE stream.

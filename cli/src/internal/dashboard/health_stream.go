@@ -198,10 +198,6 @@ func writeSSEEvent(w http.ResponseWriter, eventType HealthEventType, data interf
 
 // handleHealthCheck handles GET /api/health for one-shot health checks.
 func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	// Parse service filter
 	serviceStr := r.URL.Query().Get("service")
@@ -251,17 +247,11 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := writeJSON(w, report); err != nil {
-		log.Printf("Failed to write health report: %v", err)
-	}
+	WriteJSONSuccess(w, report)
 }
 
 // handleHealthStream handles GET /api/health/stream for SSE health updates.
 func (s *Server) handleHealthStream(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	// Check if client supports SSE
 	flusher, ok := w.(http.Flusher)

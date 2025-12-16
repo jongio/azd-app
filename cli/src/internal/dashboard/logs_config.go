@@ -2,8 +2,6 @@ package dashboard
 
 import (
 	"encoding/json"
-	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -112,47 +110,26 @@ func savePreferencesWithClient(client azdconfig.ConfigClient, prefs UserPreferen
 
 // handleGetPreferences returns user preferences
 func (s *Server) handleGetPreferences(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	client := s.getOrCreateConfigClient()
 	prefs, err := loadPreferencesWithClient(client)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to load preferences", err)
+		InternalError(w, "Failed to load preferences", err)
 		return
 	}
 
-	if err := writeJSON(w, prefs); err != nil {
-		log.Printf("Failed to write preferences JSON: %v", err)
-	}
+	WriteJSONSuccess(w, prefs)
 }
 
 // handleSavePreferences saves user preferences
 func (s *Server) handleSavePreferences(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Limit request body size to prevent DoS attacks
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Failed to read request body", err)
-		return
-	}
-	defer r.Body.Close()
-
 	var prefs UserPreferences
-	if err := json.Unmarshal(body, &prefs); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid JSON", err)
+	if !ReadJSONBody(w, r, &prefs, maxRequestBodySize) {
 		return
 	}
 
 	client := s.getOrCreateConfigClient()
 	if err := savePreferencesWithClient(client, prefs); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to save preferences", err)
+		InternalError(w, "Failed to save preferences", err)
 		return
 	}
 
