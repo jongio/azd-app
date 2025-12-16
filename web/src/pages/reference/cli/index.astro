@@ -26,7 +26,6 @@ azd app mcp serve`;
 
 <Layout title="CLI Reference" description="Complete reference for all azd app commands and flags">
   <div class="max-w-6xl mx-auto px-4 py-12">
-    <!-- Header -->
     <div class="mb-12">
       <h1 class="text-4xl font-bold mb-4">CLI Reference</h1>
       <p class="text-xl text-neutral-700 dark:text-neutral-300">
@@ -34,48 +33,8 @@ azd app mcp serve`;
       </p>
     </div>
 
-    <!-- Global Flags -->
-    <section class="mb-12">
-      <h2 class="text-2xl font-bold mb-6">Global Flags</h2>
-      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-        These flags are available for all commands:
-      </p>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
-          <thead>
-            <tr class="bg-neutral-200 dark:bg-neutral-700">
-              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th>
-              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th>
-              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
-            </tr>
-          </thead>
-          <tbody class="bg-neutral-100 dark:bg-neutral-800">
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-o</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format (default, json)</td>
-            </tr>
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--debug</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable debug logging</td>
-            </tr>
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--structured-logs</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable structured JSON logging to stderr</td>
-            </tr>
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <section class="mb-12"><h2 class="text-2xl font-bold mb-6">Global Flags</h2><p class="text-neutral-700 dark:text-neutral-300 mb-4">These flags are available for all commands:</p><div class="overflow-x-auto"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-o</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format (default, json)</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--debug</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable debug logging</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--structured-logs</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable structured JSON logging to stderr</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td></tr></tbody></table></div></section>
 
-    <!-- Commands -->
     <section>
       <h2 class="text-2xl font-bold mb-6">Commands</h2>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -247,50 +206,13 @@ azd app mcp serve`;
       </div>
     </section>
 
-    <!-- Quick Reference -->
     <section class="mt-12">
       <h2 class="text-2xl font-bold mb-6">Quick Reference</h2>
       <Code code={quickRefCode} lang="bash" frame="terminal" />
     </section>
 
-    <!-- Environment Variables -->
-    <section class="mt-12">
-      <h2 class="text-2xl font-bold mb-6">Environment Variables</h2>
-      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-        When running through <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azd app &lt;command&gt;</code>, 
-        these Azure environment variables are automatically available:
-      </p>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
-          <thead>
-            <tr class="bg-neutral-200 dark:bg-neutral-700">
-              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Variable</th>
-              <th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th>
-            </tr>
-          </thead>
-          <tbody class="bg-neutral-100 dark:bg-neutral-800">
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_SUBSCRIPTION_ID</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Current Azure subscription</td>
-            </tr>
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_RESOURCE_GROUP_NAME</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Target resource group</td>
-            </tr>
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_ENV_NAME</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Environment name</td>
-            </tr>
-            <tr class="border-t border-neutral-200 dark:border-neutral-700">
-              <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_LOCATION</code></td>
-              <td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Azure region</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <section class="mt-12"><h2 class="text-2xl font-bold mb-6">Environment Variables</h2><p class="text-neutral-700 dark:text-neutral-300 mb-4">When running through <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azd app &lt;command&gt;</code>, these Azure environment variables are automatically available:</p><div class="overflow-x-auto"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Variable</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_SUBSCRIPTION_ID</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Current Azure subscription</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_RESOURCE_GROUP_NAME</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Target resource group</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_ENV_NAME</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Environment name</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">AZURE_LOCATION</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Azure region</td></tr></tbody></table></div></section>
 
-    <!-- MCP Integration -->
     <section class="mt-12 p-6 bg-purple-100 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-700">
       <div class="flex items-start gap-4">
         <span class="text-3xl">🤖</span>

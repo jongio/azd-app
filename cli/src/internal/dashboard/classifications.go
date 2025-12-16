@@ -1,9 +1,7 @@
 package dashboard
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -26,11 +24,6 @@ type ClassificationsResponse struct {
 
 // handleGetClassifications returns all classifications from azure.yaml
 func (s *Server) handleGetClassifications(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	classificationsMu.RLock()
 	defer classificationsMu.RUnlock()
 
@@ -41,9 +34,7 @@ func (s *Server) handleGetClassifications(w http.ResponseWriter, r *http.Request
 		response := ClassificationsResponse{
 			Classifications: []service.LogClassification{},
 		}
-		if err := writeJSON(w, response); err != nil {
-			log.Printf("Failed to write classifications JSON: %v", err)
-		}
+		WriteJSONSuccess(w, response)
 		return
 	}
 
@@ -56,39 +47,23 @@ func (s *Server) handleGetClassifications(w http.ResponseWriter, r *http.Request
 		Classifications: classifications,
 	}
 
-	if err := writeJSON(w, response); err != nil {
-		log.Printf("Failed to write classifications JSON: %v", err)
-	}
+	WriteJSONSuccess(w, response)
 }
 
 // handleCreateClassification adds a new classification to azure.yaml
 func (s *Server) handleCreateClassification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Limit request body size
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxRequestBodySize))
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Failed to read request body", err)
-		return
-	}
-	defer r.Body.Close()
-
 	var classification service.LogClassification
-	if err := json.Unmarshal(body, &classification); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid JSON", err)
+	if !ReadJSONBody(w, r, &classification, maxRequestBodySize) {
 		return
 	}
 
 	// Validate
 	if strings.TrimSpace(classification.Text) == "" {
-		writeJSONError(w, http.StatusBadRequest, "Text is required", nil)
+		BadRequest(w, errTextRequired, nil)
 		return
 	}
 	if !service.ValidateClassificationLevel(classification.Level) {
-		writeJSONError(w, http.StatusBadRequest, "Level must be 'info', 'warning', or 'error'", nil)
+		BadRequest(w, "Level must be 'info', 'warning', or 'error'", nil)
 		return
 	}
 
@@ -98,7 +73,7 @@ func (s *Server) handleCreateClassification(w http.ResponseWriter, r *http.Reque
 	// Load existing azure.yaml
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to load azure.yaml", err)
+		InternalError(w, "Failed to load azure.yaml", err)
 		return
 	}
 
@@ -113,13 +88,11 @@ func (s *Server) handleCreateClassification(w http.ResponseWriter, r *http.Reque
 			// Update existing classification's level
 			azureYaml.Logs.Classifications[i].Level = classification.Level
 			if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
-				writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+				HandleSaveError(w, err)
 				return
 			}
 			w.WriteHeader(http.StatusOK)
-			if err := writeJSON(w, azureYaml.Logs.Classifications[i]); err != nil {
-				log.Printf("Failed to write classification JSON: %v", err)
-			}
+			WriteJSONSuccess(w, azureYaml.Logs.Classifications[i])
 			return
 		}
 	}
@@ -129,33 +102,25 @@ func (s *Server) handleCreateClassification(w http.ResponseWriter, r *http.Reque
 
 	// Save azure.yaml
 	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+		HandleSaveError(w, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	if err := writeJSON(w, classification); err != nil {
-		log.Printf("Failed to write classification JSON: %v", err)
-	}
+	WriteJSONCreated(w, classification)
 }
 
 // handleDeleteClassification removes a classification by index
 func (s *Server) handleDeleteClassification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	// Extract index from URL path: /api/logs/classifications/{index}
 	indexStr := strings.TrimPrefix(r.URL.Path, "/api/logs/classifications/")
 	if indexStr == "" {
-		http.Error(w, "Index required", http.StatusBadRequest)
+		BadRequest(w, errIndexRequired, nil)
 		return
 	}
 
 	index, err := strconv.Atoi(indexStr)
 	if err != nil {
-		http.Error(w, "Invalid index", http.StatusBadRequest)
+		BadRequest(w, errInvalidIndex, err)
 		return
 	}
 
@@ -165,17 +130,17 @@ func (s *Server) handleDeleteClassification(w http.ResponseWriter, r *http.Reque
 	// Load existing azure.yaml
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to load azure.yaml", err)
+		InternalError(w, "Failed to load azure.yaml", err)
 		return
 	}
 
 	if azureYaml.Logs == nil || len(azureYaml.Logs.Classifications) == 0 {
-		http.Error(w, "No classifications found", http.StatusNotFound)
+		NotFound(w, errNoClassificationsFound)
 		return
 	}
 
 	if index < 0 || index >= len(azureYaml.Logs.Classifications) {
-		http.Error(w, "Index out of range", http.StatusNotFound)
+		NotFound(w, errIndexOutOfRange)
 		return
 	}
 
@@ -192,11 +157,11 @@ func (s *Server) handleDeleteClassification(w http.ResponseWriter, r *http.Reque
 
 	// Save azure.yaml
 	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to save azure.yaml", err)
+		HandleSaveError(w, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	WriteNoContent(w)
 }
 
 // handleClassificationsRouter routes classification requests

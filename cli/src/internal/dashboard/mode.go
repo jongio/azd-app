@@ -3,7 +3,6 @@ package dashboard
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -27,11 +26,6 @@ type ModeResponse struct {
 
 // handleGetMode returns the current log source mode.
 func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	// Get current mode from server state
 	s.modeMu.RLock()
 	currentMode := s.currentMode
@@ -57,27 +51,20 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 		AzureRealtime: azureRealtime,
 	}
 
-	if err := writeJSON(w, response); err != nil {
-		log.Printf("Failed to write mode response: %v", err)
-	}
+	WriteJSONSuccess(w, response)
 }
 
 // handleSetMode changes the log source mode.
 func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req ModeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid request body", err)
+		BadRequest(w, "Invalid request body", err)
 		return
 	}
 
 	// Validate mode
 	if req.Mode != string(service.LogModeLocal) && req.Mode != string(service.LogModeAzure) {
-		writeJSONError(w, http.StatusBadRequest, "Invalid mode. Must be 'local' or 'azure'", nil)
+		BadRequest(w, "Invalid mode. Must be 'local' or 'azure'", nil)
 		return
 	}
 
@@ -85,7 +72,7 @@ func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
 	if req.Mode == string(service.LogModeAzure) {
 		azureYaml, err := loadAzureYaml(s.projectDir)
 		if err != nil || azureYaml.Logs == nil || azureYaml.Logs.Analytics == nil {
-			writeJSONError(w, http.StatusBadRequest, "Azure logging not configured. Add logs.analytics section to azure.yaml", nil)
+			BadRequest(w, "Azure logging not configured. Add logs.analytics section to azure.yaml", nil)
 			return
 		}
 	}
@@ -116,9 +103,7 @@ func (s *Server) handleSetMode(w http.ResponseWriter, r *http.Request) {
 		AzureRealtime: azureRealtime,
 	}
 
-	if err := writeJSON(w, response); err != nil {
-		log.Printf("Failed to write mode response: %v", err)
-	}
+	WriteJSONSuccess(w, response)
 }
 
 // handleModeRouter routes mode requests to the appropriate handler.

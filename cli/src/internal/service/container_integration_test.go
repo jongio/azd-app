@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/docker"
 )
 
@@ -66,7 +67,7 @@ func TestContainerService_StartStop(t *testing.T) {
 	}
 
 	// Give Redis a moment to start
-	time.Sleep(2 * time.Second)
+	time.Sleep(constants.TestShortSleepDuration)
 
 	// Stop the container
 	if err := client.Stop(containerName, 10); err != nil {
@@ -110,7 +111,7 @@ func TestContainerService_Logs(t *testing.T) {
 	}()
 
 	// Wait for the echo to complete
-	time.Sleep(2 * time.Second)
+	time.Sleep(constants.TestShortSleepDuration)
 
 	// Get logs
 	logReader, err := client.Logs(containerName)
@@ -161,7 +162,7 @@ func TestContainerService_HealthCheck(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// Perform TCP health check on mapped port
-	healthy := checkTCPPort("127.0.0.1", 16380, 5*time.Second)
+	healthy := checkTCPPort("127.0.0.1", 16380, constants.TestServiceTimeout)
 
 	if !healthy {
 		t.Error("Redis container should pass TCP health check on port 16380")
@@ -203,7 +204,7 @@ func TestContainerService_EnvironmentVariables(t *testing.T) {
 	}()
 
 	// Wait for container to start
-	time.Sleep(2 * time.Second)
+	time.Sleep(constants.TestShortSleepDuration)
 
 	// Verify container is running (if env vars caused issues, it wouldn't start)
 	if !client.IsRunning(containerName) {
@@ -241,10 +242,10 @@ func TestContainerService_PortMapping(t *testing.T) {
 	}()
 
 	// Wait for Redis to start listening
-	time.Sleep(2 * time.Second)
+	time.Sleep(constants.TestShortSleepDuration)
 
 	// Verify port mapping by checking if we can connect to host port
-	reachable := checkTCPPort("127.0.0.1", 18080, 5*time.Second)
+	reachable := checkTCPPort("127.0.0.1", 18080, constants.TestServiceTimeout)
 
 	if !reachable {
 		t.Error("mapped port 18080 should be reachable")

@@ -153,7 +153,9 @@ describe('ConsoleView', () => {
     healthReport?: HealthReportEvent,
     onServiceClick?: (service: Service) => void
   ) => {
-    fetchMock.mockResolvedValueOnce({
+    // Clear all previous mocks and set up the specific mock for this render
+    fetchMock.mockClear()
+    fetchMock.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ mode, azureEnabled, azureStatus: 'connected' }),
     })
@@ -168,6 +170,8 @@ describe('ConsoleView', () => {
   it('hides diagnostics button in local mode', async () => {
     renderConsoleView('local', false)
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    // Wait for the mode to actually update to 'local' in the UI
+    await waitFor(() => expect(screen.getByTestId('mode-toggle')).toHaveTextContent('local'))
     expect(screen.queryByText('Diagnostics')).not.toBeInTheDocument()
   })
 

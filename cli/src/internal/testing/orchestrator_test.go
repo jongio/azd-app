@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 func TestNewTestOrchestrator(t *testing.T) {
@@ -1500,7 +1502,7 @@ func (m *mockTestRunner) RunTests(testType string, coverage bool) (*TestResult, 
 
 func TestExecuteWithTimeout_Success(t *testing.T) {
 	config := &TestConfig{
-		Timeout: 5 * time.Second,
+		Timeout: constants.TestServiceTimeout,
 	}
 	orchestrator := NewTestOrchestrator(config)
 
@@ -1531,7 +1533,7 @@ func TestExecuteWithTimeout_Success(t *testing.T) {
 
 func TestExecuteWithTimeout_Error(t *testing.T) {
 	config := &TestConfig{
-		Timeout: 5 * time.Second,
+		Timeout: constants.TestServiceTimeout,
 	}
 	orchestrator := NewTestOrchestrator(config)
 

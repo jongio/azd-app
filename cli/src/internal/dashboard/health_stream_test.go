@@ -307,10 +307,13 @@ services:
 	})
 
 	t.Run("POST not allowed", func(t *testing.T) {
+		// NOTE: Method validation is now handled by MethodGuard middleware at the router level.
+		// Set up just the health endpoint with MethodGuard for testing.
+		server.mux.HandleFunc("/api/health", MethodGuard(server.handleHealthCheck, http.MethodGet))
 		req := httptest.NewRequest(http.MethodPost, "/api/health", nil)
 		rec := httptest.NewRecorder()
 
-		server.handleHealthCheck(rec, req)
+		server.mux.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 	})
@@ -355,10 +358,13 @@ services:
 	}
 
 	t.Run("POST not allowed", func(t *testing.T) {
+		// NOTE: Method validation is now handled by MethodGuard middleware at the router level.
+		// Set up just the health stream endpoint with MethodGuard for testing.
+		server.mux.HandleFunc("/api/health/stream", MethodGuard(server.handleHealthStream, http.MethodGet))
 		req := httptest.NewRequest(http.MethodPost, "/api/health/stream", nil)
 		rec := httptest.NewRecorder()
 
-		server.handleHealthStream(rec, req)
+		server.mux.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 	})

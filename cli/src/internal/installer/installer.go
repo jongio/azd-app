@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/types"
@@ -484,8 +485,17 @@ func isDependenciesUpToDate(projectDir string, packageManager string) bool {
 	return true
 }
 
-// formatNodeInstallError creates a detailed error message for node package manager failures
-func formatNodeInstallError(packageManager, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
+// errorFormatter defines the strategy interface for ecosystem-specific error formatting
+type errorFormatter struct {
+	baseMessage      func(tool string) string
+	exitCodeContext  func(tool string, exitCode int) string
+	suggestion       func(tool string, exitCode int, stderr string) string
+	contextFields    func() string
+}
+
+// formatInstallError creates a detailed error message using ecosystem-specific formatters
+func formatInstallError(tool, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string, formatter errorFormatter) error {
+	// Extract exit code
 	var exitCode int
 	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
 		exitCode = exitErr.ExitCode()
@@ -502,66 +512,88 @@ func formatNodeInstallError(packageManager, projectDir string, cmd *exec.Cmd, cm
 	}
 
 	// Build base error message
-	errMsg := fmt.Sprintf("failed to run %s install", packageManager)
+	errMsg := formatter.baseMessage(tool)
 
 	// Add exit code context
-	switch exitCode {
-	case 1:
-		errMsg += " (command failed with errors)"
-	case 127:
-		errMsg += fmt.Sprintf(" (%s not found - please install %s)", packageManager, packageManager)
-	case 254:
-		errMsg += fmt.Sprintf(" (%s command failed - check if %s is installed and in PATH)", packageManager, packageManager)
-	default:
-		if exitCode != 0 {
-			errMsg += fmt.Sprintf(" (exit code %d)", exitCode)
-		}
+	exitContext := formatter.exitCodeContext(tool, exitCode)
+	if exitContext != "" {
+		errMsg += exitContext
 	}
 
 	// Extract meaningful error details from stderr
-	errorDetails := extractErrorDetails(stderr, packageManager)
+	errorDetails := extractErrorDetails(stderr, tool)
 	if errorDetails != "" {
 		errMsg += ": " + errorDetails
 	}
 
-	// Add installation suggestions based on exit code and error pattern
-	suggestion := getSuggestion(packageManager, exitCode, stderr)
+	// Add ecosystem-specific suggestions
+	suggestion := formatter.suggestion(tool, exitCode, stderr)
 	if suggestion != "" {
 		errMsg += "\n   Suggestion: " + suggestion
 	}
 
-	return fmt.Errorf("%s\n   Directory: %s\n   Command: %s", errMsg, projectDir, formatCommand(cmd))
+	return fmt.Errorf("%s%s\n   Command: %s", errMsg, formatter.contextFields(), formatCommand(cmd))
+}
+
+// nodeErrorFormatter provides Node.js-specific error formatting
+func nodeErrorFormatter(packageManager, projectDir string) errorFormatter {
+	return errorFormatter{
+		baseMessage: func(tool string) string {
+			return fmt.Sprintf("failed to run %s install", tool)
+		},
+		exitCodeContext: func(tool string, exitCode int) string {
+			switch exitCode {
+			case 1:
+				return " (command failed with errors)"
+			case 127:
+				return fmt.Sprintf(" (%s not found - please install %s)", tool, tool)
+			case 254:
+				return fmt.Sprintf(" (%s command failed - check if %s is installed and in PATH)", tool, tool)
+			default:
+				if exitCode != 0 {
+					return fmt.Sprintf(" (exit code %d)", exitCode)
+				}
+				return ""
+			}
+		},
+		suggestion: getSuggestion,
+		contextFields: func() string {
+			return fmt.Sprintf("\n   Directory: %s", projectDir)
+		},
+	}
+}
+
+// formatNodeInstallError creates a detailed error message for node package manager failures
+func formatNodeInstallError(packageManager, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
+	return formatInstallError(packageManager, projectDir, cmd, cmdErr, stderr, nodeErrorFormatter(packageManager, projectDir))
+}
+
+// dotnetErrorFormatter provides .NET-specific error formatting
+func dotnetErrorFormatter(projectPath, dir string) errorFormatter {
+	return errorFormatter{
+		baseMessage: func(tool string) string {
+			return "failed to restore .NET project"
+		},
+		exitCodeContext: func(tool string, exitCode int) string {
+			if exitCode == 127 {
+				return " (dotnet not found - please install .NET SDK)"
+			} else if exitCode != 0 {
+				return fmt.Sprintf(" (exit code %d)", exitCode)
+			}
+			return ""
+		},
+		suggestion: func(tool string, exitCode int, stderr string) string {
+			return "" // No suggestions for .NET yet
+		},
+		contextFields: func() string {
+			return fmt.Sprintf("\n   Project: %s\n   Directory: %s", projectPath, dir)
+		},
+	}
 }
 
 // formatDotnetRestoreError creates a detailed error message for dotnet restore failures
 func formatDotnetRestoreError(projectPath, dir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
-	var exitCode int
-	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
-		exitCode = exitErr.ExitCode()
-	} else {
-		// If not an ExitError, try to extract from error message
-		errMsg := cmdErr.Error()
-		if strings.Contains(errMsg, "exit status") {
-			var code int
-			if _, err := fmt.Sscanf(errMsg, "exit status %d", &code); err == nil {
-				exitCode = code
-			}
-		}
-	}
-
-	errMsg := "failed to restore .NET project"
-	if exitCode == 127 {
-		errMsg += " (dotnet not found - please install .NET SDK)"
-	} else if exitCode != 0 {
-		errMsg += fmt.Sprintf(" (exit code %d)", exitCode)
-	}
-
-	errorDetails := extractErrorDetails(stderr, "dotnet")
-	if errorDetails != "" {
-		errMsg += ": " + errorDetails
-	}
-
-	return fmt.Errorf("%s\n   Project: %s\n   Directory: %s\n   Command: %s", errMsg, projectPath, dir, formatCommand(cmd))
+	return formatInstallError("dotnet", dir, cmd, cmdErr, stderr, dotnetErrorFormatter(projectPath, dir))
 }
 
 // extractErrorDetails extracts the most relevant error lines from stderr
@@ -571,9 +603,8 @@ func extractErrorDetails(stderr, tool string) string {
 	}
 
 	// Limit stderr to prevent memory issues with extremely verbose output
-	const maxStderrLen = 10000 // 10KB should be enough for error context
-	if len(stderr) > maxStderrLen {
-		stderr = stderr[:maxStderrLen] + "... (truncated)"
+	if len(stderr) > constants.MaxStderrLength {
+		stderr = stderr[:constants.MaxStderrLength] + "... (truncated)"
 	}
 
 	lines := strings.Split(stderr, "\n")
@@ -611,9 +642,8 @@ func extractErrorDetails(stderr, tool string) string {
 	if len(errorLines) > 0 {
 		result := strings.Join(errorLines, "; ")
 		// Truncate if combined error lines are too long
-		const maxErrorLen = 500
-		if len(result) > maxErrorLen {
-			return result[:maxErrorLen] + "..."
+		if len(result) > constants.MaxErrorMessageLength {
+			return result[:constants.MaxErrorMessageLength] + "..."
 		}
 		return result
 	}
@@ -628,9 +658,8 @@ func extractErrorDetails(stderr, tool string) string {
 
 	if len(lastLines) > 0 {
 		result := strings.Join(lastLines, "; ")
-		const maxErrorLen = 500
-		if len(result) > maxErrorLen {
-			return result[:maxErrorLen] + "..."
+		if len(result) > constants.MaxErrorMessageLength {
+			return result[:constants.MaxErrorMessageLength] + "..."
 		}
 		return result
 	}
@@ -691,44 +720,30 @@ func formatCommand(cmd *exec.Cmd) string {
 	return cmd.Args[0] + " " + strings.Join(cmd.Args[1:], " ")
 }
 
+// pythonErrorFormatter provides Python-specific error formatting
+func pythonErrorFormatter(projectDir string) errorFormatter {
+	return errorFormatter{
+		baseMessage: func(tool string) string {
+			return fmt.Sprintf("failed to run %s", tool)
+		},
+		exitCodeContext: func(tool string, exitCode int) string {
+			if exitCode == 127 {
+				return fmt.Sprintf(" (%s not found - please install %s)", tool, tool)
+			} else if exitCode != 0 {
+				return fmt.Sprintf(" (exit code %d)", exitCode)
+			}
+			return ""
+		},
+		suggestion: getPythonSuggestion,
+		contextFields: func() string {
+			return fmt.Sprintf("\n   Directory: %s", projectDir)
+		},
+	}
+}
+
 // formatPythonInstallError creates a detailed error message for Python installer failures
 func formatPythonInstallError(tool, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string) error {
-	var exitCode int
-	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
-		exitCode = exitErr.ExitCode()
-	} else {
-		// If not an ExitError, try to extract from error message
-		errMsg := cmdErr.Error()
-		if strings.Contains(errMsg, "exit status") {
-			var code int
-			if _, err := fmt.Sscanf(errMsg, "exit status %d", &code); err == nil {
-				exitCode = code
-			}
-		}
-	}
-
-	errMsg := fmt.Sprintf("failed to run %s", tool)
-
-	// Add exit code context
-	if exitCode == 127 {
-		errMsg += fmt.Sprintf(" (%s not found - please install %s)", tool, tool)
-	} else if exitCode != 0 {
-		errMsg += fmt.Sprintf(" (exit code %d)", exitCode)
-	}
-
-	// Extract error details
-	errorDetails := extractErrorDetails(stderr, tool)
-	if errorDetails != "" {
-		errMsg += ": " + errorDetails
-	}
-
-	// Add Python-specific suggestions
-	suggestion := getPythonSuggestion(tool, exitCode, stderr)
-	if suggestion != "" {
-		errMsg += "\n   Suggestion: " + suggestion
-	}
-
-	return fmt.Errorf("%s\n   Directory: %s\n   Command: %s", errMsg, projectDir, formatCommand(cmd))
+	return formatInstallError(tool, projectDir, cmd, cmdErr, stderr, pythonErrorFormatter(projectDir))
 }
 
 // getPythonSuggestion provides helpful suggestions for Python tool failures
