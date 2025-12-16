@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 )
 
@@ -111,7 +112,7 @@ func TestCheckServiceWithDeadProcess(t *testing.T) {
 func TestTryHTTPHealthCheckContextCancellation(t *testing.T) {
 	// Create a slow server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Second)
+		time.Sleep(constants.TestShortSleepDuration)
 		w.WriteHeader(200)
 	}))
 	defer server.Close()

@@ -70,11 +70,6 @@ func (h *serviceOperationHandler) getOperationVerb() string {
 // Handle processes the service operation request.
 // If no service name is provided, performs bulk operation on all applicable services.
 func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	serviceName := r.URL.Query().Get("service")
 	if serviceName == "" {
 		// Bulk operation - handle all applicable services
@@ -90,14 +85,14 @@ func (h *serviceOperationHandler) Handle(w http.ResponseWriter, r *http.Request)
 func (h *serviceOperationHandler) handleSingleOperation(w http.ResponseWriter, r *http.Request, serviceName string) {
 	// Validate service name to prevent injection attacks
 	if err := security.ValidateServiceName(serviceName, false); err != nil {
-		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Invalid service name: %s", err.Error()), nil)
+		BadRequest(w, fmt.Sprintf("Invalid service name: %s", err.Error()), nil)
 		return
 	}
 
 	reg := registry.GetRegistry(h.server.projectDir)
 	entry, exists := reg.GetService(serviceName)
 	if !exists {
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found", serviceName), nil)
+		NotFound(w, fmt.Sprintf("Service '%s' not found", serviceName))
 		return
 	}
 
@@ -124,7 +119,7 @@ func (h *serviceOperationHandler) handleSingleOperation(w http.ResponseWriter, r
 	})
 
 	if result.Error != nil {
-		writeJSONError(w, http.StatusInternalServerError, result.Error.Error(), nil)
+		InternalError(w, result.Error.Error(), nil)
 	}
 }
 
@@ -179,9 +174,7 @@ func (h *serviceOperationHandler) handleBulkOperation(w http.ResponseWriter, r *
 			"message":  fmt.Sprintf("No services to %s", h.getOperationVerb()),
 			"services": []interface{}{},
 		}
-		if err := writeJSON(w, response); err != nil {
-			log.Printf("Failed to write JSON response: %v", err)
-		}
+		WriteJSONSuccess(w, response)
 		return
 	}
 
@@ -232,9 +225,7 @@ func (h *serviceOperationHandler) handleBulkOperation(w http.ResponseWriter, r *
 		"duration":     result.TotalDuration.String(),
 	}
 
-	if err := writeJSON(w, response); err != nil {
-		log.Printf("Failed to write JSON response: %v", err)
-	}
+	WriteJSONSuccess(w, response)
 }
 
 // executeBulkServiceOperation performs the operation for a single service in bulk mode.
@@ -487,21 +478,21 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 	// Parse azure.yaml to get service configuration
 	azureYaml, err := service.ParseAzureYaml(h.server.projectDir)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to parse azure.yaml", err)
+		InternalError(w, "Failed to parse azure.yaml", err)
 		return
 	}
 
 	// Find the service definition
 	svcDef, exists := azureYaml.Services[serviceName]
 	if !exists {
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("Service '%s' not found in azure.yaml", serviceName), nil)
+		NotFound(w, fmt.Sprintf("Service '%s' not found in azure.yaml", serviceName))
 		return
 	}
 
 	// Detect runtime for the service
 	runtime, err := service.DetectServiceRuntime(serviceName, svcDef, map[int]bool{}, h.server.projectDir, "")
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "Failed to detect service runtime", err)
+		InternalError(w, "Failed to detect service runtime", err)
 		return
 	}
 
@@ -535,7 +526,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 		if broadcastErr := h.server.BroadcastServiceUpdate(h.server.projectDir); broadcastErr != nil {
 			log.Printf("Warning: failed to broadcast error update: %v", broadcastErr)
 		}
-		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to %s service", h.getOperationVerb()), err)
+		InternalError(w, fmt.Sprintf("Failed to %s service", h.getOperationVerb()), err)
 		return
 	}
 
@@ -545,7 +536,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 			log.Printf("Warning: failed to update status: %v", regErr)
 		}
-		writeJSONError(w, http.StatusInternalServerError, "Service process not created", nil)
+		InternalError(w, "Service process not created", nil)
 		return
 	}
 	if runtime.Type == service.ServiceTypeContainer {
@@ -553,7 +544,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 				log.Printf("Warning: failed to update status: %v", regErr)
 			}
-			writeJSONError(w, http.StatusInternalServerError, "Container not created", nil)
+			InternalError(w, "Container not created", nil)
 			return
 		}
 	} else {
@@ -561,7 +552,7 @@ func (h *serviceOperationHandler) performStart(w http.ResponseWriter, entry *reg
 			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
 				log.Printf("Warning: failed to update status: %v", regErr)
 			}
-			writeJSONError(w, http.StatusInternalServerError, "Native service process not created", nil)
+			InternalError(w, "Native service process not created", nil)
 			return
 		}
 	}
@@ -626,9 +617,7 @@ func (h *serviceOperationHandler) broadcastAndRespond(w http.ResponseWriter, ser
 		response["service"] = entry
 	}
 
-	if err := writeJSON(w, response); err != nil {
-		log.Printf("Failed to write JSON response: %v", err)
-	}
+	WriteJSONSuccess(w, response)
 }
 
 // getOperationPastTense returns the past tense of the operation.

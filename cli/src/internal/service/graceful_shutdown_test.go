@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 func TestStopServiceGraceful_Success(t *testing.T) {
@@ -46,7 +48,7 @@ func TestStopServiceGraceful_Success(t *testing.T) {
 
 	// Stop service gracefully with reasonable timeout
 	startTime := time.Now()
-	err = StopServiceGraceful(process, 5*time.Second)
+	err = StopServiceGraceful(process, constants.TestServiceTimeout)
 	elapsed := time.Since(startTime)
 
 	// On Windows, the process may have already exited, which can cause "Access is denied" error
@@ -116,7 +118,7 @@ func TestStopServiceGraceful_NilProcess(t *testing.T) {
 		Process: nil,
 	}
 
-	err := StopServiceGraceful(process, 5*time.Second)
+	err := StopServiceGraceful(process, constants.TestServiceTimeout)
 	if err == nil {
 		t.Error("StopServiceGraceful() expected error for nil process")
 	}
@@ -126,7 +128,7 @@ func TestStopServiceGraceful_NilProcess(t *testing.T) {
 }
 
 func TestStopServiceGraceful_NilServiceProcess(t *testing.T) {
-	err := StopServiceGraceful(nil, 5*time.Second)
+	err := StopServiceGraceful(nil, constants.TestServiceTimeout)
 	if err == nil {
 		t.Error("StopServiceGraceful() expected error for nil ServiceProcess")
 	}
@@ -167,7 +169,7 @@ func TestStopServiceGraceful_AlreadyExited(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Try to stop already-exited process
-	err = StopServiceGraceful(process, 5*time.Second)
+	err = StopServiceGraceful(process, constants.TestServiceTimeout)
 	// Should either succeed (if signal fails) or return error about process state
 	// Both are acceptable outcomes
 	if err != nil {

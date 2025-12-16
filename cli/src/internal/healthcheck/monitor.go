@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	cache "github.com/patrickmn/go-cache"
@@ -32,15 +33,15 @@ var (
 	sharedHTTPTransport = &http.Transport{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
+		IdleConnTimeout:     constants.HTTPIdleConnTimeout,
 		DisableKeepAlives:   false,
 		// Add reasonable timeouts for dial and TLS handshake
 		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 30 * time.Second,
+			Timeout:   constants.HTTPDialTimeout,
+			KeepAlive: constants.HTTPKeepAliveTimeout,
 		}).DialContext,
-		TLSHandshakeTimeout:   5 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+		TLSHandshakeTimeout:   constants.HTTPTLSHandshakeTimeout,
+		ExpectContinueTimeout: constants.HTTPExpectContinueTimeout,
 	}
 )
 

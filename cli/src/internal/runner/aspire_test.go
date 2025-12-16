@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 func TestAspireOutputCapture(t *testing.T) {
@@ -154,7 +156,7 @@ func TestAspireOutputCapture(t *testing.T) {
 		}
 
 		// Give it a short time to produce output
-		time.Sleep(2 * time.Second)
+		time.Sleep(constants.TestShortSleepDuration)
 
 		// Kill it
 		if err := cmd.Process.Kill(); err != nil {

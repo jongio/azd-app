@@ -5,6 +5,7 @@
 import AnsiConverter from 'ansi-to-html'
 import type { CodespaceConfig } from '@/lib/codespace-utils'
 import { isLocalhostUrl, transformLocalhostUrl } from '@/lib/codespace-utils'
+import { LOG_CONSTANTS } from '@/lib/constants'
 
 // ============================================================================
 // Constants
@@ -21,13 +22,13 @@ export type LogLevel = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS]
 export type LogLevelName = 'info' | 'warning' | 'error'
 
 /** Maximum number of logs to keep in memory per pane */
-export const MAX_LOGS_IN_MEMORY = 1000
+export const MAX_LOGS_IN_MEMORY = LOG_CONSTANTS.MAX_LOGS_IN_MEMORY
 
 /** Initial number of logs to fetch when a component mounts */
-export const INITIAL_LOG_TAIL = 500
+export const INITIAL_LOG_TAIL = LOG_CONSTANTS.INITIAL_LOG_TAIL
 
 /** Threshold in pixels for detecting scroll position */
-export const SCROLL_THRESHOLD_PX = 10
+export const SCROLL_THRESHOLD_PX = LOG_CONSTANTS.SCROLL_THRESHOLD_PX
 
 // ============================================================================
 // ANSI Conversion (Single Shared Instance)

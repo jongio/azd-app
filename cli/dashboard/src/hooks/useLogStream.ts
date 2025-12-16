@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MAX_LOGS_IN_MEMORY } from '@/lib/log-utils'
+import { WEBSOCKET_CONSTANTS } from '@/lib/constants'
 
 export interface LogEntry {
   service: string
@@ -21,9 +22,9 @@ interface UseLogStreamOptions {
 }
 
 // WebSocket reconnection constants
-const WS_INITIAL_RETRY_DELAY_MS = 1000
-const WS_MAX_RETRY_DELAY_MS = 30000
-const WS_MAX_RETRIES = 10
+const WS_INITIAL_RETRY_DELAY_MS = WEBSOCKET_CONSTANTS.WS_INITIAL_RETRY_DELAY_MS
+const WS_MAX_RETRY_DELAY_MS = WEBSOCKET_CONSTANTS.WS_MAX_RETRY_DELAY_MS
+const WS_MAX_RETRIES = WEBSOCKET_CONSTANTS.WS_MAX_RETRIES
 
 /**
  * Shared hook for streaming logs from the backend via WebSocket.
