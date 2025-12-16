@@ -487,10 +487,10 @@ func isDependenciesUpToDate(projectDir string, packageManager string) bool {
 
 // errorFormatter defines the strategy interface for ecosystem-specific error formatting
 type errorFormatter struct {
-	baseMessage      func(tool string) string
-	exitCodeContext  func(tool string, exitCode int) string
-	suggestion       func(tool string, exitCode int, stderr string) string
-	contextFields    func() string
+	baseMessage     func(tool string) string
+	exitCodeContext func(tool string, exitCode int) string
+	suggestion      func(tool string, exitCode int, stderr string) string
+	contextFields   func() string
 }
 
 // formatInstallError creates a detailed error message using ecosystem-specific formatters

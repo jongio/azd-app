@@ -42,8 +42,8 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/azure/logs", MethodGuard(s.handleAzureLogs, http.MethodGet))
 	s.mux.HandleFunc("/api/azure/logs/stream", MethodGuard(s.handleAzureLogsStream, http.MethodGet)) // WebSocket streaming for Azure logs
 	s.mux.HandleFunc("/api/azure/logs/health", MethodGuard(s.handleAzureLogsHealth, http.MethodGet))
-	s.mux.HandleFunc("/api/azure/logs/config", s.handleAzureLogConfigRouter) // Get/save log config per service
-	s.mux.HandleFunc("/api/azure/tables", MethodGuard(s.handleAzureTables, http.MethodGet))          // List available Log Analytics tables
+	s.mux.HandleFunc("/api/azure/logs/config", s.handleAzureLogConfigRouter)                // Get/save log config per service
+	s.mux.HandleFunc("/api/azure/tables", MethodGuard(s.handleAzureTables, http.MethodGet)) // List available Log Analytics tables
 	s.mux.HandleFunc("/api/azure/query", s.handleAzureQueryRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)

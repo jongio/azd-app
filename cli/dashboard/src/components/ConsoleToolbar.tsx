@@ -1,7 +1,6 @@
 /**
  * ConsoleToolbar - Main toolbar for console with controls and actions
  */
-import * as React from 'react'
 import {
   Search,
   Pause,
