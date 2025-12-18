@@ -60,6 +60,11 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 	// Get service name mappings from env
 	serviceNameMap := getServiceNameMap(projectDir)
 
+	// Debug: log service name mapping
+	if os.Getenv("AZD_APP_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Service name map from environment: %v\n", serviceNameMap)
+	}
+
 	var services []ServiceInfo
 	for name, svc := range config.Services {
 		// Skip local-only services
@@ -84,6 +89,12 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 			info.AzureName = azureName
 		} else {
 			info.AzureName = name // fallback to azure.yaml name
+		}
+
+		// Debug: log each service mapping
+		if os.Getenv("AZD_APP_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Service %s: host=%s, resourceType=%s, azureName=%s\n", 
+				name, svc.Host, info.ResourceType, info.AzureName)
 		}
 
 		services = append(services, info)
@@ -237,10 +248,13 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 
 		entries, err := client.QueryLogs(ctx, "", resourceType, since, query)
 		if err != nil {
-			// Log error but continue with other resource types
-			slog.Warn("Query failed for resource type", "resourceType", resourceType, "error", err)
-			if os.Getenv("AZD_APP_DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
+			// Don't log context cancellation - it's expected when client aborts request
+			if ctx.Err() == nil {
+				// Log error but continue with other resource types
+				slog.Warn("Query failed for resource type", "resourceType", resourceType, "error", err)
+				if os.Getenv("AZD_APP_DEBUG") == "true" {
+					fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
+				}
 			}
 			queryErrors = append(queryErrors, fmt.Sprintf("%s: %v", resourceType, err))
 			continue
@@ -548,7 +562,8 @@ func buildStandaloneQueryForType(resourceType ResourceType, services []string, s
 			}
 			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
 		}
-		sb.WriteString("| project TimeGenerated, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s\n")
+		sb.WriteString("| extend Source = \"Azure Container Apps\", AzureService = \"containerapp\"\n")
+		sb.WriteString("| project TimeGenerated, Source, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s\n")
 
 	case ResourceTypeAppService:
 		sb.WriteString("AppServiceConsoleLogs\n")
@@ -561,7 +576,8 @@ func buildStandaloneQueryForType(resourceType ResourceType, services []string, s
 			}
 			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
 		}
-		sb.WriteString("| project TimeGenerated, Message=ResultDescription, Level, _ResourceId\n")
+		sb.WriteString("| extend Source = \"Azure App Service\", AzureService = \"appservice\"\n")
+		sb.WriteString("| project TimeGenerated, Source, Message=ResultDescription, Level, _ResourceId\n")
 
 	case ResourceTypeFunction:
 		sb.WriteString("FunctionAppLogs\n")
@@ -574,7 +590,8 @@ func buildStandaloneQueryForType(resourceType ResourceType, services []string, s
 			}
 			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
 		}
-		sb.WriteString("| project TimeGenerated, Message, Level, FunctionName, _ResourceId\n")
+		sb.WriteString("| extend Source = \"Azure Functions\", AzureService = \"functions\"\n")
+		sb.WriteString("| project TimeGenerated, Source, Message, Level, FunctionName, _ResourceId\n")
 
 	case ResourceTypeAKS:
 		sb.WriteString("ContainerLogV2\n")

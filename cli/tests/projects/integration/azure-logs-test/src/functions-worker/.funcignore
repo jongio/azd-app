@@ -1,0 +1,17 @@
+# Ignore source files since we deploy compiled output
+src/
+tsconfig.json
+*.ts
+!dist/**/*.js
+
+# Ignore dev files
+.git*
+.vscode/
+local.settings.json
+test/
+.DS_Store
+.env
+.venv
+*.map
+
+# node_modules is included by default if not listed here

@@ -3,6 +3,7 @@
  * Provides state management for available tables and service log configuration.
  */
 import { useState, useCallback, useEffect } from 'react'
+import { useBackendConnection } from '@/hooks/useBackendConnection'
 
 // =============================================================================
 // Types
@@ -94,6 +95,7 @@ export function useAvailableTables({
   resourceType = 'containerapp',
   autoFetch = true,
 }: UseAvailableTablesOptions = {}): UseAvailableTablesReturn {
+  const { connected } = useBackendConnection()
   const [tables, setTables] = useState<TableInfo[]>([])
   const [categories, setCategories] = useState<TableCategory[]>([])
   const [recommended, setRecommended] = useState<string[]>([])
@@ -102,6 +104,10 @@ export function useAvailableTables({
   const [error, setError] = useState<string | null>(null)
 
   const fetchTables = useCallback(async () => {
+    if (!connected) {
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -138,7 +144,7 @@ export function useAvailableTables({
     } finally {
       setIsLoading(false)
     }
-  }, [resourceType])
+  }, [connected, resourceType])
 
   // Auto-fetch on mount
   useEffect(() => {
@@ -169,13 +175,14 @@ export function useLogConfig({
   serviceName,
   autoFetch = true,
 }: UseLogConfigOptions): UseLogConfigReturn {
+  const { connected } = useBackendConnection()
   const [config, setConfig] = useState<LogConfig | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchConfig = useCallback(async () => {
-    if (!serviceName) {
+    if (!connected || !serviceName) {
       return
     }
 
@@ -199,11 +206,16 @@ export function useLogConfig({
     } finally {
       setIsLoading(false)
     }
-  }, [serviceName])
+  }, [connected, serviceName])
 
   const saveConfig = useCallback(async (
     options: { tables?: string[]; query?: string }
   ): Promise<boolean> => {
+    if (!connected) {
+      setError('Backend connection lost')
+      return false
+    }
+    
     if (!serviceName) {
       setError('Service name is required')
       return false
@@ -248,7 +260,7 @@ export function useLogConfig({
     } finally {
       setIsSaving(false)
     }
-  }, [serviceName])
+  }, [connected, serviceName])
 
   // Auto-fetch on mount or service change
   useEffect(() => {

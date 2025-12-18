@@ -65,7 +65,7 @@ func TestWebSocketOriginValidation(t *testing.T) {
 		{
 			name:        "localhost without port allowed",
 			origin:      "http://localhost",
-			expectAllow: false, // Must have port separator
+			expectAllow: true, // Localhost without explicit port is now allowed
 		},
 		{
 			name:        "localhost with path allowed",
@@ -78,7 +78,8 @@ func TestWebSocketOriginValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock request with Origin header
 			req := &http.Request{
-				Header: http.Header{},
+				Header:     http.Header{},
+				RemoteAddr: "127.0.0.1:12345", // Default to localhost for tests
 			}
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)

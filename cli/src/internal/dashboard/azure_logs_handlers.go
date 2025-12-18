@@ -154,6 +154,15 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 			statusCode = http.StatusServiceUnavailable
 		} else if response.Error.Code == "NO_PERMISSION" {
 			statusCode = http.StatusForbidden
+		} else if response.Error.Code == "NO_RESULTS" {
+			// NO_RESULTS is not an error - it means the query succeeded but found no logs
+			// Return 200 with empty logs array instead of error
+			response.Status = "ok"
+			response.Logs = []service.LogEntry{}
+			response.Count = 0
+			response.Error = nil
+			WriteJSONSuccess(w, response)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -29,9 +29,11 @@ type Server struct {
 	projectDir   string
 	clients      map[*clientConn]bool
 	clientsMu    sync.RWMutex
+	rateLimiter  *connectionRateLimiter // Per-server rate limiter
 	stopChan     chan struct{}
-	started      bool       // Track if server was successfully started
-	startedMu    sync.Mutex // Protect started flag
+	stopOnce     sync.Once      // Ensure stopChan is only closed once
+	started      bool           // Track if server was successfully started
+	startedMu    sync.Mutex     // Protect started flag
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
@@ -56,6 +58,7 @@ func GetServer(projectDir string) *Server {
 		mux:         http.NewServeMux(),
 		projectDir:  absPath,
 		clients:     make(map[*clientConn]bool),
+		rateLimiter: newConnectionRateLimiter(),
 		stopChan:    make(chan struct{}),
 		currentMode: service.LogModeLocal, // Default to local mode
 	}
@@ -186,7 +189,30 @@ func (s *Server) Stop() error {
 		return nil // Server was never started, nothing more to stop
 	}
 
-	close(s.stopChan)
+	// Close stopChan only once to prevent panic
+	s.stopOnce.Do(func() {
+		close(s.stopChan)
+	})
+
+	// Gracefully close all active WebSocket connections with timeout
+	done := make(chan struct{})
+	go func() {
+		s.clientsMu.Lock()
+		for client := range s.clients {
+			_ = client.client.close()
+			delete(s.clients, client)
+		}
+		s.clientsMu.Unlock()
+		close(done)
+	}()
+
+	// Wait for graceful shutdown with timeout
+	select {
+	case <-done:
+		// All clients closed gracefully
+	case <-time.After(5 * time.Second):
+		log.Printf("Warning: WebSocket shutdown timeout, some connections may not have closed gracefully")
+	}
 
 	// Clear dashboard port from azdconfig so other commands know it's not running
 	s.clearPortFromConfig()
@@ -195,6 +221,12 @@ func (s *Server) Stop() error {
 	if s.configClient != nil {
 		s.configClient.Close()
 		s.configClient = nil
+	}
+
+	// Shutdown rate limiter
+	if s.rateLimiter != nil {
+		s.rateLimiter.shutdown()
+		s.rateLimiter = nil
 	}
 
 	if s.server != nil {

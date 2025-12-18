@@ -1,5 +1,28 @@
-<!-- NEXT: - -->
+<!-- NEXT: 12 -->
 # azd-app Tasks
+
+## DONE: 12 Fix WebSocket connection spam in local mode {#12-fix-websocket-connection-spam-in-local-mode}
+- **Problem**: Dashboard creates 4+ simultaneous WebSocket connections (one per service), causing "WebSocket is closed before established" errors
+- **Root cause**: Each LogsPane component independently creates WebSocket via useLogsStream without coordination or error handling
+- **Architecture issue**: Effect dependencies cause immediate reconnection attempts on any failure, creating connection spam
+- **Implementation**:
+  - ✅ Added exponential backoff for failed WebSocket connections (1s → 2s → 4s → 8s → 16s → max 30s)
+  - ✅ Tracked connection state and backoff timers with useRef to persist across renders
+  - ✅ Prevented reconnection attempts while backoff timer is active (guard in createWebSocket)
+  - ✅ Reset backoff on successful connection (onopen handler) or mode/service change (useEffect cleanup)
+  - ✅ Suppressed error logging after first failure per service with hasLoggedErrorRef flag
+  - ✅ Implemented onclose event handler to schedule reconnection with backoff (skips clean close code 1000)
+  - ✅ Cleaned up timers on unmount or mode change (clearReconnectTimer in cleanup)
+- **Files**: [useLogsStream.ts](cli/dashboard/src/hooks/useLogsStream.ts), [useLogsStream.test.ts](cli/dashboard/src/hooks/useLogsStream.test.ts)
+- **Tests**: 19 tests (100% pass), 82.85% statement coverage
+  - ✅ Exponential backoff progression (1s→2s→4s→8s→16s→30s)
+  - ✅ Backoff cap at 30s max
+  - ✅ Backoff reset on successful connection
+  - ✅ No reconnect on clean close (code 1000)
+  - ✅ Timer cleanup on unmount
+  - ✅ Backoff reset when service/mode changes
+  - ✅ Error suppression after first log
+  - ✅ Proper WebSocket lifecycle management
 
 ## DONE: 1 Simplify log header timestamps {#1-simplify-log-header-timestamps}
 - Reduced duplicated timestamp data in log rows; log entries now render a single timezone-aware timestamp with an optional service label once per entry.
