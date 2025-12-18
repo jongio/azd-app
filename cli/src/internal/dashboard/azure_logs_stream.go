@@ -33,7 +33,7 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Upgrade connection to WebSocket
-	rawConn, err := acceptWebSocket(w, r)
+	rawConn, err := acceptWebSocket(w, r, s.rateLimiter)
 	if err != nil {
 		if err != http.ErrAbortHandler {
 			log.Printf("Azure logs WebSocket upgrade failed: %v", err)
@@ -42,9 +42,17 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Wrap connection with mutex for safe concurrent writes
-	client := newWSClient(rawConn)
+	// Use request context to properly handle client disconnection
+	client := newWSClientWithContext(r.Context(), rawConn)
 	conn := &clientConn{client: client}
-	defer client.close()
+	clientIP := getClientIP(r)
+	defer func() {
+		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
+			if !isExpectedCloseError(err) {
+				log.Printf("Failed to close Azure logs WebSocket: %v", err)
+			}
+		}
+	}()
 
 	// Track last seen timestamp to avoid duplicates
 	lastTimestamp := time.Now().Add(-30 * time.Minute) // Start with 30m ago
@@ -80,9 +88,21 @@ func streamAzureLogsViaPolling(ctx context.Context, s *Server, serviceName strin
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	// Send initial status message to indicate streaming is active
+	statusMsg := map[string]interface{}{
+		"type":   "status",
+		"status": "connected",
+		"mode":   "polling",
+	}
+	if err := conn.writeWebSocketJSON(statusMsg); err != nil {
+		log.Printf("Failed to send initial status message: %v", err)
+		return
+	}
+
 	// Initial fetch
 	if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, since, conn, lastTimestamp); err != nil {
 		log.Printf("Initial Azure logs fetch failed: %v", err)
+		// Don't return - continue polling
 	}
 
 	for {
@@ -90,7 +110,7 @@ func streamAzureLogsViaPolling(ctx context.Context, s *Server, serviceName strin
 		case <-ticker.C:
 			if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, *lastTimestamp, conn, lastTimestamp); err != nil {
 				log.Printf("Azure logs fetch failed: %v", err)
-				return
+				// Continue polling even on error
 			}
 		case <-s.stopChan:
 			return
@@ -128,7 +148,17 @@ func streamAzureLogsRealtime(ctx context.Context, projectDir string, serviceName
 		}
 	}()
 
-	logsCh := make(chan azure.LogEntry, 250)
+	// Send initial status message to indicate realtime streaming is active
+	statusMsg := map[string]interface{}{
+		"type":   "status",
+		"status": "connected",
+		"mode":   "realtime",
+	}
+	if err := conn.writeWebSocketJSON(statusMsg); err != nil {
+		return err
+	}
+
+	logsCh := make(chan azure.LogEntry, service.WebSocketLogChannelBuffer)
 	errCh := make(chan error, 1)
 
 	go func() {

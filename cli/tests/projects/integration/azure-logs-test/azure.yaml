@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
 
 name: azure-logs-test
+
 # Project-level Log Analytics configuration
 logs:
     filters:
@@ -63,6 +64,9 @@ services:
                     | where TimeGenerated > ago({timespan})
                     | project TimeGenerated, FunctionName, Message, Level
                     | order by TimeGenerated desc
+    # Local-only service - NOT deployed to Azure
+    # This service demonstrates the extension's handling of host: local
+    # Remove or comment out for production deployments
     azurite:
         host: local
         image: mcr.microsoft.com/azure-storage/azurite:latest

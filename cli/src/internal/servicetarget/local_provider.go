@@ -63,24 +63,23 @@ func (p *LocalServiceTargetProvider) GetTargetResource(
 }
 
 // Package performs packaging for the service.
-// Local services don't need packaging for Azure deployment.
+// Local services don't need packaging for Azure deployment - skip silently.
 func (p *LocalServiceTargetProvider) Package(
 	ctx context.Context,
 	serviceConfig *azdext.ServiceConfig,
 	serviceContext *azdext.ServiceContext,
 	progress azdext.ProgressReporter,
 ) (*azdext.ServicePackageResult, error) {
-	log.Printf("[azd-app] Package called for local service: %s (skipping - local only)", serviceConfig.GetName())
-	if progress != nil {
-		progress("Skipping package for local-only service")
-	}
+	log.Printf("[azd-app] Package skipped for local service: %s (local-only, not deployed)", serviceConfig.GetName())
+	// Return success with empty artifacts to allow deployment to continue for other services
+	// Local services (azurite, postgres, redis, etc.) only run via 'azd app run'
 	return &azdext.ServicePackageResult{
 		Artifacts: []*azdext.Artifact{},
 	}, nil
 }
 
 // Publish performs the publish operation for the service.
-// Local services don't need publishing to Azure.
+// Local services don't need publishing to Azure - skip silently.
 func (p *LocalServiceTargetProvider) Publish(
 	ctx context.Context,
 	serviceConfig *azdext.ServiceConfig,
@@ -89,15 +88,13 @@ func (p *LocalServiceTargetProvider) Publish(
 	publishOptions *azdext.PublishOptions,
 	progress azdext.ProgressReporter,
 ) (*azdext.ServicePublishResult, error) {
-	log.Printf("[azd-app] Publish called for local service: %s (skipping - local only)", serviceConfig.GetName())
-	if progress != nil {
-		progress("Skipping publish for local-only service")
-	}
+	log.Printf("[azd-app] Publish skipped for local service: %s (local-only, not deployed)", serviceConfig.GetName())
+	// Return success to allow deployment to continue for other services
 	return &azdext.ServicePublishResult{}, nil
 }
 
 // Deploy performs the deployment operation for the service.
-// Local services don't deploy to Azure - they run locally via Docker.
+// Local services don't deploy to Azure - skip silently.
 func (p *LocalServiceTargetProvider) Deploy(
 	ctx context.Context,
 	serviceConfig *azdext.ServiceConfig,
@@ -105,10 +102,9 @@ func (p *LocalServiceTargetProvider) Deploy(
 	targetResource *azdext.TargetResource,
 	progress azdext.ProgressReporter,
 ) (*azdext.ServiceDeployResult, error) {
-	log.Printf("[azd-app] Deploy called for local service: %s (skipping - local only)", serviceConfig.GetName())
-	if progress != nil {
-		progress("Skipping deploy for local-only service (use 'azd app run' for local containers)")
-	}
+	log.Printf("[azd-app] Deploy skipped for local service: %s (local-only, not deployed)", serviceConfig.GetName())
+	// Return success to allow deployment to continue for other services
+	// Local services run via 'azd app run', not 'azd deploy'
 	return &azdext.ServiceDeployResult{
 		Artifacts: []*azdext.Artifact{},
 	}, nil

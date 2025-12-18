@@ -98,9 +98,14 @@ export function useAzureConnectionStatus(
         } else {
           setAzureStatus('disabled')
         }
+      } else {
+        // Non-OK response - backend is up but returned error
+        console.warn('[useAzureConnectionStatus] Failed to fetch mode:', res.status)
       }
-    } catch {
-      // Ignore errors - status will remain disabled
+    } catch (err) {
+      // Network error - backend is likely down, don't spam console
+      // Status will remain as-is (disabled or last known state)
+      void err // Silence unused variable
     }
   }, [options])
 

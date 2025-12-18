@@ -110,7 +110,13 @@ export function useLogStream({
   const setupWebSocket = useCallback(() => {
     // Close existing connection
     if (wsRef.current) {
-      wsRef.current.close()
+      const currentWs = wsRef.current
+      wsRef.current = null
+      // Only close if connection is open to avoid warnings
+      if (currentWs.readyState === WebSocket.OPEN) {
+        currentWs.close()
+      }
+      // For CONNECTING, just nullify reference - browser will abort
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -171,11 +177,14 @@ export function useLogStream({
       }
       
       if (wsRef.current) {
-        if (wsRef.current.readyState === WebSocket.OPEN || 
-            wsRef.current.readyState === WebSocket.CONNECTING) {
-          wsRef.current.close(1000, 'Component unmounting')
-        }
+        const currentWs = wsRef.current
         wsRef.current = null
+        
+        // Only close if connection is open to avoid warnings
+        if (currentWs.readyState === WebSocket.OPEN) {
+          currentWs.close(1000, 'Component unmounting')
+        }
+        // For CONNECTING, just nullify reference - browser will abort
       }
     }
   }, [fetchLogs, setupWebSocket])

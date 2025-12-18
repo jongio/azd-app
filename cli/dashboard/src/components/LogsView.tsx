@@ -221,7 +221,7 @@ export function LogsView({
     return () => {
       wsRef.current?.close()
     }
-  }, [fetchLogs, setupWebSocket, selectedService, azureServiceFilter, logMode, azureRealtime, timeRange?.preset])
+  }, [fetchLogs, setupWebSocket])
 
   // Azure polling (non-realtime): periodically refetch logs.
   useEffect(() => {

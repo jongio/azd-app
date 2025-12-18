@@ -28,6 +28,7 @@ type LogEntry struct {
 	Message       string
 	Level         LogLevel
 	Timestamp     time.Time
+	Source        string
 	ResourceType  string
 	ContainerName string
 	InstanceID    string
@@ -39,7 +40,8 @@ var defaultQueries = map[ResourceType]string{
 ContainerAppConsoleLogs_CL
 | where ContainerAppName_s =~ "{serviceName}" or ContainerName_s =~ "{serviceName}"
 | where TimeGenerated > ago({timespan})
-| project TimeGenerated, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s
+| extend Source = "Azure Container Apps", AzureService = "containerapp"
+| project TimeGenerated, Source, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s
 | order by TimeGenerated desc
 | take 1000`,
 
@@ -47,7 +49,8 @@ ContainerAppConsoleLogs_CL
 AppServiceConsoleLogs
 | where _ResourceId contains "{serviceName}"
 | where TimeGenerated > ago({timespan})
-| project TimeGenerated, Message=ResultDescription, Level
+| extend Source = "Azure App Service", AzureService = "appservice"
+| project TimeGenerated, Source, Message=ResultDescription, Level
 | order by TimeGenerated desc
 | take 1000`,
 
@@ -55,7 +58,17 @@ AppServiceConsoleLogs
 FunctionAppLogs
 | where _ResourceId contains "{serviceName}"
 | where TimeGenerated > ago({timespan})
-| project TimeGenerated, Message, Level=case(Level == "Error", "ERROR", Level == "Warning", "WARN", Level == "Information", "INFO", Level == "Debug", "DEBUG", Level == "Trace", "TRACE", "INFO"), FunctionName
+| extend Source = "Azure Functions", 
+         AzureService = "functions",
+         AzureResourceId = _ResourceId
+| project TimeGenerated, 
+          Source, 
+          Message, 
+          Level=case(Level == "Error", "ERROR", Level == "Warning", "WARN", Level == "Information", "INFO", Level == "Debug", "DEBUG", Level == "Trace", "TRACE", "INFO"), 
+          FunctionName,
+          Category,
+          HostInstanceId,
+          AzureResourceId
 | order by TimeGenerated desc
 | take 1000`,
 
@@ -132,9 +145,17 @@ func (c *LogAnalyticsClient) QueryLogs(ctx context.Context, serviceName string, 
 	resp, err := c.client.QueryWorkspace(ctx, workspaceID, azlogs.QueryBody{
 		Query:    &query,
 		Timespan: &timespan,
-	}, nil)
+	}, &azlogs.QueryWorkspaceOptions{
+		Options: &azlogs.QueryOptions{
+			Wait:       toPtrInt(600),  // 10 minute timeout for complex queries
+			Statistics: toPtrBool(true), // Enable query performance statistics
+		},
+	})
 	if err != nil {
-		slog.Debug("KQL query failed", "error", err)
+		// Don't log cancellation errors - they're expected when client aborts request
+		if ctx.Err() == nil {
+			slog.Debug("KQL query failed", "error", err)
+		}
 		// Clear token cache on auth errors to force fresh token on next attempt
 		ClearTokenCacheOnError(err)
 		return nil, fmt.Errorf("log analytics query failed: %w", err)
@@ -190,6 +211,16 @@ func (c *LogAnalyticsClient) buildQuery(serviceName string, resourceType Resourc
 
 // parseResults converts the Log Analytics response to LogEntry slice.
 func (c *LogAnalyticsClient) parseResults(resp azlogs.QueryWorkspaceResponse, serviceName string, resourceType ResourceType) ([]LogEntry, error) {
+	// Check for query-level errors returned by Azure
+	if resp.Error != nil {
+		return nil, fmt.Errorf("query error: %s (code: %s)", resp.Error.Error(), resp.Error.Code)
+	}
+
+	// Log query statistics for performance debugging
+	if resp.Statistics != nil && len(resp.Statistics) > 0 {
+		slog.Debug("query performance statistics", "stats", string(resp.Statistics))
+	}
+
 	var entries []LogEntry
 
 	for _, table := range resp.Tables {
@@ -222,6 +253,9 @@ func (c *LogAnalyticsClient) parseResults(resp azlogs.QueryWorkspaceResponse, se
 
 			// Extract level
 			entry.Level = c.extractLevel(row, colIndex, entry.Message, resourceType)
+
+			// Extract source
+			entry.Source = getStringFromRow(row, colIndex, "Source")
 
 			// Extract container/instance info
 			entry.ContainerName = getStringFromRow(row, colIndex, "ContainerName_s", "ContainerName")
@@ -345,6 +379,16 @@ func formatTimespan(d time.Duration) string {
 		return fmt.Sprintf("PT%dM%dS", minutes, seconds)
 	}
 	return fmt.Sprintf("PT%dS", seconds)
+}
+
+// toPtrInt returns a pointer to the given int value.
+func toPtrInt(v int) *int {
+	return &v
+}
+
+// toPtrBool returns a pointer to the given bool value.
+func toPtrBool(v bool) *bool {
+	return &v
 }
 
 // formatKQLTimespan formats a duration for use in KQL ago() function.

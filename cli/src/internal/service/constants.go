@@ -32,7 +32,23 @@ const (
 	DefaultWebSocketPingPeriod = 54 * time.Second // (PongWait * 9) / 10
 
 	// DefaultWebSocketWriteTimeout is the timeout for WebSocket write operations.
-	DefaultWebSocketWriteTimeout = 10 * time.Second
+	// Set to 2s for local connections - balances detecting slow clients with system scheduling delays
+	DefaultWebSocketWriteTimeout = 2 * time.Second
+
+	// WebSocketChannelBuffer is the buffer size for WebSocket send channels
+	WebSocketChannelBuffer = 100
+
+	// WebSocketLogChannelBuffer is the buffer size for log streaming channels
+	WebSocketLogChannelBuffer = 500
+
+	// WebSocketMaxWriteFailures is the number of consecutive write failures before disconnecting
+	WebSocketMaxWriteFailures = 3
+
+	// WebSocketMaxConcurrentBroadcasts is the maximum number of concurrent broadcast goroutines
+	WebSocketMaxConcurrentBroadcasts = 20
+
+	// WebSocketSlowConsumerTimeout is the timeout for sending to slow consumer channels
+	WebSocketSlowConsumerTimeout = 100 * time.Millisecond
 
 	// MaxContextLines is the maximum number of context lines before/after a log entry.
 	// Used when filtering logs by level with surrounding context for debugging.

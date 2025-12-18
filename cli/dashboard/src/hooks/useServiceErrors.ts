@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { LOG_LEVELS, isErrorLine } from '@/lib/log-utils'
+import { useBackendConnection } from '@/hooks/useBackendConnection'
 
 interface LogEntry {
   service: string
@@ -15,15 +16,16 @@ interface LogEntry {
  * @param serviceNames - Array of service names from parent (with real-time WebSocket updates)
  */
 export function useServiceErrors(serviceNames: string[]) {
+  const { connected } = useBackendConnection()
   const [hasActiveErrors, setHasActiveErrors] = useState(false)
   const errorTimestampsRef = useRef<Map<string, number>>(new Map())
   const websocketsRef = useRef<Map<string, WebSocket>>(new Map())
 
   // Setup WebSocket connections for each service
   useEffect(() => {
-    if (serviceNames.length === 0) return
+    if (!connected || serviceNames.length === 0) return
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const websockets = websocketsRef.current
 
     // Clean up old websockets
@@ -32,7 +34,7 @@ export function useServiceErrors(serviceNames: string[]) {
 
     // Create new websockets for each service
     serviceNames.forEach(serviceName => {
-      const ws = new WebSocket(`${protocol}//${window.location.host}/api/logs/stream?service=${serviceName}`)
+      const ws = new WebSocket(`${protocol}//${globalThis.location.host}/api/logs/stream?service=${serviceName}`)
 
       ws.onmessage = (event) => {
         try {
@@ -49,6 +51,14 @@ export function useServiceErrors(serviceNames: string[]) {
         }
       }
 
+      ws.onerror = () => {
+        // Silently handle WebSocket errors - service may not be ready yet
+      }
+
+      ws.onclose = () => {
+        // Silently handle WebSocket closures
+      }
+
       websockets.set(serviceName, ws)
     })
 
@@ -56,7 +66,7 @@ export function useServiceErrors(serviceNames: string[]) {
       websockets.forEach(ws => ws.close())
       websockets.clear()
     }
-  }, [serviceNames])
+  }, [connected, serviceNames])
 
   // Periodically check for active errors (within last 30 seconds)
   useEffect(() => {

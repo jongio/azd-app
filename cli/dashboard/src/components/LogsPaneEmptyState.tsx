@@ -40,22 +40,14 @@ export function LogsPaneEmptyState({
     )
   }
 
-  if (isLoading) {
+  // Show loading spinner if either loading or waiting (prevents flashing)
+  if (isLoading || isWaiting) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin mb-2" />
         <div className="text-sm">
           {logMode === 'azure' ? 'Fetching Azure logs...' : 'Fetching local logs...'}
         </div>
-      </div>
-    )
-  }
-
-  if (isWaiting) {
-    const label = logMode === 'azure' ? 'Fetching Azure logs...' : 'Fetching local logs...'
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-        <span className="sr-only">{label}</span>
       </div>
     )
   }

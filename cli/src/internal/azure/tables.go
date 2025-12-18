@@ -106,7 +106,7 @@ var TableColumns = map[string][]string{
 	"AppServiceConsoleLogs":      {"TimeGenerated", "ResultDescription", "Level", "Host"},
 	"AppServiceHTTPLogs":         {"TimeGenerated", "CsMethod", "CsUriStem", "ScStatus", "TimeTaken", "CIp"},
 	"AppServicePlatformLogs":     {"TimeGenerated", "Message", "Level", "ContainerName"},
-	"FunctionAppLogs":            {"TimeGenerated", "Message", "Level", "FunctionName", "Category", "HostInstanceId"},
+	"FunctionAppLogs":            {"TimeGenerated", "Source", "Message", "Level", "FunctionName", "Category", "HostInstanceId", "AzureResourceId"},
 	"ContainerLogV2":             {"TimeGenerated", "LogMessage", "LogSource", "PodName", "PodNamespace", "ContainerName"},
 	"ContainerLog":               {"TimeGenerated", "LogEntry", "LogEntrySource", "Name", "ContainerID"},
 	"KubeEvents":                 {"TimeGenerated", "Name", "Namespace", "Reason", "Message", "Type"},

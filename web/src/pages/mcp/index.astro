@@ -370,6 +370,28 @@ const featuredPrompts = [
         </div>
       </div>
     </section>
+
+    <!-- Reference Links -->
+    <section class="mcp-reference" aria-labelledby="reference-heading">
+      <h2 id="reference-heading" class="section-title">Documentation</h2>
+      <div class="mcp-reference-grid">
+        <a href={`${baseUrl}reference/azure-yaml/`} class="mcp-reference-card">
+          <span class="mcp-reference-icon" aria-hidden="true">📘</span>
+          <h3 class="mcp-reference-title">azure.yaml Reference</h3>
+          <p class="mcp-reference-desc">Complete configuration reference</p>
+        </a>
+        <a href={`${baseUrl}reference/cli/`} class="mcp-reference-card">
+          <span class="mcp-reference-icon" aria-hidden="true">💻</span>
+          <h3 class="mcp-reference-title">CLI Reference</h3>
+          <p class="mcp-reference-desc">All commands and options</p>
+        </a>
+        <a href={`${baseUrl}quick-start/`} class="mcp-reference-card">
+          <span class="mcp-reference-icon" aria-hidden="true">🚀</span>
+          <h3 class="mcp-reference-title">Quick Start</h3>
+          <p class="mcp-reference-desc">Get started in 5 minutes</p>
+        </a>
+      </div>
+    </section>
   </main>
 </Layout>
 
@@ -984,6 +1006,55 @@ const featuredPrompts = [
     justify-content: center;
     gap: 1rem;
     flex-wrap: wrap;
+  }
+
+  /* Reference Section */
+  .mcp-reference {
+    margin-top: 4rem;
+    padding: 2rem 0;
+  }
+
+  .mcp-reference-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .mcp-reference-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.75rem;
+    text-decoration: none;
+    transition: border-color 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .mcp-reference-card:hover {
+    border-color: var(--color-border-strong);
+    transform: translateY(-2px);
+  }
+
+  .mcp-reference-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .mcp-reference-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .mcp-reference-desc {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
   }
 
   /* Buttons */
