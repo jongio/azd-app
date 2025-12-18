@@ -1,12 +1,16 @@
 package dashboard
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
+	"github.com/coder/websocket"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
@@ -19,7 +23,7 @@ type clientConn struct {
 
 // handleWebSocket handles WebSocket connections for live updates.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := acceptWebSocket(w, r)
+	conn, err := acceptWebSocket(w, r, s.rateLimiter)
 	if err != nil {
 		if err != http.ErrAbortHandler {
 			log.Printf("WebSocket upgrade error: %v", err)
@@ -27,9 +31,12 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := newWSClient(conn)
+	// Use request context to properly handle client disconnection
+	client := newWSClientWithContext(r.Context(), conn)
 	clientWrapper := &clientConn{client: client}
+	clientIP := getClientIP(r)
 
+	// Register client IMMEDIATELY to ensure rate limiter cleanup happens
 	s.clientsMu.Lock()
 	s.clients[clientWrapper] = true
 	s.clientsMu.Unlock()
@@ -38,7 +45,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		s.clientsMu.Lock()
 		delete(s.clients, clientWrapper)
 		s.clientsMu.Unlock()
-		if err := client.close(); err != nil {
+		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
 			// Only log unexpected close errors
 			if !isExpectedCloseError(err) {
 				log.Printf("Failed to close websocket connection: %v", err)
@@ -46,14 +53,13 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Send initial service data using shared serviceinfo package
+	// Send initial service data
 	services, err := serviceinfo.GetServiceInfo(s.projectDir)
 	if err != nil {
 		log.Printf("Warning: Failed to get service info: %v", err)
 		services = []*serviceinfo.ServiceInfo{} // Empty array on error
 	}
 
-	// Use the safe write method
 	if err := clientWrapper.writeWebSocketJSON(map[string]interface{}{
 		"type":     "services",
 		"services": services,
@@ -67,43 +73,99 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	healthErrors := monitor.start()
 	defer monitor.stop()
 
-	// Keep connection alive and listen for client messages
-	for {
-		select {
-		case <-s.stopChan:
-			return
-		case <-healthErrors:
-			// Health monitor detected a problem, close connection
-			return
-		default:
+	// Read messages in separate goroutine to avoid blocking
+	readDone := make(chan error, 1)
+	go func() {
+		for {
 			if err := readMessage(client); err != nil {
+				readDone <- err
 				return
 			}
 		}
+	}()
+
+	// Keep connection alive and listen for client messages
+	select {
+	case <-s.stopChan:
+		return
+	case <-healthErrors:
+		// Health monitor detected a problem, close connection
+		return
+	case <-readDone:
+		// Client disconnected or read error
+		return
 	}
 }
 
 // BroadcastUpdate sends service updates to all connected WebSocket clients.
+// Broadcasts asynchronously with goroutine limiting to prevent resource exhaustion.
 func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
+	// Copy client list to avoid holding lock during writes
 	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
+	clients := make([]*clientConn, 0, len(s.clients))
+	for client := range s.clients {
+		clients = append(clients, client)
+	}
+	s.clientsMu.RUnlock()
 
 	message := map[string]interface{}{
 		"type":     "services",
 		"services": services,
 	}
 
-	for client := range s.clients {
-		if err := client.writeWebSocketJSON(message); err != nil {
-			if !isExpectedCloseError(err) {
-				log.Printf("WebSocket send error: %v", err)
-			}
-		}
+	// Marshal once before broadcast to avoid repeated CPU work
+	jsonBytes, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Failed to marshal broadcast message: %v", err)
+		return
 	}
+
+	// Limit concurrent broadcast goroutines to prevent resource exhaustion
+	sem := make(chan struct{}, service.WebSocketMaxConcurrentBroadcasts)
+	var wg sync.WaitGroup
+
+	for _, clientConn := range clients {
+		// Capture client pointer before spawning goroutine to prevent race
+		client := clientConn.client
+		if client == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(wsClient *wsClient, data []byte) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			// Write pre-marshaled JSON
+			wsClient.writeMu.Lock()
+			ctx, cancel := context.WithTimeout(wsClient.ctx, service.DefaultWebSocketWriteTimeout)
+			err := wsClient.conn.Write(ctx, websocket.MessageText, data)
+			cancel()
+			wsClient.writeMu.Unlock()
+
+			if err != nil {
+				if !isExpectedCloseError(err) {
+					log.Printf("WebSocket send error: %v", err)
+					// Track consecutive write failures for backpressure
+					failures := wsClient.recordWriteFailure()
+					if failures >= service.WebSocketMaxWriteFailures {
+						log.Printf("WebSocket client exceeded max write failures (%d), will disconnect", failures)
+						// Signal to close by canceling context - main handler will clean up
+						wsClient.cancel()
+					}
+				}
+			}
+		}(client, jsonBytes)
+	}
+
+	// Wait for all broadcasts to complete before returning
+	wg.Wait()
 }
 
 // BroadcastServiceUpdate fetches fresh service info and broadcasts to all connected clients.
 // This is called when environment variables are updated (e.g., after azd provision).
+// Broadcasts asynchronously with goroutine limiting to prevent resource exhaustion.
 func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 	// Fetch fresh service info with updated environment variables
 	services, err := serviceinfo.GetServiceInfo(projectDir)
@@ -111,22 +173,67 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 		return fmt.Errorf("failed to get service info: %w", err)
 	}
 
+	// Copy client list to avoid holding lock during writes
 	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
+	clients := make([]*clientConn, 0, len(s.clients))
+	for client := range s.clients {
+		clients = append(clients, client)
+	}
+	s.clientsMu.RUnlock()
 
 	message := map[string]interface{}{
 		"type":     "services",
 		"services": services,
 	}
 
-	for client := range s.clients {
-		if err := client.writeWebSocketJSON(message); err != nil {
-			if !isExpectedCloseError(err) {
-				log.Printf("WebSocket send error: %v", err)
-			}
-		}
+	// Marshal once before broadcast to avoid repeated CPU work
+	jsonBytes, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("Failed to marshal broadcast message: %v", err)
+		return fmt.Errorf("failed to marshal broadcast message: %w", err)
 	}
 
+	// Limit concurrent broadcast goroutines to prevent resource exhaustion
+	sem := make(chan struct{}, service.WebSocketMaxConcurrentBroadcasts)
+	var wg sync.WaitGroup
+
+	for _, clientConn := range clients {
+		// Capture client pointer before spawning goroutine to prevent race
+		client := clientConn.client
+		if client == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(wsClient *wsClient, data []byte) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			// Write pre-marshaled JSON
+			wsClient.writeMu.Lock()
+			ctx, cancel := context.WithTimeout(wsClient.ctx, service.DefaultWebSocketWriteTimeout)
+			err := wsClient.conn.Write(ctx, websocket.MessageText, data)
+			cancel()
+			wsClient.writeMu.Unlock()
+
+			if err != nil {
+				if !isExpectedCloseError(err) {
+					log.Printf("WebSocket send error: %v", err)
+					// Track consecutive write failures for backpressure
+					failures := wsClient.recordWriteFailure()
+					if failures >= service.WebSocketMaxWriteFailures {
+						log.Printf("WebSocket client exceeded max write failures (%d), will disconnect", failures)
+						// Signal to close by canceling context - main handler will clean up
+						wsClient.cancel()
+					}
+				}
+			}
+		}(client, jsonBytes)
+	}
+
+	// Wait for all broadcasts to complete before returning
+	wg.Wait()
 	return nil
 }
 
@@ -135,7 +242,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 
 	// Upgrade connection to WebSocket
-	rawConn, err := acceptWebSocket(w, r)
+	rawConn, err := acceptWebSocket(w, r, s.rateLimiter)
 	if err != nil {
 		if err != http.ErrAbortHandler {
 			log.Printf("WebSocket upgrade failed: %v", err)
@@ -143,9 +250,11 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Wrap connection with mutex for safe concurrent writes
-	client := newWSClient(rawConn)
+	// Use request context to properly handle client disconnection
+	client := newWSClientWithContext(r.Context(), rawConn)
 	conn := &clientConn{client: client}
-	defer client.close()
+	clientIP := getClientIP(r)
+	defer client.closeWithRateLimit(clientIP, s.rateLimiter)
 
 	logManager := service.GetLogManager(s.projectDir)
 
@@ -178,8 +287,9 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Merge all subscription channels
-	mergedChan := make(chan service.LogEntry, 100)
+	// Merge all subscription channels with backpressure handling
+	// Use constant for buffer size
+	mergedChan := make(chan service.LogEntry, service.WebSocketLogChannelBuffer)
 	stopMerge := make(chan struct{})
 	var wg sync.WaitGroup
 
@@ -193,10 +303,27 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 					if !ok {
 						return
 					}
+					// Try to send with timeout to prevent blocking on slow consumers
+					// CRITICAL: Always include stopMerge in select to prevent goroutine leaks
 					select {
 					case mergedChan <- entry:
+						// Successfully sent
 					case <-stopMerge:
 						return
+					default:
+						// Channel full, try with timeout
+						timer := time.NewTimer(service.WebSocketSlowConsumerTimeout)
+						select {
+						case mergedChan <- entry:
+							// Successfully sent after brief wait
+							timer.Stop()
+						case <-timer.C:
+							// Drop log entry if consumer is too slow
+							log.Printf("Warning: Dropped log entry due to slow consumer")
+						case <-stopMerge:
+							timer.Stop()
+							return
+						}
 					}
 				case <-stopMerge:
 					return
@@ -235,7 +362,9 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Keep connection alive until client disconnects or server stops
+	// CRITICAL: Close stopMerge FIRST to signal goroutines, THEN wait for them
+	// Otherwise goroutines may be blocked and won't see the stop signal
 	<-done
-	close(stopMerge)
-	wg.Wait()
+	close(stopMerge) // Signal all merger goroutines to stop
+	wg.Wait()        // Wait for all merger goroutines to finish cleanup
 }

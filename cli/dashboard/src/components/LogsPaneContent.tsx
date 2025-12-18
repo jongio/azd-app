@@ -48,6 +48,10 @@ export function LogsPaneContent({
     return null
   }
 
+  // Only show empty state when we truly have no logs to display
+  // Don't hide existing logs just because we're in a waiting/loading state
+  const showEmptyState = filteredLogs.length === 0
+
   return (
     <div
       ref={logsContainerRef}
@@ -58,7 +62,7 @@ export function LogsPaneContent({
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-      {filteredLogs.length === 0 ? (
+      {showEmptyState ? (
         <LogsPaneEmptyState
           errorMessage={errorMessage}
           isLoading={isLoading}

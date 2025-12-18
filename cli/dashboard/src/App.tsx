@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useServicesContext } from '@/contexts/ServicesContext'
 import { useHealthStream } from '@/hooks/useHealthStream'
 import { App as DashboardApp } from '@/components/App'
+import { BackendConnectionContext } from '@/hooks/useBackendConnection'
 import type { HealthCheckResult } from '@/types'
 
 function App() {
@@ -47,26 +48,34 @@ function App() {
     void fetchProjectName()
   }, [])
 
+  // Provide global connection state to all components
+  const connectionState = useMemo(() => ({
+    connected: healthConnected,
+    error: healthError,
+  }), [healthConnected, healthError])
+
   return (
-    <DashboardApp
-      projectName={projectName || 'Project'}
-      services={services}
-      connected={healthConnected}
-      healthSummary={healthSummary ?? { 
-        total: 0, 
-        healthy: 0, 
-        degraded: 0, 
-        unhealthy: 0, 
-        starting: 0,
-        stopped: 0,
-        unknown: 0,
-        overall: 'unknown' as const 
-      }}
-      healthReport={healthReport}
-      healthMap={healthMap}
-      healthError={healthError}
-      healthReconnect={healthReconnect}
-    />
+    <BackendConnectionContext.Provider value={connectionState}>
+      <DashboardApp
+        projectName={projectName || 'Project'}
+        services={services}
+        connected={healthConnected}
+        healthSummary={healthSummary ?? { 
+          total: 0, 
+          healthy: 0, 
+          degraded: 0, 
+          unhealthy: 0, 
+          starting: 0,
+          stopped: 0,
+          unknown: 0,
+          overall: 'unknown' as const 
+        }}
+        healthReport={healthReport}
+        healthMap={healthMap}
+        healthError={healthError}
+        healthReconnect={healthReconnect}
+      />
+    </BackendConnectionContext.Provider>
   )
 }
 

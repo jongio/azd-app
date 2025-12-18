@@ -284,21 +284,42 @@ services:
       ))}
     </div>
 
-    <!-- Demo Template CTA -->
-    <div class="mt-16 text-center p-8 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
-      <h2 class="text-2xl font-bold mb-4 text-neutral-900 dark:text-neutral-100">Try the Demo Template</h2>
-      <p class="text-neutral-700 dark:text-neutral-300 mb-6 max-w-lg mx-auto">
-        Get hands-on with a working project that demonstrates all azd-app features including MCP debugging.
-      </p>
-      <div class="max-w-md mx-auto mb-4">
-        <Code code="azd init -t jongio/azd-app-demo" lang="bash" />
+    <!-- Reference Links -->
+    <div class="mt-16 grid md:grid-cols-2 gap-6">
+      <div class="p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+        <h3 class="text-xl font-bold mb-3 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+          <span>📘</span>
+          <span>azure.yaml Reference</span>
+        </h3>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+          Learn about all configuration options - services, health checks, logging, testing, and more.
+        </p>
+        <a 
+          href="/azd-app/reference/azure-yaml/" 
+          class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline font-medium"
+        >
+          View complete reference →
+        </a>
       </div>
-      <a 
-        href="/azd-app/quick-start/" 
-        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
-      >
-        Follow the Quick Start guide →
-      </a>
+      
+      <div class="p-6 bg-green-100 dark:bg-green-900/40 rounded-lg border border-green-300 dark:border-green-700">
+        <h3 class="text-xl font-bold mb-3 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+          <span>🚀</span>
+          <span>Try the Demo</span>
+        </h3>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+          Get hands-on with a working project that demonstrates all azd-app features.
+        </p>
+        <div class="mb-3">
+          <Code code="azd init -t jongio/azd-app-demo" lang="bash" />
+        </div>
+        <a 
+          href="/azd-app/quick-start/" 
+          class="inline-flex items-center gap-2 text-green-700 dark:text-green-400 hover:underline font-medium"
+        >
+          Follow Quick Start guide →
+        </a>
+      </div>
     </div>
 
     <!-- MCP Setup -->

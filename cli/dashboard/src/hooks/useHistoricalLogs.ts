@@ -5,6 +5,7 @@
 import { useState, useCallback, useRef } from 'react'
 import type { ParsedAzureError } from '@/types'
 import { createParsedAzureError } from '@/lib/azure-errors'
+import { useBackendConnection } from '@/hooks/useBackendConnection'
 
 // =============================================================================
 // Types
@@ -167,6 +168,7 @@ export function useHistoricalLogs({
   serviceName,
   pageSize = DEFAULT_PAGE_SIZE,
 }: UseHistoricalLogsOptions): UseHistoricalLogsReturn {
+  const { connected } = useBackendConnection()
   const [logs, setLogs] = useState<HistoricalLogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -183,6 +185,11 @@ export function useHistoricalLogs({
   } | null>(null)
 
   const executeQuery = useCallback(async (timeRange: TimeRange, customKql?: string) => {
+    if (!connected) {
+      setError('Backend connection lost')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     setAzureError(null)
@@ -237,10 +244,10 @@ export function useHistoricalLogs({
     } finally {
       setIsLoading(false)
     }
-  }, [serviceName, pageSize])
+  }, [connected, serviceName, pageSize])
 
   const loadMore = useCallback(async () => {
-    if (!currentQueryRef.current || isLoading || !hasMore) {
+    if (!connected || !currentQueryRef.current || isLoading || !hasMore) {
       return
     }
 
@@ -292,7 +299,7 @@ export function useHistoricalLogs({
     } finally {
       setIsLoading(false)
     }
-  }, [serviceName, pageSize, offset, isLoading, hasMore, total])
+  }, [connected, serviceName, pageSize, offset, isLoading, hasMore, total])
 
   const clearResults = useCallback(() => {
     setLogs([])
