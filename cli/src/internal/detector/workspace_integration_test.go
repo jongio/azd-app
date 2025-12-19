@@ -128,7 +128,7 @@ func TestNpmWorkspaceHasWorkspaces(t *testing.T) {
 // This validates pnpm-workspace.yaml detection and complete workflow.
 func TestPnpmWorkspaceIntegration(t *testing.T) {
 	// Path to test pnpm workspace project
-	workspaceDir := filepath.Join("..", "..", "..", "tests", "projects", "node", "test-pnpm-workspace")
+	workspaceDir := filepath.Join("..", "..", "..", "tests", "projects", "package-managers", "node", "test-pnpm-workspace")
 
 	// Convert to absolute path
 	absWorkspaceDir, err := filepath.Abs(workspaceDir)
@@ -212,7 +212,7 @@ func TestPnpmWorkspaceIntegration(t *testing.T) {
 
 // TestPnpmWorkspaceHasWorkspaces verifies pnpm-workspace.yaml detection.
 func TestPnpmWorkspaceHasWorkspaces(t *testing.T) {
-	workspaceDir := filepath.Join("..", "..", "..", "tests", "projects", "node", "test-pnpm-workspace")
+	workspaceDir := filepath.Join("..", "..", "..", "tests", "projects", "package-managers", "node", "test-pnpm-workspace")
 
 	// Convert to absolute path
 	absWorkspaceDir, err := filepath.Abs(workspaceDir)
