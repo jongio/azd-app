@@ -32,8 +32,10 @@ func TestRateLimiterLeak_FailedHandshake(t *testing.T) {
 	}
 	defer func() { _ = srv.Stop() }()
 
-	// Get rate limiter state before
+	// Get rate limiter state before (with proper locking)
+	srv.rateLimiter.mu.Lock()
 	initialTotal := srv.rateLimiter.totalCount
+	srv.rateLimiter.mu.Unlock()
 
 	// Break server to cause handshake failure
 	// By removing azure.yaml, serviceinfo.GetServiceInfo will fail
@@ -50,18 +52,24 @@ func TestRateLimiterLeak_FailedHandshake(t *testing.T) {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
 
-	// Verify rate limiter incremented
-	if srv.rateLimiter.totalCount != initialTotal+1 {
-		t.Errorf("rate limiter totalCount = %d, want %d (after connect)", srv.rateLimiter.totalCount, initialTotal+1)
+	// Verify rate limiter incremented (with proper locking)
+	srv.rateLimiter.mu.Lock()
+	currentTotal := srv.rateLimiter.totalCount
+	srv.rateLimiter.mu.Unlock()
+	if currentTotal != initialTotal+1 {
+		t.Errorf("rate limiter totalCount = %d, want %d (after connect)", currentTotal, initialTotal+1)
 	}
 
 	// Close connection
 	_ = ws.Close(websocket.StatusNormalClosure, "test")
 	time.Sleep(100 * time.Millisecond) // Give time for cleanup
 
-	// Verify rate limiter decremented
-	if srv.rateLimiter.totalCount != initialTotal {
-		t.Errorf("rate limiter totalCount = %d, want %d (after disconnect)", srv.rateLimiter.totalCount, initialTotal)
+	// Verify rate limiter decremented (with proper locking)
+	srv.rateLimiter.mu.Lock()
+	finalTotal := srv.rateLimiter.totalCount
+	srv.rateLimiter.mu.Unlock()
+	if finalTotal != initialTotal {
+		t.Errorf("rate limiter totalCount = %d, want %d (after disconnect)", finalTotal, initialTotal)
 	}
 }
 
@@ -411,12 +419,19 @@ func TestRateLimiterPerServer(t *testing.T) {
 	}
 	defer ws2.Close(websocket.StatusNormalClosure, "test")
 
-	// Verify rate limiters are tracking independently
-	if srv1.rateLimiter.totalCount != 1 {
-		t.Errorf("Server 1 rate limiter count = %d, want 1", srv1.rateLimiter.totalCount)
+	// Verify rate limiters are tracking independently (with proper locking)
+	srv1.rateLimiter.mu.Lock()
+	count1 := srv1.rateLimiter.totalCount
+	srv1.rateLimiter.mu.Unlock()
+	if count1 != 1 {
+		t.Errorf("Server 1 rate limiter count = %d, want 1", count1)
 	}
-	if srv2.rateLimiter.totalCount != 1 {
-		t.Errorf("Server 2 rate limiter count = %d, want 1", srv2.rateLimiter.totalCount)
+	
+	srv2.rateLimiter.mu.Lock()
+	count2 := srv2.rateLimiter.totalCount
+	srv2.rateLimiter.mu.Unlock()
+	if count2 != 1 {
+		t.Errorf("Server 2 rate limiter count = %d, want 1", count2)
 	}
 }
 
