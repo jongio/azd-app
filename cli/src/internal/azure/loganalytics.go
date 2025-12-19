@@ -223,7 +223,7 @@ func (c *LogAnalyticsClient) parseResults(resp azlogs.QueryWorkspaceResponse, se
 	}
 
 	// Log query statistics for performance debugging
-	if resp.Statistics != nil && len(resp.Statistics) > 0 {
+	if len(resp.Statistics) > 0 {
 		slog.Debug("query performance statistics", "stats", string(resp.Statistics))
 	}
 
