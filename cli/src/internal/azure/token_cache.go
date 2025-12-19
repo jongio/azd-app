@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -35,16 +36,16 @@ func (tc *TokenCache) Get() string {
 	if tc.token == "" || time.Now().After(tc.expiresAt) {
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			if tc.token == "" {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Token cache miss: no token\n")
+				slog.Debug("Token cache miss", "reason", "no token", "scope", tc.scope)
 			} else {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Token cache miss: expired (expired at %s)\n", tc.expiresAt.Format(time.RFC3339))
+				slog.Debug("Token cache miss", "reason", "expired", "expiredAt", tc.expiresAt, "scope", tc.scope)
 			}
 		}
 		return ""
 	}
 
 	if os.Getenv("AZD_APP_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Token cache hit (expires in %s)\n", time.Until(tc.expiresAt).Round(time.Second))
+		slog.Debug("Token cache hit", "expiresIn", time.Until(tc.expiresAt).Round(time.Second), "scope", tc.scope)
 	}
 
 	return tc.token
@@ -62,7 +63,7 @@ func (tc *TokenCache) Set(token string) {
 	tc.expiresAt = time.Now().Add(5 * time.Minute)
 
 	if os.Getenv("AZD_APP_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Token cached (expires at %s)\n", tc.expiresAt.Format(time.RFC3339))
+		slog.Debug("Token cached", "expiresAt", tc.expiresAt, "scope", tc.scope)
 	}
 }
 
@@ -75,7 +76,7 @@ func (tc *TokenCache) Clear() {
 
 	if os.Getenv("AZD_APP_DEBUG") == "true" {
 		if tc.token != "" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Token cache cleared due to auth error\n")
+			slog.Debug("Token cache cleared", "reason", "auth error", "scope", tc.scope)
 		}
 	}
 
