@@ -366,10 +366,6 @@ func createMockLogsResponseWithNullSource(rows []mockRowNullSource) azlogs.Query
 	}
 }
 
-func toPtr(s string) *string {
-	return &s
-}
-
 // TestSubstitutePlaceholders_PreservesSourceField tests placeholder substitution doesn't break Source
 func TestSubstitutePlaceholders_PreservesSourceField(t *testing.T) {
 	testCases := []struct {
