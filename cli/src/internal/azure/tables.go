@@ -146,7 +146,7 @@ func GetTableInfo(tableName string) TableInfo {
 func GetTableCategory(tableName string) string {
 	// Priority order for categories
 	categoryPriority := []string{"containerapp", "appservice", "function", "aks", "aci"}
-	
+
 	// Check each category in priority order
 	for _, category := range categoryPriority {
 		if cat, ok := TableCategories[category]; ok {
@@ -157,7 +157,7 @@ func GetTableCategory(tableName string) string {
 			}
 		}
 	}
-	
+
 	return "other"
 }
 

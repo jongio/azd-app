@@ -473,6 +473,13 @@ mage releasemajor       # Create major release (0.1.0 → 1.0.0)
 mage dashboardbuild     # Build dashboard assets
 mage dashboarddev       # Start dashboard dev server
 
+# Dependency Management
+mage checkdeps          # Check for outdated dependencies
+mage updatedeps         # Update all dependencies to latest versions
+# Environment variables for updatedeps:
+#   DRY_RUN=true        # Preview updates without applying them
+#   MINOR_ONLY=true     # Only update to latest minor versions (safer)
+
 # Pre-flight checks
 mage preflight          # Run all checks before shipping
 ```

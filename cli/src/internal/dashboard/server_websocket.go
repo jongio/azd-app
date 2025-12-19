@@ -254,7 +254,11 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	client := newWSClientWithContext(r.Context(), rawConn)
 	conn := &clientConn{client: client}
 	clientIP := getClientIP(r)
-	defer client.closeWithRateLimit(clientIP, s.rateLimiter)
+	defer func() {
+		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close websocket connection: %v\n", err)
+		}
+	}()
 
 	logManager := service.GetLogManager(s.projectDir)
 
