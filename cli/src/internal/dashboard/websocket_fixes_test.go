@@ -441,6 +441,9 @@ func TestRateLimiterCleanupOnShutdown(t *testing.T) {
 		t.Fatalf("failed to stop server: %v", err)
 	}
 
+	// Give cleanup goroutine time to stop (it has a 5 second ticker)
+	time.Sleep(100 * time.Millisecond)
+
 	// Verify cleanup flag is set
 	rateLimiter.mu.Lock()
 	cleanupStopped := rateLimiter.cleanupStopped
