@@ -242,17 +242,6 @@ func acceptWebSocket(w http.ResponseWriter, r *http.Request, rateLimiter *connec
 	return conn, nil
 }
 
-// newWSClient creates a new WebSocket client wrapper.
-// It accepts a parent context to properly handle request cancellation.
-func newWSClient(conn *websocket.Conn) *wsClient {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &wsClient{
-		conn:   conn,
-		ctx:    ctx,
-		cancel: cancel,
-	}
-}
-
 // newWSClientWithContext creates a new WebSocket client wrapper with parent context.
 func newWSClientWithContext(ctx context.Context, conn *websocket.Conn) *wsClient {
 	clientCtx, cancel := context.WithCancel(ctx)

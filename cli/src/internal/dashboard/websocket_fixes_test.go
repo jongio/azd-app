@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -633,9 +632,4 @@ func TestWriteTimeoutIncrease(t *testing.T) {
 	// Import is handled at package level, we check the value
 	// This would need to be checked via actual constant value
 	t.Logf("Write timeout should be %v for reliable local connections", expectedTimeout)
-}
-
-// Helper function for error formatting
-func formatConnError(t *testing.T, op string, clientNum int, err error) string {
-	return fmt.Sprintf("%s failed for client %d: %v", op, clientNum, err)
 }
