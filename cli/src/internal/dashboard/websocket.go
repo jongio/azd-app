@@ -279,7 +279,11 @@ func (c *wsClient) close() error {
 
 // closeWithRateLimit closes the connection and decrements the rate limiter for the given IP.
 func (c *wsClient) closeWithRateLimit(clientIP string, rateLimiter *connectionRateLimiter) error {
-	defer rateLimiter.decrement(clientIP)
+	defer func() {
+		if rateLimiter != nil {
+			rateLimiter.decrement(clientIP)
+		}
+	}()
 	c.cancel()
 	return c.conn.Close(websocket.StatusNormalClosure, "server closing")
 }
