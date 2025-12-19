@@ -615,33 +615,200 @@ func CheckDeps() error {
 	}
 	fmt.Println()
 
-	// Check for pnpm audit vulnerabilities
+	// Check for pnpm audit vulnerabilities (dashboard)
 	fmt.Println("🔒 Checking dashboard pnpm packages for security vulnerabilities...")
 	auditOutput, auditErr := sh.Output("pnpm", "audit", "--dir", dashboardDir, "--json")
 	if auditErr != nil {
 		// pnpm audit exits with non-zero when vulnerabilities found
 		// Parse the JSON to get a summary
 		if strings.Contains(auditOutput, "\"vulnerabilities\"") {
-			fmt.Println("   ⚠️  Security vulnerabilities found in pnpm packages!")
+			fmt.Println("   ⚠️  Security vulnerabilities found in dashboard packages!")
 			fmt.Println("   Run 'pnpm audit --dir dashboard' for details")
 			fmt.Println("   Run 'pnpm audit --fix --dir dashboard' to fix automatically")
 			hasIssues = true
 		}
 	} else {
-		fmt.Println("   ✅ No known pnpm security vulnerabilities!")
+		fmt.Println("   ✅ No known dashboard security vulnerabilities!")
+	}
+	fmt.Println()
+
+	// Check for pnpm audit vulnerabilities (website)
+	fmt.Println("🔒 Checking website pnpm packages for security vulnerabilities...")
+	websiteAuditOutput, websiteAuditErr := sh.Output("pnpm", "audit", "--dir", websiteDir, "--json")
+	if websiteAuditErr != nil {
+		// pnpm audit exits with non-zero when vulnerabilities found
+		if strings.Contains(websiteAuditOutput, "\"vulnerabilities\"") {
+			fmt.Println("   ⚠️  Security vulnerabilities found in website packages!")
+			fmt.Println("   Run 'pnpm audit --dir ../web' for details")
+			fmt.Println("   Run 'pnpm audit --fix --dir ../web' to fix automatically")
+			hasIssues = true
+		}
+	} else {
+		fmt.Println("   ✅ No known website security vulnerabilities!")
 	}
 	fmt.Println()
 
 	if hasIssues {
-		fmt.Println("💡 Tip: Run 'go get -u ./...' to update Go modules")
-		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update dashboard packages")
-		fmt.Println("💡 Tip: Run 'pnpm update --dir ../web' to update website packages")
+		fmt.Println("💡 Tip: Run 'mage updateDeps' to update all dependencies")
+		fmt.Println("💡 Tip: Run 'go get -u ./...' to update Go modules only")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir dashboard' to update dashboard packages only")
+		fmt.Println("💡 Tip: Run 'pnpm update --dir ../web' to update website packages only")
 		fmt.Println("⚠️  Dependency updates available (continuing with preflight)")
 	} else {
 		fmt.Println("✅ All dependencies are up to date!")
 	}
 
 	// Don't fail the build - just warn
+	return nil
+}
+
+// UpdateDeps updates all dependencies to their latest versions across the entire project.
+// This includes Go modules, dashboard pnpm packages, and website pnpm packages.
+// Use MINOR_ONLY=true to only update to latest minor versions (safer, avoids breaking changes).
+// Use DRY_RUN=true to preview updates without applying them.
+func UpdateDeps() error {
+	fmt.Println("🔄 Updating all dependencies to latest versions...")
+	fmt.Println()
+
+	minorOnly := os.Getenv("MINOR_ONLY") == "true"
+	dryRun := os.Getenv("DRY_RUN") == "true"
+
+	if dryRun {
+		fmt.Println("🔍 DRY RUN MODE - No changes will be made")
+		fmt.Println()
+	}
+
+	if minorOnly {
+		fmt.Println("📌 MINOR ONLY MODE - Only updating to latest minor versions (safer)")
+		fmt.Println()
+	}
+
+	// Track any errors but continue with other updates
+	var errors []string
+
+	// Update Go modules
+	fmt.Println("📦 Updating Go modules...")
+	if dryRun {
+		// Just show what would be updated
+		if err := sh.RunV("go", "list", "-u", "-m", "all"); err != nil {
+			errors = append(errors, fmt.Sprintf("Go modules check: %v", err))
+		}
+	} else {
+		// Update all Go modules to latest
+		updateCmd := "go"
+		updateArgs := []string{"get", "-u"}
+		if minorOnly {
+			// Update to latest minor/patch but not major
+			updateArgs = append(updateArgs, "-u=patch")
+		}
+		updateArgs = append(updateArgs, "./...")
+
+		if err := sh.RunV(updateCmd, updateArgs...); err != nil {
+			errors = append(errors, fmt.Sprintf("Go modules update: %v", err))
+		} else {
+			// Tidy up after updates
+			if err := sh.RunV("go", "mod", "tidy"); err != nil {
+				errors = append(errors, fmt.Sprintf("go mod tidy: %v", err))
+			} else {
+				fmt.Println("   ✅ Go modules updated and tidied!")
+			}
+		}
+	}
+	fmt.Println()
+
+	// Update dashboard pnpm packages
+	fmt.Println("📦 Updating dashboard pnpm packages...")
+	if dryRun {
+		// Just show what would be updated
+		_, _ = sh.Output("pnpm", "outdated", "--dir", dashboardDir)
+	} else {
+		updateArgs := []string{"update", "--dir", dashboardDir}
+		if minorOnly {
+			// pnpm update respects semver ranges in package.json by default
+			// Use --latest for major updates, omit for minor/patch only
+			fmt.Println("   Using version ranges from package.json (minor/patch updates)")
+		} else {
+			// Update to latest regardless of semver ranges
+			updateArgs = append(updateArgs, "--latest")
+		}
+
+		if err := sh.RunV("pnpm", updateArgs...); err != nil {
+			errors = append(errors, fmt.Sprintf("dashboard pnpm update: %v", err))
+		} else {
+			fmt.Println("   ✅ Dashboard packages updated!")
+		}
+	}
+	fmt.Println()
+
+	// Update website pnpm packages
+	fmt.Println("📦 Updating website pnpm packages...")
+	if dryRun {
+		// Just show what would be updated
+		_, _ = sh.Output("pnpm", "outdated", "--dir", websiteDir)
+	} else {
+		updateArgs := []string{"update", "--dir", websiteDir}
+		if minorOnly {
+			fmt.Println("   Using version ranges from package.json (minor/patch updates)")
+		} else {
+			updateArgs = append(updateArgs, "--latest")
+		}
+
+		if err := sh.RunV("pnpm", updateArgs...); err != nil {
+			errors = append(errors, fmt.Sprintf("website pnpm update: %v", err))
+		} else {
+			fmt.Println("   ✅ Website packages updated!")
+		}
+	}
+	fmt.Println()
+
+	// Fix any security vulnerabilities in pnpm packages
+	if !dryRun {
+		fmt.Println("🔒 Fixing security vulnerabilities...")
+
+		// Dashboard
+		fmt.Println("   Fixing dashboard vulnerabilities...")
+		if err := sh.RunV("pnpm", "audit", "--fix", "--dir", dashboardDir); err != nil {
+			// audit --fix can return non-zero even when successful if unfixable vulns remain
+			fmt.Println("   ⚠️  Some vulnerabilities may remain (manual review needed)")
+		} else {
+			fmt.Println("   ✅ Dashboard vulnerabilities fixed!")
+		}
+
+		// Website
+		fmt.Println("   Fixing website vulnerabilities...")
+		if err := sh.RunV("pnpm", "audit", "--fix", "--dir", websiteDir); err != nil {
+			fmt.Println("   ⚠️  Some vulnerabilities may remain (manual review needed)")
+		} else {
+			fmt.Println("   ✅ Website vulnerabilities fixed!")
+		}
+		fmt.Println()
+	}
+
+	// Summary
+	if len(errors) > 0 {
+		fmt.Println("❌ Some updates failed:")
+		for _, err := range errors {
+			fmt.Printf(fmtBulletItem, err)
+		}
+		fmt.Println()
+		fmt.Println("💡 Review errors above and fix manually if needed")
+		return fmt.Errorf("%d update(s) failed", len(errors))
+	}
+
+	if dryRun {
+		fmt.Println("✅ Dry run complete! No changes were made.")
+		fmt.Println("💡 Run 'mage updateDeps' without DRY_RUN=true to apply updates")
+	} else {
+		fmt.Println("✅ All dependencies updated successfully!")
+		fmt.Println()
+		fmt.Println("📝 Next steps:")
+		fmt.Println("   1. Review changes: git diff")
+		fmt.Println("   2. Test the build: mage build")
+		fmt.Println("   3. Run tests: mage test")
+		fmt.Println("   4. Check for issues: mage lint")
+		fmt.Println("   5. Commit changes: git add . && git commit -m 'chore: update dependencies'")
+	}
+
 	return nil
 }
 
