@@ -104,6 +104,10 @@ class SharedLogStreamManager {
     toRemove.forEach(cb => this.stateSubscribers.delete(cb))
   }
 
+  getState(): ConnectionState {
+    return this.currentState
+  }
+
   subscribe(serviceName: string, callback: (entry: LogEntry) => void): () => void {
     if (this.isDestroyed) return () => {}
     
@@ -242,7 +246,7 @@ class SharedLogStreamManager {
     
     // Only log initial connection and successful reconnections
     if (wasReconnecting) {
-      console.info('[SharedLogStream] Reconnected successfully')
+      console.warn('[SharedLogStream] Reconnected successfully')
     }
   }
 
@@ -254,7 +258,7 @@ class SharedLogStreamManager {
     }
     
     try {
-      const entry = JSON.parse(event.data) as LogEntry
+      const entry = JSON.parse(event.data as string) as LogEntry
       
       // Validate log entry structure
       if (!entry || typeof entry !== 'object' || !entry.service) {
@@ -399,7 +403,7 @@ class SharedLogStreamManager {
     const delay = this.backoffDelay
     // Only log first 3 reconnection attempts to avoid spam
     if (this.reconnectAttempts <= 2) {
-      console.info(`[SharedLogStream] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts + 1}/${this.config.maxReconnectAttempts})`)
+      console.warn(`[SharedLogStream] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts + 1}/${this.config.maxReconnectAttempts})`)
     }
     
     this.reconnectTimer = setTimeout(() => {
@@ -571,22 +575,23 @@ export function useSharedLogStream({
     }
   }, [])
 
+  // Track enabled state in a ref to avoid recreating subscriptions
+  const enabledRef = useRef(enabled)
+  useEffect(() => {
+    enabledRef.current = enabled
+  }, [enabled])
+
   // Subscribe to connection state changes
   useEffect(() => {
-    if (!enabled) {
-      setConnectionState('disconnected')
-      return
-    }
-
     const unsubscribeState = manager.subscribeToState((state) => {
       // Guard against setState after unmount
       if (isMountedRef.current) {
-        setConnectionState(state)
+        setConnectionState(enabledRef.current ? state : 'disconnected')
       }
     })
 
     return unsubscribeState
-  }, [enabled, manager])
+  }, [manager])
 
   // Subscribe to log entries
   useEffect(() => {

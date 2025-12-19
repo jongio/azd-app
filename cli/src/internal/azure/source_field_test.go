@@ -9,7 +9,7 @@ import (
 // TestDefaultQueriesContainSource verifies all default queries include Source field
 func TestDefaultQueriesContainSource(t *testing.T) {
 	resourceTypes := []struct {
-		resourceType ResourceType
+		resourceType   ResourceType
 		expectedSource string
 	}{
 		{ResourceTypeFunction, "Azure Functions"},
@@ -20,7 +20,7 @@ func TestDefaultQueriesContainSource(t *testing.T) {
 	for _, tc := range resourceTypes {
 		t.Run(string(tc.resourceType), func(t *testing.T) {
 			query := GetDefaultQuery(tc.resourceType)
-			
+
 			// Verify query is not empty
 			if query == "" {
 				t.Errorf("Default query for %s should not be empty", tc.resourceType)
@@ -106,7 +106,7 @@ func TestStandaloneQueryContainsSource(t *testing.T) {
 				if projectIndex < extendIndex {
 					t.Errorf("In query for %s, 'project' should come after 'extend Source':\n%s", tc.resourceType, query)
 				}
-				
+
 				// Get the project clause
 				projectClause := query[projectIndex:]
 				if !strings.Contains(projectClause, "Source") {
@@ -155,10 +155,10 @@ func TestLogEntrySourceFieldExtraction(t *testing.T) {
 			name: "App Service with Source field",
 			row:  []any{"2024-12-17T10:00:00Z", "Azure App Service", "App log", "INFO"},
 			colIndex: map[string]int{
-				"TimeGenerated":    0,
-				"Source":           1,
+				"TimeGenerated":     0,
+				"Source":            1,
 				"ResultDescription": 2,
-				"Level":            3,
+				"Level":             3,
 			},
 			resourceType:   ResourceTypeAppService,
 			expectedSource: "Azure App Service",
@@ -180,7 +180,7 @@ func TestLogEntrySourceFieldExtraction(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Extract Source using getStringFromRow (same logic as parseResults)
 			source := getStringFromRow(tc.row, tc.colIndex, "Source")
-			
+
 			if source != tc.expectedSource {
 				t.Errorf("Expected Source %q, got %q", tc.expectedSource, source)
 			}
@@ -248,10 +248,10 @@ func TestSourceFieldInQueryResults(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Verify query structure
 			lines := strings.Split(tc.query, "\n")
-			
+
 			var hasExtend, hasProject, hasSource bool
 			var projectLine string
-			
+
 			for _, line := range lines {
 				trimmed := strings.TrimSpace(line)
 				if strings.HasPrefix(trimmed, "| extend Source =") {
@@ -265,15 +265,15 @@ func TestSourceFieldInQueryResults(t *testing.T) {
 					}
 				}
 			}
-			
+
 			if !hasExtend {
 				t.Errorf("Query for %s should have extend clause with Source:\n%s", tc.resourceType, tc.query)
 			}
-			
+
 			if !hasProject {
 				t.Errorf("Query for %s should have project clause:\n%s", tc.resourceType, tc.query)
 			}
-			
+
 			if !hasSource {
 				t.Errorf("Query for %s should project Source field. Project line: %s", tc.resourceType, projectLine)
 			}

@@ -339,7 +339,7 @@ func TestServer_ConcurrentBroadcasts(t *testing.T) {
 	}
 
 	wg.Wait()
-	t.Logf("Successfully completed %d concurrent broadcasts to %d clients", 
+	t.Logf("Successfully completed %d concurrent broadcasts to %d clients",
 		numBroadcasters*broadcastsPerGoroutine, numClients)
 }
 
@@ -480,11 +480,11 @@ func TestConnectionRateLimiter_Cleanup(t *testing.T) {
 // TestGetClientIP verifies IP extraction from requests.
 func TestGetClientIP(t *testing.T) {
 	tests := []struct {
-		name           string
-		remoteAddr     string
-		xForwardedFor  string
-		xRealIP        string
-		expectedIP     string
+		name          string
+		remoteAddr    string
+		xForwardedFor string
+		xRealIP       string
+		expectedIP    string
 	}{
 		{
 			name:       "RemoteAddr only",

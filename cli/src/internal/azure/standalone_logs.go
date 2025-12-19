@@ -93,7 +93,7 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 
 		// Debug: log each service mapping
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Service %s: host=%s, resourceType=%s, azureName=%s\n", 
+			fmt.Fprintf(os.Stderr, "[DEBUG] Service %s: host=%s, resourceType=%s, azureName=%s\n",
 				name, svc.Host, info.ResourceType, info.AzureName)
 		}
 

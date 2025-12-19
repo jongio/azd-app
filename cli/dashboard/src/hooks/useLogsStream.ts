@@ -244,7 +244,7 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         ? updated.slice(updated.length - MAX_LOGS_IN_MEMORY) 
         : updated
     })
-  }, []) // No dependencies - uses functional update and ref
+  }, [isPausedRef, setLogs])
 
   const shouldUseSharedStream = 
     connected && 
