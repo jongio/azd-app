@@ -396,9 +396,9 @@ func findDiscoveryProject(t *testing.T) string {
 
 	// Try relative paths from test location
 	candidates := []string{
-		"../../../tests/projects/discovery-test",
-		"../../../../tests/projects/discovery-test",
-		"../../../../../cli/tests/projects/discovery-test",
+		"../../../tests/projects/integration/discovery-test",
+		"../../../../tests/projects/integration/discovery-test",
+		"../../../../../cli/tests/projects/integration/discovery-test",
 	}
 
 	// Get current working directory

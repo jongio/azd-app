@@ -125,4 +125,3 @@ A team migrates from pnpm to yarn. They update the packageManager field but the 
 - [test-npm-project](../test-npm-project/) - Explicit npm
 - [test-pnpm-project](../test-pnpm-project/) - Explicit pnpm
 - [test-yarn-project](../test-yarn-project/) - Explicit yarn
-- [test-no-packagemanager](../test-no-packagemanager/) - Default detection

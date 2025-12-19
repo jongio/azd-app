@@ -18,26 +18,18 @@ azd app run --dry-run  # Preview without running
 # azd app run  # Note: Would start a service that runs for 5 minutes
 ```
 
-## hooks-platform-test
+## Platform-Specific Hooks (Removed)
 
-Advanced example with platform-specific hooks and external scripts.
+The `hooks-platform-test` project has been removed as its functionality is now covered by the main `hooks-test` project.
 
-**Features:**
+**Previously tested:**
 - Platform-specific hook overrides (Windows/POSIX)
 - External script files
-- Python FastAPI service
-- Demonstrates shell selection (pwsh, bash)
+- Shell selection (pwsh, bash)
 
-**To test:**
-```bash
-cd hooks-platform-test
-azd app run --dry-run  # Preview without running
-# azd app run  # Note: Requires Python and FastAPI installed
-```
-
-**Platform behavior:**
-- **Windows**: Uses PowerShell (pwsh) with Windows-specific messages
-- **Linux/macOS**: Uses Bash with POSIX-specific messages
+**Current coverage:**
+- Basic hook execution is tested in `hooks-test`
+- Platform-specific behavior is validated in unit tests
 
 ## Testing Hooks Without Running Services
 

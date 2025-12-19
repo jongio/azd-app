@@ -112,4 +112,3 @@ A team uses npm exclusively but has git history with pnpm-lock.yaml files or oth
 - [test-pnpm-project](../test-pnpm-project/) - pnpm variant
 - [test-yarn-project](../test-yarn-project/) - yarn variant
 - [test-package-manager-override](../test-package-manager-override/) - Override behavior
-- [test-no-packagemanager](../test-no-packagemanager/) - Default npm detection
