@@ -5,8 +5,16 @@ import (
 	"testing"
 )
 
+const (
+	testServiceName       = "test-service"
+	testTimespan          = "30m"
+	testMyApp             = "my-app"
+	nonEmptyQueryMessage  = "Build should return non-empty query"
+	orderByTimeDescending = "order by TimeGenerated desc"
+)
+
 func TestNewQueryBuilder(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m")
+	qb := NewQueryBuilder(testServiceName, testTimespan)
 
 	if qb == nil {
 		t.Fatal("NewQueryBuilder returned nil")
