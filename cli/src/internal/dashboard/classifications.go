@@ -39,7 +39,7 @@ func (s *Server) handleGetClassifications(w http.ResponseWriter, r *http.Request
 	}
 
 	classifications := []service.LogClassification{}
-	if azureYaml.Logs != nil {
+	if azureYaml != nil && azureYaml.Logs != nil {
 		classifications = azureYaml.Logs.GetClassifications()
 	}
 
