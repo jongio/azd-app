@@ -31,9 +31,9 @@ type Server struct {
 	clientsMu    sync.RWMutex
 	rateLimiter  *connectionRateLimiter // Per-server rate limiter
 	stopChan     chan struct{}
-	stopOnce     sync.Once      // Ensure stopChan is only closed once
-	started      bool           // Track if server was successfully started
-	startedMu    sync.Mutex     // Protect started flag
+	stopOnce     sync.Once  // Ensure stopChan is only closed once
+	started      bool       // Track if server was successfully started
+	startedMu    sync.Mutex // Protect started flag
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode

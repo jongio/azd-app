@@ -10,10 +10,10 @@ import (
 // TestParseResults_WithSourceField tests that parseResults correctly extracts Source field
 func TestParseResults_WithSourceField(t *testing.T) {
 	client := &LogAnalyticsClient{}
-	
+
 	testCases := []struct {
 		name           string
-	response       azlogs.QueryWorkspaceResponse
+		response       azlogs.QueryWorkspaceResponse
 		serviceName    string
 		resourceType   ResourceType
 		expectedCount  int

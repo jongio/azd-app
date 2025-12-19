@@ -579,6 +579,264 @@ const quickReference = `# Property Quick Reference
 - uses - Dependencies
 - existing - Is existing resource
 - [type-specific] - Container arrays, SKU config, etc.`;
+
+const infraProviderExample = `infra:
+  provider: bicep  # or 'terraform'
+  path: ./infra  # Default: infra
+  module: main  # Default: main
+  
+# Terraform example
+infra:
+  provider: terraform
+  path: ./infrastructure
+  module: main`;
+
+const pipelineProviderExample = `pipeline:
+  provider: github  # or 'azdo' for Azure DevOps
+  
+  # Variables from azd environment to pass to pipeline
+  variables:
+    - AZURE_ENV_NAME
+    - AZURE_LOCATION
+    
+  # Secrets from azd environment to pass to pipeline
+  secrets:
+    - AZURE_SUBSCRIPTION_ID
+    - DATABASE_PASSWORD`;
+
+const resourceGroupExample = `resourceGroup: my-custom-rg-name  # Supports environment variable substitution`;
+
+const requiredVersionsExample = `requiredVersions:
+  azd: ">= 0.6.0-beta.3"
+  extensions:
+    azure-app: ">=1.0.0"
+    my-extension: "~2.0.0"  # Supports semver constraints`;
+
+const infraConfigExample = `infra:
+  provider: bicep  # or terraform
+  path: infra  # Path to infrastructure code (default: infra)
+  module: main  # Main module name (bicep) or path (terraform)`;
+
+const stateConfigExample = `state:
+  remote:
+    backend: AzureBlobStorage
+    config:
+      accountName: mystorageaccount
+      containerName: tfstate  # Optional, defaults to project name
+      endpoint: blob.core.windows.net  # Optional`;
+
+const platformConfigExample = `platform:
+  type: devcenter
+  config:
+    name: my-dev-center
+    project: my-dev-center-project
+    catalog: my-catalog
+    environmentDefinition: my-env-def
+    environmentType: dev`;
+
+const workflowsExample = `workflows:
+  up:
+    steps:
+      - azd: package --all
+      - azd: provision
+      - azd: deploy --all
+      
+# Or as array shorthand:
+# workflows:
+#   up:
+#     - azd: package --all
+#     - azd: provision
+#     - azd: deploy --all`;
+
+const cloudConfigExample = `cloud:
+  name: AzureUSGovernment  # AzureCloud (default), AzureChinaCloud, AzureUSGovernment`;
+
+const serviceDeploymentExample = `services:
+  api:
+    host: containerapp  # Required: appservice, containerapp, function, springapp, staticwebapp, aks, ai.endpoint
+    project: ./api
+    
+    # Deployment configuration
+    resourceGroup: custom-rg  # Override default resource group
+    resourceName: my-api-instance  # Override resource name discovery
+    module: api-module  # Infrastructure module for this service
+    dist: ./dist  # Path to deployment artifacts
+    
+    # API version for deployment
+    apiVersion: "2023-05-01"  # Container App API version
+    
+    # AKS-specific configuration
+    k8s:
+      deploymentPath: manifests  # Path to k8s manifests
+      namespace: production  # K8s namespace
+      deployment:
+        name: api-deployment
+      service:
+        name: api-service
+      ingress:
+        name: api-ingress
+        relativePath: /api
+      
+    # Service hooks (in addition to global hooks)
+    hooks:
+      predeploy:
+        run: npm run build
+        shell: sh
+      postdeploy:
+        run: echo "Deployed successfully!"
+        shell: sh
+      prerestore:
+        run: npm install
+      postrestore:
+        run: echo "Restored dependencies"
+      prebuild:
+        run: npm run lint
+      postbuild:
+        run: echo "Build complete"
+      prepackage:
+        run: npm run test
+      postpackage:
+        run: echo "Package ready"`;
+
+const metadataExample = `metadata:
+  template: todo-nodejs-mongo@0.0.1-beta
+  author: Azure Samples
+  description: Full-stack application with Node.js and MongoDB
+  customField: any-value-you-want`;
+
+const schemaV11Example = `# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: my-app
+services:
+  api:
+    project: ./api
+    ports: ["8080"]  # v1.1 feature
+    healthcheck:  # v1.1 feature
+      path: /health`;
+
+const schemaV10Example = `# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: my-app
+services:
+  api:
+    host: containerapp  # v1.0 deployment
+    project: ./api`;
+
+const environmentVariablesExample = `services:
+  api:
+    # Array format (supports secrets)
+    environment:
+      - name: NODE_ENV
+        value: development
+      - name: DB_PASSWORD
+        secret: DB_SECRET  # Reference to secret
+    
+    # Object format (simpler, no secrets)
+    environment:
+      NODE_ENV: development
+      API_URL: http://localhost:8080
+      DEBUG: "true"`;
+
+const deploymentPipelineExample = `pipeline:
+  provider: github  # or azdo (Azure DevOps)
+  variables:
+    NODE_ENV: production
+  secrets:
+    - API_KEY
+    - DATABASE_URL`;
+
+const resourceTypesExample = `resources:
+  # Storage Account
+  storage:
+    type: storage
+    containers:  # Optional: containers to create
+      - uploads
+      - backups
+  
+  # Cosmos DB
+  cosmosdb:
+    type: db.cosmos
+    containers:
+      - name: users
+        partitionKeys: ["/id"]
+      - name: orders
+        partitionKeys: ["/customerId", "/region"]
+  
+  # Event Hubs
+  eventhubs:
+    type: messaging.eventhubs
+    hubs:  # Hubs to create
+      - telemetry
+      - logs
+  
+  # Service Bus
+  servicebus:
+    type: messaging.servicebus
+    queues:
+      - orders
+      - notifications
+    topics:
+      - events
+  
+  # App Service host resource
+  webapp:
+    type: host.appservice
+    port: 80
+    runtime:
+      stack: node
+      version: "20-lts"
+    startupCommand: "npm start"
+    env:
+      - name: NODE_ENV
+        value: production
+  
+  # Container App host resource
+  api-host:
+    type: host.containerapp
+    port: 8080
+    env:
+      - name: LOG_LEVEL
+        value: info
+      - name: DB_PASSWORD
+        secret: DB_PASSWORD_SECRET
+  
+  # AI/ML Resources
+  openai:
+    type: ai.openai.model
+    model:
+      name: gpt-4
+      version: "0613"
+  
+  ai-project:
+    type: ai.project
+    models:
+      - name: gpt-4o
+        version: "2024-05-13"
+        format: OpenAI
+        sku:
+          name: GlobalStandard
+          usageName: OpenAI.GlobalStandard.gpt-4o
+          capacity: 10
+  
+  search:
+    type: ai.search
+  
+  # Database resources
+  postgres:
+    type: db.postgres
+    
+  mysql:
+    type: db.mysql
+    
+  redis:
+    type: db.redis
+    
+  mongodb:
+    type: db.mongo
+  
+  # Key Vault
+  vault:
+    type: keyvault`;
 ---
 
 <Layout 
@@ -897,7 +1155,7 @@ const quickReference = `# Property Quick Reference
                 <td class="py-3 px-4">array/object</td>
                 <td class="py-3 px-4">-</td>
                 <td class="py-3 px-4">azd app</td>
-                <td class="py-3 px-4">Environment variables as array of {name, value/secret} or key-value object</td>
+                <td class="py-3 px-4">Environment variables as array of &#123;name, value/secret&#125; or key-value object</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">uses</code></td>
@@ -1012,20 +1270,7 @@ const quickReference = `# Property Quick Reference
         </div>
 
         <h3 class="text-2xl font-bold mb-4 mt-8">Environment Variable Formats</h3>
-        <Code code={`services:
-  api:
-    # Array format (supports secrets)
-    environment:
-      - name: NODE_ENV
-        value: development
-      - name: DB_PASSWORD
-        secret: DB_SECRET  # Reference to secret
-    
-    # Object format (simpler, no secrets)
-    environment:
-      NODE_ENV: development
-      API_URL: http://localhost:8080
-      DEBUG: "true"`} lang="yaml" />
+        <Code code={environmentVariablesExample} lang="yaml" />
       </section>
 
       <!-- HEALTHCHECKS -->
@@ -1191,7 +1436,7 @@ const quickReference = `# Property Quick Reference
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">tag</code></td>
                 <td class="py-3 px-4">string</td>
-                <td class="py-3 px-4">azd-{env}-{timestamp}</td>
+                <td class="py-3 px-4">azd-&#123;env&#125;-&#123;timestamp&#125;</td>
                 <td class="py-3 px-4">Image tag. Use "latest" with caution in production.</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
@@ -1986,16 +2231,7 @@ const quickReference = `# Property Quick Reference
           Configure how Azure infrastructure is provisioned for your application. Supports Bicep and Terraform!
         </p>
 
-        <Code code={`infra:
-  provider: bicep  # or 'terraform'
-  path: ./infra  # Default: infra
-  module: main  # Default: main
-  
-# Terraform example
-infra:
-  provider: terraform
-  path: ./infrastructure
-  module: main`} lang="yaml" />
+        <Code code={infraProviderExample} lang="yaml" />
 
         <div class="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
           <h3 class="text-lg font-bold mb-3">Infrastructure Properties</h3>
@@ -2017,18 +2253,7 @@ infra:
           Configure continuous integration pipeline settings for GitHub Actions or Azure DevOps.
         </p>
 
-        <Code code={`pipeline:
-  provider: github  # or 'azdo' for Azure DevOps
-  
-  # Variables from azd environment to pass to pipeline
-  variables:
-    - AZURE_ENV_NAME
-    - AZURE_LOCATION
-    
-  # Secrets from azd environment to pass to pipeline
-  secrets:
-    - AZURE_SUBSCRIPTION_ID
-    - DATABASE_PASSWORD`} lang="yaml" />
+        <Code code={pipelineProviderExample} lang="yaml" />
 
         <div class="mt-6 p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
           <h3 class="text-lg font-bold mb-3">Pipeline Properties</h3>
@@ -2051,26 +2276,19 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Override the default resource group name used for infrastructure provisioning:
         </p>
-        <Code code={`resourceGroup: my-custom-rg-name  # Supports environment variable substitution`} lang="yaml" />
+        <Code code={resourceGroupExample} lang="yaml" />
 
         <h3 class="text-2xl font-bold mb-4 mt-8">Required Versions</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Specify version constraints for azd CLI and extensions:
         </p>
-        <Code code={`requiredVersions:
-  azd: ">= 0.6.0-beta.3"
-  extensions:
-    azure-app: ">=1.0.0"
-    my-extension: "~2.0.0"  # Supports semver constraints`} lang="yaml" />
+        <Code code={requiredVersionsExample} lang="yaml" />
 
         <h3 class="text-2xl font-bold mb-4 mt-8">Infrastructure Configuration (infra)</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Define infrastructure provider and location:
         </p>
-        <Code code={`infra:
-  provider: bicep  # or terraform
-  path: infra  # Path to infrastructure code (default: infra)
-  module: main  # Main module name (bicep) or path (terraform)`} lang="yaml" />
+        <Code code={infraConfigExample} lang="yaml" />
 
         <div class="overflow-x-auto my-6">
           <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -2109,13 +2327,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Configure CI/CD pipeline settings:
         </p>
-        <Code code={`pipeline:
-  provider: github  # or azdo (Azure DevOps)
-  variables:
-    NODE_ENV: production
-  secrets:
-    - API_KEY
-    - DATABASE_URL`} lang="yaml" />
+        <Code code={deploymentPipelineExample} lang="yaml" />
 
         <div class="overflow-x-auto my-6">
           <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -2150,13 +2362,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Configure remote state storage for infrastructure state (Terraform, etc.):
         </p>
-        <Code code={`state:
-  remote:
-    backend: AzureBlobStorage
-    config:
-      accountName: mystorageaccount
-      containerName: tfstate  # Optional, defaults to project name
-      endpoint: blob.core.windows.net  # Optional`} lang="yaml" />
+        <Code code={stateConfigExample} lang="yaml" />
 
         <div class="overflow-x-auto my-6">
           <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -2196,14 +2402,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Integration with Azure Dev Center for enterprise scenarios:
         </p>
-        <Code code={`platform:
-  type: devcenter
-  config:
-    name: my-dev-center
-    project: my-dev-center-project
-    catalog: my-catalog
-    environmentDefinition: my-env-def
-    environmentType: dev`} lang="yaml" />
+        <Code code={platformConfigExample} lang="yaml" />
 
         <div class="overflow-x-auto my-6">
           <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -2253,19 +2452,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Customize azd command workflows (e.g., change the order of provision, package, deploy):
         </p>
-        <Code code={`workflows:
-  up:
-    steps:
-      - azd: package --all
-      - azd: provision
-      - azd: deploy --all
-      
-# Or as array shorthand:
-# workflows:
-#   up:
-#     - azd: package --all
-#     - azd: provision
-#     - azd: deploy --all`} lang="yaml" />
+        <Code code={workflowsExample} lang="yaml" />
 
         <div class="overflow-x-auto my-6">
           <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -2313,8 +2500,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Deploy to sovereign clouds (Azure Government, Azure China, etc.):
         </p>
-        <Code code={`cloud:
-  name: AzureUSGovernment  # AzureCloud (default), AzureChinaCloud, AzureUSGovernment`} lang="yaml" />
+        <Code code={cloudConfigExample} lang="yaml" />
 
         <div class="overflow-x-auto my-6">
           <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
@@ -2341,52 +2527,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Additional service properties for Azure deployment:
         </p>
-        <Code code={`services:
-  api:
-    host: containerapp  # Required: appservice, containerapp, function, springapp, staticwebapp, aks, ai.endpoint
-    project: ./api
-    
-    # Deployment configuration
-    resourceGroup: custom-rg  # Override default resource group
-    resourceName: my-api-instance  # Override resource name discovery
-    module: api-module  # Infrastructure module for this service
-    dist: ./dist  # Path to deployment artifacts
-    
-    # API version for deployment
-    apiVersion: "2023-05-01"  # Container App API version
-    
-    # AKS-specific configuration
-    k8s:
-      deploymentPath: manifests  # Path to k8s manifests
-      namespace: production  # K8s namespace
-      deployment:
-        name: api-deployment
-      service:
-        name: api-service
-      ingress:
-        name: api-ingress
-        relativePath: /api
-      
-    # Service hooks (in addition to global hooks)
-    hooks:
-      predeploy:
-        run: npm run build
-        shell: sh
-      postdeploy:
-        run: echo "Deployed successfully!"
-        shell: sh
-      prerestore:
-        run: npm install
-      postrestore:
-        run: echo "Restored dependencies"
-      prebuild:
-        run: npm run lint
-      postbuild:
-        run: echo "Build complete"
-      prepackage:
-        run: npm run test
-      postpackage:
-        run: echo "Package ready"`} lang="yaml" />
+        <Code code={serviceDeploymentExample} lang="yaml" />
 
         <div class="mt-6 p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
           <h3 class="text-lg font-bold mb-3">Service Host Types</h3>
@@ -2454,98 +2595,7 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
           Azure resource types with special configuration options:
         </p>
-        <Code code={`resources:
-  # Storage Account
-  storage:
-    type: storage
-    containers:  # Optional: containers to create
-      - uploads
-      - backups
-  
-  # Cosmos DB
-  cosmosdb:
-    type: db.cosmos
-    containers:
-      - name: users
-        partitionKeys: ["/id"]
-      - name: orders
-        partitionKeys: ["/customerId", "/region"]
-  
-  # Event Hubs
-  eventhubs:
-    type: messaging.eventhubs
-    hubs:  # Hubs to create
-      - telemetry
-      - logs
-  
-  # Service Bus
-  servicebus:
-    type: messaging.servicebus
-    queues:
-      - orders
-      - notifications
-    topics:
-      - events
-  
-  # App Service host resource
-  webapp:
-    type: host.appservice
-    port: 80
-    runtime:
-      stack: node
-      version: "20-lts"
-    startupCommand: "npm start"
-    env:
-      - name: NODE_ENV
-        value: production
-  
-  # Container App host resource
-  api-host:
-    type: host.containerapp
-    port: 8080
-    env:
-      - name: LOG_LEVEL
-        value: info
-      - name: DB_PASSWORD
-        secret: DB_PASSWORD_SECRET
-  
-  # AI/ML Resources
-  openai:
-    type: ai.openai.model
-    model:
-      name: gpt-4
-      version: "0613"
-  
-  ai-project:
-    type: ai.project
-    models:
-      - name: gpt-4o
-        version: "2024-05-13"
-        format: OpenAI
-        sku:
-          name: GlobalStandard
-          usageName: OpenAI.GlobalStandard.gpt-4o
-          capacity: 10
-  
-  search:
-    type: ai.search
-  
-  # Database resources
-  postgres:
-    type: db.postgres
-    
-  mysql:
-    type: db.mysql
-    
-  redis:
-    type: db.redis
-    
-  mongodb:
-    type: db.mongo
-  
-  # Key Vault
-  vault:
-    type: keyvault`} lang="yaml" />
+        <Code code={resourceTypesExample} lang="yaml" />
       </section>
 
       <!-- FULL EXAMPLE -->
@@ -2658,11 +2708,7 @@ infra:
           Store custom metadata about your application. Commonly used to track template information.
         </p>
 
-        <Code code={`metadata:
-  template: todo-nodejs-mongo@0.0.1-beta
-  author: Azure Samples
-  description: Full-stack application with Node.js and MongoDB
-  customField: any-value-you-want`} lang="yaml" />
+        <Code code={metadataExample} lang="yaml" />
 
         <div class="mt-6 p-6 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
           <p class="text-neutral-700 dark:text-neutral-300">
@@ -2721,27 +2767,13 @@ infra:
         <p class="text-neutral-700 dark:text-neutral-300 mb-3">
           Use v1.1 if you're using <strong>azd app</strong> for local development. This is a superset that includes all v1.0 properties plus local development features:
         </p>
-        <Code code={`# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
-
-name: my-app
-services:
-  api:
-    project: ./api
-    ports: ["8080"]  # v1.1 feature
-    healthcheck:  # v1.1 feature
-      path: /health`} lang="yaml" />
+        <Code code={schemaV11Example} lang="yaml" />
 
         <h3 class="text-xl font-bold mb-3 mt-8">Schema v1.0 (Deployment Only)</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-3">
           Use v1.0 if you're only using standard <strong>azd</strong> for Azure deployment without local development features:
         </p>
-        <Code code={`# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
-
-name: my-app
-services:
-  api:
-    host: containerapp  # v1.0 deployment
-    project: ./api`} lang="yaml" />
+        <Code code={schemaV10Example} lang="yaml" />
 
         <div class="mt-6 p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-700">
           <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
