@@ -119,4 +119,3 @@ A team standardizes on yarn v4 for its improved performance, security features, 
 - [test-npm-project](../test-npm-project/) - npm variant
 - [test-pnpm-project](../test-pnpm-project/) - pnpm variant
 - [test-package-manager-override](../test-package-manager-override/) - Override behavior
-- [test-no-packagemanager](../test-no-packagemanager/) - Default npm detection

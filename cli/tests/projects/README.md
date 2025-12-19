@@ -6,9 +6,9 @@ This directory contains comprehensive test projects used to validate `azd app` c
 
 ```
 projects/
-├── 📦 package-managers/     (7 projects) - Dependency detection & installation
-│   ├── node/               (5 projects) - npm, pnpm, yarn, override, workspaces
-│   └── python/             (2 projects) - pip, poetry
+├── 📦 package-managers/     (8 projects) - Dependency detection & installation
+│   ├── node/               (6 projects) - npm, pnpm, yarn, override, workspaces
+│   └── python/             (3 projects) - pip, poetry, uv
 │
 ├── 🧪 test-frameworks/      (9 projects) - Test runner discovery & execution
 │   ├── node/               (3 projects) - jest, vitest, alternatives
@@ -23,10 +23,13 @@ projects/
 │   ├── fullstack-test/
 │   └── process-services-test/
 │
-└── 🔧 integration/          (9 projects) - Advanced features & edge cases
+└── 🔧 integration/          (10 projects) - Advanced features & edge cases
     ├── aspire-test/
     ├── azure/
+    ├── azure-logs-test/
     ├── boundary-test/
+    ├── containers-test/
+    ├── discovery-test/
     ├── env-formats-test/
     ├── go-api/
     ├── health-test/
@@ -44,6 +47,7 @@ projects/
 #### Node.js (`package-managers/node/`)
 - **test-npm-project/** - npm with explicit packageManager field and default fallback
 - **test-pnpm-project/** - pnpm with explicit packageManager field
+- **test-pnpm-workspace/** - pnpm workspaces with pnpm-workspace.yaml detection
 - **test-yarn-project/** - yarn with explicit packageManager field
 - **test-package-manager-override/** - packageManager field overrides lock files
 - **test-npm-workspace/** - npm workspaces with monorepo race condition fix
@@ -51,6 +55,7 @@ projects/
 #### Python (`package-managers/python/`)
 - **test-python-project/** - pip package manager (default)
 - **test-poetry-project/** - Poetry dependency management
+- **test-uv-project/** - uv package manager (modern alternative)
 
 ### 🧪 Testing Framework Support (`test-frameworks/`)
 
@@ -173,6 +178,9 @@ projects/
 
 **Purpose**: Validate advanced configuration and edge cases.
 
+- **discovery-test/** - Multi-language test discovery
+  - Tests: Discover tests across Node.js (Jest, Vitest), Python (pytest), Go (testing), .NET in single workspace
+
 - **boundary-test/** - Workspace boundary checking
   - Tests: Only detect services within azure.yaml workspace, don't traverse parent directories
   
@@ -193,6 +201,12 @@ projects/
   
 - **azure/** - Configuration file variants
   - Tests: azure.yaml parsing, backup/recovery, error handling
+
+- **azure-logs-test/** - Azure Log Analytics integration
+  - Tests: Log workspace discovery, KQL queries, Application Insights, Container Apps logs
+
+- **containers-test/** - Docker container services
+  - Tests: Container lifecycle, image management, port mapping
 
 ## Quick Reference by Use Case
 
@@ -261,13 +275,14 @@ azd app run
 
 | Category | Count | Purpose |
 |----------|-------|---------|
-| Package Manager | 7 | Detect and install dependencies |
+| Package Manager | 8 | Detect and install dependencies |
 | Testing Frameworks | 9 | Discover and run tests |
 | Azure Functions | 12 | Function variants and languages |
 | Service Orchestration | 3 | Multi-service configuration |
 | Health & Monitoring | 2 | Service health and lifecycle |
-| Advanced Features | 7 | Edge cases and integrations |
-| **Total** | **40** | Comprehensive coverage |
+| Advanced Features | 10 | Edge cases and integrations |
+| Requirements Generation | 4 | azure.yaml generation testing |
+| **Total** | **48** | Comprehensive coverage |
 
 ## Key Testing Principles
 
