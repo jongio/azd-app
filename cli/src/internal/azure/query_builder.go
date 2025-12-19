@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+const (
+	// defaultQueryResultLimit is the default limit for query results to prevent excessive data transfer.
+	// Set to 1000 rows as a balance between completeness and performance.
+	defaultQueryResultLimit = 1000
+)
+
 // QueryBuilder helps construct KQL queries from table selections.
 type QueryBuilder struct {
 	tables      []string
@@ -49,11 +55,12 @@ func (qb *QueryBuilder) buildSingleTableQuery(tableName string) string {
 %s
 | project TimeGenerated, %s
 | order by TimeGenerated desc
-| take 1000`,
+| take %d`,
 		tableName,
 		qb.timespan,
 		filter,
 		qb.getProjectColumns(tableName),
+		defaultQueryResultLimit,
 	)
 
 	return strings.TrimSpace(query)
@@ -77,8 +84,9 @@ func (qb *QueryBuilder) buildUnionQuery() string {
 
 	query := fmt.Sprintf(`union %s
 | order by TimeGenerated desc
-| take 1000`,
+| take %d`,
 		strings.Join(parts, ", "),
+		defaultQueryResultLimit,
 	)
 
 	return strings.TrimSpace(query)

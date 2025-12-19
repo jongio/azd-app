@@ -65,14 +65,14 @@ func TestBroadcast_AsyncNoBlocking(t *testing.T) {
 	}
 
 	elapsed := time.Since(start)
-	
+
 	// With async broadcasts, this should complete quickly even with slow client
 	// Each broadcast should take <100ms, so 5 broadcasts = ~500ms max
 	// If synchronous, would wait for write timeout (500ms * 5 = 2.5s+)
 	maxExpected := 1 * time.Second // Allow some buffer
-	
+
 	if elapsed > maxExpected {
-		t.Errorf("Broadcasts took %v, expected < %v - async broadcasts may not be working", 
+		t.Errorf("Broadcasts took %v, expected < %v - async broadcasts may not be working",
 			elapsed, maxExpected)
 	} else {
 		t.Logf("✓ Broadcasts completed in %v (async working correctly)", elapsed)
@@ -150,12 +150,12 @@ func TestBroadcast_MessageOrdering(t *testing.T) {
 
 	received := atomic.LoadInt32(&receivedCount)
 	expected := int32(numBroadcasters * broadcastsEach)
-	
+
 	// With async broadcasts, we should receive most/all messages
 	if received < expected/2 {
 		t.Errorf("Only received %d/%d messages - potential message loss", received, expected)
 	} else {
-		t.Logf("✓ Received %d/%d messages (%.0f%% delivery)", 
+		t.Logf("✓ Received %d/%d messages (%.0f%% delivery)",
 			received, expected, float64(received)/float64(expected)*100)
 	}
 }
@@ -185,12 +185,12 @@ func TestWebSocket_GoroutineLeaks(t *testing.T) {
 	baselineGoroutines := runtime.NumGoroutine()
 
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
-	
+
 	// Connect and disconnect multiple clients
 	numClients := 10
 	for i := 0; i < numClients; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		
+
 		ws, _, err := websocket.Dial(ctx, wsURL, nil)
 		if err != nil {
 			cancel()
@@ -208,7 +208,7 @@ func TestWebSocket_GoroutineLeaks(t *testing.T) {
 		// Close connection
 		ws.Close(websocket.StatusNormalClosure, "test complete")
 		cancel()
-		
+
 		time.Sleep(50 * time.Millisecond) // Allow cleanup
 	}
 
@@ -275,13 +275,13 @@ func TestWebSocket_WriteFailureBackpressure(t *testing.T) {
 	// After multiple failures, the client should be disconnected
 	// Try to read - should get an error
 	time.Sleep(2 * time.Second)
-	
+
 	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer readCancel()
-	
+
 	var msg map[string]interface{}
 	err = wsjson.Read(readCtx, ws, &msg)
-	
+
 	// We expect either:
 	// 1. Connection closed by server (backpressure worked)
 	// 2. Timeout (client still connected but not receiving)
@@ -290,7 +290,7 @@ func TestWebSocket_WriteFailureBackpressure(t *testing.T) {
 		// The backpressure mechanism may have taken longer
 		t.Logf("Client still connected after multiple write failures (backpressure may need tuning)")
 	} else if websocket.CloseStatus(err) != -1 {
-		t.Logf("✓ Client disconnected as expected due to write failures (status: %d)", 
+		t.Logf("✓ Client disconnected as expected due to write failures (status: %d)",
 			websocket.CloseStatus(err))
 	} else {
 		t.Logf("Read failed with: %v (backpressure may be working)", err)
@@ -340,16 +340,16 @@ func TestGlobalConnectionLimit(t *testing.T) {
 			}
 			continue
 		}
-		
+
 		// Read initial message to keep connection alive
 		go func(w *websocket.Conn) {
 			var msg map[string]interface{}
 			_ = wsjson.Read(ctx, w, &msg)
 		}(ws)
-		
+
 		connections = append(connections, ws)
 		successCount++
-		
+
 		// Small delay to avoid overwhelming the server
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -360,7 +360,7 @@ func TestGlobalConnectionLimit(t *testing.T) {
 	if successCount >= 120 {
 		t.Error("Global connection limit not enforced - opened 120+ connections")
 	}
-	
+
 	// Should have allowed at least some connections
 	if successCount < 10 {
 		t.Error("Global connection limit too restrictive - allowed < 10 connections")
@@ -429,7 +429,7 @@ func TestOriginValidation_EnhancedSecurity(t *testing.T) {
 func TestWriteJSON_Optimization(t *testing.T) {
 	// This is a structural test - we verify behavior, not implementation
 	// We can measure timing to ensure marshaling isn't blocking writes
-	
+
 	tempDir := t.TempDir()
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
 	if err := os.WriteFile(azureYamlPath, []byte("name: test\nservices:\n  api:\n    language: python\n"), 0600); err != nil {
@@ -485,7 +485,7 @@ func BenchmarkAsyncBroadcast(b *testing.B) {
 	wsURL := strings.Replace(srvURL, "http://", "ws://", 1) + "/api/ws"
 	ctx := context.Background()
 	clients := make([]*websocket.Conn, 10)
-	
+
 	for i := 0; i < 10; i++ {
 		ws, _, err := websocket.Dial(ctx, wsURL, nil)
 		if err != nil {

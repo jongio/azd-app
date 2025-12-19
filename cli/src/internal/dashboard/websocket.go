@@ -57,8 +57,8 @@ type wsClient struct {
 
 // connectionRateLimiter tracks connection attempts per IP to prevent spam.
 type connectionRateLimiter struct {
-	mu          sync.Mutex
-	connections map[string]*connectionTracker
+	mu             sync.Mutex
+	connections    map[string]*connectionTracker
 	maxPerIP       int
 	maxTotal       int
 	totalCount     int
@@ -357,7 +357,7 @@ func (m *wsHealthMonitor) start() <-chan error {
 			case <-m.pingTicker.C:
 				// coder/websocket manages read deadlines internally via context
 				// The ping/pong mechanism combined with read timeouts detects dead connections
-				
+
 				// Send ping to verify connection is alive
 				ctx, cancel := context.WithTimeout(m.client.ctx, service.DefaultWebSocketWriteTimeout)
 				err := m.client.conn.Ping(ctx)

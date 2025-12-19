@@ -34,6 +34,12 @@ type LogEntry struct {
 	InstanceID    string
 }
 
+// Note: defaultQueries uses hardcoded "1000" in the KQL templates because:
+// 1. These are string templates, not executed queries
+// 2. The limit is part of the KQL syntax, not a Go constant
+// 3. Changing this would require string replacement or fmt.Sprintf, adding complexity
+// 4. The value aligns with defaultQueryResultLimit constant in query_builder.go
+
 // Default KQL queries for different resource types.
 var defaultQueries = map[ResourceType]string{
 	ResourceTypeContainerApp: `
@@ -147,7 +153,7 @@ func (c *LogAnalyticsClient) QueryLogs(ctx context.Context, serviceName string, 
 		Timespan: &timespan,
 	}, &azlogs.QueryWorkspaceOptions{
 		Options: &azlogs.QueryOptions{
-			Wait:       toPtrInt(600),  // 10 minute timeout for complex queries
+			Wait:       toPtrInt(600),   // 10 minute timeout for complex queries
 			Statistics: toPtrBool(true), // Enable query performance statistics
 		},
 	})

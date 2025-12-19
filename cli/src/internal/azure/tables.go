@@ -141,14 +141,23 @@ func GetTableInfo(tableName string) TableInfo {
 }
 
 // GetTableCategory determines the category for a table name.
+// When a table appears in multiple categories, it returns the primary category
+// based on a predefined priority order.
 func GetTableCategory(tableName string) string {
-	for category, cat := range TableCategories {
-		for _, table := range cat.Tables {
-			if table == tableName {
-				return category
+	// Priority order for categories
+	categoryPriority := []string{"containerapp", "appservice", "function", "aks", "aci"}
+	
+	// Check each category in priority order
+	for _, category := range categoryPriority {
+		if cat, ok := TableCategories[category]; ok {
+			for _, table := range cat.Tables {
+				if table == tableName {
+					return category
+				}
 			}
 		}
 	}
+	
 	return "other"
 }
 

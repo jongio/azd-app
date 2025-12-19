@@ -40,7 +40,7 @@ func TestRateLimiterLeak_FailedHandshake(t *testing.T) {
 	// By removing azure.yaml, serviceinfo.GetServiceInfo will fail
 	// But we can't easily simulate write failure, so instead we'll test
 	// that rate limiter is incremented/decremented properly on normal flow
-	
+
 	wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -89,7 +89,7 @@ func TestHealthMonitorGoroutineLeak(t *testing.T) {
 	for i := 0; i < numConnections; i++ {
 		wsURL := strings.Replace(url, "http://", "ws://", 1) + "/api/ws"
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		
+
 		ws, _, err := websocket.Dial(ctx, wsURL, nil)
 		if err != nil {
 			cancel()
@@ -116,7 +116,7 @@ func TestHealthMonitorGoroutineLeak(t *testing.T) {
 
 	// Should not have significant goroutine leak (allow ±5 for variance)
 	if goroutineDelta > 5 {
-		t.Errorf("Potential goroutine leak: started with %d, ended with %d (delta: %d)", 
+		t.Errorf("Potential goroutine leak: started with %d, ended with %d (delta: %d)",
 			initialGoroutines, finalGoroutines, goroutineDelta)
 	}
 }
@@ -174,7 +174,7 @@ func TestBroadcastGoroutineLimiting(t *testing.T) {
 	// Each client should receive 10 messages
 	messagesReceived := 0
 	deadline := time.Now().Add(5 * time.Second)
-	
+
 	for i := 0; i < numClients; i++ {
 		for j := 0; j < 10; j++ {
 			if time.Now().After(deadline) {
@@ -342,7 +342,7 @@ func TestJSONMarshalingOptimization(t *testing.T) {
 			defer wg.Done()
 			readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer readCancel()
-			
+
 			_, data, err := ws.Read(readCtx)
 			if err != nil {
 				t.Errorf("client %d failed to read: %v", idx, err)
@@ -611,7 +611,7 @@ func TestConcurrentBroadcasts(t *testing.T) {
 	}
 
 	wg.Wait()
-	
+
 	// Give time for all broadcasts to complete
 	time.Sleep(500 * time.Millisecond)
 
@@ -629,7 +629,7 @@ func TestConcurrentBroadcasts(t *testing.T) {
 func TestWriteTimeoutIncrease(t *testing.T) {
 	// This test verifies constants, not behavior
 	const expectedTimeout = 2 * time.Second
-	
+
 	// Import is handled at package level, we check the value
 	// This would need to be checked via actual constant value
 	t.Logf("Write timeout should be %v for reliable local connections", expectedTimeout)
