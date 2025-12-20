@@ -25,10 +25,10 @@ describe('useLogsStream flood prevention', () => {
   })
 
   it('should not flood the server when multiple services mount simultaneously', async () => {
-    const mockFetch = vi.fn().mockImplementation(async () => {
+    const mockFetch = vi.fn().mockImplementation(() => {
       return {
         ok: true,
-        json: async () => [],
+        json: () => [],
       }
     })
     globalThis.fetch = mockFetch
@@ -61,7 +61,7 @@ describe('useLogsStream flood prevention', () => {
 
     // Should make exactly 4 requests (one per service), not more
     // Each service should only fetch once, not repeatedly
-    console.log(`Total fetch calls: ${mockFetch.mock.calls.length}`)
+    console.warn(`Total fetch calls: ${mockFetch.mock.calls.length}`)
     
     // Group by service to see how many times each was called
     const callsByService = new Map<string, number>()
@@ -74,7 +74,7 @@ describe('useLogsStream flood prevention', () => {
       }
     })
     
-    console.log('Calls by service:', Object.fromEntries(callsByService))
+    console.warn('Calls by service:', Object.fromEntries(callsByService))
     
     // Each service should be called at most 2 times (due to React Strict Mode double-mount)
     // But definitely not more than that
@@ -88,10 +88,10 @@ describe('useLogsStream flood prevention', () => {
   })
 
   it('should not repeatedly poll in local mode when using WebSocket', async () => {
-    const mockFetch = vi.fn().mockImplementation(async () => {
+    const mockFetch = vi.fn().mockImplementation(() => {
       return {
         ok: true,
-        json: async () => [],
+        json: () => [],
       }
     })
     globalThis.fetch = mockFetch
@@ -118,7 +118,7 @@ describe('useLogsStream flood prevention', () => {
     await vi.runAllTimersAsync()
     
     const initialCallCount = mockFetch.mock.calls.length
-    console.log(`Initial calls: ${initialCallCount}`)
+    console.warn(`Initial calls: ${initialCallCount}`)
     
     mockFetch.mockClear()
 
@@ -127,15 +127,15 @@ describe('useLogsStream flood prevention', () => {
 
     // In local mode, we should NOT be polling via HTTP - we use WebSocket
     // So there should be NO additional HTTP requests after the initial one
-    console.log(`Additional calls after 30s: ${mockFetch.mock.calls.length}`)
+    console.warn(`Additional calls after 30s: ${mockFetch.mock.calls.length}`)
     expect(mockFetch.mock.calls.length).toBe(0)
   })
 
   it('should not make HTTP requests in local mode at all when WebSocket is available', async () => {
-    const mockFetch = vi.fn().mockImplementation(async () => {
+    const mockFetch = vi.fn().mockImplementation(() => {
       return {
         ok: true,
-        json: async () => [],
+        json: () => [],
       }
     })
     globalThis.fetch = mockFetch
@@ -163,6 +163,6 @@ describe('useLogsStream flood prevention', () => {
 
     // The question: should local mode use HTTP polling at all?
     // Looking at the code, it seems like it shouldn't - WebSocket should handle it
-    console.log(`HTTP fetch calls in local mode: ${mockFetch.mock.calls.length}`)
+    console.warn(`HTTP fetch calls in local mode: ${mockFetch.mock.calls.length}`)
   })
 })
