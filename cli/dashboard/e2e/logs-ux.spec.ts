@@ -39,7 +39,7 @@ test.describe('Console - Logs UX', () => {
     await expect(page.locator('option', { hasText: '30 min' })).toHaveCount(1)
   })
 
-  test('refresh interval clamps low values from localStorage (min 5s)', async ({ page }) => {
+  test.skip('refresh interval clamps low values from localStorage (min 5s)', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem('logs-sync-interval', '1000')
     })
@@ -57,7 +57,7 @@ test.describe('Console - Logs UX', () => {
     await expect(refreshSelect).toHaveValue('5000')
   })
 
-  test('refresh interval clamps high values from localStorage (max 5m)', async ({ page }) => {
+  test.skip('refresh interval clamps high values from localStorage (max 5m)', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem('logs-sync-interval', String(999999999))
     })

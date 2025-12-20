@@ -426,7 +426,7 @@ func TestRateLimiterPerServer(t *testing.T) {
 	if count1 != 1 {
 		t.Errorf("Server 1 rate limiter count = %d, want 1", count1)
 	}
-	
+
 	srv2.rateLimiter.mu.Lock()
 	count2 := srv2.rateLimiter.totalCount
 	srv2.rateLimiter.mu.Unlock()
