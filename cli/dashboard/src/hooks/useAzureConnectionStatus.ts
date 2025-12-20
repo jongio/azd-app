@@ -52,13 +52,12 @@ function parseModeApiResponse(value: unknown): ModeApiResponse {
 
 export interface UseAzureConnectionStatusResult {
   logMode: LogMode
-  setLogMode: (mode: LogMode) => void
   isModeSwitching: boolean
   azureEnabled: boolean
   azureStatus: AzureConnectionStatus
   azureConnectionMessage: string | undefined
   fetchAzureStatus: () => Promise<void>
-  handleLogModeChange: (newMode: LogMode) => void
+  handleLogModeChange: (newMode: LogMode) => Promise<void>
 }
 
 export interface UseAzureConnectionStatusOptions {
@@ -73,12 +72,32 @@ export function useAzureConnectionStatus(
   const [azureEnabled, setAzureEnabled] = React.useState(false)
   const [azureStatus, setAzureStatus] = React.useState<AzureConnectionStatus>('disabled')
   const [azureConnectionMessage, setAzureConnectionMessage] = React.useState<string | undefined>(undefined)
+  
+  // Track in-flight requests to prevent concurrent fetches
+  const abortControllerRef = React.useRef<AbortController | null>(null)
+  // Track mode switch cleanup timeout
+  const modeSwitchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchAzureStatus = React.useCallback(async () => {
+    // Guard: prevent concurrent requests
+    if (abortControllerRef.current) {
+      return // Already fetching, skip this request
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
-      const res = await fetch('/api/mode')
+      const res = await fetch('/api/mode', { signal: controller.signal })
       if (res.ok) {
-        const raw: unknown = await res.json()
+        let raw: unknown
+        try {
+          raw = await res.json()
+        } catch (error_) {
+          console.warn('[useAzureConnectionStatus] Failed to parse mode response:', error_)
+          return
+        }
+        
         const data = parseModeApiResponse(raw)
 
         // Set the current mode from backend (important for initial page load)
@@ -100,22 +119,63 @@ export function useAzureConnectionStatus(
         }
       } else {
         // Non-OK response - backend is up but returned error
-        console.warn('[useAzureConnectionStatus] Failed to fetch mode:', res.status)
+        const statusText = res.statusText || 'Unknown error'
+        console.warn(`[useAzureConnectionStatus] Failed to fetch mode: ${res.status} ${statusText}`)
       }
     } catch (err) {
+      // Ignore abort errors (from cleanup or concurrent request prevention)
+      if (err instanceof Error && err.name === 'AbortError') {
+        return
+      }
       // Network error - backend is likely down, don't spam console
       // Status will remain as-is (disabled or last known state)
-      void err // Silence unused variable
+    } finally {
+      // Clear the abort controller if this is still our request
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+      }
     }
   }, [options])
 
-  const handleLogModeChange = React.useCallback((newMode: LogMode) => {
-    void (async () => {
-      if (newMode === logMode) {
+  // Cleanup: abort any in-flight request and clear timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+      if (modeSwitchTimeoutRef.current) {
+        clearTimeout(modeSwitchTimeoutRef.current)
+        modeSwitchTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  const handleLogModeChange = React.useCallback(
+    async (newMode: LogMode) => {
+      // Validate input
+      if (!isLogMode(newMode)) {
+        console.error(`[useAzureConnectionStatus] Invalid mode: ${String(newMode)}`)
         return
       }
 
+      // Get current mode synchronously
+      let currentModeSnapshot: LogMode | null = null
+      setLogMode((current) => {
+        currentModeSnapshot = current
+        return current
+      })
+
+      if (!currentModeSnapshot || newMode === currentModeSnapshot) {
+        return // No change needed
+      }
+
+      // Start async mode switch operation
       setIsModeSwitching(true)
+
+      // Clear any pending timeout
+      if (modeSwitchTimeoutRef.current) {
+        clearTimeout(modeSwitchTimeoutRef.current)
+        modeSwitchTimeoutRef.current = null
+      }
 
       try {
         // Call backend API to switch mode - this starts/stops Azure polling
@@ -126,25 +186,35 @@ export function useAzureConnectionStatus(
         })
 
         if (res.ok) {
+          // Success - update mode
           setLogMode(newMode)
           // Refresh Azure status after mode change
           await fetchAzureStatus()
         } else {
           const errorText = await res.text()
-          console.error('[useAzureConnectionStatus] Failed to switch mode:', errorText)
+          const statusText = res.statusText || 'Unknown error'
+          console.error(
+            `[useAzureConnectionStatus] Failed to switch mode to '${newMode}': ${res.status} ${statusText}`,
+            errorText
+          )
+          // Keep the previous mode on error
         }
       } catch (err) {
-        console.error('Error switching mode:', err)
+        console.error(`[useAzureConnectionStatus] Error switching mode to '${newMode}':`, err)
+        // Keep the previous mode on error
       } finally {
         // Clear switching state after a short delay to let panes reconnect
-        setTimeout(() => setIsModeSwitching(false), 1500)
+        modeSwitchTimeoutRef.current = setTimeout(() => {
+          setIsModeSwitching(false)
+          modeSwitchTimeoutRef.current = null
+        }, 1500)
       }
-    })()
-  }, [logMode, fetchAzureStatus])
+    },
+    [fetchAzureStatus]
+  )
 
   return {
     logMode,
-    setLogMode,
     isModeSwitching,
     azureEnabled,
     azureStatus,

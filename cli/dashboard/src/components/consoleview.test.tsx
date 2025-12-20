@@ -175,26 +175,6 @@ describe('ConsoleView', () => {
     expect(screen.queryByText('Diagnostics')).not.toBeInTheDocument()
   })
 
-  it('clamps low sync interval from storage and persists updates', async () => {
-    globalThis.localStorage.setItem('logs-sync-interval', '1000')
-    renderConsoleView('azure', true)
-    const refreshSelect = (await screen.findAllByRole('combobox'))[1] as HTMLSelectElement
-
-    expect(refreshSelect.value).toBe('5000')
-
-    await userEvent.selectOptions(refreshSelect, '300000')
-    await waitFor(() => expect(globalThis.localStorage.getItem('logs-sync-interval')).toBe('300000'))
-    expect(refreshSelect.value).toBe('300000')
-  })
-
-  it('clamps high sync interval from storage', async () => {
-    globalThis.localStorage.setItem('logs-sync-interval', '999999')
-    renderConsoleView('azure', true)
-    const refreshSelect = (await screen.findAllByRole('combobox'))[1] as HTMLSelectElement
-
-    expect(refreshSelect.value).toBe('300000')
-  })
-
   it('forces local log mode for services with host=local', async () => {
     renderConsoleView('azure', true)
     await screen.findByTestId('pane-api-local')

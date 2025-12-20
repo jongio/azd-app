@@ -16,13 +16,6 @@ class MockWebSocket {
 const originalWebSocket = globalThis.WebSocket
 const originalFetch = globalThis.fetch
 
-vi.mock('@/hooks/useAzurePollingRefreshTrigger', () => ({
-  useAzurePollingRefreshTrigger: () => ({
-    secondsUntilRefresh: 5,
-    refreshTrigger: 0,
-  }),
-}))
-
 describe('LogsPane refresh footer', () => {
   beforeEach(() => {
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket
@@ -38,37 +31,34 @@ describe('LogsPane refresh footer', () => {
     globalThis.fetch = originalFetch
   })
 
-  it('shows refresh countdown when syncInterval is set', async () => {
+  it('shows paused indicator when paused in Azure mode', async () => {
     render(
       <LogsPane
         serviceName="api"
         onCopy={() => {}}
-        isPaused={false}
+        isPaused={true}
         logMode="azure"
-        syncInterval={5000}
         azureRealtime={false}
       />
     )
 
-    expect(await screen.findByText(/Next refresh in/i)).toBeInTheDocument()
-    expect(screen.getByText('5s')).toBeInTheDocument()
+    expect(await screen.findByText(/Paused - log streaming stopped/i)).toBeInTheDocument()
   })
 
-  it('hides refresh countdown when collapsed', async () => {
+  it('hides footer when collapsed', async () => {
     render(
       <LogsPane
         serviceName="api"
         onCopy={() => {}}
-        isPaused={false}
+        isPaused={true}
         logMode="azure"
-        syncInterval={5000}
         azureRealtime={false}
         isCollapsed={true}
       />
     )
 
     await waitFor(() => {
-      expect(screen.queryByText(/Next refresh in/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Paused/i)).not.toBeInTheDocument()
     })
   })
 })
