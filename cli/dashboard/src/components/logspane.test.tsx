@@ -266,37 +266,5 @@ describe('LogsPane', () => {
 
       await waitFor(() => expect(capturedAzureUrls.some((url) => String(url).includes('since=24h'))).toBe(true))
     })
-
-    it('polls again within the updated sync interval when the interval is shortened', async () => {
-      const { rerender } = render(
-        <LogsPane
-          serviceName="api"
-          onCopy={() => {}}
-          isPaused={false}
-          logMode="azure"
-          syncInterval={30000}
-          azureRealtime={false}
-        />
-      )
-
-      await waitFor(() => {
-        expect(capturedAzureUrls.length).toBeGreaterThan(0)
-      })
-
-      rerender(
-        <LogsPane
-          serviceName="api"
-          onCopy={() => {}}
-          isPaused={false}
-          logMode="azure"
-          syncInterval={1000}
-          azureRealtime={false}
-        />
-      )
-
-      await waitFor(() => {
-        expect(capturedAzureUrls.length).toBeGreaterThanOrEqual(2)
-      }, { timeout: 3000 })
-    })
   })
 })

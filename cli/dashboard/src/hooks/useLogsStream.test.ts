@@ -552,9 +552,9 @@ describe('useLogsStream', () => {
       
       const currentCount = webSocketInstances.length
       
-      // Trigger re-render while timer is pending (refreshTrigger change causes effect re-run)
-      // Since refreshTrigger is in deps, this will cancel and recreate, but our guard prevents new WS
-      rerender(createParams({ refreshTrigger: 1 }))
+      // Trigger re-render while timer is pending (mode change or service change causes effect re-run)
+      // Since logMode is in deps, this will cancel and recreate, but our guard prevents new WS
+      rerender(createParams({ logMode: 'azure' }))
       
       // The effect runs again but createWebSocket returns early if reconnectTimerRef is set
       // However, the effect cleans up first (cancels timer), then runs again, creating a new one

@@ -72,10 +72,11 @@ export function ConsoleView({
     onFullscreenChange?.(isFullscreen)
   }, [isFullscreen, onFullscreenChange])
 
-  // Fetch Azure status on mount and when services change
+  // Fetch Azure status on mount only (not on every service update)
   React.useEffect(() => {
     void azureConnection.fetchAzureStatus()
-  }, [azureConnection, services])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only fetch on mount, not on service updates
+  }, [])
 
   // Keyboard shortcuts
   React.useEffect(() => {
@@ -232,7 +233,6 @@ export function ConsoleView({
                 logMode={effectiveLogMode}
                 isModeSwitching={azureConnection.isModeSwitching}
                 timeRange={effectiveLogMode === 'azure' ? timeRange : undefined}
-                syncInterval={syncSettings.syncInterval}
                 azureRealtime={syncSettings.azureRealtime}
               />
             )
@@ -253,7 +253,6 @@ export function ConsoleView({
         logMode={azureConnection.logMode}
         isModeSwitching={azureConnection.isModeSwitching}
         timeRange={azureConnection.logMode === 'azure' ? timeRange : undefined}
-        syncInterval={syncSettings.syncInterval}
         azureRealtime={syncSettings.azureRealtime}
       />
     )
@@ -295,8 +294,8 @@ export function ConsoleView({
         azureConnectionMessage={azureConnection.azureConnectionMessage}
         timeRange={timeRange}
         onTimeRangeChange={(preset) => setTimeRange(prev => (prev.preset === preset ? prev : { preset }))}
-        syncInterval={syncSettings.syncInterval}
-        onSyncIntervalChange={syncSettings.setSyncInterval}
+        azureRealtime={syncSettings.azureRealtime}
+        onAzureRealtimeChange={syncSettings.setAzureRealtime}
         onRunDiagnostics={() => setShowDiagnostics(true)}
       />
 

@@ -7,7 +7,6 @@ import type { HealthStatus, Service } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
 import type { LogMode } from './ModeToggle'
 import { stripEmbeddedTimestamp } from '@/lib/log-utils'
-import { useAzurePollingRefreshTrigger } from '@/hooks/useAzurePollingRefreshTrigger'
 import { LogsPaneHeader } from './LogsPaneHeader'
 import { LogsPaneContent } from './LogsPaneContent'
 import { LogsPaneModeBar } from './LogsPaneAzureControls'
@@ -51,7 +50,6 @@ interface LogsPaneProps {
   logMode?: LogMode               // Current log source mode (local or azure)
   isModeSwitching?: boolean       // Whether mode is currently being switched
   timeRange?: { preset: '15m' | '30m' | '6h' | '24h'; end?: Date }  // Optional, only used for Azure logs
-  syncInterval?: number           // Auto-refresh interval in milliseconds
   azureRealtime?: boolean         // Whether to use WebSocket realtime streaming for Azure logs
 }
 
@@ -73,7 +71,6 @@ export function LogsPane({
   logMode = 'local',
   isModeSwitching = false,
   timeRange,
-  syncInterval,
   azureRealtime = false,
 }: Readonly<LogsPaneProps>) {
   const { timeRange: resolvedTimeRange } = useAzureTimeRange(timeRange)
@@ -113,13 +110,6 @@ export function LogsPane({
   const isPausedRef = useRef(isPaused)
   const { addClassification } = useLogClassifications()
 
-  const { secondsUntilRefresh, refreshTrigger } = useAzurePollingRefreshTrigger({
-    syncInterval,
-    isPaused,
-    logMode,
-    azureRealtime,
-  })
-
   useEffect(() => {
     isPausedRef.current = isPaused
   }, [isPaused])
@@ -153,7 +143,6 @@ export function LogsPane({
     logMode,
     timeRange: resolvedTimeRange,
     azureRealtime,
-    refreshTrigger,
     isPausedRef,
     setLogs,
     setErrorMessage,
@@ -321,9 +310,8 @@ export function LogsPane({
 
       <LogsPaneRefreshFooter
         isCollapsed={isCollapsed}
-        syncInterval={syncInterval}
         isPaused={isPaused}
-        secondsUntilRefresh={secondsUntilRefresh}
+        logMode={logMode}
       />
     </section>
   )

@@ -35,8 +35,8 @@ export const SCROLL_THRESHOLD_PX = LOG_CONSTANTS.SCROLL_THRESHOLD_PX
 // ============================================================================
 
 const ansiConverter = new AnsiConverter({
-  fg: '#d4d4d4',
-  bg: '#0d0d0d',
+  fg: '#e2e8f0',
+  bg: '#111827',
   newline: false,
   escapeXML: true, // CRITICAL: Must be true to prevent XSS
   stream: false,
