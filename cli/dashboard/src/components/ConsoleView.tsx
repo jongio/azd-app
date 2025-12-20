@@ -125,7 +125,7 @@ export function ConsoleView({
       if (isToggleLogModeShortcut(e)) {
         e.preventDefault()
         if (azureConnection.azureEnabled) {
-          azureConnection.handleLogModeChange(azureConnection.logMode === 'local' ? 'azure' : 'local')
+          void azureConnection.handleLogModeChange(azureConnection.logMode === 'local' ? 'azure' : 'local')
         }
         return
       }
@@ -288,7 +288,7 @@ export function ConsoleView({
         onRestartAll={() => void restartAll()}
         isBulkOperationInProgress={isBulkOperationInProgress()}
         logMode={azureConnection.logMode}
-        onLogModeChange={azureConnection.handleLogModeChange}
+        onLogModeChange={(mode) => void azureConnection.handleLogModeChange(mode)}
         azureEnabled={azureConnection.azureEnabled}
         azureStatus={azureConnection.azureStatus}
         azureConnectionMessage={azureConnection.azureConnectionMessage}

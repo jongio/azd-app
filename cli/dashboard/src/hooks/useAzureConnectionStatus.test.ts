@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useAzureConnectionStatus } from './useAzureConnectionStatus'
+import type { LogMode } from '@/components/ModeToggle'
 
 // Mock fetch
 const createMockFetchResponse = <T,>(data: T, ok = true, status = 200) => {
@@ -206,7 +207,7 @@ describe('useAzureConnectionStatus', () => {
       const { result } = renderHook(() => useAzureConnectionStatus())
 
       act(() => {
-        result.current.handleLogModeChange('azure')
+        void result.current.handleLogModeChange('azure')
       })
 
       await waitFor(() => {
@@ -237,7 +238,7 @@ describe('useAzureConnectionStatus', () => {
       const { result } = renderHook(() => useAzureConnectionStatus())
 
       act(() => {
-        result.current.handleLogModeChange('azure')
+        void result.current.handleLogModeChange('azure')
       })
 
       await waitFor(() => {
@@ -261,7 +262,7 @@ describe('useAzureConnectionStatus', () => {
       const { result } = renderHook(() => useAzureConnectionStatus())
 
       act(() => {
-        result.current.handleLogModeChange('azure')
+        void result.current.handleLogModeChange('azure')
       })
 
       // Should be switching immediately
@@ -465,7 +466,7 @@ describe('useAzureConnectionStatus', () => {
   })
 
   describe('timeout cleanup', () => {
-    it('should clear mode switch timeout on unmount', async () => {
+    it('should clear mode switch timeout on unmount', () => {
       vi.useFakeTimers()
 
       const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
