@@ -55,7 +55,7 @@ export function LogsPaneContent({
   return (
     <div
       ref={logsContainerRef}
-      className="flex-1 overflow-y-auto bg-card p-4 font-mono text-sm"
+      className="flex-1 overflow-y-auto bg-card p-4 font-mono text-sm leading-relaxed"
       role="log"
       aria-live="polite"
       aria-atomic="false"
@@ -96,7 +96,7 @@ export function LogsPaneContent({
                 )}
                 
                 <div className="flex-1 min-w-0 select-text">
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-slate-200 text-sm font-medium">
                     [{formattedTimestamp}{serviceLabel}]
                   </span>
                   {' '}

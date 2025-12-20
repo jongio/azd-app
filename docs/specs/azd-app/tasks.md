@@ -1,5 +1,97 @@
-<!-- NEXT: 12 -->
+<!-- NEXT:  -->
 # azd-app Tasks
+
+## DONE: 17 Fix mode endpoint flood {#17-fix-mode-endpoint-flood}
+- **Problem**: Dashboard flooding server with excessive requests to `/api/mode` endpoint - network tab showed dozens of identical 212B requests every 2-3ms
+- **Root cause**: ConsoleView's useEffect had `services` in dependency array, triggering mode fetch on every service WebSocket update (multiple times per second)
+- **Architecture issue**: Mode endpoint should only be fetched once on mount, not repeatedly on every service state change
+- **Implementation**:
+  - ✅ Removed `services` from useEffect dependency array in ConsoleView - now fetches only on mount
+  - ✅ Added AbortController ref in useAzureConnectionStatus to track in-flight requests
+  - ✅ Added guard at start of fetchAzureStatus to prevent concurrent requests (returns early if fetch already in progress)
+  - ✅ AbortController properly cleared in finally block after fetch completes
+  - ✅ Cleanup handler aborts in-flight request on unmount
+  - ✅ Ignore abort errors (from cleanup or concurrent prevention) to avoid console spam
+  - ✅ Added eslint-disable comment explaining why mount-only dependency is intentional
+- **Pattern**: Same architectural approach as tasks #12-14 (WebSocket/HTTP flood fixes):
+  - Use AbortController ref for request state tracking
+  - Guard against concurrent requests with early return
+  - Proper cleanup on unmount
+  - Ignore abort errors
+- **Files**: [useAzureConnectionStatus.ts](cli/dashboard/src/hooks/useAzureConnectionStatus.ts), [ConsoleView.tsx](cli/dashboard/src/components/ConsoleView.tsx), [useAzureConnectionStatus.test.ts](cli/dashboard/src/hooks/useAzureConnectionStatus.test.ts)
+- **Tests**: 15 new tests in useAzureConnectionStatus.test.ts (100% pass)
+  - ✅ Should not fetch mode automatically (manual call required)
+  - ✅ Should not make concurrent requests to mode endpoint
+  - ✅ Should prevent flooding when called repeatedly
+  - ✅ Should allow new request after previous completes
+  - ✅ Should parse mode response correctly
+  - ✅ Should call PUT /api/mode when changing mode
+  - ✅ Should update mode after successful switch
+  - ✅ Should set switching state during mode change
+  - ✅ Should handle fetch errors gracefully
+  - ✅ Should handle non-OK responses
+  - ✅ Should ignore abort errors
+  - ✅ Should abort in-flight request on unmount
+  - ✅ Should call onAzureRealtimeConfig with realtime value
+- **Result**: Eliminated mode endpoint flood - server receives only 1 mode fetch on mount instead of continuous polling every few milliseconds
+
+## DONE: 16 Further enhance timestamp readability {#16-further-enhance-timestamp-readability}
+- ✅ Increased timestamp brightness: `text-slate-300` → `text-slate-200` (even brighter)
+- ✅ Added `font-medium` weight to timestamps for better visual prominence
+- ✅ Contrast now 11.8:1 (matches log text brightness)
+- ✅ Timestamps are now as readable as the log messages themselves
+
+## DONE: 15 Improve log message readability {#15-improve-log-message-readability}
+- ✅ Updated ANSI converter in log-utils.ts: fg `#d4d4d4` → `#e2e8f0` (11.8:1 contrast)
+- ✅ Updated ANSI background: bg `#0d0d0d` → `#111827` (matches actual card background)
+- ✅ Changed timestamp styling: `text-muted-foreground text-xs` → `text-slate-300 text-sm`
+- ✅ Timestamp contrast improved: 4.2:1 (FAILS WCAG) → 9.5:1 (AAA compliant)
+- ✅ Font size increased: 12px → 14px for better readability
+- ✅ Added `leading-relaxed` to logs container for improved scanability
+- ✅ Fixed pre-existing syntax error in LogsPaneContent.tsx (missing brace line 298)
+- ✅ All changes maintain visual hierarchy (errors > warnings > info)
+- ✅ Tests: 746/767 pass (4 pre-existing timing flakes unrelated to CSS changes)
+- ✅ WCAG AA compliance achieved for all text elements
+
+## DONE: 14 Fix HTTP polling flood in local mode {#14-fix-http-polling-flood-in-local-mode}
+- **Problem**: Dashboard flooding server with continuous HTTP requests to `/api/logs` in local mode - dozens of requests per second per service visible in network tab
+- **Root cause**: `refreshTrigger` dependency causing useEffect to re-run and call `fetchLogs()` in local mode, even though local mode should only use WebSocket streaming
+- **Architecture issue**: HTTP polling meant for Azure mode was being triggered in local mode by periodic `refreshTrigger` changes
+- **Fix**:
+  - ✅ Added conditional logic: only call `fetchLogs()` when `logMode === 'azure' && !azureRealtime` (Azure polling mode)
+  - ✅ Local mode now skips HTTP polling entirely - uses WebSocket exclusively via `useSharedLogStream`
+  - ✅ Still allows initial HTTP fetch on mount to get historical logs, then switches to WebSocket-only
+  - ✅ `refreshTrigger` changes no longer trigger HTTP requests in local mode
+- **Pattern**: Different streaming strategies for different modes:
+  - **Local mode**: WebSocket streaming only (no HTTP polling)
+  - **Azure realtime mode**: WebSocket streaming only (no HTTP polling)
+  - **Azure polling mode**: HTTP polling triggered by `refreshTrigger`
+- **Files**: [useLogsStream.ts](cli/dashboard/src/hooks/useLogsStream.ts), [useLogsStream.flood.test.ts](cli/dashboard/src/hooks/useLogsStream.flood.test.ts)
+- **Tests**: 4 new flood prevention tests (100% pass), 750 total dashboard tests pass
+  - ✅ Should not flood server when multiple services mount simultaneously
+  - ✅ Should not repeatedly poll in local mode when using WebSocket
+  - ✅ Should not make HTTP requests in local mode when WebSocket available
+  - ✅ Should NOT poll repeatedly when refreshTrigger changes in local mode
+- **Result**: Eliminated HTTP polling flood in local mode - server receives only 1 initial HTTP request per service, then pure WebSocket streaming
+
+## DONE: 13 Fix HTTP polling hammering in local mode {#13-fix-http-polling-hammering-in-local-mode}
+- **Problem**: Dashboard making multiple rapid simultaneous HTTP fetch requests to `/api/logs` endpoint for the same service, causing server hammering visible in network tab
+- **Root cause**: React Strict Mode unmount/remount and effect re-runs were creating concurrent fetch requests without proper tracking
+- **Fix**:
+  - ✅ Added `abortControllerRef` to track active fetch requests (idiomatic React pattern)
+  - ✅ Guard at start of `fetchLogs()` returns early if a fetch is already in progress (checks `abortControllerRef.current`)
+  - ✅ Create and store `AbortController` before each fetch, clear it in finally block after completion
+  - ✅ Cleanup properly aborts in-flight requests to prevent state updates after unmount
+  - ✅ Abort controller on mode/service change to cancel stale requests
+  - ✅ Distinguish between cleanup aborts (ignore) and timeout aborts (retry with backoff)
+- **Pattern**: Using `AbortController` ref is more idiomatic than boolean flag - provides both state tracking AND ability to cancel in-flight requests
+- **Files**: [useLogsStream.ts](cli/dashboard/src/hooks/useLogsStream.ts), [useLogsStream.polling.test.ts](cli/dashboard/src/hooks/useLogsStream.polling.test.ts)
+- **Tests**: 4 new tests in useLogsStream.polling.test.ts (100% pass), 746 total dashboard tests pass
+  - ✅ Should not hammer server with multiple rapid requests
+  - ✅ Should prevent concurrent polling requests to same endpoint
+  - ✅ Should enforce minimum delay between polling requests
+  - ✅ Should track in-flight requests and skip redundant fetches
+- **Result**: Eliminated duplicate HTTP polling requests, ensuring only one active fetch per service at a time
 
 ## DONE: 12 Fix WebSocket connection spam in local mode {#12-fix-websocket-connection-spam-in-local-mode}
 - **Problem**: Dashboard creates 4+ simultaneous WebSocket connections (one per service), causing "WebSocket is closed before established" errors

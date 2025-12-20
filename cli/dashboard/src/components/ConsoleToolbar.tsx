@@ -54,8 +54,8 @@ export interface ConsoleToolbarProps {
   // Azure log controls
   timeRange: { preset: TimeRangePreset }
   onTimeRangeChange: (preset: TimeRangePreset) => void
-  syncInterval: number
-  onSyncIntervalChange: (interval: number) => void
+  azureRealtime: boolean
+  onAzureRealtimeChange: (enabled: boolean) => void
   onRunDiagnostics: () => void
 }
 
@@ -87,8 +87,6 @@ export function ConsoleToolbar({
   azureConnectionMessage,
   timeRange,
   onTimeRangeChange,
-  syncInterval,
-  onSyncIntervalChange,
   onRunDiagnostics,
 }: Readonly<ConsoleToolbarProps>) {
   return (
@@ -225,22 +223,6 @@ export function ConsoleToolbar({
                 <option value="30m">30 min</option>
                 <option value="6h">6 hours</option>
                 <option value="24h">24 hours</option>
-              </Select>
-            </div>
-            
-            {/* Refresh interval selector */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-600 dark:text-slate-400">Refresh:</span>
-              <Select
-                value={String(syncInterval)}
-                onChange={(e) => onSyncIntervalChange(Number(e.target.value))}
-                className="h-7 w-20 text-xs bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 px-2 py-0"
-              >
-                <option value="5000">5s</option>
-                <option value="10000">10s</option>
-                <option value="30000">30s</option>
-                <option value="60000">1m</option>
-                <option value="300000">5m</option>
               </Select>
             </div>
 

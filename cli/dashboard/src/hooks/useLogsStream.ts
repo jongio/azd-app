@@ -44,15 +44,26 @@ export interface UseLogsStreamParams {
   logMode: LogMode
   timeRange: AzureTimeRange
   azureRealtime: boolean
-  refreshTrigger: number
   isPausedRef: { current: boolean }
   setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
   setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>
   onFetchSettled?: () => void
 }
 
+/**
+ * Hook for managing log streaming with simplified architecture.
+ * 
+ * Flow:
+ * 1. Initial fetch: HTTP GET for historical logs (one-time per fetchKey)
+ * 2. Live updates: WebSocket streaming (continuous)
+ *    - Local: Process stdout/stderr streaming
+ *    - Azure: Backend handles polling (Log Analytics) or streaming (Container Apps)
+ * 
+ * The frontend doesn't distinguish between backend polling vs streaming - 
+ * the WebSocket connection abstracts this complexity.
+ */
 export function useLogsStream(params: UseLogsStreamParams): void {
-  const { serviceName, fetchKey, logMode, timeRange, azureRealtime, refreshTrigger, isPausedRef, setLogs, setErrorMessage, onFetchSettled } = params
+  const { serviceName, fetchKey, logMode, timeRange, azureRealtime, isPausedRef, setLogs, setErrorMessage, onFetchSettled } = params
   const { connected } = useBackendConnection()
   const currentLogModeRef = useRef<LogMode>(logMode)
   const currentFetchKeyRef = useRef<string>(fetchKey)
@@ -61,6 +72,7 @@ export function useLogsStream(params: UseLogsStreamParams): void {
   const lastErrorTimeRef = useRef<number>(0)
   const backoffDelayRef = useRef<number>(1000)
   const lastFetchTimeRef = useRef<number>(0)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     // Update current log mode ref
@@ -73,6 +85,11 @@ export function useLogsStream(params: UseLogsStreamParams): void {
     lastErrorTimeRef.current = 0
     backoffDelayRef.current = 1000
     lastFetchTimeRef.current = 0
+    // Cancel any in-flight request when mode/service changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
   }, [logMode, serviceName])
 
   useEffect(() => {
@@ -108,6 +125,11 @@ export function useLogsStream(params: UseLogsStreamParams): void {
     let cancelled = false
     
     const fetchLogs = async () => {
+      // Prevent concurrent fetches - only one in-flight request at a time
+      if (abortControllerRef.current) {
+        return
+      }
+      
       // Implement backoff: don't fetch if we're in a backoff period
       const now = Date.now()
       const timeSinceLastFetch = now - lastFetchTimeRef.current
@@ -123,6 +145,9 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         return
       }
       
+      // Create abort controller for this fetch
+      const controller = new AbortController()
+      abortControllerRef.current = controller
       lastFetchTimeRef.current = now
       
       // Increment fetch count for this key
@@ -133,7 +158,6 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         setErrorMessage(null)
         const url = buildLogsFetchUrl(logsEndpoint, serviceName, logMode, timeRange)
         // Add timeout to fail fast when backend is down
-        const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
         
         const res = await fetch(url, { signal: controller.signal })
@@ -161,7 +185,12 @@ export function useLogsStream(params: UseLogsStreamParams): void {
           setLogs(nextLogs)
         }
       } catch (err) {
-        // Ignore abort errors from timeout - these are intentional
+        // Ignore abort errors from cleanup/mode change
+        if (err instanceof Error && err.name === 'AbortError' && cancelled) {
+          return
+        }
+        
+        // Handle timeout aborts
         if (err instanceof Error && err.name === 'AbortError') {
           if (!cancelled) {
             errorCountRef.current++
@@ -215,6 +244,11 @@ export function useLogsStream(params: UseLogsStreamParams): void {
           }, backoffDelayRef.current)
         }
       } finally {
+        // Clear abort controller to allow next fetch
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null
+        }
+        
         // Always call onFetchSettled for the first fetch (success or error)
         // This ensures loading indicator is hidden even when backend is down
         // Subsequent fetches don't call it to prevent flashing during background polling
@@ -224,13 +258,25 @@ export function useLogsStream(params: UseLogsStreamParams): void {
       }
     }
 
-    void fetchLogs()
+    // Only fetch initial logs via HTTP (one-time per fetchKey)
+    // WebSocket handles all subsequent updates (both local and Azure)
+    if (fetchCountForKeyRef.current === 0) {
+      void fetchLogs()
+    } else {
+      // Not first fetch - WebSocket is handling updates
+      onFetchSettled?.()
+    }
 
     // Cleanup function
     return () => {
       cancelled = true
+      // Abort any in-flight fetch to prevent state updates after unmount
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
     }
-  }, [connected, serviceName, fetchKey, refreshTrigger, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange])
+  }, [connected, serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange])
 
   // Use shared WebSocket for both local and Azure realtime logs (multiplexed)
   // This prevents resource exhaustion from multiple connections
