@@ -268,9 +268,10 @@ describe('service-utils', () => {
   })
 
   describe('formatLogTimestamp', () => {
-    it('should format timestamp as YYYY-MM-DD HH:MM:SS.mmm', () => {
+    it('should format timestamp as MM-DD HH:MM:SS.mmm', () => {
       const result = formatLogTimestamp('2024-01-15T10:30:45.123Z')
-      expect(result).toMatch(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(Z|[+-]\d{2}:\d{2})/)
+      expect(result).toMatch(/\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}/)
+      expect(result).toContain('01-15')
       expect(result).toContain('123')
     })
 

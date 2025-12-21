@@ -110,7 +110,7 @@ export function NotificationCenter({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/20 dark:bg-black/40 z-[900] backdrop-blur-sm"
+        className="fixed inset-0 bg-black/20 dark:bg-black/40 z-[900]"
         onClick={onClose}
         aria-hidden="true"
       />

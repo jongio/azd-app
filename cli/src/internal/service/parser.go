@@ -24,8 +24,8 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 	}
 
 	// Validate path
-	if err := security.ValidatePath(azureYamlPath); err != nil {
-		return nil, fmt.Errorf("invalid azure.yaml path: %w", err)
+	if validateErr := security.ValidatePath(azureYamlPath); validateErr != nil {
+		return nil, fmt.Errorf("invalid azure.yaml path: %w", validateErr)
 	}
 
 	// Read file

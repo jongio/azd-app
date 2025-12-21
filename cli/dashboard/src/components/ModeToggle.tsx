@@ -112,9 +112,10 @@ function StatusIndicator({
   connectionMessage,
   statusDotClassName,
 }: Readonly<StatusIndicatorProps>) {
-  if (!showStatus || !azureEnabled) return null
+  if (!showStatus) return null
 
-  if (status === 'disconnected' && connectionMessage) {
+  // Show connection message even when Azure is disabled (e.g., not configured)
+  if (connectionMessage && (!azureEnabled || status === 'disconnected')) {
     return (
       <span className="relative group" title={connectionMessage}>
         <span

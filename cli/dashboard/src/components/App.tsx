@@ -132,7 +132,6 @@ export function App({
   healthReport,
   healthMap,
   healthError,
-  healthReconnect,
   className,
 }: AppProps) {
   const [activeView, setActiveView] = React.useState<View>(getInitialView)
@@ -290,7 +289,7 @@ export function App({
     >
       {/* Connection Lost / Reconnecting Overlay */}
       {healthError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 dark:bg-slate-900/90 backdrop-blur-sm transition-opacity duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-slate-900/95 transition-opacity duration-300">
           <div className="flex flex-col items-center gap-6 p-8 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md mx-4">
             {/* Animated Icon */}
             <div className="relative w-24 h-24 flex items-center justify-center">
@@ -334,17 +333,15 @@ export function App({
               <p className="text-sm text-slate-500 dark:text-slate-400">{healthError}</p>
             </div>
 
-            {/* Retry Button */}
-            {healthError.includes('Failed to connect') && healthReconnect && (
-              <button
-                type="button"
-                onClick={healthReconnect}
-                className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Retry Connection
-              </button>
-            )}
+            {/* Reconnect Button */}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reconnect
+            </button>
           </div>
         </div>
       )}

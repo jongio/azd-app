@@ -154,8 +154,8 @@ func (s *Server) Start() (string, error) {
 		}
 
 		// Port binding failed, try to find an alternative port
-		if port, err := s.retryWithAlternativePort(portMgr); err == nil {
-			return fmt.Sprintf("http://localhost:%d", port), nil
+		if altPort, retryErr := s.retryWithAlternativePort(portMgr); retryErr == nil {
+			return fmt.Sprintf("http://localhost:%d", altPort), nil
 		}
 		return "", fmt.Errorf("dashboard server failed to start: %w", err)
 	default:

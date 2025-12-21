@@ -73,6 +73,8 @@ export function useLogsStream(params: UseLogsStreamParams): void {
   const backoffDelayRef = useRef<number>(1000)
   const lastFetchTimeRef = useRef<number>(0)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const emptyResultCountRef = useRef<number>(0)
+  const maxEmptyRetries = 2 // Retry up to 2 times when getting empty results (500ms, 1s)
 
   useEffect(() => {
     // Update current log mode ref
@@ -85,6 +87,7 @@ export function useLogsStream(params: UseLogsStreamParams): void {
     lastErrorTimeRef.current = 0
     backoffDelayRef.current = 1000
     lastFetchTimeRef.current = 0
+    emptyResultCountRef.current = 0 // Reset empty result counter
     // Cancel any in-flight request when mode/service changes
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -93,34 +96,23 @@ export function useLogsStream(params: UseLogsStreamParams): void {
   }, [logMode, serviceName])
 
   useEffect(() => {
-    // Don't attempt to fetch logs if backend is disconnected
-    if (!connected) {
-      // Only show error on first disconnect
-      if (errorCountRef.current === 0) {
-        setErrorMessage('Backend connection lost')
-      }
-      onFetchSettled?.()
-      return
-    }
-
-    // Reset error count and backoff when connection is restored
-    if (connected && errorCountRef.current > 0) {
-      errorCountRef.current = 0
-      lastErrorTimeRef.current = 0
-      backoffDelayRef.current = 1000
-      setErrorMessage(null)
-    }
-
-    // Reset fetch count if fetchKey has changed
-    if (currentFetchKeyRef.current !== fetchKey) {
-      currentFetchKeyRef.current = fetchKey
-      fetchCountForKeyRef.current = 0
-    }
-
     // Choose endpoint based on mode
     const logsEndpoint = logMode === 'azure' ? '/api/azure/logs' : '/api/logs'
     const capturedLogMode = logMode // Capture for closure
     const capturedFetchKey = fetchKey // Capture for closure
+    
+    // Reset fetch count if fetchKey has changed
+    // IMPORTANT: Do this check inside the effect to ensure proper cleanup
+    const isNewFetchKey = currentFetchKeyRef.current !== fetchKey
+    if (isNewFetchKey) {
+      currentFetchKeyRef.current = fetchKey
+      fetchCountForKeyRef.current = 0
+      emptyResultCountRef.current = 0 // Reset empty result counter on key change
+      // Also clear any previous error when switching modes/filters
+      setErrorMessage(null)
+      errorCountRef.current = 0
+      backoffDelayRef.current = 1000
+    }
 
     let cancelled = false
     
@@ -157,8 +149,9 @@ export function useLogsStream(params: UseLogsStreamParams): void {
       try {
         setErrorMessage(null)
         const url = buildLogsFetchUrl(logsEndpoint, serviceName, logMode, timeRange)
-        // Add timeout to fail fast when backend is down
-        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+        // Add timeout - longer for Azure logs which can be slower
+        const timeoutMs = logMode === 'azure' ? 30000 : 10000 // 30s for Azure, 10s for local
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
         
         const res = await fetch(url, { signal: controller.signal })
         clearTimeout(timeoutId)
@@ -181,8 +174,33 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         
         // Only set logs if we're still in the same mode and fetchKey
         if (currentLogModeRef.current === capturedLogMode && currentFetchKeyRef.current === capturedFetchKey) {
+          // Check if we should retry due to empty results
+          const shouldRetryEmpty = nextLogs.length === 0 && emptyResultCountRef.current < maxEmptyRetries && isFirstFetch
+          
           // Always update logs with whatever the API returns
           setLogs(nextLogs)
+          
+          // If we got empty results and this is one of the first fetches, retry with faster interval
+          // This handles the case where the service just started and logs aren't available yet
+          if (shouldRetryEmpty) {
+            emptyResultCountRef.current++
+            const retryDelay = 500 * emptyResultCountRef.current // 500ms, 1s, 1.5s
+            
+            setTimeout(() => {
+              if (!cancelled && currentLogModeRef.current === capturedLogMode && currentFetchKeyRef.current === capturedFetchKey) {
+                // Reset fetch count to retry
+                fetchCountForKeyRef.current = 0
+                void fetchLogs()
+              }
+            }, retryDelay)
+            
+            // Don't call onFetchSettled yet - we're going to retry
+            // This keeps the loading indicator visible
+            return
+          } else if (nextLogs.length > 0) {
+            // Got data - reset empty result counter
+            emptyResultCountRef.current = 0
+          }
         }
       } catch (err) {
         // Ignore abort errors from cleanup/mode change
@@ -249,7 +267,8 @@ export function useLogsStream(params: UseLogsStreamParams): void {
           abortControllerRef.current = null
         }
         
-        // Always call onFetchSettled for the first fetch (success or error)
+        // Call onFetchSettled for the first fetch (success or error)
+        // But NOT if we returned early due to retry
         // This ensures loading indicator is hidden even when backend is down
         // Subsequent fetches don't call it to prevent flashing during background polling
         if (!cancelled && isFirstFetch) {
@@ -260,10 +279,13 @@ export function useLogsStream(params: UseLogsStreamParams): void {
 
     // Only fetch initial logs via HTTP (one-time per fetchKey)
     // WebSocket handles all subsequent updates (both local and Azure)
-    if (fetchCountForKeyRef.current === 0) {
+    // IMPORTANT: Only skip fetch if we're on the same key AND have already fetched
+    // Don't call onFetchSettled for a new key until we've actually started fetching
+    const shouldFetch = isNewFetchKey || fetchCountForKeyRef.current === 0
+    if (shouldFetch) {
       void fetchLogs()
     } else {
-      // Not first fetch - WebSocket is handling updates
+      // Not first fetch for this key - WebSocket is handling updates
       onFetchSettled?.()
     }
 
@@ -276,7 +298,7 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         abortControllerRef.current = null
       }
     }
-  }, [connected, serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange])
+  }, [serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange])
 
   // Use shared WebSocket for both local and Azure realtime logs (multiplexed)
   // This prevents resource exhaustion from multiple connections

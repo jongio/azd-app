@@ -48,6 +48,43 @@ Using `DefaultAzureCredential` which relies on Azure CLI credentials from `azd a
 
 ## ⚠️ MEDIUM PRIORITY
 
+### Enhanced CLI Output Styling
+
+**Status:** Research Complete  
+**Priority:** Medium  
+**Effort:** Medium (phased implementation)
+
+**Description**
+Enhance CLI output styling to match the polish of tools like pnpm and Astro using available Go libraries.
+
+**Research**
+See [CLI Output Styling Research](../research/cli-output-styling.md) for detailed comparison of JavaScript/TypeScript libraries (chalk, piccolore) vs Go libraries (lipgloss, go-pretty, spinner).
+
+**Current State**
+- ✅ Using `fatih/color` for basic colors
+- ✅ Using `charmbracelet/lipgloss` for advanced styling
+- ✅ Unicode symbols with ASCII fallbacks
+- ✅ Custom progress bars and status badges
+- ✅ Service logger color wheel
+
+**Recommended Enhancements**
+1. **Badge Styles**: Use lipgloss for pnpm-style background color badges
+2. **Enhanced Progress**: Colored block characters with lipgloss styling
+3. **Styled Tables**: Add `jedib0t/go-pretty/v6` for better table formatting
+4. **Spinners**: Add `briandowns/spinner` for long operations
+5. **Box Messages**: Use lipgloss borders for important notices
+
+**Implementation Phases**
+- Phase 1: Leverage existing lipgloss for badges and boxes (quick wins)
+- Phase 2: Add go-pretty and spinner libraries
+- Phase 3: Standardize color palette and refactor output functions
+
+**Related Files**
+- `cli/src/internal/output/output.go` - Main output functions
+- `cli/src/internal/service/logger.go` - Service logger with color wheel
+
+---
+
 ### MCP Tool for Azure YAML Configuration
 
 **Status:** Planned  
@@ -137,6 +174,42 @@ services:
 - Enables AI-assisted configuration
 - Reduces manual azure.yaml editing errors
 - Leverages full schema capabilities
+
+### Azure Logs Refresh Interval Control
+
+**Status:** Deferred (wait for user feedback)
+**Priority:** Medium
+**Effort:** Low (2-3 hours)
+
+**Description**
+Add user-configurable refresh interval for Azure Log Analytics polling (currently hardcoded to 5 seconds). The refresh interval dropdown (5s/10s/30s/1m/5m) was intentionally removed during log streaming simplification, but may be valuable for API cost management and power user scenarios.
+
+**Benefits**
+- **Cost control**: Users with high-traffic services can reduce Log Analytics API calls by polling less frequently (30s, 1m)
+- **Power users**: Critical debugging sessions might benefit from faster than 5s polling
+- **User control**: Configurability improves UX for different scenarios (development vs production monitoring)
+
+**Implementation**
+1. Add `syncInterval` query parameter to `/api/azure/logs/stream` WebSocket endpoint
+2. Pass interval to backend polling ticker in `streamAzureLogsViaPolling()`
+3. Add refresh interval dropdown back to ConsoleToolbar with localStorage persistence
+4. Only show dropdown when in Azure mode with Log Analytics (not Container Apps streaming)
+5. Clamp values between 5s (min) and 5m (max) as per original spec
+
+**Location**
+- Frontend: `cli/dashboard/src/components/ConsoleToolbar.tsx`
+- Frontend hook: `cli/dashboard/src/hooks/useConsoleSyncSettings.ts`
+- Backend: `cli/src/internal/dashboard/azure_logs_stream.go`
+
+**Rationale for Deferral**
+- 5-second polling is already quite responsive for most use cases
+- Container Apps native streaming doesn't need it (real-time)
+- Adds UI complexity
+- Ship without it initially, add if users request it
+
+**Note**: Original code exists in git history from before log streaming simplification refactoring.
+
+---
 
 ### Historical Azure Logs + Custom KQL
 

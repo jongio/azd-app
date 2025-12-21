@@ -1,12 +1,15 @@
 package dashboard
 
 import (
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"html"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -109,6 +112,14 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 
 // handleGetLogs returns recent logs for services.
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
+	// Add panic recovery with detailed logging
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC in handleGetLogs: %v\nStack: %s", r, debug.Stack())
+			InternalError(w, "Internal server error", fmt.Errorf("panic: %v", r))
+		}
+	}()
+
 	serviceName := r.URL.Query().Get("service")
 	tailStr := r.URL.Query().Get("tail")
 
@@ -127,6 +138,10 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logManager := service.GetLogManager(s.projectDir)
+	if logManager == nil {
+		InternalError(w, "Log manager not initialized", nil)
+		return
+	}
 
 	var logs []service.LogEntry
 	if serviceName != "" {
@@ -136,13 +151,31 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 			NotFound(w, fmt.Sprintf("Service '%s' not found", serviceName))
 			return
 		}
+		if buffer == nil {
+			InternalError(w, "Log buffer is nil", nil)
+			return
+		}
 		logs = buffer.GetRecent(tail)
 	} else {
 		// Get logs from all services
 		logs = logManager.GetAllLogs(tail)
 	}
 
-	WriteJSONSuccess(w, logs)
+	// Enable gzip compression for large responses
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		
+		if err := json.NewEncoder(gz).Encode(logs); err != nil {
+			log.Printf("Failed to write gzipped JSON response: %v", err)
+		}
+	} else {
+		WriteJSONSuccess(w, logs)
+	}
 }
 
 // handleStartService handles POST /api/services/start to start a service or all services.

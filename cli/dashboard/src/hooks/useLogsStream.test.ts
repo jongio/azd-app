@@ -571,4 +571,53 @@ describe('useLogsStream', () => {
       expect(webSocketInstances.length).toBeLessThan(currentCount + 3) // Reasonable bound
     })
   })
+
+  describe('onFetchSettled callback', () => {
+    it('calls onFetchSettled only after first fetch completes', async () => {
+      const onFetchSettled = vi.fn()
+      const params = createParams({ onFetchSettled })
+      
+      renderHook(() => useLogsStream(params))
+      
+      // Should not be called synchronously on mount
+      expect(onFetchSettled).not.toHaveBeenCalled()
+      
+      // Wait for fetch to complete
+      await vi.runAllTimersAsync()
+      
+      // Should be called after first fetch (may be called multiple times due to retries/WebSocket reconnects)
+      expect(onFetchSettled).toHaveBeenCalled()
+    })
+
+    it('does not call onFetchSettled immediately when fetchKey changes', async () => {
+      const onFetchSettled = vi.fn()
+      const params = createParams({ onFetchSettled, fetchKey: 'local:stream' })
+      
+      const { rerender } = renderHook((props) => useLogsStream(props), {
+        initialProps: params,
+      })
+      
+      // Wait for initial fetch
+      await vi.runAllTimersAsync()
+      expect(onFetchSettled).toHaveBeenCalled()
+      
+      const initialCallCount = onFetchSettled.mock.calls.length
+      
+      // Change fetchKey (e.g., switching time range in Azure mode)
+      rerender(createParams({ 
+        onFetchSettled, 
+        fetchKey: 'azure:30m::poll',
+        logMode: 'azure',
+      }))
+      
+      // Should NOT be called immediately after fetchKey change (still same count)
+      expect(onFetchSettled).toHaveBeenCalledTimes(initialCallCount)
+      
+      // Wait for new fetch to complete
+      await vi.runAllTimersAsync()
+      
+      // Should be called at least once more after the new fetch completes
+      expect(onFetchSettled.mock.calls.length).toBeGreaterThan(initialCallCount)
+    })
+  })
 })
