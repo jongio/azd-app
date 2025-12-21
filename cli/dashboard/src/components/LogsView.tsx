@@ -82,6 +82,7 @@ export function LogsView({
   const [internalIsPaused, setInternalIsPaused] = useState(false)
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -149,6 +150,8 @@ export function LogsView({
     } catch (err) {
       console.error(`Failed to fetch ${logMode} logs:`, err)
       setLogs([])
+    } finally {
+      setHasFetched(true)
     }
   }, [selectedService, logMode, azureServiceFilter, timeRange?.preset])
 
@@ -243,6 +246,7 @@ export function LogsView({
   // Clear logs when mode/filter/timeframe changes
   useEffect(() => {
     setLogs([]) // Clear logs when switching modes or changing filter
+    setHasFetched(false) // Reset loading state
   }, [logMode, azureServiceFilter, timeRange?.preset])
 
   // Auto-scroll to bottom - scroll the container, not the page
@@ -460,7 +464,14 @@ export function LogsView({
         aria-live="polite"
         aria-atomic="false"
       >
-        {filteredLogs.length === 0 ? (
+        {(isModeSwitching || !hasFetched) && filteredLogs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mb-2" />
+            <div className="text-sm">
+              {logMode === 'azure' ? 'Fetching Azure logs...' : 'Fetching local logs...'}
+            </div>
+          </div>
+        ) : filteredLogs.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             {logs.length === 0 ? 'No logs to display' : 'No logs match your search'}
           </div>

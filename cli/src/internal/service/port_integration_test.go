@@ -184,8 +184,8 @@ services:
 	}
 
 	// Update azure.yaml with the auto-assigned port
-	if err := yamlutil.UpdateServicePort(azureYamlPath, "api", port); err != nil {
-		t.Fatalf("Failed to update azure.yaml: %v", err)
+	if updateErr := yamlutil.UpdateServicePort(azureYamlPath, "api", port); updateErr != nil {
+		t.Fatalf("Failed to update azure.yaml: %v", updateErr)
 	}
 
 	// Verify azure.yaml was modified with ports array format

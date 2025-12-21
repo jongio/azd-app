@@ -64,7 +64,7 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 
 	// Check if Docker is available
 	if !client.IsAvailable() {
-		return nil, fmt.Errorf("Docker is not available - please ensure Docker Desktop or Docker daemon is running")
+		return nil, fmt.Errorf("docker is not available - please ensure Docker Desktop or Docker daemon is running")
 	}
 
 	slog.Debug("starting container service",

@@ -383,8 +383,8 @@ func TestLogBuffer_FileLogging(t *testing.T) {
 	}
 
 	// Close to flush
-	if err := buffer.Close(); err != nil {
-		t.Errorf("Close() error = %v", err)
+	if closeErr := buffer.Close(); closeErr != nil {
+		t.Errorf("Close() error = %v", closeErr)
 	}
 
 	// Verify file was created and contains entries

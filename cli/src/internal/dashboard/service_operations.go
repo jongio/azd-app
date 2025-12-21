@@ -291,8 +291,8 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 	}
 
 	// Update registry to starting state
-	if err := reg.UpdateStatus(serviceName, constants.StatusStarting); err != nil {
-		log.Printf("Warning: failed to update status: %v", err)
+	if updateErr := reg.UpdateStatus(serviceName, constants.StatusStarting); updateErr != nil {
+		log.Printf("Warning: failed to update status: %v", updateErr)
 	}
 
 	// Start the service - use container runner for container services

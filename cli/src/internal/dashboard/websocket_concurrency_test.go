@@ -375,8 +375,8 @@ func TestServer_SlowClient(t *testing.T) {
 
 	// Read initial message from slow client, then stop reading
 	var initialMsg map[string]interface{}
-	if err := wsjson.Read(ctx, slowWS, &initialMsg); err != nil {
-		t.Fatalf("slow client failed to read initial message: %v", err)
+	if readErr := wsjson.Read(ctx, slowWS, &initialMsg); readErr != nil {
+		t.Fatalf("slow client failed to read initial message: %v", readErr)
 	}
 	// Slow client stops reading here
 

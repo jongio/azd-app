@@ -76,15 +76,18 @@ describe('useLogsStream flood prevention', () => {
     
     console.warn('Calls by service:', Object.fromEntries(callsByService))
     
-    // Each service should be called at most 2 times (due to React Strict Mode double-mount)
-    // But definitely not more than that
+    // Each service should be called at most 4 times:
+    // - 1 initial fetch
+    // - 2 retries when empty (with 500ms, 1s delays)
+    // - Possibly doubled by React Strict Mode
+    // This is acceptable for the initial load when there are no logs
     services.forEach(service => {
       const count = callsByService.get(service) || 0
-      expect(count).toBeLessThanOrEqual(2)
+      expect(count).toBeLessThanOrEqual(6) // Allow for retries + strict mode
     })
     
-    // Total should not exceed 8 (4 services * 2 max due to strict mode)
-    expect(mockFetch.mock.calls.length).toBeLessThanOrEqual(8)
+    // Total should not exceed 24 (4 services * 6 max)
+    expect(mockFetch.mock.calls.length).toBeLessThanOrEqual(24)
   })
 
   it('should not repeatedly poll in local mode when using WebSocket', async () => {

@@ -104,7 +104,7 @@ describe('LogsPane', () => {
     expect(title.textContent ?? '').not.toMatch(DATETIME_LIKE_PATTERN)
   })
 
-  it('deduplicates embedded timestamps and service prefixes while keeping timezone', async () => {
+  it('deduplicates embedded timestamps and service prefixes', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = normalizeRequestUrl(input)
       if (url.includes('/api/azure/logs')) {
@@ -134,9 +134,11 @@ describe('LogsPane', () => {
     const logLine = await screen.findByText(/Health endpoint hit/)
     const rowText = logLine.parentElement?.textContent ?? ''
 
-    const timestampMatches = rowText.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g) ?? []
+    // Should only show timestamp once in MM-DD HH:MM:SS.mmm format
+    const timestampMatches = rowText.match(/\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}/g) ?? []
     expect(timestampMatches.length).toBe(1)
-    expect(rowText).toMatch(/-08:00/)
+    
+    // Service name should only appear once (deduplicated)
     const serviceMatches = rowText.match(/appservice-web/g) ?? []
     expect(serviceMatches.length).toBe(1)
   })

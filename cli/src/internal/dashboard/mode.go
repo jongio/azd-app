@@ -1,4 +1,4 @@
-// mode.go provides API endpoints for log source mode management.
+// Package dashboard provides API endpoints for log source mode management.
 package dashboard
 
 import (
@@ -35,6 +35,7 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 	azureEnabled := false
 	azureStatus := "disabled"
 	azureRealtime := false
+	connectionMessage := ""
 
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
@@ -42,13 +43,20 @@ func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
 		azureEnabled = true
 		azureStatus = "connected" // Assume connected if configured
 		azureRealtime = azureYaml.Logs.Analytics.Realtime
+	} else if err != nil {
+		// Error loading azure.yaml
+		connectionMessage = "Could not load azure.yaml: " + err.Error()
+	} else if azureYaml.Logs == nil || azureYaml.Logs.Analytics == nil {
+		// Azure logging not configured
+		connectionMessage = "Azure logging not configured in azure.yaml"
 	}
 
 	response := ModeResponse{
-		Mode:          string(currentMode),
-		AzureEnabled:  azureEnabled,
-		AzureStatus:   azureStatus,
-		AzureRealtime: azureRealtime,
+		Mode:              string(currentMode),
+		AzureEnabled:      azureEnabled,
+		AzureStatus:       azureStatus,
+		AzureRealtime:     azureRealtime,
+		ConnectionMessage: connectionMessage,
 	}
 
 	WriteJSONSuccess(w, response)

@@ -96,7 +96,7 @@ export function LogsPaneContent({
                 )}
                 
                 <div className="flex-1 min-w-0 select-text">
-                  <span className="text-slate-200 text-sm font-medium">
+                  <span className="text-slate-700 dark:text-slate-200 text-sm font-medium">
                     [{formattedTimestamp}{serviceLabel}]
                   </span>
                   {' '}

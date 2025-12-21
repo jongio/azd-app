@@ -350,7 +350,7 @@ export function HistoricalLogPanel({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 z-40 bg-black/50 dark:bg-black/70 animate-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
