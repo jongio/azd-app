@@ -34,10 +34,10 @@ func NewClient(ctx context.Context, projectDir string) (*Client, error) {
 	configClient, err := azdconfig.NewClient(ctx)
 	if err == nil {
 		defer configClient.Close()
-		port, err := configClient.GetDashboardPort(projectHash)
-		if err == nil && port > 0 {
+		dashboardPort, portErr := configClient.GetDashboardPort(projectHash)
+		if portErr == nil && dashboardPort > 0 {
 			return &Client{
-				baseURL: fmt.Sprintf("http://localhost:%d", port),
+				baseURL: fmt.Sprintf("http://localhost:%d", dashboardPort),
 				httpClient: &http.Client{
 					Timeout: constants.DashboardAPITimeout,
 				},

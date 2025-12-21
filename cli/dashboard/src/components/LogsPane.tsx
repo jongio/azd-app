@@ -150,7 +150,8 @@ export function LogsPane({
   })
 
   const isWaitingForFirstFetch = isModeSwitching || !hasFetchedForKey
-  const showLoadingIndicator = useSmoothedLoadingIndicator(isWaitingForFirstFetch)
+  // Show loading indicator immediately for first fetch to provide instant feedback
+  const showLoadingIndicator = useSmoothedLoadingIndicator(isWaitingForFirstFetch, { immediate: true })
 
   const { filteredLogs, getPaneLogLevel, paneStatus } = useLogFiltering(
     logs,

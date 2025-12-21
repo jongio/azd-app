@@ -260,8 +260,8 @@ func TestWebSocket_WriteFailureBackpressure(t *testing.T) {
 
 	// Read initial message only
 	var initialMsg map[string]interface{}
-	if err := wsjson.Read(ctx, ws, &initialMsg); err != nil {
-		t.Fatalf("failed to read initial message: %v", err)
+	if readErr := wsjson.Read(ctx, ws, &initialMsg); readErr != nil {
+		t.Fatalf("failed to read initial message: %v", readErr)
 	}
 
 	// Client stops reading - TCP buffer will fill up

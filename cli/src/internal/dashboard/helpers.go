@@ -12,8 +12,10 @@ import (
 // writeJSON writes a JSON response with proper error handling.
 func writeJSON(w http.ResponseWriter, data interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Don't call http.Error here - headers already written
+		// Just log and return the error
 		return fmt.Errorf("failed to encode JSON response: %w", err)
 	}
 	return nil

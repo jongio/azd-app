@@ -39,7 +39,7 @@ const (
 	WebSocketChannelBuffer = 100
 
 	// WebSocketLogChannelBuffer is the buffer size for log streaming channels
-	WebSocketLogChannelBuffer = 500
+	WebSocketLogChannelBuffer = 2000
 
 	// WebSocketMaxWriteFailures is the number of consecutive write failures before disconnecting
 	WebSocketMaxWriteFailures = 3
@@ -48,7 +48,7 @@ const (
 	WebSocketMaxConcurrentBroadcasts = 20
 
 	// WebSocketSlowConsumerTimeout is the timeout for sending to slow consumer channels
-	WebSocketSlowConsumerTimeout = 100 * time.Millisecond
+	WebSocketSlowConsumerTimeout = 500 * time.Millisecond
 
 	// MaxContextLines is the maximum number of context lines before/after a log entry.
 	// Used when filtering logs by level with surrounding context for debugging.

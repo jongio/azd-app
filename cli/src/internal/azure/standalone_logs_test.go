@@ -72,18 +72,18 @@ func TestAppendToEnvFile(t *testing.T) {
 
 func TestDiscoverAndStoreWorkspaceID_AlreadySet(t *testing.T) {
 	// Save original env var
-	originalGuid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
+	originalGUID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 	defer func() {
-		if originalGuid != "" {
-			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGuid)
+		if originalGUID != "" {
+			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGUID)
 		} else {
 			os.Unsetenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 		}
 	}()
 
 	// Set env var
-	testGuid := "test-workspace-id"
-	os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", testGuid)
+	testGUID := "test-workspace-id"
+	os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", testGUID)
 
 	// Create temp directory
 	tmpDir := t.TempDir()
@@ -99,18 +99,18 @@ func TestDiscoverAndStoreWorkspaceID_AlreadySet(t *testing.T) {
 		t.Error("Expected wasDiscovered=false when GUID already set")
 	}
 
-	if guid != testGuid {
-		t.Errorf("Expected GUID %q, got %q", testGuid, guid)
+	if guid != testGUID {
+		t.Errorf("Expected GUID %q, got %q", testGUID, guid)
 	}
 }
 
 func TestDiscoverAndStoreWorkspaceID_NoResourceGroup(t *testing.T) {
 	// Save and clear env vars
-	originalGuid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
+	originalGUID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 	originalRG := os.Getenv("AZURE_RESOURCE_GROUP")
 	defer func() {
-		if originalGuid != "" {
-			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGuid)
+		if originalGUID != "" {
+			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGUID)
 		} else {
 			os.Unsetenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 		}
@@ -140,32 +140,32 @@ func TestDiscoverAndStoreWorkspaceID_NoResourceGroup(t *testing.T) {
 
 func TestGetWorkspaceIDFromEnv_FromEnvVar(t *testing.T) {
 	// Save original env var
-	originalGuid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
+	originalGUID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 	defer func() {
-		if originalGuid != "" {
-			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGuid)
+		if originalGUID != "" {
+			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGUID)
 		} else {
 			os.Unsetenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 		}
 	}()
 
 	// Set env var
-	testGuid := "test-workspace-id-from-env"
-	os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", testGuid)
+	testGUID := "test-workspace-id-from-env"
+	os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", testGUID)
 
 	// Call function
 	guid := GetWorkspaceIDFromEnv("")
-	if guid != testGuid {
-		t.Errorf("Expected GUID %q, got %q", testGuid, guid)
+	if guid != testGUID {
+		t.Errorf("Expected GUID %q, got %q", testGUID, guid)
 	}
 }
 
 func TestGetWorkspaceIDFromEnv_FromFile(t *testing.T) {
 	// Save and clear env var
-	originalGuid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
+	originalGUID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 	defer func() {
-		if originalGuid != "" {
-			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGuid)
+		if originalGUID != "" {
+			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGUID)
 		} else {
 			os.Unsetenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 		}
@@ -190,25 +190,25 @@ func TestGetWorkspaceIDFromEnv_FromFile(t *testing.T) {
 		t.Fatalf("Failed to create env directory: %v", err)
 	}
 
-	testGuid := "test-workspace-id-from-file"
-	envContent := "AZURE_RESOURCE_GROUP=test-rg\nAZURE_LOG_ANALYTICS_WORKSPACE_GUID=" + testGuid + "\n"
+	testGUID := "test-workspace-id-from-file"
+	envContent := "AZURE_RESOURCE_GROUP=test-rg\nAZURE_LOG_ANALYTICS_WORKSPACE_GUID=" + testGUID + "\n"
 	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {
 		t.Fatalf("Failed to create env file: %v", err)
 	}
 
 	// Call function
 	guid := GetWorkspaceIDFromEnv(tmpDir)
-	if guid != testGuid {
-		t.Errorf("Expected GUID %q from file, got %q", testGuid, guid)
+	if guid != testGUID {
+		t.Errorf("Expected GUID %q from file, got %q", testGUID, guid)
 	}
 }
 
 func TestGetWorkspaceIDFromEnv_NotFound(t *testing.T) {
 	// Save and clear env var
-	originalGuid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
+	originalGUID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 	defer func() {
-		if originalGuid != "" {
-			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGuid)
+		if originalGUID != "" {
+			os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", originalGUID)
 		} else {
 			os.Unsetenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID")
 		}

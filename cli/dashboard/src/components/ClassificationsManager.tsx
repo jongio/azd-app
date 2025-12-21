@@ -31,7 +31,7 @@ function ConfirmDeleteDialog({ isOpen, classification, onConfirm, onCancel }: Co
   if (!isOpen || !classification) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60" onClick={onCancel}>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-60" onClick={onCancel}>
       <div 
         className="rounded-lg shadow-xl max-w-md w-full border border-border bg-white dark:bg-neutral-900 p-6"
         onClick={(e) => e.stopPropagation()}

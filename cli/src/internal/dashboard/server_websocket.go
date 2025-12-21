@@ -45,10 +45,10 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		s.clientsMu.Lock()
 		delete(s.clients, clientWrapper)
 		s.clientsMu.Unlock()
-		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
+		if closeErr := client.closeWithRateLimit(clientIP, s.rateLimiter); closeErr != nil {
 			// Only log unexpected close errors
-			if !isExpectedCloseError(err) {
-				log.Printf("Failed to close websocket connection: %v", err)
+			if !isExpectedCloseError(closeErr) {
+				log.Printf("Failed to close websocket connection: %v", closeErr)
 			}
 		}
 	}()

@@ -304,10 +304,8 @@ export function Header({
         {/* Divider */}
         <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
 
-        {/* Theme Toggle - Only shown when ?theme=1 is in URL */}
-        {new URLSearchParams(window.location.search).get('theme') === '1' && (
-          <ThemeToggle />
-        )}
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* GitHub Link */}
         <a

@@ -185,8 +185,8 @@ func TestWaitForPort_Success(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
-		port := server.Listener.Addr().(*net.TCPAddr).Port
-		serverReady <- port
+		serverPort := server.Listener.Addr().(*net.TCPAddr).Port
+		serverReady <- serverPort
 		time.Sleep(constants.TestShortSleepDuration)
 		server.Close()
 	}()

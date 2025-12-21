@@ -216,6 +216,12 @@ describe('LogsView', () => {
 
     render(<LogsView />)
 
+    // First should show loading state
+    await waitFor(() => {
+      expect(screen.getByText(/Fetching local logs/)).toBeInTheDocument()
+    })
+
+    // Then should show empty state after fetch completes
     await waitFor(() => {
       expect(screen.getByText('No logs to display')).toBeInTheDocument()
     })
@@ -289,8 +295,8 @@ describe('LogsView', () => {
     render(<LogsView />)
 
     await waitFor(() => {
-      // Should display formatted timestamps in YYYY-MM-DD HH:MM:SS.mmm format
-      const timestamps = screen.getAllByText(/\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}(?:\s*(?:Z|[+-]\d{2}:\d{2}))?\]/)
+      // Should display formatted timestamps in MM-DD HH:MM:SS.mmm format
+      const timestamps = screen.getAllByText(/\[\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}/)
       expect(timestamps.length).toBeGreaterThan(0)
     })
   })
