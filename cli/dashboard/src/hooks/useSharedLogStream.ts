@@ -296,75 +296,77 @@ class SharedLogStreamManager {
         return
       }
       
-      // Handle log entries
-      const entry = message as LogEntry
+      // Handle batched log entries (array) or single entry
+      const entries = Array.isArray(message) ? message : [message as LogEntry]
       
-      // Validate log entry structure
-      if (!entry || typeof entry !== 'object' || !entry.service) {
-        console.warn('[SharedLogStream] Invalid log entry received:', entry)
-        return
-      }
-      
-      // Check for sequence gaps (only for Azure logs with sequence numbers)
-      if (entry.sequence !== undefined) {
-        const lastSeq = this.lastSeenSequence.get(entry.service)
-        if (lastSeq !== undefined && entry.sequence > lastSeq + 1) {
-          // Gap detected!
-          const gap = { start: lastSeq + 1, end: entry.sequence - 1 }
-          console.warn(`[SharedLogStream] Gap detected for ${entry.service}: missing sequences ${gap.start}-${gap.end}`)
-          
-          // Call gap callback if registered
-          const gapCallback = this.gapCallbacks.get(entry.service)
-          if (gapCallback) {
-            try {
-              gapCallback(gap)
-            } catch (err) {
-              console.error('[SharedLogStream] Gap callback error:', err)
+      entries.forEach(entry => {
+        // Validate log entry structure
+        if (!entry || typeof entry !== 'object' || !entry.service) {
+          console.warn('[SharedLogStream] Invalid log entry received:', entry)
+          return
+        }
+        
+        // Check for sequence gaps (only for Azure logs with sequence numbers)
+        if (entry.sequence !== undefined) {
+          const lastSeq = this.lastSeenSequence.get(entry.service)
+          if (lastSeq !== undefined && entry.sequence > lastSeq + 1) {
+            // Gap detected!
+            const gap = { start: lastSeq + 1, end: entry.sequence - 1 }
+            console.warn(`[SharedLogStream] Gap detected for ${entry.service}: missing sequences ${gap.start}-${gap.end}`)
+            
+            // Call gap callback if registered
+            const gapCallback = this.gapCallbacks.get(entry.service)
+            if (gapCallback) {
+              try {
+                gapCallback(gap)
+              } catch (err) {
+                console.error('[SharedLogStream] Gap callback error:', err)
+              }
             }
           }
+          this.lastSeenSequence.set(entry.service, entry.sequence)
         }
-        this.lastSeenSequence.set(entry.service, entry.sequence)
-      }
-      
-      // Add to buffer (maintain max size)
-      this.messageBuffer.push(entry)
-      if (this.messageBuffer.length > this.maxBufferSize) {
-        this.messageBuffer.shift()
-      }
-      
-      const serviceName = entry.service
+        
+        // Add to buffer (maintain max size)
+        this.messageBuffer.push(entry)
+        if (this.messageBuffer.length > this.maxBufferSize) {
+          this.messageBuffer.shift()
+        }
+        
+        const serviceName = entry.service
 
-      // Dispatch to subscribers of this specific service
-      const serviceSubs = this.subscribers.get(serviceName)
-      if (serviceSubs && serviceSubs.size > 0) {
-        // Direct iteration without Array.from for better performance
-        const toRemove: Array<(entry: LogEntry) => void> = []
-        serviceSubs.forEach(callback => {
-          try {
-            callback(entry)
-          } catch (err) {
-            console.error('[SharedLogStream] Subscriber callback error:', err)
-            toRemove.push(callback)
-          }
-        })
-        // Remove callbacks that threw errors
-        toRemove.forEach(cb => serviceSubs.delete(cb))
-      }
+        // Dispatch to subscribers of this specific service
+        const serviceSubs = this.subscribers.get(serviceName)
+        if (serviceSubs && serviceSubs.size > 0) {
+          // Direct iteration without Array.from for better performance
+          const toRemove: Array<(entry: LogEntry) => void> = []
+          serviceSubs.forEach(callback => {
+            try {
+              callback(entry)
+            } catch (err) {
+              console.error('[SharedLogStream] Subscriber callback error:', err)
+              toRemove.push(callback)
+            }
+          })
+          // Remove callbacks that threw errors
+          toRemove.forEach(cb => serviceSubs.delete(cb))
+        }
 
-      // Also dispatch to "all" subscribers
-      const allSubs = this.subscribers.get('all')
-      if (allSubs && allSubs.size > 0) {
-        const toRemove: Array<(entry: LogEntry) => void> = []
-        allSubs.forEach(callback => {
-          try {
-            callback(entry)
-          } catch (err) {
-            console.error('[SharedLogStream] Subscriber callback error:', err)
-            toRemove.push(callback)
-          }
-        })
-        toRemove.forEach(cb => allSubs.delete(cb))
-      }
+        // Also dispatch to "all" subscribers
+        const allSubs = this.subscribers.get('all')
+        if (allSubs && allSubs.size > 0) {
+          const toRemove: Array<(entry: LogEntry) => void> = []
+          allSubs.forEach(callback => {
+            try {
+              callback(entry)
+            } catch (err) {
+              console.error('[SharedLogStream] Subscriber callback error:', err)
+              toRemove.push(callback)
+            }
+          })
+          toRemove.forEach(cb => allSubs.delete(cb))
+        }
+      })
     } catch (err) {
       console.error('[SharedLogStream] Failed to parse message:', err)
     }
