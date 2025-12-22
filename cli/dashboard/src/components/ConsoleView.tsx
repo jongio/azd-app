@@ -185,9 +185,47 @@ export function ConsoleView({
     a.toLowerCase().localeCompare(b.toLowerCase())
   )
 
-  // Pane visibility is controlled only by explicit service selection.
-  // State/health filters must not hide panes (see docs/specs/log-pane-visibility/spec.md).
-  const paneServicesList = selectedServicesList
+  // Apply state and health filters when user explicitly selects them
+  // Note: Panes are never hidden automatically when services change state/health (see docs/specs/log-pane-visibility/spec.md)
+  // But when users actively click the filter buttons, we should filter accordingly
+  const paneServicesList = selectedServicesList.filter((serviceName) => {
+    const service = services.find((s) => s.name === serviceName)
+    if (!service) return false
+
+    // Apply state filter (if any states are deselected)
+    if (filters.stateFilter.size < 3) { // Not all states selected
+      const serviceState = service.status
+      
+      // If service has no status yet, treat as 'starting' (initializing)
+      if (!serviceState) {
+        return filters.stateFilter.has('starting')
+      }
+      
+      // Map service status to filterable states
+      const isRunning = serviceState === 'running' || serviceState === 'ready' || serviceState === 'watching' || serviceState === 'built'
+      const isStopped = serviceState === 'stopped' || serviceState === 'not-started' || serviceState === 'not-running' || serviceState === 'completed' || serviceState === 'failed'
+      const isStarting = serviceState === 'starting' || serviceState === 'restarting' || serviceState === 'building' || serviceState === 'stopping'
+
+      const matchesState = 
+        (filters.stateFilter.has('running') && isRunning) ||
+        (filters.stateFilter.has('stopped') && isStopped) ||
+        (filters.stateFilter.has('starting') && isStarting)
+
+      if (!matchesState) return false
+    }
+
+    // Apply health filter (if any health statuses are deselected)
+    if (filters.healthFilter.size < 4) { // Not all health statuses selected
+      const serviceHealthResult = healthReport?.services.find((s) => s.serviceName === serviceName)
+      const serviceHealth = serviceHealthResult?.status ?? 'unknown'
+      
+      if (!filters.healthFilter.has(serviceHealth)) {
+        return false
+      }
+    }
+
+    return true
+  })
 
   let content: React.ReactNode
 

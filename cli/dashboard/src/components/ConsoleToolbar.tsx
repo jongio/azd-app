@@ -133,7 +133,7 @@ export function ConsoleToolbar({
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
-          <span>{autoScrollEnabled ? 'Auto-scroll' : 'Scroll'}</span>
+          <span>Scroll</span>
         </button>
 
         {/* Divider */}

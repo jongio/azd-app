@@ -347,8 +347,9 @@ describe('ConsoleView', () => {
     await user.click(pauseButton)
     expect(await screen.findByRole('button', { name: 'Resume' })).toBeInTheDocument()
 
-    const autoScrollButton = await screen.findByRole('button', { name: 'Auto-scroll' })
+    const autoScrollButton = await screen.findByRole('button', { name: 'Scroll' })
     await user.click(autoScrollButton)
+    // Button text stays as "Scroll" but the styling changes
     expect(await screen.findByRole('button', { name: 'Scroll' })).toBeInTheDocument()
 
     await user.click(await screen.findByTitle('Fullscreen'))
