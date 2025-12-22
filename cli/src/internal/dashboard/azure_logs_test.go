@@ -169,18 +169,20 @@ func TestHandleAzureLogsHealthStatus(t *testing.T) {
 	oldCred := newLogAnalyticsCredential
 	oldValidate := validateCredentials
 	oldWorkspace := getWorkspaceIDFromEnv
-	oldClient := newLogAnalyticsClient
+	oldClient := getOrCreateLogAnalyticsClient
 	t.Cleanup(func() {
 		newLogAnalyticsCredential = oldCred
 		validateCredentials = oldValidate
 		getWorkspaceIDFromEnv = oldWorkspace
-		newLogAnalyticsClient = oldClient
+		getOrCreateLogAnalyticsClient = oldClient
 		_ = os.Unsetenv("SERVICE_API_NAME")
 	})
 
 	newLogAnalyticsCredential = func() (azcore.TokenCredential, error) { return fakeTokenCredential{}, nil }
 	validateCredentials = func(context.Context, azcore.TokenCredential) error { return nil }
-	newLogAnalyticsClient = func(azcore.TokenCredential, string) (*azure.LogAnalyticsClient, error) { return nil, nil }
+	getOrCreateLogAnalyticsClient = func(context.Context, azcore.TokenCredential, string) (*azure.LogAnalyticsClient, error) {
+		return nil, nil
+	}
 	_ = os.Setenv("SERVICE_API_NAME", "api-prod")
 
 	srv := GetServer(t.TempDir())

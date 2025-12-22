@@ -25,6 +25,10 @@ export interface LogsPaneContentProps {
   copiedLineIndex: number | null
   handleCopyLine: (log: LogEntry, index?: number) => void
   logsEndRef: React.RefObject<HTMLDivElement | null>
+  loadingMessage?: string
+  canRetry?: boolean
+  onRetry?: () => void
+  serviceName?: string
 }
 
 export function LogsPaneContent({
@@ -43,6 +47,10 @@ export function LogsPaneContent({
   copiedLineIndex,
   handleCopyLine,
   logsEndRef,
+  loadingMessage,
+  canRetry,
+  onRetry,
+  serviceName,
 }: Readonly<LogsPaneContentProps>): ReactNode {
   if (isCollapsed) {
     return null
@@ -70,6 +78,10 @@ export function LogsPaneContent({
           logMode={logMode}
           timeRange={timeRange}
           hasLogs={logs.length > 0}
+          loadingMessage={loadingMessage}
+          canRetry={canRetry}
+          onRetry={onRetry}
+          serviceName={serviceName}
         />
       ) : (
         <div className="space-y-0.5">

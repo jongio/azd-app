@@ -26,6 +26,7 @@ export interface LogEntry {
   level: number
   timestamp: string
   isStderr: boolean
+  sequence?: number  // Optional sequence number for gap detection
 }
 
 type ClassificationLevel = 'info' | 'warning' | 'error'
@@ -77,6 +78,12 @@ export function LogsPane({
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [hasFetchedForKey, setHasFetchedForKey] = useState(false)
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState('')
+  const [canRetry, setCanRetry] = useState(false)
+  
+  // Using isLoadingLogs for detailed loading state tracking - value managed by useLogsStream
+  void isLoadingLogs // Suppress unused warning - value is managed by hook
   
   const fetchKey = useMemo(() => {
     if (logMode !== 'azure') {
@@ -89,7 +96,14 @@ export function LogsPane({
   useEffect(() => {
     setHasFetchedForKey(false)
     setErrorMessage(null)
+    setIsLoadingLogs(false)
+    setLoadingMessage('')
+    setCanRetry(false)
   }, [fetchKey])
+  
+  const handleFetchSettled = useCallback(() => {
+    setHasFetchedForKey(true)
+  }, [])
 
   const [selectedText, setSelectedText] = useState<string>('')
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null)
@@ -137,7 +151,7 @@ export function LogsPane({
     setErrorMessage(null)
   }, [logMode])
 
-  useLogsStream({
+  const { retry: retryLogs } = useLogsStream({
     serviceName,
     fetchKey,
     logMode,
@@ -146,12 +160,18 @@ export function LogsPane({
     isPausedRef,
     setLogs,
     setErrorMessage,
-    onFetchSettled: () => setHasFetchedForKey(true),
+    onFetchSettled: handleFetchSettled,
+    setIsLoading: setIsLoadingLogs,
+    setLoadingMessage,
+    setCanRetry,
   })
 
   const isWaitingForFirstFetch = isModeSwitching || !hasFetchedForKey
   // Show loading indicator immediately for first fetch to provide instant feedback
   const showLoadingIndicator = useSmoothedLoadingIndicator(isWaitingForFirstFetch, { immediate: true })
+  
+  // Use isLoadingLogs for showing custom retry messages, fall back to showLoadingIndicator for general loading
+  const effectiveIsLoading = isLoadingLogs || showLoadingIndicator
 
   const { filteredLogs, getPaneLogLevel, paneStatus } = useLogFiltering(
     logs,
@@ -291,7 +311,7 @@ export function LogsPane({
         logs={logs}
         logMode={logMode}
         codespaceConfig={codespaceConfig ?? { enabled: false, name: '', domain: '' }}
-        isLoading={showLoadingIndicator}
+        isLoading={effectiveIsLoading}
         isWaiting={isWaitingForFirstFetch}
         errorMessage={errorMessage}
         timeRange={resolvedTimeRange}
@@ -299,6 +319,10 @@ export function LogsPane({
         copiedLineIndex={copiedLineIndex}
         handleCopyLine={handleCopyLine}
         logsEndRef={logsEndRef}
+        loadingMessage={loadingMessage}
+        canRetry={canRetry}
+        onRetry={retryLogs}
+        serviceName={serviceName}
       />
 
       <LogsPaneClassificationOverlay

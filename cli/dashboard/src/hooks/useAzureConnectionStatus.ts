@@ -8,7 +8,7 @@ import type { LogMode } from '@/components/ModeToggle'
 // Types
 // =============================================================================
 
-export type AzureConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'disabled'
+export type AzureConnectionStatus = 'connected' | 'degraded' | 'disconnected' | 'connecting' | 'disabled'
 
 interface ModeApiResponse {
   mode?: LogMode
@@ -27,7 +27,7 @@ function isLogMode(value: unknown): value is LogMode {
 }
 
 function isAzureConnectionStatus(value: unknown): value is AzureConnectionStatus {
-  return value === 'connected' || value === 'disconnected' || value === 'connecting' || value === 'disabled'
+  return value === 'connected' || value === 'degraded' || value === 'disconnected' || value === 'connecting' || value === 'disabled'
 }
 
 function parseModeApiResponse(value: unknown): ModeApiResponse {

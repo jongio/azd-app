@@ -2,6 +2,7 @@
 package dashboard
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -155,7 +156,8 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 	}
 
 	// Try to create client (this doesn't make actual queries)
-	_, err = newLogAnalyticsClient(cred, workspaceID)
+	ctx := context.Background()
+	_, err = getOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
 	if err != nil {
 		check.Status = "fail"
 		check.Message = fmt.Sprintf("Failed to create Log Analytics client: %v", err)

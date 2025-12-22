@@ -20,7 +20,7 @@ export interface ModeToggleProps {
   /** Whether Azure logging is enabled/available */
   azureEnabled?: boolean
   /** Azure connection status */
-  azureStatus?: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+  azureStatus?: 'connected' | 'disconnected' | 'connecting' | 'disabled' | 'degraded'
   /** Message explaining connection issue (shown in tooltip when disconnected) */
   connectionMessage?: string
   /** Loading state during mode switch */

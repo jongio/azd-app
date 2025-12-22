@@ -558,6 +558,10 @@ type LogEntry struct {
 	// Source indicates where the log came from: "local" or "azure"
 	Source string `json:"source,omitempty"`
 
+	// Sequence is a monotonically increasing number for backpressure detection.
+	// Frontend can detect gaps and request missing data. Only set for Azure logs.
+	Sequence int64 `json:"sequence,omitempty"`
+
 	// AzureMetadata contains Azure-specific log information (only set when Source="azure")
 	AzureMetadata *AzureLogMetadata `json:"azureMetadata,omitempty"`
 }
