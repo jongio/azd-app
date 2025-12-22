@@ -271,7 +271,7 @@ func TestBuildHookEnvironmentVariables(t *testing.T) {
 		},
 	}
 
-	envVars := buildHookEnvironmentVariables(azureYaml, tmpDir)
+	envVars := buildCommonHookEnvVars(azureYaml, tmpDir)
 
 	// Verify environment variables
 	expectedVars := map[string]string{
@@ -303,7 +303,7 @@ func TestBuildHookEnvironmentVariables_NoServices(t *testing.T) {
 		Services: nil,
 	}
 
-	envVars := buildHookEnvironmentVariables(azureYaml, tmpDir)
+	envVars := buildCommonHookEnvVars(azureYaml, tmpDir)
 
 	// Should have project dir and name, but not service count
 	expectedVars := map[string]string{

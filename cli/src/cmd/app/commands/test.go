@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/spf13/cobra"
 )
@@ -122,6 +123,28 @@ func runTests(opts *TestOptions) error {
 	if opts.Save && opts.NoSave {
 		return fmt.Errorf("--save and --no-save are mutually exclusive")
 	}
+
+	// Load azure.yaml for hooks (optional for test command)
+	azureYaml, err := loadAzureYamlForHooks()
+	if err != nil {
+		return fmt.Errorf("failed to load azure.yaml: %w", err)
+	}
+
+	// Execute pretest hook if configured
+	if azureYaml != nil {
+		if err := executePretestHook(azureYaml, opts); err != nil {
+			return fmt.Errorf("pretest hook failed: %w", err)
+		}
+	}
+
+	// Defer posttest hook execution
+	defer func() {
+		if azureYaml != nil {
+			if postErr := executePosttestHook(azureYaml, opts); postErr != nil {
+				output.Warning("Post-test hook failed: %v", postErr)
+			}
+		}
+	}()
 
 	// Execute dependencies first (reqs)
 	if err := cmdOrchestrator.Run("test"); err != nil {
@@ -448,4 +471,31 @@ func displayTestResults(result *testing.AggregateResult) {
 	output.Item("Total: %d passed, %d failed, %d skipped, %d total",
 		result.Passed, result.Failed, result.Skipped, result.Total)
 	output.Item("Duration: %.2fs", result.Duration)
+}
+
+// executePretestHook executes the pretest hook if configured.
+func executePretestHook(azureYaml *service.AzureYaml, opts *TestOptions) error {
+	envVars := buildTestHookEnvVars(opts)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPretest(), "pretest", envVars)
+}
+
+// executePosttestHook executes the posttest hook if configured.
+func executePosttestHook(azureYaml *service.AzureYaml, opts *TestOptions) error {
+	envVars := buildTestHookEnvVars(opts)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPosttest(), "posttest", envVars)
+}
+
+// buildTestHookEnvVars builds test-specific environment variables for hooks.
+func buildTestHookEnvVars(opts *TestOptions) []string {
+	envVars := []string{
+		buildKeyValueEnvVar("AZD_APP_TEST_TYPE", opts.Type),
+		buildBoolEnvVar("AZD_APP_TEST_COVERAGE", opts.Coverage),
+		buildKeyValueEnvVar("AZD_APP_TEST_OUTPUT_DIR", opts.OutputDir),
+	}
+
+	if opts.ServiceFilter != "" {
+		envVars = append(envVars, buildKeyValueEnvVar("AZD_APP_TEST_SERVICES", opts.ServiceFilter))
+	}
+
+	return envVars
 }

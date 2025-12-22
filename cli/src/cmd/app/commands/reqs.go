@@ -12,6 +12,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/pathutil"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 
 	"github.com/spf13/cobra"
 )
@@ -49,8 +50,10 @@ type ReqsDockerConfig struct {
 
 // AzureYaml represents the structure of azure.yaml.
 type AzureYaml struct {
+	Name     string                 `yaml:"name,omitempty"`
 	Reqs     []Prerequisite         `yaml:"reqs"`
 	Services map[string]ReqsService `yaml:"services,omitempty"`
+	Hooks    *service.Hooks         `yaml:"hooks,omitempty"`
 }
 
 // hasContainerServices returns true if any service is a container service.
@@ -929,4 +932,40 @@ func runReqsFix() error {
 	}
 
 	return nil
+}
+
+// executePrereqsHook executes the prereqs hook if configured.
+func executePrereqsHook(azureYaml *AzureYaml, generateMode bool) error {
+	if azureYaml == nil || azureYaml.Hooks == nil {
+		return nil
+	}
+	envVars := buildReqsHookEnvVars(generateMode)
+	// Convert AzureYaml to service.AzureYaml for hook execution
+	// Note: We only need the hooks, so we can create a minimal conversion
+	serviceAzureYaml := &service.AzureYaml{
+		Name:  azureYaml.Name,
+		Hooks: azureYaml.Hooks,
+	}
+	return executeCommandHook(serviceAzureYaml, azureYaml.Hooks.GetPrereqs(), "prereqs", envVars)
+}
+
+// executePostreqsHook executes the postreqs hook if configured.
+func executePostreqsHook(azureYaml *AzureYaml, generateMode bool) error {
+	if azureYaml == nil || azureYaml.Hooks == nil {
+		return nil
+	}
+	envVars := buildReqsHookEnvVars(generateMode)
+	// Convert AzureYaml to service.AzureYaml for hook execution
+	serviceAzureYaml := &service.AzureYaml{
+		Name:  azureYaml.Name,
+		Hooks: azureYaml.Hooks,
+	}
+	return executeCommandHook(serviceAzureYaml, azureYaml.Hooks.GetPostreqs(), "postreqs", envVars)
+}
+
+// buildReqsHookEnvVars builds reqs-specific environment variables for hooks.
+func buildReqsHookEnvVars(generateMode bool) []string {
+	return []string{
+		buildBoolEnvVar("AZD_APP_REQS_GENERATE", generateMode),
+	}
 }
