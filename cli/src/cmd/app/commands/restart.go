@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 
 	"github.com/spf13/cobra"
 )
@@ -91,5 +92,39 @@ func runRestart(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Load azure.yaml for hooks (optional)
+	azureYaml, err := loadAzureYamlForHooks()
+	if err != nil {
+		return fmt.Errorf("failed to load azure.yaml: %w", err)
+	}
+
+	// Execute prerestart hook if configured
+	if azureYaml != nil {
+		if err := executePrerestartHook(azureYaml, servicesToRestart); err != nil {
+			return fmt.Errorf("prerestart hook failed: %w", err)
+		}
+	}
+
+	// Defer postrestart hook execution
+	defer func() {
+		if azureYaml != nil {
+			if postErr := executePostrestartHook(azureYaml, servicesToRestart); postErr != nil {
+				output.Warning("Post-restart hook failed: %v", postErr)
+			}
+		}
+	}()
+
 	return executeServiceOperation(ctx, servicesToRestart, ctrl.RestartService, ctrl.BulkRestart, "restart")
+}
+
+// executePrerestartHook executes the prerestart hook if configured.
+func executePrerestartHook(azureYaml *service.AzureYaml, services []string) error {
+	envVars := buildServiceHookEnvVars("restart", services)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPrerestart(), "prerestart", envVars)
+}
+
+// executePostrestartHook executes the postrestart hook if configured.
+func executePostrestartHook(azureYaml *service.AzureYaml, services []string) error {
+	envVars := buildServiceHookEnvVars("restart", services)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPostrestart(), "postrestart", envVars)
 }

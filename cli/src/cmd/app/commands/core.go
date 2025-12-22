@@ -116,6 +116,19 @@ func executeReqs() error {
 		return err
 	}
 
+	// Execute prereqs hook if configured
+	generateMode := false // TODO: Get from context if needed
+	if err := executePrereqsHook(azureYaml, generateMode); err != nil {
+		return fmt.Errorf("prereqs hook failed: %w", err)
+	}
+
+	// Defer postreqs hook execution
+	defer func() {
+		if postErr := executePostreqsHook(azureYaml, generateMode); postErr != nil {
+			output.Warning("Post-reqs hook failed: %v", postErr)
+		}
+	}()
+
 	// Build effective requirements list
 	effectiveReqs := azureYaml.Reqs
 

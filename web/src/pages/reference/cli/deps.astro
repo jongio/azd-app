@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
+import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app deps [flags]";
 const example0 = "azd app deps [flags]";
 const example1 = "azd app deps";
@@ -103,6 +104,26 @@ const example4 = "azd app deps --force";
   <Code code={example3} lang="bash" frame="terminal" />
   <Code code={example4} lang="bash" frame="terminal" />
 </div>
+
+    <HooksSection
+      command="deps"
+      preHook="predeps"
+      postHook="postdeps"
+      description="execute before and after installing dependencies"
+      exampleYaml={`hooks:
+  predeps:
+    shell: sh
+    run: echo "Preparing to install dependencies..."
+  postdeps:
+    shell: sh
+    run: echo "Dependencies installed!"`}
+      envVars={[
+        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
+        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
+        { name: "AZD_APP_DEPS_CLEAN", description: "Whether clean install is enabled (true/false)" },
+        { name: "AZD_APP_DEPS_SERVICES", description: "Comma-separated list of services for dependency installation" }
+      ]}
+    />
 
     <!-- Link to detailed docs -->
     

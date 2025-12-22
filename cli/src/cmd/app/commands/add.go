@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/wellknown"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -113,9 +114,30 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Load azure.yaml for hooks
+	azureYaml, err := loadAzureYamlForHooks()
+	if err != nil {
+		return fmt.Errorf("failed to load azure.yaml: %w", err)
+	}
+
+	// Execute preadd hook if configured
+	if azureYaml != nil {
+		if err := executePreaddHook(azureYaml, serviceName, def.DisplayName); err != nil {
+			return fmt.Errorf("preadd hook failed: %w", err)
+		}
+	}
+
 	// Add the service to azure.yaml
 	if err := addServiceToYaml(azureYamlPath, serviceName, def); err != nil {
 		return fmt.Errorf("failed to add service: %w", err)
+	}
+
+	// Execute postadd hook if configured
+	if azureYaml != nil {
+		if err := executePostaddHook(azureYaml, serviceName, def.DisplayName); err != nil {
+			output.Warning("Post-add hook failed: %v", err)
+			// Don't fail the command - service was already added
+		}
 	}
 
 	// Success output
@@ -378,4 +400,24 @@ func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
 	}
 
 	return node
+}
+
+// executePreaddHook executes the preadd hook if configured.
+func executePreaddHook(azureYaml *service.AzureYaml, serviceName, displayName string) error {
+	envVars := buildAddHookEnvVars(serviceName, displayName)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPreadd(), "preadd", envVars)
+}
+
+// executePostaddHook executes the postadd hook if configured.
+func executePostaddHook(azureYaml *service.AzureYaml, serviceName, displayName string) error {
+	envVars := buildAddHookEnvVars(serviceName, displayName)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPostadd(), "postadd", envVars)
+}
+
+// buildAddHookEnvVars builds add-specific environment variables for hooks.
+func buildAddHookEnvVars(serviceName, displayName string) []string {
+	return []string{
+		buildKeyValueEnvVar("AZD_APP_ADD_SERVICE", serviceName),
+		buildKeyValueEnvVar("AZD_APP_ADD_SERVICE_DISPLAY_NAME", displayName),
+	}
 }

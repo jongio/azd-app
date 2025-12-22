@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
+import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app stop [flags]";
 const example0 = "azd app stop [flags]";
 const example1 = "azd app stop --service api";
@@ -80,6 +81,26 @@ const example3 = "azd app stop --all";
   <Code code={example2} lang="bash" frame="terminal" />
   <Code code={example3} lang="bash" frame="terminal" />
 </div>
+
+    <HooksSection
+      command="stop"
+      preHook="prestop"
+      postHook="poststop"
+      description="execute before and after stopping services"
+      exampleYaml={`hooks:
+  prestop:
+    shell: sh
+    run: echo "Preparing to stop services..."
+  poststop:
+    shell: sh
+    run: echo "Services stopped!"`}
+      envVars={[
+        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
+        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
+        { name: "AZD_APP_OPERATION", description: "Current operation (\"stop\")" },
+        { name: "AZD_APP_SERVICES", description: "Comma-separated list of services being stopped" }
+      ]}
+    />
 
     <!-- Link to detailed docs -->
     
