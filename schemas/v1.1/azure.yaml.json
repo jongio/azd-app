@@ -54,6 +54,76 @@
           "title": "post run hook",
           "description": "Runs after the `run` command",
           "$ref": "#/definitions/hook"
+        },
+        "pretest": {
+          "title": "pre test hook",
+          "description": "Runs before the `test` command",
+          "$ref": "#/definitions/hook"
+        },
+        "posttest": {
+          "title": "post test hook",
+          "description": "Runs after the `test` command",
+          "$ref": "#/definitions/hook"
+        },
+        "predeps": {
+          "title": "pre deps hook",
+          "description": "Runs before the `deps` command",
+          "$ref": "#/definitions/hook"
+        },
+        "postdeps": {
+          "title": "post deps hook",
+          "description": "Runs after the `deps` command",
+          "$ref": "#/definitions/hook"
+        },
+        "prestart": {
+          "title": "pre start hook",
+          "description": "Runs before the `start` command",
+          "$ref": "#/definitions/hook"
+        },
+        "poststart": {
+          "title": "post start hook",
+          "description": "Runs after the `start` command",
+          "$ref": "#/definitions/hook"
+        },
+        "prestop": {
+          "title": "pre stop hook",
+          "description": "Runs before the `stop` command",
+          "$ref": "#/definitions/hook"
+        },
+        "poststop": {
+          "title": "post stop hook",
+          "description": "Runs after the `stop` command",
+          "$ref": "#/definitions/hook"
+        },
+        "prerestart": {
+          "title": "pre restart hook",
+          "description": "Runs before the `restart` command",
+          "$ref": "#/definitions/hook"
+        },
+        "postrestart": {
+          "title": "post restart hook",
+          "description": "Runs after the `restart` command",
+          "$ref": "#/definitions/hook"
+        },
+        "preadd": {
+          "title": "pre add hook",
+          "description": "Runs before the `add` command",
+          "$ref": "#/definitions/hook"
+        },
+        "postadd": {
+          "title": "post add hook",
+          "description": "Runs after the `add` command",
+          "$ref": "#/definitions/hook"
+        },
+        "prereqs": {
+          "title": "pre reqs hook",
+          "description": "Runs before the `reqs` command",
+          "$ref": "#/definitions/hook"
+        },
+        "postreqs": {
+          "title": "post reqs hook",
+          "description": "Runs after the `reqs` command",
+          "$ref": "#/definitions/hook"
         }
       }
     },

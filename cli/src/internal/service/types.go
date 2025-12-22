@@ -799,10 +799,39 @@ func (s *Service) GetPrimaryPort() (int, int, bool) {
 	return mappings[0].HostPort, mappings[0].ContainerPort, isExplicit
 }
 
-// Hooks represents lifecycle hooks for run command.
+// Hooks represents lifecycle hooks for all commands.
 type Hooks struct {
+	// Run command hooks
 	Prerun  *Hook `yaml:"prerun,omitempty"`
 	Postrun *Hook `yaml:"postrun,omitempty"`
+
+	// Test command hooks
+	Pretest  *Hook `yaml:"pretest,omitempty"`
+	Posttest *Hook `yaml:"posttest,omitempty"`
+
+	// Deps command hooks
+	Predeps  *Hook `yaml:"predeps,omitempty"`
+	Postdeps *Hook `yaml:"postdeps,omitempty"`
+
+	// Start command hooks
+	Prestart  *Hook `yaml:"prestart,omitempty"`
+	Poststart *Hook `yaml:"poststart,omitempty"`
+
+	// Stop command hooks
+	Prestop  *Hook `yaml:"prestop,omitempty"`
+	Poststop *Hook `yaml:"poststop,omitempty"`
+
+	// Restart command hooks
+	Prerestart  *Hook `yaml:"prerestart,omitempty"`
+	Postrestart *Hook `yaml:"postrestart,omitempty"`
+
+	// Add command hooks
+	Preadd  *Hook `yaml:"preadd,omitempty"`
+	Postadd *Hook `yaml:"postadd,omitempty"`
+
+	// Reqs command hooks
+	Prereqs  *Hook `yaml:"prereqs,omitempty"`
+	Postreqs *Hook `yaml:"postreqs,omitempty"`
 }
 
 // GetPrerun safely retrieves the prerun hook, returning nil if not configured.
@@ -819,6 +848,118 @@ func (h *Hooks) GetPostrun() *Hook {
 		return nil
 	}
 	return h.Postrun
+}
+
+// GetPretest safely retrieves the pretest hook, returning nil if not configured.
+func (h *Hooks) GetPretest() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Pretest
+}
+
+// GetPosttest safely retrieves the posttest hook, returning nil if not configured.
+func (h *Hooks) GetPosttest() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Posttest
+}
+
+// GetPredeps safely retrieves the predeps hook, returning nil if not configured.
+func (h *Hooks) GetPredeps() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Predeps
+}
+
+// GetPostdeps safely retrieves the postdeps hook, returning nil if not configured.
+func (h *Hooks) GetPostdeps() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Postdeps
+}
+
+// GetPrestart safely retrieves the prestart hook, returning nil if not configured.
+func (h *Hooks) GetPrestart() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prestart
+}
+
+// GetPoststart safely retrieves the poststart hook, returning nil if not configured.
+func (h *Hooks) GetPoststart() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Poststart
+}
+
+// GetPrestop safely retrieves the prestop hook, returning nil if not configured.
+func (h *Hooks) GetPrestop() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prestop
+}
+
+// GetPoststop safely retrieves the poststop hook, returning nil if not configured.
+func (h *Hooks) GetPoststop() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Poststop
+}
+
+// GetPrerestart safely retrieves the prerestart hook, returning nil if not configured.
+func (h *Hooks) GetPrerestart() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prerestart
+}
+
+// GetPostrestart safely retrieves the postrestart hook, returning nil if not configured.
+func (h *Hooks) GetPostrestart() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Postrestart
+}
+
+// GetPreadd safely retrieves the preadd hook, returning nil if not configured.
+func (h *Hooks) GetPreadd() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Preadd
+}
+
+// GetPostadd safely retrieves the postadd hook, returning nil if not configured.
+func (h *Hooks) GetPostadd() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Postadd
+}
+
+// GetPrereqs safely retrieves the prereqs hook, returning nil if not configured.
+func (h *Hooks) GetPrereqs() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prereqs
+}
+
+// GetPostreqs safely retrieves the postreqs hook, returning nil if not configured.
+func (h *Hooks) GetPostreqs() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Postreqs
 }
 
 // Hook represents a lifecycle hook configuration.

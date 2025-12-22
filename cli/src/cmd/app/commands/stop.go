@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 
 	"github.com/spf13/cobra"
 )
@@ -88,5 +89,39 @@ func runStop(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Load azure.yaml for hooks (optional)
+	azureYaml, err := loadAzureYamlForHooks()
+	if err != nil {
+		return fmt.Errorf("failed to load azure.yaml: %w", err)
+	}
+
+	// Execute prestop hook if configured
+	if azureYaml != nil {
+		if err := executePrestopHook(azureYaml, servicesToStop); err != nil {
+			return fmt.Errorf("prestop hook failed: %w", err)
+		}
+	}
+
+	// Defer poststop hook execution
+	defer func() {
+		if azureYaml != nil {
+			if postErr := executePoststopHook(azureYaml, servicesToStop); postErr != nil {
+				output.Warning("Post-stop hook failed: %v", postErr)
+			}
+		}
+	}()
+
 	return executeServiceOperation(ctx, servicesToStop, ctrl.StopService, ctrl.BulkStop, "stop")
+}
+
+// executePrestopHook executes the prestop hook if configured.
+func executePrestopHook(azureYaml *service.AzureYaml, services []string) error {
+	envVars := buildServiceHookEnvVars("stop", services)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPrestop(), "prestop", envVars)
+}
+
+// executePoststopHook executes the poststop hook if configured.
+func executePoststopHook(azureYaml *service.AzureYaml, services []string) error {
+	envVars := buildServiceHookEnvVars("stop", services)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPoststop(), "poststop", envVars)
 }

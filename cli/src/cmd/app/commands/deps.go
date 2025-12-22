@@ -8,6 +8,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/spf13/cobra"
 )
@@ -52,6 +53,28 @@ func newDepsExecutor(opts *DepsOptions) *depsExecutor {
 // execute runs the deps command with the configured dependencies and options.
 func (e *depsExecutor) execute() error {
 	output.CommandHeader("deps", "Install project dependencies")
+
+	// Load azure.yaml for hooks (optional for deps command)
+	azureYaml, err := loadAzureYamlForHooks()
+	if err != nil {
+		return handleDepsError(err, "failed to load azure.yaml")
+	}
+
+	// Execute predeps hook if configured
+	if azureYaml != nil {
+		if err := executePredepsHook(azureYaml, e.opts); err != nil {
+			return fmt.Errorf("predeps hook failed: %w", err)
+		}
+	}
+
+	// Defer postdeps hook execution
+	defer func() {
+		if azureYaml != nil {
+			if postErr := executePostdepsHook(azureYaml, e.opts); postErr != nil {
+				output.Warning("Post-deps hook failed: %v", postErr)
+			}
+		}
+	}()
 
 	// Determine search root
 	searchRoot, err := getSearchRoot()
@@ -277,4 +300,29 @@ func NewDepsCommand() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&opts.Services, "service", "s", nil, "Install dependencies only for specific services (can be specified multiple times)")
 
 	return cmd
+}
+
+// executePredepsHook executes the predeps hook if configured.
+func executePredepsHook(azureYaml *service.AzureYaml, opts *DepsOptions) error {
+	envVars := buildDepsHookEnvVars(opts)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPredeps(), "predeps", envVars)
+}
+
+// executePostdepsHook executes the postdeps hook if configured.
+func executePostdepsHook(azureYaml *service.AzureYaml, opts *DepsOptions) error {
+	envVars := buildDepsHookEnvVars(opts)
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPostdeps(), "postdeps", envVars)
+}
+
+// buildDepsHookEnvVars builds deps-specific environment variables for hooks.
+func buildDepsHookEnvVars(opts *DepsOptions) []string {
+	envVars := []string{
+		buildBoolEnvVar("AZD_APP_DEPS_CLEAN", opts.Clean),
+	}
+
+	if len(opts.Services) > 0 {
+		envVars = append(envVars, buildStringListEnvVar("AZD_APP_DEPS_SERVICES", opts.Services))
+	}
+
+	return envVars
 }

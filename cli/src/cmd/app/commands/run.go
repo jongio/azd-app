@@ -635,78 +635,14 @@ func showDryRun(runtimes []*service.ServiceRuntime) error {
 
 // executePrerunHook executes the prerun hook if configured.
 func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
+	// Run command doesn't need additional env vars beyond common ones
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPrerun(), "prerun", nil)
 }
 
 // executePostrunHook executes the postrun hook if configured.
 func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
-}
-
-// executeHook executes a lifecycle hook with the given name and configuration.
-// This is a common helper function to avoid duplication between prerun and postrun hooks.
-func executeHook(azureYaml *service.AzureYaml, hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
-	if hooks == nil || hook == nil {
-		return nil // No hook configured
-	}
-
-	// Convert service.Hook to executor.Hook
-	convertedHook := convertHook(hook)
-	config := executor.ResolveHookConfig(convertedHook)
-	if config == nil {
-		return nil
-	}
-
-	// Build environment variables for the hook
-	// Following azd pattern: pass project directory and any other context
-	hookEnvVars := buildHookEnvironmentVariables(azureYaml, workingDir)
-	config.Env = hookEnvVars
-
-	return executor.ExecuteHook(context.Background(), hookName, *config, workingDir)
-}
-
-// buildHookEnvironmentVariables builds environment variables to pass to hooks
-// Following the pattern from azure/azure-dev
-func buildHookEnvironmentVariables(azureYaml *service.AzureYaml, workingDir string) []string {
-	envVars := []string{
-		fmt.Sprintf("%s=%s", executor.EnvProjectDir, workingDir),
-		fmt.Sprintf("%s=%s", executor.EnvProjectName, azureYaml.Name),
-	}
-
-	// Add count of services for context
-	if azureYaml.Services != nil {
-		envVars = append(envVars, fmt.Sprintf("%s=%d", executor.EnvServiceCount, len(azureYaml.Services)))
-	}
-
-	return envVars
-}
-
-// convertHook converts service.Hook to executor.Hook to avoid circular imports.
-func convertHook(h *service.Hook) *executor.Hook {
-	if h == nil {
-		return nil
-	}
-	return executor.NewHook(
-		h.Run,
-		h.Shell,
-		h.ContinueOnError,
-		h.Interactive,
-		convertPlatformHook(h.Windows),
-		convertPlatformHook(h.Posix),
-	)
-}
-
-// convertPlatformHook converts service.PlatformHook to executor.PlatformHook.
-func convertPlatformHook(ph *service.PlatformHook) *executor.PlatformHook {
-	if ph == nil {
-		return nil
-	}
-	return executor.NewPlatformHook(
-		ph.Run,
-		ph.Shell,
-		ph.ContinueOnError,
-		ph.Interactive,
-	)
+	// Run command doesn't need additional env vars beyond common ones
+	return executeCommandHook(azureYaml, azureYaml.Hooks.GetPostrun(), "postrun", nil)
 }
 
 // resolveBrowserTarget determines which browser target to use.

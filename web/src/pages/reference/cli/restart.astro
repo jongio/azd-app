@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
+import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app restart [flags]";
 const example0 = "azd app restart [flags]";
 const example1 = "azd app restart --service api";
@@ -80,6 +81,26 @@ const example3 = "azd app restart --all";
   <Code code={example2} lang="bash" frame="terminal" />
   <Code code={example3} lang="bash" frame="terminal" />
 </div>
+
+    <HooksSection
+      command="restart"
+      preHook="prerestart"
+      postHook="postrestart"
+      description="execute before and after restarting services"
+      exampleYaml={`hooks:
+  prerestart:
+    shell: sh
+    run: echo "Preparing to restart services..."
+  postrestart:
+    shell: sh
+    run: echo "Services restarted!"`}
+      envVars={[
+        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
+        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
+        { name: "AZD_APP_OPERATION", description: "Current operation (\"restart\")" },
+        { name: "AZD_APP_SERVICES", description: "Comma-separated list of services being restarted" }
+      ]}
+    />
 
     <!-- Link to detailed docs -->
     

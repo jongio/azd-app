@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
+import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app add [service] [flags]";
 const example1 = "azd app add --list";
 const example2 = "azd app add azurite";
@@ -192,6 +193,26 @@ const jsonOutput = `{
         Container services require Docker to be installed and running. The <a href="/azd-app/reference/cli/reqs/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app reqs</a> command will automatically check for Docker when container services are defined.
       </p>
     </div>
+
+    <HooksSection
+      command="add"
+      preHook="preadd"
+      postHook="postadd"
+      description="execute before and after adding services"
+      exampleYaml={`hooks:
+  preadd:
+    shell: sh
+    run: echo "Preparing to add service..."
+  postadd:
+    shell: sh
+    run: echo "Service added!"`}
+      envVars={[
+        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
+        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
+        { name: "AZD_APP_ADD_SERVICE", description: "Internal name of the service being added" },
+        { name: "AZD_APP_ADD_SERVICE_DISPLAY_NAME", description: "Display name of the service being added" }
+      ]}
+    />
 
     <!-- Link to detailed docs -->
     <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">

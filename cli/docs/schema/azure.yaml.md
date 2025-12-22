@@ -157,7 +157,7 @@ reqs:
 Free-form metadata (standard `azd` field).
 
 ### `hooks` ⭐ NEW
-Lifecycle hooks that execute before and after the `run` command.
+Lifecycle hooks that execute before and after azd app commands.
 
 ```yaml
 hooks:
@@ -168,7 +168,21 @@ hooks:
   postrun:
     run: "echo 'Services are ready!'"
     shell: sh
+  pretest:
+    run: npm run test:setup
+  posttest:
+    run: npm run test:cleanup
 ```
+
+**Available hooks:**
+- **`prerun`** / **`postrun`** - Before/after `azd app run`
+- **`pretest`** / **`posttest`** - Before/after `azd app test`
+- **`predeps`** / **`postdeps`** - Before/after `azd app deps`
+- **`prestart`** / **`poststart`** - Before/after `azd app start`
+- **`prestop`** / **`poststop`** - Before/after `azd app stop`
+- **`prerestart`** / **`postrestart`** - Before/after `azd app restart`
+- **`preadd`** / **`postadd`** - Before/after `azd app add`
+- **`prereqs`** / **`postreqs`** - Before/after `azd app reqs`
 
 See [Hook Object](#hook-object) for full configuration options.
 
@@ -619,7 +633,7 @@ reqs:
 
 ## Hook Object
 
-Lifecycle hook that executes before or after the `run` command. Hooks are similar to azd's `preprovision` and `postprovision` hooks.
+Lifecycle hook that executes before or after azd app commands. Hooks are similar to azd's `preprovision` and `postprovision` hooks.
 
 ### Properties
 

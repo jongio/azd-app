@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
+import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app test [flags]";
 const example0 = "azd app test [flags]";
 const example1 = "azd app test";
@@ -190,6 +191,28 @@ const example9 = "azd app test --fail-fast";
   <Code code={example8} lang="bash" frame="terminal" />
   <Code code={example9} lang="bash" frame="terminal" />
 </div>
+
+    <HooksSection
+      command="test"
+      preHook="pretest"
+      postHook="posttest"
+      description="execute before and after running tests"
+      exampleYaml={`hooks:
+  pretest:
+    shell: sh
+    run: echo "Starting test suite..."
+  posttest:
+    shell: sh
+    run: echo "Tests complete!"`}
+      envVars={[
+        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
+        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
+        { name: "AZD_APP_TEST_TYPE", description: "Test type being run (unit, integration, e2e, all)" },
+        { name: "AZD_APP_TEST_COVERAGE", description: "Whether coverage is enabled (true/false)" },
+        { name: "AZD_APP_TEST_OUTPUT_DIR", description: "Directory for test output and coverage reports" },
+        { name: "AZD_APP_TEST_SERVICES", description: "Comma-separated list of services being tested" }
+      ]}
+    />
 
     <!-- Link to detailed docs -->
     
