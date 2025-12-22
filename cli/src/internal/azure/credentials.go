@@ -135,6 +135,24 @@ func NewAzureCredential() (azcore.TokenCredential, error) {
 // and won't work for Log Analytics API (api.loganalytics.io) which requires
 // a different audience. Instead, it uses DefaultAzureCredential which can
 // obtain tokens for any requested scope.
+//
+// AUTH SCOPE LIMITATION:
+// The Log Analytics API requires scope 'https://api.loganalytics.io/.default'.
+// However, most Azure SDK clients use 'https://management.azure.com/.default'.
+// This creates a challenge:
+// 1. The azlogs SDK client expects credentials that provide Log Analytics tokens
+// 2. BUT the SDK's internal token request doesn't specify scope explicitly
+// 3. DefaultAzureCredential defaults to the last requested scope
+//
+// WORKAROUND:
+// - We rely on Azure CLI (via DefaultAzureCredential) which can handle
+//   multiple scopes by caching separate tokens per resource
+// - The azlogs.Client automatically requests the correct scope internally
+// - Users must be logged in via `az login` for this to work reliably
+//
+// FUTURE FIX:
+// - Azure SDK for Go should expose scope configuration on azlogs.Client
+// - Or provide a dedicated LogAnalyticsCredential type that handles scope internally
 func NewLogAnalyticsCredential() (azcore.TokenCredential, error) {
 	// Prefer Azure Developer CLI credential (azd auth login). This obtains tokens for
 	// arbitrary scopes via `azd auth token --scope ...`.

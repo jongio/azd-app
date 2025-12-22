@@ -44,7 +44,7 @@ func (s *Server) handleAzureTables(w http.ResponseWriter, r *http.Request) {
 	if workspaceID != "" {
 		cred, credErr := newLogAnalyticsCredential()
 		if credErr == nil {
-			client, clientErr := newLogAnalyticsClient(cred, workspaceID)
+			client, clientErr := getOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
 			if clientErr == nil {
 				tables, err = client.ListAvailableTables(ctx)
 			}

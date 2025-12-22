@@ -48,6 +48,10 @@ export interface UseLogsStreamParams {
   setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
   setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>
   onFetchSettled?: () => void
+  setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>
+  setLoadingMessage?: React.Dispatch<React.SetStateAction<string>>
+  setCanRetry?: React.Dispatch<React.SetStateAction<boolean>>
+  onRetry?: () => void
 }
 
 /**
@@ -62,8 +66,12 @@ export interface UseLogsStreamParams {
  * The frontend doesn't distinguish between backend polling vs streaming - 
  * the WebSocket connection abstracts this complexity.
  */
-export function useLogsStream(params: UseLogsStreamParams): void {
-  const { serviceName, fetchKey, logMode, timeRange, azureRealtime, isPausedRef, setLogs, setErrorMessage, onFetchSettled } = params
+export function useLogsStream(params: UseLogsStreamParams): { retry: () => void } {
+  const { 
+    serviceName, fetchKey, logMode, timeRange, azureRealtime, isPausedRef, 
+    setLogs, setErrorMessage, onFetchSettled,
+    setIsLoading, setLoadingMessage, setCanRetry, onRetry
+  } = params
   const { connected } = useBackendConnection()
   const currentLogModeRef = useRef<LogMode>(logMode)
   const currentFetchKeyRef = useRef<string>(fetchKey)
@@ -71,6 +79,9 @@ export function useLogsStream(params: UseLogsStreamParams): void {
   const errorCountRef = useRef<number>(0)
   const lastErrorTimeRef = useRef<number>(0)
   const backoffDelayRef = useRef<number>(1000)
+  const notFoundCountRef = useRef<number>(0) // Track 404 responses for services not started yet
+  const maxNotFoundRetries = 3 // Max retries for 404s (3s, 6s, 12s = ~21s total wait)
+  const retryTriggerRef = useRef<number>(0) // Trigger for manual retry
   const lastFetchTimeRef = useRef<number>(0)
   const abortControllerRef = useRef<AbortController | null>(null)
   const emptyResultCountRef = useRef<number>(0)
@@ -85,6 +96,7 @@ export function useLogsStream(params: UseLogsStreamParams): void {
     // Reset error count and backoff when mode or service changes
     errorCountRef.current = 0
     lastErrorTimeRef.current = 0
+    notFoundCountRef.current = 0 // Reset 404 counter
     backoffDelayRef.current = 1000
     lastFetchTimeRef.current = 0
     emptyResultCountRef.current = 0 // Reset empty result counter
@@ -117,6 +129,11 @@ export function useLogsStream(params: UseLogsStreamParams): void {
     let cancelled = false
     
     const fetchLogs = async () => {
+      // Skip Azure logs fetch if backend not connected - avoids failed requests on dashboard load
+      if (logMode === 'azure' && !connected) {
+        return
+      }
+      
       // Prevent concurrent fetches - only one in-flight request at a time
       if (abortControllerRef.current) {
         return
@@ -146,6 +163,15 @@ export function useLogsStream(params: UseLogsStreamParams): void {
       fetchCountForKeyRef.current++
       const isFirstFetch = fetchCountForKeyRef.current === 1
       
+      // Show loading state on first fetch
+      if (isFirstFetch) {
+        setIsLoading?.(true)
+        setLoadingMessage?.(notFoundCountRef.current > 0 
+          ? `Waiting for ${serviceName} to start... (attempt ${notFoundCountRef.current + 1})`
+          : `Loading logs for ${serviceName}...`
+        )
+      }
+      
       try {
         setErrorMessage(null)
         const url = buildLogsFetchUrl(logsEndpoint, serviceName, logMode, timeRange)
@@ -157,13 +183,45 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         clearTimeout(timeoutId)
         
         if (!res.ok) {
+          // Special handling for 404 - service might not be started yet (local-only services)
+          if (res.status === 404 && logMode === 'local') {
+            notFoundCountRef.current++
+            
+            // Give up after max retries - service is likely Azure-only and won't have local logs
+            if (notFoundCountRef.current >= maxNotFoundRetries) {
+              // Mark that we gave up - user can manually retry
+              setCanRetry?.(true)
+              setIsLoading?.(false)
+              setLoadingMessage?.('')
+              return
+            }
+            
+            // For first few retries, use shorter delays - service might still be starting
+            // 1s, 2s, 4s pattern instead of 3s, 6s, 12s
+            const notFoundDelay = 1000 * Math.pow(2, notFoundCountRef.current - 1)
+            setLoadingMessage?.(`Waiting for ${serviceName}... (${notFoundDelay / 1000}s)`)
+            
+            setTimeout(() => {
+              if (!cancelled && currentLogModeRef.current === capturedLogMode && currentFetchKeyRef.current === capturedFetchKey) {
+                void fetchLogs()
+              }
+            }, notFoundDelay)
+            return
+          }
+          
           const message = (await res.text()) || `HTTP ${res.status}`
           setErrorMessage(message)
+          setIsLoading?.(false)
           return
         }
 
         const data: unknown = await res.json()
         const nextLogs = parseLogsPayload(logMode, data)
+        
+        // Success - clear retry state
+        setCanRetry?.(false)
+        setIsLoading?.(false)
+        setLoadingMessage?.('')
         
         // Success - reset error count and backoff
         if (errorCountRef.current > 0) {
@@ -298,7 +356,18 @@ export function useLogsStream(params: UseLogsStreamParams): void {
         abortControllerRef.current = null
       }
     }
-  }, [serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange])
+  }, [serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange, connected, setIsLoading, setLoadingMessage, setCanRetry, retryTriggerRef.current])
+
+  // Manual retry function - resets counters and triggers re-fetch
+  const retry = useCallback(() => {
+    notFoundCountRef.current = 0
+    fetchCountForKeyRef.current = 0
+    setCanRetry?.(false)
+    setLoadingMessage?.('')
+    // Trigger re-fetch by incrementing retryTriggerRef
+    retryTriggerRef.current++
+    onRetry?.()
+  }, [setCanRetry, setLoadingMessage, onRetry])
 
   // Use shared WebSocket for both local and Azure realtime logs (multiplexed)
   // This prevents resource exhaustion from multiple connections
@@ -324,4 +393,6 @@ export function useLogsStream(params: UseLogsStreamParams): void {
     mode: logMode === 'azure' ? 'azure' : 'local',
     onLogEntry: handleSharedLogEntry,
   })
+  
+  return { retry }
 }

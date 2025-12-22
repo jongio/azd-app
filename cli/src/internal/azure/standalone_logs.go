@@ -170,8 +170,8 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 		}
 	}
 
-	// Create client
-	client, err := NewLogAnalyticsClient(cred, workspaceID)
+	// Get or create cached client
+	client, err := GetOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
 	if err != nil {
 		// Clear token cache on client creation errors
 		ClearTokenCacheOnError(err)
@@ -629,6 +629,89 @@ func buildStandaloneQueryForType(resourceType ResourceType, services []string, s
 	return sb.String()
 }
 
+// buildTimestampQuery builds a KQL query using precise timestamp filtering instead of ago().
+// This is more efficient for polling as it avoids re-fetching overlapping data.
+func buildTimestampQuery(resourceType ResourceType, services []string, since time.Time) string {
+	var sb strings.Builder
+	timestamp := since.UTC().Format(time.RFC3339Nano)
+
+	switch resourceType {
+	case ResourceTypeContainerApp:
+		sb.WriteString("ContainerAppConsoleLogs_CL\n")
+		sb.WriteString(fmt.Sprintf("| where TimeGenerated > datetime('%s')\n", timestamp))
+		if len(services) > 0 {
+			var conditions []string
+			for _, svc := range services {
+				conditions = append(conditions, fmt.Sprintf("ContainerAppName_s =~ '%s'", sanitizeKQLString(svc)))
+				conditions = append(conditions, fmt.Sprintf("ContainerName_s =~ '%s'", sanitizeKQLString(svc)))
+			}
+			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
+		}
+		sb.WriteString("| extend Source = \"Azure Container Apps\", AzureService = \"containerapp\"\n")
+		sb.WriteString("| project TimeGenerated, Source, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s\n")
+
+	case ResourceTypeAppService:
+		sb.WriteString("AppServiceConsoleLogs\n")
+		sb.WriteString(fmt.Sprintf("| where TimeGenerated > datetime('%s')\n", timestamp))
+		if len(services) > 0 {
+			var conditions []string
+			for _, svc := range services {
+				conditions = append(conditions, fmt.Sprintf("_ResourceId contains '%s'", sanitizeKQLString(svc)))
+			}
+			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
+		}
+		sb.WriteString("| extend Source = \"Azure App Service\", AzureService = \"appservice\"\n")
+		sb.WriteString("| project TimeGenerated, Source, Message=ResultDescription, Level, _ResourceId\n")
+
+	case ResourceTypeFunction:
+		sb.WriteString("FunctionAppLogs\n")
+		sb.WriteString(fmt.Sprintf("| where TimeGenerated > datetime('%s')\n", timestamp))
+		if len(services) > 0 {
+			var conditions []string
+			for _, svc := range services {
+				conditions = append(conditions, fmt.Sprintf("_ResourceId contains '%s'", sanitizeKQLString(svc)))
+			}
+			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
+		}
+		sb.WriteString("| extend Source = \"Azure Functions\", AzureService = \"functions\"\n")
+		sb.WriteString("| project TimeGenerated, Source, Message, Level, FunctionName, _ResourceId\n")
+
+	case ResourceTypeAKS:
+		sb.WriteString("ContainerLogV2\n")
+		sb.WriteString(fmt.Sprintf("| where TimeGenerated > datetime('%s')\n", timestamp))
+		if len(services) > 0 {
+			var conditions []string
+			for _, svc := range services {
+				conditions = append(conditions, fmt.Sprintf("PodName contains '%s'", sanitizeKQLString(svc)))
+				conditions = append(conditions, fmt.Sprintf("ContainerName contains '%s'", sanitizeKQLString(svc)))
+			}
+			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
+		}
+		sb.WriteString("| project TimeGenerated, LogMessage, PodName, ContainerName, PodNamespace\n")
+
+	case ResourceTypeContainerInstance:
+		sb.WriteString("ContainerInstanceLog_CL\n")
+		sb.WriteString(fmt.Sprintf("| where TimeGenerated > datetime('%s')\n", timestamp))
+		if len(services) > 0 {
+			var conditions []string
+			for _, svc := range services {
+				conditions = append(conditions, fmt.Sprintf("ContainerGroup_s contains '%s'", sanitizeKQLString(svc)))
+			}
+			sb.WriteString(fmt.Sprintf("| where %s\n", strings.Join(conditions, " or ")))
+		}
+		sb.WriteString("| project TimeGenerated, Message_s, ContainerName_s\n")
+
+	default:
+		// Fallback to Container App
+		return buildTimestampQuery(ResourceTypeContainerApp, services, since)
+	}
+
+	sb.WriteString("| order by TimeGenerated asc\n")
+	sb.WriteString("| take 500")
+
+	return sb.String()
+}
+
 // formatKQLDuration formats a duration for KQL ago() function.
 func formatKQLDuration(d time.Duration) string {
 	hours := int(d.Hours())
@@ -705,8 +788,8 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 		}
 	}
 
-	// Create client
-	client, err := NewLogAnalyticsClient(cred, workspaceID)
+	// Get or create cached client
+	client, err := GetOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
 	if err != nil {
 		// Clear token cache on client creation errors
 		ClearTokenCacheOnError(err)
@@ -807,11 +890,9 @@ func buildStreamingQueryForType(resourceType ResourceType, services []string, si
 
 // fetchAndSendLogsMultiType fetches logs from multiple resource types and sends them to the channel.
 func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, since time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
-	sinceAgo := time.Since(since)
-	if sinceAgo < time.Minute {
-		sinceAgo = time.Minute // Minimum 1 minute window
-	}
-
+	// Use precise timestamp filtering instead of ago() to avoid duplicate fetches
+	// This queries: TimeGenerated > lastSeen instead of TimeGenerated > ago(Nm)
+	
 	// Collect all entries from all resource types
 	var allEntries []LogEntry
 	var successCount int
@@ -822,13 +903,15 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 			azureNames = append(azureNames, svc.AzureName)
 		}
 
-		query := buildStreamingQueryForType(resourceType, azureNames, sinceAgo)
+		// Build query with timestamp-based filtering
+		query := buildTimestampQuery(resourceType, azureNames, *lastSeen)
 
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Streaming query for %s: %s\n", resourceType, strings.ReplaceAll(query, "\n", " | "))
 		}
 
-		entries, err := client.QueryLogs(ctx, "", resourceType, sinceAgo, query)
+		// Query using custom query (bypasses ago() duration logic)
+		entries, err := client.QueryLogs(ctx, "", resourceType, 0, query)
 		if err != nil {
 			if os.Getenv("AZD_APP_DEBUG") == "true" {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
@@ -851,10 +934,11 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 	sortLogEntriesByTimeAsc(allEntries)
 
 	if os.Getenv("AZD_APP_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Fetched %d total entries, lastSeen=%v, sinceAgo=%v\n", len(allEntries), lastSeen.Format(time.RFC3339), sinceAgo)
+		fmt.Fprintf(os.Stderr, "[DEBUG] Fetched %d total entries, lastSeen=%v\n", len(allEntries), lastSeen.Format(time.RFC3339))
 	}
 
 	// Send new entries (in chronological order - oldest to newest)
+	// Deduplication: only send entries with timestamp > lastSeen
 	sentCount := 0
 	for _, entry := range allEntries {
 		if entry.Timestamp.After(*lastSeen) {

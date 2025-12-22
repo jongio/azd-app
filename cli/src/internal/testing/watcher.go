@@ -85,6 +85,8 @@ func NewFileWatcher(paths []string, opts ...WatcherOption) *FileWatcher {
 			"coverage",
 			"test-results",
 			".DS_Store",
+			".azure/logs",
+			"*.log",
 		},
 		debounceDelay:   DefaultDebounceDelay,
 		pendingChanges:  make(map[string]time.Time),
@@ -401,13 +403,23 @@ func (w *FileWatcher) checkForChanges() ([]string, error) {
 
 // shouldIgnore checks if a path should be ignored
 func (w *FileWatcher) shouldIgnore(path string) bool {
+	// Convert path separators to forward slashes for consistent matching
+	normalizedPath := filepath.ToSlash(path)
 	base := filepath.Base(path)
+	
 	for _, pattern := range w.ignorePatterns {
+		// Match against base filename (for patterns like "*.log", ".DS_Store")
 		if matched, _ := filepath.Match(pattern, base); matched {
 			return true
 		}
-		// Also check if the path contains the pattern
+		
+		// Match against directory name
 		if filepath.Base(filepath.Dir(path)) == pattern {
+			return true
+		}
+		
+		// Match against full path patterns (for patterns like ".azure/logs")
+		if strings.Contains(normalizedPath, pattern) {
 			return true
 		}
 	}
