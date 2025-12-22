@@ -91,11 +91,6 @@ func buildBoolEnvVar(key string, value bool) string {
 	return buildKeyValueEnvVar(key, fmt.Sprintf("%t", value))
 }
 
-// buildIntEnvVar creates an integer environment variable string.
-func buildIntEnvVar(key string, value int) string {
-	return buildKeyValueEnvVar(key, fmt.Sprintf("%d", value))
-}
-
 // buildStringListEnvVar creates an environment variable from a string slice (comma-separated).
 func buildStringListEnvVar(key string, values []string) string {
 	return buildKeyValueEnvVar(key, strings.Join(values, ","))
