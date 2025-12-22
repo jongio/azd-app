@@ -211,6 +211,9 @@ export function ConsoleView({
             )?.status
             // Services with host: local always show local logs regardless of global mode
             const effectiveLogMode = service?.host === 'local' ? 'local' : azureConnection.logMode
+            // Only show mode switching if the service's mode can actually change
+            // Services with host: local never change mode (always local), so no switching indicator
+            const effectiveIsModeSwitching = service?.host !== 'local' && azureConnection.isModeSwitching
             return (
               <LogsPane
                 key={serviceName}
@@ -231,7 +234,7 @@ export function ConsoleView({
                   service && onServiceClick ? () => onServiceClick(service) : undefined
                 }
                 logMode={effectiveLogMode}
-                isModeSwitching={azureConnection.isModeSwitching}
+                isModeSwitching={effectiveIsModeSwitching}
                 timeRange={effectiveLogMode === 'azure' ? timeRange : undefined}
                 azureRealtime={syncSettings.azureRealtime}
               />
