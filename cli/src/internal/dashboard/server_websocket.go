@@ -342,18 +342,55 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 		close(mergedChan)
 	}()
 
-	// Stream logs to WebSocket
+	// Stream logs to WebSocket with batching to improve throughput
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		batch := make([]service.LogEntry, 0, 100) // Batch up to 100 entries
+		ticker := time.NewTicker(50 * time.Millisecond) // Flush every 50ms
+		defer ticker.Stop()
+		
+		flush := func() error {
+			if len(batch) == 0 {
+				return nil
+			}
+			// Send as array if batched, single entry if just one
+			var payload interface{}
+			if len(batch) == 1 {
+				payload = batch[0]
+			} else {
+				payload = batch
+			}
+			if err := conn.writeWebSocketJSON(payload); err != nil {
+				return err
+			}
+			batch = batch[:0] // Clear batch
+			return nil
+		}
+		
 		for {
 			select {
 			case entry, ok := <-mergedChan:
 				if !ok {
+					// Flush remaining batch before closing
+					if err := flush(); err != nil && !isExpectedCloseError(err) {
+						log.Printf("WebSocket write error: %v", err)
+					}
 					return
 				}
-				if err := conn.writeWebSocketJSON(entry); err != nil {
-					// Only log unexpected errors - client disconnects are normal
+				batch = append(batch, entry)
+				// Flush if batch is full
+				if len(batch) >= 100 {
+					if err := flush(); err != nil {
+						if !isExpectedCloseError(err) {
+							log.Printf("WebSocket write error: %v", err)
+						}
+						return
+					}
+				}
+			case <-ticker.C:
+				// Periodic flush to ensure low latency
+				if err := flush(); err != nil {
 					if !isExpectedCloseError(err) {
 						log.Printf("WebSocket write error: %v", err)
 					}
