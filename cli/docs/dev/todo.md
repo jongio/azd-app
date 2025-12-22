@@ -227,6 +227,89 @@ Re-enable historical Azure log queries and custom KQL once a backend query endpo
 
 ---
 
+### Azure Logs: Resource Discovery Improvements
+
+**Status:** Deferred (needs clarification)
+**Priority:** Medium
+**Effort:** Low (2 hours)
+
+**Description**
+Fix multi-word service name normalization and add validation warnings when azd services don't map to Azure resources.
+
+**Current Behavior**
+The `normalizeServiceName()` function in `cli/src/internal/azure/loganalytics.go` converts underscores to hyphens for environment variable format. However, this may fail for multi-word service names.
+
+**Proposed Implementation**
+1. Add debug logging for all resource mapping attempts
+2. Add validation warnings when service names don't map to Azure resources
+3. Review if underscore → hyphen conversion is correct for all cases
+4. Preserve original service names when possible
+
+**Location**
+- `cli/src/internal/azure/loganalytics.go` - `normalizeServiceName()` function
+- `cli/src/internal/dashboard/azure_logs.go` - Resource discovery logic
+
+**Rationale for Deferral**
+- Current hyphen conversion appears intentional for environment variable format
+- No concrete bug example provided
+- Needs real-world test case showing actual failure
+- Wait for user bug report with reproduction steps
+
+**Related**
+Part of Azure Logs reliability improvements spec (Task 8/10)
+
+---
+
+### Azure Logs: File Rotation Race Condition
+
+**Status:** Deferred (rare edge case)
+**Priority:** Low
+**Effort:** Low (1 hour)
+
+**Description**
+Add atomic file locking during `.azd/logs/` rotation to prevent rare corruption when multiple processes write simultaneously.
+
+**Current State**
+Log file writes in `cli/src/internal/service/logger.go` don't use explicit file locking. When multiple processes (e.g., parallel service startup) write to the same log file during rotation, there's a theoretical risk of corruption.
+
+**Proposed Implementation**
+```go
+import "syscall"
+
+// Add file locking wrapper
+func (w *RotatingWriter) Write(p []byte) (n int, err error) {
+    w.mu.Lock()
+    defer w.mu.Unlock()
+    
+    // Acquire exclusive file lock
+    if err := syscall.Flock(int(w.file.Fd()), syscall.LOCK_EX); err != nil {
+        return 0, err
+    }
+    defer syscall.Flock(int(w.file.Fd()), syscall.LOCK_UN)
+    
+    // Write to file
+    return w.file.Write(p)
+}
+```
+
+**Alternative**
+Use `sync.Mutex` at package level for cross-process coordination, or atomic file operations with temporary files + rename.
+
+**Location**
+- `cli/src/internal/service/logger.go` - RotatingWriter implementation
+
+**Rationale for Deferral**
+- Never observed in practice
+- Very rare edge case (requires concurrent rotation)
+- Current `sync.Mutex` provides process-level safety
+- Only affects high-concurrency scenarios
+- Low user impact
+
+**Related**
+Part of Azure Logs reliability improvements spec (Task 9/10)
+
+---
+
 ### Add Animations to Dashboard UI Components
 
 **Status:** Deferred  

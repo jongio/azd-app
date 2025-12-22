@@ -101,7 +101,8 @@ type LogAnalyticsClient struct {
 	workspaceID   string
 	credential    azcore.TokenCredential
 	workspaceGUID string
-	workspaceMu   sync.Mutex
+	resolveOnce   sync.Once
+	resolveErr    error
 }
 
 // NewLogAnalyticsClient creates a new Log Analytics client.
@@ -119,19 +120,10 @@ func NewLogAnalyticsClient(credential azcore.TokenCredential, workspaceID string
 }
 
 func (c *LogAnalyticsClient) getWorkspaceGUID(ctx context.Context) (string, error) {
-	c.workspaceMu.Lock()
-	defer c.workspaceMu.Unlock()
-
-	if c.workspaceGUID != "" {
-		return c.workspaceGUID, nil
-	}
-
-	guid, err := NormalizeWorkspaceID(ctx, c.credential, c.workspaceID)
-	if err != nil {
-		return "", err
-	}
-	c.workspaceGUID = guid
-	return guid, nil
+	c.resolveOnce.Do(func() {
+		c.workspaceGUID, c.resolveErr = NormalizeWorkspaceID(ctx, c.credential, c.workspaceID)
+	})
+	return c.workspaceGUID, c.resolveErr
 }
 
 // QueryLogs queries logs for a specific service.
@@ -339,15 +331,47 @@ func (c *LogAnalyticsClient) extractLevel(row []any, colIndex map[string]int, me
 		return LogLevelInfo
 	}
 
-	// Infer from message content
+	// Infer from message content using same logic as local logs
+	return inferLogLevelFromMessage(message)
+}
+
+// inferLogLevelFromMessage infers log level from message content.
+// Uses the same patterns as local log inference for consistency.
+func inferLogLevelFromMessage(message string) LogLevel {
 	msgLower := strings.ToLower(message)
-	if strings.Contains(msgLower, "error") || strings.Contains(msgLower, "exception") || strings.Contains(msgLower, "failed") {
+
+	// Check for patterns that should always be INFO (overrides error/warning detection)
+	// These are success messages that contain words like "error" but aren't actually errors
+	infoOverrides := []string{
+		"found 0 errors",
+		"0 error(s)",
+		"0 errors",
+		"build succeeded",
+		"compilation succeeded",
+		"compiled successfully",
+		"0 failed",
+		"all tests passed",
+	}
+	for _, pattern := range infoOverrides {
+		if strings.Contains(msgLower, pattern) {
+			return LogLevelInfo
+		}
+	}
+
+	// Check for error indicators
+	if strings.Contains(msgLower, "error") || strings.Contains(msgLower, "exception") ||
+		strings.Contains(msgLower, "fatal") || strings.Contains(msgLower, "panic") ||
+		strings.Contains(msgLower, "failed") {
 		return LogLevelError
 	}
-	if strings.Contains(msgLower, "warning") || strings.Contains(msgLower, "warn") {
+
+	// Check for warning indicators
+	if strings.Contains(msgLower, "warn") || strings.Contains(msgLower, "warning") {
 		return LogLevelWarn
 	}
-	if strings.Contains(msgLower, "debug") {
+
+	// Check for debug indicators
+	if strings.Contains(msgLower, "debug") || strings.Contains(msgLower, "trace") {
 		return LogLevelDebug
 	}
 

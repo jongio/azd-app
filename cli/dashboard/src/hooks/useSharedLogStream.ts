@@ -27,7 +27,7 @@ interface WebSocketHandlers {
 }
 
 class SharedLogStreamManager {
-  private ws: WebSocket | null = null
+  protected ws: WebSocket | null = null
   private wsHandlers = new WeakMap<WebSocket, WebSocketHandlers>()
   private subscribers = new Map<string, Set<(entry: LogEntry) => void>>()
   private stateSubscribers = new Set<StateChangeCallback>()
@@ -48,6 +48,14 @@ class SharedLogStreamManager {
   // Message buffer for late subscribers (last 100 messages)
   private messageBuffer: LogEntry[] = []
   private readonly maxBufferSize = 100
+  
+  // Sequence tracking for gap detection
+  private lastSeenSequence = new Map<string, number>()
+  private gapCallbacks = new Map<string, (gap: { start: number; end: number }) => void>()
+  
+  // Init message tracking for configuration
+  protected initSent = false
+  protected pendingInitConfigs = new Map<string, { since?: string }>()
 
   constructor(config: Partial<ManagerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -108,7 +116,7 @@ class SharedLogStreamManager {
     return this.currentState
   }
 
-  subscribe(serviceName: string, callback: (entry: LogEntry) => void): () => void {
+  subscribe(serviceName: string, callback: (entry: LogEntry) => void, config?: { onGapDetected?: (gap: { start: number; end: number }) => void; since?: string }): () => void {
     if (this.isDestroyed) return () => {}
     
     // Check if we need to start connection BEFORE adding subscriber
@@ -128,6 +136,16 @@ class SharedLogStreamManager {
       subs.add(callback)
     }
     
+    // Store init config for this service (if provided)
+    if (config?.since) {
+      this.pendingInitConfigs.set(serviceName, { since: config.since })
+    }
+    
+    // Register gap detection callback
+    if (config?.onGapDetected) {
+      this.gapCallbacks.set(serviceName, config.onGapDetected)
+    }
+    
     // Replay buffered messages for this subscriber
     this.replayBufferedMessages(serviceName, callback)
 
@@ -143,6 +161,8 @@ class SharedLogStreamManager {
         serviceSubs.delete(callback)
         if (serviceSubs.size === 0) {
           this.subscribers.delete(serviceName)
+          this.gapCallbacks.delete(serviceName)
+          this.lastSeenSequence.delete(serviceName)
         }
       }
 
@@ -242,12 +262,21 @@ class SharedLogStreamManager {
     this.backoffDelay = this.minBackoff
     this.reconnectAttempts = 0
     this.setState('connected')
+    
+    // Send init message if we have pending configs and haven't sent yet
+    this.sendInitMessage()
+    
     this.startHeartbeat()
     
     // Only log initial connection and successful reconnections
     if (wasReconnecting) {
       console.warn('[SharedLogStream] Reconnected successfully')
     }
+  }
+
+  protected sendInitMessage(): void {
+    // Base implementation does nothing - subclasses can override
+    // This is called after WebSocket opens
   }
 
   private handleMessage(event: MessageEvent): void {
@@ -258,12 +287,43 @@ class SharedLogStreamManager {
     }
     
     try {
-      const entry = JSON.parse(event.data as string) as LogEntry
+      const message = JSON.parse(event.data as string) as unknown
+      
+      // Handle status messages (connection health updates from backend)
+      if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'status') {
+        // Status messages don't get dispatched as log entries
+        // They could be used for connection health indicators in the future
+        return
+      }
+      
+      // Handle log entries
+      const entry = message as LogEntry
       
       // Validate log entry structure
       if (!entry || typeof entry !== 'object' || !entry.service) {
         console.warn('[SharedLogStream] Invalid log entry received:', entry)
         return
+      }
+      
+      // Check for sequence gaps (only for Azure logs with sequence numbers)
+      if (entry.sequence !== undefined) {
+        const lastSeq = this.lastSeenSequence.get(entry.service)
+        if (lastSeq !== undefined && entry.sequence > lastSeq + 1) {
+          // Gap detected!
+          const gap = { start: lastSeq + 1, end: entry.sequence - 1 }
+          console.warn(`[SharedLogStream] Gap detected for ${entry.service}: missing sequences ${gap.start}-${gap.end}`)
+          
+          // Call gap callback if registered
+          const gapCallback = this.gapCallbacks.get(entry.service)
+          if (gapCallback) {
+            try {
+              gapCallback(gap)
+            } catch (err) {
+              console.error('[SharedLogStream] Gap callback error:', err)
+            }
+          }
+        }
+        this.lastSeenSequence.set(entry.service, entry.sequence)
       }
       
       // Add to buffer (maintain max size)
@@ -306,7 +366,7 @@ class SharedLogStreamManager {
         toRemove.forEach(cb => allSubs.delete(cb))
       }
     } catch (err) {
-      console.error('[SharedLogStream] Failed to parse log entry:', err)
+      console.error('[SharedLogStream] Failed to parse message:', err)
     }
   }
 
@@ -457,8 +517,12 @@ class SharedLogStreamManager {
     this.isConnecting = false
     this.backoffDelay = this.minBackoff
     this.reconnectAttempts = 0
-    // Clear message buffer on disconnect to avoid stale data
+    // Clear message buffer and sequence tracking on disconnect
     this.messageBuffer = []
+    this.lastSeenSequence.clear()
+    this.gapCallbacks.clear()
+    this.initSent = false
+    this.pendingInitConfigs.clear()
     
     if (!this.isDestroyed) {
       this.setState('disconnected')
@@ -517,6 +581,31 @@ function getAzureLogManager(): SharedLogStreamManager {
         // Azure realtime endpoint - doesn't filter by service, gets all Azure logs
         return `${protocol}//${globalThis.location.host}/api/azure/logs/stream?realtime=true`
       }
+
+      protected sendInitMessage(): void {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+        if (this.initSent) return
+
+        // Get first subscriber's config (they all share same connection)
+        const firstConfig = Array.from(this.pendingInitConfigs.values())[0]
+        const firstService = Array.from(this.pendingInitConfigs.keys())[0]
+
+        if (firstConfig || firstService) {
+          const initMsg = {
+            type: 'init',
+            service: firstService || 'all',
+            since: firstConfig?.since || '1h', // Default to 1 hour
+          }
+
+          try {
+            this.ws.send(JSON.stringify(initMsg))
+            this.initSent = true
+            console.log('[AzureLogStream] Sent init message:', initMsg)
+          } catch (err) {
+            console.error('[AzureLogStream] Failed to send init message:', err)
+          }
+        }
+      }
     }
     azureLogManager = new AzureLogStreamManager()
   }
@@ -536,6 +625,7 @@ interface UseSharedLogStreamOptions {
   enabled: boolean
   mode: 'local' | 'azure'
   onLogEntry: (entry: LogEntry) => void
+  since?: string  // Time range for initial fetch (e.g., '1h', '30m')
 }
 
 interface UseSharedLogStreamReturn {
@@ -551,6 +641,7 @@ export function useSharedLogStream({
   enabled,
   mode,
   onLogEntry,
+  since,
 }: UseSharedLogStreamOptions): UseSharedLogStreamReturn {
   const callbackRef = useRef(onLogEntry)
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
@@ -603,10 +694,10 @@ export function useSharedLogStream({
       if (isMountedRef.current) {
         callbackRef.current(entry)
       }
-    })
+    }, { since })
 
     return unsubscribe
-  }, [serviceName, enabled, manager])
+  }, [serviceName, enabled, manager, since])
 
   return { connectionState }
 }

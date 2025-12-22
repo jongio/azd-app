@@ -18,4 +18,4 @@ var fetchAzureLogsStandalone = azure.FetchAzureLogsStandalone
 var newLogAnalyticsCredential = azure.NewLogAnalyticsCredential
 var validateCredentials = azure.ValidateCredentials
 var getWorkspaceIDFromEnv = azure.GetWorkspaceIDFromEnv
-var newLogAnalyticsClient = azure.NewLogAnalyticsClient
+var getOrCreateLogAnalyticsClient = azure.GetOrCreateLogAnalyticsClient

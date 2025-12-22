@@ -3,12 +3,14 @@ package dashboard
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
@@ -54,11 +56,45 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// Try to read optional init message with time range configuration
+	// Message format: {"type":"init","service":"api","since":"1h"}
+	// Use non-blocking read with short timeout
+	var initialWindow time.Duration = 30 * time.Minute // Default
+	initServiceName := serviceName
+
+	readCtx, readCancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
+	defer readCancel()
+
+	msgType, msgData, err := rawConn.Read(readCtx)
+	if err == nil && msgType == websocket.MessageText {
+		var initMsg map[string]interface{}
+		if jsonErr := json.Unmarshal(msgData, &initMsg); jsonErr == nil {
+			// Successfully parsed init message
+			if msgTypeStr, ok := initMsg["type"].(string); ok && msgTypeStr == "init" {
+				if svc, ok := initMsg["service"].(string); ok && svc != "" {
+					initServiceName = svc
+				}
+				if since, ok := initMsg["since"].(string); ok && since != "" {
+					if parsed := parseDuration(since); parsed > 0 {
+						initialWindow = parsed
+						log.Printf("Azure logs init: service=%s, window=%s", initServiceName, initialWindow)
+					}
+				}
+			}
+		}
+	}
+	// If read times out or fails, just use defaults (backward compatible)
+
+	// Use init message service name if provided, otherwise fall back to query param
+	if initServiceName != "" {
+		serviceName = initServiceName
+	}
+
 	// Track last seen timestamp to avoid duplicates
-	lastTimestamp := time.Now().Add(-30 * time.Minute) // Start with 30m ago
+	lastTimestamp := time.Now().Add(-initialWindow)
 
 	ctx := r.Context()
-	log.Printf("Azure logs WebSocket connected for service: %s (realtime=%v)", serviceName, realtime)
+	log.Printf("Azure logs WebSocket connected for service: %s (realtime=%v, window=%s)", serviceName, realtime, initialWindow)
 
 	// If realtime is requested and a specific service is selected, attempt service-specific streaming.
 	if realtime && serviceName != "" {
@@ -83,15 +119,32 @@ func parseBoolQueryParam(value string) bool {
 	}
 }
 
+// parseDuration converts time range strings like "1h", "30m", "24h" to time.Duration.
+func parseDuration(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0
+	}
+	return d
+}
+
 func streamAzureLogsViaPolling(ctx context.Context, s *Server, serviceName string, conn *clientConn, since time.Time, lastTimestamp *time.Time) {
-	// Poll for new logs every 5 seconds
-	ticker := time.NewTicker(5 * time.Second)
+	// Initialize polling state with exponential backoff
+	pollingState := azure.NewPollingState(5 * time.Second)
+	lastAttemptTime := time.Now()
+
+	// Sequence tracking for backpressure detection
+	var sequenceCounter int64 = 0
+
+	// Create adaptive ticker - will be recreated with new intervals
+	ticker := time.NewTicker(pollingState.NextDelay())
 	defer ticker.Stop()
 
 	// Send initial status message to indicate streaming is active
+	health := pollingState.GetHealth()
 	statusMsg := map[string]interface{}{
 		"type":   "status",
-		"status": "connected",
+		"status": health.Status,
 		"mode":   "polling",
 	}
 	if err := conn.writeWebSocketJSON(statusMsg); err != nil {
@@ -100,23 +153,66 @@ func streamAzureLogsViaPolling(ctx context.Context, s *Server, serviceName strin
 	}
 
 	// Initial fetch
-	if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, since, conn, lastTimestamp); err != nil {
+	if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, since, conn, lastTimestamp, &sequenceCounter); err != nil {
 		log.Printf("Initial Azure logs fetch failed: %v", err)
-		// Don't return - continue polling
+		pollingState.RecordFailure(err)
+		// Send error status
+		sendHealthStatus(conn, pollingState)
+	} else {
+		pollingState.RecordSuccess()
 	}
 
 	for {
 		select {
 		case <-ticker.C:
-			if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, *lastTimestamp, conn, lastTimestamp); err != nil {
+			// Check if we should retry based on backoff
+			if !pollingState.ShouldRetry(lastAttemptTime) {
+				continue // Skip this tick, wait for next interval
+			}
+
+			lastAttemptTime = time.Now()
+			if err := fetchAndSendAzureLogs(ctx, s.projectDir, serviceName, *lastTimestamp, conn, lastTimestamp, &sequenceCounter); err != nil {
 				log.Printf("Azure logs fetch failed: %v", err)
-				// Continue polling even on error
+				pollingState.RecordFailure(err)
+				sendHealthStatus(conn, pollingState)
+
+				// Adjust ticker interval for exponential backoff
+				ticker.Reset(pollingState.NextDelay())
+			} else {
+				// Success - reset to base interval
+				if pollingState.GetHealth().Status != "connected" {
+					pollingState.RecordSuccess()
+					sendHealthStatus(conn, pollingState)
+					ticker.Reset(pollingState.NextDelay())
+				} else {
+					pollingState.RecordSuccess()
+				}
 			}
 		case <-s.stopChan:
 			return
 		case <-ctx.Done():
 			return
 		}
+	}
+}
+
+// sendHealthStatus sends connection health status to the WebSocket client.
+func sendHealthStatus(conn *clientConn, pollingState *azure.PollingState) {
+	health := pollingState.GetHealth()
+	statusMsg := map[string]interface{}{
+		"type":             "status",
+		"status":           health.Status,
+		"mode":             "polling",
+		"consecutiveFails": health.ConsecutiveFails,
+	}
+	if health.LastError != "" {
+		statusMsg["error"] = health.LastError
+	}
+	if !health.NextRetry.IsZero() {
+		statusMsg["nextRetry"] = health.NextRetry.Format(time.RFC3339)
+	}
+	if err := conn.writeWebSocketJSON(statusMsg); err != nil {
+		log.Printf("Failed to send health status: %v", err)
 	}
 }
 
@@ -200,8 +296,8 @@ func streamAzureLogsRealtime(ctx context.Context, projectDir string, serviceName
 	}
 }
 
-// fetchAndSendAzureLogs fetches logs since lastTimestamp and sends them via WebSocket.
-func fetchAndSendAzureLogs(ctx context.Context, projectDir string, serviceName string, since time.Time, conn *clientConn, lastTimestamp *time.Time) error {
+// fetchAndSendAzureLogs fetches logs since lastTimestamp and sends them via WebSocket with sequence numbers.
+func fetchAndSendAzureLogs(ctx context.Context, projectDir string, serviceName string, since time.Time, conn *clientConn, lastTimestamp *time.Time, sequenceCounter *int64) error {
 	var services []string
 	if serviceName != "" {
 		services = []string{serviceName}
@@ -226,16 +322,20 @@ func fetchAndSendAzureLogs(ctx context.Context, projectDir string, serviceName s
 		return err
 	}
 
-	// Filter logs newer than last timestamp and send them
+	// Filter logs newer than last timestamp and send them with sequence numbers
 	newTimestamp := *lastTimestamp
 	for _, azLog := range azureLogs {
 		if azLog.Timestamp.After(since) {
+			// Increment sequence for each log entry
+			*sequenceCounter++
+
 			entry := service.LogEntry{
 				Service:   azLog.Service,
 				Message:   azLog.Message,
 				Level:     convertAzureLogLevel(azLog.Level),
 				Timestamp: azLog.Timestamp,
 				Source:    service.LogSourceAzure,
+				Sequence:  *sequenceCounter,
 				AzureMetadata: &service.AzureLogMetadata{
 					ResourceType:  azLog.ResourceType,
 					ContainerName: azLog.ContainerName,
