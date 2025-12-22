@@ -1,7 +1,6 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app run [flags]";
 const example0 = "azd app run [flags]";
 const example1 = "azd app run";
@@ -110,26 +109,6 @@ const example7 = "azd app run -s web -v --runtime aspire";
   <Code code={example6} lang="bash" frame="terminal" />
   <Code code={example7} lang="bash" frame="terminal" />
 </div>
-
-    <HooksSection
-      command="run"
-      preHook="prerun"
-      postHook="postrun"
-      description="execute before and after the run operation"
-      exampleYaml={`hooks:
-  prerun:
-    shell: sh
-    run: echo "Preparing to run..."
-  postrun:
-    shell: sh
-    run: echo "Run complete!"`}
-      envVars={[
-        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
-        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
-        { name: "AZD_APP_OPERATION", description: "Current operation (\"run\")" },
-        { name: "AZD_APP_SERVICES", description: "Comma-separated list of services being run" }
-      ]}
-    />
 
     <!-- Link to detailed docs -->
     

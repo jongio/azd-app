@@ -1,7 +1,6 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app reqs [flags]";
 const example0 = "azd app reqs [flags]";
 const example1 = "azd app reqs";
@@ -99,25 +98,6 @@ const example5 = "azd app reqs --clear-cache";
   <Code code={example4} lang="bash" frame="terminal" />
   <Code code={example5} lang="bash" frame="terminal" />
 </div>
-
-    <HooksSection
-      command="reqs"
-      preHook="prereqs"
-      postHook="postreqs"
-      description="execute before and after checking/installing prerequisites"
-      exampleYaml={`hooks:
-  prereqs:
-    shell: sh
-    run: echo "Preparing to check requirements..."
-  postreqs:
-    shell: sh
-    run: echo "Requirements check complete!"`}
-      envVars={[
-        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
-        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
-        { name: "AZD_APP_REQS_GENERATE", description: "Whether requirements file generation is enabled (true/false)" }
-      ]}
-    />
 
     <!-- Link to detailed docs -->
     

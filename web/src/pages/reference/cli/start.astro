@@ -1,7 +1,6 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-import HooksSection from '../../../components/HooksSection.astro';
 const usageCode = "azd app start [flags]";
 const example0 = "azd app start [flags]";
 const example1 = "azd app start --service api";
@@ -74,26 +73,6 @@ const example3 = "azd app start --all";
   <Code code={example2} lang="bash" frame="terminal" />
   <Code code={example3} lang="bash" frame="terminal" />
 </div>
-
-    <HooksSection
-      command="start"
-      preHook="prestart"
-      postHook="poststart"
-      description="execute before and after starting services"
-      exampleYaml={`hooks:
-  prestart:
-    shell: sh
-    run: echo "Preparing to start services..."
-  poststart:
-    shell: sh
-    run: echo "Services started!"`}
-      envVars={[
-        { name: "AZD_APP_PROJECT_DIR", description: "Absolute path to the project directory" },
-        { name: "AZD_APP_PROJECT_NAME", description: "Name of the project from azure.yaml" },
-        { name: "AZD_APP_OPERATION", description: "Current operation (\"start\")" },
-        { name: "AZD_APP_SERVICES", description: "Comma-separated list of services being started" }
-      ]}
-    />
 
     <!-- Link to detailed docs -->
     
