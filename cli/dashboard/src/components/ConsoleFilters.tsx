@@ -118,7 +118,7 @@ export function ConsoleFilters({
   }, [services])
 
   return (
-    <div className="flex flex-wrap gap-6 p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shrink-0">
+    <div className="flex flex-col md:flex-row md:flex-wrap gap-6 p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 shrink-0">
       {/* Services */}
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-slate-500">Services</span>
@@ -155,7 +155,7 @@ export function ConsoleFilters({
         </div>
       </div>
 
-      <div className="w-px bg-slate-300 dark:bg-slate-700 self-stretch" />
+      <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700 self-stretch" />
 
       {/* Log Levels */}
       <div className="flex flex-col gap-2">
@@ -209,7 +209,7 @@ export function ConsoleFilters({
         </div>
       </div>
 
-      <div className="w-px bg-slate-300 dark:bg-slate-700 self-stretch" />
+      <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700 self-stretch" />
 
       {/* State Filter */}
       <div className="flex flex-col gap-2">
@@ -263,7 +263,7 @@ export function ConsoleFilters({
         </div>
       </div>
 
-      <div className="w-px bg-slate-300 dark:bg-slate-700 self-stretch" />
+      <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700 self-stretch" />
 
       {/* Health Status */}
       <div className="flex flex-col gap-2">

@@ -3,15 +3,20 @@
  *
  * Automatically captures screenshots of the azd app dashboard for the marketing website.
  * 
+ * Prerequisites:
+ * - Azure CLI authenticated (az login)
+ * - Azure resources deployed in azure-logs-test project
+ * 
  * Run with: npx tsx scripts/capture-screenshots.ts
  *
  * What it does:
- * 1. Starts the demo project with `azd app run`
- * 2. Waits for services to be ready
- * 3. Validates that all required UI elements are visible
- * 4. Captures screenshots at various viewports
- * 5. Optimizes images
- * 6. Cleans up all processes
+ * 1. Checks Azure CLI authentication
+ * 2. Starts the azure-logs-test project with `azd app run`
+ * 3. Waits for services to be ready and Azure logs to populate
+ * 4. Validates that all required UI elements are visible
+ * 5. Captures screenshots at various viewports
+ * 6. Optimizes images
+ * 7. Cleans up all processes
  */
 
 import { chromium, type Browser } from 'playwright';
@@ -37,7 +42,7 @@ const __dirname = path.dirname(__filename);
 const SCRIPTS_DIR = __dirname;
 const WEB_DIR = path.dirname(SCRIPTS_DIR);
 const CLI_DIR = path.join(path.dirname(WEB_DIR), 'cli');
-const DEMO_DIR = path.join(CLI_DIR, 'demo');
+const DEMO_DIR = path.join(CLI_DIR, 'tests', 'projects', 'integration', 'azure-logs-test');
 const SCREENSHOTS_DIR = path.join(WEB_DIR, 'public', 'screenshots');
 
 // URLs
@@ -55,10 +60,33 @@ function cleanup(): void {
   processes.forEach((proc) => killProcess(proc));
 }
 
+async function checkAzureAuth(): Promise<boolean> {
+  console.log('🔐 Checking Azure CLI authentication...');
+  try {
+    const { execSync } = await import('child_process');
+    execSync('az account show', { stdio: 'pipe' });
+    console.log('  ✓ Azure CLI authenticated\n');
+    return true;
+  } catch (error) {
+    console.error('  ❌ Azure CLI not authenticated');
+    console.error('  Please run: az login');
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
   console.log('═══════════════════════════════════════════════════════════');
   console.log('  📸 azd app Dashboard Screenshot Capture');
   console.log('═══════════════════════════════════════════════════════════\n');
+
+  // Check Azure CLI authentication first
+  const isAzureAuthenticated = await checkAzureAuth();
+  if (!isAzureAuthenticated) {
+    console.error('\n❌ Azure authentication required for azure-logs-test project');
+    console.error('   This project uses Azure resources and requires Azure CLI authentication.');
+    console.error('   Run "az login" to authenticate, then try again.\n');
+    process.exit(1);
+  }
 
   // Register cleanup handlers
   process.on('SIGINT', () => {
@@ -123,8 +151,11 @@ async function main(): Promise<void> {
     }
     console.log(`  ✓ Dashboard ready at ${dashboardUrl}\n`);
 
-    // Extra wait for full initialization
-    await sleep(3000);
+    // Wait for Azure logs to populate from Log Analytics
+    // Azure resources need time to sync and query data
+    console.log('⏳ Waiting for Azure Log Analytics data to populate (15s)...');
+    console.log('   Note: Ensure Azure resources are deployed and generating logs\n');
+    await sleep(15000);
 
     // Step 4: Launch browser and capture screenshots
     browser = await chromium.launch({

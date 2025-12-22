@@ -145,8 +145,19 @@ export function LogsView({
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`)
       }
-      const data = await res.json() as LogEntry[]
-      setLogs(data ?? [])
+      const data = await res.json() as LogEntry[] | { logs?: LogEntry[] }
+      
+      // Parse response based on mode - Azure returns { logs: [...] }, local returns [...]
+      let logs: LogEntry[]
+      if (logMode === 'azure' && !Array.isArray(data)) {
+        logs = (data as { logs?: LogEntry[] }).logs ?? []
+      } else if (Array.isArray(data)) {
+        logs = data
+      } else {
+        logs = []
+      }
+      
+      setLogs(logs)
     } catch (err) {
       console.error(`Failed to fetch ${logMode} logs:`, err)
       setLogs([])
