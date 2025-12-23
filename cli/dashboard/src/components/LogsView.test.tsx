@@ -474,4 +474,83 @@ describe('LogsView', () => {
       expect(countText.textContent).toContain('1000')
     })
   })
+
+  it('should not re-add logs from WebSocket after clearing', async () => {
+    const user = userEvent.setup()
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    
+    // Mock WebSocket
+    const wsRef = { current: null as MockWebSocket | null }
+    class WebSocketMock {
+      url: string
+      onopen: ((event: Event) => void) | null = null
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: ((event: Event) => void) | null = null
+      onclose: ((event: CloseEvent) => void) | null = null
+      close = vi.fn()
+      constructor(url: string) {
+        this.url = url
+        wsRef.current = this
+        setTimeout(() => {
+          this.onopen?.(new Event('open'))
+        }, 0)
+      }
+    }
+    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
+
+    render(<LogsView />)
+
+    // Wait for initial logs to load
+    await waitFor(() => {
+      expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
+    })
+
+    // Simulate WebSocket message arriving just before clear
+    const pendingEntry = {
+      service: 'web',
+      message: 'This should not appear after clear',
+      level: 0,
+      timestamp: new Date().toISOString(),
+      isStderr: false,
+    }
+
+    // Clear logs
+    const clearButton = screen.getByTitle('Clear logs')
+    
+    // Send WebSocket message right before clear (simulating race condition)
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
+      act(() => {
+        handler(createMockWebSocketMessage(pendingEntry))
+      })
+    }
+
+    // Then clear
+    await user.click(clearButton)
+
+    // Send another WebSocket message right after clear
+    if (wsRef.current?.onmessage) {
+      const handler = wsRef.current.onmessage
+      act(() => {
+        handler(
+          createMockWebSocketMessage({
+            service: 'web',
+            message: 'This should also not appear',
+            level: 0,
+            timestamp: new Date().toISOString(),
+            isStderr: false,
+          })
+        )
+      })
+    }
+
+    // Should show empty state and NOT contain the WebSocket messages
+    await waitFor(() => {
+      expect(screen.getByText('No logs to display')).toBeInTheDocument()
+      expect(screen.queryByText('This should not appear after clear')).not.toBeInTheDocument()
+      expect(screen.queryByText('This should also not appear')).not.toBeInTheDocument()
+    })
+
+    confirmSpy.mockRestore()
+  })
 })

@@ -8,6 +8,7 @@ import TourNavigation from '../../components/tour/TourNavigation.astro';
 import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
 import TryItYourself from '../../components/tour/TryItYourself.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
+import Screenshot from '../../components/Screenshot.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
 const step = getStepByNumber(6)!;
@@ -57,13 +58,20 @@ const nextStep = getNextStep(6);
       </p>
 
       <h2>View All Logs</h2>
-      <p>Stream logs from all services in real-time:</p>
+      <p>Stream logs from all local services:</p>
 
       <CodeBlock 
         code="azd app logs"
         language="bash"
         showLanguage={true}
         showCopy={true}
+      />
+
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/console-local-logs.png"
+        darkSrc="/azd-app/screenshots/console-local-logs.png"
+        alt="Console view with log streaming from all local services"
+        caption="Console view with log streaming and service filters"
       />
 
       <h2>View Logs for a Specific Service</h2>
@@ -96,6 +104,13 @@ const nextStep = getNextStep(6);
         language="bash"
         showLanguage={true}
         showCopy={true}
+      />
+
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/console-log-search.png"
+        darkSrc="/azd-app/screenshots/console-log-search.png"
+        alt="Console log search with filtering by service and search term"
+        caption="Log filtering and search capabilities in the Console view"
       />
 
       <h2>Log Output Options</h2>
@@ -154,21 +169,63 @@ const nextStep = getNextStep(6);
 
         <h3>Dashboard Logs</h3>
         <p>
-          The dashboard also provides a log viewer with real-time filtering, 
-          search, and syntax highlighting. Access it via the Logs tab.
+          The dashboard also provides a log viewer with filtering, 
+          search, and syntax highlighting. Access it via the Console tab.
         </p>
 
         <h3>Local vs Azure Logs</h3>
         <p>
-          The dashboard supports viewing both local and Azure logs. Use the log source
-          switcher (💻/☁️ icons) in the console toolbar to toggle between:
+          The dashboard supports viewing both local and Azure cloud logs in one unified interface. 
+          Use the mode toggle in the console toolbar to switch between:
         </p>
         <ul>
           <li><strong>Local</strong> - Logs from locally running services</li>
-          <li><strong>Azure</strong> - Logs from Azure-deployed services via Log Analytics</li>
+          <li><strong>Azure</strong> - Live logs from your deployed Azure services via Log Analytics</li>
         </ul>
+        
+        <Screenshot 
+          lightSrc="/azd-app/screenshots/dashboard-azure-logs.png"
+          darkSrc="/azd-app/screenshots/dashboard-azure-logs.png"
+          alt="Dashboard showing Azure cloud logs from Container Apps, App Service, and Functions"
+          caption="Azure cloud logs view with service filtering and time range selection"
+        />
+
+        <h4>Azure Cloud Log Streaming</h4>
         <p>
-          Keyboard shortcut: <code>Ctrl+Shift+M</code> to toggle modes.
+          When you provision Azure services with <code>azd provision</code> or <code>azd up</code>, 
+          the dashboard can stream logs from Container Apps, App Service, and Functions directly 
+          into your local view with 1-5 minute latency. This lets you monitor both local and deployed services without switching tools.
+        </p>
+        
+        <p>
+          <strong>Configuration:</strong> Add Azure Log Analytics settings in your <code>azure.yaml</code>:
+        </p>
+        
+        <CodeBlock 
+          code={`logs:
+  analytics:
+    pollingInterval: 30s    # Refresh interval
+    defaultTimespan: PT15M  # Time range for queries
+
+services:
+  web:
+    host: appservice
+    path: ./src/web
+    logs:
+      analytics:
+        table: AppServiceConsoleLogs`}
+          language="yaml"
+          showLanguage={true}
+          showCopy={true}
+        />
+        
+        <p>
+          <strong>Note:</strong> Azure Log Analytics has a typical ingestion delay of 1-5 minutes. 
+          Logs are not real-time but refresh automatically based on your polling interval.
+        </p>
+        
+        <p>
+          Learn more in the <a href="/azd-app/reference/azure-logs/">Azure Cloud Log Streaming reference</a>.
         </p>
       </LearnMoreSection>
     </div>

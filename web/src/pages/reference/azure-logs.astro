@@ -1,0 +1,288 @@
+---
+import Layout from '../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+import Screenshot from '../../components/Screenshot.astro';
+
+const yamlProjectLevel = `logs:
+  analytics:
+    pollingInterval: 30s
+    defaultTimespan: PT15M`;
+
+const yamlServiceLevel = `services:
+  web:
+    host: appservice
+    path: ./src/web
+    logs:
+      analytics:
+        table: AppServiceConsoleLogs
+
+  api:
+    host: containerapp
+    path: ./src/api
+    logs:
+      analytics:
+        table: ContainerAppConsoleLogs_CL`;
+
+const yamlFullExample = `services:
+  web:
+    host: appservice
+    path: ./src/web
+    logs:
+      analytics:
+        table: AppServiceConsoleLogs
+
+  api:
+    host: containerapp
+    path: ./src/api
+    logs:
+      analytics:
+        table: ContainerAppConsoleLogs_CL
+
+  functions:
+    host: functions
+    path: ./src/functions
+    logs:
+      analytics:
+        table: FunctionAppLogs
+
+logs:
+  analytics:
+    pollingInterval: 30s
+    defaultTimespan: PT15M`;
+
+const yamlCustomKQL = `services:
+  web:
+    host: appservice
+    path: ./src/web
+    logs:
+      analytics:
+        query: |
+          AppServiceConsoleLogs
+          | where TimeGenerated > ago(15m)
+          | where ResultDescription contains "error"
+          | order by TimeGenerated desc
+          | limit 100`;
+---
+
+<Layout 
+  title="Azure Cloud Log Streaming" 
+  description="Stream logs from Azure Container Apps, App Service, and Functions directly into your local azd app dashboard with Log Analytics integration. Typical latency: 1-5 minutes."
+>
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">Azure Logs</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">Azure Cloud Log Streaming</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">
+        Monitor your deployed Azure services with log streaming from Azure Log Analytics, integrated directly into the azd app dashboard.
+      </p>
+    </div>
+
+    <!-- Overview -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Overview</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        azd app supports streaming logs from your deployed Azure services alongside local logs in a unified dashboard experience. View logs from Azure Container Apps, App Service, and Functions without switching tools or contexts.
+      </p>
+      
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/dashboard-azure-logs.png"
+        darkSrc="/azd-app/screenshots/dashboard-azure-logs.png"
+        alt="Dashboard showing Azure cloud logs from Container Apps, App Service, and Functions"
+        caption="Unified view of Azure cloud logs in the azd app dashboard"
+      />
+
+      <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div class="font-semibold text-blue-900 dark:text-blue-100 mb-2">ℹ️ Log Ingestion Latency</div>
+        <p class="text-sm text-blue-800 dark:text-blue-200">
+          Azure Log Analytics has a typical ingestion delay of 1-5 minutes. Logs are not real-time but refresh automatically based on your configured polling interval (default: 30 seconds).
+        </p>
+      </div>
+    </section>
+
+    <!-- Supported Services -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Supported Azure Services</h2>
+      <div class="grid gap-4 md:grid-cols-3 mt-6">
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div class="text-2xl mb-2">📦</div>
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100">Container Apps</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">ContainerAppConsoleLogs_CL</div>
+        </div>
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div class="text-2xl mb-2">🌐</div>
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100">App Service</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">AppServiceConsoleLogs</div>
+        </div>
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div class="text-2xl mb-2">⚡</div>
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100">Functions</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">FunctionAppLogs</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Configuration -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Configuration</h2>
+      
+      <h3 class="text-xl font-semibold mb-3">Project-Level Settings</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Configure global Log Analytics settings that apply to all services in your <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code> file:
+      </p>
+      
+      <Code code={yamlProjectLevel} lang="yaml" title="azure.yaml" />
+
+      <div class="mt-4 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+        <div><code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded">pollingInterval</code> - How often to query Log Analytics (default: 30s)</div>
+        <div><code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded">defaultTimespan</code> - Time range for log queries in ISO 8601 duration format (default: PT15M for 15 minutes)</div>
+      </div>
+
+      <h3 class="text-xl font-semibold mb-3 mt-8">Service-Level Table Selection</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Specify which Log Analytics table to query for each service. This overrides automatic table detection:
+      </p>
+      
+      <Code code={yamlServiceLevel} lang="yaml" title="azure.yaml" />
+
+      <div class="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <div class="font-semibold text-amber-900 dark:text-amber-100 mb-2">💡 Table Names</div>
+        <p class="text-sm text-amber-800 dark:text-amber-200">
+          Container Apps use custom log tables with <code class="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-800 rounded">_CL</code> suffix. App Service and Functions use standard tables without suffix.
+        </p>
+      </div>
+
+      <h3 class="text-xl font-semibold mb-3 mt-8">Complete Example</h3>
+      <Code code={yamlFullExample} lang="yaml" title="azure.yaml" />
+    </section>
+
+    <!-- Dashboard Features -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Dashboard Features</h2>
+      
+      <h3 class="text-xl font-semibold mb-3">Time Range Selection</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Choose from preset time ranges to view logs from different time windows:
+      </p>
+      
+      <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300 mb-4">
+        <li><strong>15 minutes</strong> - Most recent logs (PT15M)</li>
+        <li><strong>30 minutes</strong> - Last half hour (PT30M)</li>
+        <li><strong>6 hours</strong> - Extended recent history (PT6H)</li>
+        <li><strong>24 hours</strong> - Full day view (PT24H)</li>
+      </ul>
+
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/dashboard-azure-logs-time-range.png"
+        darkSrc="/azd-app/screenshots/dashboard-azure-logs-time-range.png"
+        alt="Time range selector showing options for 15m, 30m, 6h, and 24h"
+        caption="Select time ranges to view logs from different time windows"
+      />
+
+      <h3 class="text-xl font-semibold mb-3 mt-8">Service Filtering</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Filter logs to show only specific services, making it easier to focus on one part of your application:
+      </p>
+
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/dashboard-azure-logs-filters.png"
+        darkSrc="/azd-app/screenshots/dashboard-azure-logs-filters.png"
+        alt="Service filter dropdown showing available Azure services"
+        caption="Filter logs by service to focus on specific components"
+      />
+
+      <h3 class="text-xl font-semibold mb-3 mt-8">Mode Toggle</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Switch between local and Azure logs with a single click. The dashboard remembers your preference and automatically refreshes logs based on the selected mode.
+      </p>
+    </section>
+
+    <!-- Authentication -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Authentication Requirements</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Azure Log Analytics integration requires Azure CLI authentication. Ensure you're logged in before running <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd app run</code>:
+      </p>
+      
+      <Code code="az login" lang="bash" />
+
+      <p class="text-neutral-700 dark:text-neutral-300 mt-4">
+        The azd app will use your Azure CLI credentials to query Log Analytics workspaces associated with your deployed resources.
+      </p>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Troubleshooting</h2>
+      
+      <h3 class="text-xl font-semibold mb-3">No Logs Appearing</h3>
+      <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300 mb-6">
+        <li><strong>Wait for ingestion:</strong> Azure Log Analytics has a 1-5 minute delay. New logs take time to appear.</li>
+        <li><strong>Check authentication:</strong> Run <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">az account show</code> to verify you're logged in.</li>
+        <li><strong>Verify deployment:</strong> Ensure services are actually deployed to Azure with <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd provision</code> or <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd up</code>.</li>
+        <li><strong>Check table names:</strong> Ensure the correct Log Analytics table is configured for each service type.</li>
+      </ul>
+
+      <h3 class="text-xl font-semibold mb-3">Performance Considerations</h3>
+      <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300 mb-6">
+        <li><strong>Polling interval:</strong> Increase <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">pollingInterval</code> if queries are slow or rate-limited.</li>
+        <li><strong>Time range:</strong> Shorter time ranges (PT15M) query less data and return faster.</li>
+        <li><strong>Service filtering:</strong> Use service filters to reduce the amount of log data processed.</li>
+      </ul>
+
+      <h3 class="text-xl font-semibold mb-3">Common Errors</h3>
+      <div class="space-y-4">
+        <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div class="font-mono text-sm text-red-900 dark:text-red-100 mb-2">Error: Failed to query Log Analytics workspace</div>
+          <p class="text-sm text-red-800 dark:text-red-200">
+            Check Azure CLI authentication and ensure your account has Log Analytics Reader permissions on the workspace.
+          </p>
+        </div>
+        
+        <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div class="font-mono text-sm text-red-900 dark:text-red-100 mb-2">Error: Table not found</div>
+          <p class="text-sm text-red-800 dark:text-red-200">
+            Verify the table name in your azure.yaml matches the actual table in Log Analytics. Container Apps typically use <code class="px-1.5 py-0.5 bg-red-100 dark:bg-red-800 rounded">_CL</code> suffix.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Advanced -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Advanced: Custom KQL Queries</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        For advanced scenarios, you can provide custom KQL (Kusto Query Language) queries in your <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code>. This is a yaml-only feature not exposed in the dashboard UI:
+      </p>
+      
+      <Code code={yamlCustomKQL} lang="yaml" title="azure.yaml" />
+
+      <div class="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <div class="font-semibold text-amber-900 dark:text-amber-100 mb-2">⚠️ Advanced Feature</div>
+        <p class="text-sm text-amber-800 dark:text-amber-200">
+          Custom KQL queries are for advanced users familiar with Azure Log Analytics. The dashboard time range and service filters will not affect custom queries.
+        </p>
+      </div>
+    </section>
+
+    <!-- Learn More -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Learn More</h2>
+      <ul class="space-y-2 text-neutral-700 dark:text-neutral-300">
+        <li>→ <a href="/azd-app/reference/azure-yaml/" class="text-blue-600 dark:text-blue-400 hover:underline">azure.yaml Reference</a> - Complete configuration reference</li>
+        <li>→ <a href="/azd-app/tour/6-logs/" class="text-blue-600 dark:text-blue-400 hover:underline">Logs Tour</a> - Interactive guide to log viewing</li>
+        <li>→ <a href="https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview" class="text-blue-600 dark:text-blue-400 hover:underline">Azure Log Analytics Documentation</a> - Microsoft official docs</li>
+      </ul>
+    </section>
+  </div>
+</Layout>

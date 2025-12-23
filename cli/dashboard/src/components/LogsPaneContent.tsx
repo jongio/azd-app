@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Copy, AlertTriangle, Info, XCircle, Check } from 'lucide-react'
 import { formatLogTimestamp } from '@/lib/service-utils'
 import { convertAnsiToHtml, stripEmbeddedTimestamp } from '@/lib/log-utils'
+import { highlightSearchTermInHtml } from '@/lib/search-highlight'
 import type { LogEntry } from '@/components/LogsPane'
 import type { PaneLogLevel } from '@/hooks/useLogFiltering'
 import type { LogMode } from './ModeToggle'
@@ -29,6 +30,7 @@ export interface LogsPaneContentProps {
   canRetry?: boolean
   onRetry?: () => void
   serviceName?: string
+  globalSearchTerm?: string
 }
 
 export function LogsPaneContent({
@@ -51,6 +53,7 @@ export function LogsPaneContent({
   canRetry,
   onRetry,
   serviceName,
+  globalSearchTerm = '',
 }: Readonly<LogsPaneContentProps>): ReactNode {
   if (isCollapsed) {
     return null
@@ -92,6 +95,10 @@ export function LogsPaneContent({
             const cleanedMessage = stripEmbeddedTimestamp(log.message ?? '')
             const serviceLabel = log.service ? ` | ${log.service}` : ''
 
+            // Convert ANSI to HTML first, then apply search highlighting
+            const htmlMessage = convertAnsiToHtml(cleanedMessage, codespaceConfig)
+            const highlightedMessage = highlightSearchTermInHtml(htmlMessage, globalSearchTerm)
+
             return (
               <div
                 key={logKey}
@@ -112,10 +119,7 @@ export function LogsPaneContent({
                     [{formattedTimestamp}{serviceLabel}]
                   </span>
                   {' '}
-                  <span dangerouslySetInnerHTML={{ __html: convertAnsiToHtml(
-                    cleanedMessage,
-                    codespaceConfig
-                  ) }} />
+                  <span dangerouslySetInnerHTML={{ __html: highlightedMessage }} />
                 </div>
                 
                 <button

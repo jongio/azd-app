@@ -9,6 +9,84 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn, type ChildProcess, execSync } from 'child_process';
 
+/**
+ * Load azd environment variables from .azure/{env-name}/.env
+ * Returns empty object if no default environment is found
+ */
+function loadAzdEnvironment(cwd: string): Record<string, string> {
+  const azdDir = path.join(cwd, '.azure');
+  if (!fs.existsSync(azdDir)) {
+    return {};
+  }
+
+  // Find the default environment by checking .azure/{env-name}/.env files
+  // The default is marked in .azure/config.json
+  const configPath = path.join(azdDir, 'config.json');
+  let defaultEnvName: string | undefined;
+  
+  if (fs.existsSync(configPath)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      defaultEnvName = config.defaultEnvironment;
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  // If no default found in config, look for environments
+  if (!defaultEnvName) {
+    const envDirs = fs.readdirSync(azdDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+    
+    // Check each for .env file and use the first one found
+    for (const envDir of envDirs) {
+      const envPath = path.join(azdDir, envDir, '.env');
+      if (fs.existsSync(envPath)) {
+        defaultEnvName = envDir;
+        break;
+      }
+    }
+  }
+
+  if (!defaultEnvName) {
+    return {};
+  }
+
+  const envPath = path.join(azdDir, defaultEnvName, '.env');
+  if (!fs.existsSync(envPath)) {
+    return {};
+  }
+
+  // Parse .env file
+  const envVars: Record<string, string> = {};
+  const envContent = fs.readFileSync(envPath, 'utf-8');
+  
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    
+    const match = trimmed.match(/^([^=]+)=(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      let value = match[2].trim();
+      
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) || 
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      
+      envVars[key] = value;
+    }
+  }
+
+  console.log(`   ℹ️  Loaded ${Object.keys(envVars).length} environment variables from .azure/${defaultEnvName}/.env`);
+  return envVars;
+}
+
 export async function ensureDir(dir: string): Promise<void> {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -101,12 +179,17 @@ export function startProcess(
   console.log(`   Command: ${command} ${args.join(' ')}`);
   console.log(`   Dir: ${cwd}`);
 
+  // Load azd environment variables from .azure/{env-name}/.env if it exists
+  const azdEnv = loadAzdEnvironment(cwd);
+  const mergedEnv = { ...process.env, ...azdEnv };
+
   const isWindows = process.platform === 'win32';
   const proc = spawn(command, args, {
     cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: isWindows,
     detached: !isWindows,
+    env: mergedEnv,
   });
 
   proc.stdout?.on('data', (data) => {

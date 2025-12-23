@@ -19,13 +19,13 @@ const features = [
     href: "/azd-app/quick-start/",
   },
   {
-    icon: "�",
+    icon: "📄",
     title: "Simple Configuration",
     description: "Define services, health checks, logging, and testing in one azure.yaml file. Auto-detection does the rest.",
     href: "/azd-app/reference/azure-yaml/",
   },
   {
-    icon: "�🐳",
+    icon: "🐳",
     title: "Container Services",
     description: "Add databases, caches, and Azure emulators with `azd app add`. PostgreSQL, Redis, Azurite, and more.",
     href: "/azd-app/reference/containers/",
@@ -39,8 +39,14 @@ const features = [
   {
     icon: "📝",
     title: "Unified Logs",
-    description: "Stream and filter logs from all services. Search, highlight, and export with ease.",
+    description: "Stream and filter logs from all services, including Azure cloud logs. Search, highlight, and export with ease.",
     href: "/azd-app/tour/6-logs/",
+  },
+  {
+    icon: "☁️",
+    title: "Azure Cloud Monitoring",
+    description: "Stream logs from Azure Container Apps, App Service, and Functions directly into your local dashboard. Typical latency: 1-5 minutes.",
+    href: "/azd-app/reference/azure-logs/",
   },
   {
     icon: "❤️",
@@ -89,7 +95,7 @@ const demoSteps = [
           Run Azure Apps<br />Locally
         </h1>
         <p class="hero-description">
-          azd app extends Azure Developer CLI with a complete local development environment. One command starts all services, manages dependencies, and provides real-time monitoring.
+          azd app extends Azure Developer CLI with a complete local development environment. One command starts all services, manages dependencies, and provides unified monitoring for both local and Azure deployments.
         </p>
         <div class="hero-actions">
           <a href="/azd-app/quick-start/" class="btn-primary">
