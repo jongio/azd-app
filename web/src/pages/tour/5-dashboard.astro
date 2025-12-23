@@ -8,6 +8,7 @@ import TourNavigation from '../../components/tour/TourNavigation.astro';
 import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
 import TryItYourself from '../../components/tour/TryItYourself.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
+import Screenshot from '../../components/Screenshot.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
 const step = getStepByNumber(5)!;
@@ -52,7 +53,7 @@ const nextStep = getNextStep(5);
     <!-- Step Content -->
     <div class="tour-step-content">
       <p class="tour-step-intro">
-        The azd app dashboard provides a real-time view of all your running services,
+        The azd app dashboard provides a live view of all your running services,
         their health status, logs, and more. Let's explore its features.
       </p>
 
@@ -78,13 +79,26 @@ const nextStep = getNextStep(5);
         <li><strong>Quick actions</strong> - Restart, stop, or open logs for each service</li>
       </ul>
 
-      <h3>Real-time Updates</h3>
-      <p>The dashboard updates in real-time:</p>
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/dashboard-resources-table.png"
+        darkSrc="/azd-app/screenshots/dashboard-resources-table.png"
+        alt="Dashboard services view showing status indicators, port mappings, and service details"
+      />
+
+      <h3>Live Updates</h3>
+      <p>The dashboard provides live updates for local services:</p>
       <ul>
         <li>Service status changes reflect immediately</li>
-        <li>Logs stream live as they're generated</li>
+        <li>Local logs stream as they're generated</li>
         <li>Resource usage updates every few seconds</li>
+        <li>Azure cloud logs refresh with 1-5 minute latency</li>
       </ul>
+
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/dashboard-services-health.png"
+        darkSrc="/azd-app/screenshots/dashboard-services-health.png"
+        alt="Dashboard services view showing health indicators and port mappings"
+      />
 
       <h3>Theme Toggle</h3>
       <p>Switch between light and dark mode using the theme toggle in the header.</p>
@@ -122,8 +136,8 @@ const nextStep = getNextStep(5);
 
         <h3>Dashboard Features</h3>
         <ul>
-          <li>Real-time service status and health</li>
-          <li>Live log streaming from all services</li>
+          <li>Live service status and health for local services</li>
+          <li>Log streaming from local and Azure services</li>
           <li>Service URL links for quick access</li>
           <li>Light and dark theme support</li>
         </ul>

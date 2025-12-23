@@ -171,10 +171,24 @@ async function main(): Promise<void> {
 
     const results: { name: string; success: boolean; errors: string[] }[] = [];
 
-    for (const config of SCREENSHOT_CONFIGS) {
+    // Filter to specific screenshot if needed for testing
+    const targetScreenshot = process.env.SCREENSHOT_FILTER;
+    const screenshotsToCapture = targetScreenshot 
+      ? SCREENSHOT_CONFIGS.filter(c => c.name === targetScreenshot)
+      : SCREENSHOT_CONFIGS;
+
+    if (targetScreenshot && screenshotsToCapture.length === 0) {
+      console.error(`\n❌ Screenshot "${targetScreenshot}" not found in config`);
+      process.exit(1);
+    }
+
+    // Navigate once to avoid closing websockets between screenshots
+    await page.goto(dashboardUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+    for (const config of screenshotsToCapture) {
       try {
-        // Use detected dashboard URL instead of default
-        const configWithUrl = { ...config, url: dashboardUrl };
+        // Use detected dashboard URL, but skip initial goto
+        const configWithUrl = { ...config, url: dashboardUrl, skipGoto: true };
         const result = await captureScreenshot(page, configWithUrl, SCREENSHOTS_DIR);
         results.push({ name: config.name, ...result });
       } catch (e) {

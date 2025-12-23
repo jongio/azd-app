@@ -110,6 +110,8 @@ async function executeActions(page: Page, actions: any[]): Promise<void> {
     try {
       if (action.type === 'click' && action.selector) {
         await page.click(action.selector, { timeout: 5000 }).catch(() => console.log(`       ⚠️ Could not click`));
+      } else if (action.type === 'type' && action.selector && action.text) {
+        await page.type(action.selector, action.text, { timeout: 5000 }).catch(() => console.log(`       ⚠️ Could not type`));
       } else if (action.type === 'wait' && action.delay) {
         await page.waitForTimeout(action.delay);
       } else if (action.type === 'evaluate' && action.script) {
@@ -122,12 +124,16 @@ async function executeActions(page: Page, actions: any[]): Promise<void> {
 
 export async function captureScreenshot(
   page: Page,
-  config: ScreenshotConfig,
+  config: ScreenshotConfig & { skipGoto?: boolean },
   screenshotsDir: string
 ): Promise<{ success: boolean; errors: string[] }> {
   console.log(`📸 Capturing: ${config.name} (${config.viewport.width}x${config.viewport.height})`);
   await page.setViewportSize(config.viewport);
-  await page.goto(config.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  
+  if (!config.skipGoto) {
+    await page.goto(config.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  }
+  
   await waitForDashboardReady(page);
 
   if (config.actions?.length) {
