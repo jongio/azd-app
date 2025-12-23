@@ -122,6 +122,7 @@ export function LogsPane({
   const effectiveUrl = logMode === 'azure' && azureUrl ? azureUrl : effectiveLocalUrl
   
   const isPausedRef = useRef(isPaused)
+  const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
   const { addClassification } = useLogClassifications()
 
   useEffect(() => {
@@ -142,11 +143,15 @@ export function LogsPane({
 
   useEffect(() => {
     if (clearAllTrigger > 0) {
+      // Record clear time to ignore WebSocket messages for a brief period
+      lastClearTimeRef.current = Date.now()
       setLogs([])
     }
   }, [clearAllTrigger])
 
   useEffect(() => {
+    // Record clear time when mode changes to prevent stale logs from appearing
+    lastClearTimeRef.current = Date.now()
     setLogs([])
     setErrorMessage(null)
   }, [logMode])
@@ -323,6 +328,7 @@ export function LogsPane({
         canRetry={canRetry}
         onRetry={retryLogs}
         serviceName={serviceName}
+        globalSearchTerm={globalSearchTerm}
       />
 
       <LogsPaneClassificationOverlay

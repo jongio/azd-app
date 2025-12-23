@@ -288,32 +288,47 @@ const logsBasic = `logs:
     - text: "panic"
       level: error`;
 
-const logsAnalytics = `logs:
-  # Global Azure Log Analytics settings
+const logsAnalytics = `# Project-level: Configure polling behavior
+logs:
   analytics:
-    workspace: "/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.OperationalInsights/workspaces/{workspace}"
-    pollingInterval: "10s"  # How often to poll
-    defaultTimespan: "30m"  # Default lookback window
-    realtime: true  # Enable low-latency streaming when available
+    pollingInterval: 30s    # How often to refresh Azure logs (default: 30s)
+    defaultTimespan: PT15M  # Time range for queries (ISO 8601 duration, default: PT15M)
 
+# Service-level: Specify Log Analytics tables
 services:
-  api:
+  web:
+    host: appservice
+    path: ./src/web
     logs:
-      # Service-specific: override which tables to query
       analytics:
-        tables:
-          - ContainerAppConsoleLogs_CL
-          - ContainerAppSystemLogs_CL
-          
-  worker:
+        table: AppServiceConsoleLogs  # App Service standard table
+
+  api:
+    host: containerapp
+    path: ./src/api
     logs:
-      # Service-specific: custom KQL query
+      analytics:
+        table: ContainerAppConsoleLogs_CL  # Container Apps custom log table
+
+  functions:
+    host: functions
+    path: ./src/functions
+    logs:
+      analytics:
+        table: FunctionAppLogs  # Functions standard table
+
+# Advanced: Custom KQL query (yaml-only, not exposed in dashboard UI)
+  worker:
+    host: functions
+    path: ./src/worker
+    logs:
       analytics:
         query: |
           FunctionAppLogs
-          | where FunctionName == '{serviceName}'
-          | where TimeGenerated > ago({timespan})
-          | project TimeGenerated, Message, Level`;
+          | where FunctionName == "ProcessQueue"
+          | where TimeGenerated > ago(15m)
+          | where Level == "Error"
+          | order by TimeGenerated desc`;
 
 const testingExample = `# Global test configuration
 test:
@@ -1926,8 +1941,16 @@ const resourceTypesExample = `resources:
 
         <h3 class="text-xl font-bold mb-4 mt-8">Azure Log Analytics Integration</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-          Stream logs from Azure services running in the cloud directly into your local dashboard! 🚀
+          Stream logs from your deployed Azure services (Container Apps, App Service, Functions) directly into your local dashboard with Log Analytics integration. View local and cloud logs in one unified interface.
         </p>
+        
+        <div class="mt-4 mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div class="font-semibold text-blue-900 dark:text-blue-100 mb-2">📘 Complete Azure Logs Guide</div>
+          <p class="text-sm text-blue-800 dark:text-blue-200">
+            See the <a href="/azd-app/reference/azure-logs/" class="underline">Azure Cloud Log Streaming</a> reference for detailed setup, dashboard features, troubleshooting, and examples.
+          </p>
+        </div>
+        
         <Code code={logsAnalytics} lang="yaml" />
 
         <div class="mt-6 p-6 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-200 dark:border-cyan-800">
@@ -1935,10 +1958,13 @@ const resourceTypesExample = `resources:
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
             <li><strong>Filters:</strong> Suppress noisy patterns with regex (case-insensitive)</li>
             <li><strong>Classifications:</strong> Override log levels based on text matches</li>
-            <li><strong>Azure Analytics:</strong> Query Azure Log Analytics workspaces</li>
-            <li><strong>Real-time Streaming:</strong> Low-latency log streaming when supported</li>
-            <li><strong>Custom KQL Queries:</strong> Full control with custom Kusto queries</li>
+            <li><strong>Azure Analytics:</strong> Stream logs from Container Apps, App Service, and Functions</li>
+            <li><strong>Unified Dashboard:</strong> View local and cloud logs in one interface with time range selection and service filtering</li>
+            <li><strong>Custom KQL Queries:</strong> Advanced users can provide custom Kusto queries via azure.yaml</li>
           </ul>
+          <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+            <strong>Note:</strong> Azure Log Analytics has 1-5 minute ingestion latency. Logs refresh automatically based on polling interval.
+          </div>
         </div>
 
         <h3 class="text-2xl font-bold mb-4 mt-10">All Logging Properties</h3>

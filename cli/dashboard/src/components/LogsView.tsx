@@ -87,6 +87,7 @@ export function LogsView({
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const isPausedRef = useRef(false)
+  const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
   
   // Get Codespace config for URL transformation in logs
   const { config: codespaceConfig } = useCodespaceEnv()
@@ -208,6 +209,11 @@ export function LogsView({
       if (isPausedRef.current) {
         return
       }
+      // Ignore messages received within 50ms of a clear operation
+      // This prevents race conditions where in-flight messages appear after clear
+      if (Date.now() - lastClearTimeRef.current < 50) {
+        return
+      }
       try {
         const entry = JSON.parse(event.data) as LogEntry
         setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
@@ -256,6 +262,7 @@ export function LogsView({
 
   // Clear logs when mode/filter/timeframe changes
   useEffect(() => {
+    lastClearTimeRef.current = Date.now()
     setLogs([]) // Clear logs when switching modes or changing filter
     setHasFetched(false) // Reset loading state
   }, [logMode, azureServiceFilter, timeRange?.preset])
@@ -272,6 +279,8 @@ export function LogsView({
   // Clear logs when global clear is triggered
   useEffect(() => {
     if (clearAllTrigger > 0) {
+      // Record clear time to ignore WebSocket messages for a brief period
+      lastClearTimeRef.current = Date.now()
       setLogs([])
     }
   }, [clearAllTrigger])
@@ -345,6 +354,7 @@ export function LogsView({
 
   const clearLogs = useCallback(() => {
     if (window.confirm(`Clear all ${logs.length} log entries? This cannot be undone.`)) {
+      lastClearTimeRef.current = Date.now()
       setLogs([])
     }
   }, [logs.length])

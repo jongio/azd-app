@@ -8,6 +8,7 @@ import TourNavigation from '../../components/tour/TourNavigation.astro';
 import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
 import TryItYourself from '../../components/tour/TryItYourself.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
+import Screenshot from '../../components/Screenshot.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
 const step = getStepByNumber(7)!;
@@ -111,6 +112,13 @@ All services healthy!`}
         <li><strong>Health Status</strong> - Is the service responding correctly? (healthy, unhealthy, degraded)</li>
       </ul>
       <p>A running service can be unhealthy (process up, but health checks failing), and a stopped service has no health status. The dashboard shows both clearly.</p>
+
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/health-view.png"
+        darkSrc="/azd-app/screenshots/health-view.png"
+        alt="Dashboard health view displaying service status indicators, uptime metrics, and last health check timestamps for all running services"
+        caption="Dashboard health view showing service status, uptime, and last check time"
+      />
 
       <h2>Streaming Mode</h2>
       <p>Continuously monitor health status in real-time:</p>
