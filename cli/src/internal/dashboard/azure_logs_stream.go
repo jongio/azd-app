@@ -59,7 +59,7 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	// Try to read optional init message with time range configuration
 	// Message format: {"type":"init","service":"api","since":"1h"}
 	// Use non-blocking read with short timeout
-	var initialWindow time.Duration = 30 * time.Minute // Default
+	var initialWindow = 30 * time.Minute // Default
 	initServiceName := serviceName
 
 	readCtx, readCancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
