@@ -17,11 +17,15 @@ const createMockServices = (): Service[] => [
   {
     name: 'api-local',
     host: 'local',
+    status: 'ready',
+    health: 'healthy',
     local: { status: 'ready', health: 'healthy', port: 3000, url: 'http://localhost:3000' },
   },
   {
     name: 'api-azure',
     host: 'containerapp',
+    status: 'ready',
+    health: 'healthy',
     azure: { url: 'https://api-azure.example.com' },
     local: { status: 'ready', health: 'healthy', port: 4000, url: 'http://localhost:4000' },
   },
@@ -210,8 +214,8 @@ describe('ConsoleView', () => {
     expect(healthyButton.className).toContain('text-green-600')
   })
 
-  it('does not hide panes when state/health filters exclude services', async () => {
-    // Prepopulate persisted filters that *used* to hide panes.
+  it('hides panes when state/health filters exclude services', async () => {
+    // Prepopulate persisted filters that hide panes.
     globalThis.localStorage.setItem(
       'console-filters-v1',
       JSON.stringify({
@@ -229,6 +233,8 @@ describe('ConsoleView', () => {
       {
         name: 'worker',
         host: 'local',
+        status: 'stopped',
+        health: 'unknown',
         local: { status: 'stopped', health: 'unknown', port: 5000, url: 'http://localhost:5000' },
       },
     ]
@@ -247,9 +253,15 @@ describe('ConsoleView', () => {
 
     renderConsoleView('local', false, healthReport)
 
-    expect(await screen.findByTestId('pane-api-local')).toBeInTheDocument()
-    expect(await screen.findByTestId('pane-api-azure')).toBeInTheDocument()
-    expect(await screen.findByTestId('pane-worker')).toBeInTheDocument()
+    // Wait for at least one pane to render (api-local should appear)
+    await waitFor(() => {
+      const pane = screen.queryByTestId('pane-api-local')
+      expect(pane).toBeInTheDocument()
+    }, { timeout: 5000 })
+    
+    // api-azure is unhealthy, worker is stopped - both should be filtered out
+    expect(screen.queryByTestId('pane-api-azure')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pane-worker')).not.toBeInTheDocument()
   })
 
   it('shows an empty state when no services are selected', async () => {

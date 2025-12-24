@@ -892,7 +892,7 @@ func buildStreamingQueryForType(resourceType ResourceType, services []string, si
 func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, since time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
 	// Use precise timestamp filtering instead of ago() to avoid duplicate fetches
 	// This queries: TimeGenerated > lastSeen instead of TimeGenerated > ago(Nm)
-	
+
 	// Collect all entries from all resource types
 	var allEntries []LogEntry
 	var successCount int

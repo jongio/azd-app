@@ -346,10 +346,10 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		batch := make([]service.LogEntry, 0, 100) // Batch up to 100 entries
+		batch := make([]service.LogEntry, 0, 100)       // Batch up to 100 entries
 		ticker := time.NewTicker(50 * time.Millisecond) // Flush every 50ms
 		defer ticker.Stop()
-		
+
 		flush := func() error {
 			if len(batch) == 0 {
 				return nil
@@ -367,7 +367,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 			batch = batch[:0] // Clear batch
 			return nil
 		}
-		
+
 		for {
 			select {
 			case entry, ok := <-mergedChan:

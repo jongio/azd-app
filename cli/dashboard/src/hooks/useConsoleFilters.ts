@@ -130,9 +130,14 @@ export function useConsoleFilters(services: Service[]): UseConsoleFiltersResult 
     () => savedFilters?.serviceSelectionMode ?? 'all'
   )
   
-  const [selectedServices, setSelectedServices] = React.useState<Set<string>>(
-    () => new Set(serviceSelectionMode === 'custom' ? (savedFilters?.selectedServices ?? []) : [])
-  )
+  const [selectedServices, setSelectedServices] = React.useState<Set<string>>(() => {
+    // If mode is 'all' and services are available on first render, initialize with all services
+    if ((savedFilters?.serviceSelectionMode ?? 'all') === 'all' && services.length > 0) {
+      return new Set(services.map((s) => s.name))
+    }
+    // Otherwise use saved custom selection or empty set
+    return new Set(savedFilters?.serviceSelectionMode === 'custom' ? (savedFilters?.selectedServices ?? []) : [])
+  })
   
   const [levelFilter, setLevelFilter] = React.useState<Set<LogLevel>>(
     () => new Set(savedFilters?.levelFilter?.length ? savedFilters.levelFilter : ['info', 'warning', 'error'])

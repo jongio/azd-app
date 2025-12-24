@@ -469,21 +469,33 @@ export async function mockApiRoutes(page: Page, options: {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"restarted": 2, "failed": 0}' })
   })
 
+  // Shared preferences state (persisted across page reloads within same test)
+  let currentPreferences = {
+    version: '1.0',
+    theme: 'light' as 'light' | 'dark',
+    ui: { gridColumns: 2, viewMode: 'grid' as 'grid' | 'unified', gridAutoFit: true, selectedServices: [] as string[] },
+    behavior: { autoScroll: true, pauseOnScroll: true, timestampFormat: 'hh:mm:ss.sss' },
+    copy: { defaultFormat: 'plaintext', includeTimestamp: true, includeService: true },
+  }
+
   // Logs preferences (must be before /api/logs*)
   await page.route('/api/logs/preferences*', async route => {
     if (route.request().method() === 'POST') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+      // Save the updated preferences
+      try {
+        const body = route.request().postDataJSON() as Partial<typeof currentPreferences> | null
+        if (body) {
+          currentPreferences = { ...currentPreferences, ...body }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentPreferences) })
     } else {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          version: '1.0',
-          theme: 'light',
-          ui: { gridColumns: 2, viewMode: 'grid', gridAutoFit: true, selectedServices: [] },
-          behavior: { autoScroll: true, pauseOnScroll: true, timestampFormat: 'hh:mm:ss.sss' },
-          copy: { defaultFormat: 'plaintext', includeTimestamp: true, includeService: true },
-        }),
+        body: JSON.stringify(currentPreferences),
       })
     }
   })
@@ -573,19 +585,32 @@ export async function mockApiRoutes(page: Page, options: {
     })
   })
 
-  // Preferences
+  // Note: Preferences are now handled by /api/logs/preferences above, not /api/preferences
+  // This route is kept for backward compatibility but delegates to the same storage
   await page.route('/api/preferences*', async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        version: '1.0',
-        theme: 'light',
-        ui: { gridColumns: 2, viewMode: 'grid', gridAutoFit: true, selectedServices: [] },
-        behavior: { autoScroll: true, pauseOnScroll: true, timestampFormat: 'hh:mm:ss.sss' },
-        copy: { defaultFormat: 'plaintext', includeTimestamp: true, includeService: true },
-      }),
-    })
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentPreferences),
+      })
+    } else if (route.request().method() === 'POST' || route.request().method() === 'PUT') {
+      try {
+        const body = route.request().postDataJSON() as Partial<typeof currentPreferences> | null
+        if (body) {
+          currentPreferences = { ...currentPreferences, ...body }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentPreferences),
+      })
+    } else {
+      await route.continue()
+    }
   })
 
   // Classifications
