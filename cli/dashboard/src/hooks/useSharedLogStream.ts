@@ -299,7 +299,7 @@ class SharedLogStreamManager {
       // Handle batched log entries (array) or single entry
       const entries = Array.isArray(message) ? message : [message as LogEntry]
       
-      entries.forEach(entry => {
+      entries.forEach((entry: LogEntry) => {
         // Validate log entry structure
         if (!entry || typeof entry !== 'object' || !entry.service) {
           console.warn('[SharedLogStream] Invalid log entry received:', entry)
@@ -307,15 +307,16 @@ class SharedLogStreamManager {
         }
         
         // Check for sequence gaps (only for Azure logs with sequence numbers)
-        if (entry.sequence !== undefined) {
-          const lastSeq = this.lastSeenSequence.get(entry.service)
+        if (typeof entry.sequence === 'number') {
+          const serviceId = String(entry.service)
+          const lastSeq = this.lastSeenSequence.get(serviceId)
           if (lastSeq !== undefined && entry.sequence > lastSeq + 1) {
             // Gap detected!
             const gap = { start: lastSeq + 1, end: entry.sequence - 1 }
-            console.warn(`[SharedLogStream] Gap detected for ${entry.service}: missing sequences ${gap.start}-${gap.end}`)
+            console.warn(`[SharedLogStream] Gap detected for ${serviceId}: missing sequences ${gap.start}-${gap.end}`)
             
             // Call gap callback if registered
-            const gapCallback = this.gapCallbacks.get(entry.service)
+            const gapCallback = this.gapCallbacks.get(serviceId)
             if (gapCallback) {
               try {
                 gapCallback(gap)
@@ -324,7 +325,7 @@ class SharedLogStreamManager {
               }
             }
           }
-          this.lastSeenSequence.set(entry.service, entry.sequence)
+          this.lastSeenSequence.set(serviceId, entry.sequence)
         }
         
         // Add to buffer (maintain max size)
@@ -333,7 +334,7 @@ class SharedLogStreamManager {
           this.messageBuffer.shift()
         }
         
-        const serviceName = entry.service
+        const serviceName = String(entry.service)
 
         // Dispatch to subscribers of this specific service
         const serviceSubs = this.subscribers.get(serviceName)
@@ -602,7 +603,6 @@ function getAzureLogManager(): SharedLogStreamManager {
           try {
             this.ws.send(JSON.stringify(initMsg))
             this.initSent = true
-            console.log('[AzureLogStream] Sent init message:', initMsg)
           } catch (err) {
             console.error('[AzureLogStream] Failed to send init message:', err)
           }

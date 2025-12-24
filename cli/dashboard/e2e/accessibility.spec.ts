@@ -49,9 +49,15 @@ test.describe('Theme - Light/Dark Mode', () => {
       const theme = await html.getAttribute('data-theme')
       expect(theme === 'dark' || (await html.evaluate(el => el.classList.contains('dark')))).toBeTruthy()
       
+      // Wait longer for preferences API call to complete and persist (API saves to backend)
+      await page.waitForTimeout(2000)
+      
       // Verify persistence by reloading
       await page.reload()
       await waitForDashboardReady(page)
+      
+      // Wait for theme to be applied after reload (getCachedTheme applies immediately)
+      await page.waitForTimeout(1000)
       
       // Should still be dark
       const themeAfterReload = await html.getAttribute('data-theme')

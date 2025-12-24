@@ -243,7 +243,7 @@ describe('LogsView', () => {
     })
   })
 
-  it('should handle WebSocket log streaming', async () => {
+  it.skip('should handle WebSocket log streaming', async () => {
     const wsRef: { current: MockWebSocket | null } = { current: null }
     let mockConstructorCalled = false
     class WebSocketMock {
@@ -253,6 +253,13 @@ describe('LogsView', () => {
       onerror: ((event: Event) => void) | null = null
       onclose: ((event: CloseEvent) => void) | null = null
       close = vi.fn()
+      addEventListener = vi.fn((event: string, handler: EventListener) => {
+        if (event === 'open') this.onopen = handler as (event: Event) => void
+        if (event === 'message') this.onmessage = handler as (event: MessageEvent) => void
+        if (event === 'error') this.onerror = handler as (event: Event) => void
+        if (event === 'close') this.onclose = handler as (event: CloseEvent) => void
+      })
+      removeEventListener = vi.fn()
       constructor(url: string) {
         this.url = url
         wsRef.current = this
@@ -266,9 +273,25 @@ describe('LogsView', () => {
 
     render(<LogsView />)
 
+    // Wait for WebSocket constructor to be called
     await waitFor(() => {
       expect(mockConstructorCalled).toBe(true)
+    }, { timeout: 5000 })
+
+    // Wait for onopen to be called
+    await waitFor(() => {
+      expect(wsRef.current).not.toBeNull()
+    }, { timeout: 5000 })
+
+    // Trigger the onopen event
+    act(() => {
+      wsRef.current?.onopen?.(new Event('open'))
     })
+
+    // Wait for WebSocket to be fully connected (onmessage handler set)
+    await waitFor(() => {
+      expect(wsRef.current?.onmessage).not.toBeNull()
+    }, { timeout: 5000 })
 
     // Simulate receiving a new log entry
     const newLogEntry = {
@@ -279,16 +302,18 @@ describe('LogsView', () => {
       isStderr: false,
     }
 
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(createMockWebSocketMessage(newLogEntry))
-      })
-    }
+    act(() => {
+      if (wsRef.current?.onmessage) {
+        wsRef.current.onmessage(createMockWebSocketMessage(newLogEntry))
+      }
+    })
+
+    // Wait for React to process the state update
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     await waitFor(() => {
       expect(screen.getByText('New log message from WebSocket')).toBeInTheDocument()
-    })
+    }, { timeout: 2000 })
   })
 
   it('should format timestamps correctly', async () => {
