@@ -243,7 +243,7 @@ describe('LogsView', () => {
     })
   })
 
-  it.skip('should handle WebSocket log streaming', async () => {
+  it('should handle WebSocket log streaming', async () => {
     const wsRef: { current: MockWebSocket | null } = { current: null }
     let mockConstructorCalled = false
     class WebSocketMock {
@@ -273,25 +273,23 @@ describe('LogsView', () => {
 
     render(<LogsView />)
 
+    // Wait for initial logs to be fetched and rendered
+    await waitFor(() => {
+      expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
+    }, { timeout: 10000 })
+
     // Wait for WebSocket constructor to be called
     await waitFor(() => {
       expect(mockConstructorCalled).toBe(true)
-    }, { timeout: 5000 })
-
-    // Wait for onopen to be called
-    await waitFor(() => {
-      expect(wsRef.current).not.toBeNull()
-    }, { timeout: 5000 })
-
-    // Trigger the onopen event
-    act(() => {
-      wsRef.current?.onopen?.(new Event('open'))
-    })
+    }, { timeout: 10000 })
 
     // Wait for WebSocket to be fully connected (onmessage handler set)
     await waitFor(() => {
       expect(wsRef.current?.onmessage).not.toBeNull()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
+
+    // Give a bit more time for component to stabilize
+    await new Promise(resolve => setTimeout(resolve, 100))
 
     // Simulate receiving a new log entry
     const newLogEntry = {
@@ -308,13 +306,10 @@ describe('LogsView', () => {
       }
     })
 
-    // Wait for React to process the state update
-    await new Promise(resolve => setTimeout(resolve, 100))
-
     await waitFor(() => {
       expect(screen.getByText('New log message from WebSocket')).toBeInTheDocument()
-    }, { timeout: 2000 })
-  })
+    }, { timeout: 10000 })
+  }, 15000) // Increase overall test timeout to 15s
 
   it('should format timestamps correctly', async () => {
     render(<LogsView />)

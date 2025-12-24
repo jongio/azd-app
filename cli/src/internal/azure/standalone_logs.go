@@ -876,18 +876,6 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	}
 }
 
-// buildStreamingQueryForType builds a KQL query optimized for streaming (ordered by time asc).
-func buildStreamingQueryForType(resourceType ResourceType, services []string, since time.Duration) string {
-	// Use the standalone query builder with a reasonable limit for streaming
-	query := buildStandaloneQueryForType(resourceType, services, since, 500)
-	// Replace the final "| take N" with streaming-optimized order
-	if strings.Contains(query, "| take") {
-		query = query[:strings.LastIndex(query, "| take")]
-	}
-	query += "| order by TimeGenerated asc\n| take 500"
-	return query
-}
-
 // fetchAndSendLogsMultiType fetches logs from multiple resource types and sends them to the channel.
 func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, since time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
 	// Use precise timestamp filtering instead of ago() to avoid duplicate fetches
