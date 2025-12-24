@@ -145,10 +145,10 @@ func NewAzureCredential() (azcore.TokenCredential, error) {
 // 3. DefaultAzureCredential defaults to the last requested scope
 //
 // WORKAROUND:
-// - We rely on Azure CLI (via DefaultAzureCredential) which can handle
-//   multiple scopes by caching separate tokens per resource
-// - The azlogs.Client automatically requests the correct scope internally
-// - Users must be logged in via `az login` for this to work reliably
+//   - We rely on Azure CLI (via DefaultAzureCredential) which can handle
+//     multiple scopes by caching separate tokens per resource
+//   - The azlogs.Client automatically requests the correct scope internally
+//   - Users must be logged in via `az login` for this to work reliably
 //
 // FUTURE FIX:
 // - Azure SDK for Go should expose scope configuration on azlogs.Client

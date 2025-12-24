@@ -356,7 +356,7 @@ export function useLogsStream(params: UseLogsStreamParams): { retry: () => void 
         abortControllerRef.current = null
       }
     }
-  }, [serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange, connected, setIsLoading, setLoadingMessage, setCanRetry, retryTriggerRef.current])
+  }, [serviceName, fetchKey, isPausedRef, setLogs, setErrorMessage, onFetchSettled, azureRealtime, logMode, timeRange, connected, setIsLoading, setLoadingMessage, setCanRetry])
 
   // Manual retry function - resets counters and triggers re-fetch
   const retry = useCallback(() => {

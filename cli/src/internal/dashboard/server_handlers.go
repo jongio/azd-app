@@ -166,10 +166,10 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Encoding", "gzip")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		
+
 		gz := gzip.NewWriter(w)
 		defer gz.Close()
-		
+
 		if err := json.NewEncoder(gz).Encode(logs); err != nil {
 			log.Printf("Failed to write gzipped JSON response: %v", err)
 		}
