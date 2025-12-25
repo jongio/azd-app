@@ -494,7 +494,7 @@ func TestMarshalToolResult(t *testing.T) {
 			if !tt.wantError && result == nil {
 				t.Error("Expected result, got nil")
 			}
-			
+
 			// Verify that structured content is returned (not just text)
 			if !tt.wantError && result != nil {
 				// Should have structured content populated
