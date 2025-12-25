@@ -206,7 +206,7 @@ describe('service-utils', () => {
 
   describe('formatRelativeTime', () => {
     it('should return N/A for undefined', () => {
-      expect(formatRelativeTime(undefined)).toBe('N/A')
+      expect(formatRelativeTime()).toBe('N/A')
     })
 
     it('should return N/A for empty string', () => {
@@ -250,7 +250,7 @@ describe('service-utils', () => {
 
   describe('formatStartTime', () => {
     it('should return - for undefined', () => {
-      expect(formatStartTime(undefined)).toBe('-')
+      expect(formatStartTime()).toBe('-')
     })
 
     it('should format time as HH:MM:SS', () => {
@@ -283,7 +283,7 @@ describe('service-utils', () => {
 
   describe('formatResponseTime', () => {
     it('should return - for undefined', () => {
-      expect(formatResponseTime(undefined)).toBe('-')
+      expect(formatResponseTime()).toBe('-')
     })
 
     it('should return - for zero', () => {
@@ -309,7 +309,7 @@ describe('service-utils', () => {
 
   describe('formatUptime', () => {
     it('should return - for undefined', () => {
-      expect(formatUptime(undefined)).toBe('-')
+      expect(formatUptime()).toBe('-')
     })
 
     it('should return - for zero', () => {
@@ -352,7 +352,7 @@ describe('service-utils', () => {
     })
 
     it('should return Unknown for undefined', () => {
-      expect(getCheckTypeDisplay(undefined)).toBe('Unknown')
+      expect(getCheckTypeDisplay()).toBe('Unknown')
     })
 
     it('should return Unknown for unrecognized type', () => {
@@ -372,7 +372,7 @@ describe('service-utils', () => {
     }
 
     it('should return service unchanged when healthResult is undefined', () => {
-      const result = mergeHealthIntoService(baseService, undefined)
+      const result = mergeHealthIntoService(baseService)
       expect(result).toEqual(baseService)
     })
 
@@ -538,7 +538,7 @@ describe('service-utils', () => {
       // Stopped process status takes priority over health status
       expect(getLogPaneVisualStatus('healthy', 'info', 'stopped')).toBe('stopped')
       expect(getLogPaneVisualStatus('unhealthy', 'error', 'stopped')).toBe('stopped')
-      expect(getLogPaneVisualStatus(undefined, 'info', 'stopped')).toBe('stopped')
+      expect(getLogPaneVisualStatus(void 0, 'info', 'stopped')).toBe('stopped')
     })
 
     it('should not affect status when processStatus is running', () => {
@@ -549,8 +549,8 @@ describe('service-utils', () => {
 
     it('should not affect status when processStatus is undefined', () => {
       // Undefined process status should fall back to health-based status
-      expect(getLogPaneVisualStatus('healthy', 'info', undefined)).toBe('healthy')
-      expect(getLogPaneVisualStatus('unhealthy', 'error', undefined)).toBe('error')
+      expect(getLogPaneVisualStatus('healthy', 'info')).toBe('healthy')
+      expect(getLogPaneVisualStatus('unhealthy', 'error')).toBe('error')
     })
   })
 
@@ -674,7 +674,7 @@ describe('service-utils', () => {
       })
 
       it('should default to HTTP for undefined', () => {
-        const config = getServiceTypeBadgeConfig(undefined)
+        const config = getServiceTypeBadgeConfig()
         expect(config.label).toBe('HTTP')
       })
     })
@@ -705,7 +705,7 @@ describe('service-utils', () => {
       })
 
       it('should default to Watch for undefined', () => {
-        const config = getServiceModeBadgeConfig(undefined)
+        const config = getServiceModeBadgeConfig()
         expect(config.label).toBe('Watch')
       })
     })
@@ -756,7 +756,7 @@ describe('service-utils', () => {
       })
 
       it('should return false for undefined', () => {
-        expect(isProcessService(undefined)).toBe(false)
+        expect(isProcessService()).toBe(false)
       })
     })
 

@@ -18,9 +18,14 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 )
 
+const (
+	contentTypeHeader = "Content-Type"
+	jsonContentType   = "application/json"
+)
+
 // handlePing is a simple health check endpoint to verify the dashboard is running.
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeHeader, jsonContentType)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
@@ -164,7 +169,7 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	// Enable gzip compression for large responses
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentTypeHeader, jsonContentType)
 		w.WriteHeader(http.StatusOK)
 
 		gz := gzip.NewWriter(w)

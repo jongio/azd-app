@@ -164,7 +164,7 @@ describe('LogsView', () => {
 
   it('should clear logs with confirmation', async () => {
     const user = userEvent.setup()
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     
     render(<LogsView />)
 
@@ -185,7 +185,7 @@ describe('LogsView', () => {
 
   it('should not clear logs when confirmation is cancelled', async () => {
     const user = userEvent.setup()
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false)
     
     render(<LogsView />)
 
@@ -497,7 +497,7 @@ describe('LogsView', () => {
 
   it('should not re-add logs from WebSocket after clearing', async () => {
     const user = userEvent.setup()
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
     
     // Mock WebSocket
     const wsRef = { current: null as MockWebSocket | null }
