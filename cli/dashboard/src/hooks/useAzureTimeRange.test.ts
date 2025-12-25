@@ -231,8 +231,8 @@ describe('useAzureTimeRange', () => {
     it('should handle switching from custom to undefined', () => {
       const customRange: AzureTimeRange = { preset: '24h' }
       const { result, rerender } = renderHook(
-        ({ timeRange }) => useAzureTimeRange(timeRange),
-        { initialProps: { timeRange: customRange } }
+        ({ timeRange }: { timeRange?: AzureTimeRange }) => useAzureTimeRange(timeRange),
+        { initialProps: { timeRange: customRange as AzureTimeRange | undefined } }
       )
 
       expect(result.current.timeRange).toEqual(customRange)
@@ -245,14 +245,14 @@ describe('useAzureTimeRange', () => {
 
     it('should handle switching from undefined to custom', () => {
       const { result, rerender } = renderHook(
-        ({ timeRange }) => useAzureTimeRange(timeRange),
-        { initialProps: { timeRange: undefined } }
+        ({ timeRange }: { timeRange?: AzureTimeRange }) => useAzureTimeRange(timeRange),
+        { initialProps: { timeRange: undefined as AzureTimeRange | undefined } }
       )
 
       expect(result.current.timeRange).toEqual(DEFAULT_AZURE_TIME_RANGE)
 
       const customRange: AzureTimeRange = { preset: '6h' }
-      rerender({ timeRange: customRange })
+      rerender({ timeRange: customRange as AzureTimeRange | undefined })
 
       expect(result.current.timeRange).toEqual(customRange)
     })

@@ -314,7 +314,7 @@ describe('TimeRangeSelector', () => {
       const customButton = screen.getByRole('radio', { name: 'Custom' })
       await user.click(customButton)
       
-      const { rerender } = render(<TimeRangeSelector {...defaultProps} value={{ preset: 'custom' }} disabled={true} />)
+      render(<TimeRangeSelector {...defaultProps} value={{ preset: 'custom' }} disabled={true} />)
       
       const startInput = screen.getByLabelText(/Start/i)
       const endInput = screen.getByLabelText(/End/i)
@@ -352,8 +352,6 @@ describe('TimeRangeSelector', () => {
     })
 
     it('constrains end date by start date', async () => {
-      const user = userEvent.setup()
-      
       const start = new Date('2024-01-15T10:00')
       const end = new Date('2024-01-15T12:00')
       

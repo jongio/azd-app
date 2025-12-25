@@ -404,7 +404,7 @@ func TestClientPool_NilCredential(t *testing.T) {
 	// Creating a client with nil credential will succeed in the pool function,
 	// but will fail when NewLogAnalyticsClient is called
 	client, err := GetOrCreateLogAnalyticsClient(ctx, nil, workspaceID)
-	
+
 	// The behavior depends on implementation - either it errors or creates a client
 	// Let's just verify it doesn't panic
 	if err != nil {

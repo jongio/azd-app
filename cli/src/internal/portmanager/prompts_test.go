@@ -34,7 +34,7 @@ func TestGetProcessInfoString(t *testing.T) {
 
 	// Test with a port that likely has no process
 	result := getProcessInfoString(pm, 65500)
-	
+
 	// Result should be either empty or contain PID info
 	// We can't predict the exact output, just verify it doesn't panic
 	_ = result
