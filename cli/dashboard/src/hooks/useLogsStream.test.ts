@@ -81,6 +81,7 @@ describe('useLogsStream', () => {
     azureRealtime: false,
     refreshTrigger: 0,
     isPausedRef: { current: false },
+    lastClearTimeRef: { current: Date.now() - 1000 }, // Initialize to 1s in the past
     setLogs: vi.fn(),
     setErrorMessage: vi.fn(),
     onFetchSettled: vi.fn(),

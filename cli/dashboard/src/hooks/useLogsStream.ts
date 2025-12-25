@@ -45,6 +45,7 @@ export interface UseLogsStreamParams {
   timeRange: AzureTimeRange
   azureRealtime: boolean
   isPausedRef: { current: boolean }
+  lastClearTimeRef: { current: number }
   setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
   setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>
   onFetchSettled?: () => void
@@ -68,7 +69,7 @@ export interface UseLogsStreamParams {
  */
 export function useLogsStream(params: UseLogsStreamParams): { retry: () => void } {
   const { 
-    serviceName, fetchKey, logMode, timeRange, azureRealtime, isPausedRef, 
+    serviceName, fetchKey, logMode, timeRange, azureRealtime, isPausedRef, lastClearTimeRef,
     setLogs, setErrorMessage, onFetchSettled,
     setIsLoading, setLoadingMessage, setCanRetry, onRetry
   } = params
@@ -373,6 +374,11 @@ export function useLogsStream(params: UseLogsStreamParams): { retry: () => void 
   // This prevents resource exhaustion from multiple connections
   const handleSharedLogEntry = useCallback((entry: LogEntry) => {
     if (isPausedRef.current) return
+    // Ignore messages received within 100ms of a clear operation
+    // This prevents race conditions where in-flight messages appear after clear
+    if (Date.now() - lastClearTimeRef.current < 500) {
+      return
+    }
     // Use functional update to avoid dependency on setLogs
     setLogs((prev) => {
       const updated = [...prev, entry]
@@ -381,7 +387,7 @@ export function useLogsStream(params: UseLogsStreamParams): { retry: () => void 
         ? updated.slice(updated.length - MAX_LOGS_IN_MEMORY) 
         : updated
     })
-  }, [isPausedRef, setLogs])
+  }, [isPausedRef, lastClearTimeRef, setLogs])
 
   const shouldUseSharedStream = 
     connected && 
