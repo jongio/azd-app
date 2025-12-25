@@ -49,9 +49,9 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	conn := &clientConn{client: client}
 	clientIP := getClientIP(r)
 	defer func() {
-		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
-			if !isExpectedCloseError(err) {
-				log.Printf("Failed to close Azure logs WebSocket: %v", err)
+		if closeErr := client.closeWithRateLimit(clientIP, s.rateLimiter); closeErr != nil {
+			if !isExpectedCloseError(closeErr) {
+				log.Printf("Failed to close Azure logs WebSocket: %v", closeErr)
 			}
 		}
 	}()
