@@ -276,6 +276,9 @@ jobs:
           # Delete existing release if it exists (idempotent for re-runs)
           gh release delete "$TAG" --repo "${{ github.repository }}" --yes 2>/dev/null || true
           
+          # Also delete the tag to ensure we're not reusing cached artifacts
+          git push --delete origin "$TAG" 2>/dev/null || true
+          
           # Create pre-release with all binaries (same pattern as release.yml but with --prerelease)
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
