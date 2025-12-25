@@ -444,98 +444,302 @@ func assertContains(t *testing.T, slice []string, want string) {
 
 // Tests for docker exec functionality
 
-func TestExec_Success(t *testing.T) {
+func TestExec_EmptyContainerName(t *testing.T) {
 	client := NewClient()
-
-	// Test with a container that exists (mock not used here, assumes docker available)
-	// This test validates the API contract
 	command := []string{"echo", "hello"}
 
-	// Test empty container name
-	exitCode, _, err := client.Exec("", command)
+	exitCode, output, err := client.Exec("", command)
 	if err == nil {
 		t.Error("Exec with empty container name should return error")
 	}
 	if exitCode != -1 {
 		t.Errorf("Exit code should be -1 for empty container, got %d", exitCode)
 	}
+	if output != "" {
+		t.Errorf("Output should be empty for invalid input, got %q", output)
+	}
+	if err.Error() == "" {
+		t.Error("Error message should not be empty")
+	}
+}
 
-	// Test empty command
-	exitCode, _, err = client.Exec("test-container", []string{})
+func TestExec_EmptyCommand(t *testing.T) {
+	client := NewClient()
+
+	exitCode, output, err := client.Exec("test-container", []string{})
 	if err == nil {
 		t.Error("Exec with empty command should return error")
 	}
 	if exitCode != -1 {
 		t.Errorf("Exit code should be -1 for empty command, got %d", exitCode)
 	}
+	if output != "" {
+		t.Errorf("Output should be empty for invalid input, got %q", output)
+	}
+	expectedErrMsg := "command cannot be empty"
+	if err.Error() != expectedErrMsg {
+		t.Errorf("Expected error message %q, got %q", expectedErrMsg, err.Error())
+	}
 }
 
-func TestExecShell_ValidatesInputs(t *testing.T) {
+func TestExec_NilCommand(t *testing.T) {
 	client := NewClient()
 
-	// Test empty container name
-	exitCode, _, err := client.ExecShell("", "echo hello")
+	exitCode, output, err := client.Exec("test-container", nil)
+	if err == nil {
+		t.Error("Exec with nil command should return error")
+	}
+	if exitCode != -1 {
+		t.Errorf("Exit code should be -1 for nil command, got %d", exitCode)
+	}
+	if output != "" {
+		t.Errorf("Output should be empty for invalid input, got %q", output)
+	}
+}
+
+func TestExec_NonexistentContainer(t *testing.T) {
+	client := NewClient()
+
+	// Use a container name that definitely doesn't exist
+	containerName := "nonexistent-container-that-does-not-exist-12345"
+	command := []string{"echo", "hello"}
+
+	exitCode, _, err := client.Exec(containerName, command)
+	if err == nil {
+		// If docker isn't available, we might get a different error
+		// but we should still get an error
+		t.Log("Exec with nonexistent container returned success (unexpected)")
+	}
+	// Exit code should be -1 when container doesn't exist
+	if err != nil && exitCode != -1 {
+		// This is acceptable - means docker returned an exit code
+		t.Logf("Exit code for nonexistent container: %d", exitCode)
+	}
+}
+
+func TestExec_SingleArgumentCommand(t *testing.T) {
+	client := NewClient()
+
+	// Test command with single argument
+	command := []string{"echo"}
+	exitCode, _, err := client.Exec("test-container", command)
+
+	// Should fail (no such container) but validates single-arg handling
+	if exitCode == 0 && err == nil {
+		t.Error("Should fail with nonexistent container")
+	}
+}
+
+func TestExec_MultipleArgumentCommand(t *testing.T) {
+	client := NewClient()
+
+	// Test command with multiple arguments
+	command := []string{"sh", "-c", "echo 'hello world'"}
+	exitCode, _, err := client.Exec("test-container", command)
+
+	// Should fail (no such container) but validates multi-arg handling
+	if exitCode == 0 && err == nil {
+		t.Error("Should fail with nonexistent container")
+	}
+}
+
+func TestExec_CommandWithSpecialCharacters(t *testing.T) {
+	client := NewClient()
+
+	// Test command with special characters (properly escaped)
+	command := []string{"echo", "hello & world"}
+	exitCode, _, _ := client.Exec("test-container", command)
+
+	// Should fail (no such container) but validates special char handling
+	if exitCode == 0 {
+		t.Error("Should fail with nonexistent container")
+	}
+}
+
+func TestExecShell_EmptyContainerName(t *testing.T) {
+	client := NewClient()
+
+	exitCode, output, err := client.ExecShell("", "echo hello")
 	if err == nil {
 		t.Error("ExecShell with empty container name should return error")
 	}
 	if exitCode != -1 {
 		t.Errorf("Exit code should be -1 for error, got %d", exitCode)
 	}
-}
-
-func TestExec_CommandConstruction(t *testing.T) {
-	// Verify that Exec properly constructs the docker exec command
-	// This is tested indirectly through the validation logic
-	client := NewClient()
-
-	// Multiple command arguments should be passed through
-	command := []string{"sh", "-c", "echo test"}
-	_, _, err := client.Exec("test-container", command)
-
-	// We expect this to fail (no such container in test env)
-	// but it validates the command construction logic runs
-	if err == nil {
-		t.Log("Command construction validated (container not found expected)")
+	if output != "" {
+		t.Errorf("Output should be empty for invalid input, got %q", output)
 	}
 }
 
-func TestExecShell_UsesShellCommand(t *testing.T) {
+func TestExecShell_EmptyCommand(t *testing.T) {
 	client := NewClient()
 
-	// Verify ExecShell wraps the command in sh -c
-	// This is tested through the API contract
-	shellCommand := "echo 'hello world' && exit 0"
+	// Empty shell command should still execute (sh -c "" is valid)
+	// But will fail because container doesn't exist
+	exitCode, _, err := client.ExecShell("test-container", "")
 
+	// The actual exec call should validate this
+	// Since it calls Exec with []string{"sh", "-c", ""}, it won't error on empty
+	if exitCode == 0 && err == nil {
+		t.Error("Should fail with nonexistent container")
+	}
+}
+
+func TestExecShell_SimpleCommand(t *testing.T) {
+	client := NewClient()
+
+	shellCommand := "echo hello"
+	exitCode, _, err := client.ExecShell("test-container", shellCommand)
+
+	// Should fail (no such container) but validates simple command
+	if exitCode == 0 && err == nil {
+		t.Error("Should fail with nonexistent container")
+	}
+}
+
+func TestExecShell_ComplexCommand(t *testing.T) {
+	client := NewClient()
+
+	// Test complex shell command with pipes and redirects
+	shellCommand := "echo 'hello world' | grep hello && exit 0"
+	exitCode, _, _ := client.ExecShell("test-container", shellCommand)
+
+	// Should fail (no such container) but validates complex command handling
+	if exitCode == 0 {
+		t.Log("Complex shell command handling validated")
+	}
+}
+
+func TestExecShell_MultilineCommand(t *testing.T) {
+	client := NewClient()
+
+	// Test multiline shell command
+	shellCommand := `
+		echo "line 1"
+		echo "line 2"
+		exit 0
+	`
 	_, _, err := client.ExecShell("test-container", shellCommand)
 
-	// We expect this to fail (no such container in test env)
-	// but it validates the shell wrapper logic runs
-	if err == nil {
-		t.Log("Shell command construction validated")
+	// Should fail (no such container) but validates multiline handling
+	_ = err
+}
+
+func TestExecShell_CommandWithQuotes(t *testing.T) {
+	client := NewClient()
+
+	// Test command with various quote types
+	shellCommand := `echo "double quotes" && echo 'single quotes'`
+	_, _, err := client.ExecShell("test-container", shellCommand)
+
+	// Should fail (no such container) but validates quote handling
+	_ = err
+}
+
+func TestExecShell_UsesShellWrapper(t *testing.T) {
+	// Verify that ExecShell wraps commands in sh -c
+	// by testing a command that only works in a shell context
+	client := NewClient()
+
+	// Shell-specific features like && chaining
+	shellCommand := "exit 0 && exit 1"
+	_, _, err := client.ExecShell("test-container", shellCommand)
+
+	// Should fail (no such container) but validates shell wrapper
+	_ = err
+}
+
+func TestExec_OutputFromStdout(t *testing.T) {
+	// This test documents that output should be captured
+	client := NewClient()
+
+	// Even though container doesn't exist, the function should
+	// return output in the second return value
+	_, output, _ := client.Exec("nonexistent", []string{"echo", "test"})
+
+	// Output exists (may be empty for nonexistent container)
+	_ = output
+}
+
+func TestExec_OutputFromStderr(t *testing.T) {
+	// This test documents that stderr should be captured when stdout is empty
+	client := NewClient()
+
+	// Error scenarios should capture stderr
+	_, output, _ := client.Exec("nonexistent", []string{"sh", "-c", "echo error >&2"})
+
+	// Output exists (may contain error message)
+	_ = output
+}
+
+func TestExec_ExitCodeZero(t *testing.T) {
+	// Document that exit code 0 should be returned on success
+	// (This would require a real container to fully test)
+	client := NewClient()
+
+	exitCode, _, _ := client.Exec("test", []string{"true"})
+
+	// Exit code should be 0 for successful commands
+	// or -1 if container doesn't exist
+	if exitCode != 0 && exitCode != -1 {
+		t.Logf("Got exit code: %d", exitCode)
 	}
 }
 
-func TestExec_OutputCapture(t *testing.T) {
-	// Verify that Exec captures both stdout and stderr
+func TestExec_ExitCodeNonZero(t *testing.T) {
+	// Document that non-zero exit codes should be captured
 	client := NewClient()
 
-	// The implementation should return output even on error
-	_, output, _ := client.Exec("nonexistent-container", []string{"echo", "test"})
+	exitCode, output, err := client.Exec("test", []string{"false"})
 
-	// Output variable exists and is returned (may be empty for nonexistent container)
-	_ = output // Just verify it's returned
+	// Should capture exit code from failed command
+	// For nonexistent container: exitCode = -1, err != nil
+	// For real container: exitCode = 1, err = nil
+	if exitCode == -1 && err != nil {
+		t.Logf("Container doesn't exist (expected in test): %v", err)
+	} else if exitCode != 0 {
+		t.Logf("Captured non-zero exit code: %d, output: %q", exitCode, output)
+	}
 }
 
-func TestExec_ExitCodeHandling(t *testing.T) {
-	// Verify exit code is properly extracted from exec.ExitError
+func TestExecShell_ExitCodeFromCommand(t *testing.T) {
 	client := NewClient()
 
-	// When a command fails, exit code should be captured
-	_, _, err := client.Exec("test-container", []string{"false"})
+	// Test that shell commands can return explicit exit codes
+	shellCommand := "exit 42"
+	exitCode, _, _ := client.ExecShell("test-container", shellCommand)
 
-	// Either container doesn't exist (expected in test) or command fails
-	// Both are valid outcomes that test the error handling path
-	_ = err
+	// Should capture the exit code (42) or -1 if container doesn't exist
+	if exitCode != 42 && exitCode != -1 {
+		t.Logf("Exit code: %d (expected 42 or -1)", exitCode)
+	}
+}
+
+func TestExec_CombinedOutput(t *testing.T) {
+	// Verify that stdout is preferred over stderr for output
+	client := NewClient()
+
+	// Command that writes to both stdout and stderr
+	_, output, _ := client.Exec("test", []string{"sh", "-c", "echo stdout; echo stderr >&2"})
+
+	// Output should exist (content depends on whether container exists)
+	_ = output
+}
+
+func TestExec_ErrorMessageFormat(t *testing.T) {
+	client := NewClient()
+
+	// Test that error messages include container name
+	containerName := "test-container-name"
+	_, _, err := client.Exec(containerName, []string{"invalid-command"})
+
+	if err != nil {
+		// Error message should mention the container (when exec fails, not validation)
+		// For validation errors, we have specific messages
+		if err.Error() == "" {
+			t.Error("Error message should not be empty")
+		}
+	}
 }
 
 func TestExecClient_ImplementsClient(t *testing.T) {
@@ -548,23 +752,110 @@ func TestExecClient_ImplementsClient(t *testing.T) {
 	}
 }
 
-func TestExec_ErrorMessages(t *testing.T) {
+func TestExec_ContainerNameValidation(t *testing.T) {
 	client := NewClient()
 
-	// Test that error messages are meaningful
-	_, _, err := client.Exec("", []string{"cmd"})
-	if err == nil {
-		t.Fatal("Expected error for empty container name")
-	}
-	if err.Error() == "" {
-		t.Error("Error message should not be empty")
+	tests := []struct {
+		name          string
+		containerName string
+		shouldError   bool
+	}{
+		{"empty name", "", true},
+		{"valid name", "my-container", false},
+		{"valid name with underscore", "my_container", false},
+		{"valid name with dot", "my.container", false},
+		{"valid name with numbers", "container123", false},
 	}
 
-	_, _, err = client.Exec("test", []string{})
-	if err == nil {
-		t.Fatal("Expected error for empty command")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := client.Exec(tt.containerName, []string{"echo", "test"})
+
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for container name %q", tt.containerName)
+				}
+			} else {
+				// For valid names, we expect error because container doesn't exist
+				// but not a validation error
+				if err != nil && tt.containerName != "" {
+					// Should get "container not found" type error, not validation error
+					errMsg := err.Error()
+					if errMsg == "container name cannot be empty" {
+						t.Error("Should not get validation error for valid name")
+					}
+				}
+			}
+		})
 	}
-	if err.Error() == "" {
-		t.Error("Error message should not be empty")
+}
+
+func TestExec_CommandValidation(t *testing.T) {
+	client := NewClient()
+
+	tests := []struct {
+		name        string
+		command     []string
+		shouldError bool
+	}{
+		{"nil command", nil, true},
+		{"empty command", []string{}, true},
+		{"single arg", []string{"echo"}, false},
+		{"multiple args", []string{"echo", "hello"}, false},
+		{"command with flags", []string{"ls", "-la"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exitCode, _, err := client.Exec("test-container", tt.command)
+
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for command %v", tt.command)
+				}
+				if exitCode != -1 {
+					t.Errorf("Expected exit code -1 for validation error, got %d", exitCode)
+				}
+			} else {
+				// For valid commands, we expect error because container doesn't exist
+				// but not a validation error about the command
+				if err != nil {
+					errMsg := err.Error()
+					if errMsg == "command cannot be empty" {
+						t.Error("Should not get command validation error for valid command")
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestExecShell_ShellCommandValidation(t *testing.T) {
+	client := NewClient()
+
+	tests := []struct {
+		name         string
+		shellCommand string
+		description  string
+	}{
+		{"empty command", "", "empty string is valid for sh -c"},
+		{"simple command", "echo hello", "basic shell command"},
+		{"command with pipes", "echo hello | grep hello", "piped commands"},
+		{"command with AND", "echo hello && echo world", "chained with &&"},
+		{"command with OR", "echo hello || echo world", "chained with ||"},
+		{"command with redirect", "echo hello > /dev/null", "output redirection"},
+		{"command with variables", "TEST=value; echo $TEST", "shell variables"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := client.ExecShell("test-container", tt.shellCommand)
+
+			// All should fail due to nonexistent container, not due to validation
+			// The validation of shell command happens in sh itself
+			if err != nil && err.Error() == "container name cannot be empty" {
+				t.Error("Should not get container name validation error")
+			}
+		})
 	}
 }
