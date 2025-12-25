@@ -209,9 +209,9 @@ export function LogsView({
       if (isPausedRef.current) {
         return
       }
-      // Ignore messages received within 50ms of a clear operation
+      // Ignore messages received within 100ms of a clear operation
       // This prevents race conditions where in-flight messages appear after clear
-      if (Date.now() - lastClearTimeRef.current < 50) {
+      if (Date.now() - lastClearTimeRef.current < 100) {
         return
       }
       try {
@@ -497,7 +497,7 @@ export function LogsView({
             {logs.length === 0 ? 'No logs to display' : 'No logs match your search'}
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 pb-4">
             {filteredLogs.map((log, idx) => {
               const key = `${log?.timestamp ?? ''}-${log?.service ?? 'unknown'}-${idx}`
               return (

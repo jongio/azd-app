@@ -235,13 +235,17 @@ func getFloat64Param(args map[string]interface{}, key string) (float64, bool) {
 	return 0, false
 }
 
-// marshalToolResult marshals data to JSON and returns an MCP tool result
+// marshalToolResult marshals data to JSON and returns an MCP tool result with structured content
+// This is for tools with output schemas that need to return structured data
 func marshalToolResult(data interface{}) (*mcp.CallToolResult, error) {
+	// Create a fallback text representation
 	jsonBytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
 	}
-	return mcp.NewToolResultText(string(jsonBytes)), nil
+	// Return structured content with JSON fallback for backwards compatibility
+	// This satisfies MCP clients that expect structured content when a schema is declared
+	return mcp.NewToolResultStructured(data, string(jsonBytes)), nil
 }
 
 // checkRateLimitWithName checks if the operation is allowed under rate limiting

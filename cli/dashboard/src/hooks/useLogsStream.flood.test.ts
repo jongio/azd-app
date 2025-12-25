@@ -40,6 +40,7 @@ describe('useLogsStream flood prevention', () => {
       const setLogs = vi.fn()
       const setErrorMessage = vi.fn()
       const isPausedRef = { current: false }
+      const lastClearTimeRef = { current: 0 }
       
       renderHook(() =>
         useLogsStream({
@@ -49,6 +50,7 @@ describe('useLogsStream flood prevention', () => {
           timeRange: { preset: '15m' },
           azureRealtime: false,
           isPausedRef,
+          lastClearTimeRef,
           setLogs,
           setErrorMessage,
           onFetchSettled: vi.fn(),
@@ -102,6 +104,7 @@ describe('useLogsStream flood prevention', () => {
     const setLogs = vi.fn()
     const setErrorMessage = vi.fn()
     const isPausedRef = { current: false }
+    const lastClearTimeRef = { current: 0 }
 
     renderHook(() =>
       useLogsStream({
@@ -111,6 +114,7 @@ describe('useLogsStream flood prevention', () => {
         timeRange: { preset: '15m' },
         azureRealtime: false,
         isPausedRef,
+        lastClearTimeRef,
         setLogs,
         setErrorMessage,
         onFetchSettled: vi.fn(),
@@ -146,6 +150,7 @@ describe('useLogsStream flood prevention', () => {
     const setLogs = vi.fn()
     const setErrorMessage = vi.fn()
     const isPausedRef = { current: false }
+    const lastClearTimeRef = { current: 0 }
 
     // In local mode, should use WebSocket only, not HTTP polling
     renderHook(() =>
@@ -156,6 +161,7 @@ describe('useLogsStream flood prevention', () => {
         timeRange: { preset: '15m' },
         azureRealtime: false,
         isPausedRef,
+        lastClearTimeRef,
         setLogs,
         setErrorMessage,
         onFetchSettled: vi.fn(),
