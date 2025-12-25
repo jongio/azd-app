@@ -208,7 +208,7 @@ export function ConsoleToolbar({
           showStatus={true}
         />
 
-        {/* Azure Log Controls - Show when Azure mode is active */}
+        {/* Azure Log Controls - Show when Azure mode is active and configured */}
         {logMode === 'azure' && azureEnabled && (
           <>
             {/* Timeframe selector */}
@@ -227,18 +227,20 @@ export function ConsoleToolbar({
             </div>
 
             {/* Realtime/polling toggle is temporarily removed; tracked in docs/specs/azure-logs/tasks.md. */}
-            
-            {/* Diagnostics button */}
-            <button
-              type="button"
-              onClick={onRunDiagnostics}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-azure-100 dark:bg-azure-500/20 text-azure-700 dark:text-azure-300 hover:bg-azure-200 dark:hover:bg-azure-500/30 transition-colors border border-azure-300 dark:border-azure-700"
-              title="Run Azure logs diagnostics"
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Diagnostics</span>
-            </button>
           </>
+        )}
+
+        {/* Diagnostics button - Always show in Azure mode (even when not configured) */}
+        {logMode === 'azure' && (
+          <button
+            type="button"
+            onClick={onRunDiagnostics}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-azure-100 dark:bg-azure-500/20 text-azure-700 dark:text-azure-300 hover:bg-azure-200 dark:hover:bg-azure-500/30 transition-colors border border-azure-300 dark:border-azure-700"
+            title="Run Azure logs diagnostics"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Diagnostics</span>
+          </button>
         )}
 
         {/* Divider */}

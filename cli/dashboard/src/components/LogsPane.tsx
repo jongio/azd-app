@@ -163,6 +163,7 @@ export function LogsPane({
     timeRange: resolvedTimeRange,
     azureRealtime,
     isPausedRef,
+    lastClearTimeRef,
     setLogs,
     setErrorMessage,
     onFetchSettled: handleFetchSettled,

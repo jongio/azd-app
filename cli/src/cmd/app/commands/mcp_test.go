@@ -494,6 +494,18 @@ func TestMarshalToolResult(t *testing.T) {
 			if !tt.wantError && result == nil {
 				t.Error("Expected result, got nil")
 			}
+			
+			// Verify that structured content is returned (not just text)
+			if !tt.wantError && result != nil {
+				// Should have structured content populated
+				if result.StructuredContent == nil {
+					t.Error("Expected StructuredContent to be populated for schema-based tools")
+				}
+				// Should also have text content for backwards compatibility
+				if len(result.Content) == 0 {
+					t.Error("Expected Content to have fallback text")
+				}
+			}
 		})
 	}
 }

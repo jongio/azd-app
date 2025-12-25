@@ -1,6 +1,21 @@
 <!-- NEXT:  -->
 # azd-app Tasks
 
+## DONE: 18 Allow diagnostics access without Azure logs configured {#18-allow-diagnostics-access-without-azure-logs-configured}
+- **Problem**: Users cannot access Azure logs diagnostics when `logs.analytics.workspace` is not configured in azure.yaml
+- **UX Issue**: Diagnostics button only showed when `azureEnabled === true`, preventing users from running diagnostics to troubleshoot missing configuration
+- **Solution**: Moved diagnostics button outside the `azureEnabled` guard - now shows whenever Azure mode is selected
+- **Implementation**:
+  - ✅ Separated Azure controls conditional from diagnostics button in ConsoleToolbar.tsx
+  - ✅ Azure timeframe selector and other controls still require `azureEnabled === true`
+  - ✅ Diagnostics button now accessible in Azure mode regardless of configuration state
+  - ✅ Users can now click Azure mode icon → run diagnostics to see what's missing
+- **Files**: [ConsoleToolbar.tsx](cli/dashboard/src/components/ConsoleToolbar.tsx#L221-L240)
+- **Tests**: 803/805 pass (2 pre-existing timing flakes in LogsView.test.tsx unrelated to changes)
+- **Lint**: Clean
+- **Build**: Success
+- **Result**: Users can now troubleshoot Azure logs configuration issues via diagnostics modal even before workspace is configured
+
 ## DONE: 17 Fix mode endpoint flood {#17-fix-mode-endpoint-flood}
 - **Problem**: Dashboard flooding server with excessive requests to `/api/mode` endpoint - network tab showed dozens of identical 212B requests every 2-3ms
 - **Root cause**: ConsoleView's useEffect had `services` in dependency array, triggering mode fetch on every service WebSocket update (multiple times per second)
