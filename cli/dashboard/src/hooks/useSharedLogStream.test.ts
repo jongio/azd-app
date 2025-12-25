@@ -752,8 +752,8 @@ describe('useSharedLogStream', () => {
   describe('mode switching', () => {
     it('should create new connection when mode changes', () => {
       const { rerender } = renderHook(
-        ({ mode }) => useSharedLogStream(createParams({ mode })),
-        { initialProps: { mode: 'local' as const } }
+        ({ mode }: { mode: 'local' | 'azure' }) => useSharedLogStream(createParams({ mode })),
+        { initialProps: { mode: 'local' as 'local' | 'azure' } }
       )
 
       act(() => {
@@ -764,7 +764,7 @@ describe('useSharedLogStream', () => {
       expect(webSocketInstances[0].url).toContain('/api/logs/stream')
 
       // Switch to azure mode
-      rerender({ mode: 'azure' as const })
+      rerender({ mode: 'azure' as 'local' | 'azure' })
 
       act(() => {
         vi.runAllTimers()

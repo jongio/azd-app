@@ -514,12 +514,12 @@ func TestBuildResultFromHTTPCheck(t *testing.T) {
 
 func TestChecker_StoppedService(t *testing.T) {
 	checker := &HealthChecker{
-		httpClient:     &http.Client{Timeout: 5 * time.Second},
-		breakers:       make(map[string]*gobreaker.CircuitBreaker),
-		rateLimiters:   make(map[string]*rate.Limiter),
-		endpointCache:  make(map[string]string),
-		enableBreaker:  false,
-		rateLimit:      0,
+		httpClient:    &http.Client{Timeout: 5 * time.Second},
+		breakers:      make(map[string]*gobreaker.CircuitBreaker),
+		rateLimiters:  make(map[string]*rate.Limiter),
+		endpointCache: make(map[string]string),
+		enableBreaker: false,
+		rateLimit:     0,
 	}
 
 	svc := serviceInfo{
