@@ -31,6 +31,15 @@ $registryUrl = "https://github.com/$repo/releases/download/$tag/pr-registry.json
 Write-Host "🚀 Installing azd app PR #$PrNumber (version $Version)" -ForegroundColor Cyan
 Write-Host ""
 
+# Step 0: Kill any running extension processes to avoid "file in use" errors
+Write-Host "🛑 Stopping any running extension processes..." -ForegroundColor Gray
+$processNames = @("jongio-azd-app-windows-amd64", "jongio-azd-app-windows-arm64", "app")
+foreach ($name in $processNames) {
+    Get-Process -Name $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+Start-Sleep -Milliseconds 500  # Give processes time to fully terminate
+Write-Host "   ✓" -ForegroundColor DarkGray
+
 # Step 1: Enable extensions
 Write-Host "📋 Enabling azd extensions..." -ForegroundColor Gray
 azd config set alpha.extension.enabled on
