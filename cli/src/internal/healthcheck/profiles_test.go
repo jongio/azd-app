@@ -53,10 +53,10 @@ func TestHealthProfiles_GetProfile(t *testing.T) {
 	profiles := getDefaultProfiles()
 
 	tests := []struct {
-		name      string
-		profile   string
-		wantErr   bool
-		wantName  string
+		name     string
+		profile  string
+		wantErr  bool
+		wantName string
 	}{
 		{
 			name:     "get development",

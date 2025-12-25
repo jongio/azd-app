@@ -78,40 +78,40 @@ func TestGetErrorType(t *testing.T) {
 
 func TestContainsAny(t *testing.T) {
 	tests := []struct {
-		name     string
-		s        string
-		substrs  []string
-		want     bool
+		name    string
+		s       string
+		substrs []string
+		want    bool
 	}{
 		{
-			name:     "contains first substring",
-			s:        "hello world",
-			substrs:  []string{"hello", "foo", "bar"},
-			want:     true,
+			name:    "contains first substring",
+			s:       "hello world",
+			substrs: []string{"hello", "foo", "bar"},
+			want:    true,
 		},
 		{
-			name:     "contains middle substring",
-			s:        "hello world",
-			substrs:  []string{"foo", "world", "bar"},
-			want:     true,
+			name:    "contains middle substring",
+			s:       "hello world",
+			substrs: []string{"foo", "world", "bar"},
+			want:    true,
 		},
 		{
-			name:     "contains no substring",
-			s:        "hello world",
-			substrs:  []string{"foo", "bar", "baz"},
-			want:     false,
+			name:    "contains no substring",
+			s:       "hello world",
+			substrs: []string{"foo", "bar", "baz"},
+			want:    false,
 		},
 		{
-			name:     "empty string",
-			s:        "",
-			substrs:  []string{"hello"},
-			want:     false,
+			name:    "empty string",
+			s:       "",
+			substrs: []string{"hello"},
+			want:    false,
 		},
 		{
-			name:     "empty substrs",
-			s:        "hello",
-			substrs:  []string{},
-			want:     false,
+			name:    "empty substrs",
+			s:       "hello",
+			substrs: []string{},
+			want:    false,
 		},
 	}
 
