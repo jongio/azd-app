@@ -83,7 +83,7 @@ export function LogsPane({
   const [canRetry, setCanRetry] = useState(false)
   
   // Using isLoadingLogs for detailed loading state tracking - value managed by useLogsStream
-  void isLoadingLogs // Suppress unused warning - value is managed by hook
+  // isLoadingLogs is managed by hook but not used in this component
   
   const fetchKey = useMemo(() => {
     if (logMode !== 'azure') {
