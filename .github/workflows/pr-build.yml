@@ -166,7 +166,26 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const prNumber = '${{ needs.check-permission.outputs.pr_number }}' || context.payload.pull_request.number;
+            let prNumber = '${{ needs.check-permission.outputs.pr_number }}';
+            
+            // If no PR number from permission check, try to find it from the current branch
+            if (!prNumber) {
+              const ref = context.ref.replace('refs/heads/', '');
+              const { data: prs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                head: `${context.repo.owner}:${ref}`
+              });
+              
+              if (prs.length > 0) {
+                prNumber = prs[0].number;
+              } else {
+                core.setFailed('No PR found for this branch. Please provide pr_number input.');
+                return;
+              }
+            }
+            
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
