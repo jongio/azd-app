@@ -7,6 +7,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs"
 )
 
+// Test constants
+const (
+	testTimestamp     = "2024-12-17T10:00:00.000Z"
+	parseTestService  = "test-service"
+	testContainerName = "my-app"
+	sourceAzureFuncs  = "Azure Functions"
+)
+
 // TestParseResults_WithSourceField tests that parseResults correctly extracts Source field
 func TestParseResults_WithSourceField(t *testing.T) {
 	client := &LogAnalyticsClient{}
@@ -23,8 +31,8 @@ func TestParseResults_WithSourceField(t *testing.T) {
 			name: "Function app logs with Source field",
 			response: createMockLogsResponse([]mockRow{
 				{
-					TimeGenerated: "2024-12-17T10:00:00.000Z",
-					Source:        "Azure Functions",
+					TimeGenerated: testTimestamp,
+					Source:        sourceAzureFuncs,
 					Message:       "Test function executed",
 					Level:         "Information",
 					FunctionName:  "HttpTrigger",
@@ -33,20 +41,20 @@ func TestParseResults_WithSourceField(t *testing.T) {
 			serviceName:    "my-function",
 			resourceType:   ResourceTypeFunction,
 			expectedCount:  1,
-			expectedSource: "Azure Functions",
+			expectedSource: sourceAzureFuncs,
 		},
 		{
 			name: "Container app logs with Source field",
 			response: createMockLogsResponse([]mockRow{
 				{
-					TimeGenerated:      "2024-12-17T10:00:00.000Z",
+					TimeGenerated:      testTimestamp,
 					Source:             "Azure Container Apps",
 					Log_s:              "Container started",
 					Stream_s:           "stdout",
-					ContainerAppName_s: "my-app",
+					ContainerAppName_s: testContainerName,
 				},
 			}),
-			serviceName:    "my-app",
+			serviceName:    testContainerName,
 			resourceType:   ResourceTypeContainerApp,
 			expectedCount:  1,
 			expectedSource: "Azure Container Apps",
@@ -55,7 +63,7 @@ func TestParseResults_WithSourceField(t *testing.T) {
 			name: "App service logs with Source field",
 			response: createMockLogsResponse([]mockRow{
 				{
-					TimeGenerated:     "2024-12-17T10:00:00.000Z",
+					TimeGenerated:     testTimestamp,
 					Source:            "Azure App Service",
 					ResultDescription: "Request processed",
 					Level:             "Info",
@@ -96,13 +104,13 @@ func TestParseResults_WithoutSourceField_BackwardCompatibility(t *testing.T) {
 	// Simulate old query response without Source field
 	response := createMockLogsResponseWithoutSource([]mockRowNoSource{
 		{
-			TimeGenerated: "2024-12-17T10:00:00.000Z",
+			TimeGenerated: testTimestamp,
 			Message:       "Legacy log entry",
 			Level:         "Information",
 		},
 	})
 
-	entries, err := client.parseResults(response, "test-service", ResourceTypeFunction)
+	entries, err := client.parseResults(response, parseTestService, ResourceTypeFunction)
 	if err != nil {
 		t.Fatalf("parseResults() should handle missing Source field: %v", err)
 	}
@@ -128,14 +136,14 @@ func TestParseResults_NullSourceValue(t *testing.T) {
 
 	response := createMockLogsResponseWithNullSource([]mockRowNullSource{
 		{
-			TimeGenerated: "2024-12-17T10:00:00.000Z",
+			TimeGenerated: testTimestamp,
 			Source:        nil, // null value
 			Message:       "Test message",
 			Level:         "Info",
 		},
 	})
 
-	entries, err := client.parseResults(response, "test-service", ResourceTypeFunction)
+	entries, err := client.parseResults(response, parseTestService, ResourceTypeFunction)
 	if err != nil {
 		t.Fatalf("parseResults() should handle null Source: %v", err)
 	}
@@ -156,20 +164,20 @@ func TestParseResults_MultipleRowsDifferentSources(t *testing.T) {
 
 	response := createMockLogsResponse([]mockRow{
 		{
-			TimeGenerated: "2024-12-17T10:00:00.000Z",
-			Source:        "Azure Functions",
+			TimeGenerated: testTimestamp,
+			Source:        sourceAzureFuncs,
 			Message:       "Function log 1",
 			Level:         "Info",
 		},
 		{
 			TimeGenerated: "2024-12-17T10:01:00.000Z",
-			Source:        "Azure Functions",
+			Source:        sourceAzureFuncs,
 			Message:       "Function log 2",
 			Level:         "Info",
 		},
 	})
 
-	entries, err := client.parseResults(response, "test-service", ResourceTypeFunction)
+	entries, err := client.parseResults(response, parseTestService, ResourceTypeFunction)
 	if err != nil {
 		t.Fatalf("parseResults() failed: %v", err)
 	}
@@ -180,8 +188,8 @@ func TestParseResults_MultipleRowsDifferentSources(t *testing.T) {
 
 	// Both should have the same Source
 	for i, entry := range entries {
-		if entry.Source != "Azure Functions" {
-			t.Errorf("Entry %d: expected Source 'Azure Functions', got %q", i, entry.Source)
+		if entry.Source != sourceAzureFuncs {
+			t.Errorf("Entry %d: expected Source %q, got %q", i, sourceAzureFuncs, entry.Source)
 		}
 	}
 }
@@ -192,7 +200,7 @@ func TestParseResults_EmptyResponse(t *testing.T) {
 
 	response := createMockLogsResponse([]mockRow{})
 
-	entries, err := client.parseResults(response, "test-service", ResourceTypeFunction)
+	entries, err := client.parseResults(response, parseTestService, ResourceTypeFunction)
 	if err != nil {
 		t.Fatalf("parseResults() should handle empty response: %v", err)
 	}
@@ -204,15 +212,18 @@ func TestParseResults_EmptyResponse(t *testing.T) {
 
 // Helper types and functions for creating mock responses
 
+// mockRow represents Azure Log Analytics columns - field names intentionally match Azure schema
+//
+//nolint:revive,stylecheck // Field names match Azure Log Analytics column names
 type mockRow struct {
 	TimeGenerated      string
 	Source             string
 	Message            string
 	Level              string
 	FunctionName       string
-	Log_s              string
-	Stream_s           string
-	ContainerAppName_s string
+	Log_s              string // Azure column name
+	Stream_s           string // Azure column name
+	ContainerAppName_s string // Azure column name
 	ResultDescription  string
 }
 
@@ -425,7 +436,7 @@ func TestSubstitutePlaceholders_PreservesSourceField(t *testing.T) {
 func TestLogEntry_MissingSourceField_DoesNotCrash(t *testing.T) {
 	// Create LogEntry without Source field set
 	entry := LogEntry{
-		Service:   "test-service",
+		Service:   parseTestService,
 		Message:   "Test message",
 		Level:     LogLevelInfo,
 		Timestamp: time.Now(),
@@ -438,8 +449,8 @@ func TestLogEntry_MissingSourceField_DoesNotCrash(t *testing.T) {
 	}
 
 	// Should be able to set Source after creation
-	entry.Source = "Azure Functions"
-	if entry.Source != "Azure Functions" {
+	entry.Source = sourceAzureFuncs
+	if entry.Source != sourceAzureFuncs {
 		t.Errorf("Expected Source to be settable, got %q", entry.Source)
 	}
 }
