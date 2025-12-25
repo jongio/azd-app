@@ -28,9 +28,9 @@ interface WebSocketHandlers {
 
 class SharedLogStreamManager {
   protected ws: WebSocket | null = null
-  private wsHandlers = new WeakMap<WebSocket, WebSocketHandlers>()
-  private subscribers = new Map<string, Set<(entry: LogEntry) => void>>()
-  private stateSubscribers = new Set<StateChangeCallback>()
+  private readonly wsHandlers = new WeakMap<WebSocket, WebSocketHandlers>()
+  private readonly subscribers = new Map<string, Set<(entry: LogEntry) => void>>()
+  private readonly stateSubscribers = new Set<StateChangeCallback>()
   private stateSubscriberTimeouts = new WeakMap<StateChangeCallback, ReturnType<typeof setTimeout>>()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private disconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -50,8 +50,8 @@ class SharedLogStreamManager {
   private readonly maxBufferSize = 100
   
   // Sequence tracking for gap detection
-  private lastSeenSequence = new Map<string, number>()
-  private gapCallbacks = new Map<string, (gap: { start: number; end: number }) => void>()
+  private readonly lastSeenSequence = new Map<string, number>()
+  private readonly gapCallbacks = new Map<string, (gap: { start: number; end: number }) => void>()
   
   // Init message tracking for configuration
   protected initSent = false
@@ -569,9 +569,7 @@ let localLogManager: SharedLogStreamManager | null = null
 let azureLogManager: SharedLogStreamManager | null = null
 
 function getLocalLogManager(): SharedLogStreamManager {
-  if (!localLogManager) {
-    localLogManager = new SharedLogStreamManager()
-  }
+  localLogManager ??= new SharedLogStreamManager()
   return localLogManager
 }
 
