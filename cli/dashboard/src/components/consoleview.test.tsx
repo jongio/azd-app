@@ -102,10 +102,9 @@ vi.mock('./SettingsDialog', () => ({
     ) : null,
 }))
 vi.mock('./ModeToggle', () => ({
-  ModeToggle: ({ mode, onModeChange, azureEnabled }: { mode: 'local' | 'azure'; azureEnabled?: boolean; onModeChange?: (newMode: 'local' | 'azure') => void }) => (
+  ModeToggle: ({ mode, onModeChange }: { mode: 'local' | 'azure'; azureEnabled?: boolean; onModeChange?: (newMode: 'local' | 'azure') => void }) => (
     <button
       data-testid="mode-toggle"
-      disabled={!azureEnabled}
       onClick={() => onModeChange?.(mode === 'azure' ? 'local' : 'azure')}
     >
       {mode}
