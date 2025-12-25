@@ -179,14 +179,7 @@ export function ModeToggle({
       return
     }
     
-    // Check if Azure is available before switching to it
-    if (newMode === 'azure' && !azureEnabled) {
-      setAnnouncement('Azure logging is not configured')
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      timeoutRef.current = setTimeout(() => setAnnouncement(''), 2000)
-      return
-    }
-    
+    // Always allow switching to Azure mode to enable diagnostics
     onModeChange?.(newMode)
     
     // Announce to screen readers
@@ -208,9 +201,6 @@ export function ModeToggle({
 
   const isLocal = mode === 'local'
   
-  // Determine if Azure button should be disabled
-  const azureDisabled = !azureEnabled || azureStatus === 'disabled'
-
   // Get Azure icon color based on connection status
   const getAzureIconColor = (status: typeof azureStatus) => {
     if (!azureEnabled) return ''
@@ -274,12 +264,11 @@ export function ModeToggle({
           role="radio"
           aria-checked={!isLocal}
           aria-label="View Azure logs"
-          aria-disabled={azureDisabled}
           onClick={() => handleModeChange('azure')}
-          disabled={isLoading || azureDisabled}
+          disabled={isLoading}
           title={
-            azureDisabled 
-              ? 'Azure logging not configured. Add logs.analytics section to azure.yaml' 
+            !azureEnabled 
+              ? 'Azure logging not configured. Click to diagnose and fix setup' 
               : size === 'compact' 
                 ? 'Azure logs' 
                 : undefined
@@ -297,7 +286,6 @@ export function ModeToggle({
               'hover:text-azure-600 dark:hover:text-azure-400',
               'hover:bg-azure-50 dark:hover:bg-azure-500/10',
             ],
-            azureDisabled && 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-slate-500',
             'focus-visible:outline-none focus-visible:ring-2',
             'focus-visible:ring-azure-500 focus-visible:ring-offset-1',
             'focus-visible:ring-offset-slate-100 dark:focus-visible:ring-offset-slate-800',

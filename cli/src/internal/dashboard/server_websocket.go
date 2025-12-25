@@ -256,7 +256,9 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 	defer func() {
 		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to close websocket connection: %v\n", err)
+			if !isExpectedCloseError(err) {
+				fmt.Fprintf(os.Stderr, "Warning: failed to close websocket connection: %v\n", err)
+			}
 		}
 	}()
 
