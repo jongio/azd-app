@@ -39,10 +39,16 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 2: Uninstall existing extension
+# Step 2: Uninstall existing extension (force remove any version)
 Write-Host "🗑️  Uninstalling existing extension (if any)..." -ForegroundColor Gray
-azd extension uninstall $extensionId 2>&1 | Out-Null
+azd extension uninstall $extensionId --force 2>&1 | Out-Null
 # Ignore errors - extension might not be installed
+
+# Also manually remove the extension directory to ensure clean install
+$extensionDir = Join-Path $env:USERPROFILE ".azd\extensions\$extensionId"
+if (Test-Path $extensionDir) {
+    Remove-Item -Path $extensionDir -Recurse -Force -ErrorAction SilentlyContinue
+}
 Write-Host "   ✓" -ForegroundColor DarkGray
 
 # Step 3: Download PR registry
@@ -68,6 +74,14 @@ if ($LASTEXITCODE -ne 0) {
 
 # Step 5: Install PR version
 Write-Host "📦 Installing version $Version..." -ForegroundColor Gray
+
+# Clear any cached extension packages to force fresh download
+$cacheDir = Join-Path $env:USERPROFILE ".azd\cache"
+if (Test-Path $cacheDir) {
+    Get-ChildItem -Path $cacheDir -Filter "*$extensionId*" -ErrorAction SilentlyContinue | 
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
 azd extension install $extensionId --version $Version
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Failed to install extension" -ForegroundColor Red
