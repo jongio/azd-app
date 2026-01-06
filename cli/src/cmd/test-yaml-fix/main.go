@@ -10,36 +10,36 @@ import (
 func main() {
 	// Path to the test azure.yaml file (absolute path)
 	testFile := "c:\\code\\azd-app-2\\cli\\tests\\projects\\integration\\azure-logs-test\\azure.yaml"
-	
+
 	// Read original content
 	originalContent, err := os.ReadFile(testFile)
 	if err != nil {
 		fmt.Printf("Error reading file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Println("=== ORIGINAL azure.yaml ===")
 	fmt.Println(string(originalContent))
 	fmt.Println()
-	
+
 	// Update containerapp-api service with new log tables
 	tables := []string{"ContainerAppConsoleLogs_CL", "ContainerAppSystemLogs_CL", "AppRequests"}
 	if updateErr := yamlutil.UpdateServiceLogsConfig(testFile, "containerapp-api", tables, ""); updateErr != nil {
 		fmt.Printf("Error updating logs config: %v\n", updateErr)
 		os.Exit(1)
 	}
-	
+
 	// Read updated content
 	updatedContent, err := os.ReadFile(testFile)
 	if err != nil {
 		fmt.Printf("Error reading updated file: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Println("=== UPDATED azure.yaml ===")
 	fmt.Println(string(updatedContent))
 	fmt.Println()
-	
+
 	// Verify critical elements are preserved
 	updatedStr := string(updatedContent)
 	checks := []struct {
@@ -60,7 +60,7 @@ func main() {
 		{"New log table 2", "ContainerAppSystemLogs_CL"},
 		{"New log table 3", "AppRequests"},
 	}
-	
+
 	allPassed := true
 	for _, check := range checks {
 		if !contains(updatedStr, check.value) {
@@ -70,27 +70,27 @@ func main() {
 			fmt.Printf("✅ PASSED: %s preserved\n", check.name)
 		}
 	}
-	
+
 	// Restore original content
 	if err := os.WriteFile(testFile, originalContent, 0600); err != nil {
 		fmt.Printf("Error restoring original file: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("\n✅ Original file restored")
-	
+
 	if !allPassed {
 		os.Exit(1)
 	}
-	
+
 	fmt.Println("\n🎉 All checks passed! The fix works correctly.")
 }
 
 func contains(haystack, needle string) bool {
-	return len(haystack) > 0 && len(needle) > 0 && 
-		(haystack == needle || len(haystack) > len(needle) && 
-		(haystack[:len(needle)] == needle || 
-		 haystack[len(haystack)-len(needle):] == needle ||
-		 findSubstring(haystack, needle) >= 0))
+	return len(haystack) > 0 && len(needle) > 0 &&
+		(haystack == needle || len(haystack) > len(needle) &&
+			(haystack[:len(needle)] == needle ||
+				haystack[len(haystack)-len(needle):] == needle ||
+				findSubstring(haystack, needle) >= 0))
 }
 
 func findSubstring(haystack, needle string) int {

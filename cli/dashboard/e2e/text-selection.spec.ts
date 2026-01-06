@@ -74,7 +74,6 @@ test.describe.skip('Log Viewer - Text Selection', () => {
     // Verify text is selected
     const selectedText = await page.evaluate(() => window.getSelection()?.toString() || '')
     expect(selectedText.length).toBeGreaterThan(0)
-    console.log('Selected text:', selectedText)
   })
 
   test('can select text across multiple log lines', async ({ page }) => {
@@ -106,7 +105,6 @@ test.describe.skip('Log Viewer - Text Selection', () => {
     const selectedText = await page.evaluate(() => window.getSelection()?.toString() || '')
     expect(selectedText.length).toBeGreaterThan(0)
     expect(selectedText).toContain('\n') // Should have line breaks
-    console.log('Selected text:', selectedText)
   })
 
   test('selected text remains selected after mouseup', async ({ page }) => {
