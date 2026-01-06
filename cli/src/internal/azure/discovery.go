@@ -119,7 +119,7 @@ func (d *ResourceDiscovery) Discover(ctx context.Context) (*DiscoveryResult, err
 			slog.Debug("discovery: skipping local service", "serviceName", serviceName, "url", fields["URL"])
 			continue
 		}
-		
+
 		resource := &AzureResource{
 			ServiceName:    serviceName,
 			SubscriptionID: result.SubscriptionID,

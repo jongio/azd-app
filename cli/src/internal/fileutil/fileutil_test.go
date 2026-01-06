@@ -545,7 +545,7 @@ func TestFileExists_EdgeCases(t *testing.T) {
 			name: "directory not file",
 			setup: func() string {
 				subdir := filepath.Join(tmpDir, "subdir")
-				os.Mkdir(subdir, 0755)
+				_ = os.Mkdir(subdir, 0755)
 				return tmpDir
 			},
 			filename: "subdir",

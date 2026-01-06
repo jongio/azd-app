@@ -45,7 +45,7 @@ describe('DiagnosticsModal', () => {
   it('renders when open and fetches health checks', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('healthy', [
+      json: () => createMockHealthResponse('healthy', [
         { name: 'Workspace Check', status: 'pass', message: 'Workspace configured' },
       ]),
     })
@@ -67,7 +67,7 @@ describe('DiagnosticsModal', () => {
   it('displays health check results', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Workspace Check', status: 'pass', message: 'Workspace configured' },
         { name: 'Auth Check', status: 'fail', message: 'Authentication failed', fix: 'az login' },
       ]),
@@ -94,7 +94,7 @@ describe('DiagnosticsModal', () => {
   it('calls onClose when close button clicked', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('healthy', []),
+      json: () => createMockHealthResponse('healthy', []),
     })
 
     const onClose = vi.fn()
@@ -109,7 +109,7 @@ describe('DiagnosticsModal', () => {
   it('does NOT show Fix Setup button when all checks pass', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('healthy', [
+      json: () => createMockHealthResponse('healthy', [
         { name: 'Workspace Check', status: 'pass', message: 'OK' },
         { name: 'Auth Check', status: 'pass', message: 'OK' },
       ]),
@@ -126,7 +126,7 @@ describe('DiagnosticsModal', () => {
   it('does NOT show Fix Setup button when onOpenSetupGuide not provided', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Auth Check', status: 'fail', message: 'Failed' },
       ]),
     })
@@ -141,7 +141,7 @@ describe('DiagnosticsModal', () => {
   it('shows Fix Setup button when checks fail and callback provided', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Workspace Check', status: 'pass', message: 'OK' },
         { name: 'Auth Check', status: 'fail', message: 'Authentication failed' },
       ]),
@@ -156,7 +156,7 @@ describe('DiagnosticsModal', () => {
   it('calls onOpenSetupGuide with correct step for workspace failure', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('error', [
+      json: () => createMockHealthResponse('error', [
         { name: 'Workspace Configuration', status: 'fail', message: 'Workspace not found' },
       ]),
     })
@@ -173,7 +173,7 @@ describe('DiagnosticsModal', () => {
   it('calls onOpenSetupGuide with correct step for auth failure', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Authentication Check', status: 'fail', message: 'Not authenticated' },
       ]),
     })
@@ -190,7 +190,7 @@ describe('DiagnosticsModal', () => {
   it('calls onOpenSetupGuide with correct step for permission failure', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Permission Check', status: 'fail', message: 'Insufficient permissions' },
       ]),
     })
@@ -207,7 +207,7 @@ describe('DiagnosticsModal', () => {
   it('calls onOpenSetupGuide with correct step for diagnostic settings failure', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Diagnostic Settings', status: 'fail', message: 'Not configured' },
       ]),
     })
@@ -224,7 +224,7 @@ describe('DiagnosticsModal', () => {
   it('calls onOpenSetupGuide with verification step for other failures', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Log Connectivity', status: 'fail', message: 'Cannot connect to logs' },
       ]),
     })
@@ -241,7 +241,7 @@ describe('DiagnosticsModal', () => {
   it('prioritizes workspace step when multiple checks fail', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('error', [
+      json: () => createMockHealthResponse('error', [
         { name: 'Workspace Check', status: 'fail', message: 'No workspace' },
         { name: 'Auth Check', status: 'fail', message: 'Not authenticated' },
         { name: 'Diagnostic Settings', status: 'fail', message: 'Not configured' },
@@ -261,7 +261,7 @@ describe('DiagnosticsModal', () => {
   it('re-runs diagnostics when Run Diagnostics button clicked', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => createMockHealthResponse('healthy', [
+      json: () => createMockHealthResponse('healthy', [
         { name: 'Test Check', status: 'pass', message: 'OK' },
       ]),
     })
@@ -283,7 +283,7 @@ describe('DiagnosticsModal', () => {
   it('shows correct status badge for degraded state', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('degraded', [
+      json: () => createMockHealthResponse('degraded', [
         { name: 'Test', status: 'warn', message: 'Warning' },
       ]),
     })
@@ -303,7 +303,7 @@ describe('DiagnosticsModal', () => {
 
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => createMockHealthResponse('healthy', [
+      json: () => createMockHealthResponse('healthy', [
         { name: 'Test Check', status: 'pass', message: 'All good' },
       ]),
     })

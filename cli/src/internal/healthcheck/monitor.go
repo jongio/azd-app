@@ -431,7 +431,7 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 		// Increment failure count
 		m.failureCount[serviceName]++
 		result.ConsecutiveFailures = m.failureCount[serviceName]
-		
+
 		// Set last success time if we have it
 		if lastSuccess, exists := m.lastSuccessTime[serviceName]; exists {
 			result.LastSuccessTime = &lastSuccess
@@ -440,7 +440,7 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 		// Reset failure count on healthy status
 		m.failureCount[serviceName] = 0
 		result.ConsecutiveFailures = 0
-		
+
 		// Update last success time
 		now := time.Now()
 		m.lastSuccessTime[serviceName] = now

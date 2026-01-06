@@ -14,8 +14,16 @@ import {
 // Mock useBackendConnection
 const mockUseBackendConnection = vi.fn()
 vi.mock('./useBackendConnection', () => ({
-  useBackendConnection: () => mockUseBackendConnection(),
+  useBackendConnection: (): { connected: boolean } => mockUseBackendConnection() as { connected: boolean },
 }))
+
+// Type for mock request body
+interface MockRequestBody {
+  body?: string
+  query?: string
+  limit?: number
+  tables?: string[]
+}
 
 describe('useLogConfig', () => {
   let originalFetch: typeof globalThis.fetch
@@ -567,7 +575,7 @@ describe('useLogConfig', () => {
           await result.current.saveConfig({ query: '| where Level == "Error"' })
         })
 
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+        const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string) as MockRequestBody
         expect(body.query).toBe('| where Level == "Error"')
         expect(body.tables).toBeUndefined()
       })

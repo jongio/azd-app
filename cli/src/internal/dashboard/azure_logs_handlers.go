@@ -209,7 +209,7 @@ func (s *Server) handleAzureDiagnosticSettingsCheck(w http.ResponseWriter, r *ht
 	// Create credentials
 	cred, err := newLogAnalyticsCredential()
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, 
+		writeJSONError(w, http.StatusUnauthorized,
 			MsgAzureCredsNotAvailable, err)
 		return
 	}
@@ -222,7 +222,7 @@ func (s *Server) handleAzureDiagnosticSettingsCheck(w http.ResponseWriter, r *ht
 	if err != nil {
 		// Check if this is a context timeout
 		if ctx.Err() != nil {
-			writeJSONError(w, http.StatusGatewayTimeout, 
+			writeJSONError(w, http.StatusGatewayTimeout,
 				"Request timed out while checking diagnostic settings", err)
 			return
 		}
@@ -281,7 +281,7 @@ func (s *Server) handleAzureWorkspaceVerify(w http.ResponseWriter, r *http.Reque
 	// Parse request body
 	var req azure.WorkspaceVerificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, 
+		writeJSONError(w, http.StatusBadRequest,
 			"Invalid request body", err)
 		return
 	}
@@ -289,7 +289,7 @@ func (s *Server) handleAzureWorkspaceVerify(w http.ResponseWriter, r *http.Reque
 	// Create credentials
 	cred, err := newLogAnalyticsCredential()
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, 
+		writeJSONError(w, http.StatusUnauthorized,
 			MsgAzureCredsNotAvailable, err)
 		return
 	}
@@ -302,7 +302,7 @@ func (s *Server) handleAzureWorkspaceVerify(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		// Check if this is a context timeout
 		if ctx.Err() != nil {
-			writeJSONError(w, http.StatusGatewayTimeout, 
+			writeJSONError(w, http.StatusGatewayTimeout,
 				"Request timed out while verifying workspace", err)
 			return
 		}
@@ -310,13 +310,13 @@ func (s *Server) handleAzureWorkspaceVerify(w http.ResponseWriter, r *http.Reque
 		// Check for specific error types
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "no Log Analytics workspace") {
-			writeJSONError(w, http.StatusServiceUnavailable, 
+			writeJSONError(w, http.StatusServiceUnavailable,
 				"No Log Analytics workspace configured for this environment", err)
 			return
 		}
 
 		if strings.Contains(errMsg, "invalid timespan") {
-			writeJSONError(w, http.StatusBadRequest, 
+			writeJSONError(w, http.StatusBadRequest,
 				"Invalid timespan format. Use ISO 8601 duration (e.g., PT15M)", err)
 			return
 		}

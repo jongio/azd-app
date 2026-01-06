@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -17,24 +16,16 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 )
 
-// Setup state constants
-const (
-	statusNotDeployed         = "not-deployed"
-	statusNotConfigured       = "not-configured"
-	statusConfigured          = "configured"
-	categoryDiagnosticSettings = "diagnostic-settings"
-	msgWorkspaceNotConfigured = "Log Analytics workspace not configured"
-)
 // SetupStateResponse represents the overall Azure logs setup state.
 type SetupStateResponse struct {
-	Step           string               `json:"step"`           // Current setup step
-	OverallStatus  string               `json:"overallStatus"`  // "complete" | "incomplete" | "error"
-	Workspace      WorkspaceState       `json:"workspace"`      // Log Analytics workspace state
-	Authentication AuthState            `json:"authentication"` // Authentication state
-	Services       []ServiceSetupState  `json:"services"`       // Per-service setup state
-	Issues         []SetupIssue         `json:"issues"`         // List of issues found
-	NextSteps      []string             `json:"nextSteps"`      // Recommended next actions
-	Timestamp      time.Time            `json:"timestamp"`      // When state was checked
+	Step           string              `json:"step"`           // Current setup step
+	OverallStatus  string              `json:"overallStatus"`  // "complete" | "incomplete" | "error"
+	Workspace      WorkspaceState      `json:"workspace"`      // Log Analytics workspace state
+	Authentication AuthState           `json:"authentication"` // Authentication state
+	Services       []ServiceSetupState `json:"services"`       // Per-service setup state
+	Issues         []SetupIssue        `json:"issues"`         // List of issues found
+	NextSteps      []string            `json:"nextSteps"`      // Recommended next actions
+	Timestamp      time.Time           `json:"timestamp"`      // When state was checked
 }
 
 // WorkspaceState represents the Log Analytics workspace configuration state.
@@ -47,24 +38,24 @@ type WorkspaceState struct {
 
 // AuthState represents the authentication and permissions state.
 type AuthState struct {
-	Status                 string   `json:"status"`                           // "authenticated" | "unauthenticated" | "permission-denied" | "error"
-	Message                string   `json:"message"`                          // Human-readable status message
-	Principal              string   `json:"principal,omitempty"`              // Authenticated principal (email/identity)
-	HasArmAccess           bool     `json:"hasArmAccess"`                     // Has Azure Resource Manager access
-	HasLogsAccess          bool     `json:"hasLogsAccess"`                    // Has Log Analytics API access
-	HasLogAnalyticsReader  bool     `json:"hasLogAnalyticsReader"`            // Has Log Analytics Reader role or equivalent
-	MissingScopes          []string `json:"missingScopes,omitempty"`          // Missing permission scopes
+	Status                string   `json:"status"`                  // "authenticated" | "unauthenticated" | "permission-denied" | "error"
+	Message               string   `json:"message"`                 // Human-readable status message
+	Principal             string   `json:"principal,omitempty"`     // Authenticated principal (email/identity)
+	HasArmAccess          bool     `json:"hasArmAccess"`            // Has Azure Resource Manager access
+	HasLogsAccess         bool     `json:"hasLogsAccess"`           // Has Log Analytics API access
+	HasLogAnalyticsReader bool     `json:"hasLogAnalyticsReader"`   // Has Log Analytics Reader role or equivalent
+	MissingScopes         []string `json:"missingScopes,omitempty"` // Missing permission scopes
 }
 
 // ServiceSetupState represents setup state for a single service.
 type ServiceSetupState struct {
-	ServiceName        string `json:"serviceName"`               // Service name from azure.yaml
-	ResourceName       string `json:"resourceName,omitempty"`    // Azure resource name
-	ResourceType       string `json:"resourceType,omitempty"`    // Azure resource type
-	Deployed           bool   `json:"deployed"`                  // Resource exists in Azure
-	DiagnosticSettings bool   `json:"diagnosticSettings"`        // Diagnostic settings configured
-	LogsFlowing        bool   `json:"logsFlowing"`               // Logs are being received
-	Status             string `json:"status"`                    // "ready" | "partial" | "not-configured" | "not-deployed"
+	ServiceName        string `json:"serviceName"`                // Service name from azure.yaml
+	ResourceName       string `json:"resourceName,omitempty"`     // Azure resource name
+	ResourceType       string `json:"resourceType,omitempty"`     // Azure resource type
+	Deployed           bool   `json:"deployed"`                   // Resource exists in Azure
+	DiagnosticSettings bool   `json:"diagnosticSettings"`         // Diagnostic settings configured
+	LogsFlowing        bool   `json:"logsFlowing"`                // Logs are being received
+	Status             string `json:"status"`                     // "ready" | "partial" | "not-configured" | "not-deployed"
 	LastLogTimestamp   string `json:"lastLogTimestamp,omitempty"` // ISO timestamp of most recent log
 }
 
@@ -570,21 +561,21 @@ func getPrincipalFromCredentials(ctx context.Context, cred azcore.TokenCredentia
 	if err != nil {
 		return ""
 	}
-	
+
 	// Parse JWT token to extract user principal name (UPN) or email
 	// JWT tokens have 3 parts: header.payload.signature
 	parts := strings.Split(token.Token, ".")
 	if len(parts) != 3 {
 		return ""
 	}
-	
+
 	// Decode the payload (middle part) - it's base64 URL encoded
 	payload := parts[1]
 	// Add padding if needed
 	if mod := len(payload) % 4; mod != 0 {
 		payload += strings.Repeat("=", 4-mod)
 	}
-	
+
 	// Use base64 RawURLEncoding (without padding) for JWT
 	payloadBytes, err := b64.RawURLEncoding.DecodeString(payload)
 	if err != nil {
@@ -594,13 +585,13 @@ func getPrincipalFromCredentials(ctx context.Context, cred azcore.TokenCredentia
 			return ""
 		}
 	}
-	
+
 	// Parse JSON payload
 	var claims map[string]interface{}
 	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
 		return ""
 	}
-	
+
 	// Try to extract principal in order of preference:
 	// 1. upn (User Principal Name) - e.g., user@domain.com
 	// 2. unique_name - alternative field
@@ -618,7 +609,7 @@ func getPrincipalFromCredentials(ctx context.Context, cred azcore.TokenCredentia
 	if preferredUsername, ok := claims["preferred_username"].(string); ok && preferredUsername != "" {
 		return preferredUsername
 	}
-	
+
 	// If no user principal, try to get service principal name or app display name
 	if appDisplayName, ok := claims["app_displayname"].(string); ok && appDisplayName != "" {
 		return fmt.Sprintf("%s (Service Principal)", appDisplayName)
@@ -626,82 +617,8 @@ func getPrincipalFromCredentials(ctx context.Context, cred azcore.TokenCredentia
 	if appID, ok := claims["appid"].(string); ok && appID != "" {
 		return fmt.Sprintf("Service Principal: %s", appID)
 	}
-	
-	return ""
-}
-
-// getWorkspaceID retrieves the workspace ID from environment or azure.yaml.
-// This is a helper that reuses the same logic as checkWorkspaceState.
-func (s *Server) getWorkspaceID() string {
-	// Check environment variable first (highest priority)
-	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
-	if workspaceID != "" {
-		return workspaceID
-	}
-
-	// Check azure.yaml configuration
-	azureYaml, err := loadAzureYaml(s.projectDir)
-	if err != nil {
-		return ""
-	}
-
-	// Check if logs.analytics.workspace is configured
-	if azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil && azureYaml.Logs.Analytics.Workspace != "" {
-		return azureYaml.Logs.Analytics.Workspace
-	}
 
 	return ""
-}
-
-// hasLogAnalyticsAccess checks if the principal has sufficient permissions for Log Analytics.
-// Accepts multiple roles that grant log reading access:
-// - Log Analytics Reader (specific to Log Analytics)
-// - Log Analytics Contributor (includes reader + write)
-// - Monitoring Reader (includes Log Analytics read access)
-// - Monitoring Contributor (includes read + write access)
-// - Reader (general read access)
-// - Contributor (general contributor access)
-// - Owner (full access)
-func hasLogAnalyticsAccess(ctx context.Context, cred azcore.TokenCredential, workspaceID string) (bool, error) {
-	// For now, we'll do a simple test: try to query Log Analytics
-	// If we can query, we have sufficient permissions
-	// This is more reliable than checking RBAC roles which requires additional SDK
-	
-	if workspaceID == "" {
-		// No workspace configured, can't check
-		return false, nil
-	}
-	
-	// Try to create a client and execute a minimal query
-	client, err := getOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
-	if err != nil {
-		return false, err
-	}
-	
-	// Execute a minimal query to test permissions
-	// This query should work with any Log Analytics Reader role or equivalent
-	_ = client
-	// For now, return true if we successfully got a client
-	// TODO: Execute actual test query
-	return true, nil
-}
-
-// getAzureCliPrincipal tries to get the signed-in user from Azure CLI.
-// This is a fallback when JWT parsing doesn't work.
-func getAzureCliPrincipal(ctx context.Context) string {
-	cmd := exec.CommandContext(ctx, "az", "ad", "signed-in-user", "show", "--query", "userPrincipalName", "-o", "tsv")
-	output, err := cmd.Output()
-	if err != nil {
-		// Try alternative field
-		cmd = exec.CommandContext(ctx, "az", "account", "show", "--query", "user.name", "-o", "tsv")
-		output, err = cmd.Output()
-		if err != nil {
-			return ""
-		}
-	}
-	
-	principal := strings.TrimSpace(string(output))
-	return principal
 }
 
 // VerifyLogsRequest represents the request body for log verification.
@@ -711,12 +628,12 @@ type VerifyLogsRequest struct {
 
 // VerifyLogsResponse represents the response for log verification.
 type VerifyLogsResponse struct {
-	Success   bool                   `json:"success"`
-	LogsFound int                    `json:"logsFound"`
-	TimeRange *VerifyLogsTimeRange   `json:"timeRange,omitempty"`
-	Sample    []VerifyLogsSample     `json:"sample,omitempty"`
-	Message   string                 `json:"message"`
-	NextSteps []string               `json:"nextSteps,omitempty"`
+	Success   bool                 `json:"success"`
+	LogsFound int                  `json:"logsFound"`
+	TimeRange *VerifyLogsTimeRange `json:"timeRange,omitempty"`
+	Sample    []VerifyLogsSample   `json:"sample,omitempty"`
+	Message   string               `json:"message"`
+	NextSteps []string             `json:"nextSteps,omitempty"`
 }
 
 // VerifyLogsTimeRange represents the time range of logs found.

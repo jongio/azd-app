@@ -24,11 +24,11 @@ func testContext(t *testing.T) context.Context {
 
 func TestHandleAzureSetupState(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupEnv       func(t *testing.T, dir string)
-		wantStep       string
-		wantStatus     string
-		minIssueCount  int
+		name          string
+		setupEnv      func(t *testing.T, dir string)
+		wantStep      string
+		wantStatus    string
+		minIssueCount int
 	}{
 		{
 			name: "no configuration",
@@ -409,14 +409,14 @@ func TestSetupStateResponseJSON(t *testing.T) {
 
 func TestHandleAzureLogsVerify(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupEnv       func(t *testing.T, dir string)
-		requestBody    string
-		mockLogs       []azure.LogEntry
-		mockError      error
-		wantSuccess    bool
-		wantLogsFound  int
-		wantMinSteps   int
+		name          string
+		setupEnv      func(t *testing.T, dir string)
+		requestBody   string
+		mockLogs      []azure.LogEntry
+		mockError     error
+		wantSuccess   bool
+		wantLogsFound int
+		wantMinSteps  int
 	}{
 		{
 			name: "successful verification with logs",

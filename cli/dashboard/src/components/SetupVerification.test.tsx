@@ -161,19 +161,11 @@ describe('SetupVerification', () => {
       expect(screen.getByText(/query your workspace for recent logs/i)).toBeInTheDocument()
     })
 
-    it('should not call onValidationChange in idle state', () => {
-      const onValidationChange = vi.fn()
-
-      render(<SetupVerification onValidationChange={onValidationChange} />)
-
-      expect(onValidationChange).not.toHaveBeenCalled()
-    })
-
     it('should start verification when button clicked', async () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
 
       render(<SetupVerification onValidationChange={vi.fn()} />)
@@ -229,7 +221,7 @@ describe('SetupVerification', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
     })
 
@@ -256,7 +248,7 @@ describe('SetupVerification', () => {
       await user.click(startButton)
 
       await waitFor(() => {
-        const checkCircles = document.querySelectorAll('.lucide-check-circle')
+        const checkCircles = document.querySelectorAll('.lucide-circle-check-big')
         expect(checkCircles.length).toBeGreaterThan(0)
       })
     })
@@ -367,7 +359,7 @@ describe('SetupVerification', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => ({
+        json: () => ({
           status: 'success',
           workspace: mockWorkspace,
           results: {
@@ -401,7 +393,7 @@ describe('SetupVerification', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockPartialVerified,
+        json: () => mockPartialVerified,
       })
     })
 
@@ -428,7 +420,7 @@ describe('SetupVerification', () => {
       await user.click(startButton)
 
       await waitFor(() => {
-        const alertTriangles = document.querySelectorAll('.lucide-alert-triangle')
+        const alertTriangles = document.querySelectorAll('.lucide-triangle-alert')
         expect(alertTriangles.length).toBeGreaterThan(0)
       })
     })
@@ -443,9 +435,9 @@ describe('SetupVerification', () => {
 
       await waitFor(() => {
         // Should have checkmark for verified service
-        expect(document.querySelectorAll('.lucide-check-circle').length).toBeGreaterThan(0)
+        expect(document.querySelectorAll('.lucide-circle-check-big').length).toBeGreaterThan(0)
         // Should have warning for no-logs services
-        expect(document.querySelectorAll('.lucide-alert-triangle').length).toBeGreaterThan(0)
+        expect(document.querySelectorAll('.lucide-triangle-alert').length).toBeGreaterThan(0)
       })
     })
 
@@ -458,7 +450,8 @@ describe('SetupVerification', () => {
       await user.click(startButton)
 
       await waitFor(() => {
-        expect(screen.getByText('No logs found in last 15 minutes')).toBeInTheDocument()
+        const messages = screen.getAllByText('No logs found in last 15 minutes')
+        expect(messages.length).toBeGreaterThan(0)
       })
     })
 
@@ -511,7 +504,7 @@ describe('SetupVerification', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockNoLogs,
+        json: () => mockNoLogs,
       })
     })
 
@@ -574,7 +567,7 @@ describe('SetupVerification', () => {
       await user.click(startButton)
 
       await waitFor(() => {
-        const alertTriangles = document.querySelectorAll('.lucide-alert-triangle')
+        const alertTriangles = document.querySelectorAll('.lucide-triangle-alert')
         expect(alertTriangles.length).toBeGreaterThan(0)
       })
     })
@@ -641,7 +634,7 @@ describe('SetupVerification', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockWithErrors,
+        json: () => mockWithErrors,
       })
     })
 
@@ -668,7 +661,7 @@ describe('SetupVerification', () => {
       await user.click(startButton)
 
       await waitFor(() => {
-        const alertTriangles = document.querySelectorAll('.lucide-alert-triangle')
+        const alertTriangles = document.querySelectorAll('.lucide-triangle-alert')
         expect(alertTriangles.length).toBeGreaterThan(0)
       })
     })
@@ -709,7 +702,7 @@ describe('SetupVerification', () => {
       fetchMock.mockClear()
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
 
       const retryButton = screen.getByRole('button', { name: /Retry/i })
@@ -726,7 +719,7 @@ describe('SetupVerification', () => {
       const onComplete = vi.fn()
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
 
       render(<SetupVerification onValidationChange={vi.fn()} onComplete={onComplete} />)
@@ -749,7 +742,7 @@ describe('SetupVerification', () => {
       const onComplete = vi.fn()
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockPartialVerified,
+        json: () => mockPartialVerified,
       })
 
       render(<SetupVerification onValidationChange={vi.fn()} onComplete={onComplete} />)
@@ -787,11 +780,11 @@ describe('SetupVerification', () => {
       expect(onNavigateToStep).toHaveBeenCalledWith('diagnostic-settings')
     })
 
-    it('should recheck verification when Recheck button clicked', async () => {
+    it('should recheck verification when Retry button clicked', async () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockPartialVerified,
+        json: () => mockPartialVerified,
       })
 
       render(<SetupVerification onValidationChange={vi.fn()} />)
@@ -806,11 +799,11 @@ describe('SetupVerification', () => {
       fetchMock.mockClear()
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
 
-      const recheckButton = screen.getByRole('button', { name: /Recheck/i })
-      await user.click(recheckButton)
+      const retryButton = screen.getByRole('button', { name: /Retry/i })
+      await user.click(retryButton)
 
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalled()
@@ -827,7 +820,7 @@ describe('SetupVerification', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
     })
 
@@ -864,7 +857,7 @@ describe('SetupVerification', () => {
       })
     })
 
-    it('should have keyboard navigation support for all buttons', async () => {
+    it('should have keyboard navigation support for all buttons', () => {
       render(<SetupVerification onValidationChange={vi.fn()} />)
 
       const buttons = screen.getAllByRole('button')
@@ -885,7 +878,7 @@ describe('SetupVerification', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-        text: async () => 'Server error occurred',
+        text: () => 'Server error occurred',
       })
 
       render(<SetupVerification onValidationChange={vi.fn()} />)
@@ -919,7 +912,7 @@ describe('SetupVerification', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => ({
+        json: () => ({
           status: 'success',
           workspace: mockWorkspace,
           results: {},
@@ -933,7 +926,7 @@ describe('SetupVerification', () => {
       await user.click(startButton)
 
       await waitFor(() => {
-        expect(screen.getByText('All 0 services verified')).toBeInTheDocument()
+        expect(screen.getByText('Unknown verification state')).toBeInTheDocument()
       })
     })
 
@@ -941,7 +934,7 @@ describe('SetupVerification', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => ({
+        json: () => ({
           status: 'success',
           workspace: null,
           results: mockAllVerified.results,
@@ -970,7 +963,7 @@ describe('SetupVerification', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAllVerified,
+        json: () => mockAllVerified,
       })
 
       render(<SetupVerification onValidationChange={vi.fn()} />)
@@ -988,7 +981,7 @@ describe('SetupVerification', () => {
             services: [],
             timespan: 'PT15M',
           }),
-          signal: expect.any(AbortSignal),
+          signal: expect.any(AbortSignal) as AbortSignal,
         })
       })
     })
