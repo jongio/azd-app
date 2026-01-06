@@ -1,3 +1,6 @@
+// Package yamlutil provides utilities for manipulating YAML files while preserving
+// formatting, comments, and structure. It uses text-based manipulation to guarantee
+// zero data loss when updating YAML configuration files.
 package yamlutil
 
 import (
@@ -31,8 +34,8 @@ func UpdateServicePort(azureYamlPath, serviceName string, port int) error {
 	var azureYaml struct {
 		Services map[string]any `yaml:"services"`
 	}
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
-		return fmt.Errorf("failed to parse azure.yaml: %w", err)
+	if parseErr := yaml.Unmarshal(data, &azureYaml); parseErr != nil {
+		return fmt.Errorf("failed to parse azure.yaml: %w", parseErr)
 	}
 
 	if azureYaml.Services == nil {
@@ -82,10 +85,10 @@ func updateServicePortsInText(content, serviceName string, port int) (string, er
 
 	if portsLineIdx >= 0 {
 		// Check if ports is inline format: ports: ["3000"] or ports: ["3000", "8080"]
-		portsLine := lines[portsLineIdx]
-		if strings.Contains(portsLine, "[") {
+		currentPortsLine := lines[portsLineIdx]
+		if strings.Contains(currentPortsLine, "[") {
 			// Inline array format - replace entire line
-			lineIndent := getIndentation(portsLine)
+			lineIndent := getIndentation(currentPortsLine)
 			lines[portsLineIdx] = fmt.Sprintf("%sports: [\"%d\"]", lineIndent, port)
 			return strings.Join(lines, "\n"), nil
 		}

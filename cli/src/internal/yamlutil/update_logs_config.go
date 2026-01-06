@@ -1,3 +1,6 @@
+// Package yamlutil provides utilities for manipulating YAML files while preserving
+// formatting, comments, and structure. It uses text-based manipulation to guarantee
+// zero data loss when updating YAML configuration files.
 package yamlutil
 
 import (
@@ -31,8 +34,8 @@ func UpdateServiceLogsConfig(azureYamlPath, serviceName string, tables []string,
 	var azureYaml struct {
 		Services map[string]any `yaml:"services"`
 	}
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
-		return fmt.Errorf("failed to parse azure.yaml: %w", err)
+	if parseErr := yaml.Unmarshal(data, &azureYaml); parseErr != nil {
+		return fmt.Errorf("failed to parse azure.yaml: %w", parseErr)
 	}
 
 	if azureYaml.Services == nil {

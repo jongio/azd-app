@@ -553,6 +553,7 @@ describe('useLogConfig', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               service: 'test-service',
+              mode: 'tables',
               tables: ['AppServiceConsoleLogs'],
               query: undefined,
             }),
