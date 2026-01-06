@@ -12,6 +12,7 @@ import { LogsPaneContent } from './LogsPaneContent'
 import { LogsPaneModeBar } from './LogsPaneAzureControls'
 import { LogsPaneClassificationOverlay, LogsPaneClassificationToast } from './LogsPaneClassifications'
 import { LogsPaneRefreshFooter } from './LogsPaneRefreshFooter'
+import { LogConfigPanel } from './LogConfigPanel'
 import { useLogFiltering } from '@/hooks/useLogFiltering'
 import { useAzureTimeRange } from '@/hooks/useAzureTimeRange'
 import { useLogScrolling } from '@/hooks/useLogScrolling'
@@ -120,6 +121,7 @@ export function LogsPane({
   })
   
   const isCollapsed = controlledIsCollapsed ?? internalIsCollapsed
+  const [configPanelOpen, setConfigPanelOpen] = useState(false)
   const { config: codespaceConfig } = useCodespaceEnv()
   const effectiveLocalUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
   const azureUrl = service?.azure?.url
@@ -144,6 +146,20 @@ export function LogsPane({
       })
     }
   }, [serviceName, onToggleCollapse])
+
+  const handleOpenConfigPanel = useCallback(() => {
+    setConfigPanelOpen(true)
+  }, [])
+
+  const handleCloseConfigPanel = useCallback(() => {
+    setConfigPanelOpen(false)
+  }, [])
+
+  const handleConfigSaved = useCallback(() => {
+    setConfigPanelOpen(false)
+    // Trigger log refresh by updating fetchKey
+    setHasFetchedForKey(false)
+  }, [])
 
   useEffect(() => {
     if (clearAllTrigger > 0) {
@@ -306,6 +322,7 @@ export function LogsPane({
         azureUrl={azureUrl}
         onShowDetails={onShowDetails}
         handleCopyPane={handleCopyPane}
+        onOpenConfigPanel={handleOpenConfigPanel}
       />
 
       <LogsPaneModeBar
@@ -351,6 +368,13 @@ export function LogsPane({
         isCollapsed={isCollapsed}
         isPaused={isPaused}
         logMode={logMode}
+      />
+
+      <LogConfigPanel
+        serviceName={serviceName}
+        isOpen={configPanelOpen}
+        onClose={handleCloseConfigPanel}
+        onSave={handleConfigSaved}
       />
     </section>
   )

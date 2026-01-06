@@ -1,7 +1,9 @@
-<!-- NEXT: 1 -->
+<!-- NEXT: -->
 # Azure Logs Setup UX Improvement Tasks
 
-## TODO: Backend - Diagnostic Settings Detection API
+## Done
+
+### Backend - Diagnostic Settings Detection API
 
 **Assigned**: Developer
 
@@ -52,7 +54,7 @@ Implement API endpoint to check diagnostic settings status for all services in o
 
 ---
 
-## TODO: Backend - Workspace Verification API
+### Backend - Workspace Verification API
 
 **Assigned**: Developer
 
@@ -125,7 +127,7 @@ Implement API endpoint to verify workspace connection by querying for recent log
 
 ---
 
-## TODO: Backend - Batch Bicep Template Generator
+### Backend - Batch Bicep Template Generator
 
 **Assigned**: Developer
 
@@ -179,7 +181,7 @@ Generate consolidated Bicep template for all detected services.
 
 ---
 
-## TODO: Frontend - Aggregated Diagnostic Settings UI
+### Frontend - Aggregated Diagnostic Settings UI
 
 **Assigned**: Designer → Developer
 
@@ -219,7 +221,7 @@ Replace per-service diagnostic settings cards with aggregated status view.
 
 ---
 
-## TODO: Frontend - Bicep Template Modal
+### Frontend - Bicep Template Modal
 
 **Assigned**: Developer
 
@@ -255,7 +257,7 @@ Create modal to display unified Bicep template for all services.
 
 ---
 
-## TODO: Frontend - Enhanced Verification Step
+### Frontend - Enhanced Verification Step
 
 **Assigned**: Developer
 
@@ -297,7 +299,7 @@ Replace placeholder verification with actual workspace log query verification.
 
 ---
 
-## TODO: Testing - Backend API Tests
+### Testing - Backend API Tests
 
 **Assigned**: Tester
 
@@ -334,7 +336,7 @@ Unit tests for new Azure APIs.
 
 ---
 
-## TODO: Testing - Frontend Component Tests
+### Testing - Frontend Component Tests
 
 **Assigned**: Tester
 
@@ -377,7 +379,7 @@ Component tests for new and modified UI.
 
 ---
 
-## TODO: Documentation Update
+### Documentation Update
 
 **Assigned**: Developer
 

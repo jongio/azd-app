@@ -108,13 +108,13 @@ export function LogsPaneContent({
                 className="relative group flex items-start gap-1 hover:bg-muted/50 px-1 -mx-1 rounded"
               >
                 {logLevel === 'error' && (
-                  <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" aria-label="Error" />
+                  <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5 pointer-events-none" aria-label="Error" />
                 )}
                 {logLevel === 'warning' && (
-                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" aria-label="Warning" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5 pointer-events-none" aria-label="Warning" />
                 )}
                 {logLevel === 'info' && (
-                  <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" aria-label="Info" />
+                  <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5 pointer-events-none" aria-label="Info" />
                 )}
                 
                 <div className="flex-1 min-w-0 select-text">
@@ -127,7 +127,13 @@ export function LogsPaneContent({
                 
                 <button
                   type="button"
-                  onClick={() => handleCopyLine(log, idx)}
+                  onClick={() => {
+                    // Only trigger copy if there's no text selected
+                    const selection = window.getSelection()
+                    if (!selection || selection.toString().length === 0) {
+                      handleCopyLine(log, idx)
+                    }
+                  }}
                   className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 shrink-0 p-1 hover:bg-muted rounded transition-opacity"
                   title="Copy log line"
                   aria-label="Copy this log line"
@@ -139,7 +145,7 @@ export function LogsPaneContent({
                   )}
                 </button>
                 {copiedLineIndex === idx && (
-                  <span className="absolute right-8 top-0 text-xs text-green-500 bg-background px-1 rounded shadow">Copied!</span>
+                  <span className="absolute right-8 top-0 text-xs text-green-500 bg-background px-1 rounded shadow pointer-events-none">Copied!</span>
                 )}
               </div>
             )

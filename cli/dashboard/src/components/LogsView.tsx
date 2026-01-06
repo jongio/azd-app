@@ -501,7 +501,7 @@ export function LogsView({
             {filteredLogs.map((log, idx) => {
               const key = `${log?.timestamp ?? ''}-${log?.service ?? 'unknown'}-${idx}`
               return (
-              <div key={key} className={getLogColor(log)}>
+              <div key={key} className={cn(getLogColor(log), "select-text")}>
                 <span className="text-muted-foreground text-xs">
                   [{formatLogTimestamp(String(log?.timestamp ?? ''))}]
                 </span>
