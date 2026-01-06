@@ -240,6 +240,7 @@ export function useLogConfig({
         },
         body: JSON.stringify({
           service: serviceName,
+          mode: query ? 'custom' : 'tables',
           tables: query ? undefined : tables,  // Only include tables if no query
           query: query || undefined,           // Query takes precedence
         }),

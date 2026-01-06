@@ -1,7 +1,9 @@
-<!-- NEXT: #documentation -->
+<!-- NEXT: -->
 # Log Table Selector Tasks
 
 ## Done
+
+All implementation tasks complete. Feature is fully functional and accessible via the Settings2 (gear) icon in the HistoricalLogPanel header.
 
 ### Backend - Table Discovery API {#backend-table-discovery}
 **Assigned**: Developer

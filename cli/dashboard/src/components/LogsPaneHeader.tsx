@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Copy, ExternalLink, ChevronDown, ChevronRight, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, Eye, Hammer, CheckSquare, CircleX, CircleDot } from 'lucide-react'
+import { Copy, ExternalLink, ChevronDown, ChevronRight, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, Eye, Hammer, CheckSquare, CircleX, CircleDot, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeHealthStatus } from '@/lib/service-utils'
 import type { Service, HealthCheckResult } from '@/types'
@@ -111,6 +111,7 @@ export interface LogsPaneHeaderProps {
   logMode: LogMode
   azureUrl?: string
   onShowDetails?: () => void
+  onOpenConfigPanel?: () => void
   handleCopyPane: () => void
 }
 
@@ -129,6 +130,7 @@ export function LogsPaneHeader({
   logMode,
   azureUrl,
   onShowDetails,
+  onOpenConfigPanel,
   handleCopyPane,
 }: Readonly<LogsPaneHeaderProps>) {
   const processBadge = useMemo(() => getProcessBadge(processStatus), [processStatus])
@@ -197,6 +199,17 @@ export function LogsPaneHeader({
           <div className="mr-2 border-r pr-2 border-border">
             <ServiceActions service={service} variant="compact" />
           </div>
+        )}
+        {logMode === 'azure' && onOpenConfigPanel && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenConfigPanel}
+            title="Configure log sources"
+            aria-label="Configure log sources for this service"
+          >
+            <Settings2 className="w-4 h-4" />
+          </Button>
         )}
         {effectiveUrl && (
           <Button
