@@ -148,7 +148,7 @@ type serviceInfo struct {
 // Exported for use by other yamlutil functions.
 func FindServiceInSection(lines []string, servicesInfo *sectionInfo, serviceName string) (*serviceInfo, error) {
 	searchKey := serviceName + ":"
-	
+
 	// Detect the actual service-level indentation by finding the first service
 	var serviceIndent string
 	for i := servicesInfo.lineIdx + 1; i < len(lines); i++ {
