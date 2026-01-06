@@ -68,7 +68,7 @@ func updateServicePortsInText(content, serviceName string, port int) (string, er
 	}
 
 	// Find the specific service
-	serviceInfo, err := findServiceInSection(lines, servicesInfo, serviceName)
+	serviceInfo, err := FindServiceInSection(lines, servicesInfo, serviceName)
 	if err != nil {
 		return "", err
 	}
@@ -141,11 +141,42 @@ type serviceInfo struct {
 	indent  string // Indentation of the service properties
 }
 
-// findServiceInSection finds a specific service within the services section.
-func findServiceInSection(lines []string, servicesInfo *sectionInfo, serviceName string) (*serviceInfo, error) {
+// FindServiceInSection finds a specific service within the services section.
+// Exported for use by other yamlutil functions.
+func FindServiceInSection(lines []string, servicesInfo *sectionInfo, serviceName string) (*serviceInfo, error) {
 	searchKey := serviceName + ":"
-	serviceIndent := servicesInfo.indent + "  "
+	
+	// Detect the actual service-level indentation by finding the first service
+	var serviceIndent string
+	for i := servicesInfo.lineIdx + 1; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
 
+		// Skip empty lines and comments
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		lineIndent := getIndentation(line)
+
+		// Check indentation - if less than or equal to services indent, we've left the services section
+		if len(lineIndent) <= len(servicesInfo.indent) {
+			break
+		}
+
+		// First non-empty, non-comment line at greater indentation is a service
+		if len(lineIndent) > len(servicesInfo.indent) {
+			serviceIndent = lineIndent
+			break
+		}
+	}
+
+	// If we couldn't detect service indent, use default
+	if serviceIndent == "" {
+		serviceIndent = servicesInfo.indent + "  "
+	}
+
+	// Now find the specific service
 	for i := servicesInfo.lineIdx + 1; i < len(lines); i++ {
 		line := lines[i]
 		trimmed := strings.TrimSpace(line)
@@ -163,8 +194,9 @@ func findServiceInSection(lines []string, servicesInfo *sectionInfo, serviceName
 
 		// Check if this is our service
 		if len(lineIndent) == len(serviceIndent) && (trimmed == searchKey || strings.HasPrefix(trimmed, searchKey+" ")) {
-			// Found the service, now find its property indent
-			propertyIndent := serviceIndent + "  "
+			// Calculate property indent (same delta as service indent from services indent)
+			indentDelta := len(serviceIndent) - len(servicesInfo.indent)
+			propertyIndent := serviceIndent + strings.Repeat(" ", indentDelta)
 			return &serviceInfo{
 				lineIdx: i,
 				indent:  propertyIndent,
