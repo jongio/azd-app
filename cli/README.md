@@ -28,6 +28,20 @@ App automatically detects and manages dependencies for:
 - 🪝 **Lifecycle Hooks**: Automate tasks before and after services start (prerun/postrun)
 - 🐳 **Docker Compose Compatible**: Environment variable syntax matches Docker Compose exactly
 - ⚡ **Fast Iteration**: Minimal test dependencies for quick validation
+- ☁️ **Azure Logs Integration**: Stream logs from Azure services with guided setup wizard
+
+### Azure Logs Setup Guide
+
+The built-in **Azure Logs Setup Guide** makes it easy to configure log streaming from Azure:
+- 🧙 **4-Step Wizard**: Guides you through workspace, authentication, diagnostic settings, and verification
+- 🔄 **Auto-Detection**: Continuously monitors your setup status in real-time
+- 📋 **Copy-Paste Examples**: Bicep templates and CLI commands for each step
+- 🎯 **Deep Linking**: Jump to specific steps from error messages
+- ✅ **Validation**: Tests each step before allowing you to proceed
+
+Access the guide by clicking the **Azure** button in the dashboard when logs aren't configured yet.
+
+👉 Learn more: [Azure Logs Documentation](docs/features/azure-logs.md)
 
 ## Installation
 

@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Monitor,
   Settings,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ErrorInfo } from '@/types'
@@ -36,6 +37,8 @@ export type AzureErrorType =
   | 'workspace'
   | 'query'
   | 'generic'
+
+export type SetupStep = 'workspace' | 'auth' | 'diagnostic-settings' | 'verification'
 
 export interface AzureErrorDisplayProps {
   /** Parsed error type */
@@ -60,6 +63,8 @@ export interface AzureErrorDisplayProps {
   errorInfo?: ErrorInfo
   /** Callback to open diagnostics modal */
   onRunDiagnostics?: () => void
+  /** Callback to open setup guide at specific step */
+  onOpenSetupGuide?: (step: SetupStep) => void
 }
 
 // =============================================================================
@@ -192,6 +197,28 @@ const errorConfigs: Record<AzureErrorType, ErrorConfig> = {
     primaryAction: 'Retry',
     secondaryAction: 'report',
   },
+}
+
+// =============================================================================
+// Error to Setup Step Mapping
+// =============================================================================
+
+/**
+ * Maps error types to the corresponding setup guide step
+ * Returns null for errors that don't require setup guide (rate-limit, network, etc.)
+ */
+function getSetupStepForError(errorType: AzureErrorType): SetupStep | null {
+  const errorToStep: Record<AzureErrorType, SetupStep | null> = {
+    'workspace': 'workspace',
+    'auth': 'auth',
+    'permission': 'auth',
+    'not-found': 'diagnostic-settings',
+    'query': 'verification',
+    'rate-limit': null,
+    'network': null,
+    'generic': null,
+  }
+  return errorToStep[errorType]
 }
 
 // =============================================================================
@@ -329,6 +356,7 @@ function CountdownTimer({ seconds, onComplete }: CountdownTimerProps) {
 export function AzureErrorDisplay({
   errorType,
   message,
+  serviceName,
   onRetry,
   onViewLocal,
   onResetQuery,
@@ -337,15 +365,16 @@ export function AzureErrorDisplay({
   className,
   errorInfo,
   onRunDiagnostics,
+  onOpenSetupGuide,
 }: AzureErrorDisplayProps) {
   // If errorInfo is provided, use it; otherwise fallback to legacy props
   const effectiveErrorType = errorInfo ? mapErrorCodeToType(errorInfo.code) : errorType ?? 'generic'
-  const effectiveMessage = errorInfo?.message ?? message ?? 'An error occurred'
+  const config = errorConfigs[effectiveErrorType]
+  const effectiveMessage = errorInfo?.message ?? message ?? config.description(serviceName)
   const actionMessage = errorInfo?.action
   const commandToRun = errorInfo?.command
   const docsUrl = errorInfo?.docsUrl
   
-  const config = errorConfigs[effectiveErrorType]
   const Icon = config.icon
 
   // Permission-specific details
@@ -546,6 +575,29 @@ export function AzureErrorDisplay({
           >
             <RefreshCw className="w-4 h-4" />
             {config.primaryAction ?? 'Retry Now'}
+          </button>
+        )}
+
+        {/* Setup Guide button - for setup-related errors */}
+        {onOpenSetupGuide && getSetupStepForError(effectiveErrorType) && (
+          <button
+            type="button"
+            onClick={() => {
+              const step = getSetupStepForError(effectiveErrorType)
+              if (step) {
+                onOpenSetupGuide(step)
+              }
+            }}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
+              'bg-violet-500 hover:bg-violet-600',
+              'text-white',
+              'transition-colors duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2',
+            )}
+          >
+            <BookOpen className="w-4 h-4" />
+            Setup Guide
           </button>
         )}
 

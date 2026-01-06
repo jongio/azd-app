@@ -292,8 +292,230 @@ Returns service information including lifecycle state:
 }
 ```
 
+## Health Diagnostics
+
+### Overview
+
+Health diagnostic information provides detailed insights into service health status beyond simple "healthy" or "unhealthy" labels. This information is available through dashboard tooltips and the `azd app health` command.
+
+### Available Diagnostic Information
+
+When a service's health is checked, the following information is collected:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Check Type** | Method used for health check | HTTP, TCP, Process |
+| **Endpoint/Target** | What was checked | `http://localhost:8080/health` |
+| **Status Code** | HTTP response code (HTTP only) | 200, 503, 404 |
+| **Response Time** | How long the check took | 45ms |
+| **Error Message** | Primary error if unhealthy | "Connection refused" |
+| **Error Details** | Extended error information | "Database connection pool exhausted" |
+| **Consecutive Failures** | Failure count since last success | 3 |
+| **Uptime** | Time since service started | 15m 47s |
+
+### Enhanced Error Details
+
+Health checks can provide two levels of error information:
+
+**Primary Error** (`error` field):
+- Basic error message from the health check
+- Example: "HTTP 503: Service Unavailable"
+- Always present when status is unhealthy
+
+**Extended Error Details** (`errorDetails` field):
+- Parsed from health endpoint response body
+- Provides context about what's failing internally
+- Example: "Database connection pool exhausted"
+- Optional, depends on health endpoint implementation
+
+**Configuration Example:**
+
+```python
+# Implement a health endpoint that returns detailed error information
+@app.get("/health")
+def health():
+    try:
+        db.execute("SELECT 1")
+        return {"status": "healthy"}
+    except PoolExhausted:
+        return {
+            "status": "unhealthy",
+            "error": "Database connection failed",
+            "details": "Connection pool exhausted (50/50 in use)"
+        }, 503
+```
+
+### Suggested Actions Feature
+
+When a service becomes unhealthy, the system automatically generates **suggested actions** to help you diagnose and fix the problem. These suggestions are context-aware based on:
+
+- Health check type (HTTP, TCP, Process)
+- HTTP status code (for HTTP checks)
+- Error patterns
+- Service configuration
+
+**How Suggested Actions Work:**
+
+```
+Error Detected
+      ↓
+Analyze Context:
+  • Check Type: HTTP
+  • Status Code: 503
+  • Error: Service Unavailable
+      ↓
+Generate Suggestions:
+  ✓ Check service logs: azd app logs --service api
+  ✓ Verify database is running
+  ✓ Check network connectivity
+  ✓ Review connection pool settings
+      ↓
+Display in Tooltip + Diagnostic Report
+```
+
+**Suggested Actions by Error Type:**
+
+| Error Type | Common Suggestions |
+|------------|-------------------|
+| **HTTP 503** | Check dependencies, verify database/cache/queue |
+| **HTTP 500-599** | Check logs, review stack traces, recent deployments |
+| **HTTP 404** | Verify endpoint path, check health check configuration |
+| **HTTP 401/403** | Check credentials, verify API keys |
+| **Connection Refused** | Verify service is running, check port configuration |
+| **Timeout** | Check network connectivity, firewall rules |
+| **Process Not Running** | Check service logs, verify start command |
+
+**Backend Integration:**
+
+The backend can provide custom suggestions via the health endpoint:
+
+```json
+{
+  "status": "unhealthy",
+  "checks": {
+    "database": "failed"
+  },
+  "suggestion": "Database connection pool settings may need adjustment"
+}
+```
+
+This suggestion appears in the tooltip's "Suggested Actions" section.
+
+### Consecutive Failure Tracking
+
+The health system tracks how many times a service has failed consecutively. This helps:
+
+- Identify persistent vs. transient issues
+- Trigger appropriate alerts (e.g., alert after 3 consecutive failures)
+- Provide context in diagnostic reports
+
+**How It Works:**
+
+```
+Check 1: unhealthy → Consecutive Failures: 1
+Check 2: unhealthy → Consecutive Failures: 2
+Check 3: unhealthy → Consecutive Failures: 3
+Check 4: healthy   → Consecutive Failures: 0 (reset)
+Check 5: unhealthy → Consecutive Failures: 1
+```
+
+**Configuration:**
+
+```yaml
+services:
+  api:
+    healthcheck:
+      test: "http://localhost:8080/health"
+      retries: 3  # Mark unhealthy after 3 consecutive failures
+```
+
+**Viewing Consecutive Failures:**
+
+- Dashboard tooltip shows: `Consecutive Failures: 3`
+- CLI output includes failure count
+- Diagnostic report documents failure history
+
+### Diagnostic Report Format
+
+When you copy diagnostics from a tooltip or export from CLI, you get a structured markdown report:
+
+```markdown
+# Service Health Diagnostic Report
+**Service**: api
+**Status**: unhealthy
+**Timestamp**: 2025-12-29T10:30:45Z
+
+## Health Check
+- **Type**: HTTP GET
+- **Endpoint**: http://localhost:8080/health
+- **Status Code**: 503 Service Unavailable
+- **Response Time**: 45ms
+- **Consecutive Failures**: 3
+
+## Error
+Database connection failed: timeout after 5s
+
+## Service Info
+- **Uptime**: 15m 47s
+- **PID**: 12345
+- **Port**: 8080
+
+## Suggested Actions
+1. Check service logs: `azd app logs --service api`
+2. Verify database is running
+3. Check network connectivity
+4. Review connection pool settings
+
+---
+Generated by azd app health
+```
+
+This format is designed to be:
+- **Readable**: Easy to understand at a glance
+- **Shareable**: Copy/paste into chat, email, or issues
+- **Actionable**: Includes commands you can run immediately
+- **Complete**: Contains all diagnostic context needed
+
+### Accessing Diagnostic Information
+
+**Dashboard:**
+- Hover over health icon on service cards
+- Tooltip appears with full diagnostic details
+- Click "Copy Diagnostics" to copy report
+
+**CLI:**
+- Run `azd app health` to see health status
+- Use `--verbose` flag for extended information
+- Export with `--format json` for programmatic access
+
+**MCP (Model Context Protocol):**
+- AI assistants can query health status
+- Automatic correlation with logs and errors
+- Context-aware troubleshooting suggestions
+
+### Troubleshooting with Diagnostics
+
+**Example Workflow:**
+
+1. **Notice unhealthy service** in dashboard (red health icon)
+2. **Hover on health icon** to see diagnostic tooltip
+3. **Read error details**: "Database connection failed: timeout after 5s"
+4. **Check consecutive failures**: 3 (persistent issue)
+5. **Review suggested actions**:
+   - Check service logs: `azd app logs --service api`
+   - Verify database is running
+6. **Copy diagnostics** for sharing with team
+7. **Run suggested command**: `azd app logs --service api --level error`
+8. **Identify root cause**: Connection pool exhausted
+9. **Apply fix**: Increase pool size in configuration
+10. **Monitor recovery**: Health icon turns green when resolved
+
+See [Health Check Troubleshooting](../troubleshooting/health-checks.md) for detailed troubleshooting scenarios.
+
 ## See Also
 
 - [Health Check Configuration](../schema/azure.yaml.md#healthcheck-new)
 - [Service Types](../schema/azure.yaml.md#service-object)
 - [Dashboard Guide](./dashboard.md)
+- [Health Check Command](../commands/health.md)
+- [Health Check Troubleshooting](../troubleshooting/health-checks.md)

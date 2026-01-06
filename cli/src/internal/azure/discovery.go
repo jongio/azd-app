@@ -113,6 +113,13 @@ func (d *ResourceDiscovery) Discover(ctx context.Context) (*DiscoveryResult, err
 
 	// Build resource entries
 	for serviceName, fields := range services {
+		// Skip services that run locally (host: local or localhost in azure.yaml)
+		// These don't have Azure resources and shouldn't be included in Azure logs
+		if fields["URL"] == "" || strings.Contains(fields["URL"], "localhost") || strings.Contains(fields["URL"], "127.0.0.1") {
+			slog.Debug("discovery: skipping local service", "serviceName", serviceName, "url", fields["URL"])
+			continue
+		}
+		
 		resource := &AzureResource{
 			ServiceName:    serviceName,
 			SubscriptionID: result.SubscriptionID,

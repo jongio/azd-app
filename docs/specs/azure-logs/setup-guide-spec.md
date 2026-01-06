@@ -101,15 +101,15 @@ interface ServiceSetupStatus {
 
 #### Step 1: Log Analytics Workspace
 
-**Detection Logic**:
-- Check for `AZURE_LOG_ANALYTICS_WORKSPACE_ID` in env
-- Check for `logs.analytics.workspace` in azure.yaml
-- Query Azure to verify workspace exists
+**Detection Logic** (in priority order):
+1. Check for `AZURE_LOG_ANALYTICS_WORKSPACE_GUID` environment variable (preferred - set during `azd provision`)
+2. Check for `AZURE_LOG_ANALYTICS_WORKSPACE_ID` environment variable (resource ID - extracted from bicep outputs)
+3. Auto-detect workspace in resource group using Azure Resource Manager API
 
 **Required Actions**:
 1. Create Log Analytics workspace (if needed)
-2. Add bicep outputs to infra
-3. Update azure.yaml config
+2. Add bicep outputs to infra (recommended but auto-detected if missing)
+3. Optionally configure azure.yaml if using non-default env var names
 
 **UI Components**:
 - Status badge: ✓ Configured | ⚠ Missing | ○ Not deployed
@@ -117,21 +117,30 @@ interface ServiceSetupStatus {
   - **What is Log Analytics?** - Brief explanation
   - **Create Workspace** - Azure CLI/Portal instructions
   - **Bicep Example** - Copy/paste monitoring module
-  - **azure.yaml Config** - YAML snippet with workspace reference
+  - **azure.yaml Config (Optional)** - YAML snippet with workspace reference
 
-**Example Bicep Output**:
+**Example Bicep Output** (recommended):
 ```bicep
 output AZURE_LOG_ANALYTICS_WORKSPACE_ID string = monitoring.outputs.logAnalyticsWorkspaceId
 output AZURE_LOG_ANALYTICS_WORKSPACE_NAME string = monitoring.outputs.logAnalyticsWorkspaceName
 output AZURE_LOG_ANALYTICS_WORKSPACE_GUID string = monitoring.outputs.logAnalyticsWorkspaceGuid
 ```
 
-**Example azure.yaml Config**:
+**Auto-Detection** (default behavior):
+The workspace is automatically discovered if you have:
+- A Log Analytics workspace in your resource group
+- `AZURE_SUBSCRIPTION_ID` and `AZURE_RESOURCE_GROUP_NAME` environment variables (automatically set by `azd provision`)
+
+**Example azure.yaml Config (optional - only needed if using custom env var names)**:
 ```yaml
 logs:
   analytics:
-    workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}
+    workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}  # Optional - auto-detected if not specified
 ```
+
+**Note**: The `workspace` field in azure.yaml is **optional**. It's only needed if:
+- You're using a custom environment variable name instead of the default `AZURE_LOG_ANALYTICS_WORKSPACE_ID` or `AZURE_LOG_ANALYTICS_WORKSPACE_GUID`
+- You want to explicitly specify a workspace when multiple workspaces exist in the resource group
 
 #### Step 2: Authentication
 
@@ -236,7 +245,7 @@ Collapsible section for experienced users:
 ```yaml
 logs:
   analytics:
-    workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}
+    workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}  # Optional - auto-detected if omitted
     pollingInterval: 10s  # How often to query (default: 10s)
     defaultTimespan: 30m  # Lookback window (default: 30m)
 ```

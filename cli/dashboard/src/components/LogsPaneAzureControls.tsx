@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Monitor, Cloud, Loader2 } from 'lucide-react'
+import { Monitor, Cloud, Loader2, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LogMode } from './ModeToggle'
 
@@ -38,12 +38,14 @@ export interface LogsPaneModeBarProps {
   isCollapsed: boolean
   logMode: LogMode
   isModeSwitching: boolean
+  onOpenDiagnostics?: () => void
 }
 
 export function LogsPaneModeBar({
   isCollapsed,
   logMode,
   isModeSwitching,
+  onOpenDiagnostics,
 }: Readonly<LogsPaneModeBarProps>): ReactNode {
   if (isCollapsed) {
     return null
@@ -63,6 +65,27 @@ export function LogsPaneModeBar({
       <div className="flex items-center gap-2">
         {modeIndicator}
       </div>
+      
+      {/* Diagnostics button - only show in Azure mode */}
+      {logMode === 'azure' && onOpenDiagnostics && (
+        <button
+          type="button"
+          onClick={onOpenDiagnostics}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+            "bg-azure-100 dark:bg-azure-500/20 text-azure-700 dark:text-azure-300",
+            "hover:bg-azure-200 dark:hover:bg-azure-500/30",
+            "border border-azure-300 dark:border-azure-700",
+            "focus:outline-none focus:ring-2 focus:ring-azure-500 focus:ring-offset-1",
+            "focus:ring-offset-azure-50 dark:focus:ring-offset-azure-900/30"
+          )}
+          title="Run Azure logs diagnostics"
+          aria-label="Open Azure logs diagnostics"
+        >
+          <Activity className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Diagnostics</span>
+        </button>
+      )}
     </div>
   )
 }

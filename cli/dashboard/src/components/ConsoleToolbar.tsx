@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { ModeToggle, type LogMode } from './ModeToggle'
 import { Select } from '@/components/ui/select'
 import type { AzureConnectionStatus } from '@/hooks/useAzureConnectionStatus'
+import type { SetupStep } from './AzureSetupGuide'
 
 // =============================================================================
 // Types
@@ -57,6 +58,8 @@ export interface ConsoleToolbarProps {
   azureRealtime: boolean
   onAzureRealtimeChange: (enabled: boolean) => void
   onRunDiagnostics: () => void
+  onOpenSetupGuide: () => void
+  onOpenSetupGuideWithStep?: (step: SetupStep) => void
 }
 
 // =============================================================================
@@ -88,6 +91,8 @@ export function ConsoleToolbar({
   timeRange,
   onTimeRangeChange,
   onRunDiagnostics,
+  onOpenSetupGuide,
+  onOpenSetupGuideWithStep: _onOpenSetupGuideWithStep,
 }: Readonly<ConsoleToolbarProps>) {
   return (
     <div className="flex items-center gap-4 p-3 bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 shrink-0">
@@ -206,6 +211,7 @@ export function ConsoleToolbar({
           size="compact"
           showLabels={false}
           showStatus={true}
+          onOpenSetupGuide={onOpenSetupGuide}
         />
 
         {/* Azure Log Controls - Show when Azure mode is active and configured */}

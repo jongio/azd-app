@@ -1,5 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
 
+# Prerequisites:
+# - Python: pip install -r api/requirements.txt (fastapi, uvicorn)
+# - Go: go install github.com/air-verse/air@latest
+# - Node.js: pnpm install (in each TypeScript/Node project)
+# - .NET SDK for dotnet-watch service
+
 name: process-services-test
 services:
     api:

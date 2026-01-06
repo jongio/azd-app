@@ -31,6 +31,7 @@ export interface LogsPaneContentProps {
   onRetry?: () => void
   serviceName?: string
   globalSearchTerm?: string
+  onOpenDiagnostics?: () => void
 }
 
 export function LogsPaneContent({
@@ -54,6 +55,7 @@ export function LogsPaneContent({
   onRetry,
   serviceName,
   globalSearchTerm = '',
+  onOpenDiagnostics,
 }: Readonly<LogsPaneContentProps>): ReactNode {
   if (isCollapsed) {
     return null
@@ -85,6 +87,7 @@ export function LogsPaneContent({
           canRetry={canRetry}
           onRetry={onRetry}
           serviceName={serviceName}
+          onOpenDiagnostics={onOpenDiagnostics}
         />
       ) : (
         <div className="space-y-0.5">
@@ -119,7 +122,7 @@ export function LogsPaneContent({
                     [{formattedTimestamp}{serviceLabel}]
                   </span>
                   {' '}
-                  <span dangerouslySetInnerHTML={{ __html: highlightedMessage }} />
+                  <span className="text-foreground" dangerouslySetInnerHTML={{ __html: highlightedMessage }} />
                 </div>
                 
                 <button

@@ -331,6 +331,100 @@ export const scenarios = {
       },
     }
   },
+
+  /** Unhealthy services scenario */
+  unhealthyServices: (): TestScenario => ({
+    services: [
+      createServiceFixture({
+        name: 'api',
+        status: 'running',
+        health: 'unhealthy',
+        port: 3001,
+        error: 'HTTP 503: Service Unavailable',
+      }),
+    ],
+    healthChecks: [
+      {
+        serviceName: 'api',
+        status: 'unhealthy',
+        checkType: 'http',
+        endpoint: 'http://localhost:3001/health',
+        responseTime: 45_000_000,
+        statusCode: 503,
+        error: 'HTTP 503: Service Unavailable',
+        errorDetails: 'Database connection pool exhausted',
+        consecutiveFailures: 3,
+        timestamp: new Date().toISOString(),
+        port: 3001,
+        pid: 12345,
+        uptime: 947_000_000_000,
+        details: {
+          suggestion: 'Service temporarily unavailable. Check if dependencies are running.',
+        },
+      } as HealthCheckResult,
+    ],
+    healthSummary: {
+      total: 1, healthy: 0, degraded: 0, unhealthy: 1, starting: 0, stopped: 0, unknown: 0, overall: 'unhealthy'
+    },
+  }),
+
+  /** Degraded services scenario */
+  degradedServices: (): TestScenario => ({
+    services: [
+      createServiceFixture({
+        name: 'api',
+        status: 'running',
+        health: 'degraded',
+        port: 3001,
+      }),
+    ],
+    healthChecks: [
+      {
+        serviceName: 'api',
+        status: 'degraded',
+        checkType: 'http',
+        endpoint: 'http://localhost:3001/health',
+        responseTime: 1_234_000_000,
+        statusCode: 200,
+        timestamp: new Date().toISOString(),
+        port: 3001,
+        pid: 12345,
+        uptime: 947_000_000_000,
+        details: {
+          warning: 'Response time exceeds threshold (>1000ms)',
+        },
+      } as HealthCheckResult,
+    ],
+    healthSummary: {
+      total: 1, healthy: 0, degraded: 1, unhealthy: 0, starting: 0, stopped: 0, unknown: 0, overall: 'degraded'
+    },
+  }),
+
+  /** Unknown health services scenario */
+  unknownHealthServices: (): TestScenario => ({
+    services: [
+      createServiceFixture({
+        name: 'api',
+        status: 'running',
+        health: 'unknown',
+        port: 3001,
+      }),
+    ],
+    healthChecks: [
+      {
+        serviceName: 'api',
+        status: 'unknown',
+        checkType: 'http',
+        timestamp: new Date().toISOString(),
+        port: 3001,
+        pid: 12345,
+        uptime: 135_000_000_000,
+      } as HealthCheckResult,
+    ],
+    healthSummary: {
+      total: 1, healthy: 0, degraded: 0, unhealthy: 0, starting: 0, stopped: 0, unknown: 1, overall: 'unknown'
+    },
+  }),
 }
 
 // =============================================================================

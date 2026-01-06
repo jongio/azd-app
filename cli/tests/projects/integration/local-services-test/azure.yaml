@@ -1,0 +1,32 @@
+name: local-services-test
+metadata:
+  template: local-services-test@0.0.1-alpha
+
+services:
+  api:
+    project: ./api
+    language: python
+    host: appservice
+    config:
+      exposedPort: 8000
+    dev:
+      command: python app.py
+
+  web:
+    project: ./web
+    language: js
+    host: containerapp
+    config:
+      exposedPort: 3000
+    dev:
+      command: node server.js
+      
+  worker:
+    project: ./worker
+    language: python
+    host: containerapp
+    config:
+      exposedPort: 8080
+    dev:
+      command: python app.py
+

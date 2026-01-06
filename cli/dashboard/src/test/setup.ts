@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+import * as React from 'react'
+
+// Ensure React is globally available for React 19
+globalThis.React = React
 
 // Cleanup after each test
 afterEach(() => {

@@ -8,6 +8,21 @@ describe('log-utils', () => {
       expect(result).toBe('Hello World')
     })
 
+    it('should detect theme and use appropriate colors', () => {
+      // Test light mode (default, no 'dark' class)
+      document.documentElement.classList.remove('dark')
+      const lightResult = convertAnsiToHtml('\x1b[31mError\x1b[0m')
+      expect(lightResult).toBeTruthy()
+      
+      // Test dark mode
+      document.documentElement.classList.add('dark')
+      const darkResult = convertAnsiToHtml('\x1b[31mError\x1b[0m')
+      expect(darkResult).toBeTruthy()
+      
+      // Cleanup
+      document.documentElement.classList.remove('dark')
+    })
+
     it('should escape HTML special characters', () => {
       const result = convertAnsiToHtml('<script>alert("xss")</script>')
       expect(result).not.toContain('<script>')

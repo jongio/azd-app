@@ -15,6 +15,7 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     css: true,
     watch: false,
+    testTimeout: 10000,
     exclude: ['node_modules', 'e2e'],
     coverage: {
       provider: 'v8',

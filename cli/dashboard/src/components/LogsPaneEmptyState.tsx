@@ -8,6 +8,7 @@ import {
   suggestAzureTimeRangePreset,
   getAzureTimeRangeBounds 
 } from '@/hooks/useAzureTimeRange'
+import { NoLogsPrompt } from './NoLogsPrompt'
 
 export interface LogsPaneEmptyStateProps {
   errorMessage: string | null
@@ -20,6 +21,7 @@ export interface LogsPaneEmptyStateProps {
   canRetry?: boolean
   onRetry?: () => void
   serviceName?: string
+  onOpenDiagnostics?: () => void
 }
 
 export function LogsPaneEmptyState({
@@ -33,6 +35,7 @@ export function LogsPaneEmptyState({
   canRetry,
   onRetry,
   serviceName,
+  onOpenDiagnostics,
 }: Readonly<LogsPaneEmptyStateProps>): ReactNode {
   if (errorMessage) {
     return (
@@ -102,6 +105,17 @@ export function LogsPaneEmptyState({
     const suggestion = suggestAzureTimeRangePreset(timeRange.preset)
     const bounds = getAzureTimeRangeBounds(timeRange, now)
 
+    // Show NoLogsPrompt for services with 0 logs (potential configuration issue)
+    if (!hasLogs && serviceName) {
+      return (
+        <NoLogsPrompt
+          serviceName={serviceName}
+          onOpenDiagnostics={onOpenDiagnostics}
+        />
+      )
+    }
+
+    // Show time range suggestion when logs exist but not in current range
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="text-sm font-medium text-foreground mb-2">No logs in the selected time range</div>

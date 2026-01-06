@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
@@ -197,4 +198,187 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 	response.Count = len(logs)
 
 	WriteJSONSuccess(w, response)
+}
+
+// handleAzureDiagnosticSettingsCheck checks diagnostic settings for all services.
+// GET /api/azure/diagnostic-settings/check
+func (s *Server) handleAzureDiagnosticSettingsCheck(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := timeoutContext(30 * time.Second)
+	defer cancel()
+
+	// Create credentials
+	cred, err := newLogAnalyticsCredential()
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized, 
+			MsgAzureCredsNotAvailable, err)
+		return
+	}
+
+	// Create diagnostic settings checker
+	checker := azure.NewDiagnosticSettingsChecker(cred, s.projectDir)
+
+	// Check all services
+	result, err := checker.CheckAllServices(ctx)
+	if err != nil {
+		// Check if this is a context timeout
+		if ctx.Err() != nil {
+			writeJSONError(w, http.StatusGatewayTimeout, 
+				"Request timed out while checking diagnostic settings", err)
+			return
+		}
+
+		// Other errors (discovery failed, etc.)
+		InternalError(w, "Failed to check diagnostic settings", err)
+		return
+	}
+
+	// Return the results
+	WriteJSONSuccess(w, result)
+}
+
+// handleAzureDiagnostics runs comprehensive diagnostics on all services.
+// GET /api/azure/diagnostics
+func (s *Server) handleAzureDiagnostics(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := timeoutContext(60 * time.Second)
+	defer cancel()
+
+	// Create credentials
+	cred, err := newLogAnalyticsCredential()
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized,
+			MsgAzureCredsNotAvailable, err)
+		return
+	}
+
+	// Create diagnostics engine
+	engine := azure.NewDiagnosticsEngine(cred, s.projectDir)
+
+	// Run diagnostics
+	result, err := engine.RunDiagnostics(ctx)
+	if err != nil {
+		// Check if this is a context timeout
+		if ctx.Err() != nil {
+			writeJSONError(w, http.StatusGatewayTimeout,
+				"Request timed out while running diagnostics", err)
+			return
+		}
+
+		// Other errors (discovery failed, etc.)
+		InternalError(w, "Failed to run diagnostics", err)
+		return
+	}
+
+	// Return the results
+	WriteJSONSuccess(w, result)
+}
+
+// handleAzureWorkspaceVerify verifies workspace connection by querying for recent logs.
+// POST /api/azure/workspace/verify
+func (s *Server) handleAzureWorkspaceVerify(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := timeoutContext(60 * time.Second) // Longer timeout for log queries
+	defer cancel()
+
+	// Parse request body
+	var req azure.WorkspaceVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, 
+			"Invalid request body", err)
+		return
+	}
+
+	// Create credentials
+	cred, err := newLogAnalyticsCredential()
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized, 
+			MsgAzureCredsNotAvailable, err)
+		return
+	}
+
+	// Create workspace verifier
+	verifier := azure.NewWorkspaceVerifier(cred, s.projectDir)
+
+	// Verify workspace
+	result, err := verifier.VerifyWorkspace(ctx, &req)
+	if err != nil {
+		// Check if this is a context timeout
+		if ctx.Err() != nil {
+			writeJSONError(w, http.StatusGatewayTimeout, 
+				"Request timed out while verifying workspace", err)
+			return
+		}
+
+		// Check for specific error types
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "no Log Analytics workspace") {
+			writeJSONError(w, http.StatusServiceUnavailable, 
+				"No Log Analytics workspace configured for this environment", err)
+			return
+		}
+
+		if strings.Contains(errMsg, "invalid timespan") {
+			writeJSONError(w, http.StatusBadRequest, 
+				"Invalid timespan format. Use ISO 8601 duration (e.g., PT15M)", err)
+			return
+		}
+
+		// Other errors (discovery failed, etc.)
+		InternalError(w, "Failed to verify workspace", err)
+		return
+	}
+
+	// Return the results
+	WriteJSONSuccess(w, result)
+}
+
+// handleAzureBicepTemplate generates a consolidated Bicep template for all detected services.
+// GET /api/azure/bicep-template
+func (s *Server) handleAzureBicepTemplate(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := timeoutContext(30 * time.Second)
+	defer cancel()
+
+	// Create credentials
+	cred, err := newLogAnalyticsCredential()
+	if err != nil {
+		writeJSONError(w, http.StatusUnauthorized,
+			MsgAzureCredsNotAvailable, err)
+		return
+	}
+
+	// Create resource discovery
+	discovery := azure.NewResourceDiscovery(cred, s.projectDir)
+
+	// Create Bicep generator
+	generator := azure.NewBicepGenerator(discovery)
+
+	// Generate template
+	result, err := generator.GenerateTemplate(ctx)
+	if err != nil {
+		// Check if this is a context timeout
+		if ctx.Err() != nil {
+			writeJSONError(w, http.StatusGatewayTimeout,
+				"Request timed out while generating Bicep template", err)
+			return
+		}
+
+		// Check for specific error types
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "no Azure resources found") {
+			writeJSONError(w, http.StatusNotFound,
+				"No Azure resources found. Deploy your application with 'azd up' first.", err)
+			return
+		}
+
+		if strings.Contains(errMsg, "failed to discover resources") {
+			writeJSONError(w, http.StatusServiceUnavailable,
+				"Unable to discover Azure resources. Ensure your environment is deployed.", err)
+			return
+		}
+
+		// Other errors
+		InternalError(w, "Failed to generate Bicep template", err)
+		return
+	}
+
+	// Return the generated template
+	WriteJSONSuccess(w, result)
 }
