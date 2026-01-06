@@ -13,7 +13,7 @@ import (
 func TestHandleAzureBicepTemplate(t *testing.T) {
 	// Note: This test requires an authenticated environment with deployed resources
 	// It's more of a smoke test to ensure the handler doesn't crash
-	
+
 	server := &Server{
 		projectDir: "../../tests/projects/integration/azure-logs-test",
 	}
@@ -30,10 +30,10 @@ func TestHandleAzureBicepTemplate(t *testing.T) {
 	// - 503 Service Unavailable (if can't discover resources)
 
 	statusCode := w.Code
-	if statusCode != http.StatusOK && 
-	   statusCode != http.StatusUnauthorized && 
-	   statusCode != http.StatusNotFound && 
-	   statusCode != http.StatusServiceUnavailable {
+	if statusCode != http.StatusOK &&
+		statusCode != http.StatusUnauthorized &&
+		statusCode != http.StatusNotFound &&
+		statusCode != http.StatusServiceUnavailable {
 		t.Errorf("Unexpected status code: %d, body: %s", statusCode, w.Body.String())
 	}
 
@@ -81,7 +81,7 @@ func TestHandleAzureBicepTemplate_MethodNotAllowed(t *testing.T) {
 	}
 
 	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch}
-	
+
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			req := httptest.NewRequest(method, "/api/azure/bicep-template", nil)

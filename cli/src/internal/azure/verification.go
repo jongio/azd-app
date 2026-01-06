@@ -23,10 +23,10 @@ const (
 type ServiceVerificationStatus string
 
 const (
-	ServiceStatusOK                         ServiceVerificationStatus = "ok"
-	ServiceStatusNoLogs                     ServiceVerificationStatus = "no-logs"
-	ServiceStatusError                      ServiceVerificationStatus = "error"
-	ServiceStatusDiagnosticNotConfigured    ServiceVerificationStatus = "diagnostic-not-configured"
+	ServiceStatusOK                      ServiceVerificationStatus = "ok"
+	ServiceStatusNoLogs                  ServiceVerificationStatus = "no-logs"
+	ServiceStatusError                   ServiceVerificationStatus = "error"
+	ServiceStatusDiagnosticNotConfigured ServiceVerificationStatus = "diagnostic-not-configured"
 )
 
 // WorkspaceInfo contains information about the Log Analytics workspace.
@@ -60,10 +60,10 @@ type WorkspaceVerificationResponse struct {
 
 // WorkspaceVerifier handles workspace verification operations.
 type WorkspaceVerifier struct {
-	credential    azcore.TokenCredential
-	projectDir    string
-	discovery     *ResourceDiscovery
-	diagnostics   *DiagnosticSettingsChecker
+	credential  azcore.TokenCredential
+	projectDir  string
+	discovery   *ResourceDiscovery
+	diagnostics *DiagnosticSettingsChecker
 }
 
 // NewWorkspaceVerifier creates a new workspace verifier.
@@ -132,7 +132,7 @@ func (v *WorkspaceVerifier) VerifyWorkspace(ctx context.Context, req *WorkspaceV
 	// Check each service
 	for _, serviceName := range servicesToCheck {
 		slog.Debug("verifying service", "service", serviceName, "timespan", timespan)
-		
+
 		result := v.verifyService(ctx, laClient, serviceName, discoveryResult, duration)
 		response.Results[serviceName] = result
 
@@ -164,10 +164,10 @@ func (v *WorkspaceVerifier) VerifyWorkspace(ctx context.Context, req *WorkspaceV
 		response.Status = VerificationStatusError
 	}
 
-	slog.Debug("workspace verification complete", 
-		"status", response.Status, 
-		"success", successCount, 
-		"noLogs", noLogsCount, 
+	slog.Debug("workspace verification complete",
+		"status", response.Status,
+		"success", successCount,
+		"noLogs", noLogsCount,
 		"errors", errorCount)
 
 	return response, nil

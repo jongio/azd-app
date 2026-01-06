@@ -317,15 +317,15 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		result.CheckType = HealthCheckTypeTCP
 		result.Port = svc.Port
 		result.Details = make(map[string]interface{})
-		
+
 		// Create a context with timeout for port check
 		portCtx, cancel := context.WithTimeout(ctx, defaultPortCheckTimeout)
 		defer cancel()
-		
+
 		address := fmt.Sprintf("localhost:%d", svc.Port)
 		dialer := net.Dialer{Timeout: defaultPortCheckTimeout}
 		conn, err := dialer.DialContext(portCtx, "tcp", address)
-		
+
 		if err == nil {
 			_ = conn.Close()
 			result.Status = HealthStatusHealthy
@@ -348,7 +348,7 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 		result.CheckType = HealthCheckTypeProcess
 		result.PID = svc.PID
 		result.Details = make(map[string]interface{})
-		
+
 		isRunning := isProcessRunning(svc.PID)
 		if isRunning {
 			result.Status = HealthStatusHealthy
@@ -481,7 +481,7 @@ func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *ht
 	// Add suggestion for error responses
 	if resp.StatusCode >= 400 {
 		result.Details["suggestion"] = suggestHTTPErrorAction(resp.StatusCode)
-		
+
 		// Try to parse error details from response body
 		if readErr == nil && len(body) > 0 {
 			if errorDetails := parseErrorDetailsFromBody(body); errorDetails != "" {
@@ -737,7 +737,7 @@ func (c *HealthChecker) checkSingleEndpoint(ctx context.Context, port int, endpo
 	// Add suggestion for error responses
 	if resp.StatusCode >= 400 {
 		result.Details["suggestion"] = suggestHTTPErrorAction(resp.StatusCode)
-		
+
 		// Try to parse error details from response body
 		if readErr == nil && len(body) > 0 {
 			if errorDetails := parseErrorDetailsFromBody(body); errorDetails != "" {
@@ -816,7 +816,7 @@ func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc servi
 		if result.Details == nil {
 			result.Details = make(map[string]interface{})
 		}
-		
+
 		isRunning := isProcessRunning(svc.PID)
 		if isRunning {
 			result.Status = HealthStatusHealthy

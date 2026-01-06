@@ -12,18 +12,18 @@ import (
 type DiagnosticStatus string
 
 const (
-	DiagnosticStatusHealthy        DiagnosticStatus = "healthy"         // Logs flowing correctly
-	DiagnosticStatusPartial        DiagnosticStatus = "partial"         // Configured but no logs
-	DiagnosticStatusNotConfigured  DiagnosticStatus = "not-configured"  // Missing configuration
-	DiagnosticStatusError          DiagnosticStatus = "error"           // Error during validation
+	DiagnosticStatusHealthy       DiagnosticStatus = "healthy"        // Logs flowing correctly
+	DiagnosticStatusPartial       DiagnosticStatus = "partial"        // Configured but no logs
+	DiagnosticStatusNotConfigured DiagnosticStatus = "not-configured" // Missing configuration
+	DiagnosticStatusError         DiagnosticStatus = "error"          // Error during validation
 )
 
 // RequirementStatus represents whether a specific requirement is met.
 type RequirementStatus string
 
 const (
-	RequirementStatusMet    RequirementStatus = "met"
-	RequirementStatusNotMet RequirementStatus = "not-met"
+	RequirementStatusMet     RequirementStatus = "met"
+	RequirementStatusNotMet  RequirementStatus = "not-met"
 	RequirementStatusUnknown RequirementStatus = "unknown"
 )
 
@@ -94,13 +94,13 @@ func NewDiagnosticsEngine(credential azcore.TokenCredential, projectDir string) 
 		discovery:  NewResourceDiscovery(credential, projectDir),
 		validators: make(map[ResourceType]ServiceValidator),
 	}
-	
+
 	// Register validators for each host type
 	// TODO: Register validators as they are implemented
 	// engine.validators[ResourceTypeContainerApp] = NewContainerAppValidator(credential, projectDir)
 	// engine.validators[ResourceTypeFunction] = NewFunctionValidator(credential, projectDir)
 	// engine.validators[ResourceTypeAppService] = NewAppServiceValidator(credential, projectDir)
-	
+
 	return engine
 }
 

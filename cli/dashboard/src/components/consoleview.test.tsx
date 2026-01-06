@@ -421,7 +421,7 @@ describe('ConsoleView', () => {
 
     // Setup guide opens with initialStep
     expect(await screen.findByTestId('setup-guide')).toBeInTheDocument()
-    let setupGuide = screen.getByTestId('setup-guide')
+    const setupGuide = screen.getByTestId('setup-guide')
     expect(setupGuide.getAttribute('data-initial-step')).toBe('auth')
 
     // Close setup guide

@@ -15,8 +15,16 @@ import {
 // Mock useBackendConnection
 const mockUseBackendConnection = vi.fn()
 vi.mock('./useBackendConnection', () => ({
-  useBackendConnection: () => mockUseBackendConnection(),
+  useBackendConnection: (): { connected: boolean } => mockUseBackendConnection() as { connected: boolean },
 }))
+
+// Type for mock request body
+interface MockRequestBody {
+  body?: string
+  query?: string
+  limit?: number
+  tables?: string[]
+}
 
 describe('useHistoricalLogs', () => {
   let originalFetch: typeof globalThis.fetch
@@ -263,7 +271,7 @@ describe('useHistoricalLogs', () => {
           await result.current.executeQuery({ preset: '15m' }, customKql)
         })
 
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+        const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string) as MockRequestBody
         expect(body.query).toBe(customKql)
       })
 
@@ -607,16 +615,16 @@ describe('useHistoricalLogs', () => {
         mockFetch.mockClear()
 
         // Reset query
-        await act(async () => {
+        act(() => {
           result.current.resetQuery()
         })
 
         // Should execute without custom query
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+        const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string) as MockRequestBody
         expect(body.query).toBeUndefined()
       })
 
-      it('should not error if no query has been executed', async () => {
+      it('should not error if no query has been executed', () => {
         const { result } = renderHook(() =>
           useHistoricalLogs({ serviceName: 'test-service' })
         )
@@ -666,7 +674,7 @@ describe('useHistoricalLogs', () => {
           await result.current.executeQuery({ preset: '15m' })
         })
 
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+        const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string) as MockRequestBody
         expect(body.limit).toBe(50)
       })
     })

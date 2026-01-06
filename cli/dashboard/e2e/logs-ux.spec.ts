@@ -83,10 +83,11 @@ test.describe('Console - Logs UX', () => {
     await page.goto('/')
     await waitForDashboardReady(page)
 
-    await expect(page.getByRole('button', { name: 'Diagnostics' })).toBeVisible()
+    // Check that diagnostics buttons are visible (one per service + header)
+    await expect(page.getByRole('button', { name: 'Diagnostics' }).first()).toBeVisible()
 
-    // Switch to local mode via the ModeToggle radio.
-    await page.getByRole('radio', { name: 'View local logs' }).click()
+    // Switch to local mode via the ModeToggle button.
+    await page.getByRole('button', { name: 'View local logs' }).click()
     await expect(page.getByRole('button', { name: 'Diagnostics' })).toHaveCount(0)
   })
 
