@@ -24,8 +24,8 @@ func main() {
 	
 	// Update containerapp-api service with new log tables
 	tables := []string{"ContainerAppConsoleLogs_CL", "ContainerAppSystemLogs_CL", "AppRequests"}
-	if err := yamlutil.UpdateServiceLogsConfig(testFile, "containerapp-api", tables, ""); err != nil {
-		fmt.Printf("Error updating logs config: %v\n", err)
+	if updateErr := yamlutil.UpdateServiceLogsConfig(testFile, "containerapp-api", tables, ""); updateErr != nil {
+		fmt.Printf("Error updating logs config: %v\n", updateErr)
 		os.Exit(1)
 	}
 	

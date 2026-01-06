@@ -1,3 +1,6 @@
+// Package yamlutil provides utilities for manipulating YAML files while preserving
+// formatting, comments, and structure. It uses text-based manipulation to guarantee
+// zero data loss when updating YAML configuration files.
 package yamlutil
 
 import (
