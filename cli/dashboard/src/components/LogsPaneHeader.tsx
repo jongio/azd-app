@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Copy, ExternalLink, ChevronDown, ChevronRight, PanelRight, CheckCircle, CircleOff, Loader2, RotateCw, Eye, Hammer, CheckSquare, CircleX, CircleDot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeHealthStatus } from '@/lib/service-utils'
-import type { Service } from '@/types'
+import type { Service, HealthCheckResult } from '@/types'
 import { ServiceActions } from './ServiceActions'
+import { HealthTooltip } from './HealthTooltip'
 import type { LogMode } from './ModeToggle'
 
 function getProcessBadge(processStatus?: string): { className: string; icon: ReactNode; title: string } {
@@ -105,6 +106,7 @@ export interface LogsPaneHeaderProps {
   normalizedHealth?: ReturnType<typeof normalizeHealthStatus>
   healthIcon: ReactNode
   service?: Service
+  healthCheckResult?: HealthCheckResult
   effectiveUrl?: string
   logMode: LogMode
   azureUrl?: string
@@ -121,6 +123,7 @@ export function LogsPaneHeader({
   processStatus,
   normalizedHealth,
   healthIcon,
+  healthCheckResult,
   service,
   effectiveUrl,
   logMode,
@@ -163,15 +166,29 @@ export function LogsPaneHeader({
         </span>
 
         {normalizedHealth && (
-          <span 
-            className={cn(
-              "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
-              healthBadgeClass
-            )}
-            title={`Service health: ${normalizedHealth} (from health checks)`}
-          >
-            {healthIcon}
-          </span>
+          service && healthCheckResult ? (
+            <HealthTooltip healthStatus={healthCheckResult} service={service}>
+              <span 
+                className={cn(
+                  "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+                  healthBadgeClass
+                )}
+                title={`Service health: ${normalizedHealth} (from health checks)`}
+              >
+                {healthIcon}
+              </span>
+            </HealthTooltip>
+          ) : (
+            <span 
+              className={cn(
+                "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+                healthBadgeClass
+              )}
+              title={`Service health: ${normalizedHealth} (from health checks)`}
+            >
+              {healthIcon}
+            </span>
+          )
         )}
       </button>
 

@@ -6,7 +6,7 @@ import * as React from 'react'
 import { Cloud, CloudOff, Loader2, AlertCircle, RefreshCw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { parseAzureError } from '@/lib/azure-errors'
-import AzureErrorDisplay from './AzureErrorDisplay'
+import AzureErrorDisplay, { type SetupStep } from './AzureErrorDisplay'
 
 // =============================================================================
 // Types
@@ -25,6 +25,8 @@ export interface AzureConnectionStatusProps {
   showDetails?: boolean
   /** Callback to retry connection */
   onRetry?: () => void
+  /** Callback to open setup guide at specific step */
+  onOpenSetupGuide?: (step: SetupStep) => void
   /** Additional class names */
   className?: string
 }
@@ -85,9 +87,10 @@ interface ErrorPopoverProps {
   errorMessage: string
   onRetry?: () => void
   onClose: () => void
+  onOpenSetupGuide?: (step: SetupStep) => void
 }
 
-function ErrorPopover({ errorMessage, onRetry, onClose }: ErrorPopoverProps) {
+function ErrorPopover({ errorMessage, onRetry, onClose, onOpenSetupGuide }: ErrorPopoverProps) {
   const errorType = parseAzureError(errorMessage)
   const popoverRef = React.useRef<HTMLDivElement>(null)
 
@@ -148,6 +151,7 @@ function ErrorPopover({ errorMessage, onRetry, onClose }: ErrorPopoverProps) {
           message={errorMessage}
           onRetry={onRetry}
           compact={false}
+          onOpenSetupGuide={onOpenSetupGuide}
         />
       </div>
     </div>
@@ -164,6 +168,7 @@ export function AzureConnectionStatus({
   errorMessage,
   showDetails = false,
   onRetry,
+  onOpenSetupGuide,
   className,
 }: AzureConnectionStatusProps) {
   const [showErrorPopover, setShowErrorPopover] = React.useState(false)
@@ -266,6 +271,7 @@ export function AzureConnectionStatus({
           errorMessage={errorMessage}
           onRetry={handleRetry}
           onClose={() => setShowErrorPopover(false)}
+          onOpenSetupGuide={onOpenSetupGuide}
         />
       )}
     </div>
@@ -280,13 +286,14 @@ export interface AzureStatusBadgeProps {
   status: AzureConnectionState
   errorMessage?: string
   onRetry?: () => void
+  onOpenSetupGuide?: (step: SetupStep) => void
   className?: string
 }
 
 /**
  * Compact badge variant for use in headers or tight spaces
  */
-export function AzureStatusBadge({ status, errorMessage, onRetry, className }: AzureStatusBadgeProps) {
+export function AzureStatusBadge({ status, errorMessage, onRetry, onOpenSetupGuide, className }: AzureStatusBadgeProps) {
   const [showErrorPopover, setShowErrorPopover] = React.useState(false)
   const config = statusConfig[status]
   const Icon = config.icon
@@ -340,6 +347,7 @@ export function AzureStatusBadge({ status, errorMessage, onRetry, className }: A
           errorMessage={errorMessage}
           onRetry={handleRetry}
           onClose={() => setShowErrorPopover(false)}
+          onOpenSetupGuide={onOpenSetupGuide}
         />
       )}
     </div>

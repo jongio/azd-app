@@ -316,7 +316,18 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 	if svc.Port > 0 {
 		result.CheckType = HealthCheckTypeTCP
 		result.Port = svc.Port
-		if c.checkPort(ctx, svc.Port) {
+		result.Details = make(map[string]interface{})
+		
+		// Create a context with timeout for port check
+		portCtx, cancel := context.WithTimeout(ctx, defaultPortCheckTimeout)
+		defer cancel()
+		
+		address := fmt.Sprintf("localhost:%d", svc.Port)
+		dialer := net.Dialer{Timeout: defaultPortCheckTimeout}
+		conn, err := dialer.DialContext(portCtx, "tcp", address)
+		
+		if err == nil {
+			_ = conn.Close()
 			result.Status = HealthStatusHealthy
 		} else {
 			if isInStartupGracePeriod {
@@ -325,6 +336,9 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 				result.Status = HealthStatusUnhealthy
 			}
 			result.Error = fmt.Sprintf("port %d not listening", svc.Port)
+			// Add actionable suggestion
+			result.Details["suggestion"] = suggestTCPErrorAction(err, svc.Port)
+			result.Details["port"] = svc.Port
 		}
 		return result
 	}
@@ -333,8 +347,12 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 	if svc.PID > 0 {
 		result.CheckType = HealthCheckTypeProcess
 		result.PID = svc.PID
-		if isProcessRunning(svc.PID) {
+		result.Details = make(map[string]interface{})
+		
+		isRunning := isProcessRunning(svc.PID)
+		if isRunning {
 			result.Status = HealthStatusHealthy
+			result.Details["pid"] = svc.PID
 		} else {
 			if isInStartupGracePeriod {
 				result.Status = HealthStatusStarting
@@ -342,6 +360,9 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 				result.Status = HealthStatusUnhealthy
 			}
 			result.Error = fmt.Sprintf("process %d not running", svc.PID)
+			// Add actionable suggestion
+			result.Details["suggestion"] = suggestProcessErrorAction(svc.PID, isRunning, svc.Mode)
+			result.Details["pid"] = svc.PID
 		}
 		return result
 	}
@@ -367,6 +388,11 @@ func (c *HealthChecker) buildResultFromHTTPCheck(result HealthCheckResult, httpR
 	result.Status = httpResult.Status
 	result.Details = httpResult.Details
 	result.Error = httpResult.Error
+	// Store detailed error information separately if available
+	if httpResult.Error != "" && len(httpResult.Error) > 100 {
+		result.ErrorDetails = httpResult.Error
+		result.Error = httpResult.Error[:100] + "..." // Truncate main error field
+	}
 	if port > 0 {
 		result.Port = port
 	}
@@ -446,10 +472,23 @@ func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *ht
 		Endpoint:     urlStr,
 		ResponseTime: responseTime,
 		StatusCode:   resp.StatusCode,
+		Details:      make(map[string]interface{}),
 	}
 
 	// Determine status based on HTTP status code
 	result.Status = c.statusFromHTTPCode(resp.StatusCode)
+
+	// Add suggestion for error responses
+	if resp.StatusCode >= 400 {
+		result.Details["suggestion"] = suggestHTTPErrorAction(resp.StatusCode)
+		
+		// Try to parse error details from response body
+		if readErr == nil && len(body) > 0 {
+			if errorDetails := parseErrorDetailsFromBody(body); errorDetails != "" {
+				result.Error = errorDetails
+			}
+		}
+	}
 
 	// Try to parse response body for additional details
 	if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -692,6 +731,19 @@ func (c *HealthChecker) checkSingleEndpoint(ctx context.Context, port int, endpo
 		ResponseTime: responseTime,
 		StatusCode:   resp.StatusCode,
 		Status:       c.statusFromHTTPCode(resp.StatusCode),
+		Details:      make(map[string]interface{}),
+	}
+
+	// Add suggestion for error responses
+	if resp.StatusCode >= 400 {
+		result.Details["suggestion"] = suggestHTTPErrorAction(resp.StatusCode)
+		
+		// Try to parse error details from response body
+		if readErr == nil && len(body) > 0 {
+			if errorDetails := parseErrorDetailsFromBody(body); errorDetails != "" {
+				result.Error = errorDetails
+			}
+		}
 	}
 
 	if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -761,8 +813,14 @@ func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc servi
 
 	if svc.PID > 0 {
 		result.PID = svc.PID
-		if isProcessRunning(svc.PID) {
+		if result.Details == nil {
+			result.Details = make(map[string]interface{})
+		}
+		
+		isRunning := isProcessRunning(svc.PID)
+		if isRunning {
 			result.Status = HealthStatusHealthy
+			result.Details["pid"] = svc.PID
 		} else {
 			if isInStartupGracePeriod {
 				result.Status = HealthStatusStarting
@@ -770,6 +828,9 @@ func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc servi
 				result.Status = HealthStatusUnhealthy
 			}
 			result.Error = fmt.Sprintf("process %d not running", svc.PID)
+			// Add actionable suggestion
+			result.Details["suggestion"] = suggestProcessErrorAction(svc.PID, isRunning, svc.Mode)
+			result.Details["pid"] = svc.PID
 		}
 		return result
 	}
@@ -900,6 +961,7 @@ func (c *HealthChecker) performOutputHealthCheck(svc serviceInfo, isInStartupGra
 			result.Status = HealthStatusUnhealthy
 			result.Error = fmt.Sprintf("pattern %q not found in output", pattern)
 			result.Details["state"] = "pattern_not_matched"
+			result.Details["suggestion"] = "Check output pattern configuration. Service may still be starting or pattern may be incorrect."
 		}
 	}
 
@@ -918,7 +980,86 @@ func (c *HealthChecker) checkPort(ctx context.Context, port int) bool {
 	return true
 }
 
+// suggestTCPErrorAction provides actionable suggestions for TCP connection errors.
+func suggestTCPErrorAction(err error, port int) string {
+	if err == nil {
+		return ""
+	}
+
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "actively refused") {
+		return fmt.Sprintf("Port %d connection refused. Verify service is running and port is correct.", port)
+	}
+	if strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "i/o timeout") {
+		return fmt.Sprintf("Port %d connection timeout. Check network connectivity and firewall rules.", port)
+	}
+	if strings.Contains(errMsg, "no route to host") {
+		return "Network unreachable. Check network configuration."
+	}
+	return fmt.Sprintf("Port %d connection failed. Verify service is running.", port)
+}
+
+// suggestProcessErrorAction provides actionable suggestions for process check errors.
+func suggestProcessErrorAction(pid int, isRunning bool, mode string) string {
+	if !isRunning {
+		return fmt.Sprintf("Process %d not running. Check service logs and verify start command.", pid)
+	}
+	return ""
+}
+
 // isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
 func isProcessRunning(pid int) bool {
 	return procutil.IsProcessRunning(pid)
+}
+
+// suggestHTTPErrorAction provides actionable suggestions based on HTTP status code.
+func suggestHTTPErrorAction(statusCode int) string {
+	switch statusCode {
+	case 503:
+		return "Service temporarily unavailable. Check if dependencies are running."
+	case 500, 501, 502, 504, 505, 506, 507, 508, 509, 510, 511:
+		return "Server error. Check application logs for details."
+	case 404:
+		return "Health endpoint not found. Verify endpoint configuration."
+	case 401:
+		return "Authentication failed. Check credentials."
+	case 403:
+		return "Authorization failed. Check permissions."
+	case 429:
+		return "Rate limited. Reduce request rate or check quotas."
+	case 408:
+		return "Request timeout. Check network connectivity and service performance."
+	default:
+		if statusCode >= 500 && statusCode < 600 {
+			return "Server error. Check application logs for details."
+		}
+		return "HTTP request failed. Check service logs for details."
+	}
+}
+
+// parseErrorDetailsFromBody attempts to extract error details from HTTP response body.
+func parseErrorDetailsFromBody(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+
+	// Try to parse as JSON
+	var jsonData map[string]interface{}
+	if err := json.Unmarshal(body, &jsonData); err == nil {
+		// Look for common error fields
+		for _, key := range []string{"error", "message", "detail", "details", "error_description"} {
+			if val, ok := jsonData[key]; ok {
+				if str, ok := val.(string); ok && str != "" {
+					return str
+				}
+			}
+		}
+	}
+
+	// If JSON parsing failed or no error field found, return truncated body (first 200 chars)
+	bodyStr := string(body)
+	if len(bodyStr) > 200 {
+		return bodyStr[:200] + "..."
+	}
+	return bodyStr
 }

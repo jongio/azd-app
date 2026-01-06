@@ -31,6 +31,7 @@ azd app run [flags]
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
+| `--force` | | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ## Dashboard Browser Launch
@@ -1073,6 +1074,16 @@ azd app run --env-file .env.local
 azd app run --runtime aspire
 
 # Get Aspire dashboard, tracing, metrics
+```
+
+### 6. Force Clean Dependency Reinstall
+
+```bash
+# Force clean dependency reinstall before running
+azd app run --force
+
+# Combine with other flags
+azd app run --force --web
 ```
 
 ## Troubleshooting

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -47,10 +48,13 @@ var (
 
 // HealthMonitor coordinates health checking operations.
 type HealthMonitor struct {
-	config   MonitorConfig
-	registry *registry.ServiceRegistry
-	checker  *HealthChecker
-	cache    *cache.Cache
+	config          MonitorConfig
+	registry        *registry.ServiceRegistry
+	checker         *HealthChecker
+	cache           *cache.Cache
+	failureCount    map[string]int       // Track consecutive failures per service
+	lastSuccessTime map[string]time.Time // Track last success time per service
+	failureCountMu  sync.RWMutex         // Thread-safe access to failure tracking maps
 }
 
 // InitializeLogging configures the zerolog logger based on config.
@@ -133,10 +137,12 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 	}
 
 	return &HealthMonitor{
-		config:   config,
-		registry: reg,
-		checker:  checker,
-		cache:    healthCache,
+		config:          config,
+		registry:        reg,
+		checker:         checker,
+		cache:           healthCache,
+		failureCount:    make(map[string]int),
+		lastSuccessTime: make(map[string]time.Time),
 	}, nil
 }
 
@@ -238,6 +244,8 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 			}
 
 			result := m.checker.CheckService(ctx, svc)
+			// Track failures and update result with consecutive failure count
+			m.trackFailure(&result)
 			resultChan <- struct {
 				index  int
 				result HealthCheckResult
@@ -409,6 +417,43 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 	}
 
 	return config
+}
+
+// trackFailure updates failure tracking for a service based on health check result.
+// Thread-safe: uses mutex to protect shared failure tracking maps.
+func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
+	m.failureCountMu.Lock()
+	defer m.failureCountMu.Unlock()
+
+	serviceName := result.ServiceName
+
+	if result.Status == HealthStatusUnhealthy {
+		// Increment failure count
+		m.failureCount[serviceName]++
+		result.ConsecutiveFailures = m.failureCount[serviceName]
+		
+		// Set last success time if we have it
+		if lastSuccess, exists := m.lastSuccessTime[serviceName]; exists {
+			result.LastSuccessTime = &lastSuccess
+		}
+	} else if result.Status == HealthStatusHealthy {
+		// Reset failure count on healthy status
+		m.failureCount[serviceName] = 0
+		result.ConsecutiveFailures = 0
+		
+		// Update last success time
+		now := time.Now()
+		m.lastSuccessTime[serviceName] = now
+		result.LastSuccessTime = &now
+	} else {
+		// For other statuses (degraded, starting, unknown), include current count without incrementing
+		if count, exists := m.failureCount[serviceName]; exists {
+			result.ConsecutiveFailures = count
+		}
+		if lastSuccess, exists := m.lastSuccessTime[serviceName]; exists {
+			result.LastSuccessTime = &lastSuccess
+		}
+	}
 }
 
 func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {

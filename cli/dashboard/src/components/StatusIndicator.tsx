@@ -22,7 +22,8 @@ import {
   type LucideIcon 
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { HealthStatus } from '@/types'
+import type { HealthStatus, HealthCheckResult, Service } from '@/types'
+import { HealthTooltip } from './HealthTooltip'
 
 // =============================================================================
 // Types
@@ -240,10 +241,10 @@ function getAnimationClass(animation: AnimationType, reduceMotion: boolean): str
 // =============================================================================
 
 interface StatusDotProps {
-  status: EffectiveStatus
-  animated?: boolean
-  size?: 'sm' | 'md' | 'lg'
-  className?: string
+  readonly status: EffectiveStatus
+  readonly animated?: boolean
+  readonly size?: 'sm' | 'md' | 'lg'
+  readonly className?: string
 }
 
 export function StatusDot({ 
@@ -251,10 +252,10 @@ export function StatusDot({
   animated = true, 
   size = 'md',
   className 
-}: StatusDotProps) {
+}: Readonly<StatusDotProps>) {
   const config = getStatusConfig(status)
   const reduceMotion = React.useMemo(() => 
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    typeof globalThis !== 'undefined' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches,
   [])
   
   const sizeClasses = {
@@ -291,19 +292,49 @@ export function StatusDot({
 // DualStatusBadge Component - Shows running state + health as dual icons
 // =============================================================================
 
+// Helper to render health icon based on status
+function getHealthIconElement(health: HealthStatus, reduceMotion: boolean) {
+  switch (health) {
+    case 'healthy':
+      return <Heart className={cn("w-3 h-3 shrink-0", !reduceMotion && "animate-modern-heartbeat")} />
+    case 'degraded':
+      return <HeartPulse className={cn("w-3 h-3 shrink-0", !reduceMotion && "animate-modern-breathe")} />
+    case 'unhealthy':
+      return <HeartCrack className={cn("w-3 h-3 shrink-0", !reduceMotion && "animate-modern-flash")} />
+    default:
+      return <HelpCircle className="w-3 h-3 shrink-0" />
+  }
+}
+
 interface DualStatusBadgeProps {
-  status: EffectiveStatus
-  health?: HealthStatus
-  className?: string
+  readonly status: EffectiveStatus
+  readonly health?: HealthStatus
+  readonly service?: Service
+  readonly healthStatus?: HealthCheckResult
+  readonly className?: string
+}
+
+// Helper to determine effective health from status
+function getEffectiveHealth(status: EffectiveStatus, health?: HealthStatus): HealthStatus {
+  if (health) return health
+  
+  if (status === 'healthy' || status === 'running' || status === 'watching' || status === 'built' || status === 'completed') {
+    return 'healthy'
+  }
+  if (status === 'degraded') return 'degraded'
+  if (status === 'unhealthy' || status === 'error' || status === 'failed') return 'unhealthy'
+  return 'unknown'
 }
 
 export function DualStatusBadge({ 
   status, 
   health,
+  service,
+  healthStatus,
   className 
-}: DualStatusBadgeProps) {
+}: Readonly<DualStatusBadgeProps>) {
   const reduceMotion = React.useMemo(() => 
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    typeof globalThis !== 'undefined' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches,
   [])
   
   // Determine running state
@@ -315,16 +346,27 @@ export function DualStatusBadge({
   const isError = status === 'error' || status === 'unhealthy' || status === 'failed'
   
   // Determine health status - use provided health or infer from status
-  const effectiveHealth: HealthStatus = health ?? (
-    (status === 'healthy' || status === 'running' || status === 'watching' || status === 'built' || status === 'completed') ? 'healthy' :
-    status === 'degraded' ? 'degraded' :
-    (status === 'unhealthy' || status === 'error' || status === 'failed') ? 'unhealthy' :
-    'unknown'
+  const effectiveHealth = getEffectiveHealth(status, health)
+
+  // Health icon with optional tooltip
+  const healthIcon = (
+    <span 
+      className={cn(
+        "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+        effectiveHealth === 'healthy' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30",
+        effectiveHealth === 'degraded' && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30",
+        effectiveHealth === 'unhealthy' && "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30",
+        effectiveHealth === 'unknown' && "bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/30"
+      )}
+      title={`Service health: ${effectiveHealth} (from health checks)`}
+    >
+      {getHealthIconElement(effectiveHealth, reduceMotion)}
+    </span>
   )
 
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
-      {/* Running State Icon - shows lifecycle state (running/stopped/starting/etc) */}
+      {/* Running State Icon */}
       <span 
         className={cn(
           "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
@@ -345,27 +387,14 @@ export function DualStatusBadge({
         {isError && <CircleX className="w-3 h-3 shrink-0" />}
       </span>
       
-      {/* Health Status Icon - from real-time health checks */}
-      <span 
-        className={cn(
-          "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
-          effectiveHealth === 'healthy' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30",
-          effectiveHealth === 'degraded' && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30",
-          effectiveHealth === 'unhealthy' && "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30",
-          effectiveHealth === 'unknown' && "bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/30"
-        )}
-        title={`Service health: ${effectiveHealth} (from health checks)`}
-      >
-        {effectiveHealth === 'healthy' ? (
-          <Heart className={cn("w-3 h-3 shrink-0", !reduceMotion && "animate-modern-heartbeat")} />
-        ) : effectiveHealth === 'degraded' ? (
-          <HeartPulse className={cn("w-3 h-3 shrink-0", !reduceMotion && "animate-modern-breathe")} />
-        ) : effectiveHealth === 'unhealthy' ? (
-          <HeartCrack className={cn("w-3 h-3 shrink-0", !reduceMotion && "animate-modern-flash")} />
-        ) : (
-          <HelpCircle className="w-3 h-3 shrink-0" />
-        )}
-      </span>
+      {/* Health Status Icon - Wrapped in tooltip if we have full health data */}
+      {service && healthStatus ? (
+        <HealthTooltip healthStatus={healthStatus} service={service}>
+          {healthIcon}
+        </HealthTooltip>
+      ) : (
+        healthIcon
+      )}
     </div>
   )
 }
@@ -375,16 +404,16 @@ export function DualStatusBadge({
 // =============================================================================
 
 interface StatusBadgeProps {
-  status: EffectiveStatus
-  showDot?: boolean
-  className?: string
+  readonly status: EffectiveStatus
+  readonly showDot?: boolean
+  readonly className?: string
 }
 
 export function StatusBadge({ 
   status, 
   showDot = true,
   className 
-}: StatusBadgeProps) {
+}: Readonly<StatusBadgeProps>) {
   const config = getStatusConfig(status)
 
   return (
@@ -410,11 +439,11 @@ export function StatusBadge({
 // =============================================================================
 
 interface StatusIndicatorProps {
-  status: EffectiveStatus
-  variant?: StatusVariant
-  animated?: boolean
-  showLabel?: boolean
-  className?: string
+  readonly status: EffectiveStatus
+  readonly variant?: StatusVariant
+  readonly animated?: boolean
+  readonly showLabel?: boolean
+  readonly className?: string
 }
 
 export function StatusIndicator({
@@ -423,11 +452,11 @@ export function StatusIndicator({
   animated = true,
   showLabel = false,
   className,
-}: StatusIndicatorProps) {
+}: Readonly<StatusIndicatorProps>) {
   const config = getStatusConfig(status)
   const Icon = config.icon
   const reduceMotion = React.useMemo(() => 
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    typeof globalThis !== 'undefined' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches,
   [])
 
   if (variant === 'dot') {
@@ -471,14 +500,14 @@ export function StatusIndicator({
 // =============================================================================
 
 interface HealthPillProps {
-  total: number
-  healthy: number
-  degraded: number
-  unhealthy: number
-  starting: number
-  onClick?: () => void
-  expanded?: boolean
-  className?: string
+  readonly total: number
+  readonly healthy: number
+  readonly degraded: number
+  readonly unhealthy: number
+  readonly starting: number
+  readonly onClick?: () => void
+  readonly expanded?: boolean
+  readonly className?: string
 }
 
 export function HealthPill({
@@ -490,7 +519,7 @@ export function HealthPill({
   onClick,
   expanded = false,
   className,
-}: HealthPillProps) {
+}: Readonly<HealthPillProps>) {
   // Determine overall status
   let overallStatus: EffectiveStatus = 'healthy'
   let displayCount = healthy
@@ -516,7 +545,7 @@ export function HealthPill({
     <button
       type="button"
       onClick={onClick}
-      aria-label={`System status: ${displayCount} ${displayLabel.toLowerCase()} service${displayCount !== 1 ? 's' : ''}`}
+      aria-label={`System status: ${displayCount} ${displayLabel.toLowerCase()} service${displayCount === 1 ? '' : 's'}`}
       aria-haspopup={onClick ? 'true' : undefined}
       aria-expanded={onClick ? expanded : undefined}
       className={cn(
@@ -555,16 +584,16 @@ export function HealthPill({
 // =============================================================================
 
 interface ConnectionStatusProps {
-  connected: boolean
-  reconnecting?: boolean
-  className?: string
+  readonly connected: boolean
+  readonly reconnecting?: boolean
+  readonly className?: string
 }
 
 export function ConnectionStatus({
   connected,
   reconnecting = false,
   className,
-}: ConnectionStatusProps) {
+}: Readonly<ConnectionStatusProps>) {
   let status: EffectiveStatus = 'healthy'
   let label = 'Connected'
   
@@ -599,7 +628,7 @@ export function ConnectionStatus({
 // Skeleton/Loading Components
 // =============================================================================
 
-export function StatusSkeleton({ className }: { className?: string }) {
+export function StatusSkeleton({ className }: Readonly<{ className?: string }>) {
   return (
     <div 
       className={cn(
@@ -610,7 +639,7 @@ export function StatusSkeleton({ className }: { className?: string }) {
   )
 }
 
-export function Spinner({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
+export function Spinner({ size = 'md', className }: Readonly<{ size?: 'sm' | 'md' | 'lg'; className?: string }>) {
   const sizeClasses = {
     sm: 'w-3.5 h-3.5 border-[1.5px]',
     md: 'w-5 h-5 border-2',

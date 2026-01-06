@@ -3,9 +3,10 @@
  * Displays health check results and provides troubleshooting guidance
  */
 import * as React from 'react'
-import { X, CheckCircle, AlertCircle, XCircle, Copy, Check, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
+import { X, CheckCircle, AlertCircle, XCircle, Copy, Check, ExternalLink, Loader2, RefreshCw, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import type { SetupStep } from './AzureSetupGuide'
 
 // =============================================================================
 // Types
@@ -14,6 +15,7 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
 export interface DiagnosticsModalProps {
   isOpen: boolean
   onClose: () => void
+  onOpenSetupGuide?: (step: SetupStep) => void
 }
 
 interface HealthCheckResponse {
@@ -116,10 +118,38 @@ const statusDisplay: Record<HealthCheckResponse['status'], {
 }
 
 // =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Determine which setup step failed based on health check results
+ * Used for deep linking to the correct step in the setup guide
+ */
+function determineFailingStep(checks: HealthCheck[]): SetupStep {
+  // Check for workspace issues (must come first as it's foundational)
+  if (checks.some(c => c.name.toLowerCase().includes('workspace'))) {
+    return 'workspace'
+  }
+  
+  // Check for authentication issues
+  if (checks.some(c => c.name.toLowerCase().includes('auth') || c.name.toLowerCase().includes('permission'))) {
+    return 'auth'
+  }
+  
+  // Check for diagnostic settings issues
+  if (checks.some(c => c.name.toLowerCase().includes('diagnostic'))) {
+    return 'diagnostic-settings'
+  }
+  
+  // Default to verification step for other issues
+  return 'verification'
+}
+
+// =============================================================================
 // DiagnosticsModal Component
 // =============================================================================
 
-export function DiagnosticsModal({ isOpen, onClose }: Readonly<DiagnosticsModalProps>) {
+export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly<DiagnosticsModalProps>) {
   const dialogRef = React.useRef<HTMLDialogElement>(null)
   const abortRef = React.useRef<AbortController | null>(null)
   const [loading, setLoading] = React.useState(false)
@@ -363,6 +393,25 @@ export function DiagnosticsModal({ isOpen, onClose }: Readonly<DiagnosticsModalP
               </div>
 
               <div className="flex flex-wrap items-center gap-2 justify-end">
+                {/* Fix Setup button - shown when checks fail and callback is provided */}
+                {data && onOpenSetupGuide && data.status !== 'healthy' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const failingStep = determineFailingStep(data.checks.filter(c => c.status === 'fail'))
+                      onOpenSetupGuide(failingStep)
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm',
+                      'bg-orange-600 text-white hover:bg-orange-700',
+                      'focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
+                    )}
+                  >
+                    <Wrench className="w-4 h-4" />
+                    Fix Setup
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => void runHealthCheck()}

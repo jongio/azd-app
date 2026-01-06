@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@radix-ui/react-tooltip": "^1.2.8"
   }
 }

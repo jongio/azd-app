@@ -590,3 +590,237 @@ func TestCheckService_RunningService(t *testing.T) {
 		t.Errorf("Expected status unhealthy for running service with dead port, got %s", result.Status)
 	}
 }
+
+// TestTrackFailure tests consecutive failure tracking
+func TestTrackFailure(t *testing.T) {
+	monitor := &HealthMonitor{
+		failureCount:    make(map[string]int),
+		lastSuccessTime: make(map[string]time.Time),
+	}
+
+	serviceName := "test-service"
+
+	// Test: First unhealthy check should set consecutive failures to 1
+	result := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusUnhealthy,
+	}
+	monitor.trackFailure(&result)
+
+	if result.ConsecutiveFailures != 1 {
+		t.Errorf("Expected consecutive failures to be 1, got %d", result.ConsecutiveFailures)
+	}
+
+	// Test: Second unhealthy check should increment to 2
+	result2 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusUnhealthy,
+	}
+	monitor.trackFailure(&result2)
+
+	if result2.ConsecutiveFailures != 2 {
+		t.Errorf("Expected consecutive failures to be 2, got %d", result2.ConsecutiveFailures)
+	}
+
+	// Test: Third unhealthy check should increment to 3
+	result3 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusUnhealthy,
+	}
+	monitor.trackFailure(&result3)
+
+	if result3.ConsecutiveFailures != 3 {
+		t.Errorf("Expected consecutive failures to be 3, got %d", result3.ConsecutiveFailures)
+	}
+
+	// Test: Healthy check should reset consecutive failures to 0
+	result4 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusHealthy,
+	}
+	monitor.trackFailure(&result4)
+
+	if result4.ConsecutiveFailures != 0 {
+		t.Errorf("Expected consecutive failures to be reset to 0, got %d", result4.ConsecutiveFailures)
+	}
+	if result4.LastSuccessTime == nil {
+		t.Error("Expected last success time to be set")
+	}
+
+	// Test: Another unhealthy check after reset should start at 1 again
+	result5 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusUnhealthy,
+	}
+	monitor.trackFailure(&result5)
+
+	if result5.ConsecutiveFailures != 1 {
+		t.Errorf("Expected consecutive failures to be 1 after reset, got %d", result5.ConsecutiveFailures)
+	}
+	if result5.LastSuccessTime == nil {
+		t.Error("Expected last success time to be preserved from previous healthy check")
+	}
+}
+
+// TestTrackFailure_DegradedStatus tests that degraded status doesn't increment failure count
+func TestTrackFailure_DegradedStatus(t *testing.T) {
+	monitor := &HealthMonitor{
+		failureCount:    make(map[string]int),
+		lastSuccessTime: make(map[string]time.Time),
+	}
+
+	serviceName := "test-service"
+
+	// Set initial failure count
+	monitor.failureCount[serviceName] = 3
+
+	// Degraded status should preserve but not increment count
+	result := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusDegraded,
+	}
+	monitor.trackFailure(&result)
+
+	if result.ConsecutiveFailures != 3 {
+		t.Errorf("Expected consecutive failures to remain 3, got %d", result.ConsecutiveFailures)
+	}
+	if monitor.failureCount[serviceName] != 3 {
+		t.Errorf("Expected failure count to remain 3, got %d", monitor.failureCount[serviceName])
+	}
+}
+
+// TestTrackFailure_ConcurrentAccess tests thread safety of failure tracking
+func TestTrackFailure_ConcurrentAccess(t *testing.T) {
+	monitor := &HealthMonitor{
+		failureCount:    make(map[string]int),
+		lastSuccessTime: make(map[string]time.Time),
+	}
+
+	serviceName := "test-service"
+	concurrency := 100
+
+	// Run concurrent failure tracking
+	done := make(chan bool, concurrency)
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			result := HealthCheckResult{
+				ServiceName: serviceName,
+				Status:      HealthStatusUnhealthy,
+			}
+			monitor.trackFailure(&result)
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < concurrency; i++ {
+		<-done
+	}
+
+	// Failure count should be exactly the number of concurrent calls
+	if monitor.failureCount[serviceName] != concurrency {
+		t.Errorf("Expected failure count to be %d, got %d (race condition detected)",
+			concurrency, monitor.failureCount[serviceName])
+	}
+}
+
+// TestTrackFailure_MultipleServices tests tracking failures for multiple services independently
+func TestTrackFailure_MultipleServices(t *testing.T) {
+	monitor := &HealthMonitor{
+		failureCount:    make(map[string]int),
+		lastSuccessTime: make(map[string]time.Time),
+	}
+
+	// Service 1: 3 failures
+	for i := 0; i < 3; i++ {
+		result := HealthCheckResult{
+			ServiceName: "service1",
+			Status:      HealthStatusUnhealthy,
+		}
+		monitor.trackFailure(&result)
+	}
+
+	// Service 2: 5 failures
+	for i := 0; i < 5; i++ {
+		result := HealthCheckResult{
+			ServiceName: "service2",
+			Status:      HealthStatusUnhealthy,
+		}
+		monitor.trackFailure(&result)
+	}
+
+	// Verify counts are independent
+	if monitor.failureCount["service1"] != 3 {
+		t.Errorf("Expected service1 failure count to be 3, got %d", monitor.failureCount["service1"])
+	}
+	if monitor.failureCount["service2"] != 5 {
+		t.Errorf("Expected service2 failure count to be 5, got %d", monitor.failureCount["service2"])
+	}
+
+	// Reset service1, should not affect service2
+	result := HealthCheckResult{
+		ServiceName: "service1",
+		Status:      HealthStatusHealthy,
+	}
+	monitor.trackFailure(&result)
+
+	if monitor.failureCount["service1"] != 0 {
+		t.Errorf("Expected service1 failure count to be reset to 0, got %d", monitor.failureCount["service1"])
+	}
+	if monitor.failureCount["service2"] != 5 {
+		t.Errorf("Expected service2 failure count to remain 5, got %d", monitor.failureCount["service2"])
+	}
+}
+
+// TestTrackFailure_LastSuccessTime tests last success time tracking
+func TestTrackFailure_LastSuccessTime(t *testing.T) {
+	monitor := &HealthMonitor{
+		failureCount:    make(map[string]int),
+		lastSuccessTime: make(map[string]time.Time),
+	}
+
+	serviceName := "test-service"
+
+	// First healthy check should set last success time
+	result1 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusHealthy,
+	}
+	monitor.trackFailure(&result1)
+
+	if result1.LastSuccessTime == nil {
+		t.Fatal("Expected last success time to be set")
+	}
+	firstSuccess := *result1.LastSuccessTime
+
+	// Sleep briefly to ensure time difference
+	time.Sleep(10 * time.Millisecond)
+
+	// Unhealthy check should preserve last success time
+	result2 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusUnhealthy,
+	}
+	monitor.trackFailure(&result2)
+
+	if result2.LastSuccessTime == nil {
+		t.Fatal("Expected last success time to be preserved")
+	}
+	if !result2.LastSuccessTime.Equal(firstSuccess) {
+		t.Error("Expected last success time to match first success")
+	}
+
+	// Another healthy check should update last success time
+	result3 := HealthCheckResult{
+		ServiceName: serviceName,
+		Status:      HealthStatusHealthy,
+	}
+	monitor.trackFailure(&result3)
+
+	if result3.LastSuccessTime == nil {
+		t.Fatal("Expected last success time to be updated")
+	}
+	if result3.LastSuccessTime.Before(firstSuccess) {
+		t.Error("Expected last success time to be more recent")
+	}
+}

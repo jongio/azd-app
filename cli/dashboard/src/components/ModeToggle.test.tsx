@@ -29,8 +29,8 @@ describe('ModeToggle', () => {
     it('renders both local and Azure buttons', () => {
       render(<ModeToggle {...defaultProps} />)
       
-      expect(screen.getByRole('radio', { name: 'View local logs' })).toBeInTheDocument()
-      expect(screen.getByRole('radio', { name: 'View Azure logs' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'View local logs' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'View Azure logs' })).toBeInTheDocument()
     })
 
     it('shows labels when showLabels is true and size is not compact', () => {
@@ -47,14 +47,14 @@ describe('ModeToggle', () => {
       expect(screen.queryByText('Azure')).not.toBeInTheDocument()
     })
 
-    it('applies correct aria-checked attributes', () => {
+    it('applies correct aria-pressed attributes', () => {
       render(<ModeToggle {...defaultProps} mode="local" />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       
-      expect(localButton).toHaveAttribute('aria-checked', 'true')
-      expect(azureButton).toHaveAttribute('aria-checked', 'false')
+      expect(localButton).toHaveAttribute('aria-pressed', 'true')
+      expect(azureButton).toHaveAttribute('aria-pressed', 'false')
     })
   })
 
@@ -65,7 +65,7 @@ describe('ModeToggle', () => {
       
       render(<ModeToggle {...defaultProps} mode="azure" onModeChange={onModeChange} />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       await user.click(localButton)
       
       expect(onModeChange).toHaveBeenCalledWith('local')
@@ -77,7 +77,7 @@ describe('ModeToggle', () => {
       
       render(<ModeToggle {...defaultProps} mode="local" onModeChange={onModeChange} />)
       
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       await user.click(azureButton)
       
       expect(onModeChange).toHaveBeenCalledWith('azure')
@@ -89,7 +89,7 @@ describe('ModeToggle', () => {
       
       render(<ModeToggle {...defaultProps} mode="local" onModeChange={onModeChange} />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       await user.click(localButton)
       
       expect(onModeChange).not.toHaveBeenCalled()
@@ -100,7 +100,7 @@ describe('ModeToggle', () => {
       
       const { rerender } = render(<ModeToggle {...defaultProps} mode="local" onModeChange={onModeChange} />)
       
-      const radioGroup = screen.getByRole('radiogroup', { name: 'Log source' })
+      const radioGroup = screen.getByRole('group', { name: 'Log source' })
       
       // Trigger keydown directly on the radiogroup using fireEvent
       // Arrow keys toggle between modes
@@ -111,48 +111,136 @@ describe('ModeToggle', () => {
       
       // Re-render with azure mode to test the other direction
       rerender(<ModeToggle {...defaultProps} mode="azure" onModeChange={onModeChange} />)
-      const radioGroupAzure = screen.getByRole('radiogroup', { name: 'Log source' })
+      const radioGroupAzure = screen.getByRole('group', { name: 'Log source' })
       fireEvent.keyDown(radioGroupAzure, { key: 'ArrowLeft' })
       expect(onModeChange).toHaveBeenCalledWith('local')
     })
   })
 
-  describe('Azure Not Configured', () => {
-    it('allows clicking Azure button even when azureEnabled is false', async () => {
+  describe('Setup Guide Integration', () => {
+    it('calls onOpenSetupGuide when Azure clicked while disabled', async () => {
+      const onOpenSetupGuide = vi.fn()
       const onModeChange = vi.fn()
       const user = userEvent.setup()
       
-      render(<ModeToggle {...defaultProps} azureEnabled={false} onModeChange={onModeChange} />)
+      render(
+        <ModeToggle
+          {...defaultProps}
+          mode="local"
+          azureEnabled={false}
+          onOpenSetupGuide={onOpenSetupGuide}
+          onModeChange={onModeChange}
+        />
+      )
       
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
+      await user.click(azureButton)
+      
+      expect(onOpenSetupGuide).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not change mode when Azure clicked while disabled', async () => {
+      const onOpenSetupGuide = vi.fn()
+      const onModeChange = vi.fn()
+      const user = userEvent.setup()
+      
+      render(
+        <ModeToggle
+          {...defaultProps}
+          mode="local"
+          azureEnabled={false}
+          onOpenSetupGuide={onOpenSetupGuide}
+          onModeChange={onModeChange}
+        />
+      )
+      
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
+      await user.click(azureButton)
+      
+      // Should not call onModeChange
+      expect(onModeChange).not.toHaveBeenCalled()
+      // Should call onOpenSetupGuide instead
+      expect(onOpenSetupGuide).toHaveBeenCalled()
+    })
+
+    it('changes mode when Azure clicked while enabled', async () => {
+      const onOpenSetupGuide = vi.fn()
+      const onModeChange = vi.fn()
+      const user = userEvent.setup()
+      
+      render(
+        <ModeToggle
+          {...defaultProps}
+          mode="local"
+          azureEnabled={true}
+          onOpenSetupGuide={onOpenSetupGuide}
+          onModeChange={onModeChange}
+        />
+      )
+      
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
+      await user.click(azureButton)
+      
+      // Should call onModeChange
+      expect(onModeChange).toHaveBeenCalledWith('azure')
+      // Should not call onOpenSetupGuide
+      expect(onOpenSetupGuide).not.toHaveBeenCalled()
+    })
+
+    it('shows setup tooltip when Azure is disabled', () => {
+      render(
+        <ModeToggle
+          {...defaultProps}
+          azureEnabled={false}
+        />
+      )
+      
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
+      expect(azureButton).toHaveAttribute('title', 'Click to set up Azure logs')
+    })
+
+    it('does not call onOpenSetupGuide when undefined', async () => {
+      const onModeChange = vi.fn()
+      const user = userEvent.setup()
+      
+      render(
+        <ModeToggle
+          {...defaultProps}
+          mode="local"
+          azureEnabled={false}
+          onModeChange={onModeChange}
+          onOpenSetupGuide={undefined}
+        />
+      )
+      
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
+      await user.click(azureButton)
+      
+      // Should not throw and should not change mode
+      expect(onModeChange).not.toHaveBeenCalled()
+    })
+
+    it('allows clicking Azure button when disabled', async () => {
+      const onOpenSetupGuide = vi.fn()
+      const user = userEvent.setup()
+      
+      render(
+        <ModeToggle
+          {...defaultProps}
+          azureEnabled={false}
+          onOpenSetupGuide={onOpenSetupGuide}
+        />
+      )
+      
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       
       // Button should not be disabled
       expect(azureButton).not.toBeDisabled()
       
       await user.click(azureButton)
       
-      // Should call onModeChange to allow user to see diagnostics
-      expect(onModeChange).toHaveBeenCalledWith('azure')
-    })
-
-    it('shows helpful tooltip when Azure is not configured', () => {
-      render(<ModeToggle {...defaultProps} azureEnabled={false} />)
-      
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
-      
-      expect(azureButton).toHaveAttribute('title', 'Azure logging not configured. Click to diagnose and fix setup')
-    })
-
-    it('does not show disabled visual state when Azure is not configured', () => {
-      render(<ModeToggle {...defaultProps} azureEnabled={false} mode="local" />)
-      
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
-      
-      // Should not have aria-disabled attribute
-      expect(azureButton).not.toHaveAttribute('aria-disabled')
-      
-      // Should not be disabled
-      expect(azureButton).not.toBeDisabled()
+      // Should trigger setup guide
+      expect(onOpenSetupGuide).toHaveBeenCalled()
     })
   })
 
@@ -211,7 +299,7 @@ describe('ModeToggle', () => {
       )
       
       // Check for emerald color class on Azure icon when connected
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       const azureIcon = azureButton.querySelector('svg')
       if (azureIcon?.className instanceof SVGAnimatedString) {
         expect(azureIcon.className.baseVal).toContain('text-emerald-500')
@@ -223,8 +311,8 @@ describe('ModeToggle', () => {
     it('disables buttons when isLoading is true', () => {
       render(<ModeToggle {...defaultProps} isLoading={true} />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       
       expect(localButton).toBeDisabled()
       expect(azureButton).toBeDisabled()
@@ -234,7 +322,7 @@ describe('ModeToggle', () => {
       render(<ModeToggle {...defaultProps} mode="azure" isLoading={true} />)
       
       // Loading spinner should be visible
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       expect(azureButton.querySelector('.animate-spin')).toBeInTheDocument()
     })
 
@@ -244,7 +332,7 @@ describe('ModeToggle', () => {
       
       render(<ModeToggle {...defaultProps} isLoading={true} onModeChange={onModeChange} />)
       
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       await user.click(azureButton)
       
       expect(onModeChange).not.toHaveBeenCalled()
@@ -255,7 +343,7 @@ describe('ModeToggle', () => {
     it('has proper radiogroup role and label', () => {
       render(<ModeToggle {...defaultProps} />)
       
-      const radioGroup = screen.getByRole('radiogroup', { name: 'Log source' })
+      const radioGroup = screen.getByRole('group', { name: 'Log source' })
       expect(radioGroup).toBeInTheDocument()
     })
 
@@ -265,7 +353,7 @@ describe('ModeToggle', () => {
       
       render(<ModeToggle {...defaultProps} mode="local" onModeChange={onModeChange} />)
       
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       await user.click(azureButton)
       
       // Check for announcement
@@ -278,7 +366,7 @@ describe('ModeToggle', () => {
     it('supports focus-visible styles', () => {
       render(<ModeToggle {...defaultProps} />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       
       expect(localButton.className).toContain('focus-visible:outline-none')
       expect(localButton.className).toContain('focus-visible:ring-2')
@@ -289,21 +377,21 @@ describe('ModeToggle', () => {
     it('applies compact size classes', () => {
       render(<ModeToggle {...defaultProps} size="compact" />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       expect(localButton.className).toContain('p-2')
     })
 
     it('applies standard size classes', () => {
       render(<ModeToggle {...defaultProps} size="standard" />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       expect(localButton.className).toContain('px-3')
     })
 
     it('applies large size classes', () => {
       render(<ModeToggle {...defaultProps} size="large" />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       expect(localButton.className).toContain('px-4')
     })
   })
@@ -312,21 +400,21 @@ describe('ModeToggle', () => {
     it('shows compact mode tooltip for local button when size is compact', () => {
       render(<ModeToggle {...defaultProps} size="compact" />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       expect(localButton).toHaveAttribute('title', 'Local logs')
     })
 
     it('shows compact mode tooltip for Azure button when size is compact and configured', () => {
       render(<ModeToggle {...defaultProps} size="compact" azureEnabled={true} />)
       
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       expect(azureButton).toHaveAttribute('title', 'Azure logs')
     })
 
     it('does not show tooltip for local button when size is not compact', () => {
       render(<ModeToggle {...defaultProps} size="standard" />)
       
-      const localButton = screen.getByRole('radio', { name: 'View local logs' })
+      const localButton = screen.getByRole('button', { name: 'View local logs' })
       expect(localButton).not.toHaveAttribute('title')
     })
   })
@@ -346,7 +434,7 @@ describe('ModeToggle', () => {
       
       render(<ModeToggle {...defaultProps} onModeChange={undefined} />)
       
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       
       // Should not throw - just verify the click works
       await user.click(azureButton)
@@ -361,7 +449,7 @@ describe('ModeToggle', () => {
       const { unmount } = render(<ModeToggle {...defaultProps} onModeChange={onModeChange} />)
       
       // Trigger a mode change to create a timeout
-      const azureButton = screen.getByRole('radio', { name: 'View Azure logs' })
+      const azureButton = screen.getByRole('button', { name: 'View Azure logs' })
       await user.click(azureButton)
       
       // Unmount should clean up without errors
@@ -369,3 +457,4 @@ describe('ModeToggle', () => {
     })
   })
 })
+

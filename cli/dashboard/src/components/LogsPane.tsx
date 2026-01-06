@@ -3,7 +3,7 @@ import { formatLogTimestamp, getLogPaneVisualStatus, normalizeHealthStatus } fro
 import { cn } from '@/lib/utils'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
-import type { HealthStatus, Service } from '@/types'
+import type { HealthStatus, Service, HealthCheckResult } from '@/types'
 import { useLogClassifications } from '@/hooks/useLogClassifications'
 import type { LogMode } from './ModeToggle'
 import { stripEmbeddedTimestamp } from '@/lib/log-utils'
@@ -47,11 +47,13 @@ interface LogsPaneProps {
   isCollapsed?: boolean           // NEW: controlled collapse state
   onToggleCollapse?: () => void   // NEW: collapse toggle callback
   serviceHealth?: HealthStatus  // Real-time health from stream
+  healthCheckResult?: HealthCheckResult  // Full health check result with diagnostics
   onShowDetails?: () => void      // Callback to open service details panel
   logMode?: LogMode               // Current log source mode (local or azure)
   isModeSwitching?: boolean       // Whether mode is currently being switched
   timeRange?: { preset: '15m' | '30m' | '6h' | '24h'; end?: Date }  // Optional, only used for Azure logs
   azureRealtime?: boolean         // Whether to use WebSocket realtime streaming for Azure logs
+  onOpenDiagnostics?: () => void  // Callback to open diagnostics modal
 }
 
 export function LogsPane({ 
@@ -68,11 +70,13 @@ export function LogsPane({
   isCollapsed: controlledIsCollapsed,
   onToggleCollapse,
   serviceHealth,
+  healthCheckResult,
   onShowDetails,
   logMode = 'local',
   isModeSwitching = false,
   timeRange,
   azureRealtime = false,
+  onOpenDiagnostics,
 }: Readonly<LogsPaneProps>) {
   const { timeRange: resolvedTimeRange } = useAzureTimeRange(timeRange)
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -295,6 +299,7 @@ export function LogsPane({
         processStatus={processStatus}
         normalizedHealth={normalizedHealth}
         healthIcon={healthIcon}
+        healthCheckResult={healthCheckResult}
         service={service}
         effectiveUrl={effectiveUrl ?? undefined}
         logMode={logMode}
@@ -307,6 +312,7 @@ export function LogsPane({
         isCollapsed={isCollapsed}
         logMode={logMode}
         isModeSwitching={isModeSwitching}
+        onOpenDiagnostics={onOpenDiagnostics}
       />
 
       <LogsPaneContent
@@ -330,6 +336,7 @@ export function LogsPane({
         onRetry={retryLogs}
         serviceName={serviceName}
         globalSearchTerm={globalSearchTerm}
+        onOpenDiagnostics={onOpenDiagnostics}
       />
 
       <LogsPaneClassificationOverlay

@@ -33,6 +33,8 @@ export interface ModeToggleProps {
   showStatus?: boolean
   /** Callback when mode changes */
   onModeChange?: (mode: LogMode) => void
+  /** Callback to open setup guide (called when Azure clicked while disabled) */
+  onOpenSetupGuide?: () => void
   /** Additional class names */
   className?: string
 }
@@ -159,6 +161,7 @@ export function ModeToggle({
   showLabels = true,
   showStatus = true,
   onModeChange,
+  onOpenSetupGuide,
   className 
 }: Readonly<ModeToggleProps>) {
   const [announcement, setAnnouncement] = React.useState('')
@@ -179,7 +182,13 @@ export function ModeToggle({
       return
     }
     
-    // Always allow switching to Azure mode to enable diagnostics
+    // If switching to Azure but it's not enabled, open setup guide instead
+    if (newMode === 'azure' && !azureEnabled) {
+      onOpenSetupGuide?.()
+      return
+    }
+    
+    // Allow switching modes
     onModeChange?.(newMode)
     
     // Announce to screen readers
@@ -210,6 +219,14 @@ export function ModeToggle({
     return ''
   }
 
+  // Determine Azure button title
+  const getAzureTitle = (): string | undefined => {
+    if (azureEnabled) {
+      return size === 'compact' ? 'Azure logs' : undefined
+    }
+    return 'Click to set up Azure logs'
+  }
+
   return (
     <>
       <div 
@@ -219,15 +236,15 @@ export function ModeToggle({
           config.gap,
           className
         )}
-        role="radiogroup"
+        role="group"
         aria-label="Log source"
         onKeyDown={handleKeyDown}
+        tabIndex={-1}
       >
         {/* Local Mode Button */}
         <button
           type="button"
-          role="radio"
-          aria-checked={isLocal}
+          aria-pressed={isLocal}
           aria-label="View local logs"
           onClick={() => handleModeChange('local')}
           disabled={isLoading}
@@ -261,23 +278,16 @@ export function ModeToggle({
         {/* Azure Mode Button */}
         <button
           type="button"
-          role="radio"
-          aria-checked={!isLocal}
+          aria-pressed={isLocal === false}
           aria-label="View Azure logs"
           onClick={() => handleModeChange('azure')}
           disabled={isLoading}
-          title={
-            !azureEnabled 
-              ? 'Azure logging not configured. Click to diagnose and fix setup' 
-              : size === 'compact' 
-                ? 'Azure logs' 
-                : undefined
-          }
+          title={getAzureTitle()}
           className={cn(
             'flex items-center justify-center',
             'transition-all duration-150 ease-out',
             config.button,
-            !isLocal ? [
+            isLocal === false ? [
               'bg-azure-100 dark:bg-azure-500/20',
               'text-azure-600 dark:text-azure-400',
               'shadow-sm',
@@ -293,7 +303,7 @@ export function ModeToggle({
             'active:scale-95',
           )}
         >
-          {isLoading && !isLocal ? (
+          {isLoading && isLocal === false ? (
             <Loader2 className={cn(config.icon, 'animate-spin')} aria-hidden="true" />
           ) : (
             <AzureIcon className={cn(config.icon, showStatus && getAzureIconColor(azureStatus))} />
@@ -312,9 +322,9 @@ export function ModeToggle({
       </div>
       
       {/* Screen reader announcements */}
-      <div role="status" aria-live="polite" className="sr-only">
+      <output aria-live="polite" className="sr-only">
         {announcement}
-      </div>
+      </output>
     </>
   )
 }

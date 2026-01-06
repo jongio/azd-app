@@ -162,6 +162,9 @@ azd app deps --clean
 
 # Force fresh install (combines --clean and --no-cache)
 azd app deps --force
+
+# Or use run --force to reinstall deps before starting
+azd app run --force
 ```
 
 ### Flags

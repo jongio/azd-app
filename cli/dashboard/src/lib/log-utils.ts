@@ -31,12 +31,20 @@ export const INITIAL_LOG_TAIL = LOG_CONSTANTS.INITIAL_LOG_TAIL
 export const SCROLL_THRESHOLD_PX = LOG_CONSTANTS.SCROLL_THRESHOLD_PX
 
 // ============================================================================
-// ANSI Conversion (Single Shared Instance)
+// ANSI Conversion (Dual Instances for Light/Dark Mode)
 // ============================================================================
 
-const ansiConverter = new AnsiConverter({
-  fg: '#e2e8f0',
+const ansiConverterDark = new AnsiConverter({
+  fg: '#e2e8f0', // Light text for dark mode
   bg: '#111827',
+  newline: false,
+  escapeXML: true, // CRITICAL: Must be true to prevent XSS
+  stream: false,
+})
+
+const ansiConverterLight = new AnsiConverter({
+  fg: '#1e293b', // Dark text for light mode
+  bg: '#ffffff',
   newline: false,
   escapeXML: true, // CRITICAL: Must be true to prevent XSS
   stream: false,
@@ -58,6 +66,7 @@ function stripAnsi(text: string): string {
 /**
  * Converts ANSI escape codes to HTML for display.
  * Includes XSS sanitization for security and URL linkification.
+ * Automatically detects light/dark theme for appropriate text colors.
  * 
  * URL detection is done on the stripped text first to handle cases where
  * ANSI codes might be embedded within URLs (e.g., colored port numbers).
@@ -71,8 +80,12 @@ export function convertAnsiToHtml(text: string, codespaceConfig?: CodespaceConfi
     const strippedText = stripAnsi(text)
     const urls = findUrls(strippedText)
     
+    // Detect current theme from document
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    const converter = isDark ? ansiConverterDark : ansiConverterLight
+    
     // Convert ANSI to HTML
-    const html = ansiConverter.toHtml(text)
+    const html = converter.toHtml(text)
     const sanitized = sanitizeHtml(html)
     
     // Linkify URLs, handling potential HTML tags within URLs
