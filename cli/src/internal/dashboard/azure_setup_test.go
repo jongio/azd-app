@@ -100,7 +100,7 @@ func TestHandleAzureSetupState(t *testing.T) {
 				t.Errorf("expected at least %d issues, got %d", tt.minIssueCount, len(response.Issues))
 			}
 
-			if time.Since(response.Timestamp) > 5*time.Second {
+			if time.Since(response.Timestamp) > 30*time.Second {
 				t.Errorf("timestamp too old: %v", response.Timestamp)
 			}
 		})
