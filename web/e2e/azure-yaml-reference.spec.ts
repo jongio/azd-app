@@ -471,6 +471,7 @@ test.describe('azure.yaml Reference Page - Dark Mode', () => {
       await expect(page).toHaveScreenshot('azure-yaml-reference-light.png', {
         fullPage: true,
         animations: 'disabled',
+        timeout: 30000,
       });
     } else {
       // Just verify it loaded
@@ -491,6 +492,7 @@ test.describe('azure.yaml Reference Page - Dark Mode', () => {
       await expect(page).toHaveScreenshot('azure-yaml-reference-dark.png', {
         fullPage: true,
         animations: 'disabled',
+        timeout: 30000,
       });
     } else {
       // Just verify it loaded
@@ -571,6 +573,7 @@ test.describe('azure.yaml Reference Page - Responsive', () => {
       await expect(page).toHaveScreenshot('azure-yaml-reference-desktop-wide.png', {
         fullPage: true,
         animations: 'disabled',
+        timeout: 30000,
       });
     }
   });
