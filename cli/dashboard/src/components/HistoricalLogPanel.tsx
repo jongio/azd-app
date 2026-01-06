@@ -541,6 +541,7 @@ export function HistoricalLogPanel({
                         </span>
                         {' '}
                         <span 
+                          className="text-foreground"
                           dangerouslySetInnerHTML={{ 
                             __html: convertAnsiToHtml(log?.message ?? '') 
                           }} 

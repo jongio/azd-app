@@ -207,15 +207,21 @@ Required roles:
 
 ### Log Analytics Workspace Not Found
 
-The workspace is auto-detected from diagnostic settings. Override with:
+The workspace is **automatically detected** in the following priority order:
+
+1. `AZURE_LOG_ANALYTICS_WORKSPACE_GUID` environment variable (recommended - set by `azd provision`)
+2. `AZURE_LOG_ANALYTICS_WORKSPACE_ID` environment variable (resource ID)
+3. Auto-discovery from resource group using Azure Resource Manager API
+
+**Optional Override** - only needed if using custom environment variable names:
 
 ```yaml
 logs:
   analytics:
-    workspace: "/subscriptions/.../resourceGroups/.../providers/Microsoft.OperationalInsights/workspaces/..."
+    workspace: ${CUSTOM_WORKSPACE_VAR}  # Use your custom env var instead of default
 ```
 
-Or set environment variable:
+Or set environment variables manually:
 ```bash
 export AZURE_LOG_ANALYTICS_WORKSPACE_ID="..."
 export AZURE_LOG_ANALYTICS_WORKSPACE_GUID="..."  # preferred for query APIs

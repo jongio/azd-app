@@ -220,7 +220,12 @@ export function ServiceCard({
         {/* Status Badge and Actions */}
         <div className="flex items-center gap-2 shrink-0">
           <ServiceActions service={service} variant="compact" />
-          <DualStatusBadge status={effectiveStatus} health={healthStatus?.status} />
+          <DualStatusBadge 
+            status={effectiveStatus} 
+            health={healthStatus?.status}
+            service={service}
+            healthStatus={healthStatus}
+          />
         </div>
       </header>
 

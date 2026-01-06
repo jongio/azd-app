@@ -186,7 +186,12 @@ function ServiceTableRow({
 
       {/* Status */}
       <td className="py-3 px-4">
-        <DualStatusBadge status={effectiveStatus} health={healthStatus?.status} />
+        <DualStatusBadge 
+          status={effectiveStatus} 
+          health={healthStatus?.status}
+          service={service}
+          healthStatus={healthStatus}
+        />
       </td>
 
       {/* Start Time */}

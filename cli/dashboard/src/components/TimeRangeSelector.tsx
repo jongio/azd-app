@@ -201,11 +201,12 @@ export function TimeRangeSelector({
         <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3">
           {/* Start Date/Time */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <label htmlFor="custom-start-datetime" className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
               <Calendar className="w-3.5 h-3.5" />
               Start
             </label>
             <input
+              id="custom-start-datetime"
               type="datetime-local"
               value={customStart}
               onChange={handleCustomStartChange}
@@ -225,11 +226,12 @@ export function TimeRangeSelector({
 
           {/* End Date/Time */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <label htmlFor="custom-end-datetime" className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
               <Clock className="w-3.5 h-3.5" />
               End
             </label>
             <input
+              id="custom-end-datetime"
               type="datetime-local"
               value={customEnd}
               onChange={handleCustomEndChange}

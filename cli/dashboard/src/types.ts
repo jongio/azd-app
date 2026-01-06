@@ -193,6 +193,9 @@ export interface HealthCheckResult {
   responseTime: number  // nanoseconds from Go, convert to ms
   statusCode?: number
   error?: string
+  errorDetails?: string  // Extended error information
+  consecutiveFailures?: number  // Failure count
+  lastSuccessTime?: string  // ISO timestamp of last success
   timestamp: string
   details?: Record<string, unknown>
   port?: number
@@ -237,3 +240,23 @@ export interface HeartbeatEvent extends HealthEvent {
 
 /** Union type for all health events */
 export type AnyHealthEvent = HealthReportEvent | HealthChangeEvent | HeartbeatEvent
+
+// ============================================================================
+// Health Diagnostic Types (for tooltip/diagnostic UI)
+// ============================================================================
+
+/** Suggested action for resolving health issues */
+export interface HealthAction {
+  label: string
+  icon?: string
+  command?: string
+  docsUrl?: string
+}
+
+/** Complete health diagnostic information */
+export interface HealthDiagnostic {
+  service: Service
+  healthStatus: HealthCheckResult
+  suggestedActions: HealthAction[]
+  formattedReport: string  // Pre-formatted markdown for copy
+}

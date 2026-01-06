@@ -9,10 +9,12 @@ import { LogsPaneGrid } from '@/components/LogsPaneGrid'
 import { LogsView } from '@/components/LogsView'
 import { SettingsDialog } from './SettingsDialog'
 import { DiagnosticsModal } from './DiagnosticsModal'
+import { AzureSetupGuide } from './AzureSetupGuide'
 import { ConsoleToolbar, type TimeRangePreset } from './ConsoleToolbar'
 import { ConsoleFilters } from './ConsoleFilters'
 import { usePreferences } from '@/hooks/usePreferences'
 import { useToast } from '@/components/ui/toast'
+import type { SetupStep } from './AzureSetupGuide'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
 import { useServicesContext } from '@/contexts/ServicesContext'
 import { useConsoleFilters } from '@/hooks/useConsoleFilters'
@@ -64,8 +66,33 @@ export function ConsoleView({
   const [collapsedPanes, setCollapsedPanes] = React.useState<Record<string, boolean>>({})
   const [timeRange, setTimeRange] = React.useState<{ preset: TimeRangePreset }>({ preset: '15m' })
   const [showDiagnostics, setShowDiagnostics] = React.useState(false)
+  const [isSetupGuideOpen, setIsSetupGuideOpen] = React.useState(false)
+  const [setupGuideInitialStep, setSetupGuideInitialStep] = React.useState<SetupStep | undefined>(undefined)
 
   const viewMode = preferences.ui.viewMode
+
+  // Setup guide handlers
+  const handleOpenSetupGuide = React.useCallback(() => {
+    setIsSetupGuideOpen(true)
+  }, [])
+
+  const handleOpenSetupGuideWithStep = React.useCallback((step: SetupStep) => {
+    setSetupGuideInitialStep(step)
+    setIsSetupGuideOpen(true)
+  }, [])
+
+  const handleCloseSetupGuide = React.useCallback(() => {
+    setIsSetupGuideOpen(false)
+  }, [])
+
+  const handleSetupComplete = React.useCallback(() => {
+    setIsSetupGuideOpen(false)
+    // Switch to Azure mode
+    void azureConnection.handleLogModeChange('azure')
+    // Refresh Azure status
+    void azureConnection.fetchAzureStatus()
+    showToast('Azure setup completed successfully', 'success')
+  }, [azureConnection, showToast])
 
   // Notify parent of fullscreen changes
   React.useEffect(() => {
@@ -244,9 +271,10 @@ export function ConsoleView({
         <LogsPaneGrid columns={2} collapsedPanes={collapsedPanes} autoFit={true}>
           {paneServicesList.map((serviceName) => {
             const service = services.find((s) => s.name === serviceName)
-            const serviceHealthStatus = healthReport?.services.find(
+            const serviceHealthResult = healthReport?.services.find(
               (s) => s.serviceName === serviceName
-            )?.status
+            )
+            const serviceHealthStatus = serviceHealthResult?.status
             // Services with host: local always show local logs regardless of global mode
             const effectiveLogMode = service?.host === 'local' ? 'local' : azureConnection.logMode
             // Only show mode switching if the service's mode can actually change
@@ -268,6 +296,7 @@ export function ConsoleView({
                 isCollapsed={collapsedPanes[serviceName] ?? false}
                 onToggleCollapse={() => togglePaneCollapse(serviceName)}
                 serviceHealth={serviceHealthStatus}
+                healthCheckResult={serviceHealthResult}
                 onShowDetails={
                   service && onServiceClick ? () => onServiceClick(service) : undefined
                 }
@@ -275,6 +304,7 @@ export function ConsoleView({
                 isModeSwitching={effectiveIsModeSwitching}
                 timeRange={effectiveLogMode === 'azure' ? timeRange : undefined}
                 azureRealtime={syncSettings.azureRealtime}
+                onOpenDiagnostics={() => setShowDiagnostics(true)}
               />
             )
           })}
@@ -338,6 +368,8 @@ export function ConsoleView({
         azureRealtime={syncSettings.azureRealtime}
         onAzureRealtimeChange={syncSettings.setAzureRealtime}
         onRunDiagnostics={() => setShowDiagnostics(true)}
+        onOpenSetupGuide={handleOpenSetupGuide}
+        onOpenSetupGuideWithStep={handleOpenSetupGuideWithStep}
       />
 
       {/* Filters */}
@@ -363,6 +395,22 @@ export function ConsoleView({
       <DiagnosticsModal
         isOpen={showDiagnostics}
         onClose={() => setShowDiagnostics(false)}
+        onOpenSetupGuide={(step) => {
+          setShowDiagnostics(false)
+          setSetupGuideInitialStep(step)
+          setIsSetupGuideOpen(true)
+        }}
+      />
+
+      {/* Azure Setup Guide */}
+      <AzureSetupGuide
+        isOpen={isSetupGuideOpen}
+        onClose={() => {
+          handleCloseSetupGuide()
+          setSetupGuideInitialStep(undefined)
+        }}
+        onComplete={handleSetupComplete}
+        initialStep={setupGuideInitialStep}
       />
 
       {/* Settings Dialog */}

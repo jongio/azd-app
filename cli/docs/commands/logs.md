@@ -810,6 +810,7 @@ Optional configuration in `azure.yaml`:
 ```yaml
 logs:
   analytics:
+    workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}  # OPTIONAL - auto-detected if omitted
     pollingInterval: 10s     # How often to fetch new logs
     defaultTimespan: 30m     # Initial log history window
     
@@ -823,6 +824,13 @@ services:
           | where ContainerAppName_s == 'api'
           | where Log_s !contains "health"
 ```
+
+> **Workspace Auto-Detection**: The `workspace` field is automatically detected from:
+> 1. `AZURE_LOG_ANALYTICS_WORKSPACE_GUID` environment variable (set by `azd provision`)
+> 2. `AZURE_LOG_ANALYTICS_WORKSPACE_ID` environment variable
+> 3. Auto-discovery in your resource group
+>
+> Only specify `workspace` if using a custom environment variable name.
 
 ### Troubleshooting Azure Logs
 

@@ -55,20 +55,23 @@ const (
 
 // HealthCheckResult represents the result of a single health check.
 type HealthCheckResult struct {
-	ServiceName  string                 `json:"serviceName"`
-	Status       HealthStatus           `json:"status"`
-	CheckType    HealthCheckType        `json:"checkType"`
-	Endpoint     string                 `json:"endpoint,omitempty"`
-	ResponseTime time.Duration          `json:"responseTime"`
-	StatusCode   int                    `json:"statusCode,omitempty"`
-	Error        string                 `json:"error,omitempty"`
-	Timestamp    time.Time              `json:"timestamp"`
-	Details      map[string]interface{} `json:"details,omitempty"`
-	Port         int                    `json:"port,omitempty"`
-	PID          int                    `json:"pid,omitempty"`
-	Uptime       time.Duration          `json:"uptime,omitempty"`
-	ServiceType  string                 `json:"serviceType,omitempty"` // "http", "tcp", "process"
-	ServiceMode  string                 `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
+	ServiceName         string                 `json:"serviceName"`
+	Status              HealthStatus           `json:"status"`
+	CheckType           HealthCheckType        `json:"checkType"`
+	Endpoint            string                 `json:"endpoint,omitempty"`
+	ResponseTime        time.Duration          `json:"responseTime"`
+	StatusCode          int                    `json:"statusCode,omitempty"`
+	Error               string                 `json:"error,omitempty"`
+	ErrorDetails        string                 `json:"errorDetails,omitempty"`        // Extended error information from response body
+	ConsecutiveFailures int                    `json:"consecutiveFailures,omitempty"` // Number of consecutive failures
+	LastSuccessTime     *time.Time             `json:"lastSuccessTime,omitempty"`     // Last successful check timestamp
+	Timestamp           time.Time              `json:"timestamp"`
+	Details             map[string]interface{} `json:"details,omitempty"`
+	Port                int                    `json:"port,omitempty"`
+	PID                 int                    `json:"pid,omitempty"`
+	Uptime              time.Duration          `json:"uptime,omitempty"`
+	ServiceType         string                 `json:"serviceType,omitempty"` // "http", "tcp", "process"
+	ServiceMode         string                 `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
 }
 
 // HealthReport contains aggregated health check results.

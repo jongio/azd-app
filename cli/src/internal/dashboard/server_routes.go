@@ -42,7 +42,13 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/azure/logs", MethodGuard(s.handleAzureLogs, http.MethodGet))
 	s.mux.HandleFunc("/api/azure/logs/stream", MethodGuard(s.handleAzureLogsStream, http.MethodGet)) // WebSocket streaming for Azure logs
 	s.mux.HandleFunc("/api/azure/logs/health", MethodGuard(s.handleAzureLogsHealth, http.MethodGet))
-	s.mux.HandleFunc("/api/azure/logs/config", s.handleAzureLogConfigRouter)                // Get/save log config per service
+	s.mux.HandleFunc("/api/azure/logs/setup-state", MethodGuard(s.handleAzureSetupState, http.MethodGet)) // Setup state detection for setup guide
+	s.mux.HandleFunc("/api/azure/logs/verify", MethodGuard(s.handleAzureLogsVerify, http.MethodPost))     // Verify log connectivity for a service
+	s.mux.HandleFunc("/api/azure/diagnostic-settings/check", MethodGuard(s.handleAzureDiagnosticSettingsCheck, http.MethodGet)) // Check diagnostic settings for all services
+	s.mux.HandleFunc("/api/azure/diagnostics", MethodGuard(s.handleAzureDiagnostics, http.MethodGet))                           // Comprehensive diagnostics for all services
+	s.mux.HandleFunc("/api/azure/workspace/verify", MethodGuard(s.handleAzureWorkspaceVerify, http.MethodPost)) // Verify workspace connection by querying for recent logs
+	s.mux.HandleFunc("/api/azure/bicep-template", MethodGuard(s.handleAzureBicepTemplate, http.MethodGet)) // Generate consolidated Bicep template for all detected services
+	s.mux.HandleFunc("/api/azure/logs/config", s.handleAzureLogConfigRouter)                              // Get/save log config per service
 	s.mux.HandleFunc("/api/azure/tables", MethodGuard(s.handleAzureTables, http.MethodGet)) // List available Log Analytics tables
 	s.mux.HandleFunc("/api/azure/query", s.handleAzureQueryRouter)
 	s.mux.HandleFunc("/api/ws", s.handleWebSocket)

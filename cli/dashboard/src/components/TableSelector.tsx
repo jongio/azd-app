@@ -207,7 +207,7 @@ export function TableSelector({
       {/* Header Actions */}
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm text-slate-500 dark:text-slate-400">
-          {selectedTables.length} of {tables.length} tables selected
+          {selectedTables?.length ?? 0} of {tables?.length ?? 0} tables selected
         </div>
         <div className="flex items-center gap-2">
           {safeRecommendedTables.length > 0 && (
@@ -242,7 +242,7 @@ export function TableSelector({
           <button
             type="button"
             onClick={clearAll}
-            disabled={disabled || selectedTables.length === 0}
+            disabled={disabled || (selectedTables?.length ?? 0) === 0}
             className={cn(
               'px-2 py-1 text-xs font-medium rounded',
               'text-slate-600 dark:text-slate-300',

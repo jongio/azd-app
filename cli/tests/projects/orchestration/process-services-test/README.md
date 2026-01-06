@@ -2,6 +2,35 @@
 
 This test project demonstrates all service types and modes supported by azd-app.
 
+## Prerequisites
+
+Before running this test project, ensure you have the following dependencies installed:
+
+### Python Dependencies
+For the `api` and `api-watch` services:
+```bash
+cd api
+python -m pip install -r requirements.txt
+```
+This installs:
+- `fastapi>=0.100.0`
+- `uvicorn>=0.23.0`
+
+### Go Dependencies
+For the `go-watch` service:
+```bash
+go install github.com/air-verse/air@latest
+```
+
+### Node.js Dependencies
+For TypeScript/Node services (`cli-*`, `mcp-server`, `tcp-server`, `web-watch`):
+```bash
+pnpm install
+```
+
+### .NET SDK
+For the `dotnet-watch` service, ensure you have .NET SDK installed.
+
 ## Service Types
 
 | Type | Description | Example Services |
