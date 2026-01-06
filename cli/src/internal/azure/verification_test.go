@@ -325,14 +325,14 @@ func TestWorkspaceVerificationRequest_DefaultValues(t *testing.T) {
 func TestVerifyService_NoDiagnosticSettings(t *testing.T) {
 	// This test demonstrates the structure for testing verifyService
 	// In a real test environment, we'd mock the Log Analytics client and diagnostic checker
-	
+
 	verifier := &WorkspaceVerifier{
 		diagnostics: &DiagnosticSettingsChecker{},
 	}
 
 	// We can test the logic paths without actual Azure calls
 	// by checking that the result structure is correct
-	
+
 	result := &ServiceVerificationResult{
 		Status: ServiceStatusDiagnosticNotConfigured,
 		Error:  "DiagnosticSettingsNotConfigured: No diagnostic settings found for this resource",
@@ -357,7 +357,7 @@ func TestVerifyService_NoDiagnosticSettings(t *testing.T) {
 func TestVerifyService_WithLogs(t *testing.T) {
 	// Test the structure of a successful verification result
 	now := time.Now()
-	
+
 	result := &ServiceVerificationResult{
 		Status:      ServiceStatusOK,
 		LogCount:    25,
@@ -383,7 +383,7 @@ func TestVerifyService_WithLogs(t *testing.T) {
 
 func TestVerifyService_NoLogs(t *testing.T) {
 	// Test the structure of a no-logs result
-	
+
 	result := &ServiceVerificationResult{
 		Status:   ServiceStatusNoLogs,
 		LogCount: 0,
@@ -409,7 +409,7 @@ func TestVerifyService_NoLogs(t *testing.T) {
 
 func TestVerifyService_QueryError(t *testing.T) {
 	// Test the structure of an error result
-	
+
 	result := &ServiceVerificationResult{
 		Status: ServiceStatusError,
 		Error:  "Failed to query logs: permission denied",
@@ -436,7 +436,7 @@ func TestWorkspaceVerifier_Integration(t *testing.T) {
 	// This would be run with actual Azure credentials in a real environment
 	// For CI/CD, you'd set up proper mocking or use recorded responses
 	t.Skip("Integration test requires live Azure environment")
-	
+
 	// Example integration test structure:
 	// ctx := context.Background()
 	// cred, err := NewCredentialChain()
@@ -464,7 +464,7 @@ func TestWorkspaceVerifier_Integration(t *testing.T) {
 
 // Helper function for string contains check
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > 0 && len(substr) > 0 && hasSubstring(s, substr)))
 }
 

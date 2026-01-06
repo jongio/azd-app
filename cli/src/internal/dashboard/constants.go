@@ -15,9 +15,9 @@ const (
 	StatusIncomplete    = "incomplete"
 
 	// Auth status values
-	StatusAuthenticated      = "authenticated"
-	StatusUnauthenticated    = "unauthenticated"
-	StatusPermissionDenied   = "permission-denied"
+	StatusAuthenticated    = "authenticated"
+	StatusUnauthenticated  = "unauthenticated"
+	StatusPermissionDenied = "permission-denied"
 
 	// Setup categories
 	CategoryWorkspace          = "workspace"
@@ -29,7 +29,7 @@ const (
 	MsgWorkspaceNotConfigured = "Log Analytics workspace not configured"
 	MsgAzureCredsNotAvailable = "Azure credentials not available. Run 'azd auth login' to authenticate."
 	MsgAuthFailed             = "Authentication failed or expired. Run 'azd auth login' to re-authenticate."
-	
+
 	// Setup steps
 	StepWorkspace          = "workspace"
 	StepAuthentication     = "authentication"

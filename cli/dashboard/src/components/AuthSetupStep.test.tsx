@@ -117,7 +117,7 @@ describe('AuthSetupStep', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
     })
 
@@ -184,7 +184,7 @@ describe('AuthSetupStep', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAuthenticatedWithoutPermission,
+        json: () => mockAuthenticatedWithoutPermission,
       })
     })
 
@@ -268,7 +268,7 @@ describe('AuthSetupStep', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
     })
 
@@ -332,7 +332,7 @@ describe('AuthSetupStep', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockPermissionDenied,
+        json: () => mockPermissionDenied,
       })
     })
 
@@ -363,7 +363,7 @@ describe('AuthSetupStep', () => {
     beforeEach(() => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockError,
+        json: () => mockError,
       })
     })
 
@@ -441,7 +441,7 @@ describe('AuthSetupStep', () => {
       fetchMock.mockRejectedValueOnce(new Error('Network error'))
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -467,7 +467,7 @@ describe('AuthSetupStep', () => {
     it('should have a recheck button', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -481,7 +481,7 @@ describe('AuthSetupStep', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -492,7 +492,7 @@ describe('AuthSetupStep', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       const recheckButton = screen.getByRole('button', { name: /Recheck/i })
@@ -507,7 +507,7 @@ describe('AuthSetupStep', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -530,7 +530,7 @@ describe('AuthSetupStep', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -555,7 +555,7 @@ describe('AuthSetupStep', () => {
       
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAuthenticatedWithoutPermission,
+        json: () => mockAuthenticatedWithoutPermission,
       })
 
       render(<AuthSetupStep onValidationChange={onValidationChange} />)
@@ -568,7 +568,7 @@ describe('AuthSetupStep', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       const recheckButton = screen.getByRole('button', { name: /Recheck/i })
@@ -588,7 +588,7 @@ describe('AuthSetupStep', () => {
     it('should have copy buttons in code blocks', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -606,7 +606,7 @@ describe('AuthSetupStep', () => {
       const user = userEvent.setup({ delay: null })
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -632,7 +632,7 @@ describe('AuthSetupStep', () => {
     it('should show all help section headers', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -655,7 +655,7 @@ describe('AuthSetupStep', () => {
     it('should fetch state on mount', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
@@ -674,13 +674,18 @@ describe('AuthSetupStep', () => {
     it('should display auth state message', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
       await waitFor(() => {
-        expect(screen.getByText('Authenticated with Log Analytics Reader role')).toBeInTheDocument()
+        // Check for authenticated status badge
+        expect(screen.getByText('Authorized')).toBeInTheDocument()
+        // Check for Log Analytics Reader role text
+        expect(screen.getByText('Log Analytics Reader Role')).toBeInTheDocument()
+        // Check for permission granted message
+        expect(screen.getByText('You have the required permission to read logs')).toBeInTheDocument()
       })
     })
 
@@ -688,25 +693,27 @@ describe('AuthSetupStep', () => {
       // Test authenticated with permission
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockAuthenticatedWithPermission,
+        json: () => mockAuthenticatedWithPermission,
       })
 
       const { rerender } = render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
       await waitFor(() => {
-        expect(screen.getByText('Authenticated with Log Analytics Reader role')).toBeInTheDocument()
+        expect(screen.getByText('Authorized')).toBeInTheDocument()
+        expect(screen.getByText('You have the required permission to read logs')).toBeInTheDocument()
       })
 
       // Test not authenticated
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockNotAuthenticated,
+        json: () => mockNotAuthenticated,
       })
 
       rerender(<AuthSetupStep onValidationChange={vi.fn()} />)
 
       await waitFor(() => {
-        expect(screen.getByText('Not authenticated. Please run: azd auth login')).toBeInTheDocument()
+        expect(screen.getByText('Not Authenticated')).toBeInTheDocument()
+        expect(screen.getByText('Action Required: Sign in to Azure')).toBeInTheDocument()
       })
     })
   })

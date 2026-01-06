@@ -9,10 +9,10 @@ import (
 
 // BicepTemplateResponse represents the API response for the Bicep template generator.
 type BicepTemplateResponse struct {
-	Template     string                   `json:"template"`
-	Services     []string                 `json:"services"`
-	Instructions BicepInstructions        `json:"instructions"`
-	Parameters   []BicepParameterInfo     `json:"parameters"`
+	Template     string               `json:"template"`
+	Services     []string             `json:"services"`
+	Instructions BicepInstructions    `json:"instructions"`
+	Parameters   []BicepParameterInfo `json:"parameters"`
 }
 
 // BicepInstructions provides guidance on how to integrate the template.
@@ -55,7 +55,7 @@ func (g *BicepGenerator) GenerateTemplate(ctx context.Context) (*BicepTemplateRe
 	// Collect service types
 	serviceTypes := make(map[ResourceType]bool)
 	serviceNames := make([]string, 0, len(result.Resources))
-	
+
 	for serviceName, resource := range result.Resources {
 		serviceTypes[resource.ResourceType] = true
 		serviceNames = append(serviceNames, serviceName)

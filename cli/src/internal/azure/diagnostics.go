@@ -28,17 +28,17 @@ const (
 
 // DiagnosticSettingsCheckResult represents the result of checking diagnostic settings for a single service.
 type DiagnosticSettingsCheckResult struct {
-	Status                 DiagnosticSettingsStatus `json:"status"`
-	ResourceID             string                   `json:"resourceId,omitempty"`
-	DiagnosticSettingName  string                   `json:"diagnosticSettingName,omitempty"`
-	Error                  string                   `json:"error,omitempty"`
-	WorkspaceID            string                   `json:"workspaceId,omitempty"` // The workspace this service sends logs to
+	Status                DiagnosticSettingsStatus `json:"status"`
+	ResourceID            string                   `json:"resourceId,omitempty"`
+	DiagnosticSettingName string                   `json:"diagnosticSettingName,omitempty"`
+	Error                 string                   `json:"error,omitempty"`
+	WorkspaceID           string                   `json:"workspaceId,omitempty"` // The workspace this service sends logs to
 }
 
 // DiagnosticSettingsCheckResponse represents the response for checking all services.
 type DiagnosticSettingsCheckResponse struct {
-	WorkspaceID string                                   `json:"workspaceId"`           // Expected workspace ID
-	Services    map[string]*DiagnosticSettingsCheckResult `json:"services"`              // Map of serviceName -> result
+	WorkspaceID string                                    `json:"workspaceId"` // Expected workspace ID
+	Services    map[string]*DiagnosticSettingsCheckResult `json:"services"`    // Map of serviceName -> result
 }
 
 // DiagnosticSettingsChecker handles checking diagnostic settings for Azure resources.
@@ -82,11 +82,11 @@ func (c *DiagnosticSettingsChecker) CheckAllServices(ctx context.Context) (*Diag
 	// If global logs.analytics is configured, all services are considered configured
 	// because azd queries logs directly from Log Analytics workspace
 	hasGlobalAnalytics := yamlConfig.hasGlobalLogsAnalytics()
-	
+
 	// Check each service
 	for serviceName, resource := range discoveryResult.Resources {
 		slog.Debug("checking diagnostic settings", "service", serviceName, "resourceId", resource.ResourceID, "hasGlobalAnalytics", hasGlobalAnalytics)
-		
+
 		// If global analytics is configured or service has service-level analytics, it's configured
 		if hasGlobalAnalytics || yamlConfig.hasServiceLogsAnalytics(serviceName) {
 			response.Services[serviceName] = &DiagnosticSettingsCheckResult{
@@ -96,7 +96,7 @@ func (c *DiagnosticSettingsChecker) CheckAllServices(ctx context.Context) (*Diag
 			slog.Debug("service configured via logs.analytics", "service", serviceName)
 			continue
 		}
-		
+
 		if resource.ResourceID == "" {
 			// Resource not deployed or not found
 			response.Services[serviceName] = &DiagnosticSettingsCheckResult{
@@ -124,7 +124,7 @@ func (c *DiagnosticSettingsChecker) checkDiagnosticSettings(ctx context.Context,
 	// Query Azure Management API for diagnostic settings
 	// https://management.azure.com/{resourceUri}/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview
 	url := fmt.Sprintf("https://management.azure.com%s/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview", resourceID)
-	
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		result.Status = DiagnosticSettingsError
@@ -202,7 +202,7 @@ func (c *DiagnosticSettingsChecker) checkDiagnosticSettings(ctx context.Context,
 			// Found a setting with workspace configured
 			result.DiagnosticSettingName = setting.Name
 			result.WorkspaceID = setting.Properties.WorkspaceID
-			
+
 			// Check if it matches the expected workspace
 			// The workspace ID could be in different formats:
 			// - Full resource ID: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.OperationalInsights/workspaces/{name}
@@ -210,8 +210,8 @@ func (c *DiagnosticSettingsChecker) checkDiagnosticSettings(ctx context.Context,
 			// - GUID
 			if c.workspaceMatches(setting.Properties.WorkspaceID, expectedWorkspaceID) {
 				result.Status = DiagnosticSettingsConfigured
-				slog.Debug("diagnostic settings found and configured correctly", 
-					"service", serviceName, 
+				slog.Debug("diagnostic settings found and configured correctly",
+					"service", serviceName,
 					"settingName", setting.Name,
 					"workspaceId", setting.Properties.WorkspaceID)
 				return result
@@ -222,7 +222,7 @@ func (c *DiagnosticSettingsChecker) checkDiagnosticSettings(ctx context.Context,
 	// Found diagnostic settings but not pointing to the expected workspace
 	if result.DiagnosticSettingName != "" {
 		result.Status = DiagnosticSettingsError
-		result.Error = fmt.Sprintf("Diagnostic settings configured but not sending to the expected workspace (expected: %s, actual: %s)", 
+		result.Error = fmt.Sprintf("Diagnostic settings configured but not sending to the expected workspace (expected: %s, actual: %s)",
 			expectedWorkspaceID, result.WorkspaceID)
 		return result
 	}
@@ -307,12 +307,12 @@ type diagnosticSetting struct {
 
 // diagnosticSettingProperties contains the actual configuration of the diagnostic setting.
 type diagnosticSettingProperties struct {
-	WorkspaceID         string                 `json:"workspaceId,omitempty"`
-	StorageAccountID    string                 `json:"storageAccountId,omitempty"`
-	EventHubName        string                 `json:"eventHubName,omitempty"`
-	EventHubAuthRuleID  string                 `json:"eventHubAuthorizationRuleId,omitempty"`
-	Logs                []diagnosticLog        `json:"logs,omitempty"`
-	Metrics             []diagnosticMetric     `json:"metrics,omitempty"`
+	WorkspaceID        string             `json:"workspaceId,omitempty"`
+	StorageAccountID   string             `json:"storageAccountId,omitempty"`
+	EventHubName       string             `json:"eventHubName,omitempty"`
+	EventHubAuthRuleID string             `json:"eventHubAuthorizationRuleId,omitempty"`
+	Logs               []diagnosticLog    `json:"logs,omitempty"`
+	Metrics            []diagnosticMetric `json:"metrics,omitempty"`
 }
 
 // diagnosticLog represents a log category configuration.
@@ -393,7 +393,7 @@ type analyticsConfig struct {
 // loadAzureYaml loads the azure.yaml file from the project directory.
 func (c *DiagnosticSettingsChecker) loadAzureYaml() (*azureYamlConfig, error) {
 	yamlPath := filepath.Join(c.projectDir, "azure.yaml")
-	
+
 	data, err := os.ReadFile(yamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
@@ -420,12 +420,6 @@ func (c *azureYamlConfig) hasServiceLogsAnalytics(serviceName string) bool {
 		}
 	}
 	return false
-}
-
-// hasLogsAnalytics checks if logs.analytics is configured for a service.
-// Checks both global and service-level configuration.
-func (c *azureYamlConfig) hasLogsAnalytics(serviceName string) bool {
-	return c.hasGlobalLogsAnalytics() || c.hasServiceLogsAnalytics(serviceName)
 }
 
 // CheckDiagnosticSettingsWithPipeline is an alternative implementation using Azure SDK's runtime.Pipeline.

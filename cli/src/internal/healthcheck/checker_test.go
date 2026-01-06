@@ -745,10 +745,10 @@ func TestParseErrorDetailsFromBody(t *testing.T) {
 // TestSuggestTCPErrorAction tests TCP error suggestions
 func TestSuggestTCPErrorAction(t *testing.T) {
 	tests := []struct {
-		name  string
-		err   error
-		port  int
-		want  string
+		name string
+		err  error
+		port int
+		want string
 	}{
 		{
 			name: "connection refused",
@@ -998,4 +998,3 @@ func TestProcessCheck_WithSuggestion(t *testing.T) {
 		t.Error("Expected non-empty suggestion for failed process check")
 	}
 }
-

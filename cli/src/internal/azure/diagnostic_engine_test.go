@@ -168,7 +168,7 @@ func TestDiagnosticsEngine_InitializeValidators(t *testing.T) {
 	// Verify validators were created
 	// Note: This may fail if actual validator constructors require real resources
 	// In that case, this test would need to be skipped or mocked differently
-	
+
 	// The actual validators may or may not be registered depending on
 	// whether the constructors succeed in a test environment
 	t.Logf("Validators registered: %d", len(engine.validators))

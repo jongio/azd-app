@@ -128,11 +128,11 @@ func TestContainerAppValidator_GenerateSetupGuide(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			guide := validator.generateSetupGuide("test-service", resource, tt.hasSettings, tt.hasLogs)
-			
+
 			if tt.expectGuide && guide == nil {
 				t.Error("Expected setup guide to be generated")
 			}
-			
+
 			if !tt.expectGuide && guide != nil {
 				t.Error("Expected no setup guide when logs are flowing")
 			}
@@ -162,7 +162,7 @@ func TestContainerAppValidator_SetupGuideContent(t *testing.T) {
 	}
 
 	guide := validator.generateSetupGuide("test-service", resource, false, false)
-	
+
 	if guide == nil {
 		t.Fatal("Expected setup guide to be generated")
 	}
@@ -260,8 +260,8 @@ func TestContainerAppValidator_RequirementStatuses(t *testing.T) {
 
 	// Verify all requirements have valid statuses
 	validStatuses := map[RequirementStatus]bool{
-		RequirementStatusMet:    true,
-		RequirementStatusNotMet: true,
+		RequirementStatusMet:     true,
+		RequirementStatusNotMet:  true,
 		RequirementStatusUnknown: true,
 	}
 
