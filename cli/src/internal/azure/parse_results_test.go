@@ -221,9 +221,9 @@ type mockRow struct {
 	Message            string
 	Level              string
 	FunctionName       string
-	Log_s              string // Azure column name
-	Stream_s           string // Azure column name
-	ContainerAppName_s string // Azure column name
+	Log_s              string //nolint:stylecheck // Azure column name
+	Stream_s           string //nolint:stylecheck // Azure column name
+	ContainerAppName_s string //nolint:stylecheck // Azure column name
 	ResultDescription  string
 }
 
