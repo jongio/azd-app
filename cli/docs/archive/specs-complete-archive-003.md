@@ -1,3 +1,15 @@
+# CLI Specs Complete Archive #003
+Archived: January 6, 2026
+
+This archive contains completed specification projects from /cli/docs/specs.
+
+---
+
+
+## PROJECT: azure-logs-v2
+
+### SPEC.MD
+
 # Azure Logs v2: Simplified & Reliable Design
 
 ## Implementation Status
@@ -1091,3 +1103,654 @@ func (t *staticToken) GetToken(ctx context.Context, opts policy.TokenRequestOpti
     return azcore.AccessToken{Token: t.token, ExpiresOn: t.expiry}, nil
 }
 ```
+
+### TASKS.MD
+
+<!-- NEXT: 0 -->
+# Azure Logs v2 Tasks
+
+## Summary
+
+**All Phases Complete!** ✅
+
+**Phase 1**: CLI `azd app logs --source azure` works standalone with service filtering.
+**Phase 2**: Dashboard integration with auto-load, visual feedback, and auto-refresh.
+**Phase 2.5**: Diagnostics, auto-resolution, and health checks.
+**Phase 3**: Token caching, service filtering, and code cleanup.
+
+Completed:
+1. ✅ Dashboard API endpoint with structured errors
+2. ✅ Auto-load on mode switch (no manual refresh)
+3. ✅ Visual feedback (loading/error states)
+4. ✅ Auto-refresh countdown and diagnostics button
+5. ✅ Health check endpoint for diagnostics
+6. ✅ Workspace ID auto-resolution
+7. ✅ Diagnostics modal UI
+8. ✅ Token caching (5-minute expiry)
+9. ✅ Service filter dropdown
+10. ✅ Cleanup of old polling code
+
+---
+
+## Phase 2: Dashboard Integration (P0)
+
+### DONE: Create dashboard API endpoint {#dashboard-api-endpoint}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented `GET /api/azure/logs` endpoint in dashboard server:
+
+**Features**:
+- ✅ Reuses `FetchAzureLogsStandalone()` from `standalone_logs.go`
+- ✅ Returns structured JSON with status field ("ok" | "error")
+- ✅ Includes metadata: count, timestamp
+- ✅ Query params: `?service=`, `?since=`, `?tail=`
+- ✅ All errors include code, action, command, and docsUrl
+
+**Response Types**:
+```go
+type AzureLogsResponse struct {
+    Status    string      `json:"status"`
+    Logs      []LogEntry  `json:"logs,omitempty"`
+    Count     int         `json:"count"`
+    Timestamp time.Time   `json:"timestamp"`
+    Error     *ErrorInfo  `json:"error,omitempty"`
+}
+
+type ErrorInfo struct {
+    Message string `json:"message"`
+    Code    string `json:"code"`
+    Action  string `json:"action"`
+    Command string `json:"command"`
+    DocsURL string `json:"docsUrl"`
+}
+```
+
+**Error Codes Implemented**:
+- `AUTH_REQUIRED` - Not authenticated → "azd auth login"
+- `NO_WORKSPACE` - Workspace not configured → "azd env refresh"
+- `NO_SERVICES` - No services deployed → "azd up"
+- `QUERY_FAILED` - Log Analytics query error
+- All errors link to https://aka.ms/azd/app/logs/...
+
+**Files Modified**:
+- `server.go` - Added handler and response types
+- Follows existing patterns, integrates with current infrastructure
+
+**Testing**: Builds successfully, ready for runtime testing with live Azure environment
+
+---
+
+### DONE: Implement auto-load with loading state {#loading-state}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented auto-load when Azure mode is selected:
+
+**Features**:
+- ✅ State machine: 'idle' | 'loading' | 'showing' | 'error'
+- ✅ Auto-fetch on Azure mode selection (no button click)
+- ✅ Loading spinner appears instantly
+- ✅ Message: "Loading logs from Azure..."
+- ✅ Integrates with existing local/azure switcher
+
+**Implementation**:
+- File: `cli/dashboard/src/components/Console.tsx`
+- Added `AzureLogsState` interface
+- Added `useEffect` hook triggered by mode change
+- Loading UI with Azure-branded spinner
+- Clean state transitions
+
+**User Flow**:
+1. User clicks Azure mode toggle
+2. Loading spinner appears immediately
+3. Fetch from `/api/azure/logs` automatic
+4. Logs display when ready OR error shown with retry
+
+**Testing**: Dashboard running at http://localhost:40942, feature verified working
+
+---
+
+### DONE: Add error state with action {#error-state}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented enhanced error panel with actionable guidance:
+
+**Features**:
+- ✅ ErrorInfo structure support (message, code, action, command, docsUrl)
+- ✅ Copyable command box with one-click copy
+- ✅ "Retry Now" button that resets state and refetches
+- ✅ Documentation links open in new tab
+- ✅ Error-specific icons and messaging
+- ✅ Dark mode styling
+
+**Implementation**:
+- File: `cli/dashboard/src/components/AzureErrorDisplay.tsx` (new)
+- File: `cli/dashboard/src/components/Console.tsx` (enhanced)
+- Copy-to-clipboard with visual feedback
+- Retry handler resets to loading state
+
+**Error Display**:
+```
+⚠️ {error.message}
+{error.action}
+┌──────────────────────┐
+│ {error.command} [Copy]│
+└──────────────────────┘
+[📚 Docs] [🔄 Retry Now]
+```
+
+**Error Types Supported**:
+- AUTH_REQUIRED → "azd auth login"
+- NO_WORKSPACE → "azd env refresh"
+- NO_SERVICES → "azd up"
+- All include docs links to https://aka.ms/azd/app/logs/...
+
+**Testing**: Build successful, ready for runtime testing
+
+---
+
+### DONE: Add status footer with auto-refresh {#status-footer}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented status footer with auto-refresh countdown:
+
+**Features**:
+- ✅ Footer displays: "✓ 142 logs • Updated 5s ago • ↻ 25s"
+- ✅ Log count shows actual data length
+- ✅ "Updated X ago" increments every second
+- ✅ Countdown starts at 30s, decrements each second
+- ✅ Auto-refresh at 0 (sets loading state, refetches)
+- ✅ "Run Diagnostics" button in footer (right side)
+- ✅ Refresh cycle continues until mode change/unmount
+
+**Implementation**:
+- File: `cli/dashboard/src/components/Console.tsx`
+- State: `countdownSeconds` (30s timer), `lastUpdateTime` (relative time)
+- `useEffect` hooks with interval cleanup
+- Footer only shows when state='showing'
+- Diagnostics button placeholder (logs to console for now)
+
+**Styling**:
+- Azure theme colors (blue accent)
+- Dark mode compatible
+- Icons: CheckCircle, RotateCw, Settings
+
+**Testing**: Build successful, ready for runtime testing
+
+---
+
+## Phase 2.5: Diagnostics & Documentation (P0)
+
+### DONE: Add diagnostics health check endpoint {#diagnostics-endpoint}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Created `GET /api/azure/logs/health` endpoint that checks:
+
+1. **Authentication** - Verify credentials work
+2. **Workspace ID** - Check if configured in env vars
+3. **Services Deployed** - Verify services exist
+4. **Connectivity** - Test Log Analytics connection
+
+**Response Format**:
+```json
+{
+  "status": "healthy" | "degraded" | "error",
+  "checks": [
+    {
+      "name": "Authentication",
+      "status": "pass" | "warn" | "fail",
+      "message": "Credentials valid",
+      "fix": "Run: azd auth login"
+    }
+  ],
+  "docsUrl": "https://aka.ms/azd/app/logs/troubleshoot"
+}
+```
+
+**Acceptance Criteria**:
+- All 4 health checks implemented
+- Each check has clear pass/warn/fail status
+- Failed checks include fix instructions
+- Overall status computed from individual checks
+- Response includes docs URL
+
+---
+
+### DONE: Add auto-resolution for missing workspace ID {#auto-resolve-workspace}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented automatic workspace ID discovery and storage:
+
+**Features**:
+- ✅ Discovers workspace via `az monitor log-analytics workspace list --resource-group <rg>`
+- ✅ Stores in `.azure/{env}/.env` file as AZURE_LOG_ANALYTICS_WORKSPACE_ID
+- ✅ Updates current process environment via os.Setenv
+- ✅ Integrated into FetchAzureLogsStandalone and StreamAzureLogsStandalone
+- ✅ Graceful error handling for missing az CLI, no workspace, etc.
+- ✅ Debug logging when AZD_APP_DEBUG=true
+
+**Files Modified**:
+- `standalone_logs.go` - Added DiscoverAndStoreWorkspaceID function
+- `standalone_logs_test.go` - Added comprehensive tests (6 test cases)
+
+**Testing**: All tests passing, build successful
+
+---
+
+### DONE: Add documentation URLs to all errors {#error-docs-urls}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented comprehensive error documentation linking:
+
+**Features**:
+- ✅ ErrorInfo struct includes docsUrl field
+- ✅ All errors mapped to specific documentation pages
+- ✅ Error mapping in mapAzureErrorToInfo function
+- ✅ URLs use aka.ms/azd/app/logs/* structure
+
+**Error → Documentation Mapping**:
+- AUTH_EXPIRED, AUTH_REQUIRED → /troubleshoot#auth
+- NOT_DEPLOYED → /setup
+- NO_WORKSPACE → /configure
+- NO_PERMISSION → /troubleshoot#permissions
+- All others → /troubleshoot
+
+**Files Modified**:
+- `azure_logs.go` - mapAzureErrorToInfo with docs URLs
+- Already integrated with ErrorInfo in server responses
+
+**Testing**: Build successful, all errors include docsUrl
+
+---
+
+### DONE: Create diagnostics modal UI {#diagnostics-ui}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Created comprehensive diagnostics modal component:
+
+**Features**:
+- ✅ Modal component: DiagnosticsModal.tsx
+- ✅ Fetches /api/azure/logs/health when opened
+- ✅ Status icons: ✓ (green pass), ⚠ (yellow warn), ✗ (red fail)
+- ✅ Shows fix instructions for failed checks with copy button
+- ✅ "Copy Diagnostics" copies full report to clipboard
+- ✅ "View Troubleshooting Guide" opens docs URL
+- ✅ Loading state during fetch
+- ✅ Error handling for fetch failures
+- ✅ Dark mode compatible styling
+- ✅ Keyboard support (Escape to close)
+- ✅ Accessible (ARIA labels, focus management)
+
+**Files Created**:
+- `DiagnosticsModal.tsx` - Modal component
+
+**Testing**: Build successful, renders correctly
+
+---
+
+### DONE: Update error panel with docs links {#error-panel-docs}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Enhanced error panel with full diagnostics integration:
+
+**Features**:
+- ✅ Error panel shows docsUrl as clickable link (opens new tab)
+- ✅ "Run Diagnostics" button opens DiagnosticsModal
+- ✅ Retained "Retry Now" and copy command functionality
+- ✅ Button layout: [Retry] [Run Diagnostics] [Docs Link]
+- ✅ Consistent styling across all buttons
+- ✅ Icons: Settings for diagnostics, ExternalLink for docs
+
+**Files Modified**:
+- `AzureErrorDisplay.tsx` - Added diagnostics button and props
+- `Console.tsx` - Integrated modal state and passthrough
+
+**Testing**: Build successful, all buttons functional
+
+---
+
+## Phase 3: Polish & Optimization (P1)
+
+### DONE: Cache token from azd {#cache-token}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented token caching to reduce credential chain overhead:
+
+**Features**:
+- ✅ TokenCache with 5-minute expiry
+- ✅ Thread-safe with sync.RWMutex
+- ✅ Automatic refresh on expiry
+- ✅ Clear cache on auth errors (401, 403, AADSTS)
+- ✅ Debug logging for cache hits/misses
+- ✅ Helper function: GetCachedToken
+- ✅ Integrated into FetchAzureLogsStandalone and StreamAzureLogsStandalone
+
+**Files Created**:
+- `token_cache.go` - Cache implementation
+- `token_cache_test.go` - Comprehensive tests (all passing)
+
+**Testing**: All 50+ tests passing, build successful
+
+---
+
+### DONE: Add service filter dropdown {#service-filter}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Implemented service filtering UI:
+
+**Features**:
+- ✅ Dropdown shows "All Services" (default) + individual services
+- ✅ Services populated from GET /api/azure/services
+- ✅ Filter persists during auto-refresh
+- ✅ Resets when switching from Azure to Local mode
+- ✅ Passes ?service= query param to API
+- ✅ WebSocket reconnects with new filter
+- ✅ Positioned in toolbar next to mode toggle
+
+**Backend**:
+- ✅ GET /api/azure/services endpoint
+- ✅ Extracts services from SERVICE_*_NAME env vars
+- ✅ Returns azure.yaml service names
+
+**Files Modified**:
+- `ConsoleView.tsx` - Service state management
+- `LogsToolbar.tsx` - Dropdown UI
+- `LogsView.tsx`, `LogsPane.tsx` - Filter integration
+- `server.go` - Route registration
+- `azure_logs.go` - handleAzureServices endpoint
+
+**Testing**: Build successful, filtering works correctly
+
+---
+
+### DONE: Remove old polling code {#remove-old-code}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Cleaned up deprecated v1 polling/WebSocket infrastructure:
+
+**Files Removed**:
+- ✅ `azure_log_buffer.go` (~700 lines)
+- ✅ `azure_log_buffer_test.go`
+- ✅ `azure_enable_test.go`
+
+**Endpoints Removed**:
+- ✅ POST /api/azure/enable
+- ✅ GET /api/azure/status
+- ✅ WS /api/azure/logs/stream
+- ✅ POST /api/azure/logs/query (deprecated version)
+
+**Code Simplified**:
+- ✅ Removed AzureLogBuffer from LogManager
+- ✅ Removed WebSocket streaming handler
+- ✅ Removed background polling goroutines
+- ✅ Removed subscription/channel management
+- ✅ Updated routes to v2 only
+
+**Preserved**:
+- ✅ SDK client code (standalone_logs.go)
+- ✅ Token cache (token_cache.go)
+- ✅ V2 request/response endpoints
+- ✅ Query management (GET/PUT /api/azure/query)
+
+**Testing**: Build successful, ~1000 lines removed
+
+---
+
+## Done
+
+### DONE: CLI Azure logs standalone {#cli-azure-logs}
+**Assigned**: Developer
+**Completed**: 2025-12-10
+
+Fully implemented `azd app logs --source azure` CLI commands:
+
+**Features**:
+- ✅ One-shot: `azd app logs --source azure`
+- ✅ Streaming: `azd app logs --source azure -f` (30s poll)
+- ✅ Service filter: `azd app logs --source azure -s <service>`
+- ✅ Time range: `--since 1h`, `--since 30m`
+- ✅ Works without `azd app run` (standalone)
+- ✅ Uses `azd auth login` credentials via SDK
+- ✅ Service name mapping from azure.yaml to Azure resources
+
+**Implementation**:
+- `standalone_logs.go`: Core Azure Log Analytics query logic
+- `logs.go`: CLI command integration
+- Uses `github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs` SDK
+- Discovers Log Analytics workspace from env vars
+- Maps azure.yaml service names to Azure resource names via `SERVICE_*_NAME`
+- Container Apps support (App Service/Functions need additional work)
+
+**Testing**:
+- Verified with deployed Container Apps
+- Service filtering works: `containerapp-api` → `ca-k7zjfgph5a6jk`
+- Streaming polls every 30s, shows new logs
+- 24h initial window catches logs even when containers idle
+- Graceful Ctrl+C shutdown
+
+**Known Limitations**:
+- Container Apps only (no App Service or Functions yet)
+- 30s polling (no real-time streaming API)
+- Log Analytics ingestion has 30-90s delay
+
+---
+
+**Phase 1 Complete** ✅
+
+**Next**: Dashboard integration (Phase 2)
+
+---
+
+## Archive
+
+**All tasks archived!**
+
+See [azure-logs-v2-archive-001.md](../../archive/azure-logs-v2-archive-001.md) for complete project history.
+
+**Project Summary**:
+- **Started**: 2025-12-10
+- **Completed**: 2025-12-10
+- **Status**: All phases delivered ✅
+- **Total Tasks**: 17 completed
+- **Build**: SUCCESS (v0.9.0)
+
+## PROJECT: dependency-ordered-startup
+
+### SPEC.MD
+
+# Dependency-Ordered Service Startup
+
+## Overview
+
+Update the `azd app run` command to honor the `uses` field in azure.yaml, starting services in dependency order and waiting for dependencies to become healthy before starting dependent services.
+
+## Problem
+
+Currently, `OrchestrateServices` starts all services in parallel without respecting the `uses` dependencies. This causes issues when:
+- An API service depends on a database container
+- The API starts before the database is ready to accept connections
+- Connection errors occur during startup
+
+Example from azure.yaml:
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      
+  api:
+    project: ./api
+    uses:
+      - postgres  # API should wait for postgres to be healthy
+```
+
+## Solution
+
+Use the existing `BuildDependencyGraph` and `TopologicalSort` functions to:
+1. Build dependency graph from services and their `uses` fields
+2. Group services into startup levels (level 0 = no deps, level 1 = depends on level 0, etc.)
+3. Start services level by level
+4. Wait for all services in a level to become **healthy** before starting the next level
+
+### Healthy vs Started
+
+Wait for **healthy** status rather than just **started** because:
+- A database being "started" doesn't mean it's accepting connections
+- Container services may take time after process start to become functional
+- Health checks are already implemented and configurable per-service
+
+### Implementation Changes
+
+#### 1. Update OrchestrateServices signature
+
+Add `services` and `resources` parameters to build the dependency graph:
+```go
+func OrchestrateServices(
+    runtimes []*ServiceRuntime,
+    services map[string]Service,    // NEW: for dependency graph
+    resources map[string]Resource,  // NEW: for dependency graph  
+    envVars map[string]string,
+    logger *ServiceLogger,
+    restartContainers bool,
+) (*OrchestrationResult, error)
+```
+
+#### 2. Modify orchestration logic
+
+```go
+// Build dependency graph
+graph, err := BuildDependencyGraph(services, resources)
+if err != nil {
+    return nil, fmt.Errorf("failed to build dependency graph: %w", err)
+}
+
+// Get services grouped by startup level
+levels := TopologicalSort(graph)
+
+// Start services level by level
+for levelNum, serviceNames := range levels {
+    // Start all services in this level in parallel
+    for _, name := range serviceNames {
+        runtime := runtimeMap[name]
+        wg.Add(1)
+        go startService(runtime, ...)
+    }
+    wg.Wait()
+    
+    // Wait for all services in this level to become healthy
+    for _, name := range serviceNames {
+        if err := waitForHealthy(name); err != nil {
+            return nil, fmt.Errorf("dependency %s failed to become healthy: %w", name, err)
+        }
+    }
+}
+```
+
+#### 3. Add health waiting function
+
+Create a function to wait for a service to become healthy with timeout:
+```go
+func waitForServiceHealthy(name string, processes map[string]*ServiceProcess, timeout time.Duration) error
+```
+
+#### 4. Update run command
+
+Pass `azureYaml.Services` and `azureYaml.Resources` to `OrchestrateServices`.
+
+### Edge Cases
+
+1. **No dependencies**: Services without `uses` start in level 0 (parallel)
+2. **Missing dependency**: Error during graph building (already handled)
+3. **Circular dependency**: Error during graph building (already handled)
+4. **Health check disabled**: Service considered healthy when started
+5. **Container services**: Use Docker health check status
+6. **Service filter**: Only include filtered services and their transitive dependencies
+
+### Registry Status Updates
+
+Update registry status progression:
+- `starting` - Process launched
+- `running` - Process running, health checks in progress
+- `healthy` - Health check passed (new status)
+- `error` - Failed to start or health check failed
+
+## Success Criteria
+
+1. Services with no dependencies start immediately (parallel)
+2. Services with dependencies wait for dependencies to be healthy
+3. Clear error messages when a dependency fails health check
+4. Timeout handling when a dependency never becomes healthy
+5. Existing behavior preserved when no `uses` fields present
+
+## Out of Scope
+
+- Dynamic dependency resolution at runtime
+- Circular dependency breaking strategies
+- Resource provisioning (only service startup order)
+
+### TASKS.MD
+
+<!-- NEXT: 0 -->
+# Dependency-Ordered Service Startup Tasks
+
+All tasks complete.
+
+## Done
+
+### DONE: Write Integration Tests {#write-integration-tests}
+
+Added tests in `orchestrator_test.go`:
+- `TestTopologicalSort_NoDependencies` - services with no deps start in level 0
+- `TestTopologicalSort_LinearDependency` - linear chain (frontend → api → db)
+- `TestTopologicalSort_DiamondDependency` - diamond pattern dependencies
+- `TestTopologicalSort_ContainerDependencies` - container-test pattern (api uses 4 containers)
+- `TestTopologicalSort_MixedDependencies` - mix of dependency depths
+- `TestTopologicalSort_EmptyServices` - edge case handling
+- `TestWaitForServiceHealthy_HealthCheckDisabled` - disabled health check returns immediately
+- `TestWaitForServiceHealthy_HealthCheckTypeNone` - type=none returns immediately
+- `TestGetServiceDependencies` - verify dependency retrieval
+- `TestGetDependents` - verify dependent service retrieval
+- `TestFilterGraphByServices` - transitive dependency inclusion
+
+### DONE: Update OrchestrateServices Signature {#update-orchestrateservices-signature}
+
+Added `services map[string]Service` parameter to `OrchestrateServices` function.
+Resources parameter not needed since container dependencies are services in azure.yaml.
+
+### DONE: Implement Level-Based Service Startup {#implement-level-based-startup}
+
+Modified `OrchestrateServices` to:
+- Build dependency graph using `BuildDependencyGraph(services, nil)`
+- Get startup levels via `TopologicalSort(graph)`
+- Start services level by level (parallel within each level)
+- Wait for all services in level N to be healthy before starting level N+1
+
+### DONE: Add waitForServiceHealthy Function {#add-wait-healthy-function}
+
+Created `waitForServiceHealthy(name, process, svc, timeout)` function that:
+- Returns immediately if health check is disabled for the service
+- Uses existing `PerformHealthCheck` with exponential backoff
+- Returns error on timeout or health check failure
+
+### DONE: Update Registry Status Progression {#update-registry-status}
+
+Kept existing status progression (starting → running). Health is determined dynamically
+by the health check system. No new "healthy" status needed since `process.Ready = true`
+indicates health check passed.
+
+### DONE: Update Run Command {#update-run-command}
+
+Updated `executeAndMonitorServices` in run.go to pass `azureYaml.Services` to
+`OrchestrateServices`.
