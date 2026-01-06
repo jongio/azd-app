@@ -4,9 +4,10 @@ package dashboard
 import (
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
-	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 )
 
 // TablesResponse represents the response from the tables API.
@@ -206,34 +207,25 @@ func (s *Server) handleSaveLogConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if service exists
-	svc, exists := azureYaml.Services[req.Service]
-	if !exists {
+	if _, exists := azureYaml.Services[req.Service]; !exists {
 		NotFound(w, "Service not found")
 		return
 	}
 
-	// Initialize logs config if needed
-	if svc.Logs == nil {
-		svc.Logs = &service.ServiceLogsConfig{}
-	}
-	if svc.Logs.Analytics == nil {
-		svc.Logs.Analytics = &service.AnalyticsConfigService{}
-	}
-
-	// Update the config based on mode
+	// Prepare tables and query based on mode
+	var tables []string
+	var query string
 	if req.Mode == "tables" {
-		svc.Logs.Analytics.Tables = req.Tables
-		svc.Logs.Analytics.Query = "" // Clear custom query
+		tables = req.Tables
+		query = ""
 	} else {
-		svc.Logs.Analytics.Query = req.Query
-		svc.Logs.Analytics.Tables = nil // Clear table selection
+		tables = nil
+		query = req.Query
 	}
 
-	// Save back to the services map
-	azureYaml.Services[req.Service] = svc
-
-	// Save azure.yaml
-	if err := saveAzureYaml(s.projectDir, azureYaml); err != nil {
+	// Use non-destructive YAML update to preserve schema, comments, and structure
+	azureYamlPath := filepath.Join(s.projectDir, "azure.yaml")
+	if err := yamlutil.UpdateServiceLogsConfig(azureYamlPath, req.Service, tables, query); err != nil {
 		HandleSaveError(w, err)
 		return
 	}
