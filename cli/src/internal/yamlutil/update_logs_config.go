@@ -111,7 +111,7 @@ func findOrCreateLogsSection(lines *[]string, serviceInfo *serviceInfo) logsSect
 	logsIndent := serviceIndent
 
 	lastPropertyIdx := serviceInfo.lineIdx
-	
+
 	// Look for existing logs section and find the last property line
 	for i := serviceInfo.lineIdx + 1; i < len(*lines); i++ {
 		line := (*lines)[i]
@@ -145,7 +145,7 @@ func findOrCreateLogsSection(lines *[]string, serviceInfo *serviceInfo) logsSect
 	// Logs section not found - insert it after the last property
 	insertIdx := lastPropertyIdx + 1
 	logsLine := logsIndent + "logs:"
-	
+
 	result := make([]string, 0, len(*lines)+1)
 	result = append(result, (*lines)[:insertIdx]...)
 	result = append(result, logsLine)
@@ -185,7 +185,7 @@ func findOrCreateAnalyticsSection(lines *[]string, logs logsSection) analyticsSe
 	// Analytics section not found - insert it after logs:
 	insertIdx := logs.idx + 1
 	analyticsLine := logs.indent + "    analytics:"
-	
+
 	result := make([]string, 0, len(*lines)+1)
 	result = append(result, (*lines)[:insertIdx]...)
 	result = append(result, analyticsLine)
