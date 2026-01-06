@@ -16,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 )
+
 // Setup state constants
 const (
 	statusNotDeployed         = "not-deployed"
