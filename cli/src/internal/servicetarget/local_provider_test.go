@@ -19,11 +19,7 @@ func TestNewLocalServiceTargetProvider(t *testing.T) {
 		t.Fatal("NewLocalServiceTargetProvider() returned nil")
 	}
 
-	// Verify it implements the interface
-	_, ok := provider.(azdext.ServiceTargetProvider)
-	if !ok {
-		t.Error("NewLocalServiceTargetProvider() does not implement ServiceTargetProvider interface")
-	}
+	// NewLocalServiceTargetProvider returns a ServiceTargetProvider interface; ensure it's non-nil
 }
 
 // TestLocalServiceTargetProvider_Initialize tests provider initialization
