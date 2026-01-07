@@ -23,16 +23,29 @@ const (
 // It writes to a temporary file first, then renames it to the target path.
 // This ensures the file is never left in a partial/corrupt state.
 func AtomicWriteJSON(path string, data interface{}) error {
-	tmpPath := path + ".tmp"
-
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	// Write to temp file first
-	if err := os.WriteFile(tmpPath, jsonData, FilePermission); err != nil {
+	// Create a unique temp file in the same directory to avoid cross-filesystem
+	// rename issues and concurrent writers clobbering the same temp filename.
+	dir := filepath.Dir(path)
+	tmpFile, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	// Ensure file is closed on all paths
+	defer func() { _ = tmpFile.Close() }()
+
+	if _, err := tmpFile.Write(jsonData); err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
 	// Rename temp file to final file (atomic operation on most filesystems)
@@ -49,11 +62,25 @@ func AtomicWriteJSON(path string, data interface{}) error {
 // It writes to a temporary file first, then renames it to the target path.
 // This ensures the file is never left in a partial/corrupt state.
 func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
-	tmpPath := path + ".tmp"
+	// Create a unique temp file in the same directory to avoid concurrent
+	// writers using the same temp filename and causing rename failures.
+	dir := filepath.Dir(path)
+	tmpFile, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	// Ensure file is closed on all paths
+	defer func() { _ = tmpFile.Close() }()
 
-	// Write to temp file first
-	if err := os.WriteFile(tmpPath, data, perm); err != nil {
+	if _, err := tmpFile.Write(data); err != nil {
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
 	// Rename temp file to final file (atomic operation on most filesystems)
@@ -61,6 +88,11 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
 		// Clean up temp file on failure
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	// Ensure final permissions are set
+	if err := os.Chmod(path, perm); err != nil {
+		return fmt.Errorf("failed to set file permissions: %w", err)
 	}
 
 	return nil
