@@ -210,17 +210,21 @@ func (g *ReportGenerator) generateJUnitReport(results *AggregateResult) error {
 
 // generateGitHubReport generates GitHub Actions specific output.
 func (g *ReportGenerator) generateGitHubReport(results *AggregateResult) error {
-	// Output annotations for failed tests
-	for _, svcResult := range results.Services {
-		for _, failure := range svcResult.Failures {
-			// GitHub Actions annotation format:
-			// ::error file={name},line={line},endLine={endLine},title={title}::{message}
-			if failure.File != "" {
-				fmt.Printf("::error file=%s,line=%d,title=Test Failed: %s::%s\n",
-					failure.File, failure.Line, failure.Name, failure.Message)
-			} else {
-				fmt.Printf("::error title=Test Failed: %s [%s]::%s\n",
-					failure.Name, svcResult.Service, failure.Message)
+	// Output annotations for failed tests, but only when running inside GitHub Actions.
+	// Emitting raw workflow commands during `go test` can cause the runner to create
+	// annotations that interfere with test outputs, so guard this behavior.
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		for _, svcResult := range results.Services {
+			for _, failure := range svcResult.Failures {
+				// GitHub Actions annotation format:
+				// ::error file={name},line={line},endLine={endLine},title={title}::{message}
+				if failure.File != "" {
+					fmt.Printf("::error file=%s,line=%d,title=Test Failed: %s::%s\n",
+						failure.File, failure.Line, failure.Name, failure.Message)
+				} else {
+					fmt.Printf("::error title=Test Failed: %s [%s]::%s\n",
+						failure.Name, svcResult.Service, failure.Message)
+				}
 			}
 		}
 	}
