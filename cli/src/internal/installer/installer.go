@@ -3,6 +3,7 @@ package installer
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -62,9 +63,12 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	switch project.PackageManager {
 	case "npm":
 		args = []string{"install", "--no-audit", "--no-fund", "--prefer-offline"}
-		// If this is a workspace root, use --workspaces flag to install all workspace packages
+		// If this is a workspace root, prefer using --workspaces, but only when
+		// package.json actually declares workspaces and matching packages exist.
 		if project.IsWorkspaceRoot {
-			args = append(args, "--workspaces")
+			if packageJSONHasWorkspacePackages(project.Dir) {
+				args = append(args, "--workspaces")
+			}
 		}
 	case "pnpm":
 		args = []string{"install", "--prefer-offline"}
@@ -835,4 +839,69 @@ func isFileLockingError(stderr string) bool {
 	return strings.Contains(lowerStderr, "ebusy") ||
 		strings.Contains(lowerStderr, "enotempty") ||
 		strings.Contains(lowerStderr, "eperm") && runtime.GOOS == "windows"
+}
+
+// packageJSONHasWorkspacePackages checks whether the package.json in dir
+// declares workspaces and at least one package matches the workspace globs.
+// This avoids invoking `npm --workspaces` when npm would error with
+// "No workspaces found!" in minimal test fixtures.
+func packageJSONHasWorkspacePackages(dir string) bool {
+	pkgPath := filepath.Join(dir, "package.json")
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		return false
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return false
+	}
+
+	// workspaces can be an array or an object with a 'packages' field
+	var patterns []string
+	if ws, ok := parsed["workspaces"]; ok {
+		switch v := ws.(type) {
+		case []interface{}:
+			for _, it := range v {
+				if s, ok := it.(string); ok {
+					patterns = append(patterns, s)
+				}
+			}
+		case map[string]interface{}:
+			if pkgs, ok := v["packages"]; ok {
+				if arr, ok := pkgs.([]interface{}); ok {
+					for _, it := range arr {
+						if s, ok := it.(string); ok {
+							patterns = append(patterns, s)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(patterns) == 0 {
+		return false
+	}
+
+	// For each pattern, check if any path matches under the directory.
+	for _, pat := range patterns {
+		// Normalize pattern to be relative to dir
+		matches, err := filepath.Glob(filepath.Join(dir, pat))
+		if err != nil {
+			continue
+		}
+		if len(matches) > 0 {
+			// Ensure at least one matched path contains a package.json
+			for _, m := range matches {
+				if fi, err := os.Stat(m); err == nil && fi.IsDir() {
+					if _, err := os.Stat(filepath.Join(m, "package.json")); err == nil {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }

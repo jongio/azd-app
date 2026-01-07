@@ -690,3 +690,14 @@ If you're still experiencing issues:
 3. **Share configuration**: Include relevant `azure.yaml` excerpt
 4. **Describe symptoms**: What you're seeing vs. what you expect
 5. **File an issue**: [github.com/jongio/azd-app/issues](https://github.com/jongio/azd-app/issues)
+
+## Notes About Running Tests on Windows
+
+Tests were updated to bind test listeners to the loopback interface (`127.0.0.1`) by default to avoid triggering Windows Firewall prompts when tests bind to all interfaces (e.g. `:0`). If you need to run tests that intentionally exercise all-interface binds, run them on a non-Windows system or explicitly enable them and accept firewall prompts. Tests that require all-interface behavior are annotated and will be skipped on Windows.
+
+To run integration tests that may bind all interfaces on Unix-like systems:
+
+```bash
+# Run integration tests only
+go test ./cli/... -run Integration -v
+```
