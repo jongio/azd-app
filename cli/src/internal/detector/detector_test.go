@@ -88,6 +88,11 @@ func TestFindAzureYaml(t *testing.T) {
 
 		found, err := FindAzureYaml(".")
 		require.NoError(t, err)
-		assert.Equal(t, azureYamlPath, found)
+		// Compare cleaned absolute paths to be robust across environments
+		foundAbs, err := filepath.Abs(found)
+		require.NoError(t, err)
+		expectedAbs, err := filepath.Abs(azureYamlPath)
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Clean(expectedAbs), filepath.Clean(foundAbs))
 	})
 }
