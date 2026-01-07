@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/security"
 )
@@ -43,16 +44,38 @@ func AtomicWriteJSON(path string, data interface{}) error {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
+
+	// Ensure data hits disk before we close/rename. This reduces races
+	// where the file might not be fully flushed on platforms with delayed
+	// write semantics (observed flakiness on some CI macOS runners).
+	if err := tmpFile.Sync(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	}
+
 	if err := tmpFile.Close(); err != nil {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	// Rename temp file to final file (atomic operation on most filesystems)
-	if err := os.Rename(tmpPath, path); err != nil {
-		// Clean up temp file on failure
+	// Set permissive mode on the temp file before rename so the final file
+	// has expected permissions once moved into place.
+	_ = os.Chmod(tmpPath, FilePermission)
+
+	// Rename temp file to final file (atomic operation on most filesystems).
+	// Perform a few retries to mitigate transient rename races observed on CI.
+	var renameErr error
+	for i := 0; i < 5; i++ {
+		renameErr = os.Rename(tmpPath, path)
+		if renameErr == nil {
+			break
+		}
+		// Small backoff
+		time.Sleep(20 * time.Millisecond)
+	}
+	if renameErr != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("failed to rename temp file: %w", err)
+		return fmt.Errorf("failed to rename temp file: %w", renameErr)
 	}
 
 	return nil
@@ -78,16 +101,31 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
+	if err := tmpFile.Sync(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	}
+
 	if err := tmpFile.Close(); err != nil {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	// Rename temp file to final file (atomic operation on most filesystems)
-	if err := os.Rename(tmpPath, path); err != nil {
-		// Clean up temp file on failure
+	// Ensure temp has requested permissions before rename
+	_ = os.Chmod(tmpPath, perm)
+
+	// Rename temp file to final file (atomic operation on most filesystems).
+	var renameErr2 error
+	for i := 0; i < 5; i++ {
+		renameErr2 = os.Rename(tmpPath, path)
+		if renameErr2 == nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if renameErr2 != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("failed to rename temp file: %w", err)
+		return fmt.Errorf("failed to rename temp file: %w", renameErr2)
 	}
 
 	// Ensure final permissions are set
