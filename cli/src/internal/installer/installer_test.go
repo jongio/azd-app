@@ -710,7 +710,11 @@ func TestInstallNodeDependencies_UpToDate(t *testing.T) {
 }
 
 func TestInstallNodeDependencies_Workspace(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp("", "installer-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create package.json for workspace root
 	packageJSON := `{
@@ -720,6 +724,16 @@ func TestInstallNodeDependencies_Workspace(t *testing.T) {
 	}`
 	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
+	}
+
+	// Create at least one workspace package so `npm --workspaces` has matching packages
+	pkgDir := filepath.Join(tmpDir, "packages", "pkg1")
+	if err := os.MkdirAll(pkgDir, 0750); err != nil {
+		t.Fatalf("failed to create workspace package dir: %v", err)
+	}
+	pkgJSON := `{"name":"pkg1","version":"0.0.0"}`
+	if err := os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+		t.Fatalf("failed to create workspace package.json: %v", err)
 	}
 
 	tests := []struct {
