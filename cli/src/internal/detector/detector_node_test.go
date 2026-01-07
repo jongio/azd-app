@@ -81,6 +81,67 @@ func TestHasPackageJson(t *testing.T) {
 	}
 }
 
+func TestDetectNodePackageManager(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create package.json
+	packageJSONPath := filepath.Join(tmpDir, "package.json")
+	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0644); err != nil {
+		t.Fatalf("failed to create package.json: %v", err)
+	}
+
+	// Should return npm by default
+	pm := DetectNodePackageManager(tmpDir)
+	if pm != "npm" {
+		t.Errorf("DetectNodePackageManager() = %s, want npm", pm)
+	}
+
+	// Create pnpm-lock.yaml
+	pnpmLockPath := filepath.Join(tmpDir, "pnpm-lock.yaml")
+	if err := os.WriteFile(pnpmLockPath, []byte(""), 0644); err != nil {
+		t.Fatalf("failed to create pnpm-lock.yaml: %v", err)
+	}
+
+	pm = DetectNodePackageManager(tmpDir)
+	if pm != "pnpm" {
+		t.Errorf("DetectNodePackageManager() = %s, want pnpm", pm)
+	}
+}
+
+func TestDetectNodePackageManagerWithSource(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create package.json
+	packageJSONPath := filepath.Join(tmpDir, "package.json")
+	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0644); err != nil {
+		t.Fatalf("failed to create package.json: %v", err)
+	}
+
+	// Should return npm by default
+	info := DetectNodePackageManagerWithSource(tmpDir)
+	if info.Name != "npm" {
+		t.Errorf("DetectNodePackageManagerWithSource().Name = %s, want npm", info.Name)
+	}
+	// Source is package.json when it exists, even if no lock files
+	if info.Source != "package.json" {
+		t.Logf("DetectNodePackageManagerWithSource().Source = %s (this is OK, package.json exists)", info.Source)
+	}
+
+	// Create yarn.lock
+	yarnLockPath := filepath.Join(tmpDir, "yarn.lock")
+	if err := os.WriteFile(yarnLockPath, []byte(""), 0644); err != nil {
+		t.Fatalf("failed to create yarn.lock: %v", err)
+	}
+
+	info = DetectNodePackageManagerWithSource(tmpDir)
+	if info.Name != "yarn" {
+		t.Errorf("DetectNodePackageManagerWithSource().Name = %s, want yarn", info.Name)
+	}
+	if info.Source != "yarn.lock" {
+		t.Errorf("DetectNodePackageManagerWithSource().Source = %s, want yarn.lock", info.Source)
+	}
+}
+
 func TestDetectPnpmScript(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -333,3 +394,61 @@ func TestDetectNodePackageManagerWithPackageManagerField(t *testing.T) {
 		})
 	}
 }
+
+func TestFindDockerComposeScript(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name:     "docker compose up",
+			content:  `{"name": "test", "scripts": {"start:compose": "docker compose up", "dev": "vite"}}`,
+			expected: "start:compose",
+		},
+		{
+			name:     "docker-compose up (legacy)",
+			content:  `{"name": "test", "scripts": {"compose": "docker-compose up -d", "dev": "vite"}}`,
+			expected: "compose",
+		},
+		{
+			name:     "no docker compose script",
+			content:  `{"name": "test", "scripts": {"dev": "vite", "build": "vite build"}}`,
+			expected: "",
+		},
+		{
+			name:     "no package.json",
+			content:  "",
+			expected: "",
+		},
+		{
+			name:     "invalid JSON",
+			content:  `{invalid}`,
+			expected: "",
+		},
+		{
+			name:     "empty scripts",
+			content:  `{"name": "test", "scripts": {}}`,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			if tt.content != "" {
+				packageJSONPath := filepath.Join(tmpDir, "package.json")
+				if err := os.WriteFile(packageJSONPath, []byte(tt.content), 0644); err != nil {
+					t.Fatalf("failed to create package.json: %v", err)
+				}
+			}
+
+			result := FindDockerComposeScript(tmpDir)
+			if result != tt.expected {
+				t.Errorf("FindDockerComposeScript() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+

@@ -526,3 +526,130 @@ func TestLogBuffer_WithoutFilter(t *testing.T) {
 		t.Errorf("Expected %d entries without filter, got %d", len(messages), len(entries))
 	}
 }
+func TestLogBuffer_ContainsPattern(t *testing.T) {
+	tmpDir := t.TempDir()
+	buffer, err := NewLogBuffer("test-service", 100, false, tmpDir)
+	if err != nil {
+		t.Fatalf("NewLogBuffer() error = %v", err)
+	}
+	defer buffer.Close()
+
+	// Add test entries
+	buffer.Add(LogEntry{Message: "Error: connection failed", Level: LogLevelError})
+	buffer.Add(LogEntry{Message: "Info: server started", Level: LogLevelInfo})
+	buffer.Add(LogEntry{Message: "Warning: deprecated API", Level: LogLevelWarn})
+
+	tests := []struct {
+		name    string
+		pattern string
+		want    bool
+	}{
+		{
+			name:    "pattern exists",
+			pattern: "connection failed",
+			want:    true,
+		},
+		{
+			name:    "pattern does not exist",
+			pattern: "database error",
+			want:    false,
+		},
+		{
+			name:    "partial match",
+			pattern: "server",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buffer.ContainsPattern(tt.pattern)
+			if got != tt.want {
+				t.Errorf("ContainsPattern(%q) = %v, want %v", tt.pattern, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLogBuffer_ContainsPatternRegex(t *testing.T) {
+	tmpDir := t.TempDir()
+	buffer, err := NewLogBuffer("test-service", 100, false, tmpDir)
+	if err != nil {
+		t.Fatalf("NewLogBuffer() error = %v", err)
+	}
+	defer buffer.Close()
+
+	// Add test entries
+	buffer.Add(LogEntry{Message: "Error 404: not found", Level: LogLevelError})
+	buffer.Add(LogEntry{Message: "Error 500: internal server error", Level: LogLevelError})
+	buffer.Add(LogEntry{Message: "Success: operation completed", Level: LogLevelInfo})
+
+	tests := []struct {
+		name    string
+		pattern string
+		want    bool
+		wantErr bool
+	}{
+		{
+			name:    "regex matches",
+			pattern: `Error \d+:`,
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    "regex does not match",
+			pattern: `Error 200:`,
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name:    "invalid regex",
+			pattern: `[invalid(`,
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name:    "complex regex",
+			pattern: `(Error|Success):`,
+			want:    true,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buffer.ContainsPatternRegex(tt.pattern)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ContainsPatternRegex(%q) error = %v, wantErr %v", tt.pattern, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("ContainsPatternRegex(%q) = %v, want %v", tt.pattern, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLogBuffer_RotateLogFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	buffer, err := NewLogBuffer("test-rotate", 3, true, tmpDir)
+	if err != nil {
+		t.Fatalf("NewLogBuffer() error = %v", err)
+	}
+	defer buffer.Close()
+
+	// Write multiple entries to trigger rotation
+	// The maxSize is 3, so adding 10 entries should cause rotation
+	for i := 0; i < 10; i++ {
+		buffer.Add(LogEntry{
+			Message:   "Test log entry that should trigger rotation",
+			Level:     LogLevelInfo,
+			Timestamp: time.Now(),
+		})
+	}
+
+	// Verify buffer still works after rotation
+	recent := buffer.GetRecent(5)
+	if len(recent) > 3 {
+		t.Errorf("Buffer should have max 3 entries after rotation, got %d", len(recent))
+	}
+}

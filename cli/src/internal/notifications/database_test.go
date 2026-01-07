@@ -140,4 +140,32 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, records)
 	})
+
+	t.Run("ClearAll", func(t *testing.T) {
+		// Save multiple notifications
+		for i := 0; i < 5; i++ {
+			event := Event{
+				Type:        EventHealthCheck,
+				ServiceName: "test",
+				Message:     "Test message",
+				Severity:    "info",
+				Timestamp:   time.Now(),
+			}
+			require.NoError(t, db.Save(ctx, event))
+		}
+
+		// Verify notifications exist
+		before, err := db.GetRecent(ctx, 100)
+		require.NoError(t, err)
+		assert.NotEmpty(t, before)
+
+		// Clear all notifications
+		err = db.ClearAll(ctx)
+		require.NoError(t, err)
+
+		// Verify all notifications were deleted
+		after, err := db.GetRecent(ctx, 100)
+		require.NoError(t, err)
+		assert.Empty(t, after)
+	})
 }
