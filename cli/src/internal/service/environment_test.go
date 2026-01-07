@@ -799,3 +799,148 @@ func TestLoadEnvFileIfExists(t *testing.T) {
 		}
 	})
 }
+
+func TestInjectFunctionsWorkerRuntime(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialEnv     map[string]string
+		runtime        *ServiceRuntime
+		expectedKeys   []string
+		expectedValues map[string]string
+	}{
+		{
+			name:       "non-functions framework does nothing",
+			initialEnv: map[string]string{"KEY": "value"},
+			runtime: &ServiceRuntime{
+				Framework: "Node.js",
+			},
+			expectedKeys: []string{"KEY"},
+			expectedValues: map[string]string{
+				"KEY": "value",
+			},
+		},
+		{
+			name:       "functions framework injects defaults",
+			initialEnv: map[string]string{},
+			runtime: &ServiceRuntime{
+				Framework:  "Functions - Python",
+				WorkingDir: "/tmp",
+			},
+			expectedKeys: []string{"AzureWebJobsStorage"},
+			expectedValues: map[string]string{
+				"AzureWebJobsStorage": "UseDevelopmentStorage=true",
+			},
+		},
+		{
+			name: "logic apps injects node runtime",
+			initialEnv: map[string]string{},
+			runtime: &ServiceRuntime{
+				Framework:  "Logic Apps Standard",
+				WorkingDir: "/tmp",
+			},
+			expectedKeys: []string{"FUNCTIONS_WORKER_RUNTIME", "AzureWebJobsStorage"},
+			expectedValues: map[string]string{
+				"FUNCTIONS_WORKER_RUNTIME": "node",
+				"AzureWebJobsStorage":      "UseDevelopmentStorage=true",
+			},
+		},
+		{
+			name: "preserves existing values",
+			initialEnv: map[string]string{
+				"FUNCTIONS_WORKER_RUNTIME": "python",
+				"AzureWebJobsStorage":      "custom-storage",
+			},
+			runtime: &ServiceRuntime{
+				Framework:  "Functions - Node.js",
+				WorkingDir: "/tmp",
+			},
+			expectedValues: map[string]string{
+				"FUNCTIONS_WORKER_RUNTIME": "python",
+				"AzureWebJobsStorage":      "custom-storage",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := InjectFunctionsWorkerRuntime(tt.initialEnv, tt.runtime)
+
+			for _, key := range tt.expectedKeys {
+				if _, exists := result[key]; !exists {
+					t.Errorf("Expected key %q to exist in result", key)
+				}
+			}
+
+			for key, expectedValue := range tt.expectedValues {
+				if actualValue, exists := result[key]; !exists {
+					t.Errorf("Expected key %q to exist", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("For key %q: got %q, want %q", key, actualValue, expectedValue)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadLocalSettings(t *testing.T) {
+	t.Run("non-existent file returns nil", func(t *testing.T) {
+		result := loadLocalSettings("/nonexistent/path/local.settings.json")
+		if result != nil {
+			t.Errorf("Expected nil for non-existent file, got %v", result)
+		}
+	})
+
+	t.Run("valid local.settings.json", func(t *testing.T) {
+		tempDir := t.TempDir()
+		settingsFile := filepath.Join(tempDir, "local.settings.json")
+
+		content := `{
+			"IsEncrypted": false,
+			"Values": {
+				"FUNCTIONS_WORKER_RUNTIME": "python",
+				"AzureWebJobsStorage": "UseDevelopmentStorage=true",
+				"CUSTOM_KEY": "custom_value"
+			}
+		}`
+
+		err := os.WriteFile(settingsFile, []byte(content), 0600)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		result := loadLocalSettings(settingsFile)
+
+		if result == nil {
+			t.Fatal("Expected result to be non-nil")
+		}
+
+		expectedValues := map[string]string{
+			"FUNCTIONS_WORKER_RUNTIME": "python",
+			"AzureWebJobsStorage":      "UseDevelopmentStorage=true",
+			"CUSTOM_KEY":               "custom_value",
+		}
+
+		for key, expectedValue := range expectedValues {
+			if actualValue, exists := result[key]; !exists {
+				t.Errorf("Expected key %q to exist", key)
+			} else if actualValue != expectedValue {
+				t.Errorf("For key %q: got %q, want %q", key, actualValue, expectedValue)
+			}
+		}
+	})
+
+	t.Run("invalid JSON returns nil", func(t *testing.T) {
+		tempDir := t.TempDir()
+		settingsFile := filepath.Join(tempDir, "local.settings.json")
+
+		err := os.WriteFile(settingsFile, []byte("invalid json"), 0600)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		result := loadLocalSettings(settingsFile)
+		if result != nil {
+			t.Errorf("Expected nil for invalid JSON, got %v", result)
+		}
+	})
+}
