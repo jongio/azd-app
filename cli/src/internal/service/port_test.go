@@ -295,3 +295,67 @@ func TestDetectPortFromEnv_Invalid(t *testing.T) {
 		t.Errorf("Expected 0 for invalid port value, got %d", port)
 	}
 }
+func TestExtractPortFromURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want int
+	}{
+		{
+			name: "URL with explicit port",
+			url:  "http://localhost:3000",
+			want: 3000,
+		},
+		{
+			name: "URL with HTTPS and port",
+			url:  "https://example.com:8443",
+			want: 8443,
+		},
+		{
+			name: "URL without port (HTTP) - no default",
+			url:  "http://example.com",
+			want: 0,
+		},
+		{
+			name: "URL without port (HTTPS) - no default",
+			url:  "https://example.com",
+			want: 0,
+		},
+		{
+			name: "URL with path",
+			url:  "http://localhost:4000/api/v1",
+			want: 4000,
+		},
+		{
+			name: "Invalid URL",
+			url:  "not-a-url",
+			want: 0,
+		},
+		{
+			name: "Empty URL",
+			url:  "",
+			want: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractPortFromURL(tt.url)
+			if got != tt.want {
+				t.Errorf("extractPortFromURL(%q) = %d, want %d", tt.url, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsPortAvailable(t *testing.T) {
+	// Test with a port that's likely available (high port number)
+	// Note: We can't guarantee the port is available, so we just test the function doesn't panic
+	available := IsPortAvailable(59999)
+	t.Logf("Port 59999 available: %v", available)
+
+	// Port 0 is special - system will assign a free port, so behavior may vary
+	// Just verify the function doesn't panic
+	available0 := IsPortAvailable(0)
+	t.Logf("Port 0 available: %v", available0)
+}

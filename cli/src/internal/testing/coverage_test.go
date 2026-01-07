@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -127,6 +128,137 @@ func TestGenerateJSONReport(t *testing.T) {
 	reportPath := filepath.Join(tmpDir, "coverage.json")
 	if _, err := os.Stat(reportPath); os.IsNotExist(err) {
 		t.Errorf("JSON report was not created at %s", reportPath)
+	}
+}
+
+func TestGenerateJSONReport_WithFilesAndUncoveredLines(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "coverage-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	agg := NewCoverageAggregator(80.0, tmpDir)
+
+	// Add coverage with file data including uncovered lines
+	err = agg.AddCoverage("service1", &CoverageData{
+		Lines: CoverageMetric{
+			Total:   100,
+			Covered: 85,
+			Percent: 85.0,
+		},
+		Files: []*FileCoverage{
+			{
+				Path: "src/main.go",
+				Lines: CoverageMetric{
+					Total:   50,
+					Covered: 45,
+					Percent: 90.0,
+				},
+				LineHits: map[int]int{
+					10: 1,
+					11: 0, // uncovered
+					12: 1,
+					13: 0, // uncovered
+					14: 1,
+				},
+			},
+			{
+				Path: "src/utils.go",
+				Lines: CoverageMetric{
+					Total:   30,
+					Covered: 25,
+					Percent: 83.3,
+				},
+				LineHits: map[int]int{
+					5:  1,
+					6:  0, // uncovered
+					7:  1,
+					20: 0, // uncovered
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Errorf("Failed to add coverage: %v", err)
+	}
+
+	// Add another service
+	err = agg.AddCoverage("service2", &CoverageData{
+		Lines: CoverageMetric{
+			Total:   50,
+			Covered: 40,
+			Percent: 80.0,
+		},
+		Files: []*FileCoverage{
+			{
+				Path: "api/handler.go",
+				Lines: CoverageMetric{
+					Total:   25,
+					Covered: 20,
+					Percent: 80.0,
+				},
+				LineHits: map[int]int{
+					15: 1,
+					16: 0, // uncovered
+					17: 1,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Errorf("Failed to add coverage: %v", err)
+	}
+
+	// Aggregate to populate aggregate data
+	aggregate := agg.Aggregate()
+
+	err = agg.GenerateReport("json")
+	if err != nil {
+		t.Errorf("Failed to generate JSON report: %v", err)
+	}
+
+	// Check if file was created
+	reportPath := filepath.Join(tmpDir, "coverage.json")
+	data, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Errorf("Failed to read JSON report: %v", err)
+	}
+
+	// Verify JSON structure
+	var report CoverageJSONReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Errorf("Failed to parse JSON report: %v", err)
+	}
+
+	// Check that services are present
+	if len(report.Services) != 2 {
+		t.Errorf("Expected 2 services, got %d", len(report.Services))
+	}
+
+	// Check service1 has files with uncovered lines
+	if service1, ok := report.Services["service1"]; ok {
+		if len(service1.Files) != 2 {
+			t.Errorf("Expected 2 files for service1, got %d", len(service1.Files))
+		}
+		
+		// Check that uncovered lines are sorted
+		for _, file := range service1.Files {
+			if len(file.UncoveredLines) > 0 {
+				for i := 1; i < len(file.UncoveredLines); i++ {
+					if file.UncoveredLines[i-1] >= file.UncoveredLines[i] {
+						t.Errorf("Uncovered lines not sorted in %s", file.Path)
+					}
+				}
+			}
+		}
+	} else {
+		t.Error("service1 not found in report")
+	}
+
+	// Check aggregate files are present
+	if len(report.Files) != len(aggregate.Aggregate.Files) {
+		t.Errorf("Expected %d aggregate files, got %d", len(aggregate.Aggregate.Files), len(report.Files))
 	}
 }
 

@@ -400,3 +400,135 @@ func TestJUnitErrorTest(t *testing.T) {
 		t.Error("XML missing error type")
 	}
 }
+
+func TestReportGenerator_generateGitHubReport(t *testing.T) {
+	// Save and restore GitHub env vars
+	oldSummary := os.Getenv("GITHUB_STEP_SUMMARY")
+	oldOutput := os.Getenv("GITHUB_OUTPUT")
+	defer func() {
+		if oldSummary == "" {
+			os.Unsetenv("GITHUB_STEP_SUMMARY")
+		} else {
+			os.Setenv("GITHUB_STEP_SUMMARY", oldSummary)
+		}
+		if oldOutput == "" {
+			os.Unsetenv("GITHUB_OUTPUT")
+		} else {
+			os.Setenv("GITHUB_OUTPUT", oldOutput)
+		}
+	}()
+
+	tempDir := t.TempDir()
+	summaryFile := filepath.Join(tempDir, "summary.md")
+	outputFile := filepath.Join(tempDir, "output.txt")
+
+	os.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+	os.Setenv("GITHUB_OUTPUT", outputFile)
+
+	gen := NewReportGenerator("github", tempDir)
+
+	results := &AggregateResult{
+		Services: []*TestResult{
+			{
+				Service: "api",
+				Passed:  5,
+				Failed:  1,
+				Total:   6,
+				Success: false,
+				Failures: []TestFailure{
+					{
+						Name:    "TestFailing",
+						Message: "Expected 5, got 4",
+						File:    "test.go",
+						Line:    15,
+					},
+				},
+			},
+		},
+		Passed:   5,
+		Failed:   1,
+		Total:    6,
+		Duration: 2.5,
+		Success:  false,
+		Coverage: &AggregateCoverage{
+			Aggregate: &CoverageData{
+				Lines: CoverageMetric{Percent: 85.0},
+			},
+		},
+	}
+
+	err := gen.generateGitHubReport(results)
+	if err != nil {
+		t.Fatalf("Failed to generate GitHub report: %v", err)
+	}
+
+	// Verify summary file was created
+	summaryData, err := os.ReadFile(summaryFile)
+	if err != nil {
+		t.Fatalf("Failed to read summary file: %v", err)
+	}
+	summaryContent := string(summaryData)
+	if !strings.Contains(summaryContent, "## 🧪 Test Results") {
+		t.Error("Summary missing test results header")
+	}
+
+	// Verify output file was created with correct format
+	outputData, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+	outputContent := string(outputData)
+	if !strings.Contains(outputContent, "tests_total=6") {
+		t.Error("Output missing tests_total")
+	}
+	if !strings.Contains(outputContent, "tests_passed=5") {
+		t.Error("Output missing tests_passed")
+	}
+	if !strings.Contains(outputContent, "tests_failed=1") {
+		t.Error("Output missing tests_failed")
+	}
+	if !strings.Contains(outputContent, "tests_success=false") {
+		t.Error("Output missing tests_success")
+	}
+	if !strings.Contains(outputContent, "coverage_percent=85.0") {
+		t.Error("Output missing coverage_percent")
+	}
+}
+
+func TestReportGenerator_generateGitHubReport_NoEnvVars(t *testing.T) {
+	// Clear GitHub env vars
+	oldSummary := os.Getenv("GITHUB_STEP_SUMMARY")
+	oldOutput := os.Getenv("GITHUB_OUTPUT")
+	os.Unsetenv("GITHUB_STEP_SUMMARY")
+	os.Unsetenv("GITHUB_OUTPUT")
+	defer func() {
+		if oldSummary != "" {
+			os.Setenv("GITHUB_STEP_SUMMARY", oldSummary)
+		}
+		if oldOutput != "" {
+			os.Setenv("GITHUB_OUTPUT", oldOutput)
+		}
+	}()
+
+	gen := NewReportGenerator("github", "")
+
+	results := &AggregateResult{
+		Services: []*TestResult{
+			{
+				Service: "api",
+				Passed:  5,
+				Total:   5,
+				Success: true,
+			},
+		},
+		Passed:  5,
+		Total:   5,
+		Success: true,
+	}
+
+	// Should not error even when env vars are not set
+	err := gen.generateGitHubReport(results)
+	if err != nil {
+		t.Fatalf("Should not error when GitHub env vars are not set: %v", err)
+	}
+}

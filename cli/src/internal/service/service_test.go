@@ -394,3 +394,51 @@ func TestParseAzureYaml_OnlyName(t *testing.T) {
 		t.Errorf("Expected no services, got %d", len(azureYaml.Services))
 	}
 }
+func TestGetServiceProjectDir(t *testing.T) {
+	tests := []struct {
+		name       string
+		service    service.Service
+		workingDir string
+		want       string
+	}{
+		{
+			name: "service with project path",
+			service: service.Service{
+				Project: "./api",
+			},
+			workingDir: "/home/user/app",
+			want:       "./api",
+		},
+		{
+			name:       "service without project path",
+			service:    service.Service{},
+			workingDir: "/home/user/app",
+			want:       "/home/user/app",
+		},
+		{
+			name: "service with absolute project path",
+			service: service.Service{
+				Project: "/absolute/path/api",
+			},
+			workingDir: "/home/user/app",
+			want:       "/absolute/path/api",
+		},
+		{
+			name: "service with empty project",
+			service: service.Service{
+				Project: "",
+			},
+			workingDir: "/working/directory",
+			want:       "/working/directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := service.GetServiceProjectDir(tt.service, tt.workingDir)
+			if got != tt.want {
+				t.Errorf("GetServiceProjectDir() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

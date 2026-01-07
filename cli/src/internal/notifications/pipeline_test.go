@@ -139,6 +139,28 @@ func TestOSNotificationHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 2, notifier.sendCount)
 	})
+
+	t.Run("SetDashboardURL", func(t *testing.T) {
+		notifier := &mockNotifier{available: true}
+		prefs := config.DefaultNotificationPreferences()
+
+		handler := NewOSNotificationHandler(notifier, prefs)
+
+		// Should not panic
+		handler.SetDashboardURL("http://localhost:3000")
+
+		// Verify the URL was set (we can't directly access it, but ensure no panic)
+		event := Event{
+			Type:        EventServiceStateChange,
+			ServiceName: "api",
+			Message:     "State changed",
+			Severity:    "info",
+			Timestamp:   time.Now(),
+		}
+
+		err := handler.Handle(context.Background(), event)
+		require.NoError(t, err)
+	})
 }
 
 type mockHandler struct {
