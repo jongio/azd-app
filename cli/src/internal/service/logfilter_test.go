@@ -356,3 +356,82 @@ func TestLogsConfig_GetFilters(t *testing.T) {
 func boolPtr(b bool) *bool {
 	return &b
 }
+func TestLogsConfig_GetClassifications(t *testing.T) {
+	tests := []struct {
+		name string
+		config *LogsConfig
+		wantLen int
+	}{
+		{
+			name: "nil config",
+			config: nil,
+			wantLen: 0,
+		},
+		{
+			name: "empty config",
+			config: &LogsConfig{},
+			wantLen: 0,
+		},
+		{
+			name: "config with classifications",
+			config: &LogsConfig{
+				Classifications: []LogClassification{
+					{Text: "error", Level: "error"},
+				},
+			},
+			wantLen: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.GetClassifications()
+			if len(got) != tt.wantLen {
+				t.Errorf("GetClassifications() len = %d, want %d", len(got), tt.wantLen)
+			}
+		})
+	}
+}
+
+func TestValidateClassificationLevel(t *testing.T) {
+	tests := []struct {
+		name  string
+		level string
+		want  bool
+	}{
+		{
+			name:  "valid level - info",
+			level: "info",
+			want:  true,
+		},
+		{
+			name:  "valid level - warning",
+			level: "warning",
+			want:  true,
+		},
+		{
+			name:  "valid level - error",
+			level: "error",
+			want:  true,
+		},
+		{
+			name:  "invalid level",
+			level: "invalid",
+			want:  false,
+		},
+		{
+			name:  "empty level",
+			level: "",
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ValidateClassificationLevel(tt.level)
+			if got != tt.want {
+				t.Errorf("ValidateClassificationLevel(%q) = %v, want %v", tt.level, got, tt.want)
+			}
+		})
+	}
+}

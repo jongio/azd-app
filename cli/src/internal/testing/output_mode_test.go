@@ -251,3 +251,16 @@ func TestSelectOutputMode_ForceStreamTakesPrecedenceOverForceProgress(t *testing
 		t.Errorf("ForceStream should take precedence over ForceProgress, got %v", mode)
 	}
 }
+
+func TestIsTTY(t *testing.T) {
+	// This test just exercises the IsTTY function
+	// The actual result depends on the environment (terminal vs piped)
+	result := IsTTY()
+	
+	// We can't reliably assert true or false since it depends on test execution context
+	// But we can at least call it to get coverage
+	t.Logf("IsTTY() returned: %v", result)
+	
+	// The function should not panic and should return a bool
+	_ = result
+}
