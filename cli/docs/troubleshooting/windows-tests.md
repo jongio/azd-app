@@ -1,3 +1,55 @@
+# Windows Test Networking and Firewall
+
+Some tests create temporary TCP listeners. On Windows, binding a listener to all interfaces (for example `:0` or `0.0.0.0:1234`) will often trigger a Windows Firewall "allow access" prompt. To avoid interactive prompts and reduce accidental exposure during automated test runs, tests in this project bind to the loopback interface (`127.0.0.1` or `localhost`) by default.
+
+What we changed
+- Tests that create listeners now bind explicitly to `127.0.0.1` or `localhost` when they only need local connectivity. This preserves ephemeral-port semantics and avoids firewall prompts.
+
+Running tests that require all-interface binds
+- If an integration test intentionally needs to listen on all interfaces, do one of the following:
+  - Run the test on a non-Windows runner (Linux, macOS, or WSL).
+  - Mark the test to skip on Windows using a runtime guard:
+
+```go
+if runtime.GOOS == "windows" {
+    t.Skip("skipping all-interface bind test on Windows")
+}
+```
+
+Adding a firewall exception (manual)
+- If you must run all-interface tests on Windows and want to avoid interactive prompts, add a persistent firewall rule as Administrator. Example PowerShell commands:
+
+```powershell
+# Allow inbound TCP to a single port
+New-NetFirewallRule -DisplayName "Allow azd-app test port 12345" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 12345
+
+# Allow a range of ports (e.g. 45000-46000)
+New-NetFirewallRule -DisplayName "Allow azd-app test ports 45000-46000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 45000-46000
+
+# Remove a rule by name
+Remove-NetFirewallRule -DisplayName "Allow azd-app test port 12345"
+```
+
+Helper script
+- A helper script is provided at `scripts/windows/add-firewall-rule.ps1` to add/remove firewall rules from an elevated PowerShell session. Example usage:
+
+```powershell
+# Add single port
+.\scripts\windows\add-firewall-rule.ps1 -Action Add -Port 12345 -Name "azd-app-test-12345"
+
+# Remove rule
+.\scripts\windows\add-firewall-rule.ps1 -Action Remove -Name "azd-app-test-12345"
+```
+
+Test helper in Go
+- A small test helper `ListenLoopback(port int)` is available under `cli/src/internal/testing/testutil` to simplify creating loopback listeners in tests. Use it to ensure new tests bind to loopback and avoid firewall prompts.
+
+Notes and best practices
+- Prefer loopback binds in tests unless the test explicitly needs an all-interface bind.
+- For CI, run all-interface tests on non-Windows runners to avoid firewall configuration.
+
+Contact
+- If you observe firewall prompts during `go test` despite these changes, file an issue and include the test file name, OS, and exact steps to reproduce.
 Windows test networking notes
 ==============================
 

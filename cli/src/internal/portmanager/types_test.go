@@ -4,6 +4,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 )
 
 func TestPortReservation_Release(t *testing.T) {
@@ -11,7 +13,7 @@ func TestPortReservation_Release(t *testing.T) {
 	// triggering Windows Firewall prompts that occur when binding to all
 	// interfaces (":0"). Using "127.0.0.1:0" keeps semantics of ephemeral
 	// ports while restricting the bind to the loopback interface.
-	listener, err := net.Listen("tcp", "127.0.0.1:0") // Use port 0 to get any available port
+	listener, _, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to create test listener: %v", err)
 	}
@@ -55,7 +57,7 @@ func TestPortReservation_Release_NilListener(t *testing.T) {
 }
 
 func TestPortReservation_Release_AlreadyReleased(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, _, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to create test listener: %v", err)
 	}
