@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 )
 
 // TestServer represents a spawned test server process.
@@ -223,11 +225,10 @@ func IsPythonAvailable() bool {
 
 // findAvailablePort finds an available port by attempting to bind.
 func findAvailablePort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, port, err := testutil.ListenLoopback(0)
 	if err != nil {
 		return 0, err
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
 	// Give the OS a moment to release the port
@@ -275,7 +276,7 @@ func waitForPortFree(port int, timeout time.Duration) error {
 
 // canBindToPort attempts to bind to a port to verify it's available.
 func canBindToPort(port int) bool {
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	listener, _, err := testutil.ListenLoopback(port)
 	if err != nil {
 		return false
 	}

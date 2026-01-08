@@ -3,11 +3,11 @@
 package portmanager
 
 import (
-	"fmt"
-	"net"
 	"os"
 	"testing"
 	"time"
+
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 )
 
 // TestPortAvailability_RealBinding tests actual port binding to verify conflict detection.
@@ -36,7 +36,7 @@ func TestPortAvailability_RealBinding(t *testing.T) {
 	}
 
 	// Bind to the port (localhost only to avoid firewall prompts)
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	listener, _, err := testutil.ListenLoopback(testPort)
 	if err != nil {
 		t.Fatalf("Failed to bind to port %d: %v", testPort, err)
 	}
@@ -81,7 +81,7 @@ func TestPortAvailability_LocalhostVsAllInterfaces(t *testing.T) {
 	t.Logf("Using test port: %d", testPort)
 
 	// Bind to localhost to avoid firewall prompts
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	listener, _, err := testutil.ListenLoopback(testPort)
 	if err != nil {
 		t.Fatalf("Failed to bind to localhost on port %d: %v", testPort, err)
 	}
@@ -124,7 +124,7 @@ func TestAssignPort_Integration_WithRealConflict(t *testing.T) {
 	}
 
 	// Now bind to that port to simulate it being in use
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	listener, _, err := testutil.ListenLoopback(testPort)
 	if err != nil {
 		t.Fatalf("Failed to bind to port %d: %v", testPort, err)
 	}
@@ -192,7 +192,7 @@ func TestDashboardPortBinding(t *testing.T) {
 	t.Logf("Using test port: %d", testPort)
 
 	// Simulate dashboard binding (now uses localhost)
-	listener1, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	listener1, _, err := testutil.ListenLoopback(testPort)
 	if err != nil {
 		t.Fatalf("Failed to simulate dashboard binding: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 	t.Logf("First instance got port: %d", port1)
 
 	// Bind to simulate service running
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port1))
+	listener, _, err := testutil.ListenLoopback(port1)
 	if err != nil {
 		t.Fatalf("Failed to bind port %d: %v", port1, err)
 	}
@@ -333,7 +333,7 @@ func TestPortManager_DebugMode(t *testing.T) {
 	}
 
 	// Bind and test again
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", testPort))
+	listener, _, err := testutil.ListenLoopback(testPort)
 	if err != nil {
 		t.Fatalf("Failed to bind: %v", err)
 	}

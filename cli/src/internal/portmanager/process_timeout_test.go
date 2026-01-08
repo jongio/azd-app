@@ -2,13 +2,14 @@ package portmanager
 
 import (
 	"context"
-	"net"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 )
 
 // TestGetProcessOnPort_DoesNotHang verifies that getProcessOnPort returns within
@@ -44,14 +45,12 @@ func TestGetProcessOnPort_WithActivePort(t *testing.T) {
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
 
-	// Start a listener on a random port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	// Start a listener on a random port (loopback)
+	listener, port, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
 	defer listener.Close()
-
-	port := listener.Addr().(*net.TCPAddr).Port
 
 	// Test that we can get the PID within the timeout
 	start := time.Now()
