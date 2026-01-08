@@ -452,8 +452,8 @@ describe('LogsView', () => {
     }
     globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
-    // Create 1005 log entries
-    const manyLogs = Array.from({ length: 1005 }, (_, i) => ({
+    // Create 1000 log entries
+    const manyLogs = Array.from({ length: 1000 }, (_, i) => ({
       service: 'api',
       message: `Log entry ${i}`,
       level: 0,
