@@ -166,37 +166,31 @@ func IsContainerEnvironment() bool {
 	return false
 }
 
+// ErrInsecureFilePermissions indicates a file has insecure (world-writable) permissions.
+var ErrInsecureFilePermissions = errors.New("insecure file permissions")
+
 // ValidateFilePermissions checks if a file has secure permissions.
 // On Unix systems, it ensures the file is not world-writable.
 // On Windows, this check is skipped as Windows uses ACLs differently.
-// In container environments (Codespaces, Dev Containers, Docker, Kubernetes),
-// world-writable permissions generate a warning instead of an error.
-//
-// Returns:
-//   - warning: A non-empty string if there's a warning (container environment with insecure permissions)
-//   - err: An error if the file has insecure permissions in a non-container environment
-func ValidateFilePermissions(path string) (warning string, err error) {
+// If the file is world-writable on non-Windows platforms, this returns
+// ErrInsecureFilePermissions. Callers may translate that into a user
+// visible warning when running inside container environments.
+func ValidateFilePermissions(path string) error {
 	// Skip permission check on Windows as it uses ACLs
 	if runtime.GOOS == "windows" {
-		return "", nil
+		return nil
 	}
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to stat file: %w", err)
+		return fmt.Errorf("failed to stat file: %w", err)
 	}
 
 	// Check if file is world-writable (insecure)
-	if info.Mode().Perm()&0002 != 0 {
-		// In container environments, return a warning instead of an error
-		if IsContainerEnvironment() {
-			return fmt.Sprintf("azure.yaml has world-writable permissions (%04o). This is common in container environments. To fix: chmod 644 %s",
-				info.Mode().Perm(), path), nil
-		}
-
-		return "", fmt.Errorf("file %s is world-writable (permissions: %04o), please run: chmod 644 %s",
-			path, info.Mode().Perm(), path)
+	if info.Mode().Perm()&0o022 != 0 {
+		// Signal insecure permissions to caller using sentinel error
+		return ErrInsecureFilePermissions
 	}
 
-	return "", nil
+	return nil
 }

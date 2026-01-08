@@ -1,6 +1,7 @@
 package security
 
 import (
+	"errors"
 	"os"
 	"runtime"
 	"strings"
@@ -178,12 +179,9 @@ func TestValidateFilePermissions(t *testing.T) {
 	}
 
 	// Test with secure permissions (0644)
-	warning, err := ValidateFilePermissions(tmpFile)
-	if err != nil {
+	var err error
+	if err = ValidateFilePermissions(tmpFile); err != nil {
 		t.Errorf("ValidateFilePermissions() with 0644 should pass, got error: %v", err)
-	}
-	if warning != "" {
-		t.Errorf("ValidateFilePermissions() with 0644 should not have warning, got: %v", warning)
 	}
 
 	// Skip world-writable test on Windows (uses ACLs)
@@ -213,18 +211,18 @@ func TestValidateFilePermissions(t *testing.T) {
 			}
 		}()
 
-		warning, err = ValidateFilePermissions(tmpFile)
+		err = ValidateFilePermissions(tmpFile)
 		if err == nil {
 			t.Error("ValidateFilePermissions() with 0666 should fail on Unix in non-container environment")
 		}
-		if warning != "" {
-			t.Errorf("ValidateFilePermissions() error case should not have warning, got: %v", warning)
+		if err != nil && !strings.Contains(err.Error(), "insecure file permissions") && !errors.Is(err, ErrInsecureFilePermissions) {
+			t.Errorf("ValidateFilePermissions() returned unexpected error: %v", err)
 		}
 	}
 
 	// Test with non-existent file (only fails on Unix, Windows returns nil)
 	if runtime.GOOS != "windows" {
-		_, err = ValidateFilePermissions("/nonexistent/file")
+		err = ValidateFilePermissions("/nonexistent/file")
 		if err == nil {
 			t.Error("ValidateFilePermissions() with non-existent file should fail on Unix")
 		}
@@ -407,19 +405,19 @@ func TestValidateFilePermissions_ContainerEnvironment(t *testing.T) {
 			name:        "Codespaces - should warn",
 			envVars:     map[string]string{"CODESPACES": "true"},
 			wantWarning: true,
-			wantErr:     false,
+			wantErr:     true,
 		},
 		{
 			name:        "Dev Containers - should warn",
 			envVars:     map[string]string{"REMOTE_CONTAINERS": "true"},
 			wantWarning: true,
-			wantErr:     false,
+			wantErr:     true,
 		},
 		{
 			name:        "Kubernetes - should warn",
 			envVars:     map[string]string{"KUBERNETES_SERVICE_HOST": "10.0.0.1"},
 			wantWarning: true,
-			wantErr:     false,
+			wantErr:     true,
 		},
 	}
 
@@ -456,28 +454,20 @@ func TestValidateFilePermissions_ContainerEnvironment(t *testing.T) {
 				}
 			}()
 
-			warning, err := ValidateFilePermissions(tmpFile)
+				err := ValidateFilePermissions(tmpFile)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateFilePermissions() error = %v, wantErr %v", err, tt.wantErr)
-			}
+				if (err != nil) != tt.wantErr {
+					t.Errorf("ValidateFilePermissions() error = %v, wantErr %v", err, tt.wantErr)
+				}
 
-			if (warning != "") != tt.wantWarning {
-				t.Errorf("ValidateFilePermissions() warning = %q, wantWarning %v", warning, tt.wantWarning)
-			}
-
-			// Verify warning message format
-			if tt.wantWarning && warning != "" {
-				if !strings.Contains(warning, "world-writable permissions") {
-					t.Errorf("Warning should mention 'world-writable permissions', got: %s", warning)
+				if tt.wantWarning {
+					// In container environments, caller is expected to translate the sentinel error
+					// into a warning. Here we assert that the sentinel is returned and/or the
+					// environment is detected.
+					if !errors.Is(err, ErrInsecureFilePermissions) {
+						t.Errorf("expected ErrInsecureFilePermissions in container env, got: %v", err)
+					}
 				}
-				if !strings.Contains(warning, "container environments") {
-					t.Errorf("Warning should mention 'container environments', got: %s", warning)
-				}
-				if !strings.Contains(warning, "chmod 644") {
-					t.Errorf("Warning should include fix command 'chmod 644', got: %s", warning)
-				}
-			}
 		})
 	}
 }
@@ -756,13 +746,9 @@ func TestValidateFilePermissions_SecurePermissions_ContainerEnvironment(t *testi
 		}
 	}()
 
-	// Even in container environment, secure permissions should not produce warning
-	warning, err := ValidateFilePermissions(tmpFile)
-	if err != nil {
+	// Even in container environment, secure permissions should not produce error
+	if err := ValidateFilePermissions(tmpFile); err != nil {
 		t.Errorf("ValidateFilePermissions() with 0644 should not error, got: %v", err)
-	}
-	if warning != "" {
-		t.Errorf("ValidateFilePermissions() with 0644 should not warn, got: %v", warning)
 	}
 }
 
