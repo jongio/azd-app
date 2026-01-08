@@ -1,3 +1,8 @@
+## [0.10.0] - 2026-01-08
+
+- feat: Azure Cloud Log Streaming - Monitor Logs integration with enhanced dashboard (#93) (dd0bb7a)
+- chore: update registry for v0.9.0 (dfa880c)
+
 ## [0.9.0] - 2025-12-09
 
 - feat: Container services support and testing framework (#91) (df8332b)
