@@ -68,10 +68,10 @@ func TestSetAlwaysKillPreference(t *testing.T) {
 
 func TestSetAlwaysKillPreference_Persistence(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Create shared in-memory client
 	sharedClient := azdconfig.NewInMemoryClient()
-	
+
 	// First manager
 	pm := GetPortManager(tempDir)
 	pm.SetConfigClient(sharedClient)
@@ -95,10 +95,10 @@ func TestSetAlwaysKillPreference_Persistence(t *testing.T) {
 
 func TestClearCacheForTesting(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Create first manager
 	pm1 := setupTestManager(tempDir, nil)
-	
+
 	// Assign a port
 	port, _, err := pm1.AssignPort("test-service", 9999, false)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestSetTestModeForTesting(t *testing.T) {
 func TestGetAlwaysKillPreference_WithNilClient(t *testing.T) {
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
-	
+
 	// Don't set a config client - it will try to create one
 	// This test ensures the function handles errors gracefully
 	pm.configClient = nil

@@ -451,4 +451,3 @@ func TestFindDockerComposeScript(t *testing.T) {
 		})
 	}
 }
-

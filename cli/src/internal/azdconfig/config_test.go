@@ -7,27 +7,27 @@ import (
 // TestProjectHash tests the project hash generation
 func TestProjectHash(t *testing.T) {
 	tests := []struct {
-		name      string
-		path1     string
-		path2     string
+		name        string
+		path1       string
+		path2       string
 		shouldMatch bool
 	}{
 		{
-			name:      "identical paths should produce same hash",
-			path1:     "/home/user/project",
-			path2:     "/home/user/project",
+			name:        "identical paths should produce same hash",
+			path1:       "/home/user/project",
+			path2:       "/home/user/project",
 			shouldMatch: true,
 		},
 		{
-			name:      "different paths should produce different hashes",
-			path1:     "/home/user/project1",
-			path2:     "/home/user/project2",
+			name:        "different paths should produce different hashes",
+			path1:       "/home/user/project1",
+			path2:       "/home/user/project2",
 			shouldMatch: false,
 		},
 		{
-			name:      "relative and absolute paths should match after normalization",
-			path1:     ".",
-			path2:     ".",
+			name:        "relative and absolute paths should match after normalization",
+			path1:       ".",
+			path2:       ".",
 			shouldMatch: true,
 		},
 	}

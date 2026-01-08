@@ -25,36 +25,36 @@ func TestNewFunctionsOutputParser(t *testing.T) {
 
 func TestParseLine_HTTPTrigger(t *testing.T) {
 	tests := []struct {
-		name           string
-		line           string
-		expectEndpoint bool
-		expectedName   string
+		name            string
+		line            string
+		expectEndpoint  bool
+		expectedName    string
 		expectedMethods []string
-		expectedRoute  string
+		expectedRoute   string
 	}{
 		{
-			name:           "HTTP trigger with GET",
-			line:           "  GetUser: [GET] http://localhost:7071/api/users/{id}",
-			expectEndpoint: true,
-			expectedName:   "GetUser",
+			name:            "HTTP trigger with GET",
+			line:            "  GetUser: [GET] http://localhost:7071/api/users/{id}",
+			expectEndpoint:  true,
+			expectedName:    "GetUser",
 			expectedMethods: []string{"GET"},
-			expectedRoute:  "api/users/{id}",
+			expectedRoute:   "api/users/{id}",
 		},
 		{
-			name:           "HTTP trigger with multiple methods",
-			line:           "  CreateUser: [POST, PUT] http://localhost:7071/api/users",
-			expectEndpoint: true,
-			expectedName:   "CreateUser",
+			name:            "HTTP trigger with multiple methods",
+			line:            "  CreateUser: [POST, PUT] http://localhost:7071/api/users",
+			expectEndpoint:  true,
+			expectedName:    "CreateUser",
 			expectedMethods: []string{"POST", "PUT"},
-			expectedRoute:  "api/users",
+			expectedRoute:   "api/users",
 		},
 		{
-			name:           "Simple HTTP pattern",
-			line:           "  HelloWorld: http://localhost:7071/api/hello",
-			expectEndpoint: true,
-			expectedName:   "HelloWorld",
+			name:            "Simple HTTP pattern",
+			line:            "  HelloWorld: http://localhost:7071/api/hello",
+			expectEndpoint:  true,
+			expectedName:    "HelloWorld",
 			expectedMethods: []string{"GET", "POST"},
-			expectedRoute:  "api/hello",
+			expectedRoute:   "api/hello",
 		},
 		{
 			name:           "Non-matching line",
@@ -103,10 +103,10 @@ func TestParseLine_HTTPTrigger(t *testing.T) {
 
 func TestParseLine_NonHTTPTriggers(t *testing.T) {
 	tests := []struct {
-		name               string
-		line               string
-		expectedTrigger    string
-		expectedName       string
+		name            string
+		line            string
+		expectedTrigger string
+		expectedName    string
 	}{
 		{
 			name:            "Timer trigger",

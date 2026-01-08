@@ -358,18 +358,18 @@ func boolPtr(b bool) *bool {
 }
 func TestLogsConfig_GetClassifications(t *testing.T) {
 	tests := []struct {
-		name string
-		config *LogsConfig
+		name    string
+		config  *LogsConfig
 		wantLen int
 	}{
 		{
-			name: "nil config",
-			config: nil,
+			name:    "nil config",
+			config:  nil,
 			wantLen: 0,
 		},
 		{
-			name: "empty config",
-			config: &LogsConfig{},
+			name:    "empty config",
+			config:  &LogsConfig{},
 			wantLen: 0,
 		},
 		{

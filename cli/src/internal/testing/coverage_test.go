@@ -241,7 +241,7 @@ func TestGenerateJSONReport_WithFilesAndUncoveredLines(t *testing.T) {
 		if len(service1.Files) != 2 {
 			t.Errorf("Expected 2 files for service1, got %d", len(service1.Files))
 		}
-		
+
 		// Check that uncovered lines are sorted
 		for _, file := range service1.Files {
 			if len(file.UncoveredLines) > 0 {

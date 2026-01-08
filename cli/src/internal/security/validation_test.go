@@ -454,20 +454,20 @@ func TestValidateFilePermissions_ContainerEnvironment(t *testing.T) {
 				}
 			}()
 
-				err := ValidateFilePermissions(tmpFile)
+			err := ValidateFilePermissions(tmpFile)
 
-				if (err != nil) != tt.wantErr {
-					t.Errorf("ValidateFilePermissions() error = %v, wantErr %v", err, tt.wantErr)
-				}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateFilePermissions() error = %v, wantErr %v", err, tt.wantErr)
+			}
 
-				if tt.wantWarning {
-					// In container environments, caller is expected to translate the sentinel error
-					// into a warning. Here we assert that the sentinel is returned and/or the
-					// environment is detected.
-					if !errors.Is(err, ErrInsecureFilePermissions) {
-						t.Errorf("expected ErrInsecureFilePermissions in container env, got: %v", err)
-					}
+			if tt.wantWarning {
+				// In container environments, caller is expected to translate the sentinel error
+				// into a warning. Here we assert that the sentinel is returned and/or the
+				// environment is detected.
+				if !errors.Is(err, ErrInsecureFilePermissions) {
+					t.Errorf("expected ErrInsecureFilePermissions in container env, got: %v", err)
 				}
+			}
 		})
 	}
 }
@@ -475,10 +475,10 @@ func TestValidateFilePermissions_ContainerEnvironment(t *testing.T) {
 // TestValidateServiceName tests service name validation
 func TestValidateServiceName(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		serviceName string
-		allowEmpty bool
-		wantErr    bool
+		allowEmpty  bool
+		wantErr     bool
 	}{
 		{
 			name:        "valid service name",
@@ -708,7 +708,7 @@ func TestValidatePath_EvalSymlinksNonExistError(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	brokenSymlink := tmpDir + "/broken-link"
-	
+
 	// Create a symlink pointing to a non-existent target
 	// This should pass validation (path doesn't exist yet, but structure is valid)
 	if err := os.Symlink("/tmp/nonexistent-target-12345", brokenSymlink); err != nil {
@@ -758,13 +758,13 @@ func TestValidatePath_ResolvedPathWithDots(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	
+
 	// Create a directory structure: tmpDir/safe/target.txt
 	safeDir := tmpDir + "/safe"
 	if err := os.MkdirAll(safeDir, 0755); err != nil {
 		t.Fatalf("Failed to create safe dir: %v", err)
 	}
-	
+
 	targetFile := safeDir + "/target.txt"
 	if err := os.WriteFile(targetFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create target file: %v", err)

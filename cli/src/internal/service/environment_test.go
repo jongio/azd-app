@@ -832,7 +832,7 @@ func TestInjectFunctionsWorkerRuntime(t *testing.T) {
 			},
 		},
 		{
-			name: "logic apps injects node runtime",
+			name:       "logic apps injects node runtime",
 			initialEnv: map[string]string{},
 			runtime: &ServiceRuntime{
 				Framework:  "Logic Apps Standard",
