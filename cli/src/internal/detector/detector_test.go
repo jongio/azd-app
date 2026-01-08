@@ -89,10 +89,17 @@ func TestFindAzureYaml(t *testing.T) {
 		found, err := FindAzureYaml(".")
 		require.NoError(t, err)
 		// Compare cleaned absolute paths to be robust across environments
+		// Use EvalSymlinks to resolve symlinks (e.g., /var -> /private/var on macOS)
 		foundAbs, err := filepath.Abs(found)
 		require.NoError(t, err)
+		foundAbs, err = filepath.EvalSymlinks(foundAbs)
+		require.NoError(t, err)
+		
 		expectedAbs, err := filepath.Abs(azureYamlPath)
 		require.NoError(t, err)
+		expectedAbs, err = filepath.EvalSymlinks(expectedAbs)
+		require.NoError(t, err)
+		
 		assert.Equal(t, filepath.Clean(expectedAbs), filepath.Clean(foundAbs))
 	})
 }
