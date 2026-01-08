@@ -3,12 +3,13 @@
 package portmanager
 
 import (
-	"net"
 	"os"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 )
 
 // TestUnixKillProcessOnPort_MacOSCompatibility verifies that killProcessOnPort
@@ -20,11 +21,10 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 	pm := GetPortManager(tempDir)
 
 	// Find an available port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, port, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to get available port: %v", err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
 
 	// Keep listener open to simulate a process holding the port
 	// This is more reliable than using external netcat command
@@ -92,11 +92,10 @@ func TestUnixGetProcessOnPort_NoBSDExtensions(t *testing.T) {
 	pm := GetPortManager(tempDir)
 
 	// Start a simple HTTP server on a random port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, port, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to listen: %v", err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
 	defer listener.Close()
 
 	// Get process info
@@ -168,11 +167,10 @@ func TestMacOSPortConflictResolution(t *testing.T) {
 	pm := GetPortManager(tempDir)
 
 	// Start a listener to simulate a service
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, port, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
 	defer listener.Close()
 
 	t.Logf("Started test listener on port %d", port)

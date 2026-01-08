@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
 )
@@ -241,14 +242,12 @@ func TestParseHealthResponseBody_InvalidJSON(t *testing.T) {
 func TestCheckPort(t *testing.T) {
 	checker := &HealthChecker{}
 
-	// Start a test server
-	listener, err := net.Listen("tcp", "localhost:0")
+	// Start a test server bound to loopback to avoid firewall prompts
+	listener, port, err := testutil.ListenLoopback(0)
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
 	defer listener.Close()
-
-	port := listener.Addr().(*net.TCPAddr).Port
 
 	tests := []struct {
 		name string

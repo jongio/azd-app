@@ -3,12 +3,13 @@
 package portmanager
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"runtime"
 	"testing"
 	"time"
+
+	testutil "github.com/jongio/azd-app/cli/src/internal/testing/testutil"
 )
 
 // isMacOSCI returns true if running on macOS in a CI environment.
@@ -124,7 +125,7 @@ func TestKillExternalProcess_VerifyPortFreed(t *testing.T) {
 	var bindErr error
 
 	for i := 0; i < maxRetries; i++ {
-		listener, bindErr = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		listener, _, bindErr = testutil.ListenLoopback(port)
 		if bindErr == nil {
 			break
 		}
