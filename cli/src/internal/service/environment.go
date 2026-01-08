@@ -105,10 +105,17 @@ func resolveKeyVaultReferences(ctx context.Context, envVars []string) ([]string,
 
 	// Log any warnings
 	for _, w := range warnings {
-		if w.Key != "" {
-			fmt.Fprintf(os.Stderr, "Warning: failed to resolve Key Vault reference for %s: %v\n", w.Key, w.Err)
+		// Check if debug mode is enabled before exposing variable names
+		if debug := os.Getenv("AZD_DEBUG"); debug == "true" || debug == "1" {
+			// In debug mode, include the variable key for troubleshooting
+			if w.Key != "" {
+				fmt.Fprintf(os.Stderr, "Warning: failed to resolve Key Vault reference for %s: %v\n", w.Key, w.Err)
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", w.Err)
+			}
 		} else {
-			fmt.Fprintf(os.Stderr, "Warning: %v\n", w.Err)
+			// In normal mode, use generic message to avoid exposing sensitive variable names
+			fmt.Fprintf(os.Stderr, "Warning: failed to resolve Key Vault reference: %v\n", w.Err)
 		}
 	}
 

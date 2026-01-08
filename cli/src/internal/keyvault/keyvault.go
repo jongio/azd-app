@@ -208,6 +208,11 @@ func (r *KeyVaultResolver) resolveBySecretURI(ctx context.Context, secretURI str
 	vaultURL := parts[0]
 	secretPath := parts[1]
 
+	// Validate vault URL to prevent SSRF attacks
+	if err := validateVaultURL(vaultURL); err != nil {
+		return "", err
+	}
+
 	// Get or create client for this vault
 	client, err := r.getClient(vaultURL)
 	if err != nil {
@@ -243,6 +248,11 @@ func (r *KeyVaultResolver) resolveBySecretURI(ctx context.Context, secretURI str
 
 // resolveByVaultNameAndSecret resolves a secret using vault name and secret name.
 func (r *KeyVaultResolver) resolveByVaultNameAndSecret(ctx context.Context, vaultName, secretName, version string) (string, error) {
+	// Validate vault name format
+	if err := validateVaultName(vaultName); err != nil {
+		return "", err
+	}
+
 	// Construct vault URL from vault name
 	vaultURL := fmt.Sprintf("https://%s.vault.azure.net", vaultName)
 
@@ -306,4 +316,43 @@ func normalizeKeyVaultReferenceValue(value string) string {
 	}
 
 	return normalized
+}
+
+// validateVaultURL validates that a vault URL is safe to use (prevents SSRF attacks).
+func validateVaultURL(vaultURL string) error {
+	// Must use HTTPS scheme
+	if !strings.HasPrefix(vaultURL, "https://") {
+		return fmt.Errorf("vault URI must use https scheme")
+	}
+
+	// Must be in *.vault.azure.net domain
+	if !strings.HasSuffix(vaultURL, ".vault.azure.net") {
+		return fmt.Errorf("vault URI must be in *.vault.azure.net domain")
+	}
+
+	// Extract and validate vault name
+	vaultName := strings.TrimPrefix(vaultURL, "https://")
+	vaultName = strings.TrimSuffix(vaultName, ".vault.azure.net")
+
+	return validateVaultName(vaultName)
+}
+
+// validateVaultName validates that a vault name follows Azure Key Vault naming rules.
+func validateVaultName(vaultName string) error {
+	// Azure Key Vault names must be 3-24 characters, alphanumeric and hyphens only
+	if len(vaultName) < 3 || len(vaultName) > 24 {
+		return fmt.Errorf("vault name must be 3-24 characters, got %d", len(vaultName))
+	}
+
+	// Must match pattern: alphanumeric and hyphens only, cannot start with number
+	for i, ch := range vaultName {
+		if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '-') {
+			return fmt.Errorf("vault name contains invalid character: %c", ch)
+		}
+		if i == 0 && ch >= '0' && ch <= '9' {
+			return fmt.Errorf("vault name cannot start with a number")
+		}
+	}
+
+	return nil
 }

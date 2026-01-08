@@ -271,3 +271,134 @@ func TestResolveEnvironmentOptions(t *testing.T) {
 		t.Error("ResolveEnvironmentOptions.StopOnError = true, want false")
 	}
 }
+
+func TestValidateVaultURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{
+			name:    "Valid vault URL",
+			url:     "https://myvault.vault.azure.net",
+			wantErr: false,
+		},
+		{
+			name:    "Valid vault URL with hyphens",
+			url:     "https://my-test-vault.vault.azure.net",
+			wantErr: false,
+		},
+		{
+			name:    "Invalid - HTTP instead of HTTPS",
+			url:     "http://myvault.vault.azure.net",
+			wantErr: true,
+		},
+		{
+			name:    "Invalid - wrong domain",
+			url:     "https://myvault.malicious.com",
+			wantErr: true,
+		},
+		{
+			name:    "Invalid - vault name too short",
+			url:     "https://ab.vault.azure.net",
+			wantErr: true,
+		},
+		{
+			name:    "Invalid - vault name too long",
+			url:     "https://this-is-a-very-long-vault-name-that-exceeds-limit.vault.azure.net",
+			wantErr: true,
+		},
+		{
+			name:    "Invalid - vault name starts with number",
+			url:     "https://1myvault.vault.azure.net",
+			wantErr: true,
+		},
+		{
+			name:    "Invalid - vault name has invalid characters",
+			url:     "https://my_vault.vault.azure.net",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateVaultURL(tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateVaultURL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateVaultName(t *testing.T) {
+	tests := []struct {
+		name      string
+		vaultName string
+		wantErr   bool
+	}{
+		{
+			name:      "Valid vault name",
+			vaultName: "myvault",
+			wantErr:   false,
+		},
+		{
+			name:      "Valid vault name with hyphens",
+			vaultName: "my-test-vault",
+			wantErr:   false,
+		},
+		{
+			name:      "Valid vault name with numbers",
+			vaultName: "myvault123",
+			wantErr:   false,
+		},
+		{
+			name:      "Valid vault name - 3 chars (minimum)",
+			vaultName: "abc",
+			wantErr:   false,
+		},
+		{
+			name:      "Valid vault name - 24 chars (maximum)",
+			vaultName: "abcdefghijklmnopqrstuvwx",
+			wantErr:   false,
+		},
+		{
+			name:      "Invalid - too short (2 chars)",
+			vaultName: "ab",
+			wantErr:   true,
+		},
+		{
+			name:      "Invalid - too long (25 chars)",
+			vaultName: "abcdefghijklmnopqrstuvwxy",
+			wantErr:   true,
+		},
+		{
+			name:      "Invalid - starts with number",
+			vaultName: "1myvault",
+			wantErr:   true,
+		},
+		{
+			name:      "Invalid - contains underscore",
+			vaultName: "my_vault",
+			wantErr:   true,
+		},
+		{
+			name:      "Invalid - contains special characters",
+			vaultName: "my.vault",
+			wantErr:   true,
+		},
+		{
+			name:      "Invalid - empty string",
+			vaultName: "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateVaultName(tt.vaultName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateVaultName() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
