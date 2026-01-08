@@ -2,6 +2,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,12 +58,17 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 	}
 
 	// Validate file permissions for security
-	warning, err := security.ValidateFilePermissions(azureYamlPath)
-	if err != nil {
-		return "", nil, fmt.Errorf("insecure file permissions on azure.yaml: %w", err)
-	}
-	if warning != "" {
-		fmt.Fprintf(os.Stderr, "⚠️  Warning: %s\n", warning)
+	if err := security.ValidateFilePermissions(azureYamlPath); err != nil {
+		if errors.Is(err, security.ErrInsecureFilePermissions) {
+			// If running in a container environment, print a warning and continue.
+			if security.IsContainerEnvironment() {
+				fmt.Fprintln(os.Stderr, fmt.Sprintf("Warning: azure.yaml has world-writable permissions (0666). This is common in container environments but consider fixing with: chmod 644 %s", azureYamlPath))
+			} else {
+				return "", nil, fmt.Errorf("insecure file permissions on azure.yaml: %w", err)
+			}
+		} else {
+			return "", nil, fmt.Errorf("insecure file permissions on azure.yaml: %w", err)
+		}
 	}
 
 	// #nosec G304 -- Path validated by security.ValidatePath above
