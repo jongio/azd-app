@@ -2,6 +2,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -218,22 +219,31 @@ func startSingleService(rt *ServiceRuntime, envVars map[string]string, reg *regi
 		logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to register service: %v", err))
 	}
 
-	// Resolve environment variables for this service
-	// Start with os.Environ() to inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
-	serviceEnv := make(map[string]string)
-	for _, e := range os.Environ() {
-		pair := strings.SplitN(e, "=", 2)
-		if len(pair) == 2 {
-			serviceEnv[pair[0]] = pair[1]
-		}
+	// Resolve environment variables for this service using the centralized ResolveEnvironment function.
+	// This handles:
+	// - OS environment inheritance (including azd context: AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
+	// - Custom environment variables from --env-file
+	// - Service-specific environment from azure.yaml
+	// - Azure Key Vault reference resolution (automatic)
+	// - Variable substitution
+	//
+	// We need to create a dummy Service to pass runtime.Env to ResolveEnvironment
+	dummyService := Service{
+		Environment: rt.Env,
 	}
-	// Merge custom environment variables from --env-file
-	for k, v := range envVars {
-		serviceEnv[k] = v
-	}
-	// Merge runtime-specific env (highest priority)
-	for k, v := range rt.Env {
-		serviceEnv[k] = v
+
+	// Create context for Key Vault resolution (with reasonable timeout)
+	ctx := context.Background()
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	serviceEnv, resolveErr := ResolveEnvironment(ctx, dummyService, make(map[string]string), "", envVars)
+	if resolveErr != nil {
+		slog.Warn("environment resolution warning",
+			slog.String("service", rt.Name),
+			slog.String("error", resolveErr.Error()))
+		// Continue with degraded environment - warnings already logged by ResolveEnvironment
 	}
 
 	// Inject FUNCTIONS_WORKER_RUNTIME for Logic Apps if missing

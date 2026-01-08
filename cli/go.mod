@@ -9,6 +9,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
 	github.com/azure/azure-dev/cli/azd v0.0.0-20251218233415-a3a53372c587
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coder/websocket v1.8.14
@@ -30,6 +31,7 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.6.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.21.1 // indirect

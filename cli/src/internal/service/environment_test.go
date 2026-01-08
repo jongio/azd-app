@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -459,7 +460,8 @@ func TestResolveEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ResolveEnvironment(tt.service, tt.azureEnv, tt.dotEnvPath, tt.serviceURLs)
+			ctx := context.Background()
+			got, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, tt.dotEnvPath, tt.serviceURLs)
 			if err != nil {
 				t.Fatalf("ResolveEnvironment() error = %v", err)
 			}

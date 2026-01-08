@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -142,8 +143,10 @@ services:
 		"SERVICE_URL_API": "http://localhost:5000",
 	}
 
+	ctx := context.Background()
+
 	// Resolve environment for web service
-	resolvedEnv, err := ResolveEnvironment(web, azureEnv, "", serviceURLs)
+	resolvedEnv, err := ResolveEnvironment(ctx, web, azureEnv, "", serviceURLs)
 	if err != nil {
 		t.Fatalf("Failed to resolve environment: %v", err)
 	}
@@ -168,7 +171,7 @@ services:
 		"NODE_ENV": "development", // Should be overridden by azure.yaml
 	}
 
-	resolvedWithConflict, err := ResolveEnvironment(web, azureEnvWithConflict, "", serviceURLs)
+	resolvedWithConflict, err := ResolveEnvironment(ctx, web, azureEnvWithConflict, "", serviceURLs)
 	if err != nil {
 		t.Fatalf("Failed to resolve environment with conflict: %v", err)
 	}

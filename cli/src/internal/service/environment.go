@@ -3,20 +3,23 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/keyvault"
 	"github.com/jongio/azd-app/cli/src/internal/security"
 )
 
-// ResolveEnvironment merges environment variables from multiple sources.
+// ResolveEnvironment merges environment variables from multiple sources and resolves Azure Key Vault references.
 // Priority (highest to lowest): service-specific env > .env file > azure environment > OS environment.
 // This function ensures that azd context variables (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 // are preserved and passed to all child processes, as required by the azd extension framework.
-func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, error) {
+// Key Vault references in any of these sources are automatically resolved to their actual secret values.
+func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, error) {
 	env := make(map[string]string)
 
 	// Start with OS environment - this includes azd context variables when running as an azd extension:
@@ -59,7 +62,83 @@ func ResolveEnvironment(service Service, azureEnv map[string]string, dotEnvPath 
 		env[name] = value
 	}
 
+	// Resolve Azure Key Vault references if present
+	envSlice := envMapToSlice(env)
+	if hasKeyVaultReferences(envSlice) {
+		resolvedSlice, err := resolveKeyVaultReferences(ctx, envSlice)
+		if err != nil {
+			// Log warning but continue - graceful degradation
+			fmt.Fprintf(os.Stderr, "Warning: Key Vault resolution encountered errors: %v\n", err)
+		} else {
+			// Convert back to map
+			env = envSliceToMap(resolvedSlice)
+		}
+	}
+
 	return env, nil
+}
+
+// hasKeyVaultReferences checks if any environment variables contain Key Vault references.
+func hasKeyVaultReferences(envVars []string) bool {
+	for _, envVar := range envVars {
+		parts := strings.SplitN(envVar, "=", 2)
+		if len(parts) == 2 && keyvault.IsKeyVaultReference(parts[1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveKeyVaultReferences resolves Key Vault references in environment variables.
+// Returns the resolved variables or an error if resolution fails.
+func resolveKeyVaultReferences(ctx context.Context, envVars []string) ([]string, error) {
+	resolver, err := keyvault.NewKeyVaultResolver()
+	if err != nil {
+		// Log warning and return original values
+		fmt.Fprintf(os.Stderr, "Warning: failed to create Key Vault resolver: %v\n", err)
+		return envVars, nil
+	}
+
+	resolvedVars, warnings, err := resolver.ResolveEnvironmentVariables(ctx, envVars, keyvault.ResolveEnvironmentOptions{
+		StopOnError: false, // Graceful degradation by default
+	})
+
+	// Log any warnings
+	for _, w := range warnings {
+		if w.Key != "" {
+			fmt.Fprintf(os.Stderr, "Warning: failed to resolve Key Vault reference for %s: %v\n", w.Key, w.Err)
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", w.Err)
+		}
+	}
+
+	if err != nil {
+		// With StopOnError=false, this shouldn't happen, but handle it anyway
+		return envVars, err
+	}
+
+	return resolvedVars, nil
+}
+
+// envMapToSlice converts an environment map to a slice of KEY=VALUE strings.
+func envMapToSlice(env map[string]string) []string {
+	result := make([]string, 0, len(env))
+	for k, v := range env {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+	return result
+}
+
+// envSliceToMap converts a slice of KEY=VALUE strings to a map.
+func envSliceToMap(envSlice []string) map[string]string {
+	result := make(map[string]string)
+	for _, envVar := range envSlice {
+		parts := strings.SplitN(envVar, "=", 2)
+		if len(parts) == 2 {
+			result[parts[0]] = parts[1]
+		}
+	}
+	return result
 }
 
 // InjectFunctionsWorkerRuntime adds FUNCTIONS_WORKER_RUNTIME and other required settings

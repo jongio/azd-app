@@ -2,6 +2,23 @@
 
 Complete reference for all `azd app` commands and flags.
 
+## 🔐 Azure Key Vault Integration
+
+**All commands that start services or execute code automatically resolve Azure Key Vault references in environment variables.**
+
+Supported formats:
+- `@Microsoft.KeyVault(SecretUri=https://vault.vault.azure.net/secrets/name)`
+- `@Microsoft.KeyVault(VaultName=vault;SecretName=name)`
+- `akvs://<guid>/<vault>/<secret>`
+
+**→ [See Azure Key Vault Integration Guide](features/keyvault-integration.md)** for complete documentation, examples, and security best practices.
+
+**Why it matters:**
+- ✅ Store secrets securely in Azure Key Vault, not in code
+- ✅ Works transparently - your code just uses `os.getenv()` / `process.env`
+- ✅ Uses Azure authentication you already have (`az login`, Managed Identity)
+- ✅ Graceful degradation - services start even if resolution fails (with warnings)
+
 ## Global Information
 
 All commands automatically inherit azd environment context when run through `azd app <command>`. This includes Azure subscription information, resource groups, and environment-specific variables.
