@@ -62,7 +62,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 		if errors.Is(err, security.ErrInsecureFilePermissions) {
 			// If running in a container environment, print a warning and continue.
 			if security.IsContainerEnvironment() {
-				fmt.Fprintln(os.Stderr, fmt.Sprintf("Warning: azure.yaml has world-writable permissions (0666). This is common in container environments but consider fixing with: chmod 644 %s", azureYamlPath))
+				fmt.Fprintf(os.Stderr, "Warning: azure.yaml has world-writable permissions (0666). This is common in container environments but consider fixing with: chmod 644 %s\n", azureYamlPath)
 			} else {
 				return "", nil, fmt.Errorf("insecure file permissions on azure.yaml: %w", err)
 			}
