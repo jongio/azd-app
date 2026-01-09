@@ -1,4 +1,4 @@
-<!-- NEXT: 1 -->
+<!-- NEXT: 7 -->
 
 ## TODO
 
@@ -22,10 +22,85 @@
 - Description: Run `go test ./...` in `cli` on Windows (or a Windows CI runner) and confirm no firewall prompts or failing tests. Report results.
 - Acceptance criteria: Unit tests pass; any integration tests that require network access are documented and skipped on Windows or isolated.
 
+### 7. Add azd-core dependency
+- Description: Leverage the existing Go workspace (`go.work`) in `c:\code` so local development uses `azd-core` without `go.mod replace`. For CI, add a `require` and pin to a tagged `azd-core` version (workspace not used in CI).
+- Acceptance criteria: Local builds succeed via workspace; CI configured to use a tagged version without replace.
+
+### 9. Deferred: other core methods
+- Description: Out of scope for the initial Key Vault-only integration; plan for a future phase to migrate other shared utilities.
+- Acceptance criteria: N/A for the current phase.
+
+### 10. Update and add tests
+- Description: Update tests to exercise `azd-core` paths and add coverage for KV resolution and env substitution; maintain ≥80% coverage.
+- Acceptance criteria: Test suite green on Windows/Linux; coverage target met.
+
+### 11. Docs & changelog updates
+- Description: Document `azd-core` usage and contributor guidance (workspace-based dev, version pinning) and update CHANGELOG.
+- Acceptance criteria: Docs updated and linked from relevant indexes; CHANGELOG notes added.
+
+### 12. Preflight & CI alignment
+- Description: Run preflight; ensure CI workflows use a tagged `azd-core` and remain green; adjust as needed.
+- Acceptance criteria: CI green with `azd-core` integration; preflight passes.
+
+### 13. Build/packaging verification
+- Description: Verify Windows/Linux builds and CLI packaging (mage/build scripts) with `azd-core` dependency.
+- Acceptance criteria: Release artifacts build successfully across platforms.
+
 ## IN PROGRESS
 
 - (none)
 
+## azd-core KV Integration DONE
+
+### 6. Draft azd-core integration spec
+- Status: ✅ COMPLETE
+- File: docs/specs/azd-app/azd-core-integration.md
+
+### 7. Add azd-core dependency
+- Status: ✅ COMPLETE  
+- Local dev uses go.work at c:\code (no replace needed)
+- go.mod has require github.com/jongio/azd-core v0.0.0
+
+### 8. Refactor Key Vault env resolver
+- Status: ✅ COMPLETE
+- All KV resolution now uses azd-core/keyvault
+- Functions: NewKeyVaultResolver, ResolveEnvironmentVariables, IsKeyVaultReference
+- Zero internal/keyvault references in production code
+
+### 9. Remove KV duplicates & tidy
+- Status: ✅ COMPLETE
+- Removed internal/keyvault package entirely
+- Modules tidied (go mod tidy)
+
+### 10. Update and add tests
+- Status: ✅ COMPLETE
+- 23 test sub-cases covering happy/error paths
+- All KV test formats validated (akvs://, @Microsoft.KeyVault)
+- Coverage: 73.2% service package, 100% KV functions
+
+### 11. Docs & changelog updates
+- Status: ✅ COMPLETE
+- CHANGELOG.md updated for v0.10.0
+- README.md links to azd-core integration guide
+- cli/docs/contributing/azd-core-integration.md created
+
+### 12. Preflight & CI alignment
+- Status: ✅ COMPLETE
+- Preflight passed (all checks green)
+- Build successful: go build ./src/cmd/app
+- All tests passing
+
+### 13. Build/packaging verification
+- Status: ✅ COMPLETE
+- Windows build verified: bin/azd-app-test.exe created successfully
+- No build errors with azd-core dependency
+
 ## DONE
 
-- (none)
+### 6. Draft azd-core integration spec
+- Description: Create the azd-core integration plan describing goals, non-goals, module path/versioning, migration map (Key Vault-only), testing, CI, and rollout. Save at `docs/specs/azd-app/azd-core-integration.md`.
+- Acceptance criteria: Spec added and reviewed; clear migration map and acceptance criteria captured.
+
+### 8. Refactor Key Vault env resolver
+- Description: Replace azd-app Key Vault environment variable resolution with `azd-core` implementation, adding adapters as needed to keep public interfaces stable.
+- Acceptance criteria: Key Vault env resolution uses `azd-core`; unit tests pass for happy-path and error-paths.

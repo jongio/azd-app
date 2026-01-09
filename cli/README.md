@@ -674,6 +674,15 @@ azd app deps
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+### Developer Documentation
+
+- **[azd-core Integration Guide](docs/contributing/azd-core-integration.md)**: How to work with azd-core locally and in CI/CD
+  - Local development setup with `go.work`
+  - Running tests with azd-core
+  - CI/CD module pinning
+  - Debugging integration issues
+- **[Key Vault Integration](docs/features/keyvault-integration.md)**: User and developer guide for Key Vault reference resolution
+
 ### Code Quality Requirements
 
 - All tests must pass: `go test ./...`

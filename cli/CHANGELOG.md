@@ -1,6 +1,12 @@
 ## [0.10.0] - 2026-01-08
 
 - feat: Azure Cloud Log Streaming - Monitor Logs integration with enhanced dashboard (#93) (dd0bb7a)
+- feat: Key Vault environment reference resolution using azd-core integration
+  - Automatic detection and resolution of Azure Key Vault references in environment variables
+  - Support for multiple reference formats: @Microsoft.KeyVault, akvs://, and SecretUri
+  - Graceful degradation with warnings when secrets cannot be resolved
+  - Comprehensive test coverage for KV resolution paths and error handling
+  - Added contributor documentation for azd-core local development and CI/CD workflows
 - chore: update registry for v0.9.0 (dfa880c)
 
 ## [0.9.0] - 2025-12-09

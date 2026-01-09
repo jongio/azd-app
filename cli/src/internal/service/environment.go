@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/keyvault"
 	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/keyvault"
 )
 
 // ResolveEnvironment merges environment variables from multiple sources and resolves Azure Key Vault references.
@@ -78,17 +78,6 @@ func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[strin
 	return env, nil
 }
 
-// hasKeyVaultReferences checks if any environment variables contain Key Vault references.
-func hasKeyVaultReferences(envVars []string) bool {
-	for _, envVar := range envVars {
-		parts := strings.SplitN(envVar, "=", 2)
-		if len(parts) == 2 && keyvault.IsKeyVaultReference(parts[1]) {
-			return true
-		}
-	}
-	return false
-}
-
 // resolveKeyVaultReferences resolves Key Vault references in environment variables.
 // Returns the resolved variables or an error if resolution fails.
 func resolveKeyVaultReferences(ctx context.Context, envVars []string) ([]string, error) {
@@ -125,6 +114,17 @@ func resolveKeyVaultReferences(ctx context.Context, envVars []string) ([]string,
 	}
 
 	return resolvedVars, nil
+}
+
+// hasKeyVaultReferences checks if any environment variables contain Key Vault references.
+func hasKeyVaultReferences(envVars []string) bool {
+	for _, envVar := range envVars {
+		parts := strings.SplitN(envVar, "=", 2)
+		if len(parts) == 2 && keyvault.IsKeyVaultReference(parts[1]) {
+			return true
+		}
+	}
+	return false
 }
 
 // envMapToSlice converts an environment map to a slice of KEY=VALUE strings.

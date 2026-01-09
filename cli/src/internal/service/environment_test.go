@@ -946,3 +946,286 @@ func TestLoadLocalSettings(t *testing.T) {
 		}
 	})
 }
+
+func TestHasKeyVaultReferences(t *testing.T) {
+	tests := []struct {
+		name     string
+		envVars  []string
+		expected bool
+	}{
+		{
+			name:     "no references",
+			envVars:  []string{"API_KEY=secret123", "DEBUG=true"},
+			expected: false,
+		},
+		{
+			name:     "akvs format reference",
+			envVars:  []string{"SECRET=akvs://my-vault/my-secret/default"},
+			expected: true,
+		},
+		{
+			name:     "@Microsoft.KeyVault SecretUri reference",
+			envVars:  []string{"SECRET=@Microsoft.KeyVault(SecretUri=https://myvault.vault.azure.net/secrets/mysecret/abc123)"},
+			expected: true,
+		},
+		{
+			name:     "@Microsoft.KeyVault VaultName reference",
+			envVars:  []string{"SECRET=@Microsoft.KeyVault(VaultName=myvault;SecretName=mysecret)"},
+			expected: true,
+		},
+		{
+			name:     "mixed with and without references",
+			envVars:  []string{"API_KEY=@Microsoft.KeyVault(VaultName=vault;SecretName=key)", "DEBUG=true"},
+			expected: true,
+		},
+		{
+			name:     "empty list",
+			envVars:  []string{},
+			expected: false,
+		},
+		{
+			name:     "multiple keyvault references",
+			envVars:  []string{"SECRET1=akvs://vault/secret1/v1", "SECRET2=akvs://vault/secret2/v2"},
+			expected: true,
+		},
+		{
+			name:     "malformed env vars with reference",
+			envVars:  []string{"NO_EQUALS", "KEY=akvs://vault/secret/v1"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasKeyVaultReferences(tt.envVars)
+			if got != tt.expected {
+				t.Errorf("hasKeyVaultReferences() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestEnvMapToSliceAndBack(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+	}{
+		{
+			name: "simple map",
+			env: map[string]string{
+				"KEY1": "value1",
+				"KEY2": "value2",
+			},
+		},
+		{
+			name: "empty map",
+			env:  map[string]string{},
+		},
+		{
+			name: "special characters in values",
+			env: map[string]string{
+				"CONNECTION": "server=localhost;user=admin;pass=p@ss=word",
+				"URL":        "https://api.example.com?key=value&other=123",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert map to slice
+			slice := envMapToSlice(tt.env)
+
+			// Convert back to map
+			env := envSliceToMap(slice)
+
+			// Verify all keys and values are preserved
+			if len(env) != len(tt.env) {
+				t.Errorf("envMapToSlice/envSliceToMap roundtrip: got %d vars, want %d", len(env), len(tt.env))
+			}
+
+			for key, want := range tt.env {
+				if got, ok := env[key]; !ok {
+					t.Errorf("missing key %q", key)
+				} else if got != want {
+					t.Errorf("key %q = %q, want %q", key, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestResolveEnvironmentWithKeyVaultReferences(t *testing.T) {
+	tests := []struct {
+		name         string
+		service      Service
+		azureEnv     map[string]string
+		serviceURLs  map[string]string
+		wantContains map[string]bool // Key -> should exist
+		wantErr      bool
+	}{
+		{
+			name: "no keyvault references",
+			service: Service{
+				Environment: Environment{
+					"API_KEY": "plain-value",
+					"DEBUG":   "true",
+				},
+			},
+			azureEnv:    map[string]string{},
+			serviceURLs: map[string]string{},
+			wantContains: map[string]bool{
+				"API_KEY": true,
+				"DEBUG":   true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "resolves keyvault references gracefully",
+			service: Service{
+				Environment: Environment{
+					"API_KEY": "@Microsoft.KeyVault(VaultName=myvault;SecretName=apikey)",
+					"DEBUG":   "true",
+				},
+			},
+			azureEnv:    map[string]string{},
+			serviceURLs: map[string]string{},
+			wantContains: map[string]bool{
+				"DEBUG": true, // Non-KV vars should be present
+			},
+			wantErr: false, // Should not error but may have warnings
+		},
+		{
+			name: "akvs format reference",
+			service: Service{
+				Environment: Environment{
+					"SECRET": "akvs://vault-name/secret-name",
+					"PUBLIC": "public-value",
+				},
+			},
+			azureEnv:    map[string]string{},
+			serviceURLs: map[string]string{},
+			wantContains: map[string]bool{
+				"PUBLIC": true,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			env, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, "", tt.serviceURLs)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveEnvironment() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			for key, shouldExist := range tt.wantContains {
+				_, exists := env[key]
+				if shouldExist && !exists {
+					t.Errorf("expected key %q to exist in result", key)
+				}
+			}
+		})
+	}
+}
+
+func TestEnvMapToSlice(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		want []string
+	}{
+		{
+			name: "single entry",
+			env: map[string]string{
+				"KEY": "value",
+			},
+			want: []string{"KEY=value"},
+		},
+		{
+			name: "multiple entries",
+			env: map[string]string{
+				"KEY1": "value1",
+				"KEY2": "value2",
+			},
+			want: []string{"KEY1=value1", "KEY2=value2"},
+		},
+		{
+			name: "empty map",
+			env:  map[string]string{},
+			want: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := envMapToSlice(tt.env)
+
+			// Convert both to maps for comparison since order is not guaranteed
+			wantMap := envSliceToMap(tt.want)
+			gotMap := envSliceToMap(got)
+
+			if len(gotMap) != len(wantMap) {
+				t.Errorf("envMapToSlice() returned %d vars, want %d", len(gotMap), len(wantMap))
+			}
+
+			for key, want := range wantMap {
+				if gotMap[key] != want {
+					t.Errorf("envMapToSlice()[%q] = %q, want %q", key, gotMap[key], want)
+				}
+			}
+		})
+	}
+}
+
+func TestEnvSliceToMap(t *testing.T) {
+	tests := []struct {
+		name string
+		env  []string
+		want map[string]string
+	}{
+		{
+			name: "single entry",
+			env:  []string{"KEY=value"},
+			want: map[string]string{"KEY": "value"},
+		},
+		{
+			name: "multiple entries",
+			env:  []string{"KEY1=value1", "KEY2=value2"},
+			want: map[string]string{"KEY1": "value1", "KEY2": "value2"},
+		},
+		{
+			name: "value with equals",
+			env:  []string{"CONNECTION=server=localhost;pass=123"},
+			want: map[string]string{"CONNECTION": "server=localhost;pass=123"},
+		},
+		{
+			name: "empty slice",
+			env:  []string{},
+			want: map[string]string{},
+		},
+		{
+			name: "malformed entries",
+			env:  []string{"VALID=value", "INVALID", "KEY2=value2"},
+			want: map[string]string{"VALID": "value", "KEY2": "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := envSliceToMap(tt.env)
+
+			if len(got) != len(tt.want) {
+				t.Errorf("envSliceToMap() returned %d vars, want %d", len(got), len(tt.want))
+			}
+
+			for key, want := range tt.want {
+				if got[key] != want {
+					t.Errorf("envSliceToMap()[%q] = %q, want %q", key, got[key], want)
+				}
+			}
+		})
+	}
+}
