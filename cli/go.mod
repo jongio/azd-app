@@ -2,9 +2,8 @@ module github.com/jongio/azd-app/cli
 
 go 1.25.5
 
-// Local development: uses go.work to resolve azd-core without replace
-// For CI: azd-core is pinned to a tagged version in go.mod
-replace github.com/jongio/azd-core v0.0.0 => ../../azd-core
+// Local development: use go.work to resolve azd-core, no local replace
+// CI: azd-core is pinned to a tagged version in go.mod
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
@@ -14,7 +13,7 @@ require (
 	github.com/azure/azure-dev/cli/azd v0.0.0-20251218233415-a3a53372c587
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coder/websocket v1.8.14
-	github.com/jongio/azd-core v0.0.0
+	github.com/jongio/azd-core v0.1.0
 	github.com/magefile/mage v1.15.0
 	github.com/mark3labs/mcp-go v0.43.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible

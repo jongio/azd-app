@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/jongio/azd-app/cli/src/internal/constants"
 )
 
 // IsPortAvailable checks if a port is available for binding.
@@ -80,7 +82,17 @@ func (pm *PortManager) FindAndReservePort(serviceName string, preferredPort int)
 	}
 
 	// Try preferred port first
-	if preferredPort >= pm.portRange.start && preferredPort <= pm.portRange.end && !assignedPorts[preferredPort] {
+	// For dashboard, the preferred port must be within the dashboard-specific range
+	// to ensure consistent URLs and avoid conflicts with common dev ports.
+	// For other services, use the global port manager range.
+	rangeStart := pm.portRange.start
+	rangeEnd := pm.portRange.end
+	if serviceName == constants.DashboardServiceName {
+		rangeStart = constants.DashboardPortRangeMin
+		rangeEnd = constants.DashboardPortRangeMax
+	}
+
+	if preferredPort >= rangeStart && preferredPort <= rangeEnd && !assignedPorts[preferredPort] {
 		if reservation, err := pm.ReservePort(preferredPort); err == nil {
 			pm.assignments[serviceName] = &PortAssignment{
 				ServiceName: serviceName,
@@ -93,9 +105,9 @@ func (pm *PortManager) FindAndReservePort(serviceName string, preferredPort int)
 	}
 
 	// Calculate port range size
-	rangeSize := pm.portRange.end - pm.portRange.start + 1
+	rangeSize := rangeEnd - rangeStart + 1
 	if rangeSize <= 0 {
-		return nil, fmt.Errorf("invalid port range: %d-%d", pm.portRange.start, pm.portRange.end)
+		return nil, fmt.Errorf("invalid port range: %d-%d", rangeStart, rangeEnd)
 	}
 
 	// Randomize starting point
@@ -107,7 +119,7 @@ func (pm *PortManager) FindAndReservePort(serviceName string, preferredPort int)
 
 	// Try to find and reserve a port
 	for attempt := 0; attempt < maxPortScanAttempts && attempt < rangeSize; attempt++ {
-		port := pm.portRange.start + ((startOffset + attempt) % rangeSize)
+		port := rangeStart + ((startOffset + attempt) % rangeSize)
 
 		if assignedPorts[port] {
 			continue

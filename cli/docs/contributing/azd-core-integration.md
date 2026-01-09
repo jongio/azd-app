@@ -9,6 +9,8 @@ status: active
 
 This document explains how the azd-app CLI integrates with `azd-core` and provides guidance for local development and CI/CD workflows.
 
+Note (2026-01-09): `azd-core v0.1.0` is now released and pinned in the CLI. The `replace` directive has been removed from `cli/go.mod`. For local development, continue to use a `go.work` workspace; for CI-simulation locally, set `GOWORK=off`.
+
 ## Overview
 
 The azd-app CLI uses `azd-core` for Key Vault environment variable reference resolution. The `azd-core` module provides:
@@ -131,29 +133,19 @@ Unlike local development, CI/CD environments:
 
 ### Pinning azd-core in go.mod
 
-The `cli/go.mod` file includes a local replace directive for development:
+For CI and releases, `cli/go.mod` pins `azd-core` to a tagged version and does not include a local `replace` directive:
 
 ```go
-// Local development: uses go.work to resolve azd-core without replace
-// For CI: azd-core is pinned to a tagged version in go.mod
-replace github.com/jongio/azd-core v0.0.0 => ../../azd-core
+require github.com/jongio/azd-core v0.1.0
 ```
 
-When `azd-core` is released with a version tag (e.g., `v0.1.0`):
+For local development, rely on `go.work` to use a local checkout of `azd-core`. Do not commit `replace` directives. To simulate CI locally, run with `GOWORK=off`:
 
-1. Update the `require` line in `go.mod`:
-   ```go
-   require github.com/jongio/azd-core v0.1.0
-   ```
-
-2. Remove or comment out the `replace` directive:
-   ```go
-   // replace github.com/jongio/azd-core v0.0.0 => ../../azd-core
-   ```
-
-3. Run `go mod tidy` to update `go.sum`
-
-4. Test in CI to ensure the tagged version resolves correctly
+```powershell
+$env:GOWORK='off'
+go mod tidy
+go list -m all | Select-String "github.com/jongio/azd-core"
+```
 
 ### GitHub Actions Workflow
 
