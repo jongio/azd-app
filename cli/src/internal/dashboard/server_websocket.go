@@ -23,7 +23,9 @@ type clientConn struct {
 
 // handleWebSocket handles WebSocket connections for live updates.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := acceptWebSocket(w, r, s.rateLimiter)
+	// Capture rate limiter early to avoid race with Stop()
+	rl := s.rateLimiter
+	conn, err := acceptWebSocket(w, r, rl)
 	if err != nil {
 		if err != http.ErrAbortHandler {
 			log.Printf("WebSocket upgrade error: %v", err)
@@ -45,7 +47,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		s.clientsMu.Lock()
 		delete(s.clients, clientWrapper)
 		s.clientsMu.Unlock()
-		if closeErr := client.closeWithRateLimit(clientIP, s.rateLimiter); closeErr != nil {
+		if closeErr := client.closeWithRateLimit(clientIP, rl); closeErr != nil {
 			// Only log unexpected close errors
 			if !isExpectedCloseError(closeErr) {
 				log.Printf("Failed to close websocket connection: %v", closeErr)
@@ -241,8 +243,11 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 
+	// Capture rate limiter early to avoid race with Stop()
+	rl := s.rateLimiter
+
 	// Upgrade connection to WebSocket
-	rawConn, err := acceptWebSocket(w, r, s.rateLimiter)
+	rawConn, err := acceptWebSocket(w, r, rl)
 	if err != nil {
 		if err != http.ErrAbortHandler {
 			log.Printf("WebSocket upgrade failed: %v", err)
@@ -255,7 +260,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	conn := &clientConn{client: client}
 	clientIP := getClientIP(r)
 	defer func() {
-		if err := client.closeWithRateLimit(clientIP, s.rateLimiter); err != nil {
+		if err := client.closeWithRateLimit(clientIP, rl); err != nil {
 			if !isExpectedCloseError(err) {
 				fmt.Fprintf(os.Stderr, "Warning: failed to close websocket connection: %v\n", err)
 			}

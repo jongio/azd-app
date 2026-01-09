@@ -34,8 +34,11 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Capture rate limiter early to avoid race with Stop()
+	rl := s.rateLimiter
+
 	// Upgrade connection to WebSocket
-	rawConn, err := acceptWebSocket(w, r, s.rateLimiter)
+	rawConn, err := acceptWebSocket(w, r, rl)
 	if err != nil {
 		if err != http.ErrAbortHandler {
 			log.Printf("Azure logs WebSocket upgrade failed: %v", err)
@@ -49,7 +52,7 @@ func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	conn := &clientConn{client: client}
 	clientIP := getClientIP(r)
 	defer func() {
-		if closeErr := client.closeWithRateLimit(clientIP, s.rateLimiter); closeErr != nil {
+		if closeErr := client.closeWithRateLimit(clientIP, rl); closeErr != nil {
 			if !isExpectedCloseError(closeErr) {
 				log.Printf("Failed to close Azure logs WebSocket: %v", closeErr)
 			}
