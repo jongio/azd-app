@@ -932,8 +932,10 @@ describe('BicepTemplateModal', () => {
         expect(screen.getByRole('dialog')).toBeInTheDocument()
       })
 
-      // Should still work without services prop
-      expect(screen.queryByText(/services/i)).toBeInTheDocument()
+      // Should still work without services prop and show fetched services
+      await waitFor(() => {
+        expect(screen.getByText(/Bicep template for 3 services/i)).toBeInTheDocument()
+      })
     })
 
     it('should handle empty instructions', async () => {
