@@ -81,10 +81,20 @@ func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[strin
 // resolveKeyVaultReferences resolves Key Vault references in environment variables.
 // Returns the resolved variables or an error if resolution fails.
 func resolveKeyVaultReferences(ctx context.Context, envVars []string) ([]string, error) {
+	if len(envVars) == 0 {
+		return envVars, nil
+	}
+
 	resolver, err := keyvault.NewKeyVaultResolver()
 	if err != nil {
-		// Log warning and return original values
+		// Log warning and return original values (graceful degradation)
 		fmt.Fprintf(os.Stderr, "Warning: failed to create Key Vault resolver: %v\n", err)
+		// Return original values, not an error - this ensures env vars without KV references still work
+		return envVars, nil
+	}
+	if resolver == nil {
+		// Defensive check - should never happen but prevents nil pointer dereference
+		fmt.Fprintf(os.Stderr, "Warning: Key Vault resolver is nil, skipping resolution\n")
 		return envVars, nil
 	}
 
@@ -118,6 +128,10 @@ func resolveKeyVaultReferences(ctx context.Context, envVars []string) ([]string,
 
 // hasKeyVaultReferences checks if any environment variables contain Key Vault references.
 func hasKeyVaultReferences(envVars []string) bool {
+	if len(envVars) == 0 {
+		return false
+	}
+
 	for _, envVar := range envVars {
 		parts := strings.SplitN(envVar, "=", 2)
 		if len(parts) == 2 && keyvault.IsKeyVaultReference(parts[1]) {
@@ -129,6 +143,10 @@ func hasKeyVaultReferences(envVars []string) bool {
 
 // envMapToSlice converts an environment map to a slice of KEY=VALUE strings.
 func envMapToSlice(env map[string]string) []string {
+	if len(env) == 0 {
+		return []string{}
+	}
+
 	result := make([]string, 0, len(env))
 	for k, v := range env {
 		result = append(result, fmt.Sprintf("%s=%s", k, v))
@@ -138,11 +156,27 @@ func envMapToSlice(env map[string]string) []string {
 
 // envSliceToMap converts a slice of KEY=VALUE strings to a map.
 func envSliceToMap(envSlice []string) map[string]string {
-	result := make(map[string]string)
+	if len(envSlice) == 0 {
+		return make(map[string]string)
+	}
+
+	result := make(map[string]string, len(envSlice))
 	for _, envVar := range envSlice {
+		// Skip empty lines
+		if envVar == "" {
+			continue
+		}
+
 		parts := strings.SplitN(envVar, "=", 2)
 		if len(parts) == 2 {
-			result[parts[0]] = parts[1]
+			key := parts[0]
+			// Validate key doesn't contain invalid characters (security)
+			// Environment variable names should only contain alphanumeric and underscore
+			// This prevents injection attacks via malformed env vars
+			if key == "" || strings.ContainsAny(key, "\n\r\t\000") {
+				continue
+			}
+			result[key] = parts[1]
 		}
 	}
 	return result

@@ -233,12 +233,10 @@ func startSingleService(rt *ServiceRuntime, envVars map[string]string, reg *regi
 	}
 
 	// Create context for Key Vault resolution (with reasonable timeout)
-	ctx := context.Background()
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	resolveCtx, resolveCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer resolveCancel()
 
-	serviceEnv, resolveErr := ResolveEnvironment(ctx, dummyService, make(map[string]string), "", envVars)
+	serviceEnv, resolveErr := ResolveEnvironment(resolveCtx, dummyService, make(map[string]string), "", envVars)
 	if resolveErr != nil {
 		slog.Warn("environment resolution warning",
 			slog.String("service", rt.Name),
