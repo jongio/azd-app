@@ -1,3 +1,8 @@
+## [0.10.1] - 2026-01-09
+
+- feat: Add Azure Key Vault reference resolution for environment variables (#103) (f56bb20)
+- chore: update registry for v0.10.0 (ae81758)
+
 ## [0.10.0] - 2026-01-08
 
 - feat: Azure Cloud Log Streaming - Monitor Logs integration with enhanced dashboard (#93) (dd0bb7a)
