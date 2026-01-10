@@ -19,13 +19,13 @@
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
     "@tailwindcss/vite": "^4.1.18",
-    "astro": "^5.16.6",
+    "astro": "^5.16.8",
     "astro-expressive-code": "^0.41.5",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
-    "@types/node": "^25.0.3",
+    "@types/node": "^25.0.5",
     "pagefind": "^1.4.0",
     "playwright": "^1.57.0",
     "serve": "^14.2.5",
