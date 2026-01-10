@@ -11,7 +11,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/pathutil"
+	"github.com/jongio/azd-core/pathutil"
 
 	"github.com/spf13/cobra"
 )

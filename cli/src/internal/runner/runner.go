@@ -12,8 +12,8 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-core/security"
 )
 
 // RunAspire runs aspire run for an Aspire project.

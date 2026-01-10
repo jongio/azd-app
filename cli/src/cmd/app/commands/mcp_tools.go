@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/security"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )

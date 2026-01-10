@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/security"
 )
 
 // buildRunCommand builds the command and arguments to run the service.

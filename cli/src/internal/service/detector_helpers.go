@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/fileutil"
-	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/fileutil"
+	"github.com/jongio/azd-core/security"
 )
 
 // Helper functions for detector

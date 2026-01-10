@@ -17,8 +17,8 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/security"
 )
 
 // ServiceController provides shared logic for service lifecycle CLI commands.

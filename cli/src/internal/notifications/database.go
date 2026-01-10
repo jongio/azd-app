@@ -76,28 +76,39 @@ func NewDatabase(path string) (*Database, error) {
 
 // initialize creates database schema
 func (d *Database) initialize() error {
-	schema := `
-		CREATE TABLE IF NOT EXISTS notifications (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			type TEXT NOT NULL,
-			service_name TEXT NOT NULL,
-			message TEXT NOT NULL,
-			severity TEXT NOT NULL,
-			timestamp DATETIME NOT NULL,
-			read INTEGER DEFAULT 0,
-			acknowledged INTEGER DEFAULT 0,
-			metadata TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);
+	// Create table
+	tableSchema := `CREATE TABLE IF NOT EXISTS notifications (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		type TEXT NOT NULL,
+		service_name TEXT NOT NULL,
+		message TEXT NOT NULL,
+		severity TEXT NOT NULL,
+		timestamp DATETIME NOT NULL,
+		read INTEGER DEFAULT 0,
+		acknowledged INTEGER DEFAULT 0,
+		metadata TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`
 
-		CREATE INDEX IF NOT EXISTS idx_service_name ON notifications(service_name);
-		CREATE INDEX IF NOT EXISTS idx_timestamp ON notifications(timestamp DESC);
-		CREATE INDEX IF NOT EXISTS idx_read ON notifications(read);
-		CREATE INDEX IF NOT EXISTS idx_severity ON notifications(severity);
-	`
+	if _, err := d.db.Exec(tableSchema); err != nil {
+		return fmt.Errorf("failed to create notifications table: %w", err)
+	}
 
-	_, err := d.db.Exec(schema)
-	return err
+	// Create indexes separately for better error reporting
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_service_name ON notifications(service_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_timestamp ON notifications(timestamp DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_read ON notifications(read)`,
+		`CREATE INDEX IF NOT EXISTS idx_severity ON notifications(severity)`,
+	}
+
+	for _, indexSQL := range indexes {
+		if _, err := d.db.Exec(indexSQL); err != nil {
+			return fmt.Errorf("failed to create index: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Save stores a notification event

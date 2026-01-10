@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
-	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/security"
 )
 
 // FunctionsVariant represents the type of Azure Functions project.

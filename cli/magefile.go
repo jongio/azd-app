@@ -173,7 +173,12 @@ func buildAllPlatforms() error {
 // Test runs unit tests only (with -short flag).
 func Test() error {
 	fmt.Println("Running unit tests...")
-	return sh.RunV("go", "test", "-v", "-short", goSrcPattern)
+	// Use full module path in workspace mode
+	pkgPath := goSrcPattern
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/src/..."
+	}
+	return sh.RunV("go", "test", "-v", "-short", pkgPath)
 }
 
 // TestIntegration runs integration tests only.
@@ -329,7 +334,12 @@ func TestCoverage() error {
 	// Use exec.Command to capture output and handle Go version mismatch warnings gracefully
 	// These warnings occur when Go's compiled stdlib doesn't match the go binary version
 	// but don't affect test correctness
-	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, goSrcPattern)
+	// Use full module path in workspace mode
+	pkgPath := goSrcPattern
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/src/..."
+	}
+	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, pkgPath)
 	output, testErr := cmd.CombinedOutput()
 	fmt.Print(string(output))
 
@@ -373,6 +383,10 @@ func Lint() error {
 	fmt.Println("Running golangci-lint...")
 	// Use same command as CI to ensure consistency
 	// --concurrency=0 uses all available CPUs
+
+	// golangci-lint automatically discovers .golangci.yml config
+	// In workspace mode, we run without explicit package path - golangci-lint
+	// will use the current directory as context
 	if err := sh.RunV("golangci-lint", "run", "--timeout=5m", "--concurrency=0"); err != nil {
 		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
 		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
@@ -387,7 +401,12 @@ func LintAll() error {
 	fmt.Println("Running comprehensive linting with all linters...")
 	// Enable all linters except some noisy ones (ignore config file to avoid conflicts)
 	excludeLinters := "exhaustruct,exhaustive,varnamelen,gochecknoglobals,gochecknoinits,wrapcheck,paralleltest,tparallel,nlreturn,wsl,funlen,cyclop,gocognit,maintidx,lll,tagliatelle"
-	if err := sh.RunV("golangci-lint", "run", "--no-config", "--enable-all", "--disable="+excludeLinters, "--max-issues-per-linter=0", "--max-same-issues=0", "./..."); err != nil {
+	// Use full module path in workspace mode
+	pkgPath := "./..."
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/..."
+	}
+	if err := sh.RunV("golangci-lint", "run", "--no-config", "--enable-all", "--disable="+excludeLinters, "--max-issues-per-linter=0", "--max-same-issues=0", pkgPath); err != nil {
 		fmt.Println("⚠️  Comprehensive linting found issues.")
 		fmt.Println("    Some findings may be opinionated. Review and fix critical issues.")
 		fmt.Println("    Ensure golangci-lint is installed: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
@@ -411,7 +430,12 @@ func Fmt() error {
 // Vet runs go vet to check for suspicious constructs.
 func Vet() error {
 	fmt.Println("Running go vet...")
-	if err := sh.RunV("go", "vet", "./..."); err != nil {
+	// Use full module path in workspace mode
+	pkgPath := "./..."
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/..."
+	}
+	if err := sh.RunV("go", "vet", pkgPath); err != nil {
 		return fmt.Errorf("go vet found issues: %w", err)
 	}
 	fmt.Println("✅ go vet passed!")
@@ -421,7 +445,12 @@ func Vet() error {
 // Staticcheck runs staticcheck for advanced static analysis.
 func Staticcheck() error {
 	fmt.Println("Running staticcheck...")
-	if err := sh.RunV("staticcheck", "./..."); err != nil {
+	// Use full module path in workspace mode
+	pkgPath := "./..."
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/..."
+	}
+	if err := sh.RunV("staticcheck", pkgPath); err != nil {
 		fmt.Println("⚠️  staticcheck found issues. Ensure staticcheck is installed:")
 		fmt.Println("    go install honnef.co/go/tools/cmd/staticcheck@latest")
 		return err
@@ -433,6 +462,14 @@ func Staticcheck() error {
 // ModTidy ensures go.mod and go.sum are tidy.
 func ModTidy() error {
 	fmt.Println("Running go mod tidy...")
+
+	// Check if we're in a workspace - if so, skip tidy as it doesn't work with local modules
+	if _, err := os.Stat("../go.work"); err == nil {
+		fmt.Println("⚠️  Workspace detected (go.work exists) - skipping go mod tidy")
+		fmt.Println("   (go mod tidy doesn't work with local workspace modules)")
+		fmt.Println("✅ ModTidy check skipped (workspace mode)!")
+		return nil
+	}
 
 	goModBefore, err := fileHash("go.mod")
 	if err != nil {
@@ -505,7 +542,12 @@ func runVulncheck() error {
 		return nil // Don't fail preflight if not installed
 	}
 
-	if err := sh.RunV("govulncheck", "./..."); err != nil {
+	// Use full module path in workspace mode
+	pkgPath := "./..."
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/..."
+	}
+	if err := sh.RunV("govulncheck", pkgPath); err != nil {
 		fmt.Println("⚠️  Known vulnerabilities found!")
 		return err
 	}

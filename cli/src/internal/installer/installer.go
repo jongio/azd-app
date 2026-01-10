@@ -15,8 +15,8 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-core/security"
 )
 
 // InstallNodeDependencies installs dependencies using the detected package manager.

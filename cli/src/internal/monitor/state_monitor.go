@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/procutil"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/procutil"
 )
 
 // StateMonitor monitors service state changes and detects transitions.

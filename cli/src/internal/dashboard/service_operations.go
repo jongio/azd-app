@@ -13,8 +13,8 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/docker"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/security"
 )
 
 // serviceOperation defines the type of service operation to perform.

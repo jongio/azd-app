@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/browser"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/browser"
 	"github.com/spf13/cobra"
 )
 

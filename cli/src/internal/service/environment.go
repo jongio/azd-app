@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-core/keyvault"
+	"github.com/jongio/azd-core/security"
 )
 
 // ResolveEnvironment merges environment variables from multiple sources and resolves Azure Key Vault references.
@@ -170,13 +170,18 @@ func envSliceToMap(envSlice []string) map[string]string {
 		parts := strings.SplitN(envVar, "=", 2)
 		if len(parts) == 2 {
 			key := parts[0]
+			value := parts[1]
 			// Validate key doesn't contain invalid characters (security)
-			// Environment variable names should only contain alphanumeric and underscore
+			// Environment variable names should only contain alphanumeric, underscore, and a limited set of safe chars
 			// This prevents injection attacks via malformed env vars
-			if key == "" || strings.ContainsAny(key, "\n\r\t\000") {
+			if key == "" || !isValidEnvVarName(key) {
 				continue
 			}
-			result[key] = parts[1]
+			// Also validate value doesn't contain null bytes (security)
+			if strings.Contains(value, "\000") {
+				continue
+			}
+			result[key] = value
 		}
 	}
 	return result
@@ -309,6 +314,33 @@ func LoadDotEnv(path string) (map[string]string, error) {
 	}
 
 	return env, nil
+}
+
+// isValidEnvVarName checks if an environment variable name is valid.
+// Valid names contain only alphanumeric characters, underscores, and limited safe characters.
+// This prevents injection attacks via malformed environment variable names.
+func isValidEnvVarName(name string) bool {
+	if name == "" {
+		return false
+	}
+	// Check for control characters and other dangerous characters
+	if strings.ContainsAny(name, "\n\r\t\000=$;|&<>(){}[]`\"'\\") {
+		return false
+	}
+	// Must start with letter or underscore (POSIX requirement)
+	if len(name) > 0 {
+		first := name[0]
+		if !((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_') {
+			return false
+		}
+	}
+	// Remaining characters must be alphanumeric or underscore
+	for _, ch := range name {
+		if !((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // substituteEnvVars performs variable substitution in a string.

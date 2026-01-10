@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/security"
 )
 
 // CoverageAggregator collects and merges coverage data from multiple services

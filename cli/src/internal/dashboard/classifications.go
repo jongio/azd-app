@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jongio/azd-app/cli/src/internal/fileutil"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/fileutil"
 	"gopkg.in/yaml.v3"
 )
 

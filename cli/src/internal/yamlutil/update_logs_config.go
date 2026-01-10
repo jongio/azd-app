@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/security"
 	"gopkg.in/yaml.v3"
 )
 

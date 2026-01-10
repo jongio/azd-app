@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/security"
+	"github.com/jongio/azd-core/security"
 )
 
 // ServiceValidation represents the validation result for a service's testability.

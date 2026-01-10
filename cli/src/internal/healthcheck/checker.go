@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/docker"
-	"github.com/jongio/azd-app/cli/src/internal/procutil"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/procutil"
 	"github.com/rs/zerolog/log"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
