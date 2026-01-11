@@ -26,7 +26,7 @@ func TestFormatNodeInstallError(t *testing.T) {
 				"failed to run pnpm install",
 				"pnpm command failed - check if pnpm is installed and in PATH",
 				"command not found",
-				"Install pnpm with: npm install -g pnpm",
+				"https://pnpm.io/installation",
 				"/test/project",
 			},
 		},
@@ -63,7 +63,7 @@ func TestFormatNodeInstallError(t *testing.T) {
 			stderr:         "",
 			wantContains: []string{
 				"pnpm not found - please install pnpm",
-				"Install pnpm with: npm install -g pnpm",
+				"https://pnpm.io/installation",
 			},
 		},
 	}
@@ -111,7 +111,7 @@ func TestFormatPythonInstallError(t *testing.T) {
 			wantContains: []string{
 				"failed to run uv",
 				"uv not found - please install uv",
-				"Install uv with: pip install uv",
+				"https://docs.astral.sh/uv/getting-started/installation/",
 			},
 		},
 		{
@@ -266,7 +266,7 @@ func TestGetSuggestion(t *testing.T) {
 			packageManager: "pnpm",
 			exitCode:       127,
 			stderr:         "",
-			wantContains:   "npm install -g pnpm",
+			wantContains:   "https://pnpm.io/installation",
 		},
 		{
 			name:           "permission_error",

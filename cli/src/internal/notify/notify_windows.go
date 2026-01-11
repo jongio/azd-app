@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-core/pathutil"
 )
 
 const (
@@ -213,14 +214,19 @@ try {
 	return nil
 }
 
-// findAzdExecutable tries to find the azd executable in common locations
+// findAzdExecutable tries to find the azd executable using azd-core pathutil
 func (w *windowsNotifier) findAzdExecutable() string {
 	// Try to find azd in PATH first
-	if path, err := exec.LookPath("azd"); err == nil {
+	if path := pathutil.FindToolInPath("azd"); path != "" {
 		return path
 	}
 
-	// Check common installation locations
+	// Search common installation directories
+	if path := pathutil.SearchToolInSystemPath("azd"); path != "" {
+		return path
+	}
+
+	// Check Azure Dev CLI specific locations (not covered by SearchToolInSystemPath)
 	locations := []string{
 		filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "Azure Dev CLI", "azd.exe"),
 		filepath.Join(os.Getenv("ProgramFiles"), "Azure Dev CLI", "azd.exe"),

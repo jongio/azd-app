@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/jongio/azd-core/fileutil"
 )
 
 // NotificationPreferences represents user preferences for the notification system.
@@ -173,21 +175,9 @@ func SaveNotificationPreferences(prefs *NotificationPreferences) error {
 
 	// Acquire read lock for serialization
 	prefs.mu.RLock()
-	data, err := json.MarshalIndent(prefs, "", "  ")
-	prefs.mu.RUnlock()
+	defer prefs.mu.RUnlock()
 
-	if err != nil {
-		return fmt.Errorf("failed to serialize notification preferences: %w", err)
-	}
-
-	// Atomic write: write to temp file, then rename
-	tempPath := prefsPath + ".tmp"
-	if err := os.WriteFile(tempPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write temp preferences file: %w", err)
-	}
-
-	if err := os.Rename(tempPath, prefsPath); err != nil {
-		os.Remove(tempPath) // Clean up temp file on error
+	if err := fileutil.AtomicWriteJSON(prefsPath, prefs); err != nil {
 		return fmt.Errorf("failed to save notification preferences: %w", err)
 	}
 

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/jongio/azd-core/fileutil"
 )
 
 var (
@@ -83,12 +85,7 @@ func Save(config *Config) error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to serialize config: %w", err)
-	}
-
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
+	if err := fileutil.AtomicWriteJSON(configPath, config); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

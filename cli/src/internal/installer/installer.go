@@ -16,6 +16,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/output"
 	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-core/pathutil"
 	"github.com/jongio/azd-core/security"
 )
 
@@ -677,14 +678,8 @@ func getSuggestion(packageManager string, exitCode int, stderr string) string {
 
 	// Check for "command not found" or exit code 127/254
 	if exitCode == 127 || exitCode == 254 || strings.Contains(lowerStderr, "command not found") {
-		switch packageManager {
-		case "pnpm":
-			return "Install pnpm with: npm install -g pnpm"
-		case "yarn":
-			return "Install yarn with: npm install -g yarn"
-		case "npm":
-			return "Install Node.js and npm from: https://nodejs.org"
-		}
+		// Use azd-core pathutil for consistent installation suggestions
+		return pathutil.GetInstallSuggestion(packageManager)
 	}
 
 	// Permission errors
@@ -756,14 +751,19 @@ func getPythonSuggestion(tool string, exitCode int, stderr string) string {
 
 	// Check for tool not found
 	if exitCode == 127 || strings.Contains(lowerStderr, "command not found") {
-		switch tool {
-		case "uv":
-			return "Install uv with: pip install uv"
-		case "poetry":
-			return "Install poetry with: pip install poetry"
-		case "python":
-			return "Install Python from: https://www.python.org/downloads/"
+		// Use azd-core pathutil for consistent installation suggestions
+		// Handle common tool name variations
+		toolName := tool
+		if strings.Contains(tool, "uv ") {
+			toolName = "uv"
+		} else if strings.Contains(tool, "poetry ") {
+			toolName = "poetry"
+		} else if strings.Contains(tool, "python ") || strings.Contains(tool, "-m venv") {
+			toolName = "python"
+		} else if strings.Contains(tool, "pip ") {
+			toolName = "pip"
 		}
+		return pathutil.GetInstallSuggestion(toolName)
 	}
 
 	// Permission errors

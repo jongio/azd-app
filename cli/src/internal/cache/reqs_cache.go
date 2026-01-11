@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/jongio/azd-core/fileutil"
 )
 
 const (
@@ -256,21 +258,8 @@ func (cm *CacheManager) SaveResults(azureYamlPath string, results []CachedReqRes
 		AllPassed:     allPassed,
 	}
 
-	data, err := json.MarshalIndent(cache, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal cache data: %w", err)
-	}
-
 	cacheFile := filepath.Join(cm.cacheDir, "reqs_cache.json")
-	// Write to temp file first, then rename for atomic write
-	tempFile := cacheFile + ".tmp"
-	if err := os.WriteFile(tempFile, data, 0600); err != nil {
-		return fmt.Errorf("failed to write cache file: %w", err)
-	}
-
-	// Atomic rename to prevent corruption during concurrent writes
-	if err := os.Rename(tempFile, cacheFile); err != nil {
-		_ = os.Remove(tempFile) // Clean up temp file on error (best effort)
+	if err := fileutil.AtomicWriteJSON(cacheFile, cache); err != nil {
 		return fmt.Errorf("failed to save cache file: %w", err)
 	}
 

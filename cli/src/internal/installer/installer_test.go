@@ -562,14 +562,14 @@ func TestGetPythonSuggestion(t *testing.T) {
 			tool:         "uv",
 			exitCode:     127,
 			stderr:       "",
-			wantContains: "pip install uv",
+			wantContains: "https://docs.astral.sh/uv/getting-started/installation/",
 		},
 		{
 			name:         "poetry_not_found",
 			tool:         "poetry",
 			exitCode:     127,
 			stderr:       "",
-			wantContains: "pip install poetry",
+			wantContains: "https://python-poetry.org/docs/#installation",
 		},
 		{
 			name:         "python_not_found",
