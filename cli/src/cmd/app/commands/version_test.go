@@ -22,7 +22,9 @@ func TestVersionCommandOutput(t *testing.T) {
 
 	t.Run("default output format", func(t *testing.T) {
 		// Ensure we're not in JSON mode
-		cliout.SetFormat("default")
+		if err := cliout.SetFormat("default"); err != nil {
+			t.Fatalf("Failed to set output format: %v", err)
+		}
 
 		cmd := NewVersionCommand()
 		outputStr := testutil.CaptureOutput(t, func() error {
@@ -46,8 +48,12 @@ func TestVersionCommandOutput(t *testing.T) {
 
 	t.Run("json output format", func(t *testing.T) {
 		// Set JSON mode
-		cliout.SetFormat("json")
-		defer cliout.SetFormat("default")
+		if err := cliout.SetFormat("json"); err != nil {
+			t.Fatalf("Failed to set output format: %v", err)
+		}
+		defer func() {
+			_ = cliout.SetFormat("default") // Restore for other tests
+		}()
 
 		cmd := NewVersionCommand()
 		outputStr := testutil.CaptureOutput(t, func() error {
@@ -71,7 +77,9 @@ func TestVersionCommandOutput(t *testing.T) {
 	t.Run("dev version", func(t *testing.T) {
 		Version = "dev"
 		BuildTime = "unknown"
-		cliout.SetFormat("default")
+		if err := cliout.SetFormat("default"); err != nil {
+			t.Fatalf("Failed to set output format: %v", err)
+		}
 
 		cmd := NewVersionCommand()
 		outputStr := testutil.CaptureOutput(t, func() error {
