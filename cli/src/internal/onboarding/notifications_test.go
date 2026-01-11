@@ -357,3 +357,188 @@ func TestRun_WarningsOnly(t *testing.T) {
 		t.Errorf("SeverityFilter = %v, want 'warning'", prefs.SeverityFilter)
 	}
 }
+
+// TestRun_DefaultChoice tests using default choice (pressing enter)
+func TestRun_DefaultChoice(t *testing.T) {
+	// Skip this test in short mode as it involves file I/O
+	if testing.Short() {
+		t.Skip("skipping onboarding test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+	azdDir := filepath.Join(tmpDir, ".azd")
+	err := os.MkdirAll(azdDir, 0755)
+	if err != nil {
+		t.Fatalf("failed to create .azd directory: %v", err)
+	}
+
+	originalHome := os.Getenv("HOME")
+	if originalHome == "" {
+		originalHome = os.Getenv("USERPROFILE")
+	}
+	defer func() {
+		if originalHome != "" {
+			if strings.Contains(originalHome, "USERPROFILE") {
+				os.Setenv("USERPROFILE", originalHome)
+			} else {
+				os.Setenv("HOME", originalHome)
+			}
+		}
+	}()
+
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	// Simulate user input: (default yes), (default choice 3), no quiet hours
+	input := "\n\nn\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+
+	onboarding := &NotificationOnboarding{
+		reader: reader,
+	}
+
+	ctx := context.Background()
+	err = onboarding.Run(ctx)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	prefs, err := config.LoadNotificationPreferences()
+	if err != nil {
+		t.Fatalf("failed to load saved preferences: %v", err)
+	}
+
+	if !prefs.OSNotifications {
+		t.Error("OSNotifications should be enabled by default")
+	}
+
+	if prefs.SeverityFilter != "critical" {
+		t.Errorf("SeverityFilter = %v, want 'critical' (default)", prefs.SeverityFilter)
+	}
+}
+
+// TestRun_YesVariations tests different variations of 'yes' input
+func TestRun_YesVariations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping onboarding test in short mode")
+	}
+
+	tests := []struct {
+		name      string
+		input     string
+		wantEnabled bool
+	}{
+		{"lowercase y", "y\n3\nn\n", true},
+		{"uppercase Y", "Y\n3\nn\n", true},
+		{"lowercase yes", "yes\n3\nn\n", true},
+		{"uppercase YES", "YES\n3\nn\n", true},
+		{"lowercase no", "no\n", false},
+		{"uppercase NO", "NO\n", false},
+		{"lowercase n", "n\n", false},
+		{"uppercase N", "N\n", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			azdDir := filepath.Join(tmpDir, ".azd")
+			err := os.MkdirAll(azdDir, 0755)
+			if err != nil {
+				t.Fatalf("failed to create .azd directory: %v", err)
+			}
+
+			originalHome := os.Getenv("HOME")
+			if originalHome == "" {
+				originalHome = os.Getenv("USERPROFILE")
+			}
+			defer func() {
+				if originalHome != "" {
+					if strings.Contains(originalHome, "USERPROFILE") {
+						os.Setenv("USERPROFILE", originalHome)
+					} else {
+						os.Setenv("HOME", originalHome)
+					}
+				}
+			}()
+
+			os.Setenv("HOME", tmpDir)
+			os.Setenv("USERPROFILE", tmpDir)
+
+			reader := bufio.NewReader(strings.NewReader(tt.input))
+			onboarding := &NotificationOnboarding{
+				reader: reader,
+			}
+
+			ctx := context.Background()
+			err = onboarding.Run(ctx)
+			if err != nil {
+				t.Fatalf("Run() error = %v", err)
+			}
+
+			prefs, err := config.LoadNotificationPreferences()
+			if err != nil {
+				t.Fatalf("failed to load saved preferences: %v", err)
+			}
+
+			if prefs.OSNotifications != tt.wantEnabled {
+				t.Errorf("OSNotifications = %v, want %v", prefs.OSNotifications, tt.wantEnabled)
+			}
+		})
+	}
+}
+
+// TestRun_InvalidChoice tests handling of invalid severity choices
+func TestRun_InvalidChoice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping onboarding test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+	azdDir := filepath.Join(tmpDir, ".azd")
+	err := os.MkdirAll(azdDir, 0755)
+	if err != nil {
+		t.Fatalf("failed to create .azd directory: %v", err)
+	}
+
+	originalHome := os.Getenv("HOME")
+	if originalHome == "" {
+		originalHome = os.Getenv("USERPROFILE")
+	}
+	defer func() {
+		if originalHome != "" {
+			if strings.Contains(originalHome, "USERPROFILE") {
+				os.Setenv("USERPROFILE", originalHome)
+			} else {
+				os.Setenv("HOME", originalHome)
+			}
+		}
+	}()
+
+	os.Setenv("HOME", tmpDir)
+	os.Setenv("USERPROFILE", tmpDir)
+
+	// Simulate user input: yes, invalid choice (4), no quiet hours
+	// Invalid choice should default to critical (choice 3)
+	input := "y\n4\nn\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+
+	onboarding := &NotificationOnboarding{
+		reader: reader,
+	}
+
+	ctx := context.Background()
+	err = onboarding.Run(ctx)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	prefs, err := config.LoadNotificationPreferences()
+	if err != nil {
+		t.Fatalf("failed to load saved preferences: %v", err)
+	}
+
+	// Invalid choice should fall through to default (critical)
+	if prefs.SeverityFilter != "critical" {
+		t.Errorf("SeverityFilter = %v, want 'critical' (default for invalid choice)", prefs.SeverityFilter)
+	}
+}

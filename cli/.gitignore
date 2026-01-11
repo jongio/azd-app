@@ -17,3 +17,7 @@ cover
 *.out
 testcov
 testcov.txt
+cov_base
+coverage_baseline
+COVERAGE_IMPROVEMENT_SUMMARY.md
+COVERAGE_REPORT.md

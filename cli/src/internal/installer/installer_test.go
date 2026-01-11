@@ -502,6 +502,94 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 	}
 }
 
+func TestPackageJSONHasWorkspacePackages(t *testing.T) {
+	tests := []struct {
+		name         string
+		packageJSON  string
+		createPkg    bool
+		want         bool
+	}{
+		{
+			name: "no_workspaces_field",
+			packageJSON: `{
+				"name": "test",
+				"version": "1.0.0"
+			}`,
+			want: false,
+		},
+		{
+			name: "workspaces_array_with_matching_package",
+			packageJSON: `{
+				"name": "test",
+				"workspaces": ["packages/*"]
+			}`,
+			createPkg: true,
+			want:      true,
+		},
+		{
+			name: "workspaces_object_with_packages_field",
+			packageJSON: `{
+				"name": "test",
+				"workspaces": {
+					"packages": ["packages/*"]
+				}
+			}`,
+			createPkg: true,
+			want:      true,
+		},
+		{
+			name: "workspaces_array_no_matching_package",
+			packageJSON: `{
+				"name": "test",
+				"workspaces": ["nonexistent/*"]
+			}`,
+			want: false,
+		},
+		{
+			name: "workspaces_empty_array",
+			packageJSON: `{
+				"name": "test",
+				"workspaces": []
+			}`,
+			want: false,
+		},
+		{
+			name:        "invalid_json",
+			packageJSON: `{invalid`,
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			// Create package.json
+			packagePath := filepath.Join(tmpDir, "package.json")
+			if err := os.WriteFile(packagePath, []byte(tt.packageJSON), 0600); err != nil {
+				t.Fatalf("failed to create package.json: %v", err)
+			}
+
+			// Create a workspace package if needed
+			if tt.createPkg {
+				pkgDir := filepath.Join(tmpDir, "packages", "test-pkg")
+				if err := os.MkdirAll(pkgDir, 0755); err != nil {
+					t.Fatalf("failed to create package dir: %v", err)
+				}
+				pkgJSON := filepath.Join(pkgDir, "package.json")
+				if err := os.WriteFile(pkgJSON, []byte(`{"name":"test-pkg"}`), 0600); err != nil {
+					t.Fatalf("failed to create workspace package.json: %v", err)
+				}
+			}
+
+			got := packageJSONHasWorkspacePackages(tmpDir)
+			if got != tt.want {
+				t.Errorf("packageJSONHasWorkspacePackages() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsFileLockingError(t *testing.T) {
 	tests := []struct {
 		name   string
