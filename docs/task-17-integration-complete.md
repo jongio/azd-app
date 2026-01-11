@@ -266,7 +266,7 @@ Task 17 is **complete**. No further action needed.
 
 ### Future Considerations (Optional):
 
-1. **pathutil** (v0.3.0): Add install suggestions when tools not found
+1. **pathutil** (v0.2.0): Add install suggestions when tools not found
 2. **browser** (future): If standalone mode added (no VS Code dependency)
 
 ---
