@@ -16,7 +16,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
@@ -68,7 +68,7 @@ func NewRunCommand() *cobra.Command {
 
 // runWithServices runs services from azure.yaml.
 func runWithServices(ctx context.Context, _ *cobra.Command, _ []string) error {
-	output.CommandHeader("run", "Run the development environment")
+	cliout.CommandHeader("run", "Run the development environment")
 	if err := validateRuntimeMode(runRuntime); err != nil {
 		return err
 	}
@@ -182,9 +182,9 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 
 // showNoServicesMessage displays a message when no services are defined.
 func showNoServicesMessage() error {
-	output.Info("No services defined in azure.yaml")
-	output.Item("Add a 'services' section to azure.yaml to use service orchestration")
-	output.Item("or remove azure.yaml to use auto-detection (Aspire, pnpm, docker-compose)")
+	cliout.Info("No services defined in azure.yaml")
+	cliout.Item("Add a 'services' section to azure.yaml to use service orchestration")
+	cliout.Item("or remove azure.yaml to use auto-detection (Aspire, pnpm, docker-compose)")
 	return nil
 }
 
@@ -222,10 +222,10 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 		// If we auto-assigned a port and user wants to save it, update azure.yaml
 		if runtime.ShouldUpdateAzureYaml {
 			if err := yamlutil.UpdateServicePort(azureYamlPath, name, runtime.Port); err != nil {
-				output.Warning("Failed to update azure.yaml for service %s: %v", name, err)
-				output.Info("   Please manually add 'ports: [\"%d\"]' to service '%s' in azure.yaml", runtime.Port, name)
+				cliout.Warning("Failed to update azure.yaml for service %s: %v", name, err)
+				cliout.Info("   Please manually add 'ports: [\"%d\"]' to service '%s' in azure.yaml", runtime.Port, name)
 			} else {
-				output.Success("Updated azure.yaml: Added ports: [\"%d\"] for service '%s'", runtime.Port, name)
+				cliout.Success("Updated azure.yaml: Added ports: [\"%d\"] for service '%s'", runtime.Port, name)
 			}
 		}
 
@@ -263,7 +263,7 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, a
 
 	// Execute postrun hook after all services are ready
 	if err := executePostrunHook(azureYaml, azureYamlDir); err != nil {
-		output.Warning("Postrun hook failed but services are running: %v", err)
+		cliout.Warning("Postrun hook failed but services are running: %v", err)
 	}
 
 	// Display Functions/Logic Apps endpoints if any were discovered
@@ -324,7 +324,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 		notifications.DefaultNotificationManagerConfig(cwd),
 	)
 	if err != nil {
-		output.Warning("Notifications unavailable: %v", err)
+		cliout.Warning("Notifications unavailable: %v", err)
 	} else {
 		notifMgr.Start()
 		defer func() { _ = notifMgr.Stop() }()
@@ -351,13 +351,13 @@ func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardSer
 		defer wg.Done()
 		defer func() {
 			if r := recover(); r != nil {
-				output.Error("Dashboard panic recovered: %v", r)
+				cliout.Error("Dashboard panic recovered: %v", r)
 			}
 		}()
 
 		dashboardURL, err := dashboardServer.Start()
 		if err != nil {
-			output.Warning("Dashboard unavailable: %v", err)
+			cliout.Warning("Dashboard unavailable: %v", err)
 			<-ctx.Done()
 			return
 		}
@@ -367,17 +367,17 @@ func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardSer
 			notifMgr.SetDashboardURL(dashboardURL)
 		}
 
-		output.Plain("  Dashboard  %s", dashboardURL)
-		output.Newline()
+		cliout.Plain("  Dashboard  %s", dashboardURL)
+		cliout.Newline()
 
 		// Launch browser after dashboard is ready (if enabled)
 		browserLaunched := launchDashboardBrowser(dashboardURL)
 
 		// Show compact hints on a single line
 		if browserLaunched {
-			output.Hint("Press Ctrl+C to stop")
+			cliout.Hint("Press Ctrl+C to stop")
 		} else {
-			output.Hint("Press Ctrl+C to stop", "--web to open browser")
+			cliout.Hint("Press Ctrl+C to stop", "--web to open browser")
 		}
 
 		// Block until context is cancelled
@@ -402,22 +402,22 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	output.Newline()
-	output.Newline()
-	output.Plain("Shutting down...")
+	cliout.Newline()
+	cliout.Newline()
+	cliout.Plain("Shutting down...")
 
 	// Stop dashboard
 	if stopErr := dashboardServer.Stop(); stopErr != nil {
-		output.Warning("Failed to stop dashboard: %v", stopErr)
+		cliout.Warning("Failed to stop dashboard: %v", stopErr)
 	}
 
 	// Stop all services with graceful timeout
 	if stopErr := shutdownAllServices(shutdownCtx, processes); stopErr != nil {
-		output.Warning("Some services failed to stop cleanly: %v", stopErr)
+		cliout.Warning("Some services failed to stop cleanly: %v", stopErr)
 	}
 
-	output.Success("All services stopped")
-	output.Newline()
+	cliout.Success("All services stopped")
+	cliout.Newline()
 
 	// Clean up port assignments on clean shutdown
 	// Note: Port assignments are kept in the file for persistence across runs,
@@ -437,7 +437,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			output.Error("Service monitor panic recovered for %s: %v", serviceName, r)
+			cliout.Error("Service monitor panic recovered for %s: %v", serviceName, r)
 		}
 	}()
 
@@ -470,7 +470,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 
 		// Always record exit code and end time for build/task mode tracking
 		if regErr := reg.UpdateExitInfo(serviceName, result.exitCode, endTime); regErr != nil {
-			output.Warning("Failed to update exit info for %s: %v", serviceName, regErr)
+			cliout.Warning("Failed to update exit info for %s: %v", serviceName, regErr)
 		}
 
 		// Get service mode from registry to determine appropriate status
@@ -498,7 +498,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 			}
 
 			if regErr != nil {
-				output.Error("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
+				cliout.Error("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
 				// As fallback, try to send direct notification if notification manager is available
 				// This ensures users are informed even if registry update fails
 			}
@@ -506,13 +506,13 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 			// Show mode-appropriate error message
 			switch mode {
 			case service.ServiceModeBuild:
-				output.Error("Build failed: %s (exit code %d)", serviceName, result.exitCode)
+				cliout.Error("Build failed: %s (exit code %d)", serviceName, result.exitCode)
 			case service.ServiceModeTask:
-				output.Error("Task failed: %s (exit code %d)", serviceName, result.exitCode)
+				cliout.Error("Task failed: %s (exit code %d)", serviceName, result.exitCode)
 			default:
-				output.Error("⚠️  %v", result.err)
-				output.Warning("Service %s stopped. Other services continue running.", serviceName)
-				output.Info("Press Ctrl+C to stop all services")
+				cliout.Error("⚠️  %v", result.err)
+				cliout.Warning("Service %s stopped. Other services continue running.", serviceName)
+				cliout.Info("Press Ctrl+C to stop all services")
 			}
 		} else {
 			// Update registry for clean exit
@@ -527,7 +527,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 				// Don't print message - task completion is expected, status visible in dashboard
 			default:
 				status = "stopped"
-				output.Info("Service %s exited cleanly", serviceName)
+				cliout.Info("Service %s exited cleanly", serviceName)
 			}
 
 			// CRITICAL FIX: Implement retry logic for clean exit registry updates
@@ -546,7 +546,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 			}
 
 			if regErr != nil {
-				output.Warning("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
+				cliout.Warning("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
 			}
 		}
 		// Intentionally don't cancel context - other services should continue
@@ -611,18 +611,18 @@ func runAspireMode(ctx context.Context, rootDir string) error {
 		return fmt.Errorf("no Aspire AppHost found - --runtime aspire requires an AppHost.cs or Program.cs file in a .csproj project")
 	}
 
-	output.Plain("Running Aspire in native mode")
-	output.Item("Directory: %s", aspireProject.Dir)
-	output.Item("Project: %s", aspireProject.ProjectFile)
-	output.Newline()
-	output.Plain("Aspire dashboard will start automatically")
-	output.Newline()
+	cliout.Plain("Running Aspire in native mode")
+	cliout.Item("Directory: %s", aspireProject.Dir)
+	cliout.Item("Project: %s", aspireProject.ProjectFile)
+	cliout.Newline()
+	cliout.Plain("Aspire dashboard will start automatically")
+	cliout.Newline()
 
 	// Use executor to run dotnet with proper environment inheritance
 	args := []string{"run", "--project", aspireProject.ProjectFile}
 
-	output.Hint("Press Ctrl+C to stop")
-	output.Newline()
+	cliout.Hint("Press Ctrl+C to stop")
+	cliout.Newline()
 
 	// Run dotnet and let it handle everything (inherits all azd env vars)
 	return executor.StartCommand(ctx, "dotnet", args, aspireProject.Dir)
@@ -630,16 +630,16 @@ func runAspireMode(ctx context.Context, rootDir string) error {
 
 // showDryRun displays what would be executed without starting services.
 func showDryRun(runtimes []*service.ServiceRuntime) error {
-	output.Section("🔍", "Dry-run mode: Showing execution plan")
+	cliout.Section("🔍", "Dry-run mode: Showing execution plan")
 
 	for _, runtime := range runtimes {
-		output.Newline()
-		output.Info("%s", runtime.Name)
-		output.Label("Language", runtime.Language)
-		output.Label("Framework", runtime.Framework)
-		output.Label("Port", fmt.Sprintf("%d", runtime.Port))
-		output.Label("Directory", runtime.WorkingDir)
-		output.Label("Command", fmt.Sprintf("%s %v", runtime.Command, runtime.Args))
+		cliout.Newline()
+		cliout.Info("%s", runtime.Name)
+		cliout.Label("Language", runtime.Language)
+		cliout.Label("Framework", runtime.Framework)
+		cliout.Label("Port", fmt.Sprintf("%d", runtime.Port))
+		cliout.Label("Directory", runtime.WorkingDir)
+		cliout.Label("Command", fmt.Sprintf("%s %v", runtime.Command, runtime.Args))
 	}
 
 	return nil
@@ -750,7 +750,7 @@ func launchDashboardBrowser(dashboardURL string) bool {
 
 	// Display launch message
 	targetName := browser.GetTargetDisplayName(target)
-	output.Plain("  Opening in %s...", targetName)
+	cliout.Plain("  Opening in %s...", targetName)
 
 	// Launch browser (non-blocking)
 	if err := browser.Launch(browser.LaunchOptions{
@@ -758,8 +758,8 @@ func launchDashboardBrowser(dashboardURL string) bool {
 		Target:  target,
 		Timeout: 5 * time.Second,
 	}); err != nil {
-		output.Warning("Could not open browser: %v", err)
-		output.Info("Dashboard available at: %s", dashboardURL)
+		cliout.Warning("Could not open browser: %v", err)
+		cliout.Info("Dashboard available at: %s", dashboardURL)
 	}
 	return true
 }

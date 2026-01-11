@@ -11,7 +11,7 @@ import (
 	"runtime"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/jongio/azd-core/security"
 )
@@ -23,10 +23,10 @@ func RunAspire(ctx context.Context, project types.AspireProject) error {
 		return fmt.Errorf("invalid project directory: %w", err)
 	}
 
-	output.Info("Starting Aspire project...")
-	output.Item("Directory: %s", project.Dir)
-	output.Item("Project: %s", project.ProjectFile)
-	output.Newline()
+	cliout.Info("Starting Aspire project...")
+	cliout.Item("Directory: %s", project.Dir)
+	cliout.Item("Project: %s", project.ProjectFile)
+	cliout.Newline()
 
 	// Use dotnet run instead of aspire run to ensure environment variable propagation.
 	// The aspire CLI internally calls dotnet run, but doesn't expose environment variable options.
@@ -44,8 +44,8 @@ func RunPnpmScript(ctx context.Context, script string) error {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 
-	output.Info("Starting pnpm %s", script)
-	output.Newline()
+	cliout.Info("Starting pnpm %s", script)
+	cliout.Newline()
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -62,9 +62,9 @@ func RunDockerCompose(ctx context.Context, scriptName, scriptCmd string) error {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 
-	output.Info("Starting docker compose via pnpm %s", scriptName)
-	output.Item("Command: %s", scriptCmd)
-	output.Newline()
+	cliout.Info("Starting docker compose via pnpm %s", scriptName)
+	cliout.Item("Command: %s", scriptCmd)
+	cliout.Newline()
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -87,9 +87,9 @@ func RunNode(ctx context.Context, project types.NodeProject, script string) erro
 		return fmt.Errorf("invalid package manager: %w", err)
 	}
 
-	output.Info("Starting Node.js project with %s %s", project.PackageManager, script)
-	output.Item("Directory: %s", project.Dir)
-	output.Newline()
+	cliout.Info("Starting Node.js project with %s %s", project.PackageManager, script)
+	cliout.Item("Directory: %s", project.Dir)
+	cliout.Newline()
 
 	return executor.StartCommand(ctx, project.PackageManager, []string{"run", script}, project.Dir)
 }
@@ -160,21 +160,21 @@ func RunPython(ctx context.Context, project types.PythonProject) error {
 	var err error
 	if project.Entrypoint != "" {
 		entryPoint = project.Entrypoint
-		output.Info("Starting Python project with %s", project.PackageManager)
-		output.Item("Directory: %s", project.Dir)
-		output.Item("Entry point (from azure.yaml): %s", entryPoint)
-		output.Newline()
+		cliout.Info("Starting Python project with %s", project.PackageManager)
+		cliout.Item("Directory: %s", project.Dir)
+		cliout.Item("Entry point (from azure.yaml): %s", entryPoint)
+		cliout.Newline()
 	} else {
 		entryPoint, err = findPythonEntryPoint(project.Dir)
 		if err != nil {
-			output.Error("Failed to find Python entry point")
-			output.Newline()
+			cliout.Error("Failed to find Python entry point")
+			cliout.Newline()
 			return err
 		}
-		output.Info("Starting Python project with %s", project.PackageManager)
-		output.Item("Directory: %s", project.Dir)
-		output.Item("Entry point (auto-detected): %s", entryPoint)
-		output.Newline()
+		cliout.Info("Starting Python project with %s", project.PackageManager)
+		cliout.Item("Directory: %s", project.Dir)
+		cliout.Item("Entry point (auto-detected): %s", entryPoint)
+		cliout.Newline()
 	}
 
 	// Different package managers have different run commands
@@ -236,9 +236,9 @@ func RunDotnet(ctx context.Context, project types.DotnetProject) error {
 		return fmt.Errorf("invalid project path: %w", err)
 	}
 
-	output.Info("Starting .NET project...")
-	output.Item("Project: %s", project.Path)
-	output.Newline()
+	cliout.Info("Starting .NET project...")
+	cliout.Item("Project: %s", project.Path)
+	cliout.Newline()
 
 	// For .sln files, we need to run from the directory
 	// For .csproj files, we can pass the path directly
@@ -281,11 +281,11 @@ func RunFunctionApp(ctx context.Context, project types.FunctionAppProject, port 
 	// Get display name for variant
 	variantDisplayName := getVariantDisplayName(project.Variant)
 
-	output.Info("Starting %s project...", variantDisplayName)
-	output.Item("Directory: %s", project.Dir)
-	output.Item("Language: %s", project.Language)
-	output.Item("Port: %d", port)
-	output.Newline()
+	cliout.Info("Starting %s project...", variantDisplayName)
+	cliout.Item("Directory: %s", project.Dir)
+	cliout.Item("Language: %s", project.Language)
+	cliout.Item("Port: %d", port)
+	cliout.Newline()
 
 	// Run Azure Functions Core Tools
 	args := []string{"start", "--port", fmt.Sprintf("%d", port)}

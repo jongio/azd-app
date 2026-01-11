@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 
 	"github.com/spf13/cobra"
 )
@@ -52,7 +52,7 @@ Examples:
 }
 
 func runRestart(cmd *cobra.Command, args []string) error {
-	output.CommandHeader("restart", "Restart services")
+	cliout.CommandHeader("restart", "Restart services")
 
 	// Validate flags
 	if restartService == "" && !restartAll {
@@ -75,13 +75,13 @@ func runRestart(cmd *cobra.Command, args []string) error {
 		servicesToRestart = ctrl.GetAllServices()
 		if len(servicesToRestart) == 0 {
 			printNoServicesRegistered()
-			if output.IsJSON() {
-				return output.PrintJSON(noServicesRegisteredResult())
+			if cliout.IsJSON() {
+				return cliout.PrintJSON(noServicesRegisteredResult())
 			}
 			return nil
 		}
 		if !confirmBulkOperation(len(servicesToRestart), "restart", restartYes) {
-			output.Info("Operation cancelled")
+			cliout.Info("Operation cancelled")
 			return nil
 		}
 	} else {

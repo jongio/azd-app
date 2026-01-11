@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"gopkg.in/yaml.v3"
 )
 
@@ -571,11 +571,11 @@ services:
 
 			// Set output format
 			if tt.useJSONOutput {
-				if err := output.SetFormat("json"); err != nil {
+				if err := cliout.SetFormat("json"); err != nil {
 					t.Fatal(err)
 				}
 				defer func() {
-					_ = output.SetFormat("default")
+					_ = cliout.SetFormat("default")
 				}()
 			}
 
@@ -1384,11 +1384,11 @@ reqs:
 	}
 
 	// Set JSON output format
-	if err := output.SetFormat("json"); err != nil {
+	if err := cliout.SetFormat("json"); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
-		_ = output.SetFormat("default")
+		_ = cliout.SetFormat("default")
 	}()
 
 	// Run fix - verify it doesn't panic with JSON output

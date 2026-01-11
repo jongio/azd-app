@@ -8,7 +8,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/installer"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/jongio/azd-app/cli/src/internal/workspace"
 )
@@ -149,8 +149,8 @@ func (di *DependencyInstaller) installNodeProjects() ([]InstallResult, error) {
 		return nil, err
 	}
 
-	if !output.IsJSON() {
-		output.Step("📦", "Found %s Node.js project(s)", output.Count(len(nodeProjects)))
+	if !cliout.IsJSON() {
+		cliout.Step("📦", "Found %s Node.js project(s)", cliout.Count(len(nodeProjects)))
 	}
 
 	var results []InstallResult
@@ -161,8 +161,8 @@ func (di *DependencyInstaller) installNodeProjects() ([]InstallResult, error) {
 		results = append(results, result)
 	}
 
-	if !output.IsJSON() {
-		output.Newline()
+	if !cliout.IsJSON() {
+		cliout.Newline()
 	}
 
 	return results, nil
@@ -175,8 +175,8 @@ func (di *DependencyInstaller) installPythonProjects() ([]InstallResult, error) 
 		return nil, err
 	}
 
-	if !output.IsJSON() {
-		output.Step("🐍", "Found %s Python project(s)", output.Count(len(pythonProjects)))
+	if !cliout.IsJSON() {
+		cliout.Step("🐍", "Found %s Python project(s)", cliout.Count(len(pythonProjects)))
 	}
 
 	var results []InstallResult
@@ -187,8 +187,8 @@ func (di *DependencyInstaller) installPythonProjects() ([]InstallResult, error) 
 		results = append(results, result)
 	}
 
-	if !output.IsJSON() {
-		output.Newline()
+	if !cliout.IsJSON() {
+		cliout.Newline()
 	}
 
 	return results, nil
@@ -201,8 +201,8 @@ func (di *DependencyInstaller) installDotnetProjects() ([]InstallResult, error) 
 		return nil, err
 	}
 
-	if !output.IsJSON() {
-		output.Step("🔷", "Found %s .NET project(s)", output.Count(len(dotnetProjects)))
+	if !cliout.IsJSON() {
+		cliout.Step("🔷", "Found %s .NET project(s)", cliout.Count(len(dotnetProjects)))
 	}
 
 	var results []InstallResult
@@ -212,8 +212,8 @@ func (di *DependencyInstaller) installDotnetProjects() ([]InstallResult, error) 
 			Path: dotnetProject.Path,
 		}
 		if err := installer.RestoreDotnetProject(dotnetProject); err != nil {
-			if !output.IsJSON() {
-				output.ItemWarning("Failed to restore %s: %v", dotnetProject.Path, err)
+			if !cliout.IsJSON() {
+				cliout.ItemWarning("Failed to restore %s: %v", dotnetProject.Path, err)
 			}
 			result.Success = false
 			result.Error = err.Error()
@@ -223,8 +223,8 @@ func (di *DependencyInstaller) installDotnetProjects() ([]InstallResult, error) 
 		results = append(results, result)
 	}
 
-	if !output.IsJSON() {
-		output.Newline()
+	if !cliout.IsJSON() {
+		cliout.Newline()
 	}
 
 	return results, nil
@@ -239,17 +239,17 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 	}
 
 	// Show which project we're installing
-	if !output.IsJSON() {
+	if !cliout.IsJSON() {
 		relDir := dir
 		if rel, err := filepath.Rel(di.searchRoot, dir); err == nil && rel != "." {
 			relDir = rel
 		}
-		output.Item("Installing %s (%s)", relDir, manager)
+		cliout.Item("Installing %s (%s)", relDir, manager)
 	}
 
 	if err := installFunc(); err != nil {
-		if !output.IsJSON() {
-			output.ItemWarning("Failed to install for %s: %v", dir, err)
+		if !cliout.IsJSON() {
+			cliout.ItemWarning("Failed to install for %s: %v", dir, err)
 		}
 		result.Success = false
 		result.Error = err.Error()
@@ -292,8 +292,8 @@ func filterProjectsByService(
 				absPath, err := filepath.Abs(svcPath)
 				if err != nil {
 					// Log warning but continue processing other services
-					if !output.IsJSON() {
-						output.Warning("Failed to resolve absolute path for service %s: %v", name, err)
+					if !cliout.IsJSON() {
+						cliout.Warning("Failed to resolve absolute path for service %s: %v", name, err)
 					}
 					continue
 				}
@@ -397,7 +397,7 @@ func runParallelInstallation(nodeProjects []types.NodeProject, pythonProjects []
 	return nil
 }
 
-// runJSONInstallation runs installation in JSON mode with sequential output.
+// runJSONInstallation runs installation in JSON mode with sequential cliout.
 func runJSONInstallation(searchRoot string, nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
 	depInstaller := NewDependencyInstaller(searchRoot)
 	depInstaller.nodeProjects = nodeProjects
@@ -410,7 +410,7 @@ func runJSONInstallation(searchRoot string, nodeProjects []types.NodeProject, py
 	}
 
 	allSuccess := checkAllSuccess(results)
-	return output.PrintJSON(DepsResult{
+	return cliout.PrintJSON(DepsResult{
 		Success:  allSuccess,
 		Projects: results,
 	})

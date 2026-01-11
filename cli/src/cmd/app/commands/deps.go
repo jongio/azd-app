@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/spf13/cobra"
 )
@@ -51,7 +51,7 @@ func newDepsExecutor(opts *DepsOptions) *depsExecutor {
 
 // execute runs the deps command with the configured dependencies and options.
 func (e *depsExecutor) execute() error {
-	output.CommandHeader("deps", "Install project dependencies")
+	cliout.CommandHeader("deps", "Install project dependencies")
 
 	// Determine search root
 	searchRoot, err := getSearchRoot()
@@ -91,7 +91,7 @@ func (e *depsExecutor) execute() error {
 	}
 
 	// Use parallel installer for concurrent installation with progress bars
-	if !output.IsJSON() {
+	if !cliout.IsJSON() {
 		return runParallelInstallation(nodeProjects, pythonProjects, dotnetProjects, e.opts.Verbose)
 	}
 
@@ -134,14 +134,14 @@ func (e *depsExecutor) handleNoProjectsCase(searchRoot string) error {
 	// If user specified services but none matched, show a helpful message
 	if len(e.opts.Services) > 0 {
 		msg := fmt.Sprintf("No projects found matching services: %v", e.opts.Services)
-		if output.IsJSON() {
-			return output.PrintJSON(DepsResult{
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(DepsResult{
 				Success:  true,
 				Projects: []InstallResult{},
 				Message:  msg,
 			})
 		}
-		output.Info("%s", msg)
+		cliout.Info("%s", msg)
 		return nil
 	}
 
@@ -158,19 +158,19 @@ func (e *depsExecutor) handleNoProjectsCase(searchRoot string) error {
 		}
 	}
 
-	if output.IsJSON() {
-		return output.PrintJSON(DepsResult{
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(DepsResult{
 			Success:  true,
 			Projects: []InstallResult{},
 			Message:  msgNoProjectsDetected,
 		})
 	}
 
-	output.Info(msgNoProjectsDetected)
+	cliout.Info(msgNoProjectsDetected)
 	if hasLogicAppsOnly {
-		output.Item("Logic Apps projects detected (no dependency installation needed)")
+		cliout.Item("Logic Apps projects detected (no dependency installation needed)")
 	} else {
-		output.Item("Supported: Node.js (package.json), Python (requirements.txt/pyproject.toml), .NET (*.csproj)")
+		cliout.Item("Supported: Node.js (package.json), Python (requirements.txt/pyproject.toml), .NET (*.csproj)")
 	}
 	return nil
 }
@@ -246,7 +246,7 @@ func NewDepsCommand() *cobra.Command {
 				formatValue = flag.Value.String()
 			}
 			if formatValue != "" {
-				return output.SetFormat(formatValue)
+				return cliout.SetFormat(formatValue)
 			}
 			return nil
 		},

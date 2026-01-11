@@ -14,7 +14,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/docker"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -510,9 +510,9 @@ func (c *ServiceController) loadEnvVars(runtime *service.ServiceRuntime) map[str
 // printResult prints a single service control result to the console.
 func printResult(result *ServiceControlResult) {
 	if result.Success {
-		output.ItemSuccess("%s: %s", result.ServiceName, result.Message)
+		cliout.ItemSuccess("%s: %s", result.ServiceName, result.Message)
 	} else {
-		output.ItemError("%s: %s", result.ServiceName, result.Error)
+		cliout.ItemError("%s: %s", result.ServiceName, result.Error)
 	}
 }
 
@@ -522,11 +522,11 @@ func printBulkResult(result *BulkServiceControlResult) {
 		printResult(&r)
 	}
 
-	output.Newline()
+	cliout.Newline()
 	if result.Success {
-		output.Success("%s", result.Message)
+		cliout.Success("%s", result.Message)
 	} else {
-		output.Warning("%s", result.Message)
+		cliout.Warning("%s", result.Message)
 	}
 }
 
@@ -553,8 +553,8 @@ func setupContextWithSignalHandling() (context.Context, context.CancelFunc, func
 
 // printNoServicesRegistered outputs the no services registered message.
 func printNoServicesRegistered() {
-	output.Info("No services are registered")
-	output.Item("Run 'azd app run' first to start your development environment")
+	cliout.Info("No services are registered")
+	cliout.Item("Run 'azd app run' first to start your development environment")
 }
 
 // noServicesRegisteredResult returns a BulkServiceControlResult for when no services are registered.
@@ -580,14 +580,14 @@ func noServicesToOperateResult(stateDesc, opVerb string) BulkServiceControlResul
 func handleNoServicesCase(ctrl *ServiceController, stateDesc, opVerb string) bool {
 	if len(ctrl.GetAllServices()) == 0 {
 		printNoServicesRegistered()
-		if output.IsJSON() {
-			_ = output.PrintJSON(noServicesRegisteredResult())
+		if cliout.IsJSON() {
+			_ = cliout.PrintJSON(noServicesRegisteredResult())
 		}
 		return true
 	}
-	output.Info("No %s services to %s (all services are already %s)", stateDesc, opVerb, oppositeState(stateDesc))
-	if output.IsJSON() {
-		_ = output.PrintJSON(noServicesToOperateResult(stateDesc, opVerb))
+	cliout.Info("No %s services to %s (all services are already %s)", stateDesc, opVerb, oppositeState(stateDesc))
+	if cliout.IsJSON() {
+		_ = cliout.PrintJSON(noServicesToOperateResult(stateDesc, opVerb))
 	}
 	return true
 }
@@ -607,10 +607,10 @@ func oppositeState(state string) string {
 // confirmBulkOperation prompts for confirmation of bulk operations.
 // Returns true if the user confirms or skipConfirm is true, false if cancelled.
 func confirmBulkOperation(count int, opVerb string, skipConfirm bool) bool {
-	if skipConfirm || output.IsJSON() {
+	if skipConfirm || cliout.IsJSON() {
 		return true
 	}
-	return output.Confirm(fmt.Sprintf("%s all %d service(s)?", capitalize(opVerb), count))
+	return cliout.Confirm(fmt.Sprintf("%s all %d service(s)?", capitalize(opVerb), count))
 }
 
 // capitalize returns the string with its first letter capitalized.
@@ -621,7 +621,7 @@ func capitalize(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// executeServiceOperation handles single vs bulk operation execution with consistent output.
+// executeServiceOperation handles single vs bulk operation execution with consistent cliout.
 func executeServiceOperation(
 	ctx context.Context,
 	services []string,
@@ -631,8 +631,8 @@ func executeServiceOperation(
 ) error {
 	if len(services) == 1 {
 		result := singleOp(ctx, services[0])
-		if output.IsJSON() {
-			return output.PrintJSON(result)
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(result)
 		}
 		printResult(result)
 		if !result.Success {
@@ -642,8 +642,8 @@ func executeServiceOperation(
 	}
 
 	result := bulkOp(ctx, services)
-	if output.IsJSON() {
-		return output.PrintJSON(result)
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(result)
 	}
 	printBulkResult(result)
 	if !result.Success {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/testutil"
 )
 
 func TestDisplayLogsText(t *testing.T) {
@@ -24,13 +25,13 @@ func TestDisplayLogsText(t *testing.T) {
 		displayLogsText(logs, &buf, true, false)
 		output := buf.String()
 
-		if !strings.Contains(output, "10:30:45.123") {
+		if !testutil.Contains(output, "10:30:45.123") {
 			t.Error("Output should contain timestamp")
 		}
-		if !strings.Contains(output, "[api]") {
+		if !testutil.Contains(output, "[api]") {
 			t.Error("Output should contain service name")
 		}
-		if !strings.Contains(output, "\033[") {
+		if !testutil.Contains(output, "\033[") {
 			t.Error("Output should contain ANSI color codes")
 		}
 	})
@@ -40,10 +41,10 @@ func TestDisplayLogsText(t *testing.T) {
 		displayLogsText(logs[:1], &buf, false, true)
 		output := buf.String()
 
-		if strings.Contains(output, "10:30:45") {
+		if testutil.Contains(output, "10:30:45") {
 			t.Error("Output should not contain timestamp when disabled")
 		}
-		if strings.Contains(output, "\033[") {
+		if testutil.Contains(output, "\033[") {
 			t.Error("Output should not contain ANSI codes in no-color mode")
 		}
 	})
@@ -53,7 +54,7 @@ func TestDisplayLogsText(t *testing.T) {
 		displayLogsText(logs, &buf, true, true)
 		output := buf.String()
 
-		if strings.Contains(output, "\033[") {
+		if testutil.Contains(output, "\033[") {
 			t.Error("Output should not contain ANSI codes in no-color mode")
 		}
 	})
@@ -80,7 +81,7 @@ func TestDisplayLogsText(t *testing.T) {
 		output := buf.String()
 
 		for _, log := range allLogs {
-			if !strings.Contains(output, log.Message) {
+			if !testutil.Contains(output, log.Message) {
 				t.Errorf("Output should contain %q", log.Message)
 			}
 		}
@@ -98,13 +99,13 @@ func TestDisplayLogsJSON(t *testing.T) {
 		displayLogsJSON(logs, &buf)
 		output := buf.String()
 
-		if !strings.Contains(output, `"service":"api"`) {
+		if !testutil.Contains(output, `"service":"api"`) {
 			t.Error("JSON output should contain service field")
 		}
-		if !strings.Contains(output, `"message":"Test message"`) {
+		if !testutil.Contains(output, `"message":"Test message"`) {
 			t.Error("JSON output should contain message field")
 		}
-		if !strings.Contains(output, `"level"`) {
+		if !testutil.Contains(output, `"level"`) {
 			t.Error("JSON output should contain level field")
 		}
 	})

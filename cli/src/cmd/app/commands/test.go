@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/spf13/cobra"
 )
@@ -55,7 +55,7 @@ func NewTestCommand() *cobra.Command {
 				formatValue = flag.Value.String()
 			}
 			if formatValue != "" {
-				return output.SetFormat(formatValue)
+				return cliout.SetFormat(formatValue)
 			}
 			return nil
 		},
@@ -171,7 +171,7 @@ func runTests(opts *TestOptions) error {
 	}
 
 	// Set up progress callback for interactive output
-	if !output.IsJSON() {
+	if !cliout.IsJSON() {
 		orchestrator.SetProgressCallback(createProgressCallback())
 	}
 
@@ -190,7 +190,7 @@ func runTests(opts *TestOptions) error {
 	services := orchestrator.GetServices()
 
 	// Display validation summary if not JSON
-	if !output.IsJSON() {
+	if !cliout.IsJSON() {
 		displayValidationSummary(validations)
 	}
 
@@ -200,7 +200,7 @@ func runTests(opts *TestOptions) error {
 		if len(autoDetected) > 0 {
 			if err := promptSaveTestConfig(opts, azureYamlPath, validations, services, autoDetected); err != nil {
 				// Log warning but don't fail the command
-				output.Warning("Failed to save test config: %v", err)
+				cliout.Warning("Failed to save test config: %v", err)
 			}
 		}
 	}
@@ -227,28 +227,28 @@ func runTests(opts *TestOptions) error {
 
 // runTestDryRun shows configuration and validation without running tests.
 func runTestDryRun(orchestrator *testing.TestOrchestrator, opts *TestOptions, serviceFilter []string) error {
-	if !output.IsJSON() {
-		output.Step("📋", "Test configuration:")
-		output.Item("Type: %s", opts.Type)
-		output.Item("Coverage: %v", opts.Coverage)
+	if !cliout.IsJSON() {
+		cliout.Step("📋", "Test configuration:")
+		cliout.Item("Type: %s", opts.Type)
+		cliout.Item("Coverage: %v", opts.Coverage)
 		if opts.ServiceFilter != "" {
-			output.Item("Services: %s", opts.ServiceFilter)
+			cliout.Item("Services: %s", opts.ServiceFilter)
 		}
 		if opts.Threshold > 0 {
-			output.Item("Coverage threshold: %d%%", opts.Threshold)
+			cliout.Item("Coverage threshold: %d%%", opts.Threshold)
 		}
-		output.Item("Parallel: %v", opts.Parallel)
-		output.Item("Output format: %s", opts.OutputFormat)
-		output.Item("Output directory: %s", opts.OutputDir)
-		output.Item("Timeout: %s", opts.Timeout)
+		cliout.Item("Parallel: %v", opts.Parallel)
+		cliout.Item("Output format: %s", opts.OutputFormat)
+		cliout.Item("Output directory: %s", opts.OutputDir)
+		cliout.Item("Timeout: %s", opts.Timeout)
 		if opts.Stream {
-			output.Item("Output mode: streaming (forced)")
+			cliout.Item("Output mode: streaming (forced)")
 		} else if opts.NoStream {
-			output.Item("Output mode: progress bars (forced)")
+			cliout.Item("Output mode: progress bars (forced)")
 		} else {
-			output.Item("Output mode: auto")
+			cliout.Item("Output mode: auto")
 		}
-		output.Newline()
+		cliout.Newline()
 	}
 
 	// Validate services
@@ -284,7 +284,7 @@ func createProgressCallback() testing.ProgressCallback {
 
 		switch event.Type {
 		case testing.ProgressEventValidationStart:
-			output.Step("🔍", "Analyzing services...")
+			cliout.Step("🔍", "Analyzing services...")
 
 		case testing.ProgressEventServiceValidated:
 			// Validation details are shown in displayValidationSummary
@@ -298,8 +298,8 @@ func createProgressCallback() testing.ProgressCallback {
 			if framework == "" {
 				framework = "tests"
 			}
-			output.Step("🧪", "Running tests...")
-			output.Item("▸ %s (%s) - Running...", event.Service, framework)
+			cliout.Step("🧪", "Running tests...")
+			cliout.Item("▸ %s (%s) - Running...", event.Service, framework)
 
 		case testing.ProgressEventTestComplete:
 			// Test completed - result will be shown in displayTestResults
@@ -313,14 +313,14 @@ func createProgressCallback() testing.ProgressCallback {
 
 // displayValidationSummary displays the validation results summary.
 func displayValidationSummary(validations []testing.ServiceValidation) {
-	if output.IsJSON() || len(validations) == 0 {
+	if cliout.IsJSON() || len(validations) == 0 {
 		return
 	}
 
 	testable := testing.GetTestableServices(validations)
 	skipped := testing.GetSkippedServices(validations)
 
-	output.Newline()
+	cliout.Newline()
 
 	// Show each service's validation status
 	for _, v := range validations {
@@ -329,19 +329,19 @@ func displayValidationSummary(validations []testing.ServiceValidation) {
 			if v.TestFiles > 0 {
 				testFilesInfo = fmt.Sprintf(" (%d test files)", v.TestFiles)
 			}
-			output.ItemSuccess("%s: %s detected%s", v.Name, v.Framework, testFilesInfo)
+			cliout.ItemSuccess("%s: %s detected%s", v.Name, v.Framework, testFilesInfo)
 		} else {
-			output.ItemWarning("%s: %s (skipping)", v.Name, v.SkipReason)
+			cliout.ItemWarning("%s: %s (skipping)", v.Name, v.SkipReason)
 		}
 	}
 
-	output.Newline()
+	cliout.Newline()
 	if len(skipped) > 0 {
-		output.Info("Found %d testable services (%d skipped)", len(testable), len(skipped))
+		cliout.Info("Found %d testable services (%d skipped)", len(testable), len(skipped))
 	} else {
-		output.Info("Found %d testable services", len(testable))
+		cliout.Info("Found %d testable services", len(testable))
 	}
-	output.Newline()
+	cliout.Newline()
 }
 
 // promptSaveTestConfig prompts the user to save auto-detected test config to azure.yaml.
@@ -351,31 +351,31 @@ func promptSaveTestConfig(opts *TestOptions, azureYamlPath string, validations [
 		if err := testing.SaveTestConfigToAzureYaml(azureYamlPath, validations, services); err != nil {
 			return err
 		}
-		if !output.IsJSON() {
-			output.Success("Test configuration saved to azure.yaml")
+		if !cliout.IsJSON() {
+			cliout.Success("Test configuration saved to azure.yaml")
 		}
 		return nil
 	}
 
 	// If not running in TTY (non-interactive), skip prompting
-	if !testing.IsTTY() || output.IsJSON() {
+	if !testing.IsTTY() || cliout.IsJSON() {
 		return nil
 	}
 
 	// Display the discovered config
-	output.Newline()
-	output.Section("💾", "Auto-detected test configuration")
+	cliout.Newline()
+	cliout.Section("💾", "Auto-detected test configuration")
 	for _, v := range autoDetected {
-		output.Item("%s: %s", v.Name, v.Framework)
+		cliout.Item("%s: %s", v.Name, v.Framework)
 	}
-	output.Newline()
+	cliout.Newline()
 
 	// Prompt to save
-	if output.Confirm("Save test configuration to azure.yaml?") {
+	if cliout.Confirm("Save test configuration to azure.yaml?") {
 		if err := testing.SaveTestConfigToAzureYaml(azureYamlPath, validations, services); err != nil {
 			return err
 		}
-		output.Success("Test configuration saved to azure.yaml")
+		cliout.Success("Test configuration saved to azure.yaml")
 	}
 
 	return nil
@@ -419,33 +419,33 @@ func runWatchMode(orchestrator *testing.TestOrchestrator, testType string, servi
 
 // displayTestResults displays test results in the console.
 func displayTestResults(result *testing.AggregateResult) {
-	if output.IsJSON() {
-		_ = output.PrintJSON(result)
+	if cliout.IsJSON() {
+		_ = cliout.PrintJSON(result)
 		return
 	}
 
-	output.Section("📊", "Test Results")
+	cliout.Section("📊", "Test Results")
 
 	for _, svcResult := range result.Services {
 		if svcResult.Success {
-			output.Success("%s: %d passed, %d total (%.2fs)",
+			cliout.Success("%s: %d passed, %d total (%.2fs)",
 				svcResult.Service, svcResult.Passed, svcResult.Total, svcResult.Duration)
 		} else {
-			output.Error("%s: %d passed, %d failed, %d total (%.2fs)",
+			cliout.Error("%s: %d passed, %d failed, %d total (%.2fs)",
 				svcResult.Service, svcResult.Passed, svcResult.Failed, svcResult.Total, svcResult.Duration)
 			if svcResult.Error != "" {
-				output.Item("Error: %s", svcResult.Error)
+				cliout.Item("Error: %s", svcResult.Error)
 			}
 		}
 	}
 
-	output.Section("━", "Summary")
+	cliout.Section("━", "Summary")
 	if result.Success {
-		output.Success("All tests passed!")
+		cliout.Success("All tests passed!")
 	} else {
-		output.Error("Tests failed")
+		cliout.Error("Tests failed")
 	}
-	output.Item("Total: %d passed, %d failed, %d skipped, %d total",
+	cliout.Item("Total: %d passed, %d failed, %d skipped, %d total",
 		result.Passed, result.Failed, result.Skipped, result.Total)
-	output.Item("Duration: %.2fs", result.Duration)
+	cliout.Item("Duration: %.2fs", result.Duration)
 }

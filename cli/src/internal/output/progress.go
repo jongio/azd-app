@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-core/cliout"
 	"golang.org/x/term"
 )
 
@@ -303,15 +304,15 @@ func (mp *MultiProgress) buildCompactLine(bar *ProgressSpinner, progressPct, ela
 	timeStr := mp.formatElapsedTime(bar.status, elapsed)
 
 	if bar.status == TaskStatusPending {
-		return fmt.Sprintf("%s%s%s %s", color, icon, Reset, desc)
+		return fmt.Sprintf("%s%s%s %s", color, icon, cliout.Reset, desc)
 	}
 
 	// Compact format: icon desc pct time (no progress bar)
 	return fmt.Sprintf("%s%s%s %s %3.0f%% %s",
-		color, icon, Reset,
+		color, icon, cliout.Reset,
 		desc,
 		progressPct,
-		Dim+timeStr+Reset)
+		cliout.Dim+timeStr+cliout.Reset)
 }
 
 // calculateBarWidth determines the width of the progress bar
@@ -331,17 +332,17 @@ func (mp *MultiProgress) getStatusIconAndColor(status TaskStatus, t time.Time) (
 
 	switch status {
 	case TaskStatusPending:
-		return "○", Dim
+		return "○", cliout.Dim
 	case TaskStatusRunning:
-		return getSpinnerFrame(t), Cyan
+		return getSpinnerFrame(t), cliout.Cyan
 	case TaskStatusSuccess:
-		return "✓", Green
+		return "✓", cliout.Green
 	case TaskStatusFailed:
-		return "✗", Red
+		return "✗", cliout.Red
 	case TaskStatusSkipped:
-		return "-", Gray
+		return "-", cliout.Gray
 	default:
-		return "○", Dim
+		return "○", cliout.Dim
 	}
 }
 
@@ -378,16 +379,16 @@ func (mp *MultiProgress) formatElapsedTime(status TaskStatus, elapsed float64) s
 // assembleProgressLine assembles the final progress line string
 func (mp *MultiProgress) assembleProgressLine(icon, color, desc, barContent string, progressPct float64, timeStr string, status TaskStatus) string {
 	if status == TaskStatusPending {
-		return fmt.Sprintf("%s%s%s %-25s", color, icon, Reset, desc)
+		return fmt.Sprintf("%s%s%s %-25s", color, icon, cliout.Reset, desc)
 	}
 
 	percentStr := fmt.Sprintf("%3.0f%%", progressPct)
 	return fmt.Sprintf("%s%s%s %-25s [%s%s%s] %s %s",
-		color, icon, Reset,
+		color, icon, cliout.Reset,
 		desc,
-		color, barContent, Reset,
+		color, barContent, cliout.Reset,
 		percentStr,
-		Dim+timeStr+Reset)
+		cliout.Dim+timeStr+cliout.Reset)
 }
 
 // truncateString truncates a string to maxLen
@@ -421,7 +422,7 @@ func (mp *MultiProgress) clearExtraLines(currentLineCount int) {
 
 // formatErrorLine formats an error message for display
 func (mp *MultiProgress) formatErrorLine(errorMsg string) string {
-	return fmt.Sprintf("   %s%s%s", Red, truncateString(errorMsg, mp.termWidth-6), Reset)
+	return fmt.Sprintf("   %s%s%s", cliout.Red, truncateString(errorMsg, mp.termWidth-6), cliout.Reset)
 }
 
 // calculateElapsed calculates elapsed time for a task
@@ -580,9 +581,9 @@ type ProgressResult struct {
 // PrintStatus prints the final status for a completed task.
 func PrintStatus(description string, success bool, err error) {
 	if success {
-		fmt.Printf("%s%s%s %s\n", Green, SymbolCheck, Reset, description)
+		fmt.Printf("%s%s%s %s\n", cliout.Green, cliout.SymbolCheck, cliout.Reset, description)
 	} else {
-		fmt.Printf("%s%s%s %s\n", Red, SymbolCross, Reset, description)
+		fmt.Printf("%s%s%s %s\n", cliout.Red, cliout.SymbolCross, cliout.Reset, description)
 	}
 }
 
@@ -595,7 +596,7 @@ func PrintSummary(totalCount, successCount int, failedTasks []string) {
 		failureCount := totalCount - successCount
 		Error("Failed to install %d project(s)", failureCount)
 		for _, task := range failedTasks {
-			fmt.Printf("  %s%s%s %s\n", Dim, SymbolDot, Reset, task)
+			fmt.Printf("  %s%s%s %s\n", cliout.Dim, cliout.SymbolDot, cliout.Reset, task)
 		}
 	}
 }
@@ -655,9 +656,9 @@ func FormatStatusLines(lines []StatusLine) string {
 	var builder strings.Builder
 	for i, line := range lines {
 		if line.Success {
-			builder.WriteString(fmt.Sprintf("%s%s%s %s", Green, SymbolCheck, Reset, line.Description))
+			builder.WriteString(fmt.Sprintf("%s%s%s %s", cliout.Green, cliout.SymbolCheck, cliout.Reset, line.Description))
 		} else {
-			builder.WriteString(fmt.Sprintf("%s%s%s %s", Red, SymbolCross, Reset, line.Description))
+			builder.WriteString(fmt.Sprintf("%s%s%s %s", cliout.Red, cliout.SymbolCross, cliout.Reset, line.Description))
 		}
 		if i < len(lines)-1 {
 			builder.WriteString("\n")

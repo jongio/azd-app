@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/jongio/azd-core/pathutil"
 	"github.com/jongio/azd-core/security"
@@ -41,8 +41,8 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	if _, err := os.Stat(nodeModulesPath); err == nil {
 		// node_modules exists, check if it's up-to-date
 		if isDependenciesUpToDate(project.Dir, project.PackageManager) {
-			if !output.IsJSON() && progressWriter == nil {
-				output.ItemSuccess("Dependencies already up-to-date (skipping install)")
+			if !cliout.IsJSON() && progressWriter == nil {
+				cliout.ItemSuccess("Dependencies already up-to-date (skipping install)")
 			}
 			return nil
 		}
@@ -101,7 +101,7 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 		// Parallel mode: send output to progress writer, but also capture stderr
 		cmd.Stdout = progressWriter
 		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
-	} else if output.IsJSON() {
+	} else if cliout.IsJSON() {
 		// JSON mode: suppress output but capture stderr for errors
 		cmd.Stdout = io.Discard
 		cmd.Stderr = &stderrBuf
@@ -114,7 +114,7 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	cmd.Env = os.Environ()
 
 	// Add NPM_CONFIG_PROGRESS for npm to ensure progress is shown
-	if project.PackageManager == "npm" && progressWriter == nil && !output.IsJSON() {
+	if project.PackageManager == "npm" && progressWriter == nil && !cliout.IsJSON() {
 		cmd.Env = append(cmd.Env, "NPM_CONFIG_PROGRESS=true", "NPM_CONFIG_LOGLEVEL=verbose")
 	}
 
@@ -124,8 +124,8 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 		return formatNodeInstallError(project.PackageManager, project.Dir, cmd, err, stderrBuf.String())
 	}
 
-	if !output.IsJSON() && progressWriter == nil {
-		output.ItemSuccess("Installed dependencies")
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.ItemSuccess("Installed dependencies")
 	}
 	return nil
 }
@@ -142,8 +142,8 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 		return fmt.Errorf("invalid project path: %w", err)
 	}
 
-	if !output.IsJSON() && progressWriter == nil {
-		output.Item("Restoring: %s", project.Path)
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.Item("Restoring: %s", project.Path)
 	}
 
 	// Run restore with streaming output
@@ -158,7 +158,7 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 	if progressWriter != nil {
 		cmd.Stdout = progressWriter
 		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
-	} else if output.IsJSON() {
+	} else if cliout.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = &stderrBuf
 	} else {
@@ -172,8 +172,8 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 		return formatDotnetRestoreError(project.Path, dir, cmd, err, stderrBuf.String())
 	}
 
-	if !output.IsJSON() && progressWriter == nil {
-		output.ItemSuccess("Restored packages")
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.ItemSuccess("Restored packages")
 	}
 	return nil
 }
@@ -201,16 +201,16 @@ func setupPythonVirtualEnvWithWriter(project types.PythonProject, progressWriter
 func setupWithUv(projectDir string, progressWriter io.Writer) error {
 	// Check if uv is installed
 	if _, err := exec.LookPath("uv"); err != nil {
-		if !output.IsJSON() && progressWriter == nil {
-			output.ItemWarning("uv not found, falling back to pip")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.ItemWarning("uv not found, falling back to pip")
 		}
 		return setupWithPip(projectDir, progressWriter)
 	}
 
 	// uv automatically manages virtual environments
 	// Just sync the project
-	if !output.IsJSON() && progressWriter == nil {
-		output.Item("Installing dependencies into .venv (uv)...")
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.Item("Installing dependencies into .venv (uv)...")
 	}
 
 	cmd := exec.Command("uv", "sync", "--no-progress")
@@ -221,7 +221,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 	if progressWriter != nil {
 		cmd.Stdout = progressWriter
 		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
-	} else if output.IsJSON() {
+	} else if cliout.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = &stderrBuf
 	} else {
@@ -233,8 +233,8 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 		// If uv sync fails, try uv pip install with explicit venv creation
 		if _, statErr := os.Stat(filepath.Join(projectDir, "requirements.txt")); statErr == nil {
 			// Create virtual environment first
-			if !output.IsJSON() && progressWriter == nil {
-				output.Item("Creating virtual environment at .venv (uv)...")
+			if !cliout.IsJSON() && progressWriter == nil {
+				cliout.Item("Creating virtual environment at .venv (uv)...")
 			}
 			venvCmd := exec.Command("uv", "venv")
 			venvCmd.Dir = projectDir
@@ -244,7 +244,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			if progressWriter != nil {
 				venvCmd.Stdout = progressWriter
 				venvCmd.Stderr = io.MultiWriter(progressWriter, &venvStderrBuf)
-			} else if output.IsJSON() {
+			} else if cliout.IsJSON() {
 				venvCmd.Stdout = io.Discard
 				venvCmd.Stderr = &venvStderrBuf
 			} else {
@@ -257,8 +257,8 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			}
 
 			// Install dependencies
-			if !output.IsJSON() && progressWriter == nil {
-				output.Item("Installing dependencies into .venv (uv pip)...")
+			if !cliout.IsJSON() && progressWriter == nil {
+				cliout.Item("Installing dependencies into .venv (uv pip)...")
 			}
 			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
 			installCmd.Dir = projectDir
@@ -268,7 +268,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			if progressWriter != nil {
 				installCmd.Stdout = progressWriter
 				installCmd.Stderr = io.MultiWriter(progressWriter, &installStderrBuf)
-			} else if output.IsJSON() {
+			} else if cliout.IsJSON() {
 				installCmd.Stdout = io.Discard
 				installCmd.Stderr = &installStderrBuf
 			} else {
@@ -284,8 +284,8 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 		}
 	}
 
-	if !output.IsJSON() && progressWriter == nil {
-		output.ItemSuccess("Environment ready (uv)")
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.ItemSuccess("Environment ready (uv)")
 	}
 	return nil
 }
@@ -294,8 +294,8 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	// Check if poetry is installed
 	if _, err := exec.LookPath("poetry"); err != nil {
-		if !output.IsJSON() && progressWriter == nil {
-			output.ItemWarning("poetry not found, falling back to pip")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.ItemWarning("poetry not found, falling back to pip")
 		}
 		return setupWithPip(projectDir, progressWriter)
 	}
@@ -307,15 +307,15 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	cmdOutput, err := checkCmd.CombinedOutput()
 
 	if err == nil && len(cmdOutput) > 0 {
-		if !output.IsJSON() && progressWriter == nil {
+		if !cliout.IsJSON() && progressWriter == nil {
 			venvPath := string(cmdOutput)
-			output.ItemSuccess("Poetry environment exists at %s", venvPath)
+			cliout.ItemSuccess("Poetry environment exists at %s", venvPath)
 		}
 		return nil
 	}
 
-	if !output.IsJSON() && progressWriter == nil {
-		output.Item("Installing dependencies into poetry venv...")
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.Item("Installing dependencies into poetry venv...")
 	}
 
 	// Install dependencies (use --no-root to avoid installing the package itself)
@@ -327,7 +327,7 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	if progressWriter != nil {
 		cmd.Stdout = progressWriter
 		cmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
-	} else if output.IsJSON() {
+	} else if cliout.IsJSON() {
 		cmd.Stdout = io.Discard
 		cmd.Stderr = &stderrBuf
 	} else {
@@ -339,8 +339,8 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 		return formatPythonInstallError("poetry install", projectDir, cmd, err, stderrBuf.String())
 	}
 
-	if !output.IsJSON() && progressWriter == nil {
-		output.ItemSuccess("Dependencies installed (poetry)")
+	if !cliout.IsJSON() && progressWriter == nil {
+		cliout.ItemSuccess("Dependencies installed (poetry)")
 	}
 	return nil
 }
@@ -351,8 +351,8 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 
 	// Check if venv already exists, create if not
 	if _, err := os.Stat(venvPath); err != nil {
-		if !output.IsJSON() && progressWriter == nil {
-			output.Item("Creating virtual environment at .venv...")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.Item("Creating virtual environment at .venv...")
 		}
 
 		// Create virtual environment
@@ -368,20 +368,20 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 			return formatPythonInstallError("python -m venv", projectDir, cmd, err, stderrBuf.String())
 		}
 
-		if !output.IsJSON() && progressWriter == nil {
-			output.ItemSuccess("Created .venv")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.ItemSuccess("Created .venv")
 		}
 	} else {
-		if !output.IsJSON() && progressWriter == nil {
-			output.ItemSuccess("Virtual environment exists")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.ItemSuccess("Virtual environment exists")
 		}
 	}
 
 	// Check if requirements.txt exists and install dependencies
 	requirementsPath := filepath.Join(projectDir, "requirements.txt")
 	if _, err := os.Stat(requirementsPath); err == nil {
-		if !output.IsJSON() && progressWriter == nil {
-			output.Item("Installing dependencies into .venv (pip)...")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.Item("Installing dependencies into .venv (pip)...")
 		}
 
 		// Determine the pip path based on OS
@@ -403,7 +403,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		if progressWriter != nil {
 			pipCmd.Stdout = progressWriter
 			pipCmd.Stderr = io.MultiWriter(progressWriter, &stderrBuf)
-		} else if output.IsJSON() {
+		} else if cliout.IsJSON() {
 			pipCmd.Stdout = io.Discard
 			pipCmd.Stderr = &stderrBuf
 		} else {
@@ -417,8 +417,8 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 			return formatPythonInstallError("pip install", projectDir, pipCmd, err, stderrBuf.String())
 		}
 
-		if !output.IsJSON() && progressWriter == nil {
-			output.ItemSuccess("Dependencies installed (pip)")
+		if !cliout.IsJSON() && progressWriter == nil {
+			cliout.ItemSuccess("Dependencies installed (pip)")
 		}
 	}
 
@@ -806,8 +806,8 @@ func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error 
 		if isFileLockingError(stderr) && attempt < maxRetries {
 			// Calculate exponential backoff delay
 			delay := time.Duration(1<<uint(attempt-1)) * time.Second
-			if !output.IsJSON() {
-				output.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
+			if !cliout.IsJSON() {
+				cliout.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
 			}
 			time.Sleep(delay)
 

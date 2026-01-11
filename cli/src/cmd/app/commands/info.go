@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 
 	"github.com/spf13/cobra"
@@ -35,7 +35,7 @@ func NewInfoCommand() *cobra.Command {
 
 // runInfo executes the info command.
 func runInfo(cmd *cobra.Command, args []string) error {
-	output.CommandHeader("info", "Show information about services")
+	cliout.CommandHeader("info", "Show information about services")
 	// Get current working directory (may be set by --cwd flag)
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -50,20 +50,20 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	if err == nil {
 		// Dashboard is running, get live state from it
 		allServices, err = dashboardClient.GetServices(ctx)
-		if err != nil && !output.IsJSON() {
-			output.Warning("Failed to get services from dashboard: %v", err)
+		if err != nil && !cliout.IsJSON() {
+			cliout.Warning("Failed to get services from dashboard: %v", err)
 			// Fall back to azure.yaml only
 			allServices, err = serviceinfo.GetServiceInfo(cwd)
-			if err != nil && !output.IsJSON() {
-				output.Warning("Failed to get service info: %v", err)
+			if err != nil && !cliout.IsJSON() {
+				cliout.Warning("Failed to get service info: %v", err)
 			}
 		}
 	} else {
 		// Dashboard not running - get service definitions from azure.yaml only
 		// Note: Runtime state (running, ports, PIDs) will not be available
 		allServices, err = serviceinfo.GetServiceInfo(cwd)
-		if err != nil && !output.IsJSON() {
-			output.Warning("Failed to get service info: %v", err)
+		if err != nil && !cliout.IsJSON() {
+			cliout.Warning("Failed to get service info: %v", err)
 		}
 	}
 
@@ -71,7 +71,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	azureEnv := getAzureEnvironmentValues(ctx)
 
 	// For JSON output
-	if output.IsJSON() {
+	if cliout.IsJSON() {
 		return printInfoJSON(cwd, allServices, azureEnv)
 	}
 
@@ -106,7 +106,7 @@ func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azure
 		outputServices = append(outputServices, *svc) // Dereference pointer
 	}
 
-	return output.PrintJSON(map[string]interface{}{
+	return cliout.PrintJSON(map[string]interface{}{
 		"project":  projectDir,
 		"services": outputServices,
 	})
@@ -115,18 +115,18 @@ func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azure
 // printInfoDefault outputs service information in default format.
 func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, azureEnv map[string]string) {
 	// Show project directory header
-	output.Section("📦", fmt.Sprintf("Project: %s", projectDir))
+	cliout.Section("📦", fmt.Sprintf("Project: %s", projectDir))
 
 	if len(services) == 0 {
-		output.Info("No services defined in azure.yaml")
-		output.Item("Run 'azd app reqs --generate' to create azure.yaml with service definitions")
+		cliout.Info("No services defined in azure.yaml")
+		cliout.Item("Run 'azd app reqs --generate' to create azure.yaml with service definitions")
 		return
 	}
 
 	// Print services
 	for i, svc := range services {
 		if i > 0 {
-			output.Divider()
+			cliout.Divider()
 		}
 
 		// Get status and health from Local (with defaults if Local is nil)
@@ -138,77 +138,77 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 		}
 
 		statusIcon := getInfoStatusIcon(status, health)
-		output.Newline()
-		output.Info("  %s %s", statusIcon, svc.Name)
+		cliout.Newline()
+		cliout.Info("  %s %s", statusIcon, svc.Name)
 
 		// Local development info
 		if svc.Local != nil {
 			if svc.Local.URL != "" {
-				output.Label("  Local URL", svc.Local.URL)
+				cliout.Label("  Local URL", svc.Local.URL)
 			} else if svc.Local.Port > 0 {
-				output.Label("  Local URL", fmt.Sprintf("http://localhost:%d (not running)", svc.Local.Port))
+				cliout.Label("  Local URL", fmt.Sprintf("http://localhost:%d (not running)", svc.Local.Port))
 			}
 		}
 
 		// Azure URL and info
 		if svc.Azure != nil {
 			if svc.Azure.URL != "" {
-				output.Label("  Azure URL", svc.Azure.URL)
+				cliout.Label("  Azure URL", svc.Azure.URL)
 			}
 			if svc.Azure.ResourceName != "" {
-				output.Label("  Azure Resource", svc.Azure.ResourceName)
+				cliout.Label("  Azure Resource", svc.Azure.ResourceName)
 			}
 			if svc.Azure.ImageName != "" {
-				output.Label("  Docker Image", svc.Azure.ImageName)
+				cliout.Label("  Docker Image", svc.Azure.ImageName)
 			}
 		}
 
 		// Service definition info
 		if svc.Language != "" {
-			output.Label("  Language", svc.Language)
+			cliout.Label("  Language", svc.Language)
 		}
 		if svc.Framework != "" {
-			output.Label("  Framework", svc.Framework)
+			cliout.Label("  Framework", svc.Framework)
 		}
 		if svc.Project != "" {
-			output.Label("  Project", svc.Project)
+			cliout.Label("  Project", svc.Project)
 		}
 
 		// Runtime info (only if service is running)
 		if svc.Local != nil && svc.Local.Status == "running" {
 			if svc.Local.Port > 0 {
-				output.Label("  Port", fmt.Sprintf("%d", svc.Local.Port))
+				cliout.Label("  Port", fmt.Sprintf("%d", svc.Local.Port))
 			}
 			if svc.Local.PID > 0 {
-				output.Label("  PID", fmt.Sprintf("%d", svc.Local.PID))
+				cliout.Label("  PID", fmt.Sprintf("%d", svc.Local.PID))
 			}
 			if svc.Local.StartTime != nil {
-				output.Label("  Started", formatTime(*svc.Local.StartTime))
+				cliout.Label("  Started", formatTime(*svc.Local.StartTime))
 			}
 			if svc.Local.LastChecked != nil {
-				output.Label("  Checked", formatTime(*svc.Local.LastChecked))
+				cliout.Label("  Checked", formatTime(*svc.Local.LastChecked))
 			}
 		}
 
 		// Status and health (from Local)
 		if svc.Local != nil {
-			output.Label("  Status", formatStatus(svc.Local.Status))
+			cliout.Label("  Status", formatStatus(svc.Local.Status))
 			if svc.Local.Health != "unknown" {
-				output.Label("  Health", formatHealth(svc.Local.Health))
+				cliout.Label("  Health", formatHealth(svc.Local.Health))
 			}
 		}
 
 		// Environment variables for this service (grouped by prefix)
 		envVars := getServiceEnvironmentVars(svc.Name, azureEnv)
 		if len(envVars) > 0 {
-			output.Newline()
-			output.Info("  Environment Variables:")
+			cliout.Newline()
+			cliout.Info("  Environment Variables:")
 			for key, value := range envVars {
-				output.Item("  %s = %s", key, value)
+				cliout.Item("  %s = %s", key, value)
 			}
 		}
 	}
-	output.Newline()
+	cliout.Newline()
 }
 
 // getServiceEnvironmentVars returns environment variables for a specific service,

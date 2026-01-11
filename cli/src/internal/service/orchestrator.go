@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 )
@@ -323,9 +323,9 @@ func startSingleService(rt *ServiceRuntime, envVars map[string]string, reg *regi
 	// Only show URL for services with assigned ports (port > 0)
 	if process.Port > 0 {
 		url := fmt.Sprintf("http://localhost:%d", process.Port)
-		output.ItemSuccess("%s%-15s%s → %s", output.Cyan, rt.Name, output.Reset, url)
+		cliout.ItemSuccess("%s%-15s%s → %s", cliout.Cyan, rt.Name, cliout.Reset, url)
 	} else {
-		output.ItemSuccess("%s%-15s%s", output.Cyan, rt.Name, output.Reset)
+		cliout.ItemSuccess("%s%-15s%s", cliout.Cyan, rt.Name, cliout.Reset)
 	}
 
 	// Update status to running
@@ -402,7 +402,7 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 
 			// Update status to stopping
 			if err := reg.UpdateStatus(serviceName, constants.StatusStopping); err != nil {
-				output.Error("Warning: failed to update status for %s: %v", serviceName, err)
+				cliout.Error("Warning: failed to update status for %s: %v", serviceName, err)
 			}
 
 			// Stop service - use container runner for container services
@@ -414,12 +414,12 @@ func StopAllServices(processes map[string]*ServiceProcess) {
 			}
 			if stopErr != nil {
 				// Log error but continue stopping other services
-				output.Error("Error stopping service %s: %v", serviceName, stopErr)
+				cliout.Error("Error stopping service %s: %v", serviceName, stopErr)
 			}
 
 			// Unregister from registry
 			if err := reg.Unregister(serviceName); err != nil {
-				output.Error("Warning: failed to unregister service %s: %v", serviceName, err)
+				cliout.Error("Warning: failed to unregister service %s: %v", serviceName, err)
 			}
 		}(name, process)
 	}

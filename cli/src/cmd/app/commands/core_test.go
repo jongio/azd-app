@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 )
 
 func TestSetCacheEnabled(t *testing.T) {
@@ -133,8 +133,8 @@ func TestGetSearchRoot(t *testing.T) {
 
 func TestExecuteRun(t *testing.T) {
 	// Set JSON mode to avoid console output
-	_ = output.SetFormat("json")
-	defer func() { _ = output.SetFormat("default") }()
+	_ = cliout.SetFormat("json")
+	defer func() { _ = cliout.SetFormat("default") }()
 
 	err := executeRun()
 	if err != nil {
@@ -210,8 +210,8 @@ func TestNewResultFormatter(t *testing.T) {
 
 func TestResultFormatterPrintAll(t *testing.T) {
 	// Set JSON mode to suppress console output during test
-	_ = output.SetFormat("json")
-	defer func() { _ = output.SetFormat("default") }()
+	_ = cliout.SetFormat("json")
+	defer func() { _ = cliout.SetFormat("default") }()
 
 	formatter := NewResultFormatter()
 	results := []ReqResult{
@@ -230,8 +230,8 @@ func TestResultFormatterPrintAll(t *testing.T) {
 
 func TestResultFormatterPrint(t *testing.T) {
 	// Set JSON mode to suppress console output
-	_ = output.SetFormat("json")
-	defer func() { _ = output.SetFormat("default") }()
+	_ = cliout.SetFormat("json")
+	defer func() { _ = cliout.SetFormat("default") }()
 
 	formatter := NewResultFormatter()
 
@@ -313,8 +313,8 @@ func TestResultFormatterPrint(t *testing.T) {
 
 func TestResultFormatterPrintRunningStatus(t *testing.T) {
 	// Set JSON mode to suppress console output
-	_ = output.SetFormat("json")
-	defer func() { _ = output.SetFormat("default") }()
+	_ = cliout.SetFormat("json")
+	defer func() { _ = cliout.SetFormat("default") }()
 
 	formatter := NewResultFormatter()
 
@@ -345,8 +345,8 @@ func TestInstallProject(t *testing.T) {
 	}
 
 	// Test failed install (will suppress output in JSON mode)
-	_ = output.SetFormat("json")
-	defer func() { _ = output.SetFormat("default") }()
+	_ = cliout.SetFormat("json")
+	defer func() { _ = cliout.SetFormat("default") }()
 
 	failResult := di.installProject("python", "/test/dir2", "pip", func() error {
 		return os.ErrNotExist

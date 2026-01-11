@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 
 	"github.com/spf13/cobra"
 )
@@ -51,7 +51,7 @@ Examples:
 }
 
 func runStop(cmd *cobra.Command, args []string) error {
-	output.CommandHeader("stop", "Stop running services")
+	cliout.CommandHeader("stop", "Stop running services")
 
 	// Validate flags
 	if stopService == "" && !stopAll {
@@ -78,7 +78,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if !confirmBulkOperation(len(servicesToStop), "stop", stopYes) {
-			output.Info("Operation cancelled")
+			cliout.Info("Operation cancelled")
 			return nil
 		}
 	} else {

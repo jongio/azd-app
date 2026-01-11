@@ -9,7 +9,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/jongio/azd-core/security"
@@ -25,8 +25,8 @@ func createCacheManager(enabled bool) *cache.CacheManager {
 	})
 	if err != nil {
 		// If cache fails to initialize, proceed without caching (fallback)
-		if !output.IsJSON() {
-			output.Warning("Cache initialization failed, proceeding without cache: %v", err)
+		if !cliout.IsJSON() {
+			cliout.Warning("Cache initialization failed, proceeding without cache: %v", err)
 		}
 		// Return disabled cache manager (won't fail)
 		cacheManager, _ = cache.NewCacheManagerWithOptions(cache.CacheOptions{Enabled: false})
@@ -88,8 +88,8 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 // handleDepsError returns an error with JSON output if in JSON mode.
 func handleDepsError(err error, message string) error {
 	fullErr := fmt.Errorf("%s: %w", message, err)
-	if output.IsJSON() {
-		return output.PrintJSON(DepsResult{Error: fullErr.Error()})
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(DepsResult{Error: fullErr.Error()})
 	}
 	return fullErr
 }
@@ -147,8 +147,8 @@ func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager)
 	cachedResults, valid, err := cacheManager.GetCachedResults(azureYamlPath)
 	if err != nil {
 		// Log cache read errors in both JSON and non-JSON modes for visibility
-		if !output.IsJSON() {
-			output.Warning("Failed to read cache: %v", err)
+		if !cliout.IsJSON() {
+			cliout.Warning("Failed to read cache: %v", err)
 		}
 		// In JSON mode, error is still visible in debug/log output but doesn't affect user output
 	}
@@ -158,15 +158,15 @@ func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager)
 	}
 
 	// Cache hit
-	if !output.IsJSON() {
-		output.Info("Using cached reqs check results...")
+	if !cliout.IsJSON() {
+		cliout.Info("Using cached reqs check results...")
 	}
 
 	// Convert cached results
 	results := convertCachedResults(cachedResults.Results)
 
 	// Print cached results
-	if !output.IsJSON() {
+	if !cliout.IsJSON() {
 		formatter := NewResultFormatter()
 		formatter.PrintAll(results)
 	}
@@ -208,8 +208,8 @@ func saveToCache(azureYamlPath string, results []ReqResult, allSatisfied bool, c
 		}
 	}
 
-	if err := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); err != nil && !output.IsJSON() {
-		output.Warning("Failed to save cache: %v", err)
+	if err := cacheManager.SaveResults(azureYamlPath, cacheResults, allSatisfied); err != nil && !cliout.IsJSON() {
+		cliout.Warning("Failed to save cache: %v", err)
 	}
 }
 
@@ -241,17 +241,17 @@ func NewResultFormatter() *ResultFormatter {
 // Print formats and prints a single requirement result.
 func (rf *ResultFormatter) Print(result ReqResult) {
 	if !result.Installed {
-		output.ItemError("%s: NOT INSTALLED (required: %s)", result.Name, result.Required)
+		cliout.ItemError("%s: NOT INSTALLED (required: %s)", result.Name, result.Required)
 		return
 	}
 
 	if result.Version == "" {
-		output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", result.Name, result.Required)
+		cliout.ItemWarning("%s: INSTALLED (version unknown, required: %s)", result.Name, result.Required)
 	} else if !result.Satisfied && !result.CheckedRun {
-		output.ItemError("%s: %s (required: %s)", result.Name, result.Version, result.Required)
+		cliout.ItemError("%s: %s (required: %s)", result.Name, result.Version, result.Required)
 		return
 	} else {
-		output.ItemSuccess("%s: %s (required: %s)", result.Name, result.Version, result.Required)
+		cliout.ItemSuccess("%s: %s (required: %s)", result.Name, result.Version, result.Required)
 	}
 
 	// Check running status if applicable
@@ -263,9 +263,9 @@ func (rf *ResultFormatter) Print(result ReqResult) {
 // printRunningStatus prints the running status indicator.
 func (rf *ResultFormatter) printRunningStatus(isRunning bool) {
 	if isRunning {
-		output.Item("- %s✓%s RUNNING", output.Green, output.Reset)
+		cliout.Item("- %s✓%s RUNNING", cliout.Green, cliout.Reset)
 	} else {
-		output.Item("- %s✗%s NOT RUNNING", output.Red, output.Reset)
+		cliout.Item("- %s✗%s NOT RUNNING", cliout.Red, cliout.Reset)
 	}
 }
 
@@ -278,10 +278,10 @@ func (rf *ResultFormatter) PrintAll(results []ReqResult) {
 
 // cleanDependencies removes existing dependency directories for all detected projects.
 func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
-	if !output.IsJSON() {
-		output.Newline()
-		output.Section("🧹", "Cleaning Dependencies")
-		output.Newline()
+	if !cliout.IsJSON() {
+		cliout.Newline()
+		cliout.Section("🧹", "Cleaning Dependencies")
+		cliout.Newline()
 	}
 
 	var errors []error
@@ -313,9 +313,9 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 		}
 	}
 
-	if !output.IsJSON() && len(errors) == 0 {
-		output.Newline()
-		output.Success("Dependencies cleaned successfully")
+	if !cliout.IsJSON() && len(errors) == 0 {
+		cliout.Newline()
+		cliout.Success("Dependencies cleaned successfully")
 	}
 
 	if len(errors) > 0 {
@@ -356,17 +356,17 @@ func cleanDirectory(path string) error {
 		return fmt.Errorf("refusing to clean unexpected directory: %s (only dependency directories are allowed)", path)
 	}
 
-	if !output.IsJSON() {
-		output.Item("Removing %s", path)
+	if !cliout.IsJSON() {
+		cliout.Item("Removing %s", path)
 	}
 	if err := os.RemoveAll(path); err != nil {
-		if !output.IsJSON() {
-			output.ItemError("Failed: %v", err)
+		if !cliout.IsJSON() {
+			cliout.ItemError("Failed: %v", err)
 		}
 		return fmt.Errorf("failed to remove %s: %w", path, err)
 	}
-	if !output.IsJSON() {
-		output.ItemSuccess("Removed successfully")
+	if !cliout.IsJSON() {
+		cliout.ItemSuccess("Removed successfully")
 	}
 	return nil
 }
@@ -418,7 +418,7 @@ func parseAzureYaml(azureYamlPath string) (*service.AzureYaml, error) {
 
 // showDryRunSummary displays what would be installed without actually installing.
 func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, searchRoot string) error {
-	if output.IsJSON() {
+	if cliout.IsJSON() {
 		// Build dry-run results
 		var results []InstallResult
 		for _, p := range nodeProjects {
@@ -444,7 +444,7 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 				Success: true,
 			})
 		}
-		return output.PrintJSON(DepsResult{
+		return cliout.PrintJSON(DepsResult{
 			Success:  true,
 			Projects: results,
 			Message:  "dry-run: no changes made",
@@ -452,48 +452,48 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 	}
 
 	// Text output
-	output.Section("📋", "Dry Run - Projects that would be installed")
-	output.Newline()
+	cliout.Section("📋", "Dry Run - Projects that would be installed")
+	cliout.Newline()
 
 	if len(nodeProjects) > 0 {
-		output.Step("📦", "Node.js projects (%d)", len(nodeProjects))
+		cliout.Step("📦", "Node.js projects (%d)", len(nodeProjects))
 		for _, p := range nodeProjects {
 			relDir := p.Dir
 			if rel, err := filepath.Rel(searchRoot, p.Dir); err == nil && rel != "." {
 				relDir = rel
 			}
-			output.Item("%s (%s)", relDir, p.PackageManager)
+			cliout.Item("%s (%s)", relDir, p.PackageManager)
 		}
-		output.Newline()
+		cliout.Newline()
 	}
 
 	if len(pythonProjects) > 0 {
-		output.Step("🐍", "Python projects (%d)", len(pythonProjects))
+		cliout.Step("🐍", "Python projects (%d)", len(pythonProjects))
 		for _, p := range pythonProjects {
 			relDir := p.Dir
 			if rel, err := filepath.Rel(searchRoot, p.Dir); err == nil && rel != "." {
 				relDir = rel
 			}
-			output.Item("%s (%s)", relDir, p.PackageManager)
+			cliout.Item("%s (%s)", relDir, p.PackageManager)
 		}
-		output.Newline()
+		cliout.Newline()
 	}
 
 	if len(dotnetProjects) > 0 {
-		output.Step("🔷", ".NET projects (%d)", len(dotnetProjects))
+		cliout.Step("🔷", ".NET projects (%d)", len(dotnetProjects))
 		for _, p := range dotnetProjects {
 			relPath := p.Path
 			if rel, err := filepath.Rel(searchRoot, p.Path); err == nil && rel != "." {
 				relPath = rel
 			}
-			output.Item("%s", relPath)
+			cliout.Item("%s", relPath)
 		}
-		output.Newline()
+		cliout.Newline()
 	}
 
 	total := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
-	output.Info("Total: %d project(s) would be installed", total)
-	output.Info("Run without --dry-run to install dependencies")
+	cliout.Info("Total: %d project(s) would be installed", total)
+	cliout.Info("Run without --dry-run to install dependencies")
 
 	return nil
 }
@@ -503,14 +503,14 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 	// If user specified services but none matched, show a helpful message
 	if len(serviceFilter) > 0 {
 		msg := fmt.Sprintf("No projects found matching services: %v", serviceFilter)
-		if output.IsJSON() {
-			return output.PrintJSON(DepsResult{
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(DepsResult{
 				Success:  true,
 				Projects: []InstallResult{},
 				Message:  msg,
 			})
 		}
-		output.Info("%s", msg)
+		cliout.Info("%s", msg)
 		return nil
 	}
 
@@ -527,8 +527,8 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 		}
 	}
 
-	if output.IsJSON() {
-		return output.PrintJSON(DepsResult{
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(DepsResult{
 			Success:  true,
 			Projects: []InstallResult{},
 			Message:  msgNoProjectsDetected,
@@ -537,7 +537,7 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 
 	// Only show "No projects detected" if it's not a Logic Apps-only workspace
 	if !hasLogicAppsOnly {
-		output.Info("%s", msgNoProjectsDetected)
+		cliout.Info("%s", msgNoProjectsDetected)
 	}
 	return nil
 }

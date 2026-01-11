@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 )
 
 // FunctionEndpoint represents a discovered function endpoint.
@@ -27,7 +27,7 @@ type FunctionsOutputParser struct {
 	verbose   bool
 }
 
-// NewFunctionsOutputParser creates a new parser for Functions output.
+// NewFunctionsOutputParser creates a new parser for Functions cliout.
 func NewFunctionsOutputParser(verbose bool) *FunctionsOutputParser {
 	return &FunctionsOutputParser{
 		endpoints: make(map[string][]FunctionEndpoint),
@@ -49,7 +49,7 @@ var (
 	serviceBusTriggerPattern = regexp.MustCompile(`^\s*(\w+):\s+\[serviceBusTrigger\]`)
 )
 
-// ParseLine processes a single line of func output.
+// ParseLine processes a single line of func cliout.
 func (p *FunctionsOutputParser) ParseLine(serviceName, line string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -109,7 +109,7 @@ func (p *FunctionsOutputParser) ParseLine(serviceName, line string) {
 	}
 }
 
-// ParseStream processes a stream of func output.
+// ParseStream processes a stream of func cliout.
 func (p *FunctionsOutputParser) ParseStream(serviceName string, reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
@@ -163,7 +163,7 @@ func (p *FunctionsOutputParser) DisplayEndpoints(serviceName string, port int) {
 	baseURL := fmt.Sprintf("http://localhost:%d", port)
 
 	fmt.Printf("\n")
-	output.Item("%sFunctions:%s", output.Cyan, output.Reset)
+	cliout.Item("%sFunctions:%s", cliout.Cyan, cliout.Reset)
 
 	for _, endpoint := range endpoints {
 		switch endpoint.TriggerType {
@@ -171,24 +171,24 @@ func (p *FunctionsOutputParser) DisplayEndpoints(serviceName string, port int) {
 			methods := strings.Join(endpoint.Methods, ", ")
 			url := baseURL + "/" + endpoint.Route
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] %s%s%s\n",
-				output.Green, endpoint.Name, output.Reset,
-				output.Yellow, methods, output.Reset,
-				output.Blue, url, output.Reset)
+				cliout.Green, endpoint.Name, cliout.Reset,
+				cliout.Yellow, methods, cliout.Reset,
+				cliout.Blue, url, cliout.Reset)
 
 		case "Timer":
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] (triggered on schedule)\n",
-				output.Green, endpoint.Name, output.Reset,
-				output.Yellow, "Timer", output.Reset)
+				cliout.Green, endpoint.Name, cliout.Reset,
+				cliout.Yellow, "Timer", cliout.Reset)
 
 		case "Queue":
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] (triggered by queue messages)\n",
-				output.Green, endpoint.Name, output.Reset,
-				output.Yellow, "Queue", output.Reset)
+				cliout.Green, endpoint.Name, cliout.Reset,
+				cliout.Yellow, "Queue", cliout.Reset)
 
 		case "ServiceBus":
 			fmt.Printf("  %s%-20s%s [%s%-8s%s] (triggered by Service Bus)\n",
-				output.Green, endpoint.Name, output.Reset,
-				output.Yellow, "ServiceBus", output.Reset)
+				cliout.Green, endpoint.Name, cliout.Reset,
+				cliout.Yellow, "ServiceBus", cliout.Reset)
 		}
 	}
 

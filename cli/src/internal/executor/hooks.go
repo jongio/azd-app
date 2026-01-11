@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 )
 
 // Shell type constants for platform-specific shell detection
@@ -44,11 +44,11 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 	}
 
 	// Display hook execution start
-	output.Info("🪝 Executing %s hook...", hookName)
-	if !output.IsJSON() {
-		output.Item("Script: %s", config.Run)
-		output.Item("Shell: %s", shell)
-		output.Newline()
+	cliout.Info("🪝 Executing %s hook...", hookName)
+	if !cliout.IsJSON() {
+		cliout.Item("Script: %s", config.Run)
+		cliout.Item("Shell: %s", shell)
+		cliout.Newline()
 	}
 
 	// Prepare command with environment variables
@@ -63,16 +63,16 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 	// Handle execution result
 	if err != nil {
 		if config.ContinueOnError {
-			output.Warning("Hook %s failed but continuing (continueOnError: true)", hookName)
-			output.Item("Error: %v", err)
-			output.Newline()
+			cliout.Warning("Hook %s failed but continuing (continueOnError: true)", hookName)
+			cliout.Item("Error: %v", err)
+			cliout.Newline()
 			return nil
 		}
 		return fmt.Errorf("hook %s failed: %w", hookName, err)
 	}
 
-	output.Success("Hook %s completed successfully", hookName)
-	output.Newline()
+	cliout.Success("Hook %s completed successfully", hookName)
+	cliout.Newline()
 	return nil
 }
 
@@ -164,7 +164,7 @@ func configureCommandIO(cmd *exec.Cmd, interactive bool) {
 	}
 
 	// In JSON mode, suppress output unless interactive
-	if output.IsJSON() && !interactive {
+	if cliout.IsJSON() && !interactive {
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 	} else {

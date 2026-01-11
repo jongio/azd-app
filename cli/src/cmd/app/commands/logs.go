@@ -16,7 +16,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/security"
@@ -243,7 +243,7 @@ Examples:
 }
 
 func runLogsWithOptions(opts *logsOptions, args []string) error {
-	output.CommandHeader("logs", "View logs from running services")
+	cliout.CommandHeader("logs", "View logs from running services")
 
 	// Validate inputs
 	if err := validateLogsOptions(opts); err != nil {
@@ -286,8 +286,8 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		if os.Getenv("AZD_APP_DEBUG") == "true" {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard client creation failed: %v\n", err)
 		}
-		output.Info("No services are currently running")
-		output.Item("Run 'azd app run' to start services")
+		cliout.Info("No services are currently running")
+		cliout.Item("Run 'azd app run' to start services")
 		return nil
 	}
 
@@ -299,8 +299,8 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Dashboard ping failed: %v\n", pingErr)
 			}
 			if e.opts.source == string(LogSourceLocal) {
-				output.Info("No services are currently running")
-				output.Item("Run 'azd app run' to start services")
+				cliout.Info("No services are currently running")
+				cliout.Item("Run 'azd app run' to start services")
 				return nil
 			}
 			// For Azure-only flows, continue without dashboard
@@ -323,8 +323,8 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 
 		// Check if any services exist (local mode)
 		if len(serviceNames) == 0 && e.opts.source == string(LogSourceLocal) {
-			output.Info("No services are currently running")
-			output.Item("Run 'azd app run' to start services")
+			cliout.Info("No services are currently running")
+			cliout.Item("Run 'azd app run' to start services")
 			return nil
 		}
 
@@ -374,9 +374,9 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		}
 		// Show helpful message if no Azure logs found
 		if len(logs) == 0 && !e.opts.follow {
-			output.Info("No Azure logs found")
-			output.Item("Azure logs may take 1-5 minutes to appear in Log Analytics")
-			output.Item("Use --follow (-f) to wait for new logs")
+			cliout.Info("No Azure logs found")
+			cliout.Item("Azure logs may take 1-5 minutes to appear in Log Analytics")
+			cliout.Item("Use --follow (-f) to wait for new logs")
 			return nil
 		}
 	case "all":
@@ -590,7 +590,7 @@ func (e *logsExecutor) collectAzureLogs(ctx context.Context, cwd string, dashboa
 				return logs, nil
 			}
 			// If dashboard path fails, fall through to standalone for resiliency
-			output.Warning("Dashboard Azure logs failed, falling back to standalone: %v", err)
+			cliout.Warning("Dashboard Azure logs failed, falling back to standalone: %v", err)
 		}
 	}
 
@@ -650,19 +650,19 @@ func (e *logsExecutor) collectAllLogs(ctx context.Context, cwd string, dashboard
 	if dashboardClient != nil {
 		localLogs, err := e.collectLogs(ctx, cwd, targetServices, logManager, sinceTime)
 		if err != nil {
-			output.Warning("Failed to collect local logs: %s", err)
+			cliout.Warning("Failed to collect local logs: %s", err)
 		} else {
 			allLogs = append(allLogs, localLogs...)
 		}
 	} else {
-		output.Warning("Dashboard not running; local logs unavailable. Showing Azure logs only.")
+		cliout.Warning("Dashboard not running; local logs unavailable. Showing Azure logs only.")
 	}
 
 	// Collect Azure logs (non-fatal if not configured)
 	azureLogs, err := e.collectAzureLogs(ctx, cwd, dashboardClient, targetServices, sinceTime)
 	if err != nil {
 		// Only warn if Azure is expected
-		output.Warning("Azure logs unavailable: %s", err)
+		cliout.Warning("Azure logs unavailable: %s", err)
 	} else {
 		allLogs = append(allLogs, azureLogs...)
 	}
@@ -892,7 +892,7 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 		return fmt.Errorf("cannot follow logs: dashboard not responding (run 'azd app run' first)")
 	}
 
-	output.Info("Streaming logs from dashboard...")
+	cliout.Info("Streaming logs from dashboard...")
 
 	// Create context for streaming that can be cancelled
 	streamCtx, cancel := context.WithCancel(ctx)
@@ -1077,7 +1077,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 		return fmt.Errorf("Azure logging not configured.\n\nTo enable Azure logs:\n  1. Add a Log Analytics configuration to azure.yaml:\n     logs:\n       analytics:\n         pollingInterval: \"30s\"\n         defaultTimespan: \"1h\"\n  2. Ensure your azd environment has workspace outputs (run 'azd provision' if needed)\n  3. Restart 'azd app run'\n\nFor more info: https://aka.ms/azd-app/azure-logs")
 	}
 
-	output.Info("Streaming Azure logs (polling every 30s)...")
+	cliout.Info("Streaming Azure logs (polling every 30s)...")
 
 	// Create context for streaming that can be cancelled
 	streamCtx, cancel := context.WithCancel(ctx)
@@ -1145,7 +1145,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 
 // followAzureLogsStandalone streams Azure logs without requiring the dashboard.
 func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir string, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
-	output.Info("Streaming Azure logs (standalone, polling)...")
+	cliout.Info("Streaming Azure logs (standalone, polling)...")
 
 	// Create context for streaming that can be cancelled
 	streamCtx, cancel := context.WithCancel(ctx)
@@ -1235,17 +1235,17 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 // followAllLogs streams logs from both local and Azure sources.
 func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	if dashboardClient == nil {
-		output.Warning("Dashboard not running; following Azure logs only.")
+		cliout.Warning("Dashboard not running; following Azure logs only.")
 		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
 	}
 
 	// Check if dashboard is responding
 	if err := dashboardClient.Ping(ctx); err != nil {
-		output.Warning("Dashboard not responding; following Azure logs only.")
+		cliout.Warning("Dashboard not responding; following Azure logs only.")
 		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
 	}
 
-	output.Info("Streaming logs from local and Azure sources...")
+	cliout.Info("Streaming logs from local and Azure sources...")
 
 	// Create context for streaming that can be cancelled
 	streamCtx, cancel := context.WithCancel(ctx)
@@ -1288,7 +1288,7 @@ func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, log
 			defer close(azureLogs)
 			if err := dashboardClient.StreamAzureLogs(streamCtx, azureLogs); err != nil && err != context.Canceled {
 				// Azure errors are non-fatal, just log and continue
-				output.Warning("Azure log stream disconnected: %s", err)
+				cliout.Warning("Azure log stream disconnected: %s", err)
 			}
 		}()
 	} else {

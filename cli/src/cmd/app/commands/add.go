@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/wellknown"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -88,7 +88,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unknown service %q - use --list to see available services", serviceName)
 	}
 
-	output.CommandHeader("add", fmt.Sprintf("Add %s", def.DisplayName))
+	cliout.CommandHeader("add", fmt.Sprintf("Add %s", def.DisplayName))
 
 	// Find azure.yaml
 	azureYamlPath, err := findAzureYamlForAdd()
@@ -102,14 +102,14 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read azure.yaml: %w", err)
 	}
 	if exists {
-		if output.IsJSON() {
-			return output.PrintJSON(AddResult{
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(AddResult{
 				Service: serviceName,
 				Added:   false,
 				Message: fmt.Sprintf("Service %q already exists in azure.yaml", serviceName),
 			})
 		}
-		output.Warning("Service %q already exists in azure.yaml", serviceName)
+		cliout.Warning("Service %q already exists in azure.yaml", serviceName)
 		return nil
 	}
 
@@ -119,7 +119,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Success output
-	if output.IsJSON() {
+	if cliout.IsJSON() {
 		result := AddResult{
 			Service: serviceName,
 			Added:   true,
@@ -128,33 +128,33 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		if showConnection {
 			result.ConnectionStrings = def.ConnectionStrings
 		}
-		return output.PrintJSON(result)
+		return cliout.PrintJSON(result)
 	}
 
-	output.Success("Added %s to azure.yaml", def.DisplayName)
-	output.Newline()
+	cliout.Success("Added %s to azure.yaml", def.DisplayName)
+	cliout.Newline()
 
 	// Show connection strings if requested
 	if showConnection {
-		output.Section(output.IconInfo, "Connection Strings")
+		cliout.Section(cliout.IconInfo, "Connection Strings")
 		for name, connStr := range def.ConnectionStrings {
-			output.Label(name, connStr)
+			cliout.Label(name, connStr)
 		}
-		output.Newline()
+		cliout.Newline()
 	}
 
-	output.Info("%s Run 'azd app run' to start all services including %s", output.IconBulb, serviceName)
+	cliout.Info("%s Run 'azd app run' to start all services including %s", cliout.IconBulb, serviceName)
 
 	return nil
 }
 
 func listAvailableServices() error {
-	output.CommandHeader("add", "Available services")
+	cliout.CommandHeader("add", "Available services")
 
 	names := wellknown.Names()
 	sort.Strings(names)
 
-	if output.IsJSON() {
+	if cliout.IsJSON() {
 		type ServiceInfo struct {
 			Name        string            `json:"name"`
 			DisplayName string            `json:"displayName"`
@@ -177,7 +177,7 @@ func listAvailableServices() error {
 				ConnStrings: def.ConnectionStrings,
 			})
 		}
-		return output.PrintJSON(services)
+		return cliout.PrintJSON(services)
 	}
 
 	// Group by category
@@ -186,15 +186,15 @@ func listAvailableServices() error {
 
 	titleCaser := cases.Title(language.English)
 	for _, cat := range categories {
-		output.Section(output.IconFolder, titleCaser.String(cat))
+		cliout.Section(cliout.IconFolder, titleCaser.String(cat))
 		services := wellknown.ByCategory(cat)
 		for _, def := range services {
-			output.Bullet("%s - %s", def.Name, def.Description)
+			cliout.Bullet("%s - %s", def.Name, def.Description)
 		}
-		output.Newline()
+		cliout.Newline()
 	}
 
-	output.Info("%s Use 'azd app add <service>' to add a service to azure.yaml", output.IconBulb)
+	cliout.Info("%s Use 'azd app add <service>' to add a service to azure.yaml", cliout.IconBulb)
 
 	return nil
 }

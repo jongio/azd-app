@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 )
 
 // CommandFunc represents a command execution function.
@@ -98,8 +98,8 @@ func (o *Orchestrator) runLocked(commandName string, visiting map[string]bool, i
 
 	// Set orchestrated mode for dependencies to suppress headers
 	if isDependency {
-		output.SetOrchestrated(true)
-		defer output.SetOrchestrated(false)
+		cliout.SetOrchestrated(true)
+		defer cliout.SetOrchestrated(false)
 	}
 
 	// Execute the command

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/pathutil"
 
 	"github.com/spf13/cobra"
@@ -262,7 +262,7 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 				formatValue = flag.Value.String()
 			}
 			if formatValue != "" {
-				return output.SetFormat(formatValue)
+				return cliout.SetFormat(formatValue)
 			}
 			return nil
 		},
@@ -346,10 +346,10 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 
 	if !installed {
 		result.Message = "Not installed"
-		if !output.IsJSON() {
-			output.ItemError("%s: NOT INSTALLED (required: %s)", prereq.Name, prereq.MinVersion)
+		if !cliout.IsJSON() {
+			cliout.ItemError("%s: NOT INSTALLED (required: %s)", prereq.Name, prereq.MinVersion)
 			if installUrl != "" {
-				output.Item("   Install: %s", installUrl)
+				cliout.Item("   Install: %s", installUrl)
 			}
 		}
 		return result
@@ -359,8 +359,8 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 	// Podman uses its own versioning (e.g., 5.7.0) which is not comparable to Docker versions (e.g., 20.10.0).
 	if isPodman && prereq.Name == "docker" {
 		result.Message = "Podman detected (version check skipped)"
-		if !output.IsJSON() {
-			output.ItemSuccess("%s: %s via Podman (version check skipped)", prereq.Name, version)
+		if !cliout.IsJSON() {
+			cliout.ItemSuccess("%s: %s via Podman (version check skipped)", prereq.Name, version)
 		}
 		// Continue to check if running if needed, otherwise mark satisfied
 		if !prereq.CheckRunning {
@@ -369,24 +369,24 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		}
 	} else if version == "" {
 		result.Message = "Version unknown"
-		if !output.IsJSON() {
-			output.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.Name, prereq.MinVersion)
+		if !cliout.IsJSON() {
+			cliout.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.Name, prereq.MinVersion)
 		}
 		// Continue to check if it's running if needed
 	} else {
 		versionOk := compareVersions(version, prereq.MinVersion)
 		if !versionOk {
 			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
-			if !output.IsJSON() {
-				output.ItemError("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
+			if !cliout.IsJSON() {
+				cliout.ItemError("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
 				if installUrl != "" {
-					output.Item("   Install: %s", installUrl)
+					cliout.Item("   Install: %s", installUrl)
 				}
 			}
 			return result
 		}
-		if !output.IsJSON() {
-			output.ItemSuccess("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
+		if !cliout.IsJSON() {
+			cliout.ItemSuccess("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
 		}
 	}
 
@@ -397,15 +397,15 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		result.Running = isRunning
 		if !isRunning {
 			result.Message = "Not running"
-			if !output.IsJSON() {
-				output.Item("- %s✗%s NOT RUNNING", output.Red, output.Reset)
+			if !cliout.IsJSON() {
+				cliout.Item("- %s✗%s NOT RUNNING", cliout.Red, cliout.Reset)
 			}
 			return result
 		}
 		result.Satisfied = true
 		result.Message = "Running"
-		if !output.IsJSON() {
-			output.Item("- %s✓%s RUNNING", output.Green, output.Reset)
+		if !cliout.IsJSON() {
+			cliout.Item("- %s✓%s RUNNING", cliout.Green, cliout.Reset)
 		}
 		return result
 	}
@@ -552,7 +552,7 @@ func checkPrerequisite(prereq Prerequisite) bool {
 	return result.Satisfied
 }
 
-// extractVersion extracts version from command output.
+// extractVersion extracts version from command cliout.
 func extractVersion(config ToolConfig, output string) string {
 	// Handle azd special case first (multi-line output)
 	if strings.Contains(output, "azd version") {
@@ -580,7 +580,7 @@ func extractVersion(config ToolConfig, output string) string {
 	return extractFirstVersion(output)
 }
 
-// extractAzdVersion extracts version from azd multi-line output.
+// extractAzdVersion extracts version from azd multi-line cliout.
 func extractAzdVersion(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -596,7 +596,7 @@ func extractAzdVersion(output string) string {
 	return ""
 }
 
-// extractPodmanVersion extracts version from Podman multi-line output.
+// extractPodmanVersion extracts version from Podman multi-line cliout.
 // Podman output format when aliased to docker:
 //
 //	Client:       Podman Engine
@@ -703,14 +703,14 @@ func runClearCache() error {
 		return fmt.Errorf("failed to clear cache: %w", err)
 	}
 
-	if output.IsJSON() {
-		return output.PrintJSON(map[string]interface{}{
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(map[string]interface{}{
 			"success": true,
 			"message": "Reqs cache cleared successfully",
 		})
 	}
 
-	output.Success("Reqs cache cleared successfully")
+	cliout.Success("Reqs cache cleared successfully")
 	return nil
 }
 
@@ -726,9 +726,9 @@ type FixResult struct {
 
 // runReqsFix attempts to fix PATH issues for missing tools.
 func runReqsFix() error {
-	output.CommandHeader("reqs --fix", "Fix PATH issues for missing tools")
-	if !output.IsJSON() {
-		output.Section(output.IconTool, "Attempting to fix requirement issues...")
+	cliout.CommandHeader("reqs --fix", "Fix PATH issues for missing tools")
+	if !cliout.IsJSON() {
+		cliout.Section(cliout.IconTool, "Attempting to fix requirement issues...")
 	}
 
 	// Load azure.yaml
@@ -752,30 +752,30 @@ func runReqsFix() error {
 	}
 
 	if len(failedReqs) == 0 {
-		if output.IsJSON() {
-			return output.PrintJSON(map[string]interface{}{
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(map[string]interface{}{
 				"success": true,
 				"message": "All requirements already satisfied",
 			})
 		}
-		output.Success("All requirements already satisfied!")
+		cliout.Success("All requirements already satisfied!")
 		return nil
 	}
 
 	// Step 2: Refresh PATH
-	if !output.IsJSON() {
-		output.Newline()
-		output.Step(output.IconRefresh, "Refreshing environment PATH...")
+	if !cliout.IsJSON() {
+		cliout.Newline()
+		cliout.Step(cliout.IconRefresh, "Refreshing environment PATH...")
 	}
 
 	_, err = pathutil.RefreshPATH()
 	if err != nil {
-		if !output.IsJSON() {
-			output.Warning("Failed to refresh PATH: %v", err)
+		if !cliout.IsJSON() {
+			cliout.Warning("Failed to refresh PATH: %v", err)
 		}
 	} else {
-		if !output.IsJSON() {
-			output.ItemSuccess("PATH refreshed successfully")
+		if !cliout.IsJSON() {
+			cliout.ItemSuccess("PATH refreshed successfully")
 		}
 	}
 
@@ -784,9 +784,9 @@ func runReqsFix() error {
 	fixedCount := 0
 
 	for _, prereq := range failedReqs {
-		if !output.IsJSON() {
-			output.Newline()
-			output.Step(output.IconSearch, "Searching for %s...", prereq.Name)
+		if !cliout.IsJSON() {
+			cliout.Newline()
+			cliout.Step(cliout.IconSearch, "Searching for %s...", prereq.Name)
 		}
 
 		fixResult := FixResult{
@@ -812,15 +812,15 @@ func runReqsFix() error {
 				fixResult.Satisfied = true
 				fixResult.Message = fmt.Sprintf("Found and verified: %s", toolPath)
 				fixedCount++
-				if !output.IsJSON() {
-					output.ItemSuccess("Found: %s", toolPath)
-					output.ItemSuccess("Version verified successfully")
+				if !cliout.IsJSON() {
+					cliout.ItemSuccess("Found: %s", toolPath)
+					cliout.ItemSuccess("Version verified successfully")
 				}
 			} else {
 				fixResult.Message = fmt.Sprintf("Found at %s but version check failed: %s", toolPath, result.Message)
-				if !output.IsJSON() {
-					output.ItemWarning("Found: %s", toolPath)
-					output.ItemWarning("Version check failed: %s", result.Message)
+				if !cliout.IsJSON() {
+					cliout.ItemWarning("Found: %s", toolPath)
+					cliout.ItemWarning("Version check failed: %s", result.Message)
 				}
 			}
 		} else {
@@ -830,18 +830,18 @@ func runReqsFix() error {
 				fixResult.Found = true
 				fixResult.Path = toolPath
 				fixResult.Message = fmt.Sprintf("Found at %s but not in PATH - restart terminal may be needed", toolPath)
-				if !output.IsJSON() {
-					output.ItemWarning("Found: %s", toolPath)
-					output.ItemWarning("Tool is installed but not in current PATH")
-					output.Info("   %s Restart your terminal to update PATH", output.IconBulb)
+				if !cliout.IsJSON() {
+					cliout.ItemWarning("Found: %s", toolPath)
+					cliout.ItemWarning("Tool is installed but not in current PATH")
+					cliout.Info("   %s Restart your terminal to update PATH", cliout.IconBulb)
 				}
 			} else {
 				// Not found anywhere
 				suggestion := pathutil.GetInstallSuggestion(toolCommand)
 				fixResult.Message = fmt.Sprintf("Not found - %s", suggestion)
-				if !output.IsJSON() {
-					output.ItemError("Not found in system PATH")
-					output.Info("   %s %s", output.IconBulb, suggestion)
+				if !cliout.IsJSON() {
+					cliout.ItemError("Not found in system PATH")
+					cliout.Info("   %s %s", cliout.IconBulb, suggestion)
 				}
 			}
 		}
@@ -860,17 +860,17 @@ func runReqsFix() error {
 		if err == nil {
 			if err := cacheManager.ClearCache(); err != nil {
 				// Log but don't fail on cache clear error
-				if !output.IsJSON() {
-					output.Warning("Failed to clear cache: %v", err)
+				if !cliout.IsJSON() {
+					cliout.Warning("Failed to clear cache: %v", err)
 				}
 			}
 		}
 	}
 
 	// Step 5: Re-check all requirements
-	if !output.IsJSON() {
-		output.Newline()
-		output.Section(output.IconCheck, "Re-checking requirements...")
+	if !cliout.IsJSON() {
+		cliout.Newline()
+		cliout.Section(cliout.IconCheck, "Re-checking requirements...")
 	}
 
 	checker := NewPrerequisiteChecker()
@@ -886,8 +886,8 @@ func runReqsFix() error {
 	}
 
 	// JSON output
-	if output.IsJSON() {
-		return output.PrintJSON(map[string]interface{}{
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(map[string]interface{}{
 			"success":      fixedCount > 0,
 			"fixed":        fixedCount,
 			"total":        len(failedReqs),
@@ -898,34 +898,34 @@ func runReqsFix() error {
 	}
 
 	// Default output - summary
-	output.Newline()
+	cliout.Newline()
 	if fixedCount > 0 {
-		output.Success("Fixed %d of %d issues!", fixedCount, len(failedReqs))
+		cliout.Success("Fixed %d of %d issues!", fixedCount, len(failedReqs))
 	} else {
-		output.Warning("Could not automatically fix any issues")
+		cliout.Warning("Could not automatically fix any issues")
 	}
 
 	if !allSatisfied {
-		output.Newline()
-		output.Info("%s Next steps:", output.IconBulb)
-		output.Item("1. Run suggested install commands above")
-		output.Item("2. Restart your terminal to refresh PATH")
-		output.Item("3. Run 'azd app reqs' again to verify")
+		cliout.Newline()
+		cliout.Info("%s Next steps:", cliout.IconBulb)
+		cliout.Item("1. Run suggested install commands above")
+		cliout.Item("2. Restart your terminal to refresh PATH")
+		cliout.Item("3. Run 'azd app reqs' again to verify")
 		return fmt.Errorf("not all requirements satisfied")
 	}
 
-	output.Newline()
-	output.Success("All requirements now satisfied!")
-	output.Newline()
-	output.Info("ℹ️  Note: Tools may not be available in THIS terminal session")
+	cliout.Newline()
+	cliout.Success("All requirements now satisfied!")
+	cliout.Newline()
+	cliout.Info("ℹ️  Note: Tools may not be available in THIS terminal session")
 
 	// Provide platform-specific refresh instructions
 	if runtime.GOOS == "windows" {
-		output.Info("   To refresh PATH in your current PowerShell session, run:")
-		output.Info("   %s$env:PATH = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")%s", output.Dim, output.Reset)
-		output.Info("   Or simply restart your terminal")
+		cliout.Info("   To refresh PATH in your current PowerShell session, run:")
+		cliout.Info("   %s$env:PATH = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")%s", cliout.Dim, cliout.Reset)
+		cliout.Info("   Or simply restart your terminal")
 	} else {
-		output.Info("   To use the tools immediately, restart your terminal or source your shell profile")
+		cliout.Info("   To use the tools immediately, restart your terminal or source your shell profile")
 	}
 
 	return nil

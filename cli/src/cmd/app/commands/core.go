@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 )
 
 // Global orchestrator instance shared across all commands.
@@ -109,7 +109,7 @@ func init() {
 
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
-	output.CommandHeader("reqs", "Check required prerequisites")
+	cliout.CommandHeader("reqs", "Check required prerequisites")
 	// Load azure.yaml
 	azureYamlPath, azureYaml, err := loadAzureYaml()
 	if err != nil {
@@ -131,8 +131,8 @@ func executeReqs() error {
 
 	// If no reqs section exists, skip checks gracefully
 	if len(effectiveReqs) == 0 {
-		if output.IsJSON() {
-			return output.PrintJSON(ReqsResult{
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(ReqsResult{
 				Satisfied: true,
 				Reqs:      []ReqResult{},
 			})
@@ -147,21 +147,21 @@ func executeReqs() error {
 	results, allSatisfied := checkRequirementsWithCache(effectiveReqs, azureYamlPath, cacheManager)
 
 	// JSON output
-	if output.IsJSON() {
-		return output.PrintJSON(ReqsResult{
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(ReqsResult{
 			Satisfied: allSatisfied,
 			Reqs:      results,
 		})
 	}
 
 	// Default output
-	output.Newline()
+	cliout.Newline()
 	if !allSatisfied {
-		output.Info("%s If you recently installed any missing tools, run 'azd app reqs --fix' to refresh PATH", output.IconBulb)
+		cliout.Info("%s If you recently installed any missing tools, run 'azd app reqs --fix' to refresh PATH", cliout.IconBulb)
 		return fmt.Errorf("requirement check failed")
 	}
 
-	output.Success("All reqs satisfied!")
+	cliout.Success("All reqs satisfied!")
 	return nil
 }
 

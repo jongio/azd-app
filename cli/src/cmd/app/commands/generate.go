@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 	"github.com/jongio/azd-core/security"
 
@@ -43,8 +43,8 @@ type GenerateResult struct {
 
 // runGenerate is the main entry point for the generate command.
 func runGenerate(config GenerateConfig) error {
-	output.CommandHeader("reqs --generate", "Generate requirements from project")
-	output.Section("🔍", "Scanning project for dependencies")
+	cliout.CommandHeader("reqs --generate", "Generate requirements from project")
+	cliout.Section("🔍", "Scanning project for dependencies")
 
 	// Detect all reqs based on project structure
 	requirements, err := detectProjectReqs(config.WorkingDir)
@@ -53,18 +53,18 @@ func runGenerate(config GenerateConfig) error {
 	}
 
 	if len(requirements) == 0 {
-		output.Warning("No project dependencies detected in current directory")
-		output.Item("Searched: %s", config.WorkingDir)
-		output.Newline()
-		output.Item("Supported project types:")
-		output.Item("  • Node.js (package.json)")
-		output.Item("  • Python (requirements.txt, pyproject.toml)")
-		output.Item("  • .NET (.csproj, .sln)")
-		output.Item("  • .NET Aspire (AppHost.cs)")
-		output.Item("  • Docker Compose (docker-compose.yml or package.json scripts)")
-		output.Item("  • Logic Apps Standard (workflows/ folder)")
-		output.Newline()
-		output.Item("Make sure you're in a valid project directory.")
+		cliout.Warning("No project dependencies detected in current directory")
+		cliout.Item("Searched: %s", config.WorkingDir)
+		cliout.Newline()
+		cliout.Item("Supported project types:")
+		cliout.Item("  • Node.js (package.json)")
+		cliout.Item("  • Python (requirements.txt, pyproject.toml)")
+		cliout.Item("  • .NET (.csproj, .sln)")
+		cliout.Item("  • .NET Aspire (AppHost.cs)")
+		cliout.Item("  • Docker Compose (docker-compose.yml or package.json scripts)")
+		cliout.Item("  • Logic Apps Standard (workflows/ folder)")
+		cliout.Newline()
+		cliout.Item("Make sure you're in a valid project directory.")
 		return fmt.Errorf("no dependencies detected")
 	}
 
@@ -81,9 +81,9 @@ func runGenerate(config GenerateConfig) error {
 	}
 
 	if config.DryRun {
-		output.Info("Would update: %s", azureYamlPath)
-		output.Newline()
-		output.Item("Run without --dry-run to apply changes.")
+		cliout.Info("Would update: %s", azureYamlPath)
+		cliout.Newline()
+		cliout.Item("Run without --dry-run to apply changes.")
 		return nil
 	}
 
@@ -93,18 +93,18 @@ func runGenerate(config GenerateConfig) error {
 		return fmt.Errorf("failed to merge reqs: %w", err)
 	}
 
-	output.Newline()
+	cliout.Newline()
 	if created {
-		output.Success("Created azure.yaml with %d reqs", added)
+		cliout.Success("Created azure.yaml with %d reqs", added)
 	} else {
-		output.Success("Updated azure.yaml with %d reqs", added)
+		cliout.Success("Updated azure.yaml with %d reqs", added)
 		if skipped > 0 {
-			output.Item("(%d existing reqs preserved)", skipped)
+			cliout.Item("(%d existing reqs preserved)", skipped)
 		}
 	}
-	output.Label("Path", azureYamlPath)
-	output.Newline()
-	output.Item("Run 'azd app reqs' to verify all reqs are met.")
+	cliout.Label("Path", azureYamlPath)
+	cliout.Newline()
+	cliout.Item("Run 'azd app reqs' to verify all reqs are met.")
 
 	return nil
 }
@@ -470,7 +470,7 @@ func getToolVersion(toolName string) (string, error) {
 	return version, nil
 }
 
-// extractVersionFromOutput extracts version from command output.
+// extractVersionFromOutput extracts version from command cliout.
 func extractVersionFromOutput(output, prefix string, field int) string {
 	output = strings.TrimSpace(output)
 
@@ -506,7 +506,7 @@ func extractVersionFromOutput(output, prefix string, field int) string {
 	return output
 }
 
-// extractPodmanVersionFromOutput extracts version from Podman multi-line output.
+// extractPodmanVersionFromOutput extracts version from Podman multi-line cliout.
 func extractPodmanVersionFromOutput(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -616,18 +616,18 @@ func displayDetectedDependencies(requirements []DetectedRequirement) {
 		}
 	}
 
-	output.Item("Found:")
+	cliout.Item("Found:")
 	for source := range sources {
-		output.ItemSuccess("%s", source)
+		cliout.ItemSuccess("%s", source)
 	}
-	output.Newline()
+	cliout.Newline()
 }
 
 func displayDetectedReqs(reqs []DetectedRequirement) {
 	hasUninstalled := false
 	installedCount := 0
 
-	output.Section("📝", "Detected reqs")
+	cliout.Section("📝", "Detected reqs")
 	for _, req := range reqs {
 		if req.InstalledVersion != "" {
 			installedCount++
@@ -635,34 +635,34 @@ func displayDetectedReqs(reqs []DetectedRequirement) {
 			if req.CheckRunning {
 				runningNote = ", must be running"
 			}
-			output.Item("%s (%s installed%s) → minVersion: \"%s\"",
+			cliout.Item("%s (%s installed%s) → minVersion: \"%s\"",
 				req.Name, req.InstalledVersion, runningNote, req.MinVersion)
 		} else {
 			hasUninstalled = true
-			output.Item("%s (NOT INSTALLED) → will be added to reqs", req.Name)
+			cliout.Item("%s (NOT INSTALLED) → will be added to reqs", req.Name)
 		}
 	}
-	output.Newline()
+	cliout.Newline()
 
 	if hasUninstalled {
-		output.Warning("Some detected dependencies are not installed:")
-		output.Newline()
+		cliout.Warning("Some detected dependencies are not installed:")
+		cliout.Newline()
 		for _, req := range reqs {
 			if req.InstalledVersion == "" {
-				output.ItemError("%s: NOT INSTALLED", req.Name)
+				cliout.ItemError("%s: NOT INSTALLED", req.Name)
 				switch req.Name {
 				case "pnpm":
-					output.Item("     Install: npm install -g pnpm")
+					cliout.Item("     Install: npm install -g pnpm")
 				case "poetry":
-					output.Item("     Install: curl -sSL https://install.python-poetry.org | python3 -")
+					cliout.Item("     Install: curl -sSL https://install.python-poetry.org | python3 -")
 				case "uv":
-					output.Item("     Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
+					cliout.Item("     Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
 				}
 			}
 		}
-		output.Newline()
-		output.Item("Generating requirements anyway. Run 'azd app reqs' to check status.")
-		output.Newline()
+		cliout.Newline()
+		cliout.Item("Generating requirements anyway. Run 'azd app reqs' to check status.")
+		cliout.Newline()
 	}
 }
 

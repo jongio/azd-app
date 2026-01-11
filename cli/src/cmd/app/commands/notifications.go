@@ -12,7 +12,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
 	"github.com/jongio/azd-app/cli/src/internal/notify"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +45,7 @@ func newNotificationsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List notification history",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.CommandHeader("notifications list", "List notification history")
+			cliout.CommandHeader("notifications list", "List notification history")
 			ctx := cmd.Context()
 			dbPath := getNotificationDBPath()
 
@@ -88,7 +88,7 @@ func newNotificationsMarkReadCmd() *cobra.Command {
 		Short: "Mark notification(s) as read",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.CommandHeader("notifications mark-read", "Mark notification(s) as read")
+			cliout.CommandHeader("notifications mark-read", "Mark notification(s) as read")
 			ctx := cmd.Context()
 			dbPath := getNotificationDBPath()
 
@@ -141,7 +141,7 @@ func newNotificationsClearCmd() *cobra.Command {
 		Use:   "clear",
 		Short: "Clear notification history",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.CommandHeader("notifications clear", "Clear notification history")
+			cliout.CommandHeader("notifications clear", "Clear notification history")
 			ctx := cmd.Context()
 			dbPath := getNotificationDBPath()
 
@@ -209,7 +209,7 @@ func newNotificationsStatsCmd() *cobra.Command {
 		Use:   "stats",
 		Short: "Show notification statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.CommandHeader("notifications stats", "Show notification statistics")
+			cliout.CommandHeader("notifications stats", "Show notification statistics")
 			ctx := cmd.Context()
 			dbPath := getNotificationDBPath()
 
@@ -317,13 +317,13 @@ func newNotificationsTestCmd() *cobra.Command {
 		Short: "Send a test notification",
 		Long:  "Send a test OS notification to verify notifications are working",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.CommandHeader("notifications test", "Send test notification")
+			cliout.CommandHeader("notifications test", "Send test notification")
 
 			// Check if notifications are enabled
 			prefs := config.GetGlobalNotificationPreferences()
 			if !prefs.OSNotifications {
-				output.Warning("OS notifications are disabled in preferences")
-				output.Info("Run 'azd app notifications enable' to enable them")
+				cliout.Warning("OS notifications are disabled in preferences")
+				cliout.Info("Run 'azd app notifications enable' to enable them")
 				return nil
 			}
 
@@ -337,10 +337,10 @@ func newNotificationsTestCmd() *cobra.Command {
 
 			// Check if available
 			if !notifier.IsAvailable() {
-				output.Error("OS notifications are not available on this system")
-				output.Info("On Windows, ensure PowerShell is available")
-				output.Info("On macOS, notification permissions may be needed")
-				output.Info("On Linux, ensure notify-send is installed")
+				cliout.Error("OS notifications are not available on this system")
+				cliout.Info("On Windows, ensure PowerShell is available")
+				cliout.Info("On macOS, notification permissions may be needed")
+				cliout.Info("On Linux, ensure notify-send is installed")
 				return nil
 			}
 
@@ -353,14 +353,14 @@ func newNotificationsTestCmd() *cobra.Command {
 				URL:       "http://localhost:5173", // Default dev dashboard URL for testing
 			}
 
-			output.Info("Sending test notification...")
+			cliout.Info("Sending test notification...")
 			if err := notifier.Send(context.Background(), notification); err != nil {
 				return fmt.Errorf("failed to send notification: %w", err)
 			}
 
-			output.Success("Test notification sent!")
-			output.Info("Check your system notification center to verify it appeared")
-			output.Info("Click the notification or 'View Logs' button to open browser")
+			cliout.Success("Test notification sent!")
+			cliout.Info("Check your system notification center to verify it appeared")
+			cliout.Info("Click the notification or 'View Logs' button to open browser")
 			return nil
 		},
 	}
@@ -376,7 +376,7 @@ func newNotificationsEnableCmd() *cobra.Command {
 		Short: "Enable or disable OS notifications",
 		Long:  "Enable or disable OS notifications for service state changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.CommandHeader("notifications enable", "Configure OS notifications")
+			cliout.CommandHeader("notifications enable", "Configure OS notifications")
 
 			// Load current preferences
 			prefs, err := config.LoadNotificationPreferences()
@@ -386,10 +386,10 @@ func newNotificationsEnableCmd() *cobra.Command {
 
 			if disable {
 				prefs.OSNotifications = false
-				output.Info("Disabling OS notifications...")
+				cliout.Info("Disabling OS notifications...")
 			} else {
 				prefs.OSNotifications = true
-				output.Info("Enabling OS notifications...")
+				cliout.Info("Enabling OS notifications...")
 			}
 
 			// Save preferences
@@ -398,10 +398,10 @@ func newNotificationsEnableCmd() *cobra.Command {
 			}
 
 			if disable {
-				output.Success("OS notifications disabled")
+				cliout.Success("OS notifications disabled")
 			} else {
-				output.Success("OS notifications enabled")
-				output.Info("Run 'azd app notifications test' to verify they work")
+				cliout.Success("OS notifications enabled")
+				cliout.Info("Run 'azd app notifications test' to verify they work")
 			}
 
 			return nil

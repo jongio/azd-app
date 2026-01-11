@@ -7,7 +7,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 
 	"github.com/spf13/cobra"
 )
@@ -51,13 +51,13 @@ func main() {
 					"cwd", cwdFlag,
 				)
 				// Print build info in debug mode (before command output)
-				if !output.IsJSON() {
+				if !cliout.IsJSON() {
 					fmt.Fprintf(os.Stderr, "%s[DEBUG]%s Build: %s (built on %s, commit: %.8s)\n",
-						output.Dim, output.Reset, commands.Version, commands.BuildTime, commands.Commit)
+						cliout.Dim, cliout.Reset, commands.Version, commands.BuildTime, commands.Commit)
 				}
 			}
 
-			return output.SetFormat(outputFormat)
+			return cliout.SetFormat(outputFormat)
 		},
 	}
 
