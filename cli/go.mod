@@ -13,7 +13,7 @@ require (
 	github.com/azure/azure-dev/cli/azd v0.0.0-20260110070437-a86b5ca1d7a2
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coder/websocket v1.8.14
-	github.com/jongio/azd-core v0.2.1
+	github.com/jongio/azd-core v0.3.0
 	github.com/magefile/mage v1.15.0
 	github.com/mark3labs/mcp-go v0.43.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/urlutil"
 )
 
 func TestValidateURL(t *testing.T) {
@@ -51,25 +52,25 @@ func TestValidateURL(t *testing.T) {
 			name:    "URL without protocol",
 			url:     "example.com",
 			wantErr: true,
-			errMsg:  "url must start with http:// or https://",
+			errMsg:  "url must use http:// or https://",
 		},
 		{
 			name:    "URL with FTP protocol",
 			url:     "ftp://example.com",
 			wantErr: true,
-			errMsg:  "url must start with http:// or https://",
+			errMsg:  "url must use http:// or https://, got: ftp",
 		},
 		{
 			name:    "URL with only http://",
 			url:     "http://",
 			wantErr: true,
-			errMsg:  "url missing domain after http://",
+			errMsg:  "url missing host/domain",
 		},
 		{
 			name:    "URL with only https://",
 			url:     "https://",
 			wantErr: true,
-			errMsg:  "url missing domain after https://",
+			errMsg:  "url missing host/domain",
 		},
 		{
 			name:    "URL with whitespace",
@@ -90,18 +91,18 @@ func TestValidateURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := service.ValidateURL(tt.url)
+			err := urlutil.Validate(tt.url)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ValidateURL() expected error but got nil")
+					t.Errorf("urlutil.Validate() expected error but got nil")
 					return
 				}
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("ValidateURL() error = %v, want error containing %v", err, tt.errMsg)
+					t.Errorf("urlutil.Validate() error = %v, want error containing %v", err, tt.errMsg)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("ValidateURL() unexpected error = %v", err)
+					t.Errorf("urlutil.Validate() unexpected error = %v", err)
 				}
 			}
 		})
