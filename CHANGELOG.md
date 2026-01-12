@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Impact**: Zero breaking changes, 100% backward compatible
   - All tests pass with no regressions (35+ test suites)
 
+  - chore: bump github.com/jongio/azd-core to v0.3.0
+
 ### BREAKING CHANGES
 - **Service URL Configuration Field Names Changed**
   - `local.url` → `local.customUrl` in azure.yaml (url is system-generated only)
