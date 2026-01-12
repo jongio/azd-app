@@ -56,6 +56,9 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/health/stream", MethodGuard(s.handleHealthStream, http.MethodGet))
 	s.mux.HandleFunc("/api/environment", MethodGuard(s.handleGetEnvironment, http.MethodGet))
 
+	// Editor API endpoints
+	s.registerEditorRoutes()
+
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

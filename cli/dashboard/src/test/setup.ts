@@ -109,3 +109,10 @@ if (!document.body) {
   document.body = document.createElement('body')
   document.documentElement.appendChild(document.body)
 }
+
+// Mock ResizeObserver
+globalThis.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
