@@ -90,6 +90,7 @@ type Service struct {
 	HealthcheckEnabled *bool              `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
 	Type               string             `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
 	Mode               string             `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
+	URL                string             `yaml:"url,omitempty"`         // Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain)
 }
 
 // serviceRaw is used to handle both boolean and object healthcheck values.
@@ -109,6 +110,7 @@ type serviceRaw struct {
 	Healthcheck any                `yaml:"healthcheck,omitempty"`
 	Type        string             `yaml:"type,omitempty"`
 	Mode        string             `yaml:"mode,omitempty"`
+	URL         string             `yaml:"url,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
@@ -132,6 +134,7 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.Logs = raw.Logs
 	s.Type = raw.Type
 	s.Mode = raw.Mode
+	s.URL = raw.URL
 
 	// Handle healthcheck field
 	switch v := raw.Healthcheck.(type) {

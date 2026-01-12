@@ -346,6 +346,87 @@ func TestMergeServiceInfo(t *testing.T) {
 	}
 }
 
+func TestMergeServiceInfo_WithURL(t *testing.T) {
+	azureYaml := &service.AzureYaml{
+		Services: map[string]service.Service{
+			"web": {
+				Language: "node",
+				Host:     "containerapp",
+				Project:  "./web",
+				URL:      "https://myapp.example.com",
+			},
+			"api": {
+				Language: "python",
+				Host:     "appservice",
+				Project:  "./api",
+				URL:      "https://api.myapp.example.com",
+			},
+		},
+	}
+
+	azureServices := map[string]AzureServiceInfo{
+		"web": {
+			URL:          "https://web-abc123.azurewebsites.net",
+			ResourceName: "web-abc123",
+		},
+		"api": {
+			URL:          "https://api-abc123.azurewebsites.net",
+			ResourceName: "api-abc123",
+		},
+	}
+
+	envVars := map[string]string{}
+
+	result := mergeServiceInfo(azureYaml, nil, azureServices, envVars)
+
+	if len(result) != 2 {
+		t.Fatalf("Expected 2 services, got %d", len(result))
+	}
+
+	// Find the web service and verify altUrl is set
+	var webService *ServiceInfo
+	for _, svc := range result {
+		if svc.Name == "web" {
+			webService = svc
+			break
+		}
+	}
+
+	if webService == nil {
+		t.Fatal("web service not found")
+	}
+
+	if webService.Azure == nil {
+		t.Fatal("web Azure info should not be nil")
+	}
+
+	// Verify URL from azure.yaml is preserved in Azure.URL
+	if webService.Azure.URL != "https://myapp.example.com" {
+		t.Errorf("web Azure.URL = %q, want %q", webService.Azure.URL, "https://myapp.example.com")
+	}
+
+	// Find the api service and verify url is set
+	var apiService *ServiceInfo
+	for _, svc := range result {
+		if svc.Name == "api" {
+			apiService = svc
+			break
+		}
+	}
+
+	if apiService == nil {
+		t.Fatal("api service not found")
+	}
+
+	if apiService.Azure == nil {
+		t.Fatal("api Azure info should not be nil")
+	}
+
+	if apiService.Azure.URL != "https://api.myapp.example.com" {
+		t.Errorf("api Azure.URL = %q, want %q", apiService.Azure.URL, "https://api.myapp.example.com")
+	}
+}
+
 func TestMergeServiceInfo_NilAzureYaml(t *testing.T) {
 	// Test with nil azure.yaml
 	result := mergeServiceInfo(nil, nil, nil, nil)

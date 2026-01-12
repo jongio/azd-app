@@ -615,6 +615,13 @@
           "$ref": "#/definitions/serviceTestConfig",
           "title": "Service-level test configuration (azd app extension)",
           "description": "Service-level test configuration"
+        },
+        "url": {
+          "type": "string",
+          "title": "Custom URL for service access (azd app extension)",
+          "description": "Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain). Must be a valid HTTP or HTTPS URL.",
+          "pattern": "^https?://",
+          "examples": ["https://myapp.example.com", "https://abc123.ngrok.io", "http://localhost:8080"]
         }
       },
       "allOf": [

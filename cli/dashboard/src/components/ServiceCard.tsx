@@ -92,6 +92,10 @@ export function ServiceCard({
   const localUrl = getEffectiveServiceUrl(service.local?.url, service.local?.port, codespaceConfig)
   const azureUrl = service.azure?.url
 
+  // Prefer Custom URL when configured (for both display and navigation)
+  const displayUrl = service.azure?.url || localUrl
+  const isUsingurl = !!service.azure?.url
+
   // Get service icon based on type and status
   const getServiceIcon = () => {
     // Container service icon
@@ -255,20 +259,49 @@ export function ServiceCard({
         </div>
       )}
 
-      {/* URL Link */}
-      {localUrl && (
+      {/* URL Link - Shows Custom URL when configured */}
+      {displayUrl && (
         <a
-          href={localUrl}
+          href={displayUrl}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="relative flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:border-cyan-300 dark:hover:border-cyan-600 transition-colors group/url"
+          className={cn(
+            "relative flex items-center gap-2 p-2.5 rounded-xl border transition-colors group/url",
+            isUsingurl
+              ? "bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/30 hover:border-purple-400 dark:hover:border-purple-500"
+              : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:border-cyan-300 dark:hover:border-cyan-600"
+          )}
+          title={isUsingurl ? `Custom URL configured (default: ${localUrl || 'none'})` : undefined}
         >
-          <ExternalLink className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-          <span className="flex-1 text-xs font-mono text-slate-600 dark:text-slate-300 truncate group-hover/url:text-cyan-600 dark:group-hover/url:text-cyan-400 transition-colors">
-            {localUrl}
-          </span>
-          <ExternalLink className="w-3 h-3 text-slate-400 dark:text-slate-500 opacity-0 group-hover/url:opacity-100 transform group-hover/url:translate-x-0.5 group-hover/url:-translate-y-0.5 transition-all" />
+          <ExternalLink className={cn(
+            "w-3.5 h-3.5",
+            isUsingurl 
+              ? "text-purple-600 dark:text-purple-400"
+              : "text-cyan-600 dark:text-cyan-400"
+          )} />
+          <div className="flex-1 min-w-0">
+            {isUsingurl && (
+              <span className="text-[10px] text-purple-600/70 dark:text-purple-400/70 block font-medium">
+                Custom URL
+              </span>
+            )}
+            <span className={cn(
+              "text-xs font-mono truncate block",
+              isUsingurl
+                ? "text-purple-700 dark:text-purple-300 group-hover/url:text-purple-600 dark:group-hover/url:text-purple-400"
+                : "text-slate-600 dark:text-slate-300 group-hover/url:text-cyan-600 dark:group-hover/url:text-cyan-400",
+              "transition-colors"
+            )}>
+              {displayUrl}
+            </span>
+          </div>
+          <ExternalLink className={cn(
+            "w-3 h-3 opacity-0 group-hover/url:opacity-100 transform group-hover/url:translate-x-0.5 group-hover/url:-translate-y-0.5 transition-all",
+            isUsingurl
+              ? "text-purple-500 dark:text-purple-500"
+              : "text-slate-400 dark:text-slate-500"
+          )} />
         </a>
       )}
 

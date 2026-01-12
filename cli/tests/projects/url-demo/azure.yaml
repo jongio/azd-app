@@ -1,0 +1,14 @@
+name: alt-url-demo
+
+services:
+  web:
+    language: node
+    host: containerapp
+    project: ./src/web
+    url: https://myapp.example.com
+  
+  api:
+    language: python
+    host: appservice
+    project: ./src/api
+    url: https://api.myapp.example.com

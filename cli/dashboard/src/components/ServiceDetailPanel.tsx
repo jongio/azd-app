@@ -215,6 +215,8 @@ interface OverviewTabProps {
 function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps) {
   const effectiveStatus = getEffectiveStatusForUI(service, healthStatus, operationState)
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
+  const displayUrl = service.azure?.url || localUrl
+  const isUsingurl = !!service.azure?.url
   const isDeployed = hasAzureDeployment(service)
   const azurePortalUrl = buildAzurePortalUrl(service)
   
@@ -262,19 +264,35 @@ function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps
             label="Status" 
             value={<StatusBadge status={effectiveStatus} />} 
           />
-          {localUrl && (
+          {displayUrl && (
             <InfoRow 
-              label="URL" 
+              label={isUsingurl ? "URL (Custom)" : "URL"}
               value={
                 <a 
-                  href={localUrl}
+                  href={displayUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                  className={cn(
+                    "hover:underline flex items-center gap-1",
+                    isUsingurl
+                      ? "text-purple-600 dark:text-purple-400"
+                      : "text-cyan-600 dark:text-cyan-400"
+                  )}
+                  title={isUsingurl ? `Custom URL configured (default: ${localUrl || 'none'})` : undefined}
                 >
-                  {localUrl}
+                  {displayUrl}
                   <ExternalLink className="w-3 h-3" />
                 </a>
+              } 
+            />
+          )}
+          {isUsingurl && localUrl && (
+            <InfoRow 
+              label="Default URL" 
+              value={
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  {localUrl}
+                </span>
               } 
             />
           )}
@@ -344,6 +362,8 @@ interface LocalTabProps {
 function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }: LocalTabProps) {
   const effectiveStatus = getEffectiveStatusForUI(service, healthStatus, operationState)
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
+  const displayUrl = service.azure?.url || localUrl
+  const isUsingurl = !!service.azure?.url
 
   return (
     <div>
@@ -388,13 +408,22 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
           {service.local?.port && service.local.port > 0 && (
             <InfoRow label="Port" value={service.local.port} />
           )}
-          {localUrl && (
+          {displayUrl && (
             <InfoRow 
-              label="URL" 
+              label={isUsingurl ? "URL (Custom)" : "URL"}
+              value={displayUrl}
+              copyable
+              onCopy={() => onCopy(displayUrl, 'url')}
+              copied={copiedField === 'url'}
+            />
+          )}
+          {isUsingurl && localUrl && (
+            <InfoRow 
+              label="Default URL" 
               value={localUrl}
               copyable
-              onCopy={() => onCopy(localUrl, 'url')}
-              copied={copiedField === 'url'}
+              onCopy={() => onCopy(localUrl, 'defaultUrl')}
+              copied={copiedField === 'defaultUrl'}
             />
           )}
         </div>

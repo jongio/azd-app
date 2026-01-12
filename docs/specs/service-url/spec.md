@@ -1,0 +1,113 @@
+# Service URL Configuration
+
+## Context
+Users may need to access services through custom URLs (e.g., reverse proxies, custom domains, load balancers, or tunneling services like ngrok). Currently, `azd app` always uses the direct service URLs for launching browsers and displaying links in the console. This creates friction when services are accessed through different endpoints that require different CORS configurations.
+
+## Goals
+- Allow users to configure custom URLs for each service
+- Honor custom URLs when launching services from the dashboard UI
+- Display custom URLs in console output when configured
+- Support CORS configuration for services accessed via custom URLs
+
+## Non-Goals
+- Modifying the underlying service deployment or infrastructure
+- Automatic discovery or validation of custom URLs
+- Supporting multiple custom URLs per service (single override only)
+- Changing the internal service-to-service communication patterns
+
+## Requirements
+
+### Configuration
+- Users must be able to specify a custom URL for each service in `azure.yaml`
+- Configuration format should be intuitive and follow existing `azure.yaml` conventions
+- Custom URL configuration must be optional (existing behavior is default)
+- Configuration should support both Azure and local services
+
+### Proposed Configuration Format
+```yaml
+services:
+  web:
+    project: ./src/web
+    host: appservice
+    language: ts
+    url: https://myapp.example.com
+  
+  api:
+    project: ./src/api
+    host: containerapp
+    language: python
+    url: https://api.myapp.example.com
+```
+
+### Dashboard UI Behavior
+- When a service has a `url` configured, clicking "Open" in the dashboard must navigate to the custom URL
+- The service status card should indicate when a custom URL is in use (e.g., display the custom URL instead of or alongside the default URL)
+- Hover tooltips or info icons should clarify which URL is the actual deployment and which is the alternate access point
+
+### Console Output
+- When printing service URLs (e.g., during `azd up`, `azd deploy`, or `azd app endpoints`), display the custom URL if configured
+- Console output should clearly distinguish between the deployment URL and custom URL
+- Format example:
+  ```
+  Service: web
+    Deployment URL: https://myapp-abc123.azurewebsites.net
+    Access URL: https://myapp.example.com
+  ```
+
+### CORS Handling
+- For services that use CORS (typically APIs), the custom URL origin must be included in CORS allowed origins
+- CORS configuration should be updated automatically during deployment when `url` is present
+- This applies to both Azure App Service and Container Apps CORS settings
+- Local development mode should also respect custom URL for CORS configuration
+
+### API and Data Model
+- Extend the service configuration model to include optional `url` field
+- Dashboard API must return `url` when available
+- Browser launch logic must check for `url` and prefer it over default URL
+- Console formatting utilities must incorporate `url` display logic
+
+### Validation
+- Custom URLs should be valid HTTP/HTTPS URLs
+- Provide warning if custom URL is configured but appears unreachable (non-blocking)
+- No validation required for URL reachability during configuration parse
+
+## UX and Validation Notes
+- Configuration parsing must fail gracefully if `url` is malformed, with clear error messages
+- Dashboard should handle scenarios where custom URL is unreachable without breaking the UI
+- Console output should maintain consistent formatting whether custom URL is configured or not
+- If both deployment URL and custom URL are shown, clearly label which is which to avoid user confusion
+
+## Implementation Considerations
+
+### Files Likely to Change
+- `cli/src/internal/appconfig/config.go` - Parse `url` from `azure.yaml`
+- `cli/src/internal/repository/app_config.go` - Service configuration model
+- `cli/dashboard/src/types/service.ts` - TypeScript service interface
+- `cli/dashboard/src/components/ServiceCard.tsx` - Display and launch logic
+- `cli/src/internal/apphost/generate.go` - CORS configuration generation
+- Console formatting utilities for service URL output
+
+### CORS Configuration Updates
+- Azure App Service: Update `cors.allowedOrigins` in bicep/arm templates
+- Container Apps: Update ingress CORS settings
+- Local development: Update development server CORS middleware
+
+### Backward Compatibility
+- Services without `url` must continue to work exactly as before
+- Existing `azure.yaml` files without this configuration remain valid
+- Default behavior unchanged when feature is not used
+
+## Open Questions
+- Should we support environment-specific custom URLs (e.g., different URLs for dev, staging, prod)?
+- Should custom URL override both read and write operations, or only display/navigation?
+- Should we validate that the custom URL actually reaches the service, or trust user configuration?
+- How should we handle custom URLs for services behind authentication?
+- Should the dashboard show both URLs with a toggle, or only the custom URL when configured?
+
+## Success Criteria
+- Users can configure custom URLs in `azure.yaml` without errors
+- Clicking "Open" in dashboard navigates to custom URL when configured
+- Console output displays custom URLs clearly
+- CORS configuration automatically includes custom URL origins
+- No regression in behavior for services without custom URL configuration
+- Documentation clearly explains configuration format and use cases

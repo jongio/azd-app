@@ -92,7 +92,7 @@ type LocalServiceInfo struct {
 
 // AzureServiceInfo contains Azure-specific service information.
 type AzureServiceInfo struct {
-	URL          string `json:"url,omitempty"`
+	URL          string `json:"url,omitempty"` // Custom URL for accessing the service (from url field)
 	ResourceName string `json:"resourceName,omitempty"`
 	ImageName    string `json:"imageName,omitempty"`
 }
@@ -275,7 +275,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 		for name, svc := range azureYaml.Services {
 			// Normalize service name to lowercase for case-insensitive matching
 			normalizedName := strings.ToLower(name)
-			serviceMap[normalizedName] = &ServiceInfo{
+			serviceInfo := &ServiceInfo{
 				Name:            name, // Preserve original casing for display
 				Host:            svc.Host,
 				Language:        svc.Language,
@@ -288,6 +288,17 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 					Health: "unknown",
 				},
 			}
+
+			// Extract altUrl from service config if present
+			if svc.URL != "" {
+				// Initialize Azure info if not already present
+				if serviceInfo.Azure == nil {
+					serviceInfo.Azure = &AzureServiceInfo{}
+				}
+				serviceInfo.Azure.URL = svc.URL
+			}
+
+			serviceMap[normalizedName] = serviceInfo
 		}
 	}
 
@@ -313,7 +324,19 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	for serviceName, azureInfo := range azureServices {
 		// serviceName from azureServices is already lowercase
 		if existing, exists := serviceMap[serviceName]; exists {
+			// Preserve altUrl if it was set from config
+			var existingURL string
+			if existing.Azure != nil {
+				existingURL = existing.Azure.URL
+			}
+			
+			// Replace Azure info with environment-based info
 			existing.Azure = &azureInfo
+			
+			// Restore altUrl from config (takes precedence)
+			if existingURL != "" {
+				existing.Azure.URL = existingURL
+			}
 		}
 	}
 

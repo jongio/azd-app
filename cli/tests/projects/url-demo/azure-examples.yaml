@@ -1,0 +1,24 @@
+name: console-output-examples
+
+services:
+  # Service with both Azure deployment URL and alternate URL
+  web:
+    language: node
+    host: containerapp
+    project: ./src/web
+    config:
+      altUrl: https://myapp.example.com
+  
+  # Service with only Azure deployment URL (no altUrl)
+  api:
+    language: python
+    host: appservice
+    project: ./src/api
+  
+  # Service with alternate URL (simulated local-only scenario)
+  worker:
+    language: go
+    host: local
+    project: ./src/worker
+    config:
+      altUrl: https://worker.myapp.example.com

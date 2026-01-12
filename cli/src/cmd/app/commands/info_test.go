@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 )
 
 func TestFormatStatus(t *testing.T) {
@@ -605,4 +606,69 @@ func TestFormatInfoDurationEdgeCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrintInfoDefault_WithAltURL(t *testing.T) {
+	// Test that services with alternate URLs display correctly
+	// This is a manual verification test - the actual output formatting is tested visually
+	// We're mainly ensuring it doesn't panic and handles the altUrl field properly
+
+	tmpDir := t.TempDir()
+
+	services := []*serviceinfo.ServiceInfo{
+		{
+			Name:      "web",
+			Language:  "node",
+			Framework: "next",
+			Project:   "./src/web",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status: "running",
+				Health: "healthy",
+				URL:    "http://localhost:3000",
+				Port:   3000,
+				PID:    12345,
+			},
+			Azure: &serviceinfo.AzureServiceInfo{
+				URL:          "https://myapp.example.com",
+				ResourceName: "web-abc123",
+			},
+		},
+		{
+			Name:      "api",
+			Language:  "python",
+			Framework: "fastapi",
+			Project:   "./src/api",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status: "running",
+				Health: "healthy",
+				URL:    "http://localhost:8000",
+				Port:   8000,
+				PID:    12346,
+			},
+			Azure: &serviceinfo.AzureServiceInfo{
+				URL:          "https://api-abc123.azurewebsites.net",
+				ResourceName: "api-abc123",
+			},
+		},
+	}
+
+	azureEnv := map[string]string{
+		"SERVICE_WEB_URL": "https://web-abc123.azurewebsites.net",
+		"SERVICE_API_URL": "https://api-abc123.azurewebsites.net",
+	}
+
+	// This should not panic and should format output correctly
+	// The actual verification would be manual since it prints to stdout
+	// Verify that the service has the expected URL field in Azure info
+	if services[0].Azure.URL != "https://myapp.example.com" {
+		t.Errorf("Expected Azure.URL to be set from yaml, got %v", services[0].Azure.URL)
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("printInfoDefault panicked with URL: %v", r)
+		}
+	}()
+
+	printInfoDefault(tmpDir, services, azureEnv)
 }

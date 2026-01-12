@@ -124,6 +124,9 @@ tests/**/.azure/cache/
 ports.json
 services.json
 
+# Backup files (azure.yaml backups are user-managed artifacts)
+*.backup.*
+
 # Test fixtures - preserve lock files and manifests in tests/
 !tests/projects/**/package.json
 !tests/projects/**/package-lock.json

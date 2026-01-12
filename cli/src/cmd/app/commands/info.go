@@ -153,7 +153,17 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 		// Azure URL and info
 		if svc.Azure != nil {
 			if svc.Azure.URL != "" {
-				cliout.Label("  Azure URL", svc.Azure.URL)
+				// If alternate URL is configured, show both with clear labels
+				if svc.Azure.URL != "" {
+					cliout.Label("  Deployment URL", svc.Azure.URL)
+					cliout.Label("  Access URL", svc.Azure.URL)
+				} else {
+					// No alternate URL - show Azure URL as before
+					cliout.Label("  Azure URL", svc.Azure.URL)
+				}
+			} else if svc.Azure.URL != "" {
+				// Only alternate URL configured (no Azure deployment URL)
+				cliout.Label("  Access URL", svc.Azure.URL)
 			}
 			if svc.Azure.ResourceName != "" {
 				cliout.Label("  Azure Resource", svc.Azure.ResourceName)

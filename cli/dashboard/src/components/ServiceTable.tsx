@@ -76,6 +76,8 @@ function ServiceTableRow({
   
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
   const azureUrl = service.azure?.url
+  const displayUrl = service.azure?.url || localUrl
+  const isUsingurl = !!service.azure?.url
   const startTime = service.local?.startTime ?? service.startTime
   
   // Process service detection
@@ -249,15 +251,21 @@ function ServiceTableRow({
 
       {/* Local URL */}
       <td className="py-3 px-4">
-        {localUrl ? (
+        {displayUrl ? (
           <a
-            href={localUrl}
+            href={displayUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono bg-slate-100 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 transition-colors max-w-[180px]"
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2 py-1 text-xs font-mono rounded transition-colors max-w-[180px]",
+              isUsingurl
+                ? "bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 hover:border-purple-400 dark:hover:border-purple-500"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-500/10"
+            )}
+            title={isUsingurl ? `Alternate URL (default: ${localUrl || 'none'})` : undefined}
           >
-            <span className="truncate">{localUrl}</span>
+            <span className="truncate">{displayUrl}</span>
             <ExternalLink className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           </a>
         ) : null}
