@@ -167,11 +167,17 @@ func (l *ServiceLogger) LogStartup(serviceCount int) {
 }
 
 // LogSummary logs the service URLs after startup.
-func (l *ServiceLogger) LogSummary(urls map[string]string) {
+// Uses custom URL (if configured in azure.yaml) or falls back to default localhost URL.
+func (l *ServiceLogger) LogSummary(urls map[string]string, customURLs map[string]string) {
 	fmt.Println()
 	if len(urls) > 0 {
 		for name, url := range urls {
-			fmt.Printf("  \033[32m✓\033[0m %-18s  %s\n", name, url)
+			// Use custom URL if available, otherwise use the default URL
+			displayURL := url
+			if customURL, hasCustom := customURLs[name]; hasCustom && customURL != "" {
+				displayURL = customURL
+			}
+			fmt.Printf("  \033[32m✓\033[0m %-18s  %s\n", name, displayURL)
 		}
 	}
 }

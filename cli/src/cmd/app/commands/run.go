@@ -259,6 +259,11 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, a
 		return err
 	}
 
+	// Display service URLs (using custom URLs if configured in azure.yaml)
+	urls := service.GetServiceURLs(result.Processes)
+	customURLs := extractCustomURLs(azureYaml)
+	logger.LogSummary(urls, customURLs)
+
 	logger.LogReady()
 
 	// Execute postrun hook after all services are ready
@@ -293,6 +298,23 @@ func loadEnvironmentVariables() (map[string]string, error) {
 		return nil, fmt.Errorf("failed to load env file: %w", err)
 	}
 	return envVars, nil
+}
+
+// extractCustomURLs extracts custom URLs from azure.yaml services.
+// Returns a map of service name to custom URL for services that have one configured.
+func extractCustomURLs(azureYaml *service.AzureYaml) map[string]string {
+	customURLs := make(map[string]string)
+	if azureYaml == nil {
+		return customURLs
+	}
+
+	for name, svc := range azureYaml.Services {
+		if svc.URL != "" {
+			customURLs[name] = svc.URL
+		}
+	}
+
+	return customURLs
 }
 
 // monitorServicesUntilShutdown monitors all services with full process isolation.

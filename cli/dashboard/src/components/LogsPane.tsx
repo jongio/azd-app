@@ -125,7 +125,8 @@ export function LogsPane({
   const { config: codespaceConfig } = useCodespaceEnv()
   const effectiveLocalUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
   const azureUrl = service?.azure?.url
-  const effectiveUrl = logMode === 'azure' && azureUrl ? azureUrl : effectiveLocalUrl
+  // Prefer custom URL (azure.url) over local URL when available, regardless of log mode
+  const effectiveUrl = azureUrl || effectiveLocalUrl
   
   const isPausedRef = useRef(isPaused)
   const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past

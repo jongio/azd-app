@@ -290,9 +290,15 @@ function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps
             <InfoRow 
               label="Default URL" 
               value={
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                <a
+                  href={localUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-500 dark:text-slate-400 font-mono hover:text-cyan-600 dark:hover:text-cyan-400 hover:underline flex items-center gap-1"
+                >
                   {localUrl}
-                </span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               } 
             />
           )}
@@ -420,7 +426,17 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
           {isUsingurl && localUrl && (
             <InfoRow 
               label="Default URL" 
-              value={localUrl}
+              value={
+                <a
+                  href={localUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-500 dark:text-slate-400 font-mono hover:text-cyan-600 dark:hover:text-cyan-400 hover:underline flex items-center gap-1"
+                >
+                  {localUrl}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              }
               copyable
               onCopy={() => onCopy(localUrl, 'defaultUrl')}
               copied={copiedField === 'defaultUrl'}

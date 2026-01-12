@@ -217,7 +217,7 @@ export function LogsPaneHeader({
             size="sm"
             onClick={() => globalThis.open(effectiveUrl, '_blank', 'noopener,noreferrer')}
             title={effectiveUrl}
-            aria-label={logMode === 'azure' && azureUrl ? 'Open Azure endpoint in new tab' : 'Open local service in new tab'}
+            aria-label={azureUrl ? 'Open custom URL in new tab' : 'Open service in new tab'}
           >
             <ExternalLink className="w-4 h-4" />
           </Button>
