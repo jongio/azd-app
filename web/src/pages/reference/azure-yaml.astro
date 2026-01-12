@@ -1274,6 +1274,13 @@ const resourceTypesExample = `resources:
                 <td class="py-3 px-4">Environment variables for deployment (key-value pairs)</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">url</code></td>
+                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4">-</td>
+                <td class="py-3 px-4">Both</td>
+                <td class="py-3 px-4">Custom access URL for the service (e.g., custom domain, reverse proxy, CDN). Displayed in dashboard and CLI alongside deployment URL.</td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">hooks</code></td>
                 <td class="py-3 px-4">object</td>
                 <td class="py-3 px-4">-</td>
@@ -1282,6 +1289,71 @@ const resourceTypesExample = `resources:
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <h3 class="text-2xl font-bold mb-4 mt-8">Custom Service URLs</h3>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+          Use the <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">url</code> property to specify how users actually access your service when it differs from the Azure deployment URL. This is especially useful when you have:
+        </p>
+        <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300 mb-6 ml-4">
+          <li><strong>Custom domains:</strong> Users access via <code>app.company.com</code> instead of the Azure-generated URL</li>
+          <li><strong>Reverse proxies:</strong> Traffic flows through a gateway or load balancer</li>
+          <li><strong>CDN endpoints:</strong> Content delivered via CDN like Azure Front Door or Cloudflare</li>
+          <li><strong>Development tunnels:</strong> Using ngrok or similar tools to expose local services</li>
+          <li><strong>API gateways:</strong> APIs accessed through Azure API Management or similar</li>
+        </ul>
+
+        <div class="mb-6">
+          <Code code={`services:
+  # Production web app with custom domain
+  web:
+    host: containerapp
+    project: ./frontend
+    url: https://www.mycompany.com
+    # Azure deploys to: https://web-abc123.azurecontainerapps.io
+    # Users access via: https://www.mycompany.com
+
+  # API behind Azure API Management
+  api:
+    host: containerapp
+    project: ./backend
+    url: https://api.mycompany.com
+    # Azure deploys to: https://api-xyz789.azurecontainerapps.io
+    # Users access via: https://api.mycompany.com
+
+  # Service accessed through CDN
+  assets:
+    host: staticwebapp
+    project: ./assets
+    url: https://cdn.mycompany.com/assets
+    # Azure deploys to: https://assets-def456.azurestaticapps.net
+    # Users access via CDN: https://cdn.mycompany.com/assets`} lang="yaml" />
+        </div>
+
+        <div class="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+          <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+            <span>ℹ️</span>
+            <span>How it Works</span>
+          </h3>
+          <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
+            <li><strong>CLI Display:</strong> <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app info</code> shows both "Deployment URL" (Azure) and "Access URL" (custom)</li>
+            <li><strong>Dashboard:</strong> The dashboard displays the custom URL as the primary link users click</li>
+            <li><strong>Service Discovery:</strong> Other services can reference this URL via environment variables</li>
+            <li><strong>Local Development:</strong> Typically not needed for local services (use <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">ports</code> instead)</li>
+          </ul>
+        </div>
+
+        <div class="mt-6 p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+          <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
+            <span>⚠️</span>
+            <span>Important Notes</span>
+          </h3>
+          <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
+            <li>The <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">url</code> property is <strong>informational only</strong> - it doesn't configure DNS, SSL, or routing</li>
+            <li>You must separately configure your custom domain/CDN/proxy to point to the Azure deployment URL</li>
+            <li>This is primarily for documentation and user experience - helping developers know the actual access point</li>
+            <li>Can be used for both local development (azd app) and Azure deployment (azd) contexts</li>
+          </ul>
         </div>
 
         <h3 class="text-2xl font-bold mb-4 mt-8">Environment Variable Formats</h3>

@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
-	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/pathutil"
 	"github.com/jongio/azd-core/security"
 )
@@ -804,8 +804,13 @@ func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error 
 		// Check if this is a file locking error that we should retry
 		stderr := stderrBuf.String()
 		if isFileLockingError(stderr) && attempt < maxRetries {
-			// Calculate exponential backoff delay
-			delay := time.Duration(1<<uint(attempt-1)) * time.Second
+			// Calculate exponential backoff delay with bounds checking
+			// Limit shift to prevent overflow (max 2^5 = 32 seconds)
+			shiftAmount := attempt - 1
+			if shiftAmount > 5 {
+				shiftAmount = 5
+			}
+			delay := time.Duration(1<<uint(shiftAmount)) * time.Second
 			if !cliout.IsJSON() {
 				cliout.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
 			}

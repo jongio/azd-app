@@ -33,7 +33,7 @@ To test the console output:
 
 2. Run the info command:
    ```bash
-   cd tests/projects/alt-url-demo
+   cd tests/projects/url-demo
    azd app info
    ```
 

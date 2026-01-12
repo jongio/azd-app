@@ -159,11 +159,11 @@ func TestValidateServiceConfig(t *testing.T) {
 
 func TestParseAzureYaml_WithURL(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		yamlContent string
-		wantErr    bool
-		errMsg     string
-		validate   func(t *testing.T, yaml *service.AzureYaml)
+		wantErr     bool
+		errMsg      string
+		validate    func(t *testing.T, yaml *service.AzureYaml)
 	}{
 		{
 			name: "Valid url configuration",

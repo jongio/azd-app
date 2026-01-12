@@ -23,6 +23,10 @@ func processIsRunning(pid int) error {
 
 	// Open the process with limited rights just to query its status
 	const processQueryLimitedInformation = 0x1000
+	// Validate PID can fit in uint32 to prevent overflow
+	if p.Pid < 0 || p.Pid > 0x7FFFFFFF {
+		return fmt.Errorf("invalid PID %d for Windows process handle", p.Pid)
+	}
 	handle, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(p.Pid))
 	if err != nil {
 		return fmt.Errorf("process %d not accessible: %w", pid, err)

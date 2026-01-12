@@ -329,10 +329,10 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 			if existing.Azure != nil {
 				existingURL = existing.Azure.URL
 			}
-			
+
 			// Replace Azure info with environment-based info
 			existing.Azure = &azureInfo
-			
+
 			// Restore altUrl from config (takes precedence)
 			if existingURL != "" {
 				existing.Azure.URL = existingURL

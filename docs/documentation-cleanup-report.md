@@ -383,7 +383,7 @@ Total:             ~150 files (-63 files, -30% reduction)
 - `azure-logs-web-docs` - 4 TODO tasks
 - `force-flag` - 1 done, 4 TODO (partial)
 - `log-table-selector` - 4 TODO tasks
-- `service-alt-url` - Status unclear
+- `service-url` - Status unclear
 
 **/cli/docs/specs (1 directory)**:
 - `container-lifecycle-fix` - 4 done, 1 TODO (nearly complete)
@@ -396,7 +396,7 @@ Total:             ~150 files (-63 files, -30% reduction)
 - `container-lifecycle-fix` - Nearly complete, finish the last task
 
 **Evaluate**:
-- `azure-logs-web-docs`, `log-table-selector`, `service-alt-url` - Are these still planned?
+- `azure-logs-web-docs`, `log-table-selector`, `service-url` - Are these still planned?
 - `force-flag` - Finish remaining 4 tasks or archive?
 
 **Archive Size**: 3 archives totaling ~600+ KB preserving all historical content

@@ -68,6 +68,10 @@ func (c *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker
 		Interval:    c.breakerTimeout,
 		Timeout:     c.breakerTimeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			// Validate positive breakerFailures to prevent underflow/overflow
+			if c.breakerFailures < 0 {
+				return false
+			}
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6
 		},

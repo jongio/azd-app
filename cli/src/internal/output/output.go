@@ -72,20 +72,20 @@ var (
 
 // Re-export all functions
 
-func SetFormat(format string) error              { return cliout.SetFormat(format) }
-func GetFormat() Format                          { return cliout.GetFormat() }
-func IsJSON() bool                               { return cliout.IsJSON() }
-func PrintJSON(data interface{}) error           { return cliout.PrintJSON(data) }
-func PrintDefault(formatter func())              { cliout.PrintDefault(formatter) }
+func SetFormat(format string) error    { return cliout.SetFormat(format) }
+func GetFormat() Format                { return cliout.GetFormat() }
+func IsJSON() bool                     { return cliout.IsJSON() }
+func PrintJSON(data interface{}) error { return cliout.PrintJSON(data) }
+func PrintDefault(formatter func())    { cliout.PrintDefault(formatter) }
 func Print(data interface{}, formatter func()) error {
 	return cliout.Print(data, formatter)
 }
 
-func SetOrchestrated(value bool)  { cliout.SetOrchestrated(value) }
-func IsOrchestrated() bool        { return cliout.IsOrchestrated() }
-func Header(text string)          { cliout.Header(text) }
-func CommandHeader(cmd, desc string) { cliout.CommandHeader(cmd, desc) }
-func Section(icon, text string)   { cliout.Section(icon, text) }
+func SetOrchestrated(value bool)                 { cliout.SetOrchestrated(value) }
+func IsOrchestrated() bool                       { return cliout.IsOrchestrated() }
+func Header(text string)                         { cliout.Header(text) }
+func CommandHeader(cmd, desc string)             { cliout.CommandHeader(cmd, desc) }
+func Section(icon, text string)                  { cliout.Section(icon, text) }
 func Success(format string, args ...interface{}) { cliout.Success(format, args...) }
 func Error(format string, args ...interface{})   { cliout.Error(format, args...) }
 func Warning(format string, args ...interface{}) { cliout.Warning(format, args...) }
@@ -99,13 +99,13 @@ func ItemSuccess(format string, args ...interface{}) { cliout.ItemSuccess(format
 func ItemError(format string, args ...interface{})   { cliout.ItemError(format, args...) }
 func ItemWarning(format string, args ...interface{}) { cliout.ItemWarning(format, args...) }
 func ItemInfo(format string, args ...interface{})    { cliout.ItemInfo(format, args...) }
-func Divider()                                        { cliout.Divider() }
-func Newline()                                        { cliout.Newline() }
-func Hint(hints ...string)                            { cliout.Hint(hints...) }
-func Phase(label string)                              { cliout.Phase(label) }
+func Divider()                                       { cliout.Divider() }
+func Newline()                                       { cliout.Newline() }
+func Hint(hints ...string)                           { cliout.Hint(hints...) }
+func Phase(label string)                             { cliout.Phase(label) }
 func Plain(format string, args ...interface{})       { cliout.Plain(format, args...) }
-func Confirm(message string) bool                     { return cliout.Confirm(message) }
-func Label(label, value string)                       { cliout.Label(label, value) }
+func Confirm(message string) bool                    { return cliout.Confirm(message) }
+func Label(label, value string)                      { cliout.Label(label, value) }
 func LabelColored(label, value, color string)        { cliout.LabelColored(label, value, color) }
 
 func Highlight(format string, args ...interface{}) string {

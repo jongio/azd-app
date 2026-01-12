@@ -35,38 +35,34 @@ A visual editor solves these problems by:
 ### Editor Layout
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Azure YAML Editor                               [Save] [Cancel] │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────────────────────────────────┐ │
-│  │  Navigation  │  │             Editor Pane                   │ │
-│  │              │  │                                           │ │
-│  │ • Overview   │  │  ┌────────────────────────────────────┐  │ │
-│  │ • Services   │  │  │  Property Name        Value        │  │ │
-│  │   - api      │  │  │  ────────────────────────────────  │  │ │
-│  │   - web      │  │  │  Application Name:  [my-app___]    │  │ │
-│  │   - cosmos   │  │  │                                    │  │ │
-│  │ • Resources  │  │  │  Resource Group:    [rg-dev____]   │  │ │
-│  │ • Hooks      │  │  │                                    │  │ │
-│  │ • Pipeline   │  │  │  [+] Add Metadata                  │  │ │
-│  │ • Metadata   │  │  └────────────────────────────────────┘  │ │
-│  │              │  │                                           │ │
-│  │ [+ Add       │  │  ┌─────── Service: api ────────────┐    │ │
-│  │  Service]    │  │  │  Host: [containerapp ▼]         │    │ │
-│  │              │  │  │  Language: [node ▼]             │    │ │
-│  │              │  │  │  Project: [./src/api_____]      │    │ │
-│  │              │  │  │                                  │    │ │
-│  │              │  │  │  Ports: [8080________] [+ Add]  │    │ │
-│  │              │  │  │                                  │    │ │
-│  │              │  │  │  Environment Variables:          │    │ │
-│  │              │  │  │  [+ Add Variable]                │    │ │
-│  │              │  │  │                                  │    │ │
-│  │              │  │  │  Health Check:                   │    │ │
-│  │              │  │  │  [Configure Health Check...]     │    │ │
-│  │              │  │  └──────────────────────────────────┘    │ │
-│  │              │  │                                           │ │
-│  └──────────────┘  └──────────────────────────────────────────┘ │
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│  Azure YAML Editor                          [Preview] [Save] [Cancel] │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                           │
+│  ┌──────────────┐  ┌──────────────────────────┐  ┌──────────────────────────────────┐  │
+│  │  Navigation  │  │     Editor Pane          │  │      Preview Pane                │  │
+│  │              │  │                          │  │                                  │  │
+│  │ • Overview   │  │  ┌──────────────────┐   │  │  name: my-app                    │  │
+│  │ • Services   │  │  │  Property Name   │   │  │  services:                       │  │
+│  │   - api      │  │  │  ──────────────  │   │  │    api:                          │  │
+│  │   - web      │  │  │  Application:    │   │  │      host: containerapp          │  │
+│  │   - cosmos   │  │  │  [my-app___]     │   │  │      language: node              │  │
+│  │ • Resources  │  │  │                  │   │  │      project: ./src/api          │  │
+│  │ • Hooks      │  │  │  Resource Group: │   │  │      ports:                      │  │
+│  │ • Pipeline   │  │  │  [rg-dev____]    │   │  │        - "8080:8080"             │  │
+│  │ • Metadata   │  │  └──────────────────┘   │  │      environment:                │  │
+│  │              │  │                          │  │        NODE_ENV: development     │  │
+│  │ [+ Add       │  │  ┌── Service: api ──┐   │  │      healthcheck:                │  │
+│  │  Service]    │  │  │  Host:           │   │  │        test: "curl -f http://... │  │
+│  │              │  │  │  [containerapp ▼]│   │  │        interval: 30s             │  │
+│  │              │  │  │                  │   │  │    web:                          │  │
+│  │              │  │  │  Language:       │   │  │      host: containerapp          │  │
+│  │              │  │  │  [node ▼]        │   │  │      ...                         │  │
+│  │              │  │  │                  │   │  │                                  │  │
+│  │              │  │  │  Project:        │   │  │  [Copy] [Download]               │  │
+│  │              │  │  │  [./src/api____] │   │  │                                  │  │
+│  │              │  │  │                  │   │  │                                  │  │
+│  └──────────────┘  └──────────────────────────┘  └──────────────────────────────────┘  │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │ 📋 Quick Actions                                             │ │
@@ -349,7 +345,62 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-5: Service Management
+### FR-5: Preview Pane
+
+**Description**: Live YAML preview showing real-time rendering of configuration as user edits
+
+**Requirements**:
+- **Preview Panel**:
+  - Right-side pane showing formatted YAML output
+  - Toggle visibility with "Preview" button in header
+  - Collapsible/expandable for more editing space
+  - Persists state (open/closed) across sessions
+- **Real-Time Updates**:
+  - Debounced updates (300ms after last edit) to avoid excessive rendering
+  - Instant updates on field blur
+  - Highlight changed lines (subtle background color)
+  - Smooth transition animations
+- **YAML Formatting**:
+  - Consistent 2-space indentation
+  - Proper key ordering (schema-defined or alphabetical)
+  - Array format selection based on content type
+  - Comments preserved where possible (from original file)
+- **Preview Features**:
+  - Syntax highlighting (YAML syntax coloring)
+  - Line numbers for reference
+  - Copy to clipboard button
+  - Download preview as file
+  - Line highlighting on hover (show corresponding form field)
+  - Click line to jump to corresponding form field in editor
+- **Validation Integration**:
+  - Show validation errors inline in preview (color-coded comments)
+  - Warning indicators for lines with warnings
+  - Error indicators for lines with errors
+  - Tooltip on error/warning markers with details
+- **Split View Options**:
+  - Horizontal split (editor on left, preview on right)
+  - Vertical split (editor on top, preview on bottom)
+  - Full-width preview (hide editor temporarily)
+  - Adjustable split ratio (drag divider)
+- **Responsive Behavior**:
+  - Auto-hide preview on narrow screens (<1200px)
+  - Resize preview pane with window
+  - Maintain readable font size (min 12px)
+
+**Acceptance Criteria**:
+- Preview pane toggles on/off via header button
+- YAML updates in real-time as user edits (debounced)
+- Syntax highlighting makes YAML readable
+- Copy button copies full YAML to clipboard
+- Download button saves YAML as azure.yaml
+- Clicking preview line jumps to corresponding editor field
+- Validation errors visible in preview
+- Split view adjustable by dragging divider
+- Preview state (open/closed, size) persists across sessions
+
+---
+
+### FR-6: Service Management
 
 **Description**: Add, edit, and remove services with intelligent templates
 
@@ -400,7 +451,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-6: Well-Known Services Integration
+### FR-7: Well-Known Services Integration
 
 **Description**: One-click addition of common Azure services using wellknown registry
 
@@ -432,7 +483,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-7: Environment Variable Editor
+### FR-8: Environment Variable Editor
 
 **Description**: Flexible environment variable editor supporting multiple formats
 
@@ -489,7 +540,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-8: Validation and Error Handling
+### FR-9: Validation and Error Handling
 
 **Description**: Real-time validation with clear error messages and remediation
 
@@ -538,7 +589,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-9: Health Check Configuration
+### FR-10: Health Check Configuration
 
 **Description**: Visual editor for Docker Compose-compatible health checks
 
@@ -577,7 +628,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-10: Resource Configuration
+### FR-11: Resource Configuration
 
 **Description**: Editor for Azure resource definitions with dependency management
 
@@ -616,7 +667,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-11: Hooks and Lifecycle Management
+### FR-12: Hooks and Lifecycle Management
 
 **Description**: Editor for azd lifecycle hooks (preprovision, postdeploy, etc.)
 
@@ -655,7 +706,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-12: Quick Actions Bar
+### FR-13: Quick Actions Bar
 
 **Description**: Context-sensitive quick actions for common tasks
 
@@ -686,7 +737,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-13: Backup Management
+### FR-14: Backup Management
 
 **Description**: Automatic backups with restore capability
 
@@ -728,7 +779,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-14: Import/Export
+### FR-15: Import/Export
 
 **Description**: Import configuration from templates and export for sharing
 
@@ -771,7 +822,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-15: Search and Command Palette
+### FR-16: Search and Command Palette
 
 **Description**: Global search and command palette for quick navigation
 
@@ -811,7 +862,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-16: Accessibility
+### FR-17: Accessibility
 
 **Description**: WCAG AA compliant interface with full keyboard support
 
@@ -853,7 +904,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-17: Performance
+### FR-18: Performance
 
 **Description**: Fast, responsive editor with optimized rendering
 
@@ -891,7 +942,7 @@ Editor renders YAML appropriately:
 
 ---
 
-### FR-18: Visual Design
+### FR-19: Visual Design
 
 **Description**: Modern, beautiful interface consistent with dashboard design system
 
@@ -966,7 +1017,8 @@ components/
   editor/
     YamlEditor.tsx              # Main editor container
     Navigation.tsx              # Left sidebar navigation
-    EditorPane.tsx              # Right pane form editor
+    EditorPane.tsx              # Center pane form editor
+    PreviewPane.tsx             # Right pane YAML preview
     ValidationSummary.tsx       # Bottom validation panel
     QuickActions.tsx            # Bottom quick actions bar
     BackupManager.tsx           # Backup list modal
@@ -1007,6 +1059,8 @@ interface EditorState {
   
   // UI State
   activeSection: string
+  previewVisible: boolean
+  previewWidth: number
   validationErrors: ValidationError[]
   validationWarnings: ValidationError[]
   isDirty: boolean
@@ -1604,6 +1658,7 @@ azure.yaml.backups.json             # Backup metadata (notes, sizes)
 YamlEditor
 ├─ Header
 │  ├─ Title
+│  ├─ PreviewToggleButton
 │  ├─ BackupButton
 │  ├─ ImportButton
 │  ├─ ExportButton
@@ -1622,9 +1677,17 @@ YamlEditor
 │  │  │  ├─ PipelineSection
 │  │  │  └─ MetadataSection
 │  │  └─ CollapseButton
-│  └─ EditorPane
-│     └─ SchemaForm
-│        └─ FieldRenderer[]
+│  ├─ EditorPane
+│  │  └─ SchemaForm
+│  │     └─ FieldRenderer[]
+│  └─ PreviewPane
+│     ├─ YamlDisplay
+│     │  ├─ SyntaxHighlighter
+│     │  ├─ LineNumbers
+│     │  └─ ValidationMarkers
+│     ├─ CopyButton
+│     ├─ DownloadButton
+│     └─ ResizeDivider
 ├─ QuickActionsBar
 │  ├─ AddAzuriteButton
 │  ├─ AddCosmosButton

@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/wellknown"
+	"github.com/jongio/azd-core/cliout"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"

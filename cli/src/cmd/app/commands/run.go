@@ -16,11 +16,11 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
-	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 	"github.com/jongio/azd-core/browser"
+	"github.com/jongio/azd-core/cliout"
 
 	"github.com/spf13/cobra"
 )

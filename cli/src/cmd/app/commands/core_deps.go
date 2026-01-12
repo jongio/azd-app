@@ -8,9 +8,9 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/installer"
-	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/types"
 	"github.com/jongio/azd-app/cli/src/internal/workspace"
+	"github.com/jongio/azd-core/cliout"
 )
 
 // DependencyInstaller handles installation of project dependencies.

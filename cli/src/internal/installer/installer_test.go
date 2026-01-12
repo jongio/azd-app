@@ -504,10 +504,10 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 
 func TestPackageJSONHasWorkspacePackages(t *testing.T) {
 	tests := []struct {
-		name         string
-		packageJSON  string
-		createPkg    bool
-		want         bool
+		name        string
+		packageJSON string
+		createPkg   bool
+		want        bool
 	}{
 		{
 			name: "no_workspaces_field",

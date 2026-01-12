@@ -424,8 +424,8 @@ func TestRun_YesVariations(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		input     string
+		name        string
+		input       string
 		wantEnabled bool
 	}{
 		{"lowercase y", "y\n3\nn\n", true},

@@ -16,9 +16,9 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
-	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/security"
 	"github.com/spf13/cobra"
 )
