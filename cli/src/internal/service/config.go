@@ -3,50 +3,34 @@ package service
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/jongio/azd-core/urlutil"
 )
 
 // ValidateServiceConfig validates the service configuration.
 // Returns an error if the configuration is invalid.
-func ValidateServiceConfig(serviceName string, url string) error {
-	// Validate url if present
-	if url != "" {
-		if err := ValidateURL(url); err != nil {
-			return fmt.Errorf("invalid url for service '%s': %w", serviceName, err)
+func ValidateServiceConfig(serviceName string, svc *Service) error {
+	// Validate local.customUrl if present (allows http and https)
+	if svc.Local != nil && svc.Local.CustomURL != "" {
+		if err := urlutil.Validate(svc.Local.CustomURL); err != nil {
+			return fmt.Errorf("invalid local.customUrl for service '%s': %w", serviceName, err)
+		}
+	}
+
+	// Validate azure.customUrl if present (enforces HTTPS, allows localhost)
+	if svc.Azure != nil && svc.Azure.CustomURL != "" {
+		if err := urlutil.ValidateHTTPSOnly(svc.Azure.CustomURL); err != nil {
+			return fmt.Errorf("invalid azure.customUrl for service '%s': %w", serviceName, err)
+		}
+	}
+
+	// Validate azure.customDomain if present (enforces HTTPS, allows localhost)
+	if svc.Azure != nil && svc.Azure.CustomDomain != "" {
+		if err := urlutil.ValidateHTTPSOnly(svc.Azure.CustomDomain); err != nil {
+			return fmt.Errorf("invalid azure.customDomain for service '%s': %w", serviceName, err)
 		}
 	}
 
 	return nil
 }
 
-// ValidateURL validates that a custom URL is a valid HTTP/HTTPS URL.
-// Returns an error if the URL is malformed or doesn't use http:// or https://.
-func ValidateURL(url string) error {
-	if url == "" {
-		return fmt.Errorf("url cannot be empty")
-	}
-
-	// Normalize the URL for validation
-	url = strings.TrimSpace(url)
-
-	// Check for http:// or https:// prefix
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return fmt.Errorf("url must start with http:// or https://, got: %s", url)
-	}
-
-	// Basic validation: ensure there's something after the protocol
-	if url == "http://" {
-		return fmt.Errorf("url missing domain after http://")
-	}
-	if url == "https://" {
-		return fmt.Errorf("url missing domain after https://")
-	}
-
-	// Check for minimum URL length (protocol + at least one character for domain)
-	// http://a is the shortest valid URL (8 chars)
-	if len(url) < 8 {
-		return fmt.Errorf("url is too short to be valid: %s", url)
-	}
-
-	return nil
-}

@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Dependency Upgrade: azd-core shared utilities**
+  - Upgraded to azd-core with new urlutil and env pattern packages
+  - Migrated URL validation from custom implementation to `github.com/jongio/azd-core/urlutil`
+  - Migrated environment variable filtering to `github.com/jongio/azd-core/env`
+  - **Benefits**:
+    - Improved URL validation using RFC-compliant `net/url.Parse` (was: custom string checking)
+    - Better error messages for invalid URLs
+    - Standardized environment variable extraction patterns
+    - Reduced code duplication (200+ lines removed)
+    - Enhanced security: protocol injection prevention, host validation, HTTPS enforcement
+  - **Impact**: Zero breaking changes, 100% backward compatible
+  - All tests pass with no regressions (35+ test suites)
+
+### BREAKING CHANGES
+- **Service URL Configuration Field Names Changed**
+  - `local.url` → `local.customUrl` in azure.yaml (url is system-generated only)
+  - `azure.url` → `azure.customUrl` in azure.yaml (url is system-generated only)
+  - `azure.customDomain` unchanged (can be user-provided OR auto-detected, user wins)
+  - Fields named `url` (without "custom") are now system-generated ONLY and cannot be set in azure.yaml
+  - Fields named `customUrl` and `customDomain` are user-configured in azure.yaml
+  - This eliminates confusion between configuration fields and runtime fields
+  - **Migration required:** Update existing azure.yaml files to use new field names
+  - See [Migration Guide](docs/guides/MIGRATION-SERVICE-URL-BREAKING-CHANGE.md) for details
+  - URL precedence unchanged: Local (`customUrl > url`), Azure (`customDomain > customUrl > url`)
+
 ## [0.6.0] - 2025-11-08
 
 ### Added

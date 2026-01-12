@@ -55,7 +55,7 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 		}
 
 		// Validate service configuration
-		if err := ValidateServiceConfig(name, svc.URL); err != nil {
+		if err := ValidateServiceConfig(name, &svc); err != nil {
 			return nil, err
 		}
 	}

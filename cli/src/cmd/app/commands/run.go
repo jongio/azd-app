@@ -259,10 +259,9 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, a
 		return err
 	}
 
-	// Display service URLs (using custom URLs if configured in azure.yaml)
-	urls := service.GetServiceURLs(result.Processes)
-	customURLs := extractCustomURLs(azureYaml)
-	logger.LogSummary(urls, customURLs)
+	// Display service URLs with full URL information (system, custom domain, custom URL)
+	serviceURLs := buildServiceURLs(result.Processes, azureYaml)
+	logger.LogSummary(serviceURLs)
 
 	logger.LogReady()
 
@@ -300,21 +299,40 @@ func loadEnvironmentVariables() (map[string]string, error) {
 	return envVars, nil
 }
 
-// extractCustomURLs extracts custom URLs from azure.yaml services.
-// Returns a map of service name to custom URL for services that have one configured.
-func extractCustomURLs(azureYaml *service.AzureYaml) map[string]string {
-	customURLs := make(map[string]string)
+// buildServiceURLs creates URLInfo for each service with all URL types.
+// Determines environment (local vs azure) and includes system URL, custom domain, and custom URL.
+func buildServiceURLs(processes map[string]*service.ServiceProcess, azureYaml *service.AzureYaml) map[string]service.URLInfo {
+	serviceURLs := make(map[string]service.URLInfo)
 	if azureYaml == nil {
-		return customURLs
+		return serviceURLs
 	}
 
-	for name, svc := range azureYaml.Services {
-		if svc.URL != "" {
-			customURLs[name] = svc.URL
+	// Build URLInfo for each running service
+	for name, process := range processes {
+		if !process.Ready || process.Port <= 0 {
+			continue
 		}
+
+		// Get service config from azure.yaml
+		svc, hasSvc := azureYaml.Services[name]
+		if !hasSvc {
+			continue
+		}
+
+		urlInfo := service.URLInfo{
+			SystemURL:   fmt.Sprintf("http://localhost:%d", process.Port),
+			Environment: "local",
+		}
+
+		// Extract custom URL from local.customUrl config
+		if svc.Local != nil && svc.Local.CustomURL != "" {
+			urlInfo.CustomURL = &svc.Local.CustomURL
+		}
+
+		serviceURLs[name] = urlInfo
 	}
 
-	return customURLs
+	return serviceURLs
 }
 
 // monitorServicesUntilShutdown monitors all services with full process isolation.

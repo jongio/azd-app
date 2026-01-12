@@ -215,8 +215,15 @@ interface OverviewTabProps {
 function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps) {
   const effectiveStatus = getEffectiveStatusForUI(service, healthStatus, operationState)
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
-  const displayUrl = service.azure?.url || localUrl
-  const isUsingurl = !!service.azure?.url
+  
+  // Precedence chains per spec:
+  // Local: customUrl > url
+  // Azure: customDomain > customUrl > url
+  const localCustomUrl = service.local?.customUrl || undefined
+  const azureUrl = service.azure?.url
+  const azureCustomUrl = service.azure?.customUrl || undefined
+  const azureCustomDomain = service.azure?.customDomain || undefined
+  
   const isDeployed = hasAzureDeployment(service)
   const azurePortalUrl = buildAzurePortalUrl(service)
   
@@ -264,37 +271,31 @@ function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps
             label="Status" 
             value={<StatusBadge status={effectiveStatus} />} 
           />
-          {displayUrl && (
+          {localCustomUrl && (
             <InfoRow 
-              label={isUsingurl ? "URL (Custom)" : "URL"}
+              label="Custom URL"
               value={
                 <a 
-                  href={displayUrl}
+                  href={localCustomUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={cn(
-                    "hover:underline flex items-center gap-1",
-                    isUsingurl
-                      ? "text-purple-600 dark:text-purple-400"
-                      : "text-cyan-600 dark:text-cyan-400"
-                  )}
-                  title={isUsingurl ? `Custom URL configured (default: ${localUrl || 'none'})` : undefined}
+                  className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
                 >
-                  {displayUrl}
+                  {localCustomUrl}
                   <ExternalLink className="w-3 h-3" />
                 </a>
               } 
             />
           )}
-          {isUsingurl && localUrl && (
+          {localUrl && (
             <InfoRow 
-              label="Default URL" 
+              label={localCustomUrl ? "System URL" : "URL"}
               value={
                 <a
                   href={localUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-slate-500 dark:text-slate-400 font-mono hover:text-cyan-600 dark:hover:text-cyan-400 hover:underline flex items-center gap-1"
+                  className="text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                 >
                   {localUrl}
                   <ExternalLink className="w-3 h-3" />
@@ -319,17 +320,49 @@ function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps
             {service.azure?.resourceName && (
               <InfoRow label="Resource" value={service.azure.resourceName} />
             )}
-            {service.azure?.url && (
+            {azureCustomUrl && (
               <InfoRow 
-                label="Endpoint" 
+                label="Custom URL" 
                 value={
                   <a 
-                    href={service.azure.url}
+                    href={azureCustomUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 break-all"
+                  >
+                    {azureCustomUrl}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                } 
+              />
+            )}
+            {azureCustomDomain && (
+              <InfoRow 
+                label="Custom Domain" 
+                value={
+                  <a 
+                    href={azureCustomDomain}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 break-all"
+                  >
+                    {azureCustomDomain}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                } 
+              />
+            )}
+            {azureUrl && (
+              <InfoRow 
+                label={(azureCustomUrl || azureCustomDomain) ? "System URL" : "URL"}
+                value={
+                  <a 
+                    href={azureUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 break-all"
                   >
-                    {service.azure.url}
+                    {azureUrl}
                     <ExternalLink className="w-3 h-3 shrink-0" />
                   </a>
                 } 
@@ -368,8 +401,7 @@ interface LocalTabProps {
 function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }: LocalTabProps) {
   const effectiveStatus = getEffectiveStatusForUI(service, healthStatus, operationState)
   const localUrl = service.local?.url && !service.local.url.match(/:0\/?$/) ? service.local.url : null
-  const displayUrl = service.azure?.url || localUrl
-  const isUsingurl = !!service.azure?.url
+  const localCustomUrl = service.local?.customUrl || undefined
 
   return (
     <div>
@@ -414,32 +446,22 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
           {service.local?.port && service.local.port > 0 && (
             <InfoRow label="Port" value={service.local.port} />
           )}
-          {displayUrl && (
+          {localCustomUrl && (
             <InfoRow 
-              label={isUsingurl ? "URL (Custom)" : "URL"}
-              value={displayUrl}
+              label="Custom URL"
+              value={localCustomUrl}
               copyable
-              onCopy={() => onCopy(displayUrl, 'url')}
-              copied={copiedField === 'url'}
+              onCopy={() => onCopy(localCustomUrl ?? '', 'customUrl')}
+              copied={copiedField === 'customUrl'}
             />
           )}
-          {isUsingurl && localUrl && (
+          {localUrl && (
             <InfoRow 
-              label="Default URL" 
-              value={
-                <a
-                  href={localUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-slate-500 dark:text-slate-400 font-mono hover:text-cyan-600 dark:hover:text-cyan-400 hover:underline flex items-center gap-1"
-                >
-                  {localUrl}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              }
+              label={localCustomUrl ? "System URL" : "URL"}
+              value={localUrl}
               copyable
-              onCopy={() => onCopy(localUrl, 'defaultUrl')}
-              copied={copiedField === 'defaultUrl'}
+              onCopy={() => onCopy(localUrl, 'url')}
+              copied={copiedField === 'url'}
             />
           )}
         </div>

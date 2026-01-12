@@ -7,6 +7,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/env"
 )
 
 func TestNormalizeServiceName(t *testing.T) {
@@ -40,9 +41,9 @@ func TestNormalizeServiceName(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.input, func(t *testing.T) {
-			result := normalizeServiceName(tc.input)
+			result := env.NormalizeServiceName(tc.input)
 			if result != tc.expected {
-				t.Errorf("normalizeServiceName(%q) = %q, want %q", tc.input, result, tc.expected)
+				t.Errorf("env.NormalizeServiceName(%q) = %q, want %q", tc.input, result, tc.expected)
 			}
 		})
 	}
@@ -109,6 +110,64 @@ func TestExtractAzureServiceInfo(t *testing.T) {
 	}
 	if _, exists := result["appservice_web"]; exists {
 		t.Errorf("Should NOT have 'appservice_web' (underscore), got service: %v", result["appservice_web"])
+	}
+}
+
+func TestExtractAzureServiceInfo_CustomDomain(t *testing.T) {
+	// Test environment variables with custom domain detection
+	envVars := map[string]string{
+		"SERVICE_WEB_URL":           "https://web-abc123.azurecontainerapps.io",
+		"SERVICE_WEB_NAME":          "web-abc123",
+		"SERVICE_WEB_CUSTOM_DOMAIN": "https://www.myapp.com",
+		"SERVICE_API_URL":           "https://api-abc123.azurewebsites.net",
+		"SERVICE_API_NAME":          "api-abc123",
+		"SERVICE_API_CUSTOM_DOMAIN": "https://api.myapp.com",
+		"SERVICE_WORKER_URL":        "https://worker-abc123.azurewebsites.net",
+		"SERVICE_WORKER_NAME":       "worker-abc123",
+		// No custom domain for worker
+	}
+
+	result := extractAzureServiceInfo(envVars)
+
+	// Verify web service has custom domain
+	webService, exists := result["web"]
+	if !exists {
+		t.Errorf("Expected 'web' service to exist, got keys: %v", getKeys(result))
+	} else {
+		if webService.URL != "https://web-abc123.azurecontainerapps.io" {
+			t.Errorf("web URL = %q, want %q", webService.URL, "https://web-abc123.azurecontainerapps.io")
+		}
+		if webService.CustomDomain == nil || *webService.CustomDomain != "https://www.myapp.com" {
+			var got string
+			if webService.CustomDomain != nil {
+				got = *webService.CustomDomain
+			}
+			t.Errorf("web CustomDomain = %q, want %q", got, "https://www.myapp.com")
+		}
+	}
+
+	// Verify api service has custom domain
+	apiService, exists := result["api"]
+	if !exists {
+		t.Errorf("Expected 'api' service to exist, got keys: %v", getKeys(result))
+	} else {
+		if apiService.CustomDomain == nil || *apiService.CustomDomain != "https://api.myapp.com" {
+			var got string
+			if apiService.CustomDomain != nil {
+				got = *apiService.CustomDomain
+			}
+			t.Errorf("api CustomDomain = %q, want %q", got, "https://api.myapp.com")
+		}
+	}
+
+	// Verify worker service has NO custom domain
+	workerService, exists := result["worker"]
+	if !exists {
+		t.Errorf("Expected 'worker' service to exist, got keys: %v", getKeys(result))
+	} else {
+		if workerService.CustomDomain != nil {
+			t.Errorf("worker CustomDomain should be nil, got %q", *workerService.CustomDomain)
+		}
 	}
 }
 
@@ -353,13 +412,17 @@ func TestMergeServiceInfo_WithURL(t *testing.T) {
 				Language: "node",
 				Host:     "containerapp",
 				Project:  "./web",
-				URL:      "https://myapp.example.com",
+				Azure: &service.AzureConfig{
+					CustomURL: "https://myapp.example.com",
+				},
 			},
 			"api": {
 				Language: "python",
 				Host:     "appservice",
 				Project:  "./api",
-				URL:      "https://api.myapp.example.com",
+				Azure: &service.AzureConfig{
+					CustomURL: "https://api.myapp.example.com",
+				},
 			},
 		},
 	}
@@ -400,9 +463,18 @@ func TestMergeServiceInfo_WithURL(t *testing.T) {
 		t.Fatal("web Azure info should not be nil")
 	}
 
-	// Verify URL from azure.yaml is preserved in Azure.URL
-	if webService.Azure.URL != "https://myapp.example.com" {
-		t.Errorf("web Azure.URL = %q, want %q", webService.Azure.URL, "https://myapp.example.com")
+	// Verify customUrl from azure.yaml is preserved in Azure.CustomURL
+	if webService.Azure.CustomURL == nil || *webService.Azure.CustomURL != "https://myapp.example.com" {
+		var got string
+		if webService.Azure.CustomURL != nil {
+			got = *webService.Azure.CustomURL
+		}
+		t.Errorf("web Azure.CustomURL = %q, want %q", got, "https://myapp.example.com")
+	}
+
+	// Verify system-generated URL from environment is in Azure.URL
+	if webService.Azure.URL != "https://web-abc123.azurewebsites.net" {
+		t.Errorf("web Azure.URL (system-generated) = %q, want %q", webService.Azure.URL, "https://web-abc123.azurewebsites.net")
 	}
 
 	// Find the api service and verify url is set
@@ -422,8 +494,17 @@ func TestMergeServiceInfo_WithURL(t *testing.T) {
 		t.Fatal("api Azure info should not be nil")
 	}
 
-	if apiService.Azure.URL != "https://api.myapp.example.com" {
-		t.Errorf("api Azure.URL = %q, want %q", apiService.Azure.URL, "https://api.myapp.example.com")
+	if apiService.Azure.CustomURL == nil || *apiService.Azure.CustomURL != "https://api.myapp.example.com" {
+		var got string
+		if apiService.Azure.CustomURL != nil {
+			got = *apiService.Azure.CustomURL
+		}
+		t.Errorf("api Azure.CustomURL = %q, want %q", got, "https://api.myapp.example.com")
+	}
+
+	// Verify system-generated URL from environment is in Azure.URL
+	if apiService.Azure.URL != "https://api-abc123.azurewebsites.net" {
+		t.Errorf("api Azure.URL (system-generated) = %q, want %q", apiService.Azure.URL, "https://api-abc123.azurewebsites.net")
 	}
 }
 
@@ -476,5 +557,259 @@ func TestDetectFramework(t *testing.T) {
 				t.Errorf("detectFramework() = %q, want %q", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestMergeServiceInfo_NestedURLConfig(t *testing.T) {
+	azureYaml := &service.AzureYaml{
+		Services: map[string]service.Service{
+			"web": {
+				Language: "node",
+				Host:     "containerapp",
+				Project:  "./web",
+				Local: &service.LocalConfig{
+					CustomURL: "http://localhost:8080",
+				},
+				Azure: &service.AzureConfig{
+					CustomURL: "https://myapp.example.com",
+				},
+			},
+			"api": {
+				Language: "python",
+				Host:     "appservice",
+				Project:  "./api",
+				Local: &service.LocalConfig{
+					CustomURL: "https://abc123.ngrok.io",
+				},
+				Azure: &service.AzureConfig{
+					CustomURL: "https://api.myapp.example.com",
+				},
+			},
+		},
+	}
+
+	azureServices := map[string]AzureServiceInfo{
+		"web": {
+			URL:          "https://web-abc123.azurecontainerapps.io",
+			ResourceName: "web-abc123",
+		},
+		"api": {
+			URL:          "https://api-abc123.azurewebsites.net",
+			ResourceName: "api-abc123",
+		},
+	}
+
+	envVars := map[string]string{}
+
+	result := mergeServiceInfo(azureYaml, nil, azureServices, envVars)
+
+	if len(result) != 2 {
+		t.Fatalf("Expected 2 services, got %d", len(result))
+	}
+
+	// Find the web service and verify nested URL config
+	var webService *ServiceInfo
+	for _, svc := range result {
+		if svc.Name == "web" {
+			webService = svc
+			break
+		}
+	}
+
+	if webService == nil {
+		t.Fatal("web service not found")
+	}
+
+	// Verify Local.CustomURL from local.customUrl config
+	if webService.Local == nil {
+		t.Fatal("web Local info should not be nil")
+	}
+	if webService.Local.CustomURL == nil || *webService.Local.CustomURL != "http://localhost:8080" {
+		var got string
+		if webService.Local.CustomURL != nil {
+			got = *webService.Local.CustomURL
+		}
+		t.Errorf("web Local.CustomURL = %q, want %q", got, "http://localhost:8080")
+	}
+
+	// Verify Azure.CustomURL from azure.customUrl config
+	if webService.Azure == nil {
+		t.Fatal("web Azure info should not be nil")
+	}
+	if webService.Azure.CustomURL == nil || *webService.Azure.CustomURL != "https://myapp.example.com" {
+		var got string
+		if webService.Azure.CustomURL != nil {
+			got = *webService.Azure.CustomURL
+		}
+		t.Errorf("web Azure.CustomURL = %q, want %q", got, "https://myapp.example.com")
+	}
+
+	// Verify Azure.URL is system-generated from environment
+	if webService.Azure.URL != "https://web-abc123.azurecontainerapps.io" {
+		t.Errorf("web Azure.URL (system-generated) = %q, want %q", webService.Azure.URL, "https://web-abc123.azurecontainerapps.io")
+	}
+
+	// Verify Azure.CustomDomain is null (will be populated later by detection)
+	if webService.Azure.CustomDomain != nil {
+		t.Errorf("web Azure.CustomDomain should be nil, got %v", *webService.Azure.CustomDomain)
+	}
+
+	// Find the api service and verify nested URL config
+	var apiService *ServiceInfo
+	for _, svc := range result {
+		if svc.Name == "api" {
+			apiService = svc
+			break
+		}
+	}
+
+	if apiService == nil {
+		t.Fatal("api service not found")
+	}
+
+	// Verify Local.CustomURL from local.customUrl config (ngrok tunnel)
+	if apiService.Local == nil {
+		t.Fatal("api Local info should not be nil")
+	}
+	if apiService.Local.CustomURL == nil || *apiService.Local.CustomURL != "https://abc123.ngrok.io" {
+		var got string
+		if apiService.Local.CustomURL != nil {
+			got = *apiService.Local.CustomURL
+		}
+		t.Errorf("api Local.CustomURL = %q, want %q", got, "https://abc123.ngrok.io")
+	}
+
+	// Verify Azure.CustomURL from azure.customUrl config
+	if apiService.Azure == nil {
+		t.Fatal("api Azure info should not be nil")
+	}
+	if apiService.Azure.CustomURL == nil || *apiService.Azure.CustomURL != "https://api.myapp.example.com" {
+		var got string
+		if apiService.Azure.CustomURL != nil {
+			got = *apiService.Azure.CustomURL
+		}
+		t.Errorf("api Azure.CustomURL = %q, want %q", got, "https://api.myapp.example.com")
+	}
+
+	// Verify Azure.URL is system-generated from environment
+	if apiService.Azure.URL != "https://api-abc123.azurewebsites.net" {
+		t.Errorf("api Azure.URL (system-generated) = %q, want %q", apiService.Azure.URL, "https://api-abc123.azurewebsites.net")
+	}
+
+	// Verify Azure.CustomDomain is null
+	if apiService.Azure.CustomDomain != nil {
+		t.Errorf("api Azure.CustomDomain should be nil, got %v", *apiService.Azure.CustomDomain)
+	}
+}
+func TestMergeServiceInfo_CustomDomainPrecedence(t *testing.T) {
+	// Test that user-provided customDomain takes precedence over auto-detected
+	azureYaml := &service.AzureYaml{
+		Services: map[string]service.Service{
+			"web": {
+				Language: "node",
+				Host:     "containerapp",
+				Project:  "./web",
+				Azure: &service.AzureConfig{
+					CustomURL:    "https://mycdn.example.com",
+					CustomDomain: "https://www.myapp.com", // User-provided
+				},
+			},
+			"api": {
+				Language: "python",
+				Host:     "appservice",
+				Project:  "./api",
+				Azure: &service.AzureConfig{
+					CustomURL: "https://api.myapp.example.com",
+					// No customDomain - will use auto-detected
+				},
+			},
+			"worker": {
+				Language: "go",
+				Host:     "function",
+				Project:  "./worker",
+				// No azure config - will use auto-detected
+			},
+		},
+	}
+
+	// Simulate auto-detected custom domains from environment
+	azureServices := map[string]AzureServiceInfo{
+		"web": {
+			URL:          "https://web-abc123.azurecontainerapps.io",
+			ResourceName: "web-abc123",
+			CustomDomain: stringPtr("https://auto-detected-web.com"), // Auto-detected (should be ignored)
+		},
+		"api": {
+			URL:          "https://api-abc123.azurewebsites.net",
+			ResourceName: "api-abc123",
+			CustomDomain: stringPtr("https://auto-detected-api.com"), // Auto-detected (should be used)
+		},
+		"worker": {
+			URL:          "https://worker-abc123.azurewebsites.net",
+			ResourceName: "worker-abc123",
+			CustomDomain: stringPtr("https://auto-detected-worker.com"), // Auto-detected (should be used)
+		},
+	}
+
+	envVars := map[string]string{}
+
+	result := mergeServiceInfo(azureYaml, nil, azureServices, envVars)
+
+	if len(result) != 3 {
+		t.Fatalf("Expected 3 services, got %d", len(result))
+	}
+
+	// Find services
+	servicesByName := make(map[string]*ServiceInfo)
+	for _, svc := range result {
+		servicesByName[svc.Name] = svc
+	}
+
+	// Verify web service: user-provided customDomain takes precedence
+	webService := servicesByName["web"]
+	if webService == nil {
+		t.Fatal("web service not found")
+	}
+	if webService.Azure == nil {
+		t.Fatal("web Azure info should not be nil")
+	}
+	if webService.Azure.CustomDomain == nil || *webService.Azure.CustomDomain != "https://www.myapp.com" {
+		var got string
+		if webService.Azure.CustomDomain != nil {
+			got = *webService.Azure.CustomDomain
+		}
+		t.Errorf("web Azure.CustomDomain = %q, want %q (user-provided should win)", got, "https://www.myapp.com")
+	}
+
+	// Verify api service: auto-detected customDomain is used (no user-provided)
+	apiService := servicesByName["api"]
+	if apiService == nil {
+		t.Fatal("api service not found")
+	}
+	if apiService.Azure == nil {
+		t.Fatal("api Azure info should not be nil")
+	}
+	if apiService.Azure.CustomDomain == nil || *apiService.Azure.CustomDomain != "https://auto-detected-api.com" {
+		var got string
+		if apiService.Azure.CustomDomain != nil {
+			got = *apiService.Azure.CustomDomain
+		}
+		t.Errorf("api Azure.CustomDomain = %q, want %q (auto-detected should be used)", got, "https://auto-detected-api.com")
+	}
+
+	// Verify worker service: auto-detected customDomain is used (no azure config at all)
+	workerService := servicesByName["worker"]
+	if workerService == nil {
+		t.Fatal("worker service not found")
+	}
+	if workerService.Azure == nil {
+		t.Fatal("worker Azure info should not be nil")
+	}
+	if workerService.Azure.CustomDomain == nil || *workerService.Azure.CustomDomain != "https://auto-detected-worker.com" {
+		var got string
+		if workerService.Azure.CustomDomain != nil {
+			got = *workerService.Azure.CustomDomain
+		}
+		t.Errorf("worker Azure.CustomDomain = %q, want %q (auto-detected should be used)", got, "https://auto-detected-worker.com")
 	}
 }

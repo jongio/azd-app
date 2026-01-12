@@ -166,18 +166,64 @@ func (l *ServiceLogger) LogStartup(serviceCount int) {
 	fmt.Println("Starting services...")
 }
 
+// URLInfo contains all URL information for a service.
+type URLInfo struct {
+	SystemURL    string  // System-generated URL (localhost or Azure)
+	CustomDomain *string // Auto-detected custom domain (Azure only)
+	CustomURL    *string // User-configured custom URL (local.url or azure.url)
+	Environment  string  // "local" or "azure"
+}
+
 // LogSummary logs the service URLs after startup.
-// Uses custom URL (if configured in azure.yaml) or falls back to default localhost URL.
-func (l *ServiceLogger) LogSummary(urls map[string]string, customURLs map[string]string) {
+// Displays all available URLs with clear labels and indicates which URL is the effective URL.
+func (l *ServiceLogger) LogSummary(serviceURLs map[string]URLInfo) {
 	fmt.Println()
-	if len(urls) > 0 {
-		for name, url := range urls {
-			// Use custom URL if available, otherwise use the default URL
-			displayURL := url
-			if customURL, hasCustom := customURLs[name]; hasCustom && customURL != "" {
-				displayURL = customURL
+	if len(serviceURLs) == 0 {
+		return
+	}
+
+	for name, urlInfo := range serviceURLs {
+		// Determine effective URL using precedence chain
+		// Local: customUrl > url
+		// Azure: customDomain > customUrl > url
+		effectiveURL := urlInfo.SystemURL
+		if urlInfo.CustomURL != nil && *urlInfo.CustomURL != "" {
+			effectiveURL = *urlInfo.CustomURL
+		}
+		if urlInfo.CustomDomain != nil && *urlInfo.CustomDomain != "" {
+			effectiveURL = *urlInfo.CustomDomain
+		}
+
+		// Display service name and primary URL
+		fmt.Printf("  \033[32m✓\033[0m \033[1m%-15s\033[0m", name)
+
+		// Determine if we have multiple URLs to show
+		hasMultiple := (urlInfo.CustomDomain != nil && *urlInfo.CustomDomain != "") ||
+			(urlInfo.CustomURL != nil && *urlInfo.CustomURL != "")
+
+		if !hasMultiple {
+			// Only system URL - show it directly
+			fmt.Printf("  %s\n", urlInfo.SystemURL)
+		} else {
+			// Multiple URLs - show effective URL with arrow
+			fmt.Printf("  \033[36m→\033[0m %s\n", effectiveURL)
+
+			// Show system URL
+			if urlInfo.Environment == "azure" {
+				fmt.Printf("    \033[90m%-18s\033[0m %s\n", "Azure URL:", urlInfo.SystemURL)
+			} else {
+				fmt.Printf("    \033[90m%-18s\033[0m %s\n", "System URL:", urlInfo.SystemURL)
 			}
-			fmt.Printf("  \033[32m✓\033[0m %-18s  %s\n", name, displayURL)
+
+			// Show custom domain if present
+			if urlInfo.CustomDomain != nil && *urlInfo.CustomDomain != "" {
+				fmt.Printf("    \033[90m%-18s\033[0m %s\n", "Custom Domain:", *urlInfo.CustomDomain)
+			}
+
+			// Show custom URL if present
+			if urlInfo.CustomURL != nil && *urlInfo.CustomURL != "" {
+				fmt.Printf("    \033[90m%-18s\033[0m %s\n", "Custom URL:", *urlInfo.CustomURL)
+			}
 		}
 	}
 }

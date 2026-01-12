@@ -35,7 +35,8 @@ type AzureResource struct {
 	ResourceGroup           string       `json:"resourceGroup"`
 	SubscriptionID          string       `json:"subscriptionId"`
 	LogAnalyticsWorkspaceID string       `json:"logAnalyticsWorkspaceId,omitempty"`
-	URL                     string       `json:"url,omitempty"`
+	URL                     string       `json:"url,omitempty"`                // System-generated URL
+	CustomDomain            string       `json:"customDomain,omitempty"`       // Auto-detected custom domain URL
 	Name                    string       `json:"name"`
 }
 

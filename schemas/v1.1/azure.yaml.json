@@ -616,12 +616,15 @@
           "title": "Service-level test configuration (azd app extension)",
           "description": "Service-level test configuration"
         },
-        "url": {
-          "type": "string",
-          "title": "Custom URL for service access (azd app extension)",
-          "description": "Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain). Must be a valid HTTP or HTTPS URL.",
-          "pattern": "^https?://",
-          "examples": ["https://myapp.example.com", "https://abc123.ngrok.io", "http://localhost:8080"]
+        "local": {
+          "$ref": "#/definitions/localConfig",
+          "title": "Local development configuration (azd app extension)",
+          "description": "Configuration for local development, including custom URL overrides (e.g., ngrok tunnels)"
+        },
+        "azure": {
+          "$ref": "#/definitions/azureServiceConfig",
+          "title": "Azure deployment configuration (azd app extension)",
+          "description": "Configuration for Azure deployment, including custom URL overrides (e.g., CDN, reverse proxy)"
         }
       },
       "allOf": [
@@ -820,6 +823,41 @@
           "required": ["secret"]
         }
       ]
+    },
+    "localConfig": {
+      "type": "object",
+      "description": "Local development configuration for a service. Note: 'url' fields are system-generated only and cannot be set in azure.yaml.",
+      "additionalProperties": false,
+      "properties": {
+        "customUrl": {
+          "type": "string",
+          "title": "User-provided custom URL for local development",
+          "description": "Optional. Custom URL for accessing the service during local development (e.g., ngrok tunnel, localtunnel, reverse proxy). Must be a valid HTTP or HTTPS URL. Takes precedence over system-generated localhost URLs. The system will auto-generate 'url' field at runtime based on actual service binding.",
+          "pattern": "^https?://[^\\s/$.?#].[^\\s]*$",
+          "examples": ["https://abc123.ngrok-free.app", "https://myapp.loca.lt", "http://custom-proxy.local:8080"]
+        }
+      }
+    },
+    "azureServiceConfig": {
+      "type": "object",
+      "description": "Azure deployment configuration for a service. Note: 'url' fields are system-generated only and cannot be set in azure.yaml.",
+      "additionalProperties": false,
+      "properties": {
+        "customDomain": {
+          "type": "string",
+          "title": "User-provided or auto-detected custom domain",
+          "description": "Optional. Custom domain for the Azure service. Must be a valid HTTP or HTTPS URL. Can be user-provided (in azure.yaml) OR auto-detected from Azure resource configuration. User-provided value takes precedence over auto-detected values. Use this to specify which custom domain to use when Azure resource has multiple configured domains.",
+          "pattern": "^https?://[^\\s/$.?#].[^\\s]*$",
+          "examples": ["https://myapp.example.com", "https://api.myapp.example.com"]
+        },
+        "customUrl": {
+          "type": "string",
+          "title": "User-provided custom URL override",
+          "description": "Optional. Custom URL for accessing the service in Azure (e.g., CDN endpoint, API gateway, reverse proxy). Must be a valid HTTP or HTTPS URL. Only used when user explicitly wants a different URL than the custom domain or Azure-generated URL. Precedence: customDomain > customUrl > system-generated url.",
+          "pattern": "^https?://[^\\s/$.?#].[^\\s]*$",
+          "examples": ["https://cdn.myapp.example.com", "https://api-gateway.mycompany.com/myapp"]
+        }
+      }
     },
     "resource": {
       "type": "object",

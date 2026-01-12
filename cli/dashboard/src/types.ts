@@ -124,6 +124,7 @@ export interface LocalServiceInfo {
   /** Health check status - independent of lifecycle */
   health: HealthStatus
   url?: string
+  customUrl?: string | null  // Custom URL from local.url config (e.g., ngrok tunnel)
   port?: number
   pid?: number
   startTime?: string
@@ -134,7 +135,9 @@ export interface LocalServiceInfo {
 }
 
 export interface AzureServiceInfo {
-  url?: string
+  url?: string  // System-generated Azure URL (e.g., *.azurewebsites.net)
+  customUrl?: string | null  // Custom URL from azure.url config (e.g., CDN, reverse proxy)
+  customDomain?: string | null  // Auto-detected custom domain URL
   resourceName?: string
   imageName?: string
   resourceType?: string  // containerapp, appservice, function, etc.

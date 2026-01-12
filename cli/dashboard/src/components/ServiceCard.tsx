@@ -92,9 +92,24 @@ export function ServiceCard({
   const localUrl = getEffectiveServiceUrl(service.local?.url, service.local?.port, codespaceConfig)
   const azureUrl = service.azure?.url
 
-  // Prefer Custom URL when configured (for both display and navigation)
-  const displayUrl = service.azure?.url || localUrl
-  const isUsingurl = !!service.azure?.url
+  // Precedence chains per spec:
+  // Local: customUrl > url
+  // Azure: customDomain > customUrl > url
+  const localCustomUrl = service.local?.customUrl || undefined
+  const azureCustomUrl = service.azure?.customUrl || undefined
+  const azureCustomDomain = service.azure?.customDomain || undefined
+  
+  // Determine effective URL using precedence chain
+  const effectiveLocalUrl = localCustomUrl || localUrl || undefined
+  const effectiveAzureUrl = azureCustomDomain || azureCustomUrl || azureUrl
+  
+  // For card display, prefer Azure over local
+  const displayUrl = effectiveAzureUrl || effectiveLocalUrl
+  
+  // Track which type of URL is being used for visual indicators
+  const isUsingCustomUrl = !!(azureCustomUrl || localCustomUrl)
+  const isUsingCustomDomain = !!azureCustomDomain && !azureCustomUrl
+  const isUsingNonSystemUrl = isUsingCustomUrl || isUsingCustomDomain
 
   // Get service icon based on type and status
   const getServiceIcon = () => {
@@ -259,7 +274,7 @@ export function ServiceCard({
         </div>
       )}
 
-      {/* URL Link - Shows Custom URL when configured */}
+      {/* URL Link - Shows effective URL with visual indicator for custom URLs/domains */}
       {displayUrl && (
         <a
           href={displayUrl}
@@ -268,27 +283,38 @@ export function ServiceCard({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "relative flex items-center gap-2 p-2.5 rounded-xl border transition-colors group/url",
-            isUsingurl
+            isUsingNonSystemUrl
               ? "bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/30 hover:border-purple-400 dark:hover:border-purple-500"
               : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:border-cyan-300 dark:hover:border-cyan-600"
           )}
-          title={isUsingurl ? `Custom URL configured (default: ${localUrl || 'none'})` : undefined}
+          title={
+            isUsingCustomUrl 
+              ? `Custom URL configured (system: ${azureUrl || localUrl || 'none'})`
+              : isUsingCustomDomain
+              ? `Custom Domain configured (system: ${azureUrl || 'none'})`
+              : undefined
+          }
         >
           <ExternalLink className={cn(
             "w-3.5 h-3.5",
-            isUsingurl 
+            isUsingNonSystemUrl
               ? "text-purple-600 dark:text-purple-400"
               : "text-cyan-600 dark:text-cyan-400"
           )} />
           <div className="flex-1 min-w-0">
-            {isUsingurl && (
+            {isUsingCustomUrl && (
               <span className="text-[10px] text-purple-600/70 dark:text-purple-400/70 block font-medium">
                 Custom URL
               </span>
             )}
+            {isUsingCustomDomain && (
+              <span className="text-[10px] text-purple-600/70 dark:text-purple-400/70 block font-medium">
+                Custom Domain
+              </span>
+            )}
             <span className={cn(
               "text-xs font-mono truncate block",
-              isUsingurl
+              isUsingNonSystemUrl
                 ? "text-purple-700 dark:text-purple-300 group-hover/url:text-purple-600 dark:group-hover/url:text-purple-400"
                 : "text-slate-600 dark:text-slate-300 group-hover/url:text-cyan-600 dark:group-hover/url:text-cyan-400",
               "transition-colors"
@@ -298,7 +324,7 @@ export function ServiceCard({
           </div>
           <ExternalLink className={cn(
             "w-3 h-3 opacity-0 group-hover/url:opacity-100 transform group-hover/url:translate-x-0.5 group-hover/url:-translate-y-0.5 transition-all",
-            isUsingurl
+            isUsingNonSystemUrl
               ? "text-purple-500 dark:text-purple-500"
               : "text-slate-400 dark:text-slate-500"
           )} />

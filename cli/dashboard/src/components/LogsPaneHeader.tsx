@@ -109,10 +109,10 @@ export interface LogsPaneHeaderProps {
   healthCheckResult?: HealthCheckResult
   effectiveUrl?: string
   logMode: LogMode
-  azureUrl?: string
   onShowDetails?: () => void
   onOpenConfigPanel?: () => void
   handleCopyPane: () => void
+  urlType?: 'custom-url' | 'custom-domain' | 'system'  // Track which URL type is being used
 }
 
 export function LogsPaneHeader({
@@ -128,13 +128,20 @@ export function LogsPaneHeader({
   service,
   effectiveUrl,
   logMode,
-  azureUrl,
   onShowDetails,
   onOpenConfigPanel,
   handleCopyPane,
+  urlType = 'system',
 }: Readonly<LogsPaneHeaderProps>) {
   const processBadge = useMemo(() => getProcessBadge(processStatus), [processStatus])
   const healthBadgeClass = normalizedHealth ? getHealthBadgeClass(normalizedHealth) : ''
+  
+  // Determine aria-label based on URL type
+  const urlAriaLabel = urlType === 'custom-url' 
+    ? 'Open custom URL in new tab'
+    : urlType === 'custom-domain'
+    ? 'Open custom domain in new tab'
+    : 'Open service in new tab'
 
   return (
     <div className={cn("flex items-center justify-between px-4 py-2 border-b transition-colors duration-200", headerBgClass)}>
@@ -217,9 +224,15 @@ export function LogsPaneHeader({
             size="sm"
             onClick={() => globalThis.open(effectiveUrl, '_blank', 'noopener,noreferrer')}
             title={effectiveUrl}
-            aria-label={azureUrl ? 'Open custom URL in new tab' : 'Open service in new tab'}
+            aria-label={urlAriaLabel}
+            className={cn(
+              urlType !== 'system' && 'border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20'
+            )}
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className={cn(
+              "w-4 h-4",
+              urlType !== 'system' && 'text-purple-600 dark:text-purple-400'
+            )} />
           </Button>
         )}
         {onShowDetails && (

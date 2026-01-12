@@ -8,6 +8,8 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/env"
+	"github.com/jongio/azd-core/urlutil"
 )
 
 var (
@@ -82,6 +84,7 @@ type LocalServiceInfo struct {
 	Status      string     `json:"status"` // "running", "not-running", "unknown"
 	Health      string     `json:"health"` // "healthy", "unhealthy", "unknown"
 	URL         string     `json:"url,omitempty"`
+	CustomURL   *string    `json:"customUrl"` // Custom URL from local.url config (always present, null if not set)
 	Port        int        `json:"port,omitempty"`
 	PID         int        `json:"pid,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`
@@ -92,9 +95,11 @@ type LocalServiceInfo struct {
 
 // AzureServiceInfo contains Azure-specific service information.
 type AzureServiceInfo struct {
-	URL          string `json:"url,omitempty"` // Custom URL for accessing the service (from url field)
-	ResourceName string `json:"resourceName,omitempty"`
-	ImageName    string `json:"imageName,omitempty"`
+	URL          string  `json:"url,omitempty"`        // System-generated Azure URL (e.g., *.azurewebsites.net)
+	CustomURL    *string `json:"customUrl"`            // Custom URL from azure.url config (always present, null if not set)
+	CustomDomain *string `json:"customDomain"`         // Auto-detected custom domain URL (always present, null if not detected)
+	ResourceName string  `json:"resourceName,omitempty"`
+	ImageName    string  `json:"imageName,omitempty"`
 }
 
 // GetServiceInfo returns comprehensive service information for a project directory.
@@ -147,14 +152,15 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 
 	// Get Azure environment variables from the process environment
 	// The azd extension framework provides these automatically: AZURE_*, SERVICE_*
-	for _, line := range os.Environ() {
-		parts := strings.SplitN(line, "=", 2)
+	// Use env.FilterByPrefixSlice for efficient filtering
+	azureVars := env.FilterByPrefixSlice(os.Environ(), "AZURE_")
+	serviceVars := env.FilterByPrefixSlice(os.Environ(), "SERVICE_")
+	
+	// Convert filtered slices to map
+	for _, envVar := range append(azureVars, serviceVars...) {
+		parts := strings.SplitN(envVar, "=", 2)
 		if len(parts) == 2 {
-			key := parts[0]
-			// Only collect Azure and Service environment variables
-			if strings.HasPrefix(key, "AZURE_") || strings.HasPrefix(key, "SERVICE_") {
-				envVars[key] = parts[1]
-			}
+			envVars[parts[0]] = parts[1]
 		}
 	}
 
@@ -169,98 +175,139 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 	return envVars
 }
 
-// normalizeServiceName converts a service name from environment variable format to azure.yaml format.
-// Environment variables use underscores (SERVICE_CONTAINERAPP_API_NAME) while azure.yaml uses hyphens (containerapp-api).
-func normalizeServiceName(name string) string {
-	// Convert to lowercase and replace underscores with hyphens
-	return strings.ReplaceAll(strings.ToLower(name), "_", "-")
-}
-
 // extractAzureServiceInfo extracts Azure service information from environment variables.
 func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceInfo {
 	azureServices := make(map[string]AzureServiceInfo)
 
-	for key, value := range envVars {
-		keyUpper := strings.ToUpper(key)
+	// Extract SERVICE_*_URL (highest priority)
+	serviceURLs := env.ExtractPattern(envVars, env.PatternOptions{
+		Prefix:     "SERVICE_",
+		Suffix:     "_URL",
+		TrimPrefix: true,
+		TrimSuffix: true,
+		Transform:  env.NormalizeServiceName,
+		Validator: func(value string) bool {
+			return urlutil.Validate(value) == nil
+		},
+	})
 
+	// Filter out SERVICE_* keys for fallback extraction
+	nonServiceEnvVars := make(map[string]string)
+	for k, v := range envVars {
+		if !strings.HasPrefix(strings.ToUpper(k), "SERVICE_") {
+			nonServiceEnvVars[k] = v
+		}
+	}
+
+	// Extract *_URL (lower priority) - only from non-SERVICE_ keys
+	fallbackURLs := env.ExtractPattern(nonServiceEnvVars, env.PatternOptions{
+		Suffix:     "_URL",
+		TrimSuffix: true,
+		Transform:  env.NormalizeServiceName,
+		Validator: func(value string) bool {
+			return urlutil.Validate(value) == nil
+		},
+	})
+
+	// Merge with priority (serviceURLs overrides fallbackURLs)
+	for name, url := range serviceURLs {
+		info := azureServices[name]
+		info.URL = url
+		azureServices[name] = info
+	}
+	for name, url := range fallbackURLs {
+		if existing, exists := azureServices[name]; !exists || existing.URL == "" {
+			info := azureServices[name]
+			info.URL = url
+			azureServices[name] = info
+		}
+	}
+
+	// Filter out _IMAGE_NAME keys and system variables for _NAME extraction
+	filteredEnvVars := make(map[string]string)
+	for k, v := range envVars {
+		keyUpper := strings.ToUpper(k)
+		// Skip _IMAGE_NAME suffix
+		if strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
+			continue
+		}
 		// Skip system variables
 		if strings.Contains(keyUpper, "PIPE") || strings.Contains(keyUpper, "PATH") ||
 			strings.Contains(keyUpper, "TEMP") || strings.Contains(keyUpper, "HOME") {
 			continue
 		}
+		filteredEnvVars[k] = v
+	}
 
-		// Pattern 1 (highest priority): SERVICE_{SERVICE_NAME}_URL -> Azure URL
-		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_URL") &&
-			(strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")) {
-			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
-			serviceName = strings.TrimSuffix(serviceName, "_URL")
-			serviceName = normalizeServiceName(serviceName)
+	// Extract SERVICE_*_NAME (highest priority)
+	serviceNames := env.ExtractPattern(filteredEnvVars, env.PatternOptions{
+		Prefix:     "SERVICE_",
+		Suffix:     "_NAME",
+		TrimPrefix: true,
+		TrimSuffix: true,
+		Transform:  env.NormalizeServiceName,
+	})
 
-			if serviceName != "" {
-				info := azureServices[serviceName]
-				info.URL = value
-				azureServices[serviceName] = info
-			}
-			continue
+	// Filter out SERVICE_* keys for fallback extraction
+	nonServiceFilteredEnvVars := make(map[string]string)
+	for k, v := range filteredEnvVars {
+		if !strings.HasPrefix(strings.ToUpper(k), "SERVICE_") {
+			nonServiceFilteredEnvVars[k] = v
 		}
+	}
 
-		// Pattern 2: {SERVICE_NAME}_URL -> Azure URL (without SERVICE_ prefix)
-		if strings.HasSuffix(keyUpper, "_URL") &&
-			(strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")) {
-			serviceName := strings.TrimSuffix(keyUpper, "_URL")
-			serviceName = normalizeServiceName(serviceName)
+	// Extract *_NAME (lower priority) - only from non-SERVICE_ keys
+	fallbackNames := env.ExtractPattern(nonServiceFilteredEnvVars, env.PatternOptions{
+		Suffix:     "_NAME",
+		TrimSuffix: true,
+		Transform:  env.NormalizeServiceName,
+	})
 
-			if serviceName != "" {
-				// Only set if not already set by higher priority pattern
-				if existing, exists := azureServices[serviceName]; !exists || existing.URL == "" {
-					info := azureServices[serviceName]
-					info.URL = value
-					azureServices[serviceName] = info
-				}
-			}
+	// Merge with priority (serviceNames overrides fallbackNames)
+	for name, resourceName := range serviceNames {
+		info := azureServices[name]
+		info.ResourceName = resourceName
+		azureServices[name] = info
+	}
+	for name, resourceName := range fallbackNames {
+		if existing, exists := azureServices[name]; !exists || existing.ResourceName == "" {
+			info := azureServices[name]
+			info.ResourceName = resourceName
+			azureServices[name] = info
 		}
+	}
 
-		// Pattern 1 (highest priority): SERVICE_{SERVICE_NAME}_NAME -> Azure resource name
-		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_NAME") && !strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
-			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
-			serviceName = strings.TrimSuffix(serviceName, "_NAME")
-			serviceName = normalizeServiceName(serviceName)
+	// Extract SERVICE_*_IMAGE_NAME
+	imageNames := env.ExtractPattern(envVars, env.PatternOptions{
+		Prefix:     "SERVICE_",
+		Suffix:     "_IMAGE_NAME",
+		TrimPrefix: true,
+		TrimSuffix: true,
+		Transform:  env.NormalizeServiceName,
+	})
 
-			if serviceName != "" {
-				info := azureServices[serviceName]
-				info.ResourceName = value
-				azureServices[serviceName] = info
-			}
-			continue
-		}
+	for name, imageName := range imageNames {
+		info := azureServices[name]
+		info.ImageName = imageName
+		azureServices[name] = info
+	}
 
-		// Pattern 2: {SERVICE_NAME}_NAME -> Azure resource name (without SERVICE_ prefix)
-		if strings.HasSuffix(keyUpper, "_NAME") && !strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
-			serviceName := strings.TrimSuffix(keyUpper, "_NAME")
-			serviceName = normalizeServiceName(serviceName)
+	// Extract SERVICE_*_CUSTOM_DOMAIN with HTTPS validation
+	customDomains := env.ExtractPattern(envVars, env.PatternOptions{
+		Prefix:     "SERVICE_",
+		Suffix:     "_CUSTOM_DOMAIN",
+		TrimPrefix: true,
+		TrimSuffix: true,
+		Transform:  env.NormalizeServiceName,
+		Validator: func(value string) bool {
+			return urlutil.ValidateHTTPSOnly(value) == nil
+		},
+	})
 
-			if serviceName != "" {
-				// Only set if not already set by higher priority pattern
-				if existing, exists := azureServices[serviceName]; !exists || existing.ResourceName == "" {
-					info := azureServices[serviceName]
-					info.ResourceName = value
-					azureServices[serviceName] = info
-				}
-			}
-		}
-
-		// Pattern: SERVICE_{SERVICE_NAME}_IMAGE_NAME -> Docker image
-		if strings.HasPrefix(keyUpper, "SERVICE_") && strings.HasSuffix(keyUpper, "_IMAGE_NAME") {
-			serviceName := strings.TrimPrefix(keyUpper, "SERVICE_")
-			serviceName = strings.TrimSuffix(serviceName, "_IMAGE_NAME")
-			serviceName = normalizeServiceName(serviceName)
-
-			if serviceName != "" {
-				info := azureServices[serviceName]
-				info.ImageName = value
-				azureServices[serviceName] = info
-			}
-		}
+	for name, customDomain := range customDomains {
+		info := azureServices[name]
+		info.CustomDomain = &customDomain
+		azureServices[name] = info
 	}
 
 	return azureServices
@@ -275,6 +322,25 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 		for name, svc := range azureYaml.Services {
 			// Normalize service name to lowercase for case-insensitive matching
 			normalizedName := strings.ToLower(name)
+			// Map Local.CustomURL from azure.yaml config (null if not set)
+			var localCustomURL *string
+			if svc.Local != nil && svc.Local.CustomURL != "" {
+				localCustomURL = &svc.Local.CustomURL
+			}
+
+			// Map Azure.CustomURL from azure.yaml config (null if not set)
+			var azureCustomURL *string
+			if svc.Azure != nil && svc.Azure.CustomURL != "" {
+				azureCustomURL = &svc.Azure.CustomURL
+			}
+
+			// Map user-provided Azure.CustomDomain from azure.yaml config (null if not set)
+			// User-provided customDomain takes precedence over auto-detected
+			var azureCustomDomain *string
+			if svc.Azure != nil && svc.Azure.CustomDomain != "" {
+				azureCustomDomain = &svc.Azure.CustomDomain
+			}
+
 			serviceInfo := &ServiceInfo{
 				Name:            name, // Preserve original casing for display
 				Host:            svc.Host,
@@ -284,18 +350,15 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				EnvironmentVars: envVars, // Include Azure/AZD environment variables
 				// Initialize with default local state
 				Local: &LocalServiceInfo{
-					Status: "not-running",
-					Health: "unknown",
+					Status:    "not-running",
+					Health:    "unknown",
+					CustomURL: localCustomURL, // Always present, null if not set
 				},
-			}
-
-			// Extract altUrl from service config if present
-			if svc.URL != "" {
-				// Initialize Azure info if not already present
-				if serviceInfo.Azure == nil {
-					serviceInfo.Azure = &AzureServiceInfo{}
-				}
-				serviceInfo.Azure.URL = svc.URL
+				// Initialize Azure info with CustomURL and CustomDomain from config
+				Azure: &AzureServiceInfo{
+					CustomURL:    azureCustomURL,    // Always present, null if not set
+					CustomDomain: azureCustomDomain, // User-provided OR auto-detected (set here if user-provided)
+				},
 			}
 
 			serviceMap[normalizedName] = serviceInfo
@@ -306,10 +369,14 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	for _, runningSvc := range runningServices {
 		normalizedName := strings.ToLower(runningSvc.Name)
 		if existing, exists := serviceMap[normalizedName]; exists {
+			// Preserve customUrl from config
+			customURL := existing.Local.CustomURL
+
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
 				Health:      "", // Health is computed dynamically via health checks, not stored in registry
 				URL:         runningSvc.URL,
+				CustomURL:   customURL, // Preserve from config
 				Port:        runningSvc.Port,
 				PID:         runningSvc.PID,
 				StartTime:   &runningSvc.StartTime,
@@ -324,18 +391,37 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	for serviceName, azureInfo := range azureServices {
 		// serviceName from azureServices is already lowercase
 		if existing, exists := serviceMap[serviceName]; exists {
-			// Preserve altUrl if it was set from config
-			var existingURL string
-			if existing.Azure != nil {
-				existingURL = existing.Azure.URL
+			// Preserve CustomURL from config - NEVER from environment
+			// CustomDomain: user-provided (from config) takes precedence over auto-detected
+			if existing.Azure == nil {
+				existing.Azure = &AzureServiceInfo{}
 			}
 
-			// Replace Azure info with environment-based info
-			existing.Azure = &azureInfo
+			// Preserve user-provided CustomURL from config (already set during initialization)
+			customURL := existing.Azure.CustomURL
+			// Preserve user-provided CustomDomain from config
+			userProvidedCustomDomain := existing.Azure.CustomDomain
 
-			// Restore altUrl from config (takes precedence)
-			if existingURL != "" {
-				existing.Azure.URL = existingURL
+			// Update with environment-based info
+			existing.Azure.URL = azureInfo.URL // System-generated URL from environment
+			existing.Azure.ResourceName = azureInfo.ResourceName
+			existing.Azure.ImageName = azureInfo.ImageName
+
+			// Restore CustomURL - always from config, never from environment
+			existing.Azure.CustomURL = customURL
+
+			// Set CustomDomain: user-provided takes precedence over auto-detected
+			// User-provided: already set from config (non-nil if user specified it)
+			// Auto-detected: comes from azureInfo (will be set here if user didn't provide)
+			if userProvidedCustomDomain != nil {
+				// User provided a customDomain in azure.yaml - use that
+				existing.Azure.CustomDomain = userProvidedCustomDomain
+			} else if azureInfo.CustomDomain != nil {
+				// No user-provided value, use auto-detected from environment
+				existing.Azure.CustomDomain = azureInfo.CustomDomain
+			} else {
+				// Neither user-provided nor auto-detected - set to nil
+				existing.Azure.CustomDomain = nil
 			}
 		}
 	}

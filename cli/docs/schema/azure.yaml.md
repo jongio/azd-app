@@ -358,6 +358,68 @@ services:
         secret: MY_SECRET  # Reference to secret
 ```
 
+#### `local` ⭐ NEW
+**Type:** `object` (optional)
+
+Local development configuration for this service.
+
+**Properties:**
+- **`url`**: Custom URL for accessing this service during local development (e.g., ngrok tunnel, reverse proxy)
+
+```yaml
+services:
+  api:
+    project: ./api
+    language: node
+    ports: ["3000"]
+    local:
+      url: https://abc123.ngrok-free.app  # ngrok tunnel for webhook testing
+```
+
+See [Service URL Configuration](#service-url-configuration) for complete documentation.
+
+#### `azure` ⭐ NEW
+**Type:** `object` (optional)
+
+Azure deployment configuration for this service.
+
+**Properties:**
+- **`url`**: Custom URL override for accessing this service on Azure (e.g., CDN, reverse proxy, custom routing)
+
+```yaml
+services:
+  web:
+    project: ./web
+    host: appservice
+    language: typescript
+    azure:
+      url: https://cdn.myapp.example.com  # CDN override
+```
+
+See [Service URL Configuration](#service-url-configuration) for complete documentation.
+
+#### `url` (Deprecated)
+**Type:** `string` (optional)
+
+**⚠️ DEPRECATED:** Use nested `local.url` and `azure.url` instead for better context separation.
+
+Legacy flat URL configuration. Still supported for backward compatibility, but new projects should use the nested format.
+
+```yaml
+# ❌ Legacy format (deprecated)
+services:
+  api:
+    url: https://myapp.example.com
+
+# ✅ Recommended format
+services:
+  api:
+    local:
+      url: https://abc.ngrok-free.app
+    azure:
+      url: https://cdn.myapp.example.com
+```
+
 #### `uses`
 **Type:** `array` of `string` (optional)
 
@@ -547,6 +609,343 @@ services:
     healthcheck:
       type: process
 ```
+
+
+## Service URL Configuration
+
+`azd app` supports custom URLs for services in both local development and Azure deployment contexts. This allows you to access services through tunneling services (ngrok, localtunnel), custom domains, CDNs, reverse proxies, and other access patterns.
+
+**IMPORTANT:** This section uses the new field names after a breaking change.
+- Use `customUrl` for user-provided URLs in azure.yaml
+- Fields named `url` (without "custom") are system-generated only and NEVER appear in azure.yaml
+- See [Migration Guide](../../../docs/guides/MIGRATION-SERVICE-URL-BREAKING-CHANGE.md) for details
+
+### URL Hierarchy
+
+For each service, up to three different URLs may exist depending on the context (local vs Azure):
+
+1. **System URL** - Auto-generated base URL (never in azure.yaml, system-generated only)
+   - **Local**: `http://localhost:3000` (from `ports` configuration)
+   - **Azure**: `https://myapp-abc123.azurewebsites.net` (from Azure environment variables)
+
+2. **Custom Domain** - Auto-detected from Azure resources OR user-provided (Azure context only)
+   - App Service custom domains (auto-detected via Azure SDK)
+   - Container App custom domains (auto-detected via Azure SDK)
+   - Can be explicitly set in azure.yaml via `azure.customDomain` (takes precedence over auto-detected)
+   - Automatically detected during `azd app run`
+
+3. **Custom URL** - User-configured override from `azure.yaml` 
+   - **Local**: `local.customUrl` - Tunnel URLs for webhook testing or external access
+   - **Azure**: `azure.customUrl` - Explicit overrides for CDN, load balancer, or custom routing
+
+**URL Precedence**:
+- **Local**: `customUrl > url`
+- **Azure**: `customDomain > customUrl > url`
+
+Where:
+- `url` = system-generated (never in azure.yaml)
+- `customUrl` = user-provided in azure.yaml
+- `customDomain` = user-provided in azure.yaml OR auto-detected from Azure
+
+When you click "Open" in the dashboard or use service URLs, `azd app` uses the highest-priority URL available.
+
+### Configuration Format
+
+Configure custom URLs using nested `local.customUrl` and `azure.customUrl` fields:
+
+```yaml
+services:
+  # Frontend with ngrok tunnel locally and CDN on Azure
+  web:
+    project: ./src/web
+    host: appservice
+    language: typescript
+    ports: ["3000"]
+    local:
+      customUrl: https://web-abc123.ngrok-free.app
+    azure:
+      customUrl: https://cdn.myapp.example.com
+  
+  # API with local tunnel, uses auto-detected custom domain on Azure
+  api:
+    project: ./src/api
+    host: containerapp
+    language: python
+    ports: ["5000"]
+    local:
+      customUrl: https://api-xyz789.ngrok-free.app
+    # No azure.customUrl - will use customDomain if detected, otherwise system URL
+  
+  # Worker with no custom URLs - uses system URLs only
+  worker:
+    project: ./src/worker
+    language: python
+    # No local.customUrl or azure.customUrl - uses http://localhost:5001 locally
+```
+
+**Remember:** Fields named `url` (without "custom") are system-generated only and never appear in azure.yaml.
+
+### Common Use Cases
+
+#### 1. ngrok Tunneling for Webhook Testing
+
+Test webhooks from external services (Stripe, GitHub, Twilio) during local development:
+
+```yaml
+services:
+  api:
+    project: ./api
+    language: node
+    ports: ["3000"]
+    local:
+      customUrl: https://abc123.ngrok-free.app
+```
+
+**Steps:**
+1. Start ngrok: `ngrok http 3000`
+2. Copy the HTTPS URL from ngrok (e.g., `https://abc123.ngrok-free.app`)
+3. Add it to `local.customUrl` in `azure.yaml`
+4. Run `azd app run` - the dashboard will use the ngrok URL
+5. Configure webhooks to point to your ngrok URL
+
+#### 2. Custom Domain on Azure App Service
+
+When you configure a custom domain on App Service, `azd app` automatically detects it:
+
+```yaml
+services:
+  web:
+    project: ./web
+    host: appservice
+    language: typescript
+```
+
+**Auto-detection:**
+- `azd app run` queries Azure to find custom domains
+- If `myapp.example.com` is configured on App Service, it's automatically used
+- No configuration needed in `azure.yaml`
+
+#### 3. CDN Override with Custom URL
+
+Override auto-detected custom domain with a CDN or load balancer URL:
+
+```yaml
+services:
+  web:
+    project: ./web
+    host: appservice
+    language: typescript
+    azure:
+      customUrl: https://cdn.myapp.example.com  # Takes precedence over custom domain
+```
+
+**When to use:**
+- Traffic flows through Azure Front Door or CDN
+- Using a load balancer or reverse proxy
+- Want a specific URL different from the App Service custom domain
+
+#### 4. Localtunnel for Quick Sharing
+
+Share your local dev environment with teammates or clients:
+
+```bash
+# Start localtunnel
+lt --port 3000 --subdomain myapp
+# Your URL: https://myapp.loca.lt
+```
+
+```yaml
+services:
+  web:
+    project: ./web
+    language: typescript
+    ports: ["3000"]
+    local:
+      customUrl: https://myapp.loca.lt
+```
+
+#### 5. Multiple Services with Different Patterns
+
+Mix and match URL configurations based on each service's needs:
+
+```yaml
+services:
+  # Frontend: ngrok locally, CDN on Azure
+  web:
+    project: ./web
+    language: typescript
+    ports: ["3000"]
+    local:
+      customUrl: https://web.ngrok-free.app
+    azure:
+      customUrl: https://cdn.myapp.example.com
+  
+  # API: ngrok locally, auto-detected custom domain on Azure
+  api:
+    project: ./api
+    language: python
+    ports: ["5000"]
+    local:
+      customUrl: https://api.ngrok-free.app
+    # azure.customUrl omitted - uses custom domain from App Service
+  
+  # Background worker: no external access needed
+  worker:
+    project: ./worker
+    language: python
+    # No custom URLs - internal service only
+```
+
+### Custom Domain Auto-Detection
+
+For Azure deployments, `azd app` automatically detects custom domains configured on your resources:
+
+**Supported Resource Types:**
+- **Azure App Service**: Queries `properties.customDomains` via Azure SDK
+- **Azure Container Apps**: Queries `properties.configuration.ingress.customDomains`
+
+**Detection Behavior:**
+- Runs during `azd app run` startup
+- Cached for the session duration
+- If multiple custom domains exist, uses the first HTTPS-enabled domain
+- Falls back to system URL if detection fails or no custom domain is configured
+
+**Troubleshooting:**
+- Detection failures are logged as warnings (non-blocking)
+- Ensure Azure credentials are configured: `azd auth login`
+- Check resource permissions for reading configuration
+- Network timeouts use cached values when available
+
+### Dashboard and Console Display
+
+**Dashboard UI:**
+- Service cards display the effective URL (using precedence chain)
+- Detail panel shows all available URLs with clear labels:
+  - "System URL" - Always shown
+  - "Custom Domain" - Shown when detected from Azure
+  - "Custom URL (Override)" - Shown when configured in `azure.yaml`
+- "Open" button navigates to the effective URL
+- Visual indicators (icons/badges) show when using non-system URLs
+
+**Console Output Example:**
+
+```
+Service: web
+  System URL:        http://localhost:3000
+  Custom URL:        https://web.ngrok-free.app
+  
+  → Opening:         https://web.ngrok-free.app
+
+Service: api (Azure)
+  System URL:        https://api-abc123.azurewebsites.net
+  Custom Domain:     https://api.myapp.example.com
+  Custom URL:        https://cdn-api.example.com
+  
+  → Opening:         https://cdn-api.example.com
+```
+
+### CORS Configuration
+
+When using custom URLs, you must configure CORS (Cross-Origin Resource Sharing) to allow requests from these origins.
+
+**Manual CORS Setup:**
+Add all custom URLs to your service's CORS allowed origins. See [CORS with Custom URLs Guide](../guides/cors-with-alternate-urls.md) for language-specific examples (Node.js, Python, .NET).
+
+**Automated CORS (Go Services):**
+For Go-based services, use the built-in CORS helper:
+
+```go
+import "github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+
+// Get service info
+services, _ := serviceinfo.GetServiceInfo(projectDir)
+
+// Get CORS origins for a service
+for _, svc := range services {
+    if svc.Name == "api" {
+        origins := serviceinfo.CORSOrigins(svc)
+        // ["http://localhost:3000", "https://web.ngrok-free.app", ...]
+    }
+}
+
+// Or get all origins from all services
+allOrigins := serviceinfo.AllCORSOrigins(services)
+```
+
+The helper automatically includes:
+- System URLs (localhost, Azure-generated URLs)
+- Custom URLs from `local.customUrl` and `azure.customUrl`
+- Auto-detected custom domains from Azure resources
+- Only valid origins (protocol + host, not full path)
+
+### Breaking Change: Field Names
+
+**IMPORTANT:** This is a breaking change with no backward compatibility.
+
+**Old field names (NO LONGER VALID):**
+
+```yaml
+# ❌ REMOVED - These field names are rejected
+services:
+  api:
+    local:
+      url: https://local.ngrok-free.app    # WRONG - use customUrl
+    azure:
+      url: https://azure.myapp.example.com  # WRONG - use customUrl
+```
+
+**New required field names:**
+
+```yaml
+# ✅ CORRECT - Use these field names
+services:
+  api:
+    local:
+      customUrl: https://local.ngrok-free.app
+    azure:
+      customUrl: https://azure.myapp.example.com
+```
+
+**Key principle:**
+- Fields named `url` (without "custom") = system-generated only, NEVER in azure.yaml
+- Fields named `customUrl` or `customDomain` = user-configured in azure.yaml
+
+**Why this change?**
+The old naming (`local.url` and `azure.url`) caused confusion between system-generated and user-provided fields.
+
+**Migration required:**
+Replace `local.url` → `local.customUrl` and `azure.url` → `azure.customUrl` in your azure.yaml.
+Keep `azure.customDomain` unchanged (it was always "custom").
+
+**See:** [Complete Migration Guide](../../../docs/guides/MIGRATION-SERVICE-URL-BREAKING-CHANGE.md)
+
+**Legacy flat `url` field:**
+The legacy flat `url` field has been completely removed. Use nested `local.customUrl` and `azure.customUrl` instead.
+
+### Validation and Error Handling
+
+- Custom URLs must be valid HTTP/HTTPS URLs
+- Malformed URLs cause configuration parsing to fail with clear error messages
+- Custom domain detection failures log warnings but don't block `azd app run`
+- Unreachable custom URLs don't break the dashboard (UI handles gracefully)
+- URL validation is syntactic only - reachability is not checked
+
+### Best Practices
+
+1. **Use correct field names**: Use `customUrl` for user-provided URLs (not `url`)
+2. **Remember**: `url` fields (without "custom") are system-generated only and never appear in azure.yaml
+3. **Context separation**: Local and Azure URLs should be configured separately
+4. **CORS configuration**: Always update CORS settings when adding custom URLs
+5. **HTTPS in production**: Custom URLs for Azure should use HTTPS
+5. **Documentation**: Document tunnel URLs in your project README for team members
+6. **Temporary tunnels**: Update `local.url` when ngrok/localtunnel URLs change
+7. **Custom domain priority**: If Azure custom domain is sufficient, omit `azure.url`
+
+### See Also
+
+- [CORS with Custom URLs Guide](../guides/cors-with-alternate-urls.md) - Configure CORS for custom URLs
+- [Service Configuration Examples](#complete-example) - Full `azure.yaml` examples
+- [Dashboard Features](../features/dashboard.md) - Dashboard URL display behavior
 
 
 ## DockerConfig Object

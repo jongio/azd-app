@@ -2,6 +2,7 @@
 package service
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -73,6 +74,17 @@ type DashboardConfig struct {
 	Browser string `yaml:"browser,omitempty"` // Browser target: default, system, none
 }
 
+// LocalConfig represents local development configuration for a service.
+type LocalConfig struct {
+	CustomURL string `yaml:"customUrl,omitempty"` // Custom URL for local development (e.g., ngrok tunnel)
+}
+
+// AzureConfig represents Azure deployment configuration for a service.
+type AzureConfig struct {
+	CustomURL    string `yaml:"customUrl,omitempty"`    // Custom URL override for Azure (e.g., CDN, reverse proxy)
+	CustomDomain string `yaml:"customDomain,omitempty"` // Custom domain (user-provided OR auto-detected)
+}
+
 // Service represents a service definition in azure.yaml.
 type Service struct {
 	Host               string             `yaml:"host"`
@@ -90,7 +102,8 @@ type Service struct {
 	HealthcheckEnabled *bool              `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
 	Type               string             `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
 	Mode               string             `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
-	URL                string             `yaml:"url,omitempty"`         // Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain)
+	Local              *LocalConfig       `yaml:"local,omitempty"`       // Local development configuration
+	Azure              *AzureConfig       `yaml:"azure,omitempty"`       // Azure deployment configuration
 }
 
 // serviceRaw is used to handle both boolean and object healthcheck values.
@@ -110,7 +123,9 @@ type serviceRaw struct {
 	Healthcheck any                `yaml:"healthcheck,omitempty"`
 	Type        string             `yaml:"type,omitempty"`
 	Mode        string             `yaml:"mode,omitempty"`
-	URL         string             `yaml:"url,omitempty"`
+	URL         string             `yaml:"url,omitempty"` // Legacy field - detect to show error message
+	Local       *LocalConfig       `yaml:"local,omitempty"`
+	Azure       *AzureConfig       `yaml:"azure,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
@@ -118,6 +133,11 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var raw serviceRaw
 	if err := unmarshal(&raw); err != nil {
 		return err
+	}
+
+	// Detect legacy 'url' field and return clear error message
+	if raw.URL != "" {
+		return fmt.Errorf("legacy 'url' field is no longer supported. Please use 'local.customUrl' for local development URLs or 'azure.customUrl' for Azure deployment URLs. See migration guide for details")
 	}
 
 	// Copy all fields from the raw struct
@@ -134,7 +154,8 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.Logs = raw.Logs
 	s.Type = raw.Type
 	s.Mode = raw.Mode
-	s.URL = raw.URL
+	s.Local = raw.Local
+	s.Azure = raw.Azure
 
 	// Handle healthcheck field
 	switch v := raw.Healthcheck.(type) {

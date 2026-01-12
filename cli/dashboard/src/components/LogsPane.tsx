@@ -124,9 +124,18 @@ export function LogsPane({
   const [configPanelOpen, setConfigPanelOpen] = useState(false)
   const { config: codespaceConfig } = useCodespaceEnv()
   const effectiveLocalUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
+  
+  // Precedence chains per spec:
+  // Local: customUrl > url
+  // Azure: customDomain > customUrl > url
+  const localCustomUrl = service?.local?.customUrl || undefined
   const azureUrl = service?.azure?.url
-  // Prefer custom URL (azure.url) over local URL when available, regardless of log mode
-  const effectiveUrl = azureUrl || effectiveLocalUrl
+  const azureCustomUrl = service?.azure?.customUrl || undefined
+  const azureCustomDomain = service?.azure?.customDomain || undefined
+  
+  const effectiveLocalWithCustom = localCustomUrl || effectiveLocalUrl || undefined
+  const effectiveAzureUrl = azureCustomDomain || azureCustomUrl || azureUrl
+  const effectiveUrl = effectiveAzureUrl || effectiveLocalWithCustom
   
   const isPausedRef = useRef(isPaused)
   const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
@@ -318,12 +327,16 @@ export function LogsPane({
         healthIcon={healthIcon}
         healthCheckResult={healthCheckResult}
         service={service}
-        effectiveUrl={effectiveUrl ?? undefined}
+        effectiveUrl={effectiveUrl}
         logMode={logMode}
-        azureUrl={azureUrl}
         onShowDetails={onShowDetails}
         handleCopyPane={handleCopyPane}
         onOpenConfigPanel={handleOpenConfigPanel}
+        urlType={
+          (azureCustomUrl || localCustomUrl) ? 'custom-url'
+          : azureCustomDomain ? 'custom-domain'
+          : 'system'
+        }
       />
 
       <LogsPaneModeBar

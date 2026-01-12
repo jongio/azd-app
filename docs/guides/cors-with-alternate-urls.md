@@ -2,16 +2,19 @@
 
 ## Overview
 
-When you configure a `url` for a service in `azure.yaml`, you may need to add that URL's origin to your service's CORS (Cross-Origin Resource Sharing) configuration. This allows your frontend application to make API requests through the custom URL.
+When you configure custom URLs for a service using `local.url` or `azure.url` in `azure.yaml`, you may need to add these URL origins to your service's CORS (Cross-Origin Resource Sharing) configuration. This allows your frontend application to make API requests through the custom URLs.
+
+> 💡 **New to URL configuration?** See [Service URL Configuration](../cli/docs/schema/azure.yaml.md#service-url-configuration) for complete documentation on configuring custom URLs.
 
 ## What is a Custom URL?
 
-A custom URL (`url`) allows you to access a service through a different endpoint than its default local development URL. Common use cases include:
+A custom URL allows you to access a service through a different endpoint than its default system-generated URL. Common use cases include:
 
 - **Reverse proxies** (nginx, Caddy)
 - **Tunneling services** (ngrok, Cloudflare Tunnel, localtunnel)
-- **Custom domains** (local DNS configuration)
+- **Custom domains** (local DNS configuration or Azure custom domains)
 - **Load balancers**
+- **CDN endpoints** (Azure Front Door, Cloudflare)
 
 ## Configuration Example
 
@@ -21,13 +24,21 @@ services:
   api:
     project: ./src/api
     language: node
-    url: https://myapp.example.com  # Alternate access point
+    ports: ["3000"]
+    local:
+      url: https://api.ngrok-free.app  # ngrok tunnel for local development
+    azure:
+      url: https://cdn-api.myapp.example.com  # CDN override on Azure
   
   web:
     project: ./src/web
     language: typescript
-    url: https://web.myapp.example.com
+    ports: ["5173"]
+    local:
+      url: https://web.ngrok-free.app
 ```
+
+> 📖 **Learn more:** See [Service URL Configuration](../cli/docs/schema/azure.yaml.md#service-url-configuration) for detailed examples including custom domain auto-detection.
 
 ## CORS Configuration by Language
 
@@ -176,7 +187,7 @@ app.MapGet("/api/data", () => new { message = "Hello from API" });
 app.Run();
 ```
 
-## Loading url from Configuration
+## Loading URLs from Configuration
 
 Instead of hardcoding custom URLs, load them from your `azure.yaml` configuration:
 
@@ -209,16 +220,29 @@ function getAllowedOrigins(serviceName) {
   if (config?.services) {
     // Add custom URLs from all services that might call this API
     Object.values(config.services).forEach(svc => {
-      if (svc.url) {
-        // Extract origin (protocol + host) from url
+      // Add local.url if configured
+      if (svc.local?.url) {
         try {
-          const url = new URL(svc.url);
+          const url = new URL(svc.local.url);
           const origin = `${url.protocol}//${url.host}`;
           if (!origins.includes(origin)) {
             origins.push(origin);
           }
         } catch (e) {
-          console.warn('Invalid url:', svc.url);
+          console.warn('Invalid local.url:', svc.local.url);
+        }
+      }
+      
+      // Add azure.url if configured
+      if (svc.azure?.url) {
+        try {
+          const url = new URL(svc.azure.url);
+          const origin = `${url.protocol}//${url.host}`;
+          if (!origins.includes(origin)) {
+            origins.push(origin);
+          }
+        } catch (e) {
+          console.warn('Invalid azure.url:', svc.azure.url);
         }
       }
     });
@@ -325,26 +349,19 @@ fetch('http://localhost:3000/api/data', {
 - **Solution:** Specify explicit origins instead of `'*'`
 
 **Error:** `CORS policy: Request header field X is not allowed`
-- **Solution:** Add header to `allow_headers` / `allowedHeaders`
-
-## Examples
-
-### Full Stack Application
-
-```yaml
-# azure.yaml
-services:
-  frontend:
-    project: ./web
-    language: typescript
-    ports: ["5173"]
-    url: https://app.example.com
+- **local:
+      url: https://web.ngrok-free.app
+    azure:
+      url: https://app.example.com
   
   api:
     project: ./api
     language: node
     ports: ["3000"]
-    url: https://api.example.com
+    local:
+      url: https://api.ngrok-free.app
+    azure:
+      url: https://api.example.com
 ```
 
 API CORS configuration:
@@ -354,8 +371,9 @@ const express = require('express');
 const cors = require('cors');
 
 const allowedOrigins = [
-  'http://localhost:5173',      // Local frontend
-  'https://app.example.com'     // Frontend custom URL
+  'http://localhost:5173',           // Local frontend
+  'https://web.ngrok-free.app',      // Frontend ngrok tunnel
+  'https://app.example.com'          // Frontend custom domain on Azure
 ];
 
 app.use(cors({ origin: allowedOrigins }));
@@ -368,7 +386,7 @@ When using ngrok for testing:
 ```bash
 # Start ngrok tunnel
 ngrok http 3000
-# Forwarding: https://abc123.ngrok.io -> http://localhost:3000
+# Forwarding: https://abc123.ngrok-free.app -> http://localhost:3000
 ```
 
 Update `azure.yaml`:
@@ -376,7 +394,23 @@ Update `azure.yaml`:
 services:
   api:
     project: ./api
-    url: https://abc123.ngrok.io
+    language: node
+    ports: ["3000"]
+    local:
+      url: https://abc123.ngrok-free.app
+```
+
+Add to CORS:
+```javascript
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://abc123.ngrok-free.app
+```yaml
+services:
+  api:
+    project: ./api
+    local:
+      url: https://abc123.ngrok.io
 ```
 
 Add to CORS:
@@ -387,8 +421,63 @@ const allowedOrigins = [
 ];
 ```
 
+## Automated CORS Configuration
+
+### Using CORS Helper Utility (Go-based services)
+
+For Go-based backend services, `azd app` provides a built-in CORS helper utility that automatically extracts all origins from service configuration.
+
+**Usage:**
+
+```go
+import (
+    "github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+)
+
+// Get service info
+services, err := serviceinfo.GetServiceInfo(projectDir)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Option 1: Get CORS origins for a specific service
+for _, svc := range services {
+    if svc.Name == "api" {
+        origins := serviceinfo.CORSOrigins(svc)
+        // origins = ["http://localhost:3000", "https://myapp.example.com", ...]
+    }
+}
+
+// Option 2: Get all CORS origins from all services
+allOrigins := serviceinfo.AllCORSOrigins(services)
+// Useful for backend services that need to accept requests from all frontends
+```
+
+**Environment Variable Injection:**
+
+The helper also provides an environment variable formatter for easy Docker integration:
+
+```go
+corsEnv := serviceinfo.CORSOriginsEnvVar(svc)
+// corsEnv = "http://localhost:3000,https://myapp.example.com,https://api.example.com"
+
+// Can be injected as ALLOWED_ORIGINS env var to your service container
+```
+
+> 📖 **Learn more:** See [Service URL Configuration](../cli/docs/schema/azure.yaml.md#service-url-configuration) for details on URL precedence and custom domain auto-detection.
+
+## See Also
+
+- [Service URL Configuration](../cli/docs/schema/azure.yaml.md#service-url-configuration) - Complete URL configuration documentation
+- [Azure.yaml Reference](../cli/docs/schema/azure.yaml.md) - Full configuration reference
+- ✅ Automatically deduplicates origins
+- ✅ Extracts only origin (protocol + host), not full path
+- ✅ Skips invalid URLs gracefully
+- ✅ Returns sorted list for consistent output
+
 ## See Also
 
 - [azure.yaml Reference](../reference/azure-yaml.md) - Configuration options
 - [Service Configuration](../guides/service-configuration.md) - Service setup
 - [MDN: CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) - CORS specification
+

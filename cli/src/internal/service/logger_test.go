@@ -257,15 +257,19 @@ func TestServiceLogger_LogStartup(t *testing.T) {
 func TestServiceLogger_LogSummary(t *testing.T) {
 	logger := NewServiceLogger(false)
 
-	urls := map[string]string{
-		"web": "http://localhost:3000",
-		"api": "http://localhost:8080",
+	serviceURLs := map[string]URLInfo{
+		"web": {
+			SystemURL:   "http://localhost:3000",
+			Environment: "local",
+		},
+		"api": {
+			SystemURL:   "http://localhost:8080",
+			Environment: "local",
+		},
 	}
 
-	customURLs := make(map[string]string) // No custom URLs
-
 	output := captureStdout(func() {
-		logger.LogSummary(urls, customURLs)
+		logger.LogSummary(serviceURLs)
 	})
 
 	if !strings.Contains(output, "web") {
@@ -294,7 +298,7 @@ func TestServiceLogger_LogSummary_EmptyURLs(t *testing.T) {
 	logger := NewServiceLogger(false)
 
 	output := captureStdout(func() {
-		logger.LogSummary(map[string]string{}, map[string]string{})
+		logger.LogSummary(map[string]URLInfo{})
 	})
 
 	// Empty URLs should produce no output (not even a newline for the summary itself)
@@ -307,33 +311,116 @@ func TestServiceLogger_LogSummary_EmptyURLs(t *testing.T) {
 func TestServiceLogger_LogSummary_WithCustomURLs(t *testing.T) {
 	logger := NewServiceLogger(false)
 
-	urls := map[string]string{
-		"web": "http://localhost:3000",
-		"api": "http://localhost:8080",
-	}
-
-	customURLs := map[string]string{
-		"web": "https://myapp.example.com",
-		// api has no custom URL
+	customURL := "https://myapp.example.com"
+	serviceURLs := map[string]URLInfo{
+		"web": {
+			SystemURL:   "http://localhost:3000",
+			CustomURL:   &customURL,
+			Environment: "local",
+		},
+		"api": {
+			SystemURL:   "http://localhost:8080",
+			Environment: "local",
+		},
 	}
 
 	output := captureStdout(func() {
-		logger.LogSummary(urls, customURLs)
+		logger.LogSummary(serviceURLs)
 	})
 
-	// Should use custom URL for web
+	// Should use custom URL for web (effective URL)
 	if !strings.Contains(output, "https://myapp.example.com") {
 		t.Error("LogSummary should display custom URL for web service")
 	}
 
-	// Should NOT show localhost URL for web (replaced by custom)
-	if strings.Contains(output, "http://localhost:3000") {
-		t.Error("LogSummary should not show localhost URL when custom URL is configured")
+	// Should show localhost URL in details for web (system URL)
+	if !strings.Contains(output, "http://localhost:3000") {
+		t.Error("LogSummary should show system URL in details for web service")
 	}
 
-	// Should show localhost URL for api (no custom URL)
+	// Should show localhost URL for api (only URL)
 	if !strings.Contains(output, "http://localhost:8080") {
 		t.Error("LogSummary should display localhost URL for api service")
+	}
+
+	// Should show arrow for web (multiple URLs)
+	if !strings.Contains(output, "→") {
+		t.Error("LogSummary should show arrow for service with multiple URLs")
+	}
+
+	// Should show "Custom URL:" label
+	if !strings.Contains(output, "Custom URL:") {
+		t.Error("LogSummary should show 'Custom URL:' label")
+	}
+}
+
+func TestServiceLogger_LogSummary_WithCustomDomain(t *testing.T) {
+	logger := NewServiceLogger(false)
+
+	customDomain := "https://api.myapp.example.com"
+	serviceURLs := map[string]URLInfo{
+		"api": {
+			SystemURL:    "https://api-abc123.azurewebsites.net",
+			CustomDomain: &customDomain,
+			Environment:  "azure",
+		},
+	}
+
+	output := captureStdout(func() {
+		logger.LogSummary(serviceURLs)
+	})
+
+	// Should use custom domain as effective URL
+	if !strings.Contains(output, "https://api.myapp.example.com") {
+		t.Error("LogSummary should display custom domain as effective URL")
+	}
+
+	// Should show Azure system URL in details
+	if !strings.Contains(output, "https://api-abc123.azurewebsites.net") {
+		t.Error("LogSummary should show Azure system URL in details")
+	}
+
+	// Should show "Custom Domain:" label
+	if !strings.Contains(output, "Custom Domain:") {
+		t.Error("LogSummary should show 'Custom Domain:' label")
+	}
+
+	// Should show "Azure URL:" label
+	if !strings.Contains(output, "Azure URL:") {
+		t.Error("LogSummary should show 'Azure URL:' label for Azure services")
+	}
+}
+
+func TestServiceLogger_LogSummary_PrecedenceChain(t *testing.T) {
+	logger := NewServiceLogger(false)
+
+	customDomain := "https://api.myapp.example.com"
+	customURL := "https://api-override.example.com"
+	serviceURLs := map[string]URLInfo{
+		"api": {
+			SystemURL:    "https://api-abc123.azurewebsites.net",
+			CustomDomain: &customDomain,
+			CustomURL:    &customURL,
+			Environment:  "azure",
+		},
+	}
+
+	output := captureStdout(func() {
+		logger.LogSummary(serviceURLs)
+	})
+
+	// CustomDomain should be effective URL (highest priority: customDomain > customUrl > url)
+	// All three URLs should be present in details
+	// CustomDomain should be effective URL (highest priority: customDomain > customUrl > url)
+	// All three URLs should be present in details
+	if !strings.Contains(output, "https://api-abc123.azurewebsites.net") {
+		t.Error("LogSummary should show Azure system URL")
+	}
+	if !strings.Contains(output, "https://api.myapp.example.com") {
+		t.Error("LogSummary should show custom domain (effective URL)")
+	}
+	if !strings.Contains(output, "https://api-override.example.com") {
+		t.Error("LogSummary should show custom URL in details")
 	}
 }
 

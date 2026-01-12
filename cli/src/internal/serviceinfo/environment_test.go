@@ -2,6 +2,7 @@ package serviceinfo
 
 import (
 	"os"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -252,7 +253,260 @@ func TestExtractAzureServiceInfo_EnvironmentPatterns(t *testing.T) {
 			},
 			wantInfo: map[string]AzureServiceInfo{},
 		},
-	}
+		{
+			name: "invalid URLs rejected - protocol injection",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "javascript:alert(1)",
+				"WEB_URL":         "file:///etc/passwd",
+				"DB_URL":          "data:text/html,<script>alert(1)</script>",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - wrong protocols",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "ftp://example.com",
+				"WEB_URL":         "ssh://example.com",
+				"DB_URL":          "telnet://example.com",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - malformed URLs",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "http://",
+				"WEB_URL":         "https://",
+				"DB_URL":          "://no-scheme",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - missing scheme",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "example.com",
+				"WEB_URL":         "www.example.com",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "valid URLs accepted",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "https://api.example.com",
+				"WEB_URL":         "http://localhost:8080",
+			},
+			wantInfo: map[string]AzureServiceInfo{
+				"api": {
+					URL: "https://api.example.com",
+				},
+				"web": {
+					URL: "http://localhost:8080",
+				},
+			},
+		},
+		{
+			name: "invalid URLs rejected - excessively long URL (>2048 characters)",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "https://example.com/" + strings.Repeat("a", 2050),
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - whitespace-only URL",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "   ",
+				"WEB_URL":         "\t\t",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - empty string",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - vbscript protocol injection",
+			envVars: map[string]string{
+				"SERVICE_API_URL": "vbscript:msgbox(1)",
+				"WEB_URL":         "vbscript:Execute(\"malicious\")",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "mixed valid/invalid URLs - only valid URLs accepted",
+			envVars: map[string]string{
+				"SERVICE_API_URL":  "https://api.example.com",           // Valid
+				"SERVICE_WEB_URL":  "javascript:alert(1)",                // Invalid - protocol injection
+				"SERVICE_DB_URL":   "http://example.com",                 // Valid
+				"SERVICE_AUTH_URL": "ftp://auth.example.com",             // Invalid - wrong protocol
+				"SERVICE_LOG_URL":  "https://log.example.com",            // Valid
+				"CACHE_URL":        "file:///etc/passwd",                 // Invalid - protocol injection
+			},
+			wantInfo: map[string]AzureServiceInfo{
+				"api": {
+					URL: "https://api.example.com",
+				},
+				"db": {
+					URL: "http://example.com",
+				},
+				"log": {
+					URL: "https://log.example.com",
+				},
+			},
+		},
+		{
+			name: "invalid URLs rejected - all protocol injection variants",
+			envVars: map[string]string{
+				"SERVICE_API_URL":   "javascript:alert(1)",
+				"SERVICE_WEB_URL":   "file:///etc/passwd",
+				"SERVICE_DB_URL":    "data:text/html,<script>alert(1)</script>",
+				"SERVICE_AUTH_URL":  "vbscript:msgbox(1)",
+				"SERVICE_CACHE_URL": "about:blank",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+		{
+			name: "invalid URLs rejected - whitespace variations",
+			envVars: map[string]string{
+				"SERVICE_API_URL": " ",
+				"WEB_URL":         "  \n  ",
+				"DB_URL":          "\t",
+			},
+			wantInfo: map[string]AzureServiceInfo{},
+		},
+	{
+		name: "custom domain - valid HTTPS",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "https://api.custom.example.com",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "https://web.custom.example.com",
+		},
+		wantInfo: map[string]AzureServiceInfo{
+			"api": {
+				CustomDomain: stringPtr("https://api.custom.example.com"),
+			},
+			"web": {
+				CustomDomain: stringPtr("https://web.custom.example.com"),
+			},
+		},
+	},
+	{
+		name: "custom domain - valid HTTP localhost",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "http://localhost:3000",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "http://127.0.0.1:8080",
+		},
+		wantInfo: map[string]AzureServiceInfo{
+			"api": {
+				CustomDomain: stringPtr("http://localhost:3000"),
+			},
+			"web": {
+				CustomDomain: stringPtr("http://127.0.0.1:8080"),
+			},
+		},
+	},
+	{
+		name: "custom domain - rejected HTTP non-localhost",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "http://custom.example.com",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "http://web.example.com",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected invalid protocols",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "ftp://custom.example.com",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "ssh://web.example.com",
+			"SERVICE_DB_CUSTOM_DOMAIN":  "telnet://db.example.com",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected protocol injection",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "javascript:alert(1)",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "file:///etc/passwd",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected malformed URLs",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "http://",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "https://",
+			"SERVICE_DB_CUSTOM_DOMAIN":  "not-a-url",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected excessively long URL",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "https://example.com/" + strings.Repeat("x", 2050),
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected whitespace-only URL",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "   ",
+			"SERVICE_WEB_CUSTOM_DOMAIN": "\t\n",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected empty string",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - rejected vbscript protocol",
+		envVars: map[string]string{
+			"SERVICE_API_CUSTOM_DOMAIN": "vbscript:msgbox(1)",
+		},
+		wantInfo: map[string]AzureServiceInfo{},
+	},
+	{
+		name: "custom domain - mixed valid/invalid with regular URLs",
+		envVars: map[string]string{
+			"SERVICE_API_URL":           "https://api.azure.com",           // Valid URL
+			"SERVICE_API_CUSTOM_DOMAIN": "https://api.custom.com",          // Valid custom domain
+			"SERVICE_WEB_URL":           "https://web.azure.com",           // Valid URL
+			"SERVICE_WEB_CUSTOM_DOMAIN": "javascript:alert(1)",             // Invalid custom domain
+			"SERVICE_DB_URL":            "ftp://db.example.com",            // Invalid URL (ftp not allowed)
+			"SERVICE_DB_CUSTOM_DOMAIN":  "https://db.custom.com",           // Valid custom domain (extracted independently)
+		},
+		wantInfo: map[string]AzureServiceInfo{
+			"api": {
+				URL:          "https://api.azure.com",
+				CustomDomain: stringPtr("https://api.custom.com"),
+			},
+			"web": {
+				URL: "https://web.azure.com",
+				// CustomDomain not set because invalid
+			},
+			"db": {
+				// URL not set because invalid (ftp)
+				CustomDomain: stringPtr("https://db.custom.com"),
+			},
+		},
+	},
+	{
+		name: "image name and custom domain combined",
+		envVars: map[string]string{
+			"SERVICE_API_IMAGE_NAME":    "myregistry.azurecr.io/api:latest",
+			"SERVICE_API_CUSTOM_DOMAIN": "https://api.custom.example.com",
+		},
+		wantInfo: map[string]AzureServiceInfo{
+			"api": {
+				ImageName:    "myregistry.azurecr.io/api:latest",
+				CustomDomain: stringPtr("https://api.custom.example.com"),
+			},
+		},
+	},
+}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -274,6 +528,17 @@ func TestExtractAzureServiceInfo_EnvironmentPatterns(t *testing.T) {
 				}
 				if actualInfo.ImageName != expectedInfo.ImageName {
 					t.Errorf("service %q: ImageName = %q, want %q", serviceName, actualInfo.ImageName, expectedInfo.ImageName)
+				}
+				
+				// Check CustomDomain - handle nil comparisons
+				if (actualInfo.CustomDomain == nil) != (expectedInfo.CustomDomain == nil) {
+					t.Errorf("service %q: CustomDomain nil mismatch - actual: %v, expected: %v", 
+						serviceName, actualInfo.CustomDomain, expectedInfo.CustomDomain)
+				} else if actualInfo.CustomDomain != nil && expectedInfo.CustomDomain != nil {
+					if *actualInfo.CustomDomain != *expectedInfo.CustomDomain {
+						t.Errorf("service %q: CustomDomain = %q, want %q", 
+							serviceName, *actualInfo.CustomDomain, *expectedInfo.CustomDomain)
+					}
 				}
 			}
 
