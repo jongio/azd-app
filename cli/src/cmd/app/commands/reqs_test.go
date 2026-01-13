@@ -739,7 +739,7 @@ func TestGetInstallUrl(t *testing.T) {
 			prereq: Prerequisite{
 				Name:       "mytool",
 				MinVersion: "1.0.0",
-				InstallUrl: "https://example.com/mytool/install",
+				InstallURL: "https://example.com/mytool/install",
 			},
 			expected: "https://example.com/mytool/install",
 		},
@@ -748,7 +748,7 @@ func TestGetInstallUrl(t *testing.T) {
 			prereq: Prerequisite{
 				Name:       "node",
 				MinVersion: "18.0.0",
-				InstallUrl: "https://custom.example.com/node",
+				InstallURL: "https://custom.example.com/node",
 			},
 			expected: "https://custom.example.com/node",
 		},

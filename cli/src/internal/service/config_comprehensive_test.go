@@ -281,17 +281,17 @@ services:
 				if len(az.Services) != 3 {
 					t.Fatalf("Expected 3 services, got %d", len(az.Services))
 				}
-				
+
 				web := az.Services["web"]
 				if web.Local == nil || web.Local.CustomURL != "https://local-web.example.com" {
 					t.Errorf("web Local.CustomURL mismatch")
 				}
-				
+
 				api := az.Services["api"]
 				if api.Azure == nil || api.Azure.CustomURL != "https://api.example.com" {
 					t.Errorf("api Azure.CustomURL mismatch")
 				}
-				
+
 				admin := az.Services["admin"]
 				if admin.URL != "https://admin.example.com" {
 					t.Errorf("admin URL mismatch")
@@ -353,7 +353,7 @@ func TestSecurityValidationCoverage(t *testing.T) {
 				},
 			}
 			err := service.ValidateServiceConfig("test", svc)
-			
+
 			if tc.expectError && err == nil {
 				t.Errorf("%s: expected error but got nil", tc.reason)
 			} else if !tc.expectError && err != nil {

@@ -244,13 +244,13 @@ func ValidateRuntime(runtime *ServiceRuntime) error {
 func validateCommandSafety(cmd string) error {
 	// Disallow shell metacharacters that could enable command injection
 	dangerous := []string{";", "&", "|", ">", "<", "`", "$", "\n", "\r"}
-	
+
 	for _, char := range dangerous {
 		if strings.Contains(cmd, char) {
 			return fmt.Errorf("command contains potentially dangerous character: %s", char)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -259,13 +259,13 @@ func validateArgumentSafety(arg string) error {
 	// Arguments can contain more characters than commands (like =, --)
 	// but we still want to prevent obvious injection attempts
 	dangerous := []string{";", "&", "|", "`", "\n", "\r"}
-	
+
 	for _, char := range dangerous {
 		if strings.Contains(arg, char) {
 			return fmt.Errorf("argument contains potentially dangerous character: %s", char)
 		}
 	}
-	
+
 	return nil
 }
 

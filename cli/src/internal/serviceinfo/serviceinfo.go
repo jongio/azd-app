@@ -79,10 +79,10 @@ type ServiceInfo struct {
 
 // LocalServiceInfo contains local development information.
 type LocalServiceInfo struct {
-	Status      string     `json:"status"` // "running", "not-running", "unknown"
-	Health      string     `json:"health"` // "healthy", "unhealthy", "unknown"
-	URL         string     `json:"url,omitempty"`         // Auto-discovered local URL
-	CustomURL   string     `json:"customUrl,omitempty"`   // User-configured custom URL (e.g., ngrok)
+	Status      string     `json:"status"`              // "running", "not-running", "unknown"
+	Health      string     `json:"health"`              // "healthy", "unhealthy", "unknown"
+	URL         string     `json:"url,omitempty"`       // Auto-discovered local URL
+	CustomURL   string     `json:"customUrl,omitempty"` // User-configured custom URL (e.g., ngrok)
 	Port        int        `json:"port,omitempty"`
 	PID         int        `json:"pid,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`

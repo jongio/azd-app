@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useLogsStream } from './useLogsStream'
 import type { LogEntry } from '@/components/LogsPane'
@@ -72,6 +72,12 @@ describe('useLogsStream', () => {
     vi.restoreAllMocks()
     resetManagers()
   })
+
+  const flushTimersInAct = async () => {
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+  }
 
   const createParams = (overrides?: Partial<Parameters<typeof useLogsStream>[0]>) => ({
     serviceName: 'test-service',
@@ -160,7 +166,7 @@ describe('useLogsStream', () => {
       expect(onFetchSettled).not.toHaveBeenCalled()
       
       // Wait for fetch to complete
-      await vi.runAllTimersAsync()
+      await flushTimersInAct()
       
       // Should be called after first fetch (may be called multiple times due to retries/WebSocket reconnects)
       expect(onFetchSettled).toHaveBeenCalled()
@@ -175,7 +181,7 @@ describe('useLogsStream', () => {
       })
       
       // Wait for initial fetch
-      await vi.runAllTimersAsync()
+      await flushTimersInAct()
       expect(onFetchSettled).toHaveBeenCalled()
       
       const initialCallCount = onFetchSettled.mock.calls.length
@@ -191,7 +197,7 @@ describe('useLogsStream', () => {
       expect(onFetchSettled).toHaveBeenCalledTimes(initialCallCount)
       
       // Wait for new fetch to complete
-      await vi.runAllTimersAsync()
+      await flushTimersInAct()
       
       // Should be called at least once more after the new fetch completes
       expect(onFetchSettled.mock.calls.length).toBeGreaterThan(initialCallCount)

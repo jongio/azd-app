@@ -177,13 +177,13 @@ func TestAnalyticsConfig_EdgeCases(t *testing.T) {
 			PollingInterval: "2m30s",
 			DefaultTimespan: "1h30m",
 		}
-		
+
 		pollingInterval := config.GetPollingInterval()
 		expectedPolling := 2*time.Minute + 30*time.Second
 		if pollingInterval != expectedPolling {
 			t.Errorf("GetPollingInterval() = %v, want %v", pollingInterval, expectedPolling)
 		}
-		
+
 		timespan := config.GetDefaultTimespan()
 		expectedTimespan := 1*time.Hour + 30*time.Minute
 		if timespan != expectedTimespan {
@@ -198,7 +198,7 @@ func TestAnalyticsConfig_EdgeCases(t *testing.T) {
 			DefaultTimespan: "2h",
 			Realtime:        true,
 		}
-		
+
 		if config.GetPollingInterval() != 15*time.Second {
 			t.Error("Polling interval mismatch")
 		}

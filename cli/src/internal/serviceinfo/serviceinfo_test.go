@@ -405,7 +405,7 @@ func TestMergeServiceInfo_WithURL(t *testing.T) {
 	if webService.Azure.CustomURL != "https://myapp.example.com" {
 		t.Errorf("web Azure.CustomURL = %q, want %q", webService.Azure.CustomURL, "https://myapp.example.com")
 	}
-	
+
 	// Verify auto-discovered URL is preserved
 	if webService.Azure.URL != "https://web-abc123.azurewebsites.net" {
 		t.Errorf("web Azure.URL = %q, want %q", webService.Azure.URL, "https://web-abc123.azurewebsites.net")
@@ -431,7 +431,7 @@ func TestMergeServiceInfo_WithURL(t *testing.T) {
 	if apiService.Azure.CustomURL != "https://api.myapp.example.com" {
 		t.Errorf("api Azure.CustomURL = %q, want %q", apiService.Azure.CustomURL, "https://api.myapp.example.com")
 	}
-	
+
 	if apiService.Azure.URL != "https://api-abc123.azurewebsites.net" {
 		t.Errorf("api Azure.URL = %q, want %q", apiService.Azure.URL, "https://api-abc123.azurewebsites.net")
 	}

@@ -148,7 +148,7 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 			} else if svc.Local.Port > 0 {
 				cliout.Label("  Local URL", fmt.Sprintf("http://localhost:%d (not running)", svc.Local.Port))
 			}
-			
+
 			// Show custom local URL if configured
 			if svc.Local.CustomURL != "" {
 				cliout.Label("  Custom Local URL", svc.Local.CustomURL)
@@ -161,12 +161,12 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 			if svc.Azure.URL != "" {
 				cliout.Label("  Azure URL", svc.Azure.URL)
 			}
-			
+
 			// Show custom Azure URL if configured
 			if svc.Azure.CustomURL != "" {
 				cliout.Label("  Custom Azure URL", svc.Azure.CustomURL)
 			}
-			
+
 			// Show custom domain if configured
 			if svc.Azure.CustomDomain != "" {
 				label := "  Custom Domain"
@@ -175,7 +175,7 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 				}
 				cliout.Label(label, svc.Azure.CustomDomain)
 			}
-			
+
 			if svc.Azure.ImageName != "" {
 				cliout.Label("  Docker Image", svc.Azure.ImageName)
 			}

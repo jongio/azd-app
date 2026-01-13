@@ -349,9 +349,9 @@ func convertServiceInfoToSummaries(services []*serviceinfo.ServiceInfo) []servic
 }
 
 type customEndpointConfig struct {
-	localCustomURL        string
-	azureCustomURL        string
-	azureCustomDomain     string
+	localCustomURL          string
+	azureCustomURL          string
+	azureCustomDomain       string
 	azureCustomDomainSource string
 }
 

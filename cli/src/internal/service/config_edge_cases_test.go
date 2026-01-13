@@ -85,13 +85,13 @@ func TestURLPrecedence(t *testing.T) {
 				CustomDomain: "azure-domain.example.com",
 			},
 		}
-		
+
 		// Validate all URLs are valid
 		err := service.ValidateServiceConfig("test", svc)
 		if err != nil {
 			t.Errorf("Expected no error when all URLs valid, got %v", err)
 		}
-		
+
 		// Verify all fields retained their values
 		if svc.URL != "https://deprecated.example.com" {
 			t.Errorf("URL changed unexpectedly")
