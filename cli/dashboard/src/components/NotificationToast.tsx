@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { AlertCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTimeout } from '@/hooks/useTimeout'
 
 export interface NotificationToastProps {
   id: string
@@ -30,7 +31,8 @@ export function NotificationToast({
   const [isVisible, setIsVisible] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(100)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timerRef = useRef<number | null>(null)
+  const { clearAllTimeouts } = useTimeout()
   const startTimeRef = useRef<number | null>(null)
   const pausedTimeRef = useRef<number>(0)
   
@@ -70,7 +72,9 @@ export function NotificationToast({
 
   const handleDismiss = useCallback(() => {
     setIsVisible(false)
-    setTimeout(() => onDismiss(id), 300) // Match exit animation duration
+    // Use window.setTimeout so the hook-provided setTimeout isn't required
+    // as a dependency (prevents unnecessary lint warnings).
+    window.setTimeout(() => onDismiss(id), 300) // Match exit animation duration
   }, [id, onDismiss])
 
   // Auto-dismiss timer
@@ -82,9 +86,9 @@ export function NotificationToast({
     const remaining = timeout - elapsed
 
     if (remaining <= 0) {
-      // Use setTimeout to avoid synchronous setState in effect
-      const immediateTimer = setTimeout(() => handleDismiss(), 0)
-      return () => clearTimeout(immediateTimer)
+      // Use window.setTimeout to avoid listing the hook's setTimeout in deps
+      const immediateTimer = window.setTimeout(() => handleDismiss(), 0)
+      return () => window.clearTimeout(immediateTimer)
     }
 
     // Update progress bar
@@ -100,15 +104,25 @@ export function NotificationToast({
     }, 16) // ~60fps
 
     // Auto-dismiss timer
-    timerRef.current = setTimeout(() => {
+    timerRef.current = window.setTimeout(() => {
       handleDismiss()
     }, remaining)
 
     return () => {
-      clearTimeout(timerRef.current!)
+      window.clearTimeout(timerRef.current!)
       clearInterval(progressInterval)
     }
   }, [autoDismiss, isPaused, timeout, handleDismiss])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      clearAllTimeouts()
+    }
+  }, [clearAllTimeouts])
 
   const handleClick = () => {
     if (onClick) {

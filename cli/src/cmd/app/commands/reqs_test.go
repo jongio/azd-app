@@ -764,9 +764,9 @@ func TestGetInstallUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := checker.getInstallUrl(tt.prereq)
+			result := checker.getInstallURL(tt.prereq)
 			if result != tt.expected {
-				t.Errorf("getInstallUrl(%s) = %q, want %q", tt.prereq.Name, result, tt.expected)
+				t.Errorf("getInstallURL(%s) = %q, want %q", tt.prereq.Name, result, tt.expected)
 			}
 		})
 	}
@@ -779,7 +779,7 @@ func TestCheckPrerequisiteIncludesInstallUrl(t *testing.T) {
 	prereq := Prerequisite{
 		Name:       "nonexistent-tool-for-install-url-test",
 		MinVersion: "1.0.0",
-		InstallUrl: "https://example.com/install",
+		InstallURL: "https://example.com/install",
 	}
 
 	result := checker.Check(prereq)
@@ -788,8 +788,8 @@ func TestCheckPrerequisiteIncludesInstallUrl(t *testing.T) {
 		t.Skip("Tool unexpectedly exists, skipping test")
 	}
 
-	if result.InstallUrl != "https://example.com/install" {
-		t.Errorf("Result InstallUrl = %q, want %q", result.InstallUrl, "https://example.com/install")
+	if result.InstallURL != "https://example.com/install" {
+		t.Errorf("Result InstallURL = %q, want %q", result.InstallURL, "https://example.com/install")
 	}
 }
 

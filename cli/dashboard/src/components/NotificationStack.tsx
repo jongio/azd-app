@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NotificationToast } from './NotificationToast'
 import { cn } from '@/lib/utils'
+import { useTimeoutMap } from '@/hooks/useTimeout'
 
 export interface Notification {
   id: string
@@ -29,6 +30,7 @@ export function NotificationStack({
   className
 }: NotificationStackProps) {
   const [animatingOut, setAnimatingOut] = useState<Set<string>>(new Set())
+  const { set: setDismissTimeout, clear: clearDismissTimeout } = useTimeoutMap()
 
   // Filter out dismissed and animating notifications
   const activeNotifications = notifications.filter(
@@ -41,7 +43,8 @@ export function NotificationStack({
 
   const handleDismiss = (id: string) => {
     setAnimatingOut(prev => new Set([...prev, id]))
-    setTimeout(() => {
+    clearDismissTimeout(id)
+    setDismissTimeout(id, () => {
       onDismiss(id)
       setAnimatingOut(prev => {
         const next = new Set(prev)

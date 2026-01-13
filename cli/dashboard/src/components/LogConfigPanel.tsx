@@ -7,6 +7,7 @@ import { X, Settings2, Loader2, AlertCircle, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useAvailableTables, useLogConfig } from '@/hooks/useLogConfig'
+import { useTimeout } from '@/hooks/useTimeout'
 import { TableSelector } from './TableSelector'
 
 // =============================================================================
@@ -70,6 +71,7 @@ export function LogConfigPanel({
   // Local state
   const [selectedTables, setSelectedTables] = React.useState<string[]>([])
   const [saveSuccess, setSaveSuccess] = React.useState(false)
+  const { setTimeout } = useTimeout()
 
   // Close on Escape
   useEscapeKey(onClose, isOpen)

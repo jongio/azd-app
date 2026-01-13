@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useTimeout } from '@/hooks/useTimeout'
 
 export interface InfoFieldProps {
   /** Label text describing the value */
@@ -39,6 +40,7 @@ export function InfoField({
   'data-testid': testId,
 }: InfoFieldProps) {
   const [copied, setCopied] = React.useState(false)
+  const { setTimeout } = useTimeout()
   const id = React.useId()
 
   const handleCopy = () => {

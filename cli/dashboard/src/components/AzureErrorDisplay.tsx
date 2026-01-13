@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ErrorInfo } from '@/types'
+import { useTimeout } from '@/hooks/useTimeout'
 
 // =============================================================================
 // Types
@@ -231,6 +232,7 @@ interface CommandCopyProps {
 
 function CommandCopy({ command }: CommandCopyProps) {
   const [copied, setCopied] = React.useState(false)
+  const { setTimeout } = useTimeout()
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(command)

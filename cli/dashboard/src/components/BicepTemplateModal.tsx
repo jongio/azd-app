@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useBicepTemplate } from '@/hooks/useBicepTemplate'
 import { useToast } from '@/hooks/useToast'
+import { useTimeout, useTimeoutMap } from '@/hooks/useTimeout'
 import { CodeBlock } from '@/components/shared/CodeBlock'
 
 // =============================================================================
@@ -93,6 +94,7 @@ export function BicepTemplateModal({
   } = useBicepTemplate()
   const { showToast } = useToast()
   const [copied, setCopied] = React.useState(false)
+  const { setTimeout: setTimeoutSafe } = useTimeout()
 
   useEscapeKey(onClose, isOpen)
 
@@ -112,7 +114,7 @@ export function BicepTemplateModal({
       await navigator.clipboard.writeText(template)
       setCopied(true)
       showToast('Template copied to clipboard', 'success')
-      setTimeout(() => setCopied(false), 2000)
+      setTimeoutSafe(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy template:', err)
       showToast('Failed to copy template', 'error')
@@ -338,16 +340,18 @@ export function BicepTemplateModal({
  */
 function ToastContainer() {
   const { toasts, removeToast } = useToast()
+  const { set: setToastTimeout, clearAll: clearToastTimeouts } = useTimeoutMap()
 
   // Auto-dismiss toasts after 3 seconds
   React.useEffect(() => {
+    clearToastTimeouts()
+
     toasts.forEach(toast => {
-      const timer = setTimeout(() => {
-        removeToast(toast.id)
-      }, 3000)
-      return () => clearTimeout(timer)
+      setToastTimeout(toast.id, () => removeToast(toast.id), 3000)
     })
-  }, [toasts, removeToast])
+
+    return () => clearToastTimeouts()
+  }, [toasts, removeToast, clearToastTimeouts, setToastTimeout])
 
   return (
     <div className="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none" style={{ zIndex: 60 }}>

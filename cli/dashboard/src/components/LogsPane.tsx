@@ -20,6 +20,7 @@ import { useSmoothedLoadingIndicator } from '@/hooks/useSmoothedLoadingIndicator
 import { useLogsStream } from '@/hooks/useLogsStream'
 import { getHealthIcon, getPaneStyleClasses } from '@/lib/logs-pane-utils'
 import { UI_CONSTANTS } from '@/lib/constants'
+import { useTimeout } from '@/hooks/useTimeout'
 
 export interface LogEntry {
   service: string
@@ -114,6 +115,7 @@ export function LogsPane({
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null)
   const [showClassificationConfirmation, setShowClassificationConfirmation] = useState(false)
   const [copiedLineIndex, setCopiedLineIndex] = useState<number | null>(null)
+  const { setTimeout } = useTimeout()
   
   const [internalIsCollapsed, setInternalIsCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem(`logs-pane-collapsed-${serviceName}`)
@@ -262,7 +264,9 @@ export function LogsPane({
         setSelectionPosition(null)
         globalThis.getSelection()?.removeAllRanges()
         setShowClassificationConfirmation(true)
-        setTimeout(() => setShowClassificationConfirmation(false), 2000)
+        // Use window.setTimeout to avoid bringing the hook's `setTimeout` into
+        // this callback's dependency array (prevents ESLint missing-deps warning)
+        window.setTimeout(() => setShowClassificationConfirmation(false), 2000)
       })
       .catch((err: unknown) => {
         console.error('Failed to save classification:', err)
@@ -310,6 +314,8 @@ export function LogsPane({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [handleClickOutside])
+
+  // No extra cleanup needed; timers are handled by useTimeout
 
   const processStatus = service?.local?.status
   const normalizedHealth = serviceHealth ? normalizeHealthStatus(serviceHealth) : undefined

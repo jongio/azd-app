@@ -6,6 +6,7 @@ import * as React from 'react'
 import { X, CheckCircle, AlertCircle, XCircle, Copy, Check, ExternalLink, Loader2, RefreshCw, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useTimeout } from '@/hooks/useTimeout'
 import type { SetupStep } from './AzureSetupGuide'
 
 // =============================================================================
@@ -60,6 +61,7 @@ interface CopyButtonProps {
 
 function CopyButton({ text, label = 'Copy command' }: Readonly<CopyButtonProps>) {
   const [copied, setCopied] = React.useState(false)
+  const { setTimeout } = useTimeout()
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text)

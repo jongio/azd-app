@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
@@ -164,8 +165,8 @@ func TestValidationErrorMessages(t *testing.T) {
 			}
 			if tt.wantErrMsg != "" {
 				errMsg := err.Error()
-				if len(errMsg) == 0 || errMsg != errMsg {
-					t.Errorf("Error message is empty")
+				if len(errMsg) == 0 || !strings.Contains(errMsg, tt.wantErrMsg) {
+					t.Errorf("Error message = %q, want containing %q", errMsg, tt.wantErrMsg)
 				}
 			}
 		})

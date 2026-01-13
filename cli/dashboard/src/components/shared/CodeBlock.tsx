@@ -5,6 +5,7 @@
 import * as React from 'react'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTimeout } from '@/hooks/useTimeout'
 
 export interface CodeBlockProps {
   /** Code to display */
@@ -32,6 +33,7 @@ export function CodeBlock({
   className 
 }: Readonly<CodeBlockProps>) {
   const [copied, setCopied] = React.useState(false)
+  const { setTimeout } = useTimeout()
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code)

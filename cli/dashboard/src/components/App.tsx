@@ -14,6 +14,7 @@ import { SettingsDialog } from './SettingsDialog'
 import { EnvironmentPanel } from './EnvironmentPanel'
 import { KeyboardShortcuts } from '@/components/modals/KeyboardShortcuts'
 import type { Service, HealthCheckResult, HealthSummary, HealthReportEvent } from '@/types'
+import { useTimeout } from '@/hooks/useTimeout'
 
 // =============================================================================
 // Types
@@ -140,6 +141,7 @@ export function App({
   const [isPanelOpen, setIsPanelOpen] = React.useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = React.useState(false)
+  const { setTimeout } = useTimeout()
 
   // Sync URL with view changes
   React.useEffect(() => {
@@ -170,10 +172,8 @@ export function App({
   const handleClosePanel = React.useCallback(() => {
     setIsPanelOpen(false)
     // Keep selected service for a moment for smooth animation
-    setTimeout(() => {
-      setSelectedService(null)
-    }, 300)
-  }, [])
+    setTimeout(() => setSelectedService(null), 300)
+  }, [setTimeout])
 
   // Handle view change
   const handleViewChange = React.useCallback((view: View) => {
