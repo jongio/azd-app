@@ -65,3 +65,18 @@ export {
   type ServiceTypeBadgeConfig,
   type ServiceModeBadgeConfig,
 } from './service-display'
+
+// Re-export from service-url-utils.ts
+export {
+  getEffectiveLocalUrl,
+  getEffectiveAzureUrl,
+  getLocalUrlBadgeConfig,
+  getAzureUrlBadgeConfig,
+  getLocalUrlIconColor,
+  getAzureUrlIconColor,
+  getLocalUrlTooltip,
+  getAzureUrlTooltip,
+  type UrlBadgeConfig,
+  type EffectiveLocalUrl,
+  type EffectiveAzureUrl,
+} from './service-url-utils'

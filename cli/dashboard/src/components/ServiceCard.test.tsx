@@ -67,7 +67,8 @@ describe('ServiceCard - Alternate URL Display', () => {
     const serviceWithAltUrl: Service = {
       ...baseService,
       azure: {
-        url: 'https://myapp.example.com',
+        url: 'https://default.azurewebsites.net',
+        customUrl: 'https://myapp.example.com',
       },
     }
 
@@ -83,7 +84,8 @@ describe('ServiceCard - Alternate URL Display', () => {
     const serviceWithAltUrl: Service = {
       ...baseService,
       azure: {
-        url: 'https://api.myapp.example.com',
+        url: 'https://api-default.azurewebsites.net',
+        customUrl: 'https://api.myapp.example.com',
       },
     }
 
@@ -99,7 +101,8 @@ describe('ServiceCard - Alternate URL Display', () => {
     const serviceWithAltUrl: Service = {
       ...baseService,
       azure: {
-        url: 'https://myapp.example.com',
+        url: 'https://default.azurewebsites.net',
+        customUrl: 'https://myapp.example.com',
       },
     }
 
@@ -113,8 +116,11 @@ describe('ServiceCard - Alternate URL Display', () => {
   it('shows tooltip explaining custom URL configuration', () => {
     const serviceWithAltUrl: Service = {
       ...baseService,
-      azure: {
-        url: 'https://myapp.example.com',
+      local: {
+        url: 'http://localhost:3000',
+        customUrl: 'https://myapp.example.com',
+        status: 'ready',
+        health: 'healthy',
       },
     }
 
@@ -131,7 +137,8 @@ describe('ServiceCard - Alternate URL Display', () => {
       host: 'local',
       language: 'python',
       azure: {
-        url: 'https://api.example.com',
+        url: 'https://api-default.azurewebsites.net',
+        customUrl: 'https://api.example.com',
       },
     }
 
@@ -147,7 +154,8 @@ describe('ServiceCard - Alternate URL Display', () => {
     const serviceWithCustomUrl: Service = {
       ...baseService,
       azure: {
-        url: 'https://myapp.example.com',
+        url: 'https://myapp-abc123.azurewebsites.net',
+        customUrl: 'https://myapp.example.com',
         resourceName: 'myapp-abc123',
         resourceType: 'appservice',
       },
@@ -201,8 +209,11 @@ describe('ServiceCard - Alternate URL Display', () => {
   it('displays service card with all key elements when custom URL is configured', () => {
     const serviceWithAltUrl: Service = {
       ...baseService,
-      azure: {
-        url: 'https://myapp.example.com',
+      local: {
+        url: 'http://localhost:3000',
+        customUrl: 'https://myapp.example.com',
+        status: 'ready',
+        health: 'healthy',
       },
     }
 
@@ -245,13 +256,12 @@ describe('ServiceCard - Alternate URL Display', () => {
       name: 'build-process',
       host: 'local',
       local: {
+        url: 'http://localhost:9999',
+        customUrl: 'https://build.example.com',
         status: 'ready',
         health: 'healthy',
         serviceType: 'process',
         serviceMode: 'watch',
-      },
-      azure: {
-        url: 'https://build.example.com',
       },
     }
 

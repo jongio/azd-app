@@ -618,10 +618,51 @@
         },
         "url": {
           "type": "string",
-          "title": "Custom URL for service access (azd app extension)",
-          "description": "Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain). Must be a valid HTTP or HTTPS URL.",
+          "title": "DEPRECATED: Custom URL (azd app extension)",
+          "description": "DEPRECATED: Use azure.customUrl instead. Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain). Must be a valid HTTP or HTTPS URL.",
           "pattern": "^https?://",
+          "maxLength": 2048,
           "examples": ["https://myapp.example.com", "https://abc123.ngrok.io", "http://localhost:8080"]
+        },
+        "local": {
+          "type": "object",
+          "title": "Local development configuration (azd app extension)",
+          "description": "Configuration for local development environment",
+          "properties": {
+            "customUrl": {
+              "type": "string",
+              "title": "Custom local URL",
+              "description": "User-configured custom URL for local development (e.g., ngrok, reverse proxy). Overrides auto-discovered local URL. Must be a valid HTTP or HTTPS URL.",
+              "pattern": "^https?://",
+              "maxLength": 2048,
+              "examples": ["https://myapp.ngrok.io", "http://myapp.local:8080", "https://localhost.local"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "azure": {
+          "type": "object",
+          "title": "Azure deployment configuration (azd app extension)",
+          "description": "Configuration for Azure deployment",
+          "properties": {
+            "customUrl": {
+              "type": "string",
+              "title": "Custom Azure URL",
+              "description": "User-configured custom URL for Azure deployment (e.g., custom domain, CDN, API gateway). Overrides auto-discovered Azure URL. Must be a valid HTTP or HTTPS URL.",
+              "pattern": "^https?://",
+              "maxLength": 2048,
+              "examples": ["https://www.mycompany.com", "https://api.mycompany.com", "https://cdn.example.com"]
+            },
+            "customDomain": {
+              "type": "string",
+              "title": "Custom domain",
+              "description": "User-configured custom domain for Azure deployment. When set, overrides Azure SDK discovery. If not set, the system attempts to discover custom domains from Azure Portal. Must be a valid HTTP or HTTPS URL.",
+              "pattern": "^https?://",
+              "maxLength": 2048,
+              "examples": ["https://www.mycompany.com", "https://app.example.com"]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "allOf": [

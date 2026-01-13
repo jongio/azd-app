@@ -113,34 +113,111 @@ func TestValidateServiceConfig(t *testing.T) {
 	tests := []struct {
 		name        string
 		serviceName string
-		url         string
+		service     *service.Service
 		wantErr     bool
 		errMsg      string
 	}{
 		{
 			name:        "No URL configured",
 			serviceName: "web",
-			url:         "",
+			service:     &service.Service{},
 			wantErr:     false,
 		},
 		{
-			name:        "Valid URL",
+			name:        "Valid deprecated root-level URL",
 			serviceName: "web",
-			url:         "https://example.com",
+			service:     &service.Service{URL: "https://example.com"},
 			wantErr:     false,
 		},
 		{
-			name:        "Invalid URL",
+			name:        "Invalid deprecated root-level URL",
 			serviceName: "api",
-			url:         "invalid-url",
+			service:     &service.Service{URL: "invalid-url"},
 			wantErr:     true,
 			errMsg:      "invalid url for service 'api'",
+		},
+		{
+			name:        "Valid local.customUrl",
+			serviceName: "web",
+			service: &service.Service{
+				Local: &service.LocalServiceConfig{
+					CustomURL: "https://myapp.ngrok.io",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:        "Invalid local.customUrl",
+			serviceName: "web",
+			service: &service.Service{
+				Local: &service.LocalServiceConfig{
+					CustomURL: "not-a-url",
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid local.customUrl for service 'web'",
+		},
+		{
+			name:        "Valid azure.customUrl",
+			serviceName: "api",
+			service: &service.Service{
+				Azure: &service.AzureServiceConfig{
+					CustomURL: "https://api.example.com",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:        "Invalid azure.customUrl",
+			serviceName: "api",
+			service: &service.Service{
+				Azure: &service.AzureServiceConfig{
+					CustomURL: "ftp://invalid",
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid azure.customUrl for service 'api'",
+		},
+		{
+			name:        "Valid azure.customDomain",
+			serviceName: "web",
+			service: &service.Service{
+				Azure: &service.AzureServiceConfig{
+					CustomDomain: "https://www.mycompany.com",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:        "Invalid azure.customDomain",
+			serviceName: "web",
+			service: &service.Service{
+				Azure: &service.AzureServiceConfig{
+					CustomDomain: "example.com",
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid azure.customDomain for service 'web'",
+		},
+		{
+			name:        "Multiple valid URLs",
+			serviceName: "web",
+			service: &service.Service{
+				Local: &service.LocalServiceConfig{
+					CustomURL: "https://localhost.local",
+				},
+				Azure: &service.AzureServiceConfig{
+					CustomURL:    "https://api.example.com",
+					CustomDomain: "https://www.example.com",
+				},
+			},
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := service.ValidateServiceConfig(tt.serviceName, tt.url)
+			err := service.ValidateServiceConfig(tt.serviceName, tt.service)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("ValidateServiceConfig() expected error but got nil")
@@ -167,7 +244,7 @@ func TestParseAzureYaml_WithURL(t *testing.T) {
 		validate    func(t *testing.T, yaml *service.AzureYaml)
 	}{
 		{
-			name: "Valid url configuration",
+			name: "Valid deprecated root-level url (backward compat)",
 			yamlContent: `name: test-app
 services:
   web:
@@ -185,11 +262,115 @@ services:
 				if !exists {
 					t.Fatal("Expected 'web' service to exist")
 				}
-				if web.URL == "" {
-					t.Fatal("Expected URL to be non-empty")
-				}
 				if web.URL != "https://myapp.example.com" {
-					t.Errorf("Expected url 'https://myapp.example.com', got %s", web.URL)
+					t.Errorf("Expected deprecated URL 'https://myapp.example.com', got %s", web.URL)
+				}
+				// Check backward compat migration
+				if web.Azure == nil || web.Azure.CustomURL != "https://myapp.example.com" {
+					t.Errorf("Expected azure.customUrl to be migrated from deprecated url")
+				}
+			},
+		},
+		{
+			name: "Valid local.customUrl",
+			yamlContent: `name: test-app
+services:
+  web:
+    project: ./src/web
+    language: js
+    host: local
+    local:
+      customUrl: https://myapp.ngrok.io
+`,
+			wantErr: false,
+			validate: func(t *testing.T, yaml *service.AzureYaml) {
+				web := yaml.Services["web"]
+				if web.Local == nil {
+					t.Fatal("Expected local config to exist")
+				}
+				if web.Local.CustomURL != "https://myapp.ngrok.io" {
+					t.Errorf("Expected local.customUrl 'https://myapp.ngrok.io', got %s", web.Local.CustomURL)
+				}
+			},
+		},
+		{
+			name: "Valid azure.customUrl",
+			yamlContent: `name: test-app
+services:
+  api:
+    project: ./src/api
+    language: python
+    host: containerapp
+    azure:
+      customUrl: https://api.mycompany.com
+`,
+			wantErr: false,
+			validate: func(t *testing.T, yaml *service.AzureYaml) {
+				api := yaml.Services["api"]
+				if api.Azure == nil {
+					t.Fatal("Expected azure config to exist")
+				}
+				if api.Azure.CustomURL != "https://api.mycompany.com" {
+					t.Errorf("Expected azure.customUrl 'https://api.mycompany.com', got %s", api.Azure.CustomURL)
+				}
+			},
+		},
+		{
+			name: "Valid azure.customDomain with user source",
+			yamlContent: `name: test-app
+services:
+  web:
+    project: ./src/web
+    language: js
+    host: containerapp
+    azure:
+      customDomain: https://www.mycompany.com
+`,
+			wantErr: false,
+			validate: func(t *testing.T, yaml *service.AzureYaml) {
+				web := yaml.Services["web"]
+				if web.Azure == nil {
+					t.Fatal("Expected azure config to exist")
+				}
+				if web.Azure.CustomDomain != "https://www.mycompany.com" {
+					t.Errorf("Expected azure.customDomain 'https://www.mycompany.com', got %s", web.Azure.CustomDomain)
+				}
+				if web.Azure.CustomDomainSource != "user" {
+					t.Errorf("Expected customDomainSource 'user', got %s", web.Azure.CustomDomainSource)
+				}
+			},
+		},
+		{
+			name: "Multiple URL fields",
+			yamlContent: `name: test-app
+services:
+  web:
+    project: ./src/web
+    language: js
+    host: containerapp
+    local:
+      customUrl: https://localhost.local
+    azure:
+      customUrl: https://api.example.com
+      customDomain: https://www.example.com
+`,
+			wantErr: false,
+			validate: func(t *testing.T, yaml *service.AzureYaml) {
+				web := yaml.Services["web"]
+				if web.Local == nil {
+					t.Fatal("Expected local config")
+				}
+				if web.Local.CustomURL != "https://localhost.local" {
+					t.Errorf("Expected local.customUrl 'https://localhost.local', got %s", web.Local.CustomURL)
+				}
+				if web.Azure == nil {
+					t.Fatal("Expected azure config")
+				}
+				if web.Azure.CustomURL != "https://api.example.com" {
+					t.Errorf("Expected azure.customUrl 'https://api.example.com', got %s", web.Azure.CustomURL)
+				}
+				if web.Azure.CustomDomain != "https://www.example.com" {
+					t.Errorf("Expected azure.customDomain 'https://www.example.com', got %s", web.Azure.CustomDomain)
 				}
 			},
 		},
@@ -206,7 +387,8 @@ services:
     project: ./src/api
     language: python
     host: containerapp
-    url: https://api.example.com
+    azure:
+      customUrl: https://api.example.com
 `,
 			wantErr: false,
 			validate: func(t *testing.T, yaml *service.AzureYaml) {
@@ -215,8 +397,8 @@ services:
 					t.Errorf("Expected web url 'https://web.example.com', got %v", web.URL)
 				}
 				api := yaml.Services["api"]
-				if api.URL != "https://api.example.com" {
-					t.Errorf("Expected api url 'https://api.example.com', got %v", api.URL)
+				if api.Azure == nil || api.Azure.CustomURL != "https://api.example.com" {
+					t.Errorf("Expected api azure.customUrl 'https://api.example.com', got %v", api.Azure.CustomURL)
 				}
 			},
 		},
@@ -235,7 +417,55 @@ services:
 				if web.URL != "" {
 					t.Errorf("Expected URL to be empty, got %v", web.URL)
 				}
+				if web.Local != nil && web.Local.CustomURL != "" {
+					t.Errorf("Expected local.customUrl to be empty, got %v", web.Local.CustomURL)
+				}
+				if web.Azure != nil && web.Azure.CustomURL != "" {
+					t.Errorf("Expected azure.customUrl to be empty, got %v", web.Azure.CustomURL)
+				}
 			},
+		},
+		{
+			name: "Invalid local.customUrl - missing protocol",
+			yamlContent: `name: test-app
+services:
+  web:
+    project: ./src/web
+    language: js
+    host: local
+    local:
+      customUrl: example.com
+`,
+			wantErr: true,
+			errMsg:  "invalid local.customUrl for service 'web'",
+		},
+		{
+			name: "Invalid azure.customUrl - wrong protocol",
+			yamlContent: `name: test-app
+services:
+  api:
+    project: ./src/api
+    language: python
+    host: containerapp
+    azure:
+      customUrl: ftp://example.com
+`,
+			wantErr: true,
+			errMsg:  "invalid azure.customUrl for service 'api'",
+		},
+		{
+			name: "Invalid azure.customDomain",
+			yamlContent: `name: test-app
+services:
+  web:
+    project: ./src/web
+    language: js
+    host: containerapp
+    azure:
+      customDomain: not-a-url
+`,
+			wantErr: true,
+			errMsg:  "invalid azure.customDomain for service 'web'",
 		},
 		{
 			name: "Invalid url - missing protocol",

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Custom URL Configuration** (`url` property in azure.yaml)
+  - Configure custom access URLs for services (custom domains, reverse proxies, CDN, tunnels, API gateways)
+  - Dashboard displays custom URLs with purple visual indicator and "Custom URL" badge
+  - Console output shows both "Deployment URL" and "Access URL" when configured
+  - Click service links in dashboard navigates to custom URL instead of deployment URL
+  - Tooltip shows default URL when custom URL is configured
+  - JSON schema validation for HTTP/HTTPS URLs
+  - Example project: `cli/tests/projects/url-demo/`
+  - Comprehensive CORS configuration guide: `docs/guides/cors-with-alternate-urls.md`
+  - Multi-language CORS examples (Node.js, Python, .NET, ASP.NET Core)
+
 ## [0.6.0] - 2025-11-08
 
 ### Added

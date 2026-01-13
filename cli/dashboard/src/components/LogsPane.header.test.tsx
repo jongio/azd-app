@@ -81,7 +81,7 @@ describe('LogsPane header actions', () => {
     expect(screen.getByTitle('Process state: running')).toBeInTheDocument()
     expect(screen.getByTitle('Service health: healthy (from health checks)')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /open azure endpoint in new tab/i }))
+    await user.click(screen.getByRole('button', { name: /open custom url in new tab/i }))
     expect(globalThis.open).toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: /show service details panel/i }))

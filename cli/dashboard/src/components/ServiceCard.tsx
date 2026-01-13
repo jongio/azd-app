@@ -32,6 +32,14 @@ import {
   isContainerService,
   getServiceModeBadgeConfig,
   getServiceDisplayStatus,
+  getEffectiveLocalUrl,
+  getEffectiveAzureUrl,
+  getLocalUrlBadgeConfig,
+  getAzureUrlBadgeConfig,
+  getLocalUrlIconColor,
+  getAzureUrlIconColor,
+  getLocalUrlTooltip,
+  getAzureUrlTooltip,
 } from '@/lib/service-utils'
 
 // =============================================================================
@@ -88,13 +96,20 @@ export function ServiceCard({
     lastError: healthStatus.error,
   } : service.local?.healthDetails
 
-  // Build URLs with Codespace transformation
-  const localUrl = getEffectiveServiceUrl(service.local?.url, service.local?.port, codespaceConfig)
-  const azureUrl = service.azure?.url
-
-  // Prefer Custom URL when configured (for both display and navigation)
-  const displayUrl = service.azure?.url || localUrl
-  const isUsingurl = !!service.azure?.url
+  // Get effective URLs using precedence rules
+  const effectiveLocal = getEffectiveLocalUrl(service.local)
+  const effectiveAzure = getEffectiveAzureUrl(service.azure)
+  
+  // Apply Codespace transformation to local URL
+  const localUrl = getEffectiveServiceUrl(effectiveLocal.url, service.local?.port, codespaceConfig)
+  
+  // Get badge configurations
+  const localBadge = getLocalUrlBadgeConfig(effectiveLocal.source)
+  const azureBadge = getAzureUrlBadgeConfig(effectiveAzure.source)
+  
+  // Get tooltips
+  const localTooltip = getLocalUrlTooltip(effectiveLocal)
+  const azureTooltip = getAzureUrlTooltip(effectiveAzure)
 
   // Get service icon based on type and status
   const getServiceIcon = () => {
@@ -259,69 +274,92 @@ export function ServiceCard({
         </div>
       )}
 
-      {/* URL Link - Shows Custom URL when configured */}
-      {displayUrl && (
+      {/* Local URL Link */}
+      {localUrl && (
         <a
-          href={displayUrl}
+          href={localUrl}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "relative flex items-center gap-2 p-2.5 rounded-xl border transition-colors group/url",
-            isUsingurl
-              ? "bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/30 hover:border-purple-400 dark:hover:border-purple-500"
-              : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:border-cyan-300 dark:hover:border-cyan-600"
+            localBadge?.color || "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:border-cyan-300 dark:hover:border-cyan-600"
           )}
-          title={isUsingurl ? `Custom URL configured (default: ${localUrl || 'none'})` : undefined}
+          title={localTooltip}
         >
           <ExternalLink className={cn(
             "w-3.5 h-3.5",
-            isUsingurl 
-              ? "text-purple-600 dark:text-purple-400"
-              : "text-cyan-600 dark:text-cyan-400"
+            getLocalUrlIconColor(effectiveLocal.source)
           )} />
           <div className="flex-1 min-w-0">
-            {isUsingurl && (
-              <span className="text-[10px] text-purple-600/70 dark:text-purple-400/70 block font-medium">
-                Custom URL
+            {localBadge && (
+              <span className={cn(
+                "text-[10px] block font-medium",
+                effectiveLocal.source === 'customUrl' 
+                  ? "text-purple-600/70 dark:text-purple-400/70"
+                  : "text-cyan-600/70 dark:text-cyan-400/70"
+              )}>
+                {localBadge.label}
               </span>
             )}
             <span className={cn(
-              "text-xs font-mono truncate block",
-              isUsingurl
+              "text-xs font-mono truncate block transition-colors",
+              effectiveLocal.source === 'customUrl'
                 ? "text-purple-700 dark:text-purple-300 group-hover/url:text-purple-600 dark:group-hover/url:text-purple-400"
-                : "text-slate-600 dark:text-slate-300 group-hover/url:text-cyan-600 dark:group-hover/url:text-cyan-400",
-              "transition-colors"
+                : "text-slate-600 dark:text-slate-300 group-hover/url:text-cyan-600 dark:group-hover/url:text-cyan-400"
             )}>
-              {displayUrl}
+              {localUrl}
             </span>
           </div>
           <ExternalLink className={cn(
             "w-3 h-3 opacity-0 group-hover/url:opacity-100 transform group-hover/url:translate-x-0.5 group-hover/url:-translate-y-0.5 transition-all",
-            isUsingurl
-              ? "text-purple-500 dark:text-purple-500"
-              : "text-slate-400 dark:text-slate-500"
+            getLocalUrlIconColor(effectiveLocal.source)
           )} />
         </a>
       )}
 
       {/* Azure URL (if deployed) */}
-      {azureUrl && (
+      {effectiveAzure.url && (
         <a
-          href={azureUrl}
+          href={effectiveAzure.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="relative flex items-center gap-2 p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 hover:border-cyan-400 dark:hover:border-cyan-500 transition-colors group/azure"
+          className={cn(
+            "relative flex items-center gap-2 p-2.5 rounded-xl border transition-colors group/azure",
+            azureBadge?.color || "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/30 hover:border-cyan-400 dark:hover:border-cyan-500"
+          )}
+          title={azureTooltip}
         >
-          <Globe className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+          <Globe className={cn("w-3.5 h-3.5", getAzureUrlIconColor(effectiveAzure.source))} />
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] text-cyan-600/70 dark:text-cyan-400/70 block">Azure</span>
-            <span className="text-xs font-mono text-cyan-700 dark:text-cyan-300 truncate block">
-              {azureUrl}
+            {azureBadge && (
+              <span className={cn(
+                "text-[10px] block font-medium",
+                effectiveAzure.source === 'customDomain-user' || effectiveAzure.source === 'customUrl'
+                  ? "text-purple-600/70 dark:text-purple-400/70"
+                  : effectiveAzure.source === 'customDomain-sdk'
+                  ? "text-amber-600/70 dark:text-amber-400/70"
+                  : "text-cyan-600/70 dark:text-cyan-400/70"
+              )}>
+                {azureBadge.label}
+              </span>
+            )}
+            <span className={cn(
+              "text-xs font-mono truncate block transition-colors",
+              effectiveAzure.source === 'customDomain-user' || effectiveAzure.source === 'customUrl'
+                ? "text-purple-700 dark:text-purple-300 group-hover/azure:text-purple-600 dark:group-hover/azure:text-purple-400"
+                : effectiveAzure.source === 'customDomain-sdk'
+                ? "text-amber-700 dark:text-amber-300 group-hover/azure:text-amber-600 dark:group-hover/azure:text-amber-400"
+                : "text-cyan-700 dark:text-cyan-300 group-hover/azure:text-cyan-600 dark:group-hover/azure:text-cyan-400"
+            )}>
+              {effectiveAzure.url}
             </span>
           </div>
-          <ExternalLink className="w-3 h-3 text-cyan-500 dark:text-cyan-500 opacity-0 group-hover/azure:opacity-100 transform group-hover/azure:translate-x-0.5 group-hover/azure:-translate-y-0.5 transition-all" />
+          <ExternalLink className={cn(
+            "w-3 h-3 opacity-0 group-hover/azure:opacity-100 transform group-hover/azure:translate-x-0.5 group-hover/azure:-translate-y-0.5 transition-all",
+            getAzureUrlIconColor(effectiveAzure.source)
+          )} />
         </a>
       )}
 

@@ -123,7 +123,8 @@ export interface LocalServiceInfo {
   status: ServiceStatus
   /** Health check status - independent of lifecycle */
   health: HealthStatus
-  url?: string
+  url?: string         // Auto-discovered local URL (e.g., http://localhost:3000)
+  customUrl?: string   // User-configured custom local URL (e.g., https://myapp.ngrok.io)
   port?: number
   pid?: number
   startTime?: string
@@ -134,7 +135,10 @@ export interface LocalServiceInfo {
 }
 
 export interface AzureServiceInfo {
-  url?: string
+  url?: string                // Auto-discovered Azure deployment URL (from env vars)
+  customUrl?: string          // User-configured custom Azure URL (e.g., https://api.mycompany.com)
+  customDomain?: string       // User-configured OR SDK-discovered custom domain
+  customDomainSource?: 'user' | 'azure-sdk' // Source of customDomain
   resourceName?: string
   imageName?: string
   resourceType?: string  // containerapp, appservice, function, etc.

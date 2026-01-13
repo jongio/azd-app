@@ -75,42 +75,58 @@ type DashboardConfig struct {
 
 // Service represents a service definition in azure.yaml.
 type Service struct {
-	Host               string             `yaml:"host"`
-	Language           string             `yaml:"language,omitempty"`
-	Project            string             `yaml:"project,omitempty"`
-	Command            string             `yaml:"command,omitempty"`    // Full command to run (e.g., "uvicorn main:app --reload"). Primary way to override.
-	Entrypoint         string             `yaml:"entrypoint,omitempty"` // Advanced: executable only, use with command for args. Rarely needed.
-	Image              string             `yaml:"image,omitempty"`
-	Docker             *DockerConfig      `yaml:"docker,omitempty"`
-	Ports              []string           `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
-	Environment        Environment        `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
-	Uses               []string           `yaml:"uses,omitempty"`
-	Logs               *ServiceLogsConfig `yaml:"logs,omitempty"`        // Service-level logging configuration
-	Healthcheck        *HealthcheckConfig `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
-	HealthcheckEnabled *bool              `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
-	Type               string             `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
-	Mode               string             `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
-	URL                string             `yaml:"url,omitempty"`         // Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain)
+	Host               string              `yaml:"host"`
+	Language           string              `yaml:"language,omitempty"`
+	Project            string              `yaml:"project,omitempty"`
+	Command            string              `yaml:"command,omitempty"`    // Full command to run (e.g., "uvicorn main:app --reload"). Primary way to override.
+	Entrypoint         string              `yaml:"entrypoint,omitempty"` // Advanced: executable only, use with command for args. Rarely needed.
+	Image              string              `yaml:"image,omitempty"`
+	Docker             *DockerConfig       `yaml:"docker,omitempty"`
+	Ports              []string            `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
+	Environment        Environment         `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
+	Uses               []string            `yaml:"uses,omitempty"`
+	Logs               *ServiceLogsConfig  `yaml:"logs,omitempty"`        // Service-level logging configuration
+	Healthcheck        *HealthcheckConfig  `yaml:"healthcheck,omitempty"` // Docker Compose-compatible health check configuration
+	HealthcheckEnabled *bool               `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
+	Type               string              `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
+	Mode               string              `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
+	Local              *LocalServiceConfig `yaml:"local,omitempty"`       // Local development configuration
+	Azure              *AzureServiceConfig `yaml:"azure,omitempty"`       // Azure deployment configuration
+	URL                string              `yaml:"url,omitempty"`         // DEPRECATED: Use azure.customUrl instead. Custom URL for accessing the service.
+}
+
+// LocalServiceConfig represents local development configuration for a service.
+type LocalServiceConfig struct {
+	CustomURL string `yaml:"customUrl,omitempty" json:"customUrl,omitempty"` // User-configured custom local URL (e.g., https://myapp.ngrok.io)
+}
+
+// AzureServiceConfig represents Azure deployment configuration for a service.
+type AzureServiceConfig struct {
+	CustomURL          string `yaml:"customUrl,omitempty" json:"customUrl,omitempty"`       // User-configured custom Azure URL (e.g., https://api.mycompany.com)
+	CustomDomain       string `yaml:"customDomain,omitempty" json:"customDomain,omitempty"` // User-configured OR SDK-discovered custom domain
+	CustomDomainSource string `yaml:"-" json:"customDomainSource,omitempty"`                // Source of customDomain: "user" or "azure-sdk"
 }
 
 // serviceRaw is used to handle both boolean and object healthcheck values.
 // It duplicates all fields from Service except Healthcheck to avoid infinite recursion.
 type serviceRaw struct {
-	Host        string             `yaml:"host"`
-	Language    string             `yaml:"language,omitempty"`
-	Project     string             `yaml:"project,omitempty"`
-	Entrypoint  string             `yaml:"entrypoint,omitempty"`
-	Command     string             `yaml:"command,omitempty"`
-	Image       string             `yaml:"image,omitempty"`
-	Docker      *DockerConfig      `yaml:"docker,omitempty"`
-	Ports       []string           `yaml:"ports,omitempty"`
-	Environment Environment        `yaml:"environment,omitempty"`
-	Uses        []string           `yaml:"uses,omitempty"`
-	Logs        *ServiceLogsConfig `yaml:"logs,omitempty"`
-	Healthcheck any                `yaml:"healthcheck,omitempty"`
-	Type        string             `yaml:"type,omitempty"`
-	Mode        string             `yaml:"mode,omitempty"`
-	URL         string             `yaml:"url,omitempty"`
+	Host        string              `yaml:"host"`
+	Language    string              `yaml:"language,omitempty"`
+	Project     string              `yaml:"project,omitempty"`
+	Entrypoint  string              `yaml:"entrypoint,omitempty"`
+	Command     string              `yaml:"command,omitempty"`
+	Image       string              `yaml:"image,omitempty"`
+	Docker      *DockerConfig       `yaml:"docker,omitempty"`
+	Ports       []string            `yaml:"ports,omitempty"`
+	Environment Environment         `yaml:"environment,omitempty"`
+	Uses        []string            `yaml:"uses,omitempty"`
+	Logs        *ServiceLogsConfig  `yaml:"logs,omitempty"`
+	Healthcheck any                 `yaml:"healthcheck,omitempty"`
+	Type        string              `yaml:"type,omitempty"`
+	Mode        string              `yaml:"mode,omitempty"`
+	Local       *LocalServiceConfig `yaml:"local,omitempty"`
+	Azure       *AzureServiceConfig `yaml:"azure,omitempty"`
+	URL         string              `yaml:"url,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
@@ -134,7 +150,25 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.Logs = raw.Logs
 	s.Type = raw.Type
 	s.Mode = raw.Mode
+	s.Local = raw.Local
+	s.Azure = raw.Azure
 	s.URL = raw.URL
+
+	// Handle backward compatibility: root-level URL migrates to azure.customUrl
+	if s.URL != "" {
+		if s.Azure == nil {
+			s.Azure = &AzureServiceConfig{}
+		}
+		// Only migrate if azure.customUrl is not already set
+		if s.Azure.CustomURL == "" {
+			s.Azure.CustomURL = s.URL
+		}
+	}
+
+	// Set customDomainSource to "user" if customDomain is configured in azure.yaml
+	if s.Azure != nil && s.Azure.CustomDomain != "" && s.Azure.CustomDomainSource == "" {
+		s.Azure.CustomDomainSource = "user"
+	}
 
 	// Handle healthcheck field
 	switch v := raw.Healthcheck.(type) {

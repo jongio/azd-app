@@ -1,5 +1,7 @@
 # Configuring CORS with Custom URLs
 
+> **Related:** See the [azure.yaml Reference](../../web/src/pages/reference/azure-yaml.astro#custom-service-urls) for details on configuring the `url` property.
+
 ## Overview
 
 When you configure a `url` for a service in `azure.yaml`, you may need to add that URL's origin to your service's CORS (Cross-Origin Resource Sharing) configuration. This allows your frontend application to make API requests through the custom URL.
