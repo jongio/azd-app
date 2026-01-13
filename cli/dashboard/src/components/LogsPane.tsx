@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { formatLogTimestamp, getLogPaneVisualStatus, normalizeHealthStatus } from '@/lib/service-utils'
+import { formatLogTimestamp, getLogPaneVisualStatus, getEffectiveAzureUrl, getEffectiveLocalUrl, normalizeHealthStatus } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
@@ -123,10 +123,30 @@ export function LogsPane({
   const isCollapsed = controlledIsCollapsed ?? internalIsCollapsed
   const [configPanelOpen, setConfigPanelOpen] = useState(false)
   const { config: codespaceConfig } = useCodespaceEnv()
-  const effectiveLocalUrl = getEffectiveServiceUrl(url, port, codespaceConfig)
-  const azureUrl = service?.azure?.url
-  // Prefer custom URL (azure.url) over local URL when available, regardless of log mode
-  const effectiveUrl = azureUrl || effectiveLocalUrl
+
+  const effectiveLocal = getEffectiveLocalUrl(
+    service?.local ?? (url ? { url, status: 'not-started', health: 'unknown' } : undefined)
+  )
+  const localPort = port ?? service?.local?.port
+  const transformedLocalUrl = getEffectiveServiceUrl(effectiveLocal.url, localPort, codespaceConfig)
+
+  const effectiveAzure = getEffectiveAzureUrl(service?.azure)
+
+  const effectiveUrl = logMode === 'azure'
+    ? effectiveAzure.url ?? transformedLocalUrl
+    : transformedLocalUrl ?? effectiveAzure.url
+
+  const effectiveUrlSource: 'azure' | 'local' | undefined = logMode === 'azure'
+    ? effectiveAzure.url
+      ? 'azure'
+      : transformedLocalUrl
+        ? 'local'
+        : undefined
+    : transformedLocalUrl
+      ? 'local'
+      : effectiveAzure.url
+        ? 'azure'
+        : undefined
   
   const isPausedRef = useRef(isPaused)
   const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
@@ -319,8 +339,8 @@ export function LogsPane({
         healthCheckResult={healthCheckResult}
         service={service}
         effectiveUrl={effectiveUrl ?? undefined}
+        effectiveUrlSource={effectiveUrlSource}
         logMode={logMode}
-        azureUrl={azureUrl}
         onShowDetails={onShowDetails}
         handleCopyPane={handleCopyPane}
         onOpenConfigPanel={handleOpenConfigPanel}

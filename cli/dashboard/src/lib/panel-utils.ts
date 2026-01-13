@@ -187,7 +187,10 @@ export function formatCheckType(checkType?: string): string {
 export function hasAzureDeployment(service: Service): boolean {
   return !!(
     service.azure?.resourceName ||
-    service.azure?.url
+    service.azure?.url ||
+    service.azure?.customUrl ||
+    service.azure?.customDomain ||
+    service.azure?.customDomainSource
   )
 }
 

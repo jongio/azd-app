@@ -3,14 +3,57 @@
 name: url-demo
 
 services:
+  # Service with only azure.customUrl
   web:
-    language: node
+    language: js
     host: containerapp
     project: ./src/web
-    url: https://myapp.example.com
+    ports: ["48123"]
+    azure:
+      customUrl: https://myapp.example.com
   
+  # Service with only local.customUrl
   api:
-    language: python
+    language: py
     host: appservice
     project: ./src/api
-    url: https://api.myapp.example.com
+    ports: ["47211"]
+    local:
+      customUrl: https://api.myapp.local:8080
+  
+  # Service with both local.customUrl and azure.customUrl
+  backend:
+    language: js
+    host: containerapp
+    project: ./src/backend
+    ports: ["45763"]
+    local:
+      customUrl: https://backend.ngrok.io
+    azure:
+      customUrl: https://backend.mycompany.com
+  
+  # Service with azure.customDomain (domain only, no protocol)
+  frontend:
+    language: js
+    host: staticwebapp
+    project: ./src/frontend
+    ports: ["49507"]
+    azure:
+      customDomain: www.mycompany.com
+
+  # Service with manual customDomain and customUrl
+  portal:
+    language: js
+    host: containerapp
+    project: ./src/portal
+    ports: ["49821"]
+    azure:
+      customUrl: https://portal.contoso.com
+      customDomain: portal.contoso.com
+  
+  # Service with no custom URLs (default behavior)
+  worker:
+    language: py
+    host: containerapp
+    project: ./src/worker
+    ports: ["46831"]

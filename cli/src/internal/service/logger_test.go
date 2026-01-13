@@ -257,34 +257,40 @@ func TestServiceLogger_LogStartup(t *testing.T) {
 func TestServiceLogger_LogSummary(t *testing.T) {
 	logger := NewServiceLogger(false)
 
-	urls := map[string]string{
-		"web": "http://localhost:3000",
-		"api": "http://localhost:8080",
+	summaries := []ServiceURLSummary{
+		{
+			Name:           "web",
+			LocalURL:       "http://localhost:3000",
+			AzureCustomURL: "https://web.example.com",
+			AzureURL:       "https://web.azurewebsites.net",
+		},
+		{
+			Name:              "api",
+			LocalURL:          "http://localhost:8080",
+			AzureCustomDomain: "api.example.com",
+		},
 	}
-
-	customURLs := make(map[string]string) // No custom URLs
 
 	output := captureStdout(func() {
-		logger.LogSummary(urls, customURLs)
+		logger.LogSummary(summaries)
 	})
 
-	if !strings.Contains(output, "web") {
-		t.Error("LogSummary output missing web service")
+	if !strings.Contains(output, "local:") || !strings.Contains(output, "http://localhost:3000") {
+		t.Error("LogSummary output missing web local URL")
 	}
 
-	if !strings.Contains(output, "api") {
-		t.Error("LogSummary output missing api service")
+	if !strings.Contains(output, "azure (custom):") || !strings.Contains(output, "https://web.example.com") {
+		t.Error("LogSummary output missing web custom Azure URL")
 	}
 
-	if !strings.Contains(output, "http://localhost:3000") {
-		t.Error("LogSummary output missing web URL")
+	if !strings.Contains(output, "azure:") || !strings.Contains(output, "https://web.azurewebsites.net") {
+		t.Error("LogSummary output missing web Azure URL")
 	}
 
-	if !strings.Contains(output, "http://localhost:8080") {
-		t.Error("LogSummary output missing api URL")
+	if !strings.Contains(output, "domain:") || !strings.Contains(output, "api.example.com") {
+		t.Error("LogSummary output missing api custom domain")
 	}
 
-	// Should have checkmarks
 	if !strings.Contains(output, "✓") {
 		t.Error("LogSummary output missing checkmarks")
 	}
@@ -294,44 +300,41 @@ func TestServiceLogger_LogSummary_EmptyURLs(t *testing.T) {
 	logger := NewServiceLogger(false)
 
 	output := captureStdout(func() {
-		logger.LogSummary(map[string]string{}, map[string]string{})
+		logger.LogSummary([]ServiceURLSummary{})
 	})
 
-	// Empty URLs should produce no output (not even a newline for the summary itself)
-	// Just verify it doesn't panic and produces minimal output
-	if strings.Contains(output, "✓") {
-		t.Error("LogSummary with empty URLs should not have checkmarks")
+	if output != "" {
+		t.Errorf("expected no output for empty summary, got: %q", output)
 	}
 }
 
 func TestServiceLogger_LogSummary_WithCustomURLs(t *testing.T) {
 	logger := NewServiceLogger(false)
 
-	urls := map[string]string{
-		"web": "http://localhost:3000",
-		"api": "http://localhost:8080",
-	}
-
-	customURLs := map[string]string{
-		"web": "https://myapp.example.com",
-		// api has no custom URL
+	summaries := []ServiceURLSummary{
+		{
+			Name:           "web",
+			LocalURL:       "http://localhost:3000",
+			LocalCustomURL: "https://myapp.example.com",
+		},
+		{
+			Name:     "api",
+			LocalURL: "http://localhost:8080",
+		},
 	}
 
 	output := captureStdout(func() {
-		logger.LogSummary(urls, customURLs)
+		logger.LogSummary(summaries)
 	})
 
-	// Should use custom URL for web
-	if !strings.Contains(output, "https://myapp.example.com") {
+	if !strings.Contains(output, "local:") || !strings.Contains(output, "http://localhost:3000") {
+		t.Error("LogSummary should display localhost URL for web service")
+	}
+
+	if !strings.Contains(output, "custom:") || !strings.Contains(output, "https://myapp.example.com") {
 		t.Error("LogSummary should display custom URL for web service")
 	}
 
-	// Should NOT show localhost URL for web (replaced by custom)
-	if strings.Contains(output, "http://localhost:3000") {
-		t.Error("LogSummary should not show localhost URL when custom URL is configured")
-	}
-
-	// Should show localhost URL for api (no custom URL)
 	if !strings.Contains(output, "http://localhost:8080") {
 		t.Error("LogSummary should display localhost URL for api service")
 	}

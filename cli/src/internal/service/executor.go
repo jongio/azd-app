@@ -226,8 +226,47 @@ func ValidateRuntime(runtime *ServiceRuntime) error {
 	case runtime.Language == "":
 		return fmt.Errorf("language is required for service %s", runtime.Name)
 	default:
+		// Additional security validation for commands and args
+		if err := validateCommandSafety(runtime.Command); err != nil {
+			return fmt.Errorf("invalid command for service %s: %w", runtime.Name, err)
+		}
+		for _, arg := range runtime.Args {
+			if err := validateArgumentSafety(arg); err != nil {
+				return fmt.Errorf("invalid argument for service %s: %w", runtime.Name, err)
+			}
+		}
 		return nil
 	}
+}
+
+// validateCommandSafety checks for dangerous patterns in commands.
+// This provides defense-in-depth even though commands come from azure.yaml.
+func validateCommandSafety(cmd string) error {
+	// Disallow shell metacharacters that could enable command injection
+	dangerous := []string{";", "&", "|", ">", "<", "`", "$", "\n", "\r"}
+	
+	for _, char := range dangerous {
+		if strings.Contains(cmd, char) {
+			return fmt.Errorf("command contains potentially dangerous character: %s", char)
+		}
+	}
+	
+	return nil
+}
+
+// validateArgumentSafety checks for dangerous patterns in command arguments.
+func validateArgumentSafety(arg string) error {
+	// Arguments can contain more characters than commands (like =, --)
+	// but we still want to prevent obvious injection attempts
+	dangerous := []string{";", "&", "|", "`", "\n", "\r"}
+	
+	for _, char := range dangerous {
+		if strings.Contains(arg, char) {
+			return fmt.Errorf("argument contains potentially dangerous character: %s", char)
+		}
+	}
+	
+	return nil
 }
 
 // GetProcessStatus returns the status of a service process.

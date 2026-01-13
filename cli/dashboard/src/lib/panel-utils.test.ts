@@ -253,9 +253,24 @@ describe('panel-utils', () => {
       expect(hasAzureDeployment(service)).toBe(true)
     })
 
+    it('should return true if customUrl is present', () => {
+      const service: Service = { name: 'svc', azure: { customUrl: 'https://custom.example.com' } }
+      expect(hasAzureDeployment(service)).toBe(true)
+    })
+
+    it('should return true if customDomain is present', () => {
+      const service: Service = { name: 'svc', azure: { customDomain: 'myapp.example.com' } }
+      expect(hasAzureDeployment(service)).toBe(true)
+    })
+
     it('should return false otherwise', () => {
       expect(hasAzureDeployment({ name: 'svc' })).toBe(false)
       expect(hasAzureDeployment({ name: 'svc', azure: {} })).toBe(false)
+    })
+
+    it('should return true if customDomainSource is present', () => {
+      const service: Service = { name: 'svc', azure: { customDomainSource: 'user' } }
+      expect(hasAzureDeployment(service)).toBe(true)
     })
   })
 

@@ -32,7 +32,7 @@ type Prerequisite struct {
 	RunningCheckExpected string   `yaml:"runningCheckExpected,omitempty"` // Expected substring in output (optional)
 	RunningCheckExitCode *int     `yaml:"runningCheckExitCode,omitempty"` // Expected exit code (default: 0)
 	// Install URL configuration (optional)
-	InstallUrl string `yaml:"installUrl,omitempty"` // URL to installation page (overrides built-in)
+	InstallURL string `yaml:"installUrl,omitempty"` // URL to installation page (overrides built-in)
 }
 
 // ReqsService represents a minimal service definition for reqs parsing.
@@ -87,7 +87,7 @@ type ReqResult struct {
 	CheckedRun bool   `json:"checkedRunning,omitempty"`
 	Message    string `json:"message,omitempty"`
 	IsPodman   bool   `json:"isPodman,omitempty"`   // True when Podman is aliased to Docker
-	InstallUrl string `json:"installUrl,omitempty"` // URL to installation page
+	InstallURL string `json:"installUrl,omitempty"` // URL to installation page
 }
 
 // ToolConfig defines how to check a specific tool.
@@ -332,7 +332,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 	installed, version, isPodman := pc.getInstalledVersion(prereq)
 
 	// Resolve install URL (custom overrides built-in)
-	installUrl := pc.getInstallUrl(prereq)
+	installURL := pc.getInstallURL(prereq)
 
 	result := ReqResult{
 		Name:       prereq.Name,
@@ -341,15 +341,15 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		Required:   prereq.MinVersion,
 		Satisfied:  false,
 		IsPodman:   isPodman,
-		InstallUrl: installUrl,
+		InstallURL: installURL,
 	}
 
 	if !installed {
 		result.Message = "Not installed"
 		if !cliout.IsJSON() {
 			cliout.ItemError("%s: NOT INSTALLED (required: %s)", prereq.Name, prereq.MinVersion)
-			if installUrl != "" {
-				cliout.Item("   Install: %s", installUrl)
+			if installURL != "" {
+				cliout.Item("   Install: %s", installURL)
 			}
 		}
 		return result
@@ -379,8 +379,8 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
 			if !cliout.IsJSON() {
 				cliout.ItemError("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
-				if installUrl != "" {
-					cliout.Item("   Install: %s", installUrl)
+				if installURL != "" {
+					cliout.Item("   Install: %s", installURL)
 				}
 			}
 			return result
@@ -417,12 +417,12 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 	return result
 }
 
-// getInstallUrl returns the install URL for a prerequisite.
-// Custom InstallUrl in prerequisite takes precedence over built-in registry.
-func (pc *PrerequisiteChecker) getInstallUrl(prereq Prerequisite) string {
+// getInstallURL returns the install URL for a prerequisite.
+// Custom InstallURL in prerequisite takes precedence over built-in registry.
+func (pc *PrerequisiteChecker) getInstallURL(prereq Prerequisite) string {
 	// Custom URL takes precedence
-	if prereq.InstallUrl != "" {
-		return prereq.InstallUrl
+	if prereq.InstallURL != "" {
+		return prereq.InstallURL
 	}
 
 	// Resolve aliases to canonical name

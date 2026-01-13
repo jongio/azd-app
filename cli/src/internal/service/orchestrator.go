@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -248,6 +249,17 @@ func startSingleService(rt *ServiceRuntime, envVars map[string]string, reg *regi
 	// This prevents func CLI from prompting interactively
 	serviceEnv = InjectFunctionsWorkerRuntime(serviceEnv, rt)
 
+	// Ensure runtime-assigned port and service name propagate to the process
+	if serviceEnv == nil {
+		serviceEnv = map[string]string{}
+	}
+	if rt.Port > 0 {
+		portValue := strconv.Itoa(rt.Port)
+		serviceEnv["PORT"] = portValue
+		serviceEnv["AZD_PORT"] = portValue
+	}
+	serviceEnv["SERVICE_NAME"] = rt.Name
+
 	// For container services, skip port reservation - the container may already
 	// be running on that port, and StartContainerService handles reuse logic.
 	// For native services, reserve port to prevent TOCTOU race condition.
@@ -317,15 +329,6 @@ func startSingleService(rt *ServiceRuntime, envVars map[string]string, reg *regi
 		if regErr := reg.Register(entry); regErr != nil {
 			logger.LogService(rt.Name, fmt.Sprintf("Warning: failed to update registry with PID: %v", regErr))
 		}
-	}
-
-	// Log service URL immediately with modern formatting
-	// Only show URL for services with assigned ports (port > 0)
-	if process.Port > 0 {
-		url := fmt.Sprintf("http://localhost:%d", process.Port)
-		cliout.ItemSuccess("%s%-15s%s → %s", cliout.Cyan, rt.Name, cliout.Reset, url)
-	} else {
-		cliout.ItemSuccess("%s%-15s%s", cliout.Cyan, rt.Name, cliout.Reset)
 	}
 
 	// Update status to running

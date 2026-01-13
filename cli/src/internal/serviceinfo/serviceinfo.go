@@ -81,7 +81,8 @@ type ServiceInfo struct {
 type LocalServiceInfo struct {
 	Status      string     `json:"status"` // "running", "not-running", "unknown"
 	Health      string     `json:"health"` // "healthy", "unhealthy", "unknown"
-	URL         string     `json:"url,omitempty"`
+	URL         string     `json:"url,omitempty"`         // Auto-discovered local URL
+	CustomURL   string     `json:"customUrl,omitempty"`   // User-configured custom URL (e.g., ngrok)
 	Port        int        `json:"port,omitempty"`
 	PID         int        `json:"pid,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`
@@ -92,9 +93,12 @@ type LocalServiceInfo struct {
 
 // AzureServiceInfo contains Azure-specific service information.
 type AzureServiceInfo struct {
-	URL          string `json:"url,omitempty"` // Custom URL for accessing the service (from url field)
-	ResourceName string `json:"resourceName,omitempty"`
-	ImageName    string `json:"imageName,omitempty"`
+	URL                string `json:"url,omitempty"`                // Auto-discovered Azure deployment URL
+	CustomURL          string `json:"customUrl,omitempty"`          // User-configured custom URL
+	CustomDomain       string `json:"customDomain,omitempty"`       // User-configured OR SDK-discovered custom domain
+	CustomDomainSource string `json:"customDomainSource,omitempty"` // "user" or "azure-sdk"
+	ResourceName       string `json:"resourceName,omitempty"`
+	ImageName          string `json:"imageName,omitempty"`
 }
 
 // GetServiceInfo returns comprehensive service information for a project directory.
@@ -289,13 +293,36 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				},
 			}
 
-			// Extract altUrl from service config if present
+			// Extract local.customUrl from service config if present
+			if svc.Local != nil && svc.Local.CustomURL != "" {
+				serviceInfo.Local.CustomURL = svc.Local.CustomURL
+			}
+
+			// Extract Azure config from service config if present
+			if svc.Azure != nil {
+				// Initialize Azure info if not already present
+				if serviceInfo.Azure == nil {
+					serviceInfo.Azure = &AzureServiceInfo{}
+				}
+				if svc.Azure.CustomURL != "" {
+					serviceInfo.Azure.CustomURL = svc.Azure.CustomURL
+				}
+				if svc.Azure.CustomDomain != "" {
+					serviceInfo.Azure.CustomDomain = svc.Azure.CustomDomain
+					serviceInfo.Azure.CustomDomainSource = svc.Azure.CustomDomainSource
+				}
+			}
+
+			// Handle deprecated root-level URL field (backward compatibility)
 			if svc.URL != "" {
 				// Initialize Azure info if not already present
 				if serviceInfo.Azure == nil {
 					serviceInfo.Azure = &AzureServiceInfo{}
 				}
-				serviceInfo.Azure.URL = svc.URL
+				// Only set CustomURL if not already set from Azure.CustomURL
+				if serviceInfo.Azure.CustomURL == "" {
+					serviceInfo.Azure.CustomURL = svc.URL
+				}
 			}
 
 			serviceMap[normalizedName] = serviceInfo
@@ -306,6 +333,12 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	for _, runningSvc := range runningServices {
 		normalizedName := strings.ToLower(runningSvc.Name)
 		if existing, exists := serviceMap[normalizedName]; exists {
+			// Preserve any locally configured custom URL while overlaying runtime state
+			existingCustomURL := ""
+			if existing.Local != nil {
+				existingCustomURL = existing.Local.CustomURL
+			}
+
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
 				Health:      "", // Health is computed dynamically via health checks, not stored in registry
@@ -317,6 +350,10 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				ServiceType: runningSvc.Type,
 				ServiceMode: runningSvc.Mode,
 			}
+
+			if existingCustomURL != "" {
+				existing.Local.CustomURL = existingCustomURL
+			}
 		}
 	}
 
@@ -324,18 +361,24 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	for serviceName, azureInfo := range azureServices {
 		// serviceName from azureServices is already lowercase
 		if existing, exists := serviceMap[serviceName]; exists {
-			// Preserve altUrl if it was set from config
-			var existingURL string
+			// Preserve custom URLs and domains from config
+			var existingCustomURL, existingCustomDomain, existingCustomDomainSource string
 			if existing.Azure != nil {
-				existingURL = existing.Azure.URL
+				existingCustomURL = existing.Azure.CustomURL
+				existingCustomDomain = existing.Azure.CustomDomain
+				existingCustomDomainSource = existing.Azure.CustomDomainSource
 			}
 
 			// Replace Azure info with environment-based info
 			existing.Azure = &azureInfo
 
-			// Restore altUrl from config (takes precedence)
-			if existingURL != "" {
-				existing.Azure.URL = existingURL
+			// Restore custom URLs/domains from config (user config takes precedence over env vars)
+			if existingCustomURL != "" {
+				existing.Azure.CustomURL = existingCustomURL
+			}
+			if existingCustomDomain != "" {
+				existing.Azure.CustomDomain = existingCustomDomain
+				existing.Azure.CustomDomainSource = existingCustomDomainSource
 			}
 		}
 	}

@@ -616,14 +616,6 @@
           "title": "Service-level test configuration (azd app extension)",
           "description": "Service-level test configuration"
         },
-        "url": {
-          "type": "string",
-          "title": "DEPRECATED: Custom URL (azd app extension)",
-          "description": "DEPRECATED: Use azure.customUrl instead. Custom URL for accessing the service (e.g., through reverse proxy, ngrok, custom domain). Must be a valid HTTP or HTTPS URL.",
-          "pattern": "^https?://",
-          "maxLength": 2048,
-          "examples": ["https://myapp.example.com", "https://abc123.ngrok.io", "http://localhost:8080"]
-        },
         "local": {
           "type": "object",
           "title": "Local development configuration (azd app extension)",
@@ -656,10 +648,10 @@
             "customDomain": {
               "type": "string",
               "title": "Custom domain",
-              "description": "User-configured custom domain for Azure deployment. When set, overrides Azure SDK discovery. If not set, the system attempts to discover custom domains from Azure Portal. Must be a valid HTTP or HTTPS URL.",
-              "pattern": "^https?://",
-              "maxLength": 2048,
-              "examples": ["https://www.mycompany.com", "https://app.example.com"]
+              "description": "User-configured custom domain name for Azure deployment (domain only, without protocol). When set, overrides Azure SDK discovery. If not set, the system attempts to discover custom domains from Azure Portal.",
+              "pattern": "^(?!https?://)[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+              "maxLength": 253,
+              "examples": ["www.mycompany.com", "app.example.com", "api.myservice.net"]
             }
           },
           "additionalProperties": false

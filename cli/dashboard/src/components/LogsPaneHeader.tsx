@@ -108,8 +108,8 @@ export interface LogsPaneHeaderProps {
   service?: Service
   healthCheckResult?: HealthCheckResult
   effectiveUrl?: string
+  effectiveUrlSource?: 'azure' | 'local'
   logMode: LogMode
-  azureUrl?: string
   onShowDetails?: () => void
   onOpenConfigPanel?: () => void
   handleCopyPane: () => void
@@ -127,8 +127,8 @@ export function LogsPaneHeader({
   healthCheckResult,
   service,
   effectiveUrl,
+  effectiveUrlSource,
   logMode,
-  azureUrl,
   onShowDetails,
   onOpenConfigPanel,
   handleCopyPane,
@@ -217,7 +217,7 @@ export function LogsPaneHeader({
             size="sm"
             onClick={() => globalThis.open(effectiveUrl, '_blank', 'noopener,noreferrer')}
             title={effectiveUrl}
-            aria-label={azureUrl ? 'Open custom URL in new tab' : 'Open service in new tab'}
+            aria-label={effectiveUrlSource === 'azure' ? 'Open custom URL in new tab' : 'Open service in new tab'}
           >
             <ExternalLink className="w-4 h-4" />
           </Button>

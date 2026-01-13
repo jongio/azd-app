@@ -1274,11 +1274,18 @@ const resourceTypesExample = `resources:
                 <td class="py-3 px-4">Environment variables for deployment (key-value pairs)</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
-                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">url</code></td>
-                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">local</code></td>
+                <td class="py-3 px-4">object</td>
                 <td class="py-3 px-4">-</td>
-                <td class="py-3 px-4">Both</td>
-                <td class="py-3 px-4">Custom access URL for the service (e.g., custom domain, reverse proxy, CDN). Displayed in dashboard and CLI alongside deployment URL.</td>
+                <td class="py-3 px-4">azd app</td>
+                <td class="py-3 px-4">Local development configuration including customUrl</td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">azure</code></td>
+                <td class="py-3 px-4">object</td>
+                <td class="py-3 px-4">-</td>
+                <td class="py-3 px-4">azd</td>
+                <td class="py-3 px-4">Azure deployment configuration including customUrl and customDomain</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">hooks</code></td>
@@ -1291,55 +1298,217 @@ const resourceTypesExample = `resources:
           </table>
         </div>
 
-        <h3 class="text-2xl font-bold mb-4 mt-8">Custom Service URLs</h3>
+        <h3 class="text-2xl font-bold mb-4 mt-8">Service URL Configuration</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-          Use the <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">url</code> property to specify how users actually access your service when it differs from the Azure deployment URL. This is especially useful when you have:
+          Configure custom URLs for accessing your services through the <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">local</code> and <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure</code> configuration objects. These URLs are used when the actual access point differs from the auto-discovered service URL.
         </p>
+
+        <div class="overflow-x-auto my-6">
+          <table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
+            <thead>
+              <tr class="bg-neutral-200 dark:bg-neutral-700">
+                <th class="text-left py-3 px-4 font-semibold">Property</th>
+                <th class="text-left py-3 px-4 font-semibold">Type</th>
+                <th class="text-left py-3 px-4 font-semibold">Context</th>
+                <th class="text-left py-3 px-4 font-semibold">Writable</th>
+                <th class="text-left py-3 px-4 font-semibold">Description & Examples</th>
+              </tr>
+            </thead>
+            <tbody class="bg-neutral-100 dark:bg-neutral-800">
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">local.url</code></td>
+                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4">Local dev</td>
+                <td class="py-3 px-4"><span class="text-red-600 dark:text-red-400 font-semibold">Readonly</span></td>
+                <td class="py-3 px-4">
+                  <div class="mb-1">Auto-discovered local URL (NEVER overridden). Always shows the actual localhost endpoint.</div>
+                  <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">http://localhost:3000</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">http://localhost:8080</code></div>
+                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400">⚠️ If service has custom URL, both URLs are preserved separately</div>
+                </td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">local.customUrl</code></td>
+                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4">Local dev</td>
+                <td class="py-3 px-4"><span class="text-green-600 dark:text-green-400 font-semibold">Yes</span></td>
+                <td class="py-3 px-4">
+                  <div class="mb-1">Custom URL for accessing the service (used for display). The original localhost URL is preserved in <code class="px-1 bg-white dark:bg-neutral-700 rounded">local.url</code>.</div>
+                  <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://myapi.ngrok.io</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">http://myapp.local:8080</code></div>
+                </td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">azure.url</code></td>
+                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4">Azure</td>
+                <td class="py-3 px-4"><span class="text-red-600 dark:text-red-400 font-semibold">Readonly</span></td>
+                <td class="py-3 px-4">
+                  <div class="mb-1">Auto-discovered Azure URL (NEVER overridden). Always shows the actual provisioned endpoint.</div>
+                  <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://myapp.azurewebsites.net</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://myapi.azurecontainerapps.io</code></div>
+                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400">⚠️ If service has custom domain, both URLs are preserved separately</div>
+                </td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">azure.customUrl</code></td>
+                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4">Azure</td>
+                <td class="py-3 px-4"><span class="text-green-600 dark:text-green-400 font-semibold">Yes</span></td>
+                <td class="py-3 px-4">
+                  <div class="mb-1">Custom URL for Azure deployment (used for display). The original Azure URL is preserved in <code class="px-1 bg-white dark:bg-neutral-700 rounded">azure.url</code>. Typically used with CDN/Front Door.</div>
+                  <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://www.contoso.com</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://api.fabrikam.com/v1</code></div>
+                </td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">azure.customDomain</code></td>
+                <td class="py-3 px-4">string</td>
+                <td class="py-3 px-4">Azure</td>
+                <td class="py-3 px-4"><span class="text-green-600 dark:text-green-400 font-semibold">Yes</span></td>
+                <td class="py-3 px-4">
+                  <div class="mb-1">Custom domain name for Azure deployment (domain only, no protocol). Converted to HTTPS URL for display. The original Azure URL is preserved in <code class="px-1 bg-white dark:bg-neutral-700 rounded">azure.url</code>.</div>
+                  <div class="text-xs mt-1">Can be auto-discovered from Azure resource settings (e.g., App Service custom domain) or set locally in azure.yaml.</div>
+                  <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">www.contoso.com</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">api.fabrikam.com</code></div>
+                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400">⚠️ Do not include <code>http://</code> or <code>https://</code></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 class="text-xl font-bold mb-3 mt-6">Common Use Cases</h4>
         <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300 mb-6 ml-4">
-          <li><strong>Custom domains:</strong> Users access via <code>app.company.com</code> instead of the Azure-generated URL</li>
+          <li><strong>Custom domains:</strong> Users access via <code>www.company.com</code> instead of Azure-generated URLs</li>
+          <li><strong>Development tunnels:</strong> Expose local services via ngrok or similar tools</li>
           <li><strong>Reverse proxies:</strong> Traffic flows through a gateway or load balancer</li>
-          <li><strong>CDN endpoints:</strong> Content delivered via CDN like Azure Front Door or Cloudflare</li>
-          <li><strong>Development tunnels:</strong> Using ngrok or similar tools to expose local services</li>
-          <li><strong>API gateways:</strong> APIs accessed through Azure API Management or similar</li>
+          <li><strong>CDN endpoints:</strong> Content delivered via Azure Front Door or Cloudflare</li>
+          <li><strong>API gateways:</strong> APIs accessed through Azure API Management</li>
         </ul>
 
         <div class="mb-6">
           <Code code={`services:
-  # Production web app with custom domain
+  # Local development with ngrok tunnel
+  api:
+    project: ./backend
+    ports: ["8080"]
+    local:
+      customUrl: https://myapi.ngrok.io
+    # Local URL shown as: https://myapi.ngrok.io
+    # Auto-discovered: http://localhost:8080
+
+  # Production with custom domain and CDN
   web:
     host: containerapp
     project: ./frontend
-    url: https://www.mycompany.com
-    # Azure deploys to: https://web-abc123.azurecontainerapps.io
-    # Users access via: https://www.mycompany.com
+    azure:
+      customUrl: https://www.mycompany.com
+      customDomain: www.mycompany.com
+    # Access URL: https://www.mycompany.com
+    # Azure deployed to: https://web-abc123.azurecontainerapps.io
 
   # API behind Azure API Management
-  api:
+  backend:
     host: containerapp
-    project: ./backend
-    url: https://api.mycompany.com
-    # Azure deploys to: https://api-xyz789.azurecontainerapps.io
-    # Users access via: https://api.mycompany.com
+    project: ./api
+    azure:
+      customUrl: https://api.mycompany.com
+      customDomain: api.mycompany.com
+    # Access URL: https://api.mycompany.com
+    # Azure deployed to: https://backend-xyz789.azurecontainerapps.io
 
-  # Service accessed through CDN
-  assets:
-    host: staticwebapp
-    project: ./assets
-    url: https://cdn.mycompany.com/assets
-    # Azure deploys to: https://assets-def456.azurestaticapps.net
-    # Users access via CDN: https://cdn.mycompany.com/assets`} lang="yaml" />
+  # Both local tunnel and production custom domain
+  fullstack:
+    host: appservice
+    project: ./app
+    local:
+      customUrl: https://app.ngrok.io
+    azure:
+      customUrl: https://app.company.com
+      customDomain: app.company.com
+    # Local: https://app.ngrok.io
+    # Azure: https://app.company.com`} lang="yaml" />
         </div>
 
         <div class="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
           <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
-            <span>ℹ️</span>
-            <span>How it Works</span>
+            <span>🎯</span>
+            <span>How It Works: URL Property Design</span>
+          </h3>
+          <p class="text-neutral-700 dark:text-neutral-300 mb-3">
+            The system maintains <strong>two separate readonly URL properties</strong> that preserve the original auto-discovered endpoints. Custom URLs are stored separately and used for display purposes.
+          </p>
+          <div class="space-y-3">
+            <div class="p-3 bg-white dark:bg-neutral-900 rounded border border-blue-200 dark:border-blue-700">
+              <div class="font-semibold mb-1">Local Development URLs:</div>
+              <ul class="list-disc list-inside text-sm text-neutral-700 dark:text-neutral-300 ml-2 space-y-1">
+                <li><code class="px-1 bg-neutral-100 dark:bg-neutral-800 rounded">local.url</code> - Readonly, always preserves the original auto-discovered URL (e.g., http://localhost:3000)</li>
+                <li><code class="px-1 bg-neutral-100 dark:bg-neutral-800 rounded">local.customUrl</code> - Optional user-configured display URL (e.g., https://myapi.ngrok.io)</li>
+                <li><strong>Both URLs are preserved separately</strong> - you can always see the actual localhost endpoint AND the custom access URL</li>
+              </ul>
+            </div>
+            <div class="p-3 bg-white dark:bg-neutral-900 rounded border border-blue-200 dark:border-blue-700">
+              <div class="font-semibold mb-1">Azure Deployment URLs:</div>
+              <ul class="list-disc list-inside text-sm text-neutral-700 dark:text-neutral-300 ml-2 space-y-1">
+                <li><code class="px-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.url</code> - Readonly, always preserves the original Azure endpoint (e.g., https://myapp.azurecontainerapps.io)</li>
+                <li><code class="px-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.customUrl</code> - Optional user-configured display URL (e.g., https://www.contoso.com)</li>
+                <li><code class="px-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.customDomain</code> - Optional domain name that converts to HTTPS URL (e.g., www.contoso.com → https://www.contoso.com)</li>
+                <li><strong>Original Azure URL is never overwritten</strong> - both the provisioned endpoint and custom domain are preserved</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="mt-4 p-3 bg-purple-100 dark:bg-purple-900/30 rounded border border-purple-300 dark:border-purple-700">
+            <div class="font-semibold mb-2 flex items-center gap-2">
+              <span>🔒</span>
+              <span>Readonly Properties</span>
+            </div>
+            <p class="text-sm text-neutral-700 dark:text-neutral-300">
+              The <code class="px-1 bg-white dark:bg-neutral-800 rounded">local.url</code> and <code class="px-1 bg-white dark:bg-neutral-800 rounded">azure.url</code> properties are <strong>readonly</strong> and automatically set at runtime. 
+              You cannot directly set these in your azure.yaml. Instead, configure 
+              <code class="px-1 bg-white dark:bg-neutral-800 rounded">local.customUrl</code>, <code class="px-1 bg-white dark:bg-neutral-800 rounded">azure.customUrl</code>, or 
+              <code class="px-1 bg-white dark:bg-neutral-800 rounded">azure.customDomain</code> to provide custom access URLs.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-6 p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+          <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+            <span>💡</span>
+            <span>Example: URL Separation</span>
+          </h3>
+          <div class="mb-3">
+            <Code code={`services:
+  api:
+    project: ./backend
+    ports: ["8080"]
+    local:
+      customUrl: https://api.ngrok.io
+    azure:
+      customDomain: api.mycompany.com
+
+# What happens at runtime:
+
+# Local development (azd app run):
+# - local.url = "http://localhost:8080"  (auto-discovered, NEVER changes)
+# - local.customUrl = "https://api.ngrok.io"  (user-configured)
+# - Display shows BOTH: "Access URL: https://api.ngrok.io" + "Local URL: http://localhost:8080"
+
+# Azure deployment (azd deploy):
+# - azure.url = "https://api-xyz123.azurecontainerapps.io"  (auto-discovered, NEVER changes)
+# - azure.customDomain = "api.mycompany.com" → converted to "https://api.mycompany.com"
+# - Display shows BOTH: "Access URL: https://api.mycompany.com" + "Azure URL: https://api-xyz123.azurecontainerapps.io"
+
+# Key Point: Original URLs are ALWAYS preserved alongside custom URLs`} lang="yaml" />
+          </div>
+        </div>
+
+        <div class="mt-6 p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+          <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
+            <span>✨</span>
+            <span>Display Behavior</span>
           </h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
-            <li><strong>CLI Display:</strong> <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app info</code> shows both "Deployment URL" (Azure) and "Access URL" (custom)</li>
-            <li><strong>Dashboard:</strong> The dashboard displays the custom URL as the primary link users click</li>
-            <li><strong>Service Discovery:</strong> Other services can reference this URL via environment variables</li>
-            <li><strong>Local Development:</strong> Typically not needed for local services (use <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">ports</code> instead)</li>
+            <li><strong>CLI (<code class="px-1 bg-white dark:bg-neutral-800 rounded">azd app info</code>):</strong> Shows both "Access URL" (custom) and original URL when they differ</li>
+            <li><strong>Dashboard:</strong> Primary link uses the custom URL; hover/tooltip shows the original provisioned URL</li>
+            <li><strong>Service Discovery:</strong> Environment variables reference the appropriate URL based on context</li>
+            <li><strong>Logs:</strong> Both URLs included in startup messages for clarity and debugging</li>
           </ul>
         </div>
 
@@ -1349,25 +1518,12 @@ const resourceTypesExample = `resources:
             <span>Important Notes</span>
           </h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
-            <li>The <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">url</code> property is <strong>informational only</strong> - it doesn't configure DNS, SSL, or routing</li>
-            <li>You must separately configure your custom domain/CDN/proxy to point to the Azure deployment URL</li>
-            <li>This is primarily for documentation and user experience - helping developers know the actual access point</li>
-            <li>Can be used for both local development (azd app) and Azure deployment (azd) contexts</li>
+            <li>These properties are <strong>informational only</strong> - they don't configure DNS, SSL certificates, or routing</li>
+            <li>You must separately configure your infrastructure (custom domains, reverse proxies, CDN, etc.)</li>
+            <li><code class="px-1 bg-white dark:bg-neutral-800 rounded">customUrl</code> requires full URL with protocol (http:// or https://)</li>
+            <li><code class="px-1 bg-white dark:bg-neutral-800 rounded">customDomain</code> accepts domain name only (e.g., www.example.com) - can be auto-discovered from Azure or set locally</li>
+            <li>Used primarily for documentation, UX, and helping developers know both the actual provisioned endpoint and the custom access point</li>
           </ul>
-        </div>
-
-        <div class="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-          <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
-            <span>📖</span>
-            <span>CORS Configuration Guide</span>
-          </h3>
-          <p class="text-neutral-700 dark:text-neutral-300 mb-3">
-            When using custom URLs with APIs, you'll need to configure CORS to allow requests from your custom domain.
-          </p>
-          <p class="text-neutral-700 dark:text-neutral-300">
-            See the <a href="/azd-app/guides/cors-configuration" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">CORS Configuration Guide</a> for 
-            multi-language examples (Node.js, Python, .NET) and best practices.
-          </p>
         </div>
 
         <h3 class="text-2xl font-bold mb-4 mt-8">Environment Variable Formats</h3>

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,6 +19,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
 	"github.com/jongio/azd-core/browser"
 	"github.com/jongio/azd-core/cliout"
@@ -259,10 +261,9 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, a
 		return err
 	}
 
-	// Display service URLs (using custom URLs if configured in azure.yaml)
-	urls := service.GetServiceURLs(result.Processes)
-	customURLs := extractCustomURLs(azureYaml)
-	logger.LogSummary(urls, customURLs)
+	// Display service URLs (local + custom + Azure endpoints/domains)
+	serviceSummaries := buildServiceSummaries(cwd, azureYaml, result.Processes)
+	logger.LogSummary(serviceSummaries)
 
 	logger.LogReady()
 
@@ -300,21 +301,138 @@ func loadEnvironmentVariables() (map[string]string, error) {
 	return envVars, nil
 }
 
-// extractCustomURLs extracts custom URLs from azure.yaml services.
-// Returns a map of service name to custom URL for services that have one configured.
-func extractCustomURLs(azureYaml *service.AzureYaml) map[string]string {
-	customURLs := make(map[string]string)
+// buildServiceSummaries composes URL summaries for display, preferring rich data from serviceinfo.
+func buildServiceSummaries(projectDir string, azureYaml *service.AzureYaml, processes map[string]*service.ServiceProcess) []service.ServiceURLSummary {
+	services, err := serviceinfo.GetServiceInfo(projectDir)
+	if err == nil && len(services) > 0 {
+		return convertServiceInfoToSummaries(services)
+	}
+
+	if err != nil {
+		cliout.Warning("Failed to get service info: %v", err)
+	}
+
+	return buildFallbackSummaries(azureYaml, processes)
+}
+
+// convertServiceInfoToSummaries converts serviceinfo results into logger-friendly summaries.
+func convertServiceInfoToSummaries(services []*serviceinfo.ServiceInfo) []service.ServiceURLSummary {
+	summaries := make([]service.ServiceURLSummary, 0, len(services))
+
+	for _, svc := range services {
+		summary := service.ServiceURLSummary{Name: svc.Name}
+
+		if svc.Local != nil {
+			summary.LocalURL = svc.Local.URL
+			if summary.LocalURL == "" && svc.Local.Port > 0 {
+				summary.LocalURL = fmt.Sprintf("http://localhost:%d", svc.Local.Port)
+			}
+			summary.LocalCustomURL = svc.Local.CustomURL
+		}
+
+		if svc.Azure != nil {
+			summary.AzureURL = svc.Azure.URL
+			summary.AzureCustomURL = svc.Azure.CustomURL
+			if svc.Azure.CustomDomain != "" {
+				if svc.Azure.CustomDomainSource != "" {
+					summary.AzureCustomDomain = fmt.Sprintf("%s (%s)", svc.Azure.CustomDomain, svc.Azure.CustomDomainSource)
+				} else {
+					summary.AzureCustomDomain = svc.Azure.CustomDomain
+				}
+			}
+		}
+
+		summaries = append(summaries, summary)
+	}
+
+	return summaries
+}
+
+type customEndpointConfig struct {
+	localCustomURL        string
+	azureCustomURL        string
+	azureCustomDomain     string
+	azureCustomDomainSource string
+}
+
+// buildFallbackSummaries is used when serviceinfo data is unavailable; it combines runtime ports with azure.yaml config.
+func buildFallbackSummaries(azureYaml *service.AzureYaml, processes map[string]*service.ServiceProcess) []service.ServiceURLSummary {
 	if azureYaml == nil {
-		return customURLs
+		return nil
+	}
+
+	urls := service.GetServiceURLs(processes)
+	customConfig := extractCustomConfig(azureYaml)
+
+	names := make([]string, 0, len(azureYaml.Services))
+	for name := range azureYaml.Services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	summaries := make([]service.ServiceURLSummary, 0, len(names))
+	for _, name := range names {
+		normalized := strings.ToLower(name)
+		summary := service.ServiceURLSummary{Name: name}
+
+		if url, ok := urls[name]; ok {
+			summary.LocalURL = url
+		} else if url, ok := urls[normalized]; ok {
+			summary.LocalURL = url
+		}
+
+		if cfg, ok := customConfig[normalized]; ok {
+			summary.LocalCustomURL = cfg.localCustomURL
+			summary.AzureCustomURL = cfg.azureCustomURL
+			if cfg.azureCustomDomain != "" {
+				if cfg.azureCustomDomainSource != "" {
+					summary.AzureCustomDomain = fmt.Sprintf("%s (%s)", cfg.azureCustomDomain, cfg.azureCustomDomainSource)
+				} else {
+					summary.AzureCustomDomain = cfg.azureCustomDomain
+				}
+			}
+		}
+
+		summaries = append(summaries, summary)
+	}
+
+	return summaries
+}
+
+// extractCustomConfig captures custom URL/domain configuration from azure.yaml for summary display.
+func extractCustomConfig(azureYaml *service.AzureYaml) map[string]customEndpointConfig {
+	config := make(map[string]customEndpointConfig)
+	if azureYaml == nil {
+		return config
 	}
 
 	for name, svc := range azureYaml.Services {
-		if svc.URL != "" {
-			customURLs[name] = svc.URL
+		normalized := strings.ToLower(name)
+		cfg := customEndpointConfig{}
+
+		if svc.Local != nil && svc.Local.CustomURL != "" {
+			cfg.localCustomURL = svc.Local.CustomURL
 		}
+
+		if svc.Azure != nil {
+			if svc.Azure.CustomURL != "" {
+				cfg.azureCustomURL = svc.Azure.CustomURL
+			}
+			if svc.Azure.CustomDomain != "" {
+				cfg.azureCustomDomain = svc.Azure.CustomDomain
+				cfg.azureCustomDomainSource = svc.Azure.CustomDomainSource
+			}
+		}
+
+		// Include deprecated root-level url as a custom Azure URL for backward compatibility
+		if cfg.azureCustomURL == "" && svc.URL != "" {
+			cfg.azureCustomURL = svc.URL
+		}
+
+		config[normalized] = cfg
 	}
 
-	return customURLs
+	return config
 }
 
 // monitorServicesUntilShutdown monitors all services with full process isolation.

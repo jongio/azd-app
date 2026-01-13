@@ -435,7 +435,17 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
             {service.local?.customUrl && (
               <InfoRow 
                 label="Custom URL"
-                value={service.local.customUrl}
+                value={
+                  <a
+                    href={service.local.customUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 break-all"
+                  >
+                    {service.local.customUrl}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                }
                 copyable
                 onCopy={() => onCopy(service.local?.customUrl ?? '', 'customUrl')}
                 copied={copiedField === 'customUrl'}
@@ -445,7 +455,17 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
             {service.local?.url && (
               <InfoRow 
                 label={service.local.customUrl ? "Default URL" : "URL"}
-                value={service.local.url}
+                value={
+                  <a
+                    href={service.local.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 break-all"
+                  >
+                    {service.local.url}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                }
                 copyable
                 onCopy={() => onCopy(service.local?.url ?? '', 'url')}
                 copied={copiedField === 'url'}
@@ -496,10 +516,12 @@ interface AzureTabProps {
 }
 
 function AzureTab({ service }: AzureTabProps) {
-  const isDeployed = hasAzureDeployment(service)
+  const hasConfiguredUrls = Boolean(service.azure?.customUrl || service.azure?.customDomain || service.azure?.url)
+  const hasResourceInfo = Boolean(service.azure?.resourceName || service.azure?.resourceType || service.azure?.imageName)
+  const hasAnyAzureData = hasConfiguredUrls || hasResourceInfo || hasAzureDeployment(service)
   const azurePortalUrl = buildAzurePortalUrl(service)
 
-  if (!isDeployed) {
+  if (!hasAnyAzureData) {
     return (
       <SectionCard title="Not Deployed">
         <div className="text-center py-6">
@@ -518,19 +540,21 @@ function AzureTab({ service }: AzureTabProps) {
   return (
     <div>
       {/* Resource */}
-      <SectionCard title="Resource">
-        <div className="space-y-0">
-          {service.azure?.resourceName && (
-            <InfoRow label="Resource Name" value={service.azure.resourceName} />
-          )}
-          {service.azure?.resourceType && (
-            <InfoRow label="Resource Type" value={service.azure.resourceType} />
-          )}
-          {service.azure?.imageName && (
-            <InfoRow label="Image" value={service.azure.imageName} />
-          )}
-        </div>
-      </SectionCard>
+      {hasResourceInfo && (
+        <SectionCard title="Resource">
+          <div className="space-y-0">
+            {service.azure?.resourceName && (
+              <InfoRow label="Resource Name" value={service.azure.resourceName} />
+            )}
+            {service.azure?.resourceType && (
+              <InfoRow label="Resource Type" value={service.azure.resourceType} />
+            )}
+            {service.azure?.imageName && (
+              <InfoRow label="Image" value={service.azure.imageName} />
+            )}
+          </div>
+        </SectionCard>
+      )}
 
       {/* URLs Section - Show all configured URLs */}
       {(service.azure?.url || service.azure?.customUrl || service.azure?.customDomain) && (

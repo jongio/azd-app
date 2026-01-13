@@ -17,6 +17,7 @@ class MockWebSocket {
 
 const originalWebSocket = globalThis.WebSocket
 const originalFetch = globalThis.fetch
+const originalOpen = globalThis.open
 
 vi.mock('@/hooks/useServiceOperations', () => ({
   useServiceOperations: () => ({
@@ -50,6 +51,7 @@ describe('LogsPane header actions', () => {
     cleanup()
     globalThis.WebSocket = originalWebSocket
     globalThis.fetch = originalFetch
+    globalThis.open = originalOpen
   })
 
   it('shows process + health badges and supports Open/Details buttons', async () => {
@@ -82,9 +84,36 @@ describe('LogsPane header actions', () => {
     expect(screen.getByTitle('Service health: healthy (from health checks)')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /open custom url in new tab/i }))
-    expect(globalThis.open).toHaveBeenCalled()
+  expect(globalThis.open).toHaveBeenCalledWith('https://example.azure.com', '_blank', 'noopener,noreferrer')
 
     await user.click(screen.getByRole('button', { name: /show service details panel/i }))
     expect(onShowDetails).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the local URL when viewing local logs even if an Azure URL exists', async () => {
+    const user = userEvent.setup()
+    const localUrl = 'http://localhost:4000'
+    const service: Service = {
+      name: 'web',
+      host: 'containerapp',
+      azure: { url: 'https://example.azure.com' },
+      local: { status: 'running', health: 'healthy', port: 4000, url: localUrl },
+    }
+
+    render(
+      <LogsPane
+        serviceName="web"
+        service={service}
+        serviceHealth="healthy"
+        onCopy={() => {}}
+        isPaused={false}
+        logMode="local"
+      />
+    )
+
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: /open service in new tab/i }))
+    expect(globalThis.open).toHaveBeenCalledWith(localUrl, '_blank', 'noopener,noreferrer')
   })
 })

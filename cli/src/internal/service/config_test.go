@@ -183,17 +183,17 @@ func TestValidateServiceConfig(t *testing.T) {
 			serviceName: "web",
 			service: &service.Service{
 				Azure: &service.AzureServiceConfig{
-					CustomDomain: "https://www.mycompany.com",
+					CustomDomain: "www.mycompany.com",
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name:        "Invalid azure.customDomain",
+			name:        "Invalid azure.customDomain with protocol",
 			serviceName: "web",
 			service: &service.Service{
 				Azure: &service.AzureServiceConfig{
-					CustomDomain: "example.com",
+					CustomDomain: "https://www.example.com",
 				},
 			},
 			wantErr: true,
@@ -208,7 +208,7 @@ func TestValidateServiceConfig(t *testing.T) {
 				},
 				Azure: &service.AzureServiceConfig{
 					CustomURL:    "https://api.example.com",
-					CustomDomain: "https://www.example.com",
+					CustomDomain: "www.example.com",
 				},
 			},
 			wantErr: false,
@@ -324,7 +324,7 @@ services:
     language: js
     host: containerapp
     azure:
-      customDomain: https://www.mycompany.com
+      customDomain: www.mycompany.com
 `,
 			wantErr: false,
 			validate: func(t *testing.T, yaml *service.AzureYaml) {
@@ -332,8 +332,8 @@ services:
 				if web.Azure == nil {
 					t.Fatal("Expected azure config to exist")
 				}
-				if web.Azure.CustomDomain != "https://www.mycompany.com" {
-					t.Errorf("Expected azure.customDomain 'https://www.mycompany.com', got %s", web.Azure.CustomDomain)
+				if web.Azure.CustomDomain != "www.mycompany.com" {
+					t.Errorf("Expected azure.customDomain 'www.mycompany.com', got %s", web.Azure.CustomDomain)
 				}
 				if web.Azure.CustomDomainSource != "user" {
 					t.Errorf("Expected customDomainSource 'user', got %s", web.Azure.CustomDomainSource)
@@ -352,7 +352,7 @@ services:
       customUrl: https://localhost.local
     azure:
       customUrl: https://api.example.com
-      customDomain: https://www.example.com
+      customDomain: www.example.com
 `,
 			wantErr: false,
 			validate: func(t *testing.T, yaml *service.AzureYaml) {
@@ -369,8 +369,8 @@ services:
 				if web.Azure.CustomURL != "https://api.example.com" {
 					t.Errorf("Expected azure.customUrl 'https://api.example.com', got %s", web.Azure.CustomURL)
 				}
-				if web.Azure.CustomDomain != "https://www.example.com" {
-					t.Errorf("Expected azure.customDomain 'https://www.example.com', got %s", web.Azure.CustomDomain)
+				if web.Azure.CustomDomain != "www.example.com" {
+					t.Errorf("Expected azure.customDomain 'www.example.com', got %s", web.Azure.CustomDomain)
 				}
 			},
 		},
