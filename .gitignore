@@ -23,6 +23,7 @@ playwright-report/
 coverage
 coverage-*
 *-coverage
+*-cov
 *_coverage
 *_coverage.out
 src/coverage
