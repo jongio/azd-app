@@ -1,3 +1,10 @@
+## [0.11.0] - 2026-01-13
+
+- feat: Implement service URL configuration and custom access URLs (#110) (cc0a18f)
+- fix: update .gitignore to clarify Go workspace files (43b8b0b)
+- Integrate azd-core v0.2.0: Migrate to Shared Utilities (#106) (86111dc)
+- chore: update registry for v0.10.1 (98e3872)
+
 ## [0.10.1] - 2026-01-09
 
 - feat: Add Azure Key Vault reference resolution for environment variables (#103) (f56bb20)
