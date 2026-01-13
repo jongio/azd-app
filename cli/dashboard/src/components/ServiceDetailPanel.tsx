@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useClipboard } from '@/hooks/useClipboard'
+import { useServiceUrls } from '@/hooks/useServiceUrls'
 import { StatusBadge, type EffectiveStatus } from './StatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations, type OperationState } from '@/hooks/useServiceOperations'
@@ -32,8 +33,6 @@ import {
   isProcessService,
   getServiceModeBadgeConfig,
   getServiceTypeLabel,
-  getEffectiveLocalUrl,
-  getEffectiveAzureUrl,
 } from '@/lib/service-utils'
 
 // =============================================================================
@@ -216,8 +215,7 @@ interface OverviewTabProps {
 
 function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps) {
   const effectiveStatus = getEffectiveStatusForUI(service, healthStatus, operationState)
-  const effectiveLocal = getEffectiveLocalUrl(service.local)
-  const effectiveAzure = getEffectiveAzureUrl(service.azure)
+  const { effectiveLocal, effectiveAzure } = useServiceUrls(service)
   const isDeployed = hasAzureDeployment(service)
   const azurePortalUrl = buildAzurePortalUrl(service)
   

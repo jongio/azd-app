@@ -22,6 +22,7 @@ import { DualStatusBadge, StatusDot, type EffectiveStatus } from './StatusIndica
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
+import { useServiceUrls } from '@/hooks/useServiceUrls'
 import { getEffectiveServiceUrl } from '@/lib/codespace-utils'
 import type { Service, HealthCheckResult } from '@/types'
 import { 
@@ -32,14 +33,6 @@ import {
   isContainerService,
   getServiceModeBadgeConfig,
   getServiceDisplayStatus,
-  getEffectiveLocalUrl,
-  getEffectiveAzureUrl,
-  getLocalUrlBadgeConfig,
-  getAzureUrlBadgeConfig,
-  getLocalUrlIconColor,
-  getAzureUrlIconColor,
-  getLocalUrlTooltip,
-  getAzureUrlTooltip,
 } from '@/lib/service-utils'
 
 // =============================================================================
@@ -74,6 +67,21 @@ export function ServiceCard({
   // Get Codespace environment for URL transformation
   const { config: codespaceConfig } = useCodespaceEnv()
 
+  // Get all URL data using custom hook (eliminates prop drilling)
+  const {
+    effectiveLocal,
+    effectiveAzure,
+    localBadge,
+    azureBadge,
+    localTooltip,
+    azureTooltip,
+    localIconColor,
+    azureIconColor,
+  } = useServiceUrls(service)
+
+  // Apply Codespace transformation to local URL
+  const localUrl = getEffectiveServiceUrl(effectiveLocal.url, service.local?.port, codespaceConfig)
+
   // Use unified display status from service-utils (SINGLE SOURCE OF TRUTH)
   const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState) as EffectiveStatus
   const isHealthy = effectiveStatus === 'healthy' || effectiveStatus === 'running' || effectiveStatus === 'watching' || effectiveStatus === 'built' || effectiveStatus === 'completed'
@@ -95,21 +103,6 @@ export function ServiceCard({
     uptime: healthStatus.uptime ? healthStatus.uptime / 1_000_000_000 : undefined,
     lastError: healthStatus.error,
   } : service.local?.healthDetails
-
-  // Get effective URLs using precedence rules
-  const effectiveLocal = getEffectiveLocalUrl(service.local)
-  const effectiveAzure = getEffectiveAzureUrl(service.azure)
-  
-  // Apply Codespace transformation to local URL
-  const localUrl = getEffectiveServiceUrl(effectiveLocal.url, service.local?.port, codespaceConfig)
-  
-  // Get badge configurations
-  const localBadge = getLocalUrlBadgeConfig(effectiveLocal.source)
-  const azureBadge = getAzureUrlBadgeConfig(effectiveAzure.source)
-  
-  // Get tooltips
-  const localTooltip = getLocalUrlTooltip(effectiveLocal)
-  const azureTooltip = getAzureUrlTooltip(effectiveAzure)
 
   // Get service icon based on type and status
   const getServiceIcon = () => {
@@ -287,10 +280,7 @@ export function ServiceCard({
           )}
           title={localTooltip}
         >
-          <ExternalLink className={cn(
-            "w-3.5 h-3.5",
-            getLocalUrlIconColor(effectiveLocal.source)
-          )} />
+          <ExternalLink className={cn("w-3.5 h-3.5", localIconColor)} />
           <div className="flex-1 min-w-0">
             {localBadge && (
               <span className={cn(
@@ -313,7 +303,7 @@ export function ServiceCard({
           </div>
           <ExternalLink className={cn(
             "w-3 h-3 opacity-0 group-hover/url:opacity-100 transform group-hover/url:translate-x-0.5 group-hover/url:-translate-y-0.5 transition-all",
-            getLocalUrlIconColor(effectiveLocal.source)
+            localIconColor
           )} />
         </a>
       )}
@@ -331,7 +321,7 @@ export function ServiceCard({
           )}
           title={azureTooltip}
         >
-          <Globe className={cn("w-3.5 h-3.5", getAzureUrlIconColor(effectiveAzure.source))} />
+          <Globe className={cn("w-3.5 h-3.5", azureIconColor)} />
           <div className="flex-1 min-w-0">
             {azureBadge && (
               <span className={cn(
@@ -358,7 +348,7 @@ export function ServiceCard({
           </div>
           <ExternalLink className={cn(
             "w-3 h-3 opacity-0 group-hover/azure:opacity-100 transform group-hover/azure:translate-x-0.5 group-hover/azure:-translate-y-0.5 transition-all",
-            getAzureUrlIconColor(effectiveAzure.source)
+            azureIconColor
           )} />
         </a>
       )}

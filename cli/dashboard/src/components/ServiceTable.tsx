@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { DualStatusBadge, type EffectiveStatus } from './StatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
+import { useServiceUrls } from '@/hooks/useServiceUrls'
 import type { Service, HealthReportEvent, HealthCheckResult } from '@/types'
 import { 
   formatRelativeTime, 
@@ -28,10 +29,6 @@ import {
   getServiceDisplayStatus, 
   isProcessService,
   getServiceModeBadgeConfig,
-  getEffectiveLocalUrl,
-  getEffectiveAzureUrl,
-  getLocalUrlBadgeConfig,
-  getAzureUrlBadgeConfig,
 } from '@/lib/service-utils'
 
 // =============================================================================
@@ -74,17 +71,17 @@ function ServiceTableRow({
   // Get effective operation state using centralized logic (handles bulk operations)
   const { getEffectiveOperationState } = useServiceOperations()
   const operationState = getEffectiveOperationState(service.name)
+  
+  // Get all URL data using custom hook (eliminates prop drilling)
+  const {
+    effectiveLocal,
+    effectiveAzure,
+    localBadge,
+    azureBadge,
+  } = useServiceUrls(service)
     
   // Use unified display status from service-utils (SINGLE SOURCE OF TRUTH)
   const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState) as EffectiveStatus
-  
-  // Get effective URLs using precedence rules
-  const effectiveLocal = getEffectiveLocalUrl(service.local)
-  const effectiveAzure = getEffectiveAzureUrl(service.azure)
-  
-  // Get badge configurations
-  const localBadge = getLocalUrlBadgeConfig(effectiveLocal.source)
-  const azureBadge = getAzureUrlBadgeConfig(effectiveAzure.source)
   
   const startTime = service.local?.startTime ?? service.startTime
   
