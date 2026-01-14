@@ -26,6 +26,8 @@ export interface ViewBackupModalProps {
   content: string
   /** Whether content is loading */
   isLoading?: boolean
+  /** Testing flag to force copy failure */
+  forceCopyError?: boolean
 }
 
 /**
@@ -37,6 +39,7 @@ export function ViewBackupModal({
   timestamp,
   content,
   isLoading = false,
+  forceCopyError = false,
 }: ViewBackupModalProps) {
   const [copied, setCopied] = React.useState(false)
 
@@ -59,6 +62,20 @@ export function ViewBackupModal({
 
   // Copy content to clipboard
   const handleCopy = React.useCallback(async () => {
+    if (forceCopyError) {
+      const error = new Error('Copy failed (forced)')
+      console.error('Failed to copy:', error)
+      alert('Failed to copy to clipboard')
+      return
+    }
+
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+      const error = new Error('Clipboard API unavailable')
+      console.error('Failed to copy:', error)
+      alert('Failed to copy to clipboard')
+      return
+    }
+
     try {
       await navigator.clipboard.writeText(content)
       setCopied(true)
@@ -67,7 +84,7 @@ export function ViewBackupModal({
       console.error('Failed to copy:', error)
       alert('Failed to copy to clipboard')
     }
-  }, [content])
+  }, [content, forceCopyError])
 
   // Download content as file
   const handleDownload = React.useCallback(() => {

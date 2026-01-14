@@ -13,7 +13,7 @@ func TestHandleGetSchema(t *testing.T) {
 	tempDir := t.TempDir()
 	schemaPath := tempDir + "/azure.yaml.json"
 	testSchema := `{"$schema": "http://json-schema.org/draft-07/schema#", "title": "Test Schema", "type": "object", "properties": {"name": {"type": "string"}}}`
-	
+
 	if err := os.WriteFile(schemaPath, []byte(testSchema), 0600); err != nil {
 		t.Fatalf("Failed to create test schema: %v", err)
 	}

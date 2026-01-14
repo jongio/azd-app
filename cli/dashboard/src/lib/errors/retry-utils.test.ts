@@ -90,6 +90,8 @@ describe('retry-utils', () => {
       const fn = vi.fn().mockRejectedValue(new Error('Network timeout'))
 
       const promise = retryWithBackoff(fn, { maxRetries: 2, initialDelay: 100 })
+      // Prevent unhandled rejection warnings while advancing fake timers
+      promise.catch(() => {})
 
       await vi.advanceTimersByTimeAsync(100) // First retry
       await vi.advanceTimersByTimeAsync(200) // Second retry

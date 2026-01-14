@@ -187,7 +187,6 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
  * Hook to access services context.
  * Must be used within a ServicesProvider.
  */
-// eslint-disable-next-line react-refresh/only-export-components
 export function useServicesContext(): ServicesContextValue {
   const context = useContext(ServicesContext)
   if (!context) {
@@ -201,7 +200,6 @@ export function useServicesContext(): ServicesContextValue {
  * This allows gradual migration - components can use either approach.
  * @deprecated Use useServicesContext() instead for new components
  */
-// eslint-disable-next-line react-refresh/only-export-components
 export function useServices() {
   const { services, loading, error, connected, refetch } = useServicesContext()
   return { services, loading, error, connected, refetch }

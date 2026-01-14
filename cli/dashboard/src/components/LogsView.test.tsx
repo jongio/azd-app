@@ -157,7 +157,6 @@ describe('LogsView', () => {
     await user.click(exportButton)
 
     // Check that URL.createObjectURL was called
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     const mockFn = globalThis.URL.createObjectURL as ReturnType<typeof vi.fn>
     expect(mockFn.mock.calls).toHaveLength(1)
   })

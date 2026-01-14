@@ -38,7 +38,6 @@ interface ToastState {
   type: 'success' | 'error' | 'info'
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const [toast, setToast] = React.useState<ToastState | null>(null)
 

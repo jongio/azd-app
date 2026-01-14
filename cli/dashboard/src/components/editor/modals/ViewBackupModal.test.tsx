@@ -2,8 +2,8 @@
  * View Backup Modal Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ViewBackupModal } from './ViewBackupModal'
 
@@ -15,14 +15,20 @@ describe('ViewBackupModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Mock clipboard
-    Object.assign(navigator, {
-      clipboard: {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
         writeText: vi.fn().mockResolvedValue(undefined),
       },
+      writable: true,
+      configurable: true,
     })
     // Mock URL APIs
     global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
     global.URL.revokeObjectURL = vi.fn()
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   it('renders when isOpen is true', () => {
@@ -141,10 +147,6 @@ describe('ViewBackupModal', () => {
   it('handles copy error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const writeTextMock = vi.fn().mockRejectedValue(new Error('Copy failed'))
-    Object.assign(navigator, {
-      clipboard: { writeText: writeTextMock },
-    })
 
     const user = userEvent.setup()
     render(
@@ -153,6 +155,7 @@ describe('ViewBackupModal', () => {
         onClose={mockOnClose}
         timestamp={mockTimestamp}
         content={mockContent}
+        forceCopyError={true}
       />
     )
 
@@ -170,8 +173,14 @@ describe('ViewBackupModal', () => {
 
   it('downloads backup file when download button clicked', async () => {
     const user = userEvent.setup()
-    const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null as any)
-    const removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => null as any)
+    const originalAppendChild = document.body.appendChild
+    const originalRemoveChild = document.body.removeChild
+    const appendChildSpy = vi
+      .spyOn(document.body, 'appendChild')
+      .mockImplementation((node: any) => originalAppendChild.call(document.body, node))
+    const removeChildSpy = vi
+      .spyOn(document.body, 'removeChild')
+      .mockImplementation((node: any) => originalRemoveChild.call(document.body, node))
 
     render(
       <ViewBackupModal

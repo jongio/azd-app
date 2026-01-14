@@ -98,6 +98,15 @@ export function ThemeProvider({
     resolveTheme(getInitialTheme(storageKey))
   )
 
+  // Apply theme to document
+  const applyTheme = React.useCallback((newResolvedTheme: ResolvedTheme) => {
+    const root = document.documentElement
+    root.classList.remove('light', 'dark')
+    root.classList.add(newResolvedTheme)
+    root.setAttribute('data-theme', newResolvedTheme)
+    root.style.colorScheme = newResolvedTheme
+  }, [])
+
   // Listen for system theme changes
   React.useEffect(() => {
     if (theme !== 'system') return
@@ -119,24 +128,7 @@ export function ThemeProvider({
       mediaQuery.addListener(handleChange)
       return () => mediaQuery.removeListener(handleChange)
     }
-  }, [theme])
-
-  // Apply theme to document
-  const applyTheme = React.useCallback((newResolvedTheme: ResolvedTheme) => {
-    const root = document.documentElement
-    
-    // Remove old theme classes
-    root.classList.remove('light', 'dark')
-    
-    // Add new theme class
-    root.classList.add(newResolvedTheme)
-    
-    // Set data-theme attribute for CSS variables
-    root.setAttribute('data-theme', newResolvedTheme)
-    
-    // Set color-scheme for browser UI
-    root.style.colorScheme = newResolvedTheme
-  }, [])
+  }, [theme, applyTheme])
 
   // Set theme and persist to localStorage
   const setTheme = React.useCallback(
@@ -166,7 +158,7 @@ export function ThemeProvider({
   // Initialize theme on mount
   React.useEffect(() => {
     applyTheme(resolvedTheme)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [applyTheme, resolvedTheme])
 
   const value = React.useMemo(
     () => ({

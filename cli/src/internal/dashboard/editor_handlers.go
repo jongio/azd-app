@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	azureYamlFileName    = "azure.yaml"
-	backupPrefix         = "azure.yaml.backup."
-	maxBackups           = 10
-	maxConfigFileSize    = 10 * 1024 * 1024 // 10MB
-	maxRequestBodySize   = 10 * 1024 * 1024 // 10MB
-	tempFilePattern      = "azure.yaml.tmp.*"
-	timestampFormat      = "2006-01-02T150405Z" // ISO8601 compatible with filesystem
-	errNoAzureYaml       = "azure.yaml not found"
-	errBackupNotFound    = "Backup not found"
-	errInvalidTimestamp  = "Invalid timestamp format"
+	azureYamlFileName   = "azure.yaml"
+	backupPrefix        = "azure.yaml.backup."
+	maxBackups          = 10
+	maxConfigFileSize   = 10 * 1024 * 1024 // 10MB
+	maxRequestBodySize  = 10 * 1024 * 1024 // 10MB
+	tempFilePattern     = "azure.yaml.tmp.*"
+	timestampFormat     = "2006-01-02T150405Z" // ISO8601 compatible with filesystem
+	errNoAzureYaml      = "azure.yaml not found"
+	errBackupNotFound   = "Backup not found"
+	errInvalidTimestamp = "Invalid timestamp format"
 )
 
 // ConfigResponse represents the response for GET /api/editor/config
@@ -41,9 +41,9 @@ type SaveConfigRequest struct {
 
 // SaveConfigResponse represents the response for POST /api/editor/config
 type SaveConfigResponse struct {
-	Success bool   `json:"success"`
-	Backup  string `json:"backup"`
-	Written bool   `json:"written"`
+	Success bool     `json:"success"`
+	Backup  string   `json:"backup"`
+	Written bool     `json:"written"`
 	Errors  []string `json:"errors,omitempty"`
 }
 
@@ -67,9 +67,9 @@ type BackupContentResponse struct {
 
 // RestoreBackupResponse represents the response for POST /api/editor/backups/:timestamp/restore
 type RestoreBackupResponse struct {
-	Success        bool   `json:"success"`
-	RestoredFrom   string `json:"restoredFrom"`
-	BackupCreated  string `json:"backupCreated"`
+	Success       bool   `json:"success"`
+	RestoredFrom  string `json:"restoredFrom"`
+	BackupCreated string `json:"backupCreated"`
 }
 
 // handleGetConfig loads and returns the current azure.yaml content
@@ -199,7 +199,7 @@ func (s *Server) handleGetBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	timestampStr := parts[0]
-	
+
 	// Parse timestamp
 	timestamp, err := time.Parse(timestampFormat, timestampStr)
 	if err != nil {
@@ -248,7 +248,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	timestampStr := parts[0]
-	
+
 	// Verify this is a restore action
 	if parts[1] != "restore" {
 		BadRequest(w, "Invalid action", nil)
@@ -312,7 +312,7 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	// Extract timestamp from URL path
 	path := r.URL.Path
 	timestampStr := strings.TrimPrefix(path, "/api/editor/backups/")
-	
+
 	if timestampStr == "" {
 		BadRequest(w, "Timestamp required", nil)
 		return
@@ -364,7 +364,7 @@ func (s *Server) handleBackupsRouter(w http.ResponseWriter, r *http.Request) {
 	// Handle /api/editor/backups/:timestamp
 	if strings.HasPrefix(path, "/api/editor/backups/") {
 		timestampPath := strings.TrimPrefix(path, "/api/editor/backups/")
-		
+
 		// Check for restore action
 		if strings.HasSuffix(timestampPath, "/restore") {
 			if r.Method == http.MethodPost {
@@ -593,10 +593,10 @@ func (s *Server) registerEditorRoutes() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	
+
 	s.mux.HandleFunc("/api/editor/backups", s.handleBackupsRouter)
 	s.mux.HandleFunc("/api/editor/backups/", s.handleBackupsRouter)
-	
+
 	// Well-known services endpoints
 	s.mux.HandleFunc("/api/editor/wellknown", s.handleWellKnownRouter)
 	s.mux.HandleFunc("/api/editor/wellknown/", s.handleWellKnownRouter)

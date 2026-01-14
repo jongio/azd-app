@@ -27,7 +27,6 @@ export function PreferencesProvider({ children }: PreferencesProviderProps) {
  * Hook to access the preferences context
  * @throws Error if used outside of PreferencesProvider
  */
-// eslint-disable-next-line react-refresh/only-export-components -- Hooks are conventionally co-located with their providers
 export function usePreferencesContext(): PreferencesContextValue {
   const context = useContext(PreferencesContext)
   if (context === undefined) {

@@ -36,14 +36,6 @@ export function ResourceTemplateSelector({
     [resourceType.id]
   )
 
-  if (templates.length === 0) {
-    // No templates available, auto-skip
-    React.useEffect(() => {
-      onSkip()
-    }, [onSkip])
-    return null
-  }
-
   return (
     <div className="space-y-3">
       {/* Header */}
@@ -96,7 +88,7 @@ export function ResourceTemplateSelector({
           <span className="text-2xl shrink-0" aria-hidden="true">⚙️</span>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-              Custom Configuration
+              Skip Templates
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
               Configure manually without a template

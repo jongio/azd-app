@@ -25,10 +25,10 @@ type ValidationIssue struct {
 
 // ValidationResponse represents the response for POST /api/editor/validate
 type ValidationResponse struct {
-	Valid    bool               `json:"valid"`
-	Errors   []ValidationIssue  `json:"errors"`
-	Warnings []ValidationIssue  `json:"warnings"`
-	Info     []ValidationIssue  `json:"info"`
+	Valid    bool              `json:"valid"`
+	Errors   []ValidationIssue `json:"errors"`
+	Warnings []ValidationIssue `json:"warnings"`
+	Info     []ValidationIssue `json:"info"`
 }
 
 // handleValidateConfig validates azure.yaml configuration
@@ -108,7 +108,7 @@ func (s *Server) handleValidateConfig(w http.ResponseWriter, r *http.Request) {
 		response.Errors = append(response.Errors, businessRuleIssues.Errors...)
 		response.Warnings = append(response.Warnings, businessRuleIssues.Warnings...)
 		response.Info = append(response.Info, businessRuleIssues.Info...)
-		
+
 		if len(businessRuleIssues.Errors) > 0 {
 			response.Valid = false
 		}
@@ -176,7 +176,7 @@ func validateBusinessRules(config *service.AzureYaml) businessRuleValidation {
 			if len(parts) > 1 {
 				hostPort = parts[0]
 			}
-			
+
 			portMap[hostPort] = append(portMap[hostPort], serviceName)
 		}
 	}
@@ -207,7 +207,7 @@ func validateBusinessRules(config *service.AzureYaml) businessRuleValidation {
 		if svc.IsHealthcheckDisabled() {
 			continue
 		}
-		
+
 		// Warn if service has ports but no health check configured
 		if len(svc.Ports) > 0 && svc.Healthcheck == nil {
 			result.Info = append(result.Info, ValidationIssue{
@@ -234,11 +234,11 @@ func validateBusinessRules(config *service.AzureYaml) businessRuleValidation {
 func detectCircularDependencies(config *service.AzureYaml) [][]string {
 	var cycles [][]string
 	const maxCycles = 100 // Prevent DoS with unbounded slice growth
-	
+
 	// Build dependency graph
 	graph := make(map[string][]string)
 	allNodes := make(map[string]bool)
-	
+
 	// Add service dependencies
 	for serviceName, svc := range config.Services {
 		allNodes[serviceName] = true
@@ -246,7 +246,7 @@ func detectCircularDependencies(config *service.AzureYaml) [][]string {
 			graph[serviceName] = svc.Uses
 		}
 	}
-	
+
 	// Add resource dependencies
 	for resourceName, res := range config.Resources {
 		allNodes[resourceName] = true
@@ -254,21 +254,21 @@ func detectCircularDependencies(config *service.AzureYaml) [][]string {
 			graph[resourceName] = res.Uses
 		}
 	}
-	
+
 	// Detect cycles using DFS
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
-	
+
 	var dfs func(node string, path []string) bool
 	dfs = func(node string, path []string) bool {
 		visited[node] = true
 		recStack[node] = true
-		
+
 		// Create new slice to avoid shared mutation across recursion
 		newPath := make([]string, len(path), len(path)+1)
 		copy(newPath, path)
 		newPath = append(newPath, node)
-		
+
 		for _, neighbor := range graph[node] {
 			if !visited[neighbor] {
 				if dfs(neighbor, newPath) {
@@ -279,7 +279,7 @@ func detectCircularDependencies(config *service.AzureYaml) [][]string {
 				if len(cycles) >= maxCycles {
 					return true
 				}
-				
+
 				// Found a cycle
 				cycleStart := -1
 				for i, n := range newPath {
@@ -298,17 +298,17 @@ func detectCircularDependencies(config *service.AzureYaml) [][]string {
 				return true
 			}
 		}
-		
+
 		recStack[node] = false
 		return false
 	}
-	
+
 	for node := range allNodes {
 		if !visited[node] {
 			dfs(node, []string{})
 		}
 	}
-	
+
 	return cycles
 }
 
@@ -316,7 +316,7 @@ func detectCircularDependencies(config *service.AzureYaml) [][]string {
 func formatSchemaError(err gojsonschema.ResultError) string {
 	context := err.Context().String()
 	description := err.Description()
-	
+
 	// Make error messages more user-friendly
 	switch err.Type() {
 	case "required":
@@ -345,6 +345,6 @@ func (s *Server) registerValidationRoutes() {
 		s.endpointLimiter = NewEndpointRateLimits()
 	}
 	// Wrap validation handler with rate limiting
-	s.mux.HandleFunc("/api/editor/validate", RateLimitMiddleware(s.endpointLimiter, 
+	s.mux.HandleFunc("/api/editor/validate", RateLimitMiddleware(s.endpointLimiter,
 		MethodGuard(s.handleValidateConfig, http.MethodPost)))
 }

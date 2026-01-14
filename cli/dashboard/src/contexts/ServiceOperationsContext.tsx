@@ -423,7 +423,6 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
  * Hook for accessing service operations from the context.
  * Must be used within a ServiceOperationsProvider.
  */
-// eslint-disable-next-line react-refresh/only-export-components
 export function useServiceOperations(): ServiceOperationsContextValue {
   const context = useContext(ServiceOperationsContext)
   if (!context) {

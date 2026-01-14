@@ -27,7 +27,6 @@ export function CodespaceProvider({ children }: CodespaceProviderProps) {
  * Hook to consume Codespace context.
  * Must be used within a CodespaceProvider.
  */
-// eslint-disable-next-line react-refresh/only-export-components -- Hooks are conventionally co-located with their providers
 export function useCodespaceContext(): UseCodespaceEnvReturn {
   const context = useContext(CodespaceContext)
   if (!context) {

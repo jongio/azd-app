@@ -37,6 +37,11 @@ function defaultShouldRetry(error: unknown): boolean {
     return true
   }
 
+  // Retry generic errors by default
+  if (error instanceof Error) {
+    return true
+  }
+
   return false
 }
 

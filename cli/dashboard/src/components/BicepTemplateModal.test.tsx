@@ -614,9 +614,7 @@ describe('BicepTemplateModal', () => {
       const downloadButton = screen.getByRole('button', { name: /Download/i })
       await user.click(downloadButton)
 
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       const createObjectURLMock = global.URL.createObjectURL as ReturnType<typeof vi.fn>
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       const createElementMock = document.createElement as unknown as ReturnType<typeof vi.fn>
       await waitFor(() => {
         expect(createObjectURLMock).toHaveBeenCalled()

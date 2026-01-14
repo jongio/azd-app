@@ -30,12 +30,12 @@ func loadSchema() error {
 	azureYamlSchemaOnce.Do(func() {
 		// Try multiple possible schema paths
 		possiblePaths := []string{
-			"../../schemas/v1.1/azure.yaml.json",           // From cli/src/internal/dashboard
-			"../../../schemas/v1.1/azure.yaml.json",        // Alternative path
-			"../../../../schemas/v1.1/azure.yaml.json",     // From compiled binary
-			"schemas/v1.1/azure.yaml.json",                 // From project root
+			"../../schemas/v1.1/azure.yaml.json",       // From cli/src/internal/dashboard
+			"../../../schemas/v1.1/azure.yaml.json",    // Alternative path
+			"../../../../schemas/v1.1/azure.yaml.json", // From compiled binary
+			"schemas/v1.1/azure.yaml.json",             // From project root
 		}
-		
+
 		for _, schemaPath := range possiblePaths {
 			data, err := os.ReadFile(schemaPath)
 			if err == nil {
@@ -45,11 +45,11 @@ func loadSchema() error {
 				return
 			}
 		}
-		
+
 		// If all paths fail, set error
 		azureYamlSchemaErr = os.ErrNotExist
 	})
-	
+
 	return azureYamlSchemaErr
 }
 
@@ -60,11 +60,11 @@ func (s *Server) handleGetSchema(w http.ResponseWriter, r *http.Request) {
 		InternalError(w, "Failed to load schema", err)
 		return
 	}
-	
+
 	// Set ETag header for cache validation
 	w.Header().Set("ETag", schemaETag)
 	w.Header().Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
-	
+
 	// Check if client has cached version
 	if match := r.Header.Get("If-None-Match"); match == schemaETag && schemaETag != "" {
 		w.WriteHeader(http.StatusNotModified)

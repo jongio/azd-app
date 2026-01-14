@@ -78,10 +78,10 @@ func NewEndpointRateLimits() *EndpointRateLimits {
 		limiters: map[string]*RateLimiter{
 			// Save: 10 requests/minute = 0.167 requests/second
 			"/api/editor/config_POST": NewRateLimiter(10, 10.0/60.0),
-			
+
 			// Validate: 60 requests/minute = 1 request/second
 			"/api/editor/validate": NewRateLimiter(60, 60.0/60.0),
-			
+
 			// Other endpoints: 100 requests/minute = 1.67 requests/second
 			"default": NewRateLimiter(100, 100.0/60.0),
 		},
@@ -110,7 +110,7 @@ func (erl *EndpointRateLimits) GetLimiter(r *http.Request) *RateLimiter {
 func RateLimitMiddleware(limiter *EndpointRateLimits, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rl := limiter.GetLimiter(r)
-		
+
 		if !rl.Allow() {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", "60")
@@ -127,9 +127,9 @@ func RateLimitMiddleware(limiter *EndpointRateLimits, next http.HandlerFunc) htt
 
 // FileSizeLimits defines maximum file sizes
 const (
-	MaxAzureYamlSize  = 10 * 1024 * 1024 // 10MB
-	MaxBackupTotal    = 50 * 1024 * 1024 // 50MB
-	MaxRequestBody    = 10 * 1024 * 1024 // 10MB
+	MaxAzureYamlSize = 10 * 1024 * 1024 // 10MB
+	MaxBackupTotal   = 50 * 1024 * 1024 // 50MB
+	MaxRequestBody   = 10 * 1024 * 1024 // 10MB
 )
 
 // ValidateRequestSize checks if request body size is within limits
@@ -146,11 +146,11 @@ func ValidateBackupsTotalSize(backups []BackupInfo) error {
 	for _, backup := range backups {
 		totalSize += backup.Size
 	}
-	
+
 	if totalSize > MaxBackupTotal {
 		return fmt.Errorf("total backup size (%d bytes) exceeds maximum (%d bytes)", totalSize, MaxBackupTotal)
 	}
-	
+
 	return nil
 }
 
@@ -160,14 +160,13 @@ func FormatBytes(bytes int64) string {
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
 	}
-	
+
 	div, exp := int64(unit), 0
 	for n := bytes / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	
+
 	sizes := []string{"KB", "MB", "GB", "TB"}
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), sizes[exp])
 }
-

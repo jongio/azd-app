@@ -118,6 +118,17 @@ export function ResourceConfigModal({
   const resourceName = watch('name')
   const dependencies = watch('uses')
 
+  // Resolve selected type object for templates and display
+  const templateType = React.useMemo(() => {
+    if (selectedType) {
+      return selectedType
+    }
+    if (resourceType) {
+      return getResourceType(resourceType)
+    }
+    return undefined
+  }, [resourceType, selectedType])
+
   // Update selected type when type changes
   React.useEffect(() => {
     if (resourceType) {
@@ -251,7 +262,7 @@ export function ResourceConfigModal({
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-cyan-600" />
           <DialogTitle>
-            {isEditing ? 'Edit Resource' : 'Add Resource'}
+            {isEditing ? 'Edit Resource' : 'Add Resource Configuration'}
           </DialogTitle>
         </div>
         <DialogDescription>
@@ -275,7 +286,7 @@ export function ResourceConfigModal({
             )}
 
             {/* Template Selection (only for new resources with selected type) */}
-            {!isEditing && resourceType && showTemplates && (
+            {!isEditing && resourceType && showTemplates && templateType && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -286,11 +297,11 @@ export function ResourceConfigModal({
                     onClick={() => setShowTemplates(false)}
                     className="text-xs text-cyan-600 hover:text-cyan-700 font-medium"
                   >
-                    Skip Templates →
+                    Skip template selection →
                   </button>
                 </div>
                 <ResourceTemplateSelector
-                  resourceType={resourceType as unknown as ResourceType}
+                  resourceType={templateType as ResourceType}
                   onSelect={handleTemplateApply}
                   onSkip={() => setShowTemplates(false)}
                 />
