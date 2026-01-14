@@ -30,7 +30,6 @@ export interface StringFieldProps {
 export function StringField({
   name,
   property,
-  autoSave = true,
   nested = false,
 }: StringFieldProps) {
   const {

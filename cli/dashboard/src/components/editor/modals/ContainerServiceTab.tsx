@@ -34,7 +34,6 @@ export function ContainerServiceTab({
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<ServiceFormData>({

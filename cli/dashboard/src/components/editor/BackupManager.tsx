@@ -82,21 +82,23 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
   }, [])
 
   // Handle view backup
-  const handleView = React.useCallback(async (timestamp: string) => {
-    setSelectedTimestamp(timestamp)
-    setIsViewOpen(true)
-    setIsLoadingView(true)
+  const handleView = React.useCallback((timestamp: string) => {
+    void (async () => {
+      setSelectedTimestamp(timestamp)
+      setIsViewOpen(true)
+      setIsLoadingView(true)
 
-    try {
-      const response = await getBackup(timestamp)
-      setViewContent(response.content)
-    } catch (error) {
-      console.error('Failed to load backup:', error)
-      alert('Failed to load backup content. Please try again.')
-      setIsViewOpen(false)
-    } finally {
-      setIsLoadingView(false)
-    }
+      try {
+        const response = await getBackup(timestamp)
+        setViewContent(response.content)
+      } catch (error) {
+        console.error('Failed to load backup:', error)
+        alert('Failed to load backup content. Please try again.')
+        setIsViewOpen(false)
+      } finally {
+        setIsLoadingView(false)
+      }
+    })()
   }, [])
 
   // Handle restore backup (show confirmation)
@@ -106,34 +108,36 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
   }, [])
 
   // Confirm restore
-  const handleRestoreConfirm = React.useCallback(async () => {
-    setIsRestoring(true)
-    try {
-      await restoreBackup(selectedTimestamp)
-      
-      // Close all dialogs
-      setIsRestoreDialogOpen(false)
-      setIsListOpen(false)
-      
-      // Show success notification
-      const formattedDate = new Date(selectedTimestamp).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      })
-      alert(`✓ Restored backup from ${formattedDate}`)
-      
-      // Callback to parent
-      onRestoreSuccess?.()
-    } catch (error) {
-      console.error('Failed to restore backup:', error)
-      alert('Failed to restore backup. Please try again.')
-    } finally {
-      setIsRestoring(false)
-    }
+  const handleRestoreConfirm = React.useCallback(() => {
+    void (async () => {
+      setIsRestoring(true)
+      try {
+        await restoreBackup(selectedTimestamp)
+        
+        // Close all dialogs
+        setIsRestoreDialogOpen(false)
+        setIsListOpen(false)
+        
+        // Show success notification
+        const formattedDate = new Date(selectedTimestamp).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        })
+        alert(`✓ Restored backup from ${formattedDate}`)
+        
+        // Callback to parent
+        onRestoreSuccess?.()
+      } catch (error) {
+        console.error('Failed to restore backup:', error)
+        alert('Failed to restore backup. Please try again.')
+      } finally {
+        setIsRestoring(false)
+      }
+    })()
   }, [selectedTimestamp, onRestoreSuccess])
 
   // Handle delete backup (show confirmation)
@@ -143,25 +147,27 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
   }, [])
 
   // Confirm delete
-  const handleDeleteConfirm = React.useCallback(async () => {
-    setIsDeleting(true)
-    try {
-      await deleteBackup(selectedTimestamp)
-      
-      // Reload backups list
-      await loadBackups()
-      
-      // Close dialog
-      setIsDeleteDialogOpen(false)
-      
-      // Show success notification
-      alert('✓ Backup deleted successfully')
-    } catch (error) {
-      console.error('Failed to delete backup:', error)
-      alert('Failed to delete backup. Please try again.')
-    } finally {
-      setIsDeleting(false)
-    }
+  const handleDeleteConfirm = React.useCallback(() => {
+    void (async () => {
+      setIsDeleting(true)
+      try {
+        await deleteBackup(selectedTimestamp)
+        
+        // Reload backups list
+        await loadBackups()
+        
+        // Close dialog
+        setIsDeleteDialogOpen(false)
+        
+        // Show success notification
+        alert('✓ Backup deleted successfully')
+      } catch (error) {
+        console.error('Failed to delete backup:', error)
+        alert('Failed to delete backup. Please try again.')
+      } finally {
+        setIsDeleting(false)
+      }
+    })()
   }, [selectedTimestamp, loadBackups])
 
   return (

@@ -9,10 +9,6 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 )
 
-// maxRequestBodySize is the maximum allowed size for HTTP request bodies (1MB).
-// This prevents denial-of-service attacks via excessively large payloads.
-const maxRequestBodySize = 1 << 20 // 1MB
-
 // UIPreferences represents UI-related preferences
 type UIPreferences struct {
 	GridColumns      int      `json:"gridColumns"`

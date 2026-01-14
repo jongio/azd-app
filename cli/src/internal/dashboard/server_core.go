@@ -23,20 +23,21 @@ var (
 
 // Server represents the dashboard HTTP server.
 type Server struct {
-	port         int
-	mux          *http.ServeMux
-	server       *http.Server
-	projectDir   string
-	clients      map[*clientConn]bool
-	clientsMu    sync.RWMutex
-	rateLimiter  *connectionRateLimiter // Per-server rate limiter
-	stopChan     chan struct{}
-	stopOnce     sync.Once  // Ensure stopChan is only closed once
-	started      bool       // Track if server was successfully started
-	startedMu    sync.Mutex // Protect started flag
-	configClient azdconfig.ConfigClient
-	currentMode  service.LogMode // Current log source mode (local or azure)
-	modeMu       sync.RWMutex    // Protect currentMode
+	port            int
+	mux             *http.ServeMux
+	server          *http.Server
+	projectDir      string
+	clients         map[*clientConn]bool
+	clientsMu       sync.RWMutex
+	rateLimiter     *connectionRateLimiter // Per-server rate limiter for connections
+	endpointLimiter *EndpointRateLimits    // Endpoint-specific rate limiter
+	stopChan        chan struct{}
+	stopOnce        sync.Once  // Ensure stopChan is only closed once
+	started         bool       // Track if server was successfully started
+	startedMu       sync.Mutex // Protect started flag
+	configClient    azdconfig.ConfigClient
+	currentMode     service.LogMode // Current log source mode (local or azure)
+	modeMu          sync.RWMutex    // Protect currentMode
 }
 
 // GetServer returns the dashboard server instance for the specified project.
@@ -54,13 +55,14 @@ func GetServer(projectDir string) *Server {
 
 	// Create new server instance for this project
 	srv := &Server{
-		port:        0, // Will be assigned by port manager
-		mux:         http.NewServeMux(),
-		projectDir:  absPath,
-		clients:     make(map[*clientConn]bool),
-		rateLimiter: newConnectionRateLimiter(),
-		stopChan:    make(chan struct{}),
-		currentMode: service.LogModeLocal, // Default to local mode
+		port:            0, // Will be assigned by port manager
+		mux:             http.NewServeMux(),
+		projectDir:      absPath,
+		clients:         make(map[*clientConn]bool),
+		rateLimiter:     newConnectionRateLimiter(),
+		endpointLimiter: NewEndpointRateLimits(),
+		stopChan:        make(chan struct{}),
+		currentMode:     service.LogModeLocal, // Default to local mode
 	}
 	srv.setupRoutes()
 	servers[key] = srv

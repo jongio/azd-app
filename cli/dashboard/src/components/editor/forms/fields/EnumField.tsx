@@ -27,7 +27,6 @@ export interface EnumFieldProps {
 export function EnumField({
   name,
   property,
-  autoSave = true,
   nested = false,
 }: EnumFieldProps) {
   const {

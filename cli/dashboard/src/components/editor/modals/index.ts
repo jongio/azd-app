@@ -28,3 +28,12 @@ export type { RestoreConfirmationDialogProps } from './RestoreConfirmationDialog
 
 export { DeleteBackupDialog } from './DeleteBackupDialog'
 export type { DeleteBackupDialogProps } from './DeleteBackupDialog'
+
+export { HealthCheckModal } from './HealthCheckModal'
+export type { HealthCheckModalProps } from './HealthCheckModal'
+
+export { ResourceConfigModal } from './ResourceConfigModal'
+export type { ResourceConfigModalProps } from './ResourceConfigModal'
+
+export { HooksConfigModal } from './HooksConfigModal'
+export type { HooksConfigModalProps } from './HooksConfigModal'

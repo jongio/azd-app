@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ChevronRight, ChevronDown, Search, X, Plus } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavigationItem } from './NavigationItem'
 import { NavigationSearch } from './NavigationSearch'
@@ -174,8 +174,8 @@ export function NavigationSidebar({
     if (!activeSection) return
 
     const parts = activeSection.split('.')
-    const pathsToExpand = parts.reduce((acc: string[], part, index) => {
-      const path = parts.slice(0, index + 1).join('.')
+    const pathsToExpand = parts.reduce((acc: string[], index) => {
+      const path = parts.slice(0, Number(index) + 1).join('.')
       acc.push(path)
       return acc
     }, [])
@@ -188,7 +188,7 @@ export function NavigationSidebar({
   }, [activeSection])
 
   // Render navigation tree
-  const renderNodes = (nodes: NavigationNode[], depth = 0, parentPath = ''): JSX.Element[] => {
+  const renderNodes = (nodes: NavigationNode[], depth = 0, parentPath = ''): React.ReactElement[] => {
     return nodes.map((node) => {
       const path = parentPath ? `${parentPath}.${node.id}` : node.id
       const isExpanded = expandedPaths.has(path)

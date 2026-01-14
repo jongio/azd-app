@@ -163,7 +163,7 @@ export function PreviewPane({
   const [changedLines, setChangedLines] = React.useState<Set<number>>(new Set())
 
   // Clipboard hook
-  const { copied, copyToClipboard } = useClipboard()
+  const { copiedField: copied, copyToClipboard } = useClipboard()
 
   // Drag state
   const [isDragging, setIsDragging] = React.useState(false)
@@ -222,7 +222,7 @@ export function PreviewPane({
 
   // Handle copy
   const handleCopy = React.useCallback(() => {
-    copyToClipboard(yaml)
+    copyToClipboard(yaml, 'yaml-preview')
   }, [yaml, copyToClipboard])
 
   // Handle download

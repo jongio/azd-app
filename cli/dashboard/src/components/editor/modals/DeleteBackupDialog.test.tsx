@@ -219,8 +219,9 @@ describe('DeleteBackupDialog', () => {
       />
     )
 
-    const iconContainer = screen.getByText(/Delete backup from/).closest('div')?.previousSibling?.querySelector('div')
-    expect(iconContainer).toHaveClass('bg-red-100', 'dark:bg-red-900/30')
+    const iconContainer = screen.getByText(/Delete backup from/).closest('div')?.previousSibling as HTMLElement | null
+    const innerDiv = iconContainer?.querySelector('div')
+    expect(innerDiv).toHaveClass('bg-red-100', 'dark:bg-red-900/30')
   })
 
   it('applies correct button styling', () => {

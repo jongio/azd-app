@@ -63,11 +63,11 @@ export function buildNavigationTree(
     id: 'overview',
     label: 'Overview',
     type: 'section',
-    children: [
+    children: ([
       { id: 'name', label: 'Application Name', type: 'property' },
       { id: 'resourceGroup', label: 'Resource Group', type: 'property' },
       { id: 'metadata', label: 'Metadata', type: 'property' },
-    ].filter((node) => node.id in config),
+    ].filter((node) => node.id in config)) as NavigationNode[],
   })
 
   // Services section

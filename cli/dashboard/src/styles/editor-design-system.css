@@ -1,0 +1,816 @@
+/**
+ * Azure YAML Editor - Design System
+ * Enhanced design tokens, component styles, and micro-interactions
+ * Task 21: Visual Design and Styling
+ */
+
+/* ============================================
+   Editor-Specific Design Tokens
+   ============================================ */
+
+:root {
+  /* ----------------------------------------
+     Editor Layout
+     ---------------------------------------- */
+  --editor-sidebar-width: 280px;
+  --editor-sidebar-collapsed: 60px;
+  --editor-preview-width: 40%;
+  --editor-preview-min-width: 320px;
+  --editor-preview-max-width: 60%;
+  --editor-header-height: 64px;
+  --editor-footer-height: 48px;
+  --editor-quick-actions-height: 64px;
+  
+  /* ----------------------------------------
+     Editor Spacing (8px grid)
+     ---------------------------------------- */
+  --editor-space-xs: 4px;
+  --editor-space-sm: 8px;
+  --editor-space-md: 16px;
+  --editor-space-lg: 24px;
+  --editor-space-xl: 32px;
+  --editor-space-2xl: 48px;
+  
+  /* ----------------------------------------
+     Editor Typography
+     ---------------------------------------- */
+  --editor-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+  --editor-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  
+  /* Font sizes */
+  --editor-text-xs: 0.75rem;    /* 12px */
+  --editor-text-sm: 0.875rem;   /* 14px */
+  --editor-text-base: 1rem;     /* 16px */
+  --editor-text-lg: 1.125rem;   /* 18px */
+  --editor-text-xl: 1.25rem;    /* 20px */
+  --editor-text-2xl: 1.5rem;    /* 24px */
+  
+  /* ----------------------------------------
+     Animation Timing
+     ---------------------------------------- */
+  --editor-transition-fast: 100ms;
+  --editor-transition-normal: 200ms;
+  --editor-transition-slow: 300ms;
+  --editor-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --editor-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --editor-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --editor-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  /* ----------------------------------------
+     Border Radius
+     ---------------------------------------- */
+  --editor-radius-sm: 4px;
+  --editor-radius-md: 8px;
+  --editor-radius-lg: 12px;
+  --editor-radius-xl: 16px;
+  
+  /* ----------------------------------------
+     Z-Index Layers
+     ---------------------------------------- */
+  --editor-z-base: 0;
+  --editor-z-navigation: 10;
+  --editor-z-header: 20;
+  --editor-z-quick-actions: 30;
+  --editor-z-dropdown: 40;
+  --editor-z-modal: 50;
+  --editor-z-tooltip: 60;
+  --editor-z-toast: 70;
+}
+
+/* ============================================
+   Light Mode - Editor Colors
+   ============================================ */
+[data-theme="light"] {
+  /* Editor backgrounds */
+  --editor-bg-canvas: #ffffff;
+  --editor-bg-surface: #f8fafc;
+  --editor-bg-surface-elevated: #ffffff;
+  --editor-bg-surface-hover: #f1f5f9;
+  --editor-bg-sidebar: #f8fafc;
+  --editor-bg-header: #ffffff;
+  --editor-bg-footer: #f8fafc;
+  
+  /* Editor foregrounds */
+  --editor-fg-primary: #0f172a;
+  --editor-fg-secondary: #475569;
+  --editor-fg-tertiary: #64748b;
+  --editor-fg-muted: #94a3b8;
+  --editor-fg-placeholder: #cbd5e1;
+  
+  /* Editor borders */
+  --editor-border-default: #e2e8f0;
+  --editor-border-strong: #cbd5e1;
+  --editor-border-focus: #9333ea;
+  
+  /* Editor shadows */
+  --editor-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --editor-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --editor-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --editor-shadow-focus: 0 0 0 3px rgba(147, 51, 234, 0.1);
+  
+  /* Form controls */
+  --editor-input-bg: #ffffff;
+  --editor-input-border: #cbd5e1;
+  --editor-input-border-focus: #9333ea;
+  --editor-input-shadow-focus: 0 0 0 3px rgba(147, 51, 234, 0.1);
+  
+  /* Syntax highlighting */
+  --editor-syntax-keyword: #7e22ce;
+  --editor-syntax-string: #15803d;
+  --editor-syntax-number: #0284c7;
+  --editor-syntax-property: #9333ea;
+  --editor-syntax-comment: #64748b;
+  --editor-syntax-boolean: #0284c7;
+}
+
+/* ============================================
+   Dark Mode - Editor Colors
+   ============================================ */
+[data-theme="dark"] {
+  /* Editor backgrounds */
+  --editor-bg-canvas: #0f172a;
+  --editor-bg-surface: #1e293b;
+  --editor-bg-surface-elevated: #334155;
+  --editor-bg-surface-hover: #475569;
+  --editor-bg-sidebar: #1e293b;
+  --editor-bg-header: #0f172a;
+  --editor-bg-footer: #1e293b;
+  
+  /* Editor foregrounds */
+  --editor-fg-primary: #f8fafc;
+  --editor-fg-secondary: #cbd5e1;
+  --editor-fg-tertiary: #94a3b8;
+  --editor-fg-muted: #64748b;
+  --editor-fg-placeholder: #475569;
+  
+  /* Editor borders */
+  --editor-border-default: #334155;
+  --editor-border-strong: #475569;
+  --editor-border-focus: #c084fc;
+  
+  /* Editor shadows */
+  --editor-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --editor-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --editor-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --editor-shadow-focus: 0 0 0 3px rgba(192, 132, 252, 0.2);
+  
+  /* Form controls */
+  --editor-input-bg: #0f172a;
+  --editor-input-border: #334155;
+  --editor-input-border-focus: #c084fc;
+  --editor-input-shadow-focus: 0 0 0 3px rgba(192, 132, 252, 0.15);
+  
+  /* Syntax highlighting */
+  --editor-syntax-keyword: #c084fc;
+  --editor-syntax-string: #4ade80;
+  --editor-syntax-number: #60a5fa;
+  --editor-syntax-property: #d8b4fe;
+  --editor-syntax-comment: #64748b;
+  --editor-syntax-boolean: #60a5fa;
+}
+
+/* ============================================
+   Component Styles - Form Controls
+   ============================================ */
+
+/* Enhanced Input */
+.editor-input {
+  height: 40px;
+  width: 100%;
+  border-radius: var(--editor-radius-md);
+  border: 1px solid var(--editor-input-border);
+  background: var(--editor-input-bg);
+  color: var(--editor-fg-primary);
+  padding: 0 12px;
+  font-size: var(--editor-text-sm);
+  transition: border-color var(--editor-transition-normal) var(--editor-ease-default),
+              box-shadow var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-input:hover:not(:disabled) {
+  border-color: var(--editor-border-strong);
+}
+
+.editor-input:focus {
+  outline: none;
+  border-color: var(--editor-input-border-focus);
+  box-shadow: var(--editor-input-shadow-focus);
+}
+
+.editor-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-input::placeholder {
+  color: var(--editor-fg-placeholder);
+}
+
+/* Enhanced Textarea */
+.editor-textarea {
+  min-height: 80px;
+  width: 100%;
+  border-radius: var(--editor-radius-md);
+  border: 1px solid var(--editor-input-border);
+  background: var(--editor-input-bg);
+  color: var(--editor-fg-primary);
+  padding: 12px;
+  font-size: var(--editor-text-sm);
+  font-family: var(--editor-font-mono);
+  resize: vertical;
+  transition: border-color var(--editor-transition-normal) var(--editor-ease-default),
+              box-shadow var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-textarea:hover:not(:disabled) {
+  border-color: var(--editor-border-strong);
+}
+
+.editor-textarea:focus {
+  outline: none;
+  border-color: var(--editor-input-border-focus);
+  box-shadow: var(--editor-input-shadow-focus);
+}
+
+/* Enhanced Select */
+.editor-select {
+  height: 40px;
+  width: 100%;
+  border-radius: var(--editor-radius-md);
+  border: 1px solid var(--editor-input-border);
+  background: var(--editor-input-bg);
+  color: var(--editor-fg-primary);
+  padding: 0 36px 0 12px;
+  font-size: var(--editor-text-sm);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  appearance: none;
+  transition: border-color var(--editor-transition-normal) var(--editor-ease-default),
+              box-shadow var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-select:hover:not(:disabled) {
+  border-color: var(--editor-border-strong);
+}
+
+.editor-select:focus {
+  outline: none;
+  border-color: var(--editor-input-border-focus);
+  box-shadow: var(--editor-input-shadow-focus);
+}
+
+/* Toggle/Switch */
+.editor-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  width: 44px;
+  border-radius: 12px;
+  background: var(--editor-border-default);
+  cursor: pointer;
+  transition: background-color var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-toggle:hover {
+  background: var(--editor-border-strong);
+}
+
+.editor-toggle[data-state="checked"] {
+  background: var(--primary);
+}
+
+.editor-toggle-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transform: translateX(2px);
+  transition: transform var(--editor-transition-normal) var(--editor-ease-spring);
+}
+
+.editor-toggle[data-state="checked"] .editor-toggle-thumb {
+  transform: translateX(22px);
+}
+
+/* Checkbox */
+.editor-checkbox {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--editor-radius-sm);
+  border: 2px solid var(--editor-input-border);
+  background: var(--editor-input-bg);
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+  position: relative;
+}
+
+.editor-checkbox:hover {
+  border-color: var(--editor-border-strong);
+}
+
+.editor-checkbox:focus {
+  outline: none;
+  border-color: var(--editor-input-border-focus);
+  box-shadow: var(--editor-input-shadow-focus);
+}
+
+.editor-checkbox:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.editor-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ============================================
+   Component Styles - Buttons
+   ============================================ */
+
+/* Primary Button */
+.editor-btn-primary {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--editor-radius-md);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: var(--editor-text-sm);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+.editor-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  box-shadow: var(--editor-shadow-md);
+  transform: translateY(-1px);
+}
+
+.editor-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--editor-shadow-sm);
+}
+
+.editor-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Secondary Button */
+.editor-btn-secondary {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--editor-radius-md);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-size: var(--editor-text-sm);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-btn-secondary:hover:not(:disabled) {
+  background: var(--secondary-hover);
+}
+
+/* Outline Button */
+.editor-btn-outline {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--editor-radius-md);
+  background: transparent;
+  color: var(--editor-fg-primary);
+  font-size: var(--editor-text-sm);
+  font-weight: 500;
+  border: 1px solid var(--editor-border-default);
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-btn-outline:hover:not(:disabled) {
+  background: var(--editor-bg-surface-hover);
+  border-color: var(--editor-border-strong);
+}
+
+/* Ghost Button */
+.editor-btn-ghost {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--editor-radius-md);
+  background: transparent;
+  color: var(--editor-fg-secondary);
+  font-size: var(--editor-text-sm);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-btn-ghost:hover:not(:disabled) {
+  background: var(--editor-bg-surface-hover);
+  color: var(--editor-fg-primary);
+}
+
+/* Icon Button */
+.editor-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--editor-radius-md);
+  background: transparent;
+  color: var(--editor-fg-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-btn-icon:hover:not(:disabled) {
+  background: var(--editor-bg-surface-hover);
+  color: var(--editor-fg-primary);
+}
+
+/* Danger/Destructive Button */
+.editor-btn-danger {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--editor-radius-md);
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  font-size: var(--editor-text-sm);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-btn-danger:hover:not(:disabled) {
+  background: var(--destructive-hover);
+  box-shadow: var(--editor-shadow-md);
+}
+
+/* ============================================
+   Component Styles - Cards & Surfaces
+   ============================================ */
+
+.editor-card {
+  background: var(--editor-bg-surface);
+  border: 1px solid var(--editor-border-default);
+  border-radius: var(--editor-radius-lg);
+  padding: var(--editor-space-md);
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-card:hover {
+  box-shadow: var(--editor-shadow-md);
+}
+
+.editor-card-elevated {
+  background: var(--editor-bg-surface-elevated);
+  border: 1px solid var(--editor-border-default);
+  border-radius: var(--editor-radius-lg);
+  padding: var(--editor-space-md);
+  box-shadow: var(--editor-shadow-sm);
+  transition: all var(--editor-transition-normal) var(--editor-ease-default);
+}
+
+.editor-card-elevated:hover {
+  box-shadow: var(--editor-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   Component Styles - Badges
+   ============================================ */
+
+.editor-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--editor-radius-sm);
+  font-size: var(--editor-text-xs);
+  font-weight: 500;
+}
+
+.editor-badge-default {
+  background: var(--editor-bg-surface);
+  color: var(--editor-fg-secondary);
+  border: 1px solid var(--editor-border-default);
+}
+
+.editor-badge-success {
+  background: var(--green-100);
+  color: var(--green-700);
+}
+
+[data-theme="dark"] .editor-badge-success {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green-400);
+}
+
+.editor-badge-warning {
+  background: var(--amber-100);
+  color: var(--amber-700);
+}
+
+[data-theme="dark"] .editor-badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber-400);
+}
+
+.editor-badge-error {
+  background: var(--red-100);
+  color: var(--red-700);
+}
+
+[data-theme="dark"] .editor-badge-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red-400);
+}
+
+.editor-badge-info {
+  background: var(--blue-100);
+  color: var(--blue-700);
+}
+
+[data-theme="dark"] .editor-badge-info {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--blue-400);
+}
+
+/* ============================================
+   Micro-Interactions - Transitions
+   ============================================ */
+
+@keyframes editor-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes editor-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes editor-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes editor-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes editor-slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes editor-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes editor-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes editor-scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes editor-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes editor-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Animation Classes */
+.editor-animate-fade-in {
+  animation: editor-fade-in var(--editor-transition-normal) var(--editor-ease-out);
+}
+
+.editor-animate-slide-down {
+  animation: editor-slide-down var(--editor-transition-normal) var(--editor-ease-out);
+}
+
+.editor-animate-slide-up {
+  animation: editor-slide-up var(--editor-transition-normal) var(--editor-ease-out);
+}
+
+.editor-animate-scale-in {
+  animation: editor-scale-in var(--editor-transition-normal) var(--editor-ease-spring);
+}
+
+.editor-animate-spin {
+  animation: editor-spin 1s linear infinite;
+}
+
+.editor-animate-pulse {
+  animation: editor-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================
+   Responsive Design - Breakpoints
+   ============================================ */
+
+/* Minimum supported width: 1024px */
+@media (max-width: 1024px) {
+  :root {
+    --editor-sidebar-width: 240px;
+    --editor-preview-width: 35%;
+  }
+}
+
+/* Standard desktop: 1280px */
+@media (min-width: 1280px) {
+  :root {
+    --editor-sidebar-width: 300px;
+  }
+}
+
+/* Large desktop: 1920px */
+@media (min-width: 1920px) {
+  :root {
+    --editor-sidebar-width: 320px;
+    --editor-preview-width: 45%;
+  }
+}
+
+/* ============================================
+   Accessibility - Reduced Motion
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   Accessibility - High Contrast
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  :root {
+    --editor-border-default: currentColor;
+    --editor-border-strong: currentColor;
+  }
+  
+  .editor-input,
+  .editor-select,
+  .editor-textarea,
+  .editor-checkbox {
+    border-width: 2px;
+  }
+  
+  *:focus {
+    outline-width: 3px !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+/* Spacing */
+.editor-space-y-xs > * + * { margin-top: var(--editor-space-xs); }
+.editor-space-y-sm > * + * { margin-top: var(--editor-space-sm); }
+.editor-space-y-md > * + * { margin-top: var(--editor-space-md); }
+.editor-space-y-lg > * + * { margin-top: var(--editor-space-lg); }
+.editor-space-y-xl > * + * { margin-top: var(--editor-space-xl); }
+
+/* Text */
+.editor-text-xs { font-size: var(--editor-text-xs); }
+.editor-text-sm { font-size: var(--editor-text-sm); }
+.editor-text-base { font-size: var(--editor-text-base); }
+.editor-text-lg { font-size: var(--editor-text-lg); }
+.editor-text-xl { font-size: var(--editor-text-xl); }
+.editor-text-2xl { font-size: var(--editor-text-2xl); }
+
+/* Font families */
+.editor-font-mono { font-family: var(--editor-font-mono); }
+.editor-font-sans { font-family: var(--editor-font-sans); }
+
+/* Truncate */
+.editor-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Scrollbar styling */
+.editor-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.editor-scrollbar::-webkit-scrollbar-track {
+  background: var(--editor-bg-surface);
+  border-radius: 4px;
+}
+
+.editor-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--editor-border-strong);
+  border-radius: 4px;
+}
+
+.editor-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--editor-fg-muted);
+}
+
+/* Focus visible only when keyboard navigating */
+.editor-focus-visible:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.editor-focus-visible:focus-visible {
+  outline: 2px solid var(--editor-border-focus);
+  outline-offset: 2px;
+}

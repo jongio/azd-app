@@ -3,7 +3,6 @@
  * Confirms backup deletion with warning
  */
 
-import * as React from 'react'
 import { Trash2 } from 'lucide-react'
 import {
   Dialog,

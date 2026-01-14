@@ -111,7 +111,7 @@ func TestHandleGetWellKnownServices(t *testing.T) {
 }
 
 func TestHandleGetWellKnownService(t *testing.T) {
-	s := newTestServer(t)
+	server := newTestServer(t)
 
 	t.Run("returns specific service by name", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/editor/wellknown/azurite", nil)
@@ -202,7 +202,7 @@ func TestHandleGetWellKnownService(t *testing.T) {
 }
 
 func TestHandleWellKnownRouter(t *testing.T) {
-	s := newTestServer(t)
+	server := newTestServer(t)
 
 	t.Run("routes to list handler", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/editor/wellknown", nil)
@@ -269,6 +269,17 @@ func TestHandleWellKnownRouter(t *testing.T) {
 			t.Errorf("Expected status 404, got %d", rec.Code)
 		}
 	})
+}
+
+// newTestServer creates a server instance with editor routes registered for testing
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	srv := &Server{
+		projectDir: t.TempDir(),
+		mux:        http.NewServeMux(),
+	}
+	srv.registerEditorRoutes()
+	return srv
 }
 
 func TestToWellKnownServiceResponse(t *testing.T) {

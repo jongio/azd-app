@@ -218,8 +218,9 @@ describe('RestoreConfirmationDialog', () => {
       />
     )
 
-    const iconContainer = screen.getByText(/Restore backup from/).closest('div')?.previousSibling?.querySelector('div')
-    expect(iconContainer).toHaveClass('bg-cyan-100', 'dark:bg-cyan-900/30')
+    const iconContainer = screen.getByText(/Restore backup from/).closest('div')?.previousSibling as HTMLElement | null
+    const innerDiv = iconContainer?.querySelector('div')
+    expect(innerDiv).toHaveClass('bg-cyan-100', 'dark:bg-cyan-900/30')
   })
 
   it('applies correct button styling', () => {

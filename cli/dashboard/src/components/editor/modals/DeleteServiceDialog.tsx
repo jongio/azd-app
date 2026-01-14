@@ -3,7 +3,6 @@
  * Confirmation dialog for deleting a service
  */
 
-import * as React from 'react'
 import { AlertTriangle } from 'lucide-react'
 import {
   Dialog,

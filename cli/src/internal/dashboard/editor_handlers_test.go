@@ -217,8 +217,8 @@ func TestListBackups(t *testing.T) {
 		time.Date(2026, 1, 11, 12, 0, 0, 0, time.UTC),
 	}
 
-	for _, t := range backupTimes {
-		timestamp := t.Format(timestampFormat)
+	for _, backupTime := range backupTimes {
+		timestamp := backupTime.Format(timestampFormat)
 		backupPath := filepath.Join(tempDir, backupPrefix+timestamp)
 		if err := os.WriteFile(backupPath, []byte("backup content"), 0600); err != nil {
 			t.Fatalf("Failed to create backup: %v", err)

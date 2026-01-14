@@ -210,10 +210,10 @@ describe('SchemaForm', () => {
 
     // Validation error should appear
     await waitFor(() => {
-      const error = screen.queryByText(/this field is required/i)
       // React Hook Form validates on blur, but may not show error immediately for empty fields
       // This is expected behavior - validation happens but error display depends on touched state
       expect(nameInput).toHaveAttribute('aria-invalid')
     }, { timeout: 2000 })
   })
 })
+

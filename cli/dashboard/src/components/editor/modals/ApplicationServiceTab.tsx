@@ -3,7 +3,7 @@
  * Form for adding custom application services (code projects)
  */
 
-import * as React from 'react'
+
 import { useForm } from 'react-hook-form'
 import { Folder } from 'lucide-react'
 import { cn } from '@/lib/utils'

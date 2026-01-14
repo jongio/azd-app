@@ -577,12 +577,18 @@ func (s *Server) cleanupOldBackups(projectDir string) error {
 
 // registerEditorRoutes adds editor API routes to the server mux
 func (s *Server) registerEditorRoutes() {
+	// Ensure endpointLimiter is initialized for middleware usage
+	if s.endpointLimiter == nil {
+		s.endpointLimiter = NewEndpointRateLimits()
+	}
+
 	s.mux.HandleFunc("/api/editor/config", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			s.handleGetConfig(w, r)
 		case http.MethodPost:
-			s.handleSaveConfig(w, r)
+			// Rate limit saves to avoid rapid writes
+			RateLimitMiddleware(s.endpointLimiter, s.handleSaveConfig)(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -594,4 +600,8 @@ func (s *Server) registerEditorRoutes() {
 	// Well-known services endpoints
 	s.mux.HandleFunc("/api/editor/wellknown", s.handleWellKnownRouter)
 	s.mux.HandleFunc("/api/editor/wellknown/", s.handleWellKnownRouter)
+
+	// Schema and validation endpoints
+	s.registerSchemaRoutes()
+	s.registerValidationRoutes()
 }

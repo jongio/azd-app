@@ -3,7 +3,6 @@
  * Button to open backup management modal
  */
 
-import * as React from 'react'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

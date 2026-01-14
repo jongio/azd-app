@@ -128,7 +128,7 @@ test.describe('Preview Pane', () => {
     const initialWidth = initialBox!.width
 
     // Find drag divider
-    const divider = page.getByLabelText('Resize preview pane')
+    const divider = page.getByRole('separator', { name: 'Resize preview pane' })
 
     // Drag divider to resize
     const dividerBox = await divider.boundingBox()
@@ -172,7 +172,7 @@ test.describe('Preview Pane', () => {
 
   test('should persist preview width across page reloads', async ({ page }) => {
     // Resize preview
-    const divider = page.getByLabelText('Resize preview pane')
+    const divider = page.getByRole('separator', { name: 'Resize preview pane' })
     const dividerBox = await divider.boundingBox()
     expect(dividerBox).toBeTruthy()
 
@@ -238,7 +238,7 @@ test.describe('Preview Pane', () => {
 
   test('should be accessible', async ({ page }) => {
     // Check ARIA attributes
-    await expect(page.getByLabelText('Resize preview pane')).toBeVisible()
+    await expect(page.getByRole('separator', { name: 'Resize preview pane' })).toBeVisible()
     await expect(page.getByRole('separator')).toHaveAttribute('aria-orientation', 'vertical')
 
     // Check button titles
@@ -294,7 +294,7 @@ test.describe('Preview Pane', () => {
   })
 
   test('should respect min and max width constraints', async ({ page }) => {
-    const divider = page.getByLabelText('Resize preview pane')
+    const divider = page.getByRole('separator', { name: 'Resize preview pane' })
     const dividerBox = await divider.boundingBox()
     expect(dividerBox).toBeTruthy()
 

@@ -28,7 +28,6 @@ export interface NumberFieldProps {
 export function NumberField({
   name,
   property,
-  autoSave = true,
   nested = false,
 }: NumberFieldProps) {
   const {

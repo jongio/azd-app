@@ -51,7 +51,7 @@ export function SchemaForm({
     mode: 'onBlur', // Validate on blur for better UX
   })
 
-  const { handleSubmit, watch, formState: { errors } } = methods
+  const { handleSubmit, watch } = methods
 
   // Watch for changes and trigger onChange callback
   useEffect(() => {

@@ -23,15 +23,17 @@ export interface ConnectionStringsPanelProps {
 export function ConnectionStringsPanel({ service, className }: ConnectionStringsPanelProps) {
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null)
 
-  const handleCopy = async (key: string, value: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopiedKey(key)
-      setTimeout(() => setCopiedKey(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
-    }
-  }
+  const handleCopy = React.useCallback((key: string, value: string) => {
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(value)
+        setCopiedKey(key)
+        setTimeout(() => setCopiedKey(null), 2000)
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error)
+      }
+    })()
+  }, [])
 
   if (!service.connectionStrings || Object.keys(service.connectionStrings).length === 0) {
     return null

@@ -3,7 +3,6 @@
  * Confirms backup restoration with warning
  */
 
-import * as React from 'react'
 import { RotateCcw } from 'lucide-react'
 import {
   Dialog,

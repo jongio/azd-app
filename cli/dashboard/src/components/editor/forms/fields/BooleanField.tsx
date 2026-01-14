@@ -26,7 +26,6 @@ export interface BooleanFieldProps {
 export function BooleanField({
   name,
   property,
-  autoSave = true,
   nested = false,
 }: BooleanFieldProps) {
   const {
