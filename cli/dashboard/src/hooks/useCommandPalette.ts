@@ -32,15 +32,17 @@ export function useCommandPalette(): UseCommandPaletteReturn {
   // Global keyboard shortcut (Cmd/Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      const key = e.key.toLowerCase()
+
+      // Cmd+K (Mac) or Ctrl+K (Windows/Linux) toggles the palette
+      if ((e.metaKey || e.ctrlKey) && key === 'k') {
         e.preventDefault()
         toggle()
       }
     }
     
     window.addEventListener('keydown', handleKeyDown)
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }

@@ -129,7 +129,43 @@ export async function saveConfigWithRetry(
 /**
  * Load schema with retry
  */
-export async function loadSchemaWithRetry(): Promise<{ schema: SchemaResponse | null; error?: EditorError }> {
+const SCHEMA_CACHE_KEY = 'azd-schema-cache'
+const SCHEMA_CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+function readCachedSchema(): Record<string, unknown> | null {
+  try {
+    const cached = localStorage.getItem(SCHEMA_CACHE_KEY)
+    if (!cached) return null
+
+    const parsed = JSON.parse(cached) as { schema: Record<string, unknown>; timestamp: number }
+    if (!parsed?.schema || typeof parsed.timestamp !== 'number') {
+      return null
+    }
+
+    const isFresh = Date.now() - parsed.timestamp < SCHEMA_CACHE_TTL_MS
+    return isFresh ? parsed.schema : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedSchema(schema: Record<string, unknown>) {
+  try {
+    localStorage.setItem(
+      SCHEMA_CACHE_KEY,
+      JSON.stringify({ schema, timestamp: Date.now() })
+    )
+  } catch {
+    // Best effort cache; ignore failures (e.g., private mode)
+  }
+}
+
+export async function loadSchemaWithRetry(): Promise<{ schema: Record<string, unknown> | null; error?: EditorError }> {
+  const cachedSchema = readCachedSchema()
+  if (cachedSchema) {
+    return { schema: cachedSchema }
+  }
+
   try {
     const response = await retryWithBackoff(
       async () => {
@@ -146,16 +182,19 @@ export async function loadSchemaWithRetry(): Promise<{ schema: SchemaResponse | 
     )
 
     const data = await response.json()
-    
-    // Validate schema structure
-    if (!data || typeof data !== 'object' || !('schema' in data)) {
+
+    // Accept either wrapped { schema } shape or raw schema object
+    const schema = data && typeof data === 'object' && 'schema' in data ? (data as SchemaResponse).schema : (data as Record<string, unknown>)
+
+    if (!schema || typeof schema !== 'object') {
       throw new Error('Invalid schema response structure')
     }
-    
-    return { schema: data as SchemaResponse }
+
+    writeCachedSchema(schema)
+    return { schema }
   } catch (error) {
     return {
-      schema: null,
+      schema: cachedSchema ?? null,
       error: createNetworkError('Failed to load schema', error as Error, false),
     }
   }

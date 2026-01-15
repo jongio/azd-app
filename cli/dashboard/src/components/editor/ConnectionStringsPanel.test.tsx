@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 import { ConnectionStringsPanel } from './ConnectionStringsPanel'
 import type { WellKnownService } from '@/lib/editor/wellknown-types'
 
@@ -56,17 +57,13 @@ describe('ConnectionStringsPanel', () => {
   let mockWriteText: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    mockWriteText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
-        writeText: mockWriteText,
-      },
-      configurable: true,
-    })
+    mockWriteText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    ;(globalThis as any).__initialWriteText = mockWriteText
   })
 
   afterEach(() => {
-    vi.clearAllMocks()
+    vi.restoreAllMocks()
+    delete (globalThis as any).__initialWriteText
   })
 
   it('renders connection strings for service', () => {
@@ -118,34 +115,36 @@ describe('ConnectionStringsPanel', () => {
 
   it('resets "Copied!" feedback after 2 seconds', async () => {
     vi.useFakeTimers()
-    const user = userEvent.setup({ delay: null })
     render(<ConnectionStringsPanel service={mockService} />)
 
     const copyButton = screen.getByLabelText(/Copy blob connection string/i)
-    await user.click(copyButton)
+    fireEvent.click(copyButton)
 
     expect(screen.getByText('Copied!')).toBeInTheDocument()
 
-    vi.advanceTimersByTime(2000)
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    vi.useRealTimers()
 
     await waitFor(() => {
       expect(screen.queryByText('Copied!')).not.toBeInTheDocument()
     })
-
-    vi.useRealTimers()
   })
 
   it('handles clipboard write failure gracefully', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockWriteText.mockRejectedValueOnce(new Error('Clipboard error'))
 
-    const user = userEvent.setup()
     render(<ConnectionStringsPanel service={mockService} />)
 
     const copyButton = screen.getByLabelText(/Copy blob connection string/i)
-    await user.click(copyButton)
+    fireEvent.click(copyButton)
 
-    expect(consoleError).toHaveBeenCalledWith('Failed to copy to clipboard:', expect.any(Error))
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith('Failed to copy to clipboard:', expect.any(Error))
+    })
     consoleError.mockRestore()
   })
 
@@ -216,17 +215,16 @@ describe('ConnectionStringsPanel', () => {
   })
 
   it('supports copying multiple different connection strings', async () => {
-    const user = userEvent.setup()
     render(<ConnectionStringsPanel service={mockService} />)
 
     const copyButtons = screen.getAllByRole('button', { name: /Copy.*connection string/i })
 
     // Copy blob connection string
-    await user.click(copyButtons[0])
+    fireEvent.click(copyButtons[0])
     expect(mockWriteText).toHaveBeenCalledWith(mockService.connectionStrings!.blob)
 
     // Copy queue connection string
-    await user.click(copyButtons[1])
+    fireEvent.click(copyButtons[1])
     expect(mockWriteText).toHaveBeenCalledWith(mockService.connectionStrings!.queue)
 
     expect(mockWriteText).toHaveBeenCalledTimes(2)

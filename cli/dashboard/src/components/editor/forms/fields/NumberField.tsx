@@ -11,7 +11,7 @@
 import { useFormContext } from 'react-hook-form'
 import type { SchemaProperty } from '@/lib/schema'
 import { Input } from '@/components/ui/input'
-import { FieldLabel } from '../FieldLabel'
+import { FieldLabel, HelpTooltip } from '../FieldLabel'
 import { FieldError } from '../FieldError'
 import { cn } from '@/lib/utils'
 
@@ -68,6 +68,8 @@ export function NumberField({
     ? String(property.defaultValue)
     : ''
 
+  const help = property.description ? <HelpTooltip description={property.description} /> : null
+
   return (
     <div className={cn('space-y-1', nested && 'ml-4')}>
       <FieldLabel
@@ -75,23 +77,28 @@ export function NumberField({
         label={label}
         required={property.required}
         description={property.description}
+        showHelpIcon={false}
       />
-      
-      <Input
-        id={fieldId}
-        type="number"
-        step={step}
-        min={property.minimum}
-        max={property.maximum}
-        {...register(name, {
-          ...validation,
-          valueAsNumber: true, // Convert to number
-        })}
-        placeholder={placeholder}
-        className={cn(error && 'border-destructive focus-visible:ring-destructive')}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${fieldId}-error` : undefined}
-      />
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <Input
+            id={fieldId}
+            type="number"
+            step={step}
+            min={property.minimum}
+            max={property.maximum}
+            {...register(name, {
+              ...validation,
+              valueAsNumber: true, // Convert to number
+            })}
+            placeholder={placeholder}
+            className={cn(error && 'border-destructive focus-visible:ring-destructive')}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${fieldId}-error` : undefined}
+          />
+        </div>
+        {help}
+      </div>
       
       {error && (
         <FieldError

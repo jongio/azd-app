@@ -10,7 +10,7 @@
     "generate:changelog": "tsx scripts/generate-changelog.ts",
     "prebuild": "pnpm validate && pnpm generate:cli && pnpm generate:changelog",
     "build": "astro build && pagefind --site dist",
-    "preview": "astro preview --host 127.0.0.1 --port 4321",
+    "preview": "astro preview",
     "screenshots": "tsx scripts/capture-screenshots.ts",
     "astro": "astro",
     "test:e2e": "playwright test",

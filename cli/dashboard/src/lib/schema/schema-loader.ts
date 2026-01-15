@@ -12,6 +12,10 @@ const SCHEMA_URL = 'https://raw.githubusercontent.com/jongio/azd-app/main/schema
 // Schema will be bundled as a fallback
 import bundledSchema from './bundled-schema.json'
 
+function isSchemaRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 export interface SchemaLoadResult {
   success: boolean
   schema: Record<string, unknown> | null
@@ -38,20 +42,29 @@ export async function loadSchema(): Promise<SchemaLoadResult> {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
-    const schema = await response.json()
-    
+    const schemaResponse = (await response.json()) as unknown
+
+    if (!isSchemaRecord(schemaResponse)) {
+      throw new Error('Invalid schema format received from remote source')
+    }
+
     return {
       success: true,
-      schema,
+      schema: schemaResponse,
       source: 'remote',
     }
   } catch (error) {
     // Fallback to bundled schema on any error
     console.warn('Failed to load schema from remote URL, using bundled fallback:', error)
-    
+
+    const bundledSchemaSource = bundledSchema as unknown
+    const fallbackSchema: Record<string, unknown> = isSchemaRecord(bundledSchemaSource)
+      ? bundledSchemaSource
+      : {}
+
     return {
       success: true,
-      schema: bundledSchema,
+      schema: fallbackSchema,
       source: 'bundled',
       error: error instanceof Error ? error.message : String(error),
     }

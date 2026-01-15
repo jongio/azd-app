@@ -76,7 +76,8 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
       const lines = response.content.split('\n').slice(0, 10)
       return lines.join('\n')
     } catch (error) {
-      console.error('Failed to get preview:', error)
+      console.error('Failed to load backup:', error)
+      alert('Failed to load backup content. Please try again.')
       return 'Failed to load preview'
     }
   }, [])

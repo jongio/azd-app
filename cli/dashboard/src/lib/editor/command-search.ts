@@ -47,6 +47,7 @@ export class CommandSearch {
    * Update the command list
    */
   updateCommands(commands: Command[]): void {
+    this.commands = commands
     this.fuse.setCollection(commands)
   }
   

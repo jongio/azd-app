@@ -13,7 +13,7 @@
 import { useFormContext } from 'react-hook-form'
 import type { SchemaProperty } from '@/lib/schema'
 import { Input } from '@/components/ui/input'
-import { FieldLabel } from '../FieldLabel'
+import { FieldLabel, HelpTooltip } from '../FieldLabel'
 import { FieldError } from '../FieldError'
 import { cn } from '@/lib/utils'
 
@@ -79,6 +79,8 @@ export function StringField({
       ? `Enter ${label.toLowerCase()}...`
       : ''
 
+  const help = property.description ? <HelpTooltip description={property.description} /> : null
+
   return (
     <div className={cn('space-y-1', nested && 'ml-4')}>
       <FieldLabel
@@ -86,35 +88,40 @@ export function StringField({
         label={label}
         required={property.required}
         description={property.description}
+        showHelpIcon={false}
       />
-      
-      {useTextarea ? (
-        <textarea
-          id={fieldId}
-          {...register(name, validation)}
-          placeholder={placeholder}
-          className={cn(
-            'flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
-            'placeholder:text-muted-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            'resize-y',
-            error && 'border-destructive focus-visible:ring-destructive'
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          {useTextarea ? (
+            <textarea
+              id={fieldId}
+              {...register(name, validation)}
+              placeholder={placeholder}
+              className={cn(
+                'flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
+                'placeholder:text-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'resize-y',
+                error && 'border-destructive focus-visible:ring-destructive'
+              )}
+              aria-invalid={!!error}
+              aria-describedby={error ? `${fieldId}-error` : undefined}
+            />
+          ) : (
+            <Input
+              id={fieldId}
+              type="text"
+              {...register(name, validation)}
+              placeholder={placeholder}
+              className={cn(error && 'border-destructive focus-visible:ring-destructive')}
+              aria-invalid={!!error}
+              aria-describedby={error ? `${fieldId}-error` : undefined}
+            />
           )}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${fieldId}-error` : undefined}
-        />
-      ) : (
-        <Input
-          id={fieldId}
-          type="text"
-          {...register(name, validation)}
-          placeholder={placeholder}
-          className={cn(error && 'border-destructive focus-visible:ring-destructive')}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${fieldId}-error` : undefined}
-        />
-      )}
+        </div>
+        {help}
+      </div>
       
       {error && (
         <FieldError

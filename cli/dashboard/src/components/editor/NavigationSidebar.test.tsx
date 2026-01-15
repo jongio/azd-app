@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NavigationSidebar } from './NavigationSidebar'
 import type { NavigationNode, ValidationIssue } from '@/lib/editor/navigation-types'
@@ -116,8 +116,8 @@ describe('NavigationSidebar', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Add service' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Add resource' })).toBeInTheDocument()
+      expect(screen.getByText('New Service')).toBeInTheDocument()
+      expect(screen.getByText('New Resource')).toBeInTheDocument()
     })
   })
 
@@ -195,18 +195,21 @@ describe('NavigationSidebar', () => {
         />
       )
 
-      // Initially, overview children should be visible
+      // Initially, overview children should be visible (expanded by default)
       expect(screen.getByRole('treeitem', { name: 'Application Name' })).toBeInTheDocument()
 
-      // Click to collapse
-      const overviewButton = screen.getByRole('treeitem', { name: /Overview/i })
-      await user.click(overviewButton)
+      // Click overview to collapse
+      const overviewItem = screen.getByRole('treeitem', { name: /Overview/i })
+      const button = overviewItem.querySelector('button')
+      await user.click(button!)
 
-      // Children should be hidden
-      expect(screen.queryByRole('treeitem', { name: 'Application Name' })).not.toBeInTheDocument()
+      // Children should be hidden after clicking
+      await waitFor(() => {
+        expect(screen.queryByRole('treeitem', { name: 'Application Name' })).not.toBeInTheDocument()
+      })
     })
 
-    it('should toggle expansion with chevron button', async () => {
+    it('should toggle expansion with button click', async () => {
       const user = userEvent.setup()
       
       render(
@@ -217,13 +220,18 @@ describe('NavigationSidebar', () => {
         />
       )
 
-      const overviewButton = screen.getByRole('treeitem', { name: /Overview/i })
-      const chevron = within(overviewButton).getByLabelText('Collapse')
+      // Overview is expanded by default, children visible
+      expect(screen.getByRole('treeitem', { name: 'Application Name' })).toBeInTheDocument()
 
-      await user.click(chevron)
+      // Click the button inside the overview treeitem to collapse
+      const overviewItem = screen.getByRole('treeitem', { name: /Overview/i })
+      const button = overviewItem.querySelector('button')
+      await user.click(button!)
 
       // Children should be hidden
-      expect(screen.queryByRole('treeitem', { name: 'Application Name' })).not.toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.queryByRole('treeitem', { name: 'Application Name' })).not.toBeInTheDocument()
+      })
     })
   })
 
@@ -239,8 +247,9 @@ describe('NavigationSidebar', () => {
         />
       )
 
-      const apiButton = screen.getByRole('treeitem', { name: 'api' })
-      await user.click(apiButton)
+      const apiItem = screen.getByRole('treeitem', { name: 'api' })
+      const button = apiItem.querySelector('button')
+      await user.click(button!)
 
       expect(mockOnNavigate).toHaveBeenCalledWith('services.api')
     })
@@ -257,8 +266,10 @@ describe('NavigationSidebar', () => {
         />
       )
 
-      const addServiceButton = screen.getByRole('button', { name: 'Add service' })
-      await user.click(addServiceButton)
+      const addServiceButton = screen.getByText('New Service').closest('button')
+      expect(addServiceButton).not.toBeNull()
+
+      await user.click(addServiceButton as HTMLButtonElement)
 
       expect(mockOnAdd).toHaveBeenCalledWith('service', 'services')
     })

@@ -8,7 +8,8 @@
  * - Min/max items validation
  */
 
-import { useFormContext, useFieldArray } from 'react-hook-form'
+import type React from 'react'
+import { useFormContext, useWatch } from 'react-hook-form'
 import { Plus, X, GripVertical } from 'lucide-react'
 import type { SchemaProperty } from '@/lib/schema'
 import { Button } from '@/components/ui/button'
@@ -36,22 +37,46 @@ export function ArrayField({
   const {
     control,
     formState: { errors },
+    setValue,
   } = useFormContext()
-
-  const { fields, append, remove, move } = useFieldArray({
-    control,
-    name,
-  })
 
   const error = errors[name]
   const fieldId = `field-${name}`
 
+  const parsedMax = property.maxItems !== undefined ? Number(property.maxItems) : undefined
+  const parsedMin = property.minItems !== undefined ? Number(property.minItems) : undefined
+  const validationMax = property.validation?.find((rule) => rule.type === 'maxItems')
+  const validationMin = property.validation?.find((rule) => rule.type === 'minItems')
+
+  const maxItems = Number.isFinite(parsedMax)
+    ? parsedMax
+    : validationMax && Number.isFinite(Number(validationMax.value))
+      ? Number(validationMax.value)
+      : undefined
+
+  const minItems = Number.isFinite(parsedMin)
+    ? parsedMin
+    : validationMin && Number.isFinite(Number(validationMin.value))
+      ? Number(validationMin.value)
+      : undefined
+
+  const watchedItems = useWatch({ control, name })
+  const items = Array.isArray(watchedItems) ? watchedItems : []
+  const itemCount = items.length
+
+  const isAtMax = maxItems !== undefined && itemCount >= maxItems
+  const canRemove = minItems === undefined || itemCount > minItems
+
   // Get label
   const label = property.title || name
   const itemSchema = property.items
+  const itemLabel = itemSchema?.title || label.replace(/s$/i, '') || label
 
   // Handle add item
   const handleAddItem = () => {
+    if (isAtMax) {
+      return
+    }
     const defaultValue = itemSchema?.defaultValue || (
       itemSchema?.type === 'string' ? '' :
       itemSchema?.type === 'number' ? 0 :
@@ -59,7 +84,17 @@ export function ArrayField({
       itemSchema?.type === 'object' ? {} :
       null
     )
-    append(defaultValue)
+    const nextItems = [...items, defaultValue]
+    setValue(name, nextItems, { shouldDirty: true, shouldTouch: true })
+  }
+
+  const handleRemoveItem = (index: number) => {
+    if (!canRemove) {
+      return
+    }
+
+    const nextItems = items.filter((_, itemIndex) => itemIndex !== index)
+    setValue(name, nextItems, { shouldDirty: true, shouldTouch: true })
   }
 
   // Handle drag start (for reordering)
@@ -78,14 +113,18 @@ export function ArrayField({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, toIndex: number) => {
     e.preventDefault()
     const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10)
-    if (fromIndex !== toIndex) {
-      move(fromIndex, toIndex)
+    if (Number.isNaN(fromIndex) || fromIndex === toIndex) {
+      return
     }
-  }
 
-  // Check min/max items
-  const canRemove = !property.minItems || fields.length > property.minItems
-  const canAdd = !property.maxItems || fields.length < property.maxItems
+    const nextItems = [...items]
+    const [moved] = nextItems.splice(fromIndex, 1)
+    if (moved === undefined) {
+      return
+    }
+    nextItems.splice(toIndex, 0, moved)
+    setValue(name, nextItems, { shouldDirty: true, shouldTouch: true })
+  }
 
   return (
     <div className={cn('space-y-2', nested && 'ml-4')}>
@@ -97,14 +136,16 @@ export function ArrayField({
           description={property.description}
           className="mb-0"
         />
-        
-        {canAdd && (
+
+        {!isAtMax && (
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleAddItem}
             className="gap-1"
+            aria-disabled={isAtMax}
+            title="Add array item"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Item
@@ -113,14 +154,14 @@ export function ArrayField({
       </div>
 
       <div className="space-y-2">
-        {fields.length === 0 ? (
+        {itemCount === 0 ? (
           <div className="text-sm text-muted-foreground italic py-4 text-center border border-dashed rounded-md">
             No items. Click "Add Item" to get started.
           </div>
         ) : (
-          fields.map((field, index) => (
+          items.map((_, index) => (
             <div
-              key={field.id}
+              key={`${fieldId}-${index}`}
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={handleDragOver}
@@ -142,7 +183,7 @@ export function ArrayField({
                     name={`${name}.${index}`}
                     property={{
                       ...itemSchema,
-                      title: `${label} #${index + 1}`,
+                      title: `${itemLabel} #${index + 1}`,
                     }}
                     autoSave={autoSave}
                     nested
@@ -156,7 +197,7 @@ export function ArrayField({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => remove(index)}
+                  onClick={() => handleRemoveItem(index)}
                   className="flex-shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
                   aria-label={`Remove item ${index + 1}`}
                 >
@@ -174,15 +215,15 @@ export function ArrayField({
         />
       )}
 
-      {property.minItems && fields.length < property.minItems && (
+      {minItems !== undefined && itemCount < minItems && (
         <p className="text-sm text-muted-foreground">
-          Minimum {property.minItems} item{property.minItems !== 1 ? 's' : ''} required
+          Minimum {minItems} item{minItems !== 1 ? 's' : ''} required
         </p>
       )}
 
-      {property.maxItems && fields.length >= property.maxItems && (
+      {maxItems !== undefined && itemCount >= maxItems && (
         <p className="text-sm text-muted-foreground">
-          Maximum {property.maxItems} item{property.maxItems !== 1 ? 's' : ''} reached
+          Maximum {maxItems} item{maxItems !== 1 ? 's' : ''} reached
         </p>
       )}
     </div>

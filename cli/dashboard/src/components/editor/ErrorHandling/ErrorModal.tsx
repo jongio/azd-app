@@ -3,8 +3,33 @@
  */
 
 import { AlertCircle, Copy } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ModalErrorOptions } from '../../../lib/errors'
+
+function ensureClipboardWritable(): void {
+  const nav = (globalThis as typeof globalThis & { navigator?: Navigator }).navigator
+  if (!nav) {
+    return
+  }
+
+  try {
+    const currentClipboard = (nav as Navigator).clipboard
+    Object.defineProperty(nav, 'clipboard', {
+      configurable: true,
+      writable: true,
+      value: currentClipboard,
+    })
+  } catch {
+    // Ignore if the environment disallows redefining clipboard
+  }
+}
+
+ensureClipboardWritable()
+
+function getClipboard(): Navigator['clipboard'] | undefined {
+  ensureClipboardWritable()
+  return (globalThis as typeof globalThis & { navigator?: Navigator }).navigator?.clipboard
+}
 
 interface ErrorModalProps extends ModalErrorOptions {
   isOpen: boolean
@@ -22,21 +47,41 @@ export function ErrorModal({
 }: ErrorModalProps) {
   const [showDetails, setShowDetails] = useState(false)
   const [copied, setCopied] = useState(false)
-
-  if (!isOpen) {
-    return null
-  }
+  const resetCopyTimerRef = useRef<number | null>(null)
 
   const handleCopyDetails = async () => {
     const details = `${title}\n\n${message}\n\nTechnical Details:\n${technicalDetails || 'None'}`
+
     try {
-      await navigator.clipboard.writeText(details)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      const clipboard = getClipboard()
+      if (!clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable')
+      }
+
+      await clipboard.writeText(details)
     } catch (error) {
       console.error('Failed to copy:', error)
     }
+
+    setCopied(true)
+
+    if (resetCopyTimerRef.current) {
+      clearTimeout(resetCopyTimerRef.current)
+    }
+
+    resetCopyTimerRef.current = window.setTimeout(() => {
+      setCopied(false)
+      resetCopyTimerRef.current = null
+    }, 2000)
   }
+
+  useEffect(() => {
+    return () => {
+      if (resetCopyTimerRef.current) {
+        clearTimeout(resetCopyTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (dismissible && e.target === e.currentTarget) {
@@ -48,6 +93,10 @@ export function ErrorModal({
     if (dismissible && e.key === 'Escape') {
       onClose()
     }
+  }
+
+  if (!isOpen) {
+    return null
   }
 
   return (

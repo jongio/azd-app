@@ -18,19 +18,11 @@ describe('ErrorModal', () => {
   let clipboardSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    // Mock clipboard API
-    clipboardSpy = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      clipboard: {
-        writeText: clipboardSpy,
-      },
-    })
+    clipboardSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
   })
 
   afterEach(() => {
-    vi.clearAllMocks()
-    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('should not render when closed', () => {

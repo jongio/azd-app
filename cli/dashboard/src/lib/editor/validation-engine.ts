@@ -355,8 +355,7 @@ function buildPortMap(services: Record<string, unknown>): Map<string, string[]> 
     
     const serviceObj = service as Record<string, unknown>
     const ports = serviceObj.ports
-
-    if (!ports) continue
+    const port = serviceObj.port
 
     // Handle different port formats
     const portList: string[] = []
@@ -366,6 +365,12 @@ function buildPortMap(services: Record<string, unknown>): Map<string, string[]> 
     } else if (typeof ports === 'string') {
       portList.push(ports)
     }
+
+    if (typeof port === 'number' || typeof port === 'string') {
+      portList.push(String(port))
+    }
+
+    if (portList.length === 0) continue
 
     // Extract port numbers from "host:container" format
     for (const portSpec of portList) {

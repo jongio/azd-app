@@ -144,17 +144,8 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('No error')).toBeInTheDocument()
   })
 
-  // Skip the DEV mode test - import.meta.env is not mockable in Vitest
-  it.skip('should show technical details in development', () => {
-    render(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={true} />
-      </ErrorBoundary>
-    )
-
-    // This test is skipped because import.meta.env.DEV cannot be mocked in Vitest
-    // Technical details section is implemented but cannot be tested this way
-  })
+  // NOTE: Development mode test removed - import.meta.env is not mockable in Vitest
+  // Technical details section exists but cannot be tested in unit tests
 
   it('should have link to report issue', () => {
     render(

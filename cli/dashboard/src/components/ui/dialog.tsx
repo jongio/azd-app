@@ -6,6 +6,13 @@ import * as React from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+interface DialogIdsContextValue {
+  titleId: string
+  descriptionId: string
+}
+
+const DialogIdsContext = React.createContext<DialogIdsContextValue | null>(null)
+
 export interface DialogProps {
   isOpen: boolean
   onClose: () => void
@@ -32,6 +39,9 @@ export function Dialog({
   maxWidth = '2xl',
 }: DialogProps) {
   const dialogRef = React.useRef<HTMLDialogElement>(null)
+  const dialogId = React.useId()
+  const titleId = `${dialogId}-title`
+  const descriptionId = `${dialogId}-description`
 
   // Handle escape key
   React.useEffect(() => {
@@ -80,37 +90,42 @@ export function Dialog({
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/50 dark:bg-black/70 animate-fade-in"
-        onClick={handleBackdropClick}
-        aria-hidden="true"
-      />
+    <DialogIdsContext.Provider value={{ titleId, descriptionId }}>
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/70 animate-fade-in"
+          data-testid="dialog-backdrop"
+          onClick={handleBackdropClick}
+          aria-hidden="true"
+        />
 
-      {/* Dialog */}
-      <dialog
-        ref={dialogRef}
-        open
-        aria-labelledby={title ? 'dialog-title' : undefined}
-        aria-describedby={description ? 'dialog-description' : undefined}
-        aria-modal="true"
-        className={cn(
-          'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
-          'w-full',
-          maxWidthClasses[maxWidth],
-          'bg-white dark:bg-slate-900',
-          'border border-slate-200 dark:border-slate-700',
-          'rounded-2xl shadow-2xl',
-          'flex flex-col',
-          'max-h-[90vh]',
-          'animate-scale-in',
-          className
-        )}
-      >
-        {children}
-      </dialog>
-    </>
+        {/* Dialog */}
+        <dialog
+          ref={dialogRef}
+          open
+          role="dialog"
+          aria-labelledby={titleId}
+          aria-describedby={description ? descriptionId : undefined}
+          aria-modal="true"
+          aria-label={title}
+          className={cn(
+            'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
+            'w-full',
+            maxWidthClasses[maxWidth],
+            'bg-white dark:bg-slate-900',
+            'border border-slate-200 dark:border-slate-700',
+            'rounded-2xl shadow-2xl',
+            'flex flex-col',
+            'max-h-[90vh]',
+            'animate-scale-in',
+            className
+          )}
+        >
+          {children}
+        </dialog>
+      </>
+    </DialogIdsContext.Provider>
   )
 }
 
@@ -141,12 +156,16 @@ export function DialogHeader({ children, onClose, className }: DialogHeaderProps
 
 export interface DialogTitleProps {
   children: React.ReactNode
+  id?: string
   className?: string
 }
 
-export function DialogTitle({ children, className }: DialogTitleProps) {
+export function DialogTitle({ children, className, id }: DialogTitleProps) {
+  const ids = React.useContext(DialogIdsContext)
+  const resolvedId = id ?? ids?.titleId ?? 'dialog-title'
+
   return (
-    <h2 id="dialog-title" className={cn('text-lg font-semibold text-slate-900 dark:text-slate-100', className)}>
+    <h2 id={resolvedId} className={cn('text-lg font-semibold text-slate-900 dark:text-slate-100', className)}>
       {children}
     </h2>
   )
@@ -154,12 +173,16 @@ export function DialogTitle({ children, className }: DialogTitleProps) {
 
 export interface DialogDescriptionProps {
   children: React.ReactNode
+  id?: string
   className?: string
 }
 
-export function DialogDescription({ children, className }: DialogDescriptionProps) {
+export function DialogDescription({ children, className, id }: DialogDescriptionProps) {
+  const ids = React.useContext(DialogIdsContext)
+  const resolvedId = id ?? ids?.descriptionId ?? 'dialog-description'
+
   return (
-    <p id="dialog-description" className={cn('text-sm text-slate-600 dark:text-slate-400 mt-0.5', className)}>
+    <p id={resolvedId} className={cn('text-sm text-slate-600 dark:text-slate-400 mt-0.5', className)}>
       {children}
     </p>
   )

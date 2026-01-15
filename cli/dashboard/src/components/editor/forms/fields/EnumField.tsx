@@ -10,7 +10,7 @@
 import { useFormContext } from 'react-hook-form'
 import type { SchemaProperty } from '@/lib/schema'
 import { Select } from '@/components/ui/select'
-import { FieldLabel } from '../FieldLabel'
+import { FieldLabel, HelpTooltip } from '../FieldLabel'
 import { FieldError } from '../FieldError'
 import { cn } from '@/lib/utils'
 
@@ -47,6 +47,7 @@ export function EnumField({
   // Get label
   const label = property.title || name
   const enumValues = property.enumValues || []
+  const help = property.description ? <HelpTooltip description={property.description} /> : null
 
   return (
     <div className={cn('space-y-1', nested && 'ml-4')}>
@@ -55,22 +56,27 @@ export function EnumField({
         label={label}
         required={property.required}
         description={property.description}
+        showHelpIcon={false}
       />
-      
-      <Select
-        id={fieldId}
-        {...register(name, validation)}
-        className={cn(error && 'border-destructive focus:ring-destructive')}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${fieldId}-error` : undefined}
-      >
-        <option value="">Select {label.toLowerCase()}...</option>
-        {enumValues.map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </Select>
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <Select
+            id={fieldId}
+            {...register(name, validation)}
+            className={cn(error && 'border-destructive focus:ring-destructive')}
+            aria-invalid={!!error}
+            aria-describedby={error ? `${fieldId}-error` : undefined}
+          >
+            <option value="">Select {label.toLowerCase()}...</option>
+            {enumValues.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {help}
+      </div>
       
       {error && (
         <FieldError

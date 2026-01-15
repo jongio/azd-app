@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: './e2e',
@@ -7,11 +11,18 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'line',
+  webServer: {
+    command: 'pnpm build && pnpm preview',
+    url: 'http://localhost:4331/azd-app/',
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+    cwd: __dirname,
+  },
   // Use platform-independent snapshot naming for cross-platform CI compatibility
   snapshotPathTemplate: '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}{ext}',
   use: {
     // Note: Trailing slash is required for proper URL resolution with relative paths
-    baseURL: 'http://localhost:4321/azd-app/',
+    baseURL: 'http://localhost:4331/azd-app/',
     trace: 'on-first-retry',
     headless: true,
   },

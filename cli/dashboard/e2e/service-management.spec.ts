@@ -47,7 +47,7 @@ test.describe('Service Management', () => {
     await expect(page.getByRole('dialog', { name: /add service/i })).not.toBeVisible()
 
     // Service should appear in navigation
-    await expect(page.getByText('azurite')).toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'azurite' })).toBeVisible()
   })
 
   test('should add an application service', async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('Service Management', () => {
     await expect(page.getByRole('dialog', { name: /add service/i })).not.toBeVisible()
 
     // Service should appear in navigation
-    await expect(page.getByText('my-api')).toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'my-api' })).toBeVisible()
   })
 
   test('should add a container service', async ({ page }) => {
@@ -91,7 +91,7 @@ test.describe('Service Management', () => {
     await expect(page.getByRole('dialog', { name: /add service/i })).not.toBeVisible()
 
     // Service should appear in navigation
-    await expect(page.getByText('my-nginx')).toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'my-nginx' })).toBeVisible()
   })
 
   test('should prevent duplicate service names', async ({ page }) => {
@@ -152,10 +152,10 @@ test.describe('Service Management', () => {
     await page.getByRole('button', { name: 'Add Service' }).click()
 
     // Wait for service to appear
-    await expect(page.getByText('to-delete')).toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'to-delete' })).toBeVisible()
 
     // Click service in navigation
-    await page.getByText('to-delete').click()
+    await page.getByRole('treeitem', { name: 'to-delete' }).click()
 
     // Click delete button
     await page.getByRole('button', { name: /delete/i }).click()
@@ -172,7 +172,7 @@ test.describe('Service Management', () => {
     await expect(deleteDialog).not.toBeVisible()
 
     // Service should be removed from navigation
-    await expect(page.getByText('to-delete')).not.toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'to-delete' })).not.toBeVisible()
   })
 
   test('should cancel service deletion', async ({ page }) => {
@@ -184,20 +184,21 @@ test.describe('Service Management', () => {
     await page.getByRole('button', { name: 'Add Service' }).click()
 
     // Wait for service to appear
-    await expect(page.getByText('keep-me')).toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'keep-me' })).toBeVisible()
 
     // Click service and delete
-    await page.getByText('keep-me').click()
+    await page.getByRole('treeitem', { name: 'keep-me' }).click()
     await page.getByRole('button', { name: /delete/i }).click()
 
     // Cancel deletion
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    const deleteDialog = page.getByRole('dialog', { name: /delete service/i })
+    await deleteDialog.getByRole('button', { name: 'Cancel' }).click()
 
     // Dialog should close
-    await expect(page.getByRole('dialog', { name: /delete service/i })).not.toBeVisible()
+    await expect(deleteDialog).not.toBeVisible()
 
     // Service should still exist
-    await expect(page.getByText('keep-me')).toBeVisible()
+    await expect(page.getByRole('treeitem', { name: 'keep-me' })).toBeVisible()
   })
 
   test('should filter well-known services by category', async ({ page }) => {
@@ -275,7 +276,7 @@ test.describe('Service Management', () => {
     await expect(modal).toBeVisible()
 
     // Click backdrop
-    await page.click('.fixed.inset-0', { force: true })
+    await page.getByTestId('dialog-backdrop').click({ position: { x: 10, y: 10 } })
 
     // Modal should close
     await expect(modal).not.toBeVisible()

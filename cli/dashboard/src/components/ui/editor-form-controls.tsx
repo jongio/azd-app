@@ -229,7 +229,8 @@ export interface EditorCheckboxProps
 
 export const EditorCheckbox = React.forwardRef<HTMLInputElement, EditorCheckboxProps>(
   ({ className, label, helperText, id, ...props }, ref) => {
-    const checkboxId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`
+    const generatedId = React.useId()
+    const checkboxId = id ?? generatedId
 
     return (
       <div className="flex items-start gap-2">
@@ -288,7 +289,8 @@ export const EditorToggle = React.forwardRef<HTMLButtonElement, EditorToggleProp
     { checked = false, onCheckedChange, disabled, label, helperText, className, id },
     ref
   ) => {
-    const toggleId = id || `toggle-${Math.random().toString(36).substr(2, 9)}`
+    const generatedId = React.useId()
+    const toggleId = id ?? generatedId
 
     const handleClick = () => {
       if (!disabled && onCheckedChange) {
@@ -397,7 +399,8 @@ export function EditorFormField({
   className,
   children,
 }: EditorFormFieldProps) {
-  const fieldId = id || `field-${Math.random().toString(36).substr(2, 9)}`
+  const generatedId = React.useId()
+  const fieldId = id ?? generatedId
 
   return (
     <div className={cn('editor-space-y-sm', className)}>

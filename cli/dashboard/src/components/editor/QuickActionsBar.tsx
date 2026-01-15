@@ -17,6 +17,12 @@ export interface QuickActionsBarProps {
   
   /** All available well-known services */
   services: WellKnownService[]
+
+  /** Trigger import configuration flow */
+  onImportConfig?: () => void
+
+  /** Trigger export configuration flow */
+  onExportConfig?: () => void
   
   /** Additional CSS classes */
   className?: string
@@ -30,6 +36,8 @@ export function QuickActionsBar({
   onAddService, 
   quickServices = ['azurite', 'cosmos', 'redis', 'postgres'],
   services,
+  onImportConfig,
+  onExportConfig,
   className 
 }: QuickActionsBarProps) {
   // Get services for quick actions
@@ -39,7 +47,10 @@ export function QuickActionsBar({
       .filter((s): s is WellKnownService => s !== undefined)
   }, [quickServices, services])
 
-  if (actionServices.length === 0) {
+  const hasUtilityActions = Boolean(onImportConfig || onExportConfig)
+  const hasServiceActions = actionServices.length > 0
+
+  if (!hasUtilityActions && !hasServiceActions) {
     return null
   }
 
@@ -64,16 +75,54 @@ export function QuickActionsBar({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
+            {onImportConfig && (
+              <button
+                onClick={onImportConfig}
+                className={cn(
+                  'inline-flex items-center gap-2 px-4 py-2 rounded-lg',
+                  'bg-slate-100 hover:bg-slate-200 active:bg-slate-300',
+                  'text-slate-800 font-medium text-sm',
+                  'transition-colors duration-150',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2',
+                  'shadow-sm hover:shadow-md'
+                )}
+                aria-label="Import configuration"
+              >
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Import configuration</span>
+                <span className="sm:hidden">Import</span>
+              </button>
+            )}
+
+            {onExportConfig && (
+              <button
+                onClick={onExportConfig}
+                className={cn(
+                  'inline-flex items-center gap-2 px-4 py-2 rounded-lg',
+                  'bg-slate-100 hover:bg-slate-200 active:bg-slate-300',
+                  'text-slate-800 font-medium text-sm',
+                  'transition-colors duration-150',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2',
+                  'shadow-sm hover:shadow-md'
+                )}
+                aria-label="Export configuration"
+              >
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Export configuration</span>
+                <span className="sm:hidden">Export</span>
+              </button>
+            )}
+
             {actionServices.map((service) => (
               <button
                 key={service.name}
                 onClick={() => onAddService(service)}
                 className={cn(
                   'inline-flex items-center gap-2 px-4 py-2 rounded-lg',
-                  'bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700',
+                  'bg-cyan-700 hover:bg-cyan-800 active:bg-cyan-900',
                   'text-white font-medium text-sm',
                   'transition-colors duration-150',
-                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-700 focus:ring-offset-2',
                   'shadow-sm hover:shadow-md'
                 )}
                 aria-label={`Add ${service.displayName}`}

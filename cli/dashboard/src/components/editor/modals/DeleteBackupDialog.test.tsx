@@ -27,7 +27,7 @@ describe('DeleteBackupDialog', () => {
     )
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getAllByText('Delete Backup')).toHaveLength(2) // Title and button
+    expect(screen.getByText('Delete Backup')).toBeInTheDocument()
     expect(screen.getAllByText(/This action cannot be undone/)).toHaveLength(2) // Description and warning
   })
 
@@ -82,7 +82,7 @@ describe('DeleteBackupDialog', () => {
       />
     )
 
-    const deleteButton = screen.getByRole('button', { name: 'Delete Backup' })
+    const deleteButton = screen.getByRole('button', { name: 'Confirm Delete' })
     await user.click(deleteButton)
 
     await waitFor(() => {
@@ -172,7 +172,7 @@ describe('DeleteBackupDialog', () => {
       />
     )
 
-    const deleteButton = screen.getByRole('button', { name: 'Delete Backup' })
+    const deleteButton = screen.getByRole('button', { name: 'Confirm Delete' })
     await user.click(deleteButton)
 
     await waitFor(() => {
@@ -196,7 +196,7 @@ describe('DeleteBackupDialog', () => {
       />
     )
 
-    const deleteButton = screen.getByRole('button', { name: 'Delete Backup' })
+    const deleteButton = screen.getByRole('button', { name: 'Confirm Delete' })
     await user.click(deleteButton)
 
     await waitFor(() => {
@@ -234,7 +234,7 @@ describe('DeleteBackupDialog', () => {
       />
     )
 
-    const deleteButton = screen.getByRole('button', { name: 'Delete Backup' })
+    const deleteButton = screen.getByRole('button', { name: 'Confirm Delete' })
     expect(deleteButton).toHaveClass('bg-red-600')
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' })

@@ -126,7 +126,7 @@ export function DeleteBackupDialog({
               'transition-colors duration-150'
             )}
           >
-            {isDeleting ? 'Deleting...' : 'Delete Backup'}
+            {isDeleting ? 'Deleting...' : 'Confirm Delete'}
           </button>
         </div>
       </DialogFooter>

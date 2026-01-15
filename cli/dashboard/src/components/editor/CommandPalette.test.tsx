@@ -118,13 +118,21 @@ describe('CommandPalette', () => {
       render(<CommandPalette {...defaultProps} />)
       
       const searchInput = screen.getByRole('textbox')
+      await user.clear(searchInput)
       await user.type(searchInput, 'service')
       
+      // Wait for filtering to complete - text may be split by highlighting
       await waitFor(() => {
-        expect(screen.getByText('Go to Services')).toBeInTheDocument()
-        expect(screen.getByText('Add Service')).toBeInTheDocument()
-        expect(screen.queryByText('Go to Overview')).not.toBeInTheDocument()
-      })
+        // Use text matcher that ignores highlighting markup
+        expect(screen.getByText((content, element) => {
+          return element?.textContent === 'Go to Services'
+        })).toBeInTheDocument()
+      }, { timeout: 5000 })
+      
+      expect(screen.getByText((content, element) => {
+        return element?.textContent === 'Add Service'
+      })).toBeInTheDocument()
+      expect(screen.queryByText('Go to Overview')).not.toBeInTheDocument()
     })
     
     it('should show empty state when no matches', async () => {

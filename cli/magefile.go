@@ -1265,9 +1265,20 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
 	}
 
+	// Ensure the production build exists before starting the server
+	distDir := filepath.Join(absWebsiteDir, "dist")
+	if _, err := os.Stat(distDir); os.IsNotExist(err) {
+		fmt.Println("Building website for preview...")
+		if err := WebsiteBuild(); err != nil {
+			return fmt.Errorf("failed to build website before E2E tests: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to check dist directory: %w", err)
+	}
+
 	// Start the preview server in the background
 	fmt.Println("Starting preview server...")
-	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4331")
 	serverCmd.Dir = absWebsiteDir
 	serverCmd.Stdout = os.Stdout
 	serverCmd.Stderr = os.Stderr
@@ -1284,7 +1295,7 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 	fmt.Println("Waiting for server to be ready...")
 	serverReady := false
 	for i := 0; i < 30; i++ {
-		resp, err := http.Get("http://localhost:4321/azd-app/")
+		resp, err := http.Get("http://localhost:4331/azd-app/")
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {

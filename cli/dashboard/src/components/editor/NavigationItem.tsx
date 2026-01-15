@@ -57,47 +57,37 @@ export function NavigationItem({
   const hasIssues = errorCount > 0 || warningCount > 0
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-2 px-3 py-1.5 w-full text-sm transition-colors group',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-        isActive
-          ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-foreground hover:bg-accent/50 hover:text-accent-foreground',
-        className
-      )}
-      style={{ paddingLeft: `${depth * 12 + 12}px` }}
+    <div
       role="treeitem"
       aria-expanded={hasChildren ? isExpanded : undefined}
       aria-current={isActive ? 'page' : undefined}
+      aria-level={depth + 1}
       aria-label={`${label}${hasIssues ? ` (${errorCount} errors, ${warningCount} warnings)` : ''}`}
     >
-      {/* Expand/collapse chevron */}
+      <button
+        onClick={onClick}
+        className={cn(
+          'flex items-center gap-2 px-3 py-1.5 w-full text-sm transition-colors group',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+          isActive
+            ? 'bg-accent text-accent-foreground font-medium'
+            : 'text-foreground hover:bg-accent/50 hover:text-accent-foreground',
+          className
+        )}
+        style={{ paddingLeft: `${depth * 12 + 12}px` }}
+      >
+      {/* Expand/collapse chevron (visual only; button handles toggle) */}
       {hasChildren && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggle?.()
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              e.stopPropagation()
-              onToggle?.()
-            }
-          }}
-          className="p-0.5 -ml-1 hover:bg-accent/50 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
-          role="button"
-          aria-label={isExpanded ? 'Collapse' : 'Expand'}
-          tabIndex={0}
+        <span
+          className="p-0.5 -ml-1 rounded transition-colors"
+          aria-hidden="true"
         >
           {isExpanded ? (
             <ChevronDown className="w-3.5 h-3.5" />
           ) : (
             <ChevronRight className="w-3.5 h-3.5" />
           )}
-        </div>
+        </span>
       )}
 
       {/* Icon */}
@@ -136,6 +126,7 @@ export function NavigationItem({
           )}
         </div>
       )}
-    </button>
+      </button>
+    </div>
   )
 }

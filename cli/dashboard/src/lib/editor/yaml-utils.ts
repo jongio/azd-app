@@ -24,6 +24,13 @@ export interface YamlStringifyOptions {
  * @returns Parse result with data or error
  */
 export function parseYaml<T = unknown>(yamlString: string): YamlParseResult<T> {
+  if (yamlString.trim() === '') {
+    return {
+      success: true,
+      data: null as T,
+    }
+  }
+
   try {
     const data = yaml.load(yamlString, {
       // Strict JSON compatibility
@@ -111,5 +118,8 @@ export function formatYaml(yamlString: string, options?: YamlStringifyOptions): 
   if (!result.success || result.data === undefined) {
     return yamlString // Return original if parsing fails
   }
-  return stringifyYaml(result.data, options)
+  const formatted = stringifyYaml(result.data, options)
+
+  // Normalize semver-like numeric strings (e.g., 1.0.0) to be quoted for consistency
+  return formatted.replace(/^(\s*version:\s*)(\d+(?:\.\d+)+)(\s*)$/gm, '$1"$2"$3')
 }

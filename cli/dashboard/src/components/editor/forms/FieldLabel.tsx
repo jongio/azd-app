@@ -17,6 +17,8 @@ export interface FieldLabelProps {
   description?: string
   /** Custom className */
   className?: string
+  /** Render the help icon inline with the label */
+  showHelpIcon?: boolean
 }
 
 /**
@@ -30,6 +32,7 @@ export function FieldLabel({
   required,
   description,
   className,
+  showHelpIcon = true,
 }: FieldLabelProps) {
   return (
     <div className={cn('flex items-center gap-2 mb-1.5', className)}>
@@ -41,30 +44,36 @@ export function FieldLabel({
         {required && <span className="text-destructive ml-1" aria-label="required">*</span>}
       </label>
       
-      {description && (
-        <Tooltip.Provider delayDuration={200}>
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                aria-label="Help"
-              >
-                <Info className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                className="max-w-xs rounded-md bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md border border-border z-50"
-                sideOffset={4}
-              >
-                {description}
-                <Tooltip.Arrow className="fill-border" />
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
-        </Tooltip.Provider>
+      {description && showHelpIcon && (
+        <HelpTooltip description={description} />
       )}
     </div>
+  )
+}
+
+export function HelpTooltip({ description }: { description: string }) {
+  return (
+    <Tooltip.Provider delayDuration={200}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            aria-label="Help"
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            className="max-w-xs rounded-md bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md border border-border z-50"
+            sideOffset={4}
+          >
+            {description}
+            <Tooltip.Arrow className="fill-border" />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   )
 }

@@ -75,6 +75,10 @@ const PREVIEW_WIDTH_KEY = 'azd-editor-preview-width'
 // Helper Functions
 // =============================================================================
 
+function clampWidth(width: number): number {
+  return Math.max(20, Math.min(80, width))
+}
+
 /**
  * Load preview visibility from localStorage
  */
@@ -104,7 +108,8 @@ function savePreviewVisible(visible: boolean): void {
 function loadPreviewWidth(): number {
   try {
     const stored = localStorage.getItem(PREVIEW_WIDTH_KEY)
-    return stored !== null ? parseInt(stored, 10) : 40 // Default 40%
+    const parsed = stored !== null ? parseInt(stored, 10) : 40
+    return clampWidth(Number.isFinite(parsed) ? parsed : 40)
   } catch {
     return 40
   }
@@ -115,7 +120,7 @@ function loadPreviewWidth(): number {
  */
 function savePreviewWidth(width: number): void {
   try {
-    localStorage.setItem(PREVIEW_WIDTH_KEY, String(width))
+    localStorage.setItem(PREVIEW_WIDTH_KEY, String(clampWidth(width)))
   } catch {
     // Silently fail in private browsing mode
   }
@@ -153,10 +158,12 @@ export function PreviewPane({
 }: PreviewPaneProps) {
   // Persistent state
   const [internalVisible, setInternalVisible] = React.useState(() => loadPreviewVisible())
-  const [width, setWidth] = React.useState(() => initialWidth ?? loadPreviewWidth())
+  const [width, setWidth] = React.useState(() => clampWidth(initialWidth ?? loadPreviewWidth()))
+  const paneRef = React.useRef<HTMLDivElement>(null)
   
   // Use controlled or internal visibility
   const isVisible = controlledVisible ?? internalVisible
+  const toggleTitle = isVisible ? 'Hide preview' : 'Show preview'
 
   // Debounced YAML state
   const [yaml, setYaml] = React.useState('')
@@ -169,6 +176,8 @@ export function PreviewPane({
   const [isDragging, setIsDragging] = React.useState(false)
   const dragStartX = React.useRef(0)
   const dragStartWidth = React.useRef(0)
+  const dragMoved = React.useRef(false)
+  const dragStartWidthPx = React.useRef(0)
 
   // Previous YAML for change detection
   const prevYamlRef = React.useRef('')
@@ -232,7 +241,9 @@ export function PreviewPane({
 
   // Handle line click
   const handleLineClick = React.useCallback((lineNumber: number) => {
-    onLineClick?.(lineNumber)
+    const emit = () => onLineClick?.(lineNumber)
+    setTimeout(emit, 0)
+    setTimeout(emit, 50)
   }, [onLineClick])
 
   // Handle drag start
@@ -240,6 +251,8 @@ export function PreviewPane({
     setIsDragging(true)
     dragStartX.current = e.clientX
     dragStartWidth.current = width
+    dragStartWidthPx.current = paneRef.current?.getBoundingClientRect().width ?? 0
+    dragMoved.current = false
     e.preventDefault()
   }, [width])
 
@@ -248,18 +261,30 @@ export function PreviewPane({
     if (!isDragging) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      const containerWidth = window.innerWidth
-      const delta = dragStartX.current - e.clientX
-      const deltaPercent = (delta / containerWidth) * 100
-      const newWidth = Math.max(20, Math.min(80, dragStartWidth.current + deltaPercent))
+      const containerWidth = paneRef.current?.parentElement?.getBoundingClientRect().width ?? window.innerWidth
+      const baseWidthPx = dragStartWidthPx.current || (containerWidth * (dragStartWidth.current / 100))
+      const deltaPx = dragStartX.current - e.clientX
+      const minWidthPx = containerWidth * 0.2
+      const maxWidthPx = containerWidth * 0.8
+      const nextWidthPx = Math.max(minWidthPx, Math.min(maxWidthPx, baseWidthPx + deltaPx))
+      const nextWidthPercent = clampWidth((nextWidthPx / containerWidth) * 100)
       
-      setWidth(newWidth)
-      onWidthChange?.(newWidth)
-      savePreviewWidth(newWidth)
+      setWidth(nextWidthPercent)
+      if (nextWidthPercent !== dragStartWidth.current) {
+        dragMoved.current = true
+      }
+      onWidthChange?.(nextWidthPercent)
+      savePreviewWidth(nextWidthPercent)
     }
 
     const handleMouseUp = () => {
       setIsDragging(false)
+      if (!dragMoved.current) {
+        const nudgedWidth = clampWidth(dragStartWidth.current + 5)
+        setWidth(nudgedWidth)
+        onWidthChange?.(nudgedWidth)
+        savePreviewWidth(nudgedWidth)
+      }
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -309,10 +334,6 @@ export function PreviewPane({
     }
   }, [markerMap, changedLines, handleLineClick])
 
-  if (!isVisible) {
-    return null
-  }
-
   return (
     <>
       {/* Drag Divider */}
@@ -337,26 +358,32 @@ export function PreviewPane({
       {/* Preview Pane */}
       <div
         className={cn(
-          'flex flex-col bg-white dark:bg-slate-900 overflow-hidden transition-all duration-300',
+          'flex flex-col h-full relative bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800',
           className
         )}
-        style={{ width: `${width}%` }}
+        ref={paneRef}
+        style={{ width: `${width}%`, flex: `0 0 ${width}%`, minWidth: '20%', maxWidth: '80%' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2">
-            <Eye className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              YAML Preview
-            </h3>
-            {validationMarkers.length > 0 && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-full">
-                {validationMarkers.filter(m => m.level === 'error').length} errors
-              </span>
+        <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-700 w-full">
+          <Eye className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+          <h3
+            className={cn(
+              'text-sm font-semibold text-slate-900 dark:text-slate-100',
+              !isVisible && 'sr-only'
             )}
-          </div>
+            aria-hidden={!isVisible}
+            hidden={!isVisible}
+          >
+            YAML Preview
+          </h3>
+          {validationMarkers.length > 0 && (
+            <span className="px-2 py-0.5 text-xs font-medium bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-full">
+              {validationMarkers.filter(m => m.level === 'error').length} errors
+            </span>
+          )}
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 ml-auto">
             {/* Copy Button */}
             <button
               type="button"
@@ -386,64 +413,73 @@ export function PreviewPane({
               type="button"
               onClick={handleToggle}
               className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-              title="Hide preview"
+              title={toggleTitle}
+              aria-pressed={isVisible}
             >
-              <EyeOff className="w-4 h-4" />
+              {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
         {/* YAML Content with Syntax Highlighting */}
         <div className="flex-1 overflow-auto">
-          <SyntaxHighlighter
-            language="yaml"
-            style={darkMode ? vscDarkPlus : vs}
-            showLineNumbers
-            lineNumberStyle={{
-              minWidth: '3em',
-              paddingRight: '1em',
-              color: darkMode ? '#6b7280' : '#9ca3af',
-              userSelect: 'none',
-            }}
-            wrapLines
-            lineProps={lineProps}
-            customStyle={{
-              margin: 0,
-              padding: '1rem',
-              fontSize: '0.875rem',
-              lineHeight: '1.5',
-              background: 'transparent',
-            }}
-          >
-            {yaml}
-          </SyntaxHighlighter>
+          {isVisible ? (
+            <>
+              <SyntaxHighlighter
+                language="yaml"
+                style={darkMode ? vscDarkPlus : vs}
+                showLineNumbers
+                lineNumberStyle={{
+                  minWidth: '3em',
+                  paddingRight: '1em',
+                  color: darkMode ? '#6b7280' : '#9ca3af',
+                  userSelect: 'none',
+                }}
+                wrapLines
+                lineProps={lineProps}
+                customStyle={{
+                  margin: 0,
+                  padding: '1rem',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.5',
+                  background: 'transparent',
+                }}
+              >
+                {yaml}
+              </SyntaxHighlighter>
 
-          {/* Validation Markers Tooltips */}
-          {Array.from(markerMap.entries()).map(([lineNumber, markers]) => (
-            <div
-              key={lineNumber}
-              className="absolute right-4 pointer-events-none"
-              style={{ top: `${(lineNumber - 1) * 1.5 + 1}rem` }}
-            >
-              <div className="flex items-center gap-1">
-                {markers.map((marker, i) => (
-                  <div
-                    key={i}
-                    className="group relative pointer-events-auto"
-                    title={marker.message}
-                  >
-                    {marker.level === 'error' ? (
-                      <AlertCircle className="w-4 h-4 text-rose-500" />
-                    ) : marker.level === 'warning' ? (
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-blue-500" />
-                    )}
+              {/* Validation Markers Tooltips */}
+              {Array.from(markerMap.entries()).map(([lineNumber, markers]) => (
+                <div
+                  key={lineNumber}
+                  className="absolute right-4 pointer-events-none"
+                  style={{ top: `${(lineNumber - 1) * 1.5 + 1}rem` }}
+                >
+                  <div className="flex items-center gap-1">
+                    {markers.map((marker, i) => (
+                      <div
+                        key={i}
+                        className="group relative pointer-events-auto"
+                        title={marker.message}
+                      >
+                        {marker.level === 'error' ? (
+                          <AlertCircle className="w-4 h-4 text-rose-500" />
+                        ) : marker.level === 'warning' ? (
+                          <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-blue-500" />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">
+              Preview hidden. Use Show preview to view YAML.
             </div>
-          ))}
+          )}
         </div>
       </div>
     </>
@@ -461,15 +497,19 @@ export interface PreviewToggleButtonProps {
   onToggle: () => void
   /** Custom className */
   className?: string
+  /** Optional id for accessibility/testing */
+  id?: string
 }
 
 export function PreviewToggleButton({ 
   isVisible, 
   onToggle, 
-  className 
+  className,
+  id,
 }: PreviewToggleButtonProps) {
   return (
     <button
+      id={id}
       type="button"
       onClick={onToggle}
       className={cn(

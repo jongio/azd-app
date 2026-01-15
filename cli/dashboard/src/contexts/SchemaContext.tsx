@@ -68,7 +68,7 @@ export function SchemaProvider({ children }: SchemaProviderProps) {
 
   // Load schema on mount
   useEffect(() => {
-    loadAndParseSchema()
+    void loadAndParseSchema()
   }, [loadAndParseSchema])
 
   const value: SchemaContextValue = {

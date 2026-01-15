@@ -180,7 +180,7 @@ export function ContainerServiceTab({
           </p>
         )}
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Full image name with optional tag (e.g., nginx:latest, mcr.microsoft.com/redis:7)
+          Full image name with optional tag (e.g., node:20-alpine, mcr.microsoft.com/redis:7)
         </p>
       </div>
 
@@ -226,7 +226,7 @@ export function ContainerServiceTab({
             className="block w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
           >
             <span className="font-medium text-slate-900 dark:text-slate-100">Nginx</span>
-            <span className="text-slate-500 dark:text-slate-400 ml-2">→ nginx:alpine</span>
+            <span className="text-slate-500 dark:text-slate-400 ml-2" aria-hidden="true">image preset</span>
           </button>
           <button
             type="button"
@@ -237,7 +237,7 @@ export function ContainerServiceTab({
             className="block w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
           >
             <span className="font-medium text-slate-900 dark:text-slate-100">Redis</span>
-            <span className="text-slate-500 dark:text-slate-400 ml-2">→ redis:7-alpine</span>
+            <span className="text-slate-500 dark:text-slate-400 ml-2" aria-hidden="true">preset: redis:7-alpine</span>
           </button>
           <button
             type="button"
@@ -248,7 +248,7 @@ export function ContainerServiceTab({
             className="block w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
           >
             <span className="font-medium text-slate-900 dark:text-slate-100">PostgreSQL</span>
-            <span className="text-slate-500 dark:text-slate-400 ml-2">→ postgres:16-alpine</span>
+            <span className="text-slate-500 dark:text-slate-400 ml-2" aria-hidden="true">preset: postgres:16-alpine</span>
           </button>
           <button
             type="button"
@@ -259,7 +259,7 @@ export function ContainerServiceTab({
             className="block w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
           >
             <span className="font-medium text-slate-900 dark:text-slate-100">MongoDB</span>
-            <span className="text-slate-500 dark:text-slate-400 ml-2">→ mongo:7</span>
+            <span className="text-slate-500 dark:text-slate-400 ml-2" aria-hidden="true">preset: mongo:7</span>
           </button>
         </div>
       </div>

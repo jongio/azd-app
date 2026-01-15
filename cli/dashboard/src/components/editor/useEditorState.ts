@@ -276,10 +276,9 @@ export const useEditorState = create<EditorState>()(
         
         updateConfig: (updates) => {
           const { config } = get()
+          const baseConfig = config ?? {}
           
-          if (!config) return
-          
-          const newConfig = { ...config, ...updates }
+          const newConfig = { ...baseConfig, ...updates }
           const newYaml = stringifyYaml(newConfig, { indent: 2 })
           
           set({
@@ -294,10 +293,9 @@ export const useEditorState = create<EditorState>()(
         
         updateField: (path, value) => {
           const { config } = get()
+          const baseConfig = config ?? {}
           
-          if (!config) return
-          
-          const newConfig = setNestedProperty(config, path, value)
+          const newConfig = setNestedProperty(baseConfig, path, value)
           const newYaml = stringifyYaml(newConfig, { indent: 2 })
           
           set({
@@ -388,44 +386,85 @@ export const useEditorState = create<EditorState>()(
         
         // Service Management
         addService: (name, service) => {
-          const { config, updateConfig } = get()
-          
-          if (!config) return
-          
-          const services = (config.services as Record<string, unknown>) || {}
-          
-          updateConfig({
+          const { config } = get()
+          const baseConfig = config ?? {}
+          const services = (baseConfig.services as Record<string, unknown>) || {}
+
+          const serviceConfig: Record<string, unknown> = {
+            host: service.host || 'containerapp',
+          }
+
+          if (service.image) {
+            serviceConfig.image = service.image
+          }
+
+          if (service.ports && service.ports.length > 0) {
+            serviceConfig.ports = service.ports
+          }
+
+          if (service.environment && Object.keys(service.environment).length > 0) {
+            serviceConfig.environment = service.environment
+          }
+
+          if (service.healthcheck) {
+            serviceConfig.healthcheck = service.healthcheck
+          }
+
+          // Preserve optional metadata if available
+          if ((service as Record<string, unknown>).language) {
+            serviceConfig.language = (service as Record<string, unknown>).language
+          }
+
+          if ((service as Record<string, unknown>).project) {
+            serviceConfig.project = (service as Record<string, unknown>).project
+          }
+
+          const newConfig = {
+            ...baseConfig,
             services: {
               ...services,
-              [name]: {
-                project: './',
-                host: service.host || 'containerapp',
-                language: 'js',
-              },
+              [name]: serviceConfig,
             },
+          }
+
+          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+
+          set({
+            config: newConfig,
+            configYaml: newYaml,
+            isDirty: true,
           })
+
+          saveDraft(newYaml)
         },
         
         removeService: (name) => {
-          const { config, updateConfig } = get()
-          
-          if (!config) return
-          
-          const services = { ...(config.services as Record<string, unknown>) }
+          const { config } = get()
+          const baseConfig = config ?? {}
+
+          const services = { ...(baseConfig.services as Record<string, unknown> || {}) }
           delete services[name]
-          
-          updateConfig({ services })
+
+          const newConfig = { ...baseConfig, services }
+          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+
+          set({
+            config: newConfig,
+            configYaml: newYaml,
+            isDirty: true,
+          })
+
+          saveDraft(newYaml)
         },
         
         // Resource Management
         addResource: (name, type) => {
-          const { config, updateConfig } = get()
-          
-          if (!config) return
-          
-          const resources = (config.resources as Record<string, unknown>) || {}
-          
-          updateConfig({
+          const { config } = get()
+          const baseConfig = config ?? {}
+          const resources = (baseConfig.resources as Record<string, unknown>) || {}
+
+          const newConfig = {
+            ...baseConfig,
             resources: {
               ...resources,
               [name]: {
@@ -433,18 +472,36 @@ export const useEditorState = create<EditorState>()(
                 uses: [],
               },
             },
+          }
+
+          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+
+          set({
+            config: newConfig,
+            configYaml: newYaml,
+            isDirty: true,
           })
+
+          saveDraft(newYaml)
         },
         
         removeResource: (name) => {
-          const { config, updateConfig } = get()
-          
-          if (!config) return
-          
-          const resources = { ...(config.resources as Record<string, unknown>) }
+          const { config } = get()
+          const baseConfig = config ?? {}
+
+          const resources = { ...(baseConfig.resources as Record<string, unknown> || {}) }
           delete resources[name]
-          
-          updateConfig({ resources })
+
+          const newConfig = { ...baseConfig, resources }
+          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+
+          set({
+            config: newConfig,
+            configYaml: newYaml,
+            isDirty: true,
+          })
+
+          saveDraft(newYaml)
         },
         
         // Import/Export

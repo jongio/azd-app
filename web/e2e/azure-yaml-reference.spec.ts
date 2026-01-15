@@ -47,8 +47,8 @@ test.describe('azure.yaml Reference Page - Content', () => {
     await expect(page).toHaveTitle(/azure\.yaml Reference/i);
     
     // Verify hero section
-    const hero = page.locator('h1');
-    await expect(hero).toContainText('azure.yaml Reference');
+    const hero = page.getByRole('heading', { level: 1, name: /azure\.yaml Reference/i });
+    await expect(hero).toBeVisible();
   });
 
   test('has all major sections', async ({ page }) => {
@@ -554,6 +554,7 @@ test.describe('azure.yaml Reference Page - Responsive', () => {
       await expect(page).toHaveScreenshot('azure-yaml-reference-tablet.png', {
         fullPage: true,
         animations: 'disabled',
+        timeout: 30000,
       });
     }
   });

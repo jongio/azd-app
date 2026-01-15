@@ -25,18 +25,21 @@ import { useEditorState } from './useEditorState'
 export interface YamlEditorHeaderProps {
   /** Custom className */
   className?: string
+  /** Handler to open Add Service modal */
+  onOpenAddService?: () => void
 }
 
 /**
  * YAML Editor Header Component
  */
-export function YamlEditorHeader({ className }: YamlEditorHeaderProps) {
+export function YamlEditorHeader({ className, onOpenAddService }: YamlEditorHeaderProps) {
   const {
     isDirty,
     isSaving,
     isLoading,
     error,
     isPreviewVisible,
+    isAddServiceModalOpen,
     saveConfig,
     discardChanges,
     togglePreview,
@@ -105,20 +108,20 @@ export function YamlEditorHeader({ className }: YamlEditorHeaderProps) {
         )}
 
         {isDirty && !isSaving && !saveSuccess && (
-          <span className="px-2 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded">
+          <span className="px-2 py-1 text-xs font-medium bg-amber-600 text-white dark:bg-amber-500 dark:text-white rounded">
             Unsaved changes
           </span>
         )}
 
         {/* Validation Status */}
         {errorCount > 0 && (
-          <span className="px-2 py-1 text-xs font-medium bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded">
+          <span className="px-2 py-1 text-xs font-medium bg-rose-600 text-white dark:bg-rose-500 dark:text-white rounded">
             {errorCount} error{errorCount !== 1 ? 's' : ''}
           </span>
         )}
 
         {errorCount === 0 && warningCount > 0 && (
-          <span className="px-2 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded">
+          <span className="px-2 py-1 text-xs font-medium bg-amber-600 text-white dark:bg-amber-500 dark:text-white rounded">
             {warningCount} warning{warningCount !== 1 ? 's' : ''}
           </span>
         )}
@@ -126,6 +129,18 @@ export function YamlEditorHeader({ className }: YamlEditorHeaderProps) {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        {/* Add Service */}
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => {
+            onOpenAddService?.()
+          }}
+          aria-hidden={isAddServiceModalOpen}
+        >
+          Add Service
+        </Button>
+
         {/* Preview Toggle */}
         <Button
           variant={isPreviewVisible ? 'default' : 'outline'}

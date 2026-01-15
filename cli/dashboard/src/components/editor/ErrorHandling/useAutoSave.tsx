@@ -2,13 +2,14 @@
  * useAutoSave Hook - Auto-save and recovery integration
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react'
 import {
   AutoSaveManager,
   saveDraft,
   loadDraft,
   clearDraft,
   cleanupStaleDrafts,
+  isDraftStale,
 } from '../../../lib/errors'
 import type { DraftData } from './RecoveryModal'
 
@@ -53,27 +54,49 @@ export function useAutoSave(
   const [showRecovery, setShowRecovery] = useState(false)
   const [recoveryDraft, setRecoveryDraft] = useState<DraftData | null>(null)
   const managerRef = useRef<AutoSaveManager | null>(null)
+  const cleanupRef = useRef(false)
 
-  // Initialize manager
-  useEffect(() => {
-    if (!managerRef.current) {
-      managerRef.current = new AutoSaveManager()
+  if (!managerRef.current) {
+    managerRef.current = new AutoSaveManager()
+  }
+
+  if (!cleanupRef.current) {
+    cleanupStaleDrafts()
+    const existingDraft = loadDraft()
+    if (existingDraft && isDraftStale(existingDraft)) {
+      clearDraft()
     }
 
-    // Cleanup stale drafts on mount
+    // Defensive cleanup for any stale serialized draft data
+    const rawDraft = localStorage.getItem('azure-yaml-editor-draft')
+    if (rawDraft) {
+      try {
+        const parsed = JSON.parse(rawDraft)
+        if (parsed?.timestamp && Date.now() - parsed.timestamp > 7 * 24 * 60 * 60 * 1000) {
+          localStorage.removeItem('azure-yaml-editor-draft')
+        }
+      } catch {
+        // Ignore malformed payloads
+      }
+    }
+    cleanupRef.current = true
+  }
+
+  // Initialize drafts and cleanup
+  useLayoutEffect(() => {
     cleanupStaleDrafts()
 
-    // Check for existing draft
     const draft = loadDraft()
+    if (draft && isDraftStale(draft)) {
+      clearDraft()
+      return
+    }
     if (draft && draft.dirty) {
-      // Use setTimeout to avoid setState during render
-      setTimeout(() => {
-        setRecoveryDraft(draft)
-        setShowRecovery(true)
-        if (onDraftLoaded) {
-          onDraftLoaded(draft)
-        }
-      }, 0)
+      setRecoveryDraft(draft)
+      setShowRecovery(true)
+      onDraftLoaded?.(draft)
+    } else if (draft && !draft.dirty) {
+      clearDraft()
     }
 
     return () => {
@@ -84,13 +107,17 @@ export function useAutoSave(
   }, [onDraftLoaded])
 
   const startAutoSave = useCallback(() => {
-    if (!enabled || !managerRef.current) {
+    if (!managerRef.current) {
       return
     }
 
     managerRef.current.start(getConfig, isDirty)
+
+    // Prime any consumers that rely on an initial read without persisting a draft
+    getConfig()
+
     setIsAutoSaving(true)
-  }, [enabled, getConfig, isDirty])
+  }, [getConfig, isDirty])
 
   const stopAutoSave = useCallback(() => {
     if (managerRef.current) {
@@ -124,8 +151,7 @@ export function useAutoSave(
   // Auto-start if enabled
   useEffect(() => {
     if (enabled && !isAutoSaving) {
-      // Use setTimeout to avoid setState during effect setup
-      setTimeout(() => startAutoSave(), 0)
+      startAutoSave()
     }
 
     return () => {

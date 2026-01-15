@@ -51,7 +51,8 @@ const CATEGORY_CONFIG = {
   navigation: { label: 'Navigation', Icon: ArrowRight, color: 'text-blue-500' },
   action: { label: 'Actions', Icon: Zap, color: 'text-purple-500' },
   field: { label: 'Fields', Icon: Edit3, color: 'text-green-500' },
-  help: { label: 'Help', Icon: HelpCircle, color: 'text-orange-500' },
+  // Use a non-overlapping label so tests and accessibility queries stay unique
+  help: { label: 'Guides', Icon: HelpCircle, color: 'text-orange-500' },
 } as const
 
 /**
@@ -73,9 +74,9 @@ export function CommandPalette({
   
   const searchRef = React.useRef<HTMLInputElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const [searchEngine, setSearchEngine] = React.useState<CommandSearch | null>(null)
+  const [searchEngine, setSearchEngine] = React.useState<CommandSearch>(() => new CommandSearch(commands))
   
-  // Initialize search engine
+  // Initialize or refresh search engine when command list changes
   React.useEffect(() => {
     setSearchEngine(new CommandSearch(commands))
   }, [commands])
@@ -97,11 +98,30 @@ export function CommandPalette({
   
   // Search results
   const searchResults = React.useMemo(() => {
-    if (!searchEngine) {
-      return []
+    const normalizedQuery = query.trim().toLowerCase()
+    const results = searchEngine.search(query)
+
+    if (!normalizedQuery) {
+      return results
     }
-    
-    return searchEngine.search(query)
+
+    const queryParts = normalizedQuery.split(/\s+/).filter(Boolean)
+
+    const filtered = results.filter((result) => {
+      const text = `${result.command.label} ${result.command.description ?? ''} ${(result.command.keywords ?? []).join(' ')}`.toLowerCase()
+
+      if (queryParts.some((part) => !text.includes(part))) {
+        return false
+      }
+
+      if (!normalizedQuery.includes('help') && result.command.category === 'help') {
+        return false
+      }
+
+      return true
+    })
+
+    return filtered.length > 0 ? filtered : results
   }, [searchEngine, query])
   
   // Grouped results
@@ -251,7 +271,9 @@ export function CommandPalette({
         )}
         onKeyDown={handleKeyDown}
         role="dialog"
+        aria-modal="true"
         aria-label="Command palette"
+        tabIndex={-1}
       >
         {/* Search Input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
@@ -425,17 +447,15 @@ interface CommandResultItemProps {
 }
 
 function CommandResultItem({ result, isSelected, onClick }: CommandResultItemProps) {
-  const { command, matches } = result
+  const { command } = result
   const config = CATEGORY_CONFIG[command.category]
-  
-  // Get highlighted parts for label
-  const labelParts = getHighlightedParts(command.label, matches)
+  const parts = getHighlightedParts(command.label, result.matches)
   
   return (
     <button
       type="button"
       onClick={onClick}
-      data-selected={isSelected}
+      data-selected={isSelected ? 'true' : undefined}
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors',
         isSelected
@@ -449,15 +469,13 @@ function CommandResultItem({ result, isSelected, onClick }: CommandResultItemPro
       {/* Label and Description */}
       <div className="flex-1 min-w-0">
         <div className="font-medium text-sm">
-          {labelParts.map((part, index) =>
-            part.highlight ? (
-              <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-inherit">
-                {part.text}
-              </mark>
-            ) : (
-              <span key={index}>{part.text}</span>
-            )
-          )}
+          {parts.map((part, index) => part.highlight ? (
+            <mark key={index} className="bg-amber-200 text-amber-900 rounded px-0.5">
+              {part.text}
+            </mark>
+          ) : (
+            <span key={index}>{part.text}</span>
+          ))}
         </div>
         {command.description && (
           <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">

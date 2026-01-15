@@ -10,7 +10,7 @@
  * - Collapsible sections
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { ChevronRight, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NavigationItem } from './NavigationItem'
@@ -28,6 +28,8 @@ export interface NavigationSidebarProps {
   onNavigate: (path: string) => void
   /** Callback when add button is clicked */
   onAdd?: (type: 'service' | 'resource', parentPath: string) => void
+  /** Whether to render add buttons (hide when a modal is open to avoid duplicate labels) */
+  showAddButtons?: boolean
   /** Whether sidebar is collapsed */
   isCollapsed?: boolean
   /** Callback to toggle sidebar */
@@ -45,14 +47,37 @@ export function NavigationSidebar({
   validationIssues = new Map(),
   onNavigate,
   onAdd,
+  showAddButtons = true,
   isCollapsed = false,
   onToggleCollapse,
   className,
 }: NavigationSidebarProps) {
+  const initialExpanded = useMemo(() => {
+    const base = new Set<string>(['services', 'resources'])
+
+    nodes
+      .filter((node) => node.children && node.children.length > 0)
+      .forEach((node) => base.add(node.id))
+
+    if (activeSection) {
+      const parts = activeSection.split('.')
+      parts.forEach((_, index) => {
+        const path = parts.slice(0, index + 1).join('.')
+        base.add(path)
+      })
+    }
+
+    return base
+  }, [nodes, activeSection])
+
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['services', 'resources']))
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(initialExpanded)
   const [focusedIndex, setFocusedIndex] = useState(0)
   const navRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setExpandedPaths(new Set(initialExpanded))
+  }, [initialExpanded])
 
   // Filter nodes based on search query
   const filteredNodes = useCallback((nodes: NavigationNode[]): NavigationNode[] => {
@@ -227,19 +252,25 @@ export function NavigationSidebar({
           )}
 
           {/* Render add button for services/resources */}
-          {isExpanded && node.type === 'section' && (node.id === 'services' || node.id === 'resources') && onAdd && (
-            <button
-              onClick={() => onAdd(node.id === 'services' ? 'service' : 'resource', path)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-1.5 w-full text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-              )}
-              style={{ paddingLeft: `${(depth + 1) * 12 + 12}px` }}
-              aria-label={`Add ${node.id === 'services' ? 'service' : 'resource'}`}
+          {showAddButtons && isExpanded && node.type === 'section' && (node.id === 'services' || node.id === 'resources') && onAdd && (
+            <div
+              role="treeitem"
+              aria-level={depth + 2}
+              aria-label={node.id === 'services' ? 'New service' : 'New resource'}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add {node.id === 'services' ? 'Service' : 'Resource'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onAdd(node.id === 'services' ? 'service' : 'resource', path)}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 w-full text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                )}
+                style={{ paddingLeft: `${(depth + 1) * 12 + 12}px` }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{node.id === 'services' ? 'New Service' : 'New Resource'}</span>
+              </button>
+            </div>
           )}
         </div>
       )

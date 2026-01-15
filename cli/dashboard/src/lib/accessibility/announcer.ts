@@ -22,6 +22,14 @@ class ScreenReaderAnnouncer {
   }
 
   private createRegions() {
+    // Remove existing regions if present to avoid duplicates between test environments
+    if (this.politeRegion && document.body.contains(this.politeRegion)) {
+      document.body.removeChild(this.politeRegion)
+    }
+    if (this.assertiveRegion && document.body.contains(this.assertiveRegion)) {
+      document.body.removeChild(this.assertiveRegion)
+    }
+
     // Create polite region
     this.politeRegion = document.createElement('div')
     this.politeRegion.setAttribute('role', 'status')
@@ -39,10 +47,17 @@ class ScreenReaderAnnouncer {
     document.body.appendChild(this.assertiveRegion)
   }
 
+  private ensureRegions() {
+    if (!this.politeRegion || !document.body.contains(this.politeRegion) || !this.assertiveRegion || !document.body.contains(this.assertiveRegion)) {
+      this.createRegions()
+    }
+  }
+
   /**
    * Announce a message to screen readers
    */
   announce(message: string, options: AnnouncementOptions = {}) {
+    this.ensureRegions()
     const { priority = 'polite', delay = 100 } = options
     const region = priority === 'assertive' ? this.assertiveRegion : this.politeRegion
 
@@ -125,6 +140,8 @@ let announcer: ScreenReaderAnnouncer | null = null
 export function getAnnouncer(): ScreenReaderAnnouncer {
   if (!announcer) {
     announcer = new ScreenReaderAnnouncer()
+  } else {
+    announcer.ensureRegions()
   }
   return announcer
 }

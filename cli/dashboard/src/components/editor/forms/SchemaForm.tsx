@@ -57,16 +57,24 @@ export function SchemaForm({
   useEffect(() => {
     if (!onChange) return
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
     const subscription = watch((values) => {
-      // Debounce onChange callback
-      const timeoutId = setTimeout(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+
+      timeoutId = setTimeout(() => {
         onChange(values as Record<string, unknown>)
       }, 500)
-
-      return () => clearTimeout(timeoutId)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      subscription.unsubscribe()
+    }
   }, [watch, onChange])
 
   // Filter properties based on fields prop
@@ -93,6 +101,7 @@ export function SchemaForm({
             autoSave={autoSave}
           />
         ))}
+        <button type="submit" aria-hidden="true" className="hidden" />
       </form>
     </FormProvider>
   )

@@ -27,7 +27,7 @@ describe('schema-loader', () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => mockSchema,
+        json: () => Promise.resolve(mockSchema),
       } as Response)
 
       const result = await loadSchema()
@@ -69,9 +69,7 @@ describe('schema-loader', () => {
       global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => {
-          throw new Error('Invalid JSON')
-        },
+        json: () => Promise.reject(new Error('Invalid JSON')),
       } as unknown as Response)
 
       const result = await loadSchema()

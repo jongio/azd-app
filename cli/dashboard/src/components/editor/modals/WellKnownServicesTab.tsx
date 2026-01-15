@@ -30,6 +30,7 @@ function ServiceCard({ service, isSelected, onClick }: ServiceCardProps) {
     <button
       type="button"
       onClick={onClick}
+      aria-label={`Select ${service.displayName}`}
       className={cn(
         'group relative flex flex-col items-start gap-3 p-4 rounded-lg border-2 transition-all text-left',
         'hover:shadow-md hover:border-cyan-500',
@@ -47,6 +48,7 @@ function ServiceCard({ service, isSelected, onClick }: ServiceCardProps) {
             'text-xs font-medium px-2 py-0.5 rounded-full',
             'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
           )}
+          aria-hidden="true"
         >
           {service.category}
         </span>

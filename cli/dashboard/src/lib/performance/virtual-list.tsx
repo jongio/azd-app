@@ -10,7 +10,7 @@
  */
 
 // @ts-nocheck - react-window API compatibility pending migration
-import { List } from 'react-window'
+import { FixedSizeList as WindowFixedSizeList, VariableSizeList as WindowVariableSizeList } from 'react-window'
 import { memo, useRef, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 

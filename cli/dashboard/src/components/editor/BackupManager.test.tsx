@@ -61,7 +61,7 @@ describe('BackupManager', () => {
     await user.click(button)
 
     await waitFor(() => {
-      expect(screen.getByText('Backups')).toBeInTheDocument()
+      expect(screen.getAllByText('Backups')).toHaveLength(2)
       expect(configApi.listBackups).toHaveBeenCalled()
     })
   })
@@ -167,7 +167,7 @@ describe('BackupManager', () => {
     await user.click(restoreButtons[0])
 
     await waitFor(() => {
-      expect(screen.getByText('Restore Backup')).toBeInTheDocument()
+      expect(screen.getAllByText('Restore Backup')).toHaveLength(2)
       expect(screen.getByText(/Confirm backup restoration/)).toBeInTheDocument()
     })
   })
@@ -192,7 +192,7 @@ describe('BackupManager', () => {
     await user.click(restoreButtons[0])
 
     await waitFor(() => {
-      expect(screen.getByText('Restore Backup')).toBeInTheDocument()
+      expect(screen.getAllByText('Restore Backup')).toHaveLength(2)
     })
 
     // Confirm restore
@@ -229,7 +229,7 @@ describe('BackupManager', () => {
     await user.click(restoreButtons[0])
 
     await waitFor(() => {
-      expect(screen.getByText('Restore Backup')).toBeInTheDocument()
+      expect(screen.getAllByText('Restore Backup')).toHaveLength(2)
     })
 
     // Confirm restore
@@ -291,7 +291,7 @@ describe('BackupManager', () => {
     })
 
     // Confirm delete
-    const confirmButtons = screen.getAllByRole('button', { name: 'Delete Backup' })
+    const confirmButtons = screen.getAllByRole('button', { name: 'Confirm Delete' })
     const confirmButton = confirmButtons[confirmButtons.length - 1] // Get the actual button, not the title
     await user.click(confirmButton)
 
@@ -329,7 +329,7 @@ describe('BackupManager', () => {
     })
 
     // Confirm delete
-    const confirmButton = screen.getByRole('button', { name: 'Delete Backup' })
+    const confirmButton = screen.getByRole('button', { name: 'Confirm Delete' })
     await user.click(confirmButton)
 
     await waitFor(() => {

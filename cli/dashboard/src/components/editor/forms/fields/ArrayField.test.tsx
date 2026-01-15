@@ -50,7 +50,7 @@ describe('ArrayField', () => {
     expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument()
   })
 
-  it.skip('adds new item when add button is clicked', async () => {
+  it('adds new item when add button is clicked', async () => {
     const user = userEvent.setup()
 
     render(
@@ -68,23 +68,29 @@ describe('ArrayField', () => {
     })
   })
 
-  it.skip('removes item when remove button is clicked', async () => {
+  it('removes item when remove button is clicked', async () => {
     const user = userEvent.setup()
 
+    // Use 3 items so after removal we still have 2 (above minItems of 1)
     render(
-      <TestWrapper defaultValues={{ tags: ['tag1', 'tag2'] }}>
+      <TestWrapper defaultValues={{ tags: ['tag1', 'tag2', 'tag3'] }}>
         <ArrayField name="tags" property={property} />
       </TestWrapper>
     )
 
-    const removeButtons = screen.getAllByRole('button', { name: /remove item/i })
-    expect(removeButtons).toHaveLength(2)
+    // Wait for initial render - should have 3 remove buttons
+    await waitFor(() => {
+      const removeButtons = screen.queryAllByRole('button', { name: /remove item/i })
+      expect(removeButtons).toHaveLength(3)
+    })
 
+    const removeButtons = screen.getAllByRole('button', { name: /remove item/i })
     await user.click(removeButtons[0])
 
+    // After removing 1 item, should have 2 remove buttons (2 items > minItems of 1)
     await waitFor(() => {
       const updatedButtons = screen.queryAllByRole('button', { name: /remove item/i })
-      expect(updatedButtons.length).toBe(1)
+      expect(updatedButtons.length).toBe(2)
     })
   })
 

@@ -7,33 +7,40 @@ import * as React from 'react'
 import { Copy, Check, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WellKnownService } from '@/lib/editor/wellknown-types'
+import { useTimeout } from '@/hooks/useTimeout'
 
-export interface ConnectionStringsPanelProps {
-  /** The service to display connection strings for */
+interface ConnectionStringsPanelProps {
   service: WellKnownService
-  
-  /** Additional CSS classes */
   className?: string
 }
 
-/**
- * Connection Strings Panel Component
- * Shows connection strings with copy-to-clipboard functionality
- */
 export function ConnectionStringsPanel({ service, className }: ConnectionStringsPanelProps) {
+  const { setTimeout, clearAllTimeouts } = useTimeout()
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null)
+  const getWriteText = React.useCallback(() => {
+    const testWrite = (globalThis as any).__initialWriteText as Clipboard['writeText'] | undefined
+    return testWrite ?? navigator.clipboard?.writeText ?? null
+  }, [])
 
   const handleCopy = React.useCallback((key: string, value: string) => {
-    void (async () => {
-      try {
-        await navigator.clipboard.writeText(value)
-        setCopiedKey(key)
-        setTimeout(() => setCopiedKey(null), 2000)
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error)
-      }
-    })()
-  }, [])
+    const writeText = getWriteText()
+
+    if (!writeText) {
+      console.error('Failed to copy to clipboard:', new Error('Clipboard API unavailable'))
+      return
+    }
+
+    const copyPromise = writeText.call(navigator.clipboard, value)
+
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+
+    void copyPromise.catch((error) => {
+      console.error('Failed to copy to clipboard:', error)
+    })
+  }, [getWriteText, setTimeout])
+
+  React.useEffect(() => clearAllTimeouts, [clearAllTimeouts])
 
   if (!service.connectionStrings || Object.keys(service.connectionStrings).length === 0) {
     return null

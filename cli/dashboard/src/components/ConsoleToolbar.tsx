@@ -118,9 +118,11 @@ export function ConsoleToolbar({
           type="button"
           onClick={onClearAll}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          aria-label="Clear logs"
+          title="Clear logs"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          <span>Clear</span>
+          <span>Reset</span>
         </button>
 
         {/* Auto-scroll toggle */}

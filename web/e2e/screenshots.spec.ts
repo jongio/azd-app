@@ -4,7 +4,7 @@
  * Captures screenshots of key pages in light and dark modes
  * for use in documentation and visual regression testing.
  * 
- * Note: Paths are relative to baseURL (http://localhost:4321/azd-app/)
+ * Note: Paths are relative to baseURL (http://localhost:4331/azd-app/)
  * so they should NOT start with '/' to ensure proper URL resolution.
  * 
  * In CI, these tests verify pages load correctly without screenshot comparison

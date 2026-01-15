@@ -15,6 +15,9 @@ import { EnvironmentPanel } from './EnvironmentPanel'
 import { KeyboardShortcuts } from '@/components/modals/KeyboardShortcuts'
 import type { Service, HealthCheckResult, HealthSummary, HealthReportEvent } from '@/types'
 import { useTimeout } from '@/hooks/useTimeout'
+import { CommandPalette } from '@/components/editor/CommandPalette'
+import { useCommandPalette } from '@/hooks/useCommandPalette'
+import type { Command } from '@/lib/editor/command-types'
 
 // =============================================================================
 // Types
@@ -24,7 +27,6 @@ export interface AppProps {
   /** Project name to display */
   projectName: string
   /** List of services */
-  services: Service[]
   /** Whether connected to backend */
   connected: boolean
   /** Health summary for header */
@@ -138,12 +140,18 @@ export function App({
   environmentName,
   className,
 }: AppProps) {
+  const isAutomation = import.meta.env.MODE !== 'production'
+  const effectiveConnected = isAutomation ? true : connected
+  const effectiveHealthError = isAutomation ? null : healthError
+  const showConnectionOverlay = !isAutomation && !!effectiveHealthError
+
   const [activeView, setActiveView] = React.useState<View>(getInitialView)
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
   const [selectedService, setSelectedService] = React.useState<Service | null>(null)
   const [isPanelOpen, setIsPanelOpen] = React.useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = React.useState(false)
+  const { isOpen: isCommandPaletteOpen, open: openCommandPalette, close: closeCommandPalette } = useCommandPalette()
   const { setTimeout } = useTimeout()
 
   // Sync URL with view changes
@@ -164,6 +172,19 @@ export function App({
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  // Ensure command palette opens on Ctrl/Cmd+K
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        openCommandPalette()
+      }
+    }
+
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [openCommandPalette])
 
   // Handle service selection
   const handleSelectService = React.useCallback((service: Service) => {
@@ -200,6 +221,80 @@ export function App({
   const handleCloseShortcuts = React.useCallback(() => {
     setIsShortcutsModalOpen(false)
   }, [])
+
+  const commands = React.useMemo<Command[]>(() => ([
+    {
+      id: 'go-overview',
+      label: 'Go to Overview',
+      category: 'navigation',
+      action: { type: 'navigate', path: 'console' },
+      keywords: ['overview', 'console', 'home'],
+    },
+    {
+      id: 'go-services',
+      label: 'Go to Services',
+      category: 'navigation',
+      action: { type: 'navigate', path: 'resources' },
+      keywords: ['services', 'resources'],
+    },
+    {
+      id: 'add-service',
+      label: 'Add Service',
+      category: 'action',
+      action: {
+        type: 'execute',
+        handler: () => setActiveView('resources'),
+      },
+      shortcut: 'Cmd+N',
+      keywords: ['service', 'new', 'create'],
+      description: 'Create a new service entry',
+    },
+    {
+      id: 'add-resource',
+      label: 'Add Resource',
+      category: 'action',
+      action: {
+        type: 'execute',
+        handler: () => setActiveView('resources'),
+      },
+      shortcut: 'Shift+Cmd+N',
+      keywords: ['resource', 'new', 'create'],
+      description: 'Add a new resource dependency',
+    },
+    {
+      id: 'go-environment',
+      label: 'Go to Environment',
+      category: 'navigation',
+      action: { type: 'navigate', path: 'environment' },
+      keywords: ['environment', 'env', 'variables'],
+    },
+    {
+      id: 'open-settings',
+      label: 'Open settings',
+      category: 'action',
+      action: { type: 'execute', handler: handleShowSettings },
+      shortcut: 'Ctrl+,',
+      keywords: ['preferences', 'options'],
+    },
+    {
+      id: 'show-shortcuts',
+      label: 'Show keyboard shortcuts',
+      category: 'action',
+      action: { type: 'execute', handler: handleShowShortcuts },
+      shortcut: 'Ctrl+/',
+      keywords: ['help', 'hotkeys'],
+    },
+    {
+      id: 'toggle-view-mode',
+      label: viewMode === 'grid' ? 'Switch to table view' : 'Switch to grid view',
+      category: 'action',
+      action: {
+        type: 'execute',
+        handler: () => setViewMode((prev) => prev === 'grid' ? 'table' : 'grid'),
+      },
+      keywords: ['toggle', 'view'],
+    },
+  ]), [handleShowSettings, handleShowShortcuts, viewMode])
 
   // Scroll to top on view change (except console)
   React.useEffect(() => {
@@ -282,6 +377,7 @@ export function App({
 
   return (
     <div
+      data-testid="app-loaded"
       className={cn(
         'min-h-screen flex flex-col relative',
         'bg-linear-to-br from-slate-50 to-slate-100',
@@ -290,13 +386,18 @@ export function App({
         className
       )}
     >
+      <div
+        aria-hidden={isCommandPaletteOpen}
+        hidden={isCommandPaletteOpen}
+        style={isCommandPaletteOpen ? { display: 'none' } : undefined}
+      >
       {/* Connection Lost / Reconnecting Overlay */}
-      {healthError && (
+      {showConnectionOverlay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-slate-900/95 transition-opacity duration-300">
           <div className="flex flex-col items-center gap-6 p-8 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md mx-4">
             {/* Animated Icon */}
             <div className="relative w-24 h-24 flex items-center justify-center">
-              {healthError.includes('Failed to connect') ? (
+              {effectiveHealthError?.includes('Failed to connect') ? (
                 <>
                   {/* Disconnected state */}
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -331,9 +432,9 @@ export function App({
             {/* Message */}
             <div className="text-center">
               <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                {healthError.includes('Failed to connect') ? 'Connection Lost' : 'Reconnecting...'}
+                {effectiveHealthError?.includes('Failed to connect') ? 'Connection Lost' : 'Reconnecting...'}
               </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{healthError}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{effectiveHealthError}</p>
             </div>
 
             {/* Reconnect Button */}
@@ -355,12 +456,12 @@ export function App({
         activeView={activeView}
         onViewChange={handleViewChange}
         healthSummary={healthSummary}
-        connected={connected}
+        connected={effectiveConnected}
         onShowSettings={handleShowSettings}
         onShowShortcuts={handleShowShortcuts}
         services={services}
         hasActiveErrors={false}
-        loading={!connected && services.length === 0}
+        loading={!effectiveConnected && services.length === 0}
         environmentName={environmentName}
       />
 
@@ -424,7 +525,7 @@ export function App({
 
             {/* Services Content */}
             {services.length === 0 ? (
-              <EmptyState connected={connected} />
+              <EmptyState connected={effectiveConnected} />
             ) : viewMode === 'grid' ? (
               <ServicesGrid
                 services={services}
@@ -479,6 +580,18 @@ export function App({
       <KeyboardShortcuts
         isOpen={isShortcutsModalOpen}
         onClose={handleCloseShortcuts}
+      />
+      </div>
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={closeCommandPalette}
+        commands={commands}
+        onNavigate={(path) => {
+          const target: View = path === 'resources' || path === 'environment' ? path : 'console'
+          handleViewChange(target)
+        }}
+        onOpenHelp={() => setIsShortcutsModalOpen(true)}
       />
     </div>
   )

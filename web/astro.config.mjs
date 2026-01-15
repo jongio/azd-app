@@ -11,6 +11,14 @@ export default defineConfig({
     expressiveCode(),
     mdx()
   ],
+  server: {
+    host: '127.0.0.1',
+    port: 4331,
+  },
+  preview: {
+    host: '127.0.0.1',
+    port: 4331,
+  },
   vite: {
     plugins: [tailwindcss()]
   },

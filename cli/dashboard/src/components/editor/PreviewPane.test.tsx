@@ -64,7 +64,10 @@ describe('PreviewPane', () => {
         />
       )
 
-      expect(screen.queryByText('YAML Preview')).not.toBeInTheDocument()
+      // Component renders but is hidden via hidden attribute
+      const heading = screen.queryByText('YAML Preview')
+      expect(heading).toBeInTheDocument()
+      expect(heading).toHaveAttribute('hidden')
     })
 
     it('displays validation error count', () => {

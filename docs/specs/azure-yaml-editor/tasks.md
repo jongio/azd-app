@@ -1,6 +1,6 @@
 # Azure YAML Editor - Tasks
 
-<!-- NEXT: 14 -->
+<!-- NEXT: 27 -->
 
 ## TODO
 
@@ -35,6 +35,17 @@
 **Description**: Implement fixed bottom quick actions bar with context-sensitive actions: global actions (Add services, Import, Validate), service context actions (Add env var, Configure health check), resource context actions (Add container, Link to service).
 
 ## IN PROGRESS
+
+### 27. Unskip Tests and Fix Failures
+**Priority**: P0  
+**Size**: M  
+**Description**: Identify all skipped tests in azd-app, unskip them, and fix underlying issues so the full suite passes without skips.
+
+**Acceptance Criteria**:
+- [ ] All tests across azd-app have skip markers removed (Vitest, Playwright, Go, or other suites in this repo).
+- [ ] Underlying issues are fixed so tests pass without reintroducing skips or flaky retries.
+- [ ] `pnpm test` (or package-level equivalents) completes with zero skipped tests and zero failures in CI-friendly mode.
+- [ ] If tests are intentionally long-running, convert to tagged/filtered runs rather than skipping, with clear documentation.
 
 ### 14. Backup Management UI
 **Priority**: P0  

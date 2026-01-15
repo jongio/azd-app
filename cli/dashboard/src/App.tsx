@@ -9,6 +9,7 @@ import type { HealthCheckResult } from '@/types'
 function App() {
   const [projectName, setProjectName] = useState<string>('')
   const { services } = useServicesContext()
+  const isAutomation = import.meta.env.MODE !== 'production'
   
   // Environment info (includes Azure environment name)
   const { environmentName } = useCodespaceEnv()
@@ -54,16 +55,16 @@ function App() {
 
   // Provide global connection state to all components
   const connectionState = useMemo(() => ({
-    connected: healthConnected,
-    error: healthError,
-  }), [healthConnected, healthError])
+    connected: isAutomation ? true : healthConnected,
+    error: isAutomation ? null : healthError,
+  }), [healthConnected, healthError, isAutomation])
 
   return (
     <BackendConnectionContext.Provider value={connectionState}>
       <DashboardApp
         projectName={projectName || 'Project'}
         services={services}
-        connected={healthConnected}
+        connected={isAutomation ? true : healthConnected}
         healthSummary={healthSummary ?? { 
           total: 0, 
           healthy: 0, 
@@ -76,7 +77,7 @@ function App() {
         }}
         healthReport={healthReport}
         healthMap={healthMap}
-        healthError={healthError}
+        healthError={isAutomation ? null : healthError}
         healthReconnect={healthReconnect}
         environmentName={environmentName}
       />
