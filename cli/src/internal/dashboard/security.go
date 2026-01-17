@@ -80,7 +80,7 @@ func NewEndpointRateLimits() *EndpointRateLimits {
 			"/api/editor/config_POST": NewRateLimiter(10, 10.0/60.0),
 
 			// Validate: 60 requests/minute = 1 request/second
-			"/api/editor/validate": NewRateLimiter(60, 60.0/60.0),
+			"/api/editor/validate": NewRateLimiter(60, 1.0),
 
 			// Other endpoints: 100 requests/minute = 1.67 requests/second
 			"default": NewRateLimiter(100, 100.0/60.0),
@@ -115,7 +115,7 @@ func RateLimitMiddleware(limiter *EndpointRateLimits, next http.HandlerFunc) htt
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", "60")
 			w.WriteHeader(http.StatusTooManyRequests)
-			writeJSON(w, map[string]string{
+			_ = writeJSON(w, map[string]string{
 				"error": "Rate limit exceeded. Please try again later.",
 			})
 			return

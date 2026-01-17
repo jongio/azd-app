@@ -72,7 +72,7 @@ func TestHandleGetWellKnownServices(t *testing.T) {
 			if len(svc.Ports) == 0 {
 				t.Errorf("Service %s missing ports", svc.Name)
 			}
-			if svc.ConnectionStrings == nil || len(svc.ConnectionStrings) == 0 {
+			if len(svc.ConnectionStrings) == 0 {
 				t.Errorf("Service %s missing connection strings", svc.Name)
 			}
 		}

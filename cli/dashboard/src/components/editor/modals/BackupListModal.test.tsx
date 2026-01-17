@@ -18,17 +18,17 @@ describe('BackupListModal', () => {
   const mockBackups: BackupInfo[] = [
     {
       timestamp: '2026-01-11T14:30:00Z',
-      path: '/workspace/azure.yaml.backup.2026-01-11T143000Z',
+      path: 'azure.yaml.backup.2026-01-11T143000Z',
       size: 1024,
     },
     {
       timestamp: '2026-01-11T12:00:00Z',
-      path: '/workspace/azure.yaml.backup.2026-01-11T120000Z',
+      path: 'azure.yaml.backup.2026-01-11T120000Z',
       size: 2048,
     },
     {
       timestamp: '2026-01-10T16:00:00Z',
-      path: '/workspace/azure.yaml.backup.2026-01-10T160000Z',
+      path: 'azure.yaml.backup.2026-01-10T160000Z',
       size: 512,
     },
   ]

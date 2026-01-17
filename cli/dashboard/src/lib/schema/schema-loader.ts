@@ -2,14 +2,20 @@
  * Schema Loader - Loads and caches azure.yaml JSON Schema
  * 
  * Responsibilities:
- * - Fetch schema from remote URL with fallback to bundled version
- * - Handle network errors gracefully
+ * - Load schema from bundled version (packaged with dashboard)
+ * - Optionally fetch from remote URL for development/testing
+ * - Handle errors gracefully
  * - Cache schema in memory
+ * 
+ * Strategy:
+ * - PRIMARY: Use bundled schema (packaged with dashboard build)
+ *   This ensures version consistency and no network dependency
+ * - FALLBACK: In development, optionally try remote URL if bundled fails
  */
 
 const SCHEMA_URL = 'https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json'
 
-// Schema will be bundled as a fallback
+// Bundled schema is the primary source - packaged with the dashboard build
 import bundledSchema from './bundled-schema.json'
 
 function isSchemaRecord(value: unknown): value is Record<string, unknown> {
@@ -19,16 +25,37 @@ function isSchemaRecord(value: unknown): value is Record<string, unknown> {
 export interface SchemaLoadResult {
   success: boolean
   schema: Record<string, unknown> | null
-  source: 'remote' | 'bundled'
+  source: 'bundled' | 'remote'
   error?: string
 }
 
 /**
- * Load JSON Schema from remote URL with local fallback
+ * Load JSON Schema - prioritizes bundled version for consistency
+ * 
+ * In production: Always uses bundled schema (packaged with build)
+ * In development: Uses bundled schema, with optional remote fallback if needed
  */
 export async function loadSchema(): Promise<SchemaLoadResult> {
+  // PRIMARY: Use bundled schema (packaged with dashboard)
+  // This ensures we always know what version is being used
+  const bundledSchemaSource = bundledSchema as unknown
+  const bundled: Record<string, unknown> | null = isSchemaRecord(bundledSchemaSource)
+    ? bundledSchemaSource
+    : null
+
+  if (bundled) {
+    return {
+      success: true,
+      schema: bundled,
+      source: 'bundled',
+    }
+  }
+
+  // FALLBACK: Only if bundled schema is invalid/missing, try remote
+  // This should rarely happen in production since schema is packaged
+  console.warn('Bundled schema not available, attempting to fetch from remote...')
+  
   try {
-    // Try to fetch from remote URL
     const response = await fetch(SCHEMA_URL, {
       method: 'GET',
       headers: {
@@ -54,18 +81,10 @@ export async function loadSchema(): Promise<SchemaLoadResult> {
       source: 'remote',
     }
   } catch (error) {
-    // Fallback to bundled schema on any error
-    console.warn('Failed to load schema from remote URL, using bundled fallback:', error)
-
-    const bundledSchemaSource = bundledSchema as unknown
-    const fallbackSchema: Record<string, unknown> = isSchemaRecord(bundledSchemaSource)
-      ? bundledSchemaSource
-      : {}
-
     return {
-      success: true,
-      schema: fallbackSchema,
-      source: 'bundled',
+      success: false,
+      schema: null,
+      source: 'remote',
       error: error instanceof Error ? error.message : String(error),
     }
   }

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1227,8 +1226,27 @@ func WebsiteTestE2E() error {
 	return runWebsiteE2ETests(false)
 }
 
+// killPort4331 kills any process using port 4331 to avoid conflicts.
+func killPort4331() {
+	if runtime.GOOS == "windows" {
+		// Kill process using port 4331
+		cmd := exec.Command("powershell", "-NoProfile", "-Command",
+			"$conn = Get-NetTCPConnection -LocalPort 4331 -ErrorAction SilentlyContinue; if ($conn) { Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue }")
+		_ = cmd.Run() // Ignore errors if port is not in use
+	} else {
+		// On Unix, use lsof and kill
+		cmd := exec.Command("sh", "-c", "lsof -ti:4331 | xargs kill -9 2>/dev/null || true")
+		_ = cmd.Run() // Ignore errors if port is not in use
+	}
+	// Give the OS a moment to release the port
+	time.Sleep(500 * time.Millisecond)
+}
+
 // runWebsiteE2ETests is the shared implementation for E2E tests.
 func runWebsiteE2ETests(updateSnapshots bool) error {
+	// Kill any process using port 4331 to avoid conflicts
+	killPort4331()
+
 	// Get absolute path to website directory (safe for parallel execution)
 	absWebsiteDir, err := filepath.Abs(websiteDir)
 	if err != nil {
@@ -1265,7 +1283,7 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
 	}
 
-	// Ensure the production build exists before starting the server
+	// Ensure the production build exists before Playwright starts the server
 	distDir := filepath.Join(absWebsiteDir, "dist")
 	if _, err := os.Stat(distDir); os.IsNotExist(err) {
 		fmt.Println("Building website for preview...")
@@ -1276,49 +1294,14 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 		return fmt.Errorf("failed to check dist directory: %w", err)
 	}
 
-	// Start the preview server in the background
-	fmt.Println("Starting preview server...")
-	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4331")
-	serverCmd.Dir = absWebsiteDir
-	serverCmd.Stdout = os.Stdout
-	serverCmd.Stderr = os.Stderr
-	if err := serverCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start preview server: %w", err)
-	}
-	defer func() {
-		if serverCmd.Process != nil {
-			_ = serverCmd.Process.Kill()
-		}
-	}()
-
-	// Wait for server to be ready
-	fmt.Println("Waiting for server to be ready...")
-	serverReady := false
-	for i := 0; i < 30; i++ {
-		resp, err := http.Get("http://localhost:4331/azd-app/")
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == 200 {
-				serverReady = true
-				break
-			}
-		}
-		time.Sleep(1 * time.Second)
-	}
-	if !serverReady {
-		return fmt.Errorf("server did not become ready within 30 seconds")
-	}
-	fmt.Println("Server is ready!")
-
-	// Run playwright tests
+	// Run playwright tests - let Playwright manage the server via webServer config
 	args := []string{"playwright", "test", "--reporter=line", "--project=chromium"}
 	if updateSnapshots {
 		args = append(args, "--update-snapshots")
 	}
 	testCmd := exec.Command("npx", args...)
 	testCmd.Dir = absWebsiteDir
-	// Set CI=true to skip visual regression (screenshot comparison) since
-	// baseline snapshots are platform-specific and gitignored
+	// Set CI=true for consistent behavior (Playwright config has reuseExistingServer: !process.env.CI)
 	testCmd.Env = append(os.Environ(), "CI=true")
 	testCmd.Stdout = os.Stdout
 	testCmd.Stderr = os.Stderr

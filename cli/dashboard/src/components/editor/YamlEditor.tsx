@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import * as React from 'react'
 import { SchemaProvider, useSchema } from '@/contexts/SchemaContext'
 import { useEditorState } from './useEditorState'
 import { ErrorBoundary } from './ErrorHandling/ErrorBoundary'
@@ -27,9 +28,11 @@ import { useCachedWellKnownServices } from '@/lib/performance'
 import { shouldHandleShortcut } from '@/lib/shortcuts-utils'
 import { stringifyYaml } from '@/lib/editor/yaml-utils'
 import { cn } from '@/lib/utils'
+import { SchemaDrivenForm } from './SchemaDrivenForm'
 import type { Command } from '@/lib/editor/command-types'
 import type { WellKnownService } from '@/lib/editor/wellknown-types'
-import { ThemeProvider } from '@/lib/editor/theme-provider'
+// Note: Editor now uses dashboard's theme system via document.documentElement classes
+// No separate ThemeProvider needed - theme is managed globally
 
 export interface YamlEditorProps {
   /** Initial configuration (optional) */
@@ -45,11 +48,13 @@ export interface YamlEditorProps {
 function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
   const {
     config,
+    configYaml,
     isLoading,
     error: loadError,
     loadConfig,
     saveConfig: saveConfigInternal,
     updateConfig,
+    updateField,
     setActiveSection,
     activeSection,
     isPreviewVisible,
@@ -81,37 +86,23 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null)
   const [isDeletingService, setIsDeletingService] = useState(false)
 
-  const { rawSchema } = useSchema()
+  const { rawSchema, schema } = useSchema()
   const { data: wellKnownServices = [] } = useCachedWellKnownServices()
 
   const selectedServiceName = activeSection.startsWith('services.')
     ? activeSection.split('.')[1]
     : null
 
-  const serviceConfig = selectedServiceName
-    ? ((config?.services as Record<string, unknown> | undefined) || {})[selectedServiceName]
-    : undefined
-
-  const serviceHost = typeof (serviceConfig as Record<string, unknown> | undefined)?.host === 'string'
-    ? (serviceConfig as Record<string, unknown>).host as string
-    : 'containerapp'
-
-  const serviceImage = typeof (serviceConfig as Record<string, unknown> | undefined)?.image === 'string'
-    ? (serviceConfig as Record<string, unknown>).image as string
-    : undefined
-
-  const servicePorts = Array.isArray((serviceConfig as Record<string, unknown> | undefined)?.ports)
-    ? ((serviceConfig as Record<string, unknown>).ports as string[])
-    : []
-
   const performSave = useCallback(async () => {
-    if (onSave && config) {
+    // Validate and save with schema - schema validation will block save if errors exist
+    const success = await saveConfigInternal(rawSchema as Record<string, unknown> | undefined)
+    
+    if (success && onSave && config) {
       await onSave(config)
-      return true
     }
 
-    return saveConfigInternal()
-  }, [config, onSave, saveConfigInternal])
+    return success
+  }, [config, onSave, saveConfigInternal, rawSchema])
 
   // Hydrate configuration on mount
   useEffect(() => {
@@ -140,12 +131,6 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
   // Re-run validation whenever config or schema changes
   useEffect(() => {
     if (!config || !rawSchema) return
-
-    // In test environments, skip validation noise to keep integration tests stable
-    if (process.env.NODE_ENV === 'test') {
-      setValidationErrors([])
-      return
-    }
 
     try {
       const result = validateConfiguration(config, rawSchema as Record<string, unknown>)
@@ -267,6 +252,41 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
     ]
   }, [navigationNodes, togglePreview, toggleSidebar, openAddServiceModal, activeSection])
 
+  // CRITICAL: ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+  // This ensures React sees the same hook order on every render
+  
+  // Determine which form to show based on activeSection
+  // This useMemo must always be called in the same order, even during loading
+  const formPath = useMemo(() => {
+    if (activeSection === 'overview' || activeSection === 'name' || activeSection === 'resourceGroup' || activeSection === 'metadata') {
+      // For overview fields, show the root schema
+      return null
+    }
+    
+    if (activeSection === 'test') {
+      return 'test'
+    }
+    
+    if (activeSection.startsWith('services.')) {
+      // Extract service path (e.g., "services.api" or "services.api.test")
+      return activeSection
+    }
+    
+    // For other top-level sections, use the section name as path
+    return activeSection
+  }, [activeSection])
+  
+  // Determine which fields to show for overview - always return an array (never undefined)
+  // This useMemo must always be called in the same order, even during loading
+  const overviewFields = useMemo(() => {
+    if (activeSection === 'name') return ['name']
+    if (activeSection === 'resourceGroup') return ['resourceGroup']
+    if (activeSection === 'metadata') return ['metadata']
+    if (activeSection === 'overview') return ['name', 'resourceGroup', 'metadata']
+    return [] // Return empty array instead of undefined for stability
+  }, [activeSection])
+
+  // NOW we can do early returns - all hooks have been called above
   // Loading state (covers initial render and refetch)
   if (isLoading || (!config && !loadError)) {
     return (
@@ -299,9 +319,10 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
   const previewPane = (
     <PreviewPane
       data={(config as Record<string, unknown>) || {}}
+      yaml={configYaml} // Use YAML string to preserve comments
       isVisible={isPreviewVisible}
       onToggle={togglePreview}
-      validationMarkers={[]}
+      validationMarkers={validationIssueMap}
       onLineClick={() => undefined}
     />
   )
@@ -311,33 +332,47 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Configuration</h2>
-          <p className="text-sm text-muted-foreground">Active section: {activeSection || 'overview'}</p>
+          <p className="text-sm text-muted-foreground">Edit your azure.yaml configuration</p>
         </div>
         <BackupManager onRestoreSuccess={() => void loadConfig()} />
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="text-sm text-muted-foreground">
-          Select an item from the navigation to edit. Changes auto-save to a draft until you click Save.
-        </p>
-      </div>
+      {/* Schema-driven form for overview fields and test section */}
+      {(activeSection === 'overview' || activeSection === 'name' || activeSection === 'resourceGroup' || activeSection === 'metadata' || activeSection === 'test') ? (
+        <SchemaDrivenForm
+          key={`${activeSection}-${formPath || 'root'}-${overviewFields.join(',')}`}
+          schema={schema}
+          path={formPath}
+          config={config}
+          onUpdateField={updateField}
+          fields={overviewFields.length > 0 ? overviewFields : undefined}
+        />
+      ) : null}
 
-      <ValidationSummaryPanel
-        errors={errors}
-        warnings={warnings}
-        info={info}
-        onItemClick={(path) => setActiveSection(path.split('.')[0] || 'overview')}
-      />
+      {/* Default overview when no specific section selected */}
+      {activeSection === 'overview' && (
+        <>
+          <ValidationSummaryPanel
+            errors={errors}
+            warnings={warnings}
+            info={info}
+            onItemClick={(path) => setActiveSection(path.split('.')[0] || 'overview')}
+          />
+        </>
+      )}
     </div>
   )
 
-  const serviceContent = selectedServiceName ? (
-    <div className="space-y-4">
+  // Check if we're viewing a service section
+  const isViewingService = selectedServiceName && activeSection.startsWith(`services.${selectedServiceName}`)
+
+  const serviceContent = isViewingService ? (
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{selectedServiceName}</h2>
           <p className="text-sm text-muted-foreground">
-            {serviceImage ? `Image: ${serviceImage}` : `Host: ${serviceHost}`}
+            Configure service settings
           </p>
         </div>
         <div className="flex gap-2">
@@ -355,18 +390,14 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-        <p className="text-sm text-muted-foreground">
-          Manage this service directly from the YAML configuration. Use Delete to remove the service entry.
-        </p>
-        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span className="px-2 py-1 rounded bg-muted">Host: {serviceHost}</span>
-          {serviceImage && <span className="px-2 py-1 rounded bg-muted">Image: {serviceImage}</span>}
-          {servicePorts.length > 0 && (
-            <span className="px-2 py-1 rounded bg-muted">Ports: {servicePorts.join(', ')}</span>
-          )}
-        </div>
-      </div>
+      {/* Schema-driven form for service configuration */}
+      <SchemaDrivenForm
+        key={`service-${activeSection}`}
+        schema={schema}
+        path={activeSection}
+        config={config}
+        onUpdateField={updateField}
+      />
     </div>
   ) : overviewContent
 
@@ -508,14 +539,62 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
 }
 
 export function YamlEditor(props: YamlEditorProps) {
+  // Sync theme with dashboard on mount - editor uses the same theme system
+  React.useEffect(() => {
+    // Read theme from dashboard's localStorage (same key as dashboard uses)
+    const getDashboardTheme = () => {
+      const stored = localStorage.getItem('dashboard-theme')
+      return stored === 'dark' ? 'dark' : 'light'
+    }
+    
+    const applyTheme = (theme: 'light' | 'dark') => {
+      document.documentElement.classList.toggle('dark', theme === 'dark')
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+    
+    // Apply initial theme
+    const initialTheme = getDashboardTheme()
+    applyTheme(initialTheme)
+    
+    // Listen for localStorage changes (from dashboard or editor)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'dashboard-theme' && e.newValue) {
+        const newTheme = e.newValue === 'dark' ? 'dark' : 'light'
+        applyTheme(newTheme)
+      }
+    }
+
+    // Observe theme class/attribute changes (covers same-tab changes without polling)
+    const observer = new MutationObserver(() => {
+      const isCurrentlyDark = document.documentElement.classList.contains('dark')
+      const currentTheme: 'light' | 'dark' = isCurrentlyDark ? 'dark' : 'light'
+
+      // Keep localStorage aligned so other tabs/windows can sync
+      const stored = localStorage.getItem('dashboard-theme')
+      if (stored !== currentTheme) {
+        localStorage.setItem('dashboard-theme', currentTheme)
+      }
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    })
+    
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      observer.disconnect()
+    }
+  }, [])
+
   return (
-    <ThemeProvider>
-      <ErrorBoundary>
-        <SchemaProvider>
-          <YamlEditorInner {...props} />
-        </SchemaProvider>
-      </ErrorBoundary>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <SchemaProvider>
+        <YamlEditorInner {...props} />
+      </SchemaProvider>
+    </ErrorBoundary>
   )
 }
 

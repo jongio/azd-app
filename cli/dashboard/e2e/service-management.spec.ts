@@ -157,8 +157,10 @@ test.describe('Service Management', () => {
     // Click service in navigation
     await page.getByRole('treeitem', { name: 'to-delete' }).click()
 
-    // Click delete button
-    await page.getByRole('button', { name: /delete/i }).click()
+    // Click delete button - look specifically in the content area, not in the navigation tree
+    const contentArea = page.locator('main, [role="main"], .content').first()
+    const deleteButton = contentArea.getByRole('button', { name: /delete/i }).first()
+    await deleteButton.click()
 
     // Confirmation dialog should appear
     const deleteDialog = page.getByRole('dialog', { name: /delete service/i })

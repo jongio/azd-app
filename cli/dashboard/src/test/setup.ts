@@ -1,10 +1,29 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import * as React from 'react'
 
 // Ensure React is globally available for React 19
 globalThis.React = React
+
+// Suppress act() warnings from library components (Radix UI, etc.)
+// These are false positives from async effects in third-party components
+const originalError = console.error
+beforeAll(() => {
+  console.error = (...args: unknown[]) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('was not wrapped in act')
+    ) {
+      return
+    }
+    originalError.call(console, ...args)
+  }
+})
+
+afterAll(() => {
+  console.error = originalError
+})
 
 // Cleanup after each test
 afterEach(() => {

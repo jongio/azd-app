@@ -3,6 +3,7 @@ import { render, type RenderOptions, type RenderResult } from '@testing-library/
 import { ServiceOperationsProvider } from '@/contexts/ServiceOperationsContext'
 import { ServicesProvider } from '@/contexts/ServicesContext'
 import { PreferencesProvider } from '@/contexts/PreferencesContext'
+import { SchemaProvider } from '@/contexts/SchemaContext'
 import type { ReactNode, ReactElement, FC } from 'react'
 import type { Service, HealthCheckResult, HealthSummary, HealthReportEvent } from '@/types'
 import { vi, expect } from 'vitest'
@@ -86,13 +87,15 @@ interface AllProvidersProps {
  */
 function AllProviders({ children }: AllProvidersProps) {
   return (
-    <ServicesProvider>
-      <PreferencesProvider>
-        <ServiceOperationsProvider>
-          {children}
-        </ServiceOperationsProvider>
-      </PreferencesProvider>
-    </ServicesProvider>
+    <SchemaProvider>
+      <ServicesProvider>
+        <PreferencesProvider>
+          <ServiceOperationsProvider>
+            {children}
+          </ServiceOperationsProvider>
+        </PreferencesProvider>
+      </ServicesProvider>
+    </SchemaProvider>
   )
 }
 
@@ -101,9 +104,11 @@ function AllProviders({ children }: AllProvidersProps) {
  */
 function MinimalProviders({ children }: AllProvidersProps) {
   return (
-    <PreferencesProvider>
-      {children}
-    </PreferencesProvider>
+    <SchemaProvider>
+      <PreferencesProvider>
+        {children}
+      </PreferencesProvider>
+    </SchemaProvider>
   )
 }
 
@@ -387,8 +392,23 @@ export function expectStyles(
 // Re-exports
 // =============================================================================
 
-// Re-export everything from @testing-library/react
-export * from '@testing-library/react'
+// Re-export everything from @testing-library/react except render
+export {
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+  within,
+  renderHook,
+  cleanup,
+  type RenderOptions,
+  type RenderResult,
+} from '@testing-library/react'
 
-// Override render with our custom render
-export { customRender as render, renderWithMinimalProviders, MinimalProviders, AllProviders }
+// Export our custom render functions
+export { 
+  customRender as render,
+  renderWithMinimalProviders, 
+  MinimalProviders, 
+  AllProviders 
+}

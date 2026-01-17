@@ -108,7 +108,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := ConfigResponse{
-		Path:         azureYamlPath,
+		Path:         azureYamlFileName,
 		Content:      string(content),
 		LastModified: info.ModTime(),
 	}
@@ -138,13 +138,13 @@ func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var backupPath string
+	var backupTimestamp string
 	var errors []string
 
 	// Create backup if file exists
 	if _, err := os.Stat(azureYamlPath); err == nil {
 		var err error
-		backupPath, err = s.createBackup(azureYamlPath)
+		backupTimestamp, err = s.createBackup(azureYamlPath)
 		if err != nil {
 			log.Printf("Warning: Failed to create backup: %v", err)
 			errors = append(errors, fmt.Sprintf("Failed to create backup: %v", err))
@@ -165,7 +165,7 @@ func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 
 	response := SaveConfigResponse{
 		Success: true,
-		Backup:  backupPath,
+		Backup:  backupTimestamp,
 		Written: true,
 		Errors:  errors,
 	}
@@ -283,9 +283,9 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create backup of current file before restore
-	var currentBackupPath string
+	var currentBackupTimestamp string
 	if _, err := os.Stat(azureYamlPath); err == nil {
-		currentBackupPath, err = s.createBackup(azureYamlPath)
+		currentBackupTimestamp, err = s.createBackup(azureYamlPath)
 		if err != nil {
 			InternalError(w, "Failed to backup current file", err)
 			return
@@ -300,8 +300,8 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	response := RestoreBackupResponse{
 		Success:       true,
-		RestoredFrom:  backupPath,
-		BackupCreated: currentBackupPath,
+		RestoredFrom:  timestampStr,
+		BackupCreated: currentBackupTimestamp,
 	}
 
 	WriteJSONSuccess(w, response)
@@ -419,7 +419,8 @@ func (s *Server) createBackup(azureYamlPath string) (string, error) {
 		return "", fmt.Errorf("failed to write backup: %w", err)
 	}
 
-	return backupPath, nil
+	// Return timestamp identifier (avoid leaking filesystem paths)
+	return timestamp, nil
 }
 
 // writeConfigAtomic writes content to azure.yaml using atomic write pattern
@@ -544,7 +545,7 @@ func (s *Server) listBackups(projectDir string) ([]BackupInfo, error) {
 
 		backups = append(backups, BackupInfo{
 			Timestamp: timestamp,
-			Path:      filepath.Join(projectDir, entry.Name()),
+			Path:      entry.Name(),
 			Size:      info.Size(),
 		})
 	}

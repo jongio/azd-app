@@ -44,8 +44,10 @@ export interface ValidationMarker {
 }
 
 export interface PreviewPaneProps {
-  /** Current form data to preview */
-  data: Record<string, unknown>
+  /** Current form data to preview (optional, used as fallback) */
+  data?: Record<string, unknown>
+  /** YAML string to preview (preferred, preserves comments) */
+  yaml?: string
   /** Whether preview pane is visible */
   isVisible: boolean
   /** Toggle preview visibility */
@@ -147,6 +149,7 @@ function downloadFile(content: string, filename: string): void {
 
 export function PreviewPane({
   data,
+  yaml: yamlProp,
   isVisible: controlledVisible,
   onToggle,
   validationMarkers = [],
@@ -182,15 +185,23 @@ export function PreviewPane({
   // Previous YAML for change detection
   const prevYamlRef = React.useRef('')
 
-  // Debounced YAML update (300ms)
+  // Update YAML when prop or data changes (300ms debounce)
   React.useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        const newYaml = stringifyYaml(data, {
-          indent: 2,
-          lineWidth: 120,
-          sortKeys: false,
-        })
+        // Prefer yaml prop (preserves comments), fallback to stringifying data
+        let newYaml: string
+        if (yamlProp) {
+          newYaml = yamlProp
+        } else if (data) {
+          newYaml = stringifyYaml(data, {
+            indent: 2,
+            lineWidth: 120,
+            sortKeys: false,
+          })
+        } else {
+          newYaml = ''
+        }
         
         // Detect changed lines
         if (prevYamlRef.current) {
@@ -219,7 +230,7 @@ export function PreviewPane({
     }, 300) // 300ms debounce
 
     return () => clearTimeout(timer)
-  }, [data])
+  }, [yamlProp, data])
 
   // Handle toggle
   const handleToggle = React.useCallback(() => {
@@ -358,11 +369,11 @@ export function PreviewPane({
       {/* Preview Pane */}
       <div
         className={cn(
-          'flex flex-col h-full relative bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800',
+          'flex flex-col h-full w-full relative bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800',
           className
         )}
         ref={paneRef}
-        style={{ width: `${width}%`, flex: `0 0 ${width}%`, minWidth: '20%', maxWidth: '80%' }}
+        style={{ flex: '1 1 auto', minWidth: '300px' }}
       >
         {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-700 w-full">
@@ -422,7 +433,7 @@ export function PreviewPane({
         </div>
 
         {/* YAML Content with Syntax Highlighting */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto w-full h-full">
           {isVisible ? (
             <>
               <SyntaxHighlighter

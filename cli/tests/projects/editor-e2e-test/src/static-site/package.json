@@ -1,0 +1,7 @@
+{
+  "name": "static-site",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo 'Running static site tests'"
+  }
+}

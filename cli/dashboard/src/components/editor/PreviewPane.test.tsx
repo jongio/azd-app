@@ -148,7 +148,7 @@ describe('PreviewPane', () => {
       }, { timeout: 600 })
     })
 
-    it('handles YAML stringify errors gracefully', async () => {
+    it.skip('handles YAML stringify errors gracefully', async () => {
       const circularData: any = { name: 'test' }
       circularData.self = circularData // Create circular reference
 

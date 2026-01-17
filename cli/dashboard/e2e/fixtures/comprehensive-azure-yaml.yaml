@@ -1,0 +1,695 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+# Comprehensive Azure.yaml 1.1 Test Project
+# This file exercises EVERY feature of the azure.yaml 1.1 schema for e2e testing
+
+name: editor-e2e-test-project
+resourceGroup: ${AZURE_RESOURCE_GROUP:-test-rg}
+
+metadata:
+  template: editor-e2e-test@1.0.0
+  description: Comprehensive test project for azure.yaml editor e2e testing
+
+# Infrastructure configuration
+infra:
+  provider: bicep
+  path: ./infra
+  module: main
+
+# Pipeline configuration
+pipeline:
+  provider: github
+  variables:
+    - AZURE_SUBSCRIPTION_ID
+    - AZURE_RESOURCE_GROUP
+  secrets:
+    - AZURE_CLIENT_SECRET
+    - DATABASE_PASSWORD
+
+# Required versions
+requiredVersions:
+  azd: ">= 1.0.0"
+  extensions:
+    azure.ai.agents: ">= 1.0.0"
+    azure.rest: "latest"
+
+# Remote state configuration
+state:
+  remote:
+    backend: AzureBlobStorage
+    config:
+      accountName: teststorageaccount
+      containerName: test-state
+      endpoint: blob.core.windows.net
+
+# Platform configuration
+platform:
+  type: devcenter
+  config:
+    name: test-devcenter
+    project: test-project
+    catalog: test-catalog
+    environmentDefinition: test-env-def
+    environmentType: test-env-type
+
+# Workflows configuration
+workflows:
+  up:
+    steps:
+      - azd: provision
+      - azd: package --all
+      - azd: deploy --all
+
+# Cloud configuration
+cloud:
+  name: AzureCloud
+
+# Requirements
+reqs:
+  - name: node
+    minVersion: "18.0.0"
+    command: node
+    args: ["--version"]
+    versionPrefix: "v"
+    versionField: 0
+  - name: python
+    minVersion: "3.9.0"
+    command: python
+    args: ["--version"]
+    versionField: 1
+  - name: docker
+    minVersion: "20.0.0"
+    checkRunning: true
+    runningCheckCommand: docker
+    runningCheckArgs: ["info"]
+    runningCheckExpected: "Server Version"
+    runningCheckExitCode: 0
+    installUrl: https://www.docker.com/products/docker-desktop
+  - name: dotnet
+    minVersion: "8.0.0"
+    command: dotnet
+    args: ["--version"]
+    versionField: 0
+
+# Global logs configuration
+logs:
+  filters:
+    exclude:
+      - "npm warn"
+      - "Debugger listening"
+      - "ExperimentalWarning"
+  classifications:
+    - text: "DEPRECATED"
+      level: warning
+    - text: "fatal"
+      level: error
+  analytics:
+    workspace: /subscriptions/test/resourceGroups/test/providers/Microsoft.OperationalInsights/workspaces/test
+    pollingInterval: 10s
+    defaultTimespan: 30m
+    realtime: true
+
+# Global test configuration
+test:
+  parallel: true
+  failFast: false
+  outputDir: ./test-results
+  outputFormat: json
+  coverage:
+    enabled: true
+    threshold: 70
+    exclude:
+      - "**/node_modules/**"
+      - "**/vendor/**"
+    include:
+      - "**/src/**"
+
+# Project-level hooks
+hooks:
+  preprovision:
+    run: ./scripts/pre-provision.sh
+    shell: bash
+    continueOnError: false
+  postprovision:
+    - run: ./scripts/post-provision-1.sh
+      shell: bash
+    - run: ./scripts/post-provision-2.sh
+      shell: pwsh
+      continueOnError: true
+  preinfracreate:
+    run: echo "Pre infra create"
+    shell: sh
+  postinfracreate:
+    run: echo "Post infra create"
+    shell: sh
+  preinfradelete:
+    run: echo "Pre infra delete"
+    shell: sh
+  postinfradelete:
+    run: echo "Post infra delete"
+    shell: sh
+  predown:
+    run: echo "Pre down"
+    shell: sh
+  postdown:
+    run: echo "Post down"
+    shell: sh
+  preup:
+    run: echo "Pre up"
+    shell: sh
+  postup:
+    run: echo "Post up"
+    shell: sh
+  prepackage:
+    run: echo "Pre package"
+    shell: sh
+  postpackage:
+    run: echo "Post package"
+    shell: sh
+  prepublish:
+    run: echo "Pre publish"
+    shell: sh
+  postpublish:
+    run: echo "Post publish"
+    shell: sh
+  prerestore:
+    run: echo "Pre restore"
+    shell: sh
+  postrestore:
+    run: echo "Post restore"
+    shell: sh
+  prerun:
+    run: echo "Pre run"
+    shell: sh
+  postrun:
+    run: echo "Post run"
+    shell: sh
+    windows:
+      run: echo "Post run (Windows)"
+      shell: pwsh
+    posix:
+      run: echo "Post run (POSIX)"
+      shell: bash
+      interactive: true
+
+# Services - exercising all host types and properties
+services:
+  # AppService host
+  web:
+    host: appservice
+    language: js
+    project: ./src/web
+    module: web-module
+    dist: ./dist/web
+    resourceGroup: ${WEB_RESOURCE_GROUP}
+    resourceName: ${WEB_RESOURCE_NAME}
+    ports:
+      - "3000"
+    environment:
+      - name: NODE_ENV
+        value: production
+      - name: API_URL
+        value: http://localhost:8000
+      - name: DATABASE_URL
+        secret: DATABASE_CONNECTION_STRING
+    healthcheck:
+      type: http
+      path: /health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      start_interval: 5s
+    hooks:
+      predeploy:
+        run: npm run build
+        shell: sh
+      postdeploy:
+        run: npm run migrate
+        shell: sh
+      prerestore:
+        run: echo "Pre restore web"
+        shell: sh
+      postrestore:
+        run: echo "Post restore web"
+        shell: sh
+      prebuild:
+        run: echo "Pre build web"
+        shell: sh
+      postbuild:
+        run: echo "Post build web"
+        shell: sh
+      prepackage:
+        run: echo "Pre package web"
+        shell: sh
+      postpackage:
+        run: echo "Post package web"
+        shell: sh
+      prepublish:
+        run: echo "Pre publish web"
+        shell: sh
+      postpublish:
+        run: echo "Post publish web"
+        shell: sh
+    test:
+      unit:
+        command: npm test
+        path: ./tests/unit
+        pattern: "*.test.js"
+        env:
+          NODE_ENV: test
+        timeout: 5m
+      integration:
+        command: npm run test:integration
+        path: ./tests/integration
+        timeout: 10m
+      e2e:
+        command: npm run test:e2e
+        path: ./tests/e2e
+        timeout: 15m
+      coverage:
+        enabled: true
+        threshold: 80
+    logs:
+      filters:
+        exclude:
+          - "webpack"
+          - "chunk"
+      classifications:
+        - text: "ERROR"
+          level: error
+      analytics:
+        tables:
+          - AppServiceConsoleLogs
+          - AppServiceHTTPLogs
+        query: "AppServiceConsoleLogs | where ServiceName == '{serviceName}' | where TimeGenerated > ago({timespan})"
+    local:
+      customUrl: https://web.local:3000
+    azure:
+      customUrl: https://web.example.com
+      customDomain: www.example.com
+    uses:
+      - api
+      - db
+
+  # ContainerApp host with project
+  api:
+    host: containerapp
+    language: py
+    project: ./src/api
+    entrypoint: main.py
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    type: http
+    mode: daemon
+    ports:
+      - "8000:8080"
+      - "127.0.0.1:8001:8081"
+      - "8080/udp"
+    environment:
+      DATABASE_URL: ${DATABASE_CONNECTION_STRING}
+      API_KEY: ${API_KEY}
+      DEBUG: "false"
+    docker:
+      path: ./Dockerfile
+      context: .
+      platform: amd64
+      registry: ${CONTAINER_REGISTRY}
+      image: api-image
+      tag: ${DOCKER_IMAGE_TAG}
+      buildArgs:
+        - BUILD_ENV=production
+      remoteBuild: false
+    apiVersion: "2023-05-01"
+    healthcheck:
+      type: http
+      test: http://localhost:8000/health
+      interval: 20s
+      timeout: 5s
+      retries: 2
+      start_period: 30s
+    test:
+      unit:
+        command: pytest
+        path: ./tests
+        pattern: "test_*.py"
+      coverage:
+        enabled: true
+        threshold: 75
+    logs:
+      analytics:
+        tables:
+          - ContainerAppConsoleLogs_CL
+          - ContainerAppSystemLogs_CL
+    uses:
+      - db
+      - redis
+
+  # ContainerApp host with image
+  container-service:
+    host: containerapp
+    image: nginx:latest
+    type: container
+    ports:
+      - "8080"
+    healthcheck:
+      type: http
+      path: /
+      interval: 10s
+      timeout: 3s
+
+  # Function host
+  function-worker:
+    host: function
+    language: js
+    project: ./src/function
+    ports:
+      - "7071"
+    environment:
+      FUNCTIONS_WORKER_RUNTIME: node
+    hooks:
+      predeploy:
+        run: npm install
+        shell: sh
+    healthcheck:
+      type: http
+      path: /api/health
+    test:
+      unit:
+        command: npm test
+    uses:
+      - storage
+
+  # SpringApp host
+  spring-service:
+    host: springapp
+    language: java
+    project: ./src/spring-service
+    ports:
+      - "8080"
+    healthcheck:
+      type: http
+      path: /actuator/health
+    uses:
+      - db
+
+  # StaticWebApp host
+  static-site:
+    host: staticwebapp
+    project: ./src/static-site
+    ports:
+      - "3000"
+    healthcheck:
+      type: http
+      path: /
+    test:
+      unit:
+        command: npm test
+
+  # AKS host
+  aks-service:
+    host: aks
+    language: docker
+    project: ./src/aks-service
+    docker:
+      path: ./Dockerfile
+      context: .
+      platform: linux/amd64
+    k8s:
+      deploymentPath: ./manifests
+      namespace: test-namespace
+      deployment:
+        name: aks-deployment
+      service:
+        name: aks-service
+      ingress:
+        name: aks-ingress
+        relativePath: /api
+      helm:
+        repositories:
+          - name: bitnami
+            url: https://charts.bitnami.com/bitnami
+        releases:
+          - name: redis
+            chart: bitnami/redis
+            version: "17.0.0"
+            namespace: test-namespace
+            values: ./helm/redis-values.yaml
+      kustomize:
+        dir: ./kustomize
+        edits:
+          - "set image myapp:latest"
+        env:
+          ENV: production
+          DEBUG: "false"
+    ports:
+      - "80"
+    healthcheck:
+      type: http
+      path: /health
+    uses:
+      - db
+      - redis
+
+  # AI Endpoint host
+  ai-endpoint:
+    host: ai.endpoint
+    project: ./src/ai-endpoint
+    config:
+      workspace: test-workspace
+      flow:
+        path: ./prompt-flow
+        name: test-flow
+        overrides:
+          flow_name: custom-flow
+      environment:
+        path: ./environment
+        name: test-env
+      model:
+        path: ./model
+        name: test-model
+      deployment:
+        path: ./deployment
+        name: test-deployment
+        environment:
+          DEPLOYMENT_ENV: production
+    docker:
+      path: ./Dockerfile
+      context: .
+    healthcheck:
+      type: http
+      path: /health
+    uses:
+      - ai-model
+
+  # Azure AI Agent host
+  ai-agent:
+    host: azure.ai.agent
+    project: ./src/ai-agent
+    config:
+      name: test-agent
+      model: gpt-4
+    docker:
+      path: ./Dockerfile
+    healthcheck:
+      type: process
+    uses:
+      - ai-project
+
+  # Process service - watch mode
+  typescript-watcher:
+    project: ./src/typescript-watcher
+    type: process
+    mode: watch
+    command: tsc --watch
+    healthcheck:
+      type: output
+      pattern: "Found 0 errors. Watching for file changes."
+      interval: 5s
+      timeout: 2s
+    test:
+      unit:
+        command: npm test
+        timeout: 2m
+
+  # Process service - build mode
+  build-service:
+    project: ./src/build-service
+    type: process
+    mode: build
+    command: npm run build
+    healthcheck:
+      disable: true
+    test:
+      unit:
+        command: npm test
+
+  # Process service - daemon mode
+  daemon-service:
+    project: ./src/daemon-service
+    type: process
+    mode: daemon
+    command: node server.js
+    healthcheck:
+      type: process
+      interval: 10s
+
+  # Process service - task mode
+  migration-task:
+    project: ./src/migration-task
+    type: process
+    mode: task
+    command: npm run migrate
+    healthcheck:
+      type: process
+
+  # TCP service
+  database-proxy:
+    project: ./src/database-proxy
+    type: tcp
+    ports:
+      - "5432:5432"
+    healthcheck:
+      type: tcp
+      interval: 30s
+      timeout: 5s
+    uses:
+      - db
+
+  # Service with all healthcheck types
+  healthcheck-demo:
+    project: ./src/healthcheck-demo
+    ports:
+      - "9000"
+    # HTTP healthcheck
+    healthcheck:
+      type: http
+      test: http://localhost:9000/health
+      path: /health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      start_interval: 5s
+
+# Resources - exercising all resource types
+resources:
+  # Database resources
+  db:
+    type: db.postgres
+    uses: []
+
+  mysql-db:
+    type: db.mysql
+    uses: []
+
+  redis-cache:
+    type: db.redis
+    uses: []
+
+  mongo-db:
+    type: db.mongo
+    uses: []
+
+  cosmos-db:
+    type: db.cosmos
+    containers:
+      - name: users
+        partitionKeys:
+          - /id
+      - name: orders
+        partitionKeys:
+          - /userId
+          - /orderId
+    uses: []
+
+  # AI resources
+  ai-model:
+    type: ai.openai.model
+    model:
+      name: gpt-4
+      version: "1.0"
+    uses: []
+
+  ai-project:
+    type: ai.project
+    models:
+      - name: gpt-4o-mini
+        version: "1.0"
+        format: OpenAI
+        sku:
+          name: GlobalStandard
+          usageName: OpenAI.GlobalStandard.gpt-4o-mini
+          capacity: 1000
+      - name: gpt-4
+        version: "1.0"
+        format: OpenAI
+        sku:
+          name: GlobalStandard
+          usageName: OpenAI.GlobalStandard.gpt-4
+          capacity: 500
+    uses: []
+
+  ai-search:
+    type: ai.search
+    uses: []
+
+  # Host resources
+  host-containerapp:
+    type: host.containerapp
+    port: 8080
+    env:
+      - name: ENV_VAR
+        value: test-value
+      - name: SECRET_VAR
+        secret: SECRET_NAME
+    uses: []
+
+  host-appservice:
+    type: host.appservice
+    port: 80
+    runtime:
+      stack: node
+      version: "22-lts"
+    startupCommand: "npm start"
+    env:
+      - name: NODE_ENV
+        value: production
+    uses: []
+
+  # Messaging resources
+  eventhubs:
+    type: messaging.eventhubs
+    hubs:
+      - events
+      - telemetry
+      - logs
+    uses: []
+
+  servicebus:
+    type: messaging.servicebus
+    queues:
+      - task-queue
+      - notification-queue
+    topics:
+      - events
+      - messages
+    uses: []
+
+  # Storage resource
+  storage:
+    type: storage
+    containers:
+      - uploads
+      - backups
+      - static
+    uses: []
+
+  # KeyVault resource
+  keyvault:
+    type: keyvault
+    uses: []
+
+  # Existing resource (for referencing)
+  existing-db:
+    type: db.postgres
+    existing: true
+    uses: []

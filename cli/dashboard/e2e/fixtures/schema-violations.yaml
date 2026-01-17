@@ -1,0 +1,47 @@
+# YAML with schema violations for validation testing
+name: schema-violations-test
+# Missing required 'name' pattern validation (should fail minLength)
+name: a
+
+services:
+  # Invalid host type
+  invalid-service:
+    host: invalid-host-type
+    project: ./src/api
+  
+  # Missing required 'host' property
+  missing-host:
+    project: ./src/api
+  
+  # Invalid port format
+  invalid-port:
+    host: appservice
+    project: ./src/api
+    ports:
+      - "invalid-port"
+      - -123
+  
+  # Invalid healthcheck type
+  invalid-healthcheck:
+    host: appservice
+    project: ./src/api
+    healthcheck:
+      type: invalid-type
+  
+  # Duplicate service name (business rule violation)
+  duplicate:
+    host: appservice
+    project: ./src/api
+  
+  duplicate:
+    host: containerapp
+    project: ./src/api2
+
+resources:
+  # Invalid resource type
+  invalid-resource:
+    type: invalid.resource.type
+  
+  # Missing required 'type' property
+  missing-type:
+    uses: []

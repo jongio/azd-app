@@ -293,29 +293,6 @@ describe('WellKnownServicesTab', () => {
       })
     })
 
-    it.skip('should show empty state when no services in category', async () => {
-      // Skipped: Category filter buttons are only shown for categories that have services
-      // Since mockServices don't include 'other' category, the filter button won't exist
-      const user = userEvent.setup()
-      
-      render(<WellKnownServicesTab onSelectService={mockOnSelectService} />)
-
-      await waitFor(() => {
-        expect(screen.getByText('Redis Cache')).toBeInTheDocument()
-      })
-
-      // Click 'other' category filter which should show empty state (no services in 'other' category)
-      const otherFilter = screen.getByRole('button', { name: 'other' })
-      await user.click(otherFilter)
-      
-      // Should show empty state message
-      await waitFor(() => {
-        expect(screen.queryByText('Redis Cache')).not.toBeInTheDocument()
-        expect(screen.queryByText('PostgreSQL')).not.toBeInTheDocument()
-        expect(screen.queryByText('Azurite')).not.toBeInTheDocument()
-        // Component should show empty state UI
-      })
-    })
   })
 
   // ===========================================================================

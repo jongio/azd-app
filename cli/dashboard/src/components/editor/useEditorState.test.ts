@@ -15,11 +15,14 @@ vi.mock('@/lib/editor/yaml-utils', async () => {
     ...actual,
     parseYaml: vi.fn((yaml: string) => {
       try {
-        // Simple YAML parsing mock
+        // Simple YAML parsing mock that extracts name from YAML
         if (!yaml || yaml.trim() === '') {
           return { success: false, error: 'Empty YAML' }
         }
-        return { success: true, data: { name: 'test-app' } }
+        // Extract name from "name: xxx" pattern
+        const match = yaml.match(/name:\s*(.+)/)
+        const name = match ? match[1].trim() : 'test-app'
+        return { success: true, data: { name } }
       } catch (e) {
         return { success: false, error: String(e) }
       }
@@ -325,7 +328,7 @@ describe('useEditorState', () => {
       })
       
       expect(result.current.isDirty).toBe(false)
-      expect(result.current.config).toEqual({ name: 'test-app' })
+      expect(result.current.config).toEqual({ name: 'original-app' })
     })
 
     it('should discard changes', () => {
@@ -399,7 +402,7 @@ describe('useEditorState', () => {
     it('should load config successfully', async () => {
       const mockConfigResponse = {
         content: 'name: loaded-app\nservices: {}',
-        path: '/azure.yaml',
+        path: 'azure.yaml',
         lastModified: '2026-01-14T00:00:00Z',
       }
       
@@ -415,7 +418,7 @@ describe('useEditorState', () => {
         expect(result.current.isLoading).toBe(false)
       })
       
-      expect(result.current.config).toEqual({ name: 'test-app' })
+      expect(result.current.config).toEqual({ name: 'loaded-app' })
       expect(result.current.error).toBeNull()
     })
 
@@ -437,7 +440,7 @@ describe('useEditorState', () => {
 
     it('should save config successfully', async () => {
       const mockSaveResponse = {
-        backup: '/backups/azure.yaml.bak',
+        backup: '2026-01-14T000000Z',
         written: true,
         success: true,
         errors: [],

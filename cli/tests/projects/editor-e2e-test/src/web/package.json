@@ -1,0 +1,12 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'Building web'",
+    "test": "echo 'Running tests'",
+    "test:integration": "echo 'Running integration tests'",
+    "test:e2e": "echo 'Running e2e tests'",
+    "migrate": "echo 'Running migrations'"
+  }
+}

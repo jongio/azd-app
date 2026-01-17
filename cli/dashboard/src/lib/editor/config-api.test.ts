@@ -20,7 +20,7 @@ describe('config-api', () => {
   describe('loadConfig', () => {
     it('should load configuration successfully', async () => {
       const mockResponse = {
-        path: '/workspace/azure.yaml',
+        path: 'azure.yaml',
         content: 'name: test-app\nservices:\n  api:\n    host: containerapp\n',
         lastModified: '2026-01-11T10:00:00Z',
       }
@@ -57,7 +57,7 @@ describe('config-api', () => {
       const content = 'name: updated-app\nservices:\n  web:\n    host: appservice\n'
       const mockResponse = {
         success: true,
-        backup: '/workspace/azure.yaml.backup.2026-01-11T100000Z',
+        backup: '2026-01-11T100000Z',
         written: true,
         errors: [],
       }
@@ -98,12 +98,12 @@ describe('config-api', () => {
         backups: [
           {
             timestamp: '2026-01-11T120000Z',
-            path: '/workspace/azure.yaml.backup.2026-01-11T120000Z',
+            path: 'azure.yaml.backup.2026-01-11T120000Z',
             size: 1024,
           },
           {
             timestamp: '2026-01-11T110000Z',
-            path: '/workspace/azure.yaml.backup.2026-01-11T110000Z',
+            path: 'azure.yaml.backup.2026-01-11T110000Z',
             size: 1020,
           },
         ],
@@ -172,8 +172,8 @@ describe('config-api', () => {
       const timestamp = '2026-01-11T120000Z'
       const mockResponse = {
         success: true,
-        restoredFrom: '/workspace/azure.yaml.backup.2026-01-11T120000Z',
-        backupCreated: '/workspace/azure.yaml.backup.2026-01-11T130000Z',
+        restoredFrom: timestamp,
+        backupCreated: '2026-01-11T130000Z',
       }
 
       ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({

@@ -1,0 +1,7 @@
+{
+  "name": "migration-task",
+  "version": "1.0.0",
+  "scripts": {
+    "migrate": "echo 'Running migrations'"
+  }
+}

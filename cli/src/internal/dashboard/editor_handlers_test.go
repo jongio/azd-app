@@ -54,8 +54,8 @@ services:
 			t.Errorf("Expected content %q, got %q", testContent, response.Content)
 		}
 
-		if response.Path != azureYamlPath {
-			t.Errorf("Expected path %q, got %q", azureYamlPath, response.Path)
+		if response.Path != azureYamlFileName {
+			t.Errorf("Expected path %q, got %q", azureYamlFileName, response.Path)
 		}
 	})
 
@@ -183,16 +183,18 @@ services:
 		}
 
 		if response.Backup == "" {
-			t.Error("Expected backup path to be set")
+			t.Error("Expected backup timestamp to be set")
 		}
 
+		backupPath := filepath.Join(tempDir, backupPrefix+response.Backup)
+
 		// Verify backup file exists
-		if _, err := os.Stat(response.Backup); os.IsNotExist(err) {
-			t.Errorf("Backup file does not exist: %s", response.Backup)
+		if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+			t.Errorf("Backup file does not exist: %s", backupPath)
 		}
 
 		// Verify backup content
-		backupContent, err := os.ReadFile(response.Backup)
+		backupContent, err := os.ReadFile(backupPath)
 		if err != nil {
 			t.Fatalf("Failed to read backup: %v", err)
 		}
@@ -295,6 +297,10 @@ func TestRestoreBackup(t *testing.T) {
 			t.Error("Expected success to be true")
 		}
 
+		if response.RestoredFrom != timestamp {
+			t.Errorf("Expected restoredFrom %q, got %q", timestamp, response.RestoredFrom)
+		}
+
 		// Verify file was restored
 		content, err := os.ReadFile(azureYamlPath)
 		if err != nil {
@@ -308,6 +314,10 @@ func TestRestoreBackup(t *testing.T) {
 		// Verify backup of current was created
 		if response.BackupCreated == "" {
 			t.Error("Expected backup of current file to be created")
+		}
+
+		if _, err := time.Parse(timestampFormat, response.BackupCreated); err != nil {
+			t.Errorf("Expected backupCreated to be a timestamp, got %q", response.BackupCreated)
 		}
 	})
 

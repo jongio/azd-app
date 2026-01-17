@@ -186,9 +186,12 @@ describe('ObjectField', () => {
     // Initially expanded
     expect(screen.getByLabelText(/street/i)).toBeInTheDocument()
 
-    // Click to collapse - find the button that's not the Help button
+    // Click to collapse - find the first button that's not a Help button
     const buttons = screen.getAllByRole('button')
-    const toggleButton = buttons.find(btn => !btn.getAttribute('aria-label'))
+    const toggleButton = buttons.find(btn => {
+      const ariaLabel = btn.getAttribute('aria-label')
+      return ariaLabel !== 'Help'
+    })
     expect(toggleButton).toBeDefined()
     await user.click(toggleButton!)
 

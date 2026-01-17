@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Settings,
   Github,
+  FileEdit,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
@@ -332,6 +333,17 @@ export function Header({
           title="Keyboard shortcuts (?)"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
+        </button>
+
+        {/* Edit azure.yaml */}
+        <button
+          type="button"
+          onClick={() => window.location.href = '/editor'}
+          className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Edit azure.yaml"
+          title="Edit azure.yaml"
+        >
+          <FileEdit className="w-[18px] h-[18px]" />
         </button>
 
         {/* Settings */}

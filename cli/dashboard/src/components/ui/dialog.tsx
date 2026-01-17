@@ -92,15 +92,16 @@ export function Dialog({
   return (
     <DialogIdsContext.Provider value={{ titleId, descriptionId }}>
       <>
-        {/* Backdrop */}
+        {/* Backdrop - positioned below dialog (z-40) */}
         <div
-          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/70 animate-fade-in"
+          className="fixed inset-0 z-40 bg-black/50 dark:bg-black/70 animate-fade-in pointer-events-auto"
           data-testid="dialog-backdrop"
           onClick={handleBackdropClick}
           aria-hidden="true"
+          style={{ pointerEvents: 'auto' }}
         />
 
-        {/* Dialog */}
+        {/* Dialog - positioned above backdrop (z-50) */}
         <dialog
           ref={dialogRef}
           open
@@ -112,6 +113,7 @@ export function Dialog({
           className={cn(
             'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
             'w-full',
+            'pointer-events-auto',
             maxWidthClasses[maxWidth],
             'bg-white dark:bg-slate-900',
             'border border-slate-200 dark:border-slate-700',

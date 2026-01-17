@@ -9,8 +9,10 @@ import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import type { ValidationError } from '@/lib/editor/validation-types'
 import type { WellKnownService } from '@/lib/editor/wellknown-types'
-import { parseYaml, stringifyYaml } from '@/lib/editor/yaml-utils'
-import { loadConfig, saveConfig } from '@/lib/editor/config-api'
+import { parseYaml, stringifyYaml, updateYamlField, mergeYamlUpdates, deleteYamlPath } from '@/lib/editor/yaml-utils'
+import type { Document } from 'yaml'
+import { loadConfig, saveConfig as saveConfigApi } from '@/lib/editor/config-api'
+import { validateConfiguration } from '@/lib/editor/validation-engine'
 
 // =============================================================================
 // Types
@@ -21,6 +23,7 @@ export interface EditorState {
   config: Record<string, unknown> | null
   configYaml: string
   originalYaml: string
+  originalDocument: Document | null // YAML document with comments preserved
   isDirty: boolean
   isLoading: boolean
   isSaving: boolean
@@ -55,7 +58,7 @@ export interface EditorState {
   
   // Actions - Config Management
   loadConfig: () => Promise<void>
-  saveConfig: () => Promise<boolean>
+  saveConfig: (schema?: Record<string, unknown>) => Promise<boolean>
   updateConfig: (updates: Record<string, unknown>) => void
   updateField: (path: string, value: unknown) => void
   resetConfig: () => void
@@ -176,6 +179,7 @@ export const useEditorState = create<EditorState>()(
         config: null,
         configYaml: '',
         originalYaml: '',
+        originalDocument: null,
         isDirty: false,
         isLoading: false,
         isSaving: false,
@@ -215,7 +219,7 @@ export const useEditorState = create<EditorState>()(
             const response = await loadConfig()
             const yaml = response.content
             
-            // Parse YAML
+            // Parse YAML (preserves comments)
             const parsed = parseYaml(yaml)
             
             if (!parsed.success) {
@@ -230,6 +234,7 @@ export const useEditorState = create<EditorState>()(
               config: configParsed.success ? (configParsed.data as Record<string, unknown>) : null,
               configYaml,
               originalYaml: yaml,
+              originalDocument: parsed.document || null, // Store document with comments
               isDirty: draft !== null,
               isLoading: false,
             })
@@ -241,21 +246,81 @@ export const useEditorState = create<EditorState>()(
           }
         },
         
-        saveConfig: async () => {
-          const { configYaml, isSaving } = get()
+        saveConfig: async (schema?: Record<string, unknown>) => {
+          const { configYaml, isSaving, config } = get()
           
           if (isSaving) return false
           
           set({ isSaving: true, error: null })
           
           try {
-            const response = await saveConfig(configYaml)
+            // Step 1: Validate against schema if provided
+            if (schema) {
+              // Parse YAML to get config object for validation
+              const parsed = parseYaml(configYaml)
+              
+              if (!parsed.success || !parsed.data) {
+                throw new Error(`Invalid YAML: ${parsed.error || 'Failed to parse YAML'}`)
+              }
+              
+              // Validate against schema
+              const validationResult = validateConfiguration(
+                parsed.data as Record<string, unknown>,
+                schema,
+                { full: true, includeWarnings: false, includeInfo: false } // Only check errors
+              )
+              
+              // Block save if there are validation errors
+              if (!validationResult.valid && validationResult.errors.length > 0) {
+                const errorMessages = validationResult.errors
+                  .map(err => {
+                    const path = err.path ? `${err.path}: ` : ''
+                    return `${path}${err.message}`
+                  })
+                  .join('; ')
+                
+                set({
+                  error: `Validation failed. Please fix the following errors before saving: ${errorMessages}`,
+                  isSaving: false,
+                  validationErrors: validationResult.errors,
+                })
+                return false
+              }
+              
+              // Update validation errors even if save is allowed (warnings/info)
+              set({ validationErrors: [...validationResult.errors, ...validationResult.warnings, ...validationResult.info] })
+            } else if (config) {
+              // If no schema provided but we have config, try to validate with existing validation errors
+              // This is a fallback - ideally schema should always be provided
+              const { validationErrors } = get()
+              const hasErrors = validationErrors.some(err => err.level === 'error')
+              
+              if (hasErrors) {
+                const errorMessages = validationErrors
+                  .filter(err => err.level === 'error')
+                  .map(err => {
+                    const path = err.path ? `${err.path}: ` : ''
+                    return `${path}${err.message}`
+                  })
+                  .join('; ')
+                
+                set({
+                  error: `Validation failed. Please fix the following errors before saving: ${errorMessages}`,
+                  isSaving: false,
+                })
+                return false
+              }
+            }
+            
+            // Step 2: Save if validation passed
+            const response = await saveConfigApi(configYaml)
             
             if (response.success) {
               set({
                 originalYaml: configYaml,
                 isDirty: false,
                 isSaving: false,
+                error: null,
               })
               
               // Clear draft
@@ -275,11 +340,14 @@ export const useEditorState = create<EditorState>()(
         },
         
         updateConfig: (updates) => {
-          const { config } = get()
-          const baseConfig = config ?? {}
+          const { configYaml } = get()
           
-          const newConfig = { ...baseConfig, ...updates }
-          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+          // Preserve comments by merging into current YAML (not originalYaml)
+          const newYaml = mergeYamlUpdates(configYaml, updates)
+          
+          // Parse to get updated config object
+          const parsed = parseYaml(newYaml)
+          const newConfig = parsed.success ? (parsed.data as Record<string, unknown>) : null
           
           set({
             config: newConfig,
@@ -292,11 +360,14 @@ export const useEditorState = create<EditorState>()(
         },
         
         updateField: (path, value) => {
-          const { config } = get()
-          const baseConfig = config ?? {}
+          const { configYaml } = get()
           
-          const newConfig = setNestedProperty(baseConfig, path, value)
-          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+          // Preserve comments by updating field in current YAML (not originalYaml)
+          const newYaml = updateYamlField(configYaml, path, value)
+          
+          // Parse to get updated config object
+          const parsed = parseYaml(newYaml)
+          const newConfig = parsed.success ? (parsed.data as Record<string, unknown>) : null
           
           set({
             config: newConfig,
@@ -411,12 +482,13 @@ export const useEditorState = create<EditorState>()(
           }
 
           // Preserve optional metadata if available
-          if ((service as Record<string, unknown>).language) {
-            serviceConfig.language = (service as Record<string, unknown>).language
+          const serviceAny = service as unknown as Record<string, unknown>
+          if (serviceAny.language) {
+            serviceConfig.language = serviceAny.language
           }
 
-          if ((service as Record<string, unknown>).project) {
-            serviceConfig.project = (service as Record<string, unknown>).project
+          if (serviceAny.project) {
+            serviceConfig.project = serviceAny.project
           }
 
           const newConfig = {
@@ -427,7 +499,17 @@ export const useEditorState = create<EditorState>()(
             },
           }
 
-          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+          // Try to preserve comments when adding service
+          const { configYaml } = get()
+          const baseYaml = configYaml
+          
+          // Use mergeYamlUpdates to preserve comments
+          const newYaml = mergeYamlUpdates(baseYaml, {
+            services: {
+              ...services,
+              [name]: serviceConfig,
+            },
+          })
 
           set({
             config: newConfig,
@@ -439,14 +521,14 @@ export const useEditorState = create<EditorState>()(
         },
         
         removeService: (name) => {
-          const { config } = get()
+          const { config, configYaml } = get()
           const baseConfig = config ?? {}
 
           const services = { ...(baseConfig.services as Record<string, unknown> || {}) }
           delete services[name]
 
           const newConfig = { ...baseConfig, services }
-          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+          const newYaml = deleteYamlPath(configYaml, `services.${name}`)
 
           set({
             config: newConfig,
@@ -459,22 +541,29 @@ export const useEditorState = create<EditorState>()(
         
         // Resource Management
         addResource: (name, type) => {
-          const { config } = get()
+          const { config, configYaml } = get()
           const baseConfig = config ?? {}
           const resources = (baseConfig.resources as Record<string, unknown>) || {}
+
+          const resourceConfig: Record<string, unknown> = {
+            type,
+            uses: [],
+          }
 
           const newConfig = {
             ...baseConfig,
             resources: {
               ...resources,
-              [name]: {
-                type,
-                uses: [],
-              },
+              [name]: resourceConfig,
             },
           }
 
-          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+          const newYaml = mergeYamlUpdates(configYaml, {
+            resources: {
+              ...resources,
+              [name]: resourceConfig,
+            },
+          })
 
           set({
             config: newConfig,
@@ -486,14 +575,14 @@ export const useEditorState = create<EditorState>()(
         },
         
         removeResource: (name) => {
-          const { config } = get()
+          const { config, configYaml } = get()
           const baseConfig = config ?? {}
 
           const resources = { ...(baseConfig.resources as Record<string, unknown> || {}) }
           delete resources[name]
 
           const newConfig = { ...baseConfig, resources }
-          const newYaml = stringifyYaml(newConfig, { indent: 2 })
+          const newYaml = deleteYamlPath(configYaml, `resources.${name}`)
 
           set({
             config: newConfig,
@@ -505,8 +594,8 @@ export const useEditorState = create<EditorState>()(
         },
         
         // Import/Export
-        importConfig: (yaml) => {
-          const parsed = parseYaml(yaml)
+        importConfig: (yamlString) => {
+          const parsed = parseYaml(yamlString)
           
           if (!parsed.success) {
             set({ error: `Import failed: ${parsed.error}` })
@@ -515,13 +604,15 @@ export const useEditorState = create<EditorState>()(
           
           set({
             config: parsed.data as Record<string, unknown>,
-            configYaml: yaml,
+            configYaml: yamlString, // Preserve original YAML with comments
+            originalYaml: yamlString,
+            originalDocument: parsed.document || null, // Store document with comments
             isDirty: true,
             error: null,
           })
           
           // Save draft
-          saveDraft(yaml)
+          saveDraft(yamlString)
           
           return true
         },

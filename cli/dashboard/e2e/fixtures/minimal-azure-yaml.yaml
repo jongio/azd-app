@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: minimal-test
+
+services:
+  api:
+    host: appservice
+    language: js
+    project: ./src/api
+    ports:
+      - "3000"

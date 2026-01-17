@@ -1,0 +1,108 @@
+{
+  "db.postgres": {
+    "type": "db.postgres",
+    "uses": []
+  },
+  "db.mysql": {
+    "type": "db.mysql",
+    "uses": []
+  },
+  "db.redis": {
+    "type": "db.redis",
+    "uses": []
+  },
+  "db.mongo": {
+    "type": "db.mongo",
+    "uses": []
+  },
+  "db.cosmos": {
+    "type": "db.cosmos",
+    "containers": [
+      {
+        "name": "users",
+        "partitionKeys": ["/id"]
+      }
+    ],
+    "uses": []
+  },
+  "ai.openai.model": {
+    "type": "ai.openai.model",
+    "model": {
+      "name": "gpt-4",
+      "version": "1.0"
+    },
+    "uses": []
+  },
+  "ai.project": {
+    "type": "ai.project",
+    "models": [
+      {
+        "name": "gpt-4o-mini",
+        "version": "1.0",
+        "format": "OpenAI",
+        "sku": {
+          "name": "GlobalStandard",
+          "usageName": "OpenAI.GlobalStandard.gpt-4o-mini",
+          "capacity": 1000
+        }
+      }
+    ],
+    "uses": []
+  },
+  "ai.search": {
+    "type": "ai.search",
+    "uses": []
+  },
+  "host.containerapp": {
+    "type": "host.containerapp",
+    "port": 8080,
+    "env": [
+      {
+        "name": "ENV_VAR",
+        "value": "test-value"
+      }
+    ],
+    "uses": []
+  },
+  "host.appservice": {
+    "type": "host.appservice",
+    "port": 80,
+    "runtime": {
+      "stack": "node",
+      "version": "22-lts"
+    },
+    "startupCommand": "npm start",
+    "env": [
+      {
+        "name": "NODE_ENV",
+        "value": "production"
+      }
+    ],
+    "uses": []
+  },
+  "messaging.eventhubs": {
+    "type": "messaging.eventhubs",
+    "hubs": ["events", "telemetry"],
+    "uses": []
+  },
+  "messaging.servicebus": {
+    "type": "messaging.servicebus",
+    "queues": ["task-queue"],
+    "topics": ["events"],
+    "uses": []
+  },
+  "storage": {
+    "type": "storage",
+    "containers": ["uploads", "backups"],
+    "uses": []
+  },
+  "keyvault": {
+    "type": "keyvault",
+    "uses": []
+  },
+  "existing-resource": {
+    "type": "db.postgres",
+    "existing": true,
+    "uses": []
+  }
+}

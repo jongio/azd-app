@@ -615,6 +615,46 @@
           "$ref": "#/definitions/serviceTestConfig",
           "title": "Service-level test configuration (azd app extension)",
           "description": "Service-level test configuration"
+        },
+        "local": {
+          "type": "object",
+          "title": "Local development configuration (azd app extension)",
+          "description": "Configuration for local development environment",
+          "properties": {
+            "customUrl": {
+              "type": "string",
+              "title": "Custom local URL",
+              "description": "User-configured custom URL for local development (e.g., ngrok, reverse proxy). Overrides auto-discovered local URL. Must be a valid HTTP or HTTPS URL.",
+              "pattern": "^https?://",
+              "maxLength": 2048,
+              "examples": ["https://myapp.ngrok.io", "http://myapp.local:8080", "https://localhost.local"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "azure": {
+          "type": "object",
+          "title": "Azure deployment configuration (azd app extension)",
+          "description": "Configuration for Azure deployment",
+          "properties": {
+            "customUrl": {
+              "type": "string",
+              "title": "Custom Azure URL",
+              "description": "User-configured custom URL for Azure deployment (e.g., custom domain, CDN, API gateway). Overrides auto-discovered Azure URL. Must be a valid HTTP or HTTPS URL.",
+              "pattern": "^https?://",
+              "maxLength": 2048,
+              "examples": ["https://www.mycompany.com", "https://api.mycompany.com", "https://cdn.example.com"]
+            },
+            "customDomain": {
+              "type": "string",
+              "title": "Custom domain",
+              "description": "User-configured custom domain name for Azure deployment (domain only, without protocol). When set, overrides Azure SDK discovery. If not set, the system attempts to discover custom domains from Azure Portal.",
+              "pattern": "^(?!https?://)[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+              "maxLength": 253,
+              "examples": ["www.mycompany.com", "app.example.com", "api.myservice.net"]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "allOf": [

@@ -11,10 +11,17 @@ import Ajv, { type ErrorObject } from 'ajv'
 import type { ValidationError, ValidationResult, ValidationOptions } from './validation-types'
 
 // Initialize Ajv instance
-const ajv = new Ajv({ allErrors: true, verbose: true })
+// Allow unknown keywords (like "comment" in JSON Schema) to avoid strict mode errors
+const ajv = new Ajv({ 
+  allErrors: true, 
+  verbose: true,
+  strict: false, // Disable strict mode to allow unknown keywords like "comment"
+  allowUnionTypes: true,
+})
 
 /**
  * Validate configuration against JSON Schema using Ajv
+ * Handles external schema references gracefully by filtering out resolution errors
  */
 export function validateSchema(
   config: Record<string, unknown>,
@@ -23,16 +30,29 @@ export function validateSchema(
   const errors: ValidationError[] = []
 
   try {
+    // Create a new Ajv instance for this validation to avoid caching issues
+    // and to handle external references more gracefully
     const validate = ajv.compile(schema)
     const valid = validate(config)
 
     if (!valid && validate.errors) {
-      errors.push(...formatAjvErrors(validate.errors))
+      // Filter out external reference resolution errors
+      const filteredErrors = formatAjvErrors(validate.errors)
+      errors.push(...filteredErrors)
     }
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Schema validation failed'
+    
+    // Don't report external reference resolution errors as validation errors
+    if (errorMessage.includes("can't resolve reference") && 
+        (errorMessage.includes('http://') || errorMessage.includes('https://'))) {
+      // This is a schema loading issue, not a validation error - skip it
+      return errors
+    }
+    
     errors.push({
       level: 'error',
-      message: err instanceof Error ? err.message : 'Schema validation failed',
+      message: errorMessage,
       path: '',
       rule: 'schema',
     })
@@ -43,53 +63,69 @@ export function validateSchema(
 
 /**
  * Format Ajv errors into ValidationError format
+ * Filters out external reference resolution errors (schema loading issues, not validation errors)
  */
 function formatAjvErrors(ajvErrors: ErrorObject[]): ValidationError[] {
-  return ajvErrors.map(err => {
-    const path = err.instancePath.replace(/^\//, '').replace(/\//g, '.')
-    let message = err.message || 'Validation failed'
+  return ajvErrors
+    .filter(err => {
+      // Filter out external reference resolution errors - these are schema loading issues,
+      // not actual validation errors in the user's YAML
+      const message = err.message || ''
+      if (message.includes("can't resolve reference") || 
+          message.includes("can't resolve") ||
+          err.keyword === '$ref') {
+        // Only filter if it's about external URLs (not local references)
+        if (message.includes('http://') || message.includes('https://')) {
+          return false // Filter out external reference errors
+        }
+      }
+      return true
+    })
+    .map(err => {
+      const path = err.instancePath.replace(/^\//, '').replace(/\//g, '.')
+      let message = err.message || 'Validation failed'
 
-    // Improve error messages for common cases
-    switch (err.keyword) {
-      case 'required':
-        message = `${err.params.missingProperty} is required`
-        break
-      case 'type':
-        message = `Must be of type ${err.params.type}`
-        break
-      case 'enum':
-        message = `Must be one of: ${err.params.allowedValues?.join(', ')}`
-        break
-      case 'pattern':
-        message = `Must match pattern: ${err.params.pattern}`
-        break
-      case 'minimum':
-        message = `Must be at least ${err.params.limit}`
-        break
-      case 'maximum':
-        message = `Must be no more than ${err.params.limit}`
-        break
-      case 'minLength':
-        message = `Must be at least ${err.params.limit} characters`
-        break
-      case 'maxLength':
-        message = `Must be no more than ${err.params.limit} characters`
-        break
-      case 'minItems':
-        message = `Must have at least ${err.params.limit} items`
-        break
-      case 'maxItems':
-        message = `Must have no more than ${err.params.limit} items`
-        break
-    }
+      // Improve error messages for common cases
+      switch (err.keyword) {
+        case 'required':
+          message = `${err.params.missingProperty} is required`
+          break
+        case 'type':
+          message = `Must be of type ${err.params.type}`
+          break
+        case 'enum':
+          message = `Must be one of: ${err.params.allowedValues?.join(', ')}`
+          break
+        case 'pattern':
+          message = `Must match pattern: ${err.params.pattern}`
+          break
+        case 'minimum':
+          message = `Must be at least ${err.params.limit}`
+          break
+        case 'maximum':
+          message = `Must be no more than ${err.params.limit}`
+          break
+        case 'minLength':
+          message = `Must be at least ${err.params.limit} characters`
+          break
+        case 'maxLength':
+          message = `Must be no more than ${err.params.limit} characters`
+          break
+        case 'minItems':
+          message = `Must have at least ${err.params.limit} items`
+          break
+        case 'maxItems':
+          message = `Must have no more than ${err.params.limit} items`
+          break
+      }
 
-    return {
-      level: 'error',
-      message,
-      path: path || (err.params.missingProperty ? err.params.missingProperty : ''),
-      rule: err.keyword,
-    }
-  })
+      return {
+        level: 'error',
+        message,
+        path: path || (err.params.missingProperty ? err.params.missingProperty : ''),
+        rule: err.keyword,
+      }
+    })
 }
 
 /**
@@ -190,6 +226,9 @@ export function validateCircularDependencies(
   const services = (config.services as Record<string, unknown>) || {}
   const resources = (config.resources as Record<string, unknown>) || {}
 
+  const serviceNames = new Set(Object.keys(services))
+  const resourceNames = new Set(Object.keys(resources))
+
   // Build dependency graph
   const graph = new Map<string, string[]>()
 
@@ -231,10 +270,25 @@ export function validateCircularDependencies(
   const cycles = detectCycles(graph)
 
   for (const cycle of cycles) {
+    const uniqueNodes = Array.from(new Set(cycle))
+    const allServices = uniqueNodes.every((n) => serviceNames.has(n))
+    const allResources = uniqueNodes.every((n) => resourceNames.has(n))
+
+    let path = ''
+    const first = uniqueNodes[0]
+    if (allServices && first) {
+      path = `services.${first}`
+    } else if (allResources && first) {
+      path = `resources.${first}`
+    } else {
+      // Mixed graph (services/resources) or unknown nodes
+      path = ''
+    }
+
     errors.push({
       level: 'error',
       message: `Circular dependency detected: ${cycle.join(' → ')}`,
-      path: 'services',
+      path,
       rule: 'circular-dependency',
       context: 'Dependencies must not form a cycle',
     })

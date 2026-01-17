@@ -20,12 +20,12 @@ describe('BackupManager', () => {
   const mockBackups = [
     {
       timestamp: '2026-01-11T14:30:00Z',
-      path: '/workspace/azure.yaml.backup.2026-01-11T143000Z',
+      path: 'azure.yaml.backup.2026-01-11T143000Z',
       size: 1024,
     },
     {
       timestamp: '2026-01-11T12:00:00Z',
-      path: '/workspace/azure.yaml.backup.2026-01-11T120000Z',
+      path: 'azure.yaml.backup.2026-01-11T120000Z',
       size: 2048,
     },
   ]
@@ -41,8 +41,8 @@ describe('BackupManager', () => {
     })
     vi.mocked(configApi.restoreBackup).mockResolvedValue({
       success: true,
-      restoredFrom: mockBackups[0].path,
-      backupCreated: '/workspace/azure.yaml.backup.new',
+      restoredFrom: mockBackups[0].timestamp,
+      backupCreated: '2026-01-11T150000Z',
     })
     vi.mocked(configApi.deleteBackup).mockResolvedValue(undefined)
   })

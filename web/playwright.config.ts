@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: 'line',
   webServer: {
     command: 'pnpm build && pnpm preview',
-    url: 'http://localhost:4331/azd-app/',
+    url: 'http://127.0.0.1:4331/azd-app/',
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     cwd: __dirname,
@@ -22,7 +22,7 @@ export default defineConfig({
   snapshotPathTemplate: '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}{ext}',
   use: {
     // Note: Trailing slash is required for proper URL resolution with relative paths
-    baseURL: 'http://localhost:4331/azd-app/',
+    baseURL: 'http://127.0.0.1:4331/azd-app/',
     trace: 'on-first-retry',
     headless: true,
   },

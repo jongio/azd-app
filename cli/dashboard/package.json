@@ -13,6 +13,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
+    "prebuild": "node scripts/copy-schema.js",
     "dev": "vite",
     "build": "vite build",
     "build:check": "tsc && vite build",
@@ -45,6 +46,7 @@
     "react-window": "^1.8.11",
     "swr": "^2.3.8",
     "tailwind-merge": "^3.4.0",
+    "yaml": "^2.8.2",
     "zustand": "^5.0.10"
   },
   "devDependencies": {

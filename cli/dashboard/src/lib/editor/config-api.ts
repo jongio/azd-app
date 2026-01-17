@@ -14,6 +14,7 @@ export interface SaveConfigRequest {
 
 export interface SaveConfigResponse {
   success: boolean
+  /** Backup identifier (timestamp), empty if no prior file existed */
   backup: string
   written: boolean
   errors?: string[]
@@ -21,6 +22,7 @@ export interface SaveConfigResponse {
 
 export interface BackupInfo {
   timestamp: string
+  /** Backup file name (not an absolute path) */
   path: string
   size: number
 }
@@ -36,7 +38,9 @@ export interface BackupContentResponse {
 
 export interface RestoreBackupResponse {
   success: boolean
+  /** Timestamp restored from */
   restoredFrom: string
+  /** Backup identifier (timestamp) of the pre-restore file, if any */
   backupCreated: string
 }
 

@@ -1,0 +1,13 @@
+# Invalid YAML syntax for error testing
+name: test-project
+services:
+  api:
+    host: appservice
+    language: js
+    project: ./src/api
+    ports:
+      - "3000"
+    invalid: : : : yaml syntax error
+  missing-closing-bracket:
+    host: containerapp
+    ports: [

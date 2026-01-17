@@ -3,15 +3,22 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { render as rtlRender, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { YamlEditorHeader } from './YamlEditorHeader'
 import { useEditorState } from './useEditorState'
+import { SchemaProvider } from '@/contexts/SchemaContext'
+import type { ReactElement } from 'react'
 
 // Mock theme provider
 vi.mock('@/lib/editor/theme-provider', () => ({
   ThemeToggle: () => <button>Theme Toggle</button>,
 }))
+
+// Helper to render with providers
+function render(ui: ReactElement) {
+  return rtlRender(<SchemaProvider>{ui}</SchemaProvider>)
+}
 
 describe('YamlEditorHeader', () => {
   beforeEach(() => {
@@ -37,7 +44,7 @@ describe('YamlEditorHeader', () => {
     it('should render header with title', () => {
       render(<YamlEditorHeader />)
       
-      expect(screen.getByText('Azure YAML Editor')).toBeInTheDocument()
+      expect(screen.getByText('Edit azure.yaml')).toBeInTheDocument()
     })
 
     it('should render all action buttons', () => {
@@ -58,7 +65,11 @@ describe('YamlEditorHeader', () => {
     it('should render theme toggle', () => {
       render(<YamlEditorHeader />)
       
-      expect(screen.getByText('Theme Toggle')).toBeInTheDocument()
+      // Theme toggle button is rendered with an aria-label based on current theme
+      const themeButton = screen.getAllByRole('button').find(
+        btn => btn.getAttribute('aria-label')?.includes('Switch to')
+      )
+      expect(themeButton).toBeDefined()
     })
   })
 
@@ -80,7 +91,7 @@ describe('YamlEditorHeader', () => {
       
       render(<YamlEditorHeader />)
       
-      expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+      expect(screen.getByText('Unsaved')).toBeInTheDocument()
     })
 
     it('should show error message when present', () => {
@@ -287,7 +298,7 @@ describe('YamlEditorHeader', () => {
       await user.click(saveButton)
       
       await waitFor(() => {
-        expect(screen.getByText('Saved successfully')).toBeInTheDocument()
+        expect(screen.getByText('Saved')).toBeInTheDocument()
       })
     })
 
@@ -312,7 +323,7 @@ describe('YamlEditorHeader', () => {
       })
       
       // Now success message should be visible
-      expect(screen.getByText('Saved successfully')).toBeInTheDocument()
+      expect(screen.getByText('Saved')).toBeInTheDocument()
       
       // Advance timers to trigger the setTimeout(2000)
       act(() => {
@@ -320,7 +331,7 @@ describe('YamlEditorHeader', () => {
       })
       
       // Success message should be gone
-      expect(screen.queryByText('Saved successfully')).not.toBeInTheDocument()
+      expect(screen.queryByText('Saved')).not.toBeInTheDocument()
       
       vi.useRealTimers()
     })

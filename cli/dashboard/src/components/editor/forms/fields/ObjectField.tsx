@@ -40,28 +40,38 @@ export function ObjectField({
   return (
     <div className={cn('space-y-2', nested && 'ml-4')}>
       {/* Header with expand/collapse button */}
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
+      {/* CRITICAL: Don't nest FieldLabel (which contains a button for tooltip) inside a button */}
+      {/* Instead, use a div wrapper with click handler and separate button for expand/collapse */}
+      <div
         className={cn(
-          'flex items-center gap-2 w-full text-left',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded'
+          'flex items-center gap-2 w-full',
+          'focus-within:outline-none focus-within:ring-2 focus-within:ring-ring rounded'
         )}
       >
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-        )}
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center justify-center p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+          aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+        </button>
         
-        <FieldLabel
-          htmlFor={`field-${name}`}
-          label={label}
-          required={property.required}
-          description={property.description}
-          className="mb-0"
-        />
-      </button>
+        <div className="flex-1">
+          <FieldLabel
+            htmlFor={`field-${name}`}
+            label={label}
+            required={property.required}
+            description={property.description}
+            className="mb-0"
+          />
+        </div>
+      </div>
 
       {/* Nested fields */}
       {isExpanded && (

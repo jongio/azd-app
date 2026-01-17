@@ -1,0 +1,116 @@
+{
+  "appservice": {
+    "host": "appservice",
+    "language": "js",
+    "project": "./src/api",
+    "ports": ["3000"],
+    "environment": {
+      "NODE_ENV": "production"
+    }
+  },
+  "containerapp": {
+    "host": "containerapp",
+    "language": "py",
+    "project": "./src/api",
+    "ports": ["8000"],
+    "docker": {
+      "path": "./Dockerfile",
+      "context": "."
+    }
+  },
+  "containerapp-image": {
+    "host": "containerapp",
+    "image": "nginx:latest",
+    "ports": ["8080"]
+  },
+  "function": {
+    "host": "function",
+    "language": "js",
+    "project": "./src/function",
+    "ports": ["7071"]
+  },
+  "springapp": {
+    "host": "springapp",
+    "language": "java",
+    "project": "./src/spring-service",
+    "ports": ["8080"]
+  },
+  "staticwebapp": {
+    "host": "staticwebapp",
+    "project": "./src/static-site",
+    "ports": ["3000"]
+  },
+  "aks": {
+    "host": "aks",
+    "language": "docker",
+    "project": "./src/aks-service",
+    "docker": {
+      "path": "./Dockerfile"
+    },
+    "k8s": {
+      "deploymentPath": "./manifests",
+      "namespace": "default"
+    },
+    "ports": ["80"]
+  },
+  "ai-endpoint": {
+    "host": "ai.endpoint",
+    "project": "./src/ai-endpoint",
+    "config": {
+      "workspace": "test-workspace",
+      "deployment": {
+        "path": "./deployment",
+        "name": "test-deployment"
+      }
+    }
+  },
+  "azure-ai-agent": {
+    "host": "azure.ai.agent",
+    "project": "./src/ai-agent",
+    "config": {
+      "name": "test-agent"
+    }
+  },
+  "process-watch": {
+    "project": "./src/watcher",
+    "type": "process",
+    "mode": "watch",
+    "command": "tsc --watch",
+    "healthcheck": {
+      "type": "output",
+      "pattern": "Found 0 errors"
+    }
+  },
+  "process-build": {
+    "project": "./src/build",
+    "type": "process",
+    "mode": "build",
+    "command": "npm run build",
+    "healthcheck": {
+      "disable": true
+    }
+  },
+  "process-daemon": {
+    "project": "./src/daemon",
+    "type": "process",
+    "mode": "daemon",
+    "command": "node server.js",
+    "healthcheck": {
+      "type": "process"
+    }
+  },
+  "process-task": {
+    "project": "./src/task",
+    "type": "process",
+    "mode": "task",
+    "command": "npm run migrate"
+  },
+  "tcp": {
+    "project": "./src/proxy",
+    "type": "tcp",
+    "ports": ["5432:5432"],
+    "healthcheck": {
+      "type": "tcp"
+    }
+  }
+}

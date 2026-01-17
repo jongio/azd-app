@@ -77,10 +77,11 @@ export function NavigationItem({
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
       >
       {/* Expand/collapse chevron (visual only; button handles toggle) */}
-      {hasChildren && (
+      {hasChildren ? (
         <span
-          className="p-0.5 -ml-1 rounded transition-colors"
+          className="p-0.5 -ml-1 rounded transition-colors flex-shrink-0"
           aria-hidden="true"
+          style={{ width: '14px' }} // Match chevron icon width (3.5 * 4px = 14px)
         >
           {isExpanded ? (
             <ChevronDown className="w-3.5 h-3.5" />
@@ -88,15 +89,16 @@ export function NavigationItem({
             <ChevronRight className="w-3.5 h-3.5" />
           )}
         </span>
+      ) : (
+        // Spacer for items without chevron to align icons with items that have chevrons
+        // Matches chevron visual width (14px)
+        <span className="w-[14px] flex-shrink-0" aria-hidden="true" />
       )}
 
       {/* Icon */}
       {Icon && (
         <Icon
-          className={cn(
-            'w-4 h-4 flex-shrink-0',
-            !hasChildren && 'ml-4.5' // Offset for items without chevron
-          )}
+          className="w-4 h-4 flex-shrink-0"
         />
       )}
 
