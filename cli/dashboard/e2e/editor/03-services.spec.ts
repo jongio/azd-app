@@ -15,20 +15,9 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  loadMinimalProject,
   addServiceViaForm,
   navigateToSection,
-  expandSection,
 } from '../helpers/test-setup'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
-
-// Load service configs from fixtures
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const fixturesDir = path.join(__dirname, '../fixtures')
-const serviceConfigs = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'service-configs.json'), 'utf-8'))
 
 test.describe('Service Management - Add Service', () => {
   test.beforeEach(async ({ page }) => {

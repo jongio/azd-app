@@ -234,7 +234,7 @@ export function updateYamlField(
         } else {
           // Create new map node for this path segment
           const newNode = doc.createNode({}) as any
-          current.set(part, newNode)
+          current.set(part as any, newNode)
           current = newNode
         }
       } else {
@@ -246,7 +246,7 @@ export function updateYamlField(
     // Set the final value
     const key = parts[parts.length - 1]
     if (isMap(current)) {
-      current.set(key, doc.createNode(value))
+      current.set(key as any, doc.createNode(value))
     }
     
     return doc.toString({
@@ -300,11 +300,11 @@ export function mergeYamlUpdates(
         if (existing && isMap(existing) && typeof value === 'object' && value !== null && !Array.isArray(value)) {
           // Update nested properties
           for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
-            existing.set(subKey, doc.createNode(subValue))
+            existing.set(subKey as any, doc.createNode(subValue))
           }
-        } else {
-          // Replace or add the key
-          doc.contents.set(key, doc.createNode(value))
+        } else if (isMap(doc.contents)) {
+          // Replace or add the key (yaml Map.set accepts string keys)
+          doc.contents.set(key as any, doc.createNode(value) as any)
         }
       }
     } else {
@@ -372,7 +372,7 @@ export function deleteYamlPath(yamlString: string, path: string): string {
 
     const key = parts[parts.length - 1]
     if (isMap(current)) {
-      current.delete(key)
+      current.delete(key as any)
     }
 
     return doc.toString({

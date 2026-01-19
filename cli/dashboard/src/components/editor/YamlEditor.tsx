@@ -12,7 +12,7 @@ import { ErrorBoundary } from './ErrorHandling/ErrorBoundary'
 import { YamlEditorLayout } from './YamlEditorLayout'
 import { YamlEditorHeader } from './YamlEditorHeader'
 import { NavigationSidebar } from './NavigationSidebar'
-import { PreviewPane } from './PreviewPane'
+import { PreviewPane, type ValidationMarker } from './PreviewPane'
 import { ValidationSummaryPanel } from './ValidationSummaryPanel'
 import { QuickActionsBar } from './QuickActionsBar'
 import { HelpPanel } from './HelpPanel'
@@ -53,7 +53,6 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
     error: loadError,
     loadConfig,
     saveConfig: saveConfigInternal,
-    updateConfig,
     updateField,
     setActiveSection,
     activeSection,
@@ -316,13 +315,50 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
     )
   }
 
+  // Convert ValidationIssue[] to ValidationMarker[] with approximate line numbers
+  const validationMarkers = useMemo<ValidationMarker[]>(() => {
+    if (!configYaml || validationErrors.length === 0) {
+      return []
+    }
+
+    const markers: ValidationMarker[] = []
+    const lines = configYaml.split('\n')
+
+    for (const issue of validationErrors) {
+      // Try to find the line number by searching for the path in YAML
+      let lineNumber = 1
+      
+      // Simple heuristic: search for the last part of the path in the YAML
+      const pathParts = issue.path.split('.')
+      const searchKey = pathParts[pathParts.length - 1]
+      
+      // Search for the key in the YAML lines
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        // Look for the key followed by colon (YAML key pattern)
+        if (line.includes(`${searchKey}:`) || line.includes(`"${searchKey}":`) || line.includes(`'${searchKey}':`)) {
+          lineNumber = i + 1 // 1-indexed
+          break
+        }
+      }
+
+      markers.push({
+        line: lineNumber,
+        level: issue.level,
+        message: issue.message,
+      })
+    }
+
+    return markers
+  }, [configYaml, validationErrors])
+
   const previewPane = (
     <PreviewPane
       data={(config as Record<string, unknown>) || {}}
       yaml={configYaml} // Use YAML string to preserve comments
       isVisible={isPreviewVisible}
       onToggle={togglePreview}
-      validationMarkers={validationIssueMap}
+      validationMarkers={validationMarkers}
       onLineClick={() => undefined}
     />
   )

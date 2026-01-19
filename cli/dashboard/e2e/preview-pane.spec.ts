@@ -132,7 +132,6 @@ test.describe('Preview Pane', () => {
 
     // Check if divider exists, if not skip test (feature may not be fully implemented)
     if (!await divider.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('Resize divider not found - skipping resize test')
       return
     }
 
@@ -156,8 +155,6 @@ test.describe('Preview Pane', () => {
     // Allow for small rounding differences or implementation variations
     if (Math.abs(newWidth - initialWidth) > 5) {
       expect(newWidth).not.toBe(initialWidth)
-    } else {
-      console.log(`Width change too small (${Math.abs(newWidth - initialWidth)}px) - feature may not be active`)
     }
   })
 
@@ -309,7 +306,6 @@ test.describe('Preview Pane', () => {
     
     // Check if divider exists
     if (!await divider.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('Resize divider not found - skipping constraints test')
       return
     }
     

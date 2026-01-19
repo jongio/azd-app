@@ -10,11 +10,7 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  loadMinimalProject,
   navigateToSection,
-  fillFormField,
-  selectDropdownOption,
-  toggleSwitch,
 } from '../helpers/test-setup'
 
 test.describe('Schema Forms - Field Types', () => {

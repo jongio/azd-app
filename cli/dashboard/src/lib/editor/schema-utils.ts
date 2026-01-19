@@ -7,7 +7,7 @@
  * - Map form values to YAML paths
  */
 
-import type { ParsedSchema, SchemaProperty } from '@/lib/schema'
+import type { ParsedSchema } from '@/lib/schema'
 import { getPropertyByPath } from '@/lib/schema/schema-parser'
 
 /**

@@ -16,9 +16,8 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  expandSection,
-  navigateToSection,
   findInNavigation,
+  expandSection,
 } from '../helpers/test-setup'
 
 test.describe('Editor Navigation - Tree Structure', () => {
@@ -93,7 +92,6 @@ test.describe('Editor Navigation - Tree Structure', () => {
   })
 
   test('should navigate to section when clicked', async ({ page }) => {
-    const servicesButton = page.locator('[role="button"]:has-text("Services")').first()
     await expandSection(page, 'Services')
     await page.waitForTimeout(500)
 
@@ -204,10 +202,6 @@ test.describe('Editor Navigation - Tree Structure', () => {
       await collapseButton.click()
       await page.waitForTimeout(500)
 
-      // Navigation should be collapsed
-      const nav = page.locator('[role="navigation"]').first()
-      const isVisible = await nav.isVisible({ timeout: 1000 }).catch(() => false)
-      
       // Expand button should be visible
       const expandButton = page.locator('button[aria-label*="Expand" i], button[title*="Expand" i]').first()
       if (await expandButton.isVisible({ timeout: 2000 }).catch(() => false)) {

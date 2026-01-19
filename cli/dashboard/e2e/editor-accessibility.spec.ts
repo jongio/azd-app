@@ -27,10 +27,10 @@ test.describe('Accessibility - Axe Scans', () => {
       v => v.impact === 'critical' || v.impact === 'serious'
     )
 
-    // Log violations for debugging
-    if (criticalViolations.length > 0) {
-      console.log('Accessibility violations:', JSON.stringify(criticalViolations, null, 2))
-    }
+    // Log violations for debugging if needed
+    // if (criticalViolations.length > 0) {
+    //   console.warn('Accessibility violations:', JSON.stringify(criticalViolations, null, 2))
+    // }
 
     // Should have no critical accessibility violations
     expect(criticalViolations.length).toBeLessThanOrEqual(5) // Allow some for now
@@ -240,13 +240,9 @@ test.describe('Accessibility - Keyboard Navigation', () => {
 
         // Should have focused at least one form field
         // If none found, the modal may not have focusable fields or test setup issue
-        if (focusedInputs.length === 0) {
-          console.log('No form fields found - modal may not have inputs or focus is blocked')
-        } else {
+        if (focusedInputs.length > 0) {
           expect(focusedInputs.length).toBeGreaterThan(0)
         }
-      } else {
-        console.log('Modal did not open - skipping form field navigation test')
       }
     }
   })

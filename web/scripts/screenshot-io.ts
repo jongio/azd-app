@@ -12,8 +12,9 @@ import { spawn, type ChildProcess, execSync } from 'child_process';
 /**
  * Load azd environment variables from .azure/{env-name}/.env
  * Returns empty object if no default environment is found
+ * Also tries to auto-detect Log Analytics workspace GUID if missing
  */
-function loadAzdEnvironment(cwd: string): Record<string, string> {
+async function loadAzdEnvironment(cwd: string): Promise<Record<string, string>> {
   const azdDir = path.join(cwd, '.azure');
   if (!fs.existsSync(azdDir)) {
     return {};
@@ -84,7 +85,73 @@ function loadAzdEnvironment(cwd: string): Record<string, string> {
   }
 
   console.log(`   ℹ️  Loaded ${Object.keys(envVars).length} environment variables from .azure/${defaultEnvName}/.env`);
+  
+  // If AZURE_LOG_ANALYTICS_WORKSPACE_GUID is missing, try to auto-detect it
+  if (!envVars['AZURE_LOG_ANALYTICS_WORKSPACE_GUID'] && 
+      envVars['AZURE_SUBSCRIPTION_ID'] && 
+      envVars['AZURE_RESOURCE_GROUP']) {
+    try {
+      const workspaceGUID = await detectLogAnalyticsWorkspace(
+        envVars['AZURE_SUBSCRIPTION_ID'],
+        envVars['AZURE_RESOURCE_GROUP']
+      );
+      if (workspaceGUID) {
+        envVars['AZURE_LOG_ANALYTICS_WORKSPACE_GUID'] = workspaceGUID;
+        console.log(`   ℹ️  Auto-detected AZURE_LOG_ANALYTICS_WORKSPACE_GUID from Azure`);
+      }
+    } catch (error) {
+      // Silently fail - auto-detection is optional
+      console.log(`   ⚠️  Could not auto-detect Log Analytics workspace (Azure logs may not work)`);
+    }
+  }
+  
   return envVars;
+}
+
+/**
+ * Try to detect Log Analytics workspace GUID from Azure CLI
+ * Returns the workspace GUID (customer ID) if found, empty string otherwise
+ * Matches the implementation in cli/src/internal/azure/standalone_logs.go
+ */
+async function detectLogAnalyticsWorkspace(subscriptionId: string, resourceGroup: string): Promise<string> {
+  try {
+    const { spawnSync } = await import('child_process');
+    
+    // Build command matching Go implementation: az monitor log-analytics workspace list --resource-group <rg> --query "[0].customerId" -o tsv
+    const args = [
+      'monitor', 'log-analytics', 'workspace', 'list',
+      '--resource-group', resourceGroup,
+      '--query', '[0].customerId',
+      '-o', 'tsv'
+    ];
+    
+    // Add subscription if provided (for better reliability)
+    if (subscriptionId) {
+      args.splice(args.length - 2, 0, '--subscription', subscriptionId);
+    }
+    
+    const result = spawnSync('az', args, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 30000 // 30 second timeout like Go code
+    });
+    
+    if (result.error || result.status !== 0) {
+      return '';
+    }
+    
+    const output = (result.stdout || '').trim();
+    
+    // Validate it looks like a GUID (basic check - GUIDs are typically 36 chars with dashes)
+    if (output && output.length > 0 && output !== 'None' && output !== 'null' && output.length >= 32) {
+      return output;
+    }
+  } catch (error) {
+    // Azure CLI command failed - workspace might not exist, not accessible, or not provisioned
+    // This is expected for local-only projects or when Azure resources aren't deployed
+  }
+  
+  return '';
 }
 
 export async function ensureDir(dir: string): Promise<void> {
@@ -167,50 +234,57 @@ export async function optimizeImages(screenshotsDir: string): Promise<void> {
   }
 }
 
-export function startProcess(
+export async function startProcess(
   command: string,
   args: string[],
   cwd: string,
   name: string,
   onOutput?: (line: string) => void,
   processes?: ChildProcess[]
-): ChildProcess {
+): Promise<ChildProcess> {
   console.log(`🚀 Starting ${name}...`);
   console.log(`   Command: ${command} ${args.join(' ')}`);
   console.log(`   Dir: ${cwd}`);
 
   // Load azd environment variables from .azure/{env-name}/.env if it exists
-  const azdEnv = loadAzdEnvironment(cwd);
+  const azdEnv = await loadAzdEnvironment(cwd);
   const mergedEnv = { ...process.env, ...azdEnv };
 
   const isWindows = process.platform === 'win32';
   const proc = spawn(command, args, {
     cwd,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'], // Use 'pipe' for stdin to handle interactive prompts
     shell: isWindows,
     detached: !isWindows,
     env: mergedEnv,
   });
 
-  proc.stdout?.on('data', (data) => {
-    const lines = data.toString().trim().split('\n');
+  // Handle port conflict prompts automatically
+  let outputBuffer = '';
+  const handleOutput = (data: Buffer) => {
+    outputBuffer += data.toString();
+    const lines = outputBuffer.split('\n');
+    outputBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+    
     lines.forEach((line: string) => {
       if (line.trim()) {
         console.log(`   [${name}] ${line}`);
         onOutput?.(line);
+        
+        // Auto-respond to port conflict prompts
+        if (line.includes('Choose (1/2/3/4):')) {
+          // Option 2: Kill the process using the port (most reliable for screenshots)
+          if (proc.stdin && !proc.stdin.destroyed) {
+            proc.stdin.write('2\n');
+            console.log(`   [${name}] Auto-selected option 2: Kill the process using the port`);
+          }
+        }
       }
     });
-  });
+  };
 
-  proc.stderr?.on('data', (data) => {
-    const lines = data.toString().trim().split('\n');
-    lines.forEach((line: string) => {
-      if (line.trim()) {
-        console.log(`   [${name}] ${line}`);
-        onOutput?.(line);
-      }
-    });
-  });
+  proc.stdout?.on('data', handleOutput);
+  proc.stderr?.on('data', handleOutput);
 
   if (processes) {
     processes.push(proc);

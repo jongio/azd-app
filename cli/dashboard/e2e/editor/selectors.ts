@@ -296,7 +296,7 @@ export function combineSelectors(...selectors: string[]): string {
 /**
  * Helper function to create a locator with fallbacks
  */
-export function createLocator(page: any, selectors: string | string[]) {
+export function createLocator(page: { locator: (selector: string) => { first: () => unknown } }, selectors: string | string[]) {
   const selectorArray = Array.isArray(selectors) ? selectors : [selectors]
   return page.locator(combineSelectors(...selectorArray)).first()
 }

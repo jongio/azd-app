@@ -148,7 +148,7 @@ describe('PreviewPane', () => {
       }, { timeout: 600 })
     })
 
-    it.skip('handles YAML stringify errors gracefully', async () => {
+    it('handles YAML stringify errors gracefully', async () => {
       const circularData: any = { name: 'test' }
       circularData.self = circularData // Create circular reference
 
@@ -161,7 +161,7 @@ describe('PreviewPane', () => {
       )
 
       await waitFor(() => {
-        expect(document.body.textContent).toContain('# Error generating YAML preview')
+        expect(document.body.textContent).toContain('Error generating YAML preview')
       }, { timeout: 600 })
     })
   })

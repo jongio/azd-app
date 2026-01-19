@@ -9,8 +9,6 @@
 import { test, expect } from '@playwright/test'
 import {
   setupTest,
-  scenarios,
-  waitForDashboardReady,
   navigateToEditor,
   waitForValidation,
   getValidationErrors,
@@ -18,22 +16,7 @@ import {
   addResourceViaForm,
   configureHealthCheck,
   configureHooks,
-  validateEditorState,
-  mockConfigApi,
 } from './helpers/test-setup'
-import * as fs from 'fs'
-import * as path from 'path'
-
-// Load test fixtures
-import { fileURLToPath } from 'url'
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const fixturesDir = path.join(__dirname, 'fixtures')
-const comprehensiveYaml = fs.readFileSync(path.join(fixturesDir, 'comprehensive-azure-yaml.yaml'), 'utf-8')
-const minimalYaml = fs.readFileSync(path.join(fixturesDir, 'minimal-azure-yaml.yaml'), 'utf-8')
-const invalidYaml = fs.readFileSync(path.join(fixturesDir, 'invalid-azure-yaml.yaml'), 'utf-8')
-const serviceConfigs = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'service-configs.json'), 'utf-8'))
-const resourceConfigs = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'resource-configs.json'), 'utf-8'))
 
 // =============================================================================
 // Schema Form Generation Tests

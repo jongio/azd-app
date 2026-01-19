@@ -18,14 +18,6 @@ import {
   navigateToSection,
   expandSection,
 } from '../helpers/test-setup'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const fixturesDir = path.join(__dirname, '../fixtures')
-const resourceConfigs = JSON.parse(fs.readFileSync(path.join(fixturesDir, 'resource-configs.json'), 'utf-8'))
 
 test.describe('Resource Management - Add Resource', () => {
   test.beforeEach(async ({ page }) => {

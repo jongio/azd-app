@@ -124,12 +124,12 @@ describe('CommandPalette', () => {
       // Wait for filtering to complete - text may be split by highlighting
       await waitFor(() => {
         // Use text matcher that ignores highlighting markup
-        expect(screen.getByText((content, element) => {
+        expect(screen.getByText((_content, element) => {
           return element?.textContent === 'Go to Services'
         })).toBeInTheDocument()
       }, { timeout: 5000 })
       
-      expect(screen.getByText((content, element) => {
+      expect(screen.getByText((_content, element) => {
         return element?.textContent === 'Add Service'
       })).toBeInTheDocument()
       expect(screen.queryByText('Go to Overview')).not.toBeInTheDocument()

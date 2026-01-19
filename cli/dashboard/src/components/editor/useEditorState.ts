@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import type { ValidationError } from '@/lib/editor/validation-types'
 import type { WellKnownService } from '@/lib/editor/wellknown-types'
-import { parseYaml, stringifyYaml, updateYamlField, mergeYamlUpdates, deleteYamlPath } from '@/lib/editor/yaml-utils'
+import { parseYaml, updateYamlField, mergeYamlUpdates, deleteYamlPath } from '@/lib/editor/yaml-utils'
 import type { Document } from 'yaml'
 import { loadConfig, saveConfig as saveConfigApi } from '@/lib/editor/config-api'
 import { validateConfiguration } from '@/lib/editor/validation-engine'
@@ -111,28 +111,6 @@ export interface EditorState {
 // =============================================================================
 // Helper Functions
 // =============================================================================
-
-/**
- * Set nested object property by path (e.g., 'services.api.port')
- */
-function setNestedProperty(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
-  const parts = path.split('.')
-  const result = { ...obj }
-  let current: any = result
-  
-  for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i]
-    if (!(part in current) || typeof current[part] !== 'object') {
-      current[part] = {}
-    } else {
-      current[part] = { ...current[part] }
-    }
-    current = current[part]
-  }
-  
-  current[parts[parts.length - 1]] = value
-  return result
-}
 
 /**
  * Load draft from localStorage

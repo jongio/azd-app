@@ -114,7 +114,6 @@ test.describe('Schema Form Generator', () => {
     
     // Check if the object field exists
     if (!await header.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('Address object field not found - skipping test')
       return
     }
     

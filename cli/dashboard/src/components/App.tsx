@@ -27,6 +27,7 @@ export interface AppProps {
   /** Project name to display */
   projectName: string
   /** List of services */
+  services: Service[]
   /** Whether connected to backend */
   connected: boolean
   /** Health summary for header */
@@ -365,7 +366,7 @@ export function App({
   // Sync selected service with services list (in case it updates)
   React.useEffect(() => {
     if (selectedService && isPanelOpen) {
-      const updated = services.find((s) => s.name === selectedService.name)
+      const updated = services.find((s: Service) => s.name === selectedService.name)
       if (updated) {
         setSelectedService(updated)
       }

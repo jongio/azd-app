@@ -9,13 +9,11 @@ import {
   Package, 
   Tag, 
   Info, 
-  Circle, 
   Box,
   GitBranch,
   Workflow,
   CheckCircle,
   Database,
-  FileText,
 } from 'lucide-react'
 
 /**

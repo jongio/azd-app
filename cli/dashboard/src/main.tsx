@@ -37,7 +37,7 @@ const EditorLoading = () => (
   </div>
 )
 
-let app: JSX.Element
+let app: React.ReactElement
 
 if (isEditorRoute) {
   app = (

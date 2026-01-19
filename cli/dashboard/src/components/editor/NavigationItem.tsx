@@ -51,7 +51,6 @@ export function NavigationItem({
   errorCount = 0,
   warningCount = 0,
   onClick,
-  onToggle,
   className,
 }: NavigationItemProps) {
   const hasIssues = errorCount > 0 || warningCount > 0

@@ -35,9 +35,10 @@ test.describe('Accessibility - Axe Scans', () => {
       v => v.impact === 'critical' || v.impact === 'serious'
     )
 
-    if (criticalViolations.length > 0) {
-      console.log('Accessibility violations:', JSON.stringify(criticalViolations, null, 2))
-    }
+    // Log violations for debugging if needed
+    // if (criticalViolations.length > 0) {
+    //   console.warn('Accessibility violations:', JSON.stringify(criticalViolations, null, 2))
+    // }
 
     expect(criticalViolations.length).toBeLessThanOrEqual(5)
   })

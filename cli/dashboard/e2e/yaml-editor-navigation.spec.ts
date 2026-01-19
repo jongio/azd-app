@@ -60,8 +60,6 @@ test.describe('YAML Editor Navigation Component', () => {
       
       // Children should be hidden
       await expect(apiButton).not.toBeVisible()
-    } else {
-      console.log('API button not found - services may not have children or navigation structure is different')
     }
   })
 
@@ -174,8 +172,6 @@ test.describe('YAML Editor Navigation Component', () => {
     ).first()
     if (await addServiceButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(addServiceButton).toBeVisible()
-    } else {
-      console.log('Add service button not found in navigation - may be in toolbar instead')
     }
     
     // Check for add resource button
@@ -184,8 +180,6 @@ test.describe('YAML Editor Navigation Component', () => {
     ).first()
     if (await addResourceButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await expect(addResourceButton).toBeVisible()
-    } else {
-      console.log('Add resource button not found - feature may not be in navigation tree')
     }
   })
 
@@ -286,11 +280,7 @@ test.describe('YAML Editor Navigation Component', () => {
       const ariaExpanded = await servicesButton.getAttribute('aria-expanded')
       if (ariaExpanded !== null) {
         await expect(servicesButton).toHaveAttribute('aria-expanded')
-      } else {
-        console.log('Chevron toggle may not be separate from item click - aria-expanded not found')
       }
-    } else {
-      console.log('Chevron button not found - toggle may not be separate from item click')
     }
   })
 })

@@ -66,18 +66,6 @@ export function SchemaDrivenForm({
     return fields && Array.isArray(fields) && fields.length > 0 ? fields : []
   }, [fields])
   
-  // Create stable key for config to detect actual changes
-  // This prevents unnecessary recalculations when config object reference changes but values are the same
-  const configKey = useMemo(() => {
-    if (!config) {
-      return 'null'
-    }
-    try {
-      return JSON.stringify(config)
-    } catch {
-      return 'invalid'
-    }
-  }, [config])
   
   // Get default values for the form (unflatten from config)
   // Memoize with stable dependencies to prevent creating new objects on every render

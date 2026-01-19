@@ -16,7 +16,6 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  navigateToSection,
 } from '../helpers/test-setup'
 
 test.describe('Pipeline Configuration', () => {

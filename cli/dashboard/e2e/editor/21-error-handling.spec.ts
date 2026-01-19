@@ -12,21 +12,11 @@ import { test, expect } from '@playwright/test'
 import {
   setupTest,
   navigateToEditor,
-  loadInvalidProject,
   editYamlDirectly,
   waitForValidation,
   getValidationErrors,
 } from '../helpers/test-setup'
 import * as selectors from './selectors'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const fixturesDir = path.join(__dirname, '../fixtures')
-const invalidYaml = fs.readFileSync(path.join(fixturesDir, 'invalid-azure-yaml.yaml'), 'utf-8')
-const schemaViolationsYaml = fs.readFileSync(path.join(fixturesDir, 'schema-violations.yaml'), 'utf-8')
 
 test.describe('Error Handling - Invalid YAML', () => {
   test.beforeEach(async ({ page }) => {
@@ -66,7 +56,7 @@ test.describe('Error Handling - Invalid YAML', () => {
   })
 
   test('should display error messages clearly', async ({ page }) => {
-    await editYamlDirectly(page, invalidYaml)
+    await editYamlDirectly(page, 'invalid: : : yaml syntax')
     await page.waitForTimeout(1000)
 
     await waitForValidation(page)
@@ -87,7 +77,7 @@ test.describe('Error Handling - Schema Validation Errors', () => {
   })
 
   test('should handle schema validation errors', async ({ page }) => {
-    await editYamlDirectly(page, schemaViolationsYaml)
+    await editYamlDirectly(page, 'name: test\nservices:\n  api:\n    host: invalid-host-type')
     await page.waitForTimeout(1000)
 
     await waitForValidation(page)

@@ -14,18 +14,9 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  loadMinimalProject,
 } from '../helpers/test-setup'
 import * as selectors from './selectors'
 import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const fixturesDir = path.join(__dirname, '../fixtures')
-const comprehensiveYaml = fs.readFileSync(path.join(fixturesDir, 'comprehensive-azure-yaml.yaml'), 'utf-8')
-const minimalYaml = fs.readFileSync(path.join(fixturesDir, 'minimal-azure-yaml.yaml'), 'utf-8')
 
 test.describe('Import/Export - Export', () => {
   test.beforeEach(async ({ page }) => {
@@ -157,7 +148,7 @@ test.describe('Import/Export - Import from Paste', () => {
           // Fill in YAML
           const textarea = modal.locator('textarea').first()
           if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await textarea.fill(minimalYaml)
+            await textarea.fill('name: minimal-test\nservices: {}')
             await page.waitForTimeout(500)
 
             // Click Import button INSIDE modal (not the opener)
@@ -280,7 +271,7 @@ test.describe('Import/Export - Comprehensive Project', () => {
           // Fill in YAML
           const textarea = modal.locator('textarea').first()
           if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await textarea.fill(comprehensiveYaml)
+            await textarea.fill('name: editor-e2e-test-project\nservices:\n  web:\n    host: appservice\n    project: ./src/web')
             await page.waitForTimeout(500)
 
             // Click Import button INSIDE modal (not the opener)

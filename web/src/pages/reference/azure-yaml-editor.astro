@@ -1,0 +1,318 @@
+---
+/**
+ * Azure YAML Editor Page
+ * 
+ * Dedicated page showcasing the visual Azure YAML editor with screenshots,
+ * feature overview, and step-by-step walkthrough.
+ */
+import Layout from '../../components/Layout.astro';
+import Screenshot from '../../components/Screenshot.astro';
+import FeatureCard from '../../components/FeatureCard.astro';
+
+const features = [
+  {
+    icon: "🗂️",
+    title: "Visual Navigation",
+    description: "Navigate your azure.yaml structure with an intuitive tree sidebar. Jump to any section instantly.",
+  },
+  {
+    icon: "📝",
+    title: "Schema-Driven Forms",
+    description: "Edit configuration using smart forms that validate as you type. No need to remember YAML syntax.",
+  },
+  {
+    icon: "👁️",
+    title: "Live YAML Preview",
+    description: "See your changes in real-time with a synchronized YAML preview. Switch between Form and YAML views.",
+  },
+  {
+    icon: "✅",
+    title: "Real-Time Validation",
+    description: "Get instant feedback on configuration errors. Validation highlights issues before you save.",
+  },
+  {
+    icon: "⚡",
+    title: "Quick Actions",
+    description: "Add services, import configurations, and export your azure.yaml with one-click actions.",
+  },
+  {
+    icon: "⌨️",
+    title: "Command Palette",
+    description: "Access all editor features quickly with keyboard shortcuts. Press Ctrl+K (or Cmd+K) to open.",
+  },
+];
+---
+
+<Layout 
+  title="Azure YAML Editor" 
+  description="Visual editor for azure.yaml with schema-driven forms, real-time validation, and live YAML preview. Edit your configuration without writing YAML manually."
+>
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">Reference</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/azure-yaml/" class="hover:text-blue-500">azure.yaml</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">Editor</li>
+      </ol>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="mb-12">
+      <h1 class="text-4xl font-bold mb-4">Azure YAML Editor</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300 mb-6">
+        Edit your <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code> configuration visually with schema-driven forms, real-time validation, and live YAML preview. No need to write YAML manually.
+      </p>
+      
+      <div class="flex flex-wrap gap-4">
+        <a href="/azd-app/reference/azure-yaml/" class="btn-primary inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          View Reference Docs
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+        <a href="/azd-app/quick-start/" class="btn-secondary inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+          Get Started
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Screenshot -->
+    <section class="mb-12">
+      <Screenshot 
+        lightSrc="/azd-app/screenshots/editor-main-view.png"
+        darkSrc="/azd-app/screenshots/editor-main-view.png"
+        alt="Azure YAML Editor showing navigation sidebar, form view, and YAML preview pane"
+        caption="The Azure YAML Editor provides a visual interface for editing your configuration"
+      />
+    </section>
+
+    <!-- Features Overview -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">Key Features</h2>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {features.map((feature) => (
+          <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+            <div class="text-2xl mb-2">{feature.icon}</div>
+            <div class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{feature.title}</div>
+            <div class="text-sm text-neutral-600 dark:text-neutral-400">{feature.description}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- How to Access -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">How to Access the Editor</h2>
+      <div class="bg-neutral-50 dark:bg-neutral-900 p-6 rounded-lg border border-neutral-200 dark:border-neutral-700">
+        <ol class="list-decimal list-inside space-y-3 text-neutral-700 dark:text-neutral-300">
+          <li>Start your project with <code class="px-1.5 py-0.5 bg-neutral-200 dark:bg-neutral-700 rounded text-sm">azd app run</code></li>
+          <li>Open the dashboard URL shown in the terminal (typically <code class="px-1.5 py-0.5 bg-neutral-200 dark:bg-neutral-700 rounded text-sm">http://localhost:XXXXX</code>)</li>
+          <li>Click the <strong>"Editor"</strong> tab in the dashboard navigation</li>
+          <li>Start editing your <code class="px-1.5 py-0.5 bg-neutral-200 dark:bg-neutral-700 rounded text-sm">azure.yaml</code> configuration</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Walkthrough -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">Step-by-Step Walkthrough</h2>
+      
+      <!-- Step 1 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">1</div>
+          <h3 class="text-xl font-semibold">Opening the Editor</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          Once your dashboard is running, navigate to the <strong>Editor</strong> tab. The editor loads your current <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code> file and displays it in a structured view.
+        </p>
+        <Screenshot 
+          lightSrc="/azd-app/screenshots/editor-main-view.png"
+          darkSrc="/azd-app/screenshots/editor-main-view.png"
+          alt="Editor main view showing the navigation sidebar and form view"
+          caption="The editor interface with navigation sidebar on the left"
+        />
+      </div>
+
+      <!-- Step 2 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">2</div>
+          <h3 class="text-xl font-semibold">Navigating the Sidebar</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          Use the navigation sidebar to browse your configuration structure. Click on any section (like <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">services</code>, <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">resources</code>, or individual service names) to jump directly to that part of your configuration.
+        </p>
+        <Screenshot 
+          lightSrc="/azd-app/screenshots/editor-navigation.png"
+          darkSrc="/azd-app/screenshots/editor-navigation.png"
+          alt="Navigation sidebar showing the tree structure of azure.yaml"
+          caption="Navigate your configuration structure with the sidebar"
+        />
+      </div>
+
+      <!-- Step 3 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">3</div>
+          <h3 class="text-xl font-semibold">Editing with Forms</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          Switch to the <strong>Form</strong> view to edit properties using intuitive form fields. The editor provides dropdowns, text inputs, and checkboxes based on the schema. Changes are validated in real-time as you type.
+        </p>
+        <Screenshot 
+          lightSrc="/azd-app/screenshots/editor-form-view.png"
+          darkSrc="/azd-app/screenshots/editor-form-view.png"
+          alt="Form view showing schema-driven form fields for editing service properties"
+          caption="Edit configuration using smart forms that validate as you type"
+        />
+      </div>
+
+      <!-- Step 4 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">4</div>
+          <h3 class="text-xl font-semibold">Viewing YAML Preview</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          Toggle the <strong>Preview</strong> pane to see the YAML representation of your changes. The preview updates in real-time as you edit in the form view. You can also switch to <strong>YAML</strong> view to edit directly if you prefer.
+        </p>
+        <Screenshot 
+          lightSrc="/azd-app/screenshots/editor-main-view.png"
+          darkSrc="/azd-app/screenshots/editor-main-view.png"
+          alt="Editor showing both form view and YAML preview pane"
+          caption="View your changes in real-time with synchronized YAML preview"
+        />
+      </div>
+
+      <!-- Step 5 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">5</div>
+          <h3 class="text-xl font-semibold">Using Validation</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          The editor validates your configuration against the schema in real-time. Errors and warnings are highlighted, and you'll see a validation summary panel showing all issues. Fix errors before saving to ensure your configuration is valid.
+        </p>
+        <Screenshot 
+          lightSrc="/azd-app/screenshots/editor-validation.png"
+          darkSrc="/azd-app/screenshots/editor-validation.png"
+          alt="Editor showing validation errors and warnings"
+          caption="Get instant feedback on configuration errors"
+        />
+      </div>
+
+      <!-- Step 6 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">6</div>
+          <h3 class="text-xl font-semibold">Quick Actions and Shortcuts</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          Use the quick actions bar to add services, import configurations, or export your <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code>. Press <kbd class="px-2 py-1 bg-neutral-200 dark:bg-neutral-700 rounded text-sm">Ctrl+K</kbd> (or <kbd class="px-2 py-1 bg-neutral-200 dark:bg-neutral-700 rounded text-sm">Cmd+K</kbd> on Mac) to open the command palette for quick access to all features.
+        </p>
+        <div class="grid gap-4 md:grid-cols-2">
+          <Screenshot 
+            lightSrc="/azd-app/screenshots/editor-quick-actions.png"
+            darkSrc="/azd-app/screenshots/editor-quick-actions.png"
+            alt="Quick actions bar with common operations"
+            caption="Quick actions for common tasks"
+          />
+          <Screenshot 
+            lightSrc="/azd-app/screenshots/editor-command-palette.png"
+            darkSrc="/azd-app/screenshots/editor-command-palette.png"
+            alt="Command palette interface"
+            caption="Command palette for keyboard-driven navigation"
+          />
+        </div>
+      </div>
+
+      <!-- Step 7 -->
+      <div class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full font-bold">7</div>
+          <h3 class="text-xl font-semibold">Saving Your Changes</h3>
+        </div>
+        <p class="text-neutral-700 dark:text-neutral-300 mb-4 ml-11">
+          When you're ready, click the <strong>Save</strong> button to write your changes to the <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code> file. The editor will validate your configuration one final time before saving. If there are errors, you'll be prompted to fix them first.
+        </p>
+      </div>
+    </section>
+
+    <!-- Tips & Best Practices -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Tips & Best Practices</h2>
+      <div class="space-y-4">
+        <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div class="font-semibold text-blue-900 dark:text-blue-100 mb-2">💡 Use the Preview Pane</div>
+          <p class="text-sm text-blue-800 dark:text-blue-200">
+            Keep the preview pane open while editing to see how your changes translate to YAML. This helps you learn the structure and catch formatting issues early.
+          </p>
+        </div>
+        <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+          <div class="font-semibold text-green-900 dark:text-green-100 mb-2">✅ Fix Validation Errors Early</div>
+          <p class="text-sm text-green-800 dark:text-green-200">
+            Address validation errors as you go. The editor highlights issues in real-time, making it easy to fix problems before they compound.
+          </p>
+        </div>
+        <div class="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+          <div class="font-semibold text-purple-900 dark:text-purple-100 mb-2">⌨️ Learn Keyboard Shortcuts</div>
+          <p class="text-sm text-purple-800 dark:text-purple-200">
+            Use <kbd class="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-800 rounded text-xs">Ctrl+K</kbd> to open the command palette and discover all available shortcuts. This speeds up your workflow significantly.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Related Links -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">Learn More</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <a href="/azd-app/reference/azure-yaml/" class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 transition-colors">
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">azure.yaml Reference</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">Complete reference documentation for all azure.yaml options</div>
+        </a>
+        <a href="/azd-app/quick-start/" class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 transition-colors">
+          <div class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">Quick Start Guide</div>
+          <div class="text-sm text-neutral-600 dark:text-neutral-400">Get started with azd app in under 5 minutes</div>
+        </a>
+      </div>
+    </section>
+  </div>
+</Layout>
+
+<style>
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background-color 150ms ease-out;
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+</style>

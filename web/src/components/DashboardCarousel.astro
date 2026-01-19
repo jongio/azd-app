@@ -24,6 +24,12 @@ const baseUrl = import.meta.env.BASE_URL;
 // Note: Screenshots are captured by scripts/capture-screenshots.ts
 const slides = [
   {
+    src: `${baseUrl}screenshots/editor-main-view.png`,
+    alt: 'Azure YAML Editor showing visual form editing with navigation sidebar and YAML preview',
+    title: 'Azure YAML Editor',
+    description: 'Visual editor with validation & forms',
+  },
+  {
     src: `${baseUrl}screenshots/dashboard-console.png`,
     alt: 'Console view showing real-time logs from all services with filtering options',
     title: 'Console View',
@@ -326,6 +332,7 @@ const slides = [
       
       // Slide data for updating info - must match the order of slides defined in Astro
       const slideData = [
+        { title: 'Azure YAML Editor', description: 'Visual editor with validation & forms' },
         { title: 'Console View', description: 'Real-time logs & monitoring' },
         { title: 'Table View', description: 'View all services at a glance' },
         { title: 'Grid View', description: 'Detailed service cards' },

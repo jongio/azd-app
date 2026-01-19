@@ -12,6 +12,9 @@
     "build": "astro build && pagefind --site dist",
     "preview": "astro preview",
     "screenshots": "tsx scripts/capture-screenshots.ts",
+    "screenshots:capture": "tsx scripts/capture-screenshots.ts",
+    "screenshots:editor": "tsx scripts/capture-screenshots.ts editor-main-view",
+    "screenshots:editor:all": "tsx scripts/capture-screenshots.ts editor-",
     "astro": "astro",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots"

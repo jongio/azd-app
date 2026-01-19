@@ -13,7 +13,6 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  loadMinimalProject,
   editYamlDirectly,
 } from '../helpers/test-setup'
 import * as selectors from './selectors'

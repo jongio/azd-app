@@ -47,7 +47,7 @@ class ScreenReaderAnnouncer {
     document.body.appendChild(this.assertiveRegion)
   }
 
-  private ensureRegions() {
+  ensureRegions() {
     if (!this.politeRegion || !document.body.contains(this.politeRegion) || !this.assertiveRegion || !document.body.contains(this.assertiveRegion)) {
       this.createRegions()
     }

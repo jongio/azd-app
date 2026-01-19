@@ -876,15 +876,22 @@ export function getServiceRow(page: Page, serviceName: string) {
  */
 export async function navigateToEditor(page: Page) {
   await page.goto('/editor')
-  await waitForDashboardReady(page)
-  // Wait for editor to be ready
-  await page.waitForSelector('[role="navigation"][aria-label*="Azure YAML Editor" i], [class*="editor"]', { timeout: 5000 }).catch(() => {})
+  // Wait for editor-specific elements instead of dashboard tablist
+  // Editor has navigation sidebar or main content area
+  await page.waitForSelector(
+    '[role="navigation"][aria-label*="Azure YAML Editor" i], [class*="editor"], [role="tree"], main',
+    { timeout: 15000 }
+  ).catch(() => {})
+  // Also wait for page to be loaded
+  await page.waitForLoadState('domcontentloaded')
+  // Give editor time to initialize
+  await page.waitForTimeout(1000)
 }
 
 /**
  * Wait for validation to complete
  */
-export async function waitForValidation(page: Page, timeout = 5000) {
+export async function waitForValidation(page: Page, _timeout = 5000) {
   // Wait for validation panel or validation to be ready
   await page.waitForTimeout(500) // Give validation time to run
   const validationPanel = page.locator('[class*="validation"], [aria-label*="validation" i]').first()
@@ -1652,7 +1659,7 @@ export async function loadMinimalProject(page: Page) {
 /**
  * Load invalid test project for error testing
  */
-export async function loadInvalidProject(page: Page) {
+export async function loadInvalidProject(_page: Page) {
   const fs = await import('fs')
   const path = await import('path')
   const { fileURLToPath } = await import('url')

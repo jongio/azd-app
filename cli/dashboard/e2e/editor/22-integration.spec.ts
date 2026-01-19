@@ -160,7 +160,7 @@ test.describe('Integration - Round-Trip Export/Import', () => {
   })
 
   test('should preserve configuration through save/load cycle', async ({ page }) => {
-    const initialContent = await getYamlContent(page)
+    await getYamlContent(page)
     
     // Make a change
     await editYamlDirectly(page, 'name: cycle-test\nservices: {}')

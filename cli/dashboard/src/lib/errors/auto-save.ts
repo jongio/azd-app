@@ -165,7 +165,6 @@ export function cleanupStaleDrafts(): void {
   const draft = loadDraft()
   if (draft && isDraftStale(draft)) {
     clearDraft()
-    console.log('Cleaned up stale draft')
   }
 }
 

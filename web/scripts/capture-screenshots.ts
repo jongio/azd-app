@@ -7,7 +7,10 @@
  * - Azure CLI authenticated (az login)
  * - Azure resources deployed in azure-logs-test project
  * 
- * Run with: npx tsx scripts/capture-screenshots.ts
+ * Run with: 
+ *   pnpm screenshots                    # Capture all screenshots
+ *   pnpm screenshots:editor             # Capture only editor-main-view
+ *   tsx scripts/capture-screenshots.ts [screenshot-name]  # Capture specific screenshot
  *
  * What it does:
  * 1. Checks Azure CLI authentication
@@ -112,7 +115,7 @@ async function main(): Promise<void> {
     // azd app run outputs: "Dashboard  http://localhost:XXXXX"
     let dashboardDetected = false;
     
-    startProcess(azdAppBin, ['run'], DEMO_DIR, 'azd-app', (line) => {
+    await startProcess(azdAppBin, ['run'], DEMO_DIR, 'azd-app', (line) => {
       // Look for dashboard URL in output
       const dashboardMatch = line.match(/Dashboard\s+(https?:\/\/[^\s]+)/i);
       if (dashboardMatch && !dashboardDetected) {
@@ -172,9 +175,14 @@ async function main(): Promise<void> {
     const results: { name: string; success: boolean; errors: string[] }[] = [];
 
     // Filter to specific screenshot if needed for testing
-    const targetScreenshot = process.env.SCREENSHOT_FILTER;
+    // Support both command-line argument and environment variable (for cross-platform compatibility)
+    // Supports exact match or prefix match (e.g., "editor" or "editor-" matches all "editor-*" screenshots)
+    const targetScreenshot = process.argv[2] || process.env.SCREENSHOT_FILTER;
     const screenshotsToCapture = targetScreenshot 
-      ? SCREENSHOT_CONFIGS.filter(c => c.name === targetScreenshot)
+      ? SCREENSHOT_CONFIGS.filter(c => {
+          const filter = targetScreenshot.endsWith('-') ? targetScreenshot : targetScreenshot + '-';
+          return c.name === targetScreenshot || c.name.startsWith(filter);
+        })
       : SCREENSHOT_CONFIGS;
 
     if (targetScreenshot && screenshotsToCapture.length === 0) {
@@ -187,8 +195,14 @@ async function main(): Promise<void> {
 
     for (const config of screenshotsToCapture) {
       try {
-        // Use detected dashboard URL, but skip initial goto
-        const configWithUrl = { ...config, url: dashboardUrl, skipGoto: true };
+        // For editor screenshots, navigate to /editor route; for others, skip goto to reuse existing page
+        const isEditorScreenshot = config.name.startsWith('editor-');
+        const editorUrl = dashboardUrl.replace(/\/$/, '') + '/editor';
+        const configWithUrl = { 
+          ...config, 
+          url: isEditorScreenshot ? editorUrl : dashboardUrl, 
+          skipGoto: !isEditorScreenshot 
+        };
         const result = await captureScreenshot(page, configWithUrl, SCREENSHOTS_DIR);
         results.push({ name: config.name, ...result });
       } catch (e) {

@@ -14,10 +14,8 @@ import {
   setupTest,
   navigateToEditor,
   loadComprehensiveProject,
-  loadInvalidProject,
   editYamlDirectly,
   getYamlContent,
-  expectYamlContains,
   waitForValidation,
   getValidationErrors,
 } from '../helpers/test-setup'
@@ -46,8 +44,6 @@ test.describe('YAML Editor - Direct Editing', () => {
   test('should update preview when YAML is edited', async ({ page }) => {
     const textarea = page.locator('textarea').first()
     if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const initialContent = await textarea.inputValue()
-
       await textarea.fill('name: updated-project\nservices: {}')
       await page.waitForTimeout(1000)
 
