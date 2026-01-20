@@ -10,6 +10,7 @@ import { useBicepTemplate } from '@/hooks/useBicepTemplate'
 import { useToast } from '@/hooks/useToast'
 import { useTimeout, useTimeoutMap } from '@/hooks/useTimeout'
 import { CodeBlock } from '@/components/shared/CodeBlock'
+import { sanitizeInput } from '@/lib/editor/security-utils'
 
 // =============================================================================
 // Types
@@ -66,7 +67,7 @@ function InstructionsSection({ summary, steps }: Readonly<InstructionsSectionPro
         </p>
         <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-2 ml-4 list-decimal">
           {steps.map((step) => (
-            <li key={step} dangerouslySetInnerHTML={{ __html: step }} />
+            <li key={step} dangerouslySetInnerHTML={{ __html: sanitizeInput(step) }} />
           ))}
         </ol>
       </div>

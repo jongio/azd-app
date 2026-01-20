@@ -44,6 +44,24 @@ export interface RestoreBackupResponse {
   backupCreated: string
 }
 
+export interface ValidationError {
+  message: string
+  path?: string
+  line?: number
+  level?: 'error' | 'warning' | 'info'
+}
+
+export interface ValidationResponse {
+  valid: boolean
+  errors: ValidationError[]
+}
+
+export interface CreateBackupResponse {
+  success: boolean
+  timestamp: string
+  path: string
+}
+
 /**
  * Load current azure.yaml configuration
  */
@@ -157,4 +175,44 @@ export async function deleteBackup(timestamp: string): Promise<void> {
     const error = await response.json().catch(() => ({ error: 'Failed to delete backup' }))
     throw new Error(error.error || 'Failed to delete backup')
   }
+}
+
+/**
+ * Validate azure.yaml content against schema
+ */
+export async function validateConfig(content: string): Promise<ValidationResponse> {
+  const response = await fetch('/api/editor/validate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to validate configuration' }))
+    throw new Error(error.error || 'Failed to validate configuration')
+  }
+
+  return response.json()
+}
+
+/**
+ * Create a manual backup with custom name
+ */
+export async function createManualBackup(name?: string): Promise<CreateBackupResponse> {
+  const response = await fetch('/api/editor/backups', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to create backup' }))
+    throw new Error(error.error || 'Failed to create backup')
+  }
+
+  return response.json()
 }

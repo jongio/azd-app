@@ -23,6 +23,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage --maxConcurrency=1",
+    "test:integration": "TEST_INTEGRATION=true vitest run --testPathPattern=integration",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
