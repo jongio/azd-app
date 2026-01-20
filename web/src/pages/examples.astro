@@ -8,6 +8,8 @@
 import Layout from '../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 interface Example {
   id: string;
   title: string;
@@ -295,7 +297,7 @@ services:
           Learn about all configuration options - services, health checks, logging, testing, and more.
         </p>
         <a 
-          href="/azd-app/reference/azure-yaml/" 
+          href={`${baseUrl}reference/azure-yaml/`} 
           class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline font-medium"
         >
           View complete reference →
@@ -314,7 +316,7 @@ services:
           <Code code="azd init -t jongio/azd-app-demo" lang="bash" />
         </div>
         <a 
-          href="/azd-app/quick-start/" 
+          href={`${baseUrl}quick-start/`} 
           class="inline-flex items-center gap-2 text-green-700 dark:text-green-400 hover:underline font-medium"
         >
           Follow Quick Start guide →
@@ -328,7 +330,7 @@ services:
         Ready to debug with AI? Set up the MCP server for Copilot integration.
       </p>
       <a 
-        href="/azd-app/mcp/setup/" 
+        href={`${baseUrl}mcp/setup/`} 
         class="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
       >
         <span>🤖</span>

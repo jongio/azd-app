@@ -2,6 +2,8 @@
 import Layout from '../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const addCommand = `# List available container services
 azd app add --list
 
@@ -118,9 +120,9 @@ azd app run --dry-run`;
     <!-- Breadcrumb -->
     <nav class="text-sm mb-8">
       <ol class="flex items-center gap-2 text-neutral-500">
-        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li><a href={`${baseUrl}`} class="hover:text-blue-500">Home</a></li>
         <li>/</li>
-        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">Reference</a></li>
+        <li><a href={`${baseUrl}reference/cli/`} class="hover:text-blue-500">Reference</a></li>
         <li>/</li>
         <li class="text-neutral-900 dark:text-white">Container Services</li>
       </ol>
@@ -415,7 +417,7 @@ azd app run --dry-run`;
       <div class="p-6 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg border border-yellow-300 dark:border-yellow-700">
         <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">Requirements</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-          Container services require Docker to be installed and running on your machine. The <a href="/azd-app/reference/cli/reqs/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app reqs</a> command will automatically check for Docker when container services are defined in your project.
+          Container services require Docker to be installed and running on your machine. The <a href={`${baseUrl}reference/cli/reqs/`} class="text-blue-600 dark:text-blue-400 hover:underline">azd app reqs</a> command will automatically check for Docker when container services are defined in your project.
         </p>
         <ul class="list-disc list-inside text-neutral-700 dark:text-neutral-300 space-y-1">
           <li><a href="https://docs.docker.com/desktop/" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">Docker Desktop</a> (Windows/macOS)</li>
@@ -427,17 +429,17 @@ azd app run --dry-run`;
     <!-- See Also -->
     <h2 class="text-2xl font-bold mt-12 mb-4">See Also</h2>
     <ul class="list-disc list-inside text-neutral-700 dark:text-neutral-300 space-y-2">
-      <li><a href="/azd-app/reference/azure-yaml/" class="text-blue-600 dark:text-blue-400 hover:underline">azure.yaml Reference</a> - Complete configuration guide including container services</li>
-      <li><a href="/azd-app/reference/cli/add/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app add</a> - Add container services to your project</li>
-      <li><a href="/azd-app/reference/cli/run/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app run</a> - Start all services including containers</li>
-      <li><a href="/azd-app/reference/cli/health/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app health</a> - Monitor container health status</li>
-      <li><a href="/azd-app/reference/cli/logs/" class="text-blue-600 dark:text-blue-400 hover:underline">azd app logs</a> - View container logs</li>
+      <li><a href={`${baseUrl}reference/azure-yaml/`} class="text-blue-600 dark:text-blue-400 hover:underline">azure.yaml Reference</a> - Complete configuration guide including container services</li>
+      <li><a href={`${baseUrl}reference/cli/add/`} class="text-blue-600 dark:text-blue-400 hover:underline">azd app add</a> - Add container services to your project</li>
+      <li><a href={`${baseUrl}reference/cli/run/`} class="text-blue-600 dark:text-blue-400 hover:underline">azd app run</a> - Start all services including containers</li>
+      <li><a href={`${baseUrl}reference/cli/health/`} class="text-blue-600 dark:text-blue-400 hover:underline">azd app health</a> - Monitor container health status</li>
+      <li><a href={`${baseUrl}reference/cli/logs/`} class="text-blue-600 dark:text-blue-400 hover:underline">azd app logs</a> - View container logs</li>
     </ul>
 
     <!-- Navigation -->
     <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between">
-        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+        <a href={`${baseUrl}reference/cli/`} class="text-blue-600 dark:text-blue-400 hover:underline">
           Back to CLI Reference
         </a>
       </div>

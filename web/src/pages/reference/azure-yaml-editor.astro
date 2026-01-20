@@ -9,6 +9,8 @@ import Layout from '../../components/Layout.astro';
 import Screenshot from '../../components/Screenshot.astro';
 import FeatureCard from '../../components/FeatureCard.astro';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const features = [
   {
     icon: "🗂️",
@@ -51,11 +53,11 @@ const features = [
     <!-- Breadcrumb -->
     <nav class="text-sm mb-8">
       <ol class="flex items-center gap-2 text-neutral-500">
-        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li><a href={`${baseUrl}`} class="hover:text-blue-500">Home</a></li>
         <li>/</li>
-        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">Reference</a></li>
+        <li><a href={`${baseUrl}reference/cli/`} class="hover:text-blue-500">Reference</a></li>
         <li>/</li>
-        <li><a href="/azd-app/reference/azure-yaml/" class="hover:text-blue-500">azure.yaml</a></li>
+        <li><a href={`${baseUrl}reference/azure-yaml/`} class="hover:text-blue-500">azure.yaml</a></li>
         <li>/</li>
         <li class="text-neutral-900 dark:text-white">Editor</li>
       </ol>
@@ -69,14 +71,14 @@ const features = [
       </p>
       
       <div class="flex flex-wrap gap-4">
-        <a href="/azd-app/reference/azure-yaml/" class="btn-primary inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <a href={`${baseUrl}reference/azure-yaml/`} class="btn-primary inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           View Reference Docs
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="5" y1="12" x2="19" y2="12"></line>
             <polyline points="12 5 19 12 12 19"></polyline>
           </svg>
         </a>
-        <a href="/azd-app/quick-start/" class="btn-secondary inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+        <a href={`${baseUrl}quick-start/`} class="btn-secondary inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
           Get Started
         </a>
       </div>
@@ -85,8 +87,8 @@ const features = [
     <!-- Main Screenshot -->
     <section class="mb-12">
       <Screenshot 
-        lightSrc="/azd-app/screenshots/editor-main-view.png"
-        darkSrc="/azd-app/screenshots/editor-main-view.png"
+        lightSrc={`${baseUrl}screenshots/editor-main-view.png`}
+        darkSrc={`${baseUrl}screenshots/editor-main-view.png`}
         alt="Azure YAML Editor showing navigation sidebar, form view, and YAML preview pane"
         caption="The Azure YAML Editor provides a visual interface for editing your configuration"
       />
@@ -133,8 +135,8 @@ const features = [
           Once your dashboard is running, navigate to the <strong>Editor</strong> tab. The editor loads your current <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azure.yaml</code> file and displays it in a structured view.
         </p>
         <Screenshot 
-          lightSrc="/azd-app/screenshots/editor-main-view.png"
-          darkSrc="/azd-app/screenshots/editor-main-view.png"
+          lightSrc={`${baseUrl}screenshots/editor-main-view.png`}
+          darkSrc={`${baseUrl}screenshots/editor-main-view.png`}
           alt="Editor main view showing the navigation sidebar and form view"
           caption="The editor interface with navigation sidebar on the left"
         />
@@ -150,8 +152,8 @@ const features = [
           Use the navigation sidebar to browse your configuration structure. Click on any section (like <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">services</code>, <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">resources</code>, or individual service names) to jump directly to that part of your configuration.
         </p>
         <Screenshot 
-          lightSrc="/azd-app/screenshots/editor-navigation.png"
-          darkSrc="/azd-app/screenshots/editor-navigation.png"
+          lightSrc={`${baseUrl}screenshots/editor-navigation.png`}
+          darkSrc={`${baseUrl}screenshots/editor-navigation.png`}
           alt="Navigation sidebar showing the tree structure of azure.yaml"
           caption="Navigate your configuration structure with the sidebar"
         />
@@ -167,8 +169,8 @@ const features = [
           Switch to the <strong>Form</strong> view to edit properties using intuitive form fields. The editor provides dropdowns, text inputs, and checkboxes based on the schema. Changes are validated in real-time as you type.
         </p>
         <Screenshot 
-          lightSrc="/azd-app/screenshots/editor-form-view.png"
-          darkSrc="/azd-app/screenshots/editor-form-view.png"
+          lightSrc={`${baseUrl}screenshots/editor-form-view.png`}
+          darkSrc={`${baseUrl}screenshots/editor-form-view.png`}
           alt="Form view showing schema-driven form fields for editing service properties"
           caption="Edit configuration using smart forms that validate as you type"
         />
@@ -184,8 +186,8 @@ const features = [
           Toggle the <strong>Preview</strong> pane to see the YAML representation of your changes. The preview updates in real-time as you edit in the form view. You can also switch to <strong>YAML</strong> view to edit directly if you prefer.
         </p>
         <Screenshot 
-          lightSrc="/azd-app/screenshots/editor-main-view.png"
-          darkSrc="/azd-app/screenshots/editor-main-view.png"
+          lightSrc={`${baseUrl}screenshots/editor-main-view.png`}
+          darkSrc={`${baseUrl}screenshots/editor-main-view.png`}
           alt="Editor showing both form view and YAML preview pane"
           caption="View your changes in real-time with synchronized YAML preview"
         />
@@ -201,8 +203,8 @@ const features = [
           The editor validates your configuration against the schema in real-time. Errors and warnings are highlighted, and you'll see a validation summary panel showing all issues. Fix errors before saving to ensure your configuration is valid.
         </p>
         <Screenshot 
-          lightSrc="/azd-app/screenshots/editor-validation.png"
-          darkSrc="/azd-app/screenshots/editor-validation.png"
+          lightSrc={`${baseUrl}screenshots/editor-validation.png`}
+          darkSrc={`${baseUrl}screenshots/editor-validation.png`}
           alt="Editor showing validation errors and warnings"
           caption="Get instant feedback on configuration errors"
         />
@@ -219,14 +221,14 @@ const features = [
         </p>
         <div class="grid gap-4 md:grid-cols-2">
           <Screenshot 
-            lightSrc="/azd-app/screenshots/editor-quick-actions.png"
-            darkSrc="/azd-app/screenshots/editor-quick-actions.png"
+            lightSrc={`${baseUrl}screenshots/editor-quick-actions.png`}
+            darkSrc={`${baseUrl}screenshots/editor-quick-actions.png`}
             alt="Quick actions bar with common operations"
             caption="Quick actions for common tasks"
           />
           <Screenshot 
-            lightSrc="/azd-app/screenshots/editor-command-palette.png"
-            darkSrc="/azd-app/screenshots/editor-command-palette.png"
+            lightSrc={`${baseUrl}screenshots/editor-command-palette.png`}
+            darkSrc={`${baseUrl}screenshots/editor-command-palette.png`}
             alt="Command palette interface"
             caption="Command palette for keyboard-driven navigation"
           />
@@ -274,11 +276,11 @@ const features = [
     <section class="mb-12">
       <h2 class="text-2xl font-bold mb-4">Learn More</h2>
       <div class="grid gap-4 md:grid-cols-2">
-        <a href="/azd-app/reference/azure-yaml/" class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 transition-colors">
+        <a href={`${baseUrl}reference/azure-yaml/`} class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 transition-colors">
           <div class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">azure.yaml Reference</div>
           <div class="text-sm text-neutral-600 dark:text-neutral-400">Complete reference documentation for all azure.yaml options</div>
         </a>
-        <a href="/azd-app/quick-start/" class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 transition-colors">
+        <a href={`${baseUrl}quick-start/`} class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 transition-colors">
           <div class="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">Quick Start Guide</div>
           <div class="text-sm text-neutral-600 dark:text-neutral-400">Get started with azd app in under 5 minutes</div>
         </a>

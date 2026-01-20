@@ -3,6 +3,8 @@ import Layout from '../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 import Screenshot from '../../components/Screenshot.astro';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const yamlProjectLevel = `logs:
   analytics:
     pollingInterval: 30s
@@ -72,9 +74,9 @@ const yamlCustomKQL = `services:
     <!-- Breadcrumb -->
     <nav class="text-sm mb-8">
       <ol class="flex items-center gap-2 text-neutral-500">
-        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li><a href={`${baseUrl}`} class="hover:text-blue-500">Home</a></li>
         <li>/</li>
-        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">Reference</a></li>
+        <li><a href={`${baseUrl}reference/cli/`} class="hover:text-blue-500">Reference</a></li>
         <li>/</li>
         <li class="text-neutral-900 dark:text-white">Azure Logs</li>
       </ol>
@@ -96,8 +98,8 @@ const yamlCustomKQL = `services:
       </p>
       
       <Screenshot 
-        lightSrc="/azd-app/screenshots/dashboard-azure-logs.png"
-        darkSrc="/azd-app/screenshots/dashboard-azure-logs.png"
+        lightSrc={`${baseUrl}screenshots/dashboard-azure-logs.png`}
+        darkSrc={`${baseUrl}screenshots/dashboard-azure-logs.png`}
         alt="Dashboard showing Azure cloud logs from Container Apps, App Service, and Functions"
         caption="Unified view of Azure cloud logs in the azd app dashboard"
       />
@@ -183,8 +185,8 @@ const yamlCustomKQL = `services:
       </ul>
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/dashboard-azure-logs-time-range.png"
-        darkSrc="/azd-app/screenshots/dashboard-azure-logs-time-range.png"
+        lightSrc={`${baseUrl}screenshots/dashboard-azure-logs-time-range.png`}
+        darkSrc={`${baseUrl}screenshots/dashboard-azure-logs-time-range.png`}
         alt="Time range selector showing options for 15m, 30m, 6h, and 24h"
         caption="Select time ranges to view logs from different time windows"
       />
@@ -195,8 +197,8 @@ const yamlCustomKQL = `services:
       </p>
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/dashboard-azure-logs-filters.png"
-        darkSrc="/azd-app/screenshots/dashboard-azure-logs-filters.png"
+        lightSrc={`${baseUrl}screenshots/dashboard-azure-logs-filters.png`}
+        darkSrc={`${baseUrl}screenshots/dashboard-azure-logs-filters.png`}
         alt="Service filter dropdown showing available Azure services"
         caption="Filter logs by service to focus on specific components"
       />
@@ -279,8 +281,8 @@ const yamlCustomKQL = `services:
     <section class="mb-12">
       <h2 class="text-2xl font-bold mb-4">Learn More</h2>
       <ul class="space-y-2 text-neutral-700 dark:text-neutral-300">
-        <li>→ <a href="/azd-app/reference/azure-yaml/" class="text-blue-600 dark:text-blue-400 hover:underline">azure.yaml Reference</a> - Complete configuration reference</li>
-        <li>→ <a href="/azd-app/tour/6-logs/" class="text-blue-600 dark:text-blue-400 hover:underline">Logs Tour</a> - Interactive guide to log viewing</li>
+        <li>→ <a href={`${baseUrl}reference/azure-yaml/`} class="text-blue-600 dark:text-blue-400 hover:underline">azure.yaml Reference</a> - Complete configuration reference</li>
+        <li>→ <a href={`${baseUrl}tour/6-logs/`} class="text-blue-600 dark:text-blue-400 hover:underline">Logs Tour</a> - Interactive guide to log viewing</li>
         <li>→ <a href="https://learn.microsoft.com/azure/azure-monitor/logs/log-analytics-overview" class="text-blue-600 dark:text-blue-400 hover:underline">Azure Log Analytics Documentation</a> - Microsoft official docs</li>
       </ul>
     </section>

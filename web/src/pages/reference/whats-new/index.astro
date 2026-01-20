@@ -1,5 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
 ---
 
 <Layout title="What's New" description="Latest updates to azd-app CLI">
@@ -12,7 +14,7 @@ import Layout from '../../../components/Layout.astro';
       </p>
       <div class="mt-4">
         <a 
-          href="/azd-app/reference/changelog/" 
+          href={`${baseUrl}reference/changelog/`} 
           class="text-blue-600 dark:text-blue-400 hover:underline"
         >
           View full changelog →
@@ -125,7 +127,7 @@ import Layout from '../../../components/Layout.astro';
         Get started with the latest version of azd-app in minutes.
       </p>
       <a 
-        href="/azd-app/quick-start/"
+        href={`${baseUrl}quick-start/`}
         class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
       >
         Quick Start Guide →

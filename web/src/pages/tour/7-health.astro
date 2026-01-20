@@ -11,6 +11,8 @@ import CodeBlock from '../../components/CodeBlock.astro';
 import Screenshot from '../../components/Screenshot.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const step = getStepByNumber(7)!;
 const prevStep = getPreviousStep(7);
 const nextStep = getNextStep(7);
@@ -114,8 +116,8 @@ All services healthy!`}
       <p>A running service can be unhealthy (process up, but health checks failing), and a stopped service has no health status. The dashboard shows both clearly.</p>
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/health-view.png"
-        darkSrc="/azd-app/screenshots/health-view.png"
+        lightSrc={`${baseUrl}screenshots/health-view.png`}
+        darkSrc={`${baseUrl}screenshots/health-view.png`}
         alt="Dashboard health view displaying service status indicators, uptime metrics, and last health check timestamps for all running services"
         caption="Dashboard health view showing service status, uptime, and last check time"
       />

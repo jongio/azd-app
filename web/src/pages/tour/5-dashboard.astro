@@ -11,6 +11,8 @@ import CodeBlock from '../../components/CodeBlock.astro';
 import Screenshot from '../../components/Screenshot.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const step = getStepByNumber(5)!;
 const prevStep = getPreviousStep(5);
 const nextStep = getNextStep(5);
@@ -80,8 +82,8 @@ const nextStep = getNextStep(5);
       </ul>
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/dashboard-resources-table.png"
-        darkSrc="/azd-app/screenshots/dashboard-resources-table.png"
+        lightSrc={`${baseUrl}screenshots/dashboard-resources-table.png`}
+        darkSrc={`${baseUrl}screenshots/dashboard-resources-table.png`}
         alt="Dashboard services view showing status indicators, port mappings, and service details"
       />
 
@@ -95,8 +97,8 @@ const nextStep = getNextStep(5);
       </ul>
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/dashboard-services-health.png"
-        darkSrc="/azd-app/screenshots/dashboard-services-health.png"
+        lightSrc={`${baseUrl}screenshots/dashboard-services-health.png`}
+        darkSrc={`${baseUrl}screenshots/dashboard-services-health.png`}
         alt="Dashboard services view showing health indicators and port mappings"
       />
 

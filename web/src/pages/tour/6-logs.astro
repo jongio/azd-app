@@ -11,6 +11,8 @@ import CodeBlock from '../../components/CodeBlock.astro';
 import Screenshot from '../../components/Screenshot.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const step = getStepByNumber(6)!;
 const prevStep = getPreviousStep(6);
 const nextStep = getNextStep(6);
@@ -68,8 +70,8 @@ const nextStep = getNextStep(6);
       />
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/console-local-logs.png"
-        darkSrc="/azd-app/screenshots/console-local-logs.png"
+        lightSrc={`${baseUrl}screenshots/console-local-logs.png`}
+        darkSrc={`${baseUrl}screenshots/console-local-logs.png`}
         alt="Console view with log streaming from all local services"
         caption="Console view with log streaming and service filters"
       />
@@ -107,8 +109,8 @@ const nextStep = getNextStep(6);
       />
 
       <Screenshot 
-        lightSrc="/azd-app/screenshots/console-log-search.png"
-        darkSrc="/azd-app/screenshots/console-log-search.png"
+        lightSrc={`${baseUrl}screenshots/console-log-search.png`}
+        darkSrc={`${baseUrl}screenshots/console-log-search.png`}
         alt="Console log search with filtering by service and search term"
         caption="Log filtering and search capabilities in the Console view"
       />
@@ -184,8 +186,8 @@ const nextStep = getNextStep(6);
         </ul>
         
         <Screenshot 
-          lightSrc="/azd-app/screenshots/dashboard-azure-logs.png"
-          darkSrc="/azd-app/screenshots/dashboard-azure-logs.png"
+          lightSrc={`${baseUrl}screenshots/dashboard-azure-logs.png`}
+          darkSrc={`${baseUrl}screenshots/dashboard-azure-logs.png`}
           alt="Dashboard showing Azure cloud logs from Container Apps, App Service, and Functions"
           caption="Azure cloud logs view with service filtering and time range selection"
         />
@@ -225,7 +227,7 @@ services:
         </p>
         
         <p>
-          Learn more in the <a href="/azd-app/reference/azure-logs/">Azure Cloud Log Streaming reference</a>.
+          Learn more in the <a href={`${baseUrl}reference/azure-logs/`}>Azure Cloud Log Streaming reference</a>.
         </p>
       </LearnMoreSection>
     </div>
