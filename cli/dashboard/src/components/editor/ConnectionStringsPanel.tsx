@@ -34,8 +34,8 @@ export function ConnectionStringsPanel({ service, className }: ConnectionStrings
     setCopiedKey(key)
     setTimeout(() => setCopiedKey(null), 2000)
 
-    void copyPromise.catch((error) => {
-      // Silently fail - copy is not critical
+    void copyPromise.catch(() => {
+      // Silent failure - copy functionality is non-critical
     })
   }, [getWriteText, setTimeout])
 

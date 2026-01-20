@@ -49,7 +49,6 @@ describe('auto-save', () => {
     })
 
     it('should handle localStorage errors', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const originalSetItem = localStorage.setItem
       localStorage.setItem = vi.fn(() => {
         throw new Error('Quota exceeded')
@@ -58,7 +57,6 @@ describe('auto-save', () => {
       const result = saveDraft({ name: 'test' }, true)
 
       expect(result).toBe(false)
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to save draft:', expect.any(Error))
 
       localStorage.setItem = originalSetItem
     })
@@ -87,7 +85,6 @@ describe('auto-save', () => {
     })
 
     it('should handle localStorage errors', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const originalGetItem = localStorage.getItem
       localStorage.getItem = vi.fn(() => {
         throw new Error('Storage error')
@@ -96,7 +93,6 @@ describe('auto-save', () => {
       const draft = loadDraft()
 
       expect(draft).toBeNull()
-      expect(consoleSpy).toHaveBeenCalled()
 
       localStorage.getItem = originalGetItem
     })
@@ -112,7 +108,6 @@ describe('auto-save', () => {
     })
 
     it('should handle errors gracefully', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const originalRemoveItem = localStorage.removeItem
       localStorage.removeItem = vi.fn(() => {
         throw new Error('Storage error')
@@ -120,7 +115,6 @@ describe('auto-save', () => {
 
       clearDraft()
 
-      expect(consoleSpy).toHaveBeenCalled()
       localStorage.removeItem = originalRemoveItem
     })
   })

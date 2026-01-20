@@ -29,7 +29,6 @@ export function EditorWithCommandPalette() {
         'Add Service',
         () => {
           // Open add service modal
-          console.log('Add service clicked')
         },
         'Add a new service to your application',
         ['add', 'create', 'new', 'service'],
@@ -40,7 +39,6 @@ export function EditorWithCommandPalette() {
         'Save Configuration',
         () => {
           // Save configuration
-          console.log('Save clicked')
         },
         'Save changes to azure.yaml',
         ['save', 'write'],
@@ -51,7 +49,6 @@ export function EditorWithCommandPalette() {
         'Validate Configuration',
         () => {
           // Run validation
-          console.log('Validate clicked')
         },
         'Check configuration for errors',
         ['validate', 'check', 'verify']
@@ -81,14 +78,12 @@ export function EditorWithCommandPalette() {
   
   // Navigation handler
   const handleNavigate = React.useCallback((path: string) => {
-    console.log('Navigate to:', path)
     // Implement navigation logic here
     // e.g., scroll to section, activate tab, etc.
   }, [])
   
   // Jump to field handler
   const handleJumpToField = React.useCallback((fieldPath: string) => {
-    console.log('Jump to field:', fieldPath)
     // Implement field focus logic here
     // e.g., find input by data-field-path attribute and focus it
     const field = document.querySelector(`[data-field-path="${fieldPath}"]`) as HTMLElement
@@ -100,7 +95,7 @@ export function EditorWithCommandPalette() {
   
   // Open help handler
   const handleOpenHelp = React.useCallback((topic: string) => {
-    console.log('Open help:', topic)
+    // Open help documentation
     // Implement help panel logic here
     // e.g., open documentation modal, navigate to help section, etc.
   }, [])

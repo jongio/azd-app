@@ -298,39 +298,32 @@ describe('ThemeProvider', () => {
 
   describe('Error Handling', () => {
     it('should handle localStorage errors gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      
       // Mock localStorage.setItem to throw an error
       const originalSetItem = localStorage.setItem
       localStorage.setItem = vi.fn(() => {
         throw new Error('localStorage error')
       })
 
-      const user = userEvent.setup()
-      
-      render(
-        <ThemeProvider>
-          <TestComponent />
-        </ThemeProvider>
-      )
+      try {
+        const user = userEvent.setup()
+        
+        render(
+          <ThemeProvider>
+            <TestComponent />
+          </ThemeProvider>
+        )
 
-      // Click to change theme
-      await user.click(screen.getByTestId('set-dark'))
+        // Click to change theme
+        await user.click(screen.getByTestId('set-dark'))
 
-      // Theme should still change even if localStorage fails
-      await waitFor(() => {
-        expect(screen.getByTestId('theme')).toHaveTextContent('dark')
-      })
-      
-      // Verify warning was logged
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to save theme to localStorage:',
-        expect.any(Error)
-      )
-      
-      // Restore
-      localStorage.setItem = originalSetItem
-      consoleSpy.mockRestore()
+        // Theme should still change even if localStorage fails
+        await waitFor(() => {
+          expect(screen.getByTestId('theme')).toHaveTextContent('dark')
+        })
+      } finally {
+        // Restore
+        localStorage.setItem = originalSetItem
+      }
     })
 
     it('should throw error when useTheme is used outside provider', () => {

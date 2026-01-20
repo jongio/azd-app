@@ -14,12 +14,12 @@
 import Layout from '../components/Layout.astro';
 import ProgressIndicator from '../components/ProgressIndicator.astro';
 import StepCard from '../components/StepCard.astro';
-
-const baseUrl = import.meta.env.BASE_URL;
 import CodeBlock from '../components/CodeBlock.astro';
 import ChallengeCallout from '../components/ChallengeCallout.astro';
 import PlatformInstallTabs from '../components/PlatformInstallTabs.astro';
 import Screenshot from '../components/Screenshot.astro';
+
+const baseUrl = import.meta.env.BASE_URL;
 
 // Progress steps configuration
 const progressSteps = [
@@ -35,32 +35,32 @@ const nextSteps = [
     icon: "🎯",
     title: "Guided Tour",
     description: "Take a comprehensive tour of all azd-app features",
-    href: import.meta.env.BASE_URL + "tour/",
+    href: `${baseUrl}tour/`,
     isPrimary: true,
   },
   {
     icon: "☁️",
     title: "Azure Cloud Logs",
     description: "Stream logs from your deployed Azure services (1-5 min latency)",
-    href: import.meta.env.BASE_URL + "reference/azure-logs/",
+    href: `${baseUrl}reference/azure-logs/`,
   },
   {
     icon: "📘",
     title: "azure.yaml Reference",
     description: "Complete guide to configuring your services and apps",
-    href: import.meta.env.BASE_URL + "reference/azure-yaml/",
+    href: `${baseUrl}reference/azure-yaml/`,
   },
   {
     icon: "🤖",
     title: "AI Features",
     description: "Learn about MCP server and AI-powered debugging",
-    href: import.meta.env.BASE_URL + "mcp/",
+    href: `${baseUrl}mcp/`,
   },
   {
     icon: "📚",
     title: "CLI Reference",
     description: "Explore all azd app commands and options",
-    href: import.meta.env.BASE_URL + "reference/cli/",
+    href: `${baseUrl}reference/cli/`,
   },
 ];
 

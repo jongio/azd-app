@@ -143,7 +143,7 @@ export function ThemeProvider({
       try {
         localStorage.setItem(storageKey, newTheme)
       } catch (error) {
-        // Silently fail - theme is not critical
+        // Silent failure - theme will still work, just won't persist
       }
     },
     [storageKey, applyTheme]

@@ -219,7 +219,7 @@ const contentId = `learn-more-content-${id}`;
         lastUpdated: new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('Failed to save tour progress:', error);
+      // Silent failure - tour progress is non-critical
     }
   }
 

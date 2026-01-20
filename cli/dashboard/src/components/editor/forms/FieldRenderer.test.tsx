@@ -82,16 +82,10 @@ describe('FieldRenderer', () => {
   })
 
   it('falls back to StringField for unknown type', () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const property = { type: 'unknown' as any, title: 'Test Unknown' }
     const { getByTestId } = render(<FieldRenderer name="test" property={property} />)
     
     expect(getByTestId('string-field')).toBeInTheDocument()
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Unknown field type: unknown for field test'
-    )
-    
-    consoleSpy.mockRestore()
   })
 
   it('passes autoSave prop to field component', () => {

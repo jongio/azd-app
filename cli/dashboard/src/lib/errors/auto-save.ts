@@ -113,7 +113,7 @@ export function clearDraft(): void {
     const keys = getStorageKeys()
     localStorage.removeItem(keys.draft)
   } catch (error) {
-    // Silently fail
+    // Silent failure is acceptable
   }
 }
 

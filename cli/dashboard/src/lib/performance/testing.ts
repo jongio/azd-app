@@ -20,10 +20,6 @@ export function measureTime<T>(fn: () => T, label?: string): { result: T; durati
     duration /= 10
   }
 
-  if (label) {
-    console.log(`[Performance] ${label}: ${duration.toFixed(2)}ms`)
-  }
-
   return { result, duration }
 }
 
@@ -38,10 +34,6 @@ export async function measureTimeAsync<T>(
   const result = await fn()
   const end = performance.now()
   const duration = end - start
-
-  if (label) {
-    console.log(`[Performance] ${label}: ${duration.toFixed(2)}ms`)
-  }
 
   return { result, duration }
 }
@@ -64,7 +56,6 @@ export function measure(name: string, startMark: string, endMark: string) {
     const entries = performance.getEntriesByName(name, 'measure')
     if (entries.length > 0) {
       const duration = entries[entries.length - 1].duration
-      console.log(`[Performance] ${name}: ${duration.toFixed(2)}ms`)
       return duration
     }
   }

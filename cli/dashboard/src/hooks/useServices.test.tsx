@@ -48,7 +48,6 @@ describe('useServicesContext', () => {
   it('should handle fetch errors and use mock data', async () => {
     const mockFetch = vi.fn(() => Promise.reject(new Error('Network error')))
     globalThis.fetch = mockFetch as unknown as typeof fetch
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
 
@@ -58,9 +57,6 @@ describe('useServicesContext', () => {
 
     expect(result.current.error).toBeNull() // No error shown when using mock data
     expect(result.current.services.length).toBeGreaterThan(0) // Should have mock services
-    expect(consoleSpy).toHaveBeenCalledWith('Backend not available, using mock data')
-
-    consoleSpy.mockRestore()
   })
 
   it('should handle empty service list', async () => {
@@ -310,7 +306,6 @@ describe('useServicesContext', () => {
   it('should handle malformed WebSocket messages', async () => {
     const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
     globalThis.fetch = mockFetch as unknown as typeof fetch
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const wsRef: { current: MockWebSocket | null } = { current: null }
     class WebSocketMock {
@@ -346,17 +341,10 @@ describe('useServicesContext', () => {
       })
     }
 
-    await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to parse WebSocket message:',
-        expect.any(Error)
-      )
-    })
-
     // Services should remain unchanged
-    expect(result.current.services).toEqual(initialServices)
-
-    consoleErrorSpy.mockRestore()
+    await waitFor(() => {
+      expect(result.current.services).toEqual(initialServices)
+    })
   })
 
   it('should provide refetch function', async () => {

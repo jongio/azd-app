@@ -183,7 +183,6 @@ describe('DeleteBackupDialog', () => {
 
   it('handles onConfirm error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const errorConfirm = vi.fn().mockRejectedValue(new Error('Delete failed'))
     const user = userEvent.setup()
 
@@ -200,13 +199,11 @@ describe('DeleteBackupDialog', () => {
     await user.click(deleteButton)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to delete backup:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to delete backup. Please try again.')
       expect(mockOnClose).not.toHaveBeenCalled() // Should not close on error
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('displays trash icon with correct styling', () => {

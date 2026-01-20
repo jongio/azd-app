@@ -1,8 +1,6 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-
-const baseUrl = import.meta.env.BASE_URL;
 const usageCode = "azd app completion [command]";
 const example0 = "azd app completion [command]";
 const example1 = "azd app completion bash > ~/.azd-app-completion.bash";
@@ -14,9 +12,9 @@ const example3 = "azd app completion powershell | Out-String | Invoke-Expression
   <div class="max-w-4xl mx-auto px-4 py-12">
     <nav class="text-sm mb-8">
       <ol class="flex items-center gap-2 text-neutral-500">
-        <li><a href={`${baseUrl}`} class="hover:text-blue-500">Home</a></li>
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
         <li>/</li>
-        <li><a href={`${baseUrl}reference/cli/`} class="hover:text-blue-500">CLI Reference</a></li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
         <li>/</li>
         <li class="text-neutral-900 dark:text-white">completion</li>
       </ol>
@@ -41,7 +39,7 @@ const example3 = "azd app completion powershell | Out-String | Invoke-Expression
 
     <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between">
-        <a href={`${baseUrl}reference/cli/`} class="text-blue-600 dark:text-blue-400 hover:underline">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
           ← Back to CLI Reference
         </a>
       </div>

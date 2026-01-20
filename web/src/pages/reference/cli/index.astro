@@ -2,8 +2,6 @@
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 
-const baseUrl = import.meta.env.BASE_URL;
-
 const quickRefCode = `# Check prerequisites
 azd app reqs
 
@@ -41,7 +39,7 @@ azd app mcp serve`;
       <h2 class="text-2xl font-bold mb-6">Commands</h2>
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         
-    <a href={`${baseUrl}reference/cli/reqs/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/reqs/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app reqs</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -52,7 +50,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/deps/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/deps/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app deps</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -63,7 +61,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/add/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/add/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app add</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -74,7 +72,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/run/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/run/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app run</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -85,7 +83,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/start/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/start/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app start</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -96,7 +94,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/stop/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/stop/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app stop</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -107,7 +105,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/restart/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/restart/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app restart</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -118,7 +116,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/health/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/health/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app health</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -129,7 +127,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/logs/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/logs/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app logs</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -140,7 +138,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/info/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/info/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app info</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -151,7 +149,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/test/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/test/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app test</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -162,7 +160,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/completion/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/completion/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app completion</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -173,7 +171,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/mcp/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/mcp/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app mcp</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -184,7 +182,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/notifications/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/notifications/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app notifications</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -195,7 +193,7 @@ azd app mcp serve`;
       </div>
     </a>
 
-    <a href={`${baseUrl}reference/cli/version/`} class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+    <a href="/azd-app/reference/cli/version/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app version</code>
         <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
@@ -224,7 +222,7 @@ azd app mcp serve`;
             The <code class="px-2 py-1 bg-purple-200/50 dark:bg-purple-800/50 rounded">azd app mcp</code> command 
             enables AI assistants like GitHub Copilot to interact with your running services.
           </p>
-          <a href={`${baseUrl}mcp/`} class="inline-flex items-center gap-2 text-purple-700 dark:text-purple-400 font-medium hover:underline">
+          <a href="/azd-app/mcp/" class="inline-flex items-center gap-2 text-purple-700 dark:text-purple-400 font-medium hover:underline">
             Learn about MCP integration →
           </a>
         </div>

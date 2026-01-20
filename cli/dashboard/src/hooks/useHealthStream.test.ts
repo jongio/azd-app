@@ -383,7 +383,6 @@ describe('useHealthStream', () => {
   })
 
   it('should parse malformed JSON gracefully', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { result } = renderHook(() => useHealthStream())
 
     act(() => {
@@ -399,9 +398,6 @@ describe('useHealthStream', () => {
 
     // Should not crash, healthReport should remain null
     expect(result.current.healthReport).toBeNull()
-    expect(consoleSpy).toHaveBeenCalled()
-
-    consoleSpy.mockRestore()
   })
 
   it('should get latest change for a service', () => {

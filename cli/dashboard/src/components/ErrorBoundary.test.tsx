@@ -64,14 +64,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     )
 
-    expect(console.error).toHaveBeenCalledWith(
-      'ErrorBoundary caught an error:',
-      expect.any(Error)
-    )
-    expect(console.error).toHaveBeenCalledWith(
-      'Component stack:',
-      expect.any(String)
-    )
+    // Error boundary should still render the fallback UI
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
   })
 
   it('should reset error state when Try Again button is clicked', () => {

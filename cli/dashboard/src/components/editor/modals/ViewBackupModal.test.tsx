@@ -146,7 +146,6 @@ describe('ViewBackupModal', () => {
 
   it('handles copy error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const user = userEvent.setup()
     render(
@@ -163,12 +162,10 @@ describe('ViewBackupModal', () => {
     await user.click(copyButton)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to copy:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to copy to clipboard')
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('downloads backup file when download button clicked', async () => {
@@ -204,7 +201,6 @@ describe('ViewBackupModal', () => {
 
   it('handles download error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     
     // Mock error in createObjectURL
     vi.spyOn(global.URL, 'createObjectURL').mockImplementationOnce(() => {
@@ -225,12 +221,10 @@ describe('ViewBackupModal', () => {
     await user.click(downloadButton)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to download:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to download backup')
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('calls onClose when close button clicked', async () => {

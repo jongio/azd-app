@@ -194,7 +194,7 @@ export function generateCommands(serviceCount: number) {
       category: 'action' as const,
       action: {
         type: 'execute' as const,
-        handler: () => console.log('Add service'),
+        handler: () => { /* Add service logic */ },
       },
     },
     {
@@ -204,7 +204,7 @@ export function generateCommands(serviceCount: number) {
       category: 'action' as const,
       action: {
         type: 'execute' as const,
-        handler: () => console.log('Validate'),
+        handler: () => { /* Validate logic */ },
       },
     }
   )

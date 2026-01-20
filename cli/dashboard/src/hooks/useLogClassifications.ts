@@ -83,28 +83,24 @@ export function useLogClassifications() {
   ): Promise<LogClassification> => {
     const classification: LogClassification = { text, level }
     
-    try {
-      const response = await fetch('/api/logs/classifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(classification)
-      })
+    const response = await fetch('/api/logs/classifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(classification)
+    })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(errorText || `HTTP error! status: ${response.status}`)
-      }
-
-      // Reload and notify other instances (unless in batch mode)
-      if (!skipNotify) {
-        await loadClassifications()
-        notifyClassificationsChanged()
-      }
-      
-      return classification
-    } catch (err) {
-      throw err
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || `HTTP error! status: ${response.status}`)
     }
+
+    // Reload and notify other instances (unless in batch mode)
+    if (!skipNotify) {
+      await loadClassifications()
+      notifyClassificationsChanged()
+    }
+    
+    return classification
   }, [loadClassifications])
 
   /**
@@ -112,22 +108,18 @@ export function useLogClassifications() {
    * @param skipNotify - If true, skip reload and notification (for batch operations)
    */
   const deleteClassification = useCallback(async (index: number, skipNotify = false): Promise<void> => {
-    try {
-      const response = await fetch(`/api/logs/classifications/${index}`, {
-        method: 'DELETE'
-      })
+    const response = await fetch(`/api/logs/classifications/${index}`, {
+      method: 'DELETE'
+    })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
 
-      // Reload and notify other instances (unless in batch mode)
-      if (!skipNotify) {
-        await loadClassifications()
-        notifyClassificationsChanged()
-      }
-    } catch (err) {
-      throw err
+    // Reload and notify other instances (unless in batch mode)
+    if (!skipNotify) {
+      await loadClassifications()
+      notifyClassificationsChanged()
     }
   }, [loadClassifications])
 

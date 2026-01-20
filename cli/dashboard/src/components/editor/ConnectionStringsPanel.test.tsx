@@ -134,7 +134,6 @@ describe('ConnectionStringsPanel', () => {
   })
 
   it('handles clipboard write failure gracefully', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockWriteText.mockRejectedValueOnce(new Error('Clipboard error'))
 
     render(<ConnectionStringsPanel service={mockService} />)
@@ -142,10 +141,10 @@ describe('ConnectionStringsPanel', () => {
     const copyButton = screen.getByLabelText(/Copy blob connection string/i)
     fireEvent.click(copyButton)
 
+    // Just verify the function was called - error handling is silent
     await waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith('Failed to copy to clipboard:', expect.any(Error))
+      expect(mockWriteText).toHaveBeenCalled()
     })
-    consoleError.mockRestore()
   })
 
   it('renders documentation link when docsUrl is provided', () => {

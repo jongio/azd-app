@@ -182,7 +182,6 @@ describe('RestoreConfirmationDialog', () => {
 
   it('handles onConfirm error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const errorConfirm = vi.fn().mockRejectedValue(new Error('Restore failed'))
     const user = userEvent.setup()
 
@@ -199,13 +198,11 @@ describe('RestoreConfirmationDialog', () => {
     await user.click(confirmButton)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to restore backup:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to restore backup. Please try again.')
       expect(mockOnClose).not.toHaveBeenCalled() // Should not close on error
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('displays info icon with correct styling', () => {

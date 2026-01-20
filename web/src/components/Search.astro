@@ -304,7 +304,7 @@
         pagefind = pf;
         return pagefind;
       } catch (e) {
-        console.warn('Pagefind not available (run build first)');
+        // Pagefind not available - silent failure in dev mode
         return null;
       }
     }

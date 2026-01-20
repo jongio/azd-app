@@ -374,7 +374,7 @@ const baseUrl = import.meta.env.BASE_URL;
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (error) {
-      console.error('Failed to save tour progress:', error);
+      // Silent failure - tour progress is non-critical
     }
   }
 

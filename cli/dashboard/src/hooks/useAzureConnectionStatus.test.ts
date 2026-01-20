@@ -282,7 +282,33 @@ describe('useAzureConnectionStatus', () => {
       const mockFetch = vi.fn(() => Promise.reject(new Error('Network error')))
       globalThis.fetch = mockFetch as unknown as typeof fetch
 
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { result } = renderHook(() => useAzureConnectionStatus())
+
+      await act(async () => {
+        await result.current.fetchAzureStatus()
+      })
+
+      // Should not throw, status should remain as initial
+      expect(result.current.azureStatus).toBe('disabled')
+    })
+
+    it('should handle non-OK responses', async () => {
+      const mockFetch = vi.fn(() => createMockFetchResponse({}, false, 500))
+      globalThis.fetch = mockFetch as unknown as typeof fetch
+
+      const { result } = renderHook(() => useAzureConnectionStatus())
+
+      await act(async () => {
+        await result.current.fetchAzureStatus()
+      })
+
+      // Status should remain unchanged on error
+      expect(result.current.azureStatus).toBe('disabled')
+    })
+
+    it('should ignore abort errors', async () => {
+      const mockFetch = vi.fn(() => Promise.reject(new DOMException('Aborted', 'AbortError')))
+      globalThis.fetch = mockFetch as unknown as typeof fetch
 
       const { result } = renderHook(() => useAzureConnectionStatus())
 
@@ -292,49 +318,6 @@ describe('useAzureConnectionStatus', () => {
 
       // Should not throw, status should remain as initial
       expect(result.current.azureStatus).toBe('disabled')
-      expect(consoleSpy).not.toHaveBeenCalled() // Network errors are silent
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should handle non-OK responses', async () => {
-      const mockFetch = vi.fn(() => createMockFetchResponse({}, false, 500))
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-      const { result } = renderHook(() => useAzureConnectionStatus())
-
-      await act(async () => {
-        await result.current.fetchAzureStatus()
-      })
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[useAzureConnectionStatus] Failed to fetch mode: 500')
-      )
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should ignore abort errors', async () => {
-      const mockFetch = vi.fn(() => Promise.reject(new DOMException('Aborted', 'AbortError')))
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const { result } = renderHook(() => useAzureConnectionStatus())
-
-      await act(async () => {
-        await result.current.fetchAzureStatus()
-      })
-
-      // Should not log abort errors
-      expect(consoleSpy).not.toHaveBeenCalled()
-      expect(consoleErrorSpy).not.toHaveBeenCalled()
-
-      consoleSpy.mockRestore()
-      consoleErrorSpy.mockRestore()
     })
   })
 
@@ -394,7 +377,6 @@ describe('useAzureConnectionStatus', () => {
 
   describe('input validation', () => {
     it('should reject invalid mode values', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       const mockFetch = vi.fn(() => createMockFetchResponse({ success: true }))
       globalThis.fetch = mockFetch as unknown as typeof fetch
 
@@ -404,12 +386,7 @@ describe('useAzureConnectionStatus', () => {
         await result.current.handleLogModeChange('invalid' as LogMode)
       })
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[useAzureConnectionStatus] Invalid mode: invalid')
-      )
       expect(mockFetch).not.toHaveBeenCalled()
-
-      consoleSpy.mockRestore()
     })
 
     it('should accept valid local mode', async () => {
@@ -448,20 +425,14 @@ describe('useAzureConnectionStatus', () => {
       )
       globalThis.fetch = mockFetch as unknown as typeof fetch
 
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
       const { result } = renderHook(() => useAzureConnectionStatus())
 
       await act(async () => {
         await result.current.fetchAzureStatus()
       })
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[useAzureConnectionStatus] Failed to parse mode response:'),
-        expect.any(SyntaxError)
-      )
-
-      consoleSpy.mockRestore()
+      // Status should remain unchanged on JSON parse error
+      expect(result.current.azureStatus).toBe('disabled')
     })
   })
 
@@ -553,8 +524,6 @@ describe('useAzureConnectionStatus', () => {
       })
       globalThis.fetch = mockFetch as unknown as typeof fetch
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
       const { result } = renderHook(() => useAzureConnectionStatus())
 
       // Initial state
@@ -569,13 +538,6 @@ describe('useAzureConnectionStatus', () => {
       await waitFor(() => {
         expect(result.current.logMode).toBe('local')
       })
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[useAzureConnectionStatus] Failed to switch mode'),
-        expect.any(String)
-      )
-
-      consoleSpy.mockRestore()
     })
 
     it('should revert mode on network error', async () => {
@@ -591,8 +553,6 @@ describe('useAzureConnectionStatus', () => {
       })
       globalThis.fetch = mockFetch as unknown as typeof fetch
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
       const { result } = renderHook(() => useAzureConnectionStatus())
 
       // Initial state
@@ -607,13 +567,6 @@ describe('useAzureConnectionStatus', () => {
       await waitFor(() => {
         expect(result.current.logMode).toBe('local')
       })
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[useAzureConnectionStatus] Error switching mode'),
-        expect.any(Error)
-      )
-
-      consoleSpy.mockRestore()
     })
   })
 })

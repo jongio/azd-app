@@ -29,7 +29,6 @@
               button.textContent = originalText || 'Copy'; 
             }, 2000);
           } catch (err) {
-            console.error('Failed to copy:', err);
             button.textContent = 'Failed';
             setTimeout(() => { 
               button.textContent = 'Copy'; 

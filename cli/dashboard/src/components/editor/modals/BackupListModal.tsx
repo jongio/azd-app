@@ -56,12 +56,17 @@ export function BackupListModal({
   const [previews, setPreviews] = React.useState<Map<string, BackupPreview>>(new Map())
   const [loadingPreviews, setLoadingPreviews] = React.useState<Set<string>>(new Set())
 
+  // Track which previews have been requested to avoid duplicates
+  const requestedPreviews = React.useRef<Set<string>>(new Set())
+
   // Load preview for a backup
   const loadPreview = React.useCallback(async (timestamp: string) => {
-    if (previews.has(timestamp) || loadingPreviews.has(timestamp)) {
+    // Skip if already requested
+    if (requestedPreviews.current.has(timestamp)) {
       return
     }
-
+    
+    requestedPreviews.current.add(timestamp)
     setLoadingPreviews(prev => new Set(prev).add(timestamp))
     
     try {
@@ -69,7 +74,7 @@ export function BackupListModal({
       const lines = content.split('\n').slice(0, 10).join('\n')
       setPreviews(prev => new Map(prev).set(timestamp, { timestamp, content: lines }))
     } catch (error) {
-      // Silently fail - preview is not critical
+      // Preview loading failure is non-critical - will just not show preview
     } finally {
       setLoadingPreviews(prev => {
         const next = new Set(prev)
@@ -77,7 +82,7 @@ export function BackupListModal({
         return next
       })
     }
-  }, [onGetPreview, previews, loadingPreviews])
+  }, [onGetPreview])
 
   // Load previews for visible backups
   React.useEffect(() => {

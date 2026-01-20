@@ -80,7 +80,6 @@ describe('BackupManager', () => {
 
   it('handles load backups error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(configApi.listBackups).mockRejectedValueOnce(new Error('Load failed'))
 
     const user = userEvent.setup()
@@ -90,12 +89,10 @@ describe('BackupManager', () => {
     await user.click(button)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to load backups:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to load backups. Please try again.')
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('opens view modal when view button clicked', async () => {
@@ -123,7 +120,6 @@ describe('BackupManager', () => {
 
   it('handles view backup error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(configApi.getBackup).mockRejectedValueOnce(new Error('Get failed'))
 
     const user = userEvent.setup()
@@ -142,12 +138,10 @@ describe('BackupManager', () => {
     await user.click(viewButtons[0])
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to load backup:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to load backup content. Please try again.')
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('opens restore confirmation when restore button clicked', async () => {
@@ -237,12 +231,10 @@ describe('BackupManager', () => {
     await user.click(confirmButton)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to restore backup:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to restore backup. Please try again.')
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('opens delete confirmation when delete button clicked', async () => {
@@ -333,12 +325,10 @@ describe('BackupManager', () => {
     await user.click(confirmButton)
 
     await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to delete backup:', expect.any(Error))
       expect(alertSpy).toHaveBeenCalledWith('Failed to delete backup. Please try again.')
     })
 
     alertSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
   })
 
   it('applies custom className to button', () => {

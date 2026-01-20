@@ -34,14 +34,12 @@ describe('storage-utils', () => {
       localStorage.setItem('test-key', 'invalid json{')
       const result = getStorageItem('test-key', 'default')
       expect(result).toBe('default')
-      expect(console.warn).toHaveBeenCalled()
     })
 
     it('returns default value when validator fails', () => {
       localStorage.setItem('test-key', JSON.stringify('not a boolean'))
       const result = getStorageItem('test-key', true, isBoolean)
       expect(result).toBe(true)
-      expect(console.warn).toHaveBeenCalled()
     })
 
     it('returns parsed value when validator passes', () => {

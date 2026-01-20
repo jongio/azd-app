@@ -222,5 +222,5 @@ const ServiceContext = React.createContext<any>(null)
 
 // Mock functions for examples
 const updateService = (name: string, data: any) => {
-  console.log('Update service:', name, data)
+  // Update service logic
 }

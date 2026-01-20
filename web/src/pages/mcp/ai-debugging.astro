@@ -762,7 +762,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
             }, 2000);
           }
         } catch (err) {
-          console.error('Failed to copy:', err);
+          // Copy failure is non-critical
         }
       });
     });
