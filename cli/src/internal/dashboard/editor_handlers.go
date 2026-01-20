@@ -545,7 +545,7 @@ func (s *Server) listBackups(projectDir string) ([]BackupInfo, error) {
 
 		backups = append(backups, BackupInfo{
 			Timestamp: timestamp,
-			Path:      entry.Name(),
+			Path:      filepath.Join(projectDir, entry.Name()),
 			Size:      info.Size(),
 		})
 	}

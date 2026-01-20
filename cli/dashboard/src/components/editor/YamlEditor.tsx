@@ -285,36 +285,6 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
     return [] // Return empty array instead of undefined for stability
   }, [activeSection])
 
-  // NOW we can do early returns - all hooks have been called above
-  // Loading state (covers initial render and refetch)
-  if (isLoading || (!config && !loadError)) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="mt-4 text-muted-foreground">Loading Azure YAML Editor...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Error state
-  if (loadError) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center max-w-md">
-          <p className="text-destructive mb-4">{loadError}</p>
-          <button
-            onClick={() => void loadConfig()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // Convert ValidationIssue[] to ValidationMarker[] with approximate line numbers
   const validationMarkers = useMemo<ValidationMarker[]>(() => {
     if (!configYaml || validationErrors.length === 0) {
@@ -351,6 +321,36 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
 
     return markers
   }, [configYaml, validationErrors])
+
+  // NOW we can do early returns - all hooks have been called above
+  // Loading state (covers initial render and refetch)
+  if (isLoading || (!config && !loadError)) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <p className="mt-4 text-muted-foreground">Loading Azure YAML Editor...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center max-w-md">
+          <p className="text-destructive mb-4">{loadError}</p>
+          <button
+            onClick={() => void loadConfig()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const previewPane = (
     <PreviewPane

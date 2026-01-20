@@ -88,9 +88,7 @@ describe('FieldRenderer', () => {
     
     expect(getByTestId('string-field')).toBeInTheDocument()
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown field type'),
-      'unknown',
-      'test'
+      'Unknown field type: unknown for field test'
     )
     
     consoleSpy.mockRestore()

@@ -51,8 +51,9 @@ describe('FieldLabel', () => {
     
     await user.hover(helpButton)
     
-    // Wait for tooltip to appear
-    await screen.findByText('This is a helpful description', undefined, { timeout: 2000 })
+    // Wait for tooltip to appear (use findAllByText since tooltip has multiple elements)
+    const tooltips = await screen.findAllByText('This is a helpful description', undefined, { timeout: 2000 })
+    expect(tooltips.length).toBeGreaterThan(0)
   })
 
   it('hides help icon when showHelpIcon is false', () => {

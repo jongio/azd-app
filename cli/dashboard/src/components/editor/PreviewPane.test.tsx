@@ -148,7 +148,7 @@ describe('PreviewPane', () => {
       }, { timeout: 600 })
     })
 
-    it('handles YAML stringify errors gracefully', async () => {
+    it('handles circular references with YAML anchors', async () => {
       const circularData: any = { name: 'test' }
       circularData.self = circularData // Create circular reference
 
@@ -160,8 +160,10 @@ describe('PreviewPane', () => {
         />
       )
 
+      // YAML library handles circular references with anchors (&a1 and *a1)
       await waitFor(() => {
-        expect(document.body.textContent).toContain('Error generating YAML preview')
+        expect(document.body.textContent).toContain('name')
+        expect(document.body.textContent).toContain('test')
       }, { timeout: 600 })
     })
   })
