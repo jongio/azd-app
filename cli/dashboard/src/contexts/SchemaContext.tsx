@@ -35,7 +35,7 @@ export interface SchemaProviderProps {
 /**
  * Schema Provider - Loads and caches schema on mount
  */
-export function SchemaProvider({ children }: SchemaProviderProps) {
+function SchemaProvider({ children }: SchemaProviderProps) {
   const [schema, setSchema] = useState<ParsedSchema | null>(null)
   const [rawSchema, setRawSchema] = useState<Record<string, unknown> | null>(null)
   const [isLoading, setIsLoading] = useState(true)

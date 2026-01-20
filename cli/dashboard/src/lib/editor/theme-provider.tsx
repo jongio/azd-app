@@ -91,7 +91,7 @@ export interface ThemeProviderProps {
  * }
  * ```
  */
-export function ThemeProvider({
+function ThemeProvider({
   children,
   storageKey = STORAGE_KEY,
 }: ThemeProviderProps) {
@@ -211,7 +211,7 @@ export interface ThemeToggleProps {
   showLabel?: boolean
 }
 
-export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) {
+function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) {
   const { resolvedTheme, toggleTheme } = useTheme()
 
   return (

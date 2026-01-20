@@ -15,7 +15,7 @@ interface PreferencesProviderProps {
  * Provides user preferences from the API
  * This ensures all components have access to API-backed preferences
  */
-export function PreferencesProvider({ children }: PreferencesProviderProps) {
+function PreferencesProvider({ children }: PreferencesProviderProps) {
   const preferencesHook = usePreferences()
 
   return (

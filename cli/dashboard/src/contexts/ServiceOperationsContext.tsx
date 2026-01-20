@@ -90,7 +90,7 @@ interface ServiceOperationsProviderProps {
  * Provider for service operations context.
  * Wraps the application to share operation state across all components.
  */
-export function ServiceOperationsProvider({ children }: ServiceOperationsProviderProps) {
+function ServiceOperationsProvider({ children }: ServiceOperationsProviderProps) {
   const [tracker, setTracker] = useState<OperationTracker>({
     states: new Map(),
     bulkInProgress: false,

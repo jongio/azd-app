@@ -1,0 +1,2474 @@
+≡ƒÜÇ Running preflight checks...
+
+≡ƒôï Step 1/20: Checking .gitignore...
+Checking .gitignore...
+Γ£à .gitignore exists!
+
+≡ƒôï Step 2/20: Checking .gitattributes...
+Checking .gitattributes...
+Γ£à .gitattributes exists!
+
+≡ƒôï Step 3/20: Checking for outdated dependencies...
+Checking for outdated dependencies...
+
+≡ƒôª Checking Go modules for updates...
+   Available Go module updates:
+   ΓÇó cel.dev/expr: v0.24.0 -> v0.25.1
+   ΓÇó code.cloudfoundry.org/clock: v0.0.0-20180518195852-02e53af36e6c -> v1.59.0
+   ΓÇó github.com/Azure/azure-sdk-for-go/sdk/azcore: v1.20.0 -> v1.21.0
+   ΓÇó github.com/Azure/azure-sdk-for-go/sdk/azidentity/cache: v0.3.2 -> v0.4.0
+   ΓÇó github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/managementgroups/armmanagementgroups: v1.0.0 -> v1.2.0
+   ΓÇó github.com/Azure/azure-sdk-for-go/sdk/storage/azblob: v1.6.2 -> v1.6.4
+   ΓÇó github.com/Azure/azure-sdk-for-go/sdk/storage/azfile: v1.5.2 -> v1.5.4
+   ΓÇó github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp: v1.30.0 -> v1.31.0
+   ΓÇó github.com/alecthomas/chroma/v2: v2.22.0 -> v2.23.0
+   ΓÇó github.com/azure/azure-dev/cli/azd: v0.0.0-20260110070437-a86b5ca1d7a2 -> v0.0.0-20260120164924-b62df764b791
+   ΓÇó github.com/bmatcuk/doublestar/v4: v4.9.1 -> v4.9.2
+   ΓÇó github.com/charmbracelet/x/ansi: v0.11.3 -> v0.11.4
+   ΓÇó github.com/charmbracelet/x/exp/golden: v0.0.0-20251126160633-0b68cdcd21da -> v0.0.0-20260119114936-fd556377ea59
+   ΓÇó github.com/charmbracelet/x/exp/slice: v0.0.0-20260109001716-2fbdffcb221f -> v0.0.0-20260119114936-fd556377ea59
+   ΓÇó github.com/clipperhouse/displaywidth: v0.6.2 -> v0.7.0
+   ΓÇó github.com/clipperhouse/uax29/v2: v2.3.0 -> v2.3.1
+   ΓÇó github.com/cncf/xds/go: v0.0.0-20251022180443-0feb69152e9f -> v0.0.0-20251210132809-ee656c7534f5
+   ΓÇó github.com/coreos/go-systemd/v22: v22.5.0 -> v22.6.0
+   ΓÇó github.com/cpuguy83/go-md2man/v2: v2.0.6 -> v2.0.7
+   ΓÇó github.com/envoyproxy/go-control-plane: v0.13.5-0.20251024222203-75eaa193e329 -> v0.14.0
+   ΓÇó github.com/envoyproxy/go-control-plane/envoy: v1.35.0 -> v1.36.0
+   ΓÇó github.com/envoyproxy/protoc-gen-validate: v1.2.1 -> v1.3.0
+   ΓÇó github.com/godbus/dbus/v5: v5.0.4 -> v5.2.2
+   ΓÇó github.com/gofrs/flock: v0.12.1 -> v0.13.0
+   ΓÇó github.com/gofrs/uuid: v3.3.0+incompatible -> v4.4.0+incompatible
+   ΓÇó github.com/google/pprof: v0.0.0-20251114195745-4902fdda35c8 -> v0.0.0-20260115054156-294ebfa9ad83
+   ΓÇó github.com/grpc-ecosystem/grpc-gateway/v2: v2.27.2 -> v2.27.4
+   ΓÇó github.com/ianlancetaylor/demangle: v0.0.0-20250417193237-f615e6bd150b -> v0.0.0-20251118225945-96ee0021ea0f
+   ΓÇó github.com/klauspost/compress: v1.18.1 -> v1.18.3
+   ΓÇó github.com/kr/pty: v1.1.1 -> v1.1.8
+   ΓÇó github.com/montanaflynn/stats: v0.7.0 -> v0.7.1
+   ΓÇó github.com/onsi/ginkgo: v1.8.0 -> v1.16.5
+   ΓÇó github.com/onsi/gomega: v1.5.0 -> v1.39.0
+   ΓÇó github.com/sirupsen/logrus: v1.9.3 -> v1.9.4
+   ΓÇó github.com/tedsuo/ifrit: v0.0.0-20180802180643-bea94bb476cc -> v0.0.0-20230516164442-7862c310ad26
+   ΓÇó github.com/xeipuuv/gojsonpointer: v0.0.0-20180127040702-4e3ac2762d5f -> v0.0.0-20190905194746-02993c407bfb
+   ΓÇó go.opentelemetry.io/contrib/detectors/gcp: v1.38.0 -> v1.39.0
+   ΓÇó go.opentelemetry.io/otel/exporters/otlp/otlptrace: v1.38.0 -> v1.39.0
+   ΓÇó go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp: v1.38.0 -> v1.39.0
+   ΓÇó go.opentelemetry.io/otel/exporters/stdout/stdouttrace: v1.38.0 -> v1.39.0
+   ΓÇó go.opentelemetry.io/proto/otlp: v1.8.0 -> v1.9.0
+   ΓÇó go.starlark.net: v0.0.0-20250906160240-bf296ed553ea -> v0.0.0-20260102030733-3fee463870c9
+   ΓÇó golang.org/x/crypto: v0.46.0 -> v0.47.0
+   ΓÇó golang.org/x/exp: v0.0.0-20251219203646-944ab1f22d93 -> v0.0.0-20260112195511-716be5621a96
+   ΓÇó golang.org/x/mod: v0.31.0 -> v0.32.0
+   ΓÇó golang.org/x/net: v0.48.0 -> v0.49.0
+   ΓÇó golang.org/x/tools: v0.40.0 -> v0.41.0
+   ΓÇó gonum.org/v1/gonum: v0.16.0 -> v0.17.0
+   ΓÇó google.golang.org/genproto/googleapis/api: v0.0.0-20251029180050-ab9386a59fda -> v0.0.0-20260114163908-3f89685c29c3
+   ΓÇó google.golang.org/genproto/googleapis/rpc: v0.0.0-20251222181119-0a764e51fe1b -> v0.0.0-20260114163908-3f89685c29c3
+   ΓÇó modernc.org/libc: v1.67.4 -> v1.67.6
+   ΓÇó modernc.org/sqlite: v1.43.0 -> v1.44.2
+
+≡ƒöì Checking Go modules for deprecation notices...
+   ΓÜá∩╕Å  Deprecated Go modules found:
+   ΓÇó github.com/golang/protobuf: DEPRECATED - Use the "google.golang.org/protobuf" module instead.
+
+≡ƒôª Checking dashboard pnpm packages for updates...
+   Available pnpm package updates:
+   ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+   Γöé Package                                Γöé Current Γöé Latest Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @testing-library/react (dev)           Γöé 16.3.1  Γöé 16.3.2 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @types/node (dev)                      Γöé 25.0.3  Γöé 25.0.9 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @types/react (dev)                     Γöé 19.2.7  Γöé 19.2.9 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @vitest/coverage-v8 (dev)              Γöé 4.0.16  Γöé 4.0.17 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @vitest/ui (dev)                       Γöé 4.0.16  Γöé 4.0.17 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé react-hook-form                        Γöé 7.71.0  Γöé 7.71.1 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé vite (dev)                             Γöé 7.3.0   Γöé 7.3.1  Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé vitest (dev)                           Γöé 4.0.16  Γöé 4.0.17 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @typescript-eslint/eslint-plugin (dev) Γöé 8.50.0  Γöé 8.53.1 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @typescript-eslint/parser (dev)        Γöé 8.50.0  Γöé 8.53.1 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé jsdom (dev)                            Γöé 27.3.0  Γöé 27.4.0 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé typescript-eslint (dev)                Γöé 8.50.0  Γöé 8.53.1 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé globals (dev)                          Γöé 16.5.0  Γöé 17.0.0 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé react-window                           Γöé 1.8.11  Γöé 2.2.5  Γöé
+   ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+≡ƒôª Checking website pnpm packages for updates...
+   Available pnpm package updates:
+   ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+   Γöé Package               Γöé Current Γöé Latest  Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé @types/node (dev)     Γöé 25.0.5  Γöé 25.0.9  Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé astro                 Γöé 5.16.8  Γöé 5.16.11 Γöé
+   Γö£ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö╝ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöñ
+   Γöé astro-expressive-code Γöé 0.41.5  Γöé 0.41.6  Γöé
+   ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+
+≡ƒöÆ Checking dashboard pnpm packages for security vulnerabilities...
+   Γ£à No known dashboard security vulnerabilities!
+
+≡ƒöÆ Checking website pnpm packages for security vulnerabilities...
+   ΓÜá∩╕Å  Security vulnerabilities found in website packages!
+   Run 'pnpm audit --dir ../web' for details
+   Run 'pnpm audit --fix --dir ../web' to fix automatically
+
+≡ƒÆí Tip: Run 'mage updateDeps' to update all dependencies
+≡ƒÆí Tip: Run 'go get -u ./...' to update Go modules only
+≡ƒÆí Tip: Run 'pnpm update --dir dashboard' to update dashboard packages only
+≡ƒÆí Tip: Run 'pnpm update --dir ../web' to update website packages only
+ΓÜá∩╕Å  Dependency updates available (continuing with preflight)
+
+≡ƒôï Step 4/20: Formatting code...
+Formatting code...
+Γ£à Code formatted!
+
+≡ƒôï Step 5/20: Verifying go.mod consistency...
+Running go mod verify...
+all modules verified
+Γ£à go mod verify passed!
+
+≡ƒôï Step 6/20: Tidying go.mod and go.sum...
+Running go mod tidy...
+ΓÜá∩╕Å  Workspace detected (go.work exists) - skipping go mod tidy
+   (go mod tidy doesn't work with local workspace modules)
+Γ£à ModTidy check skipped (workspace mode)!
+
+≡ƒôï Step 7/20: Building dashboard...
+Building dashboard...
+Installing dashboard dependencies...
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 1.5s using pnpm v10.24.0
+Building dashboard assets to src/internal/dashboard/dist...
+
+> azd-app-dashboard@0.0.0 prebuild C:\code\azd-app\cli\dashboard
+> node scripts/copy-schema.js
+
+Copying schema for dashboard bundle...
+  Source: C:\code\azd-app\schemas\v1.1\azure.yaml.json
+  Target: C:\code\azd-app\cli\dashboard\src\lib\schema\bundled-schema.json
+Γ£ô Schema copied successfully
+
+> azd-app-dashboard@0.0.0 build C:\code\azd-app\cli\dashboard
+> vite build
+
+[36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 2967 modules transformed.
+rendering chunks...
+computing gzip size...
+[2m../src/internal/dashboard/dist/[22m[32mindex.html                                [39m[1m[2m  1.89 kB[22m[1m[22m[2m Γöé gzip:   0.83 kB[22m
+[2m../src/internal/dashboard/dist/[22m[35massets/editor-design-system-8TBP3aJ0.css  [39m[1m[2m 14.94 kB[22m[1m[22m[2m Γöé gzip:   3.01 kB[22m
+[2m../src/internal/dashboard/dist/[22m[35massets/index-BJZSeP5m.css                 [39m[1m[2m143.96 kB[22m[1m[22m[2m Γöé gzip:  22.15 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-ui-Dc_FVRD7.js              [39m[1m[2m  0.14 kB[22m[1m[22m[2m Γöé gzip:   0.13 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-utils-Dbwv_c_t.js           [39m[1m[2m 32.31 kB[22m[1m[22m[2m Γöé gzip:  11.13 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-editor-yaml-VE8tMIrv.js     [39m[1m[2m 96.40 kB[22m[1m[22m[2m Γöé gzip:  30.03 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-editor-schema-38JPlxgM.js   [39m[1m[2m106.84 kB[22m[1m[22m[2m Γöé gzip:  32.86 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-other-C4sIdvgw.js           [39m[1m[2m112.55 kB[22m[1m[22m[2m Γöé gzip:  42.38 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/editor-components-DF8FwkzL.js      [39m[1m[2m242.78 kB[22m[1m[22m[2m Γöé gzip:  58.20 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/index-BHv-HZXd.js                  [39m[1m[2m294.68 kB[22m[1m[22m[2m Γöé gzip:  68.62 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-react-CQf3ECfq.js           [39m[1m[2m323.00 kB[22m[1m[22m[2m Γöé gzip: 105.07 kB[22m
+[2m../src/internal/dashboard/dist/[22m[36massets/vendor-editor-syntax-BkiQ1O2x.js   [39m[1m[2m594.70 kB[22m[1m[22m[2m Γöé gzip: 213.85 kB[22m
+[32mΓ£ô built in 15.89s[39m
+Γ£à Dashboard build complete! Assets embedded in CLI binary.
+
+≡ƒôï Step 8/20: Linting dashboard...
+Running dashboard linting...
+
+> azd-app-dashboard@0.0.0 lint C:\code\azd-app\cli\dashboard
+> eslint .
+
+Γ£à Dashboard linting passed!
+
+≡ƒôï Step 9/20: Running dashboard unit tests...
+Running dashboard tests...
+
+> azd-app-dashboard@0.0.0 test C:\code\azd-app\cli\dashboard
+> vitest
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/code/azd-app/cli/dashboard[39m
+
+ [32mΓ£ô[39m src/lib/editor/theme-provider.test.tsx [2m([22m[2m20 tests[22m[2m)[22m[33m 1176[2mms[22m[39m
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+ [32mΓ£ô[39m src/hooks/useAzureConnectionStatus.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 1982[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should set switching state during mode change [33m 1651[2mms[22m[39m
+ [32mΓ£ô[39m src/components/DiagnosticsModal.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1542[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/ViewBackupModal.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 1491[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders when isOpen is true [33m 395[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/BackupListModal.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 1795[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders when isOpen is true [33m 400[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m shows empty state when search has no results [33m 317[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ModeToggle.test.tsx [2m([22m[2m33 tests[22m[2m)[22m[33m 1714[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m renders both local and Azure buttons [33m 305[2mms[22m[39m
+ [32mΓ£ô[39m src/components/DiagnosticSettingsStep.test.tsx [2m([22m[2m47 tests[22m[2m)[22m[33m 1723[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/WellKnownServicesTab.test.tsx [2m([22m[2m31 tests[22m[2m)[22m[33m 1862[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/accessibility/accessibility.test.tsx [2m([22m[2m19 tests[22m[2m)[22m[33m 4073[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should clear message after timeout [33m 3258[2mms[22m[39m
+ [32mΓ£ô[39m src/components/AuthSetupStep.test.tsx [2m([22m[2m42 tests[22m[2m)[22m[33m 2055[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ui/InfoField.test.tsx [2m([22m[2m35 tests[22m[2m)[22m[33m 3604[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should reset icon to Copy after 2 seconds [33m 2095[2mms[22m[39m
+ [32mΓ£ô[39m src/components/AzureConnectionStatus.test.tsx [2m([22m[2m48 tests[22m[2m)[22m[33m 2342[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/NavigationSidebar.test.tsx [2m([22m[2m26 tests[22m[2m)[22m[33m 2849[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should render all top-level nodes [33m 329[2mms[22m[39m
+ [32mΓ£ô[39m src/components/BicepTemplateModal.test.tsx [2m([22m[2m45 tests[22m[2m)[22m[33m 3663[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should render when isOpen is true [33m 393[2mms[22m[39m
+ [32mΓ£ô[39m src/components/SetupVerification.test.tsx [2m([22m[2m46 tests[22m[2m)[22m[33m 3112[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/YamlEditorHeader.test.tsx [2m([22m[2m33 tests[22m[2m)[22m[33m 2295[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should render all action buttons [33m 467[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/forms/SchemaForm.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1860[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m displays help tooltips for fields with descriptions [33m 359[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m calls onChange callback with debounced values [33m 792[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m validates required fields on blur [33m 332[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/BackupManager.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 3246[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m restores backup when confirmed [33m 381[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m handles restore error gracefully [33m 456[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m deletes backup when confirmed [33m 388[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m handles delete error gracefully [33m 410[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/AddServiceModal.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 4867[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders when isOpen is true [33m 350[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m switches between tabs [33m 415[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m adds application service with valid data [33m 871[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m validates application service name format [33m 670[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m adds container service with valid data [33m 1163[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/HookExecutionTimeline.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 5058[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should highlight configured hooks [33m 940[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should call onEditHook when configured hook is clicked [33m 735[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should call onAddHook when unconfigured hook is clicked [33m 611[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should show tooltip on hover for configured hooks [33m 614[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should hide tooltip on mouse leave [33m 651[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should use different styles for configured vs unconfigured hooks [33m 874[2mms[22m[39m
+ [32mΓ£ô[39m src/components/LogsView.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 4791[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should populate service filter dropdown [33m 360[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should show "no matching logs" when search returns empty [33m 473[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should handle WebSocket log streaming [33m 327[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should limit logs to 1000 entries [33m 1275[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/HealthCheckModal.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 5364[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should show TCP fields when TCP type selected [33m 339[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate URL format [33m 505[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate duration format [33m 346[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save HTTP health check [33m 642[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save TCP health check [33m 419[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save only provided optional fields [33m 819[2mms[22m[39m
+ [32mΓ£ô[39m src/components/consoleview.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 4392[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m applies health-based colors on service pills [33m 690[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m opens diagnostics modal when Diagnostics is clicked [33m 454[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m opens Settings dialog from the toolbar Settings button [33m 423[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m toggles pause, auto-scroll, and fullscreen controls [33m 876[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m clears initialStep when setup guide is closed [33m 501[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/CommandPalette.test.tsx [2m([22m[2m32 tests[22m[2m)[22m[33m 3844[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/ApplicationServiceTab.test.tsx [2m([22m[2m33 tests[22m[2m)[22m[33m 6129[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate service name pattern (lowercase, numbers, hyphens only) [33m 340[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should accept valid service name [33m 573[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should submit form with required fields [33m 513[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should submit form with all fields [33m 644[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should omit language when auto-detect selected [33m 469[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle service name with numbers [33m 517[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle service name with consecutive hyphens [33m 437[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should handle project path with spaces [33m 550[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/HooksConfigModal.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 6279[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should show configuration fields when enabled [33m 352[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow editing script command [33m 583[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should show warning when only Windows override exists [33m 693[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should show success message for cross-platform coverage [33m 518[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should call onSave with hook config when enabled [33m 628[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should not require base script when both platforms have overrides [33m 1303[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/schema-cache.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 10222[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should retry on network failure [33m 3013[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should return error after max retries [33m 7026[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ui/dropdown-menu.test.tsx [2m([22m[2m21 tests[22m[2m)[22m[33m 3724[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should open dropdown when trigger is clicked [33m 454[2mms[22m[39m
+Not implemented: navigation to another Document
+ [32mΓ£ô[39m src/hooks/useLogClassifications.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 1542[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/PreviewPane.test.tsx [2m([22m[2m29 tests[22m[2m)[22m[33m 4195[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m renders YAML content [33m 391[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m generates valid YAML from data [33m 372[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m updates YAML when data changes (debounced) [33m 680[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m handles circular references with YAML anchors [33m 346[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m copies YAML to clipboard on button click [33m 344[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m shows check icon after copying [33m 331[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m downloads YAML as file on button click [33m 460[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m applies error styling to lines with errors [33m 336[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m calls onLineClick with line number when line clicked [33m 331[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/ResourceConfigModal.test.tsx [2m([22m[2m27 tests[22m[2m)[22m[33m 9526[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should render modal when open [33m 446[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should filter resource types by category [33m 407[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should apply template configuration [33m 340[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should require resource name [33m 389[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should validate resource name format [33m 816[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should prevent duplicate resource names [33m 803[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should allow adding dependencies [33m 504[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should detect circular dependencies [33m 794[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should remove dependencies [33m 631[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save new resource configuration [33m 875[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save resource with dependencies [33m 680[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save existing resource flag [33m 602[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should disable submit button while submitting [33m 506[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/YamlEditor.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[33m 4799[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should render loading state initially [33m 363[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should render all main components after loading [33m 684[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should save config successfully [33m 363[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should show save success message [33m 318[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should discard changes on cancel [33m 366[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should have accessible button labels [33m 306[2mms[22m[39m
+       [33m[2mΓ£ô[22m[39m should display error message when save fails [33m 315[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/DeleteBackupDialog.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 994[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useServices.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 909[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/DeleteServiceDialog.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 1024[2mms[22m[39m
+ [32mΓ£ô[39m src/components/modals/KeyboardShortcuts.test.tsx [2m([22m[2m33 tests[22m[2m)[22m[33m 1144[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/modals/RestoreConfirmationDialog.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 1233[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders when isOpen is true [33m 336[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/forms/fields/fields.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 1293[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m shows validation error for pattern mismatch [33m 327[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/forms/fields/ArrayField.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 1136[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders empty array field with add button [33m 308[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ErrorHandling/ErrorModal.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 799[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ui/dialog.test.tsx [2m([22m[2m19 tests[22m[2m)[22m[33m 943[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders when isOpen is true [33m 305[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ErrorHandling/RecoveryModal.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 826[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ConnectionStringsPanel.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 828[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m copies connection string to clipboard when copy button clicked [33m 322[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ui/tabs.test.tsx [2m([22m[2m26 tests[22m[2m)[22m[33m 737[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ServiceCard.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 939[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m displays local URL when no alternate URL is configured [33m 356[2mms[22m[39m
+ [32mΓ£ô[39m src/components/HealthTooltipContent.test.tsx [2m([22m[2m26 tests[22m[2m)[22m[33m 880[2mms[22m[39m
+ [32mΓ£ô[39m src/components/StatusIndicator.test.tsx [2m([22m[2m58 tests[22m[2m)[22m[33m 1190[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/KeyboardShortcutsReference.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 736[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/BackupsButton.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 676[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders with text and icon [33m 312[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useLogConfig.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 649[2mms[22m[39m
+ [32mΓ£ô[39m src/components/NotificationBadge.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 683[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders count correctly [33m 306[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/forms/FieldLabel.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 799[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m shows help tooltip when description is provided [33m 717[2mms[22m[39m
+ [32mΓ£ô[39m src/components/NotificationToast.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 706[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders title/message and relative time [33m 356[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/NavigationItem.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 674[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ErrorBoundary.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 598[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ServiceActions.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 642[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders default action buttons and invokes operations [33m 616[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ValidationSummaryPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 873[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/QuickActionsBar.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 643[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m renders quick action buttons for default services [33m 359[2mms[22m[39m
+ [32mΓ£ô[39m src/components/NotificationStack.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 522[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ErrorHandling/ToastContainer.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 469[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ErrorHandling/ErrorBoundary.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 489[2mms[22m[39m
+ [32mΓ£ô[39m src/components/LogsPane.header.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 679[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m shows process + health badges and supports Open/Details buttons [33m 569[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/NavigationSearch.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 480[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should call onChange when typing [33m 305[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/HelpPanel.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 312[2mms[22m[39m
+ [32mΓ£ô[39m src/components/NoLogsPrompt.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 285[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ImportExport/ExportModal.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 268[2mms[22m[39m
+ [32mΓ£ô[39m src/contexts/SchemaContext.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 296[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/accessibility-basic.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 222[2mms[22m[39m
+ [32mΓ£ô[39m src/components/LogsPaneAzureControls.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 252[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ImportExport/ImportModal.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 192[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/YamlEditorLayout.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 226[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/forms/FieldError.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 218[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useCommandPalette.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 108[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useHistoricalLogs.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 179[2mms[22m[39m
+ [32mΓ£ô[39m src/components/logspane.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 249[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/useEditorState.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 149[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/search-highlight.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[32m 148[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ui/table.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[32m 132[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useHealthStream.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 87[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useTheme.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/yaml-comprehensive.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 108[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useLogFiltering.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ErrorHandling/useAutoSave.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/ErrorHandling/toast-system.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 67[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useServiceOperations.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[32m 103[2mms[22m[39m
+ [32mΓ£ô[39m src/components/editor/forms/FieldRenderer.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useLogsStream.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useSmoothedLoadingIndicator.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/panel-utils.test.ts [2m([22m[2m59 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useClipboard.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+stderr | src/hooks/useLogsStream.flood.test.ts > useLogsStream flood prevention > should not flood the server when multiple services mount simultaneously
+Total fetch calls: 12
+Calls by service: {
+  'appservice-web': 3,
+  azurite: 3,
+  'containerapp-api': 3,
+  'functions-worker': 3
+}
+
+stderr | src/hooks/useLogsStream.flood.test.ts > useLogsStream flood prevention > should not repeatedly poll in local mode when using WebSocket
+Initial calls: 3
+
+ [32mΓ£ô[39m src/lib/editor/validation-engine.test.ts [2m([22m[2m30 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+stderr | src/hooks/useLogsStream.flood.test.ts > useLogsStream flood prevention > should not repeatedly poll in local mode when using WebSocket
+Additional calls after 30s: 0
+
+stderr | src/hooks/useLogsStream.flood.test.ts > useLogsStream flood prevention > should not make HTTP requests in local mode at all when WebSocket is available
+HTTP fetch calls in local mode: 3
+
+ [32mΓ£ô[39m src/hooks/useLogsStream.flood.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/validation-comprehensive.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32mΓ£ô[39m src/components/LogsPane.footer.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 140[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/health-diagnostics.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useAzureTimeRange.test.ts [2m([22m[2m32 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/errors/auto-save.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useEscapeKey.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/service-utils.test.ts [2m([22m[2m118 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/yaml-utils.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/errors/retry-utils.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/errors/error-factory.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/log-utils.test.ts [2m([22m[2m45 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/command-search.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/security-utils.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/config-api.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/shortcuts-utils.test.ts [2m([22m[2m35 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/navigation-types.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/resource-types.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/import-export-utils.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/hooks-types.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/codespace-utils.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32mΓ£ô[39m src/components/HealthTooltip.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/healthcheck-types.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/performance/benchmarks.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/command-history.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/storage-utils.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/azure-provenance.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/schema/schema-parser.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/api/wellknown.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/editor/help-utils.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/schema/schema-loader.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [2m[90mΓåô[39m[22m src/lib/editor/config-api-integration.test.ts [2m([22m[2m19 tests[22m[2m | [22m[33m19 skipped[39m[2m)[22m
+ [32mΓ£ô[39m src/lib/editor/command-types.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32mΓ£ô[39m src/types.url.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32mΓ£ô[39m src/lib/service-utils.consistency.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m125 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (126)[39m
+[2m      Tests [22m [1m[32m2568 passed[39m[22m[2m | [22m[33m19 skipped[39m[90m (2587)[39m
+[2m   Start at [22m 09:40:25
+[2m   Duration [22m 55.22s[2m (transform 11.55s, setup 184.55s, import 81.00s, tests 147.36s, environment 1102.61s)[22m
+
+Γ£à Dashboard tests passed!
+
+≡ƒôï Step 10/20: Running dashboard E2E tests...
+Running dashboard E2E tests...
+Installing Playwright browsers (if needed)...
+
+Running 535 tests using 16 workers
+
+[1A[2K[1/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:78:3 ΓÇ║ Responsive - Mobile ΓÇ║ dashboard loads on mobile
+[1A[2K[2/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:87:3 ΓÇ║ Responsive - Mobile ΓÇ║ navigation is accessible on mobile
+[1A[2K[3/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:102:3 ΓÇ║ Responsive - Tablet ΓÇ║ dashboard loads on tablet
+[1A[2K[4/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:114:3 ΓÇ║ Responsive - Desktop ΓÇ║ dashboard uses full width on desktop
+[1A[2K[5/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:30:3 ΓÇ║ Theme - Light/Dark Mode ΓÇ║ theme can be toggled to dark mode
+[1A[2K[6/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:16:3 ΓÇ║ Theme - Light/Dark Mode ΓÇ║ starts with light theme by default
+[1A[2K[7/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:129:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ can tab through interactive elements
+[1A[2K[8/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:144:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ Enter key activates buttons
+[1A[2K[9/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:231:3 ΓÇ║ Accessibility - Visual ΓÇ║ status colors are distinguishable
+[1A[2K[10/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:164:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ Escape closes modals
+[1A[2K[11/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:204:3 ΓÇ║ Accessibility - ARIA ΓÇ║ buttons have accessible names
+[1A[2K[12/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:35:3 ΓÇ║ Schema Form Generation ΓÇ║ should render all field types correctly
+[1A[2K[13/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:66:3 ΓÇ║ Schema Form Generation ΓÇ║ should validate required fields on blur
+[1A[2K[14/535] [chromium] ΓÇ║ e2e\accessibility.spec.ts:189:3 ΓÇ║ Accessibility - ARIA ΓÇ║ navigation tabs have proper roles
+[1A[2K[15/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:113:3 ΓÇ║ Schema Form Generation ΓÇ║ should toggle boolean field value
+[1A[2K[16/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:93:3 ΓÇ║ Schema Form Generation ΓÇ║ should show validation error for pattern mismatch
+[1A[2K[17/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:126:3 ΓÇ║ Schema Form Generation ΓÇ║ should select enum value from dropdown
+[1A[2K[18/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:139:3 ΓÇ║ Schema Form Generation ΓÇ║ should add and remove array items
+[1A[2K[19/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:159:3 ΓÇ║ Schema Form Generation ΓÇ║ should expand and collapse object fields
+[1A[2K[20/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:173:3 ΓÇ║ Schema Form Generation ΓÇ║ should display help tooltips on hover
+[1A[2K[21/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:187:3 ΓÇ║ Schema Form Generation ΓÇ║ should support keyboard navigation through forms
+[1A[2K[22/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:215:3 ΓÇ║ Navigation Tree ΓÇ║ should display all main sections
+[1A[2K[23/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:233:3 ΓÇ║ Navigation Tree ΓÇ║ should expand and collapse sections
+[1A[2K[24/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:252:3 ΓÇ║ Navigation Tree ΓÇ║ should navigate to section when clicked
+[1A[2K[25/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:270:3 ΓÇ║ Navigation Tree ΓÇ║ should filter navigation with search
+[1A[2K[26/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:284:3 ΓÇ║ Navigation Tree ΓÇ║ should support keyboard navigation
+[1A[2K[27/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:295:3 ΓÇ║ Navigation Tree ΓÇ║ should show validation badges
+[1A[2K[28/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:318:3 ΓÇ║ Service Management ΓÇ║ should add appservice host type
+[1A[2K[29/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:335:3 ΓÇ║ Service Management ΓÇ║ should add containerapp host type
+[1A[2K[30/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:345:3 ΓÇ║ Service Management ΓÇ║ should add function host type
+[1A[2K[31/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:355:3 ΓÇ║ Service Management ΓÇ║ should validate duplicate service names
+[1A[2K[32/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:377:3 ΓÇ║ Service Management ΓÇ║ should delete service with confirmation
+[1A[2K[33/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:416:3 ΓÇ║ Resource Management ΓÇ║ should add db.postgres resource
+[1A[2K[34/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:424:3 ΓÇ║ Resource Management ΓÇ║ should add db.cosmos resource with containers
+[1A[2K  1) [chromium] ΓÇ║ e2e\accessibility.spec.ts:87:3 ΓÇ║ Responsive - Mobile ΓÇ║ navigation is accessible on mobile 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:90:11
+
+
+[1A[2K  2) [chromium] ΓÇ║ e2e\accessibility.spec.ts:78:3 ΓÇ║ Responsive - Mobile ΓÇ║ dashboard loads on mobile ΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:81:11
+
+
+[1A[2K  3) [chromium] ΓÇ║ e2e\accessibility.spec.ts:114:3 ΓÇ║ Responsive - Desktop ΓÇ║ dashboard uses full width on desktop 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:117:11
+
+
+[1A[2K  4) [chromium] ΓÇ║ e2e\accessibility.spec.ts:102:3 ΓÇ║ Responsive - Tablet ΓÇ║ dashboard loads on tablet 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:105:11
+
+
+[1A[2K  5) [chromium] ΓÇ║ e2e\accessibility.spec.ts:30:3 ΓÇ║ Theme - Light/Dark Mode ΓÇ║ theme can be toggled to dark mode 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:33:11
+
+
+[1A[2K  6) [chromium] ΓÇ║ e2e\accessibility.spec.ts:16:3 ΓÇ║ Theme - Light/Dark Mode ΓÇ║ starts with light theme by default 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:19:11
+
+
+[1A[2K  7) [chromium] ΓÇ║ e2e\accessibility.spec.ts:129:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ can tab through interactive elements 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:132:11
+
+
+[1A[2K  8) [chromium] ΓÇ║ e2e\accessibility.spec.ts:189:3 ΓÇ║ Accessibility - ARIA ΓÇ║ navigation tabs have proper roles 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:192:11
+
+
+[1A[2K  9) [chromium] ΓÇ║ e2e\accessibility.spec.ts:204:3 ΓÇ║ Accessibility - ARIA ΓÇ║ buttons have accessible names 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:207:11
+
+
+[1A[2K  10) [chromium] ΓÇ║ e2e\accessibility.spec.ts:144:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ Enter key activates buttons 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\accessibility.spec.ts:147:11
+
+
+[1A[2K[35/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:439:3 ΓÇ║ Resource Management ΓÇ║ should add storage resource with containers
+[1A[2K[36/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:467:3 ΓÇ║ Health Check Configuration ΓÇ║ should configure HTTP healthcheck
+[1A[2K[37/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:485:3 ΓÇ║ Health Check Configuration ΓÇ║ should configure process healthcheck
+[1A[2K[38/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:477:3 ΓÇ║ Health Check Configuration ΓÇ║ should configure TCP healthcheck
+[1A[2K[39/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:492:3 ΓÇ║ Health Check Configuration ΓÇ║ should configure output healthcheck with pattern
+[1A[2K[40/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:500:3 ΓÇ║ Health Check Configuration ΓÇ║ should disable healthcheck
+[1A[2K[41/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:522:3 ΓÇ║ Hooks Configuration ΓÇ║ should add project-level preprovision hook
+[1A[2K[42/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:531:3 ΓÇ║ Hooks Configuration ΓÇ║ should add service-level predeploy hook
+[1A[2K[43/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:603:3 ΓÇ║ Environment Variables and Ports ΓÇ║ should add port configuration
+[1A[2K[44/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:569:3 ΓÇ║ Environment Variables and Ports ΓÇ║ should add environment variable
+[1A[2K[45/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:646:3 ΓÇ║ YAML Editor ΓÇ║ should allow direct YAML editing
+[1A[2K[46/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:657:3 ΓÇ║ YAML Editor ΓÇ║ should show YAML syntax validation errors
+[1A[2K[47/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:669:3 ΓÇ║ YAML Editor ΓÇ║ should highlight validation errors
+[1A[2K[48/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:697:3 ΓÇ║ Preview Pane ΓÇ║ should update preview on changes
+[1A[2K[49/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:714:3 ΓÇ║ Preview Pane ΓÇ║ should download as azure.yaml
+[1A[2K[50/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:741:3 ΓÇ║ Validation ΓÇ║ should show schema validation errors
+[1A[2K[51/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:753:3 ΓÇ║ Validation ΓÇ║ should show validation summary panel
+[1A[2K[52/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:760:3 ΓÇ║ Validation ΓÇ║ should navigate to error location
+[1A[2K[53/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:790:3 ΓÇ║ Import/Export ΓÇ║ should export configuration
+[1A[2K[54/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:802:3 ΓÇ║ Import/Export ΓÇ║ should import from file
+[1A[2K[55/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:832:3 ΓÇ║ Backup/Restore ΓÇ║ should create backup when saving
+[1A[2K[56/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:850:3 ΓÇ║ Backup/Restore ΓÇ║ should show backup history
+[1A[2K[57/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:861:3 ΓÇ║ Backup/Restore ΓÇ║ should restore from backup
+[1A[2K[58/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:896:3 ΓÇ║ Save/Load ΓÇ║ should save configuration
+[1A[2K[59/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:914:3 ΓÇ║ Save/Load ΓÇ║ should load configuration on page load
+[1A[2K[60/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:940:3 ΓÇ║ Command Palette ΓÇ║ should open command palette with Ctrl+K
+[1A[2K[61/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:950:3 ΓÇ║ Command Palette ΓÇ║ should search commands
+[1A[2K[62/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:980:3 ΓÇ║ Keyboard Shortcuts ΓÇ║ should save with Ctrl+S
+[1A[2K[63/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:986:3 ΓÇ║ Keyboard Shortcuts ΓÇ║ should close modals with Escape
+[1A[2K[64/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1017:3 ΓÇ║ Error Handling ΓÇ║ should handle invalid YAML gracefully
+[1A[2K[65/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1029:3 ΓÇ║ Error Handling ΓÇ║ should handle schema validation errors
+[1A[2K[66/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1080:3 ΓÇ║ Test Configuration ΓÇ║ should configure global test settings
+[1A[2K[67/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1095:3 ΓÇ║ Test Configuration ΓÇ║ should configure service-level test settings
+[1A[2K[68/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1146:3 ΓÇ║ Logs Configuration ΓÇ║ should configure global logs settings
+[1A[2K[69/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1160:3 ΓÇ║ Logs Configuration ΓÇ║ should configure service-level logs settings
+[1A[2K[70/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1227:3 ΓÇ║ Pipeline, Infrastructure, and Configuration ΓÇ║ should configure pipeline settings
+[1A[2K[71/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1240:3 ΓÇ║ Pipeline, Infrastructure, and Configuration ΓÇ║ should configure infrastructure settings
+[1A[2K[72/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1274:3 ΓÇ║ Requirements and Metadata ΓÇ║ should configure requirements
+[1A[2K[73/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1288:3 ΓÇ║ Requirements and Metadata ΓÇ║ should configure metadata
+[1A[2K[74/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1316:3 ΓÇ║ Accessibility ΓÇ║ should have proper ARIA labels
+[1A[2K[75/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1333:3 ΓÇ║ Accessibility ΓÇ║ should support keyboard navigation
+[1A[2K[76/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1346:3 ΓÇ║ Accessibility ΓÇ║ should manage focus correctly
+[1A[2K[77/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1372:3 ΓÇ║ Integration Tests ΓÇ║ should complete full edit workflow
+[1A[2K[78/535] [chromium] ΓÇ║ e2e\azure-yaml-editor-comprehensive.spec.ts:1416:3 ΓÇ║ Integration Tests ΓÇ║ should handle round-trip export/import
+[1A[2K[79/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:66:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Service Card URLs ΓÇ║ transforms localhost URL to Codespace URL in service card
+[1A[2K[80/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:94:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Service Card URLs ΓÇ║ keeps localhost URL when not in Codespace
+[1A[2K[81/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:120:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Service Card URLs ΓÇ║ transforms multiple service URLs correctly
+[1A[2K[82/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:141:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Service URL Click ΓÇ║ opens Codespace URL in new tab when clicked
+[1A[2K[83/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:168:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Process Services ΓÇ║ process services without ports are not affected
+[1A[2K[84/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:190:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Environment API ΓÇ║ fetches environment info on load
+[1A[2K[85/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:220:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ Environment API ΓÇ║ handles environment API errors gracefully
+[1A[2K[86/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:252:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ VS Code Desktop in Codespace ΓÇ║ keeps localhost URL when using VS Code desktop connected to Codespace
+[1A[2K[87/535] [chromium] ΓÇ║ e2e\codespace.spec.ts:279:5 ΓÇ║ Codespace URL Forwarding ΓÇ║ VS Code Desktop in Codespace ΓÇ║ transforms URL in browser-based Codespace (not VS Code desktop)
+[1A[2K[88/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:14:3 ΓÇ║ Command Palette ΓÇ║ should open with Cmd+K shortcut
+[1A[2K[89/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:23:3 ΓÇ║ Command Palette ΓÇ║ should focus search input when opened
+[1A[2K[90/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:30:3 ΓÇ║ Command Palette ΓÇ║ should search and filter commands
+[1A[2K[91/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:44:3 ΓÇ║ Command Palette ΓÇ║ should navigate with keyboard arrows
+[1A[2K[92/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:60:3 ΓÇ║ Command Palette ΓÇ║ should execute command on Enter
+[1A[2K[93/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:76:3 ΓÇ║ Command Palette ΓÇ║ should execute command on click
+[1A[2K[94/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:86:3 ΓÇ║ Command Palette ΓÇ║ should close on Escape
+[1A[2K[95/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:99:3 ΓÇ║ Command Palette ΓÇ║ should close on backdrop click
+[1A[2K[96/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:109:3 ΓÇ║ Command Palette ΓÇ║ should close on close button click
+[1A[2K[97/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:119:3 ΓÇ║ Command Palette ΓÇ║ should show grouped results by category
+[1A[2K[98/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:127:3 ΓÇ║ Command Palette ΓÇ║ should show recent commands when no query
+[1A[2K[99/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:140:3 ΓÇ║ Command Palette ΓÇ║ should clear recent history
+[1A[2K[100/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:155:3 ΓÇ║ Command Palette ΓÇ║ should show empty state when no matches
+[1A[2K[101/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:165:3 ΓÇ║ Command Palette ΓÇ║ should display keyboard shortcuts for commands
+[1A[2K[102/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:175:3 ΓÇ║ Command Palette ΓÇ║ should update results count
+[1A[2K  11) [chromium] ΓÇ║ e2e\command-palette.spec.ts:14:3 ΓÇ║ Command Palette ΓÇ║ should open with Cmd+K shortcut 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  12) [chromium] ΓÇ║ e2e\command-palette.spec.ts:23:3 ΓÇ║ Command Palette ΓÇ║ should focus search input when opened 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  13) [chromium] ΓÇ║ e2e\command-palette.spec.ts:30:3 ΓÇ║ Command Palette ΓÇ║ should search and filter commands 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  14) [chromium] ΓÇ║ e2e\command-palette.spec.ts:44:3 ΓÇ║ Command Palette ΓÇ║ should navigate with keyboard arrows 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  15) [chromium] ΓÇ║ e2e\command-palette.spec.ts:60:3 ΓÇ║ Command Palette ΓÇ║ should execute command on Enter 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  16) [chromium] ΓÇ║ e2e\command-palette.spec.ts:76:3 ΓÇ║ Command Palette ΓÇ║ should execute command on click 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  17) [chromium] ΓÇ║ e2e\command-palette.spec.ts:99:3 ΓÇ║ Command Palette ΓÇ║ should close on backdrop click 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  18) [chromium] ΓÇ║ e2e\command-palette.spec.ts:86:3 ΓÇ║ Command Palette ΓÇ║ should close on Escape ΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  19) [chromium] ΓÇ║ e2e\command-palette.spec.ts:109:3 ΓÇ║ Command Palette ΓÇ║ should close on close button click 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  20) [chromium] ΓÇ║ e2e\command-palette.spec.ts:119:3 ΓÇ║ Command Palette ΓÇ║ should show grouped results by category 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  21) [chromium] ΓÇ║ e2e\command-palette.spec.ts:127:3 ΓÇ║ Command Palette ΓÇ║ should show recent commands when no query 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K[103/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:189:3 ΓÇ║ Command Palette ΓÇ║ should persist recent history across sessions
+[1A[2K  22) [chromium] ΓÇ║ e2e\command-palette.spec.ts:140:3 ΓÇ║ Command Palette ΓÇ║ should clear recent history 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  23) [chromium] ΓÇ║ e2e\command-palette.spec.ts:155:3 ΓÇ║ Command Palette ΓÇ║ should show empty state when no matches 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K[104/535] [chromium] ΓÇ║ e2e\command-palette.spec.ts:208:3 ΓÇ║ Command Palette ΓÇ║ should highlight matching characters
+[1A[2K[105/535] [chromium] ΓÇ║ e2e\console.spec.ts:16:3 ΓÇ║ Console - Basic ΓÇ║ console view loads by default
+[1A[2K[106/535] [chromium] ΓÇ║ e2e\console.spec.ts:26:3 ΓÇ║ Console - Basic ΓÇ║ console toolbar is visible
+[1A[2K[107/535] [chromium] ΓÇ║ e2e\console.spec.ts:36:3 ΓÇ║ Console - Basic ΓÇ║ console shows service log panes
+[1A[2K  24) [chromium] ΓÇ║ e2e\command-palette.spec.ts:165:3 ΓÇ║ Command Palette ΓÇ║ should display keyboard shortcuts for commands 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K[108/535] [chromium] ΓÇ║ e2e\console.spec.ts:50:3 ΓÇ║ Console - View Modes ΓÇ║ can switch between grid and unified view
+[1A[2K[109/535] [chromium] ΓÇ║ e2e\console.spec.ts:70:3 ΓÇ║ Console - Filtering ΓÇ║ can filter by service
+[1A[2K[110/535] [chromium] ΓÇ║ e2e\console.spec.ts:84:3 ΓÇ║ Console - Filtering ΓÇ║ search filters log content
+[1A[2K[111/535] [chromium] ΓÇ║ e2e\console.spec.ts:104:3 ΓÇ║ Console - Controls ΓÇ║ pause/resume button toggles state
+[1A[2K[112/535] [chromium] ΓÇ║ e2e\console.spec.ts:126:3 ΓÇ║ Console - Controls ΓÇ║ clear button clears logs
+[1A[2K[113/535] [chromium] ΓÇ║ e2e\console.spec.ts:140:3 ΓÇ║ Console - Controls ΓÇ║ auto-scroll toggle works
+[1A[2K[114/535] [chromium] ΓÇ║ e2e\console.spec.ts:159:3 ΓÇ║ Console - Bulk Operations ΓÇ║ start all button is visible
+[1A[2K[115/535] [chromium] ΓÇ║ e2e\console.spec.ts:173:3 ΓÇ║ Console - Bulk Operations ΓÇ║ stop all button is visible
+[1A[2K  25) [chromium] ΓÇ║ e2e\command-palette.spec.ts:175:3 ΓÇ║ Command Palette ΓÇ║ should update results count 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K[116/535] [chromium] ΓÇ║ e2e\console.spec.ts:185:3 ΓÇ║ Console - Bulk Operations ΓÇ║ restart all button is visible
+[1A[2K[117/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:18:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard loads successfully
+[1A[2K[118/535] [chromium] ΓÇ║ e2e\console.spec.ts:202:3 ΓÇ║ Console - Empty States ΓÇ║ handles empty services
+[1A[2K  26) [chromium] ΓÇ║ e2e\command-palette.spec.ts:189:3 ΓÇ║ Command Palette ΓÇ║ should persist recent history across sessions 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K  27) [chromium] ΓÇ║ e2e\command-palette.spec.ts:208:3 ΓÇ║ Command Palette ΓÇ║ should highlight matching characters 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[data-testid="app-loaded"]') to be visible[22m
+
+
+       9 |     await page.goto('/')
+      10 |     // Wait for app to load
+    > 11 |     await page.waitForSelector('[data-testid="app-loaded"]', { timeout: 5000 })
+         |                ^
+      12 |   })
+      13 |   
+      14 |   test('should open with Cmd+K shortcut', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\command-palette.spec.ts:11:16
+
+
+[1A[2K[119/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:27:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard shows project name
+[1A[2K[120/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:35:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard loads services
+[1A[2K  28) [chromium] ΓÇ║ e2e\console.spec.ts:16:3 ΓÇ║ Console - Basic ΓÇ║ console view loads by default ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:19:11
+
+
+[1A[2K  29) [chromium] ΓÇ║ e2e\console.spec.ts:26:3 ΓÇ║ Console - Basic ΓÇ║ console toolbar is visible ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:29:11
+
+
+[1A[2K  30) [chromium] ΓÇ║ e2e\console.spec.ts:36:3 ΓÇ║ Console - Basic ΓÇ║ console shows service log panes ΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:39:11
+
+
+[1A[2K  31) [chromium] ΓÇ║ e2e\console.spec.ts:50:3 ΓÇ║ Console - View Modes ΓÇ║ can switch between grid and unified view 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:53:11
+
+
+[1A[2K[121/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:46:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard handles empty services gracefully
+[1A[2K  32) [chromium] ΓÇ║ e2e\console.spec.ts:70:3 ΓÇ║ Console - Filtering ΓÇ║ can filter by service ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:73:11
+
+
+[1A[2K  33) [chromium] ΓÇ║ e2e\console.spec.ts:84:3 ΓÇ║ Console - Filtering ΓÇ║ search filters log content ΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:87:11
+
+
+[1A[2K  34) [chromium] ΓÇ║ e2e\console.spec.ts:104:3 ΓÇ║ Console - Controls ΓÇ║ pause/resume button toggles state 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:107:11
+
+
+[1A[2K  35) [chromium] ΓÇ║ e2e\console.spec.ts:126:3 ΓÇ║ Console - Controls ΓÇ║ clear button clears logs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:129:11
+
+
+[1A[2K  36) [chromium] ΓÇ║ e2e\console.spec.ts:140:3 ΓÇ║ Console - Controls ΓÇ║ auto-scroll toggle works ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:143:11
+
+
+[1A[2K  37) [chromium] ΓÇ║ e2e\console.spec.ts:173:3 ΓÇ║ Console - Bulk Operations ΓÇ║ stop all button is visible 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:176:11
+
+
+[1A[2K  38) [chromium] ΓÇ║ e2e\console.spec.ts:159:3 ΓÇ║ Console - Bulk Operations ΓÇ║ start all button is visible 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:162:11
+
+
+[1A[2K[122/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:65:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays overall healthy status
+[1A[2K[123/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:78:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays unhealthy status when services fail
+[1A[2K  39) [chromium] ΓÇ║ e2e\console.spec.ts:185:3 ΓÇ║ Console - Bulk Operations ΓÇ║ restart all button is visible 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:188:11
+
+
+[1A[2K  40) [chromium] ΓÇ║ e2e\dashboard.spec.ts:18:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard loads successfully 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:21:11
+
+
+[1A[2K  41) [chromium] ΓÇ║ e2e\console.spec.ts:202:3 ΓÇ║ Console - Empty States ΓÇ║ handles empty services ΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\console.spec.ts:205:11
+
+
+[1A[2K[124/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:87:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays mixed health status
+[1A[2K[125/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:107:3 ΓÇ║ Dashboard - Views Integration ΓÇ║ console view displays logs panes
+[1A[2K[126/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:116:3 ΓÇ║ Dashboard - Views Integration ΓÇ║ resources view displays service cards
+[1A[2K[127/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:126:3 ΓÇ║ Dashboard - Views Integration ΓÇ║ environment view displays environment section
+[1A[2K[128/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:144:3 ΓÇ║ Dashboard - Service Details ΓÇ║ clicking service card opens detail panel
+[1A[2K[129/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:157:3 ΓÇ║ Dashboard - Service Details ΓÇ║ detail panel shows service information
+[1A[2K[130/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:174:3 ΓÇ║ Dashboard - Service Details ΓÇ║ detail panel can be closed
+[1A[2K[131/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:199:3 ΓÇ║ Dashboard - Connection Status ΓÇ║ shows connected status when healthy
+[1A[2K[132/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:213:3 ΓÇ║ Dashboard - Settings ΓÇ║ settings dialog can be opened
+[1A[2K[133/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:236:3 ΓÇ║ Dashboard - Settings ΓÇ║ settings dialog can be closed with Escape
+[1A[2K[134/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:266:3 ΓÇ║ Dashboard - Error Handling ΓÇ║ handles service errors gracefully
+[1A[2K  42) [chromium] ΓÇ║ e2e\dashboard.spec.ts:27:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard shows project name 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:30:11
+
+
+[1A[2K[135/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:289:3 ΓÇ║ Dashboard - Performance ΓÇ║ loads within reasonable time
+[1A[2K[136/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:301:3 ΓÇ║ Dashboard - Performance ΓÇ║ handles many services without timeout
+[1A[2K  43) [chromium] ΓÇ║ e2e\dashboard.spec.ts:35:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard loads services ΓöÇ
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:38:11
+
+
+[1A[2K[137/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:73:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should expand and collapse sections
+[1A[2K[138/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:94:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should navigate to section when clicked
+[1A[2K[139/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:111:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should show validation badges on items with errors
+[1A[2K[140/535] [chromium] ΓÇ║ e2e\dashboard.spec.ts:275:3 ΓÇ║ Dashboard - Error Handling ΓÇ║ page does not crash with no services
+[1A[2K[141/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:125:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should filter navigation with search
+[1A[2K[142/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:139:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should clear search with clear button
+[1A[2K[143/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:47:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should display all main sections
+[1A[2K[144/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:157:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should clear search with Escape key
+[1A[2K[145/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:176:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should show add buttons for services and resources
+[1A[2K[146/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:198:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should collapse navigation sidebar
+[1A[2K[147/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:213:3 ΓÇ║ Editor Navigation - Tree Structure ΓÇ║ should auto-expand parent of active section
+[1A[2K[148/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:248:3 ΓÇ║ Editor Navigation - Keyboard Navigation ΓÇ║ should support keyboard navigation
+[1A[2K[149/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:263:3 ΓÇ║ Editor Navigation - Keyboard Navigation ΓÇ║ should navigate with arrow keys
+[1A[2K[150/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:280:3 ΓÇ║ Editor Navigation - Keyboard Navigation ΓÇ║ should expand/collapse with arrow keys
+[1A[2K[151/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:299:3 ΓÇ║ Editor Navigation - Keyboard Navigation ΓÇ║ should support keyboard focus management
+[1A[2K[152/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:307:3 ΓÇ║ Editor Navigation - Keyboard Navigation ΓÇ║ should maintain focus visibility
+[1A[2K[153/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:327:3 ΓÇ║ Editor Navigation - Comprehensive Project ΓÇ║ should display all sections from comprehensive project
+[1A[2K[154/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:344:3 ΓÇ║ Editor Navigation - Comprehensive Project ΓÇ║ should display all services from comprehensive project
+[1A[2K[155/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:375:3 ΓÇ║ Editor Navigation - Comprehensive Project ΓÇ║ should display all resources from comprehensive project
+[1A[2K  44) [chromium] ΓÇ║ e2e\dashboard.spec.ts:46:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard handles empty services gracefully 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:49:11
+
+
+[1A[2K  45) [chromium] ΓÇ║ e2e\dashboard.spec.ts:65:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays overall healthy status 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:68:11
+
+
+[1A[2K  46) [chromium] ΓÇ║ e2e\dashboard.spec.ts:78:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays unhealthy status when services fail 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:81:11
+
+
+[1A[2K[156/535] [chromium] ΓÇ║ e2e\editor\01-navigation.spec.ts:405:3 ΓÇ║ Editor Navigation - Comprehensive Project ΓÇ║ should navigate to nested service properties
+[1A[2K[157/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:42:3 ΓÇ║ Schema Forms - Field Types ΓÇ║ should render boolean toggles
+[1A[2K[158/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:50:3 ΓÇ║ Schema Forms - Field Types ΓÇ║ should render enum selects
+[1A[2K[159/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:26:3 ΓÇ║ Schema Forms - Field Types ΓÇ║ should render string fields
+[1A[2K[160/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:58:3 ΓÇ║ Schema Forms - Field Types ΓÇ║ should render array fields
+[1A[2K  47) [chromium] ΓÇ║ e2e\dashboard.spec.ts:87:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays mixed health status 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:90:11
+
+
+[1A[2K  48) [chromium] ΓÇ║ e2e\dashboard.spec.ts:107:3 ΓÇ║ Dashboard - Views Integration ΓÇ║ console view displays logs panes 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:110:11
+
+
+[1A[2K[161/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:34:3 ΓÇ║ Schema Forms - Field Types ΓÇ║ should render number fields
+[1A[2K[162/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:122:3 ΓÇ║ Schema Forms - Validation ΓÇ║ should validate pattern constraints
+[1A[2K  49) [chromium] ΓÇ║ e2e\dashboard.spec.ts:199:3 ΓÇ║ Dashboard - Connection Status ΓÇ║ shows connected status when healthy 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:202:11
+
+
+[1A[2K[163/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:171:3 ΓÇ║ Schema Forms - Interactions ΓÇ║ should toggle boolean field value
+[1A[2K  50) [chromium] ΓÇ║ e2e\dashboard.spec.ts:213:3 ΓÇ║ Dashboard - Settings ΓÇ║ settings dialog can be opened 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:216:11
+
+
+[1A[2K[164/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:197:3 ΓÇ║ Schema Forms - Interactions ΓÇ║ should add and remove array items
+[1A[2K  51) [chromium] ΓÇ║ e2e\dashboard.spec.ts:236:3 ΓÇ║ Dashboard - Settings ΓÇ║ settings dialog can be closed with Escape 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:239:11
+
+
+[1A[2K[165/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:70:3 ΓÇ║ Schema Forms - Field Types ΓÇ║ should render object fields
+[1A[2K[166/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:97:3 ΓÇ║ Schema Forms - Validation ΓÇ║ should validate required fields on blur
+[1A[2K  52) [chromium] ΓÇ║ e2e\dashboard.spec.ts:289:3 ΓÇ║ Dashboard - Performance ΓÇ║ loads within reasonable time 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:294:11
+
+
+[1A[2K[167/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:280:3 ΓÇ║ Schema Forms - Interactions ΓÇ║ should support keyboard navigation through forms
+[1A[2K[168/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:297:3 ΓÇ║ Schema Forms - Comprehensive Project ΓÇ║ should display forms for all service types
+[1A[2K[169/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:146:3 ΓÇ║ Schema Forms - Validation ΓÇ║ should validate min/max constraints
+[1A[2K[170/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:320:3 ΓÇ║ Schema Forms - Comprehensive Project ΓÇ║ should display forms for all resource types
+[1A[2K[171/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:343:3 ΓÇ║ Schema Forms - Comprehensive Project ΓÇ║ should allow editing existing service properties
+[1A[2K[172/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:184:3 ΓÇ║ Schema Forms - Interactions ΓÇ║ should select enum value from dropdown
+[1A[2K  53) [chromium] ΓÇ║ e2e\dashboard.spec.ts:275:3 ΓÇ║ Dashboard - Error Handling ΓÇ║ page does not crash with no services 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\dashboard.spec.ts:278:11
+
+
+[1A[2K[173/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:234:3 ΓÇ║ Schema Forms - Interactions ΓÇ║ should expand and collapse object fields
+[1A[2K[174/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:46:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add appservice host type
+[1A[2K[175/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:63:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add containerapp host type with project
+[1A[2K[176/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:73:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add containerapp host type with image
+[1A[2K[177/535] [chromium] ΓÇ║ e2e\editor\02-schema-forms.spec.ts:266:3 ΓÇ║ Schema Forms - Interactions ΓÇ║ should display help tooltips on hover
+[1A[2K[178/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:82:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add function host type
+[1A[2K[179/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:92:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add springapp host type
+[1A[2K[180/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:102:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add staticwebapp host type
+[1A[2K[181/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:32:3 ΓÇ║ Service Management - Add Service ΓÇ║ should open add service modal
+[1A[2K[182/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:111:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add aks host type
+[1A[2K[183/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:121:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add ai.endpoint host type
+[1A[2K[184/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:130:3 ΓÇ║ Service Management - Add Service ΓÇ║ should add azure.ai.agent host type
+[1A[2K[185/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:139:3 ΓÇ║ Service Management - Add Service ΓÇ║ should validate service name format
+[1A[2K[186/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:159:3 ΓÇ║ Service Management - Add Service ΓÇ║ should detect duplicate service names
+[1A[2K[187/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:202:3 ΓÇ║ Service Management - Edit Service ΓÇ║ should edit service properties
+[1A[2K[188/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:223:3 ΓÇ║ Service Management - Edit Service ΓÇ║ should edit service ports
+[1A[2K[189/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:248:3 ΓÇ║ Service Management - Edit Service ΓÇ║ should edit service environment variables
+[1A[2K[190/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:303:3 ΓÇ║ Service Management - Delete Service ΓÇ║ should delete service with confirmation
+[1A[2K[191/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:331:3 ΓÇ║ Service Management - Delete Service ΓÇ║ should cancel service deletion
+[1A[2K[192/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:366:3 ΓÇ║ Service Management - Service Properties ΓÇ║ should display all service properties for appservice
+[1A[2K[193/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:383:3 ΓÇ║ Service Management - Service Properties ΓÇ║ should configure service dependencies
+[1A[2K[194/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:407:3 ΓÇ║ Service Management - Service Properties ΓÇ║ should configure service docker settings
+[1A[2K[195/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:431:3 ΓÇ║ Service Management - Service Properties ΓÇ║ should configure service k8s settings for AKS
+[1A[2K[196/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:463:3 ΓÇ║ Service Management - Service Types and Modes ΓÇ║ should configure http service type
+[1A[2K[197/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:481:3 ΓÇ║ Service Management - Service Types and Modes ΓÇ║ should configure tcp service type
+[1A[2K[198/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:498:3 ΓÇ║ Service Management - Service Types and Modes ΓÇ║ should configure process service with watch mode
+[1A[2K[199/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:515:3 ΓÇ║ Service Management - Service Types and Modes ΓÇ║ should configure process service with build mode
+[1A[2K[200/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:532:3 ΓÇ║ Service Management - Service Types and Modes ΓÇ║ should configure process service with daemon mode
+[1A[2K[201/535] [chromium] ΓÇ║ e2e\editor\03-services.spec.ts:549:3 ΓÇ║ Service Management - Service Types and Modes ΓÇ║ should configure process service with task mode
+[1A[2K[202/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:32:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add db.postgres resource
+[1A[2K[203/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:40:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add db.mysql resource
+[1A[2K[204/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:48:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add db.redis resource
+[1A[2K[205/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:56:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add db.mongo resource
+[1A[2K[206/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:64:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add db.cosmos resource with containers
+[1A[2K[207/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:85:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add ai.openai.model resource
+[1A[2K[208/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:93:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add ai.project resource
+[1A[2K[209/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:101:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add ai.search resource
+[1A[2K[210/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:109:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add host.containerapp resource
+[1A[2K[211/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:117:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add host.appservice resource
+[1A[2K[212/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:125:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add messaging.eventhubs resource
+[1A[2K[213/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:133:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add messaging.servicebus resource
+[1A[2K[214/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:141:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add storage resource
+[1A[2K[215/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:149:3 ΓÇ║ Resource Management - Add Resource ΓÇ║ should add keyvault resource
+[1A[2K[216/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:177:3 ΓÇ║ Resource Management - Edit Resource ΓÇ║ should edit resource properties
+[1A[2K[217/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:194:3 ΓÇ║ Resource Management - Edit Resource ΓÇ║ should edit cosmos db containers
+[1A[2K[218/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:233:3 ΓÇ║ Resource Management - Delete Resource ΓÇ║ should delete resource with confirmation
+[1A[2K[219/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:266:3 ΓÇ║ Resource Management - Comprehensive Project ΓÇ║ should display all resources from comprehensive project
+[1A[2K[220/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:281:3 ΓÇ║ Resource Management - Comprehensive Project ΓÇ║ should configure resource dependencies
+[1A[2K[221/535] [chromium] ΓÇ║ e2e\editor\04-resources.spec.ts:299:3 ΓÇ║ Resource Management - Comprehensive Project ΓÇ║ should configure existing resource flag
+[1A[2K[222/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:34:3 ΓÇ║ Health Check Configuration - Types ΓÇ║ should configure HTTP healthcheck
+[1A[2K[223/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:45:3 ΓÇ║ Health Check Configuration - Types ΓÇ║ should configure TCP healthcheck
+[1A[2K[224/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:54:3 ΓÇ║ Health Check Configuration - Types ΓÇ║ should configure process healthcheck
+[1A[2K[225/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:62:3 ΓÇ║ Health Check Configuration - Types ΓÇ║ should configure output healthcheck with pattern
+[1A[2K[226/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:71:3 ΓÇ║ Health Check Configuration - Types ΓÇ║ should disable healthcheck
+[1A[2K[227/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:94:3 ΓÇ║ Health Check Configuration - Properties ΓÇ║ should configure healthcheck interval
+[1A[2K[228/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:117:3 ΓÇ║ Health Check Configuration - Properties ΓÇ║ should configure healthcheck timeout
+[1A[2K[229/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:140:3 ΓÇ║ Health Check Configuration - Properties ΓÇ║ should configure healthcheck retries
+[1A[2K[230/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:163:3 ΓÇ║ Health Check Configuration - Properties ΓÇ║ should configure healthcheck start_period
+[1A[2K[231/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:194:3 ΓÇ║ Health Check Configuration - Comprehensive Project ΓÇ║ should display healthcheck configs from comprehensive project
+[1A[2K[232/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:29:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should add preprovision hook
+[1A[2K[233/535] [chromium] ΓÇ║ e2e\editor\05-healthchecks.spec.ts:212:3 ΓÇ║ Health Check Configuration - Comprehensive Project ΓÇ║ should configure HTTP healthcheck with custom path
+[1A[2K[234/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:38:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should add postprovision hook
+[1A[2K[235/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:47:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should add preinfracreate hook
+[1A[2K[236/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:56:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should add postinfracreate hook
+[1A[2K[237/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:65:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should add preup hook
+[1A[2K[238/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:74:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should add postup hook
+[1A[2K[239/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:83:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should configure hook with continueOnError
+[1A[2K[240/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:102:3 ΓÇ║ Hooks Configuration - Project Level ΓÇ║ should configure hook with platform overrides
+[1A[2K[241/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:142:3 ΓÇ║ Hooks Configuration - Service Level ΓÇ║ should add service predeploy hook
+[1A[2K[242/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:173:3 ΓÇ║ Hooks Configuration - Service Level ΓÇ║ should add service postdeploy hook
+[1A[2K[243/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:210:3 ΓÇ║ Hooks Configuration - Comprehensive Project ΓÇ║ should display all project-level hooks from comprehensive project
+[1A[2K[244/535] [chromium] ΓÇ║ e2e\editor\06-hooks.spec.ts:226:3 ΓÇ║ Hooks Configuration - Comprehensive Project ΓÇ║ should display service-level hooks from comprehensive project
+[1A[2K[245/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:33:3 ΓÇ║ Environment Variables ΓÇ║ should add environment variable
+[1A[2K[246/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:67:3 ΓÇ║ Environment Variables ΓÇ║ should add environment variable with secret
+[1A[2K[247/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:103:3 ΓÇ║ Environment Variables ΓÇ║ should edit environment variable
+[1A[2K[248/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:145:3 ΓÇ║ Environment Variables ΓÇ║ should delete environment variable
+[1A[2K[249/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:202:3 ΓÇ║ Port Configuration ΓÇ║ should add single port
+[1A[2K[250/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:231:3 ΓÇ║ Port Configuration ΓÇ║ should add port mapping
+[1A[2K[251/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:260:3 ΓÇ║ Port Configuration ΓÇ║ should add port with host mapping
+[1A[2K[252/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:289:3 ΓÇ║ Port Configuration ΓÇ║ should add UDP port
+[1A[2K[253/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:326:3 ΓÇ║ Environment Variables and Ports - Comprehensive Project ΓÇ║ should display environment variables from comprehensive project
+[1A[2K[254/535] [chromium] ΓÇ║ e2e\editor\07-env-ports.spec.ts:348:3 ΓÇ║ Environment Variables and Ports - Comprehensive Project ΓÇ║ should display ports from comprehensive project
+[1A[2K[255/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:40:3 ΓÇ║ Test Configuration - Global ΓÇ║ should configure global test parallel setting
+[1A[2K[256/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:53:3 ΓÇ║ Test Configuration - Global ΓÇ║ should configure global test failFast setting
+[1A[2K[257/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:67:3 ΓÇ║ Test Configuration - Global ΓÇ║ should configure global test outputDir
+[1A[2K[258/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:81:3 ΓÇ║ Test Configuration - Global ΓÇ║ should configure global test outputFormat
+[1A[2K[259/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:95:3 ΓÇ║ Test Configuration - Global ΓÇ║ should configure global test coverage
+[1A[2K[260/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:145:3 ΓÇ║ Test Configuration - Service Level ΓÇ║ should configure service unit test
+[1A[2K[261/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:174:3 ΓÇ║ Test Configuration - Service Level ΓÇ║ should configure service integration test
+[1A[2K[262/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:203:3 ΓÇ║ Test Configuration - Service Level ΓÇ║ should configure service e2e test
+[1A[2K[263/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:232:3 ΓÇ║ Test Configuration - Service Level ΓÇ║ should configure service test timeout
+[1A[2K[264/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:263:3 ΓÇ║ Test Configuration - Comprehensive Project ΓÇ║ should display global test config from comprehensive project
+[1A[2K[265/535] [chromium] ΓÇ║ e2e\editor\08-test-config.spec.ts:277:3 ΓÇ║ Test Configuration - Comprehensive Project ΓÇ║ should display service-level test config from comprehensive project
+[1A[2K[266/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:42:3 ΓÇ║ Logs Configuration - Global ΓÇ║ should configure global log filters
+[1A[2K[267/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:62:3 ΓÇ║ Logs Configuration - Global ΓÇ║ should configure global log classifications
+[1A[2K[268/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:82:3 ΓÇ║ Logs Configuration - Global ΓÇ║ should configure global log analytics
+[1A[2K[269/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:126:3 ΓÇ║ Logs Configuration - Service Level ΓÇ║ should configure service-level log filters
+[1A[2K[270/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:149:3 ΓÇ║ Logs Configuration - Service Level ΓÇ║ should configure service-level log analytics
+[1A[2K[271/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:185:3 ΓÇ║ Logs Configuration - Comprehensive Project ΓÇ║ should display global logs config from comprehensive project
+[1A[2K[272/535] [chromium] ΓÇ║ e2e\editor\09-logs-config.spec.ts:199:3 ΓÇ║ Logs Configuration - Comprehensive Project ΓÇ║ should display service-level logs config from comprehensive project
+[1A[2K[273/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:38:3 ΓÇ║ Pipeline Configuration ΓÇ║ should configure pipeline provider
+[1A[2K[274/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:78:3 ΓÇ║ Pipeline Configuration ΓÇ║ should configure pipeline secrets
+[1A[2K[275/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:52:3 ΓÇ║ Pipeline Configuration ΓÇ║ should configure pipeline variables
+[1A[2K[276/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:122:3 ΓÇ║ Infrastructure Configuration ΓÇ║ should configure infra provider
+[1A[2K[277/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:136:3 ΓÇ║ Infrastructure Configuration ΓÇ║ should configure infra path
+[1A[2K[278/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:150:3 ΓÇ║ Infrastructure Configuration ΓÇ║ should configure infra module
+[1A[2K[279/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:186:3 ΓÇ║ State Configuration ΓÇ║ should configure remote state backend
+[1A[2K[280/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:199:3 ΓÇ║ State Configuration ΓÇ║ should configure state account name
+[1A[2K[281/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:233:3 ΓÇ║ Platform Configuration ΓÇ║ should configure platform type
+[1A[2K[282/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:246:3 ΓÇ║ Platform Configuration ΓÇ║ should configure platform config
+[1A[2K[283/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:278:3 ΓÇ║ Workflows Configuration ΓÇ║ should configure workflows.up
+[1A[2K[284/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:313:3 ΓÇ║ Cloud Configuration ΓÇ║ should configure cloud name
+[1A[2K[285/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:346:3 ΓÇ║ Required Versions Configuration ΓÇ║ should configure azd version constraint
+[1A[2K[286/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:360:3 ΓÇ║ Required Versions Configuration ΓÇ║ should configure extension versions
+[1A[2K[287/535] [chromium] ΓÇ║ e2e\editor\10-pipeline-infra.spec.ts:399:3 ΓÇ║ Pipeline, Infrastructure, and Configuration - Comprehensive Project ΓÇ║ should display all configuration sections from comprehensive project
+[1A[2K[288/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:34:3 ΓÇ║ Requirements Configuration ΓÇ║ should add requirement
+[1A[2K[289/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:59:3 ΓÇ║ Requirements Configuration ΓÇ║ should edit requirement
+[1A[2K[290/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:79:3 ΓÇ║ Requirements Configuration ΓÇ║ should delete requirement
+[1A[2K[291/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:99:3 ΓÇ║ Requirements Configuration ΓÇ║ should configure requirement with all properties
+[1A[2K[292/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:142:3 ΓÇ║ Metadata Configuration ΓÇ║ should configure metadata template
+[1A[2K[293/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:164:3 ΓÇ║ Requirements and Metadata - Comprehensive Project ΓÇ║ should display requirements from comprehensive project
+[1A[2K[294/535] [chromium] ΓÇ║ e2e\editor\11-requirements-metadata.spec.ts:178:3 ΓÇ║ Requirements and Metadata - Comprehensive Project ΓÇ║ should display metadata from comprehensive project
+[1A[2K[295/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:33:3 ΓÇ║ YAML Editor - Direct Editing ΓÇ║ should allow direct YAML editing
+[1A[2K[296/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:44:3 ΓÇ║ YAML Editor - Direct Editing ΓÇ║ should update preview when YAML is edited
+[1A[2K[297/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:58:3 ΓÇ║ YAML Editor - Direct Editing ΓÇ║ should preserve YAML formatting
+[1A[2K[298/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:88:3 ΓÇ║ YAML Editor - Syntax Validation ΓÇ║ should show YAML syntax validation errors
+[1A[2K[299/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:97:3 ΓÇ║ YAML Editor - Syntax Validation ΓÇ║ should highlight YAML syntax errors
+[1A[2K[300/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:107:3 ΓÇ║ YAML Editor - Syntax Validation ΓÇ║ should show schema validation errors
+[1A[2K[301/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:116:3 ΓÇ║ YAML Editor - Syntax Validation ΓÇ║ should navigate to error location
+[1A[2K[302/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:143:3 ΓÇ║ YAML Editor - Comprehensive Project ΓÇ║ should load comprehensive YAML in editor
+[1A[2K[303/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:152:3 ΓÇ║ YAML Editor - Comprehensive Project ΓÇ║ should edit comprehensive YAML
+[1A[2K[304/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:167:3 ΓÇ║ YAML Editor - Comprehensive Project ΓÇ║ should validate comprehensive YAML
+[1A[2K[305/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:185:3 ΓÇ║ YAML Editor - Error Handling ΓÇ║ should handle completely invalid YAML
+[1A[2K[306/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:194:3 ΓÇ║ YAML Editor - Error Handling ΓÇ║ should handle missing closing brackets
+[1A[2K[307/535] [chromium] ΓÇ║ e2e\editor\12-yaml-editor.spec.ts:203:3 ΓÇ║ YAML Editor - Error Handling ΓÇ║ should handle malformed YAML structure
+[1A[2K[308/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:28:3 ΓÇ║ Preview Pane - Updates ΓÇ║ should update preview on changes
+[1A[2K[309/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:43:3 ΓÇ║ Preview Pane - Updates ΓÇ║ should show formatted YAML in preview
+[1A[2K[310/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:55:3 ΓÇ║ Preview Pane - Updates ΓÇ║ should sync preview with editor changes
+[1A[2K[311/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:80:3 ΓÇ║ Preview Pane - Download ΓÇ║ should download as azure.yaml
+[1A[2K[312/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:92:3 ΓÇ║ Preview Pane - Download ΓÇ║ should download current configuration
+[1A[2K[313/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:121:3 ΓÇ║ Preview Pane - Comprehensive Project ΓÇ║ should display comprehensive YAML in preview
+[1A[2K[314/535] [chromium] ΓÇ║ e2e\editor\13-preview-pane.spec.ts:134:3 ΓÇ║ Preview Pane - Comprehensive Project ΓÇ║ should format comprehensive YAML correctly
+[1A[2K[315/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:33:3 ΓÇ║ Validation - Schema Validation ΓÇ║ should validate required fields
+[1A[2K[316/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:43:3 ΓÇ║ Validation - Schema Validation ΓÇ║ should validate field types
+[1A[2K[317/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:52:3 ΓÇ║ Validation - Schema Validation ΓÇ║ should validate enum values
+[1A[2K[318/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:62:3 ΓÇ║ Validation - Schema Validation ΓÇ║ should validate pattern constraints
+[1A[2K[319/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:87:3 ΓÇ║ Validation - Business Rules ΓÇ║ should detect duplicate service names
+[1A[2K[320/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:103:3 ΓÇ║ Validation - Business Rules ΓÇ║ should detect duplicate resource names
+[1A[2K[321/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:148:3 ΓÇ║ Validation - Validation Summary ΓÇ║ should show validation summary panel
+[1A[2K[322/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:117:3 ΓÇ║ Validation - Business Rules ΓÇ║ should validate port conflicts
+[1A[2K[323/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:155:3 ΓÇ║ Validation - Validation Summary ΓÇ║ should show validation error count
+[1A[2K[324/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:164:3 ΓÇ║ Validation - Validation Summary ΓÇ║ should show validation warning count
+[1A[2K[325/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:170:3 ΓÇ║ Validation - Validation Summary ΓÇ║ should navigate to error location from summary
+[1A[2K[326/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:193:3 ΓÇ║ Validation - Validation Levels ΓÇ║ should show error level validation
+[1A[2K[327/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:203:3 ΓÇ║ Validation - Validation Levels ΓÇ║ should show warning level validation
+[1A[2K[328/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:210:3 ΓÇ║ Validation - Validation Levels ΓÇ║ should show info level validation
+[1A[2K[329/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:225:3 ΓÇ║ Validation - Comprehensive Project ΓÇ║ should validate comprehensive project
+[1A[2K[330/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:232:3 ΓÇ║ Validation - Comprehensive Project ΓÇ║ should show no errors for valid comprehensive project
+[1A[2K[331/535] [chromium] ΓÇ║ e2e\editor\14-validation.spec.ts:248:3 ΓÇ║ Validation - Invalid Configurations ΓÇ║ should validate schema violations
+[1A[2K[332/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:31:3 ΓÇ║ Import/Export - Export ΓÇ║ should export configuration
+[1A[2K[333/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:43:3 ΓÇ║ Import/Export - Export ΓÇ║ should export current configuration state
+[1A[2K[334/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:77:3 ΓÇ║ Import/Export - Import from File ΓÇ║ should open import modal
+[1A[2K[335/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:90:3 ΓÇ║ Import/Export - Import from File ΓÇ║ should show file upload option
+[1A[2K[336/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:113:3 ΓÇ║ Import/Export - Import from Paste ΓÇ║ should show paste YAML option
+[1A[2K[337/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:132:3 ΓÇ║ Import/Export - Import from Paste ΓÇ║ should import from pasted YAML
+[1A[2K[338/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:184:3 ΓÇ║ Import/Export - Import from Template ΓÇ║ should show template import option
+[1A[2K[339/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:213:3 ΓÇ║ Import/Export - Merge Strategies ΓÇ║ should show merge strategy options
+[1A[2K[340/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:235:3 ΓÇ║ Import/Export - Comprehensive Project ΓÇ║ should export comprehensive project
+[1A[2K[341/535] [chromium] ΓÇ║ e2e\editor\15-import-export.spec.ts:247:3 ΓÇ║ Import/Export - Comprehensive Project ΓÇ║ should import comprehensive project
+[1A[2K[342/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:31:3 ΓÇ║ Backup/Restore - Auto Backup ΓÇ║ should create backup when saving
+[1A[2K[343/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:83:3 ΓÇ║ Backup/Restore - View History ΓÇ║ should show backup history
+[1A[2K[344/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:94:3 ΓÇ║ Backup/Restore - View History ΓÇ║ should display backup timestamps
+[1A[2K[345/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:121:3 ΓÇ║ Backup/Restore - Restore ΓÇ║ should restore from backup
+[1A[2K[346/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:145:3 ΓÇ║ Backup/Restore - Restore ΓÇ║ should cancel restore
+[1A[2K[347/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:183:3 ΓÇ║ Backup/Restore - Delete Backup ΓÇ║ should delete backup
+[1A[2K[348/535] [chromium] ΓÇ║ e2e\editor\16-backup-restore.spec.ts:211:3 ΓÇ║ Backup/Restore - Comprehensive Project ΓÇ║ should create backup when saving comprehensive project
+[1A[2K[349/535] [chromium] ΓÇ║ e2e\editor\17-save-load.spec.ts:30:3 ΓÇ║ Save/Load - Save ΓÇ║ should save configuration
+[1A[2K[350/535] [chromium] ΓÇ║ e2e\editor\17-save-load.spec.ts:67:3 ΓÇ║ Save/Load - Save ΓÇ║ should validate before saving
+[1A[2K[351/535] [chromium] ΓÇ║ e2e\editor\17-save-load.spec.ts:115:3 ΓÇ║ Save/Load - Load ΓÇ║ should load configuration on page load
+[1A[2K[352/535] [chromium] ΓÇ║ e2e\editor\17-save-load.spec.ts:126:3 ΓÇ║ Save/Load - Load ΓÇ║ should load comprehensive project
+[1A[2K[353/535] [chromium] ΓÇ║ e2e\editor\17-save-load.spec.ts:150:3 ΓÇ║ Save/Load - Auto Save ΓÇ║ should auto-save on changes
+[1A[2K[354/535] [chromium] ΓÇ║ e2e\editor\17-save-load.spec.ts:173:3 ΓÇ║ Save/Load - Unsaved Changes ΓÇ║ should warn about unsaved changes
+[1A[2K[355/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:28:3 ΓÇ║ Command Palette - Open and Search ΓÇ║ should open command palette with Ctrl+K
+[1A[2K[356/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:38:3 ΓÇ║ Command Palette - Open and Search ΓÇ║ should search commands
+[1A[2K[357/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:53:3 ΓÇ║ Command Palette - Open and Search ΓÇ║ should filter commands by search query
+[1A[2K[358/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:69:3 ΓÇ║ Command Palette - Open and Search ΓÇ║ should close command palette with Escape
+[1A[2K[359/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:91:3 ΓÇ║ Command Palette - Execute Commands ΓÇ║ should execute navigate command
+[1A[2K[360/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:114:3 ΓÇ║ Command Palette - Execute Commands ΓÇ║ should execute add service command
+[1A[2K[361/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:145:3 ΓÇ║ Command Palette - Comprehensive Project ΓÇ║ should show all available commands
+[1A[2K[362/535] [chromium] ΓÇ║ e2e\editor\18-command-palette.spec.ts:161:3 ΓÇ║ Command Palette - Comprehensive Project ΓÇ║ should navigate to sections via commands
+[1A[2K[363/535] [chromium] ΓÇ║ e2e\editor\19-keyboard-shortcuts.spec.ts:26:3 ΓÇ║ Keyboard Shortcuts - Basic Shortcuts ΓÇ║ should save with Ctrl+S
+[1A[2K[364/535] [chromium] ΓÇ║ e2e\editor\19-keyboard-shortcuts.spec.ts:32:3 ΓÇ║ Keyboard Shortcuts - Basic Shortcuts ΓÇ║ should open command palette with Ctrl+K
+[1A[2K[365/535] [chromium] ΓÇ║ e2e\editor\19-keyboard-shortcuts.spec.ts:42:3 ΓÇ║ Keyboard Shortcuts - Basic Shortcuts ΓÇ║ should close modals with Escape
+[1A[2K[366/535] [chromium] ΓÇ║ e2e\editor\19-keyboard-shortcuts.spec.ts:75:3 ΓÇ║ Keyboard Shortcuts - Navigation ΓÇ║ should navigate with Tab
+[1A[2K[367/535] [chromium] ΓÇ║ e2e\editor\19-keyboard-shortcuts.spec.ts:108:3 ΓÇ║ Keyboard Shortcuts - Comprehensive Project ΓÇ║ should work with comprehensive project loaded
+[1A[2K[368/535] [chromium] ΓÇ║ e2e\editor\19-keyboard-shortcuts.spec.ts:83:3 ΓÇ║ Keyboard Shortcuts - Navigation ΓÇ║ should navigate forms with Tab
+[1A[2K[369/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:29:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ editor page should pass axe scan
+[1A[2K[370/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:46:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ schema form should pass axe scan
+[1A[2K[371/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:74:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should tab through all interactive elements
+[1A[2K[372/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:94:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should navigate forms with keyboard
+[1A[2K[373/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:138:3 ΓÇ║ Accessibility - ARIA Labels ΓÇ║ all buttons should have accessible names
+[1A[2K[374/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:165:3 ΓÇ║ Accessibility - ARIA Labels ΓÇ║ form fields should have labels
+[1A[2K[375/535] [chromium] ΓÇ║ e2e\editor\20-accessibility.spec.ts:203:3 ΓÇ║ Accessibility - Comprehensive Project ΓÇ║ comprehensive project should pass accessibility checks
+[1A[2K[376/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:31:3 ΓÇ║ Error Handling - Invalid YAML ΓÇ║ should handle completely invalid YAML gracefully
+[1A[2K[377/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:40:3 ΓÇ║ Error Handling - Invalid YAML ΓÇ║ should handle missing closing brackets
+[1A[2K[378/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:49:3 ΓÇ║ Error Handling - Invalid YAML ΓÇ║ should handle malformed YAML structure
+[1A[2K[379/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:58:3 ΓÇ║ Error Handling - Invalid YAML ΓÇ║ should display error messages clearly
+[1A[2K[380/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:79:3 ΓÇ║ Error Handling - Schema Validation Errors ΓÇ║ should handle schema validation errors
+[1A[2K[381/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:89:3 ΓÇ║ Error Handling - Schema Validation Errors ΓÇ║ should highlight schema errors in editor
+[1A[2K[382/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:99:3 ΓÇ║ Error Handling - Schema Validation Errors ΓÇ║ should allow recovery from schema errors
+[1A[2K[383/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:126:3 ΓÇ║ Error Handling - Network Errors ΓÇ║ should handle save errors gracefully
+[1A[2K[384/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:167:3 ΓÇ║ Error Handling - Network Errors ΓÇ║ should handle load errors gracefully
+[1A[2K[385/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:191:3 ΓÇ║ Error Handling - Recovery ΓÇ║ should recover from invalid YAML
+[1A[2K[386/535] [chromium] ΓÇ║ e2e\editor\21-error-handling.spec.ts:205:3 ΓÇ║ Error Handling - Recovery ΓÇ║ should allow undo after error
+[1A[2K[387/535] [chromium] ΓÇ║ e2e\editor\22-integration.spec.ts:34:3 ΓÇ║ Integration - Complete Workflows ΓÇ║ should complete full edit workflow
+[1A[2K[388/535] [chromium] ΓÇ║ e2e\editor\22-integration.spec.ts:100:3 ΓÇ║ Integration - Complete Workflows ΓÇ║ should handle complex configuration workflow
+[1A[2K[389/535] [chromium] ΓÇ║ e2e\editor\22-integration.spec.ts:145:3 ΓÇ║ Integration - Round-Trip Export/Import ΓÇ║ should handle round-trip export/import
+[1A[2K[390/535] [chromium] ΓÇ║ e2e\editor\22-integration.spec.ts:162:3 ΓÇ║ Integration - Round-Trip Export/Import ΓÇ║ should preserve configuration through save/load cycle
+[1A[2K[391/535] [chromium] ΓÇ║ e2e\editor\22-integration.spec.ts:217:3 ΓÇ║ Integration - Comprehensive Project Workflows ΓÇ║ should edit comprehensive project and save
+[1A[2K[392/535] [chromium] ΓÇ║ e2e\editor\22-integration.spec.ts:256:3 ΓÇ║ Integration - Comprehensive Project Workflows ΓÇ║ should validate comprehensive project
+[1A[2K[393/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:14:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ editor page should pass axe scan
+[1A[2K[394/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:39:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ schema form should pass axe scan
+[1A[2K[395/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:61:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ validation panel should pass axe scan
+[1A[2K[396/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:83:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ backup manager should pass axe scan
+[1A[2K[397/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:104:3 ΓÇ║ Accessibility - Axe Scans ΓÇ║ preview pane should pass axe scan
+[1A[2K[398/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:127:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should tab through all interactive elements in order
+[1A[2K[399/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:154:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should open modals with keyboard
+[1A[2K[400/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:206:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should navigate form fields with Tab
+[1A[2K[401/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:186:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should close modals with Escape
+[1A[2K[402/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:250:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should activate buttons with Space and Enter
+[1A[2K[403/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:306:3 ΓÇ║ Accessibility - Screen Reader ΓÇ║ all buttons should have accessible names
+[1A[2K[404/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:338:3 ΓÇ║ Accessibility - Screen Reader ΓÇ║ form fields should have labels
+[1A[2K[405/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:277:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ should use arrow keys in lists
+[1A[2K[406/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:373:3 ΓÇ║ Accessibility - Screen Reader ΓÇ║ errors should have role="alert"
+[1A[2K[407/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:391:3 ΓÇ║ Accessibility - Screen Reader ΓÇ║ interactive elements should have roles
+[1A[2K[408/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:405:3 ΓÇ║ Accessibility - Screen Reader ΓÇ║ regions should have labels
+[1A[2K[409/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:435:3 ΓÇ║ Accessibility - Screen Reader ΓÇ║ live regions should announce changes
+[1A[2K[410/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:452:3 ΓÇ║ Accessibility - Focus Management ΓÇ║ focus should be visible
+[1A[2K[411/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:478:3 ΓÇ║ Accessibility - Focus Management ΓÇ║ focus should move to opened modal
+[1A[2K[412/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:500:3 ΓÇ║ Accessibility - Focus Management ΓÇ║ focus should return after closing modal
+[1A[2K[413/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:528:3 ΓÇ║ Accessibility - Focus Management ΓÇ║ skip links should be available
+[1A[2K[414/535] [chromium] ΓÇ║ e2e\editor-accessibility.spec.ts:549:3 ΓÇ║ Accessibility - Color Contrast ΓÇ║ text should have sufficient contrast
+[1A[2K[415/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:12:3 ΓÇ║ Editor Integration - Add Service ΓÇ║ should complete add service workflow
+[1A[2K[416/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:60:3 ΓÇ║ Editor Integration - Add Service ΓÇ║ should validate service name
+[1A[2K[417/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:126:3 ΓÇ║ Editor Integration - Backup/Restore ΓÇ║ should create backup when saving
+[1A[2K[418/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:97:3 ΓÇ║ Editor Integration - Add Service ΓÇ║ should detect duplicate service names
+[1A[2K[419/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:150:3 ΓÇ║ Editor Integration - Backup/Restore ΓÇ║ should show backup history
+[1A[2K[420/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:167:3 ΓÇ║ Editor Integration - Backup/Restore ΓÇ║ should restore from backup
+[1A[2K[421/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:203:3 ΓÇ║ Editor Integration - Import/Export ΓÇ║ should export configuration
+[1A[2K[422/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:223:3 ΓÇ║ Editor Integration - Import/Export ΓÇ║ should import configuration
+[1A[2K[423/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:241:3 ΓÇ║ Editor Integration - Import/Export ΓÇ║ should validate imported file
+[1A[2K[424/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:260:3 ΓÇ║ Editor Integration - Validation ΓÇ║ should show validation errors in real-time
+[1A[2K[425/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:277:3 ΓÇ║ Editor Integration - Validation ΓÇ║ should show validation summary
+[1A[2K[426/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:290:3 ΓÇ║ Editor Integration - Validation ΓÇ║ should navigate to error location
+[1A[2K[427/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:306:3 ΓÇ║ Editor Integration - Validation ΓÇ║ should show different validation levels
+[1A[2K[428/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:325:3 ΓÇ║ Editor Integration - Navigation ΓÇ║ should navigate between sections
+[1A[2K[429/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:353:3 ΓÇ║ Editor Integration - Navigation ΓÇ║ should use search to find items
+[1A[2K[430/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:373:3 ΓÇ║ Editor Integration - Navigation ΓÇ║ should use keyboard shortcuts
+[1A[2K[431/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:393:3 ΓÇ║ Editor Integration - Navigation ΓÇ║ should maintain state during navigation
+[1A[2K[432/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:426:3 ΓÇ║ Editor Integration - End-to-End ΓÇ║ should complete full edit workflow
+[1A[2K[433/535] [chromium] ΓÇ║ e2e\editor-integration.spec.ts:499:3 ΓÇ║ Editor Integration - End-to-End ΓÇ║ should handle errors gracefully
+[1A[2K[434/535] [chromium] ΓÇ║ e2e\logs-ux.spec.ts:16:3 ΓÇ║ Console - Logs UX ΓÇ║ does not show services dropdown in console view
+[1A[2K[435/535] [chromium] ΓÇ║ e2e\logs-ux.spec.ts:29:3 ΓÇ║ Console - Logs UX ΓÇ║ timeframe presets exclude 1 hour and include 30 min (Azure mode)
+[1A[2K[436/535] [chromium] ΓÇ║ e2e\logs-ux.spec.ts:42:8 ΓÇ║ Console - Logs UX ΓÇ║ refresh interval clamps low values from localStorage (min 5s)
+[1A[2K[437/535] [chromium] ΓÇ║ e2e\logs-ux.spec.ts:60:8 ΓÇ║ Console - Logs UX ΓÇ║ refresh interval clamps high values from localStorage (max 5m)
+[1A[2K[438/535] [chromium] ΓÇ║ e2e\logs-ux.spec.ts:78:3 ΓÇ║ Console - Logs UX ΓÇ║ diagnostics button is visible only in Azure mode
+[1A[2K[439/535] [chromium] ΓÇ║ e2e\logs-ux.spec.ts:94:3 ΓÇ║ Console - Logs UX ΓÇ║ local-only services do not use Azure logs even when global mode is Azure
+[1A[2K[440/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:16:3 ΓÇ║ Navigation - Tabs ΓÇ║ all navigation tabs are visible
+[1A[2K[441/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:31:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Console tab navigates to console view
+[1A[2K[442/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:44:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Services tab navigates to services view
+[1A[2K[443/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:57:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Environment tab navigates to environment view
+[1A[2K[444/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:75:3 ΓÇ║ Navigation - URL Routing ΓÇ║ direct navigation to /console works
+[1A[2K[445/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:85:3 ΓÇ║ Navigation - URL Routing ΓÇ║ direct navigation to /services works
+[1A[2K[446/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:95:3 ΓÇ║ Navigation - URL Routing ΓÇ║ direct navigation to /environment works
+[1A[2K[447/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:105:3 ΓÇ║ Navigation - URL Routing ΓÇ║ unknown path defaults to console
+[1A[2K[448/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:114:3 ΓÇ║ Navigation - URL Routing ΓÇ║ root path shows console
+[1A[2K[449/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:129:3 ΓÇ║ Navigation - Browser History ΓÇ║ back button returns to previous view
+[1A[2K[450/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:147:3 ΓÇ║ Navigation - Browser History ΓÇ║ forward button works after going back
+[1A[2K[451/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:173:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 1 key navigates to Console
+[1A[2K[452/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:186:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 2 key navigates to Services
+[1A[2K  54) [chromium] ΓÇ║ e2e\navigation.spec.ts:31:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Console tab navigates to console view 
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/(console)?$/[39m
+    Received string:  [31m"http://localhost:5199/services"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 5000ms[22m
+    [2m    9 ├ù unexpected value "http://localhost:5199/services"[22m
+
+
+      39 |     
+      40 |     // Should be on console view (check URL or active tab)
+    > 41 |     await expect(page).toHaveURL(/\/(console)?$/)
+         |                        ^
+      42 |   })
+      43 |
+      44 |   test('clicking Services tab navigates to services view', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:41:24
+
+
+[1A[2K[453/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:199:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 3 key navigates to Environment
+[1A[2K  55) [chromium] ΓÇ║ e2e\navigation.spec.ts:173:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 1 key navigates to Console 
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/(console)?$/[39m
+    Received string:  [31m"http://localhost:5199/services"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 5000ms[22m
+    [2m    9 ├ù unexpected value "http://localhost:5199/services"[22m
+
+
+      181 |     
+      182 |     // Should be on console
+    > 183 |     await expect(page).toHaveURL(/\/(console)?$/)
+          |                        ^
+      184 |   })
+      185 |
+      186 |   test('2 key navigates to Services', async ({ page }) => {
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:183:24
+
+
+[1A[2K[454/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:212:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ keyboard shortcuts do not work in input fields
+[1A[2K[455/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:233:3 ΓÇ║ Navigation - Header ΓÇ║ header displays project name
+[1A[2K  56) [chromium] ΓÇ║ e2e\logs-ux.spec.ts:16:3 ΓÇ║ Console - Logs UX ΓÇ║ does not show services dropdown in console view 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\logs-ux.spec.ts:19:11
+
+
+[1A[2K  57) [chromium] ΓÇ║ e2e\logs-ux.spec.ts:29:3 ΓÇ║ Console - Logs UX ΓÇ║ timeframe presets exclude 1 hour and include 30 min (Azure mode) 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\logs-ux.spec.ts:35:11
+
+
+[1A[2K  58) [chromium] ΓÇ║ e2e\logs-ux.spec.ts:78:3 ΓÇ║ Console - Logs UX ΓÇ║ diagnostics button is visible only in Azure mode 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\logs-ux.spec.ts:84:11
+
+
+[1A[2K  59) [chromium] ΓÇ║ e2e\logs-ux.spec.ts:94:3 ΓÇ║ Console - Logs UX ΓÇ║ local-only services do not use Azure logs even when global mode is Azure 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\logs-ux.spec.ts:129:11
+
+
+[1A[2K  60) [chromium] ΓÇ║ e2e\navigation.spec.ts:16:3 ΓÇ║ Navigation - Tabs ΓÇ║ all navigation tabs are visible 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:19:11
+
+
+[1A[2K  61) [chromium] ΓÇ║ e2e\navigation.spec.ts:44:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Services tab navigates to services view 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:47:11
+
+
+[1A[2K  62) [chromium] ΓÇ║ e2e\navigation.spec.ts:57:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Environment tab navigates to environment view 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:60:11
+
+
+[1A[2K  63) [chromium] ΓÇ║ e2e\navigation.spec.ts:75:3 ΓÇ║ Navigation - URL Routing ΓÇ║ direct navigation to /console works 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:78:11
+
+
+[1A[2K[456/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:15:3 ΓÇ║ Preview Pane ΓÇ║ should toggle preview pane visibility
+[1A[2K[457/535] [chromium] ΓÇ║ e2e\navigation.spec.ts:242:3 ΓÇ║ Navigation - Header ΓÇ║ header shows health summary
+[1A[2K  64) [chromium] ΓÇ║ e2e\navigation.spec.ts:105:3 ΓÇ║ Navigation - URL Routing ΓÇ║ unknown path defaults to console 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:108:11
+
+
+[1A[2K[458/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:32:3 ΓÇ║ Preview Pane ΓÇ║ should copy YAML to clipboard
+[1A[2K  65) [chromium] ΓÇ║ e2e\navigation.spec.ts:114:3 ΓÇ║ Navigation - URL Routing ΓÇ║ root path shows console 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:117:11
+
+
+[1A[2K[459/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:50:3 ΓÇ║ Preview Pane ΓÇ║ should download YAML as file
+[1A[2K[460/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:68:3 ΓÇ║ Preview Pane ΓÇ║ should update YAML when form data changes
+[1A[2K[461/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:87:3 ΓÇ║ Preview Pane ΓÇ║ should show validation errors in preview
+[1A[2K[462/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:108:3 ΓÇ║ Preview Pane ΓÇ║ should navigate to form field when clicking preview line
+[1A[2K  66) [chromium] ΓÇ║ e2e\navigation.spec.ts:129:3 ΓÇ║ Navigation - Browser History ΓÇ║ back button returns to previous view 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:132:11
+
+
+[1A[2K  67) [chromium] ΓÇ║ e2e\navigation.spec.ts:147:3 ΓÇ║ Navigation - Browser History ΓÇ║ forward button works after going back 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:150:11
+
+
+[1A[2K[463/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:237:3 ΓÇ║ Preview Pane ΓÇ║ should handle keyboard shortcuts
+[1A[2K[464/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:123:3 ΓÇ║ Preview Pane ΓÇ║ should resize preview pane by dragging divider
+[1A[2K  68) [chromium] ΓÇ║ e2e\navigation.spec.ts:186:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 2 key navigates to Services 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:189:11
+
+
+[1A[2K[465/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:161:3 ΓÇ║ Preview Pane ΓÇ║ should persist preview visibility across page reloads
+[1A[2K[466/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:181:3 ΓÇ║ Preview Pane ΓÇ║ should persist preview width across page reloads
+[1A[2K[467/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:267:3 ΓÇ║ Preview Pane ΓÇ║ should support dark mode
+[1A[2K[468/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:280:3 ΓÇ║ Preview Pane ΓÇ║ should highlight changed lines temporarily
+[1A[2K[469/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:304:3 ΓÇ║ Preview Pane ΓÇ║ should respect min and max width constraints
+[1A[2K[470/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:339:3 ΓÇ║ Preview Pane ΓÇ║ should handle empty data gracefully
+[1A[2K[471/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:355:3 ΓÇ║ Preview Pane ΓÇ║ should debounce updates correctly
+[1A[2K[472/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:210:3 ΓÇ║ Preview Pane ΓÇ║ should apply syntax highlighting to YAML
+[1A[2K[473/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:225:3 ΓÇ║ Preview Pane ΓÇ║ should show line numbers
+[1A[2K[474/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:379:3 ΓÇ║ Preview Toggle Button ΓÇ║ should display current preview state
+[1A[2K[475/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:392:3 ΓÇ║ Preview Toggle Button ΓÇ║ should be keyboard accessible
+[1A[2K[476/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:414:3 ΓÇ║ Preview Toggle Button ΓÇ║ should have proper aria-pressed attribute
+[1A[2K[477/535] [chromium] ΓÇ║ e2e\preview-pane.spec.ts:247:3 ΓÇ║ Preview Pane ΓÇ║ should be accessible
+[1A[2K[478/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:13:3 ΓÇ║ Schema Form Generator ΓÇ║ renders all field types correctly
+[1A[2K[479/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:27:3 ΓÇ║ Schema Form Generator ΓÇ║ validates required fields on blur
+[1A[2K[480/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:38:3 ΓÇ║ Schema Form Generator ΓÇ║ shows validation error for pattern mismatch
+[1A[2K[481/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:47:3 ΓÇ║ Schema Form Generator ΓÇ║ validates number min/max constraints
+[1A[2K[482/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:56:3 ΓÇ║ Schema Form Generator ΓÇ║ toggles boolean field value
+[1A[2K[483/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:69:3 ΓÇ║ Schema Form Generator ΓÇ║ selects enum value from dropdown
+[1A[2K[484/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:79:3 ΓÇ║ Schema Form Generator ΓÇ║ adds and removes array items
+[1A[2K[485/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:96:3 ΓÇ║ Schema Form Generator ΓÇ║ respects array min/max items
+[1A[2K[486/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:111:3 ΓÇ║ Schema Form Generator ΓÇ║ expands and collapses object fields
+[1A[2K[487/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:138:3 ΓÇ║ Schema Form Generator ΓÇ║ displays help tooltips on hover
+[1A[2K[488/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:149:3 ΓÇ║ Schema Form Generator ΓÇ║ keyboard navigation works correctly
+[1A[2K[489/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:169:3 ΓÇ║ Schema Form Generator ΓÇ║ auto-saves form on blur
+[1A[2K[490/535] [chromium] ΓÇ║ e2e\schema-form.spec.ts:183:3 ΓÇ║ Schema Form Generator ΓÇ║ form submission triggers onSubmit callback
+[1A[2K  69) [chromium] ΓÇ║ e2e\navigation.spec.ts:199:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 3 key navigates to Environment 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:202:11
+
+
+[1A[2K[491/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:30:3 ΓÇ║ Service Management ΓÇ║ should add a well-known service (Azurite)
+[1A[2K[492/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:53:3 ΓÇ║ Service Management ΓÇ║ should add an application service
+[1A[2K[493/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:75:3 ΓÇ║ Service Management ΓÇ║ should add a container service
+[1A[2K[494/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:97:3 ΓÇ║ Service Management ΓÇ║ should prevent duplicate service names
+[1A[2K[495/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:125:3 ΓÇ║ Service Management ΓÇ║ should validate service name format
+[1A[2K[496/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:146:3 ΓÇ║ Service Management ΓÇ║ should delete a service
+[1A[2K[497/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:180:3 ΓÇ║ Service Management ΓÇ║ should cancel service deletion
+[1A[2K[498/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:206:3 ΓÇ║ Service Management ΓÇ║ should filter well-known services by category
+[1A[2K[499/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:224:3 ΓÇ║ Service Management ΓÇ║ should show service preview when well-known service selected
+[1A[2K[500/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:240:3 ΓÇ║ Service Management ΓÇ║ should pre-fill common container images
+[1A[2K[501/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:16:3 ΓÇ║ Service Management ΓÇ║ should open add service modal when clicking add service button
+[1A[2K[502/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:258:3 ΓÇ║ Service Management ΓÇ║ should close modal on escape key
+[1A[2K  70) [chromium] ΓÇ║ e2e\navigation.spec.ts:212:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ keyboard shortcuts do not work in input fields 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:215:11
+
+
+[1A[2K[503/535] [chromium] ΓÇ║ e2e\services.spec.ts:17:3 ΓÇ║ Services - HTTP Services ΓÇ║ displays HTTP service with port and URL
+[1A[2K[504/535] [chromium] ΓÇ║ e2e\services.spec.ts:30:3 ΓÇ║ Services - HTTP Services ΓÇ║ displays healthy HTTP service with status indicator
+[1A[2K[505/535] [chromium] ΓÇ║ e2e\services.spec.ts:47:3 ΓÇ║ Services - TCP Services ΓÇ║ displays TCP service (database)
+[1A[2K[506/535] [chromium] ΓÇ║ e2e\services.spec.ts:65:3 ΓÇ║ Services - Process Services ΓÇ║ displays watch mode service
+[1A[2K[507/535] [chromium] ΓÇ║ e2e\services.spec.ts:78:3 ΓÇ║ Services - Process Services ΓÇ║ displays daemon mode service
+[1A[2K[508/535] [chromium] ΓÇ║ e2e\services.spec.ts:91:3 ΓÇ║ Services - Process Services ΓÇ║ displays task service with completed status
+[1A[2K  71) [chromium] ΓÇ║ e2e\navigation.spec.ts:233:3 ΓÇ║ Navigation - Header ΓÇ║ header displays project name 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:236:11
+
+
+[1A[2K[509/535] [chromium] ΓÇ║ e2e\services.spec.ts:132:3 ΓÇ║ Services - Health States ΓÇ║ displays degraded service with warning
+[1A[2K[510/535] [chromium] ΓÇ║ e2e\service-management.spec.ts:272:3 ΓÇ║ Service Management ΓÇ║ should close modal on backdrop click
+[1A[2K[511/535] [chromium] ΓÇ║ e2e\services.spec.ts:122:3 ΓÇ║ Services - Health States ΓÇ║ displays healthy service correctly
+[1A[2K[512/535] [chromium] ΓÇ║ e2e\services.spec.ts:145:3 ΓÇ║ Services - Health States ΓÇ║ displays unhealthy service with error indicator
+[1A[2K[513/535] [chromium] ΓÇ║ e2e\services.spec.ts:158:3 ΓÇ║ Services - Health States ΓÇ║ displays stopped service correctly
+[1A[2K[514/535] [chromium] ΓÇ║ e2e\services.spec.ts:173:3 ΓÇ║ Services - View Modes ΓÇ║ can toggle between grid and table view
+[1A[2K[515/535] [chromium] ΓÇ║ e2e\services.spec.ts:187:3 ΓÇ║ Services - Azure Deployment ΓÇ║ displays Azure URL when service is deployed
+[1A[2K[516/535] [chromium] ΓÇ║ e2e\services.spec.ts:205:3 ΓÇ║ Services - Empty States ΓÇ║ shows empty state when no services
+[1A[2K[517/535] [chromium] ΓÇ║ e2e\services.spec.ts:219:3 ΓÇ║ Services - Performance ΓÇ║ handles many services without performance issues
+[1A[2K[518/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:22:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should display navigation tree structure
+[1A[2K[519/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:29:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should expand and collapse sections
+[1A[2K[520/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:66:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should navigate to section when clicked
+[1A[2K[521/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:86:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should show validation badges
+[1A[2K[522/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:100:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should filter navigation with search
+[1A[2K[523/535] [chromium] ΓÇ║ e2e\services.spec.ts:101:3 ΓÇ║ Services - Process Services ΓÇ║ displays failed process service with error state
+[1A[2K[524/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:111:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should clear search with clear button
+[1A[2K[525/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:127:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should support keyboard navigation
+[1A[2K[526/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:154:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should expand/collapse with arrow keys
+[1A[2K[527/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:142:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should navigate with arrow keys
+[1A[2K[528/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:168:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should show add buttons for services and resources
+[1A[2K[529/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:186:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should collapse navigation sidebar
+[1A[2K[530/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:199:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should be accessible
+[1A[2K  72) [chromium] ΓÇ║ e2e\navigation.spec.ts:242:3 ΓÇ║ Navigation - Header ΓÇ║ header shows health summary 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('[role="tablist"]:visible').first() to be visible[22m
+
+
+       at helpers\test-setup.ts:829
+
+      827 |   // This indicates the React app has mounted and rendered
+      828 |   // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
+    > 829 |   await page.locator('[role="tablist"]:visible').first().waitFor({
+          |                                                          ^
+      830 |     state: 'visible',
+      831 |     timeout: 15000,
+      832 |   })
+        at waitForDashboardReady (C:\code\azd-app\cli\dashboard\e2e\helpers\test-setup.ts:829:58)
+        at C:\code\azd-app\cli\dashboard\e2e\navigation.spec.ts:245:11
+
+
+[1A[2K[531/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:217:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should clear search with Escape key
+[1A[2K[532/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:231:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should auto-expand parent of active section
+[1A[2K[533/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:258:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should maintain focus visibility
+[1A[2K[534/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:266:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should handle chevron toggle separately from item click
+[1A[2K[535/535] [chromium] ΓÇ║ e2e\yaml-editor-navigation.spec.ts:209:3 ΓÇ║ YAML Editor Navigation Component ΓÇ║ should support keyboard focus management
+[1A[2K  72 failed
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:16:3 ΓÇ║ Theme - Light/Dark Mode ΓÇ║ starts with light theme by default 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:30:3 ΓÇ║ Theme - Light/Dark Mode ΓÇ║ theme can be toggled to dark mode 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:78:3 ΓÇ║ Responsive - Mobile ΓÇ║ dashboard loads on mobile ΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:87:3 ΓÇ║ Responsive - Mobile ΓÇ║ navigation is accessible on mobile 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:102:3 ΓÇ║ Responsive - Tablet ΓÇ║ dashboard loads on tablet ΓöÇ
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:114:3 ΓÇ║ Responsive - Desktop ΓÇ║ dashboard uses full width on desktop 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:129:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ can tab through interactive elements 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:144:3 ΓÇ║ Accessibility - Keyboard Navigation ΓÇ║ Enter key activates buttons 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:189:3 ΓÇ║ Accessibility - ARIA ΓÇ║ navigation tabs have proper roles 
+    [chromium] ΓÇ║ e2e\accessibility.spec.ts:204:3 ΓÇ║ Accessibility - ARIA ΓÇ║ buttons have accessible names 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:14:3 ΓÇ║ Command Palette ΓÇ║ should open with Cmd+K shortcut 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:23:3 ΓÇ║ Command Palette ΓÇ║ should focus search input when opened 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:30:3 ΓÇ║ Command Palette ΓÇ║ should search and filter commands 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:44:3 ΓÇ║ Command Palette ΓÇ║ should navigate with keyboard arrows 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:60:3 ΓÇ║ Command Palette ΓÇ║ should execute command on Enter 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:76:3 ΓÇ║ Command Palette ΓÇ║ should execute command on click 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:86:3 ΓÇ║ Command Palette ΓÇ║ should close on Escape ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:99:3 ΓÇ║ Command Palette ΓÇ║ should close on backdrop click 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:109:3 ΓÇ║ Command Palette ΓÇ║ should close on close button click 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:119:3 ΓÇ║ Command Palette ΓÇ║ should show grouped results by category 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:127:3 ΓÇ║ Command Palette ΓÇ║ should show recent commands when no query 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:140:3 ΓÇ║ Command Palette ΓÇ║ should clear recent history ΓöÇ
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:155:3 ΓÇ║ Command Palette ΓÇ║ should show empty state when no matches 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:165:3 ΓÇ║ Command Palette ΓÇ║ should display keyboard shortcuts for commands 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:175:3 ΓÇ║ Command Palette ΓÇ║ should update results count ΓöÇ
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:189:3 ΓÇ║ Command Palette ΓÇ║ should persist recent history across sessions 
+    [chromium] ΓÇ║ e2e\command-palette.spec.ts:208:3 ΓÇ║ Command Palette ΓÇ║ should highlight matching characters 
+    [chromium] ΓÇ║ e2e\console.spec.ts:16:3 ΓÇ║ Console - Basic ΓÇ║ console view loads by default ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:26:3 ΓÇ║ Console - Basic ΓÇ║ console toolbar is visible ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:36:3 ΓÇ║ Console - Basic ΓÇ║ console shows service log panes ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:50:3 ΓÇ║ Console - View Modes ΓÇ║ can switch between grid and unified view 
+    [chromium] ΓÇ║ e2e\console.spec.ts:70:3 ΓÇ║ Console - Filtering ΓÇ║ can filter by service ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:84:3 ΓÇ║ Console - Filtering ΓÇ║ search filters log content ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:104:3 ΓÇ║ Console - Controls ΓÇ║ pause/resume button toggles state 
+    [chromium] ΓÇ║ e2e\console.spec.ts:126:3 ΓÇ║ Console - Controls ΓÇ║ clear button clears logs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:140:3 ΓÇ║ Console - Controls ΓÇ║ auto-scroll toggle works ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\console.spec.ts:159:3 ΓÇ║ Console - Bulk Operations ΓÇ║ start all button is visible 
+    [chromium] ΓÇ║ e2e\console.spec.ts:173:3 ΓÇ║ Console - Bulk Operations ΓÇ║ stop all button is visible 
+    [chromium] ΓÇ║ e2e\console.spec.ts:185:3 ΓÇ║ Console - Bulk Operations ΓÇ║ restart all button is visible 
+    [chromium] ΓÇ║ e2e\console.spec.ts:202:3 ΓÇ║ Console - Empty States ΓÇ║ handles empty services ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:18:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard loads successfully 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:27:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard shows project name 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:35:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard loads services ΓöÇΓöÇΓöÇ
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:46:3 ΓÇ║ Dashboard - Smoke Tests ΓÇ║ dashboard handles empty services gracefully 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:65:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays overall healthy status 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:78:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays unhealthy status when services fail 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:87:3 ΓÇ║ Dashboard - Health Summary ΓÇ║ displays mixed health status 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:107:3 ΓÇ║ Dashboard - Views Integration ΓÇ║ console view displays logs panes 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:199:3 ΓÇ║ Dashboard - Connection Status ΓÇ║ shows connected status when healthy 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:213:3 ΓÇ║ Dashboard - Settings ΓÇ║ settings dialog can be opened 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:236:3 ΓÇ║ Dashboard - Settings ΓÇ║ settings dialog can be closed with Escape 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:275:3 ΓÇ║ Dashboard - Error Handling ΓÇ║ page does not crash with no services 
+    [chromium] ΓÇ║ e2e\dashboard.spec.ts:289:3 ΓÇ║ Dashboard - Performance ΓÇ║ loads within reasonable time 
+    [chromium] ΓÇ║ e2e\logs-ux.spec.ts:16:3 ΓÇ║ Console - Logs UX ΓÇ║ does not show services dropdown in console view 
+    [chromium] ΓÇ║ e2e\logs-ux.spec.ts:29:3 ΓÇ║ Console - Logs UX ΓÇ║ timeframe presets exclude 1 hour and include 30 min (Azure mode) 
+    [chromium] ΓÇ║ e2e\logs-ux.spec.ts:78:3 ΓÇ║ Console - Logs UX ΓÇ║ diagnostics button is visible only in Azure mode 
+    [chromium] ΓÇ║ e2e\logs-ux.spec.ts:94:3 ΓÇ║ Console - Logs UX ΓÇ║ local-only services do not use Azure logs even when global mode is Azure 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:16:3 ΓÇ║ Navigation - Tabs ΓÇ║ all navigation tabs are visible ΓöÇ
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:31:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Console tab navigates to console view 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:44:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Services tab navigates to services view 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:57:3 ΓÇ║ Navigation - Tabs ΓÇ║ clicking Environment tab navigates to environment view 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:75:3 ΓÇ║ Navigation - URL Routing ΓÇ║ direct navigation to /console works 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:105:3 ΓÇ║ Navigation - URL Routing ΓÇ║ unknown path defaults to console 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:114:3 ΓÇ║ Navigation - URL Routing ΓÇ║ root path shows console ΓöÇ
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:129:3 ΓÇ║ Navigation - Browser History ΓÇ║ back button returns to previous view 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:147:3 ΓÇ║ Navigation - Browser History ΓÇ║ forward button works after going back 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:173:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 1 key navigates to Console 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:186:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 2 key navigates to Services 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:199:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ 3 key navigates to Environment 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:212:3 ΓÇ║ Navigation - Keyboard Shortcuts ΓÇ║ keyboard shortcuts do not work in input fields 
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:233:3 ΓÇ║ Navigation - Header ΓÇ║ header displays project name ΓöÇ
+    [chromium] ΓÇ║ e2e\navigation.spec.ts:242:3 ΓÇ║ Navigation - Header ΓÇ║ header shows health summary ΓöÇΓöÇ
+  2 skipped
+  461 passed (3.7m)
+Error: Running dashboard E2E tests failed: dashboard E2E tests failed: exit status 1

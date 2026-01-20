@@ -69,7 +69,7 @@ interface ServicesProviderProps {
  * Provider for services context.
  * Wraps the application to share services data across all components with real-time WebSocket updates.
  */
-export function ServicesProvider({ children }: ServicesProviderProps) {
+function ServicesProvider({ children }: ServicesProviderProps) {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

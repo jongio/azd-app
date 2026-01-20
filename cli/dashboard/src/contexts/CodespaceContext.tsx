@@ -17,7 +17,7 @@ export interface CodespaceProviderProps {
  * Provider component for sharing Codespace environment across the app.
  * Wrap your app with this to avoid multiple API calls.
  */
-export function CodespaceProvider({ children }: CodespaceProviderProps) {
+function CodespaceProvider({ children }: CodespaceProviderProps) {
   const value = useCodespaceEnv()
   return (
     <CodespaceContext.Provider value={value}>
