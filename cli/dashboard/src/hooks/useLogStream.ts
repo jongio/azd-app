@@ -76,7 +76,7 @@ export function useLogStream({
       }
       const data = await res.json() as LogEntry[]
       setLogs(data ?? [])
-    } catch (err) {
+    } catch {
       setLogs([])
     }
   }, [serviceName, initialTail])
@@ -133,13 +133,13 @@ export function useLogStream({
         try {
           const entry = JSON.parse(event.data) as LogEntry
           setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-        } catch (err) {
+        } catch {
           // Ignore parse errors
         }
       }
     }
 
-    ws.onerror = (error) => {
+    ws.onerror = (_error) => {
       setIsConnected(false)
     }
 

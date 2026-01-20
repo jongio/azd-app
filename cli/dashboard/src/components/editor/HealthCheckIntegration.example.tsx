@@ -157,7 +157,7 @@ export function QuickActionsBarWithHealthCheck() {
  * Add health check section to service configuration form
  */
 export function ServiceFormWithHealthCheck() {
-  const [serviceData, setServiceData] = React.useState<any>({})
+  const [serviceData, setServiceData] = React.useState<Record<string, unknown>>({})
   const [healthCheckModalOpen, setHealthCheckModalOpen] = React.useState(false)
 
   return (
@@ -218,9 +218,9 @@ export function ServiceFormWithHealthCheck() {
 }
 
 // Mock context for examples
-const ServiceContext = React.createContext<any>(null)
+const ServiceContext = React.createContext<Record<string, unknown> | null>(null)
 
 // Mock functions for examples
-const updateService = (name: string, data: any) => {
+const updateService = (_name: string, _data: Record<string, unknown>) => {
   // Update service logic
 }

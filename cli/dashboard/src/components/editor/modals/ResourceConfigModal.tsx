@@ -238,7 +238,7 @@ export function ResourceConfigModal({
       const config = formDataToResource(data)
       await onSave(config)
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to save resource. Please try again.')
     } finally {
       setIsSubmitting(false)

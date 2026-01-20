@@ -93,7 +93,7 @@ export function useAzureConnectionStatus(
         let raw: unknown
         try {
           raw = await res.json()
-        } catch (error_) {
+        } catch {
           return
         }
         
@@ -187,10 +187,10 @@ export function useAzureConnectionStatus(
           // Refresh Azure status after mode change
           await fetchAzureStatus()
         } else {
-          const errorText = await res.text()
+          const _errorText = await res.text()
           // Keep the previous mode on error
         }
-      } catch (err) {
+      } catch {
         // Keep the previous mode on error
       } finally {
         // Clear switching state after a short delay to let panes reconnect

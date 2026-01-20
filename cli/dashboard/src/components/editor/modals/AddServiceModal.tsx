@@ -79,7 +79,7 @@ export function AddServiceModal({
 
       await onAddService(serviceData)
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to add service. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -98,7 +98,7 @@ export function AddServiceModal({
       setIsSubmitting(true)
       await onAddService(data)
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to add service. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -117,7 +117,7 @@ export function AddServiceModal({
       setIsSubmitting(true)
       await onAddService(data)
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to add service. Please try again.')
     } finally {
       setIsSubmitting(false)

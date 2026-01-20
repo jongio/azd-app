@@ -58,12 +58,12 @@ describe('ConnectionStringsPanel', () => {
 
   beforeEach(() => {
     mockWriteText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
-    ;(globalThis as any).__initialWriteText = mockWriteText
+    ;(globalThis as Record<string, unknown>).__initialWriteText = mockWriteText
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    delete (globalThis as any).__initialWriteText
+    delete (globalThis as Record<string, unknown>).__initialWriteText
   })
 
   it('renders connection strings for service', () => {

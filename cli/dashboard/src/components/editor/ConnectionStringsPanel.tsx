@@ -18,7 +18,7 @@ export function ConnectionStringsPanel({ service, className }: ConnectionStrings
   const { setTimeout, clearAllTimeouts } = useTimeout()
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null)
   const getWriteText = React.useCallback(() => {
-    const testWrite = (globalThis as any).__initialWriteText as Clipboard['writeText'] | undefined
+    const testWrite = (globalThis as Record<string, unknown>).__initialWriteText as Clipboard['writeText'] | undefined
     return testWrite ?? navigator.clipboard?.writeText ?? null
   }, [])
 

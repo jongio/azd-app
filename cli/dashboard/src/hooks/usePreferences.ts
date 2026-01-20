@@ -168,7 +168,7 @@ export function usePreferences(): UsePreferencesReturn {
       } else {
         setPreferences(DEFAULT_PREFERENCES)
       }
-    } catch (err) {
+    } catch {
       setPreferences(DEFAULT_PREFERENCES)
     } finally {
       setIsLoading(false)
@@ -189,7 +189,7 @@ export function usePreferences(): UsePreferencesReturn {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)
       })
-    } catch (err) {
+    } catch {
       // Silently fail - preferences are not critical
     }
   }, [preferences])

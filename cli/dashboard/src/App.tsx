@@ -46,7 +46,7 @@ function App() {
         const data = await res.json() as { name: string }
         setProjectName(data.name)
         document.title = `${data.name}`
-      } catch (err) {
+      } catch {
         // Silently fail - project name is not critical
       }
     }

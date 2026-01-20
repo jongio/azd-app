@@ -58,7 +58,7 @@ export function DeleteBackupDialog({
     try {
       await onConfirm()
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to delete backup. Please try again.')
     }
   }

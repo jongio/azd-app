@@ -8,6 +8,8 @@
  * - Loading states
  */
 
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { loadSchema, type SchemaLoadResult } from '@/lib/schema/schema-loader'
 import { parseSchema, type ParsedSchema } from '@/lib/schema/schema-parser'
@@ -85,7 +87,7 @@ export function SchemaProvider({ children }: SchemaProviderProps) {
 /**
  * Hook to access schema context
  */
-export function useSchema(): SchemaContextValue {
+function useSchema(): SchemaContextValue {
   const context = useContext(SchemaContext)
   
   if (!context) {
@@ -94,3 +96,6 @@ export function useSchema(): SchemaContextValue {
 
   return context
 }
+
+// Named exports to satisfy Fast Refresh
+export { SchemaProvider, useSchema }

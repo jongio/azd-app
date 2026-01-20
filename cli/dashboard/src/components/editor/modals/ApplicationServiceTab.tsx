@@ -4,7 +4,7 @@
  */
 
 
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { Folder } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ServiceFormData } from '@/lib/editor/wellknown-types'
@@ -50,7 +50,7 @@ export function ApplicationServiceTab({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ServiceFormData>({
     defaultValues: {
@@ -62,7 +62,8 @@ export function ApplicationServiceTab({
     },
   })
 
-  const hostType = watch('host')
+  // Use useWatch instead of watch() for React Compiler compatibility
+  const hostType = useWatch({ control, name: 'host' })
 
   const handleFormSubmit = (data: ServiceFormData) => {
     // Clean up empty values

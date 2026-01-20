@@ -41,7 +41,7 @@ export function DeleteServiceDialog({
     try {
       await onConfirm()
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to delete service. Please try again.')
     }
   }

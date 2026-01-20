@@ -1,6 +1,9 @@
 /**
  * Context for sharing Codespace environment across components.
  */
+
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, type ReactNode } from 'react'
 import { useCodespaceEnv, type UseCodespaceEnvReturn } from '@/hooks/useCodespaceEnv'
 
@@ -27,10 +30,13 @@ export function CodespaceProvider({ children }: CodespaceProviderProps) {
  * Hook to consume Codespace context.
  * Must be used within a CodespaceProvider.
  */
-export function useCodespaceContext(): UseCodespaceEnvReturn {
+function useCodespaceContext(): UseCodespaceEnvReturn {
   const context = useContext(CodespaceContext)
   if (!context) {
     throw new Error('useCodespaceContext must be used within a CodespaceProvider')
   }
   return context
 }
+
+// Named export to satisfy Fast Refresh
+export { CodespaceProvider, useCodespaceContext }

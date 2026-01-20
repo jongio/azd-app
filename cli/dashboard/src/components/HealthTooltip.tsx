@@ -44,7 +44,7 @@ export function HealthTooltip({
     try {
       await navigator.clipboard.writeText(diagnostic.formattedReport)
       showToast('Diagnostics copied to clipboard', 'success')
-    } catch (error) {
+    } catch {
       showToast('Failed to copy diagnostics', 'error')
     }
   }, [diagnostic.formattedReport, showToast])

@@ -70,8 +70,8 @@ ports:
 
     expect(result.success).toBe(true)
     expect(result.data).toHaveProperty('tags')
-    expect(Array.isArray((result.data as any).tags)).toBe(true)
-    expect((result.data as any).tags).toHaveLength(3)
+    expect(Array.isArray((result.data as Record<string, unknown>).tags)).toBe(true)
+    expect((result.data as Record<string, unknown>).tags).toHaveLength(3)
   })
 
   it('should parse mixed types', () => {
@@ -87,13 +87,13 @@ object: { key: value }
     const result = parseYaml(yaml)
 
     expect(result.success).toBe(true)
-    expect((result.data as any).string).toBe('hello')
-    expect((result.data as any).number).toBe(42)
-    expect((result.data as any).float).toBe(3.14)
-    expect((result.data as any).boolean).toBe(true)
-    expect((result.data as any).null_value).toBeNull()
-    expect(Array.isArray((result.data as any).array)).toBe(true)
-    expect(typeof (result.data as any).object).toBe('object')
+    expect((result.data as Record<string, unknown>).string).toBe('hello')
+    expect((result.data as Record<string, unknown>).number).toBe(42)
+    expect((result.data as Record<string, unknown>).float).toBe(3.14)
+    expect((result.data as Record<string, unknown>).boolean).toBe(true)
+    expect((result.data as Record<string, unknown>).null_value).toBeNull()
+    expect(Array.isArray((result.data as Record<string, unknown>).array)).toBe(true)
+    expect(typeof (result.data as Record<string, unknown>).object).toBe('object')
   })
 
   it('should handle empty YAML', () => {
@@ -126,7 +126,7 @@ description: |
     const result = parseYaml(yaml)
 
     expect(result.success).toBe(true)
-    expect((result.data as any).description).toContain('\n')
+    expect((result.data as Record<string, unknown>).description).toContain('\n')
   })
 
   it('should fail on invalid YAML', () => {
@@ -569,7 +569,7 @@ describe('Edge Cases', () => {
     const parsed = parseYaml(yaml)
 
     expect(parsed.success).toBe(true)
-    expect((parsed.data as any).unicode).toBe('你好世界 🌍')
+    expect((parsed.data as Record<string, unknown>).unicode).toBe('你好世界 🌍')
   })
 
   it('should handle quotes in strings', () => {
@@ -593,11 +593,11 @@ describe('Edge Cases', () => {
     const parsed = parseYaml(yaml)
 
     expect(parsed.success).toBe(true)
-    expect((parsed.data as any).long).toBe(longString)
+    expect((parsed.data as Record<string, unknown>).long).toBe(longString)
   })
 
   it('should handle deeply nested objects', () => {
-    let nested: any = { value: 'deep' }
+    let nested: Record<string, unknown> = { value: 'deep' }
     for (let i = 0; i < 50; i++) {
       nested = { level: nested }
     }

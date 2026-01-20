@@ -118,7 +118,7 @@ export function LogsView({
         const data = await res.json() as Service[]
         const serviceNames = data.map((s) => s.name)
         setInternalServices(serviceNames)
-      } catch (err) {
+      } catch {
         // Silently fail - services list is not critical
       }
     }
@@ -159,7 +159,7 @@ export function LogsView({
       }
       
       setLogs(logs)
-    } catch (err) {
+    } catch {
       setLogs([])
     } finally {
       setHasFetched(true)
@@ -216,12 +216,12 @@ export function LogsView({
       try {
         const entry = JSON.parse(event.data) as LogEntry
         setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-      } catch (err) {
+      } catch {
         // Ignore parse errors
       }
     }
 
-    ws.onerror = (error) => {
+    ws.onerror = (_error) => {
       // Silently handle WebSocket errors
     }
 

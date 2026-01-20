@@ -4,7 +4,7 @@
  */
 
 import { parseDocument, Document, isMap, isSeq } from 'yaml'
-import type { DocumentOptions, ParseOptions, ToStringOptions } from 'yaml'
+import type { DocumentOptions, ParseOptions, ToStringOptions, YAMLMap, YAMLSeq, Scalar, Pair } from 'yaml'
 
 export interface YamlParseResult<T = unknown> {
   success: boolean
@@ -103,7 +103,7 @@ export function stringifyYaml(data: unknown, options?: YamlStringifyOptions): st
       }
 
       return doc.toString(toStringOptions)
-    } catch (error) {
+    } catch {
       // Fall back to regular stringify if update fails
     }
   }
@@ -196,7 +196,7 @@ export function updateYamlPreservingComments(
       lineWidth: 120,
       minContentWidth: 0,
     })
-  } catch (error) {
+  } catch {
     return yamlString // Return original on error
   }
 }
@@ -216,11 +216,11 @@ export function updateYamlField(
   try {
     const doc = parseDocument(yamlString, { keepSourceTokens: true })
     if (!doc.contents) {
-      doc.contents = doc.createNode({}) as any
+      doc.contents = doc.createNode({})
     }
     
     const parts = path.split('.')
-    let current: any = doc.contents
+    let current: YAMLMap | YAMLSeq | Scalar | Pair | null = doc.contents
     
     // Navigate to the target node, creating path if needed
     for (let i = 0; i < parts.length - 1; i++) {
@@ -231,8 +231,8 @@ export function updateYamlField(
           current = existing
         } else {
           // Create new map node for this path segment
-          const newNode = doc.createNode({}) as any
-          current.set(part as any, newNode)
+          const newNode = doc.createNode({})
+          current.set(part, newNode)
           current = newNode
         }
       } else {
@@ -244,7 +244,7 @@ export function updateYamlField(
     // Set the final value
     const key = parts[parts.length - 1]
     if (isMap(current)) {
-      current.set(key as any, doc.createNode(value))
+      current.set(key, doc.createNode(value))
     }
     
     return doc.toString({
@@ -252,20 +252,24 @@ export function updateYamlField(
       lineWidth: 120,
       minContentWidth: 0,
     })
-  } catch (error) {
+  } catch {
     // Fallback: parse to object, update, stringify (loses comments but preserves data)
     const parsed = parseYaml(yamlString)
     if (parsed.success && parsed.data) {
       const obj = parsed.data as Record<string, unknown>
       const parts = path.split('.')
-      let current: any = obj
+      let current: unknown = obj
       for (let i = 0; i < parts.length - 1; i++) {
-        if (!(parts[i] in current) || typeof current[parts[i]] !== 'object' || current[parts[i]] === null) {
-          current[parts[i]] = {}
+        if (typeof current === 'object' && current !== null && parts[i] in current) {
+          current = (current as Record<string, unknown>)[parts[i]]
+        } else if (typeof current === 'object' && current !== null) {
+          (current as Record<string, unknown>)[parts[i]] = {}
+          current = (current as Record<string, unknown>)[parts[i]]
         }
-        current = current[parts[i]] as Record<string, unknown>
       }
-      current[parts[parts.length - 1]] = value
+      if (typeof current === 'object' && current !== null) {
+        (current as Record<string, unknown>)[parts[parts.length - 1]] = value
+      }
       return stringifyYaml(obj, { preserveComments: false })
     }
     return yamlString
@@ -287,7 +291,7 @@ export function mergeYamlUpdates(
     const doc = parseDocument(yamlString, { keepSourceTokens: true })
     
     if (!doc.contents) {
-      doc.contents = doc.createNode(updates) as any
+      doc.contents = doc.createNode(updates)
     } else if (isMap(doc.contents)) {
       // Update each key in the document
       for (const [key, value] of Object.entries(updates)) {
@@ -297,16 +301,16 @@ export function mergeYamlUpdates(
         if (existing && isMap(existing) && typeof value === 'object' && value !== null && !Array.isArray(value)) {
           // Update nested properties
           for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
-            existing.set(subKey as any, doc.createNode(subValue))
+            existing.set(subKey, doc.createNode(subValue))
           }
         } else if (isMap(doc.contents)) {
           // Replace or add the key (yaml Map.set accepts string keys)
-          doc.contents.set(key as any, doc.createNode(value) as any)
+          doc.contents.set(key, doc.createNode(value))
         }
       }
     } else {
       // Contents is not a map, replace it
-      doc.contents = doc.createNode(updates) as any
+      doc.contents = doc.createNode(updates)
     }
     
     return doc.toString({
@@ -314,7 +318,7 @@ export function mergeYamlUpdates(
       lineWidth: 120,
       minContentWidth: 0,
     })
-  } catch (error) {
+  } catch {
     // Fallback: parse to object, merge, stringify (loses comments but preserves data)
     const parsed = parseYaml(yamlString)
     if (parsed.success && parsed.data) {
@@ -352,7 +356,7 @@ export function deleteYamlPath(yamlString: string, path: string): string {
       return yamlString
     }
 
-    let current: any = doc.contents
+    let current: YAMLMap | YAMLSeq | Scalar | Pair | null = doc.contents
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i]
       if (!isMap(current)) {
@@ -368,7 +372,7 @@ export function deleteYamlPath(yamlString: string, path: string): string {
 
     const key = parts[parts.length - 1]
     if (isMap(current)) {
-      current.delete(key as any)
+      current.delete(key)
     }
 
     return doc.toString({
@@ -376,22 +380,22 @@ export function deleteYamlPath(yamlString: string, path: string): string {
       lineWidth: 120,
       minContentWidth: 0,
     })
-  } catch (error) {
+  } catch {
     // Fallback: parse to object, delete, stringify (loses comments but preserves data)
     const parsed = parseYaml(yamlString)
     if (parsed.success && parsed.data && typeof parsed.data === 'object') {
       const obj = parsed.data as Record<string, unknown>
       const parts = path.split('.').filter(Boolean)
-      let cursor: any = obj
+      let cursor: unknown = obj
       for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i]
         if (typeof cursor !== 'object' || cursor === null || !(part in cursor)) {
           return yamlString
         }
-        cursor = cursor[part]
+        cursor = (cursor as Record<string, unknown>)[part]
       }
       if (cursor && typeof cursor === 'object') {
-        delete cursor[parts[parts.length - 1]]
+        delete (cursor as Record<string, unknown>)[parts[parts.length - 1]]
       }
       return stringifyYaml(obj, { preserveComments: false })
     }

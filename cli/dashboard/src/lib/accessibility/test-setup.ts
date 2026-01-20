@@ -33,8 +33,9 @@ export async function toHaveNoViolations(container: HTMLElement) {
 
 // Extend Vitest matchers
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Vi {
-    interface Matchers<R = any> {
+    interface Matchers<R = unknown> {
       toHaveNoViolations(): Promise<R>
     }
   }

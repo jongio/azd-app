@@ -46,7 +46,7 @@ export function useServiceErrors(serviceNames: string[]) {
           if (hasError) {
             errorTimestampsRef.current.set(`${serviceName}-${Date.now()}`, Date.now())
           }
-        } catch (err) {
+        } catch {
           // Ignore parse errors
         }
       }

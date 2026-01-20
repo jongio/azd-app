@@ -9,6 +9,8 @@
  * - Smooth transitions between modes
  */
 
+/* eslint-disable react-refresh/only-export-components */
+
 import * as React from 'react'
 
 export type Theme = 'light' | 'dark' | 'system'
@@ -48,7 +50,7 @@ function getInitialTheme(storageKey: string = STORAGE_KEY): Theme {
     if (stored && ['light', 'dark', 'system'].includes(stored)) {
       return stored
     }
-  } catch (error) {
+  } catch {
     // Silently fail - theme is not critical
   }
   
@@ -142,7 +144,7 @@ export function ThemeProvider({
       // Persist to localStorage
       try {
         localStorage.setItem(storageKey, newTheme)
-      } catch (error) {
+      } catch {
         // Silent failure - theme will still work, just won't persist
       }
     },
@@ -188,13 +190,16 @@ export function ThemeProvider({
  * }
  * ```
  */
-export function useTheme() {
+function useTheme() {
   const context = React.useContext(ThemeContext)
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider')
   }
   return context
 }
+
+// Named exports to satisfy Fast Refresh
+export { ThemeProvider, useTheme, ThemeToggle }
 
 /**
  * Theme Toggle Button Component

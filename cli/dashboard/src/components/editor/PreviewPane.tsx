@@ -223,7 +223,7 @@ export function PreviewPane({
         
         prevYamlRef.current = newYaml
         setYaml(newYaml)
-      } catch (error) {
+      } catch {
         setYaml('# Error generating YAML preview')
       }
     }, 300) // 300ms debounce

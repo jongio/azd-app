@@ -73,7 +73,7 @@ export function BackupListModal({
       const content = await onGetPreview(timestamp)
       const lines = content.split('\n').slice(0, 10).join('\n')
       setPreviews(prev => new Map(prev).set(timestamp, { timestamp, content: lines }))
-    } catch (error) {
+    } catch {
       // Preview loading failure is non-critical - will just not show preview
     } finally {
       setLoadingPreviews(prev => {

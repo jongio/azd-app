@@ -36,7 +36,7 @@ export function getStorageItem<T>(
     }
 
     return parsed as T
-  } catch (e) {
+  } catch {
     return defaultValue
   }
 }
@@ -54,7 +54,7 @@ export function setStorageItem<T>(key: string, value: T): void {
 
   try {
     localStorage.setItem(key, JSON.stringify(value))
-  } catch (e) {
+  } catch {
     // Silently fail - localStorage may be full or disabled
   }
 }
@@ -71,7 +71,7 @@ export function removeStorageItem(key: string): void {
 
   try {
     localStorage.removeItem(key)
-  } catch (e) {
+  } catch {
     // Silently fail
   }
 }

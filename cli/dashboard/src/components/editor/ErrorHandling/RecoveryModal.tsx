@@ -6,7 +6,7 @@ import { AlertTriangle, Clock } from 'lucide-react'
 import { formatDraftAge, getDraftAge } from '../../../lib/errors'
 
 export interface DraftData {
-  config: any
+  config: Record<string, unknown>
   timestamp: number
   dirty: boolean
 }
@@ -14,7 +14,7 @@ export interface DraftData {
 interface RecoveryModalProps {
   isOpen: boolean
   draft: DraftData | null
-  currentConfig: any
+  currentConfig: Record<string, unknown>
   onRestore: () => void
   onDiscard: () => void
   onCancel: () => void

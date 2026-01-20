@@ -136,7 +136,7 @@ export function SettingsDialog({
         clearTimeout(statusTimeoutRef.current)
       }
       statusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
-    } catch (err) {
+    } catch {
       setSaveStatus('error')
       
       if (statusTimeoutRef.current) {

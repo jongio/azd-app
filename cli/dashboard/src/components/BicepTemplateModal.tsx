@@ -116,7 +116,7 @@ export function BicepTemplateModal({
       setCopied(true)
       showToast('Template copied to clipboard', 'success')
       setTimeoutSafe(() => setCopied(false), 2000)
-    } catch (err) {
+    } catch {
       showToast('Failed to copy template', 'error')
     }
   }
@@ -136,7 +136,7 @@ export function BicepTemplateModal({
       a.remove()
       URL.revokeObjectURL(url)
       showToast('Template downloaded', 'success')
-    } catch (err) {
+    } catch {
       showToast('Failed to download template', 'error')
     }
   }

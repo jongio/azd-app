@@ -204,7 +204,7 @@ describe('BackupManager', () => {
 
   it('handles restore error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const _consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(configApi.restoreBackup).mockRejectedValueOnce(new Error('Restore failed'))
 
     const user = userEvent.setup()
@@ -298,7 +298,7 @@ describe('BackupManager', () => {
 
   it('handles delete error gracefully', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const _consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(configApi.deleteBackup).mockRejectedValueOnce(new Error('Delete failed'))
 
     const user = userEvent.setup()

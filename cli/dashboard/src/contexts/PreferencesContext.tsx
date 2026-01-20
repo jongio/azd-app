@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, type ReactNode } from 'react'
 import { usePreferences, type Theme, type UsePreferencesReturn } from '@/hooks/usePreferences'
 
@@ -27,13 +29,16 @@ export function PreferencesProvider({ children }: PreferencesProviderProps) {
  * Hook to access the preferences context
  * @throws Error if used outside of PreferencesProvider
  */
-export function usePreferencesContext(): PreferencesContextValue {
+function usePreferencesContext(): PreferencesContextValue {
   const context = useContext(PreferencesContext)
   if (context === undefined) {
     throw new Error('usePreferencesContext must be used within a PreferencesProvider')
   }
   return context
 }
+
+// Named exports to satisfy Fast Refresh
+export { PreferencesProvider, usePreferencesContext }
 
 // Re-export types for convenience
 export type { Theme }

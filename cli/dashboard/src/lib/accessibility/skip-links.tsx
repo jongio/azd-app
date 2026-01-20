@@ -5,21 +5,19 @@
 
 import * as React from 'react'
 
-export interface SkipLink {
-  id: string
-  label: string
-  target: string
-}
+// Re-export types and constants
+export type { SkipLink } from './skip-links-constants'
+export { DEFAULT_SKIP_LINKS } from './skip-links-constants'
 
 export interface SkipLinksProps {
-  links: SkipLink[]
+  links: Array<{ id: string; label: string; target: string }>
 }
 
 /**
  * SkipLinks component
  * Renders hidden links that become visible on focus
  */
-export function SkipLinks({ links }: SkipLinksProps) {
+function SkipLinks({ links }: SkipLinksProps) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault()
     const target = document.getElementById(targetId)
@@ -45,28 +43,5 @@ export function SkipLinks({ links }: SkipLinksProps) {
   )
 }
 
-/**
- * Default skip links for editor
- */
-export const DEFAULT_SKIP_LINKS: SkipLink[] = [
-  {
-    id: 'skip-to-main',
-    label: 'Skip to main content',
-    target: 'main-content',
-  },
-  {
-    id: 'skip-to-nav',
-    label: 'Skip to navigation',
-    target: 'navigation-sidebar',
-  },
-  {
-    id: 'skip-to-editor',
-    label: 'Skip to editor',
-    target: 'editor-pane',
-  },
-  {
-    id: 'skip-to-preview',
-    label: 'Skip to preview',
-    target: 'preview-pane',
-  },
-]
+// Named export to satisfy Fast Refresh
+export { SkipLinks }

@@ -89,7 +89,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
       setHealthReport(data)
       setLastUpdate(new Date())
       setError(null)
-    } catch (err) {
+    } catch {
       // Ignore parse errors
     }
   }, [])
@@ -104,7 +104,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
         return updated.slice(0, MAX_CHANGES_TO_KEEP)
       })
       setLastUpdate(new Date())
-    } catch (err) {
+    } catch {
       // Ignore parse errors
     }
   }, [])

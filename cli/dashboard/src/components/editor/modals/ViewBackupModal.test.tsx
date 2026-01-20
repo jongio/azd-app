@@ -174,10 +174,10 @@ describe('ViewBackupModal', () => {
     const originalRemoveChild = document.body.removeChild
     const appendChildSpy = vi
       .spyOn(document.body, 'appendChild')
-      .mockImplementation((node: any) => originalAppendChild.call(document.body, node))
+      .mockImplementation((node: Node) => originalAppendChild.call(document.body, node))
     const removeChildSpy = vi
       .spyOn(document.body, 'removeChild')
-      .mockImplementation((node: any) => originalRemoveChild.call(document.body, node))
+      .mockImplementation((node: Node) => originalRemoveChild.call(document.body, node))
 
     render(
       <ViewBackupModal

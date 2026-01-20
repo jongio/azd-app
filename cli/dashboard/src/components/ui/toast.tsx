@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -8,7 +10,7 @@ interface ToastProps {
   onClose: () => void
 }
 
-export function Toast({ message, type = 'success', duration = 3000, onClose }: ToastProps) {
+function Toast({ message, type = 'success', duration = 3000, onClose }: ToastProps) {
   React.useEffect(() => {
     const timer = setTimeout(onClose, duration)
     return () => clearTimeout(timer)
@@ -33,27 +35,9 @@ export function Toast({ message, type = 'success', duration = 3000, onClose }: T
   )
 }
 
-interface ToastState {
-  message: string
-  type: 'success' | 'error' | 'info'
-}
+// Named export to satisfy Fast Refresh
+export { Toast }
 
-export function useToast() {
-  const [toast, setToast] = React.useState<ToastState | null>(null)
-
-  const showToast = React.useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToast({ message, type })
-  }, [])
-
-  const hideToast = React.useCallback(() => {
-    setToast(null)
-  }, [])
-
-  const ToastContainer = React.useCallback(() => {
-    if (!toast) return null
-    return <Toast message={toast.message} type={toast.type} onClose={hideToast} />
-  }, [toast, hideToast])
-
-  return { showToast, ToastContainer }
-}
+// Re-export hook from separate file
+export { useToast } from '@/hooks/useToast'
 

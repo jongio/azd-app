@@ -268,7 +268,7 @@ export function LogsPane({
         // this callback's dependency array (prevents ESLint missing-deps warning)
         window.setTimeout(() => setShowClassificationConfirmation(false), 2000)
       })
-      .catch((err: unknown) => {
+      .catch((_err: unknown) => {
         // Silently fail - classification is not critical
       })
   }, [selectedText, addClassification])

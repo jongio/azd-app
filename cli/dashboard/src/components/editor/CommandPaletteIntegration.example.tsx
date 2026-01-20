@@ -5,11 +5,16 @@
  * into the Azure YAML Editor.
  */
 
+/* eslint-disable react-refresh/only-export-components */
+
 import * as React from 'react'
 import { CommandPalette } from './CommandPalette'
 import { useCommandPalette } from '@/hooks/useCommandPalette'
 import { getDefaultCommands, createActionCommand, createFieldCommand } from '@/lib/editor/command-registry'
 import type { Command } from '@/lib/editor/command-types'
+
+// Re-export utilities from separate file for consumers
+export { buildDynamicCommands } from '@/lib/editor/command-example-utils'
 
 /**
  * Example integration in the main editor component
@@ -77,7 +82,7 @@ export function EditorWithCommandPalette() {
   }, [])
   
   // Navigation handler
-  const handleNavigate = React.useCallback((path: string) => {
+  const handleNavigate = React.useCallback((_path: string) => {
     // Implement navigation logic here
     // e.g., scroll to section, activate tab, etc.
   }, [])
@@ -94,7 +99,7 @@ export function EditorWithCommandPalette() {
   }, [])
   
   // Open help handler
-  const handleOpenHelp = React.useCallback((topic: string) => {
+  const handleOpenHelp = React.useCallback((_topic: string) => {
     // Open help documentation
     // Implement help panel logic here
     // e.g., open documentation modal, navigate to help section, etc.
@@ -121,64 +126,4 @@ export function EditorWithCommandPalette() {
       />
     </div>
   )
-}
-
-/**
- * Example: Building dynamic commands based on configuration
- */
-export function buildDynamicCommands(config: {
-  services?: Record<string, unknown>
-  resources?: Record<string, unknown>
-}): Command[] {
-  const commands: Command[] = []
-  
-  // Add navigation commands for each service
-  if (config.services) {
-    Object.keys(config.services).forEach((serviceName) => {
-      commands.push({
-        id: `nav.services.${serviceName}`,
-        label: `Go to ${serviceName}`,
-        description: `View ${serviceName} service configuration`,
-        category: 'navigation',
-        icon: 'ArrowRight',
-        keywords: [serviceName, 'service'],
-        action: { type: 'navigate', path: `services.${serviceName}` },
-      })
-      
-      // Add field commands for service properties
-      commands.push(
-        createFieldCommand(
-          `field.services.${serviceName}.host`,
-          `${serviceName} - Host Type`,
-          `services.${serviceName}.host`,
-          `Edit host type for ${serviceName}`,
-          [serviceName, 'host', 'type']
-        ),
-        createFieldCommand(
-          `field.services.${serviceName}.ports`,
-          `${serviceName} - Ports`,
-          `services.${serviceName}.ports`,
-          `Configure ports for ${serviceName}`,
-          [serviceName, 'ports', 'port']
-        )
-      )
-    })
-  }
-  
-  // Add navigation commands for each resource
-  if (config.resources) {
-    Object.keys(config.resources).forEach((resourceName) => {
-      commands.push({
-        id: `nav.resources.${resourceName}`,
-        label: `Go to ${resourceName}`,
-        description: `View ${resourceName} resource configuration`,
-        category: 'navigation',
-        icon: 'ArrowRight',
-        keywords: [resourceName, 'resource'],
-        action: { type: 'navigate', path: `resources.${resourceName}` },
-      })
-    })
-  }
-  
-  return commands
 }

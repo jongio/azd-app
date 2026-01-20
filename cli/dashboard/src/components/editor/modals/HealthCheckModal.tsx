@@ -120,7 +120,7 @@ export function HealthCheckModal({
       const config = formDataToHealthCheck(data)
       await onSave(config)
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to save health check. Please try again.')
     } finally {
       setIsSubmitting(false)

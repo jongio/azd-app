@@ -51,7 +51,7 @@ export function InfoField({
       setCopied(true)
       onCopy?.()
       setTimeout(() => setCopied(false), 2000)
-    }).catch((error: unknown) => {
+    }).catch((_error: unknown) => {
       // Silently fail - copy is not critical
     })
   }

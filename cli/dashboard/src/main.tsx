@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -79,4 +81,8 @@ if (isEditorRoute) {
   )
 }
 
+// Mount the app
 createRoot(rootElement).render(app)
+
+// Required export for Fast Refresh
+export default app

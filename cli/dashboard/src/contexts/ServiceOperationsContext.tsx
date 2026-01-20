@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { Service } from '@/types'
 
@@ -421,13 +423,16 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
  * Hook for accessing service operations from the context.
  * Must be used within a ServiceOperationsProvider.
  */
-export function useServiceOperations(): ServiceOperationsContextValue {
+function useServiceOperations(): ServiceOperationsContextValue {
   const context = useContext(ServiceOperationsContext)
   if (!context) {
     throw new Error('useServiceOperations must be used within a ServiceOperationsProvider')
   }
   return context
 }
+
+// Named exports to satisfy Fast Refresh
+export { ServiceOperationsProvider, useServiceOperations }
 
 // Re-export types for convenience
 export type { ServiceOperationsContextValue }

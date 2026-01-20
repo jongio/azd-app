@@ -82,7 +82,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Error details (development only) */}
-            {((import.meta as any).env?.DEV || process.env.NODE_ENV === 'development') && this.state.error && (
+            {((import.meta as { env?: { DEV?: boolean } }).env?.DEV || process.env.NODE_ENV === 'development') && this.state.error && (
               <details className="mt-4">
                 <summary className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                   Technical Details

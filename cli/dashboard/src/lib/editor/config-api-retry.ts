@@ -50,7 +50,7 @@ export async function loadConfigWithRetry(): Promise<{ config: AzureYamlConfig |
       {
         maxRetries: 3,
         initialDelay: 1000,
-        onRetry: (attempt) => {
+        onRetry: (_attempt) => {
           // Silent retry
         },
       }
@@ -102,7 +102,7 @@ export async function saveConfigWithRetry(
           }
           return true
         },
-        onRetry: (attempt) => {
+        onRetry: (_attempt) => {
           // Silent retry
         },
       }
@@ -113,7 +113,7 @@ export async function saveConfigWithRetry(
     return {
       success: false,
       error:
-        error && typeof error === 'object' && 'status' in error && (error as any).status === 403
+        error && typeof error === 'object' && 'status' in error && (error as { status: number }).status === 403
           ? createFileSystemError('Permission denied. Cannot save configuration.', error as unknown as Error)
           : createNetworkError('Failed to save configuration', error as unknown as Error, false),
     }

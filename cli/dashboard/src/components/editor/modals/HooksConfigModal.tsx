@@ -133,7 +133,7 @@ export function HooksConfigModal({
       const config = formDataToHook(data)
       await onSave(data.event, config)
       onClose()
-    } catch (error) {
+    } catch {
       alert('Failed to save hook. Please try again.')
     } finally {
       setIsSubmitting(false)

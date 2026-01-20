@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import type { Service } from '@/types'
 
@@ -131,7 +133,7 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
             )
           )
         }
-      } catch (err) {
+      } catch {
         // Ignore parse errors
       }
     }
@@ -185,7 +187,7 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
  * Hook to access services context.
  * Must be used within a ServicesProvider.
  */
-export function useServicesContext(): ServicesContextValue {
+function useServicesContext(): ServicesContextValue {
   const context = useContext(ServicesContext)
   if (!context) {
     throw new Error('useServicesContext must be used within a ServicesProvider')
@@ -198,7 +200,10 @@ export function useServicesContext(): ServicesContextValue {
  * This allows gradual migration - components can use either approach.
  * @deprecated Use useServicesContext() instead for new components
  */
-export function useServices() {
+function useServices() {
   const { services, loading, error, connected, refetch } = useServicesContext()
   return { services, loading, error, connected, refetch }
 }
+
+// Named exports to satisfy Fast Refresh
+export { ServicesProvider, useServicesContext, useServices }

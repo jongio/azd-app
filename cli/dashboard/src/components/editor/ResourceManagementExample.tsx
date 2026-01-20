@@ -261,7 +261,7 @@ ${resource.topics.map(t => `      - ${t}`).join('\n')}`
       {/* Quick Actions Bar */}
       <QuickActionsBar
         services={wellKnownServices}
-        onAddService={(service) => {
+        onAddService={(_service) => {
           // In real implementation, this would add the service to config
         }}
       />

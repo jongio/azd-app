@@ -76,7 +76,7 @@ export function ViewBackupModal({
       await navigator.clipboard.writeText(content)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
+    } catch {
       alert('Failed to copy to clipboard')
     }
   }, [content, forceCopyError])
@@ -93,7 +93,7 @@ export function ViewBackupModal({
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-    } catch (error) {
+    } catch {
       alert('Failed to download backup')
     }
   }, [content, timestamp])

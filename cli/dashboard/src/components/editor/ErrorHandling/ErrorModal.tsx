@@ -59,7 +59,7 @@ export function ErrorModal({
       }
 
       await clipboard.writeText(details)
-    } catch (error) {
+    } catch {
       // Silently fail - copy is not critical
     }
 

@@ -107,7 +107,7 @@ export function useFocusTrap(
 
     const cleanup = createFocusTrap(ref.current, options)
     return cleanup
-  }, [isActive, ref, options.initialFocus, options.onEscape])
+  }, [isActive, ref, options])
 }
 
 // For React import

@@ -73,7 +73,7 @@ class SharedLogStreamManager {
         this.stateSubscriberTimeouts.delete(callback)
         try {
           callback(this.currentState)
-        } catch (err) {
+        } catch {
           this.stateSubscribers.delete(callback)
         }
       }
@@ -103,7 +103,7 @@ class SharedLogStreamManager {
     this.stateSubscribers.forEach(callback => {
       try {
         callback(newState)
-      } catch (err) {
+      } catch {
         toRemove.push(callback)
       }
     })
@@ -188,7 +188,7 @@ class SharedLogStreamManager {
       .forEach(entry => {
         try {
           callback(entry)
-        } catch (err) {
+        } catch {
           // Ignore callback errors
         }
       })
@@ -239,7 +239,7 @@ class SharedLogStreamManager {
       this.wsHandlers.set(ws, handlers)
 
       this.ws = ws
-    } catch (err) {
+    } catch {
       this.isConnecting = false
       this.setState('error')
       // Only log on first attempt to avoid spam
@@ -252,7 +252,7 @@ class SharedLogStreamManager {
   private handleOpen(): void {
     if (this.isDestroyed) return
     
-    const wasReconnecting = this.reconnectAttempts > 1
+    const _wasReconnecting = this.reconnectAttempts > 1
     this.isConnecting = false
     this.backoffDelay = this.minBackoff
     this.reconnectAttempts = 0
@@ -310,7 +310,7 @@ class SharedLogStreamManager {
             if (gapCallback) {
               try {
                 gapCallback(gap)
-              } catch (err) {
+              } catch {
                 // Ignore callback errors
               }
             }
@@ -334,7 +334,7 @@ class SharedLogStreamManager {
           serviceSubs.forEach(callback => {
             try {
               callback(entry)
-            } catch (err) {
+            } catch {
               toRemove.push(callback)
             }
           })
@@ -349,14 +349,14 @@ class SharedLogStreamManager {
           allSubs.forEach(callback => {
             try {
               callback(entry)
-            } catch (err) {
+            } catch {
               toRemove.push(callback)
             }
           })
           toRemove.forEach(cb => allSubs.delete(cb))
         }
       })
-    } catch (err) {
+    } catch {
       // Ignore parse errors
     }
   }
@@ -585,7 +585,7 @@ function getAzureLogManager(): SharedLogStreamManager {
           try {
             this.ws.send(JSON.stringify(initMsg))
             this.initSent = true
-          } catch (err) {
+          } catch {
             // Silently fail - connection may be closing
           }
         }

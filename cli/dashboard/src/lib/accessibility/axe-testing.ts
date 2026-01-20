@@ -12,7 +12,7 @@ export interface A11yViolation {
   helpUrl: string
   nodes: Array<{
     html: string
-    target: any
+    target: string[]
     failureSummary: string
   }>
 }
@@ -38,7 +38,7 @@ export async function runAxe(
 ): Promise<A11yTestResult> {
   const { rules = {}, runOnly } = options
 
-  const config: any = {
+  const config: { rules: Record<string, { enabled: boolean }>; runOnly?: { type: string; values: string[] } } = {
     rules: {
       // Default rules
       'color-contrast': { enabled: true },
@@ -59,7 +59,7 @@ export async function runAxe(
     }
   }
 
-  const results: any = await axe.run(container, config)
+  const results: { violations: Result[]; passes: Result[]; incomplete: Result[] } = await axe.run(container, config)
 
   return {
     violations: results.violations.map(formatViolation),
@@ -75,7 +75,7 @@ export async function runAxe(
 function formatViolation(result: Result): A11yViolation {
   return {
     id: result.id,
-    impact: result.impact as any,
+    impact: result.impact as string,
     description: result.description,
     help: result.help,
     helpUrl: result.helpUrl,

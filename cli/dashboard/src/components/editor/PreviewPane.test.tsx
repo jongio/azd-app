@@ -149,7 +149,7 @@ describe('PreviewPane', () => {
     })
 
     it('handles circular references with YAML anchors', async () => {
-      const circularData: any = { name: 'test' }
+      const circularData: Record<string, unknown> = { name: 'test' }
       circularData.self = circularData // Create circular reference
 
       render(

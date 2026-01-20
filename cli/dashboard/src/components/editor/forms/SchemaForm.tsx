@@ -14,7 +14,7 @@
  * - Memoize computed values to prevent unnecessary recalculations
  */
 
-import { useForm, FormProvider } from 'react-hook-form'
+import { useForm, FormProvider, useWatch } from 'react-hook-form'
 import { useEffect, useRef, useMemo } from 'react'
 import type { ParsedSchema } from '@/lib/schema'
 import { FieldRenderer } from './FieldRenderer'
@@ -54,21 +54,24 @@ export function SchemaForm({
   className,
   fields,
 }: SchemaFormProps) {
-  // Create stable initial defaultValues - only computed once on mount
+  // Create stable initial defaultValues using useMemo instead of ref
   // This ensures useForm is initialized with a stable reference
-  // We use a ref that's initialized once and never changes
-  const initialDefaultValuesRef = useRef<Record<string, unknown>>(defaultValues)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDefaultValues = useMemo(() => defaultValues, [])
   
   // Initialize form ONCE with stable initial defaultValues
   // React Hook Form uses defaultValues only for initial setup
   // We'll use reset() to update values when defaultValues prop changes
   // This hook must be called unconditionally and in the same order every render
   const methods = useForm({
-    defaultValues: initialDefaultValuesRef.current, // Use stable ref - RHF only uses this on initial mount
+    defaultValues: initialDefaultValues,
     mode: 'onBlur', // Validate on blur for better UX
   })
 
-  const { handleSubmit, watch, reset } = methods
+  const { handleSubmit, reset, control } = methods
+  
+  // Watch all form values using useWatch (React Compiler compatible)
+  const formValues = useWatch({ control })
   
   // Track previous defaultValues using a stable key (JSON string)
   // This prevents reset loops when defaultValues object reference changes but values are the same
@@ -91,7 +94,7 @@ export function SchemaForm({
     if (prevDefaultValuesKeyRef.current === '') {
       prevDefaultValuesKeyRef.current = defaultValuesKey
     }
-  }, []) // Only run once on mount
+  }, [defaultValuesKey]) // Include defaultValuesKey in dependencies
   
   // Reset form when defaultValues actually change (not on every render)
   // This effect must always run (no early returns) to maintain hook order
@@ -125,52 +128,48 @@ export function SchemaForm({
   const onChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Watch for form changes and trigger onChange callback
-  // This effect must always run (no early returns) to maintain hook order
+  // Using useWatch instead of watch() for React Compiler compatibility
   useEffect(() => {
-    // If no onChange callback, don't set up watcher
-    if (!onChange) {
+    // If no onChange callback or no form values, don't set up watcher
+    if (!onChange || !formValues) {
       return
     }
 
-    // Set up subscription to watch all form values
-    const subscription = watch((values) => {
-      // Don't trigger onChange during reset
-      if (isResettingRef.current) {
-        return
-      }
+    // Don't trigger onChange during reset
+    if (isResettingRef.current) {
+      return
+    }
 
-      // Serialize current values for comparison
-      const valuesKey = JSON.stringify(values)
-      
-      // Don't trigger onChange if values haven't actually changed
-      if (valuesKey === prevFormValuesKeyRef.current) {
-        return
-      }
+    // Serialize current values for comparison
+    const valuesKey = JSON.stringify(formValues)
+    
+    // Don't trigger onChange if values haven't actually changed
+    if (valuesKey === prevFormValuesKeyRef.current) {
+      return
+    }
 
-      // Clear any pending onChange call
-      if (onChangeTimeoutRef.current) {
-        clearTimeout(onChangeTimeoutRef.current)
-      }
+    // Clear any pending onChange call
+    if (onChangeTimeoutRef.current) {
+      clearTimeout(onChangeTimeoutRef.current)
+    }
 
-      // Debounce onChange calls
-      onChangeTimeoutRef.current = setTimeout(() => {
-        // Double-check we're not resetting and values actually changed
-        if (!isResettingRef.current && valuesKey !== prevFormValuesKeyRef.current) {
-          prevFormValuesKeyRef.current = valuesKey
-          onChange(values as Record<string, unknown>)
-        }
-      }, 500)
-    })
+    // Debounce onChange calls
+    onChangeTimeoutRef.current = setTimeout(() => {
+      // Double-check we're not resetting and values actually changed
+      if (!isResettingRef.current && valuesKey !== prevFormValuesKeyRef.current) {
+        prevFormValuesKeyRef.current = valuesKey
+        onChange(formValues as Record<string, unknown>)
+      }
+    }, 500)
 
     // Cleanup function
     return () => {
-      subscription.unsubscribe()
       if (onChangeTimeoutRef.current) {
         clearTimeout(onChangeTimeoutRef.current)
         onChangeTimeoutRef.current = null
       }
     }
-  }, [watch, onChange])
+  }, [formValues, onChange])
   
   // Update prevFormValuesKeyRef when defaultValues change (initial sync)
   // This effect must always run to maintain hook order
@@ -180,15 +179,6 @@ export function SchemaForm({
 
   // Memoize properties to render - prevents recalculation on every render
   // This ensures the number of FieldRenderer components is stable
-  // Create stable key from schema properties to detect actual changes
-  const schemaPropertiesKey = useMemo(() => {
-    return Object.keys(schema.properties).sort().join(',')
-  }, [schema.properties])
-  
-  // Memoize fields array to ensure stable reference
-  const fieldsKey = useMemo(() => {
-    return fields && Array.isArray(fields) && fields.length > 0 ? fields.sort().join(',') : 'all'
-  }, [fields])
   
   const propertiesToRender = useMemo(() => {
     const allProperties = Object.entries(schema.properties)
@@ -196,7 +186,7 @@ export function SchemaForm({
       return allProperties.filter(([name]) => fields.includes(name))
     }
     return allProperties
-  }, [schemaPropertiesKey, fieldsKey, schema.properties])
+  }, [schema.properties, fields])
 
   // Handle form submission
   const handleFormSubmit = handleSubmit((data) => {
