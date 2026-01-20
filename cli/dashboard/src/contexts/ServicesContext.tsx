@@ -83,7 +83,6 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       setError(null)
       setUseMock(false)
     } catch {
-      console.warn('Backend not available, using mock data')
       setServices(MOCK_SERVICES)
       setUseMock(true)
       setError(null) // Don't show error when using mock data
@@ -133,14 +132,13 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
           )
         }
       } catch (err) {
-        console.error('Failed to parse WebSocket message:', err)
+        // Ignore parse errors
       }
     }
 
     ws.onerror = () => {
       if (isMounted) {
         setConnected(false)
-        console.warn('WebSocket not available (this is normal in dev mode)')
       }
     }
 

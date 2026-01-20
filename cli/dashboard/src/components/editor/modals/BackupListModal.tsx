@@ -69,7 +69,7 @@ export function BackupListModal({
       const lines = content.split('\n').slice(0, 10).join('\n')
       setPreviews(prev => new Map(prev).set(timestamp, { timestamp, content: lines }))
     } catch (error) {
-      console.error('Failed to load preview:', error)
+      // Silently fail - preview is not critical
     } finally {
       setLoadingPreviews(prev => {
         const next = new Set(prev)

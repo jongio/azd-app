@@ -48,7 +48,6 @@ export function saveDraft(
     // Check size (limit to 5MB)
     if (serialized.length > 5 * 1024 * 1024) {
       const error = new Error('Draft too large to save (>5MB)')
-      console.warn(error.message)
       if (onError) {
         onError(error)
       }
@@ -59,7 +58,6 @@ export function saveDraft(
     return true
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error))
-    console.error('Failed to save draft:', err)
     if (onError) {
       onError(err)
     }
@@ -98,13 +96,11 @@ export function loadDraft(): DraftData | null {
     
     // Validate structure before trusting localStorage data
     if (!isDraftData(parsed)) {
-      console.warn('Invalid draft data structure in localStorage')
       return null
     }
     
     return parsed
   } catch (error) {
-    console.error('Failed to load draft:', error)
     return null
   }
 }
@@ -117,7 +113,7 @@ export function clearDraft(): void {
     const keys = getStorageKeys()
     localStorage.removeItem(keys.draft)
   } catch (error) {
-    console.error('Failed to clear draft:', error)
+    // Silently fail
   }
 }
 

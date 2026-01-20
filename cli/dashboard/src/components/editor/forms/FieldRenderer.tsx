@@ -102,7 +102,6 @@ export function FieldRenderer({
 
     default:
       // Fallback to string field for unknown types
-      console.warn(`Unknown field type: ${property.type} for field ${name}`)
       return (
         <StringField
           name={name}

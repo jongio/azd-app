@@ -276,7 +276,6 @@ export function useLogsStream(params: UseLogsStreamParams): { retry: () => void 
             
             if (errorCountRef.current === 1) {
               setErrorMessage('Request timed out')
-              console.warn(`[LogsPane:${serviceName}] Request timed out, will retry with backoff`)
             }
             
             // Schedule retry with backoff
@@ -301,11 +300,9 @@ export function useLogsStream(params: UseLogsStreamParams): { retry: () => void 
           // First error: log immediately with full details
           // Subsequent errors: log only every 30 seconds with count
           if (errorCountRef.current === 1) {
-            console.warn(`[LogsPane:${serviceName}] Failed to fetch ${logMode} logs:`, message)
             setErrorMessage(message)
             lastErrorTimeRef.current = now
           } else if (now - lastErrorTimeRef.current > 30000) {
-            console.warn(`[LogsPane:${serviceName}] Still failing to fetch ${logMode} logs (${errorCountRef.current} consecutive errors, backoff: ${backoffDelayRef.current}ms)`)
             lastErrorTimeRef.current = now
           }
           // Only update error message on first error to avoid UI flashing

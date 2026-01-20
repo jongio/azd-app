@@ -46,7 +46,6 @@ export function HealthTooltip({
       showToast('Diagnostics copied to clipboard', 'success')
     } catch (error) {
       showToast('Failed to copy diagnostics', 'error')
-      console.error('Failed to copy diagnostics:', error)
     }
   }, [diagnostic.formattedReport, showToast])
 

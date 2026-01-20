@@ -119,7 +119,7 @@ export function LogsView({
         const serviceNames = data.map((s) => s.name)
         setInternalServices(serviceNames)
       } catch (err) {
-        console.error('Failed to fetch services:', err)
+        // Silently fail - services list is not critical
       }
     }
     void fetchServices()
@@ -160,7 +160,6 @@ export function LogsView({
       
       setLogs(logs)
     } catch (err) {
-      console.error(`Failed to fetch ${logMode} logs:`, err)
       setLogs([])
     } finally {
       setHasFetched(true)
@@ -218,12 +217,12 @@ export function LogsView({
         const entry = JSON.parse(event.data) as LogEntry
         setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
       } catch (err) {
-        console.error('Failed to parse log entry:', err)
+        // Ignore parse errors
       }
     }
 
     ws.onerror = (error) => {
-      console.error(`WebSocket error (${logMode}):`, error)
+      // Silently handle WebSocket errors
     }
 
     ws.onclose = () => {

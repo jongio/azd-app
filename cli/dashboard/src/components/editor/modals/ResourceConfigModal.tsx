@@ -239,7 +239,6 @@ export function ResourceConfigModal({
       await onSave(config)
       onClose()
     } catch (error) {
-      console.error('Failed to save resource:', error)
       alert('Failed to save resource. Please try again.')
     } finally {
       setIsSubmitting(false)

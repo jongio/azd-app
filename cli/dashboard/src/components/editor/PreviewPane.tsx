@@ -224,7 +224,6 @@ export function PreviewPane({
         prevYamlRef.current = newYaml
         setYaml(newYaml)
       } catch (error) {
-        console.error('YAML stringify error:', error)
         setYaml('# Error generating YAML preview')
       }
     }, 300) // 300ms debounce

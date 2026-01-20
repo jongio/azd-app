@@ -56,7 +56,6 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
       const response = await listBackups()
       setBackups(response.backups)
     } catch (error) {
-      console.error('Failed to load backups:', error)
       alert('Failed to load backups. Please try again.')
     } finally {
       setIsLoadingList(false)
@@ -76,7 +75,6 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
       const lines = response.content.split('\n').slice(0, 10)
       return lines.join('\n')
     } catch (error) {
-      console.error('Failed to load backup:', error)
       alert('Failed to load backup content. Please try again.')
       return 'Failed to load preview'
     }
@@ -93,7 +91,6 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
         const response = await getBackup(timestamp)
         setViewContent(response.content)
       } catch (error) {
-        console.error('Failed to load backup:', error)
         alert('Failed to load backup content. Please try again.')
         setIsViewOpen(false)
       } finally {
@@ -133,7 +130,6 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
         // Callback to parent
         onRestoreSuccess?.()
       } catch (error) {
-        console.error('Failed to restore backup:', error)
         alert('Failed to restore backup. Please try again.')
       } finally {
         setIsRestoring(false)
@@ -163,7 +159,6 @@ export function BackupManager({ onRestoreSuccess, className }: BackupManagerProp
         // Show success notification
         alert('✓ Backup deleted successfully')
       } catch (error) {
-        console.error('Failed to delete backup:', error)
         alert('Failed to delete backup. Please try again.')
       } finally {
         setIsDeleting(false)

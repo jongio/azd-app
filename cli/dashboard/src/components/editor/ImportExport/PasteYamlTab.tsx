@@ -27,7 +27,6 @@ export function PasteYamlTab({ value, onChange }: PasteYamlTabProps) {
       const text = await navigator.clipboard.readText()
       onChange(text)
     } catch (error) {
-      console.error('Failed to read clipboard:', error)
       alert('Failed to read clipboard. Please paste manually.')
     }
   }

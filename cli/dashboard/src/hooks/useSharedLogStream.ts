@@ -74,7 +74,6 @@ class SharedLogStreamManager {
         try {
           callback(this.currentState)
         } catch (err) {
-          console.error('[SharedLogStream] State subscriber initial callback error:', err)
           this.stateSubscribers.delete(callback)
         }
       }
@@ -105,7 +104,6 @@ class SharedLogStreamManager {
       try {
         callback(newState)
       } catch (err) {
-        console.error('[SharedLogStream] State subscriber error:', err)
         toRemove.push(callback)
       }
     })
@@ -131,7 +129,7 @@ class SharedLogStreamManager {
     
     // If already subscribed with this exact callback, don't add again
     if (subs.has(callback)) {
-      console.warn(`[SharedLogStream] Duplicate subscription for service: ${serviceName}`)
+      // Already subscribed, skip
     } else {
       subs.add(callback)
     }
@@ -191,7 +189,7 @@ class SharedLogStreamManager {
         try {
           callback(entry)
         } catch (err) {
-          console.error('[SharedLogStream] Error replaying message:', err)
+          // Ignore callback errors
         }
       })
   }
@@ -209,7 +207,7 @@ class SharedLogStreamManager {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       // Only log on first time hitting max attempts
       if (this.currentState !== 'error') {
-        console.warn(`[SharedLogStream] Max reconnection attempts (${this.config.maxReconnectAttempts}) reached`)
+        // Max attempts reached
       }
       this.setState('error')
       return
@@ -245,9 +243,6 @@ class SharedLogStreamManager {
       this.isConnecting = false
       this.setState('error')
       // Only log on first attempt to avoid spam
-      if (this.reconnectAttempts === 1) {
-        console.warn('[SharedLogStream] Failed to create WebSocket:', err instanceof Error ? err.message : 'Unknown error')
-      }
       if (this.subscribers.size > 0 && !this.isDestroyed) {
         this.scheduleReconnect()
       }
@@ -269,9 +264,6 @@ class SharedLogStreamManager {
     this.startHeartbeat()
     
     // Only log initial connection and successful reconnections
-    if (wasReconnecting) {
-      console.warn('[SharedLogStream] Reconnected successfully')
-    }
   }
 
   protected sendInitMessage(): void {
@@ -302,7 +294,6 @@ class SharedLogStreamManager {
       entries.forEach((entry: LogEntry) => {
         // Validate log entry structure
         if (!entry || typeof entry !== 'object' || !entry.service) {
-          console.warn('[SharedLogStream] Invalid log entry received:', entry)
           return
         }
         
@@ -313,7 +304,6 @@ class SharedLogStreamManager {
           if (lastSeq !== undefined && entry.sequence > lastSeq + 1) {
             // Gap detected!
             const gap = { start: lastSeq + 1, end: entry.sequence - 1 }
-            console.warn(`[SharedLogStream] Gap detected for ${serviceId}: missing sequences ${gap.start}-${gap.end}`)
             
             // Call gap callback if registered
             const gapCallback = this.gapCallbacks.get(serviceId)
@@ -321,7 +311,7 @@ class SharedLogStreamManager {
               try {
                 gapCallback(gap)
               } catch (err) {
-                console.error('[SharedLogStream] Gap callback error:', err)
+                // Ignore callback errors
               }
             }
           }
@@ -345,7 +335,6 @@ class SharedLogStreamManager {
             try {
               callback(entry)
             } catch (err) {
-              console.error('[SharedLogStream] Subscriber callback error:', err)
               toRemove.push(callback)
             }
           })
@@ -361,7 +350,6 @@ class SharedLogStreamManager {
             try {
               callback(entry)
             } catch (err) {
-              console.error('[SharedLogStream] Subscriber callback error:', err)
               toRemove.push(callback)
             }
           })
@@ -369,7 +357,7 @@ class SharedLogStreamManager {
         }
       })
     } catch (err) {
-      console.error('[SharedLogStream] Failed to parse message:', err)
+      // Ignore parse errors
     }
   }
 
@@ -435,7 +423,6 @@ class SharedLogStreamManager {
       // Set timeout for this heartbeat interval
       // Will be cleared when we receive any message in handleMessage
       this.heartbeatTimeoutTimer = setTimeout(() => {
-        console.warn('[SharedLogStream] Heartbeat timeout - no messages received')
         // Force reconnect if still connected
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           this.ws.close(1000, 'Heartbeat timeout')
@@ -465,9 +452,6 @@ class SharedLogStreamManager {
 
     const delay = this.backoffDelay
     // Only log first 3 reconnection attempts to avoid spam
-    if (this.reconnectAttempts <= 2) {
-      console.warn(`[SharedLogStream] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts + 1}/${this.config.maxReconnectAttempts})`)
-    }
     
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
@@ -602,7 +586,7 @@ function getAzureLogManager(): SharedLogStreamManager {
             this.ws.send(JSON.stringify(initMsg))
             this.initSent = true
           } catch (err) {
-            console.error('[AzureLogStream] Failed to send init message:', err)
+            // Silently fail - connection may be closing
           }
         }
       }

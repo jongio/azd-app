@@ -90,7 +90,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
       setLastUpdate(new Date())
       setError(null)
     } catch (err) {
-      console.error('Failed to parse health event:', err)
+      // Ignore parse errors
     }
   }, [])
 
@@ -105,7 +105,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
       })
       setLastUpdate(new Date())
     } catch (err) {
-      console.error('Failed to parse health change event:', err)
+      // Ignore parse errors
     }
   }, [])
 

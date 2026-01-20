@@ -153,7 +153,6 @@ export function ImportModal({
       await onImport(merged)
       onClose()
     } catch (error) {
-      console.error('Failed to import configuration:', error)
       setValidationErrors(['Failed to import configuration. Please try again.'])
     } finally {
       setIsSubmitting(false)

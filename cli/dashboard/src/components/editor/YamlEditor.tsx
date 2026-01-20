@@ -135,7 +135,7 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
       const result = validateConfiguration(config, rawSchema as Record<string, unknown>)
       setValidationErrors([...result.errors, ...result.warnings, ...result.info])
     } catch (error) {
-      console.error('Validation failed:', error)
+      // Validation error handled by error state
     }
   }, [config, rawSchema, setValidationErrors])
 

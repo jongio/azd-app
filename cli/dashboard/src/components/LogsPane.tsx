@@ -269,7 +269,7 @@ export function LogsPane({
         window.setTimeout(() => setShowClassificationConfirmation(false), 2000)
       })
       .catch((err: unknown) => {
-        console.error('Failed to save classification:', err)
+        // Silently fail - classification is not critical
       })
   }, [selectedText, addClassification])
 

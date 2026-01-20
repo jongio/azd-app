@@ -32,13 +32,11 @@ export function getStorageItem<T>(
       if (validator(parsed)) {
         return parsed
       }
-      console.warn(`Invalid data format in localStorage key "${key}", using defaults`)
       return defaultValue
     }
 
     return parsed as T
   } catch (e) {
-    console.warn(`Failed to parse localStorage key "${key}":`, e)
     return defaultValue
   }
 }
@@ -57,7 +55,7 @@ export function setStorageItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch (e) {
-    console.error(`Failed to save to localStorage key "${key}":`, e)
+    // Silently fail - localStorage may be full or disabled
   }
 }
 
@@ -74,7 +72,7 @@ export function removeStorageItem(key: string): void {
   try {
     localStorage.removeItem(key)
   } catch (e) {
-    console.error(`Failed to remove localStorage key "${key}":`, e)
+    // Silently fail
   }
 }
 

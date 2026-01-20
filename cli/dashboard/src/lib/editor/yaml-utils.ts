@@ -105,7 +105,6 @@ export function stringifyYaml(data: unknown, options?: YamlStringifyOptions): st
       return doc.toString(toStringOptions)
     } catch (error) {
       // Fall back to regular stringify if update fails
-      console.warn('Failed to preserve comments, falling back to regular stringify:', error)
     }
   }
 
@@ -198,7 +197,6 @@ export function updateYamlPreservingComments(
       minContentWidth: 0,
     })
   } catch (error) {
-    console.error('Failed to update YAML with comment preservation:', error)
     return yamlString // Return original on error
   }
 }
@@ -255,7 +253,6 @@ export function updateYamlField(
       minContentWidth: 0,
     })
   } catch (error) {
-    console.error('Failed to update YAML field with comment preservation:', error)
     // Fallback: parse to object, update, stringify (loses comments but preserves data)
     const parsed = parseYaml(yamlString)
     if (parsed.success && parsed.data) {
@@ -318,7 +315,6 @@ export function mergeYamlUpdates(
       minContentWidth: 0,
     })
   } catch (error) {
-    console.error('Failed to merge YAML updates with comment preservation:', error)
     // Fallback: parse to object, merge, stringify (loses comments but preserves data)
     const parsed = parseYaml(yamlString)
     if (parsed.success && parsed.data) {
@@ -381,7 +377,6 @@ export function deleteYamlPath(yamlString: string, path: string): string {
       minContentWidth: 0,
     })
   } catch (error) {
-    console.error('Failed to delete YAML path with comment preservation:', error)
     // Fallback: parse to object, delete, stringify (loses comments but preserves data)
     const parsed = parseYaml(yamlString)
     if (parsed.success && parsed.data && typeof parsed.data === 'object') {

@@ -63,15 +63,11 @@ export function ViewBackupModal({
   // Copy content to clipboard
   const handleCopy = React.useCallback(async () => {
     if (forceCopyError) {
-      const error = new Error('Copy failed (forced)')
-      console.error('Failed to copy:', error)
       alert('Failed to copy to clipboard')
       return
     }
 
     if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
-      const error = new Error('Clipboard API unavailable')
-      console.error('Failed to copy:', error)
       alert('Failed to copy to clipboard')
       return
     }
@@ -81,7 +77,6 @@ export function ViewBackupModal({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error('Failed to copy:', error)
       alert('Failed to copy to clipboard')
     }
   }, [content, forceCopyError])
@@ -99,7 +94,6 @@ export function ViewBackupModal({
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('Failed to download:', error)
       alert('Failed to download backup')
     }
   }, [content, timestamp])

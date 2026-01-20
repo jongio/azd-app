@@ -47,7 +47,7 @@ export function useServiceErrors(serviceNames: string[]) {
             errorTimestampsRef.current.set(`${serviceName}-${Date.now()}`, Date.now())
           }
         } catch (err) {
-          console.error('Failed to parse log entry for error tracking:', err)
+          // Ignore parse errors
         }
       }
 

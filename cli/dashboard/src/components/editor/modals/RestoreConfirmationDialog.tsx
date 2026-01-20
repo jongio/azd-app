@@ -59,7 +59,6 @@ export function RestoreConfirmationDialog({
       await onConfirm()
       onClose()
     } catch (error) {
-      console.error('Failed to restore backup:', error)
       alert('Failed to restore backup. Please try again.')
     }
   }

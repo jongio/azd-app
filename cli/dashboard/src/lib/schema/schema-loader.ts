@@ -53,7 +53,6 @@ export async function loadSchema(): Promise<SchemaLoadResult> {
 
   // FALLBACK: Only if bundled schema is invalid/missing, try remote
   // This should rarely happen in production since schema is packaged
-  console.warn('Bundled schema not available, attempting to fetch from remote...')
   
   try {
     const response = await fetch(SCHEMA_URL, {

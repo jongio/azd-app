@@ -49,7 +49,7 @@ function getInitialTheme(storageKey: string = STORAGE_KEY): Theme {
       return stored
     }
   } catch (error) {
-    console.warn('Failed to read theme from localStorage:', error)
+    // Silently fail - theme is not critical
   }
   
   return 'system'
@@ -143,7 +143,7 @@ export function ThemeProvider({
       try {
         localStorage.setItem(storageKey, newTheme)
       } catch (error) {
-        console.warn('Failed to save theme to localStorage:', error)
+        // Silently fail - theme is not critical
       }
     },
     [storageKey, applyTheme]

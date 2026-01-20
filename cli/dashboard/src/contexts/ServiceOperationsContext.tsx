@@ -210,7 +210,6 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
     } catch (err) {
       const message = err instanceof Error ? err.message : `Failed to ${operation} service`
       setError(message)
-      console.error(`Error ${operation}ing service ${serviceName}:`, err)
       return false
     } finally {
       setOperationState(serviceName, 'idle')
@@ -273,7 +272,6 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
     } catch (err) {
       const message = err instanceof Error ? err.message : `Failed to ${operation} all services`
       setError(message)
-      console.error(`Error ${operation}ing all services:`, err)
       return null
     } finally {
       setTracker(prev => ({

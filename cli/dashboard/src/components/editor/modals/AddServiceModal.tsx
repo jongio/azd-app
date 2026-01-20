@@ -80,7 +80,6 @@ export function AddServiceModal({
       await onAddService(serviceData)
       onClose()
     } catch (error) {
-      console.error('Failed to add well-known service:', error)
       alert('Failed to add service. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -100,7 +99,6 @@ export function AddServiceModal({
       await onAddService(data)
       onClose()
     } catch (error) {
-      console.error('Failed to add application service:', error)
       alert('Failed to add service. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -120,7 +118,6 @@ export function AddServiceModal({
       await onAddService(data)
       onClose()
     } catch (error) {
-      console.error('Failed to add container service:', error)
       alert('Failed to add service. Please try again.')
     } finally {
       setIsSubmitting(false)

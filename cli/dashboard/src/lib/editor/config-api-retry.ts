@@ -51,10 +51,7 @@ export async function loadConfigWithRetry(): Promise<{ config: AzureYamlConfig |
         maxRetries: 3,
         initialDelay: 1000,
         onRetry: (attempt) => {
-          // Only log in development
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(`Retrying config load (${attempt}/3)`)
-          }
+          // Silent retry
         },
       }
     )
@@ -106,10 +103,7 @@ export async function saveConfigWithRetry(
           return true
         },
         onRetry: (attempt) => {
-          // Only log in development
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(`Retrying config save (${attempt}/3)`)
-          }
+          // Silent retry
         },
       }
     )

@@ -169,7 +169,6 @@ export function usePreferences(): UsePreferencesReturn {
         setPreferences(DEFAULT_PREFERENCES)
       }
     } catch (err) {
-      console.error('Failed to load preferences:', err)
       setPreferences(DEFAULT_PREFERENCES)
     } finally {
       setIsLoading(false)
@@ -191,7 +190,7 @@ export function usePreferences(): UsePreferencesReturn {
         body: JSON.stringify(updated)
       })
     } catch (err) {
-      console.error('Failed to save preferences:', err)
+      // Silently fail - preferences are not critical
     }
   }, [preferences])
 

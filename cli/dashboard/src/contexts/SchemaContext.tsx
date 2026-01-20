@@ -60,7 +60,6 @@ export function SchemaProvider({ children }: SchemaProviderProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
-      console.error('Failed to load schema:', err)
     } finally {
       setIsLoading(false)
     }

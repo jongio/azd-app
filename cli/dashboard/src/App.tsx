@@ -47,7 +47,7 @@ function App() {
         setProjectName(data.name)
         document.title = `${data.name}`
       } catch (err) {
-        console.error('Failed to fetch project name:', err)
+        // Silently fail - project name is not critical
       }
     }
     void fetchProjectName()

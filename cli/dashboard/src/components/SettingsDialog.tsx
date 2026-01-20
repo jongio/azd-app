@@ -137,7 +137,6 @@ export function SettingsDialog({
       }
       statusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
-      console.error('Failed to save changes:', err)
       setSaveStatus('error')
       
       if (statusTimeoutRef.current) {

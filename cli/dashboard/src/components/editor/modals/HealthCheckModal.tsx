@@ -121,7 +121,6 @@ export function HealthCheckModal({
       await onSave(config)
       onClose()
     } catch (error) {
-      console.error('Failed to save health check:', error)
       alert('Failed to save health check. Please try again.')
     } finally {
       setIsSubmitting(false)

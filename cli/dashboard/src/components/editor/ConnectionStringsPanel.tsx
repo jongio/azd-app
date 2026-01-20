@@ -26,7 +26,6 @@ export function ConnectionStringsPanel({ service, className }: ConnectionStrings
     const writeText = getWriteText()
 
     if (!writeText) {
-      console.error('Failed to copy to clipboard:', new Error('Clipboard API unavailable'))
       return
     }
 
@@ -36,7 +35,7 @@ export function ConnectionStringsPanel({ service, className }: ConnectionStrings
     setTimeout(() => setCopiedKey(null), 2000)
 
     void copyPromise.catch((error) => {
-      console.error('Failed to copy to clipboard:', error)
+      // Silently fail - copy is not critical
     })
   }, [getWriteText, setTimeout])
 

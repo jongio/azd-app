@@ -77,7 +77,6 @@ export function useLogStream({
       const data = await res.json() as LogEntry[]
       setLogs(data ?? [])
     } catch (err) {
-      console.error('Failed to fetch logs:', err)
       setLogs([])
     }
   }, [serviceName, initialTail])
@@ -86,7 +85,6 @@ export function useLogStream({
   const scheduleReconnect = useCallback((setupFn: () => void) => {
     if (!isMountedRef.current) return
     if (retryCountRef.current >= WS_MAX_RETRIES) {
-      console.error(`WebSocket: Max retries (${WS_MAX_RETRIES}) exceeded, giving up`)
       return
     }
 
@@ -95,8 +93,6 @@ export function useLogStream({
       WS_INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCountRef.current),
       WS_MAX_RETRY_DELAY_MS
     )
-    
-    console.warn(`WebSocket: Reconnecting in ${delay}ms (attempt ${retryCountRef.current + 1}/${WS_MAX_RETRIES})`)
     
     retryTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current) {
@@ -138,13 +134,12 @@ export function useLogStream({
           const entry = JSON.parse(event.data) as LogEntry
           setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
         } catch (err) {
-          console.error('Failed to parse log entry:', err)
+          // Ignore parse errors
         }
       }
     }
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
       setIsConnected(false)
     }
 

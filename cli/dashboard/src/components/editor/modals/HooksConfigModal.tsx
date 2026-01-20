@@ -134,7 +134,6 @@ export function HooksConfigModal({
       await onSave(data.event, config)
       onClose()
     } catch (error) {
-      console.error('Failed to save hook:', error)
       alert('Failed to save hook. Please try again.')
     } finally {
       setIsSubmitting(false)

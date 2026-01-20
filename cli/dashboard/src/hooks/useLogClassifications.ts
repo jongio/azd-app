@@ -49,7 +49,6 @@ export function useLogClassifications() {
       const data = await response.json() as ClassificationsResponse
       setClassifications(data.classifications ?? [])
     } catch (err) {
-      console.error('Failed to load classifications:', err)
       setError(err instanceof Error ? err : new Error('Failed to load classifications'))
       setClassifications([])
     } finally {
@@ -104,7 +103,6 @@ export function useLogClassifications() {
       
       return classification
     } catch (err) {
-      console.error('Failed to add classification:', err)
       throw err
     }
   }, [loadClassifications])
@@ -129,7 +127,6 @@ export function useLogClassifications() {
         notifyClassificationsChanged()
       }
     } catch (err) {
-      console.error('Failed to delete classification:', err)
       throw err
     }
   }, [loadClassifications])

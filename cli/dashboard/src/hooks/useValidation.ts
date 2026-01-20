@@ -69,7 +69,6 @@ export function useValidation({
       const validationResult = validateConfiguration(config, schema, options)
       setResult(validationResult)
     } catch (err) {
-      console.error('Validation error:', err)
       setResult({
         valid: false,
         errors: [{

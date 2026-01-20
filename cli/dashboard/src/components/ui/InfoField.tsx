@@ -52,7 +52,7 @@ export function InfoField({
       onCopy?.()
       setTimeout(() => setCopied(false), 2000)
     }).catch((error: unknown) => {
-      console.error('Failed to copy:', error)
+      // Silently fail - copy is not critical
     })
   }
 

@@ -94,7 +94,6 @@ export function useAzureConnectionStatus(
         try {
           raw = await res.json()
         } catch (error_) {
-          console.warn('[useAzureConnectionStatus] Failed to parse mode response:', error_)
           return
         }
         
@@ -119,8 +118,6 @@ export function useAzureConnectionStatus(
         }
       } else {
         // Non-OK response - backend is up but returned error
-        const statusText = res.statusText || 'Unknown error'
-        console.warn(`[useAzureConnectionStatus] Failed to fetch mode: ${res.status} ${statusText}`)
       }
     } catch (err) {
       // Ignore abort errors (from cleanup or concurrent request prevention)
@@ -153,7 +150,6 @@ export function useAzureConnectionStatus(
     async (newMode: LogMode) => {
       // Validate input
       if (!isLogMode(newMode)) {
-        console.error(`[useAzureConnectionStatus] Invalid mode: ${String(newMode)}`)
         return
       }
 
@@ -192,15 +188,9 @@ export function useAzureConnectionStatus(
           await fetchAzureStatus()
         } else {
           const errorText = await res.text()
-          const statusText = res.statusText || 'Unknown error'
-          console.error(
-            `[useAzureConnectionStatus] Failed to switch mode to '${newMode}': ${res.status} ${statusText}`,
-            errorText
-          )
           // Keep the previous mode on error
         }
       } catch (err) {
-        console.error(`[useAzureConnectionStatus] Error switching mode to '${newMode}':`, err)
         // Keep the previous mode on error
       } finally {
         // Clear switching state after a short delay to let panes reconnect
