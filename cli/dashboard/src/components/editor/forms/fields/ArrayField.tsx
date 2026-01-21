@@ -15,14 +15,18 @@ import type { SchemaProperty } from '@/lib/schema'
 import { Button } from '@/components/ui/button'
 import { FieldLabel } from '../FieldLabel'
 import { FieldError } from '../FieldError'
-import { FieldRenderer } from '../FieldRenderer'
 import { cn } from '@/lib/utils'
+
+// Import type only to avoid circular dependency
+import type { FieldRendererProps } from '../FieldRenderer'
 
 export interface ArrayFieldProps {
   name: string
   property: SchemaProperty
   autoSave?: boolean
   nested?: boolean
+  /** FieldRenderer passed as a prop to break circular dependency */
+  FieldRenderer: React.ComponentType<FieldRendererProps>
 }
 
 /**
@@ -33,6 +37,7 @@ export function ArrayField({
   property,
   autoSave = true,
   nested = false,
+  FieldRenderer,
 }: ArrayFieldProps) {
   const {
     control,

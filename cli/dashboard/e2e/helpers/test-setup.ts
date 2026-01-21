@@ -823,13 +823,34 @@ export async function waitForBackdropToClear(page: Page) {
  * Wait for dashboard to be fully loaded
  */
 export async function waitForDashboardReady(page: Page) {
-  // Wait for the main header/nav to be present with tabs
-  // This indicates the React app has mounted and rendered
-  // Use :visible to ensure we wait for a visible tablist (desktop or mobile)
-  await page.locator('[role="tablist"]:visible').first().waitFor({
-    state: 'visible',
-    timeout: 15000,
+  // Wait for the app div to be present first
+  await page.waitForSelector('[data-testid="app-loaded"]', {
+    state: 'attached',
+    timeout: 30000,
   })
+  
+  // Then wait for the tablist (navigation) to appear
+  // Remove :visible constraint as Tailwind responsive classes may hide one tablist
+  const tablistAppeared = await page.locator('[role="tablist"]').first().waitFor({
+    state: 'attached',
+    timeout: 15000,
+  }).then(() => true).catch(() => false)
+  
+  if (!tablistAppeared) {
+    // If tablist didn't appear, log some debug info
+    const rootHTML = await page.locator('#root').innerHTML().catch(() => '<error fetching>')
+    console.log(`Dashboard failed to load. Root HTML length: ${rootHTML.length}`)
+    console.log(`Root preview: ${rootHTML.substring(0, 500)}`)
+    
+    // Check for React errors
+    const errors: string[] = []
+    page.on('pageerror', err => errors.push(err.message))
+    await page.waitForTimeout(1000)
+    if (errors.length > 0) {
+      console.log(`Page errors: ${errors.join('; ')}`)
+    }
+  }
+  
   // Also wait for the page to stabilize
   await page.waitForLoadState('domcontentloaded')
 }

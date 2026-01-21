@@ -285,20 +285,15 @@ export function Header({
         ) : (
           /* Fallback to Health Status Pill - clickable to go to Console */
           healthSummary && (
-            <button
-              type="button"
+            <HealthPill
+              total={healthSummary.total}
+              healthy={healthSummary.healthy}
+              degraded={healthSummary.degraded}
+              unhealthy={healthSummary.unhealthy}
+              starting={healthSummary.starting}
               onClick={() => onViewChange('console')}
-              className="focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 rounded-full hidden sm:block"
-              aria-label="View Console"
-            >
-              <HealthPill
-                total={healthSummary.total}
-                healthy={healthSummary.healthy}
-                degraded={healthSummary.degraded}
-                unhealthy={healthSummary.unhealthy}
-                starting={healthSummary.starting}
-              />
-            </button>
+              className="hidden sm:block"
+            />
           )
         )}
 

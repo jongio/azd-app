@@ -87,6 +87,7 @@ export function FieldRenderer({
           property={property}
           autoSave={autoSave}
           nested={nested}
+          FieldRenderer={FieldRenderer}
         />
       )
 
@@ -97,6 +98,7 @@ export function FieldRenderer({
           property={property}
           autoSave={autoSave}
           nested={nested}
+          FieldRenderer={FieldRenderer}
         />
       )
 

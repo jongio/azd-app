@@ -15,8 +15,8 @@ export default defineConfig({
   forbidOnly: isCI,
   /* Retry on CI only */
   retries: isCI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: isCI ? 1 : undefined,
+  /* Limit workers to prevent test interference - tests share same dev server */
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'line',
   /* Increase default timeout for slow modal interactions and async operations */

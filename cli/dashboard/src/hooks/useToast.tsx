@@ -22,10 +22,10 @@ export function useToast() {
     setToast(null)
   }, [])
 
-  const ToastContainer = React.useCallback(() => {
-    if (!toast) return null
-    return <Toast message={toast.message} type={toast.type} onClose={hideToast} />
-  }, [toast, hideToast])
+  // Return JSX element directly, not a component
+  const toastElement = toast ? (
+    <Toast message={toast.message} type={toast.type} onClose={hideToast} />
+  ) : null
 
-  return { showToast, ToastContainer }
+  return { showToast, toastElement }
 }

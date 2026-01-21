@@ -46,7 +46,7 @@ export function ConsoleView({
 }: Readonly<ConsoleViewProps>) {
   const { services } = useServicesContext()
   const { preferences, updateUI } = usePreferences()
-  const { showToast, ToastContainer } = useToast()
+  const { showToast, toastElement } = useToast()
   const { startAll, stopAll, restartAll, isBulkOperationInProgress } = useServiceOperations()
 
   // Custom hooks for managing state
@@ -337,8 +337,9 @@ export function ConsoleView({
         'bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200',
         isFullscreen ? 'fixed inset-0 z-50' : 'h-full'
       )}
+      data-testid="console-view-root"
     >
-      <ToastContainer />
+      {toastElement}
 
       {/* Toolbar */}
       <ConsoleToolbar

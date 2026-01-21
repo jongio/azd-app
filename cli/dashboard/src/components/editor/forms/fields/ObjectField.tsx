@@ -11,14 +11,18 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { SchemaProperty } from '@/lib/schema'
 import { FieldLabel } from '../FieldLabel'
-import { FieldRenderer } from '../FieldRenderer'
 import { cn } from '@/lib/utils'
+
+// Import type only to avoid circular dependency
+import type { FieldRendererProps } from '../FieldRenderer'
 
 export interface ObjectFieldProps {
   name: string
   property: SchemaProperty
   autoSave?: boolean
   nested?: boolean
+  /** FieldRenderer passed as a prop to break circular dependency */
+  FieldRenderer: React.ComponentType<FieldRendererProps>
 }
 
 /**
@@ -29,6 +33,7 @@ export function ObjectField({
   property,
   autoSave = true,
   nested = false,
+  FieldRenderer,
 }: ObjectFieldProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 

@@ -440,7 +440,7 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
   const mainContent = serviceContent
 
   return (
-    <div className="relative">
+    <div className="relative" data-testid="app-loaded">
       <YamlEditorLayout
         header={(
           <div className="border-b border-border">
