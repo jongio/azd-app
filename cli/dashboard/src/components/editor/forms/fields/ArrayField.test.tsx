@@ -8,7 +8,15 @@ import userEvent from '@testing-library/user-event'
 import { FormProvider, useForm } from 'react-hook-form'
 import { ArrayField } from './ArrayField'
 import { ObjectField } from './ObjectField'
+import { StringField } from './StringField'
 import type { SchemaProperty } from '@/lib/schema'
+import type { FieldRendererProps } from '../FieldRenderer'
+
+// Mock FieldRenderer for testing nested fields
+function MockFieldRenderer({ name, property }: FieldRendererProps) {
+  // For simplicity, just render string fields in tests
+  return <StringField name={name} property={property} />
+}
 
 // Test wrapper component with React Hook Form context
 function TestWrapper({ children, defaultValues = {} }: { children: React.ReactNode; defaultValues?: Record<string, unknown> }) {
@@ -41,7 +49,7 @@ describe('ArrayField', () => {
   it('renders empty array field with add button', () => {
     render(
       <TestWrapper defaultValues={{ tags: [] }}>
-        <ArrayField name="tags" property={property} />
+        <ArrayField name="tags" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -55,7 +63,7 @@ describe('ArrayField', () => {
 
     render(
       <TestWrapper defaultValues={{ tags: [] }}>
-        <ArrayField name="tags" property={property} />
+        <ArrayField name="tags" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -74,7 +82,7 @@ describe('ArrayField', () => {
     // Use 3 items so after removal we still have 2 (above minItems of 1)
     render(
       <TestWrapper defaultValues={{ tags: ['tag1', 'tag2', 'tag3'] }}>
-        <ArrayField name="tags" property={property} />
+        <ArrayField name="tags" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -97,7 +105,7 @@ describe('ArrayField', () => {
   it('disables add button when max items reached', () => {
     render(
       <TestWrapper defaultValues={{ tags: ['tag1', 'tag2', 'tag3', 'tag4', 'tag5'] }}>
-        <ArrayField name="tags" property={property} />
+        <ArrayField name="tags" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -108,7 +116,7 @@ describe('ArrayField', () => {
   it('shows minimum items message when below minimum', () => {
     render(
       <TestWrapper defaultValues={{ tags: [] }}>
-        <ArrayField name="tags" property={property} />
+        <ArrayField name="tags" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -118,7 +126,7 @@ describe('ArrayField', () => {
   it('supports drag and drop reordering', async () => {
     const { container } = render(
       <TestWrapper defaultValues={{ tags: ['tag1', 'tag2', 'tag3'] }}>
-        <ArrayField name="tags" property={property} />
+        <ArrayField name="tags" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -164,7 +172,7 @@ describe('ObjectField', () => {
   it('renders object field with nested properties', () => {
     render(
       <TestWrapper defaultValues={{ address: {} }}>
-        <ObjectField name="address" property={property} />
+        <ObjectField name="address" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -179,7 +187,7 @@ describe('ObjectField', () => {
 
     render(
       <TestWrapper defaultValues={{ address: {} }}>
-        <ObjectField name="address" property={property} />
+        <ObjectField name="address" property={property} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -219,7 +227,7 @@ describe('ObjectField', () => {
 
     render(
       <TestWrapper>
-        <ObjectField name="empty" property={emptyProperty} />
+        <ObjectField name="empty" property={emptyProperty} FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
@@ -229,7 +237,7 @@ describe('ObjectField', () => {
   it('applies nested styling', () => {
     const { container } = render(
       <TestWrapper defaultValues={{ address: {} }}>
-        <ObjectField name="address" property={property} nested />
+        <ObjectField name="address" property={property} nested FieldRenderer={MockFieldRenderer} />
       </TestWrapper>
     )
 
