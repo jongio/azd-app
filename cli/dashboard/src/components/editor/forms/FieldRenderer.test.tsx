@@ -82,7 +82,7 @@ describe('FieldRenderer', () => {
   })
 
   it('falls back to StringField for unknown type', () => {
-    const property = { type: 'unknown' as unknown as string, title: 'Test Unknown' }
+    const property = { type: 'unknown' as 'string', title: 'Test Unknown' }
     const { getByTestId } = render(<FieldRenderer name="test" property={property} />)
     
     expect(getByTestId('string-field')).toBeInTheDocument()

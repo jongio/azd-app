@@ -839,15 +839,15 @@ export async function waitForDashboardReady(page: Page) {
   if (!tablistAppeared) {
     // If tablist didn't appear, log some debug info
     const rootHTML = await page.locator('#root').innerHTML().catch(() => '<error fetching>')
-    console.log(`Dashboard failed to load. Root HTML length: ${rootHTML.length}`)
-    console.log(`Root preview: ${rootHTML.substring(0, 500)}`)
+    console.error(`Dashboard failed to load. Root HTML length: ${rootHTML.length}`)
+    console.error(`Root preview: ${rootHTML.substring(0, 500)}`)
     
     // Check for React errors
     const errors: string[] = []
     page.on('pageerror', err => errors.push(err.message))
     await page.waitForTimeout(1000)
     if (errors.length > 0) {
-      console.log(`Page errors: ${errors.join('; ')}`)
+      console.error(`Page errors: ${errors.join('; ')}`)
     }
   }
   

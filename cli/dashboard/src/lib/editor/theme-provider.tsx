@@ -10,7 +10,6 @@
  */
 
 /* eslint-disable react-refresh/only-export-components */
-
 import * as React from 'react'
 
 export type Theme = 'light' | 'dark' | 'system'
@@ -91,7 +90,7 @@ export interface ThemeProviderProps {
  * }
  * ```
  */
-function ThemeProvider({
+export function ThemeProvider({
   children,
   storageKey = STORAGE_KEY,
 }: ThemeProviderProps) {
@@ -190,16 +189,13 @@ function ThemeProvider({
  * }
  * ```
  */
-function useTheme() {
+export function useTheme() {
   const context = React.useContext(ThemeContext)
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider')
   }
   return context
 }
-
-// Named exports to satisfy Fast Refresh
-export { ThemeProvider, useTheme, ThemeToggle }
 
 /**
  * Theme Toggle Button Component
@@ -211,7 +207,7 @@ export interface ThemeToggleProps {
   showLabel?: boolean
 }
 
-function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) {
+export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) {
   const { resolvedTheme, toggleTheme } = useTheme()
 
   return (

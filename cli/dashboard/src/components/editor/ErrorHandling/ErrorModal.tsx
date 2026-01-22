@@ -59,8 +59,8 @@ export function ErrorModal({
       }
 
       await clipboard.writeText(details)
-    } catch {
-      // Silently fail - copy is not critical
+    } catch (error) {
+      console.error('Failed to copy:', error)
     }
 
     setCopied(true)
