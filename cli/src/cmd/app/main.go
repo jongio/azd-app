@@ -17,6 +17,7 @@ var (
 	debugMode      bool
 	structuredLogs bool
 	cwdFlag        string
+	environment    string
 )
 
 func main() {
@@ -30,6 +31,11 @@ func main() {
 				if err := os.Chdir(cwdFlag); err != nil {
 					return fmt.Errorf("failed to change to directory '%s': %w", cwdFlag, err)
 				}
+			}
+
+			// Handle environment selection
+			if environment != "" {
+				os.Setenv("AZURE_ENV_NAME", environment)
 			}
 
 			// Set global output format and debug mode
@@ -66,6 +72,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().BoolVar(&structuredLogs, "structured-logs", false, "Enable structured JSON logging to stderr")
 	rootCmd.PersistentFlags().StringVarP(&cwdFlag, "cwd", "C", "", "Sets the current working directory")
+	rootCmd.PersistentFlags().StringVarP(&environment, "environment", "e", "", "The name of the environment to use")
 
 	// Register all commands
 	rootCmd.AddCommand(
