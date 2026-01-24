@@ -1,3 +1,8 @@
+## [0.11.2] - 2026-01-24
+
+- feat: Update CLI reference for `azd app run` command and add new flags (#117) (9730450)
+- chore: update registry for v0.11.1 (c5d2051)
+
 ## [0.11.1] - 2026-01-24
 
 - feat: Add environment flag to CLI for Azure environment selection (#115) (0f50ac4)
