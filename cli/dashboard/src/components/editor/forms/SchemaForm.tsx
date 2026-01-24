@@ -54,6 +54,7 @@ export function SchemaForm({
   const { handleSubmit, watch } = methods
 
   // Watch for changes and trigger onChange callback
+  // eslint-disable-next-line react-hooks/incompatible-library -- React Hook Form's watch() is intentionally used here
   useEffect(() => {
     if (!onChange) return
 

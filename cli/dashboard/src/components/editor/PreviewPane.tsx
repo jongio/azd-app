@@ -29,7 +29,6 @@ import {
 import { cn } from '@/lib/utils'
 import { stringifyYaml } from '@/lib/editor/yaml-utils'
 import { useClipboard } from '@/hooks/useClipboard'
-import { useTheme } from '@/lib/editor/theme-provider'
 
 // =============================================================================
 // Types
@@ -160,16 +159,7 @@ export function PreviewPane({
   darkMode: darkModeProp,
   className,
 }: PreviewPaneProps) {
-  // Detect dark mode from theme context or DOM
-  // Try to use theme context, fallback to DOM detection
-  let themeContext: { resolvedTheme: 'light' | 'dark' } | null = null
-  try {
-    themeContext = useTheme()
-  } catch {
-    // Theme context not available, will use DOM detection
-  }
-
-  // Detect dark mode from DOM as fallback
+  // Detect dark mode from DOM (classList or data-theme attribute)
   const [domDarkMode, setDomDarkMode] = React.useState(() => {
     if (typeof window === 'undefined') return false
     return document.documentElement.classList.contains('dark')
@@ -177,8 +167,6 @@ export function PreviewPane({
 
   // Listen for theme changes in DOM
   React.useEffect(() => {
-    if (themeContext) return // Use theme context if available
-
     const checkTheme = () => {
       setDomDarkMode(document.documentElement.classList.contains('dark'))
     }
@@ -190,10 +178,10 @@ export function PreviewPane({
     })
 
     return () => observer.disconnect()
-  }, [themeContext])
+  }, [])
 
   // Use prop if provided, otherwise use detected theme
-  const darkMode = darkModeProp ?? (themeContext?.resolvedTheme === 'dark' || domDarkMode)
+  const darkMode = darkModeProp ?? domDarkMode
 
   // Persistent state
   const [internalVisible, setInternalVisible] = React.useState(() => loadPreviewVisible())
