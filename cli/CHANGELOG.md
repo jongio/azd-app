@@ -1,3 +1,8 @@
+## [0.11.1] - 2026-01-24
+
+- feat: Add environment flag to CLI for Azure environment selection (#115) (0f50ac4)
+- chore: update registry for v0.11.0 (1ea2549)
+
 ## [0.11.0] - 2026-01-13
 
 - feat: Implement service URL configuration and custom access URLs (#110) (cc0a18f)
