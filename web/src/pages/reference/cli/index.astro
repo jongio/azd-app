@@ -33,7 +33,7 @@ azd app mcp serve`;
       </p>
     </div>
 
-    <section class="mb-12"><h2 class="text-2xl font-bold mb-6">Global Flags</h2><p class="text-neutral-700 dark:text-neutral-300 mb-4">These flags are available for all commands:</p><div class="overflow-x-auto"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-o</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format (default, json)</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--debug</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable debug logging</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--structured-logs</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable structured JSON logging to stderr</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td></tr></tbody></table></div></section>
+    <section class="mb-12"><h2 class="text-2xl font-bold mb-6">Global Flags</h2><p class="text-neutral-700 dark:text-neutral-300 mb-4">These flags are available for all commands:</p><div class="overflow-x-auto"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--output</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-o</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Output format (default, json)</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--debug</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable debug logging</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--structured-logs</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Enable structured JSON logging to stderr</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--environment</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-e</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">The name of the environment to use</td></tr></tbody></table></div></section>
 
     <section>
       <h2 class="text-2xl font-bold mb-6">Commands</h2>
@@ -79,7 +79,7 @@ azd app mcp serve`;
       </div>
       <p class="text-neutral-700 dark:text-neutral-300">Starts your development environment based on project type with support for multi-service orchestration.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        7 flags • 8 examples
+        8 flags • 9 examples
       </div>
     </a>
 
@@ -157,17 +157,6 @@ azd app mcp serve`;
       <p class="text-neutral-700 dark:text-neutral-300">Run tests for all services in your application with support for different test types and aggregated code coverage.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         17 flags • 10 examples
-      </div>
-    </a>
-
-    <a href="/azd-app/reference/cli/completion/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
-      <div class="flex items-start justify-between mb-2">
-        <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app completion</code>
-        <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
-      </div>
-      <p class="text-neutral-700 dark:text-neutral-300">Generate shell autocompletion scripts for `azd app`.</p>
-      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        1 flags • 4 examples
       </div>
     </a>
 

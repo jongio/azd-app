@@ -16,6 +16,8 @@ export interface UseCodespaceEnvReturn {
   isCodespace: boolean
   /** Codespace configuration (null if not in Codespace or loading) */
   config: CodespaceConfig | null
+  /** Azure environment name (if available) */
+  environmentName?: string
   /** Whether the environment info is still loading */
   loading: boolean
   /** Error message if fetch failed */
@@ -98,6 +100,11 @@ export function useCodespaceEnv(): UseCodespaceEnvReturn {
     const cached = getCachedEnv()
     return cached?.codespace ?? null
   })
+  const [environmentName, setEnvironmentName] = useState<string | undefined>(() => {
+    // Initialize from cache if available
+    const cached = getCachedEnv()
+    return cached?.environmentName
+  })
   const [loading, setLoading] = useState<boolean>(() => {
     // Skip loading if we have cached data
     return getCachedEnv() === null
@@ -121,6 +128,7 @@ export function useCodespaceEnv(): UseCodespaceEnvReturn {
       setCachedEnv(data)
       
       setConfig(data.codespace)
+      setEnvironmentName(data.environmentName)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setError(message)
@@ -151,6 +159,7 @@ export function useCodespaceEnv(): UseCodespaceEnvReturn {
   return {
     isCodespace: config?.enabled ?? false,
     config,
+    environmentName,
     loading,
     error,
     refresh,

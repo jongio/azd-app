@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
 import { HealthPill, ConnectionStatus } from './StatusIndicator'
 import { ServiceStatusCard } from './ServiceStatusCard'
+import { EnvironmentBadge } from './EnvironmentBadge'
 import type { HealthSummary, Service } from '@/types'
 
 // =============================================================================
@@ -52,6 +53,8 @@ export interface HeaderProps {
   hasActiveErrors?: boolean
   /** Whether dashboard is loading */
   loading?: boolean
+  /** Azure environment name to display */
+  environmentName?: string
   /** Additional class names */
   className?: string
 }
@@ -124,6 +127,7 @@ export function Header({
   services,
   hasActiveErrors = false,
   loading = false,
+  environmentName,
   className,
 }: HeaderProps) {
   const navRef = React.useRef<HTMLDivElement>(null)
@@ -201,6 +205,7 @@ export function Header({
         <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100 truncate tracking-tight">
           {projectName || 'Dashboard'}
         </h1>
+        <EnvironmentBadge environmentName={environmentName} />
         {connected && (
           <span className="relative flex h-2 w-2" aria-hidden="true">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

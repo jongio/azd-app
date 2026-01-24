@@ -2,10 +2,10 @@
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 const usageCode = "azd app info [flags]";
-const example0 = "azd app info [flags]";
-const example1 = "azd app info";
-const example2 = "azd app info --all";
-const example3 = "azd app info --cwd /path/to/project";
+const example0 = "azd app info";
+const example1 = "azd app info --all";
+const example2 = "azd app info --cwd /path/to/project";
+const example3 = "azd app info --output json";
 ---
 
 <Layout title="info - CLI Reference" description="Show comprehensive information about running services.">
@@ -28,7 +28,7 @@ const example3 = "azd app info --cwd /path/to/project";
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
     <Code code={usageCode} lang="bash" frame="terminal" />
 
-    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2><div class="overflow-x-auto my-8"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--all</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show services from all projects on this machine</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--cwd</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-C</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Sets the current working directory</td></tr></tbody></table></div>
+    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2><div class="overflow-x-auto my-8"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--all</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show services from all projects on this machine</td></tr></tbody></table></div>
 
     <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2><div class="space-y-4"><Code code={example0} lang="bash" frame="terminal" />
   <Code code={example1} lang="bash" frame="terminal" />

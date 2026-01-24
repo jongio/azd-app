@@ -37,6 +37,8 @@ export interface AppProps {
   healthError?: string | null
   /** Function to manually reconnect */
   healthReconnect?: () => void
+  /** Azure environment name to display in header */
+  environmentName?: string
   /** Additional class names */
   className?: string
 }
@@ -133,6 +135,7 @@ export function App({
   healthReport,
   healthMap,
   healthError,
+  environmentName,
   className,
 }: AppProps) {
   const [activeView, setActiveView] = React.useState<View>(getInitialView)
@@ -358,6 +361,7 @@ export function App({
         services={services}
         hasActiveErrors={false}
         loading={!connected && services.length === 0}
+        environmentName={environmentName}
       />
 
       {/* Settings Dialog */}

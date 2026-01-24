@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useServicesContext } from '@/contexts/ServicesContext'
 import { useHealthStream } from '@/hooks/useHealthStream'
+import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import { App as DashboardApp } from '@/components/App'
 import { BackendConnectionContext } from '@/hooks/useBackendConnection'
 import type { HealthCheckResult } from '@/types'
@@ -8,6 +9,9 @@ import type { HealthCheckResult } from '@/types'
 function App() {
   const [projectName, setProjectName] = useState<string>('')
   const { services } = useServicesContext()
+  
+  // Environment info (includes Azure environment name)
+  const { environmentName } = useCodespaceEnv()
   
   // Real-time health monitoring
   const { 
@@ -74,6 +78,7 @@ function App() {
         healthMap={healthMap}
         healthError={healthError}
         healthReconnect={healthReconnect}
+        environmentName={environmentName}
       />
     </BackendConnectionContext.Provider>
   )

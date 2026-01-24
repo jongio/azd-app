@@ -39,6 +39,7 @@ These flags are available for all commands:
 | `--debug` | | bool | `false` | Enable debug logging |
 | `--structured-logs` | | bool | `false` | Enable structured JSON logging to stderr |
 | `--cwd` | `-C` | string | `""` | Sets the current working directory |
+| `--environment` | `-e` | string | `""` | The name of the environment to use |
 
 **Examples:**
 ```bash
@@ -53,6 +54,9 @@ azd app deps --structured-logs
 
 # Run from a specific project directory
 azd app run --cwd ./my-project
+
+# Use a specific environment
+azd app run --environment production
 ```
 
 ## Commands Overview
@@ -73,7 +77,6 @@ azd app run --cwd ./my-project
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
-| `completion` | Generate shell autocompletion scripts | [→ Full Spec](commands/completion.md) |
 | `listen` | Extension framework integration (hidden, used by azd internally) | [→ Full Spec](commands/listen.md) |
 
 ---
@@ -293,6 +296,9 @@ azd app run --env-file .env.local
 
 # Combine multiple flags
 azd app run -s web -v --runtime aspire
+
+# Force clean dependency reinstall before running
+azd app run --force
 ```
 
 ### Flags
@@ -305,6 +311,7 @@ azd app run -s web -v --runtime aspire
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
+| `--force` | `-f` | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ### Runtime Modes

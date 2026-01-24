@@ -37,6 +37,10 @@ export {
 } from './StatusIndicator'
 export type { EffectiveStatus } from './StatusIndicator'
 
+// Environment Badge
+export { EnvironmentBadge } from './EnvironmentBadge'
+export type { EnvironmentBadgeProps } from './EnvironmentBadge'
+
 // Console View
 export { ConsoleView } from './ConsoleView'
 export type { ConsoleViewProps } from './ConsoleView'

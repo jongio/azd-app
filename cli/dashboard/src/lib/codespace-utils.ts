@@ -21,6 +21,7 @@ export interface CodespaceConfig {
 
 export interface EnvironmentInfo {
   codespace: CodespaceConfig
+  environmentName?: string
 }
 
 // =============================================================================

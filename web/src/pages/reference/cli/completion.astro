@@ -1,11 +1,6 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-const usageCode = "azd app completion [command]";
-const example0 = "azd app completion [command]";
-const example1 = "azd app completion bash > ~/.azd-app-completion.bash";
-const example2 = "azd app completion zsh > ~/.azd-app-completion.zsh";
-const example3 = "azd app completion powershell | Out-String | Invoke-Expression";
 ---
 
 <Layout title="completion - CLI Reference" description="Generate shell autocompletion scripts for `azd app`.">
@@ -20,22 +15,31 @@ const example3 = "azd app completion powershell | Out-String | Invoke-Expression
       </ol>
     </nav>
 
-    <div class="mb-8">
-      <h1 class="text-4xl font-bold mb-4">azd app completion</h1>
-      <p class="text-xl text-neutral-700 dark:text-neutral-300">Generate shell autocompletion scripts for `azd app`.</p>
+    <div class="mb-8 p-6 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg border border-yellow-300 dark:border-yellow-700">
+      <h1 class="text-4xl font-bold mb-4">⚠️ azd app completion</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">This command is not yet implemented.</p>
     </div>
 
-    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
-    <Code code={usageCode} lang="bash" frame="terminal" />
+    <div class="p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
+      <h2 class="text-2xl font-bold mb-4">Status</h2>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        The <code class="px-2 py-1 bg-neutral-200 dark:bg-neutral-700 rounded">azd app completion</code> command
+        is planned but not yet available in the current version. Shell autocompletion will be added in a future release.
+      </p>
+      
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">What it will do:</h3>
+      <ul class="list-disc list-inside text-neutral-700 dark:text-neutral-300 space-y-2 mb-4">
+        <li>Generate shell autocompletion scripts for bash, zsh, PowerShell, and fish</li>
+        <li>Enable tab completion for <code class="px-2 py-1 bg-neutral-200 dark:bg-neutral-700 rounded">azd app</code> commands and flags</li>
+        <li>Suggest available services, commands, and options as you type</li>
+      </ul>
 
-    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2><div class="overflow-x-auto my-8"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--help</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-h</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show help for completion</td></tr></tbody></table></div>
-
-    <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2><div class="space-y-4"><Code code={example0} lang="bash" frame="terminal" />
-  <Code code={example1} lang="bash" frame="terminal" />
-  <Code code={example2} lang="bash" frame="terminal" />
-  <Code code={example3} lang="bash" frame="terminal" /></div>
-
-    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/completion.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full completion specification →</a></div>
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">Workaround:</h3>
+      <p class="text-neutral-700 dark:text-neutral-300">
+        In the meantime, use <code class="px-2 py-1 bg-neutral-200 dark:bg-neutral-700 rounded">azd app &lt;command&gt; --help</code> 
+        to see available flags and options for each command.
+      </p>
+    </div>
 
     <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between">
@@ -45,17 +49,4 @@ const example3 = "azd app completion powershell | Out-String | Invoke-Expression
       </div>
     </div>
   </div>
-
-  <script>
-    document.querySelectorAll('.copy-button').forEach(button => {
-      button.addEventListener('click', async () => {
-        const code = button.getAttribute('data-code');
-        if (code) {
-          await navigator.clipboard.writeText(code);
-          button.textContent = 'Copied!';
-          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
-        }
-      });
-    });
-  </script>
 </Layout>

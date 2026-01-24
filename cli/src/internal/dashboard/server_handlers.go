@@ -47,6 +47,9 @@ func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
 	// Only in browser-based Codespace do we need to transform localhost URLs
 	isVsCodeDesktop := runningOnVsCodeDesktop()
 
+	// Get Azure environment name if available
+	azureEnvName := os.Getenv("AZURE_ENV_NAME")
+
 	response := map[string]interface{}{
 		"codespace": map[string]interface{}{
 			"enabled":         codespaceName != "",
@@ -54,6 +57,7 @@ func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
 			"domain":          codespacePortDomain,
 			"isVsCodeDesktop": isVsCodeDesktop,
 		},
+		"environmentName": azureEnvName,
 	}
 
 	WriteJSONSuccess(w, response)
