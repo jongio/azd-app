@@ -106,8 +106,8 @@ export function EditorWithCommandPalette() {
       {/* Your editor UI here */}
       <div className="p-4">
         <h1>Azure YAML Editor</h1>
-        <p className="text-sm text-slate-600">
-          Press <kbd className="px-2 py-1 bg-slate-100 rounded">Cmd/Ctrl+K</kbd> to open the command palette
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Press <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded">Cmd/Ctrl+K</kbd> to open the command palette
         </p>
       </div>
       

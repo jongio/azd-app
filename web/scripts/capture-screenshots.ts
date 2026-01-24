@@ -165,12 +165,14 @@ async function main(): Promise<void> {
       headless: true,
     });
 
-    const context = await browser.newContext({
+    // Note: We'll create contexts per screenshot to support different color schemes
+    // Start with a default context for non-editor screenshots
+    const defaultContext = await browser.newContext({
       deviceScaleFactor: 2, // Retina quality
-      colorScheme: 'dark', // Use dark mode for better contrast
+      colorScheme: 'dark', // Default to dark mode for dashboard screenshots
     });
 
-    const page = await context.newPage();
+    const page = await defaultContext.newPage();
 
     const results: { name: string; success: boolean; errors: string[] }[] = [];
 
@@ -195,16 +197,123 @@ async function main(): Promise<void> {
 
     for (const config of screenshotsToCapture) {
       try {
-        // For editor screenshots, navigate to /editor route; for others, skip goto to reuse existing page
         const isEditorScreenshot = config.name.startsWith('editor-');
         const editorUrl = dashboardUrl.replace(/\/$/, '') + '/editor';
-        const configWithUrl = { 
-          ...config, 
-          url: isEditorScreenshot ? editorUrl : dashboardUrl, 
-          skipGoto: !isEditorScreenshot 
-        };
-        const result = await captureScreenshot(page, configWithUrl, SCREENSHOTS_DIR);
-        results.push({ name: config.name, ...result });
+        
+        // Determine variants to capture
+        const variants = config.variants || [config.colorScheme || 'dark'];
+        
+        // Capture each variant
+        for (const variant of variants) {
+          // Create a context with the required color scheme
+          const context = await browser.newContext({
+            deviceScaleFactor: 2, // Retina quality
+            colorScheme: variant,
+          });
+          
+          // Set localStorage BEFORE any page loads using addInitScript
+          // This ensures React's theme provider reads the correct theme on mount
+          await context.addInitScript((theme) => {
+            // Set localStorage before React initializes
+            // Set both editor and dashboard theme keys to ensure compatibility
+            try {
+              localStorage.setItem('azure-yaml-editor-theme', theme);
+              localStorage.setItem('dashboard-theme', theme);
+            } catch (e) {
+              // Ignore errors
+            }
+          }, variant);
+          
+          const screenshotPage = await context.newPage();
+          
+          try {
+            const configWithUrl = { 
+              ...config, 
+              url: isEditorScreenshot ? editorUrl : dashboardUrl, 
+              skipGoto: true // We'll navigate manually
+            };
+            
+            // Navigate to the page - localStorage is already set via addInitScript
+            // Use 'load' instead of 'networkidle' because dashboard has ongoing WebSocket connections
+            // that prevent networkidle from ever being reached
+            await screenshotPage.goto(configWithUrl.url, { waitUntil: 'load', timeout: 60000 });
+            
+            // Wait for React to hydrate and theme provider to initialize
+            // Reduced wait since 'load' already waits for resources
+            await screenshotPage.waitForTimeout(1000);
+            
+            // Force theme application - ensure DOM is updated
+            // The theme provider should have applied it, but we ensure it's correct
+            await screenshotPage.evaluate((theme) => {
+              const root = document.documentElement;
+              // Remove existing theme classes
+              root.classList.remove('light', 'dark');
+              // Add the correct theme class
+              root.classList.add(theme);
+              // Set data-theme attribute
+              root.setAttribute('data-theme', theme);
+              // Set CSS color-scheme property
+              root.style.colorScheme = theme;
+              // Ensure localStorage is still set for both editor and dashboard
+              try {
+                localStorage.setItem('azure-yaml-editor-theme', theme);
+                localStorage.setItem('dashboard-theme', theme);
+              } catch (e) {
+                // Ignore localStorage errors
+              }
+            }, variant);
+            
+            // Wait for theme styles to fully apply
+            await screenshotPage.waitForTimeout(500);
+            
+            // Verify theme is actually applied (for debugging)
+            const themeCheck = await screenshotPage.evaluate(() => {
+              const root = document.documentElement;
+              return {
+                dataTheme: root.getAttribute('data-theme'),
+                classList: Array.from(root.classList),
+                colorScheme: root.style.colorScheme || getComputedStyle(root).colorScheme,
+                localStorage: localStorage.getItem('azure-yaml-editor-theme')
+              };
+            });
+            
+            if (variant === 'light' && themeCheck.dataTheme !== 'light') {
+              console.log(`  ⚠️ Warning: Theme not applied correctly. Expected 'light', got '${themeCheck.dataTheme}'`);
+              console.log(`     Classes: ${themeCheck.classList.join(', ')}`);
+              console.log(`     localStorage: ${themeCheck.localStorage}`);
+              // Force it one more time with a longer wait
+              await screenshotPage.evaluate(() => {
+                const root = document.documentElement;
+                root.classList.remove('light', 'dark');
+                root.classList.add('light');
+                root.setAttribute('data-theme', 'light');
+                root.style.colorScheme = 'light';
+                // Trigger a reflow to ensure styles apply
+                void root.offsetHeight;
+              });
+              await screenshotPage.waitForTimeout(1000);
+              // Verify again
+              const recheck = await screenshotPage.evaluate(() => document.documentElement.getAttribute('data-theme'));
+              console.log(`  ✓ Theme after force: ${recheck}`);
+            } else if (variant === 'light') {
+              console.log(`  ✓ Theme verified: ${themeCheck.dataTheme} mode`);
+            }
+            
+            // When there's only one variant (not using variants array), save without suffix for backward compatibility
+            // When using variants array, save with suffix to distinguish them
+            const shouldUseSuffix = config.variants && config.variants.length > 1;
+            const captureVariant = shouldUseSuffix ? variant : undefined;
+            
+            const result = await captureScreenshot(screenshotPage, configWithUrl, SCREENSHOTS_DIR, captureVariant);
+            // Use the actual filename that was saved
+            const resultName = captureVariant ? `${config.name}-${captureVariant}` : config.name;
+            results.push({ name: resultName, ...result });
+          } finally {
+            // Always close the page and context
+            await screenshotPage.close();
+            await context.close();
+          }
+        }
       } catch (e) {
         console.error(`  ❌ Failed: ${config.name}`, e);
         results.push({ name: config.name, success: false, errors: [String(e)] });

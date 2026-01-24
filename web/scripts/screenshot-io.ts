@@ -261,6 +261,7 @@ export async function startProcess(
 
   // Handle port conflict prompts automatically
   let outputBuffer = '';
+  let portConflictDetected = false;
   const handleOutput = (data: Buffer) => {
     outputBuffer += data.toString();
     const lines = outputBuffer.split('\n');
@@ -272,12 +273,21 @@ export async function startProcess(
         onOutput?.(line);
         
         // Auto-respond to port conflict prompts
-        if (line.includes('Choose (1/2/3/4):')) {
+        // Detect port conflict by looking for "requires port" message
+        if (line.includes('requires port') && line.includes('configured in azure.yaml')) {
+          portConflictDetected = true;
+        }
+        
+        // When we see "Cancel" option, the prompt is complete and waiting for input
+        if (portConflictDetected && line.includes('4) Cancel')) {
           // Option 2: Kill the process using the port (most reliable for screenshots)
-          if (proc.stdin && !proc.stdin.destroyed) {
-            proc.stdin.write('2\n');
-            console.log(`   [${name}] Auto-selected option 2: Kill the process using the port`);
-          }
+          setTimeout(() => {
+            if (proc.stdin && !proc.stdin.destroyed) {
+              proc.stdin.write('2\n');
+              console.log(`   [${name}] Auto-selected option 2: Kill the process using the port`);
+              portConflictDetected = false;
+            }
+          }, 100); // Small delay to ensure prompt is ready
         }
       }
     });

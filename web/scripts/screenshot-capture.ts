@@ -209,9 +209,12 @@ async function executeActions(page: Page, actions: any[]): Promise<void> {
 export async function captureScreenshot(
   page: Page,
   config: ScreenshotConfig & { skipGoto?: boolean },
-  screenshotsDir: string
+  screenshotsDir: string,
+  variant?: 'light' | 'dark'
 ): Promise<{ success: boolean; errors: string[] }> {
-  console.log(`📸 Capturing: ${config.name} (${config.viewport.width}x${config.viewport.height})`);
+  const variantSuffix = variant ? `-${variant}` : '';
+  const screenshotName = `${config.name}${variantSuffix}`;
+  console.log(`📸 Capturing: ${screenshotName} (${config.viewport.width}x${config.viewport.height})${variant ? ` [${variant} mode]` : ''}`);
   await page.setViewportSize(config.viewport);
   
   if (!config.skipGoto) {
@@ -237,7 +240,7 @@ export async function captureScreenshot(
     }
   }
 
-  const screenshotPath = path.join(screenshotsDir, `${config.name}.png`);
+  const screenshotPath = path.join(screenshotsDir, `${screenshotName}.png`);
   
   // Determine screenshot method: selector > clipSelector > clip > full page
   if (config.selector) {
@@ -266,6 +269,6 @@ export async function captureScreenshot(
   }
 
   const sizeKB = (fs.statSync(screenshotPath).size / 1024).toFixed(1);
-  console.log(`  ✓ Saved: ${config.name}.png (${sizeKB} KB)`);
+  console.log(`  ✓ Saved: ${screenshotName}.png (${sizeKB} KB)`);
   return { success: true, errors: [] };
 }

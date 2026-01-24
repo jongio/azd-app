@@ -80,10 +80,11 @@ export function QuickActionsBar({
                 onClick={onImportConfig}
                 className={cn(
                   'inline-flex items-center gap-2 px-4 py-2 rounded-lg',
-                  'bg-slate-100 hover:bg-slate-200 active:bg-slate-300',
-                  'text-slate-800 font-medium text-sm',
+                  'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700',
+                  'active:bg-slate-300 dark:active:bg-slate-600',
+                  'text-slate-800 dark:text-slate-200 font-medium text-sm',
                   'transition-colors duration-150',
-                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-cyan-400 focus:ring-offset-2',
                   'shadow-sm hover:shadow-md'
                 )}
                 aria-label="Import configuration"
@@ -99,10 +100,11 @@ export function QuickActionsBar({
                 onClick={onExportConfig}
                 className={cn(
                   'inline-flex items-center gap-2 px-4 py-2 rounded-lg',
-                  'bg-slate-100 hover:bg-slate-200 active:bg-slate-300',
-                  'text-slate-800 font-medium text-sm',
+                  'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700',
+                  'active:bg-slate-300 dark:active:bg-slate-600',
+                  'text-slate-800 dark:text-slate-200 font-medium text-sm',
                   'transition-colors duration-150',
-                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-cyan-400 focus:ring-offset-2',
                   'shadow-sm hover:shadow-md'
                 )}
                 aria-label="Export configuration"
@@ -119,10 +121,11 @@ export function QuickActionsBar({
                 onClick={() => onAddService(service)}
                 className={cn(
                   'inline-flex items-center gap-2 px-4 py-2 rounded-lg',
-                  'bg-cyan-700 hover:bg-cyan-800 active:bg-cyan-900',
+                  'bg-cyan-700 dark:bg-cyan-600 hover:bg-cyan-800 dark:hover:bg-cyan-500',
+                  'active:bg-cyan-900 dark:active:bg-cyan-400',
                   'text-white font-medium text-sm',
                   'transition-colors duration-150',
-                  'focus:outline-none focus:ring-2 focus:ring-cyan-700 focus:ring-offset-2',
+                  'focus:outline-none focus:ring-2 focus:ring-cyan-700 dark:focus:ring-cyan-400 focus:ring-offset-2',
                   'shadow-sm hover:shadow-md'
                 )}
                 aria-label={`Add ${service.displayName}`}

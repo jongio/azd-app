@@ -16,52 +16,52 @@ const baseUrl = import.meta.env.BASE_URL;
 const features = [
   {
     icon: "⚡",
-    title: "One-Command Start",
-    description: "Run `azd app run` and all services start with dependencies resolved automatically.",
+    title: "No More Terminal Tetris",
+    description: "Run `azd app run` and watch your entire stack start in dependency order. Web, API, database, cache—all connected, all working.",
     href: `${baseUrl}quick-start/`,
   },
   {
+    icon: "🔍",
+    title: "Debug Everything, Everywhere",
+    description: "One search box. Every log. Local services and Azure cloud logs streaming together. Find your bug in seconds, not hours.",
+    href: `${baseUrl}tour/6-logs/`,
+  },
+  {
+    icon: "❤️",
+    title: "Know Before It Breaks",
+    description: "Health checks catch database timeouts, missing env vars, and port conflicts before your users do.",
+    href: `${baseUrl}tour/7-health/`,
+  },
+  {
+    icon: "☁️",
+    title: "Azure on Your Laptop",
+    description: "Stream Container Apps, App Service, and Functions logs directly to your local dashboard. 1-5 minute latency.",
+    href: `${baseUrl}reference/azure-logs/`,
+  },
+  {
     icon: "📄",
-    title: "Simple Configuration",
-    description: "Define services, health checks, logging, and testing in one azure.yaml file. Use the visual editor or edit manually—auto-detection does the rest.",
+    title: "Config That Makes Sense",
+    description: "Visual editor with validation. No more guessing YAML indentation. Auto-detection finds your services automatically.",
     href: `${baseUrl}reference/azure-yaml-editor/`,
   },
   {
     icon: "🐳",
-    title: "Container Services",
-    description: "Add databases, caches, and Azure emulators with `azd app add`. PostgreSQL, Redis, Azurite, and more.",
+    title: "Batteries Included",
+    description: "Add PostgreSQL, Redis, MongoDB, Azurite, or any container with one command. No Docker Compose wrestling.",
     href: `${baseUrl}reference/containers/`,
   },
   {
-    icon: "📊",
-    title: "Real-time Dashboard",
-    description: "Monitor all your services in one place with live status updates and health checks.",
-    href: `${baseUrl}tour/5-dashboard/`,
-  },
-  {
-    icon: "📝",
-    title: "Unified Logs",
-    description: "Stream and filter logs from all services, including Azure cloud logs. Search, highlight, and export with ease.",
-    href: `${baseUrl}tour/6-logs/`,
-  },
-  {
-    icon: "☁️",
-    title: "Azure Cloud Monitoring",
-    description: "Stream logs from Azure Container Apps, App Service, and Functions directly into your local dashboard. Typical latency: 1-5 minutes.",
-    href: `${baseUrl}reference/azure-logs/`,
-  },
-  {
-    icon: "❤️",
-    title: "Health Monitoring",
-    description: "Automatic health checks with visual indicators. Know when services need attention.",
-    href: `${baseUrl}tour/7-health/`,
-  },
-  {
     icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.164 6.839 9.49.5.09.682-.218.682-.484 0-.237-.009-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.268 2.75 1.026A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.026 2.747-1.026.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .269.18.579.688.481C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>`,
-    title: "AI-Powered Debugging",
-    description: "Connect GitHub Copilot via MCP to analyze logs, diagnose issues, and suggest fixes.",
+    title: "AI Fixes Your Bugs",
+    description: "Connect GitHub Copilot via MCP. Ask \"Why is my API failing?\" Get answers from your actual logs and stack traces.",
     badge: "AI",
     href: `${baseUrl}mcp/`,
+  },
+  {
+    icon: "📊",
+    title: "See Everything At Once",
+    description: "Real-time dashboard shows status, health, ports, and resource usage for every service. Grid or table view.",
+    href: `${baseUrl}tour/5-dashboard/`,
   },
 ];
 
@@ -94,10 +94,10 @@ const demoSteps = [
     <div class="hero-container">
       <div class="hero-content">
         <h1 id="hero-heading" class="hero-title">
-          Run Azure Apps<br />Locally
+          Stop Juggling.<br />Start Building.
         </h1>
         <p class="hero-description">
-          azd app extends Azure Developer CLI with a complete local development environment. One command starts all services, manages dependencies, and provides unified monitoring for both local and Azure deployments.
+          One command replaces seven terminal windows. Run your entire Azure stack locally with unified logs, health monitoring, and AI-powered debugging. Deploy the same way you develop.
         </p>
         <div class="hero-actions">
           <a href={`${baseUrl}quick-start/`} class="btn-primary">
@@ -118,7 +118,7 @@ const demoSteps = [
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hero-check-icon">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          Open source • Works with GitHub Copilot
+          Free • Open source • Works with GitHub Copilot
         </p>
       </div>
       <div class="hero-illustration">
@@ -152,9 +152,9 @@ const demoSteps = [
   <section id="demo" class="demo" aria-labelledby="demo-heading">
     <div class="demo-container">
       <div class="demo-header">
-        <h2 id="demo-heading" class="demo-title">Try It Yourself</h2>
+        <h2 id="demo-heading" class="demo-title">See It In Action</h2>
         <p class="demo-description">
-          Get started in under 5 minutes with our demo template. It includes an intentional bug for you to fix using AI!
+          Get from zero to running in under 5 minutes. Our demo includes an intentional bug—use AI to find and fix it.
         </p>
       </div>
       

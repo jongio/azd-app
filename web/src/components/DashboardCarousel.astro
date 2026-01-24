@@ -22,36 +22,31 @@ const baseUrl = import.meta.env.BASE_URL;
 
 // Define the carousel slides
 // Note: Screenshots are captured by scripts/capture-screenshots.ts
+// Marketing-first: Show problems being solved, not features
 const slides = [
   {
-    src: `${baseUrl}screenshots/editor-main-view.png`,
-    alt: 'Azure YAML Editor showing visual form editing with navigation sidebar and YAML preview',
-    title: 'Azure YAML Editor',
-    description: 'Visual editor with validation & forms',
+    src: `${baseUrl}screenshots/dashboard-services-health.png`,
+    alt: 'All services running with health status indicators - web, api, database, cache all healthy',
+    title: 'Everything Running. One Command.',
+    description: 'azd app run starts your entire stack',
   },
   {
-    src: `${baseUrl}screenshots/dashboard-console.png`,
-    alt: 'Console view showing real-time logs from all services with filtering options',
-    title: 'Console View',
-    description: 'Real-time logs & monitoring',
-  },
-  {
-    src: `${baseUrl}screenshots/dashboard-resources-table.png`,
-    alt: 'Services view showing services in a table format with status, ports, and health indicators',
-    title: 'Table View',
-    description: 'View all services at a glance',
-  },
-  {
-    src: `${baseUrl}screenshots/dashboard-resources-grid.png`,
-    alt: 'Services view showing services as cards with detailed status information',
-    title: 'Grid View',
-    description: 'Detailed service cards',
+    src: `${baseUrl}screenshots/console-log-search.png`,
+    alt: 'Log search highlighting errors across all services with real-time filtering',
+    title: 'Find Bugs in Seconds',
+    description: 'Search, filter, and debug across all services',
   },
   {
     src: `${baseUrl}screenshots/dashboard-azure-logs.png`,
-    alt: 'Azure logs view showing cloud logs from Container Apps, App Service, and Functions',
-    title: 'Azure Cloud Logs',
-    description: 'Live logs from Azure services',
+    alt: 'Azure Container Apps and App Service logs streaming into local dashboard in real-time',
+    title: 'Debug Cloud Locally',
+    description: 'Stream Azure logs to your laptop. 1-5 min latency.',
+  },
+  {
+    src: `${baseUrl}screenshots/editor-main-view.png`,
+    alt: 'Visual editor for azure.yaml with form fields, validation, and live YAML preview',
+    title: 'Config Without the Pain',
+    description: 'Forms + validation. YAML auto-generated.',
   },
 ];
 ---
@@ -76,13 +71,43 @@ const slides = [
           aria-label={`${index + 1} of ${slides.length}: ${slide.title}`}
           aria-hidden={index !== 0}
         >
-          <img 
-            src={slide.src}
-            alt={slide.alt}
-            class="carousel-image"
-            loading={index === 0 ? 'eager' : 'lazy'}
-            decoding="async"
-          />
+          <button
+            type="button"
+            class="carousel-slide-button"
+            aria-label={`View full size: ${slide.title}`}
+            aria-haspopup="dialog"
+            data-carousel-lightbox-trigger
+            data-light-src={slide.src}
+            data-dark-src={slide.src}
+            data-caption={slide.description}
+          >
+            <img 
+              src={slide.src}
+              alt={slide.alt}
+              class="carousel-image"
+              loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+            />
+            <div class="carousel-slide-overlay" aria-hidden="true">
+              <svg
+                class="carousel-expand-icon"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+              <span class="carousel-expand-text">View full size</span>
+            </div>
+          </button>
         </div>
       ))}
     </div>
@@ -160,10 +185,61 @@ const slides = [
     opacity: 0.3;
   }
 
+  /* Clickable slide button */
+  .carousel-slide-button {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .carousel-slide-button:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--color-border-focus);
+  }
+
   .carousel-image {
     width: 100%;
     height: auto;
     display: block;
+    transition: transform 0.3s ease-out;
+  }
+
+  .carousel-slide-button:hover .carousel-image {
+    transform: scale(1.02);
+  }
+
+  /* Slide overlay */
+  .carousel-slide-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+  }
+
+  .carousel-slide-button:hover .carousel-slide-overlay,
+  .carousel-slide-button:focus-visible .carousel-slide-overlay {
+    opacity: 1;
+  }
+
+  .carousel-expand-icon {
+    opacity: 0.9;
+  }
+
+  .carousel-expand-text {
+    font-size: 0.875rem;
+    font-weight: 600;
   }
 
   /* Navigation arrows */
@@ -308,6 +384,31 @@ const slides = [
     .carousel-arrow-next {
       right: 0.5rem;
     }
+
+    /* Always show overlay hint on mobile */
+    .carousel-slide-overlay {
+      opacity: 0;
+      background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.6) 0%,
+        transparent 60%
+      );
+    }
+
+    .carousel-slide-button:not(:hover):not(:focus-visible) .carousel-slide-overlay {
+      opacity: 0.8;
+    }
+
+    .carousel-slide-button:not(:hover):not(:focus-visible) .carousel-expand-icon {
+      display: none;
+    }
+
+    .carousel-slide-button:not(:hover):not(:focus-visible) .carousel-expand-text {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      font-size: 12px;
+    }
   }
 </style>
 
@@ -332,11 +433,10 @@ const slides = [
       
       // Slide data for updating info - must match the order of slides defined in Astro
       const slideData = [
-        { title: 'Azure YAML Editor', description: 'Visual editor with validation & forms' },
-        { title: 'Console View', description: 'Real-time logs & monitoring' },
-        { title: 'Table View', description: 'View all services at a glance' },
-        { title: 'Grid View', description: 'Detailed service cards' },
-        { title: 'Azure Cloud Logs', description: 'Live logs from Azure services' },
+        { title: 'Everything Running. One Command.', description: 'azd app run starts your entire stack' },
+        { title: 'Find Bugs in Seconds', description: 'Search, filter, and debug across all services' },
+        { title: 'Debug Cloud Locally', description: 'Stream Azure logs to your laptop. 1-5 min latency.' },
+        { title: 'Config Without the Pain', description: 'Forms + validation. YAML auto-generated.' },
       ];
 
       function goToSlide(index: number) {
@@ -460,6 +560,31 @@ const slides = [
           startAutoplay();
         }
       }, { passive: true });
+
+      // Lightbox integration
+      const lightboxTriggers = carousel.querySelectorAll('[data-carousel-lightbox-trigger]');
+      lightboxTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const button = trigger as HTMLElement;
+          const lightSrc = button.dataset.lightSrc || '';
+          const darkSrc = button.dataset.darkSrc || '';
+          const alt = button.getAttribute('aria-label')?.replace('View full size: ', '') || '';
+          const caption = button.dataset.caption || '';
+
+          if (typeof (window as any).openScreenshotLightbox === 'function') {
+            (window as any).openScreenshotLightbox({
+              lightSrc,
+              darkSrc,
+              alt,
+              caption,
+              triggerElement: button
+            });
+          }
+        });
+      });
 
       // Start autoplay
       startAutoplay();

@@ -37,6 +37,10 @@ export interface ScreenshotConfig {
   requireServices?: boolean;
   /** Actions to perform before taking screenshot (e.g., click buttons to change view) */
   actions?: ScreenshotAction[];
+  /** Color scheme for screenshot: 'light' or 'dark'. Defaults to 'dark' for backward compatibility. */
+  colorScheme?: 'light' | 'dark';
+  /** Capture multiple theme variants. If specified, overrides colorScheme and captures both variants. */
+  variants?: ('light' | 'dark')[];
 }
 
 // Required UI elements that must be present in the dashboard
@@ -73,6 +77,13 @@ export const ERROR_SELECTORS = [
 ];
 
 // Screenshot configurations
+// 
+// To capture both light and dark variants, use the `variants` property:
+//   variants: ['light', 'dark']  // Will create dashboard-console-light.png and dashboard-console-dark.png
+// 
+// To capture a single variant, use the `colorScheme` property:
+//   colorScheme: 'light'  // Will create dashboard-console.png in light mode
+//
 export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
   // Console view (default landing page)
   {
@@ -80,9 +91,11 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     // Console is the default view, no navigation needed
+    // Note: Can add variants: ['light', 'dark'] to capture both themes
   },
   // Mobile view - Dashboard in mobile viewport
   {
@@ -90,6 +103,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 375, height: 667 }, // iPhone SE size
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     // Console is the default view, no navigation needed
@@ -100,19 +114,20 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 1500,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
       { type: 'click', selector: '[role="tab"]:has-text("Console")', description: 'Reset to Console tab' },
       { type: 'wait', delay: 300, description: 'Wait for reset' },
       { type: 'click', selector: '[role="tab"]:has-text("Services")', description: 'Click Services tab' },
-      { type: 'wait', delay: 300, description: 'Wait for view to load' },
+      { type: 'wait', delay: 500, description: 'Wait for view to load' },
       // Ensure grid view is selected (click Grid button if visible)
       { type: 'click', selector: 'button:has-text("Grid")', description: 'Click Grid view button' },
-      { type: 'wait', delay: 300, description: 'Wait for grid to render' },
+      { type: 'wait', delay: 500, description: 'Wait for grid to render' },
     ],
-    // Focus on the grid area (service cards), excluding header
-    clipSelector: '[class*="ServiceCard"], [class*="grid"], main > div, [class*="resources"]',
+    // Capture the full services grid area with better focus - using fixed clip for more consistent results
+    clip: { x: 0, y: 80, width: 1800, height: 1000 }, // Capture from below header to show grid cards
   },
   // Resources view - Table
   {
@@ -120,6 +135,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 1500,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
@@ -140,6 +156,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
@@ -159,6 +176,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
@@ -180,6 +198,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
@@ -196,22 +215,26 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     // Capture from top of filters to show full filter controls area
     clip: { x: 0, y: 60, width: 1800, height: 400 }, // Capture top 400px starting from below header
   },
-  // Services view with health status indicators
+  // Services view with health status indicators - MARKETING HERO SHOT
   {
     name: 'dashboard-services-health',
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
-    delay: 1500,
+    delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
       { type: 'click', selector: '[role="tab"]:has-text("Console")', description: 'Reset to Console tab' },
       { type: 'wait', delay: 300, description: 'Wait for reset' },
       { type: 'click', selector: '[role="tab"]:has-text("Services")', description: 'Click Services tab' },
-      { type: 'wait', delay: 500, description: 'Wait for services view to load with health indicators' },
+      { type: 'wait', delay: 800, description: 'Wait for services view to load with health indicators' },
+      // Ensure grid view for better visual impact
+      { type: 'click', selector: 'button:has-text("Grid")', description: 'Switch to grid view for better visual' },
+      { type: 'wait', delay: 500, description: 'Wait for grid to render' },
     ],
-    // Focus on services area with health indicators
-    clipSelector: '[class*="ServiceCard"], table, [class*="health"], [class*="status"]',
+    // Capture full services grid showing health cards - the "everything running" hero shot
+    clip: { x: 0, y: 80, width: 1800, height: 1000 },
   },
   // Console with local logs and filters visible
   {
@@ -219,6 +242,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
@@ -233,27 +257,34 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     // Focus on the logs pane area
     clipSelector: '[class*="LogsPane"], [class*="logs"], [class*="console"], main > div:has(table), main > div:has([class*="log"])',
   },
-  // Console with search term highlighted
+  // Console with search term highlighted - DEBUGGING IN ACTION SHOT
   {
     name: 'console-log-search',
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
       { type: 'click', selector: '[role="tab"]:has-text("Console")', description: 'Reset to Console tab' },
       { type: 'wait', delay: 300, description: 'Wait for reset' },
-      // Console tab is default view
-      { type: 'wait', delay: 2000, description: 'Wait for all logs to fully populate' },
-      // Find and interact with search input - use type action for better React compatibility
-      { type: 'click', selector: 'input[type="text"], input[placeholder*="Search"], input[placeholder*="Filter"]', description: 'Click search input' },
-      { type: 'wait', delay: 200, description: 'Wait for input to focus' },
-      { type: 'type', selector: 'input[type="text"], input[placeholder*="Search"], input[placeholder*="Filter"]', text: 'health', description: 'Type search term "health"' },
-      { type: 'wait', delay: 1000, description: 'Wait for search results to highlight and render' },
+      // Ensure local logs mode is selected to show logs
+      { type: 'click', selector: 'button[aria-label="View local logs"]', description: 'Switch to Local logs mode' },
+      { type: 'wait', delay: 1000, description: 'Wait for local logs mode to activate' },
+      // Wait longer for logs to fully populate from all services
+      { type: 'wait', delay: 5000, description: 'Wait for all logs to fully populate from services' },
+      // Search for a common term that will show results (use a broader term that's likely to match)
+      { type: 'click', selector: 'input[type="text"], input[placeholder*="Search"], input[placeholder*="Filter"], input[aria-label*="Search" i]', description: 'Click search input' },
+      { type: 'wait', delay: 300, description: 'Wait for input to focus' },
+      // Use a more common search term that will match log entries
+      { type: 'type', selector: 'input[type="text"], input[placeholder*="Search"], input[placeholder*="Filter"], input[aria-label*="Search" i]', text: 'log', description: 'Search for "log" to show matching entries' },
+      { type: 'wait', delay: 2000, description: 'Wait for search results to highlight and render' },
+      // Verify logs are visible before capturing
+      { type: 'wait', selector: '[class*="log"], [class*="Log"], table tbody tr, [role="row"]', delay: 3000, description: 'Wait for log entries to be visible' },
     ],
-    // Focus on search input and highlighted results area
-    clipSelector: 'input[type="text"], [class*="LogsPane"], [class*="logs"], [class*="search"], main > div:has(input)',
+    // Full console area showing search in action
+    clip: { x: 0, y: 60, width: 1800, height: 1000 },
   },
   // Health tab or status view showing service health details
   {
@@ -261,6 +292,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output
     viewport: { width: 1800, height: 1200 },
     delay: 1500,
+    colorScheme: 'light', // All screenshots should be in light mode
     validateElements: REQUIRED_ELEMENTS,
     requireServices: true,
     actions: [
@@ -280,13 +312,72 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output (will be /editor route)
     viewport: { width: 1800, height: 1200 },
     delay: 3000,
+    colorScheme: 'light', // Editor screenshots should be in light mode
     validateElements: [
       { selector: '[role="navigation"][aria-label*="Azure YAML Editor" i], [class*="editor"], [role="tree"], nav', description: 'Editor navigation or sidebar', minCount: 1 },
     ],
     requireServices: false,
     actions: [
       { type: 'wait', delay: 2000, description: 'Wait for editor to load' },
-      { type: 'wait', delay: 1000, description: 'Wait for editor UI to render' },
+      // Expand Services section in navigation
+      { type: 'click', selector: '[role="treeitem"]:has-text("Services"), [role="treeitem"][aria-label*="Services" i], [role="button"]:has-text("Services")', description: 'Expand Services section in navigation' },
+      { type: 'wait', delay: 1000, description: 'Wait for Services to expand' },
+      // Click on a service/application to show UI controls in middle section
+      { type: 'evaluate', script: `
+        (() => {
+          // Find Services section that's expanded
+          const servicesSection = Array.from(document.querySelectorAll('[role="treeitem"], [role="button"]')).find(
+            el => el.textContent?.includes('Services') && (el.getAttribute('aria-expanded') === 'true' || el.closest('[role="tree"]')?.querySelector('[role="treeitem"]:not(:has-text("Services"))'))
+          );
+          if (!servicesSection) {
+            // Try to find and expand Services
+            const servicesBtn = Array.from(document.querySelectorAll('[role="treeitem"], [role="button"]')).find(
+              el => el.textContent?.includes('Services')
+            );
+            if (servicesBtn && servicesBtn instanceof HTMLElement) {
+              servicesBtn.click();
+              return false; // Will retry
+            }
+            return false;
+          }
+          
+          // Find first service item (not Services itself, and not Overview/Resources/Hooks)
+          const serviceNames = ['web', 'api', 'containerapp-api', 'appservice-web', 'functions-worker'];
+          for (const name of serviceNames) {
+            const service = Array.from(document.querySelectorAll('[role="treeitem"], [role="button"]')).find(
+              el => {
+                const text = el.textContent?.toLowerCase() || '';
+                return text.includes(name.toLowerCase()) && 
+                       !text.includes('services') &&
+                       el !== servicesSection &&
+                       el.closest('[role="tree"]')?.contains(servicesSection);
+              }
+            );
+            if (service && service instanceof HTMLElement) {
+              service.click();
+              return true;
+            }
+          }
+          
+          // Fallback: find any treeitem that's a child of Services
+          const allItems = Array.from(document.querySelectorAll('[role="treeitem"], [role="button"]'));
+          const serviceItem = allItems.find(el => {
+            const text = el.textContent?.toLowerCase() || '';
+            return !text.includes('services') && 
+                   !text.includes('overview') && 
+                   !text.includes('resources') && 
+                   !text.includes('hooks') &&
+                   el.closest('[role="tree"]')?.contains(servicesSection) &&
+                   servicesSection.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING;
+          });
+          if (serviceItem && serviceItem instanceof HTMLElement) {
+            serviceItem.click();
+            return true;
+          }
+          return false;
+        })();
+      `, description: 'Click on a service/application to show UI controls in middle section' },
+      { type: 'wait', delay: 1500, description: 'Wait for service selection and UI to render' },
     ],
     // Full page to show overall layout
   },
@@ -296,6 +387,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output (will be /editor route)
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // Editor screenshots should be in light mode
     validateElements: [
       { selector: '[aria-label="Azure YAML Editor Navigation"], [role="navigation"]', description: 'Editor navigation sidebar', minCount: 1 },
       { selector: '[role="button"], [role="treeitem"]', description: 'Navigation items', minCount: 3 },
@@ -317,6 +409,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output (will be /editor route)
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // Editor screenshots should be in light mode
     validateElements: [
       { selector: 'form, [class*="form"], input, select, textarea', description: 'Form elements', minCount: 1 },
     ],
@@ -416,6 +509,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output (will be /editor route)
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // Editor screenshots should be in light mode
     validateElements: [
       { selector: '[class*="error"], [class*="warning"], [class*="validation"], [class*="Validation"], [role="alert"]', description: 'Validation indicators', minCount: 1 },
     ],
@@ -521,7 +615,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     ],
     // Focus on validation summary panel or form area showing errors
     // Use selector to capture ValidationSummaryPanel if available, otherwise form area
-    selector: '[class*="ValidationSummary"], [class*="validation"], [class*="error"], [role="alert"], main > div:has([class*="error"])',
+    selector: '[aria-label="Validation Summary"], [class*="error"], [role="alert"]',
   },
   // Editor - Quick actions bar (focused on bottom bar)
   {
@@ -529,6 +623,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output (will be /editor route)
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // Editor screenshots should be in light mode
     validateElements: [
       { selector: 'text="Quick Actions", [aria-label*="Import"], [aria-label*="Export"], [aria-label*="Add"]', description: 'Quick action buttons', minCount: 1 },
     ],
@@ -547,6 +642,7 @@ export const SCREENSHOT_CONFIGS: ScreenshotConfig[] = [
     url: '', // Will be set dynamically from azd app run output (will be /editor route)
     viewport: { width: 1800, height: 1200 },
     delay: 2000,
+    colorScheme: 'light', // Editor screenshots should be in light mode
     validateElements: [
       { selector: '[aria-label="Command palette"], input[aria-label="Search commands"]', description: 'Command palette', minCount: 1 },
     ],

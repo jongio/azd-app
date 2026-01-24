@@ -41,8 +41,14 @@ const {
 } = Astro.props;
 
 // Resolve paths - if not starting with /, assume relative to /screenshots/
-const resolvedLightSrc = lightSrc.startsWith('/') ? lightSrc : `/screenshots/${lightSrc}`;
-const resolvedDarkSrc = darkSrc.startsWith('/') ? darkSrc : `/screenshots/${darkSrc}`;
+// Supports both single-file screenshots and variant-specific files (e.g., "dashboard-console-light.png")
+const resolvePath = (src: string): string => {
+  if (src.startsWith('/')) return src;
+  return `/screenshots/${src}`;
+};
+
+const resolvedLightSrc = resolvePath(lightSrc);
+const resolvedDarkSrc = resolvePath(darkSrc);
 
 // Generate unique ID for this screenshot
 const id = `screenshot-${Math.random().toString(36).substring(2, 9)}`;

@@ -59,7 +59,6 @@ export function SchemaForm({
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-    // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((values) => {
       if (timeoutId) {
         clearTimeout(timeoutId)
