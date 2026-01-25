@@ -68,7 +68,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get Azure environment values for environment variable display
-	azureEnv := getAzureEnvironmentValues(ctx)
+	azureEnv := getAzureEnvironmentValues()
 
 	// For JSON output
 	if cliout.IsJSON() {
@@ -357,25 +357,15 @@ const (
 	colorReset  = "\033[0m"
 )
 
-// getAzureEnvironmentValues gets environment values from the process environment.
-// When running as an azd extension, all Azure environment variables are already available
-// via os.Environ() - no need to shell out to 'azd env get-values'.
-// Returns all environment variables defined in the azd environment.
-func getAzureEnvironmentValues(ctx context.Context) map[string]string {
-	allEnvVars := make(map[string]string)
-
-	// Get Azure environment variables from the process environment
-	// The azd extension framework provides these automatically: AZURE_*, SERVICE_*
+// getAzureEnvironmentValues gets environment values from the process.
+// When running as an azd extension, all environment variables are injected by azd.
+func getAzureEnvironmentValues() map[string]string {
+	envVars := make(map[string]string)
 	for _, line := range os.Environ() {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
-			key := parts[0]
-			// Only collect Azure and Service environment variables
-			if strings.HasPrefix(key, "AZURE_") || strings.HasPrefix(key, "SERVICE_") {
-				allEnvVars[key] = parts[1]
-			}
+			envVars[parts[0]] = parts[1]
 		}
 	}
-
-	return allEnvVars
+	return envVars
 }

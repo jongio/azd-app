@@ -94,8 +94,8 @@ func (s *Server) checkWorkspaceID() HealthCheck {
 		Name: "Workspace ID",
 	}
 
-	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
-	if workspaceID == "" {
+	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
+	if err != nil || workspaceID == "" {
 		check.Status = "fail"
 		check.Message = "Log Analytics workspace not configured"
 		check.Fix = "azd env refresh"
@@ -147,7 +147,13 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 		return check
 	}
 
-	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
+	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
+	if err != nil || workspaceID == "" {
+		check.Status = "warn"
+		check.Message = "Cannot get workspace ID"
+		return check
+	}
+
 	cred, err := newLogAnalyticsCredential()
 	if err != nil {
 		check.Status = "warn"

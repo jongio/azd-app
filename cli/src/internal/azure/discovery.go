@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 )
 
 // ResourceType represents the type of Azure compute resource.
@@ -348,4 +350,39 @@ func GetAzureEnvInfo(projectDir string) (subscriptionID, resourceGroup, envName 
 	}
 
 	return values["AZURE_SUBSCRIPTION_ID"], values["AZURE_RESOURCE_GROUP_NAME"], values["AZURE_ENV_NAME"], nil
+}
+
+// GetDefaultEnvName returns the default environment name for the current azd project.
+// Priority order:
+// 1. AZURE_ENV_NAME environment variable (highest priority - respects -e flag)
+// 2. .azure/config.json defaultEnvironment field (via gRPC fallback)
+//
+// When running as an azd extension, AZURE_ENV_NAME is already injected into the process
+// by azd, so we check os.Getenv() first before falling back to gRPC for standalone mode.
+func GetDefaultEnvName(ctx context.Context) (string, error) {
+	// Fast path: When running as an azd extension, AZURE_ENV_NAME is already
+	// in the process environment (injected by azd)
+	if envName := os.Getenv("AZURE_ENV_NAME"); envName != "" {
+		return envName, nil
+	}
+	
+	// Fallback: Use gRPC for standalone mode or when reading from config.json
+	azdClient, err := azdext.NewAzdClient()
+	if err != nil {
+		return "", fmt.Errorf("failed to create azd client: %w", err)
+	}
+	defer azdClient.Close()
+	
+	ctx = azdext.WithAccessToken(ctx)
+	
+	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get current environment: %w", err)
+	}
+	
+	if resp.Environment == nil || resp.Environment.Name == "" {
+		return "", nil
+	}
+	
+	return resp.Environment.Name, nil
 }

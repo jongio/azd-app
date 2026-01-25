@@ -112,8 +112,8 @@ func (s *Server) checkWorkspaceState() WorkspaceState {
 	}
 
 	// Check environment variable first (highest priority)
-	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
-	if workspaceID != "" {
+	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
+	if err == nil && workspaceID != "" {
 		state.Status = StatusConfigured
 		state.WorkspaceID = workspaceID
 		state.Source = "environment"
@@ -670,8 +670,8 @@ func (s *Server) handleAzureLogsVerify(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("verifying logs for service", "service", req.Service)
 
 	// Get workspace ID
-	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
-	if workspaceID == "" {
+	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
+	if err != nil || workspaceID == "" {
 		azureYaml, err := loadAzureYaml(s.projectDir)
 		if err == nil && azureYaml.Logs != nil && azureYaml.Logs.Analytics != nil {
 			workspaceID = azureYaml.Logs.Analytics.Workspace
@@ -691,7 +691,7 @@ func (s *Server) handleAzureLogsVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check authentication
-	_, err := newLogAnalyticsCredential()
+	_, err = newLogAnalyticsCredential()
 	if err != nil {
 		WriteJSONSuccess(w, VerifyLogsResponse{
 			Success: false,

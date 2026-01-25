@@ -36,13 +36,12 @@ func (s *Server) handleAzureTables(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	workspaceID := getWorkspaceIDFromEnv(s.projectDir)
+	workspaceID, err := getWorkspaceIDFromEnv(ctx)
 
 	var tables []azure.TableInfo
-	var err error
 
 	// Try to get live tables from Log Analytics
-	if workspaceID != "" {
+	if err == nil && workspaceID != "" {
 		cred, credErr := newLogAnalyticsCredential()
 		if credErr == nil {
 			client, clientErr := getOrCreateLogAnalyticsClient(ctx, cred, workspaceID)

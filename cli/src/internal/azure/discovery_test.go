@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+
 	"testing"
 	"time"
 )
@@ -203,3 +204,4 @@ func TestIsFunctionAppKind(t *testing.T) {
 func strPtr(s string) *string {
 	return &s
 }
+

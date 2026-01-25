@@ -52,8 +52,8 @@ func TestHandleAzureSetupState(t *testing.T) {
 				// Mock the getWorkspaceIDFromEnv function
 				oldFunc := getWorkspaceIDFromEnv
 				t.Cleanup(func() { getWorkspaceIDFromEnv = oldFunc })
-				getWorkspaceIDFromEnv = func(string) string {
-					return "/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws"
+			getWorkspaceIDFromEnv = func(ctx context.Context) (string, error) {
+				return "/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws", nil
 				}
 			},
 			wantStep:      "authentication", // May be "complete" if test environment is authenticated
@@ -124,8 +124,8 @@ func TestCheckWorkspaceState(t *testing.T) {
 				// Mock the getWorkspaceIDFromEnv function
 				oldFunc := getWorkspaceIDFromEnv
 				t.Cleanup(func() { getWorkspaceIDFromEnv = oldFunc })
-				getWorkspaceIDFromEnv = func(string) string {
-					return "/subscriptions/test/providers/Microsoft.OperationalInsights/workspaces/ws"
+			getWorkspaceIDFromEnv = func(ctx context.Context) (string, error) {
+				return "/subscriptions/test/providers/Microsoft.OperationalInsights/workspaces/ws", nil
 				}
 			},
 			wantStatus: "configured",
@@ -428,8 +428,8 @@ func TestHandleAzureLogsVerify(t *testing.T) {
 				// Mock workspace ID
 				oldFunc := getWorkspaceIDFromEnv
 				t.Cleanup(func() { getWorkspaceIDFromEnv = oldFunc })
-				getWorkspaceIDFromEnv = func(string) string {
-					return "/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws"
+				getWorkspaceIDFromEnv = func(ctx context.Context) (string, error) {
+					return "/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws", nil
 				}
 			},
 			requestBody: `{"service": "api"}`,
@@ -459,8 +459,8 @@ func TestHandleAzureLogsVerify(t *testing.T) {
 				}
 				oldFunc := getWorkspaceIDFromEnv
 				t.Cleanup(func() { getWorkspaceIDFromEnv = oldFunc })
-				getWorkspaceIDFromEnv = func(string) string {
-					return "/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws"
+				getWorkspaceIDFromEnv = func(ctx context.Context) (string, error) {
+					return "/subscriptions/test/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/ws", nil
 				}
 			},
 			requestBody:   `{"service": "api"}`,

@@ -123,7 +123,7 @@ func TestRefreshEnvironmentCache_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
-				getAzureEnvironmentValues("")
+				getAzureEnvironmentValues()
 			}
 		}(i)
 	}
@@ -160,7 +160,7 @@ func TestGetAzureEnvironmentValues_MergesCache(t *testing.T) {
 
 	// Get merged environment values (azd env get-values may or may not return values
 	// depending on whether we're in an azd project, but cache should always be included)
-	result := getAzureEnvironmentValues("")
+	result := getAzureEnvironmentValues()
 
 	// Verify cache variables are included
 	if result["AZURE_CACHE_VAR"] != "from_cache" {

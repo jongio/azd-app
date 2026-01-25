@@ -132,7 +132,7 @@ func TestHandleAzureLogsErrorMappingSetsHttpStatus(t *testing.T) {
 }
 
 func runAzureLogsHealthCase(t *testing.T, srv *Server, workspaceID, wantStatus string) {
-	getWorkspaceIDFromEnv = func(string) string { return workspaceID }
+	getWorkspaceIDFromEnv = func(ctx context.Context) (string, error) { return workspaceID, nil }
 
 	req := httptest.NewRequest(http.MethodGet, "/api/azure/logs/health", nil)
 	w := httptest.NewRecorder()

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"gopkg.in/yaml.v3"
 )
 
@@ -144,10 +145,13 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	// Get workspace ID from environment if not provided
 	workspaceID := config.WorkspaceID
 	if workspaceID == "" {
-		workspaceID = GetWorkspaceIDFromEnv(config.ProjectDir)
+		if wsID, err := GetWorkspaceIDFromEnv(ctx); err == nil {
+			workspaceID = wsID
+		}
+		
 		if workspaceID == "" {
 			// Try auto-discovery
-			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx, config.ProjectDir); err == nil && wasDiscovered {
+			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx); err == nil && wasDiscovered {
 				workspaceID = discovered
 				if os.Getenv("AZD_APP_DEBUG") == "true" {
 					fmt.Fprintf(os.Stderr, "[DEBUG] Auto-discovered workspace ID: %s\n", workspaceID)
@@ -369,62 +373,104 @@ func (e *AzureLogsError) Error() string {
 }
 
 // GetWorkspaceIDFromEnv attempts to get the workspace GUID from azd environment.
-// Uses environment variables directly since the azd extension framework provides them.
-func GetWorkspaceIDFromEnv(projectDir string) string {
-	// When running as an azd extension, environment variables are already available.
+// Uses the azd extension framework's Environment service.
+func GetWorkspaceIDFromEnv(ctx context.Context) (string, error) {
+	azdClient, err := azdext.NewAzdClient()
+	if err != nil {
+		return "", fmt.Errorf("failed to create azd client: %w", err)
+	}
+	defer azdClient.Close()
+	
+	ctx = azdext.WithAccessToken(ctx)
+	
+	// Get current environment name
+	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get current environment: %w", err)
+	}
+	if resp.Environment == nil || resp.Environment.Name == "" {
+		return "", fmt.Errorf("no current environment set")
+	}
+	envName := resp.Environment.Name
+	
 	// Try AZURE_LOG_ANALYTICS_WORKSPACE_GUID first (set by azd provision)
-	if guid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID"); guid != "" {
-		return guid
+	guidResp, err := azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
+		EnvName: envName,
+		Key:     "AZURE_LOG_ANALYTICS_WORKSPACE_GUID",
+	})
+	if err == nil && guidResp.Value != "" {
+		return guidResp.Value, nil
 	}
 
-	// Next: if we have a workspace resource ID, resolve its customerId via ARM.
-	if wsID := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID"); wsID != "" {
+	// Next: if we have a workspace resource ID, resolve its customerId via ARM
+	wsIDResp, err := azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
+		EnvName: envName,
+		Key:     "AZURE_LOG_ANALYTICS_WORKSPACE_ID",
+	})
+	if err == nil && wsIDResp.Value != "" {
 		if cred, err := NewAzureCredential(); err == nil {
-			if guid, err := ResolveWorkspaceCustomerID(context.Background(), cred, wsID); err == nil {
-				os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", guid)
-				return guid
+			if guid, err := ResolveWorkspaceCustomerID(ctx, cred, wsIDResp.Value); err == nil {
+				// Store it for future use
+				_, _ = azdClient.Environment().SetValue(ctx, &azdext.SetEnvRequest{
+					EnvName: envName,
+					Key:     "AZURE_LOG_ANALYTICS_WORKSPACE_GUID",
+					Value:   guid,
+				})
+				return guid, nil
 			}
 		}
 	}
 
-	// Try the .env file directly
-	envFile := filepath.Join(projectDir, azureDirName, getDefaultEnvName(projectDir), ".env")
-	if content, err := os.ReadFile(envFile); err == nil {
-		var workspaceID string
-		for _, line := range strings.Split(string(content), "\n") {
-			if strings.HasPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_GUID=") {
-				return strings.TrimPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_GUID=")
-			}
-			if strings.HasPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_ID=") {
-				workspaceID = strings.TrimPrefix(line, "AZURE_LOG_ANALYTICS_WORKSPACE_ID=")
-			}
-		}
-
-		if workspaceID != "" {
-			if cred, err := NewAzureCredential(); err == nil {
-				if guid, err := ResolveWorkspaceCustomerID(context.Background(), cred, workspaceID); err == nil {
-					os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", guid)
-					return guid
-				}
-			}
-		}
-	}
-
-	return ""
+	return "", fmt.Errorf("workspace GUID not found in environment")
 }
 
 // DiscoverAndStoreWorkspaceID attempts to find Log Analytics workspace ID and store it.
 // Returns (workspaceGUID, wasDiscovered, error)
-func DiscoverAndStoreWorkspaceID(ctx context.Context, projectDir string) (string, bool, error) {
+func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
+	azdClient, err := azdext.NewAzdClient()
+	if err != nil {
+		return "", false, fmt.Errorf("failed to create azd client: %w", err)
+	}
+	defer azdClient.Close()
+	
+	ctx = azdext.WithAccessToken(ctx)
+	
+	// Get current environment name
+	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get current environment: %w", err)
+	}
+	if resp.Environment == nil || resp.Environment.Name == "" {
+		return "", false, fmt.Errorf("no current environment set")
+	}
+	envName := resp.Environment.Name
+	
 	// Check if already set
-	if guid := os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID"); guid != "" {
-		return guid, false, nil
+	guidResp, err := azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
+		EnvName: envName,
+		Key:     "AZURE_LOG_ANALYTICS_WORKSPACE_GUID",
+	})
+	if err == nil && guidResp.Value != "" {
+		return guidResp.Value, false, nil
 	}
 
 	// Get resource group from environment
-	resourceGroup := os.Getenv("AZURE_RESOURCE_GROUP")
+	rgResp, err := azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
+		EnvName: envName,
+		Key:     "AZURE_RESOURCE_GROUP",
+	})
+	resourceGroup := ""
+	if err == nil {
+		resourceGroup = rgResp.Value
+	}
 	if resourceGroup == "" {
-		resourceGroup = os.Getenv("AZURE_RESOURCE_GROUP_NAME")
+		rgResp, err = azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
+			EnvName: envName,
+			Key:     "AZURE_RESOURCE_GROUP_NAME",
+		})
+		if err == nil {
+			resourceGroup = rgResp.Value
+		}
 	}
 	if resourceGroup == "" {
 		return "", false, fmt.Errorf("AZURE_RESOURCE_GROUP_NAME not set")
@@ -444,19 +490,15 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context, projectDir string) (string
 		return "", false, fmt.Errorf("no workspace found in resource group %s", resourceGroup)
 	}
 
-	// Store in .env file
-	envName := getDefaultEnvName(projectDir)
-	if envName == "" {
-		return "", false, fmt.Errorf("could not determine environment name")
-	}
-
-	envPath := filepath.Join(projectDir, azureDirName, envName, ".env")
-	if err := appendToEnvFile(envPath, "AZURE_LOG_ANALYTICS_WORKSPACE_GUID", workspaceID); err != nil {
+	// Store workspace GUID in environment using azd Environment service
+	_, err = azdClient.Environment().SetValue(ctx, &azdext.SetEnvRequest{
+		EnvName: envName,
+		Key:     "AZURE_LOG_ANALYTICS_WORKSPACE_GUID",
+		Value:   workspaceID,
+	})
+	if err != nil {
 		return "", false, fmt.Errorf("failed to store workspace ID: %w", err)
 	}
-
-	// Update current process environment
-	os.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_GUID", workspaceID)
 
 	if os.Getenv("AZD_APP_DEBUG") == "true" {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Discovered and stored workspace ID: %s\n", workspaceID)
@@ -497,63 +539,7 @@ func discoverWorkspaceViaAzCLI(ctx context.Context, resourceGroup string) (strin
 	return workspaceID, nil
 }
 
-// appendToEnvFile appends or updates a variable in .env file.
-func appendToEnvFile(envPath, key, value string) error {
-	// Create directory if it doesn't exist
-	dir := filepath.Dir(envPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
 
-	// Read existing content
-	var lines []string
-	if content, err := os.ReadFile(envPath); err == nil {
-		lines = strings.Split(string(content), "\n")
-	}
-
-	// Check if key already exists
-	keyPrefix := key + "="
-	found := false
-	for i, line := range lines {
-		if strings.HasPrefix(line, keyPrefix) {
-			lines[i] = keyPrefix + value
-			found = true
-			break
-		}
-	}
-
-	// Append if not found
-	if !found {
-		// Ensure last line has newline if file is not empty
-		if len(lines) > 0 && lines[len(lines)-1] != "" {
-			lines = append(lines, "")
-		}
-		lines = append(lines, keyPrefix+value)
-	}
-
-	// Write back
-	newContent := strings.Join(lines, "\n")
-	// #nosec G306 -- .env file permissions 0644 are standard for config files
-	if err := os.WriteFile(envPath, []byte(newContent), 0644); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return nil
-}
-
-// getDefaultEnvName gets the default environment name for azd.
-func getDefaultEnvName(projectDir string) string {
-	// Try to read from .azure/.env
-	defaultEnvFile := filepath.Join(projectDir, azureDirName, ".env")
-	if content, err := os.ReadFile(defaultEnvFile); err == nil {
-		for _, line := range strings.Split(string(content), "\n") {
-			if strings.HasPrefix(line, "AZURE_ENV_NAME=") {
-				return strings.TrimPrefix(line, "AZURE_ENV_NAME=")
-			}
-		}
-	}
-	return ""
-}
 
 // buildStandaloneQueryForType builds a KQL query for a specific resource type.
 func buildStandaloneQueryForType(resourceType ResourceType, services []string, since time.Duration, limit int) string {
@@ -762,10 +748,13 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	// Get workspace ID from environment if not provided
 	workspaceID := config.WorkspaceID
 	if workspaceID == "" {
-		workspaceID = GetWorkspaceIDFromEnv(config.ProjectDir)
+		if wsID, err := GetWorkspaceIDFromEnv(ctx); err == nil {
+			workspaceID = wsID
+		}
+		
 		if workspaceID == "" {
 			// Try auto-discovery
-			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx, config.ProjectDir); err == nil && wasDiscovered {
+			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx); err == nil && wasDiscovered {
 				workspaceID = discovered
 				if os.Getenv("AZD_APP_DEBUG") == "true" {
 					fmt.Fprintf(os.Stderr, "[DEBUG] Auto-discovered workspace ID: %s\n", workspaceID)

@@ -114,8 +114,8 @@ func GetServiceInfo(projectDir string) ([]*ServiceInfo, error) {
 	reg := registry.GetRegistry(projectDir)
 	runningServices := reg.ListAll()
 
-	// Get Azure environment values (all values from azd env get-values)
-	azureEnv := getAzureEnvironmentValues(projectDir)
+	// Get Azure environment values (all values from process + event cache)
+	azureEnv := getAzureEnvironmentValues()
 
 	// Extract Azure service information from environment
 	azureServiceInfo := extractAzureServiceInfo(azureEnv)
@@ -141,27 +141,20 @@ func parseAzureYaml(projectDir string) (*service.AzureYaml, error) {
 	return azureYaml, nil
 }
 
-// getAzureEnvironmentValues reads Azure environment variables from the process environment.
-// When running as an azd extension, all Azure environment variables are already available
-// via os.Environ() - no need to shell out to 'azd env get-values'.
-// Additionally, it merges in values from the event-driven environment cache which is updated
-// when azd provision completes.
-func getAzureEnvironmentValues(projectDir string) map[string]string {
+// getAzureEnvironmentValues gets Azure environment variables from the process.
+// When running as an azd extension, all environment variables are injected by azd.
+// We also merge in cached values from provision events.
+func getAzureEnvironmentValues() map[string]string {
 	envVars := make(map[string]string)
-
-	// Get Azure environment variables from the process environment
-	// The azd extension framework provides these automatically: AZURE_*, SERVICE_*
+	
+	// Get environment variables from process (azd injects all env vars when running extensions)
 	for _, line := range os.Environ() {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
-			key := parts[0]
-			// Only collect Azure and Service environment variables
-			if strings.HasPrefix(key, "AZURE_") || strings.HasPrefix(key, "SERVICE_") {
-				envVars[key] = parts[1]
-			}
+			envVars[parts[0]] = parts[1]
 		}
 	}
-
+	
 	// Merge in the cached environment values from azd events (higher priority)
 	// This ensures we have the latest values from provision operations
 	environmentCacheMu.RLock()
@@ -169,7 +162,7 @@ func getAzureEnvironmentValues(projectDir string) map[string]string {
 		envVars[key] = value
 	}
 	environmentCacheMu.RUnlock()
-
+	
 	return envVars
 }
 
