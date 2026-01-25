@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
@@ -35,7 +39,10 @@ func main() {
 
 			// Handle environment selection
 			if environment != "" {
-				os.Setenv("AZURE_ENV_NAME", environment)
+				// Load environment variables from the specified environment
+				if err := loadAzdEnvironment(cmd.Context(), environment); err != nil {
+					return fmt.Errorf("failed to load environment '%s': %w", environment, err)
+				}
 			}
 
 			// Set global output format and debug mode
@@ -97,4 +104,114 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// loadAzdEnvironment loads all environment variables from the specified azd environment.
+// This ensures that when -e flag is used, we get the correct environment values.
+//
+// WORKAROUND: This is a workaround for a limitation in the azd extension framework.
+// Ideally, azd should honor the -e flag before invoking the extension and inject
+// the correct environment variables. However, currently azd injects the default
+// environment from config.json, then passes the -e flag to the extension.
+// This forces us to manually reload the environment using 'azd env get-values'.
+//
+// See: https://github.com/Azure/azure-dev/issues/[TBD] for tracking the framework enhancement.
+func loadAzdEnvironment(ctx context.Context, envName string) error {
+	// Validate envName to prevent injection attacks
+	if envName == "" {
+		return fmt.Errorf("environment name cannot be empty")
+	}
+	if strings.Contains(envName, " ") || strings.Contains(envName, ";") || strings.Contains(envName, "&") {
+		return fmt.Errorf("invalid environment name: %q", envName)
+	}
+
+	// Use 'azd env get-values' with the -e flag to get environment variables
+	cmd := exec.CommandContext(ctx, "azd", "env", "get-values", "-e", envName, "--output", "json")
+
+	output, err := cmd.Output()
+	if err != nil {
+		// If azd env get-values fails, try without JSON output (older azd versions)
+		cmd = exec.CommandContext(ctx, "azd", "env", "get-values", "-e", envName)
+		output, err = cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get environment values for '%s': %w", envName, err)
+		}
+
+		// Parse key=value format
+		values, parseErr := parseKeyValueFormat(output)
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse environment values: %w", parseErr)
+		}
+
+		// Set all environment variables
+		for key, value := range values {
+			if err := os.Setenv(key, value); err != nil {
+				return fmt.Errorf("failed to set environment variable %s: %w", key, err)
+			}
+		}
+		return nil
+	}
+
+	// Parse JSON output
+	var values map[string]string
+	if err := json.Unmarshal(output, &values); err != nil {
+		return fmt.Errorf("failed to parse environment values as JSON: %w", err)
+	}
+
+	// Set all environment variables
+	for key, value := range values {
+		if err := os.Setenv(key, value); err != nil {
+			return fmt.Errorf("failed to set environment variable %s: %w", key, err)
+		}
+	}
+
+	return nil
+}
+
+// parseKeyValueFormat parses output in "KEY=value" format (one per line).
+// Handles quoted values and skips empty lines and comments.
+func parseKeyValueFormat(output []byte) (map[string]string, error) {
+	values := make(map[string]string)
+	lines := strings.Split(string(output), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Find the first '=' separator
+		idx := strings.Index(line, "=")
+		if idx <= 0 || idx == len(line)-1 {
+			// Invalid line: no '=', '=' at start, or '=' at end
+			continue
+		}
+
+		key := strings.TrimSpace(line[:idx])
+		value := line[idx+1:]
+
+		// Validate key (must be non-empty and contain only allowed characters)
+		if key == "" {
+			continue
+		}
+
+		// Remove surrounding quotes if present (handles both " and ')
+		if len(value) >= 2 {
+			if (value[0] == '"' && value[len(value)-1] == '"') ||
+				(value[0] == '\'' && value[len(value)-1] == '\'') {
+				value = value[1 : len(value)-1]
+			}
+		}
+
+		values[key] = value
+	}
+
+	// Log for debugging if we got zero values (likely an error condition)
+	if len(values) == 0 {
+		slog.Debug("No environment variables parsed from key=value output")
+	}
+
+	return values, nil
 }

@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+
+# The .azure folder is INCLUDED (not ignored) for this test project.
+# It contains mock environments (dev/prod) required to test the -e flag.
+# The root .gitignore already has rules to preserve .azure in test projects.
+
+# Ignore runtime artifacts in .azure
+.azure/logs/
+
+# Ignore runtime state files
+env-loaded.json

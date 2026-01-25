@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: env-override-test
+metadata:
+  template: env-override-test
+  description: Test project to verify -e flag overrides config.json default environment
+
+services:
+  web:
+    language: node
+    project: ./src
+    host: localhost
+    ports:
+      - "3000"
+    environment:
+      NODE_ENV: development

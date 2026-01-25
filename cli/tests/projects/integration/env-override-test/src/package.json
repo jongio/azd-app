@@ -1,0 +1,10 @@
+{
+  "name": "env-override-test",
+  "version": "1.0.0",
+  "description": "Test project to verify environment loading",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "type": "module"
+}
