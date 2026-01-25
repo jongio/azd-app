@@ -11,3 +11,8 @@ export {
   type SchemaProperty,
   type ParsedSchema,
 } from './schema-parser'
+export {
+  getSchemaForPath,
+  getServiceSchema,
+  getResourceSchema,
+} from './schema-utils'
