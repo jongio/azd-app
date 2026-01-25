@@ -148,7 +148,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 		if wsID, err := GetWorkspaceIDFromEnv(ctx); err == nil {
 			workspaceID = wsID
 		}
-		
+
 		if workspaceID == "" {
 			// Try auto-discovery
 			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx); err == nil && wasDiscovered {
@@ -380,9 +380,9 @@ func GetWorkspaceIDFromEnv(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to create azd client: %w", err)
 	}
 	defer azdClient.Close()
-	
+
 	ctx = azdext.WithAccessToken(ctx)
-	
+
 	// Get current environment name
 	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
 	if err != nil {
@@ -392,7 +392,7 @@ func GetWorkspaceIDFromEnv(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("no current environment set")
 	}
 	envName := resp.Environment.Name
-	
+
 	// Try AZURE_LOG_ANALYTICS_WORKSPACE_GUID first (set by azd provision)
 	guidResp, err := azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
 		EnvName: envName,
@@ -432,9 +432,9 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
 		return "", false, fmt.Errorf("failed to create azd client: %w", err)
 	}
 	defer azdClient.Close()
-	
+
 	ctx = azdext.WithAccessToken(ctx)
-	
+
 	// Get current environment name
 	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
 	if err != nil {
@@ -444,7 +444,7 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
 		return "", false, fmt.Errorf("no current environment set")
 	}
 	envName := resp.Environment.Name
-	
+
 	// Check if already set
 	guidResp, err := azdClient.Environment().GetValue(ctx, &azdext.GetEnvRequest{
 		EnvName: envName,
@@ -538,8 +538,6 @@ func discoverWorkspaceViaAzCLI(ctx context.Context, resourceGroup string) (strin
 
 	return workspaceID, nil
 }
-
-
 
 // buildStandaloneQueryForType builds a KQL query for a specific resource type.
 func buildStandaloneQueryForType(resourceType ResourceType, services []string, since time.Duration, limit int) string {
@@ -751,7 +749,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 		if wsID, err := GetWorkspaceIDFromEnv(ctx); err == nil {
 			workspaceID = wsID
 		}
-		
+
 		if workspaceID == "" {
 			// Try auto-discovery
 			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx); err == nil && wasDiscovered {

@@ -365,24 +365,24 @@ func GetDefaultEnvName(ctx context.Context) (string, error) {
 	if envName := os.Getenv("AZURE_ENV_NAME"); envName != "" {
 		return envName, nil
 	}
-	
+
 	// Fallback: Use gRPC for standalone mode or when reading from config.json
 	azdClient, err := azdext.NewAzdClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create azd client: %w", err)
 	}
 	defer azdClient.Close()
-	
+
 	ctx = azdext.WithAccessToken(ctx)
-	
+
 	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get current environment: %w", err)
 	}
-	
+
 	if resp.Environment == nil || resp.Environment.Name == "" {
 		return "", nil
 	}
-	
+
 	return resp.Environment.Name, nil
 }
