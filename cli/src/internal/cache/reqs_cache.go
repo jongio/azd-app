@@ -125,6 +125,11 @@ func findAzureDir(startDir string) string {
 	homeDir, _ := os.UserHomeDir()
 
 	for {
+		// Stop at home directory to avoid finding user's global .azure
+		if homeDir != "" && dir == homeDir {
+			break
+		}
+
 		azureDir := filepath.Join(dir, ".azure")
 		if info, err := os.Stat(azureDir); err == nil && info.IsDir() {
 			return azureDir
@@ -133,11 +138,6 @@ func findAzureDir(startDir string) string {
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Reached root directory
-			break
-		}
-
-		// Stop at home directory to avoid finding user's global .azure
-		if homeDir != "" && parent == homeDir {
 			break
 		}
 
