@@ -1,3 +1,8 @@
+## [0.11.3] - 2026-01-27
+
+- Refactor environment variable handling and enhance CLI documentation (#120) (5bd8dd7)
+- chore: update registry for v0.11.2 (62e3481)
+
 ## [0.11.2] - 2026-01-24
 
 - feat: Update CLI reference for `azd app run` command and add new flags (#117) (9730450)
