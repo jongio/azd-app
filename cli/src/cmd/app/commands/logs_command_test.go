@@ -258,9 +258,7 @@ func TestLogsCommandStructure(t *testing.T) {
 		if cmd.Flags().ShorthandLookup("n") == nil {
 			t.Error("Shorthand -n should exist for --tail")
 		}
-		if cmd.Flags().ShorthandLookup("e") == nil {
-			t.Error("Shorthand -e should exist for --exclude")
-		}
+		// Note: --exclude no longer has a shorthand (-e) to avoid conflict with root --environment flag
 	})
 
 	t.Run("default values", func(t *testing.T) {

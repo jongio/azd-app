@@ -909,7 +909,7 @@ azd app logs --no-color
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
-| `--exclude` | `-e` | string | | Regex patterns to exclude (comma-separated) |
+| `--exclude` | | string | | Regex patterns to exclude (comma-separated) |
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
 ### Log Sources

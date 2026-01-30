@@ -234,7 +234,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVar(&opts.format, "format", "text", "Output format (text, json)")
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
-	cmd.Flags().StringVarP(&opts.exclude, "exclude", "e", "", "Regex patterns to exclude (comma-separated)")
+	cmd.Flags().StringVar(&opts.exclude, "exclude", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 	cmd.Flags().IntVar(&opts.contextLines, "context", 0, "Number of context lines before/after matching entries (0-10, requires --level)")
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
