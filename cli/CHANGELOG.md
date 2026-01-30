@@ -1,3 +1,8 @@
+## [0.11.4] - 2026-01-30
+
+- Remove shorthand for --exclude flag and update dependencies (#123) (2f2f956)
+- chore: update registry for v0.11.3 (98cf75a)
+
 ## [0.11.3] - 2026-01-27
 
 - Refactor environment variable handling and enhance CLI documentation (#120) (5bd8dd7)
