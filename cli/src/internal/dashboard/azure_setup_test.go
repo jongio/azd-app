@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 )
 
@@ -176,6 +177,111 @@ func TestCheckWorkspaceState(t *testing.T) {
 				t.Error("expected non-empty message")
 			}
 		})
+	}
+}
+
+// TestCheckWorkspaceState_DeployedNotConfigured tests the auto-discovery fallback
+// when workspace is deployed but missing from environment variables.
+func TestCheckWorkspaceState_DeployedNotConfigured(t *testing.T) {
+	// Save and restore original functions
+	oldCred := newLogAnalyticsCredential
+	oldGetWorkspace := getWorkspaceIDFromEnv
+	t.Cleanup(func() {
+		newLogAnalyticsCredential = oldCred
+		getWorkspaceIDFromEnv = oldGetWorkspace
+	})
+
+	// Mock: No env vars set
+	getWorkspaceIDFromEnv = func(ctx context.Context) (string, error) {
+		return "", nil
+	}
+
+	// Mock: Credentials available - discovery would find workspace
+	// Note: The actual discovery happens via ResourceDiscovery which we can't easily mock
+	// So this test verifies the code path runs without errors when credentials are unavailable
+	newLogAnalyticsCredential = func() (azcore.TokenCredential, error) {
+		return nil, &testError{message: "no credentials in test"}
+	}
+
+	dir := t.TempDir()
+	azureYamlPath := filepath.Join(dir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte("name: test-app"), 0644); err != nil {
+		t.Fatalf("Failed to write azure.yaml: %v", err)
+	}
+
+	server := &Server{projectDir: dir}
+	state := server.checkWorkspaceState()
+
+	// When credentials aren't available, should fall back to missing
+	if state.Status != "missing" {
+		t.Errorf("expected status 'missing' when discovery fails, got %q", state.Status)
+	}
+}
+
+// testError implements error interface for tests
+type testError struct {
+	message string
+}
+
+func (e *testError) Error() string {
+	return e.message
+}
+
+// TestCollectSetupIssues_DeployedNotConfigured tests issue collection for deployed-not-configured status
+func TestCollectSetupIssues_DeployedNotConfigured(t *testing.T) {
+	server := &Server{}
+	response := SetupStateResponse{
+		Workspace: WorkspaceState{
+			Status:   StatusDeployedNotConfigured,
+			BicepFix: "// Add outputs...",
+		},
+	}
+
+	issues := server.collectSetupIssues(response)
+
+	if len(issues) < 1 {
+		t.Fatal("expected at least 1 issue for deployed-not-configured")
+	}
+
+	found := false
+	for _, issue := range issues {
+		if issue.Category == "workspace" {
+			found = true
+			if issue.Severity != "warning" {
+				t.Errorf("expected severity 'warning' for deployed-not-configured, got %q", issue.Severity)
+			}
+			if !strings.Contains(issue.Message, "Bicep outputs") {
+				t.Errorf("expected message to mention 'Bicep outputs', got %q", issue.Message)
+			}
+			if issue.Fix == "" {
+				t.Error("expected non-empty fix for deployed-not-configured")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected workspace category issue for deployed-not-configured")
+	}
+}
+
+// TestGenerateBicepOutputsFix tests the Bicep fix snippet generation
+func TestGenerateBicepOutputsFix(t *testing.T) {
+	fix := generateBicepOutputsFix()
+
+	// Verify all required outputs are included
+	requiredOutputs := []string{
+		"AZURE_LOG_ANALYTICS_WORKSPACE_ID",
+		"AZURE_LOG_ANALYTICS_WORKSPACE_NAME",
+		"AZURE_LOG_ANALYTICS_WORKSPACE_GUID",
+	}
+
+	for _, output := range requiredOutputs {
+		if !strings.Contains(fix, output) {
+			t.Errorf("expected Bicep fix to contain %q", output)
+		}
+	}
+
+	if !strings.Contains(fix, "azd provision") {
+		t.Error("expected Bicep fix to mention 'azd provision'")
 	}
 }
 

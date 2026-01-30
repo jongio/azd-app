@@ -2,7 +2,7 @@ package azure
 
 import (
 	"context"
-
+	"strings"
 	"testing"
 	"time"
 )
@@ -195,6 +195,87 @@ func TestIsFunctionAppKind(t *testing.T) {
 			result := isFunctionAppKind(tc.kind)
 			if result != tc.expected {
 				t.Errorf("isFunctionAppKind(%q) = %v, want %v", tc.kind, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestDiscoveryError(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         *DiscoveryError
+		wantContain string
+	}{
+		{
+			name:        "auth error",
+			err:         &DiscoveryError{Type: DiscoveryErrorAuth},
+			wantContain: "Authentication failed",
+		},
+		{
+			name:        "permission error",
+			err:         &DiscoveryError{Type: DiscoveryErrorPermission},
+			wantContain: "Missing permissions",
+		},
+		{
+			name:        "not found error",
+			err:         &DiscoveryError{Type: DiscoveryErrorNotFound},
+			wantContain: "No Log Analytics workspace found",
+		},
+		{
+			name:        "api error with cause",
+			err:         &DiscoveryError{Type: DiscoveryErrorAPI, Cause: context.DeadlineExceeded},
+			wantContain: "Azure API error",
+		},
+		{
+			name:        "custom message",
+			err:         &DiscoveryError{Type: DiscoveryErrorAuth, Message: "Custom auth message"},
+			wantContain: "Custom auth message",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errStr := tc.err.Error()
+			if !strings.Contains(errStr, tc.wantContain) {
+				t.Errorf("Error() = %q, want to contain %q", errStr, tc.wantContain)
+			}
+		})
+	}
+}
+
+func TestIsDiscoveryNotFound(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "not found error",
+			err:      &DiscoveryError{Type: DiscoveryErrorNotFound},
+			expected: true,
+		},
+		{
+			name:     "auth error",
+			err:      &DiscoveryError{Type: DiscoveryErrorAuth},
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "regular error",
+			err:      context.DeadlineExceeded,
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isDiscoveryNotFound(tc.err)
+			if result != tc.expected {
+				t.Errorf("isDiscoveryNotFound() = %v, want %v", result, tc.expected)
 			}
 		})
 	}

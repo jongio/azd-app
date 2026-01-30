@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,6 +17,54 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 )
+
+// DiscoveryErrorType represents the type of discovery error.
+type DiscoveryErrorType string
+
+const (
+	DiscoveryErrorAuth       DiscoveryErrorType = "auth"
+	DiscoveryErrorPermission DiscoveryErrorType = "permission"
+	DiscoveryErrorAPI        DiscoveryErrorType = "api"
+	DiscoveryErrorNotFound   DiscoveryErrorType = "not-found"
+	DiscoveryErrorTimeout    DiscoveryErrorType = "timeout"
+)
+
+// DiscoveryError is a typed error for resource discovery failures.
+type DiscoveryError struct {
+	Type    DiscoveryErrorType
+	Message string
+	Cause   error
+}
+
+func (e *DiscoveryError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	switch e.Type {
+	case DiscoveryErrorAuth:
+		return "Authentication failed. Run: azd auth login"
+	case DiscoveryErrorPermission:
+		return "Missing permissions. Need 'Reader' role on resource group"
+	case DiscoveryErrorAPI:
+		if e.Cause != nil {
+			return fmt.Sprintf("Azure API error: %v", e.Cause)
+		}
+		return "Azure API error"
+	case DiscoveryErrorNotFound:
+		return "No Log Analytics workspace found in resource group"
+	case DiscoveryErrorTimeout:
+		return "Discovery timed out"
+	default:
+		if e.Cause != nil {
+			return fmt.Sprintf("Discovery error: %v", e.Cause)
+		}
+		return "Discovery error"
+	}
+}
+
+func (e *DiscoveryError) Unwrap() error {
+	return e.Cause
+}
 
 // ResourceType represents the type of Azure compute resource.
 type ResourceType string
@@ -240,31 +289,116 @@ func (d *ResourceDiscovery) detectResourceType(ctx context.Context, subscription
 }
 
 // detectLogAnalyticsWorkspace tries to find a Log Analytics workspace in the resource group.
+// Returns the workspace ID if found, empty string otherwise.
 func (d *ResourceDiscovery) detectLogAnalyticsWorkspace(ctx context.Context, subscriptionID, resourceGroup string) string {
+	wsID, _ := d.DetectLogAnalyticsWorkspaceWithError(ctx, subscriptionID, resourceGroup)
+	return wsID
+}
+
+// DetectLogAnalyticsWorkspaceWithError tries to find a Log Analytics workspace with typed errors.
+func (d *ResourceDiscovery) DetectLogAnalyticsWorkspaceWithError(ctx context.Context, subscriptionID, resourceGroup string) (string, error) {
 	if d.credential == nil {
-		return ""
+		return "", &DiscoveryError{Type: DiscoveryErrorAuth, Message: "No credentials available"}
 	}
 
 	client, err := armresources.NewClient(subscriptionID, d.credential, nil)
 	if err != nil {
-		return ""
+		return "", &DiscoveryError{Type: DiscoveryErrorAuth, Cause: err}
 	}
 
 	pager := client.NewListByResourceGroupPager(resourceGroup, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			break
+			// Check for permission errors
+			errStr := err.Error()
+			if strings.Contains(errStr, "AuthorizationFailed") || strings.Contains(errStr, "403") {
+				return "", &DiscoveryError{Type: DiscoveryErrorPermission, Cause: err}
+			}
+			if ctx.Err() != nil {
+				return "", &DiscoveryError{Type: DiscoveryErrorTimeout, Cause: ctx.Err()}
+			}
+			return "", &DiscoveryError{Type: DiscoveryErrorAPI, Cause: err}
 		}
 
 		for _, resource := range page.Value {
 			if resource.Type != nil && strings.EqualFold(*resource.Type, "Microsoft.OperationalInsights/workspaces") {
-				return *resource.ID
+				return *resource.ID, nil
 			}
 		}
 	}
 
-	return ""
+	return "", &DiscoveryError{Type: DiscoveryErrorNotFound}
+}
+
+// DetectLogAnalyticsWorkspaceMultiRG searches for a workspace across multiple resource groups.
+// It first checks the primary resource group, then searches all RGs with matching azd-env-name tag.
+func (d *ResourceDiscovery) DetectLogAnalyticsWorkspaceMultiRG(ctx context.Context, subscriptionID, primaryRG, envName string) (string, error) {
+	// First try the primary resource group
+	if primaryRG != "" {
+		wsID, err := d.DetectLogAnalyticsWorkspaceWithError(ctx, subscriptionID, primaryRG)
+		if wsID != "" {
+			return wsID, nil
+		}
+		// If it's not a "not found" error, return the error
+		if err != nil {
+			var discErr *DiscoveryError
+			if !isDiscoveryNotFound(err) {
+				return "", err
+			}
+			_ = discErr // silence unused warning
+		}
+	}
+
+	// If we have an env name, search for tagged resource groups
+	if envName == "" || d.credential == nil {
+		return "", &DiscoveryError{Type: DiscoveryErrorNotFound}
+	}
+
+	// Search for resource groups with azd-env-name tag
+	rgClient, err := armresources.NewResourceGroupsClient(subscriptionID, d.credential, nil)
+	if err != nil {
+		return "", &DiscoveryError{Type: DiscoveryErrorAPI, Cause: err}
+	}
+
+	pager := rgClient.NewListPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			slog.Debug("multi-RG discovery: failed to list resource groups", "error", err)
+			break
+		}
+
+		for _, rg := range page.Value {
+			if rg.Name == nil || *rg.Name == primaryRG {
+				continue
+			}
+			// Check for azd-env-name tag
+			if rg.Tags != nil {
+				if tagValue, ok := rg.Tags["azd-env-name"]; ok && tagValue != nil && *tagValue == envName {
+					wsID, err := d.DetectLogAnalyticsWorkspaceWithError(ctx, subscriptionID, *rg.Name)
+					if wsID != "" {
+						slog.Debug("multi-RG discovery: found workspace in tagged RG", "rg", *rg.Name)
+						return wsID, nil
+					}
+					if err != nil && !isDiscoveryNotFound(err) {
+						slog.Debug("multi-RG discovery: error checking RG", "rg", *rg.Name, "error", err)
+					}
+				}
+			}
+		}
+	}
+
+	return "", &DiscoveryError{Type: DiscoveryErrorNotFound}
+}
+
+// isDiscoveryNotFound checks if the error is a "not found" discovery error.
+func isDiscoveryNotFound(err error) bool {
+	var discErr *DiscoveryError
+	if errors.As(err, &discErr) {
+		return discErr.Type == DiscoveryErrorNotFound
+	}
+	return false
 }
 
 // ClearCache clears the discovery cache, forcing a refresh on next Discover call.

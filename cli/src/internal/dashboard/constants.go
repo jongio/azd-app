@@ -4,15 +4,16 @@ package dashboard
 // Azure setup status constants
 const (
 	// Workspace/Service status values
-	StatusNotDeployed   = "not-deployed"
-	StatusNotConfigured = "not-configured"
-	StatusConfigured    = "configured"
-	StatusReady         = "ready"
-	StatusPartial       = "partial"
-	StatusMissing       = "missing"
-	StatusError         = "error"
-	StatusComplete      = "complete"
-	StatusIncomplete    = "incomplete"
+	StatusNotDeployed           = "not-deployed"
+	StatusDeployedNotConfigured = "deployed-not-configured" // Workspace exists in Azure but Bicep outputs missing
+	StatusNotConfigured         = "not-configured"
+	StatusConfigured            = "configured"
+	StatusReady                 = "ready"
+	StatusPartial               = "partial"
+	StatusMissing               = "missing"
+	StatusError                 = "error"
+	StatusComplete              = "complete"
+	StatusIncomplete            = "incomplete"
 
 	// Auth status values
 	StatusAuthenticated    = "authenticated"
@@ -26,9 +27,10 @@ const (
 	CategoryConfig             = "config"
 
 	// Common messages
-	MsgWorkspaceNotConfigured = "Log Analytics workspace not configured"
-	MsgAzureCredsNotAvailable = "Azure credentials not available. Run 'azd auth login' to authenticate."
-	MsgAuthFailed             = "Authentication failed or expired. Run 'azd auth login' to re-authenticate."
+	MsgWorkspaceNotConfigured       = "Log Analytics workspace not configured"
+	MsgWorkspaceDeployedNotConfigured = "Log Analytics workspace found in Azure, but Bicep outputs are missing. Add outputs to your main.bicep file."
+	MsgAzureCredsNotAvailable       = "Azure credentials not available. Run 'azd auth login' to authenticate."
+	MsgAuthFailed                   = "Authentication failed or expired. Run 'azd auth login' to re-authenticate."
 
 	// Setup steps
 	StepWorkspace          = "workspace"

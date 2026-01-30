@@ -30,10 +30,11 @@ type SetupStateResponse struct {
 
 // WorkspaceState represents the Log Analytics workspace configuration state.
 type WorkspaceState struct {
-	Status      string `json:"status"`                // "configured" | "missing" | "not-deployed" | "invalid"
-	WorkspaceID string `json:"workspaceId,omitempty"` // Workspace resource ID
+	Status      string `json:"status"`                // "configured" | "deployed-not-configured" | "missing" | "not-deployed" | "error"
+	WorkspaceID string `json:"workspaceId,omitempty"` // Workspace resource ID or GUID
 	Message     string `json:"message"`               // Human-readable status message
-	Source      string `json:"source,omitempty"`      // Where workspace ID was found (env, azure.yaml)
+	Source      string `json:"source,omitempty"`      // Where workspace ID was found (env, azure.yaml, auto-discovered)
+	BicepFix    string `json:"bicepFix,omitempty"`    // Bicep code snippet to fix missing outputs
 }
 
 // AuthState represents the authentication and permissions state.
@@ -111,7 +112,7 @@ func (s *Server) checkWorkspaceState() WorkspaceState {
 		Message: MsgWorkspaceNotConfigured,
 	}
 
-	// Check environment variable first (highest priority)
+	// Priority 1: Check environment variable first (highest priority)
 	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
 	if err == nil && workspaceID != "" {
 		state.Status = StatusConfigured
@@ -121,7 +122,7 @@ func (s *Server) checkWorkspaceState() WorkspaceState {
 		return state
 	}
 
-	// Check azure.yaml configuration
+	// Priority 2: Check azure.yaml configuration
 	azureYaml, err := loadAzureYaml(s.projectDir)
 	if err != nil {
 		state.Status = StatusError
@@ -139,8 +140,42 @@ func (s *Server) checkWorkspaceState() WorkspaceState {
 		return state
 	}
 
+	// Priority 3: Auto-discover workspace from resource group
+	// This handles the case where workspace is deployed but Bicep outputs are missing
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cred, err := newLogAnalyticsCredential()
+	if err == nil {
+		discovery := azure.NewResourceDiscovery(cred, s.projectDir)
+		discoveryResult, err := discovery.Discover(ctx)
+		if err == nil && discoveryResult.LogAnalyticsWorkspaceID != "" {
+			// Found workspace in Azure but not in environment - Bicep outputs are missing!
+			state.Status = StatusDeployedNotConfigured
+			state.WorkspaceID = discoveryResult.LogAnalyticsWorkspaceID
+			state.Source = "auto-discovered"
+			state.Message = MsgWorkspaceDeployedNotConfigured
+			state.BicepFix = generateBicepOutputsFix()
+			return state
+		}
+		if err != nil {
+			slog.Debug("workspace auto-discovery failed", "error", err)
+		}
+	}
+
 	state.Message = "Log Analytics workspace not configured in azure.yaml or environment"
 	return state
+}
+
+// generateBicepOutputsFix generates the Bicep code snippet to fix missing workspace outputs.
+func generateBicepOutputsFix() string {
+	return `// Add these outputs to your infra/main.bicep file:
+
+output AZURE_LOG_ANALYTICS_WORKSPACE_ID string = logAnalytics.outputs.resourceId
+output AZURE_LOG_ANALYTICS_WORKSPACE_NAME string = logAnalytics.outputs.name
+output AZURE_LOG_ANALYTICS_WORKSPACE_GUID string = logAnalytics.outputs.customerId
+
+// Then run: azd provision`
 }
 
 // checkAuthState verifies authentication and permissions.
@@ -447,7 +482,15 @@ func (s *Server) collectSetupIssues(response SetupStateResponse) []SetupIssue {
 			Severity: "error",
 			Category: CategoryWorkspace,
 			Message:  MsgWorkspaceNotConfigured,
-			Fix:      "Add 'logs.analytics.workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}' to azure.yaml and deploy with 'azd up'",
+			Fix:      "Add Log Analytics workspace to your Bicep infrastructure with required outputs. See setup guide for code example.",
+			DocsURL:  logsTroubleshootURL,
+		})
+	} else if response.Workspace.Status == StatusDeployedNotConfigured {
+		issues = append(issues, SetupIssue{
+			Severity: "warning",
+			Category: CategoryWorkspace,
+			Message:  MsgWorkspaceDeployedNotConfigured,
+			Fix:      response.Workspace.BicepFix,
 			DocsURL:  logsTroubleshootURL,
 		})
 	case StatusNotDeployed:

@@ -43,6 +43,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/azure/logs/stream", MethodGuard(s.handleAzureLogsStream, http.MethodGet)) // WebSocket streaming for Azure logs
 	s.mux.HandleFunc("/api/azure/logs/health", MethodGuard(s.handleAzureLogsHealth, http.MethodGet))
 	s.mux.HandleFunc("/api/azure/logs/setup-state", MethodGuard(s.handleAzureSetupState, http.MethodGet))                       // Setup state detection for setup guide
+	s.mux.HandleFunc("/api/azure/setup/auto-fix", MethodGuard(s.handleAzureSetupAutoFix, http.MethodPost))                      // Auto-fix Bicep configuration
 	s.mux.HandleFunc("/api/azure/logs/verify", MethodGuard(s.handleAzureLogsVerify, http.MethodPost))                           // Verify log connectivity for a service
 	s.mux.HandleFunc("/api/azure/diagnostic-settings/check", MethodGuard(s.handleAzureDiagnosticSettingsCheck, http.MethodGet)) // Check diagnostic settings for all services
 	s.mux.HandleFunc("/api/azure/diagnostics", MethodGuard(s.handleAzureDiagnostics, http.MethodGet))                           // Comprehensive diagnostics for all services

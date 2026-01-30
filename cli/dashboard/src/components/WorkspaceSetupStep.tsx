@@ -26,10 +26,11 @@ export interface WorkspaceSetupStepProps {
  * Indicates whether Log Analytics workspace is properly configured.
  */
 interface WorkspaceState {
-  status: 'configured' | 'missing' | 'not-deployed' | 'invalid' | 'error'
+  status: 'configured' | 'deployed-not-configured' | 'missing' | 'not-deployed' | 'invalid' | 'error'
   workspaceId?: string
   message: string
   source?: string
+  bicepFix?: string // Bicep code to fix missing outputs
 }
 
 /**
@@ -38,6 +39,17 @@ interface WorkspaceState {
 interface SetupStateResponse {
   workspace: WorkspaceState
   timestamp: string
+}
+
+/**
+ * Response from /api/azure/setup/auto-fix endpoint.
+ */
+interface AutoFixResponse {
+  success: boolean
+  message: string
+  bicepFile?: string
+  changes?: string
+  applied: boolean
 }
 
 /**
@@ -139,6 +151,11 @@ function StatusBadge({ status }: Readonly<StatusBadgeProps>) {
       label: 'Configured',
       className: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
     },
+    'deployed-not-configured': {
+      Icon: AlertTriangle,
+      label: 'Outputs Missing',
+      className: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+    },
     'not-deployed': {
       Icon: AlertTriangle,
       label: 'Not Deployed',
@@ -186,6 +203,8 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
   const [workspaceState, setWorkspaceState] = React.useState<WorkspaceState | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const [isAutoFixing, setIsAutoFixing] = React.useState(false)
+  const [autoFixResult, setAutoFixResult] = React.useState<AutoFixResponse | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [openSection, setOpenSection] = React.useState<HelpSection | null>(null)
 
@@ -208,7 +227,8 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
       setError(null)
 
       // Update validation state
-      const isValid = data.workspace.status === 'configured'
+      // Allow proceeding if configured or deployed-not-configured (user can try to get logs even without outputs)
+      const isValid = data.workspace.status === 'configured' || data.workspace.status === 'deployed-not-configured'
       onValidationChange(isValid)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error'
@@ -246,6 +266,33 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
 
   const handleToggleSection = (section: HelpSection) => {
     setOpenSection(openSection === section ? null : section)
+  }
+
+  // Auto-fix handler - adds missing Bicep outputs
+  const handleAutoFix = async () => {
+    setIsAutoFixing(true)
+    setAutoFixResult(null)
+    try {
+      const response = await fetch('/api/azure/setup/auto-fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add-bicep-outputs' }),
+      })
+      const data = (await response.json()) as AutoFixResponse
+      setAutoFixResult(data)
+      if (data.success && data.applied) {
+        // Refresh workspace state after successful fix
+        setTimeout(() => void fetchWorkspaceState(true), 1000)
+      }
+    } catch (err) {
+      setAutoFixResult({
+        success: false,
+        message: err instanceof Error ? err.message : 'Failed to apply auto-fix',
+        applied: false,
+      })
+    } finally {
+      setIsAutoFixing(false)
+    }
   }
 
   if (isLoading) {
@@ -345,6 +392,75 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
         <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
           Setup Guide
         </h4>
+
+        {/* Deployed but Not Configured - show fix first */}
+        {workspaceState.status === 'deployed-not-configured' && workspaceState.bicepFix && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-3">
+                  Workspace deployed but Bicep outputs missing
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">
+                  Your Log Analytics workspace exists in Azure, but your Bicep file doesn't expose the workspace details to the environment.
+                </p>
+
+                {/* Auto-fix result message */}
+                {autoFixResult && (
+                  <div className={cn(
+                    'mb-3 p-3 rounded-md text-sm',
+                    autoFixResult.success
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                      : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                  )}>
+                    {autoFixResult.message}
+                    {autoFixResult.success && autoFixResult.applied && (
+                      <p className="mt-1 font-medium">Run: azd provision</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Auto-fix button */}
+                <div className="mb-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleAutoFix()}
+                    disabled={isAutoFixing}
+                    className={cn(
+                      'inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium',
+                      'bg-amber-600 text-white',
+                      'hover:bg-amber-700',
+                      'focus:outline-none focus:ring-2 focus:ring-amber-500',
+                      'disabled:opacity-50 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    {isAutoFixing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Applying fix...
+                      </>
+                    ) : (
+                      'Auto-Fix Bicep Outputs'
+                    )}
+                  </button>
+                </div>
+
+                <details className="group">
+                  <summary className="cursor-pointer text-xs text-amber-700 dark:text-amber-400 hover:underline">
+                    Manual fix: Copy Bicep code below
+                  </summary>
+                  <div className="mt-2">
+                    <CodeBlock code={workspaceState.bicepFix} language="bicep" />
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-3">
+                      <strong>Note:</strong> Replace <code className="px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900 font-mono">logAnalytics</code> with your workspace module name if different.
+                    </p>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* What is Log Analytics */}
         <CollapsibleSection
