@@ -145,8 +145,8 @@ github.com/invopop/jsonschema v0.13.0 h1:KvpoAJWEjR3uD9Kbm2HWJmqsEaHt8lBUpd0qHcI
 github.com/invopop/jsonschema v0.13.0/go.mod h1:ffZ5Km5SWWRAIN6wbDXItl95euhFz2uON45H2qjYt+0=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
-github.com/jongio/azd-core v0.3.2 h1:/UhqgozqR2oe2gNRxFV+6sdNKZpedxwXdPT88diGSxM=
-github.com/jongio/azd-core v0.3.2/go.mod h1:qHrhg2tFMs83tYRax0EC0Bl3EdRN1WDOhmQkKcNpIGs=
+github.com/jongio/azd-core v0.4.0 h1:1zmCbcM3uguEYmd4fR+kfQsC+lzYnvzUrRV0xLAcFzs=
+github.com/jongio/azd-core v0.4.0/go.mod h1:T+L/V1cV4t/+nPZemuR6eBPf2sZLt+09gs+gn7je/Ac=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/keybase/go-keychain v0.0.1 h1:way+bWYa6lDppZoZcgMbYsvC7GxljxrskdNInRtuthU=
