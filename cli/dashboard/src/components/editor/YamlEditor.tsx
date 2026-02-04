@@ -22,9 +22,6 @@ import { AddServiceModal } from './modals/AddServiceModal'
 import { DeleteServiceDialog } from './modals/DeleteServiceDialog'
 import { ResourceConfigModal } from './modals/ResourceConfigModal'
 import { BackupManager } from './BackupManager'
-import { SchemaForm } from './forms/SchemaForm'
-import type { ResourceConfig } from '@/lib/editor/resource-types'
-import { getServiceSchema, getResourceSchema } from '@/lib/schema/schema-utils'
 import { buildNavigationTree, type NavigationNode, type ValidationIssue } from '@/lib/editor/navigation-types'
 import { validateConfiguration } from '@/lib/editor/validation-engine'
 import { useCachedWellKnownServices } from '@/lib/performance'
@@ -95,7 +92,7 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
   const { rawSchema } = useSchema()
   const { data: wellKnownServices = [] } = useCachedWellKnownServices()
 
-  // Parse active section to determine type and name
+  // Parse active section to determine type and name (for ResourceConfigModal)
   const activeSectionInfo = useMemo(() => {
     const segments = activeSection.split('.')
     if (segments.length < 2) return null
@@ -106,7 +103,7 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
     return { sectionType, itemName }
   }, [activeSection])
 
-  // Get current item config
+  // Get current item config (for ResourceConfigModal)
   const currentItemConfig = useMemo(() => {
     if (!activeSectionInfo || !config) return null
     
@@ -115,36 +112,6 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
     
     return section[activeSectionInfo.itemName] as Record<string, unknown> | undefined
   }, [activeSectionInfo, config])
-
-  // Get schema for current section type
-  const { schema: parsedSchema } = useSchema()
-  const currentSectionSchema = useMemo(() => {
-    if (!activeSectionInfo || !parsedSchema) return null
-    
-    if (activeSectionInfo.sectionType === 'services') {
-      return getServiceSchema(parsedSchema)
-    } else if (activeSectionInfo.sectionType === 'resources') {
-      return getResourceSchema(parsedSchema)
-    }
-    
-    // Try to get from definitions using capitalized section type
-    const definitionName = activeSectionInfo.sectionType.charAt(0).toUpperCase() + 
-                          activeSectionInfo.sectionType.slice(1, -1) // Remove 's' and capitalize
-    const definition = parsedSchema.definitions[definitionName]
-    
-    if (definition && definition.properties) {
-      return {
-        name: definition.title || definitionName,
-        properties: definition.properties,
-        required: definition.validation
-          .filter(rule => rule.type === 'required')
-          .map(() => definition.name),
-        definitions: {},
-      }
-    }
-    
-    return null
-  }, [activeSectionInfo, parsedSchema])
 
   const performSave = useCallback(async () => {
     if (onSave && config) {
@@ -368,102 +335,72 @@ function YamlEditorInner({ initialConfig, onChange, onSave }: YamlEditorProps) {
         errors={errors}
         warnings={warnings}
         info={info}
-        onItemClick={(path) => setActiveSection(path.split('.')[0] || 'overview')}
+         onItemClick={(path) => setActiveSection(path.split('.')[0] || 'overview')}
       />
     </div>
   )
 
-  // Schema-driven section content renderer
-  const sectionContent = useMemo(() => {
-    if (!activeSectionInfo || !currentItemConfig || !currentSectionSchema) {
-      return overviewContent
-    }
+  // Get selected service info (legacy approach that worked)
+  const selectedServiceName = activeSection.startsWith('services.')
+    ? activeSection.split('.')[1]
+    : null
 
-    const handleUpdate = (updatedConfig: Record<string, unknown>) => {
-      const section = (config?.[activeSectionInfo.sectionType] as Record<string, unknown> | undefined) || {}
-      _updateConfig({
-        [activeSectionInfo.sectionType]: {
-          ...section,
-          [activeSectionInfo.itemName]: updatedConfig,
-        },
-      })
-    }
+  const serviceConfig = selectedServiceName
+    ? ((config?.services as Record<string, unknown> | undefined) || {})[selectedServiceName]
+    : undefined
 
-    const handleDelete = () => {
-      if (activeSectionInfo.sectionType === 'services') {
-        setServiceToDelete(activeSectionInfo.itemName)
-      } else if (activeSectionInfo.sectionType === 'resources') {
-        setResourceToDelete(activeSectionInfo.itemName)
-      }
-    }
+  const serviceHost = typeof (serviceConfig as Record<string, unknown> | undefined)?.host === 'string'
+    ? (serviceConfig as Record<string, unknown>).host as string
+    : 'containerapp'
 
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {activeSectionInfo.itemName}
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Edit {activeSectionInfo.sectionType.replace(/s$/, '')} configuration
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {activeSectionInfo.sectionType === 'resources' && (
-              <button
-                type="button"
-                onClick={() => openResourceConfigModal(activeSectionInfo.itemName)}
-                className={cn(
-                  'px-4 py-2 rounded-md text-sm font-semibold',
-                  'bg-cyan-600 text-white hover:bg-cyan-700',
-                  'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2'
-                )}
-              >
-                Advanced
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleDelete}
-              className={cn(
-                'px-4 py-2 rounded-md text-sm font-semibold',
-                'bg-rose-600 text-white hover:bg-rose-700',
-                'focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2'
-              )}
-            >
-              Delete
-            </button>
-          </div>
+  const serviceImage = typeof (serviceConfig as Record<string, unknown> | undefined)?.image === 'string'
+    ? (serviceConfig as Record<string, unknown>).image as string
+    : undefined
+
+  const servicePorts = Array.isArray((serviceConfig as Record<string, unknown> | undefined)?.ports)
+    ? ((serviceConfig as Record<string, unknown>).ports as string[])
+    : []
+
+  const serviceContent = selectedServiceName ? (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{selectedServiceName}</h2>
+          <p className="text-sm text-muted-foreground">
+            {serviceImage ? `Image: ${serviceImage}` : `Host: ${serviceHost}`}
+          </p>
         </div>
-
-        {/* Schema-Driven Form */}
-        <SchemaForm
-          schema={currentSectionSchema}
-          defaultValues={currentItemConfig}
-          onChange={handleUpdate}
-          autoSave={true}
-        />
-
-        {/* Info Panel */}
-        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 p-4">
-          <div className="flex gap-2">
-            <div className="text-sm text-blue-900 dark:text-blue-100">
-              <p className="font-medium mb-1">💡 Tips</p>
-              <ul className="text-xs space-y-1 text-blue-800 dark:text-blue-200">
-                <li>• Changes are saved automatically</li>
-                <li>• Required fields are marked with <span className="text-red-500">*</span></li>
-                <li>• The preview pane shows the resulting YAML in real-time</li>
-                <li>• Use the Delete button to remove this {activeSectionInfo.sectionType.replace(/s$/, '')} entirely</li>
-              </ul>
-            </div>
-          </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setServiceToDelete(selectedServiceName)}
+            className={cn(
+              'px-4 py-2 rounded-md text-sm font-semibold',
+              'bg-rose-600 text-white hover:bg-rose-700',
+              'focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2'
+            )}
+          >
+            Delete
+          </button>
         </div>
       </div>
-    )
-  }, [activeSectionInfo, currentItemConfig, currentSectionSchema, overviewContent, config, _updateConfig, openResourceConfigModal])
 
-  const mainContent = sectionContent
+      <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+        <p className="text-sm text-muted-foreground">
+          Manage this service directly from the YAML configuration. Use Delete to remove the service entry.
+        </p>
+        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+          <span className="px-2 py-1 rounded bg-muted">Host: {serviceHost}</span>
+          {serviceImage && <span className="px-2 py-1 rounded bg-muted">Image: {serviceImage}</span>}
+          {servicePorts.length > 0 && (
+            <span className="px-2 py-1 rounded bg-muted">Ports: {servicePorts.join(', ')}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : overviewContent
+
+  const mainContent = serviceContent
 
   return (
     <div className="relative" data-testid="app-loaded">
