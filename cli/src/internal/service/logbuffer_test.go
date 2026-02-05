@@ -50,7 +50,7 @@ func TestNewLogBuffer(t *testing.T) {
 			}
 
 			if err == nil {
-				defer buffer.Close()
+				defer func() { _ = buffer.Close() }()
 
 				if buffer.serviceName != tt.serviceName {
 					t.Errorf("serviceName = %v, want %v", buffer.serviceName, tt.serviceName)
@@ -79,7 +79,7 @@ func TestLogBuffer_Add(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add some entries
 	for i := 0; i < 5; i++ {
@@ -104,7 +104,7 @@ func TestLogBuffer_CircularBuffer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add more entries than max size
 	for i := 0; i < 10; i++ {
@@ -129,7 +129,7 @@ func TestLogBuffer_GetRecent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add 10 entries
 	for i := 0; i < 10; i++ {
@@ -170,7 +170,7 @@ func TestLogBuffer_GetSince(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add entries with specific timestamps
 	now := time.Now()
@@ -206,7 +206,7 @@ func TestLogBuffer_GetByLevel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add entries with different levels
 	levels := []LogLevel{
@@ -252,7 +252,7 @@ func TestLogBuffer_Subscribe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Subscribe to buffer
 	ch := buffer.Subscribe()
@@ -296,7 +296,7 @@ func TestLogBuffer_MultipleSubscribers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Create multiple subscribers
 	ch1 := buffer.Subscribe()
@@ -339,7 +339,7 @@ func TestLogBuffer_Clear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add some entries
 	for i := 0; i < 5; i++ {
@@ -445,7 +445,7 @@ func TestLogBuffer_WithFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBufferWithFilter() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add various log entries
 	testCases := []struct {
@@ -502,7 +502,7 @@ func TestLogBuffer_WithoutFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBufferWithFilter() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add entries that would normally be filtered
 	messages := []string{
@@ -532,7 +532,7 @@ func TestLogBuffer_ContainsPattern(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add test entries
 	buffer.Add(LogEntry{Message: "Error: connection failed", Level: LogLevelError})
@@ -577,7 +577,7 @@ func TestLogBuffer_ContainsPatternRegex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Add test entries
 	buffer.Add(LogEntry{Message: "Error 404: not found", Level: LogLevelError})
@@ -635,7 +635,7 @@ func TestLogBuffer_RotateLogFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLogBuffer() error = %v", err)
 	}
-	defer buffer.Close()
+	defer func() { _ = buffer.Close() }()
 
 	// Write multiple entries to trigger rotation
 	// The maxSize is 3, so adding 10 entries should cause rotation

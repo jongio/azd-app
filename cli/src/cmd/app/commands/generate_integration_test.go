@@ -67,8 +67,8 @@ func TestGenerateIntegration(t *testing.T) {
 
 			// Clean up azure.yaml if it exists
 			azureYamlPath := filepath.Join(absPath, "azure.yaml")
-			os.Remove(azureYamlPath)
-			defer os.Remove(azureYamlPath)
+			_ = os.Remove(azureYamlPath)
+			defer func() { _ = os.Remove(azureYamlPath) }()
 
 			// Run generation
 			config := GenerateConfig{
@@ -125,7 +125,7 @@ func TestGenerateDryRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a simple Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
@@ -161,7 +161,7 @@ func TestGenerateMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
@@ -228,7 +228,7 @@ func TestGenerateNoProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Run generation on empty directory
 	config := GenerateConfig{

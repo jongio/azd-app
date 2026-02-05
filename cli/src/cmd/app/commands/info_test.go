@@ -330,8 +330,7 @@ func TestRunInfoWithServices(t *testing.T) {
 	}
 
 	// Set up some test environment variables
-	os.Setenv("SERVICE_API_DATABASE_URL", "postgres://localhost:5432/db")
-	defer os.Unsetenv("SERVICE_API_DATABASE_URL")
+	t.Setenv("SERVICE_API_DATABASE_URL", "postgres://localhost:5432/db")
 
 	cmd := NewInfoCommand()
 	err = cmd.Execute()

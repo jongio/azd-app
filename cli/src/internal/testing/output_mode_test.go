@@ -81,14 +81,14 @@ func TestSelectOutputMode_MultipleParallel(t *testing.T) {
 	oldVars := make(map[string]string)
 	for _, v := range ciVars {
 		oldVars[v] = os.Getenv(v)
-		os.Unsetenv(v)
+		_ = os.Unsetenv(v)
 	}
 	defer func() {
 		for k, v := range oldVars {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
@@ -131,12 +131,12 @@ func TestSelectOutputMode_NonTTY_MultipleServices(t *testing.T) {
 func TestSelectOutputMode_CI_OverridesForceProgress(t *testing.T) {
 	// Set CI environment variable
 	oldCI := os.Getenv("CI")
-	os.Setenv("CI", "true")
+	_ = os.Setenv("CI", "true")
 	defer func() {
 		if oldCI == "" {
-			os.Unsetenv("CI")
+			_ = os.Unsetenv("CI")
 		} else {
-			os.Setenv("CI", oldCI)
+			_ = os.Setenv("CI", oldCI)
 		}
 	}()
 
@@ -155,12 +155,12 @@ func TestSelectOutputMode_CI_OverridesForceProgress(t *testing.T) {
 func TestSelectOutputMode_CI_MultipleServices(t *testing.T) {
 	// Set CI environment variable
 	oldCI := os.Getenv("CI")
-	os.Setenv("CI", "true")
+	_ = os.Setenv("CI", "true")
 	defer func() {
 		if oldCI == "" {
-			os.Unsetenv("CI")
+			_ = os.Unsetenv("CI")
 		} else {
-			os.Setenv("CI", oldCI)
+			_ = os.Setenv("CI", oldCI)
 		}
 	}()
 
@@ -183,16 +183,16 @@ func TestIsCI(t *testing.T) {
 	// Save and clear CI variables
 	for _, v := range ciVars {
 		oldVars[v] = os.Getenv(v)
-		os.Unsetenv(v)
+		_ = os.Unsetenv(v)
 	}
 
 	// Restore after test
 	defer func() {
 		for k, v := range oldVars {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
@@ -215,8 +215,8 @@ func TestIsCI(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.envVar, func(t *testing.T) {
-			os.Setenv(tc.envVar, tc.value)
-			defer os.Unsetenv(tc.envVar)
+			_ = os.Setenv(tc.envVar, tc.value)
+			defer func() { _ = os.Unsetenv(tc.envVar) }()
 
 			if !isCI() {
 				t.Errorf("isCI() should return true when %s is set", tc.envVar)

@@ -20,7 +20,7 @@ func Example_notificationPipeline() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	// Load notification preferences
 	prefs, err := config.LoadNotificationPreferences()
@@ -114,7 +114,7 @@ func Example_criticalServiceFailure() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	// Simulate critical service failure
 	notification := notify.Notification{
@@ -149,7 +149,7 @@ func Example_warningServiceDegraded() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	notification := notify.Notification{
 		Title:     "database-service",
@@ -174,7 +174,7 @@ func Example_serviceRecovery() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	notification := notify.Notification{
 		Title:     "api-service",

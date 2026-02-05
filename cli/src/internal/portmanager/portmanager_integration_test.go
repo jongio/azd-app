@@ -3,7 +3,6 @@
 package portmanager
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -40,7 +39,7 @@ func TestPortAvailability_RealBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to bind to port %d: %v", testPort, err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	// Port should now be unavailable
 	if pm.isPortAvailable(testPort) {
@@ -48,7 +47,7 @@ func TestPortAvailability_RealBinding(t *testing.T) {
 	}
 
 	// Close the listener
-	listener.Close()
+	_ = listener.Close()
 
 	// Give the OS a moment to release the port
 	time.Sleep(100 * time.Millisecond)
@@ -85,7 +84,7 @@ func TestPortAvailability_LocalhostVsAllInterfaces(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to bind to localhost on port %d: %v", testPort, err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	// The port manager should detect this port is in use
 	if pm.isPortAvailable(testPort) {
@@ -128,7 +127,7 @@ func TestAssignPort_Integration_WithRealConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to bind to port %d: %v", testPort, err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	// Try to assign the same port again - should detect conflict
 	// Note: This will prompt user in non-test scenarios, so we'll just verify
@@ -196,7 +195,7 @@ func TestDashboardPortBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to simulate dashboard binding: %v", err)
 	}
-	defer listener1.Close()
+	defer func() { _ = listener1.Close() }()
 
 	// Port manager should detect it's unavailable
 	if pm.isPortAvailable(testPort) {
@@ -204,7 +203,7 @@ func TestDashboardPortBinding(t *testing.T) {
 	}
 
 	// Close first listener
-	listener1.Close()
+	_ = listener1.Close()
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify port is available again
@@ -230,7 +229,7 @@ func TestPortConflict_SimultaneousInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to bind port %d: %v", port1, err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	// Second instance (new manager from same directory)
 	// Clear cache to simulate separate process.
@@ -305,8 +304,7 @@ func TestPortManager_SaveLoad(t *testing.T) {
 // TestPortManager_DebugMode verifies debug logging works correctly.
 func TestPortManager_DebugMode(t *testing.T) {
 	// Enable debug mode
-	os.Setenv("AZD_APP_DEBUG", "true")
-	defer os.Unsetenv("AZD_APP_DEBUG")
+	t.Setenv("AZD_APP_DEBUG", "true")
 
 	tempDir := t.TempDir()
 	pm := GetPortManager(tempDir)
@@ -337,7 +335,7 @@ func TestPortManager_DebugMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to bind: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	t.Logf("Testing port availability for port %d while bound (should show bind failure in debug)", testPort)
 	available = pm.isPortAvailable(testPort)

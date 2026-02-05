@@ -15,7 +15,7 @@ func TestRefreshEnvironmentCache(t *testing.T) {
 		for _, env := range originalEnv {
 			parts := splitEnv(env)
 			if len(parts) == 2 {
-				os.Setenv(parts[0], parts[1])
+				_ = os.Setenv(parts[0], parts[1])
 			}
 		}
 	}()
@@ -56,7 +56,7 @@ func TestRefreshEnvironmentCache(t *testing.T) {
 
 			// Set test environment variables
 			for k, v := range tt.envVars {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 
 			// Refresh cache
@@ -92,15 +92,15 @@ func TestRefreshEnvironmentCache_ConcurrentAccess(t *testing.T) {
 		for _, env := range originalEnv {
 			parts := splitEnv(env)
 			if len(parts) == 2 {
-				os.Setenv(parts[0], parts[1])
+				_ = os.Setenv(parts[0], parts[1])
 			}
 		}
 	}()
 
 	// Set some test environment variables
 	os.Clearenv()
-	os.Setenv("TEST_VAR_1", "value1")
-	os.Setenv("TEST_VAR_2", "value2")
+	_ = os.Setenv("TEST_VAR_1", "value1")
+	_ = os.Setenv("TEST_VAR_2", "value2")
 
 	// Test concurrent access to cache
 	var wg sync.WaitGroup

@@ -50,7 +50,7 @@ func TestGetProcessOnPort_WithActivePort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	// Test that we can get the PID within the timeout
 	start := time.Now()

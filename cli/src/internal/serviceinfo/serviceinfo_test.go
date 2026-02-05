@@ -142,10 +142,8 @@ services:
 	}
 
 	// Set some environment variables for Azure service info
-	os.Setenv("SERVICE_API_URL", "https://api.example.com")
-	os.Setenv("SERVICE_API_NAME", "api-resource")
-	defer os.Unsetenv("SERVICE_API_URL")
-	defer os.Unsetenv("SERVICE_API_NAME")
+	t.Setenv("SERVICE_API_URL", "https://api.example.com")
+	t.Setenv("SERVICE_API_NAME", "api-resource")
 
 	// Get service info
 	services, err := GetServiceInfo(tmpDir)

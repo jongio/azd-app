@@ -229,7 +229,7 @@ func TestSaveSampleProfiles_DirectoryCreation(t *testing.T) {
 
 	// Remove .azd directory if it exists
 	azdDir := filepath.Join(tmpDir, ".azd")
-	os.RemoveAll(azdDir)
+	_ = os.RemoveAll(azdDir)
 
 	err := SaveSampleProfiles(tmpDir)
 	if err != nil {

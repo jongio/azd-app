@@ -218,7 +218,7 @@ func (c *ContainerAppStreamer) streamLogs(ctx context.Context, logs chan<- LogEn
 	if err != nil {
 		return fmt.Errorf("failed to connect to log stream: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
@@ -406,7 +406,7 @@ func (a *AppServiceStreamer) streamLogs(ctx context.Context, logs chan<- LogEntr
 	if err != nil {
 		return fmt.Errorf("failed to connect to log stream: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))

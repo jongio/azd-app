@@ -124,11 +124,7 @@ func findAzureDir(startDir string) string {
 	dir := startDir
 	homeDir, _ := os.UserHomeDir()
 
-	for {
-		// Stop at home directory to avoid finding user's global .azure
-		if homeDir != "" && dir == homeDir {
-			break
-		}
+	for homeDir == "" || dir != homeDir {
 
 		azureDir := filepath.Join(dir, ".azure")
 		if info, err := os.Stat(azureDir); err == nil && info.IsDir() {
@@ -312,7 +308,7 @@ func calculateFileHash(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {

@@ -259,8 +259,7 @@ func TestFindAvailablePort_ServicePort(t *testing.T) {
 
 func TestDetectPortFromEnv(t *testing.T) {
 	// Set environment variable
-	os.Setenv("TEST_SERVICE_PORT", "5555")
-	defer os.Unsetenv("TEST_SERVICE_PORT")
+	t.Setenv("TEST_SERVICE_PORT", "5555")
 
 	port := detectPortFromEnv("TEST_SERVICE")
 	if port != 5555 {
@@ -270,8 +269,7 @@ func TestDetectPortFromEnv(t *testing.T) {
 
 func TestDetectPortFromEnv_GenericPORT(t *testing.T) {
 	// Set generic PORT variable
-	os.Setenv("PORT", "6666")
-	defer os.Unsetenv("PORT")
+	t.Setenv("PORT", "6666")
 
 	port := detectPortFromEnv("any-service")
 	if port != 6666 {
@@ -287,8 +285,7 @@ func TestDetectPortFromEnv_NotSet(t *testing.T) {
 }
 
 func TestDetectPortFromEnv_Invalid(t *testing.T) {
-	os.Setenv("TEST_SERVICE_PORT", "invalid")
-	defer os.Unsetenv("TEST_SERVICE_PORT")
+	t.Setenv("TEST_SERVICE_PORT", "invalid")
 
 	port := detectPortFromEnv("TEST_SERVICE")
 	if port != 0 {

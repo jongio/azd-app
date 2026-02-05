@@ -19,7 +19,7 @@ func TestMergeReqsPreservesStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
@@ -74,7 +74,7 @@ reqs:
 		t.Fatal("Missing required sections in azure.yaml")
 	}
 
-	if !(nameIdx < servicesIdx && servicesIdx < reqsIdx) {
+	if nameIdx >= servicesIdx || servicesIdx >= reqsIdx {
 		t.Error("Section order not preserved: expected name < services < reqs")
 		t.Logf("Indices: name=%d, services=%d, reqs=%d", nameIdx, servicesIdx, reqsIdx)
 	}
@@ -111,7 +111,7 @@ func TestMergeReqsNoDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
@@ -183,7 +183,7 @@ func TestMergeReqsNoReqsSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
@@ -260,7 +260,7 @@ func TestMergeReqsUserAddedCustomReq(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
@@ -339,7 +339,7 @@ func TestMergeReqsMultipleRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`

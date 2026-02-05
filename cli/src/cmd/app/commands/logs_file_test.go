@@ -10,11 +10,7 @@ import (
 )
 
 func TestReadLogsFromFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "logs_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
@@ -96,11 +92,7 @@ func TestReadLogsFromFile(t *testing.T) {
 }
 
 func TestReadLogsFromRotatedFiles(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "logs_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
@@ -179,11 +171,7 @@ func TestReadLogsFromRotatedFiles(t *testing.T) {
 }
 
 func TestReadSingleLogFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "logs_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("file not found", func(t *testing.T) {
 		_, err := readSingleLogFile(filepath.Join(tmpDir, "nonexistent.log"), "api", time.Time{})

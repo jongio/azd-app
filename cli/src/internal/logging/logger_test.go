@@ -2,7 +2,6 @@ package logging
 
 import (
 	"bytes"
-	"os"
 	"testing"
 )
 
@@ -62,11 +61,10 @@ func TestIsDebugEnabled(t *testing.T) {
 	}
 
 	// Test with environment variable
-	os.Setenv("AZD_APP_DEBUG", "true")
+	t.Setenv("AZD_APP_DEBUG", "true")
 	if !IsDebugEnabled() {
 		t.Error("Expected debug to be enabled when AZD_APP_DEBUG=true")
 	}
-	os.Unsetenv("AZD_APP_DEBUG")
 }
 
 func TestLoggingFunctions(t *testing.T) {

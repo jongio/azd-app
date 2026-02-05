@@ -53,7 +53,7 @@ func newNotificationsListCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 
 			var records []notifications.NotificationRecord
 			if serviceName != "" {
@@ -96,7 +96,7 @@ func newNotificationsMarkReadCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 
 			if all {
 				if err := db.MarkAllAsRead(ctx); err != nil {
@@ -149,7 +149,7 @@ func newNotificationsClearCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 
 			if olderThan != "" {
 				duration, err := time.ParseDuration(olderThan)
@@ -217,7 +217,7 @@ func newNotificationsStatsCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 
 			stats, err := db.GetStats(ctx)
 			if err != nil {
@@ -243,7 +243,7 @@ func printNotifications(records []notifications.NotificationRecord) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tSERVICE\tSEVERITY\tMESSAGE\tTIME\tREAD")
+	_, _ = fmt.Fprintln(w, "ID\tSERVICE\tSEVERITY\tMESSAGE\tTIME\tREAD")
 
 	for _, r := range records {
 		readIcon := " "
@@ -257,7 +257,7 @@ func printNotifications(records []notifications.NotificationRecord) {
 			message = truncateUTF8(message, 47) + "..."
 		}
 
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
 			r.ID,
 			r.ServiceName,
 			r.Severity,
@@ -267,7 +267,7 @@ func printNotifications(records []notifications.NotificationRecord) {
 		)
 	}
 
-	w.Flush()
+	_ = w.Flush()
 }
 
 func formatRelativeTime(t time.Time) string {
@@ -333,7 +333,7 @@ func newNotificationsTestCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create notifier: %w", err)
 			}
-			defer notifier.Close()
+			defer func() { _ = notifier.Close() }()
 
 			// Check if available
 			if !notifier.IsAvailable() {

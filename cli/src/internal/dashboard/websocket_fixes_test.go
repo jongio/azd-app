@@ -160,7 +160,7 @@ func TestBroadcastGoroutineLimiting(t *testing.T) {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
 		clients[i] = ws
-		defer ws.Close(websocket.StatusNormalClosure, "test")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test") }()
 
 		// Read initial message
 		var msg map[string]interface{}
@@ -270,7 +270,7 @@ func TestWriteFailureTracking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test") }()
 
 	// Read initial message
 	var msg map[string]interface{}
@@ -329,7 +329,7 @@ func TestJSONMarshalingOptimization(t *testing.T) {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
 		clients[i] = ws
-		defer ws.Close(websocket.StatusNormalClosure, "test")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test") }()
 
 		var msg map[string]interface{}
 		_ = wsjson.Read(ctx, ws, &msg)
@@ -410,14 +410,14 @@ func TestRateLimiterPerServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect to server 1: %v", err)
 	}
-	defer ws1.Close(websocket.StatusNormalClosure, "test")
+	defer func() { _ = ws1.Close(websocket.StatusNormalClosure, "test") }()
 
 	wsURL2 := strings.Replace(url2, "http://", "ws://", 1) + "/api/ws"
 	ws2, _, err := websocket.Dial(ctx, wsURL2, nil)
 	if err != nil {
 		t.Fatalf("failed to connect to server 2: %v", err)
 	}
-	defer ws2.Close(websocket.StatusNormalClosure, "test")
+	defer func() { _ = ws2.Close(websocket.StatusNormalClosure, "test") }()
 
 	// Verify rate limiters are tracking independently (with proper locking)
 	srv1.rateLimiter.mu.Lock()
@@ -501,7 +501,7 @@ func BenchmarkBroadcastWithSemaphore(b *testing.B) {
 		if err != nil {
 			b.Fatalf("failed to connect client: %v", err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "") }()
 		clients[i] = ws
 
 		var msg map[string]interface{}
@@ -552,7 +552,7 @@ func TestBusyWaitElimination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test") }()
 
 	var msg map[string]interface{}
 	_ = wsjson.Read(ctx, ws, &msg)
@@ -598,7 +598,7 @@ func TestConcurrentBroadcasts(t *testing.T) {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
 		clients[i] = ws
-		defer ws.Close(websocket.StatusNormalClosure, "test")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test") }()
 
 		var msg map[string]interface{}
 		_ = wsjson.Read(ctx, ws, &msg)

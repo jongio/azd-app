@@ -324,7 +324,7 @@ func (pi *ParallelInstaller) runVerbose() error {
 				default:
 				}
 				// Print task header for clarity
-				fmt.Fprintf(os.Stdout, "\n=== Installing: %s ===\n", task.Description)
+				_, _ = fmt.Fprintf(os.Stdout, "\n=== Installing: %s ===\n", task.Description)
 				pi.runTaskVerbose(task)
 			}
 		}()

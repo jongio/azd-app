@@ -324,9 +324,6 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 }
 
 func TestLogsExecutor_FollowLogs(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-	defer os.RemoveAll(tmpDir)
-
 	t.Run("dashboard streaming completes without error", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
@@ -376,8 +373,7 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 }
 
 func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("uses in-memory when buffers available", func(t *testing.T) {
 		var buf bytes.Buffer

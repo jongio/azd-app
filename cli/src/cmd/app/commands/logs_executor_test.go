@@ -225,8 +225,7 @@ func TestLogsExecutor_SetupOutputWriter(t *testing.T) {
 	})
 
 	t.Run("file writer", func(t *testing.T) {
-		tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-		defer os.RemoveAll(tmpDir)
+		tmpDir := t.TempDir()
 
 		outputFile := filepath.Join(tmpDir, "output.log")
 		opts := &logsOptions{file: outputFile}
@@ -246,8 +245,7 @@ func TestLogsExecutor_SetupOutputWriter(t *testing.T) {
 	})
 
 	t.Run("nested directory creation", func(t *testing.T) {
-		tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-		defer os.RemoveAll(tmpDir)
+		tmpDir := t.TempDir()
 
 		outputFile := filepath.Join(tmpDir, "nested", "dir", "output.log")
 		opts := &logsOptions{file: outputFile}
@@ -269,8 +267,7 @@ func TestLogsExecutor_SetupOutputWriter(t *testing.T) {
 }
 
 func TestLogsExecutor_CollectLogs(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
 	_ = os.MkdirAll(logsDir, 0755)
@@ -325,8 +322,7 @@ func TestLogsExecutor_CollectLogs(t *testing.T) {
 }
 
 func TestLogsExecutor_BuildLogFilterInternal(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("with exclude patterns", func(t *testing.T) {
 		opts := &logsOptions{
@@ -363,8 +359,7 @@ func TestLogsExecutor_BuildLogFilterInternal(t *testing.T) {
 // ==================== Execute tests ====================
 
 func TestLogsExecutor_Execute(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
 	_ = os.MkdirAll(logsDir, 0755)
@@ -627,8 +622,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 }
 
 func TestLogsExecutor_AzureStandaloneFallback(t *testing.T) {
-	tmpDir, _ := os.MkdirTemp("", "logs_test_*")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Stub standalone fetcher
 	originalFetch := fetchAzureLogsStandalone

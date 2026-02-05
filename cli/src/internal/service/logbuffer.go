@@ -138,10 +138,10 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 func (lb *LogBuffer) rotateLogFile() {
 	// Flush and close current file
 	if lb.fileWriter != nil {
-		lb.fileWriter.Flush()
+		_ = lb.fileWriter.Flush()
 	}
 	if lb.file != nil {
-		lb.file.Close()
+		_ = lb.file.Close()
 	}
 
 	// Rotate existing backup files (delete oldest, shift others)
@@ -153,7 +153,7 @@ func (lb *LogBuffer) rotateLogFile() {
 
 	// Delete the oldest backup if it exceeds MaxLogFileBackups
 	oldestBackup := fmt.Sprintf("%s.%d", lb.filePath, MaxLogFileBackups+1)
-	os.Remove(oldestBackup) // Ignore errors
+	_ = os.Remove(oldestBackup) // Ignore errors
 
 	// Rename current file to .1
 	if err := os.Rename(lb.filePath, lb.filePath+".1"); err != nil {

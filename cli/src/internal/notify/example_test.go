@@ -18,7 +18,7 @@ func Example() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	// Check if notifications are available
 	if !notifier.IsAvailable() {
@@ -47,7 +47,7 @@ func ExampleNotifier_Send() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	ctx := context.Background()
 
@@ -83,17 +83,18 @@ func ExampleNotifier_RequestPermission() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	ctx := context.Background()
 
 	// Request permission (triggers OS permission prompt on first use)
 	if err := notifier.RequestPermission(ctx); err != nil {
-		if err == notify.ErrNotAvailable {
+		switch err {
+		case notify.ErrNotAvailable:
 			fmt.Println("Notifications not available on this system")
-		} else if err == notify.ErrPermissionDenied {
+		case notify.ErrPermissionDenied:
 			fmt.Println("User denied notification permissions")
-		} else {
+		default:
 			log.Printf("Permission request failed: %v", err)
 		}
 		return
@@ -114,7 +115,7 @@ func ExampleConfig() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	ctx := context.Background()
 	notification := notify.Notification{
@@ -135,7 +136,7 @@ func ExampleNotification_withActions() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	ctx := context.Background()
 
@@ -166,7 +167,7 @@ func ExampleNotifier_IsAvailable() {
 	if err != nil {
 		log.Fatalf("Failed to create notifier: %v", err)
 	}
-	defer notifier.Close()
+	defer func() { _ = notifier.Close() }()
 
 	if notifier.IsAvailable() {
 		fmt.Println("OS notifications are available")

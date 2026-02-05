@@ -336,7 +336,7 @@ func (s *Server) checkDiagnosticSettings(ctx context.Context, serviceName, works
 		slog.Debug("setup: diagnostic settings request failed", "service", serviceName, "error", err)
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Debug("setup: diagnostic settings request returned error", "service", serviceName, "status", resp.StatusCode)
@@ -441,7 +441,8 @@ func (s *Server) collectSetupIssues(response SetupStateResponse) []SetupIssue {
 	issues := make([]SetupIssue, 0)
 
 	// Workspace issues
-	if response.Workspace.Status == StatusMissing {
+	switch response.Workspace.Status {
+	case StatusMissing:
 		issues = append(issues, SetupIssue{
 			Severity: "error",
 			Category: CategoryWorkspace,
@@ -449,7 +450,7 @@ func (s *Server) collectSetupIssues(response SetupStateResponse) []SetupIssue {
 			Fix:      "Add 'logs.analytics.workspace: ${AZURE_LOG_ANALYTICS_WORKSPACE_ID}' to azure.yaml and deploy with 'azd up'",
 			DocsURL:  logsTroubleshootURL,
 		})
-	} else if response.Workspace.Status == StatusNotDeployed {
+	case StatusNotDeployed:
 		issues = append(issues, SetupIssue{
 			Severity: "warning",
 			Category: CategoryWorkspace,
@@ -480,14 +481,15 @@ func (s *Server) collectSetupIssues(response SetupStateResponse) []SetupIssue {
 
 	// Service issues
 	for _, svc := range response.Services {
-		if svc.Status == StatusNotDeployed {
+		switch svc.Status {
+		case StatusNotDeployed:
 			issues = append(issues, SetupIssue{
 				Severity: "warning",
 				Category: CategoryDiagnosticSettings,
 				Message:  fmt.Sprintf("Service '%s' not deployed to Azure", svc.ServiceName),
 				Fix:      "azd up",
 			})
-		} else if svc.Status == StatusNotConfigured {
+		case StatusNotConfigured:
 			issues = append(issues, SetupIssue{
 				Severity: "error",
 				Category: CategoryDiagnosticSettings,
@@ -495,7 +497,7 @@ func (s *Server) collectSetupIssues(response SetupStateResponse) []SetupIssue {
 				Fix:      fmt.Sprintf("Configure diagnostic settings for %s to send logs to Log Analytics workspace", svc.ServiceName),
 				DocsURL:  logsTroubleshootURL,
 			})
-		} else if svc.Status == StatusPartial {
+		case StatusPartial:
 			issues = append(issues, SetupIssue{
 				Severity: "info",
 				Category: CategoryDiagnosticSettings,

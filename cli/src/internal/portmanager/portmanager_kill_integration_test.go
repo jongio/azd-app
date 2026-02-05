@@ -137,7 +137,7 @@ func TestKillExternalProcess_VerifyPortFreed(t *testing.T) {
 		t.Logf("Bind failed after retries, diagnostics:\n%s", diag.String())
 		t.Fatalf("Failed to bind to port %d after kill: %v", port, bindErr)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	t.Logf("Successfully bound to port %d after killing process", port)
 

@@ -10,9 +10,9 @@ func TestNewAzureCredential(t *testing.T) {
 	// Test with no credentials (should return error or fallback)
 	// Clear any existing environment variables that might affect the test
 	originalToken := os.Getenv("AZD_ACCESS_TOKEN")
-	defer os.Setenv("AZD_ACCESS_TOKEN", originalToken)
+	defer func() { _ = os.Setenv("AZD_ACCESS_TOKEN", originalToken) }()
 
-	os.Unsetenv("AZD_ACCESS_TOKEN")
+	_ = os.Unsetenv("AZD_ACCESS_TOKEN")
 
 	// This test verifies the function doesn't panic
 	cred, err := NewAzureCredential()
@@ -42,8 +42,8 @@ func TestAzdTokenCredential(t *testing.T) {
 func TestCredentialChain(t *testing.T) {
 	// Clear env var for test
 	originalToken := os.Getenv("AZD_ACCESS_TOKEN")
-	defer os.Setenv("AZD_ACCESS_TOKEN", originalToken)
-	os.Unsetenv("AZD_ACCESS_TOKEN")
+	defer func() { _ = os.Setenv("AZD_ACCESS_TOKEN", originalToken) }()
+	_ = os.Unsetenv("AZD_ACCESS_TOKEN")
 
 	chain, err := NewCredentialChain()
 	if err != nil {
@@ -66,8 +66,8 @@ func TestCredentialChain(t *testing.T) {
 func TestValidateCredentials(t *testing.T) {
 	// Clear env var for test
 	originalToken := os.Getenv("AZD_ACCESS_TOKEN")
-	defer os.Setenv("AZD_ACCESS_TOKEN", originalToken)
-	os.Unsetenv("AZD_ACCESS_TOKEN")
+	defer func() { _ = os.Setenv("AZD_ACCESS_TOKEN", originalToken) }()
+	_ = os.Unsetenv("AZD_ACCESS_TOKEN")
 
 	cred, err := NewAzureCredential()
 	if err != nil {

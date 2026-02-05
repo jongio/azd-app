@@ -12,11 +12,11 @@ import (
 
 func TestDatabase(t *testing.T) {
 	dbPath := t.TempDir() + "/test.db"
-	defer os.Remove(dbPath)
+	defer func() { _ = os.Remove(dbPath) }()
 
 	db, err := NewDatabase(dbPath)
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 

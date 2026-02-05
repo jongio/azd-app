@@ -12,7 +12,7 @@ func TestListenLoopback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListenLoopback failed: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	if port == 0 {
 		t.Fatalf("ListenLoopback returned port 0")
@@ -33,7 +33,7 @@ func TestListenLoopback(t *testing.T) {
 	for time.Now().Before(deadline) {
 		conn, err = net.Dial("tcp", listener.Addr().String())
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			return
 		}
 		time.Sleep(10 * time.Millisecond)

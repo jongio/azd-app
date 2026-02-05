@@ -312,14 +312,14 @@ func TestDiscovery_OutputModeSelection(t *testing.T) {
 	oldVars := make(map[string]string)
 	for _, v := range ciVars {
 		oldVars[v] = os.Getenv(v)
-		os.Unsetenv(v)
+		_ = os.Unsetenv(v)
 	}
 	defer func() {
 		for k, v := range oldVars {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()

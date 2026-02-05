@@ -357,8 +357,8 @@ func TestReadServiceOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create pipe: %v", err)
 	}
-	defer pr.Close()
-	defer pw.Close()
+	defer func() { _ = pr.Close() }()
+	defer func() { _ = pw.Close() }()
 
 	outputChan := make(chan string, 10)
 
@@ -378,7 +378,7 @@ func TestReadServiceOutput(t *testing.T) {
 				break
 			}
 		}
-		pw.Close()
+		_ = pw.Close()
 	}()
 
 	// Collect output with timeout

@@ -164,11 +164,7 @@ func TestRunCommandFlagDefaults(t *testing.T) {
 
 func TestRunAspireMode(t *testing.T) {
 	// Create temporary directory with Aspire project
-	tmpDir, err := os.MkdirTemp("", "aspire-mode-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create AppHost.csproj
 	csprojPath := filepath.Join(tmpDir, "AppHost.csproj")

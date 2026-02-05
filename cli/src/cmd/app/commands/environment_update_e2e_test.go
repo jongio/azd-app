@@ -60,7 +60,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message
 	var initialMsg map[string]interface{}
@@ -94,16 +94,10 @@ services:
 	}
 
 	// Step 3: Simulate azd provision completing - set environment variables
-	os.Setenv("SERVICE_API_URL", "https://test-api.azurecontainerapps.io")
-	os.Setenv("SERVICE_API_NAME", "test-api-ca")
-	os.Setenv("SERVICE_WEB_URL", "https://test-web.azurecontainerapps.io")
-	os.Setenv("SERVICE_WEB_NAME", "test-web-ca")
-	defer func() {
-		os.Unsetenv("SERVICE_API_URL")
-		os.Unsetenv("SERVICE_API_NAME")
-		os.Unsetenv("SERVICE_WEB_URL")
-		os.Unsetenv("SERVICE_WEB_NAME")
-	}()
+	t.Setenv("SERVICE_API_URL", "https://test-api.azurecontainerapps.io")
+	t.Setenv("SERVICE_API_NAME", "test-api-ca")
+	t.Setenv("SERVICE_WEB_URL", "https://test-web.azurecontainerapps.io")
+	t.Setenv("SERVICE_WEB_NAME", "test-web-ca")
 
 	// Step 4: Simulate environment update event handler being called
 	// Refresh the cache and broadcast directly since we can't set the path on the mock ProjectConfig
@@ -229,7 +223,7 @@ services:
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "test complete")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 		clients[i] = ws
 
 		// Read initial message
@@ -240,8 +234,7 @@ services:
 	}
 
 	// Set environment variables
-	os.Setenv("SERVICE_API_URL", "https://updated-api.azurecontainerapps.io")
-	defer os.Unsetenv("SERVICE_API_URL")
+	t.Setenv("SERVICE_API_URL", "https://updated-api.azurecontainerapps.io")
 
 	// Refresh environment cache
 	serviceinfo.RefreshEnvironmentCache()
@@ -295,12 +288,8 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	}
 
 	// Create test environment
-	os.Setenv("TEST_VAR_1", "value1")
-	os.Setenv("TEST_VAR_2", "value2")
-	defer func() {
-		os.Unsetenv("TEST_VAR_1")
-		os.Unsetenv("TEST_VAR_2")
-	}()
+	t.Setenv("TEST_VAR_1", "value1")
+	t.Setenv("TEST_VAR_2", "value2")
 
 	// Start dashboard
 	tempDir := t.TempDir()
@@ -329,7 +318,7 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "test complete")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 		clients[i] = ws
 
 		// Drain initial message
@@ -344,7 +333,7 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	// Goroutine 1: Update environment and refresh cache
 	go func() {
 		for i := 0; i < numIterations; i++ {
-			os.Setenv("CONCURRENT_VAR", "iteration_"+string(rune(i)))
+			_ = os.Setenv("CONCURRENT_VAR", "iteration_"+string(rune(i)))
 			serviceinfo.RefreshEnvironmentCache()
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -365,7 +354,7 @@ func TestEnvironmentCache_ThreadSafety(t *testing.T) {
 	<-done
 
 	// Verify all clients can still receive messages (no deadlocks)
-	os.Setenv("FINAL_VAR", "final_value")
+	t.Setenv("FINAL_VAR", "final_value")
 	serviceinfo.RefreshEnvironmentCache()
 	_ = srv.BroadcastServiceUpdate(tempDir)
 

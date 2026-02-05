@@ -5,7 +5,7 @@
  * Creates individual command pages and the main index/overview page.
  */
 
-import { CommandInfo } from './cli-parser.js';
+import type { CommandInfo } from './cli-parser.js';
 
 const HIDDEN_FROM_INDEX = ['listen'];
 

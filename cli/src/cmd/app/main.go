@@ -44,7 +44,7 @@ func main() {
 
 			// Set global output format and debug mode
 			if debugMode {
-				os.Setenv("AZD_DEBUG", "true")
+				_ = os.Setenv("AZD_DEBUG", "true")
 				// Configure slog to show debug messages
 				slog.SetLogLoggerLevel(slog.LevelDebug)
 			}

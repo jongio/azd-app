@@ -101,7 +101,7 @@ func TestServer_BroadcastDuringShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message
 	var initialMsg map[string]interface{}
@@ -300,7 +300,7 @@ func TestServer_ConcurrentBroadcasts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "test complete")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 		clients[i] = ws
 
 		// Read initial message
@@ -371,7 +371,7 @@ func TestServer_SlowClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect slow client: %v", err)
 	}
-	defer slowWS.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = slowWS.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message from slow client, then stop reading
 	var initialMsg map[string]interface{}
@@ -385,7 +385,7 @@ func TestServer_SlowClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect fast client: %v", err)
 	}
-	defer fastWS.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = fastWS.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message from fast client
 	if err := wsjson.Read(ctx, fastWS, &initialMsg); err != nil {
@@ -565,7 +565,7 @@ func BenchmarkBroadcast(b *testing.B) {
 		if err != nil {
 			b.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "benchmark complete")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "benchmark complete") }()
 		clients[i] = ws
 
 		// Read initial message

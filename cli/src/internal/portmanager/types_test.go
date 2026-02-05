@@ -61,7 +61,7 @@ func TestPortReservation_Release_AlreadyReleased(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test listener: %v", err)
 	}
-	listener.Close() // Close it first
+	_ = listener.Close() // Close it first
 
 	reservation := &PortReservation{
 		Port:     8080,

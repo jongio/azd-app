@@ -87,7 +87,7 @@ func TestSafeCloseWithContext(t *testing.T) {
 func TestSafeClose_RealCloser(t *testing.T) {
 	t.Run("with pipe reader", func(t *testing.T) {
 		r, w := io.Pipe()
-		w.Close() // Close writer first
+		_ = w.Close() // Close writer first
 		SafeClose(r, "pipe reader")
 		// No assertion needed - just verify no panic
 	})

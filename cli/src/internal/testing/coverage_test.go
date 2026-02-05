@@ -13,7 +13,7 @@ func TestCoverageAggregator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -60,7 +60,7 @@ func TestCheckThreshold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -104,7 +104,7 @@ func TestGenerateJSONReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -136,7 +136,7 @@ func TestGenerateJSONReport_WithFilesAndUncoveredLines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -267,7 +267,7 @@ func TestGenerateCoberturaReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -299,7 +299,7 @@ func TestGenerateHTMLReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -331,7 +331,7 @@ func TestAddNilCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -346,7 +346,7 @@ func TestSetSourceRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 	agg.SetSourceRoot("/path/to/source")
@@ -361,7 +361,7 @@ func TestGenerateAllReports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -396,7 +396,7 @@ func TestGenerateReportUnsupportedFormat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -422,7 +422,7 @@ func TestGenerateFileHTML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a source file
 	sourceDir := filepath.Join(tmpDir, "src")
@@ -631,7 +631,7 @@ func TestAggregateWithFileCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 
@@ -711,7 +711,7 @@ func TestCoberturaReportWithSourceRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 	agg.SetSourceRoot("/path/to/src")
@@ -769,7 +769,7 @@ func TestAggregateWithNoCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	agg := NewCoverageAggregator(80.0, tmpDir)
 

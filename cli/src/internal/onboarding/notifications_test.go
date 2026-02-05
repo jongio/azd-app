@@ -34,16 +34,16 @@ func TestShouldRun_ConfigDoesNotExist(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
 	// Set temp home directory
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir) // For Windows
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir) // For Windows
 
 	onboarding := New()
 	ctx := context.Background()
@@ -82,16 +82,16 @@ func TestShouldRun_ConfigExists(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
 	// Set temp home directory
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir) // For Windows
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir) // For Windows
 
 	onboarding := New()
 	ctx := context.Background()
@@ -128,16 +128,16 @@ func TestRun_EnableNotificationsAll(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
 	// Set temp home directory
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir) // For Windows
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir) // For Windows
 
 	// Simulate user input: yes, choice 1 (all), no quiet hours
 	input := "y\n1\nn\n"
@@ -194,16 +194,16 @@ func TestRun_EnableNotificationsCriticalOnly(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
 	// Set temp home directory
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir) // For Windows
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir) // For Windows
 
 	// Simulate user input: yes, choice 3 (critical), yes quiet hours
 	input := "y\n3\ny\n"
@@ -264,16 +264,16 @@ func TestRun_DisableNotifications(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
 	// Set temp home directory
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir) // For Windows
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir) // For Windows
 
 	// Simulate user input: no
 	input := "n\n"
@@ -322,16 +322,16 @@ func TestRun_WarningsOnly(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
 	// Set temp home directory
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir) // For Windows
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir) // For Windows
 
 	// Simulate user input: yes, choice 2 (warnings), no quiet hours
 	input := "y\n2\nn\n"
@@ -379,15 +379,15 @@ func TestRun_DefaultChoice(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir)
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir)
 
 	// Simulate user input: (default yes), (default choice 3), no quiet hours
 	input := "\n\nn\n"
@@ -454,15 +454,15 @@ func TestRun_YesVariations(t *testing.T) {
 			defer func() {
 				if originalHome != "" {
 					if strings.Contains(originalHome, "USERPROFILE") {
-						os.Setenv("USERPROFILE", originalHome)
+						_ = os.Setenv("USERPROFILE", originalHome)
 					} else {
-						os.Setenv("HOME", originalHome)
+						_ = os.Setenv("HOME", originalHome)
 					}
 				}
 			}()
 
-			os.Setenv("HOME", tmpDir)
-			os.Setenv("USERPROFILE", tmpDir)
+			_ = os.Setenv("HOME", tmpDir)
+			_ = os.Setenv("USERPROFILE", tmpDir)
 
 			reader := bufio.NewReader(strings.NewReader(tt.input))
 			onboarding := &NotificationOnboarding{
@@ -507,15 +507,15 @@ func TestRun_InvalidChoice(t *testing.T) {
 	defer func() {
 		if originalHome != "" {
 			if strings.Contains(originalHome, "USERPROFILE") {
-				os.Setenv("USERPROFILE", originalHome)
+				_ = os.Setenv("USERPROFILE", originalHome)
 			} else {
-				os.Setenv("HOME", originalHome)
+				_ = os.Setenv("HOME", originalHome)
 			}
 		}
 	}()
 
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("USERPROFILE", tmpDir)
+	_ = os.Setenv("HOME", tmpDir)
+	_ = os.Setenv("USERPROFILE", tmpDir)
 
 	// Simulate user input: yes, invalid choice (4), no quiet hours
 	// Invalid choice should default to critical (choice 3)

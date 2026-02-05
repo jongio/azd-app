@@ -526,7 +526,7 @@ func TestLoadSaveNotificationPreferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	prefsPath := filepath.Join(tmpDir, ".azd", "notifications.json")
 
@@ -599,7 +599,7 @@ func TestSaveNotificationPreferencesValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	prefsPath := filepath.Join(tmpDir, ".azd", "notifications.json")
 
@@ -674,7 +674,7 @@ func TestAtomicWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	prefsPath := filepath.Join(tmpDir, ".azd", "notifications.json")
 
@@ -712,7 +712,7 @@ func TestGetGlobalNotificationPreferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	prefsPath := filepath.Join(tmpDir, ".azd", "notifications.json")
 

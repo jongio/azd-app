@@ -177,7 +177,7 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 		gz := gzip.NewWriter(w)
-		defer gz.Close()
+		defer func() { _ = gz.Close() }()
 
 		if err := json.NewEncoder(gz).Encode(logs); err != nil {
 			log.Printf("Failed to write gzipped JSON response: %v", err)
@@ -208,7 +208,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 	services := reg.ListAll()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html>
 <head>
     <title>AZD App Dashboard</title>
@@ -232,13 +232,14 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 `)
 
 	if len(services) == 0 {
-		fmt.Fprintf(w, `<p>No services are currently running.</p>`)
+		_, _ = fmt.Fprintf(w, `<p>No services are currently running.</p>`)
 	} else {
 		for _, svc := range services {
 			statusClass := "starting"
-			if svc.Status == "ready" {
+			switch svc.Status {
+			case "ready":
 				statusClass = "ready"
-			} else if svc.Status == "error" {
+			case "error":
 				statusClass = "error"
 			}
 
@@ -250,7 +251,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 			escapedStatus := html.EscapeString(svc.Status)
 			escapedHealth := "-" // Health is computed dynamically via health checks
 
-			fmt.Fprintf(w, `
+			_, _ = fmt.Fprintf(w, `
     <div class="service">
         <h3><span class="status %s"></span>%s</h3>
         <p><strong>URL:</strong> <a href="%s" target="_blank">%s</a></p>
@@ -262,7 +263,7 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fmt.Fprintf(w, `
+	_, _ = fmt.Fprintf(w, `
     <hr>
     <p style="color: #666; font-size: 14px;">
         <a href="/api/services">View JSON</a> | 

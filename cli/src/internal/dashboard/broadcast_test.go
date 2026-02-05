@@ -52,7 +52,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message (sent on connect)
 	var initialMsg map[string]interface{}
@@ -127,7 +127,7 @@ services:
 		if err != nil {
 			t.Fatalf("failed to connect client %d: %v", i, err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "test complete")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 		clients[i] = ws
 
 		// Read initial message
@@ -300,7 +300,7 @@ services:
 	if err != nil {
 		t.Fatalf("failed to connect WebSocket: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Should receive initial services immediately on connect
 	readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Second)

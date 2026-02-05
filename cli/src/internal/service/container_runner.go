@@ -273,7 +273,7 @@ func StartContainerLogCollection(process *ServiceProcess, projectDir string) err
 	// Create log buffer for this service
 	buffer, err := logManager.CreateBuffer(process.Name, 1000, true)
 	if err != nil {
-		logReader.Close()
+		_ = logReader.Close()
 		return fmt.Errorf("failed to create log buffer: %w", err)
 	}
 
@@ -285,7 +285,7 @@ func StartContainerLogCollection(process *ServiceProcess, projectDir string) err
 
 // collectContainerLogs reads from a container log stream and adds entries to the buffer.
 func collectContainerLogs(reader io.ReadCloser, serviceName string, buffer *LogBuffer) {
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {

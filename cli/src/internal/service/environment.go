@@ -281,7 +281,7 @@ func LoadDotEnv(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open .env file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	env := make(map[string]string)
 	scanner := bufio.NewScanner(file)
@@ -330,13 +330,13 @@ func isValidEnvVarName(name string) bool {
 	// Must start with letter or underscore (POSIX requirement)
 	if len(name) > 0 {
 		first := name[0]
-		if !((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_') {
+		if (first < 'A' || first > 'Z') && (first < 'a' || first > 'z') && first != '_' {
 			return false
 		}
 	}
 	// Remaining characters must be alphanumeric or underscore
 	for _, ch := range name {
-		if !((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_') {
+		if (ch < 'A' || ch > 'Z') && (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '_' {
 			return false
 		}
 	}

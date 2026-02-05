@@ -240,7 +240,7 @@ func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 
 		// Wait for both to complete, then close the writer
 		wg.Wait()
-		pw.Close()
+		_ = pw.Close()
 	}()
 
 	return &combinedReadCloser{
@@ -264,7 +264,7 @@ func (c *combinedReadCloser) Read(p []byte) (int, error) {
 func (c *combinedReadCloser) Close() error {
 	// Close the pipe writer to unblock any pending reads
 	if c.pipe != nil {
-		c.pipe.Close()
+		_ = c.pipe.Close()
 	}
 	if c.cmd.Process != nil {
 		_ = c.cmd.Process.Kill()

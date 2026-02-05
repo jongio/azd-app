@@ -471,18 +471,19 @@ func TestEndpointCacheInvalidation(t *testing.T) {
 	// Create a server that succeeds then fails
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		if r.URL.Path == "/health" {
+		switch r.URL.Path {
+		case "/health":
 			if callCount <= failAfter {
 				w.WriteHeader(200)
 				_, _ = w.Write([]byte(`{"status":"healthy"}`))
 			} else {
 				w.WriteHeader(500) // Simulate failure
 			}
-		} else if r.URL.Path == "/healthz" {
+		case "/healthz":
 			// Backup endpoint always works
 			w.WriteHeader(200)
 			_, _ = w.Write([]byte(`{"status":"healthy"}`))
-		} else {
+		default:
 			w.WriteHeader(404)
 		}
 	}))

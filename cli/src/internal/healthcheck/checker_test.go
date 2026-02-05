@@ -247,7 +247,7 @@ func TestCheckPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	tests := []struct {
 		name string
@@ -305,7 +305,7 @@ func TestPerformHTTPCheck(t *testing.T) {
 			name: "200 OK",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprintln(w, `{"status": "healthy"}`)
+				_, _ = fmt.Fprintln(w, `{"status": "healthy"}`)
 			},
 			wantStatus:     HealthStatusHealthy,
 			wantStatusCode: 200,
@@ -575,7 +575,7 @@ func TestTryCustomHealthCheck_HTTPUrl(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, `{"status": "healthy"}`)
+		_, _ = fmt.Fprintln(w, `{"status": "healthy"}`)
 	}))
 	defer server.Close()
 

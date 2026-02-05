@@ -199,12 +199,12 @@ func TestConfigurablePortRange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.startEnv != "" {
-				os.Setenv(envPortRangeStart, tt.startEnv)
-				defer os.Unsetenv(envPortRangeStart)
+				_ = os.Setenv(envPortRangeStart, tt.startEnv)
+				defer func() { _ = os.Unsetenv(envPortRangeStart) }()
 			}
 			if tt.endEnv != "" {
-				os.Setenv(envPortRangeEnd, tt.endEnv)
-				defer os.Unsetenv(envPortRangeEnd)
+				_ = os.Setenv(envPortRangeEnd, tt.endEnv)
+				defer func() { _ = os.Unsetenv(envPortRangeEnd) }()
 			}
 
 			managerCacheMu.Lock()
@@ -242,10 +242,10 @@ func TestIsPortAvailable_PublicAPI(t *testing.T) {
 func TestAssignPort_PortRangeExhausted(t *testing.T) {
 	t.Skip("Skipping test that triggers user prompts - needs refactoring for testability")
 
-	os.Setenv(envPortRangeStart, "3000")
-	os.Setenv(envPortRangeEnd, "3001")
-	defer os.Unsetenv(envPortRangeStart)
-	defer os.Unsetenv(envPortRangeEnd)
+	_ = os.Setenv(envPortRangeStart, "3000")
+	_ = os.Setenv(envPortRangeEnd, "3001")
+	defer func() { _ = os.Unsetenv(envPortRangeStart) }()
+	defer func() { _ = os.Unsetenv(envPortRangeEnd) }()
 
 	managerCacheMu.Lock()
 	managerCache = make(map[string]*cacheEntry)
@@ -298,8 +298,8 @@ func TestGetPortRangeEnd_InvalidEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv(envPortRangeEnd, tt.envValue)
-			defer os.Unsetenv(envPortRangeEnd)
+			_ = os.Setenv(envPortRangeEnd, tt.envValue)
+			defer func() { _ = os.Unsetenv(envPortRangeEnd) }()
 
 			got := getPortRangeEnd()
 			if got != tt.expectedEnd {

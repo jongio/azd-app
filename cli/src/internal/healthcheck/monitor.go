@@ -427,7 +427,8 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 
 	serviceName := result.ServiceName
 
-	if result.Status == HealthStatusUnhealthy {
+	switch result.Status {
+	case HealthStatusUnhealthy:
 		// Increment failure count
 		m.failureCount[serviceName]++
 		result.ConsecutiveFailures = m.failureCount[serviceName]
@@ -436,7 +437,7 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 		if lastSuccess, exists := m.lastSuccessTime[serviceName]; exists {
 			result.LastSuccessTime = &lastSuccess
 		}
-	} else if result.Status == HealthStatusHealthy {
+	case HealthStatusHealthy:
 		// Reset failure count on healthy status
 		m.failureCount[serviceName] = 0
 		result.ConsecutiveFailures = 0
@@ -445,7 +446,7 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 		now := time.Now()
 		m.lastSuccessTime[serviceName] = now
 		result.LastSuccessTime = &now
-	} else {
+	default:
 		// For other statuses (degraded, starting, unknown), include current count without incrementing
 		if count, exists := m.failureCount[serviceName]; exists {
 			result.ConsecutiveFailures = count
@@ -476,7 +477,8 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 		var status string
 
 		if result.ServiceMode == service.ServiceModeBuild || result.ServiceMode == service.ServiceModeTask {
-			if result.Status == HealthStatusHealthy {
+			switch result.Status {
+			case HealthStatusHealthy:
 				if details, ok := result.Details["state"].(string); ok {
 					switch details {
 					case "built":
@@ -493,20 +495,21 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 				} else {
 					status = "running"
 				}
-			} else if result.Status == HealthStatusUnhealthy {
+			case HealthStatusUnhealthy:
 				status = "error"
-			} else if result.Status == HealthStatusStarting {
+			case HealthStatusStarting:
 				status = "starting"
-			} else {
+			default:
 				status = "running"
 			}
 		} else {
 			status = "running"
-			if result.Status == HealthStatusUnhealthy {
+			switch result.Status {
+			case HealthStatusUnhealthy:
 				status = "error"
-			} else if result.Status == HealthStatusDegraded {
+			case HealthStatusDegraded:
 				status = "degraded"
-			} else if result.Status == HealthStatusStarting {
+			case HealthStatusStarting:
 				status = "starting"
 			}
 		}

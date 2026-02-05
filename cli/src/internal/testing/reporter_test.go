@@ -408,19 +408,19 @@ func TestReportGenerator_generateGitHubReport(t *testing.T) {
 	oldActions := os.Getenv("GITHUB_ACTIONS")
 	defer func() {
 		if oldSummary == "" {
-			os.Unsetenv("GITHUB_STEP_SUMMARY")
+			_ = os.Unsetenv("GITHUB_STEP_SUMMARY")
 		} else {
-			os.Setenv("GITHUB_STEP_SUMMARY", oldSummary)
+			_ = os.Setenv("GITHUB_STEP_SUMMARY", oldSummary)
 		}
 		if oldOutput == "" {
-			os.Unsetenv("GITHUB_OUTPUT")
+			_ = os.Unsetenv("GITHUB_OUTPUT")
 		} else {
-			os.Setenv("GITHUB_OUTPUT", oldOutput)
+			_ = os.Setenv("GITHUB_OUTPUT", oldOutput)
 		}
 		if oldActions == "" {
-			os.Unsetenv("GITHUB_ACTIONS")
+			_ = os.Unsetenv("GITHUB_ACTIONS")
 		} else {
-			os.Setenv("GITHUB_ACTIONS", oldActions)
+			_ = os.Setenv("GITHUB_ACTIONS", oldActions)
 		}
 	}()
 
@@ -429,10 +429,10 @@ func TestReportGenerator_generateGitHubReport(t *testing.T) {
 	outputFile := filepath.Join(tempDir, "output.txt")
 
 	// Prevent printing actual workflow annotations during the test run
-	os.Unsetenv("GITHUB_ACTIONS")
+	_ = os.Unsetenv("GITHUB_ACTIONS")
 
-	os.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
-	os.Setenv("GITHUB_OUTPUT", outputFile)
+	_ = os.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+	_ = os.Setenv("GITHUB_OUTPUT", outputFile)
 
 	gen := NewReportGenerator("github", tempDir)
 
@@ -508,14 +508,14 @@ func TestReportGenerator_generateGitHubReport_NoEnvVars(t *testing.T) {
 	// Clear GitHub env vars
 	oldSummary := os.Getenv("GITHUB_STEP_SUMMARY")
 	oldOutput := os.Getenv("GITHUB_OUTPUT")
-	os.Unsetenv("GITHUB_STEP_SUMMARY")
-	os.Unsetenv("GITHUB_OUTPUT")
+	_ = os.Unsetenv("GITHUB_STEP_SUMMARY")
+	_ = os.Unsetenv("GITHUB_OUTPUT")
 	defer func() {
 		if oldSummary != "" {
-			os.Setenv("GITHUB_STEP_SUMMARY", oldSummary)
+			_ = os.Setenv("GITHUB_STEP_SUMMARY", oldSummary)
 		}
 		if oldOutput != "" {
-			os.Setenv("GITHUB_OUTPUT", oldOutput)
+			_ = os.Setenv("GITHUB_OUTPUT", oldOutput)
 		}
 	}()
 

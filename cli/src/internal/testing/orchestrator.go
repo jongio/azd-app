@@ -570,10 +570,7 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 	}
 
 	// Execute tests (coverage flag from config)
-	coverageEnabled := false
-	if o.config != nil && o.config.CoverageThreshold > 0 {
-		coverageEnabled = true
-	}
+	coverageEnabled := o.config != nil && o.config.CoverageThreshold > 0
 
 	// Determine timeout
 	timeout := DefaultTestTimeout
@@ -844,8 +841,8 @@ func parseCommandString(cmd string) []string {
 	quoteChar := rune(0)
 
 	for _, r := range cmd {
-		switch {
-		case r == '"' || r == '\'':
+		switch r {
+		case '"', '\'':
 			if inQuote && r == quoteChar {
 				// End of quoted section
 				inQuote = false
@@ -858,7 +855,7 @@ func parseCommandString(cmd string) []string {
 				// Different quote inside - treat as literal
 				current.WriteRune(r)
 			}
-		case r == ' ' || r == '\t':
+		case ' ', '\t':
 			if inQuote {
 				current.WriteRune(r)
 			} else if current.Len() > 0 {

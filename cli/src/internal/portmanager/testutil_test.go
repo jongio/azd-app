@@ -229,7 +229,7 @@ func findAvailablePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	listener.Close()
+	_ = listener.Close()
 
 	// Give the OS a moment to release the port
 	time.Sleep(50 * time.Millisecond)
@@ -250,7 +250,7 @@ func waitForPort(ctx context.Context, port int, timeout time.Duration) error {
 
 		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 100*time.Millisecond)
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -280,7 +280,7 @@ func canBindToPort(port int) bool {
 	if err != nil {
 		return false
 	}
-	listener.Close()
+	_ = listener.Close()
 	return true
 }
 

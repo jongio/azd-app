@@ -48,20 +48,13 @@ func TestGetNotificationDBPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment variables
 			for key, val := range tt.setEnv {
-				oldVal := os.Getenv(key)
-				os.Setenv(key, val)
-				defer os.Setenv(key, oldVal)
+				t.Setenv(key, val)
 			}
 
 			// Clear environment variables
 			for _, key := range tt.clearEnv {
-				oldVal := os.Getenv(key)
-				os.Unsetenv(key)
-				defer func(k, v string) {
-					if v != "" {
-						os.Setenv(k, v)
-					}
-				}(key, oldVal)
+				t.Setenv(key, "")
+				_ = os.Unsetenv(key)
 			}
 
 			path := getNotificationDBPath()
@@ -360,7 +353,7 @@ func TestDatabaseIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 
@@ -458,7 +451,7 @@ func TestDatabaseMaxRecordsEnforcement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ctx := context.Background()
 

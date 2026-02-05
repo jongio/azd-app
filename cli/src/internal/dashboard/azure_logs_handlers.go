@@ -149,13 +149,14 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 
 		// Set appropriate HTTP status code
 		statusCode := http.StatusInternalServerError
-		if response.Error.Code == "AUTH_EXPIRED" || response.Error.Code == "AUTH_REQUIRED" {
+		switch response.Error.Code {
+		case "AUTH_EXPIRED", "AUTH_REQUIRED":
 			statusCode = http.StatusUnauthorized
-		} else if response.Error.Code == "NOT_DEPLOYED" || response.Error.Code == "NO_WORKSPACE" {
+		case "NOT_DEPLOYED", "NO_WORKSPACE":
 			statusCode = http.StatusServiceUnavailable
-		} else if response.Error.Code == "NO_PERMISSION" {
+		case "NO_PERMISSION":
 			statusCode = http.StatusForbidden
-		} else if response.Error.Code == "NO_RESULTS" {
+		case "NO_RESULTS":
 			// NO_RESULTS is not an error - it means the query succeeded but found no logs
 			// Return 200 with empty logs array instead of error
 			response.Status = "ok"

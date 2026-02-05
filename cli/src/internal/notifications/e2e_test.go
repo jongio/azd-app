@@ -155,7 +155,7 @@ func TestE2E_OSNotificationHandler(t *testing.T) {
 		}
 
 		handler := NewOSNotificationHandler(mockNotifier, prefs)
-		defer handler.Close()
+		defer func() { _ = handler.Close() }()
 
 		ctx := context.Background()
 
@@ -197,7 +197,7 @@ func TestE2E_OSNotificationHandler(t *testing.T) {
 		}
 
 		handler := NewOSNotificationHandler(mockNotifier, prefs)
-		defer handler.Close()
+		defer func() { _ = handler.Close() }()
 
 		ctx := context.Background()
 
@@ -243,7 +243,7 @@ func TestE2E_HistoryHandler(t *testing.T) {
 		dbPath := t.TempDir() + "/notifications_test.db"
 		db, err := NewDatabase(dbPath)
 		require.NoError(t, err)
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		// Create history handler with database adapter
 		store := &databaseStore{db: db}

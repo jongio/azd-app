@@ -334,10 +334,11 @@ func (w *windowsNotifier) buildToastScript(notification Notification) string {
 	// Determine icon based on severity
 	icon := "Information"
 	tipIcon := "Info"
-	if notification.Severity == "critical" || notification.Severity == "error" {
+	switch notification.Severity {
+	case "critical", "error":
 		icon = "Error"
 		tipIcon = "Error"
-	} else if notification.Severity == "warning" {
+	case "warning":
 		icon = "Warning"
 		tipIcon = "Warning"
 	}

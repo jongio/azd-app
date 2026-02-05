@@ -1074,7 +1074,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 	}
 
 	if !status.Enabled {
-		return fmt.Errorf("Azure logging not configured.\n\nTo enable Azure logs:\n  1. Add a Log Analytics configuration to azure.yaml:\n     logs:\n       analytics:\n         pollingInterval: \"30s\"\n         defaultTimespan: \"1h\"\n  2. Ensure your azd environment has workspace outputs (run 'azd provision' if needed)\n  3. Restart 'azd app run'\n\nFor more info: https://aka.ms/azd-app/azure-logs")
+		return fmt.Errorf("azure logging not configured.\n\nTo enable Azure logs:\n  1. Add a Log Analytics configuration to azure.yaml:\n     logs:\n       analytics:\n         pollingInterval: \"30s\"\n         defaultTimespan: \"1h\"\n  2. Ensure your azd environment has workspace outputs (run 'azd provision' if needed)\n  3. Restart 'azd app run'\n\nFor more info: https://aka.ms/azd-app/azure-logs")
 	}
 
 	cliout.Info("Streaming Azure logs (polling every 30s)...")
@@ -1132,7 +1132,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 
 		case err := <-errChan:
 			if err != nil && err != context.Canceled {
-				return fmt.Errorf("Azure log stream error: %w", err)
+				return fmt.Errorf("azure log stream error: %w", err)
 			}
 			return nil
 
@@ -1221,7 +1221,7 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 
 		case err := <-errChan:
 			if err != nil && err != context.Canceled {
-				return fmt.Errorf("Azure log stream error: %w", err)
+				return fmt.Errorf("azure log stream error: %w", err)
 			}
 			return nil
 
@@ -1397,7 +1397,7 @@ func readSingleLogFile(logFile, serviceName string, sinceTime time.Time) ([]serv
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var entries []service.LogEntry
 	scanner := bufio.NewScanner(file)
@@ -1544,7 +1544,7 @@ func displayLogsText(logs []service.LogEntry, w io.Writer, showTimestamps, noCol
 			}
 		}
 
-		fmt.Fprintln(w, line.String())
+		_, _ = fmt.Fprintln(w, line.String())
 	}
 }
 
@@ -1576,16 +1576,16 @@ func displayLogsWithContextText(logs []LogEntryWithContext, w io.Writer, showTim
 	for i, entry := range logs {
 		// Add separator between entries (not before first)
 		if i > 0 {
-			fmt.Fprintln(w, "---")
+			_, _ = fmt.Fprintln(w, "---")
 		}
 
 		// Show before context (if any)
 		if entry.Context != nil && len(entry.Context.Before) > 0 {
 			for _, line := range entry.Context.Before {
 				if noColor {
-					fmt.Fprintf(w, "  %s\n", line)
+					_, _ = fmt.Fprintf(w, "  %s\n", line)
 				} else {
-					fmt.Fprintf(w, "  %s%s%s\n", colorGray, line, colorReset)
+					_, _ = fmt.Fprintf(w, "  %s%s%s\n", colorGray, line, colorReset)
 				}
 			}
 		}
@@ -1626,15 +1626,15 @@ func displayLogsWithContextText(logs []LogEntryWithContext, w io.Writer, showTim
 			}
 		}
 
-		fmt.Fprintln(w, line.String())
+		_, _ = fmt.Fprintln(w, line.String())
 
 		// Show after context (if any)
 		if entry.Context != nil && len(entry.Context.After) > 0 {
 			for _, contextLine := range entry.Context.After {
 				if noColor {
-					fmt.Fprintf(w, "  %s\n", contextLine)
+					_, _ = fmt.Fprintf(w, "  %s\n", contextLine)
 				} else {
-					fmt.Fprintf(w, "  %s%s%s\n", colorGray, contextLine, colorReset)
+					_, _ = fmt.Fprintf(w, "  %s%s%s\n", colorGray, contextLine, colorReset)
 				}
 			}
 		}

@@ -259,7 +259,7 @@ func (g *ReportGenerator) generateGitHubReport(results *AggregateResult) error {
 
 		f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			for _, output := range outputs {
 				_, _ = f.WriteString(output + "\n")
 			}

@@ -513,8 +513,7 @@ func TestPrepareHookCommand_EnvironmentInheritance(t *testing.T) {
 	// Set a test environment variable
 	testKey := "TEST_HOOK_ENV_VAR"
 	testValue := "test_value_123"
-	os.Setenv(testKey, testValue)
-	defer os.Unsetenv(testKey)
+	t.Setenv(testKey, testValue)
 
 	ctx := context.Background()
 	cmd := prepareHookCommand(ctx, "sh", "echo test", "/tmp", nil)

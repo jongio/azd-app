@@ -67,7 +67,7 @@ func NewDatabase(path string) (*Database, error) {
 	}
 
 	if err := d.initialize(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -190,7 +190,7 @@ func (d *Database) GetRecent(ctx context.Context, limit int) ([]NotificationReco
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return d.scanRecords(rows)
 }
@@ -212,7 +212,7 @@ func (d *Database) GetByService(ctx context.Context, serviceName string, limit i
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return d.scanRecords(rows)
 }
@@ -233,7 +233,7 @@ func (d *Database) GetUnread(ctx context.Context) ([]NotificationRecord, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return d.scanRecords(rows)
 }

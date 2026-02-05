@@ -126,11 +126,7 @@ func TestExtractVersionFromOutput(t *testing.T) {
 
 func TestFileExists(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-fileexists-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Create a test file
 	testFile := filepath.Join(tmpDir, "package.json")
@@ -162,11 +158,7 @@ func TestFileExists(t *testing.T) {
 
 func TestHasPackageJSON(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-haspackagejson-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name     string
@@ -208,11 +200,7 @@ func TestHasPackageJSON(t *testing.T) {
 
 func TestHasPythonProject(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-haspythonproject-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name     string
@@ -275,11 +263,7 @@ func TestHasPythonProject(t *testing.T) {
 
 func TestHasDockerConfig(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-hasdockerconfig-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name     string
@@ -335,11 +319,7 @@ func TestHasDockerConfig(t *testing.T) {
 
 func TestHasGit(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-hasgit-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name     string
@@ -388,11 +368,7 @@ func TestHasGit(t *testing.T) {
 
 func TestFindOrCreateAzureYaml(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-findorcreate-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("creates new azure.yaml", func(t *testing.T) {
 		testDir, err := os.MkdirTemp(tmpDir, "test-*")
@@ -481,11 +457,7 @@ func TestFindOrCreateAzureYaml(t *testing.T) {
 
 func TestMergeReqs(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-merge-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("merge with empty azure.yaml", func(t *testing.T) {
 		testFile := filepath.Join(tmpDir, "azure1.yaml")
@@ -660,11 +632,7 @@ services: []
 
 	t.Run("handles empty reqs array", func(t *testing.T) {
 		// Create temp directory
-		tmpDir, err := os.MkdirTemp("", "test-merge-empty-*")
-		if err != nil {
-			t.Fatalf("Failed to create temp dir: %v", err)
-		}
-		defer os.RemoveAll(tmpDir)
+		tmpDir := t.TempDir()
 
 		// Write azure.yaml with empty reqs array
 		azureYaml := `name: test-app
@@ -706,11 +674,7 @@ reqs: []
 
 	t.Run("handles no new requirements", func(t *testing.T) {
 		// Create temp directory
-		tmpDir, err := os.MkdirTemp("", "test-merge-none-*")
-		if err != nil {
-			t.Fatalf("Failed to create temp dir: %v", err)
-		}
-		defer os.RemoveAll(tmpDir)
+		tmpDir := t.TempDir()
 
 		// Write azure.yaml
 		azureYaml := `name: test-app
@@ -749,11 +713,7 @@ reqs:
 
 	t.Run("handles complex nested yaml structure", func(t *testing.T) {
 		// Create temp directory
-		tmpDir, err := os.MkdirTemp("", "test-merge-complex-*")
-		if err != nil {
-			t.Fatalf("Failed to create temp dir: %v", err)
-		}
-		defer os.RemoveAll(tmpDir)
+		tmpDir := t.TempDir()
 
 		// Write azure.yaml with complex structure
 		azureYaml := `# Main config
@@ -838,11 +798,7 @@ services:
 
 func TestDetectNodePackageManager(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-detectpm-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name           string
@@ -977,11 +933,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 
 func TestDetectPythonPackageManager(t *testing.T) {
 	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "test-detectpypm-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		name           string

@@ -155,7 +155,7 @@ func (c *DiagnosticSettingsChecker) checkDiagnosticSettings(ctx context.Context,
 		slog.Debug("diagnostic settings request error", "service", serviceName, "error", err)
 		return result
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		// Resource exists but no diagnostic settings configured
@@ -456,7 +456,7 @@ func (c *DiagnosticSettingsChecker) CheckDiagnosticSettingsWithPipeline(ctx cont
 		result.Error = fmt.Sprintf("Failed to execute request: %v", err)
 		return result, nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle response (same as checkDiagnosticSettings)
 	if resp.StatusCode == http.StatusNotFound {

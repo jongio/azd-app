@@ -76,11 +76,7 @@ func TestFilterLogsByLevelEdgeCases(t *testing.T) {
 }
 
 func TestBuildLogFilter(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "logs_test_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("no azure.yaml uses builtins", func(t *testing.T) {
 		filter, err := buildLogFilter(tmpDir, "", false)
@@ -130,11 +126,7 @@ func TestBuildLogFilter(t *testing.T) {
 }
 
 func TestBuildLogFilterWithAzureYaml(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "logs_test_yaml_*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Run("azure.yaml with exclude patterns", func(t *testing.T) {
 		azureYaml := `name: test-project

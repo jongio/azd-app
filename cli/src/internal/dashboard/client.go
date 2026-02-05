@@ -84,7 +84,7 @@ func (c *Client) Ping(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("dashboard returned status %d", resp.StatusCode)
@@ -104,7 +104,7 @@ func (c *Client) GetServices(ctx context.Context) ([]*serviceinfo.ServiceInfo, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -131,7 +131,7 @@ func (c *Client) StopService(ctx context.Context, serviceName string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
@@ -152,7 +152,7 @@ func (c *Client) StopAllServices(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
@@ -271,7 +271,7 @@ func (c *Client) StreamLogs(ctx context.Context, serviceName string, logs chan<-
 	if err != nil {
 		return fmt.Errorf("failed to connect to log stream: %w", err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "client closing")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "client closing") }()
 
 	// Read log entries from WebSocket
 	for {
@@ -335,7 +335,7 @@ func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -389,7 +389,7 @@ func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to check Azure status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		// Azure not configured
@@ -435,7 +435,7 @@ func (c *Client) StreamAzureLogs(ctx context.Context, logs chan<- service.LogEnt
 	if err != nil {
 		return fmt.Errorf("failed to connect to Azure log stream: %w", err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "client closing")
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "client closing") }()
 
 	// Read log entries from WebSocket
 	for {

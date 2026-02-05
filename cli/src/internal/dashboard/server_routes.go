@@ -75,7 +75,7 @@ func (s *Server) setupRoutes() {
 				http.NotFound(w, r)
 				return
 			}
-			defer indexFile.Close()
+			defer func() { _ = indexFile.Close() }()
 
 			indexContent, readErr := io.ReadAll(indexFile)
 			if readErr != nil {
@@ -87,7 +87,7 @@ func (s *Server) setupRoutes() {
 			_, _ = w.Write(indexContent)
 			return
 		}
-		f.Close()
+		_ = f.Close()
 
 		// File exists, serve it normally
 		fileServer.ServeHTTP(w, r)

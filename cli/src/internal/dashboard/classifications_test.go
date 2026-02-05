@@ -80,7 +80,7 @@ logs:
 			server.handleGetClassifications(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
@@ -186,7 +186,7 @@ logs:
 			server.handleCreateClassification(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				body, _ := io.ReadAll(resp.Body)
@@ -323,7 +323,7 @@ logs:
 			server.handleDeleteClassification(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				body, _ := io.ReadAll(resp.Body)
@@ -403,7 +403,7 @@ func TestHandleClassificationsRouter(t *testing.T) {
 			server.handleClassificationsRouter(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.expectedStatus {
 				body, _ := io.ReadAll(resp.Body)

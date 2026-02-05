@@ -45,7 +45,7 @@ func TestBroadcast_AsyncNoBlocking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect slow client: %v", err)
 	}
-	defer slowWS.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = slowWS.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message from slow client, then stop reading
 	var initialMsg map[string]interface{}
@@ -107,7 +107,7 @@ func TestBroadcast_MessageOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message
 	var initialMsg map[string]interface{}
@@ -201,12 +201,12 @@ func TestWebSocket_GoroutineLeaks(t *testing.T) {
 		var initialMsg map[string]interface{}
 		if err := wsjson.Read(ctx, ws, &initialMsg); err != nil {
 			cancel()
-			ws.Close(websocket.StatusNormalClosure, "")
+			_ = ws.Close(websocket.StatusNormalClosure, "")
 			t.Fatalf("client %d failed to read initial message: %v", i, err)
 		}
 
 		// Close connection
-		ws.Close(websocket.StatusNormalClosure, "test complete")
+		_ = ws.Close(websocket.StatusNormalClosure, "test complete")
 		cancel()
 
 		time.Sleep(50 * time.Millisecond) // Allow cleanup
@@ -256,7 +256,7 @@ func TestWebSocket_WriteFailureBackpressure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
-	defer ws.Close(websocket.StatusNormalClosure, "test complete")
+	defer func() { _ = ws.Close(websocket.StatusNormalClosure, "test complete") }()
 
 	// Read initial message only
 	var initialMsg map[string]interface{}
@@ -491,7 +491,7 @@ func BenchmarkAsyncBroadcast(b *testing.B) {
 		if err != nil {
 			b.Fatalf("failed to connect client: %v", err)
 		}
-		defer ws.Close(websocket.StatusNormalClosure, "")
+		defer func() { _ = ws.Close(websocket.StatusNormalClosure, "") }()
 		clients[i] = ws
 
 		var msg map[string]interface{}

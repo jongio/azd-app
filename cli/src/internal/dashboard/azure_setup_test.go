@@ -84,14 +84,14 @@ func TestHandleAzureSetupState(t *testing.T) {
 
 			if response.Step != tt.wantStep {
 				// Allow "complete" if test environment is authenticated
-				if !(response.Step == "complete" && tt.wantStep == "authentication") {
+				if response.Step != "complete" || tt.wantStep != "authentication" {
 					t.Errorf("expected step %q, got %q", tt.wantStep, response.Step)
 				}
 			}
 
 			if response.OverallStatus != tt.wantStatus {
 				// Allow "complete" if test environment is authenticated
-				if !(response.OverallStatus == "complete" && tt.wantStatus == "incomplete") {
+				if response.OverallStatus != "complete" || tt.wantStatus != "incomplete" {
 					t.Errorf("expected overall status %q, got %q", tt.wantStatus, response.OverallStatus)
 				}
 			}
