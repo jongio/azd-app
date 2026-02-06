@@ -51,7 +51,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 	t.Logf("Process listening on port %d with PID %d", port, pid)
 
 	// Close the listener before testing kill (we can't kill ourselves)
-	listener.Close()
+	listener.Close() //nolint:errcheck
 
 	// Give OS time to release the port from TIME_WAIT state
 	// Use deadline-based approach instead of fixed sleep
@@ -96,7 +96,7 @@ func TestUnixGetProcessOnPort_NoBSDExtensions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to listen: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	// Get process info
 	pid, err := pm.getProcessOnPort(port)
@@ -171,7 +171,7 @@ func TestMacOSPortConflictResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	t.Logf("Started test listener on port %d", port)
 
