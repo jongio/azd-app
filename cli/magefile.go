@@ -389,7 +389,7 @@ func Lint() error {
 	// will use the current directory as context
 	if err := sh.RunV("golangci-lint", "run", "--timeout=5m", "--concurrency=0"); err != nil {
 		fmt.Println("⚠️  Linting failed. Ensure golangci-lint is installed:")
-		fmt.Println("    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+		fmt.Println("    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest")
 		return err
 	}
 	return nil
@@ -409,7 +409,7 @@ func LintAll() error {
 	if err := sh.RunV("golangci-lint", "run", "--no-config", "--enable-all", "--disable="+excludeLinters, "--max-issues-per-linter=0", "--max-same-issues=0", pkgPath); err != nil {
 		fmt.Println("⚠️  Comprehensive linting found issues.")
 		fmt.Println("    Some findings may be opinionated. Review and fix critical issues.")
-		fmt.Println("    Ensure golangci-lint is installed: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest")
+		fmt.Println("    Ensure golangci-lint is installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest")
 		return err
 	}
 	return nil
