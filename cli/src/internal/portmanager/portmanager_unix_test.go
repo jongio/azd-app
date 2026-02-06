@@ -196,10 +196,8 @@ func TestMacOSPortConflictResolution(t *testing.T) {
 	}
 
 	// 4. Close our listener so killProcessOnPort can succeed
-	listener.Close()
+	listener.Close() //nolint:errcheck
 	time.Sleep(100 * time.Millisecond)
-
-	// Now the port should be available
 	if !pm.isPortAvailable(port) {
 		t.Logf("Port %d still showing as in use after closing listener", port)
 	}
