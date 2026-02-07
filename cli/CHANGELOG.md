@@ -1,3 +1,8 @@
+## [0.11.5] - 2026-02-07
+
+- Update CLI documentation and changelog for v0.11.4 release (#125) (8a40d74)
+- chore: update registry for v0.11.4 (987bfb1)
+
 ## [0.11.4] - 2026-01-30
 
 - Remove shorthand for --exclude flag and update dependencies (#123) (2f2f956)
