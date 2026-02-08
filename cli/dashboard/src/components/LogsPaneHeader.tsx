@@ -137,29 +137,29 @@ export function LogsPaneHeader({
   const healthBadgeClass = normalizedHealth ? getHealthBadgeClass(normalizedHealth) : ''
 
   return (
-    <div className={cn("flex items-center justify-between px-4 py-2 border-b transition-colors duration-200", headerBgClass)}>
+    <div className={cn("flex flex-wrap items-center gap-y-1 px-4 py-2 border-b transition-colors duration-200", headerBgClass)}>
       <button
         type="button"
-        className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer select-none"
+        className="flex items-center gap-2 flex-1 min-w-0 basis-40 cursor-pointer select-none"
         onClick={toggleCollapsed}
         aria-label={isCollapsed ? `Expand logs pane for ${serviceName}` : `Collapse logs pane for ${serviceName}`}
         aria-expanded={!isCollapsed}
       >
-        <span className="p-0.5 hover:bg-muted rounded transition-colors" aria-hidden="true">
+        <span className="p-0.5 hover:bg-muted rounded transition-colors shrink-0" aria-hidden="true">
           {isCollapsed ? (
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           ) : (
             <ChevronDown className="w-4 h-4 text-muted-foreground" />
           )}
         </span>
-        <h3 className="font-semibold truncate" data-testid="logs-pane-header-title">
+        <h3 className="font-semibold break-all" data-testid="logs-pane-header-title">
           {serviceName}
           {port && <span className="text-muted-foreground font-mono">:{port}</span>}
         </h3>
 
         <span 
           className={cn(
-            "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+            "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 shrink-0",
             processBadge.className
           )}
           title={processBadge.title}
@@ -172,7 +172,7 @@ export function LogsPaneHeader({
             <HealthTooltip healthStatus={healthCheckResult} service={service}>
               <span 
                 className={cn(
-                  "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+                  "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 shrink-0",
                   healthBadgeClass
                 )}
                 title={`Service health: ${normalizedHealth} (from health checks)`}
@@ -183,7 +183,7 @@ export function LogsPaneHeader({
           ) : (
             <span 
               className={cn(
-                "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+                "inline-flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 shrink-0",
                 healthBadgeClass
               )}
               title={`Service health: ${normalizedHealth} (from health checks)`}
@@ -194,7 +194,7 @@ export function LogsPaneHeader({
         )}
       </button>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {service && (
           <div className="mr-2 border-r pr-2 border-border">
             <ServiceActions service={service} variant="compact" />
