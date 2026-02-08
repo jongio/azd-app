@@ -1,3 +1,7 @@
+## [0.11.6] - 2026-02-08
+
+- chore: update registry for v0.11.5 (8b248ba)
+
 ## [0.11.5] - 2026-02-07
 
 - Update CLI documentation and changelog for v0.11.4 release (#125) (8a40d74)
