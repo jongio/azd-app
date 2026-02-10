@@ -1,3 +1,10 @@
+## [0.11.7] - 2026-02-10
+
+- style: improve layout and responsiveness of LogsPaneHeader component (#127) (a0c0d33)
+- Add retry logic for command execution in Build function (#129) (913645f)
+- feat: add notification step for azd-extensions on release success (6b7ae42)
+- chore: update registry for v0.11.6 (4c726ef)
+
 ## [0.11.6] - 2026-02-08
 
 - chore: update registry for v0.11.5 (8b248ba)
