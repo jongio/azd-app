@@ -200,6 +200,10 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     fi
 done
 
+# Kill extension processes again right before azd x build copies to ~/.azd/extensions/
+# This prevents "file in use" errors during the install step
+stop_extension_processes
+
 echo ""
 echo "✓ Build completed successfully!"
 echo "  Binaries are located in the $OUTPUT_DIR directory."
