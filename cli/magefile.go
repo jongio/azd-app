@@ -104,6 +104,7 @@ func All() error {
 func Build() error {
 	// Kill any running app processes first to avoid "file in use" errors on Windows
 	_ = killAppProcesses()
+	time.Sleep(500 * time.Millisecond)
 
 	mg.Deps(DashboardBuild)
 
@@ -129,13 +130,30 @@ func Build() error {
 	}
 
 	// Build and install directly using azd x build
-	if err := sh.RunWithV(env, "azd", "x", "build"); err != nil {
+	if err := runWithEnvRetry(env, "azd", "x", "build"); err != nil {
 		return fmt.Errorf(errBuildFailedFmt, err)
 	}
 
 	fmt.Printf("✅ Build complete! Version: %s\n", version)
 	fmt.Println("   Run 'azd app version' to verify")
 	return nil
+}
+
+// runWithEnvRetry runs a command with environment variables, retrying up to 3 times on failure.
+func runWithEnvRetry(env map[string]string, cmd string, args ...string) error {
+	const maxRetries = 3
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		if i > 0 {
+			delay := time.Duration(i*5) * time.Second
+			fmt.Printf("  ⚠️  Attempt %d/%d failed, retrying in %s...\n", i, maxRetries, delay)
+			time.Sleep(delay)
+		}
+		if err = sh.RunWithV(env, cmd, args...); err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 // buildAllPlatforms compiles the CLI binary for all platforms (used for releases).
