@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -481,7 +482,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	wg.Wait()
 
 	// Perform cleanup shutdown
-	return performGracefulShutdown(dashboardServer, result.Processes)
+	return performGracefulShutdown(dashboardServer, result)
 }
 
 // startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
@@ -538,7 +539,7 @@ func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map
 
 // performGracefulShutdown stops all services and dashboard with a timeout.
 // Returns nil due to process isolation design - individual failures are logged but don't fail the command.
-func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess) error {
+func performGracefulShutdown(dashboardServer *dashboard.Server, result *service.OrchestrationResult) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -552,8 +553,14 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 	}
 
 	// Stop all services with graceful timeout
-	if stopErr := shutdownAllServices(shutdownCtx, processes); stopErr != nil {
+	if stopErr := shutdownAllServices(shutdownCtx, result.Processes); stopErr != nil {
 		cliout.Warning("Some services failed to stop cleanly: %v", stopErr)
+	}
+
+	// Stop auth server AFTER services are stopped so tokens remain available during graceful shutdown
+	if result.AuthServer != nil {
+		result.AuthServer.Stop()
+		slog.Debug("container auth server stopped")
 	}
 
 	cliout.Success("All services stopped")

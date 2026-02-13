@@ -133,12 +133,49 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		}
 	}
 
-	// Build container configuration
+	// Extract and remove internal auth vars before creating container config
+	var shimPath, certsHostDir, extraHostsStr string
+	if v, ok := runtime.Env["_AZD_AUTH_SHIM_PATH"]; ok {
+		shimPath = v
+		delete(runtime.Env, "_AZD_AUTH_SHIM_PATH")
+	}
+	if v, ok := runtime.Env["_AZD_AUTH_CERTS_HOST_DIR"]; ok {
+		certsHostDir = v
+		delete(runtime.Env, "_AZD_AUTH_CERTS_HOST_DIR")
+	}
+	if v, ok := runtime.Env["_AZD_AUTH_EXTRA_HOSTS"]; ok {
+		extraHostsStr = v
+		delete(runtime.Env, "_AZD_AUTH_EXTRA_HOSTS")
+	}
+
+	// Build container configuration (env vars are clean)
 	config := docker.ContainerConfig{
 		Name:        fmt.Sprintf("azd-%s", runtime.Name),
 		Image:       image,
 		Ports:       buildContainerPortMappings(runtime),
 		Environment: runtime.Env,
+	}
+
+	// Inject container auth volumes and extra hosts if enabled
+	if shimPath != "" && certsHostDir != "" {
+		config.Volumes = append(config.Volumes,
+			docker.VolumeMount{Source: shimPath, Target: "/usr/local/bin/azd", ReadOnly: true},
+			docker.VolumeMount{Source: certsHostDir, Target: "/run/secrets/azd-auth", ReadOnly: true},
+		)
+
+		// Add extra hosts if needed (e.g., host.docker.internal on native Linux)
+		if extraHostsStr != "" {
+			for _, h := range strings.Split(extraHostsStr, ",") {
+				if h != "" {
+					config.ExtraHosts = append(config.ExtraHosts, h)
+				}
+			}
+		}
+
+		slog.Info("container auth enabled",
+			slog.String("service", runtime.Name),
+			slog.String("shimPath", shimPath),
+			slog.String("certsDir", certsHostDir))
 	}
 
 	// Run container

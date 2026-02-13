@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+
+name: container-auth-test
+
+# Test project for local.credentials: azd — Azure credential forwarding into containers.
+# When local.credentials is set to "azd", azd automatically:
+#   1. Starts an mTLS auth server on the host
+#   2. Cross-compiles an azd CLI shim for Linux
+#   3. Volume-mounts the shim as /usr/local/bin/azd in the container
+#   4. Volume-mounts ephemeral mTLS certs at /run/secrets/azd-auth
+#   5. Injects AZD_AUTH_HOST, AZD_AUTH_PORT, AZD_AUTH_CERTS_DIR env vars
+#
+# Inside the container, DefaultAzureCredential → AzureDeveloperCliCredential
+# calls the shim, which forwards the request over mTLS to the host server,
+# which calls real `azd auth token` and returns the result.
+
+services:
+  testapp:
+    host: containerapp
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+    volumes:
+      - "./testapp:/app"
+    command: "dotnet run --project /app/testapp.csproj"
+    healthcheck: false
+    local:
+      credentials: azd

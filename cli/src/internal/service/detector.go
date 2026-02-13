@@ -186,6 +186,9 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 	runtime.Language = "container"
 	runtime.Framework = "docker"
 
+	// Propagate container auth setting
+	runtime.ContainerAuth = service.IsContainerAuthEnabled()
+
 	// Copy environment variables from service config
 	for key, value := range service.GetEnvironment() {
 		runtime.Env[key] = value

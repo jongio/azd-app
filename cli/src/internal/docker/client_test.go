@@ -419,6 +419,22 @@ func TestContainerConfigValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid config with volumes",
+			config: ContainerConfig{
+				Image:   "nginx",
+				Volumes: []VolumeMount{{Source: "/host/path", Target: "/container/path"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid volume mount",
+			config: ContainerConfig{
+				Image:   "nginx",
+				Volumes: []VolumeMount{{Source: "", Target: "/container/path"}},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -440,6 +456,85 @@ func assertContains(t *testing.T, slice []string, want string) {
 		}
 	}
 	t.Errorf("Slice does not contain %q. Got: %v", want, slice)
+}
+
+func TestVolumeMountValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		vol     VolumeMount
+		wantErr bool
+	}{
+		{"valid mount", VolumeMount{Source: "/host", Target: "/container"}, false},
+		{"valid read-only", VolumeMount{Source: "/host", Target: "/container", ReadOnly: true}, false},
+		{"empty source", VolumeMount{Source: "", Target: "/container"}, true},
+		{"empty target", VolumeMount{Source: "/host", Target: ""}, true},
+		{"semicolon in source", VolumeMount{Source: "/host;rm", Target: "/container"}, true},
+		{"pipe in target", VolumeMount{Source: "/host", Target: "/container|bad"}, true},
+		{"ampersand in source", VolumeMount{Source: "/host&bad", Target: "/container"}, true},
+		{"dollar in target", VolumeMount{Source: "/host", Target: "/container$VAR"}, true},
+		{"backtick in source", VolumeMount{Source: "/host`cmd`", Target: "/container"}, true},
+		{"newline in target", VolumeMount{Source: "/host", Target: "/container\n"}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.vol.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VolumeMount.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBuildRunArgsVolumesAndExtraHosts(t *testing.T) {
+	t.Run("config with volumes", func(t *testing.T) {
+		config := ContainerConfig{
+			Image: "nginx",
+			Volumes: []VolumeMount{
+				{Source: "/host/data", Target: "/data"},
+				{Source: "/host/config", Target: "/config", ReadOnly: true},
+			},
+		}
+		got := buildRunArgs(config)
+		assertContains(t, got, "-v")
+		assertContains(t, got, "/host/data:/data")
+		assertContains(t, got, "/host/config:/config:ro")
+		if got[len(got)-1] != "nginx" {
+			t.Errorf("Image should be the last argument, got: %v", got)
+		}
+	})
+
+	t.Run("config with extra hosts", func(t *testing.T) {
+		config := ContainerConfig{
+			Image:      "nginx",
+			ExtraHosts: []string{"myhost:192.168.1.1", "other:10.0.0.1"},
+		}
+		got := buildRunArgs(config)
+		assertContains(t, got, "--add-host")
+		assertContains(t, got, "myhost:192.168.1.1")
+		assertContains(t, got, "other:10.0.0.1")
+		if got[len(got)-1] != "nginx" {
+			t.Errorf("Image should be the last argument, got: %v", got)
+		}
+	})
+
+	t.Run("config with volumes and extra hosts", func(t *testing.T) {
+		config := ContainerConfig{
+			Image: "nginx",
+			Volumes: []VolumeMount{
+				{Source: "/data", Target: "/mnt/data"},
+			},
+			ExtraHosts: []string{"db:172.17.0.2"},
+		}
+		got := buildRunArgs(config)
+		assertContains(t, got, "-v")
+		assertContains(t, got, "/data:/mnt/data")
+		assertContains(t, got, "--add-host")
+		assertContains(t, got, "db:172.17.0.2")
+		if got[len(got)-1] != "nginx" {
+			t.Errorf("Image should be the last argument, got: %v", got)
+		}
+	})
 }
 
 // Tests for docker exec functionality

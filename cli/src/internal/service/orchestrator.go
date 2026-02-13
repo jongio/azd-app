@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-app/cli/src/internal/containerauth"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/authn"
 	"github.com/jongio/azd-core/cliout"
 )
 
@@ -24,6 +26,7 @@ type OrchestrationResult struct {
 	StartTime       time.Time
 	ReadyTime       time.Time
 	FunctionsParser *FunctionsOutputParser // Parser for Functions endpoints
+	AuthServer      *authn.Server          // mTLS auth server for container credential forwarding
 }
 
 // DefaultHealthWaitTimeout is the maximum time to wait for a service to become healthy.
@@ -96,6 +99,75 @@ func OrchestrateServices(runtimes []*ServiceRuntime, services map[string]Service
 	// Start services level by level
 	projectDir, _ := os.Getwd()
 	reg := registry.GetRegistry(projectDir)
+
+	// Check if any container service needs auth
+	needsAuth := false
+	for _, rt := range runtimes {
+		if rt.ContainerAuth {
+			needsAuth = true
+			break
+		}
+	}
+
+	// cleanupAuthOnError tracks whether we need to stop the auth server on error.
+	// Set to false on successful orchestration so the caller owns the lifecycle.
+	cleanupAuthOnError := false
+
+	// Start auth server if needed
+	if needsAuth {
+		slog.Info("starting container auth server for credential forwarding")
+
+		// Build shim binary
+		arch := containerauth.DetectContainerArch()
+		shimPath, err := containerauth.BuildShim(arch)
+		if err != nil {
+			return result, fmt.Errorf("failed to build auth shim: %w", err)
+		}
+
+		srv := &authn.Server{
+			Config: authn.ServerConfig{
+				Port:          0,   // auto-assign
+				AllowedScopes: "*", // allow all scopes in dev
+			},
+		}
+		if err := srv.Start(context.Background()); err != nil {
+			return result, fmt.Errorf("failed to start auth server: %w", err)
+		}
+		result.AuthServer = srv
+
+		// Ensure auth server is stopped if orchestration fails later
+		cleanupAuthOnError = true
+		defer func() {
+			if cleanupAuthOnError {
+				srv.Stop()
+				slog.Debug("container auth server stopped due to orchestration error")
+			}
+		}()
+
+		slog.Info("container auth server started",
+			slog.Int("port", srv.Port()),
+			slog.String("certsDir", srv.CertsDir()))
+
+		// Inject auth config into container service runtimes
+		containerHost := containerauth.DetectContainerHost()
+		extraHosts := containerauth.ExtraHostsEntries()
+
+		for _, rt := range runtimes {
+			if rt.ContainerAuth {
+				if rt.Env == nil {
+					rt.Env = make(map[string]string)
+				}
+				rt.Env["AZD_AUTH_HOST"] = containerHost
+				rt.Env["AZD_AUTH_PORT"] = fmt.Sprintf("%d", srv.Port())
+				rt.Env["AZD_AUTH_CERTS_DIR"] = "/run/secrets/azd-auth"
+
+				// Store auth injection info for container_runner
+				rt.Env["_AZD_AUTH_SHIM_PATH"] = shimPath
+				rt.Env["_AZD_AUTH_CERTS_HOST_DIR"] = srv.CertsDir()
+				rt.Env["_AZD_AUTH_EXTRA_HOSTS"] = strings.Join(extraHosts, ",")
+			}
+		}
+	}
 
 	for levelIdx, levelServices := range levels {
 		slog.Debug("starting dependency level",
@@ -184,6 +256,7 @@ func OrchestrateServices(runtimes []*ServiceRuntime, services map[string]Service
 		slog.Int("failed", len(result.Errors)))
 
 	result.ReadyTime = time.Now()
+	cleanupAuthOnError = false // Success — caller owns auth server lifecycle
 	return result, nil
 }
 

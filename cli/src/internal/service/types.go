@@ -90,14 +90,19 @@ type Service struct {
 	HealthcheckEnabled *bool               `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
 	Type               string              `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
 	Mode               string              `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
+	Volumes            []string            `yaml:"volumes,omitempty"`     // Bind mount volumes in Docker format: "host:container[:ro]"
 	Local              *LocalServiceConfig `yaml:"local,omitempty"`       // Local development configuration
 	Azure              *AzureServiceConfig `yaml:"azure,omitempty"`       // Azure deployment configuration
 	URL                string              `yaml:"url,omitempty"`         // DEPRECATED: Use azure.customUrl instead. Custom URL for accessing the service.
 }
 
+// CredentialProviderAzd is the credential provider value that enables azd credential forwarding into containers.
+const CredentialProviderAzd = "azd"
+
 // LocalServiceConfig represents local development configuration for a service.
 type LocalServiceConfig struct {
-	CustomURL string `yaml:"customUrl,omitempty" json:"customUrl,omitempty"` // User-configured custom local URL (e.g., https://myapp.ngrok.io)
+	CustomURL   string `yaml:"customUrl,omitempty" json:"customUrl,omitempty"`     // User-configured custom local URL (e.g., https://myapp.ngrok.io)
+	Credentials string `yaml:"credentials,omitempty" json:"credentials,omitempty"` // Credential provider for local dev: "azd" forwards host credentials into containers
 }
 
 // AzureServiceConfig represents Azure deployment configuration for a service.
@@ -124,6 +129,7 @@ type serviceRaw struct {
 	Healthcheck any                 `yaml:"healthcheck,omitempty"`
 	Type        string              `yaml:"type,omitempty"`
 	Mode        string              `yaml:"mode,omitempty"`
+	Volumes     []string            `yaml:"volumes,omitempty"`
 	Local       *LocalServiceConfig `yaml:"local,omitempty"`
 	Azure       *AzureServiceConfig `yaml:"azure,omitempty"`
 	URL         string              `yaml:"url,omitempty"`
@@ -150,6 +156,7 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.Logs = raw.Logs
 	s.Type = raw.Type
 	s.Mode = raw.Mode
+	s.Volumes = raw.Volumes
 	s.Local = raw.Local
 	s.Azure = raw.Azure
 	s.URL = raw.URL
@@ -198,6 +205,12 @@ func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	return nil
+}
+
+// IsContainerAuthEnabled returns whether container auth credential forwarding is enabled.
+// Credential forwarding is enabled when local.credentials is set to "azd".
+func (s Service) IsContainerAuthEnabled() bool {
+	return s.Local != nil && s.Local.Credentials == CredentialProviderAzd
 }
 
 // IsHealthcheckDisabled returns true if health checks should be skipped for this service.
@@ -520,6 +533,7 @@ type ServiceRuntime struct {
 	ShouldUpdateAzureYaml bool   // True if user wants port added to azure.yaml
 	Type                  string // Service type: "http", "tcp", "process"
 	Mode                  string // Run mode (for type=process): "watch", "build", "daemon", "task"
+	ContainerAuth         bool   // Whether Azure credential forwarding is enabled
 }
 
 // PortMapping represents a port mapping (Docker Compose style).

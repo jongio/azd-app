@@ -101,6 +101,20 @@ func buildRunArgs(config ContainerConfig) []string {
 		args = append(args, "-e", fmt.Sprintf("%s=%s", key, value))
 	}
 
+	// Add volume mounts
+	for _, vol := range config.Volumes {
+		mountStr := fmt.Sprintf("%s:%s", vol.Source, vol.Target)
+		if vol.ReadOnly {
+			mountStr += ":ro"
+		}
+		args = append(args, "-v", mountStr)
+	}
+
+	// Add extra hosts (--add-host)
+	for _, host := range config.ExtraHosts {
+		args = append(args, "--add-host", host)
+	}
+
 	// Add image
 	args = append(args, config.Image)
 
