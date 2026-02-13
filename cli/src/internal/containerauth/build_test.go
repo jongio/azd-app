@@ -75,7 +75,7 @@ func TestExtractShim(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExtractShim(%q) error: %v", arch, err)
 			}
-			defer os.RemoveAll(path)
+			defer func() { _ = os.RemoveAll(path) }()
 
 			// Verify the file exists and is executable
 			info, err := os.Stat(path)

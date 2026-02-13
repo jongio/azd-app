@@ -36,7 +36,7 @@ func ExtractShim(goarch string) (string, error) {
 
 	outputPath := filepath.Join(tmpDir, "azd")
 	if err := os.WriteFile(outputPath, data, 0o755); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("failed to write shim binary: %w", err)
 	}
 
