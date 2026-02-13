@@ -353,6 +353,9 @@ jobs:
       - name: Verify Go version
         run: go version
 
+      - name: Install Mage
+        run: go install github.com/magefile/mage@latest
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -415,6 +418,9 @@ jobs:
           pnpm install
           pnpm run build
           cd ..
+
+      - name: Build auth shim binaries
+        run: mage shimBuild
 
       - name: Run port manager integration tests
         shell: bash
