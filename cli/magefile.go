@@ -97,6 +97,45 @@ func All() error {
 	return Build()
 }
 
+// ShimBuild cross-compiles the azd auth shim for Linux (amd64 and arm64).
+// The shim binaries are embedded into the CLI binary via go:embed.
+// Run this before Build if the shim source has changed.
+func ShimBuild() error {
+	fmt.Println("Building auth shim binaries...")
+	shimSrc := filepath.Join("src", "internal", "containerauth", "shim")
+	shimBin := filepath.Join("src", "internal", "containerauth", "bin")
+
+	if err := os.MkdirAll(shimBin, 0o755); err != nil {
+		return fmt.Errorf("failed to create bin dir: %w", err)
+	}
+
+	// Convert to absolute path for output since we change working directory
+	absBin, err := filepath.Abs(shimBin)
+	if err != nil {
+		return fmt.Errorf("failed to resolve bin path: %w", err)
+	}
+
+	for _, arch := range []string{"amd64", "arm64"} {
+		output := filepath.Join(absBin, fmt.Sprintf("azd-linux-%s", arch))
+		cmd := exec.Command("go", "build", "-o", output, "-trimpath", "-ldflags=-s -w", ".")
+		cmd.Dir = shimSrc
+		cmd.Env = append(os.Environ(),
+			"GOOS=linux",
+			"GOARCH="+arch,
+			"CGO_ENABLED=0",
+			"GOWORK=off",
+		)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to build shim for %s: %w", arch, err)
+		}
+		fmt.Printf("   ✅ Built azd-linux-%s\n", arch)
+	}
+
+	return nil
+}
+
 // Build builds the dashboard and CLI binary, and installs it locally.
 // This is the main command for development - it builds everything and installs the extension.
 // Set ALL_PLATFORMS=true to build for all platforms (skip install).
@@ -106,7 +145,7 @@ func Build() error {
 	_ = killAppProcesses()
 	time.Sleep(500 * time.Millisecond)
 
-	mg.Deps(DashboardBuild)
+	mg.Deps(DashboardBuild, ShimBuild)
 
 	if os.Getenv("ALL_PLATFORMS") == "true" {
 		return buildAllPlatforms()
@@ -1016,6 +1055,7 @@ func Preflight() error {
 		{"Verifying go.mod consistency", ModVerify},
 		{"Tidying go.mod and go.sum", ModTidy},
 		{"Building dashboard", DashboardBuild},
+		{"Building auth shim binaries", ShimBuild},
 		{"Linting dashboard", DashboardLint},
 		{"Running dashboard unit tests", DashboardTest},
 		{"Running dashboard E2E tests", DashboardTestE2E},

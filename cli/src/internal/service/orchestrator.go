@@ -117,11 +117,11 @@ func OrchestrateServices(runtimes []*ServiceRuntime, services map[string]Service
 	if needsAuth {
 		slog.Info("starting container auth server for credential forwarding")
 
-		// Build shim binary
+		// Extract embedded shim binary for the container architecture
 		arch := containerauth.DetectContainerArch()
-		shimPath, err := containerauth.BuildShim(arch)
+		shimPath, err := containerauth.ExtractShim(arch)
 		if err != nil {
-			return result, fmt.Errorf("failed to build auth shim: %w", err)
+			return result, fmt.Errorf("failed to extract auth shim: %w", err)
 		}
 
 		srv := &authn.Server{

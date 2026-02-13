@@ -25,7 +25,6 @@ $ErrorActionPreference = "Stop"
 $TestDir = $PSScriptRoot
 $RepoRoot = (Resolve-Path (Join-Path $TestDir "..\..\..\..\..")).Path
 $CliDir = Join-Path $RepoRoot "cli"
-$ShimSrcDir = Join-Path $CliDir "src\internal\containerauth\shim"
 
 # Track PIDs and containers for cleanup
 $script:authServerPid = $null
@@ -146,8 +145,8 @@ if ($azdAuthOk) {
     Write-Host "  Run 'azd auth login' to enable full testing." -ForegroundColor DarkYellow
 }
 
-# --- Step 2: Build shim binary ---
-Write-Step "2/7" "Building azd auth shim for Linux..."
+# --- Step 2: Copy pre-compiled shim binary ---
+Write-Step "2/7" "Extracting pre-compiled azd auth shim for Linux..."
 
 # Detect architecture
 $runningOnMac = $IsMacOS -or (Test-Path "/usr/bin/sw_vers" -ErrorAction SilentlyContinue)
@@ -158,28 +157,20 @@ if ($runningOnMac) {
 }
 if ($env:AZD_SHIM_ARCH) { $shimArch = $env:AZD_SHIM_ARCH }
 
+# Use pre-compiled shim from bin/ (built by mage shimBuild)
+$shimBinDir = Join-Path $CliDir "src\internal\containerauth\bin"
+$shimSrcBinary = Join-Path $shimBinDir "azd-linux-$shimArch"
+if (-not (Test-Path $shimSrcBinary)) {
+    Write-Fail "Pre-compiled shim not found at $shimSrcBinary. Run 'mage shimBuild' first."
+    exit 1
+}
+
 $shimTmpDir = Join-Path ([System.IO.Path]::GetTempPath()) "azd-auth-test-shim-$(Get-Random)"
 New-Item -ItemType Directory -Path $shimTmpDir -Force | Out-Null
 $script:shimPath = Join-Path $shimTmpDir "azd"
+Copy-Item $shimSrcBinary $script:shimPath -Force
 
-$env:GOOS = "linux"
-$env:GOARCH = $shimArch
-$env:CGO_ENABLED = "0"
-$env:GOWORK = "off"
-Push-Location $ShimSrcDir
-go build -ldflags="-s -w" -o $script:shimPath . 2>&1
-$buildResult = $LASTEXITCODE
-Pop-Location
-Remove-Item Env:GOOS -ErrorAction SilentlyContinue
-Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
-Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
-Remove-Item Env:GOWORK -ErrorAction SilentlyContinue
-
-if ($buildResult -ne 0) {
-    Write-Fail "Failed to build shim binary"
-    exit 1
-}
-Write-Pass "Shim built for linux/$shimArch at $($script:shimPath)"
+Write-Pass "Shim extracted for linux/$shimArch at $($script:shimPath)"
 
 # --- Step 3: Start mTLS auth server ---
 Write-Step "3/7" "Starting mTLS auth server..."

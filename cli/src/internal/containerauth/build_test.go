@@ -2,9 +2,7 @@ package containerauth
 
 import (
 	"os"
-	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 )
 
@@ -70,20 +68,36 @@ func TestExtraHostsEntries(t *testing.T) {
 	}
 }
 
-func TestFindShimSource(t *testing.T) {
-	// This test verifies findShimSource can locate the shim from CWD
-	// It should work when running from the repository root
-	src, err := findShimSource()
-	if err != nil {
-		t.Skipf("shim source not found from current directory (expected in CI): %v", err)
+func TestExtractShim(t *testing.T) {
+	for _, arch := range []string{"amd64", "arm64"} {
+		t.Run(arch, func(t *testing.T) {
+			path, err := ExtractShim(arch)
+			if err != nil {
+				t.Fatalf("ExtractShim(%q) error: %v", arch, err)
+			}
+			defer os.RemoveAll(path)
+
+			// Verify the file exists and is executable
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatalf("extracted shim not found: %v", err)
+			}
+			if info.Size() == 0 {
+				t.Error("extracted shim is empty")
+			}
+			// On Unix, check executable bit
+			if runtime.GOOS != "windows" {
+				if info.Mode()&0o111 == 0 {
+					t.Error("extracted shim is not executable")
+				}
+			}
+		})
 	}
-	// Verify the path contains the expected structure
-	if !strings.HasSuffix(src, filepath.Join("containerauth", "shim")) {
-		t.Errorf("findShimSource() = %q, expected to end with containerauth/shim", src)
-	}
-	// Verify main.go exists in the found directory
-	mainPath := filepath.Join(src, "main.go")
-	if _, err := os.Stat(mainPath); os.IsNotExist(err) {
-		t.Errorf("expected main.go at %s", mainPath)
+}
+
+func TestExtractShimInvalidArch(t *testing.T) {
+	_, err := ExtractShim("mips")
+	if err == nil {
+		t.Error("expected error for unsupported architecture, got nil")
 	}
 }

@@ -3,6 +3,7 @@
 package containerauth
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,36 +12,32 @@ import (
 	"strings"
 )
 
-// BuildShim cross-compiles the azd auth shim for Linux.
-// It returns the path to the built binary. The binary is cached across calls.
+// Pre-compiled shim binaries for Linux containers.
+// These are built during CI/release by `mage shimBuild` and embedded into the CLI binary.
+// To rebuild locally: mage shimBuild
+//
+//go:embed bin/azd-linux-amd64 bin/azd-linux-arm64
+var shimBinaries embed.FS
+
+// ExtractShim extracts the embedded shim binary for the given architecture to a temp directory.
+// It returns the path to the extracted binary. The caller is responsible for cleanup.
 // The goarch parameter should be "amd64" or "arm64".
-func BuildShim(goarch string) (string, error) {
-	// Always rebuild if arch changes — for simplicity, build each time
-	// In practice, we could cache per-arch
+func ExtractShim(goarch string) (string, error) {
+	name := fmt.Sprintf("bin/azd-linux-%s", goarch)
+	data, err := shimBinaries.ReadFile(name)
+	if err != nil {
+		return "", fmt.Errorf("embedded shim binary not found for %s: %w", goarch, err)
+	}
+
 	tmpDir, err := os.MkdirTemp("", "azd-auth-shim-*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
 	outputPath := filepath.Join(tmpDir, "azd")
-
-	// Find the shim source directory
-	shimSrc, err := findShimSource()
-	if err != nil {
-		return "", fmt.Errorf("failed to find shim source: %w", err)
-	}
-
-	cmd := exec.Command("go", "build", "-o", outputPath, "-trimpath", "-ldflags=-s -w", ".")
-	cmd.Dir = shimSrc
-	cmd.Env = append(os.Environ(),
-		"GOOS=linux",
-		"GOARCH="+goarch,
-		"CGO_ENABLED=0",
-		"GOWORK=off", // Shim has its own go.mod; ignore parent workspace
-	)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("failed to build shim: %s: %w", string(output), err)
+	if err := os.WriteFile(outputPath, data, 0o755); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", fmt.Errorf("failed to write shim binary: %w", err)
 	}
 
 	return outputPath, nil
@@ -85,46 +82,4 @@ func ExtraHostsEntries() []string {
 		return []string{"host.docker.internal:host-gateway"}
 	}
 	return nil
-}
-
-// findShimSource locates the shim source directory relative to the running binary
-// or via a well-known path.
-func findShimSource() (string, error) {
-	// Try relative to the executable
-	exe, err := os.Executable()
-	if err == nil {
-		// Walk up to find the cli directory
-		dir := filepath.Dir(exe)
-		for i := 0; i < 10; i++ {
-			candidate := filepath.Join(dir, "cli", "src", "internal", "containerauth", "shim")
-			if _, err := os.Stat(candidate); err == nil {
-				return candidate, nil
-			}
-			candidate = filepath.Join(dir, "src", "internal", "containerauth", "shim")
-			if _, err := os.Stat(candidate); err == nil {
-				return candidate, nil
-			}
-			parent := filepath.Dir(dir)
-			if parent == dir {
-				break
-			}
-			dir = parent
-		}
-	}
-
-	// Try via GOPATH or module cache — for dev, the source is right next to us
-	// Try current working directory patterns
-	cwd, _ := os.Getwd()
-	candidates := []string{
-		filepath.Join(cwd, "cli", "src", "internal", "containerauth", "shim"),
-		filepath.Join(cwd, "src", "internal", "containerauth", "shim"),
-		filepath.Join(cwd, "internal", "containerauth", "shim"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-
-	return "", fmt.Errorf("shim source not found; expected at cli/src/internal/containerauth/shim/")
 }
