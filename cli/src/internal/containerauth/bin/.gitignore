@@ -1,0 +1,3 @@
+# Pre-compiled shim binaries (built by `mage shimBuild`, embedded into CLI)
+azd-linux-amd64
+azd-linux-arm64
