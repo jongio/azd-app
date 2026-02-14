@@ -26,7 +26,7 @@ defaults:
     working-directory: cli
 
 env:
-  GO_VERSION: '1.25.6'
+  GO_VERSION: '1.25.7'
 
 jobs:
   # Check if build should run
@@ -218,6 +218,9 @@ jobs:
       - name: Verify Go version
         run: go version
 
+      - name: Install Mage
+        run: go install github.com/magefile/mage@latest
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -271,6 +274,15 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           # Temporarily update version (won't commit)
           sed -i "s/^version: .*/version: ${VERSION}/" extension.yaml
+
+      - name: Build auth shim binaries
+        working-directory: cli
+        run: |
+          if [ -d "src/internal/containerauth/shim" ] && mage -l 2>/dev/null | grep -q shimBuild; then
+            mage shimBuild
+          else
+            echo "Shim build not needed, skipping"
+          fi
 
       - name: Build binaries
         working-directory: cli
