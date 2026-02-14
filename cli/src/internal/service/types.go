@@ -534,6 +534,8 @@ type ServiceRuntime struct {
 	Type                  string // Service type: "http", "tcp", "process"
 	Mode                  string // Run mode (for type=process): "watch", "build", "daemon", "task"
 	ContainerAuth         bool   // Whether Azure credential forwarding is enabled
+	ContainerCommand      string   // Command to run inside the container (from azure.yaml command field)
+	ContainerVolumes      []string // Bind mount volumes from azure.yaml (e.g., "./src:/app")
 }
 
 // PortMapping represents a port mapping (Docker Compose style).

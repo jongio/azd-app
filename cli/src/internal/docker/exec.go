@@ -118,6 +118,9 @@ func buildRunArgs(config ContainerConfig) []string {
 	// Add image
 	args = append(args, config.Image)
 
+	// Add command (after image)
+	args = append(args, config.Command...)
+
 	return args
 }
 

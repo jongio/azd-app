@@ -189,6 +189,10 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 	// Propagate container auth setting
 	runtime.ContainerAuth = service.IsContainerAuthEnabled()
 
+	// Store container command and volumes from azure.yaml
+	runtime.ContainerCommand = service.Command
+	runtime.ContainerVolumes = service.Volumes
+
 	// Copy environment variables from service config
 	for key, value := range service.GetEnvironment() {
 		runtime.Env[key] = value

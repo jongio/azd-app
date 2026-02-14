@@ -25,6 +25,9 @@ type ContainerConfig struct {
 
 	// ExtraHosts contains additional host-to-IP mappings (--add-host)
 	ExtraHosts []string
+
+	// Command is the command to run inside the container (overrides image CMD)
+	Command []string
 }
 
 // VolumeMount represents a bind mount for a container.
