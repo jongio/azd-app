@@ -15,8 +15,10 @@ import (
 // Pre-compiled shim binaries for Linux containers.
 // These are built during CI/release by `mage shimBuild` and embedded into the CLI binary.
 // To rebuild locally: mage shimBuild
+// Using all:bin to embed the entire directory so compilation succeeds even before
+// shimBuild runs. The ExtractShim function checks for the actual binaries at runtime.
 //
-//go:embed bin/azd-linux-amd64 bin/azd-linux-arm64
+//go:embed all:bin
 var shimBinaries embed.FS
 
 // ExtractShim extracts the embedded shim binary for the given architecture to a temp directory.
