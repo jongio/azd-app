@@ -205,6 +205,10 @@ projects/
 - **azure-logs-test/** - Azure Log Analytics integration
   - Tests: Log workspace discovery, KQL queries, Application Insights, Container Apps logs
 
+- **container-auth-test/** - Container auth credential forwarding
+  - Tests: containerAuth: true in azure.yaml, mTLS auth server, azd CLI shim injection, DefaultAzureCredential token acquisition from container, Azure ARM API call
+  - Has automated test script: `pwsh test.ps1`
+
 - **containers-test/** - Docker container services
   - Tests: Container lifecycle, image management, port mapping
 

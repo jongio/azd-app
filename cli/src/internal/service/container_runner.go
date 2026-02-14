@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -133,12 +134,67 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		}
 	}
 
-	// Build container configuration
+	// Extract and remove internal auth vars before creating container config
+	var shimPath, certsHostDir, extraHostsStr string
+	if v, ok := runtime.Env["_AZD_AUTH_SHIM_PATH"]; ok {
+		shimPath = v
+		delete(runtime.Env, "_AZD_AUTH_SHIM_PATH")
+	}
+	if v, ok := runtime.Env["_AZD_AUTH_CERTS_HOST_DIR"]; ok {
+		certsHostDir = v
+		delete(runtime.Env, "_AZD_AUTH_CERTS_HOST_DIR")
+	}
+	if v, ok := runtime.Env["_AZD_AUTH_EXTRA_HOSTS"]; ok {
+		extraHostsStr = v
+		delete(runtime.Env, "_AZD_AUTH_EXTRA_HOSTS")
+	}
+
+	// Build container configuration (env vars are clean)
 	config := docker.ContainerConfig{
 		Name:        fmt.Sprintf("azd-%s", runtime.Name),
 		Image:       image,
 		Ports:       buildContainerPortMappings(runtime),
 		Environment: runtime.Env,
+	}
+
+	// Add user-defined volumes from azure.yaml
+	for _, vol := range runtime.ContainerVolumes {
+		parsed, err := parseVolumeMount(vol, projectDir)
+		if err != nil {
+			slog.Warn("skipping invalid volume mount",
+				slog.String("volume", vol),
+				slog.String("error", err.Error()))
+			continue
+		}
+		config.Volumes = append(config.Volumes, parsed)
+	}
+
+	// Add container command from azure.yaml
+	if runtime.ContainerCommand != "" {
+		// Split command using shell-style parsing (respects quotes)
+		config.Command = splitCommand(runtime.ContainerCommand)
+	}
+
+	// Inject container auth volumes and extra hosts if enabled
+	if shimPath != "" && certsHostDir != "" {
+		config.Volumes = append(config.Volumes,
+			docker.VolumeMount{Source: shimPath, Target: "/usr/local/bin/azd", ReadOnly: true},
+			docker.VolumeMount{Source: certsHostDir, Target: "/run/secrets/azd-auth", ReadOnly: true},
+		)
+
+		// Add extra hosts if needed (e.g., host.docker.internal on native Linux)
+		if extraHostsStr != "" {
+			for _, h := range strings.Split(extraHostsStr, ",") {
+				if h != "" {
+					config.ExtraHosts = append(config.ExtraHosts, h)
+				}
+			}
+		}
+
+		slog.Info("container auth enabled",
+			slog.String("service", runtime.Name),
+			slog.String("shimPath", shimPath),
+			slog.String("certsDir", certsHostDir))
 	}
 
 	// Run container
@@ -203,6 +259,68 @@ func buildContainerPortMappings(runtime *ServiceRuntime) []docker.PortMapping {
 	// for services that expose additional ports (e.g., debug ports, metrics endpoints).
 
 	return mappings
+}
+
+// parseVolumeMount parses a Docker Compose-style volume string (e.g., "./src:/app:ro")
+// into a docker.VolumeMount. Relative source paths are resolved against projectDir.
+// Handles Windows absolute paths (e.g., "C:\data:/app").
+func parseVolumeMount(volume string, projectDir string) (docker.VolumeMount, error) {
+	parts := strings.Split(volume, ":")
+
+	// On Windows, absolute paths like C:\foo:/app split into ["C", "\foo", "/app"].
+	// Detect drive letter and rejoin.
+	if len(parts) >= 3 && len(parts[0]) == 1 && strings.ContainsAny(parts[0], "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+		// Rejoin drive letter: "C" + ":" + "\foo" => "C:\foo"
+		parts = append([]string{parts[0] + ":" + parts[1]}, parts[2:]...)
+	}
+
+	if len(parts) < 2 {
+		return docker.VolumeMount{}, fmt.Errorf("invalid volume format %q: expected host:container[:ro]", volume)
+	}
+
+	source := parts[0]
+	target := parts[1]
+	readOnly := len(parts) >= 3 && parts[2] == "ro"
+
+	// Resolve relative source paths against the project directory
+	if !filepath.IsAbs(source) {
+		source = filepath.Join(projectDir, source)
+	}
+
+	return docker.VolumeMount{
+		Source:   source,
+		Target:   target,
+		ReadOnly: readOnly,
+	}, nil
+}
+
+// splitCommand splits a shell command string into individual arguments.
+// Handles quoted strings (single and double quotes).
+func splitCommand(command string) []string {
+	var args []string
+	var current strings.Builder
+	inSingleQuote := false
+	inDoubleQuote := false
+
+	for _, r := range command {
+		switch {
+		case r == '\'' && !inDoubleQuote:
+			inSingleQuote = !inSingleQuote
+		case r == '"' && !inSingleQuote:
+			inDoubleQuote = !inDoubleQuote
+		case r == ' ' && !inSingleQuote && !inDoubleQuote:
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+	return args
 }
 
 // StopContainerService stops a Docker container service.

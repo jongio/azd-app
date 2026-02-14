@@ -19,6 +19,27 @@ type ContainerConfig struct {
 
 	// Environment contains environment variables to set in the container
 	Environment map[string]string
+
+	// Volumes contains bind mount mappings for the container
+	Volumes []VolumeMount
+
+	// ExtraHosts contains additional host-to-IP mappings (--add-host)
+	ExtraHosts []string
+
+	// Command is the command to run inside the container (overrides image CMD)
+	Command []string
+}
+
+// VolumeMount represents a bind mount for a container.
+type VolumeMount struct {
+	// Source is the host path to mount
+	Source string
+
+	// Target is the container path to mount to
+	Target string
+
+	// ReadOnly makes the mount read-only in the container
+	ReadOnly bool
 }
 
 // PortMapping represents a host:container port mapping.
@@ -116,6 +137,23 @@ func (p PortMapping) Validate() error {
 	return nil
 }
 
+// Validate checks if the volume mount configuration is valid.
+func (v VolumeMount) Validate() error {
+	if v.Source == "" {
+		return fmt.Errorf("volume source path cannot be empty")
+	}
+	if v.Target == "" {
+		return fmt.Errorf("volume target path cannot be empty")
+	}
+	// Reject shell metacharacters in paths
+	for _, c := range v.Source + v.Target {
+		if c == ';' || c == '|' || c == '&' || c == '$' || c == '`' || c == '\n' || c == '\r' {
+			return fmt.Errorf("volume path contains invalid character")
+		}
+	}
+	return nil
+}
+
 // Validate checks if the container configuration is valid.
 func (c ContainerConfig) Validate() error {
 	if err := ValidateImageName(c.Image); err != nil {
@@ -127,6 +165,11 @@ func (c ContainerConfig) Validate() error {
 	for i, port := range c.Ports {
 		if err := port.Validate(); err != nil {
 			return fmt.Errorf("port mapping %d: %w", i, err)
+		}
+	}
+	for i, vol := range c.Volumes {
+		if err := vol.Validate(); err != nil {
+			return fmt.Errorf("volume mount %d: %w", i, err)
 		}
 	}
 	return nil

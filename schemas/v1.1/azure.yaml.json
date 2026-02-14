@@ -571,6 +571,14 @@
           "enum": ["watch", "build", "daemon", "task"],
           "default": "daemon"
         },
+        "volumes": {
+          "type": "array",
+          "title": "Volume mounts (azd app extension)",
+          "description": "Bind mount volumes in Docker format. Example: ['/host/path:/container/path:ro']",
+          "items": {
+            "type": "string"
+          }
+        },
         "ports": {
           "type": "array",
           "title": "Port mappings (azd app extension)",
@@ -628,6 +636,13 @@
               "pattern": "^https?://",
               "maxLength": 2048,
               "examples": ["https://myapp.ngrok.io", "http://myapp.local:8080", "https://localhost.local"]
+            },
+            "credentials": {
+              "type": "string",
+              "title": "Credential provider for local development",
+              "description": "Credential provider for forwarding Azure credentials into container services during local development. 'azd' forwards host azd credentials into the container via mTLS, enabling DefaultAzureCredential to work.",
+              "enum": ["azd"],
+              "examples": ["azd"]
             }
           },
           "additionalProperties": false

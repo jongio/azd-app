@@ -111,6 +111,17 @@ azd app run --service api,postgres
 
 # Dry run to see what would start
 azd app run --dry-run`;
+
+const yamlWithCredentials = `services:
+  api:
+    host: containerapp
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    ports:
+      - "8080:8080"
+    local:
+      credentials: azd    # Azure credentials just work!
+    env:
+      ASPNETCORE_URLS: "http://+:8080"`;
 ---
 
 <Layout title="Container Services Guide" description="Learn how to add and configure container services like databases, caches, and Azure emulators in your azd app projects.">
@@ -407,6 +418,28 @@ azd app run --dry-run`;
           <li>Containers are stopped when you stop the development session</li>
           <li>Named volumes persist data between sessions</li>
         </ul>
+      </div>
+    </section>
+
+    <!-- Azure Credentials -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-4">🔐 Azure Credentials in Containers</h2>
+      <div class="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-lg border border-blue-200 dark:border-blue-800 mb-6">
+        <p class="text-neutral-700 dark:text-neutral-300">
+          <strong>The age-old problem, solved.</strong> <code class="px-2 py-1 bg-white/50 dark:bg-neutral-800 rounded">DefaultAzureCredential</code> has never worked inside Docker containers during local development — until now. With one line of config, your containerized services can authenticate with Azure using your existing <code class="px-2 py-1 bg-white/50 dark:bg-neutral-800 rounded">azd auth login</code> credentials.
+        </p>
+      </div>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        Add <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">local.credentials: azd</code> to any container service, and azd automatically sets up secure credential forwarding using mTLS:
+      </p>
+      <Code code={yamlWithCredentials} lang="yaml" />
+      <p class="text-neutral-700 dark:text-neutral-300 mt-4">
+        Works with every Azure SDK (.NET, Python, Node.js, Java, Go) and every container runtime (Docker, Podman, Rancher Desktop). No service principals, no connection strings, no secrets to manage.
+      </p>
+      <div class="mt-4">
+        <a href="/azd-app/reference/credential-forwarding/" class="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+          Learn more about credential forwarding →
+        </a>
       </div>
     </section>
 

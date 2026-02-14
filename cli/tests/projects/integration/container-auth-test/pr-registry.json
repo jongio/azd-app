@@ -1,0 +1,102 @@
+{
+  "extensions": [
+    {
+      "id": "jongio.azd.app",
+      "namespace": "app",
+      "displayName": "App Extension",
+      "description": "A collection of developer productivity commands for Azure Developer CLI",
+      "versions": [
+        {
+          "version": "0.11.7-pr131",
+          "capabilities": [
+            "custom-commands",
+            "lifecycle-events",
+            "mcp-server",
+            "service-target-provider"
+          ],
+          "providers": [
+            {
+              "name": "local",
+              "type": "service-target",
+              "description": "Local-only container services for development (skipped during deploy)"
+            }
+          ],
+          "usage": "azd app \u003ccommand\u003e [options]",
+          "examples": [
+            {
+              "name": "run",
+              "description": "Run services defined in azure.yaml",
+              "usage": "azd app run"
+            },
+            {
+              "name": "reqs",
+              "description": "Verify all prerequisites are installed",
+              "usage": "azd app reqs"
+            },
+            {
+              "name": "test",
+              "description": "Run tests for all services with coverage",
+              "usage": "azd app test --coverage"
+            }
+          ],
+          "artifacts": {
+            "darwin/amd64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "7f3fc99d41bd6e1704396408dfef0984690455c4db9f4e22a9f0dacf57e116b4"
+              },
+              "entryPoint": "jongio-azd-app-darwin-amd64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.11.7-pr131/jongio-azd-app-darwin-amd64.zip"
+            },
+            "darwin/arm64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "ce83b7cfe037eddd6d71c379fdccf5e614ee678925710b117a5d4fcc551ac2a8"
+              },
+              "entryPoint": "jongio-azd-app-darwin-arm64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.11.7-pr131/jongio-azd-app-darwin-arm64.zip"
+            },
+            "linux/amd64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "cceb1c65bf154e6b8f443fdc595d4a7321e1f961df305c503b8b0eeffaf287ec"
+              },
+              "entryPoint": "jongio-azd-app-linux-amd64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.11.7-pr131/jongio-azd-app-linux-amd64.tar.gz"
+            },
+            "linux/arm64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "f73d79b70b28a8cf89cfc6ef60f1e8cd25486c6c8010f955464ece17d3a7c545"
+              },
+              "entryPoint": "jongio-azd-app-linux-arm64",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.11.7-pr131/jongio-azd-app-linux-arm64.tar.gz"
+            },
+            "windows/amd64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "dbe67197e81ee8b72c030e513f3930028dbc94ec81e6679bf74f3a8b758bd079"
+              },
+              "entryPoint": "jongio-azd-app-windows-amd64.exe",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.11.7-pr131/jongio-azd-app-windows-amd64.zip"
+            },
+            "windows/arm64": {
+              "checksum": {
+                "algorithm": "sha256",
+                "value": "21b3dcc8ce3f126f091461ac5ea2c1c5c3001b666d5bdc89ffa5407472333693"
+              },
+              "entryPoint": "jongio-azd-app-windows-arm64.exe",
+              "url": "https://github.com/jongio/azd-app/releases/download/azd-ext-jongio-azd-app_0.11.7-pr131/jongio-azd-app-windows-arm64.zip"
+            }
+          }
+        }
+      ],
+      "tags": [
+        "developer",
+        "productivity",
+        "app",
+        "testing"
+      ]
+    }
+  ]
+}
