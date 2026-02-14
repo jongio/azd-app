@@ -277,7 +277,12 @@ jobs:
 
       - name: Build auth shim binaries
         working-directory: cli
-        run: mage shimBuild
+        run: |
+          if [ -d "src/internal/containerauth/shim" ] && mage -l 2>/dev/null | grep -q shimBuild; then
+            mage shimBuild
+          else
+            echo "Shim build not needed, skipping"
+          fi
 
       - name: Build binaries
         working-directory: cli
