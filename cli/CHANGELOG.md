@@ -1,3 +1,9 @@
+## [0.12.0] - 2026-02-14
+
+- feat: Forward Azure credentials into local containers (#131) (eec4b80)
+- fix: add shim build step to PR build workflow (95f13f3)
+- chore: update registry for v0.11.7 (0d4a5a3)
+
 ## [0.11.7] - 2026-02-10
 
 - style: improve layout and responsiveness of LogsPaneHeader component (#127) (a0c0d33)
