@@ -197,10 +197,9 @@ interface ProgressIndicatorProps {
 
 ```typescript
 const progressContent = {
-  totalSteps: 4,
+  totalSteps: 3,
   labels: [
     "Install Azure CLI",
-    "Enable Extensions",
     "Clone & Run",
     "Fix with AI"
   ],
@@ -213,9 +212,9 @@ const progressContent = {
 Horizontal (Desktop/Tablet):
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                  │
-│     ①──────────②──────────③──────────④                                          │
-│   Install    Enable     Clone &    Fix with                                     │
-│   Azure CLI  Extensions Run        AI                                           │
+│     ①──────────②──────────③                                                     │
+│   Install    Clone &    Fix with                                                │
+│   Azure CLI  Run        AI                                                      │
 │                                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────┘
 
@@ -223,11 +222,9 @@ Vertical (Mobile):
 ┌─────────────────────────────┐
 │  ① Install Azure CLI        │
 │  │                          │
-│  ② Enable Extensions        │
+│  ② Clone & Run              │
 │  │                          │
-│  ③ Clone & Run              │
-│  │                          │
-│  ④ Fix with AI              │
+│  ③ Fix with AI              │
 └─────────────────────────────┘
 ```
 
@@ -743,13 +740,13 @@ const step1Content = {
 };
 ```
 
-### Step 2: Enable Extensions & Install azd-app
+### Step 2: Install azd-app
 
 ```typescript
 const step2Content = {
   number: 2,
-  title: "Enable Extensions & Install azd-app",
-  description: "Enable the azd extensions feature and install the azd-app extension:",
+  title: "Install azd-app",
+  description: "Install the azd-app extension:",
   platformContent: {
     windows: [
       {
@@ -912,9 +909,8 @@ const oneClickCommand = "azd init -t jongio/azd-app-demo";
   <nav aria-label="Quick start progress" class="progress-indicator">
     <ol role="list">
       <li aria-current="step">Step 1: Install Azure CLI</li>
-      <li>Step 2: Enable Extensions</li>
+      <li>Step 2: Install azd-app</li>
       <li>Step 3: Clone & Run</li>
-      <li>Step 4: Fix with AI</li>
     </ol>
   </nav>
   
