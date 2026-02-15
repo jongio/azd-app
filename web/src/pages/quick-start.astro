@@ -62,8 +62,8 @@ const nextSteps = [
 ];
 
 // Step 2 commands (same across platforms)
-const step2Commands = `# Add azd-app extension source
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+const step2Commands = `# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app`;

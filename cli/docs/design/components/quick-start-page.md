@@ -753,8 +753,8 @@ const step2Content = {
         type: 'code',
         language: 'powershell',
         title: 'PowerShell',
-        content: `# Add azd-app extension source
-azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+        content: `# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app`,
@@ -765,8 +765,8 @@ azd extension install jongio.azd.app`,
         type: 'code',
         language: 'bash',
         title: 'Terminal',
-        content: `# Add azd-app extension source
-azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+        content: `# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app`,
@@ -777,8 +777,8 @@ azd extension install jongio.azd.app`,
         type: 'code',
         language: 'bash',
         title: 'Terminal',
-        content: `# Add azd-app extension source
-azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+        content: `# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app`,

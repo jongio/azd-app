@@ -648,7 +648,7 @@ const installContent: PlatformInstall[] = [
       'winget install microsoft.azd',
       '',
       '# Install azd-app',
-      'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
+      'azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json',
       'azd extension install jongio.azd.app',
     ],
   },
@@ -661,7 +661,7 @@ const installContent: PlatformInstall[] = [
       'brew tap azure/azd && brew install azd',
       '',
       '# Install azd-app',
-      'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
+      'azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json',
       'azd extension install jongio.azd.app',
     ],
   },
@@ -674,7 +674,7 @@ const installContent: PlatformInstall[] = [
       'curl -fsSL https://aka.ms/install-azd.sh | bash',
       '',
       '# Install azd-app',
-      'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
+      'azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json',
       'azd extension install jongio.azd.app',
     ],
   },
@@ -700,7 +700,7 @@ const installContent: PlatformInstall[] = [
 │  │ winget install microsoft.azd                                               │  │
 │  │                                                                             │  │
 │  │ # Install azd-app                                                          │  │
-│  │ azd extension source add app https://raw.githubusercontent.com/...         │  │
+│  │ azd extension source add -n jongio -t url -l https://jongio.gith...        │  │
 │  │ azd extension install jongio.azd.app                                       │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │

@@ -115,7 +115,7 @@ rm pr-registry.json
 ### Reinstall Stable Version
 
 ```bash
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 azd extension install jongio.azd.app
 ```
 
@@ -237,7 +237,7 @@ azd extension source remove pr-456
 rm pr-registry.json
 
 # 6. Back to stable
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 azd extension install jongio.azd.app
 ```
 
