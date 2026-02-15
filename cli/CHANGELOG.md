@@ -1,3 +1,8 @@
+## [0.12.1] - 2026-02-15
+
+- Remove extension preview/alpha requirement (#133) (ce42eb0)
+- chore: update registry for v0.12.0 (11de4ff)
+
 ## [0.12.0] - 2026-02-14
 
 - feat: Forward Azure credentials into local containers (#131) (eec4b80)
