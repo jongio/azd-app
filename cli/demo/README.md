@@ -25,14 +25,11 @@ curl -fsSL https://aka.ms/install-azd.sh | bash
 
 ## Install azd app
 
-Enable the azd extensions feature and install the azd app extension:
+Install the azd app extension:
 
 ```bash
-# Enable extensions
-azd config set alpha.extensions.enabled on
-
-# Add azd app extension source
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app

@@ -25,12 +25,11 @@ curl -fsSL https://raw.githubusercontent.com/jongio/azd-app/main/cli/scripts/ins
 ```
 
 **What it does:**
-1. Enables azd extensions
-2. Uninstalls existing extension (if any)
-3. Downloads PR registry from GitHub release
-4. Adds PR registry as source
-5. Installs specified version
-6. Verifies installation
+1. Uninstalls existing extension (if any)
+2. Downloads PR registry from GitHub release
+3. Adds PR registry as source
+4. Installs specified version
+5. Verifies installation
 
 ### `restore-stable.ps1` / `restore-stable.sh`
 Restores the stable version of the extension.

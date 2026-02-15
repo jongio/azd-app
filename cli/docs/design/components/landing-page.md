@@ -647,9 +647,8 @@ const installContent: PlatformInstall[] = [
       '# Install Azure Developer CLI',
       'winget install microsoft.azd',
       '',
-      '# Enable extensions and install azd-app',
-      'azd config set alpha.extensions.enabled on',
-      'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
+      '# Install azd-app',
+      'azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json',
       'azd extension install jongio.azd.app',
     ],
   },
@@ -661,9 +660,8 @@ const installContent: PlatformInstall[] = [
       '# Install Azure Developer CLI',
       'brew tap azure/azd && brew install azd',
       '',
-      '# Enable extensions and install azd-app',
-      'azd config set alpha.extensions.enabled on',
-      'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
+      '# Install azd-app',
+      'azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json',
       'azd extension install jongio.azd.app',
     ],
   },
@@ -675,9 +673,8 @@ const installContent: PlatformInstall[] = [
       '# Install Azure Developer CLI',
       'curl -fsSL https://aka.ms/install-azd.sh | bash',
       '',
-      '# Enable extensions and install azd-app',
-      'azd config set alpha.extensions.enabled on',
-      'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
+      '# Install azd-app',
+      'azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json',
       'azd extension install jongio.azd.app',
     ],
   },
@@ -702,9 +699,8 @@ const installContent: PlatformInstall[] = [
 │  │ # Install Azure Developer CLI                                              │  │
 │  │ winget install microsoft.azd                                               │  │
 │  │                                                                             │  │
-│  │ # Enable extensions and install azd-app                                    │  │
-│  │ azd config set alpha.extensions.enabled on                                 │  │
-│  │ azd extension source add app https://raw.githubusercontent.com/...         │  │
+│  │ # Install azd-app                                                          │  │
+│  │ azd extension source add -n jongio -t url -l https://jongio.gith...        │  │
 │  │ azd extension install jongio.azd.app                                       │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │

@@ -5,7 +5,6 @@ Want to test changes from a pull request before they're merged? Follow this guid
 ## Prerequisites
 
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) installed
-- Extensions enabled: `azd config set alpha.extension.enabled on`
 
 ## When Builds Are Available
 
@@ -116,7 +115,7 @@ rm pr-registry.json
 ### Reinstall Stable Version
 
 ```bash
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 azd extension install jongio.azd.app
 ```
 
@@ -221,27 +220,24 @@ iex "& { $(irm https://raw.githubusercontent.com/jongio/azd-app/main/cli/scripts
 # 1. Download registry (from PR comment)
 curl -L -o pr-registry.json https://github.com/jongio/azd-app/releases/download/pr-456-v0.5.7-pr456/pr-registry.json
 
-# 2. Enable extensions (one-time)
-azd config set alpha.extension.enabled on
-
-# 3. Add registry
+# 2. Add registry
 azd extension source add -n pr-456 -t file -l "$(pwd)/pr-registry.json"
 
-# 4. Install
+# 3. Install
 azd extension install jongio.azd.app --version 0.5.7-pr456
 
-# 5. Test
+# 4. Test
 azd app version
 azd app reqs
 azd app run
 
-# 6. When done, cleanup
+# 5. When done, cleanup
 azd extension uninstall jongio.azd.app
 azd extension source remove pr-456
 rm pr-registry.json
 
-# 7. Back to stable
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+# 6. Back to stable
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 azd extension install jongio.azd.app
 ```
 

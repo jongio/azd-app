@@ -22,9 +22,8 @@ import Screenshot from '../components/Screenshot.astro';
 // Progress steps configuration
 const progressSteps = [
   { number: 1, label: "Install Azure CLI" },
-  { number: 2, label: "Enable Extensions" },
-  { number: 3, label: "Clone & Run" },
-  { number: 4, label: "Fix with AI" },
+  { number: 2, label: "Clone & Run" },
+  { number: 3, label: "Fix with AI" },
 ];
 
 // Next steps configuration
@@ -63,11 +62,8 @@ const nextSteps = [
 ];
 
 // Step 2 commands (same across platforms)
-const step2Commands = `# Enable extensions
-azd config set alpha.extensions.enabled on
-
-# Add azd-app extension source
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+const step2Commands = `# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app`;
@@ -141,11 +137,11 @@ azd app run`;
       </div>
     </StepCard>
 
-    <!-- Step 2: Enable Extensions & Install azd-app -->
+    <!-- Step 2: Install azd-app -->
     <StepCard 
       number={2} 
-      title="Enable Extensions & Install azd-app"
-      description="Enable the azd extensions feature and install the azd-app extension:"
+      title="Install azd-app"
+      description="Install the azd-app extension:"
     >
       <CodeBlock 
         code={step2Commands}
@@ -157,7 +153,7 @@ azd app run`;
 
     <!-- Step 3: Clone Demo Template & Run -->
     <StepCard 
-      number={3} 
+      number={3}
       title="Clone Demo Template & Run"
       description="Initialize the demo template and start all services. This template includes an intentional bug for you to fix!"
     >
@@ -190,7 +186,7 @@ azd app run`;
           <div class="terminal-line terminal-success">✓ web started on http://localhost:3000</div>
           <div class="terminal-line terminal-error">✗ api: Connection timeout to database</div>
           <div class="terminal-line"></div>
-          <div class="terminal-line terminal-info">💡 There's a bug! Continue to Step 4 to fix it with AI.</div>
+          <div class="terminal-line terminal-info">💡 There's a bug! Use AI to fix it!</div>
         </div>
       </div>
 

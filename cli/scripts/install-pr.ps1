@@ -40,15 +40,7 @@ foreach ($name in $processNames) {
 Start-Sleep -Milliseconds 500  # Give processes time to fully terminate
 Write-Host "   ✓" -ForegroundColor DarkGray
 
-# Step 1: Enable extensions
-Write-Host "📋 Enabling azd extensions..." -ForegroundColor Gray
-azd config set alpha.extension.enabled on
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Failed to enable extensions" -ForegroundColor Red
-    exit 1
-}
-
-# Step 2: Uninstall existing extension (force remove any version)
+# Step 1: Uninstall existing extension(force remove any version)
 Write-Host "🗑️  Uninstalling existing extension (if any)..." -ForegroundColor Gray
 azd extension uninstall $extensionId 2>&1 | Out-Null
 # Ignore errors - extension might not be installed
@@ -60,7 +52,7 @@ if (Test-Path $extensionDir) {
 }
 Write-Host "   ✓" -ForegroundColor DarkGray
 
-# Step 3: Download PR registry
+# Step 2: Download PR registry
 Write-Host "📥 Downloading PR registry..." -ForegroundColor Gray
 $registryPath = Join-Path $PWD "pr-registry.json"
 try {
@@ -72,7 +64,7 @@ try {
     exit 1
 }
 
-# Step 4: Add registry source
+# Step 3: Add registry source
 Write-Host "🔗 Adding PR registry source..." -ForegroundColor Gray
 azd extension source remove "pr-$PrNumber" 2>$null  # Remove if exists
 azd extension source add -n "pr-$PrNumber" -t file -l $registryPath
@@ -81,7 +73,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 5: Install PR version
+# Step 4: Install PR version
 Write-Host "📦 Installing version $Version..." -ForegroundColor Gray
 
 # Clear any cached extension packages to force fresh download
@@ -97,7 +89,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Step 6: Verify installation
+# Step 5: Verify installation
 Write-Host ""
 Write-Host "✅ Installation complete!" -ForegroundColor Green
 Write-Host ""

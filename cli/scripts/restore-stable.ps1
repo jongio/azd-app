@@ -13,7 +13,7 @@
 $ErrorActionPreference = 'Stop'
 $repo = "jongio/azd-app"
 $extensionId = "jongio.azd.app"
-$stableRegistryUrl = "https://raw.githubusercontent.com/$repo/refs/heads/main/registry.json"
+$stableRegistryUrl = "https://jongio.github.io/azd-extensions/registry.json"
 
 Write-Host "🔄 Restoring stable azd app extension" -ForegroundColor Cyan
 Write-Host ""
@@ -44,8 +44,8 @@ if (Test-Path "$HOME/pr-registry.json") {
 
 # Step 4: Add stable registry source
 Write-Host "🔗 Adding stable registry source..." -ForegroundColor Gray
-azd extension source remove "app" 2>$null  # Remove if exists
-azd extension source add -n "app" -t url -l $stableRegistryUrl
+azd extension source remove "jongio" 2>$null  # Remove if exists
+azd extension source add -n "jongio" -t url -l $stableRegistryUrl
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Failed to add stable registry source" -ForegroundColor Red
     exit 1

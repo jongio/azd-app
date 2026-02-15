@@ -69,14 +69,11 @@ const nextStep = getNextStep(1);
       <PlatformInstallTabs id="tour-install" />
 
       <h2>Install the azd app Extension</h2>
-      <p>Once azd is installed, enable extensions and install azd app:</p>
+      <p>Once azd is installed, install the azd app extension:</p>
 
       <CodeBlock 
-        code={`# Enable extensions
-azd config set alpha.extensions.enabled on
-
-# Add the azd app extension source
-azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+        code={`# Add extension source
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 
 # Install the extension
 azd extension install jongio.azd.app`}

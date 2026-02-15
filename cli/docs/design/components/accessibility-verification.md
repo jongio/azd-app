@@ -752,7 +752,7 @@ test('Header has no accessibility violations', async () => {
 |--------|-------------|
 | Page load | "Quick Start - azd-app" |
 | Progress focused | "Quick start progress, navigation. Step 1 of 4: Install Azure CLI, current step" |
-| Step completed | "Step 1 completed. Step 2: Enable Extensions, current step" |
+| Step completed | "Step 1 completed. Step 2: Install azd-app, current step" |
 | Platform selected | "Windows selected, tab 1 of 3. Tab panel: Windows installation commands" |
 | Command copied | "Command copied to clipboard" |
 | Challenge focused | "Challenge region: Your Challenge. The demo template has an intentional bug..." |

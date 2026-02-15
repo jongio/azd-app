@@ -911,28 +911,12 @@ func UpdateDeps() error {
 	return nil
 }
 
-// ensureAzdExtensions checks that azd is installed, extensions are enabled, and the azd x extension is installed.
+// ensureAzdExtensions checks that azd is installed and the azd x extension is installed.
 // This is a prerequisite for commands that use azd x (build, watch, etc.).
 func ensureAzdExtensions() error {
 	// Check if azd is available
 	if _, err := sh.Output("azd", "version"); err != nil {
 		return fmt.Errorf("azd is not installed or not in PATH. Install from https://aka.ms/azd")
-	}
-
-	// Check if extensions are enabled by looking at config
-	configOutput, err := sh.Output("azd", "config", "show")
-	if err != nil {
-		// Config might not exist yet, that's okay
-		configOutput = ""
-	}
-
-	// Enable extensions if not already enabled
-	if !strings.Contains(configOutput, `"enabled": "on"`) && !strings.Contains(configOutput, `"enabled":"on"`) {
-		fmt.Println("📦 Enabling azd extensions...")
-		if err := sh.RunV("azd", "config", "set", "alpha.extension.enabled", "on"); err != nil {
-			return fmt.Errorf("failed to enable azd extensions: %w", err)
-		}
-		fmt.Println("✅ Extensions enabled!")
 	}
 
 	// Check if azd x extension is available
@@ -957,7 +941,7 @@ func Watch() error {
 	fmt.Println("Starting watchers for both CLI and dashboard...")
 	fmt.Println()
 
-	// Ensure azd extensions are set up (enables extensions + installs azd x if needed)
+	// Ensure azd extensions are set up (installs azd x if needed)
 	if err := ensureAzdExtensions(); err != nil {
 		return err
 	}

@@ -453,7 +453,6 @@ azd builds on Azure CLI patterns but adds:
 
 2. **Configuration via `azd config set`**:
    ```bash
-   azd config set alpha.extension.enabled on
    azd config set extension.registry https://registry.json
    ```
 

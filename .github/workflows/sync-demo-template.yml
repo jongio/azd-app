@@ -288,7 +288,7 @@ jobs:
       - name: Install azd-app extension
         run: |
           # Add the extension registry and install azd-app
-          azd extension source add jongio --location https://raw.githubusercontent.com/jongio/azd-app/main/registry.json --type url 2>/dev/null || true
+          azd extension source add jongio --location https://jongio.github.io/azd-extensions/registry.json --type url 2>/dev/null || true
           azd extension install jongio.azd.app --source jongio || echo "Extension may not be published yet, continuing..."
 
       - name: Validate azure.yaml exists

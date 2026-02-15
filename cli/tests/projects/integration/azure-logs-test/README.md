@@ -18,7 +18,6 @@ azd auth login
 az login
 
 # Install azd app extension
-azd config set alpha.extensions.enabled on
 azd extension install jongio.azd.app
 ```
 
