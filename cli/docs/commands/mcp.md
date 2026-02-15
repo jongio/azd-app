@@ -118,9 +118,6 @@ Debugging Workflow:
 ### 1. Install the azd app extension
 
 ```bash
-# Enable azd extensions
-azd config set alpha.extension.enabled on
-
 # Add the extension registry
 azd extension source add -n app -t url -l "https://raw.githubusercontent.com/jongio/azd-app/refs/heads/main/registry.json"
 

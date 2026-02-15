@@ -20,16 +20,13 @@ curl -fsSL https://raw.githubusercontent.com/jongio/azd-app/main/cli/scripts/ins
 # 1. Download registry (replace URL from PR comment)
 curl -L -o pr-registry.json https://github.com/jongio/azd-app/releases/download/PR_TAG/pr-registry.json
 
-# 2. Enable extensions (one-time setup)
-azd config set alpha.extension.enabled on
-
-# 3. Add registry source (replace PR_NUM)
+# 2. Add registry source (replace PR_NUM)
 azd extension source add -n pr-PR_NUM -t file -l "$(pwd)/pr-registry.json"
 
-# 4. Install (replace VERSION)
+# 3. Install (replace VERSION)
 azd extension install jongio.azd.app --version VERSION
 
-# 5. Verify
+# 4. Verify
 azd app version
 ```
 

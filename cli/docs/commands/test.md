@@ -1093,7 +1093,6 @@ jobs:
       
       - name: Install azd app extension
         run: |
-          azd config set alpha.extension.enabled on
           azd extension install jongio.azd.app
       
       - name: Install dependencies
@@ -1122,7 +1121,6 @@ steps:
     displayName: 'Install azd'
   
   - script: |
-      azd config set alpha.extension.enabled on
       azd extension install jongio.azd.app
     displayName: 'Install azd app extension'
   

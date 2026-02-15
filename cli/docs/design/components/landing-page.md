@@ -647,8 +647,7 @@ const installContent: PlatformInstall[] = [
       '# Install Azure Developer CLI',
       'winget install microsoft.azd',
       '',
-      '# Enable extensions and install azd-app',
-      'azd config set alpha.extensions.enabled on',
+      '# Install azd-app',
       'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
       'azd extension install jongio.azd.app',
     ],
@@ -661,8 +660,7 @@ const installContent: PlatformInstall[] = [
       '# Install Azure Developer CLI',
       'brew tap azure/azd && brew install azd',
       '',
-      '# Enable extensions and install azd-app',
-      'azd config set alpha.extensions.enabled on',
+      '# Install azd-app',
       'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
       'azd extension install jongio.azd.app',
     ],
@@ -675,8 +673,7 @@ const installContent: PlatformInstall[] = [
       '# Install Azure Developer CLI',
       'curl -fsSL https://aka.ms/install-azd.sh | bash',
       '',
-      '# Enable extensions and install azd-app',
-      'azd config set alpha.extensions.enabled on',
+      '# Install azd-app',
       'azd extension source add app https://raw.githubusercontent.com/jongio/azd-app/main/registry.json',
       'azd extension install jongio.azd.app',
     ],
@@ -702,8 +699,7 @@ const installContent: PlatformInstall[] = [
 │  │ # Install Azure Developer CLI                                              │  │
 │  │ winget install microsoft.azd                                               │  │
 │  │                                                                             │  │
-│  │ # Enable extensions and install azd-app                                    │  │
-│  │ azd config set alpha.extensions.enabled on                                 │  │
+│  │ # Install azd-app                                                          │  │
 │  │ azd extension source add app https://raw.githubusercontent.com/...         │  │
 │  │ azd extension install jongio.azd.app                                       │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │

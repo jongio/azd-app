@@ -955,10 +955,7 @@ const step1: TourStepContent = {
       type: "code",
       title: "Install the extension",
       language: "bash",
-      content: `# Enable extensions
-azd config set alpha.extensions.enabled on
-
-# Add extension source
+      content: `# Add extension source
 azd extension source add -n app -t url -l https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
 
 # Install

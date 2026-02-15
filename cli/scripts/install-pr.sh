@@ -34,20 +34,12 @@ REGISTRY_PATH="./pr-registry.json"
 echo -e "${CYAN}🚀 Installing azd app PR #${PR_NUMBER} (version ${VERSION})${NC}"
 echo ""
 
-# Step 1: Enable extensions
-echo -e "${GRAY}📋 Enabling azd extensions...${NC}"
-azd config set alpha.extension.enabled on
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Failed to enable extensions${NC}"
-    exit 1
-fi
-
-# Step 2: Uninstall existing extension
+# Step 1: Uninstall existing extension
 echo -e "${GRAY}🗑️  Uninstalling existing extension (if any)...${NC}"
 azd extension uninstall $EXTENSION_ID 2>/dev/null || true
 echo -e "${GRAY}   ✓${NC}"
 
-# Step 3: Download PR registry
+# Step 2: Download PR registry
 echo -e "${GRAY}📥 Downloading PR registry...${NC}"
 if curl -fsSL -o "$REGISTRY_PATH" "$REGISTRY_URL"; then
     echo -e "${GRAY}   ✓ Downloaded to: $REGISTRY_PATH${NC}"
@@ -57,7 +49,7 @@ else
     exit 1
 fi
 
-# Step 4: Add registry source
+# Step 3: Add registry source
 echo -e "${GRAY}🔗 Adding PR registry source...${NC}"
 azd extension source remove "pr-${PR_NUMBER}" 2>/dev/null || true
 azd extension source add -n "pr-${PR_NUMBER}" -t file -l "$(pwd)/${REGISTRY_PATH}"
@@ -66,7 +58,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 5: Install PR version
+# Step 4: Install PR version
 echo -e "${GRAY}📦 Installing version ${VERSION}...${NC}"
 azd extension install $EXTENSION_ID --version $VERSION
 if [ $? -ne 0 ]; then
@@ -74,7 +66,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 6: Verify installation
+# Step 5: Verify installation
 echo ""
 echo -e "${GREEN}✅ Installation complete!${NC}"
 echo ""
