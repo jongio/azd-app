@@ -1,6 +1,6 @@
 module github.com/jongio/azd-app/cli
 
-go 1.25.7
+go 1.26.0
 
 // Local development: use go.work to resolve azd-core, no local replace
 // CI: azd-core is pinned to a tagged version in go.mod
@@ -10,7 +10,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
-	github.com/azure/azure-dev/cli/azd v0.0.0-20260205054254-1e62693fcd24
+	github.com/azure/azure-dev/cli/azd v0.0.0-20260205194320-e04533f58fa7
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coder/websocket v1.8.14
 	github.com/jongio/azd-core v0.4.2
