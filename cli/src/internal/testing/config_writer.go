@@ -42,9 +42,9 @@ func GenerateTestConfigYAML(validations []ServiceValidation, services []ServiceI
 
 	for _, name := range names {
 		v := autoDetected[name]
-		builder.WriteString(fmt.Sprintf("  %s:\n", name))
+		fmt.Fprintf(&builder, "  %s:\n", name)
 		builder.WriteString("    test:\n")
-		builder.WriteString(fmt.Sprintf("      framework: %s\n", v.Framework))
+		fmt.Fprintf(&builder, "      framework: %s\n", v.Framework)
 	}
 
 	return builder.String()

@@ -590,7 +590,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 	t.Run("tail limit", func(t *testing.T) {
 		var manyLogs strings.Builder
 		for i := 0; i < 50; i++ {
-			manyLogs.WriteString(fmt.Sprintf("[2024-01-15 10:30:%02d.000] [INFO] [OUT] Message %d\n", i, i))
+			fmt.Fprintf(&manyLogs, "[2024-01-15 10:30:%02d.000] [INFO] [OUT] Message %d\n", i, i)
 		}
 		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(manyLogs.String()), 0644)
 

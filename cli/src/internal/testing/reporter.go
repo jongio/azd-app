@@ -286,11 +286,11 @@ func (g *ReportGenerator) generateGitHubSummary(results *AggregateResult) string
 	// Summary table
 	sb.WriteString("| Metric | Value |\n")
 	sb.WriteString("|--------|-------|\n")
-	sb.WriteString(fmt.Sprintf("| Total Tests | %d |\n", results.Total))
-	sb.WriteString(fmt.Sprintf("| Passed | %d |\n", results.Passed))
-	sb.WriteString(fmt.Sprintf("| Failed | %d |\n", results.Failed))
-	sb.WriteString(fmt.Sprintf("| Skipped | %d |\n", results.Skipped))
-	sb.WriteString(fmt.Sprintf("| Duration | %.2fs |\n", results.Duration))
+	fmt.Fprintf(&sb, "| Total Tests | %d |\n", results.Total)
+	fmt.Fprintf(&sb, "| Passed | %d |\n", results.Passed)
+	fmt.Fprintf(&sb, "| Failed | %d |\n", results.Failed)
+	fmt.Fprintf(&sb, "| Skipped | %d |\n", results.Skipped)
+	fmt.Fprintf(&sb, "| Duration | %.2fs |\n", results.Duration)
 	sb.WriteString("\n")
 
 	// Service breakdown
@@ -311,21 +311,21 @@ func (g *ReportGenerator) generateGitHubSummary(results *AggregateResult) string
 			}
 		}
 
-		sb.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %s |\n",
-			svcResult.Service, status, svcResult.Passed, svcResult.Failed, coverageStr))
+		fmt.Fprintf(&sb, "| %s | %s | %d | %d | %s |\n",
+			svcResult.Service, status, svcResult.Passed, svcResult.Failed, coverageStr)
 	}
 	sb.WriteString("\n")
 
 	// Coverage summary
 	if results.Coverage != nil && results.Coverage.Aggregate != nil {
 		sb.WriteString("### 📊 Coverage Summary\n\n")
-		sb.WriteString(fmt.Sprintf("**Overall Coverage:** %.1f%%\n\n", results.Coverage.Aggregate.Lines.Percent))
+		fmt.Fprintf(&sb, "**Overall Coverage:** %.1f%%\n\n", results.Coverage.Aggregate.Lines.Percent)
 
 		if results.Coverage.Threshold > 0 {
 			if results.Coverage.Met {
-				sb.WriteString(fmt.Sprintf("✅ Coverage meets threshold of %.0f%%\n", results.Coverage.Threshold))
+				fmt.Fprintf(&sb, "✅ Coverage meets threshold of %.0f%%\n", results.Coverage.Threshold)
 			} else {
-				sb.WriteString(fmt.Sprintf("❌ Coverage below threshold of %.0f%%\n", results.Coverage.Threshold))
+				fmt.Fprintf(&sb, "❌ Coverage below threshold of %.0f%%\n", results.Coverage.Threshold)
 			}
 		}
 	}
@@ -343,8 +343,8 @@ func (g *ReportGenerator) generateGitHubSummary(results *AggregateResult) string
 		sb.WriteString("\n### ❌ Failed Tests\n\n")
 		for _, svcResult := range results.Services {
 			for _, failure := range svcResult.Failures {
-				sb.WriteString(fmt.Sprintf("#### %s: %s\n\n", svcResult.Service, failure.Name))
-				sb.WriteString(fmt.Sprintf("**Message:** %s\n\n", failure.Message))
+				fmt.Fprintf(&sb, "#### %s: %s\n\n", svcResult.Service, failure.Name)
+				fmt.Fprintf(&sb, "**Message:** %s\n\n", failure.Message)
 				if failure.StackTrace != "" {
 					sb.WriteString("```\n")
 					sb.WriteString(failure.StackTrace)

@@ -362,16 +362,16 @@ func getNetstatOutput(port int) string {
 // String returns a formatted diagnostic string.
 func (d DiagnosticInfo) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Port Diagnostics for port %d at %s:\n", d.Port, d.Timestamp.Format(time.RFC3339)))
-	sb.WriteString(fmt.Sprintf("  Process Detected: %v\n", d.ProcessDetected))
+	fmt.Fprintf(&sb, "Port Diagnostics for port %d at %s:\n", d.Port, d.Timestamp.Format(time.RFC3339))
+	fmt.Fprintf(&sb, "  Process Detected: %v\n", d.ProcessDetected)
 	if d.ProcessDetected {
-		sb.WriteString(fmt.Sprintf("  Process PID: %d\n", d.ProcessPID))
-		sb.WriteString(fmt.Sprintf("  Process Name: %s\n", d.ProcessName))
+		fmt.Fprintf(&sb, "  Process PID: %d\n", d.ProcessPID)
+		fmt.Fprintf(&sb, "  Process Name: %s\n", d.ProcessName)
 	}
-	sb.WriteString(fmt.Sprintf("  Port In Use: %v\n", d.PortInUse))
-	sb.WriteString(fmt.Sprintf("  Can Bind: %v\n", d.CanBind))
+	fmt.Fprintf(&sb, "  Port In Use: %v\n", d.PortInUse)
+	fmt.Fprintf(&sb, "  Can Bind: %v\n", d.CanBind)
 	if d.NetstatOutput != "" {
-		sb.WriteString(fmt.Sprintf("  Netstat Output:\n    %s\n", strings.ReplaceAll(d.NetstatOutput, "\n", "\n    ")))
+		fmt.Fprintf(&sb, "  Netstat Output:\n    %s\n", strings.ReplaceAll(d.NetstatOutput, "\n", "\n    "))
 	}
 	return sb.String()
 }

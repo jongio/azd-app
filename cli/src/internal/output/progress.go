@@ -656,9 +656,9 @@ func FormatStatusLines(lines []StatusLine) string {
 	var builder strings.Builder
 	for i, line := range lines {
 		if line.Success {
-			builder.WriteString(fmt.Sprintf("%s%s%s %s", cliout.Green, cliout.SymbolCheck, cliout.Reset, line.Description))
+			fmt.Fprintf(&builder, "%s%s%s %s", cliout.Green, cliout.SymbolCheck, cliout.Reset, line.Description)
 		} else {
-			builder.WriteString(fmt.Sprintf("%s%s%s %s", cliout.Red, cliout.SymbolCross, cliout.Reset, line.Description))
+			fmt.Fprintf(&builder, "%s%s%s %s", cliout.Red, cliout.SymbolCross, cliout.Reset, line.Description)
 		}
 		if i < len(lines)-1 {
 			builder.WriteString("\n")

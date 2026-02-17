@@ -546,68 +546,68 @@ func buildStandaloneQueryForType(resourceType ResourceType, services []string, s
 	switch resourceType {
 	case ResourceTypeContainerApp:
 		sb.WriteString("ContainerAppConsoleLogs_CL\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeAgo, formatKQLDuration(since)))
+		fmt.Fprintf(&sb, kqlWhereTimeAgo, formatKQLDuration(since))
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf("ContainerAppName_s =~ '%s'", sanitizeKQLString(svc)))
 				conditions = append(conditions, fmt.Sprintf("ContainerName_s =~ '%s'", sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| extend Source = \"Azure Container Apps\", AzureService = \"containerapp\"\n")
 		sb.WriteString("| project TimeGenerated, Source, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s\n")
 
 	case ResourceTypeAppService:
 		sb.WriteString("AppServiceConsoleLogs\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeAgo, formatKQLDuration(since)))
+		fmt.Fprintf(&sb, kqlWhereTimeAgo, formatKQLDuration(since))
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				// For App Service, filter by _ResourceId which contains the app name
 				conditions = append(conditions, fmt.Sprintf(kqlResourceIDFilter, sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| extend Source = \"Azure App Service\", AzureService = \"appservice\"\n")
 		sb.WriteString("| project TimeGenerated, Source, Message=ResultDescription, Level, _ResourceId\n")
 
 	case ResourceTypeFunction:
 		sb.WriteString("FunctionAppLogs\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeAgo, formatKQLDuration(since)))
+		fmt.Fprintf(&sb, kqlWhereTimeAgo, formatKQLDuration(since))
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				// For Functions, filter by _ResourceId which contains the function app name
 				conditions = append(conditions, fmt.Sprintf(kqlResourceIDFilter, sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| extend Source = \"Azure Functions\", AzureService = \"functions\"\n")
 		sb.WriteString("| project TimeGenerated, Source, Message, Level, FunctionName, _ResourceId\n")
 
 	case ResourceTypeAKS:
 		sb.WriteString("ContainerLogV2\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeAgo, formatKQLDuration(since)))
+		fmt.Fprintf(&sb, kqlWhereTimeAgo, formatKQLDuration(since))
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf("PodName contains '%s'", sanitizeKQLString(svc)))
 				conditions = append(conditions, fmt.Sprintf("ContainerName contains '%s'", sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| project TimeGenerated, LogMessage, PodName, ContainerName, PodNamespace\n")
 
 	case ResourceTypeContainerInstance:
 		sb.WriteString("ContainerInstanceLog_CL\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeAgo, formatKQLDuration(since)))
+		fmt.Fprintf(&sb, kqlWhereTimeAgo, formatKQLDuration(since))
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf("ContainerGroup_s contains '%s'", sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| project TimeGenerated, Message_s, ContainerName_s\n")
 
@@ -617,7 +617,7 @@ func buildStandaloneQueryForType(resourceType ResourceType, services []string, s
 	}
 
 	sb.WriteString("| order by TimeGenerated desc\n")
-	sb.WriteString(fmt.Sprintf("| take %d", limit))
+	fmt.Fprintf(&sb, "| take %d", limit)
 
 	return sb.String()
 }
@@ -631,66 +631,66 @@ func buildTimestampQuery(resourceType ResourceType, services []string, since tim
 	switch resourceType {
 	case ResourceTypeContainerApp:
 		sb.WriteString("ContainerAppConsoleLogs_CL\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeDateTime, timestamp))
+		fmt.Fprintf(&sb, kqlWhereTimeDateTime, timestamp)
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf("ContainerAppName_s =~ '%s'", sanitizeKQLString(svc)))
 				conditions = append(conditions, fmt.Sprintf("ContainerName_s =~ '%s'", sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| extend Source = \"Azure Container Apps\", AzureService = \"containerapp\"\n")
 		sb.WriteString("| project TimeGenerated, Source, Log_s, Stream_s, ContainerAppName_s, ContainerName_s, RevisionName_s\n")
 
 	case ResourceTypeAppService:
 		sb.WriteString("AppServiceConsoleLogs\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeDateTime, timestamp))
+		fmt.Fprintf(&sb, kqlWhereTimeDateTime, timestamp)
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf(kqlResourceIDFilter, sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| extend Source = \"Azure App Service\", AzureService = \"appservice\"\n")
 		sb.WriteString("| project TimeGenerated, Source, Message=ResultDescription, Level, _ResourceId\n")
 
 	case ResourceTypeFunction:
 		sb.WriteString("FunctionAppLogs\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeDateTime, timestamp))
+		fmt.Fprintf(&sb, kqlWhereTimeDateTime, timestamp)
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf(kqlResourceIDFilter, sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| extend Source = \"Azure Functions\", AzureService = \"functions\"\n")
 		sb.WriteString("| project TimeGenerated, Source, Message, Level, FunctionName, _ResourceId\n")
 
 	case ResourceTypeAKS:
 		sb.WriteString("ContainerLogV2\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeDateTime, timestamp))
+		fmt.Fprintf(&sb, kqlWhereTimeDateTime, timestamp)
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf("PodName contains '%s'", sanitizeKQLString(svc)))
 				conditions = append(conditions, fmt.Sprintf("ContainerName contains '%s'", sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| project TimeGenerated, LogMessage, PodName, ContainerName, PodNamespace\n")
 
 	case ResourceTypeContainerInstance:
 		sb.WriteString("ContainerInstanceLog_CL\n")
-		sb.WriteString(fmt.Sprintf(kqlWhereTimeDateTime, timestamp))
+		fmt.Fprintf(&sb, kqlWhereTimeDateTime, timestamp)
 		if len(services) > 0 {
 			var conditions []string
 			for _, svc := range services {
 				conditions = append(conditions, fmt.Sprintf("ContainerGroup_s contains '%s'", sanitizeKQLString(svc)))
 			}
-			sb.WriteString(fmt.Sprintf(kqlWhere, strings.Join(conditions, " or ")))
+			fmt.Fprintf(&sb, kqlWhere, strings.Join(conditions, " or "))
 		}
 		sb.WriteString("| project TimeGenerated, Message_s, ContainerName_s\n")
 
