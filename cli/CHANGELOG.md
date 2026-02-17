@@ -1,3 +1,11 @@
+## [0.12.2] - 2026-02-17
+
+- fix: convert all WriteString(Sprintf) to fmt.Fprintf for staticcheck QF1012 (324a3f1)
+- fix: use fmt.Fprintf instead of WriteString(Sprintf) for staticcheck QF1012 (182e1bd)
+- feat: add copilot skills support and Go 1.26.0 (#135) (4f065b3)
+- chore: add update-azd-core workflow (8698e01)
+- chore: update registry for v0.12.1 (bc1f78f)
+
 ## [0.12.1] - 2026-02-15
 
 - Remove extension preview/alpha requirement (#133) (ce42eb0)
