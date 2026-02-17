@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -562,131 +561,6 @@ func ModTidy() error {
 	return nil
 }
 
-// Sync updates go.mod to match the latest tagged version of azd-core.
-// Use this before pushing when you've been developing with go.work against a local azd-core.
-// Set SYNC_VERSION=v0.5.0 to pin a specific version instead of auto-detecting.
-func Sync() error {
-	fmt.Println("Syncing azd-core dependency...")
-
-	version := os.Getenv("SYNC_VERSION")
-	if version == "" {
-		// Auto-detect from local azd-core repo (relative to repo root, not cli/)
-		coreDir := filepath.Join("..", "..", "azd-core")
-		if _, err := os.Stat(coreDir); os.IsNotExist(err) {
-			return fmt.Errorf("azd-core not found at %s - set SYNC_VERSION=<tag> to sync manually", coreDir)
-		}
-
-		cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
-		cmd.Dir = coreDir
-		out, err := cmd.Output()
-		if err != nil {
-			return fmt.Errorf("failed to get latest azd-core tag: %w", err)
-		}
-		version = strings.TrimSpace(string(out))
-		fmt.Printf("   Detected latest azd-core tag: %s\n", version)
-	} else {
-		fmt.Printf("   Using specified version: %s\n", version)
-	}
-
-	// Read current version from go.mod
-	currentVersion, err := getGoModVersion("go.mod", "github.com/jongio/azd-core")
-	if err != nil {
-		return err
-	}
-
-	if currentVersion == version {
-		fmt.Printf("✅ go.mod already pinned to %s - nothing to do!\n", version)
-		return nil
-	}
-
-	fmt.Printf("   Updating: %s → %s\n", currentVersion, version)
-
-	// Run go get with GOWORK=off so it resolves from the module proxy
-	cmd := exec.Command("go", "get", "github.com/jongio/azd-core@"+version)
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("go get failed: %w", err)
-	}
-
-	// Tidy with GOWORK=off
-	cmd = exec.Command("go", "mod", "tidy")
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("go mod tidy failed: %w", err)
-	}
-
-	fmt.Printf("✅ Synced azd-core to %s\n", version)
-	fmt.Println("   go.mod and go.sum updated. Review and commit the changes.")
-	return nil
-}
-
-// getGoModVersion reads the pinned version of a module from go.mod.
-func getGoModVersion(goModPath, module string) (string, error) {
-	f, err := os.Open(goModPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read go.mod: %w", err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.Contains(line, module) {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return parts[len(parts)-1], nil
-			}
-		}
-	}
-	return "", fmt.Errorf("module %s not found in %s", module, goModPath)
-}
-
-// checkAzdCoreDrift checks if the local azd-core repo is ahead of what go.mod pins.
-// Returns nil if in sync or azd-core repo not present; returns an error message if drifted.
-func checkAzdCoreDrift() error {
-	coreDir := filepath.Join("..", "..", "azd-core")
-	if _, err := os.Stat(coreDir); os.IsNotExist(err) {
-		return nil // No local azd-core, nothing to check
-	}
-
-	// Get latest tag from azd-core
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
-	cmd.Dir = coreDir
-	tagOut, err := cmd.Output()
-	if err != nil {
-		return nil // Can't determine, skip silently
-	}
-	latestTag := strings.TrimSpace(string(tagOut))
-
-	// Get pinned version from go.mod
-	pinned, err := getGoModVersion("go.mod", "github.com/jongio/azd-core")
-	if err != nil {
-		return nil
-	}
-
-	if pinned != latestTag {
-		fmt.Printf("⚠️  azd-core drift detected: go.mod pins %s but local repo has %s\n", pinned, latestTag)
-		fmt.Println("   Run 'mage sync' to update go.mod before pushing.")
-		// Warning only, don't fail preflight
-	}
-
-	// Also check for unpushed commits beyond the latest tag
-	cmd = exec.Command("git", "log", latestTag+"..HEAD", "--oneline")
-	cmd.Dir = coreDir
-	logOut, err := cmd.Output()
-	if err == nil && len(strings.TrimSpace(string(logOut))) > 0 {
-		lines := strings.Count(strings.TrimSpace(string(logOut)), "\n") + 1
-		fmt.Printf("⚠️  azd-core has %d untagged commit(s) beyond %s\n", lines, latestTag)
-		fmt.Println("   Tag and push azd-core first, then run 'mage sync'.")
-	}
-
-	return nil
-}
-
 func fileHash(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -1161,7 +1035,6 @@ func Preflight() error {
 		name string
 		fn   func() error
 	}{
-		{"Checking azd-core version drift", checkAzdCoreDrift},
 		{"Checking .gitignore", CheckGitIgnore},
 		{"Checking .gitattributes", CheckGitAttributes},
 		{"Checking for outdated dependencies", CheckDeps},
