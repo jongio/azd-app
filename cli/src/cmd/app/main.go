@@ -7,6 +7,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
+	"github.com/jongio/azd-app/cli/src/internal/skills"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/env"
 
@@ -64,6 +65,13 @@ func main() {
 				if !cliout.IsJSON() {
 					fmt.Fprintf(os.Stderr, "%s[DEBUG]%s Build: %s (built on %s, commit: %.8s)\n",
 						cliout.Dim, cliout.Reset, commands.Version, commands.BuildTime, commands.Commit)
+				}
+			}
+
+			// Install Copilot skill
+			if err := skills.InstallSkill(); err != nil {
+				if debugMode {
+					slog.Debug("Failed to install copilot skill", "error", err)
 				}
 			}
 

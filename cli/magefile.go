@@ -520,12 +520,11 @@ func Staticcheck() error {
 func ModTidy() error {
 	fmt.Println("Running go mod tidy...")
 
-	// Check if we're in a workspace - if so, skip tidy as it doesn't work with local modules
+	// In workspace mode, use GOWORK=off so tidy resolves against the module proxy
+	env := os.Environ()
 	if _, err := os.Stat("../go.work"); err == nil {
-		fmt.Println("⚠️  Workspace detected (go.work exists) - skipping go mod tidy")
-		fmt.Println("   (go mod tidy doesn't work with local workspace modules)")
-		fmt.Println("✅ ModTidy check skipped (workspace mode)!")
-		return nil
+		fmt.Println("   (workspace detected — running with GOWORK=off)")
+		env = append(env, "GOWORK=off")
 	}
 
 	goModBefore, err := fileHash("go.mod")
@@ -537,7 +536,11 @@ func ModTidy() error {
 		return fmt.Errorf("failed to read go.sum before tidy: %w", err)
 	}
 
-	if err := sh.RunV("go", "mod", "tidy"); err != nil {
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Env = env
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("go mod tidy failed: %w", err)
 	}
 
