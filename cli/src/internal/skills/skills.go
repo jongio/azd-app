@@ -10,7 +10,7 @@ import (
 //go:embed azd-app/SKILL.md
 var skillFS embed.FS
 
-// InstallSkill installs the azd-app skill to ~/.copilot/skills/azd-app/
+// InstallSkill installs the azd-app skill to ~/.copilot/skills/azd-app.
 func InstallSkill() error {
 	return copilotskills.Install("azd-app", commands.Version, skillFS, "azd-app")
 }
