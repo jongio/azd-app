@@ -1,0 +1,123 @@
+name: Update azd-core
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'azd-core version to update to (e.g., v0.5.0)'
+        required: true
+        type: string
+      branch:
+        description: 'Existing branch to update. Leave empty to create a new branch and PR.'
+        required: false
+        type: string
+  repository_dispatch:
+    types: [azd-core-released]
+
+defaults:
+  run:
+    working-directory: cli
+
+env:
+  GO_VERSION: '1.26.0'
+
+jobs:
+  update:
+    name: Update azd-core dependency
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Resolve inputs
+        id: inputs
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
+            echo "branch=${{ github.event.client_payload.branch }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "branch=${{ inputs.branch }}" >> $GITHUB_OUTPUT
+          fi
+        working-directory: .
+
+      - name: Validate version
+        run: |
+          VERSION="${{ steps.inputs.outputs.version }}"
+
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: version is required"
+            exit 1
+          fi
+
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            echo "ERROR: Version must start with 'v' (e.g., v0.5.0)"
+            exit 1
+          fi
+        working-directory: .
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.inputs.outputs.branch || 'main' }}
+          fetch-depth: 0
+
+      - name: Create branch
+        if: ${{ !steps.inputs.outputs.branch }}
+        run: |
+          BRANCH="update-azd-core-${{ steps.inputs.outputs.version }}"
+          git checkout -b "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+        working-directory: .
+
+      - name: Set branch env
+        if: ${{ steps.inputs.outputs.branch }}
+        run: |
+          echo "BRANCH=${{ steps.inputs.outputs.branch }}" >> $GITHUB_ENV
+        working-directory: .
+
+      - name: Set up Go (bootstrap)
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: false
+
+      - name: Install Go ${{ env.GO_VERSION }}
+        run: |
+          go install golang.org/dl/go${{ env.GO_VERSION }}@latest
+          go${{ env.GO_VERSION }} download
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          ln -sf $(which go${{ env.GO_VERSION }}) $(go env GOPATH)/bin/go
+
+      - name: Update azd-core
+        run: |
+          VERSION="${{ steps.inputs.outputs.version }}"
+          GOWORK=off go get "github.com/jongio/azd-core@${VERSION}"
+          GOWORK=off go mod tidy
+
+      - name: Commit and push
+        run: |
+          VERSION="${{ steps.inputs.outputs.version }}"
+
+          if git diff --quiet HEAD -- go.mod go.sum; then
+            echo "Already up to date"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add go.mod go.sum
+          git commit -m "chore: update azd-core to ${VERSION}"
+          git push origin "$BRANCH"
+
+      - name: Create PR
+        if: ${{ !steps.inputs.outputs.branch }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.inputs.outputs.version }}"
+          gh pr create \
+            --title "chore: update azd-core to ${VERSION}" \
+            --body "Update azd-core to ${VERSION}"
+        working-directory: .
