@@ -1516,7 +1516,7 @@ func displayLogsText(logs []service.LogEntry, w io.Writer, showTimestamps, noCol
 		if showTimestamps {
 			timestamp := entry.Timestamp.Format("15:04:05.000")
 			if noColor {
-				line.WriteString(fmt.Sprintf("[%s] ", timestamp))
+				fmt.Fprintf(&line, "[%s] ", timestamp)
 			} else {
 				line.WriteString(colorGray + "[" + timestamp + "]" + colorReset + " ")
 			}
@@ -1524,7 +1524,7 @@ func displayLogsText(logs []service.LogEntry, w io.Writer, showTimestamps, noCol
 
 		// Service name
 		if noColor {
-			line.WriteString(fmt.Sprintf("[%s] ", entry.Service))
+			fmt.Fprintf(&line, "[%s] ", entry.Service)
 		} else {
 			line.WriteString(colorCyan + "[" + entry.Service + "]" + colorReset + " ")
 		}
@@ -1597,7 +1597,7 @@ func displayLogsWithContextText(logs []LogEntryWithContext, w io.Writer, showTim
 		if showTimestamps {
 			timestamp := entry.Timestamp.Format("15:04:05.000")
 			if noColor {
-				line.WriteString(fmt.Sprintf("[%s] ", timestamp))
+				fmt.Fprintf(&line, "[%s] ", timestamp)
 			} else {
 				line.WriteString(colorGray + "[" + timestamp + "]" + colorReset + " ")
 			}
@@ -1605,7 +1605,7 @@ func displayLogsWithContextText(logs []LogEntryWithContext, w io.Writer, showTim
 
 		// Service name
 		if noColor {
-			line.WriteString(fmt.Sprintf("[%s] ", entry.Service))
+			fmt.Fprintf(&line, "[%s] ", entry.Service)
 		} else {
 			line.WriteString(colorCyan + "[" + entry.Service + "]" + colorReset + " ")
 		}
