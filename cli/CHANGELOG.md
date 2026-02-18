@@ -1,3 +1,18 @@
+## [0.12.3] - 2026-02-18
+
+- Update azd-core to v0.5.0 (#137) (cba1280)
+- chore: update registry for v0.12.2 (30fa41d)
+- chore: bump version to 0.12.2 (#136) (6bb42de)
+- fix: convert all WriteString(Sprintf) to fmt.Fprintf for staticcheck QF1012 (8b48dd9)
+- fix: use fmt.Fprintf instead of WriteString(Sprintf) for staticcheck QF1012 (68ffbb8)
+- feat: add copilot skills support and Go 1.26.0 (#135) (c08426d)
+- chore: add update-azd-core workflow (c6cc778)
+- chore: update registry for v0.12.1 (8908205)
+- chore: bump version to 0.12.1 (#134) (aa4ad27)
+- Remove extension preview/alpha requirement (#133) (288352b)
+- chore: update registry for v0.12.0 (9bbd51f)
+- chore: bump version to 0.12.0 (#132) (295284f)
+
 ## [0.12.2] - 2026-02-17
 
 - fix: convert all WriteString(Sprintf) to fmt.Fprintf for staticcheck QF1012 (324a3f1)
