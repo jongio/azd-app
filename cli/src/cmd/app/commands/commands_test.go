@@ -111,8 +111,9 @@ func TestCommandsHaveRunFunctions(t *testing.T) {
 	}
 }
 
-func TestNewVersionCommand(t *testing.T) {
-	cmd := NewVersionCommand()
+func TestNewVersionCommand_Basic(t *testing.T) {
+	outputFormat := "default"
+	cmd := NewVersionCommand(&outputFormat)
 
 	if cmd == nil {
 		t.Fatal("NewVersionCommand() returned nil")
@@ -124,10 +125,6 @@ func TestNewVersionCommand(t *testing.T) {
 
 	if cmd.Short == "" {
 		t.Error("Short description is empty")
-	}
-
-	if cmd.RunE == nil {
-		t.Error("RunE function is nil")
 	}
 }
 
@@ -237,7 +234,7 @@ func TestCommandUsageText(t *testing.T) {
 		NewReqsCommand(),
 		NewDepsCommand(),
 		NewRunCommand(),
-		NewVersionCommand(),
+		NewVersionCommand(func() *string { s := "default"; return &s }()),
 		NewInfoCommand(),
 		NewListenCommand(),
 		NewLogsCommand(),

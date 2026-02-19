@@ -13,8 +13,14 @@ import (
 	"github.com/sony/gobreaker"
 )
 
+// metricsRegistry is a dedicated registry to avoid duplicate registration panics
+// when multiple test binaries transitively import this package.
+var metricsRegistry = prometheus.NewRegistry()
+
+var metricsFactory = promauto.With(metricsRegistry)
+
 var (
-	healthCheckDuration = promauto.NewHistogramVec(
+	healthCheckDuration = metricsFactory.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "azd_health_check_duration_seconds",
 			Help:    "Duration of health checks in seconds",
@@ -23,7 +29,7 @@ var (
 		[]string{"service", "status", "check_type"},
 	)
 
-	healthCheckTotal = promauto.NewCounterVec(
+	healthCheckTotal = metricsFactory.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "azd_health_check_total",
 			Help: "Total number of health checks performed",
@@ -31,7 +37,7 @@ var (
 		[]string{"service", "status", "check_type"},
 	)
 
-	healthCheckErrors = promauto.NewCounterVec(
+	healthCheckErrors = metricsFactory.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "azd_health_check_errors_total",
 			Help: "Total number of health check errors",
@@ -39,7 +45,7 @@ var (
 		[]string{"service", "error_type"},
 	)
 
-	serviceUptime = promauto.NewGaugeVec(
+	serviceUptime = metricsFactory.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "azd_service_uptime_seconds",
 			Help: "Service uptime in seconds since last health check detected it running",
@@ -47,7 +53,7 @@ var (
 		[]string{"service"},
 	)
 
-	circuitBreakerState = promauto.NewGaugeVec(
+	circuitBreakerState = metricsFactory.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "azd_circuit_breaker_state",
 			Help: "Circuit breaker state (0=closed, 1=half-open, 2=open)",
@@ -55,7 +61,7 @@ var (
 		[]string{"service"},
 	)
 
-	healthCheckResponseCode = promauto.NewCounterVec(
+	healthCheckResponseCode = metricsFactory.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "azd_health_check_http_status_total",
 			Help: "HTTP status codes from health checks",
@@ -162,7 +168,7 @@ func ServeMetrics(port int) error {
 // This allows the caller to manage server lifecycle (start, shutdown).
 func CreateMetricsServer(port int) *http.Server {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{}))
 
 	// Add health endpoint for the metrics server itself
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
