@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
-	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
+	"github.com/jongio/azd-core/yamlutil"
 )
 
 // TablesResponse represents the response from the tables API.

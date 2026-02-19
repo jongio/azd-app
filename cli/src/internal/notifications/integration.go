@@ -9,8 +9,8 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
 	"github.com/jongio/azd-app/cli/src/internal/monitor"
-	"github.com/jongio/azd-app/cli/src/internal/notify"
-	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/notify"
+	"github.com/jongio/azd-core/registry"
 )
 
 // NotificationManager integrates the state monitor with the notification pipeline.

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/procutil"
 )

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jongio/azd-app/cli/src/internal/types"
+	types "github.com/jongio/azd-core/projecttype"
 )
 
 // FindDotnetProjects searches for .csproj and .sln files.

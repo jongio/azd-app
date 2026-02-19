@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
-	"github.com/jongio/azd-app/cli/src/internal/types"
+	"github.com/jongio/azd-core/cliout"
+	"github.com/jongio/azd-core/progress"
+	types "github.com/jongio/azd-core/projecttype"
 )
 
 // ProjectInstallTask represents a single project installation task.
@@ -26,10 +27,10 @@ type ProjectInstallTask struct {
 // ParallelInstaller handles parallel installation of multiple projects with progress tracking.
 type ParallelInstaller struct {
 	tasks       []ProjectInstallTask
-	multiProg   *output.MultiProgress
+	multiProg   *progress.MultiProgress
 	mu          sync.Mutex
 	results     []ProjectInstallResult
-	statusLines []output.StatusLine
+	statusLines []progress.StatusLine
 	Verbose     bool            // Show full installation output
 	ctx         context.Context // Context for cancellation
 }
@@ -46,7 +47,7 @@ func NewParallelInstaller() *ParallelInstaller {
 	return &ParallelInstaller{
 		tasks:       []ProjectInstallTask{},
 		results:     []ProjectInstallResult{},
-		statusLines: []output.StatusLine{},
+		statusLines: []progress.StatusLine{},
 		ctx:         context.Background(),
 	}
 }
@@ -56,7 +57,7 @@ func NewParallelInstallerWithContext(ctx context.Context) *ParallelInstaller {
 	return &ParallelInstaller{
 		tasks:       []ProjectInstallTask{},
 		results:     []ProjectInstallResult{},
-		statusLines: []output.StatusLine{},
+		statusLines: []progress.StatusLine{},
 		ctx:         ctx,
 	}
 }
@@ -144,7 +145,7 @@ func (pi *ParallelInstaller) addResult(result ProjectInstallResult) {
 	pi.results = append(pi.results, result)
 
 	// Build status line
-	statusLine := output.StatusLine{
+	statusLine := progress.StatusLine{
 		Description: result.Task.Description,
 		Success:     result.Success,
 	}
@@ -176,7 +177,7 @@ func (pi *ParallelInstaller) Run() error {
 	}
 
 	// Initialize multi-progress
-	pi.multiProg = output.NewMultiProgress()
+	pi.multiProg = progress.NewMultiProgress()
 
 	// Add all tasks to the progress display first
 	for _, task := range pi.tasks {
@@ -261,7 +262,7 @@ func (pi *ParallelInstaller) runTaskWithProgress(task ProjectInstallTask) {
 	bar := pi.multiProg.GetBar(task.ID)
 	bar.Start()
 
-	spinnerWriter := output.NewSpinnerWriter(bar)
+	spinnerWriter := progress.NewSpinnerWriter(bar)
 
 	var writer io.Writer = spinnerWriter
 	if pi.Verbose {
@@ -364,8 +365,8 @@ func (pi *ParallelInstaller) printSummary() {
 		}
 	}
 
-	output.Newline()
-	output.PrintSummary(totalCount, successCount, failedTasks)
+	cliout.Newline()
+	progress.PrintSummary(totalCount, successCount, failedTasks)
 }
 
 // GetResults returns all installation results.

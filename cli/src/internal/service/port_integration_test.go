@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jongio/azd-app/cli/src/internal/yamlutil"
+	"github.com/jongio/azd-core/yamlutil"
 )
 
 // TestPortUserJourney_ExplicitPorts tests the full journey when user has explicit ports in azure.yaml

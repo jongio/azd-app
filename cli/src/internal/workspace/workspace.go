@@ -1,7 +1,7 @@
 package workspace
 
 import (
-	"github.com/jongio/azd-app/cli/src/internal/types"
+	types "github.com/jongio/azd-core/projecttype"
 )
 
 // Handler manages workspace detection and filtering for package managers.

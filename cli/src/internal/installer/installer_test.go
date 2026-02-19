@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jongio/azd-app/cli/src/internal/types"
+	types "github.com/jongio/azd-core/projecttype"
 )
 
 func TestInstallNodeDependencies(t *testing.T) {

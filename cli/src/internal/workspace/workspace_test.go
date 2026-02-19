@@ -3,7 +3,7 @@ package workspace
 import (
 	"testing"
 
-	"github.com/jongio/azd-app/cli/src/internal/types"
+	types "github.com/jongio/azd-core/projecttype"
 )
 
 func TestFilterNodeProjects(t *testing.T) {

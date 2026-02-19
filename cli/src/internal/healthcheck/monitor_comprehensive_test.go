@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
-	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/registry"
 )
 
 // TestCheckServiceNoPortNoPID tests service with no port or PID

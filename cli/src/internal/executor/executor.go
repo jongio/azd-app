@@ -13,7 +13,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/cmdutil"
 )
 
@@ -25,7 +25,7 @@ const DefaultTimeout = cmdutil.DefaultTimeout
 // azd-specific variables like AZD_SERVER, AZD_ACCESS_TOKEN, and environment values.
 func RunWithContext(ctx context.Context, name string, args []string, dir string) error {
 	// In JSON mode, suppress output from subprocesses to ensure valid JSON
-	if output.IsJSON() {
+	if cliout.IsJSON() {
 		cmd := exec.CommandContext(ctx, name, args...)
 		cmd.Dir = dir
 		cmd.Stdout = io.Discard
@@ -63,10 +63,10 @@ func StartCommand(ctx context.Context, name string, args []string, dir string) e
 		return err
 	}
 
-	output.Newline()
-	output.Success("Started %s (PID: %d)", name, cmd.Process.Pid)
-	output.Item("Output will appear below. Press Ctrl+C to stop it when ready.")
-	output.Newline()
+	cliout.Newline()
+	cliout.Success("Started %s (PID: %d)", name, cmd.Process.Pid)
+	cliout.Item("Output will appear below. Press Ctrl+C to stop it when ready.")
+	cliout.Newline()
 
 	return nil
 }
@@ -102,10 +102,10 @@ func StartCommandWithOutputMonitoring(ctx context.Context, name string, args []s
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	output.Newline()
-	output.Success("Started %s (PID: %d)", name, cmd.Process.Pid)
-	output.Item("Press Ctrl+C to stop.")
-	output.Newline()
+	cliout.Newline()
+	cliout.Success("Started %s (PID: %d)", name, cmd.Process.Pid)
+	cliout.Item("Press Ctrl+C to stop.")
+	cliout.Newline()
 
 	// Wait for the command to complete (this blocks until the process exits or is killed)
 	if err := cmd.Wait(); err != nil {

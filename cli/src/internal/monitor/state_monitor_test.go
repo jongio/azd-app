@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/registry"
 )
 
 func TestNewStateMonitor(t *testing.T) {

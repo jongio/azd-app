@@ -13,7 +13,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
-	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-core/cliout"
 )
 

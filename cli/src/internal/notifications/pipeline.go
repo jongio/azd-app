@@ -10,7 +10,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/monitor"
-	"github.com/jongio/azd-app/cli/src/internal/notify"
+	"github.com/jongio/azd-core/notify"
 )
 
 // EventType represents different notification event types

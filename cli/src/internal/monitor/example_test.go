@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/monitor"
-	"github.com/jongio/azd-app/cli/src/internal/registry"
+	"github.com/jongio/azd-core/registry"
 )
 
 // Example demonstrates how to use the StateMonitor.
