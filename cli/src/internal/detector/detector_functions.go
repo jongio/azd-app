@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	types "github.com/jongio/azd-core/projecttype"
 	"github.com/jongio/azd-core/fileutil"
+	types "github.com/jongio/azd-core/projecttype"
 )
 
 // FindFunctionApps searches for Azure Functions projects (all variants including Logic Apps).

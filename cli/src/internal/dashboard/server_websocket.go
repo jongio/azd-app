@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-core/registry"
 )
 
 // clientConn wraps a websocket connection with a write mutex for safe concurrent writes.

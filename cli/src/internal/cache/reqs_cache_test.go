@@ -93,6 +93,15 @@ func TestFindAzureDir(t *testing.T) {
 		t.Fatalf("failed to create subdirectory: %v", err)
 	}
 
+	// Use filesystem root for the "not found" case to avoid false positives
+	// from stale .azure directories left in os.TempDir() or parent dirs.
+	fsRoot := filepath.VolumeName(tempDir)
+	if fsRoot == "" {
+		fsRoot = "/"
+	} else {
+		fsRoot += string(filepath.Separator)
+	}
+
 	tests := []struct {
 		name     string
 		startDir string
@@ -110,7 +119,7 @@ func TestFindAzureDir(t *testing.T) {
 		},
 		{
 			name:     "not found",
-			startDir: os.TempDir(),
+			startDir: fsRoot,
 			want:     "",
 		},
 	}

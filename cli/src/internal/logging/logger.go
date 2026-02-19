@@ -39,7 +39,7 @@ func NewLogger(component string) *Logger {
 
 // TestStarted logs a test execution start event.
 func (l *Logger) TestStarted(service, testFile string) {
-	l.ComponentLogger.Info("test started",
+	l.Info("test started",
 		"event", "test_started",
 		"service", service,
 		"file", testFile,
@@ -48,7 +48,7 @@ func (l *Logger) TestStarted(service, testFile string) {
 
 // TestCompleted logs a test execution completion event.
 func (l *Logger) TestCompleted(service string, passed, failed, skipped int, duration float64) {
-	l.ComponentLogger.Info("test completed",
+	l.Info("test completed",
 		"event", "test_completed",
 		"service", service,
 		"passed", passed,
@@ -60,7 +60,7 @@ func (l *Logger) TestCompleted(service string, passed, failed, skipped int, dura
 
 // CoverageCollected logs a coverage collection event.
 func (l *Logger) CoverageCollected(service string, coverage float64) {
-	l.ComponentLogger.Info("coverage collected",
+	l.Info("coverage collected",
 		"event", "coverage_collected",
 		"service", service,
 		"coverage_pct", coverage,

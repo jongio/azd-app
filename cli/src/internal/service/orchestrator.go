@@ -13,8 +13,8 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
-	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-core/cliout"
+	"github.com/jongio/azd-core/registry"
 )
 
 // OrchestrationResult contains the results of service orchestration.

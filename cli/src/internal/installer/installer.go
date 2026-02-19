@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
-	types "github.com/jongio/azd-core/projecttype"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/pathutil"
+	types "github.com/jongio/azd-core/projecttype"
 	"github.com/jongio/azd-core/security"
 )
 

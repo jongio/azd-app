@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
-	"github.com/jongio/azd-core/yamlutil"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/security"
+	"github.com/jongio/azd-core/yamlutil"
 
 	"gopkg.in/yaml.v3"
 )

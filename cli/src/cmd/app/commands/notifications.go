@@ -11,8 +11,8 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/config"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
-	"github.com/jongio/azd-core/notify"
 	"github.com/jongio/azd-core/cliout"
+	"github.com/jongio/azd-core/notify"
 	"github.com/spf13/cobra"
 )
 

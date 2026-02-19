@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-core/registry"
 )
 
 func TestFormatStatus(t *testing.T) {

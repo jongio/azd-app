@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service" // for AzureYaml, Service, GetLogManager (app-specific)
+	"github.com/jongio/azd-core/registry"
 	cache "github.com/patrickmn/go-cache"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

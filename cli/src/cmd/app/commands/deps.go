@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
-	types "github.com/jongio/azd-core/projecttype"
 	"github.com/jongio/azd-core/cliout"
+	types "github.com/jongio/azd-core/projecttype"
 	"github.com/spf13/cobra"
 )
 

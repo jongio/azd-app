@@ -11,8 +11,8 @@ import (
 	"runtime"
 
 	"github.com/jongio/azd-app/cli/src/internal/executor"
-	types "github.com/jongio/azd-core/projecttype"
 	"github.com/jongio/azd-core/cliout"
+	types "github.com/jongio/azd-core/projecttype"
 	"github.com/jongio/azd-core/security"
 )
 

@@ -15,9 +15,9 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/docker"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
-	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
+	"github.com/jongio/azd-core/registry"
 	"github.com/jongio/azd-core/security"
 )
 
