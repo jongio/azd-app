@@ -3,6 +3,8 @@ package logging
 import (
 	"bytes"
 	"testing"
+
+	"github.com/jongio/azd-core/logutil"
 )
 
 func TestSetupLogger(t *testing.T) {
@@ -20,7 +22,7 @@ func TestSetupLogger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			SetupLogger(tt.debug, tt.structured)
-			if globalLogger == nil {
+			if logutil.Logger() == nil {
 				t.Error("Expected logger to be initialized")
 			}
 		})
@@ -41,8 +43,8 @@ func TestSetLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			SetLevel(tt.level)
-			if currentLevel != tt.level {
-				t.Errorf("Expected level %v, got %v", tt.level, currentLevel)
+			if logutil.GetLevel() != tt.level {
+				t.Errorf("Expected level %v, got %v", tt.level, logutil.GetLevel())
 			}
 		})
 	}

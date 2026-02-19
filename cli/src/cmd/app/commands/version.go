@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/jongio/azd-core/cliout"
+	coreversion "github.com/jongio/azd-core/version"
 	"github.com/spf13/cobra"
 )
 
@@ -14,33 +14,16 @@ var BuildTime = "unknown"
 // Commit is set at build time via -ldflags.
 var Commit = "unknown"
 
-// VersionInfo represents version information for JSON cliout.
-type VersionInfo struct {
-	Version   string `json:"version"`
-	BuildTime string `json:"buildTime"`
+// VersionInfo provides the shared version information for this extension.
+var VersionInfo = coreversion.New("jongio.azd.app", "azd app")
+
+func init() {
+	VersionInfo.Version = Version
+	VersionInfo.BuildDate = BuildTime
+	VersionInfo.GitCommit = Commit
 }
 
 // NewVersionCommand creates the version command.
-func NewVersionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:          "version",
-		Short:        "Show version information",
-		Long:         `Display the version of the azd app extension.`,
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// JSON output
-			if cliout.IsJSON() {
-				return cliout.PrintJSON(VersionInfo{
-					Version:   Version,
-					BuildTime: BuildTime,
-				})
-			}
-
-			// Default output
-			cliout.CommandHeader("version", "Show version information")
-			cliout.Label("Version", Version)
-			cliout.Label("Built", BuildTime)
-			return nil
-		},
-	}
+func NewVersionCommand(outputFormat *string) *cobra.Command {
+	return coreversion.NewCommand(VersionInfo, outputFormat)
 }

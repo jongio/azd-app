@@ -13,9 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/registry"
-	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/service" // for AzureYaml, Service, GetLogManager (app-specific)
 	cache "github.com/patrickmn/go-cache"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -34,15 +33,15 @@ var (
 	sharedHTTPTransport = &http.Transport{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     constants.HTTPIdleConnTimeout,
+		IdleConnTimeout:     HTTPIdleConnTimeout,
 		DisableKeepAlives:   false,
 		// Add reasonable timeouts for dial and TLS handshake
 		DialContext: (&net.Dialer{
-			Timeout:   constants.HTTPDialTimeout,
-			KeepAlive: constants.HTTPKeepAliveTimeout,
+			Timeout:   HTTPDialTimeout,
+			KeepAlive: HTTPKeepAliveTimeout,
 		}).DialContext,
-		TLSHandshakeTimeout:   constants.HTTPTLSHandshakeTimeout,
-		ExpectContinueTimeout: constants.HTTPExpectContinueTimeout,
+		TLSHandshakeTimeout:   HTTPTLSHandshakeTimeout,
+		ExpectContinueTimeout: HTTPExpectContinueTimeout,
 	}
 )
 
@@ -328,7 +327,7 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 			if info.Type == "" {
 				info.Type = svc.GetServiceType()
 			}
-			if info.Mode == "" && info.Type == service.ServiceTypeProcess {
+			if info.Mode == "" && info.Type == ServiceTypeProcess {
 				info.Mode = svc.GetServiceMode()
 			}
 
@@ -476,7 +475,7 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 
 		var status string
 
-		if result.ServiceMode == service.ServiceModeBuild || result.ServiceMode == service.ServiceModeTask {
+		if result.ServiceMode == ServiceModeBuild || result.ServiceMode == ServiceModeTask {
 			switch result.Status {
 			case HealthStatusHealthy:
 				if details, ok := result.Details["state"].(string); ok {

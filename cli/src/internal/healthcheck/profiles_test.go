@@ -8,7 +8,12 @@ import (
 )
 
 func TestGetDefaultProfiles(t *testing.T) {
-	profiles := getDefaultProfiles()
+	// When no profiles file exists, LoadHealthProfiles returns defaults
+	tmpDir := t.TempDir()
+	profiles, err := LoadHealthProfiles(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadHealthProfiles() error = %v", err)
+	}
 
 	if profiles == nil {
 		t.Fatal("Expected non-nil profiles")
@@ -50,7 +55,11 @@ func TestGetDefaultProfiles(t *testing.T) {
 }
 
 func TestHealthProfiles_GetProfile(t *testing.T) {
-	profiles := getDefaultProfiles()
+	tmpDir := t.TempDir()
+	profiles, err := LoadHealthProfiles(tmpDir)
+	if err != nil {
+		t.Fatalf("LoadHealthProfiles() error = %v", err)
+	}
 
 	tests := []struct {
 		name     string

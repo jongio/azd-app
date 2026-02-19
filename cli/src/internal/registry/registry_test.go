@@ -8,18 +8,11 @@ import (
 func TestGetRegistry(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Clear cache to ensure fresh instance
-	registryCacheMu.Lock()
-	delete(registryCache, tempDir)
-	registryCacheMu.Unlock()
-
 	registry := GetRegistry(tempDir)
 
 	if registry == nil {
 		t.Fatal("GetRegistry() returned nil")
 	}
-
-	// Registry is now in-memory only, so no .azure directory check needed
 
 	// Get the same registry again - should return cached instance
 	registry2 := GetRegistry(tempDir)
@@ -216,15 +209,10 @@ func TestListAll(t *testing.T) {
 }
 
 func TestSaveAndLoad(t *testing.T) {
-	// Registry is now in-memory only - test that clearing cache gives fresh instance
+	// Registry is now in-memory only - test basic functionality
 	tempDir := t.TempDir()
 
-	// Clear cache to ensure fresh instance
-	registryCacheMu.Lock()
-	delete(registryCache, tempDir)
-	registryCacheMu.Unlock()
-
-	// Create first registry and add a service
+	// Create registry and add a service
 	registry1 := GetRegistry(tempDir)
 
 	entry := &ServiceRegistryEntry{
@@ -252,17 +240,13 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Errorf("GetService(): Port = %v, want 8080", svc.Port)
 	}
 
-	// Clear the cache to simulate process restart
-	registryCacheMu.Lock()
-	delete(registryCache, tempDir)
-	registryCacheMu.Unlock()
-
-	// Create new registry instance - should start empty (in-memory only)
-	registry2 := GetRegistry(tempDir)
+	// A different directory gives a fresh registry (no persistence)
+	tempDir2 := t.TempDir()
+	registry2 := GetRegistry(tempDir2)
 
 	_, exists = registry2.GetService("test-service")
 	if exists {
-		t.Errorf("GetService() after cache clear: expected service to NOT exist (in-memory registry)")
+		t.Errorf("GetService() in different dir: expected service to NOT exist")
 	}
 }
 
@@ -303,11 +287,6 @@ func TestClear(t *testing.T) {
 func TestRegistryPersistence(t *testing.T) {
 	// Registry is now in-memory only - this test verifies the in-memory behavior
 	tempDir := t.TempDir()
-
-	// Clear cache
-	registryCacheMu.Lock()
-	delete(registryCache, tempDir)
-	registryCacheMu.Unlock()
 
 	registry := GetRegistry(tempDir)
 

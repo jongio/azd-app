@@ -1,16 +1,13 @@
 package cache
 
 import (
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/jongio/azd-core/fileutil"
+	corecache "github.com/jongio/azd-core/cache"
 )
 
 const (
@@ -18,6 +15,8 @@ const (
 	CacheVersion = "1.0"
 	// DefaultCacheTTL is the default cache time-to-live
 	DefaultCacheTTL = 1 * time.Hour
+	// cacheKey is the key used for the reqs cache entry
+	cacheKey = "reqs_cache"
 )
 
 // ReqsCache represents cached reqs check results.
@@ -43,12 +42,10 @@ type CachedReqResult struct {
 
 // CacheManager handles reqs cache operations.
 type CacheManager struct {
-	cacheDir string
-	ttl      time.Duration
-	enabled  bool
-	mu       sync.RWMutex // Protects all cache operations
-	statsMu  sync.Mutex   // Protects stats only (separate for granular locking)
-	stats    CacheStats
+	manager *corecache.Manager
+	enabled bool
+	statsMu sync.Mutex // Protects stats
+	stats   CacheStats
 }
 
 // CacheStats tracks cache hit/miss statistics.
@@ -111,10 +108,15 @@ func NewCacheManagerWithOptions(opts CacheOptions) (*CacheManager, error) {
 		ttl = DefaultCacheTTL
 	}
 
+	m := corecache.NewManager(corecache.Options{
+		Dir:     cacheDir,
+		TTL:     ttl,
+		Version: CacheVersion,
+	})
+
 	return &CacheManager{
-		cacheDir: cacheDir,
-		ttl:      ttl,
-		enabled:  true,
+		manager: m,
+		enabled: true,
 	}, nil
 }
 
@@ -149,58 +151,26 @@ func (cm *CacheManager) GetCachedResults(azureYamlPath string) (*ReqsCache, bool
 		return nil, false, nil
 	}
 
-	// Use read lock for cache read operations
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
 	// Calculate hash of azure.yaml
-	hash, err := calculateFileHash(azureYamlPath)
+	hash, err := corecache.HashFile(azureYamlPath)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to calculate azure.yaml hash: %w", err)
 	}
 
-	cacheFile := filepath.Join(cm.cacheDir, "reqs_cache.json")
-
-	// Check if cache file exists
-	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
-		cm.recordMiss()
-		return nil, false, nil // No cache exists
-	} else if err != nil {
-		return nil, false, fmt.Errorf("failed to stat cache file: %w", err)
-	}
-
-	// Read cache file
-	// #nosec G304 -- cacheFile comes from internal cache directory, not user input
-	data, err := os.ReadFile(cacheFile)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to read cache file: %w", err)
-	}
-
 	var cache ReqsCache
-	if err := json.Unmarshal(data, &cache); err != nil {
-		return nil, false, fmt.Errorf("failed to parse cache file: %w", err)
+	ok, err := cm.manager.Get(cacheKey, &cache)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to read cache: %w", err)
 	}
-
-	// Check cache version - invalidate if schema changed
-	if cache.Version != CacheVersion {
+	if !ok {
 		cm.recordMiss()
-		return nil, false, nil // Cache schema version mismatch
+		return nil, false, nil
 	}
 
-	// Check if cache is still valid
-	// Cache is valid if:
-	// 1. Cache version matches (already checked above)
-	// 2. azure.yaml hash matches (most important - if this fails, cache is definitely invalid)
-	// 3. Cache is less than TTL age (use timestamp from cache JSON, not file ModTime)
-
+	// App-specific validation: check azure.yaml hash
 	if cache.AzureYamlHash != hash {
 		cm.recordMiss()
 		return nil, false, nil // azure.yaml has changed - cache is invalid
-	}
-
-	if time.Since(cache.Timestamp) > cm.ttl {
-		cm.recordMiss()
-		return nil, false, nil // Cache is too old
 	}
 
 	cm.recordHit()
@@ -229,19 +199,15 @@ func (cm *CacheManager) SaveResults(azureYamlPath string, results []CachedReqRes
 		return nil
 	}
 
-	// Use write lock for cache write operations
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
 	// Only cache successful results - failed checks should always be re-run
 	// so users aren't blocked by stale failures after installing missing tools
 	if !allPassed {
 		// Clear any existing cache on failure to ensure fresh check next time
-		return cm.clearCacheUnlocked() // Use unlocked version since we already have the lock
+		return cm.ClearCache()
 	}
 
 	// Calculate hash of azure.yaml
-	hash, err := calculateFileHash(azureYamlPath)
+	hash, err := corecache.HashFile(azureYamlPath)
 	if err != nil {
 		return fmt.Errorf("failed to calculate azure.yaml hash: %w", err)
 	}
@@ -254,9 +220,8 @@ func (cm *CacheManager) SaveResults(azureYamlPath string, results []CachedReqRes
 		AllPassed:     allPassed,
 	}
 
-	cacheFile := filepath.Join(cm.cacheDir, "reqs_cache.json")
-	if err := fileutil.AtomicWriteJSON(cacheFile, cache); err != nil {
-		return fmt.Errorf("failed to save cache file: %w", err)
+	if err := cm.manager.Set(cacheKey, cache); err != nil {
+		return fmt.Errorf("failed to save cache: %w", err)
 	}
 
 	return nil
@@ -269,24 +234,12 @@ func (cm *CacheManager) ClearCache() error {
 		return nil
 	}
 
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	return cm.clearCacheUnlocked()
-}
-
-// clearCacheUnlocked is the internal implementation without locking.
-// Use this when the caller already holds the lock.
-func (cm *CacheManager) clearCacheUnlocked() error {
-	cacheFile := filepath.Join(cm.cacheDir, "reqs_cache.json")
-	if err := os.Remove(cacheFile); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove cache file: %w", err)
-	}
+	err := cm.manager.Invalidate(cacheKey)
 	// Reset stats when clearing cache
 	cm.statsMu.Lock()
 	cm.stats = CacheStats{}
 	cm.statsMu.Unlock()
-	return nil
+	return err
 }
 
 // GetStats returns cache hit/miss statistics.
@@ -302,18 +255,7 @@ func (cm *CacheManager) IsEnabled() bool {
 }
 
 // calculateFileHash calculates SHA256 hash of a file.
+// Delegates to core cache.HashFile.
 func calculateFileHash(filePath string) (string, error) {
-	// #nosec G304 -- filePath is azureYamlPath which is validated by security.ValidatePath in caller
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = file.Close() }()
-
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
+	return corecache.HashFile(filePath)
 }

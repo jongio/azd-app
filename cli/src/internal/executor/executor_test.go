@@ -2,7 +2,6 @@ package executor
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -279,89 +278,6 @@ func TestRunCommandWithOutputInvalidCommand(t *testing.T) {
 	_, err := RunCommandWithOutput(ctx, "nonexistent-command-xyz-123", []string{}, "")
 	if err == nil {
 		t.Errorf("RunCommandWithOutput() with invalid command should fail")
-	}
-}
-
-func TestLineWriter(t *testing.T) {
-	var lines []string
-	handler := func(line string) error {
-		lines = append(lines, line)
-		return nil
-	}
-
-	lw := &lineWriter{
-		output:  io.Discard,
-		handler: handler,
-	}
-
-	// Write complete line
-	_, err := lw.Write([]byte("line 1\n"))
-	if err != nil {
-		t.Fatalf("Write() error = %v, want nil", err)
-	}
-
-	if len(lines) != 1 {
-		t.Fatalf("len(lines) = %v, want 1", len(lines))
-	}
-
-	if lines[0] != "line 1" {
-		t.Errorf("lines[0] = %q, want %q", lines[0], "line 1")
-	}
-
-	// Write multiple lines at once
-	_, err = lw.Write([]byte("line 2\nline 3\n"))
-	if err != nil {
-		t.Fatalf("Write() error = %v, want nil", err)
-	}
-
-	if len(lines) != 3 {
-		t.Fatalf("len(lines) = %v, want 3", len(lines))
-	}
-
-	if lines[1] != "line 2" {
-		t.Errorf("lines[1] = %q, want %q", lines[1], "line 2")
-	}
-
-	if lines[2] != "line 3" {
-		t.Errorf("lines[2] = %q, want %q", lines[2], "line 3")
-	}
-}
-
-func TestLineWriterIncomplete(t *testing.T) {
-	var lines []string
-	handler := func(line string) error {
-		lines = append(lines, line)
-		return nil
-	}
-
-	lw := &lineWriter{
-		output:  io.Discard,
-		handler: handler,
-	}
-
-	// Write incomplete line
-	_, err := lw.Write([]byte("partial"))
-	if err != nil {
-		t.Fatalf("Write() error = %v, want nil", err)
-	}
-
-	// No lines should be captured yet
-	if len(lines) != 0 {
-		t.Fatalf("len(lines) = %v, want 0", len(lines))
-	}
-
-	// Complete the line
-	_, err = lw.Write([]byte(" line\n"))
-	if err != nil {
-		t.Fatalf("Write() error = %v, want nil", err)
-	}
-
-	if len(lines) != 1 {
-		t.Fatalf("len(lines) = %v, want 1", len(lines))
-	}
-
-	if lines[0] != "partial line" {
-		t.Errorf("lines[0] = %q, want %q", lines[0], "partial line")
 	}
 }
 

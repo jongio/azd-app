@@ -1,39 +1,13 @@
+// Package types provides project type definitions.
+// This is a thin wrapper re-exporting from azd-core/projecttype.
 package types
 
-// PythonProject represents a detected Python project.
-type PythonProject struct {
-	Dir            string
-	PackageManager string // "uv", "poetry", or "pip"
-	Entrypoint     string // Optional: entry point file specified in azure.yaml
-}
+import core "github.com/jongio/azd-core/projecttype"
 
-// NodeProject represents a detected Node.js project.
-type NodeProject struct {
-	Dir             string
-	PackageManager  string // "npm", "pnpm", or "yarn"
-	IsWorkspaceRoot bool   // True if this project defines npm/yarn/pnpm workspaces
-	WorkspaceRoot   string // Path to the workspace root if this is a workspace child
-}
-
-// DotnetProject represents a detected .NET project.
-type DotnetProject struct {
-	Path string // Path to .csproj or .sln file
-}
-
-// AspireProject represents a detected Aspire project.
-type AspireProject struct {
-	Dir         string
-	ProjectFile string // Path to AppHost.csproj
-}
-
-// LogicAppProject represents a detected Logic Apps Standard project.
-type LogicAppProject struct {
-	Dir string // Directory containing workflows folder
-}
-
-// FunctionAppProject represents a detected Azure Functions project.
-type FunctionAppProject struct {
-	Dir      string // Directory containing host.json
-	Variant  string // Type of Functions app: "logicapps", "nodejs", "python", "dotnet", "java"
-	Language string // Programming language detected for the project
-}
+// Re-export types from azd-core/projecttype.
+type PythonProject = core.PythonProject
+type NodeProject = core.NodeProject
+type DotnetProject = core.DotnetProject
+type AspireProject = core.AspireProject
+type LogicAppProject = core.LogicAppProject
+type FunctionAppProject = core.FunctionAppProject

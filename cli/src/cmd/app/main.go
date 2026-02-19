@@ -95,7 +95,7 @@ func main() {
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
 		commands.NewHealthCommand(),
-		commands.NewVersionCommand(),
+		commands.NewVersionCommand(&outputFormat),
 		commands.NewNotificationsCommand(),
 		commands.NewListenCommand(), // Required for azd extension framework
 		commands.NewMCPCommand(),    // Model Context Protocol server

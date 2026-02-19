@@ -1,44 +1,41 @@
 // Package executor provides safe command execution with output monitoring and timeout handling.
+// Generic command execution is delegated to github.com/jongio/azd-core/cmdutil.
+// This package adds app-specific behavior: JSON mode output suppression, display messages,
+// and error-returning OutputLineHandler.
 package executor
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
-	"sync"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/output"
+	"github.com/jongio/azd-core/cmdutil"
 )
 
 // DefaultTimeout is the default timeout for command execution.
-const DefaultTimeout = 30 * time.Minute
+const DefaultTimeout = cmdutil.DefaultTimeout
 
 // RunWithContext executes a command with context for cancellation and timeout.
 // The command inherits all environment variables from the parent process, including
 // azd-specific variables like AZD_SERVER, AZD_ACCESS_TOKEN, and environment values.
 func RunWithContext(ctx context.Context, name string, args []string, dir string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-
 	// In JSON mode, suppress output from subprocesses to ensure valid JSON
 	if output.IsJSON() {
+		cmd := exec.CommandContext(ctx, name, args...)
+		cmd.Dir = dir
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 		cmd.Stdin = nil
-	} else {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
+		cmd.Env = os.Environ()
+		return cmd.Run()
 	}
 
-	cmd.Env = os.Environ() // Inherit all environment variables from parent process
-
-	return cmd.Run()
+	return cmdutil.RunWithContext(ctx, name, args, dir)
 }
 
 // RunWithTimeout executes a command with a timeout.
@@ -61,15 +58,9 @@ func RunCommand(ctx context.Context, name string, args []string, dir string) err
 // Use this for starting servers, Aspire projects, or other long-running processes.
 // The provided context must be non-nil.
 func StartCommand(ctx context.Context, name string, args []string, dir string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	cmd.Env = os.Environ() // Inherit all environment variables from parent process
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start command: %w", err)
+	cmd, err := cmdutil.StartCommand(ctx, name, args, dir)
+	if err != nil {
+		return err
 	}
 
 	output.Newline()
@@ -83,62 +74,12 @@ func StartCommand(ctx context.Context, name string, args []string, dir string) e
 // RunCommandWithOutput executes a command and captures both stdout and stderr.
 // The command inherits all environment variables from the parent process.
 func RunCommandWithOutput(ctx context.Context, name string, args []string, dir string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-	cmd.Env = os.Environ() // Inherit all environment variables from parent process
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Return partial output even on error - test frameworks often exit non-zero when tests fail
-		// but we still want to parse the results
-		return output, fmt.Errorf("command failed: %w", err)
-	}
-
-	return output, nil
+	return cmdutil.RunCommandWithOutput(ctx, name, args, dir)
 }
 
 // OutputLineHandler is called for each line of output from a command.
+// Unlike cmdutil.OutputLineHandler, this returns an error for app-level error propagation.
 type OutputLineHandler func(line string) error
-
-// lineWriter wraps an io.Writer and calls a handler for each complete line.
-type lineWriter struct {
-	output  io.Writer
-	handler OutputLineHandler
-	buffer  bytes.Buffer
-	mu      sync.Mutex
-}
-
-func (lw *lineWriter) Write(p []byte) (n int, err error) {
-	lw.mu.Lock()
-	defer lw.mu.Unlock()
-
-	// Write to the actual output first
-	n, err = lw.output.Write(p)
-	if err != nil {
-		return n, err
-	}
-
-	// Add to buffer and process complete lines
-	lw.buffer.Write(p)
-	for {
-		line, err := lw.buffer.ReadString('\n')
-		if err != nil {
-			// No complete line yet, put it back
-			lw.buffer.WriteString(line)
-			break
-		}
-		// Remove trailing newline and call handler
-		line = line[:len(line)-1]
-		if lw.handler != nil {
-			// Log handler errors but don't interrupt output streaming
-			if handlerErr := lw.handler(line); handlerErr != nil {
-				slog.Warn("output handler error", "error", handlerErr)
-			}
-		}
-	}
-
-	return n, nil
-}
 
 // StartCommandWithOutputMonitoring starts a command and monitors its output line-by-line.
 // The handler function is called for each line of stdout/stderr.
@@ -147,17 +88,17 @@ func (lw *lineWriter) Write(p []byte) (n int, err error) {
 // This function BLOCKS and waits for the command to complete or be interrupted.
 // The provided context must be non-nil.
 func StartCommandWithOutputMonitoring(ctx context.Context, name string, args []string, dir string, handler OutputLineHandler) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-	cmd.Stdin = os.Stdin
-	cmd.Env = os.Environ() // Inherit all environment variables from parent process
+	// Adapt app's error-returning handler to cmdutil's simpler handler
+	coreHandler := cmdutil.OutputLineHandler(func(line string) {
+		if handler != nil {
+			if err := handler(line); err != nil {
+				slog.Warn("output handler error", "error", err)
+			}
+		}
+	})
 
-	// Wrap stdout and stderr with line handlers
-	cmd.Stdout = &lineWriter{output: os.Stdout, handler: handler}
-	cmd.Stderr = &lineWriter{output: os.Stderr, handler: handler}
-
-	// Start the command
-	if err := cmd.Start(); err != nil {
+	cmd, err := cmdutil.StartCommandWithOutputMonitoring(ctx, name, args, dir, coreHandler)
+	if err != nil {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 

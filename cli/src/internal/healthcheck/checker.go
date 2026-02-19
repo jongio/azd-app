@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/docker"
-	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/service" // for GetLogManager (app-specific)
 	"github.com/jongio/azd-core/procutil"
 	"github.com/rs/zerolog/log"
 	"github.com/sony/gobreaker"
@@ -295,7 +295,7 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 
 	// For process-type services, use process-based health checks directly
 	// Skip HTTP/port checks since they have no network endpoint
-	if svc.Type == service.ServiceTypeProcess {
+	if svc.Type == ServiceTypeProcess {
 		return c.performProcessHealthCheck(ctx, svc, isInStartupGracePeriod)
 	}
 
@@ -516,7 +516,7 @@ func (c *HealthChecker) performCommandCheck(ctx context.Context, args []string, 
 	}
 
 	// For container services, execute inside the container
-	if svc.Type == service.ServiceTypeContainer {
+	if svc.Type == ServiceTypeContainer {
 		containerName := fmt.Sprintf("azd-%s", svc.Name)
 		client := docker.NewClient()
 
@@ -560,7 +560,7 @@ func (c *HealthChecker) performShellCheck(ctx context.Context, command string, s
 	}
 
 	// For container services, execute inside the container
-	if svc.Type == service.ServiceTypeContainer {
+	if svc.Type == ServiceTypeContainer {
 		containerName := fmt.Sprintf("azd-%s", svc.Name)
 		client := docker.NewClient()
 
@@ -807,7 +807,7 @@ func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc servi
 		}
 	}
 
-	if svc.Mode == service.ServiceModeBuild || svc.Mode == service.ServiceModeTask {
+	if svc.Mode == ServiceModeBuild || svc.Mode == ServiceModeTask {
 		return c.performBuildTaskHealthCheck(svc, isInStartupGracePeriod, result)
 	}
 
@@ -859,7 +859,7 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 		} else {
 			result.Status = HealthStatusHealthy
 		}
-		if svc.Mode == service.ServiceModeBuild {
+		if svc.Mode == ServiceModeBuild {
 			result.Details = map[string]interface{}{"state": "building"}
 		} else {
 			result.Details = map[string]interface{}{"state": "running"}
@@ -870,7 +870,7 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 	if svc.ExitCode != nil {
 		if *svc.ExitCode == 0 {
 			result.Status = HealthStatusHealthy
-			if svc.Mode == service.ServiceModeBuild {
+			if svc.Mode == ServiceModeBuild {
 				result.Details = map[string]interface{}{"state": "built", "exitCode": 0}
 			} else {
 				result.Details = map[string]interface{}{"state": "completed", "exitCode": 0}
@@ -885,7 +885,7 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 
 	if svc.PID > 0 {
 		result.Status = HealthStatusHealthy
-		if svc.Mode == service.ServiceModeBuild {
+		if svc.Mode == ServiceModeBuild {
 			result.Details = map[string]interface{}{"state": "built", "note": "exit code not captured"}
 		} else {
 			result.Details = map[string]interface{}{"state": "completed", "note": "exit code not captured"}
@@ -958,7 +958,7 @@ func (c *HealthChecker) performOutputHealthCheck(svc serviceInfo, isInStartupGra
 		result.Status = HealthStatusStarting
 		result.Details["state"] = "waiting_for_pattern"
 	} else {
-		if svc.Mode == service.ServiceModeWatch {
+		if svc.Mode == ServiceModeWatch {
 			result.Status = HealthStatusHealthy
 			result.Details["state"] = "watching"
 		} else {

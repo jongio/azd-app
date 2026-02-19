@@ -9,26 +9,22 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-core/cliout"
+	"github.com/jongio/azd-core/cmdutil"
 )
 
-// Shell type constants for platform-specific shell detection
+// Shell type constants re-exported from cmdutil for platform-specific shell detection.
 const (
-	ShellSh         = "sh"
-	ShellBash       = "bash"
-	ShellPwsh       = "pwsh"
-	ShellPowerShell = "powershell"
-	ShellCmd        = "cmd"
-	ShellZsh        = "zsh"
+	ShellSh         = cmdutil.ShellSh
+	ShellBash       = cmdutil.ShellBash
+	ShellPwsh       = cmdutil.ShellPwsh
+	ShellPowerShell = cmdutil.ShellPowerShell
+	ShellCmd        = cmdutil.ShellCmd
+	ShellZsh        = cmdutil.ShellZsh
 )
 
 // HookConfig represents the configuration for executing a hook.
-type HookConfig struct {
-	Run             string   // Script or command to execute
-	Shell           string   // Shell to use (sh, bash, pwsh, etc.)
-	ContinueOnError bool     // Continue if hook fails
-	Interactive     bool     // Requires user interaction
-	Env             []string // Additional environment variables (KEY=VALUE format)
-}
+// Re-exported from cmdutil to prevent type drift.
+type HookConfig = cmdutil.HookConfig
 
 // ExecuteHook executes a lifecycle hook with the given configuration.
 // It handles platform-specific shell selection and respects the hook's error handling settings.
@@ -174,22 +170,9 @@ func configureCommandIO(cmd *exec.Cmd, interactive bool) {
 }
 
 // getDefaultShell returns the default shell for the current platform.
+// Delegates to cmdutil.GetDefaultShell.
 func getDefaultShell() string {
-	if runtime.GOOS == "windows" {
-		// Check if PowerShell is available (preferred on Windows)
-		if _, err := exec.LookPath(ShellPwsh); err == nil {
-			return ShellPwsh
-		}
-		if _, err := exec.LookPath(ShellPowerShell); err == nil {
-			return ShellPowerShell
-		}
-		return ShellCmd
-	}
-	// POSIX systems: prefer bash, fallback to sh
-	if _, err := exec.LookPath(ShellBash); err == nil {
-		return ShellBash
-	}
-	return ShellSh
+	return cmdutil.GetDefaultShell()
 }
 
 // ResolveHookConfig resolves the final hook configuration, applying platform-specific overrides.
