@@ -10,6 +10,7 @@ capabilities:
   - lifecycle-events
   - mcp-server
   - service-target-provider
+  - metadata
 providers:
   - name: local
     type: service-target

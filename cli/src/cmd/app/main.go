@@ -103,6 +103,7 @@ func main() {
 		commands.NewStopCommand(),
 		commands.NewRestartCommand(),
 		commands.NewAddCommand(),
+		commands.NewMetadataCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
