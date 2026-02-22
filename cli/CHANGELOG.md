@@ -1,3 +1,9 @@
+## [0.12.4] - 2026-02-22
+
+- refactor: use azd-core shared packages, remove 6 wrapper packages (#139) (ee355841)
+- chore: remove container auth versions (0.12.0, 0.12.1, 0.12.2) from registry (0145d351)
+- chore: update registry for v0.12.3 (f29d30e8)
+
 ## [0.12.3] - 2026-02-18
 
 - Update azd-core to v0.5.0 (#137) (cba1280)
