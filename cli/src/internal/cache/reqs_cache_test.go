@@ -8,37 +8,25 @@ import (
 )
 
 func TestNewCacheManager(t *testing.T) {
-	// Create a temporary directory
+	// Create a temporary directory with explicit cache dir to avoid
+	// findAzureDir walking up and finding a .azure in parent directories.
 	tempDir := t.TempDir()
+	cacheDir := filepath.Join(tempDir, ".azure", "cache")
 
-	// Change to temp directory
-	originalDir, err := os.Getwd()
+	cm, err := NewCacheManagerWithOptions(CacheOptions{
+		Enabled:  true,
+		TTL:      DefaultCacheTTL,
+		CacheDir: cacheDir,
+	})
 	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(originalDir) }()
-
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("failed to change directory: %v", err)
-	}
-
-	// Test creating cache manager in new directory
-	cm, err := NewCacheManager()
-	if err != nil {
-		t.Fatalf("NewCacheManager() failed: %v", err)
+		t.Fatalf("NewCacheManagerWithOptions() failed: %v", err)
 	}
 
 	if cm == nil {
-		t.Fatal("NewCacheManager() returned nil")
+		t.Fatal("NewCacheManagerWithOptions() returned nil")
 	}
 
 	// Verify .azure/cache directory was created
-	azureDir := filepath.Join(tempDir, ".azure")
-	if _, err := os.Stat(azureDir); os.IsNotExist(err) {
-		t.Errorf(".azure directory was not created")
-	}
-
-	cacheDir := filepath.Join(azureDir, "cache")
 	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
 		t.Errorf(".azure/cache directory was not created")
 	}
