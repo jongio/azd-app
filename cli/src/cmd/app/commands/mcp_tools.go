@@ -2,12 +2,9 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 
@@ -82,131 +79,82 @@ func newGetServiceLogsTool() server.ServerTool {
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args := getArgsMap(request)
 
-			// Start with --cwd if projectDir is specified
-			cmdArgs, err := extractProjectDirArg(args)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			opts := &logsOptions{source: "local", tail: 100, level: "all"}
+			var serviceArgs []string
+			var projectDir string
+
+			if pd, ok := getStringParam(args, "projectDir"); ok {
+				validated, valErr := validateProjectDir(pd)
+				if valErr != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", valErr)), nil
+				}
+				projectDir = validated
 			}
 
 			if serviceName, ok := getStringParam(args, "serviceName"); ok {
-				// Validate service name to prevent injection
 				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
 					return mcp.NewToolResultError(valErr.Error()), nil
 				}
-				cmdArgs = append(cmdArgs, serviceName)
+				serviceArgs = append(serviceArgs, serviceName)
 			}
 
 			if tail, ok := getFloat64Param(args, "tail"); ok && tail > 0 {
-				// Cap tail at reasonable maximum
 				if tail > float64(maxLogTailLines) {
 					tail = float64(maxLogTailLines)
 				}
-				cmdArgs = append(cmdArgs, "--tail", fmt.Sprintf("%.0f", tail))
+				opts.tail = int(tail)
 			}
 
 			if level, ok := getStringParam(args, "level"); ok {
-				// Validate level parameter
 				if valErr := validateEnumParam(level, allowedLogLevels, "level"); valErr != nil {
 					return mcp.NewToolResultError(valErr.Error()), nil
 				}
-				if level != "all" {
-					cmdArgs = append(cmdArgs, "--level", level)
-				}
+				opts.level = level
 			}
 
 			if since, ok := getStringParam(args, "since"); ok {
-				// Validate since format (should be like 5m, 1h, 30s)
 				if !isValidDuration(since) {
 					return mcp.NewToolResultError("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
 				}
-				cmdArgs = append(cmdArgs, "--since", since)
+				opts.since = since
 			}
 
-			// Handle source parameter for local/azure/both log sources
 			if source, ok := getStringParam(args, "source"); ok {
-				// Validate source parameter
 				allowedSources := map[string]bool{"local": true, "azure": true, "both": true}
-				if err := validateEnumParam(source, allowedSources, "source"); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := validateEnumParam(source, allowedSources, "source"); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
-				if source != "local" { // local is default, only add flag for other values
-					cmdArgs = append(cmdArgs, "--source", source)
+				// Map "both" to "all" (MCP uses "both", CLI uses "all")
+				if source == "both" {
+					source = "all"
 				}
+				opts.source = source
 			}
-
-			// Add format flag for JSON output
-			cmdArgs = append(cmdArgs, "--format", "json")
 
 			// Check context before starting
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", ctxErr)), nil
 			}
 
-			// Execute logs command with context
-			cmdCtx, cancel := context.WithTimeout(ctx, defaultCommandTimeout)
-			defer cancel()
+			collectCtx, collectCancel := context.WithTimeout(ctx, defaultCommandTimeout)
+			defer collectCancel()
 
-			cmd := exec.CommandContext(cmdCtx, azdCommand, append([]string{appSubcommand, "logs"}, cmdArgs...)...)
-			output, err := cmd.CombinedOutput()
+			executor := newLogsExecutorForMCP(opts, projectDir)
+			collected, err := executor.collect(collectCtx, serviceArgs)
 			if err != nil {
-				if errors.Is(ctx.Err(), context.Canceled) {
-					return mcp.NewToolResultError("Request was cancelled"), nil
-				}
-				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+				if collectCtx.Err() == context.DeadlineExceeded {
 					return mcp.NewToolResultError(fmt.Sprintf("Command timed out after %v", defaultCommandTimeout)), nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v\nOutput: %s", err, string(output))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v", err)), nil
 			}
 
-			// Parse line-by-line JSON output with memory limits
-			// Split output into lines but limit processing to prevent memory exhaustion
-			outputStr := strings.TrimSpace(string(output))
-			if len(outputStr) == 0 {
-				// Return empty array for no logs
-				return marshalToolResult([]map[string]interface{}{})
-			}
-
-			// Apply size limit before splitting to prevent memory exhaustion
-			maxOutputSize := maxLogTailLines * 512 // Assume ~512 bytes per log line average
-			if len(outputStr) > maxOutputSize {
-				// Truncate to reasonable size
-				outputStr = outputStr[len(outputStr)-maxOutputSize:]
-				// Find the first newline to avoid partial JSON
-				if idx := strings.Index(outputStr, "\n"); idx != -1 {
-					outputStr = outputStr[idx+1:]
-				}
-			}
-
-			logEntries := []map[string]interface{}{}
-			lines := strings.Split(outputStr, "\n")
-
-			// Limit the number of lines processed
-			lineLimit := maxLogTailLines
-			if len(lines) > lineLimit {
-				lines = lines[len(lines)-lineLimit:]
-			}
-
-			for _, line := range lines {
-				if line == "" {
-					continue
-				}
-				var entry map[string]interface{}
-				if err := json.Unmarshal([]byte(line), &entry); err == nil {
-					logEntries = append(logEntries, entry)
-				} else {
-					// Log parsing error to stderr for debugging, but continue
-					// Don't expose raw log content that might have secrets
-					fmt.Fprintf(os.Stderr, "Warning: Failed to parse log line as JSON (length: %d)\n", len(line))
-				}
-			}
-
-			return marshalToolResult(logEntries)
+			return marshalToolResult(collected.Entries)
 		},
 	}
 }
 
-// newGetServiceErrorsTool creates the get_service_errors tool for debugging
-// This tool calls the CLI with --level error --context N --format json
+// newGetServiceErrorsTool creates the get_service_errors tool for debugging.
+// Uses in-process log collection with error-level filtering and context extraction.
 func newGetServiceErrorsTool() server.ServerTool {
 	return server.ServerTool{
 		Tool: mcp.NewTool(
@@ -235,109 +183,80 @@ func newGetServiceErrorsTool() server.ServerTool {
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			args := getArgsMap(request)
 
-			// Build command arguments for logs command
-			cmdArgs, err := extractProjectDirArg(args)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+			opts := &logsOptions{
+				source:       "local",
+				tail:         500,
+				level:        "error",
+				contextLines: service.DefaultContextLines,
+				since:        "10m",
+			}
+			var serviceArgs []string
+			var projectDir string
+
+			if pd, ok := getStringParam(args, "projectDir"); ok {
+				validated, valErr := validateProjectDir(pd)
+				if valErr != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", valErr)), nil
+				}
+				projectDir = validated
 			}
 
 			if serviceName, ok := getStringParam(args, "serviceName"); ok {
-				if err := security.ValidateServiceName(serviceName, true); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
+					return mcp.NewToolResultError(valErr.Error()), nil
 				}
-				cmdArgs = append(cmdArgs, serviceName)
+				serviceArgs = append(serviceArgs, serviceName)
 			}
 
-			// Default to 10 minutes if not specified
-			since := "10m"
 			if s, ok := getStringParam(args, "since"); ok {
 				if !isValidDuration(s) {
 					return mcp.NewToolResultError("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
 				}
-				since = s
+				opts.since = s
 			}
-			cmdArgs = append(cmdArgs, "--since", since)
 
-			// Get tail setting (default 500)
-			tail := 500.0
 			if t, ok := getFloat64Param(args, "tail"); ok && t > 0 {
-				tail = t
-				if tail > float64(maxLogTailLines) {
-					tail = float64(maxLogTailLines)
+				if t > float64(maxLogTailLines) {
+					t = float64(maxLogTailLines)
 				}
+				opts.tail = int(t)
 			}
-			cmdArgs = append(cmdArgs, "--tail", fmt.Sprintf("%.0f", tail))
 
-			// Get context lines setting (default 3)
-			contextLines := service.DefaultContextLines
 			if cl, ok := getFloat64Param(args, "contextLines"); ok {
-				contextLines = int(cl)
+				contextLines := int(cl)
 				if contextLines < 0 {
 					contextLines = 0
 				}
 				if contextLines > service.MaxContextLines {
 					contextLines = service.MaxContextLines
 				}
+				opts.contextLines = contextLines
 			}
-
-			// Use CLI's --level error and --context flags to get errors with context
-			cmdArgs = append(cmdArgs, "--level", "error")
-			cmdArgs = append(cmdArgs, "--context", fmt.Sprintf("%d", contextLines))
-			cmdArgs = append(cmdArgs, "--format", "json")
 
 			// Check context before starting
 			if err := ctx.Err(); err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", err)), nil
 			}
 
-			// Execute logs command with --level error --context N
-			cmdCtx, cancel := context.WithTimeout(ctx, defaultCommandTimeout)
-			defer cancel()
+			collectCtx, collectCancel := context.WithTimeout(ctx, defaultCommandTimeout)
+			defer collectCancel()
 
-			cmd := exec.CommandContext(cmdCtx, azdCommand, append([]string{appSubcommand, "logs"}, cmdArgs...)...)
-			output, err := cmd.CombinedOutput()
+			executor := newLogsExecutorForMCP(opts, projectDir)
+			collected, err := executor.collect(collectCtx, serviceArgs)
 			if err != nil {
-				if errors.Is(ctx.Err(), context.Canceled) {
-					return mcp.NewToolResultError("Request was cancelled"), nil
-				}
-				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+				if collectCtx.Err() == context.DeadlineExceeded {
 					return mcp.NewToolResultError(fmt.Sprintf("Command timed out after %v", defaultCommandTimeout)), nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v\nOutput: %s", err, string(output))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to get errors: %v", err)), nil
 			}
 
-			// Parse JSON output from CLI (each line is a LogEntryWithContext)
-			outputStr := strings.TrimSpace(string(output))
-			if len(outputStr) == 0 {
-				return marshalToolResult(map[string]interface{}{
-					"summary": map[string]interface{}{
-						"totalErrors": 0,
-						"since":       since,
-					},
-					"errors": []interface{}{},
-				})
-			}
-
-			// Parse the error entries from CLI output
-			var errorEntries []map[string]interface{}
-			lines := strings.Split(outputStr, "\n")
-			for _, line := range lines {
-				if line == "" {
-					continue
-				}
-				var entry map[string]interface{}
-				if err := json.Unmarshal([]byte(line), &entry); err == nil {
-					errorEntries = append(errorEntries, entry)
-				}
-			}
-
-			// Build response with summary
+			entries := collected.EntriesWithContext
 			result := map[string]interface{}{
 				"summary": map[string]interface{}{
-					"totalErrors": len(errorEntries),
-					"since":       since,
+					"totalErrors": len(entries),
+					"since":       opts.since,
 				},
-				"errors": errorEntries,
+				"errors": entries,
 			}
 
 			return marshalToolResult(result)

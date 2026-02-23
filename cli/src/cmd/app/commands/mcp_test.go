@@ -1101,6 +1101,7 @@ func TestAllToolsHaveTitles(t *testing.T) {
 	}{
 		{"get_services", newGetServicesTool, "Get Running Services"},
 		{"get_service_logs", newGetServiceLogsTool, "Get Service Logs"},
+		{"get_service_errors", newGetServiceErrorsTool, "Get Service Errors"},
 		{"get_project_info", newGetProjectInfoTool, "Get Project Information"},
 		{"run_services", newRunServicesTool, "Run Development Services"},
 		{"stop_services", newStopServicesTool, "Stop Running Services"},
