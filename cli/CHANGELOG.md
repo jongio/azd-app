@@ -1,3 +1,9 @@
+## [0.12.5] - 2026-02-23
+
+- feat: add metadata capability + fix flaky cache test (#142) (6fd3ef3c)
+- fix: replace subprocess MCP log/error tools with in-process collect() calls (#141) (01cdf511)
+- chore: update registry for v0.12.4 (11c8f719)
+
 ## [0.12.4] - 2026-02-22
 
 - refactor: use azd-core shared packages, remove 6 wrapper packages (#139) (ee355841)
