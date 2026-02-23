@@ -1,3 +1,7 @@
+## [0.12.6] - 2026-02-23
+
+- chore: update registry for v0.12.5 (13ccec3f)
+
 ## [0.12.5] - 2026-02-23
 
 - feat: add metadata capability + fix flaky cache test (#142) (6fd3ef3c)
