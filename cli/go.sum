@@ -159,8 +159,8 @@ github.com/jmespath-community/go-jmespath v1.1.1 h1:bFikPhsi/FdmlZhVgSCd2jj1e7G/
 github.com/jmespath-community/go-jmespath v1.1.1/go.mod h1:4gOyFJsR/Gk+05RgTKYrifT7tBPWD8Lubtb5jRrfy9I=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
-github.com/jongio/azd-core v0.5.2 h1:AGYzGkvzW/wv23YLL0uOapmqe0rAHlZv4c0j2ZEd4lY=
-github.com/jongio/azd-core v0.5.2/go.mod h1:sNOxz/3TEMYDNybsyUSAzpx0VHhLt959b+aeiy1OG3Y=
+github.com/jongio/azd-core v0.5.3-0.20260224175512-adb4c33ad704 h1:suCpNTx5Bi+GaTE5Cyj5LAQ4q3/gWsBEpZMehlgfp+E=
+github.com/jongio/azd-core v0.5.3-0.20260224175512-adb4c33ad704/go.mod h1:jQCP+px3Pxb3B0fyShfvSVa3KsWT1j2jGXMsPpQezlI=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/keybase/go-keychain v0.0.1 h1:way+bWYa6lDppZoZcgMbYsvC7GxljxrskdNInRtuthU=
