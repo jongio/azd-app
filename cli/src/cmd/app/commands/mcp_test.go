@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-core/security"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -367,101 +368,6 @@ func TestServiceConfigResourceDefinition(t *testing.T) {
 
 // Tests for helper functions
 
-func TestGetStringParam(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     map[string]interface{}
-		key      string
-		expected string
-		found    bool
-	}{
-		{
-			name:     "Valid string parameter",
-			args:     map[string]interface{}{"key": "value"},
-			key:      "key",
-			expected: "value",
-			found:    true,
-		},
-		{
-			name:     "Empty string parameter",
-			args:     map[string]interface{}{"key": ""},
-			key:      "key",
-			expected: "",
-			found:    false,
-		},
-		{
-			name:     "Missing parameter",
-			args:     map[string]interface{}{},
-			key:      "key",
-			expected: "",
-			found:    false,
-		},
-		{
-			name:     "Wrong type parameter",
-			args:     map[string]interface{}{"key": 123},
-			key:      "key",
-			expected: "",
-			found:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, found := getStringParam(tt.args, tt.key)
-			if result != tt.expected {
-				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
-			}
-			if found != tt.found {
-				t.Errorf("Expected found=%v, got %v", tt.found, found)
-			}
-		})
-	}
-}
-
-func TestGetFloat64Param(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     map[string]interface{}
-		key      string
-		expected float64
-		found    bool
-	}{
-		{
-			name:     "Valid float64 parameter",
-			args:     map[string]interface{}{"key": float64(42)},
-			key:      "key",
-			expected: 42.0,
-			found:    true,
-		},
-		{
-			name:     "Missing parameter",
-			args:     map[string]interface{}{},
-			key:      "key",
-			expected: 0,
-			found:    false,
-		},
-		{
-			name:     "Wrong type parameter",
-			args:     map[string]interface{}{"key": "not a number"},
-			key:      "key",
-			expected: 0,
-			found:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, found := getFloat64Param(tt.args, tt.key)
-			if result != tt.expected {
-				t.Errorf("Expected %f, got %f", tt.expected, result)
-			}
-			if found != tt.found {
-				t.Errorf("Expected found=%v, got %v", tt.found, found)
-			}
-		})
-	}
-}
-
 func TestMarshalToolResult(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -553,7 +459,13 @@ func TestExtractProjectDirArg(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extractProjectDirArg(tt.args)
+			request := mcp.CallToolRequest{
+				Params: mcp.CallToolParams{
+					Arguments: tt.args,
+				},
+			}
+			args := azdext.ParseToolArgs(request)
+			result, err := extractProjectDirArg(args)
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error, got nil")
@@ -729,108 +641,6 @@ func TestIsValidDuration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isValidDuration(tt.duration); got != tt.want {
 				t.Errorf("isValidDuration(%q) = %v, want %v", tt.duration, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetArgsMap(t *testing.T) {
-	tests := []struct {
-		name    string
-		request mcp.CallToolRequest
-		wantLen int
-	}{
-		{
-			name: "Valid arguments map",
-			request: mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "test",
-					Arguments: map[string]interface{}{"key": "value"},
-				},
-			},
-			wantLen: 1,
-		},
-		{
-			name: "Nil arguments",
-			request: mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "test",
-					Arguments: nil,
-				},
-			},
-			wantLen: 0,
-		},
-		{
-			name: "Wrong type arguments",
-			request: mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "test",
-					Arguments: "not a map",
-				},
-			},
-			wantLen: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getArgsMap(tt.request)
-			if len(result) != tt.wantLen {
-				t.Errorf("Expected %d keys, got %d", tt.wantLen, len(result))
-			}
-		})
-	}
-}
-
-func TestValidateRequiredParam(t *testing.T) {
-	tests := []struct {
-		name          string
-		args          map[string]interface{}
-		key           string
-		expectedValue string
-		wantError     bool
-	}{
-		{
-			name:          "Valid required parameter",
-			args:          map[string]interface{}{"key": "value"},
-			key:           "key",
-			expectedValue: "value",
-			wantError:     false,
-		},
-		{
-			name:          "Missing required parameter",
-			args:          map[string]interface{}{},
-			key:           "key",
-			expectedValue: "",
-			wantError:     true,
-		},
-		{
-			name:          "Empty required parameter",
-			args:          map[string]interface{}{"key": ""},
-			key:           "key",
-			expectedValue: "",
-			wantError:     true,
-		},
-		{
-			name:          "Wrong type parameter",
-			args:          map[string]interface{}{"key": 123},
-			key:           "key",
-			expectedValue: "",
-			wantError:     true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			val, err := validateRequiredParam(tt.args, tt.key)
-			if tt.wantError && err == nil {
-				t.Error("Expected error, got nil")
-			}
-			if !tt.wantError && err != nil {
-				t.Errorf("Expected no error, got %v", err)
-			}
-			if !tt.wantError && val != tt.expectedValue {
-				t.Errorf("Expected value '%s', got '%s'", tt.expectedValue, val)
 			}
 		})
 	}
@@ -1331,12 +1141,12 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 		{
 			name:           "Missing name parameter",
 			args:           map[string]interface{}{"value": "test"},
-			expectErrorMsg: "name parameter is required",
+			expectErrorMsg: "required argument \"name\" not found",
 		},
 		{
 			name:           "Missing value parameter",
 			args:           map[string]interface{}{"name": "TEST_VAR"},
-			expectErrorMsg: "value parameter is required",
+			expectErrorMsg: "required argument \"value\" not found",
 		},
 		{
 			name:           "Invalid env var name - starts with hyphen",
@@ -1463,7 +1273,7 @@ func TestRestartServiceToolValidation(t *testing.T) {
 		{
 			name:           "Missing service name",
 			args:           map[string]interface{}{},
-			expectErrorMsg: "serviceName parameter is required",
+			expectErrorMsg: "required argument \"serviceName\" not found",
 		},
 		{
 			name:           "Invalid service name - injection",

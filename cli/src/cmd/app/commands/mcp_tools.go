@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/security"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -30,16 +31,16 @@ func newGetServicesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get services: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to get services: %v", err), nil
 			}
 
 			return marshalToolResult(result)
@@ -77,63 +78,61 @@ func newGetServiceLogsTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			opts := &logsOptions{source: "local", tail: 100, level: "all"}
 			var serviceArgs []string
 			var projectDir string
 
-			if pd, ok := getStringParam(args, "projectDir"); ok {
+			if pd := args.OptionalString("projectDir", ""); pd != "" {
 				validated, valErr := validateProjectDir(pd)
 				if valErr != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", valErr)), nil
+					return azdext.MCPErrorResult("Invalid project directory: %v", valErr), nil
 				}
 				projectDir = validated
 			}
 
-			if serviceName, ok := getStringParam(args, "serviceName"); ok {
+			if serviceName := args.OptionalString("serviceName", ""); serviceName != "" {
 				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
 				serviceArgs = append(serviceArgs, serviceName)
 			}
 
-			if tail, ok := getFloat64Param(args, "tail"); ok && tail > 0 {
-				if tail > float64(maxLogTailLines) {
-					tail = float64(maxLogTailLines)
+			if tail := args.OptionalInt("tail", 0); tail > 0 {
+				if tail > maxLogTailLines {
+					tail = maxLogTailLines
 				}
-				opts.tail = int(tail)
+				opts.tail = tail
 			}
 
-			if level, ok := getStringParam(args, "level"); ok {
+			if level := args.OptionalString("level", ""); level != "" {
 				if valErr := validateEnumParam(level, allowedLogLevels, "level"); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
 				opts.level = level
 			}
 
-			if since, ok := getStringParam(args, "since"); ok {
+			if since := args.OptionalString("since", ""); since != "" {
 				if !isValidDuration(since) {
-					return mcp.NewToolResultError("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
+					return azdext.MCPErrorResult("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
 				}
 				opts.since = since
 			}
 
-			if source, ok := getStringParam(args, "source"); ok {
+			if source := args.OptionalString("source", ""); source != "" {
 				allowedSources := map[string]bool{"local": true, "azure": true, "both": true}
 				if valErr := validateEnumParam(source, allowedSources, "source"); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
-				// Map "both" to "all" (MCP uses "both", CLI uses "all")
 				if source == "both" {
 					source = "all"
 				}
 				opts.source = source
 			}
 
-			// Check context before starting
 			if ctxErr := ctx.Err(); ctxErr != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", ctxErr)), nil
+				return azdext.MCPErrorResult("Request cancelled: %v", ctxErr), nil
 			}
 
 			collectCtx, collectCancel := context.WithTimeout(ctx, defaultCommandTimeout)
@@ -143,9 +142,9 @@ func newGetServiceLogsTool() server.ServerTool {
 			collected, err := executor.collect(collectCtx, serviceArgs)
 			if err != nil {
 				if collectCtx.Err() == context.DeadlineExceeded {
-					return mcp.NewToolResultError(fmt.Sprintf("Command timed out after %v", defaultCommandTimeout)), nil
+					return azdext.MCPErrorResult("Command timed out after %v", defaultCommandTimeout), nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get logs: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to get logs: %v", err), nil
 			}
 
 			return marshalToolResult(collected.Entries)
@@ -181,7 +180,7 @@ func newGetServiceErrorsTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			opts := &logsOptions{
 				source:       "local",
@@ -193,49 +192,44 @@ func newGetServiceErrorsTool() server.ServerTool {
 			var serviceArgs []string
 			var projectDir string
 
-			if pd, ok := getStringParam(args, "projectDir"); ok {
+			if pd := args.OptionalString("projectDir", ""); pd != "" {
 				validated, valErr := validateProjectDir(pd)
 				if valErr != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", valErr)), nil
+					return azdext.MCPErrorResult("Invalid project directory: %v", valErr), nil
 				}
 				projectDir = validated
 			}
 
-			if serviceName, ok := getStringParam(args, "serviceName"); ok {
+			if serviceName := args.OptionalString("serviceName", ""); serviceName != "" {
 				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
 				serviceArgs = append(serviceArgs, serviceName)
 			}
 
-			if s, ok := getStringParam(args, "since"); ok {
+			if s := args.OptionalString("since", ""); s != "" {
 				if !isValidDuration(s) {
-					return mcp.NewToolResultError("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
+					return azdext.MCPErrorResult("Invalid 'since' format. Use duration like '5m', '1h', '30s'"), nil
 				}
 				opts.since = s
 			}
 
-			if t, ok := getFloat64Param(args, "tail"); ok && t > 0 {
-				if t > float64(maxLogTailLines) {
-					t = float64(maxLogTailLines)
+			if t := args.OptionalInt("tail", 0); t > 0 {
+				if t > maxLogTailLines {
+					t = maxLogTailLines
 				}
-				opts.tail = int(t)
+				opts.tail = t
 			}
 
-			if cl, ok := getFloat64Param(args, "contextLines"); ok {
-				contextLines := int(cl)
-				if contextLines < 0 {
-					contextLines = 0
+			if cl := args.OptionalInt("contextLines", -1); cl >= 0 {
+				if cl > service.MaxContextLines {
+					cl = service.MaxContextLines
 				}
-				if contextLines > service.MaxContextLines {
-					contextLines = service.MaxContextLines
-				}
-				opts.contextLines = contextLines
+				opts.contextLines = cl
 			}
 
-			// Check context before starting
 			if err := ctx.Err(); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", err)), nil
+				return azdext.MCPErrorResult("Request cancelled: %v", err), nil
 			}
 
 			collectCtx, collectCancel := context.WithTimeout(ctx, defaultCommandTimeout)
@@ -245,9 +239,9 @@ func newGetServiceErrorsTool() server.ServerTool {
 			collected, err := executor.collect(collectCtx, serviceArgs)
 			if err != nil {
 				if collectCtx.Err() == context.DeadlineExceeded {
-					return mcp.NewToolResultError(fmt.Sprintf("Command timed out after %v", defaultCommandTimeout)), nil
+					return azdext.MCPErrorResult("Command timed out after %v", defaultCommandTimeout), nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get errors: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to get errors: %v", err), nil
 			}
 
 			entries := collected.EntriesWithContext
@@ -280,16 +274,16 @@ func newGetProjectInfoTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get project info: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to get project info: %v", err), nil
 			}
 
 			// Extract just project-level info
@@ -337,22 +331,20 @@ func newRunServicesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			// Apply rate limiting to prevent abuse of expensive operations
 			if result := checkRateLimitWithName("run_services"); result != nil {
 				return result, nil
 			}
 
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
-			if runtime, ok := getStringParam(args, "runtime"); ok {
-				// Validate runtime parameter
+			if runtime := args.OptionalString("runtime", ""); runtime != "" {
 				if valErr := validateEnumParam(runtime, allowedRuntimes, "runtime"); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
 				cmdArgs = append(cmdArgs, "--runtime", runtime)
 			}
@@ -366,12 +358,12 @@ func newRunServicesTool() server.ServerTool {
 			// This allows us to detect immediate failures while still detaching
 			stderrPipe, err := cmd.StderrPipe()
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to create stderr pipe: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to create stderr pipe: %v", err), nil
 			}
 
 			// Start the command
 			if err := cmd.Start(); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to start services: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to start services: %v", err), nil
 			}
 
 			// Capture PID immediately after Start() to avoid race
@@ -409,9 +401,9 @@ func newRunServicesTool() server.ServerTool {
 					// Process already exited
 					select {
 					case errMsg := <-startupErrChan:
-						return mcp.NewToolResultError(fmt.Sprintf("Service failed to start: %s", errMsg)), nil
+						return azdext.MCPErrorResult("Service failed to start: %s", errMsg), nil
 					default:
-						return mcp.NewToolResultError("Service failed to start immediately"), nil
+						return azdext.MCPErrorResult("Service failed to start immediately"), nil
 					}
 				}
 			}
@@ -453,24 +445,24 @@ func newStopServicesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			// Get project directory
 			projectDir, err := extractValidatedProjectDir(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			// Create service controller
 			ctrl, err := NewServiceController(projectDir)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to initialize service controller: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to initialize service controller: %v", err), nil
 			}
 
 			// Check if a specific service was requested
-			if serviceName, ok := getStringParam(args, "serviceName"); ok {
+			if serviceName := args.OptionalString("serviceName", ""); serviceName != "" {
 				if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
 				result := ctrl.StopService(ctx, serviceName)
 				return marshalToolResult(result)
@@ -511,28 +503,28 @@ func newStartServiceTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
-			serviceName, err := validateRequiredParam(args, "serviceName")
+			serviceName, err := args.RequireString("serviceName")
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return azdext.MCPErrorResult("%s", err.Error()), nil
 			}
 
 			// Validate service name to prevent injection
 			if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
-				return mcp.NewToolResultError(valErr.Error()), nil
+				return azdext.MCPErrorResult("%s", valErr.Error()), nil
 			}
 
 			// Get project directory
 			projectDir, err := extractValidatedProjectDir(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			// Create service controller
 			ctrl, err := NewServiceController(projectDir)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to initialize service controller: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to initialize service controller: %v", err), nil
 			}
 
 			result := ctrl.StartService(ctx, serviceName)
@@ -560,28 +552,28 @@ func newRestartServiceTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
-			serviceName, err := validateRequiredParam(args, "serviceName")
+			serviceName, err := args.RequireString("serviceName")
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return azdext.MCPErrorResult("%s", err.Error()), nil
 			}
 
 			// Validate service name to prevent injection
 			if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
-				return mcp.NewToolResultError(valErr.Error()), nil
+				return azdext.MCPErrorResult("%s", valErr.Error()), nil
 			}
 
 			// Get project directory
 			projectDir, err := extractValidatedProjectDir(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			// Create service controller
 			ctrl, err := NewServiceController(projectDir)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to initialize service controller: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to initialize service controller: %v", err), nil
 			}
 
 			result := ctrl.RestartService(ctx, serviceName)
@@ -605,21 +597,20 @@ func newInstallDependenciesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			// Apply rate limiting to prevent abuse of expensive operations
 			if result := checkRateLimitWithName("install_dependencies"); result != nil {
 				return result, nil
 			}
 
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			// Check context before starting long operation
 			if ctxErr := ctx.Err(); ctxErr != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Request cancelled: %v", ctxErr)), nil
+				return azdext.MCPErrorResult("Request cancelled: %v", ctxErr), nil
 			}
 
 			// Use longer timeout for dependency installation (can be slow)
@@ -631,12 +622,12 @@ func newInstallDependenciesTool() server.ServerTool {
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				if errors.Is(ctx.Err(), context.Canceled) {
-					return mcp.NewToolResultError("Request was cancelled"), nil
+					return azdext.MCPErrorResult("Request was cancelled"), nil
 				}
 				if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
-					return mcp.NewToolResultError(fmt.Sprintf("Dependency installation timed out after %v", dependencyInstallTimeout)), nil
+					return azdext.MCPErrorResult("Dependency installation timed out after %v", dependencyInstallTimeout), nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to install dependencies: %v\nOutput: %s", err, string(output))), nil
+				return azdext.MCPErrorResult("Failed to install dependencies: %v\nOutput: %s", err, string(output)), nil
 			}
 
 			result := map[string]interface{}{
@@ -666,16 +657,16 @@ func newCheckRequirementsTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			result, err := executeAzdAppCommand(ctx, "reqs", cmdArgs)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to check requirements: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to check requirements: %v", err), nil
 			}
 
 			return marshalToolResult(result)
@@ -701,25 +692,26 @@ func newGetEnvironmentVariablesTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
 			cmdArgs, err := extractProjectDirArg(args)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Invalid project directory: %v", err)), nil
+				return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 			}
 
 			// Validate service name if provided
-			serviceName, hasFilter := getStringParam(args, "serviceName")
+			serviceName := args.OptionalString("serviceName", "")
+			hasFilter := serviceName != ""
 			if hasFilter {
 				if valErr := security.ValidateServiceName(serviceName, true); valErr != nil {
-					return mcp.NewToolResultError(valErr.Error()), nil
+					return azdext.MCPErrorResult("%s", valErr.Error()), nil
 				}
 			}
 
 			// Get service info which includes environment variables
 			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to get environment variables: %v", err)), nil
+				return azdext.MCPErrorResult("Failed to get environment variables: %v", err), nil
 			}
 
 			// Extract environment variables from services
@@ -769,27 +761,27 @@ func newSetEnvironmentVariableTool() server.ServerTool {
 			),
 		),
 		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			args := getArgsMap(request)
+			args := azdext.ParseToolArgs(request)
 
-			name, err := validateRequiredParam(args, "name")
+			name, err := args.RequireString("name")
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return azdext.MCPErrorResult("%s", err.Error()), nil
 			}
 
 			// Validate env var name format
 			if !safeNamePattern.MatchString(name) {
-				return mcp.NewToolResultError("Invalid environment variable name: must start with alphanumeric and contain only alphanumeric, underscore, or hyphen"), nil
+				return azdext.MCPErrorResult("Invalid environment variable name: must start with alphanumeric and contain only alphanumeric, underscore, or hyphen"), nil
 			}
 
-			value, err := validateRequiredParam(args, "value")
+			value, err := args.RequireString("value")
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return azdext.MCPErrorResult("%s", err.Error()), nil
 			}
 
-			serviceName, _ := getStringParam(args, "serviceName")
+			serviceName := args.OptionalString("serviceName", "")
 			if serviceName != "" {
 				if err := security.ValidateServiceName(serviceName, true); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+					return azdext.MCPErrorResult("%s", err.Error()), nil
 				}
 			} else {
 				serviceName = "<service-name>"

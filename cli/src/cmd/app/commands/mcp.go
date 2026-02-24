@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
@@ -115,17 +116,21 @@ This server complements azd's core MCP capabilities:
 - Monitors services started by azd app run
 - Complements azd's built-in deployment and provisioning workflows`
 
-	// Create MCP server with all capabilities
+	// Build MCP server using the azdext SDK builder
 	// Server name follows azd extension naming convention: {namespace}-mcp-server
-	s := server.NewMCPServer(
-		"app-mcp-server", Version,
-		server.WithToolCapabilities(true),
-		server.WithResourceCapabilities(false, true), // subscribe=false, listChanged=true
-		server.WithPromptCapabilities(false),         // listChanged=false
-		server.WithInstructions(instructions),
-	)
+	builder := azdext.NewMCPServerBuilder("app-mcp-server", Version).
+		WithInstructions(instructions).
+		WithResourceCapabilities(false, true). // subscribe=false, listChanged=true
+		WithPromptCapabilities(false).         // listChanged=false
+		AddResources(
+			newAzureYamlResource(),
+			newServiceConfigResource(),
+		)
 
-	// Add tools
+	s := builder.Build()
+
+	// Add tools to the built server
+	// Tools use the standard mcp-go handler signature; ToolArgs parsing is done inside each handler
 	tools := []server.ServerTool{
 		// Observability tools
 		newGetServicesTool(),
@@ -143,16 +148,7 @@ This server complements azd's core MCP capabilities:
 		newGetEnvironmentVariablesTool(),
 		newSetEnvironmentVariableTool(),
 	}
-
 	s.AddTools(tools...)
-
-	// Add resources
-	resources := []server.ServerResource{
-		newAzureYamlResource(),
-		newServiceConfigResource(),
-	}
-
-	s.AddResources(resources...)
 
 	// Start the server using stdio transport
 	if err := server.ServeStdio(s); err != nil {
@@ -211,89 +207,46 @@ func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args [
 
 // Helper functions for common MCP patterns
 
-// getArgsMap safely extracts the arguments map from a request
-func getArgsMap(request mcp.CallToolRequest) map[string]interface{} {
-	if args, ok := request.Params.Arguments.(map[string]interface{}); ok {
-		return args
+// extractProjectDirArg extracts projectDir from ToolArgs and returns command args with --cwd flag
+func extractProjectDirArg(args azdext.ToolArgs) ([]string, error) {
+	projectDir := args.OptionalString("projectDir", "")
+	if projectDir == "" {
+		return nil, nil
 	}
-	return make(map[string]interface{})
+	validatedPath, err := validateProjectDir(projectDir)
+	if err != nil {
+		return nil, err
+	}
+	return []string{cwdFlag, validatedPath}, nil
 }
 
-// getStringParam safely extracts a string parameter from request arguments
-func getStringParam(args map[string]interface{}, key string) (string, bool) {
-	if val, ok := args[key].(string); ok && val != "" {
-		return val, true
+// extractValidatedProjectDir extracts and validates projectDir from ToolArgs, falling back to getProjectDir()
+func extractValidatedProjectDir(args azdext.ToolArgs) (string, error) {
+	projectDir := args.OptionalString("projectDir", "")
+	if projectDir == "" {
+		return getProjectDir(), nil
 	}
-	return "", false
+	return validateProjectDir(projectDir)
 }
 
-// getFloat64Param safely extracts a float64 parameter from request arguments
-func getFloat64Param(args map[string]interface{}, key string) (float64, bool) {
-	if val, ok := args[key].(float64); ok {
-		return val, true
-	}
-	return 0, false
-}
-
-// marshalToolResult marshals data to JSON and returns an MCP tool result with structured content
-// This is for tools with output schemas that need to return structured data
+// marshalToolResult marshals data to JSON and returns an MCP tool result with structured content.
+// This is for tools with output schemas that need to return structured data.
 func marshalToolResult(data interface{}) (*mcp.CallToolResult, error) {
-	// Create a fallback text representation
 	jsonBytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal result: %v", err)), nil
+		return azdext.MCPErrorResult("Failed to marshal result: %v", err), nil
 	}
-	// Return structured content with JSON fallback for backwards compatibility
-	// This satisfies MCP clients that expect structured content when a schema is declared
 	return mcp.NewToolResultStructured(data, string(jsonBytes)), nil
 }
 
-// checkRateLimitWithName checks if the operation is allowed under rate limiting
-// Returns an error result if rate limit is exceeded
-// operationName is used for logging purposes
+// checkRateLimitWithName checks if the operation is allowed under rate limiting.
+// Returns an error result if rate limit is exceeded.
 func checkRateLimitWithName(operationName string) *mcp.CallToolResult {
 	if !globalRateLimiter.Allow() {
 		logRateLimitEvent(operationName)
-		return mcp.NewToolResultError("Rate limit exceeded. Please wait before making more requests.")
+		return azdext.MCPErrorResult("Rate limit exceeded. Please wait before making more requests.")
 	}
 	return nil
-}
-
-// extractProjectDirArg extracts projectDir argument and returns command args with --cwd flag
-// Returns the args and any validation error
-func extractProjectDirArg(args map[string]interface{}) ([]string, error) {
-	var cmdArgs []string
-	if projectDir, ok := getStringParam(args, "projectDir"); ok {
-		validatedPath, err := validateProjectDir(projectDir)
-		if err != nil {
-			return nil, err
-		}
-		cmdArgs = append(cmdArgs, cwdFlag, validatedPath)
-	}
-	return cmdArgs, nil
-}
-
-// extractValidatedProjectDir extracts and validates projectDir from args, returning the path.
-// Falls back to getProjectDir() if not provided in args.
-func extractValidatedProjectDir(args map[string]interface{}) (string, error) {
-	projectDir := getProjectDir()
-	if pd, ok := getStringParam(args, "projectDir"); ok {
-		validatedPath, err := validateProjectDir(pd)
-		if err != nil {
-			return "", err
-		}
-		projectDir = validatedPath
-	}
-	return projectDir, nil
-}
-
-// validateRequiredParam validates that a required parameter exists and returns the value
-func validateRequiredParam(args map[string]interface{}, key string) (string, error) {
-	val, ok := args[key].(string)
-	if !ok || val == "" {
-		return "", fmt.Errorf("%s parameter is required", key)
-	}
-	return val, nil
 }
 
 // validateEnumParam validates that a parameter value is in allowed set

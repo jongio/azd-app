@@ -2,9 +2,7 @@ package commands
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
@@ -13,45 +11,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewListenCommand creates a new listen command that establishes
-// a connection with azd for extension framework operations.
+// NewListenCommand creates the listen command using the azdext SDK helper.
+// It registers a local service target provider and post-provision event handler.
 func NewListenCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:          "listen",
-		Short:        "Start the extension server (required by azd framework)",
-		Long:         `Internal command used by the azd CLI to communicate with this extension via JSON-RPC over stdio.`,
-		Hidden:       true,
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Create a context with the AZD access token
-			ctx := azdext.WithAccessToken(cmd.Context())
-
-			// Create a new AZD client
-			azdClient, err := azdext.NewAzdClient()
-			if err != nil {
-				return fmt.Errorf("failed to create azd client: %w", err)
-			}
-			defer azdClient.Close()
-
-			// Create an extension host and register:
-			// 1. Service target provider for "local" host type (for local-only containers)
-			// 2. Event handler for postprovision to update dashboard
-			host := azdext.NewExtensionHost(azdClient).
-				WithServiceTarget("local", func() azdext.ServiceTargetProvider {
-					return servicetarget.NewLocalServiceTargetProvider(azdClient)
-				}).
-				WithServiceEventHandler("postprovision", handlePostProvision, &azdext.ServiceEventOptions{})
-
-			// Start the extension host
-			// This blocks until azd closes the connection
-			if err := host.Run(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "Extension host error: %v\n", err)
-				return fmt.Errorf("failed to run extension: %w", err)
-			}
-
-			return nil
-		},
-	}
+	return azdext.NewListenCommand(func(host *azdext.ExtensionHost) {
+		client := host.Client()
+		host.
+			WithServiceTarget("local", func() azdext.ServiceTargetProvider {
+				return servicetarget.NewLocalServiceTargetProvider(client)
+			}).
+			WithServiceEventHandler("postprovision", handlePostProvision, &azdext.ServiceEventOptions{})
+	})
 }
 
 // handlePostProvision is called after azd provision completes for each service.

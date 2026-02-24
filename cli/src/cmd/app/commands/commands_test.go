@@ -159,8 +159,9 @@ func TestNewListenCommand(t *testing.T) {
 		t.Errorf("Use = %q, want %q", cmd.Use, "listen")
 	}
 
-	if cmd.Short == "" {
-		t.Error("Short description is empty")
+	// SDK's NewListenCommand is a hidden internal command; Short is intentionally empty
+	if !cmd.Hidden {
+		t.Error("listen command should be hidden")
 	}
 
 	if cmd.RunE == nil {
