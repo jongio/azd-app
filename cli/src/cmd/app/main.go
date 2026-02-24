@@ -5,86 +5,80 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
 	"github.com/jongio/azd-app/cli/src/internal/skills"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/env"
-
 	"github.com/spf13/cobra"
 )
 
 var (
-	outputFormat   string
-	debugMode      bool
 	structuredLogs bool
-	cwdFlag        string
-	environment    string
 )
 
 func main() {
-	rootCmd := &cobra.Command{
-		Use:   "app",
-		Short: "App - Automate your development environment setup",
-		Long:  `App is an Azure Developer CLI extension that automatically detects and sets up your development environment across multiple languages and frameworks.`,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Change working directory if --cwd is specified
-			if cwdFlag != "" {
-				if err := os.Chdir(cwdFlag); err != nil {
-					return fmt.Errorf("failed to change to directory '%s': %w", cwdFlag, err)
-				}
-			}
+	// Use the standard extension root command which provides:
+	// - Standard azd flags (--debug, --no-prompt, --cwd, -e, --output)
+	// - AZD_* environment variable fallback for all flags
+	// - OpenTelemetry trace context propagation from TRACEPARENT/TRACESTATE
+	// - gRPC access token injection via WithAccessToken()
+	rootCmd, extCtx := azdext.NewExtensionRootCommand(azdext.ExtensionCommandOptions{
+		Name:    "app",
+		Version: commands.Version,
+		Short:   "App - Automate your development environment setup",
+		Long:    `App is an Azure Developer CLI extension that automatically detects and sets up your development environment across multiple languages and frameworks.`,
+	})
 
-			// Handle environment selection
-			if environment != "" {
-				// Load environment variables from the specified environment
-				if err := env.LoadAzdEnvironment(cmd.Context(), environment); err != nil {
-					return fmt.Errorf("failed to load environment '%s': %w", environment, err)
-				}
-			}
-
-			// Set global output format and debug mode
-			if debugMode {
-				_ = os.Setenv("AZD_DEBUG", "true")
-				// Configure slog to show debug messages
-				slog.SetLogLoggerLevel(slog.LevelDebug)
-			}
-
-			// Configure logging
-			logging.SetupLogger(debugMode, structuredLogs)
-
-			// Log startup in debug mode
-			if debugMode {
-				logging.Debug("Starting azd app extension",
-					"version", commands.Version,
-					"command", cmd.Name(),
-					"args", args,
-					"cwd", cwdFlag,
-				)
-				// Print build info in debug mode (before command output)
-				if !cliout.IsJSON() {
-					fmt.Fprintf(os.Stderr, "%s[DEBUG]%s Build: %s (built on %s, commit: %.8s)\n",
-						cliout.Dim, cliout.Reset, commands.Version, commands.BuildTime, commands.Commit)
-				}
-			}
-
-			// Install Copilot skill
-			if err := skills.InstallSkill(); err != nil {
-				if debugMode {
-					slog.Debug("Failed to install copilot skill", "error", err)
-				}
-			}
-
-			return cliout.SetFormat(outputFormat)
-		},
-	}
-
-	// Add global flags
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "default", "Output format (default, json)")
-	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "Enable debug logging")
+	// Add app-specific flags not covered by the standard set
 	rootCmd.PersistentFlags().BoolVar(&structuredLogs, "structured-logs", false, "Enable structured JSON logging to stderr")
-	rootCmd.PersistentFlags().StringVarP(&cwdFlag, "cwd", "C", "", "Sets the current working directory")
-	rootCmd.PersistentFlags().StringVarP(&environment, "environment", "e", "", "The name of the environment to use")
+
+	// Chain app-specific setup after the standard PersistentPreRunE
+	origPreRun := rootCmd.PersistentPreRunE
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		// Run standard extension setup first (env var fallback, cwd, tracing, access token)
+		if origPreRun != nil {
+			if err := origPreRun(cmd, args); err != nil {
+				return err
+			}
+		}
+
+		// Handle environment selection
+		if extCtx.Environment != "" {
+			if err := env.LoadAzdEnvironment(cmd.Context(), extCtx.Environment); err != nil {
+				return fmt.Errorf("failed to load environment '%s': %w", extCtx.Environment, err)
+			}
+		}
+
+		// Configure logging
+		if extCtx.Debug {
+			slog.SetLogLoggerLevel(slog.LevelDebug)
+		}
+		logging.SetupLogger(extCtx.Debug, structuredLogs)
+
+		if extCtx.Debug {
+			logging.Debug("Starting azd app extension",
+				"version", commands.Version,
+				"command", cmd.Name(),
+				"args", args,
+				"cwd", extCtx.Cwd,
+			)
+			if !cliout.IsJSON() {
+				fmt.Fprintf(os.Stderr, "%s[DEBUG]%s Build: %s (built on %s, commit: %.8s)\n",
+					cliout.Dim, cliout.Reset, commands.Version, commands.BuildTime, commands.Commit)
+			}
+		}
+
+		// Install Copilot skill
+		if err := skills.InstallSkill(); err != nil {
+			if extCtx.Debug {
+				slog.Debug("Failed to install copilot skill", "error", err)
+			}
+		}
+
+		return cliout.SetFormat(extCtx.OutputFormat)
+	}
 
 	// Register all commands
 	rootCmd.AddCommand(
@@ -95,7 +89,7 @@ func main() {
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
 		commands.NewHealthCommand(),
-		commands.NewVersionCommand(&outputFormat),
+		commands.NewVersionCommand(&extCtx.OutputFormat),
 		commands.NewNotificationsCommand(),
 		commands.NewListenCommand(), // Required for azd extension framework
 		commands.NewMCPCommand(),    // Model Context Protocol server
@@ -103,7 +97,7 @@ func main() {
 		commands.NewStopCommand(),
 		commands.NewRestartCommand(),
 		commands.NewAddCommand(),
-		commands.NewMetadataCommand(),
+		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
