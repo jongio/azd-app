@@ -119,6 +119,7 @@ This server complements azd's core MCP capabilities:
 	// Build MCP server using the azdext SDK builder
 	// Server name follows azd extension naming convention: {namespace}-mcp-server
 	builder := azdext.NewMCPServerBuilder("app-mcp-server", Version).
+		WithRateLimit(burstSize, float64(maxToolCallsPerMinute)/60.0).
 		WithInstructions(instructions).
 		WithResourceCapabilities(false, true). // subscribe=false, listChanged=true
 		WithPromptCapabilities(false).         // listChanged=false
@@ -127,28 +128,10 @@ This server complements azd's core MCP capabilities:
 			newServiceConfigResource(),
 		)
 
-	s := builder.Build()
+	// Register all tools via AddTool — builder handles rate limiting + ToolArgs parsing
+	registerAllTools(builder)
 
-	// Add tools to the built server
-	// Tools use the standard mcp-go handler signature; ToolArgs parsing is done inside each handler
-	tools := []server.ServerTool{
-		// Observability tools
-		newGetServicesTool(),
-		newGetServiceLogsTool(),
-		newGetServiceErrorsTool(),
-		newGetProjectInfoTool(),
-		// Operational tools
-		newRunServicesTool(),
-		newStopServicesTool(),
-		newStartServiceTool(),
-		newRestartServiceTool(),
-		newInstallDependenciesTool(),
-		newCheckRequirementsTool(),
-		// Configuration tools
-		newGetEnvironmentVariablesTool(),
-		newSetEnvironmentVariableTool(),
-	}
-	s.AddTools(tools...)
+	s := builder.Build()
 
 	// Start the server using stdio transport
 	if err := server.ServeStdio(s); err != nil {
@@ -237,16 +220,6 @@ func marshalToolResult(data interface{}) (*mcp.CallToolResult, error) {
 		return azdext.MCPErrorResult("Failed to marshal result: %v", err), nil
 	}
 	return mcp.NewToolResultStructured(data, string(jsonBytes)), nil
-}
-
-// checkRateLimitWithName checks if the operation is allowed under rate limiting.
-// Returns an error result if rate limit is exceeded.
-func checkRateLimitWithName(operationName string) *mcp.CallToolResult {
-	if !globalRateLimiter.Allow() {
-		logRateLimitEvent(operationName)
-		return azdext.MCPErrorResult("Rate limit exceeded. Please wait before making more requests.")
-	}
-	return nil
 }
 
 // validateEnumParam validates that a parameter value is in allowed set

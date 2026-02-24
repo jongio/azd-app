@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-core/security"
@@ -14,6 +13,23 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/require"
 )
+
+// testBuildServer creates a test MCP server with all tools registered via the builder.
+func testBuildServer(t *testing.T) *server.MCPServer {
+	t.Helper()
+	builder := azdext.NewMCPServerBuilder("test-server", "1.0.0")
+	registerAllTools(builder)
+	return builder.Build()
+}
+
+// testToolArgs creates ToolArgs from a map for use in handler tests.
+func testToolArgs(args map[string]interface{}) azdext.ToolArgs {
+	return azdext.ParseToolArgs(mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: args,
+		},
+	})
+}
 
 func TestNewMCPCommand(t *testing.T) {
 	cmd := NewMCPCommand()
@@ -66,72 +82,35 @@ func TestNewMCPServeCommand(t *testing.T) {
 }
 
 func TestGetServicesToolDefinition(t *testing.T) {
-	tool := newGetServicesTool()
-
-	if tool.Tool.Name != "get_services" {
-		t.Errorf("Expected tool name 'get_services', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("get_services tool should have a handler")
-	}
-
-	// Verify tool metadata
-	if tool.Tool.Description == "" {
-		t.Error("get_services tool should have a description")
-	}
-
-	// Verify tool has title annotation (MCP spec compliance)
-	if tool.Tool.Annotations.Title == "" {
-		t.Error("get_services tool should have a title annotation")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("get_services")
+	require.NotNil(t, tool, "get_services tool should be registered")
+	require.Equal(t, "get_services", tool.Tool.Name)
+	require.NotEmpty(t, tool.Tool.Description)
+	require.Equal(t, "Get Running Services", tool.Tool.Annotations.Title)
 }
 
 func TestGetServiceLogsToolDefinition(t *testing.T) {
-	tool := newGetServiceLogsTool()
-
-	if tool.Tool.Name != "get_service_logs" {
-		t.Errorf("Expected tool name 'get_service_logs', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("get_service_logs tool should have a handler")
-	}
-
-	if tool.Tool.Description == "" {
-		t.Error("get_service_logs tool should have a description")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("get_service_logs")
+	require.NotNil(t, tool, "get_service_logs tool should be registered")
+	require.Equal(t, "get_service_logs", tool.Tool.Name)
+	require.NotEmpty(t, tool.Tool.Description)
 }
 
 func TestGetProjectInfoToolDefinition(t *testing.T) {
-	tool := newGetProjectInfoTool()
-
-	if tool.Tool.Name != "get_project_info" {
-		t.Errorf("Expected tool name 'get_project_info', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("get_project_info tool should have a handler")
-	}
-
-	if tool.Tool.Description == "" {
-		t.Error("get_project_info tool should have a description")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("get_project_info")
+	require.NotNil(t, tool, "get_project_info tool should be registered")
+	require.Equal(t, "get_project_info", tool.Tool.Name)
+	require.NotEmpty(t, tool.Tool.Description)
 }
 
 func TestGetServicesToolHandlerBehavior(t *testing.T) {
-	tool := newGetServicesTool()
 	ctx := context.Background()
+	args := testToolArgs(map[string]interface{}{})
 
-	// Test with empty arguments
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "get_services",
-			Arguments: map[string]interface{}{},
-		},
-	}
-
-	result, err := tool.Handler(ctx, request)
+	result, err := handleGetServices(ctx, args)
 	if err != nil {
 		t.Fatalf("Handler returned error: %v", err)
 	}
@@ -140,27 +119,16 @@ func TestGetServicesToolHandlerBehavior(t *testing.T) {
 		t.Fatal("Handler returned nil result")
 	}
 
-	// Result should have content
 	if len(result.Content) == 0 {
 		t.Error("Handler result should have content")
 	}
 }
 
 func TestGetServiceLogsToolHandlerBehavior(t *testing.T) {
-	tool := newGetServiceLogsTool()
 	ctx := context.Background()
+	args := testToolArgs(map[string]interface{}{"tail": float64(10)})
 
-	// Test with tail parameter
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name: "get_service_logs",
-			Arguments: map[string]interface{}{
-				"tail": float64(10),
-			},
-		},
-	}
-
-	result, err := tool.Handler(ctx, request)
+	result, err := handleGetServiceLogs(ctx, args)
 	if err != nil {
 		t.Fatalf("Handler returned error: %v", err)
 	}
@@ -169,25 +137,16 @@ func TestGetServiceLogsToolHandlerBehavior(t *testing.T) {
 		t.Fatal("Handler returned nil result")
 	}
 
-	// Result should have content
 	if len(result.Content) == 0 {
 		t.Error("Handler result should have content")
 	}
 }
 
 func TestGetProjectInfoToolHandlerBehavior(t *testing.T) {
-	tool := newGetProjectInfoTool()
 	ctx := context.Background()
+	args := testToolArgs(map[string]interface{}{})
 
-	// Test with empty arguments
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "get_project_info",
-			Arguments: map[string]interface{}{},
-		},
-	}
-
-	result, err := tool.Handler(ctx, request)
+	result, err := handleGetProjectInfo(ctx, args)
 	if err != nil {
 		t.Fatalf("Handler returned error: %v", err)
 	}
@@ -196,7 +155,6 @@ func TestGetProjectInfoToolHandlerBehavior(t *testing.T) {
 		t.Fatal("Handler returned nil result")
 	}
 
-	// Result should have content
 	if len(result.Content) == 0 {
 		t.Error("Handler result should have content")
 	}
@@ -247,99 +205,55 @@ func TestMCPToolsNoDuplication(t *testing.T) {
 }
 
 func TestRunServicesToolDefinition(t *testing.T) {
-	tool := newRunServicesTool()
-
-	if tool.Tool.Name != "run_services" {
-		t.Errorf("Expected tool name 'run_services', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("run_services tool should have a handler")
-	}
-
-	if tool.Tool.Description == "" {
-		t.Error("run_services tool should have a description")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("run_services")
+	require.NotNil(t, tool, "run_services tool should be registered")
+	require.Equal(t, "run_services", tool.Tool.Name)
+	require.NotEmpty(t, tool.Tool.Description)
 }
 
 func TestInstallDependenciesToolDefinition(t *testing.T) {
-	tool := newInstallDependenciesTool()
-
-	if tool.Tool.Name != "install_dependencies" {
-		t.Errorf("Expected tool name 'install_dependencies', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("install_dependencies tool should have a handler")
-	}
-
-	if tool.Tool.Description == "" {
-		t.Error("install_dependencies tool should have a description")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("install_dependencies")
+	require.NotNil(t, tool, "install_dependencies tool should be registered")
+	require.Equal(t, "install_dependencies", tool.Tool.Name)
+	require.NotEmpty(t, tool.Tool.Description)
 }
 
 func TestCheckRequirementsToolDefinition(t *testing.T) {
-	tool := newCheckRequirementsTool()
-
-	if tool.Tool.Name != "check_requirements" {
-		t.Errorf("Expected tool name 'check_requirements', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("check_requirements tool should have a handler")
-	}
-
-	if tool.Tool.Description == "" {
-		t.Error("check_requirements tool should have a description")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("check_requirements")
+	require.NotNil(t, tool, "check_requirements tool should be registered")
+	require.Equal(t, "check_requirements", tool.Tool.Name)
+	require.NotEmpty(t, tool.Tool.Description)
 }
 
 func TestStopServicesToolDefinition(t *testing.T) {
-	tool := newStopServicesTool()
-
-	if tool.Tool.Name != "stop_services" {
-		t.Errorf("Expected tool name 'stop_services', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("stop_services tool should have a handler")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("stop_services")
+	require.NotNil(t, tool, "stop_services tool should be registered")
+	require.Equal(t, "stop_services", tool.Tool.Name)
 }
 
 func TestRestartServiceToolDefinition(t *testing.T) {
-	tool := newRestartServiceTool()
-
-	if tool.Tool.Name != "restart_service" {
-		t.Errorf("Expected tool name 'restart_service', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("restart_service tool should have a handler")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("restart_service")
+	require.NotNil(t, tool, "restart_service tool should be registered")
+	require.Equal(t, "restart_service", tool.Tool.Name)
 }
 
 func TestGetEnvironmentVariablesToolDefinition(t *testing.T) {
-	tool := newGetEnvironmentVariablesTool()
-
-	if tool.Tool.Name != "get_environment_variables" {
-		t.Errorf("Expected tool name 'get_environment_variables', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("get_environment_variables tool should have a handler")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("get_environment_variables")
+	require.NotNil(t, tool, "get_environment_variables tool should be registered")
+	require.Equal(t, "get_environment_variables", tool.Tool.Name)
 }
 
 func TestSetEnvironmentVariableToolDefinition(t *testing.T) {
-	tool := newSetEnvironmentVariableTool()
-
-	if tool.Tool.Name != "set_environment_variable" {
-		t.Errorf("Expected tool name 'set_environment_variable', got '%s'", tool.Tool.Name)
-	}
-
-	if tool.Handler == nil {
-		t.Error("set_environment_variable tool should have a handler")
-	}
+	s := testBuildServer(t)
+	tool := s.GetTool("set_environment_variable")
+	require.NotNil(t, tool, "set_environment_variable tool should be registered")
+	require.Equal(t, "set_environment_variable", tool.Tool.Name)
 }
 
 func TestAzureYamlResourceDefinition(t *testing.T) {
@@ -687,7 +601,6 @@ func TestValidateEnumParam(t *testing.T) {
 // Tests for tool handlers with mock data
 
 func TestGetServicesToolHandlerWithParams(t *testing.T) {
-	tool := newGetServicesTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -706,14 +619,8 @@ func TestGetServicesToolHandlerWithParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "get_services",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleGetServices(ctx, args)
 
 			// Handler should return error result, not Go error
 			if err != nil {
@@ -728,7 +635,6 @@ func TestGetServicesToolHandlerWithParams(t *testing.T) {
 }
 
 func TestGetServiceLogsToolHandlerWithParams(t *testing.T) {
-	tool := newGetServiceLogsTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -759,14 +665,8 @@ func TestGetServiceLogsToolHandlerWithParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "get_service_logs",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleGetServiceLogs(ctx, args)
 
 			if err != nil {
 				t.Errorf("Handler returned Go error: %v", err)
@@ -780,17 +680,10 @@ func TestGetServiceLogsToolHandlerWithParams(t *testing.T) {
 }
 
 func TestGetProjectInfoToolHandlerWithParams(t *testing.T) {
-	tool := newGetProjectInfoTool()
 	ctx := context.Background()
+	args := testToolArgs(map[string]interface{}{})
 
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "get_project_info",
-			Arguments: map[string]interface{}{},
-		},
-	}
-
-	result, err := tool.Handler(ctx, request)
+	result, err := handleGetProjectInfo(ctx, args)
 
 	if err != nil {
 		t.Errorf("Handler returned Go error: %v", err)
@@ -802,7 +695,6 @@ func TestGetProjectInfoToolHandlerWithParams(t *testing.T) {
 }
 
 func TestRestartServiceToolHandler(t *testing.T) {
-	tool := newRestartServiceTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -824,14 +716,8 @@ func TestRestartServiceToolHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "restart_service",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleRestartService(ctx, args)
 
 			if err != nil {
 				t.Errorf("Handler returned Go error: %v", err)
@@ -904,30 +790,26 @@ func TestGetProjectDir(t *testing.T) {
 
 // TestAllToolsHaveTitles verifies that all MCP tools have title annotations (MCP spec compliance)
 func TestAllToolsHaveTitles(t *testing.T) {
-	tools := []struct {
-		name     string
-		tool     func() server.ServerTool
-		expected string
-	}{
-		{"get_services", newGetServicesTool, "Get Running Services"},
-		{"get_service_logs", newGetServiceLogsTool, "Get Service Logs"},
-		{"get_service_errors", newGetServiceErrorsTool, "Get Service Errors"},
-		{"get_project_info", newGetProjectInfoTool, "Get Project Information"},
-		{"run_services", newRunServicesTool, "Run Development Services"},
-		{"stop_services", newStopServicesTool, "Stop Running Services"},
-		{"restart_service", newRestartServiceTool, "Restart Service"},
-		{"install_dependencies", newInstallDependenciesTool, "Install Project Dependencies"},
-		{"check_requirements", newCheckRequirementsTool, "Check Prerequisites"},
-		{"get_environment_variables", newGetEnvironmentVariablesTool, "Get Environment Variables"},
-		{"set_environment_variable", newSetEnvironmentVariableTool, "Set Environment Variable"},
+	s := testBuildServer(t)
+	expected := map[string]string{
+		"get_services":             "Get Running Services",
+		"get_service_logs":         "Get Service Logs",
+		"get_service_errors":       "Get Service Errors",
+		"get_project_info":         "Get Project Information",
+		"run_services":             "Run Development Services",
+		"stop_services":            "Stop Running Services",
+		"restart_service":          "Restart Service",
+		"install_dependencies":     "Install Project Dependencies",
+		"check_requirements":       "Check Prerequisites",
+		"get_environment_variables": "Get Environment Variables",
+		"set_environment_variable": "Set Environment Variable",
 	}
 
-	for _, tt := range tools {
-		t.Run(tt.name, func(t *testing.T) {
-			tool := tt.tool()
-			if tool.Tool.Annotations.Title != tt.expected {
-				t.Errorf("Tool %s: expected title '%s', got '%s'", tt.name, tt.expected, tool.Tool.Annotations.Title)
-			}
+	for name, title := range expected {
+		t.Run(name, func(t *testing.T) {
+			tool := s.GetTool(name)
+			require.NotNil(t, tool, "tool %s should be registered", name)
+			require.Equal(t, title, tool.Tool.Annotations.Title)
 		})
 	}
 }
@@ -983,9 +865,7 @@ func TestResourcesHaveAnnotations(t *testing.T) {
 	})
 }
 
-// TestGetServiceLogsToolValidation tests validation logic for get_service_logs tool
 func TestGetServiceLogsToolValidation(t *testing.T) {
-	tool := newGetServiceLogsTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1027,14 +907,8 @@ func TestGetServiceLogsToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "get_service_logs",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleGetServiceLogs(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1043,14 +917,11 @@ func TestGetServiceLogsToolValidation(t *testing.T) {
 				t.Fatal("Handler returned nil result")
 			}
 
-			// Check if result is an error result
 			if tt.expectErrorMsg != "" && len(result.Content) > 0 {
 				content := result.Content[0]
 				if _, ok := content.(mcp.TextContent); !ok {
 					t.Logf("Content type: %T", content)
 				}
-				// Some validation errors might pass but execution fails
-				// That's OK, we're testing validation paths
 			}
 		})
 	}
@@ -1058,7 +929,6 @@ func TestGetServiceLogsToolValidation(t *testing.T) {
 
 // TestRunServicesToolValidation tests validation logic for run_services tool
 func TestRunServicesToolValidation(t *testing.T) {
-	tool := newRunServicesTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1100,14 +970,8 @@ func TestRunServicesToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "run_services",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleRunServices(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1130,7 +994,6 @@ func TestRunServicesToolValidation(t *testing.T) {
 
 // TestSetEnvironmentVariableToolValidation tests validation for set_environment_variable tool
 func TestSetEnvironmentVariableToolValidation(t *testing.T) {
-	tool := newSetEnvironmentVariableTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1177,14 +1040,8 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "set_environment_variable",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleSetEnvironmentVariable(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1206,7 +1063,6 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 
 // TestGetEnvironmentVariablesToolValidation tests validation for get_environment_variables tool
 func TestGetEnvironmentVariablesToolValidation(t *testing.T) {
-	tool := newGetEnvironmentVariablesTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1233,14 +1089,8 @@ func TestGetEnvironmentVariablesToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "get_environment_variables",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleGetEnvironmentVariables(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1262,7 +1112,6 @@ func TestGetEnvironmentVariablesToolValidation(t *testing.T) {
 
 // TestRestartServiceToolValidation tests validation for restart_service tool
 func TestRestartServiceToolValidation(t *testing.T) {
-	tool := newRestartServiceTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1289,14 +1138,8 @@ func TestRestartServiceToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "restart_service",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleRestartService(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1318,17 +1161,10 @@ func TestRestartServiceToolValidation(t *testing.T) {
 
 // TestStopServicesToolHandler tests the stop_services tool handler
 func TestStopServicesToolHandler(t *testing.T) {
-	tool := newStopServicesTool()
 	ctx := context.Background()
+	args := testToolArgs(map[string]interface{}{})
 
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "stop_services",
-			Arguments: map[string]interface{}{},
-		},
-	}
-
-	result, err := tool.Handler(ctx, request)
+	result, err := handleStopServices(ctx, args)
 	if err != nil {
 		t.Fatalf("Handler returned Go error: %v", err)
 	}
@@ -1349,7 +1185,6 @@ func TestStopServicesToolHandler(t *testing.T) {
 
 // TestCheckRequirementsToolValidation tests validation for check_requirements tool
 func TestCheckRequirementsToolValidation(t *testing.T) {
-	tool := newCheckRequirementsTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1371,14 +1206,8 @@ func TestCheckRequirementsToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "check_requirements",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleCheckRequirements(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1400,7 +1229,6 @@ func TestCheckRequirementsToolValidation(t *testing.T) {
 
 // TestInstallDependenciesToolValidation tests validation for install_dependencies tool
 func TestInstallDependenciesToolValidation(t *testing.T) {
-	tool := newInstallDependenciesTool()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -1417,14 +1245,8 @@ func TestInstallDependenciesToolValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := mcp.CallToolRequest{
-				Params: mcp.CallToolParams{
-					Name:      "install_dependencies",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := tool.Handler(ctx, request)
+			args := testToolArgs(tt.args)
+			result, err := handleInstallDependencies(ctx, args)
 			if err != nil {
 				t.Fatalf("Handler returned Go error: %v", err)
 			}
@@ -1446,20 +1268,12 @@ func TestInstallDependenciesToolValidation(t *testing.T) {
 
 // TestContextCancellation tests that handlers respect context cancellation
 func TestContextCancellation(t *testing.T) {
-	tool := newGetServiceLogsTool()
-
 	// Create a cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	request := mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "get_service_logs",
-			Arguments: map[string]interface{}{},
-		},
-	}
-
-	result, err := tool.Handler(ctx, request)
+	args := testToolArgs(map[string]interface{}{})
+	result, err := handleGetServiceLogs(ctx, args)
 	if err != nil {
 		t.Fatalf("Handler returned Go error: %v", err)
 	}
@@ -1629,50 +1443,20 @@ func containsSubstr(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-// TestTokenBucketRateLimit tests the token bucket rate limiter
-func TestTokenBucketRateLimit(t *testing.T) {
-	// Create a rate limiter with 3 tokens, refilling at 1 token per 100ms
-	limiter := NewTokenBucket(3, 100*time.Millisecond)
-
-	// First 3 calls should succeed (burst capacity)
-	for i := 0; i < 3; i++ {
-		if !limiter.Allow() {
-			t.Errorf("Call %d should be allowed (within burst)", i+1)
-		}
-	}
-
-	// 4th call should be blocked
-	if limiter.Allow() {
-		t.Error("4th call should be blocked (burst exhausted)")
-	}
-
-	// Wait for token refill
-	time.Sleep(150 * time.Millisecond)
-
-	// Should have 1 token now
-	if !limiter.Allow() {
-		t.Error("Call after refill should be allowed")
-	}
-
-	// Should be blocked again
-	if limiter.Allow() {
-		t.Error("Call should be blocked again")
-	}
-}
-
-// TestRateLimitIntegration tests rate limiting in MCP tools
+// TestRateLimitIntegration tests rate limiting through the builder's middleware
 func TestRateLimitIntegration(t *testing.T) {
-	// Save and restore the global rate limiter
-	oldLimiter := globalRateLimiter
-	defer func() { globalRateLimiter = oldLimiter }()
+	// Build a server with strict rate limiting: burst=2, very slow refill
+	builder := azdext.NewMCPServerBuilder("test-server", "1.0.0").
+		WithRateLimit(2, 0.001)
+	addRunServicesTool(builder)
+	s := builder.Build()
 
-	// Create a strict rate limiter for testing
-	globalRateLimiter = NewTokenBucket(2, 10*time.Second)
+	tool := s.GetTool("run_services")
+	require.NotNil(t, tool)
 
-	tool := newRunServicesTool()
 	ctx := context.Background()
 
-	// First two calls should succeed (or fail with different error)
+	// First two calls should succeed (or fail with non-rate-limit error)
 	for i := 0; i < 2; i++ {
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
@@ -1681,8 +1465,12 @@ func TestRateLimitIntegration(t *testing.T) {
 			},
 		}
 		result, _ := tool.Handler(ctx, request)
-		if result.IsError && strings.Contains(string(result.Content[0].(mcp.TextContent).Text), "Rate limit exceeded") {
-			t.Errorf("Call %d should not be rate limited", i+1)
+		if result.IsError {
+			if tc, ok := result.Content[0].(mcp.TextContent); ok {
+				if strings.Contains(tc.Text, "rate limit exceeded") {
+					t.Errorf("Call %d should not be rate limited", i+1)
+				}
+			}
 		}
 	}
 
@@ -1694,12 +1482,10 @@ func TestRateLimitIntegration(t *testing.T) {
 		},
 	}
 	result, _ := tool.Handler(ctx, request)
-	if !result.IsError {
-		t.Error("3rd call should be rate limited")
-	}
-	if !strings.Contains(string(result.Content[0].(mcp.TextContent).Text), "Rate limit exceeded") {
-		t.Error("3rd call should return rate limit error")
-	}
+	require.True(t, result.IsError, "3rd call should be rate limited")
+	tc, ok := result.Content[0].(mcp.TextContent)
+	require.True(t, ok)
+	require.Contains(t, tc.Text, "rate limit exceeded")
 }
 
 // TestGetProjectDirValidation tests that environment variables are validated
