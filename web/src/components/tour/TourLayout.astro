@@ -4,9 +4,12 @@
  * 
  * Main layout wrapper for guided tour pages.
  * Includes the progress sidebar and main content area.
+ * Uses shared Layout/Header/Footer from @jongio/azd-web-core.
  */
-import Header from '../Header.astro';
-import Footer from '../Footer.astro';
+import SharedLayout from '@jongio/azd-web-core/components/Layout.astro';
+import SharedHeader from '@jongio/azd-web-core/components/Header.astro';
+import SharedFooter from '@jongio/azd-web-core/components/Footer.astro';
+import SuiteNav from '@jongio/azd-web-core/components/SuiteNav.astro';
 import MobileMenu from '../MobileMenu.astro';
 import Lightbox from '../Lightbox.astro';
 import TourProgressSidebar from './TourProgressSidebar.astro';
@@ -32,41 +35,37 @@ const currentPath = Astro.url.pathname;
 const fullTitle = `${title} | azd-app Guided Tour`;
 const totalTime = getTotalEstimatedTime();
 const base = import.meta.env.BASE_URL;
+
+const navLinks = [
+  { label: 'Quick Start', href: `${base}quick-start/` },
+  { label: 'MCP Server', href: `${base}mcp/`, badge: 'AI' },
+  { label: 'Tour', href: `${base}tour/` },
+  { label: 'Examples', href: `${base}examples/` },
+  { label: 'Reference', href: `${base}reference/cli/` },
+];
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
+<SharedLayout
+  title={fullTitle}
+  description={description}
+  extensionName="app"
+>
+  <Fragment slot="head">
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content={Astro.generator} />
-    <meta name="description" content={description} />
-    <meta name="theme-color" content="#ffffff" />
-    <title>{fullTitle}</title>
-    
-    <!-- Prevent flash of wrong theme -->
-    <script is:inline>
-      (function() {
-        const stored = localStorage.getItem('azd-app:theme');
-        const theme = stored === 'dark' || 
-          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          ? 'dark' 
-          : 'light';
-        document.documentElement.setAttribute('data-theme', stored || 'system');
-        document.documentElement.style.colorScheme = theme;
-        const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'dark' ? '#1e293b' : '#ffffff');
-      })();
-    </script>
-  </head>
-  <body class="tour-layout">
-    <!-- Header -->
-    <Header currentPath={currentPath} />
+  </Fragment>
 
-    <!-- Mobile Menu -->
-    <MobileMenu currentPath={currentPath} />
+  <SuiteNav currentExtension="app" hubUrl="https://jongio.github.io/azd-extensions/" />
 
+  <SharedHeader
+    extensionName="app"
+    navLinks={navLinks}
+    githubUrl="https://github.com/jongio/azd-app"
+  />
+
+  <!-- Mobile Menu -->
+  <MobileMenu currentPath={currentPath} />
+
+  <div class="tour-layout">
     <!-- Tour Layout Container -->
     <div class="tour-container">
       <!-- Progress Sidebar -->
@@ -98,97 +97,72 @@ const base = import.meta.env.BASE_URL;
 
     <!-- Mobile Sidebar Overlay -->
     <div class="tour-sidebar-overlay" data-tour-sidebar-overlay hidden></div>
+  </div>
 
-    <!-- Footer -->
-    <Footer />
+  <!-- Footer -->
+  <SharedFooter
+    extensionName="app"
+    githubUrl="https://github.com/jongio/azd-app"
+    hubUrl="https://jongio.github.io/azd-extensions/"
+  />
 
-    <!-- Lightbox -->
-    <Lightbox />
+  <!-- Lightbox -->
+  <Lightbox />
 
-    <script>
-      function initTourSidebar(): void {
-        const trigger = document.querySelector<HTMLButtonElement>('[data-tour-sidebar-trigger]');
-        const sidebar = document.querySelector<HTMLElement>('[data-tour-sidebar]');
-        const overlay = document.querySelector<HTMLElement>('[data-tour-sidebar-overlay]');
-        const closeBtn = document.querySelector<HTMLButtonElement>('[data-tour-sidebar-close]');
+  <script>
+    function initTourSidebar(): void {
+      const trigger = document.querySelector<HTMLButtonElement>('[data-tour-sidebar-trigger]');
+      const sidebar = document.querySelector<HTMLElement>('[data-tour-sidebar]');
+      const overlay = document.querySelector<HTMLElement>('[data-tour-sidebar-overlay]');
+      const closeBtn = document.querySelector<HTMLButtonElement>('[data-tour-sidebar-close]');
 
-        if (!trigger || !sidebar || !overlay) return;
+      if (!trigger || !sidebar || !overlay) return;
 
-        function openSidebar(): void {
-          sidebar?.classList.add('tour-sidebar--open');
-          overlay?.removeAttribute('hidden');
-          trigger?.setAttribute('aria-expanded', 'true');
-          document.body.style.overflow = 'hidden';
-          // Focus first focusable element in sidebar
-          const firstFocusable = sidebar?.querySelector<HTMLElement>('a, button');
-          firstFocusable?.focus();
-        }
-
-        function closeSidebar(): void {
-          sidebar?.classList.remove('tour-sidebar--open');
-          overlay?.setAttribute('hidden', '');
-          trigger?.setAttribute('aria-expanded', 'false');
-          document.body.style.overflow = '';
-          trigger?.focus();
-        }
-
-        trigger.addEventListener('click', openSidebar);
-        overlay.addEventListener('click', closeSidebar);
-        closeBtn?.addEventListener('click', closeSidebar);
-
-        // Close on Escape
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && sidebar?.classList.contains('tour-sidebar--open')) {
-            closeSidebar();
-          }
-        });
+      function openSidebar(): void {
+        sidebar?.classList.add('tour-sidebar--open');
+        overlay?.removeAttribute('hidden');
+        trigger?.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+        const firstFocusable = sidebar?.querySelector<HTMLElement>('a, button');
+        firstFocusable?.focus();
       }
 
-      // Initialize
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initTourSidebar);
-      } else {
-        initTourSidebar();
+      function closeSidebar(): void {
+        sidebar?.classList.remove('tour-sidebar--open');
+        overlay?.setAttribute('hidden', '');
+        trigger?.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+        trigger?.focus();
       }
 
-      document.addEventListener('astro:after-swap', initTourSidebar);
-    </script>
-  </body>
-</html>
+      trigger.addEventListener('click', openSidebar);
+      overlay.addEventListener('click', closeSidebar);
+      closeBtn?.addEventListener('click', closeSidebar);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar?.classList.contains('tour-sidebar--open')) {
+          closeSidebar();
+        }
+      });
+    }
+
+    // Initialize
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTourSidebar);
+    } else {
+      initTourSidebar();
+    }
+
+    document.addEventListener('astro:after-swap', initTourSidebar);
+  </script>
+</SharedLayout>
 
 <style is:global>
-  /* Skip Links */
-  .skip-links {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 100;
-  }
-
-  .skip-link {
-    position: absolute;
-    top: -100%;
-    left: 1rem;
-    padding: 0.75rem 1.5rem;
-    background: var(--color-interactive-default);
-    color: white;
-    font-weight: 600;
-    text-decoration: none;
-    border-radius: 0 0 0.5rem 0.5rem;
-    transition: top 0.2s ease-out;
-  }
-
-  .skip-link:focus {
-    top: 0;
-    outline: 2px solid var(--color-border-focus);
-    outline-offset: 2px;
-  }
-
   /* Tour Layout */
   .tour-layout {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    flex: 1;
   }
 
   .tour-container {
@@ -198,13 +172,13 @@ const base = import.meta.env.BASE_URL;
 
   .tour-main {
     flex: 1;
-    padding: 2rem 1.5rem;
+    padding: var(--space-8) var(--space-6);
     max-width: 100%;
   }
 
   @media (min-width: 1024px) {
     .tour-main {
-      padding: 3rem 2rem;
+      padding: var(--space-12) var(--space-8);
       max-width: 800px;
       margin: 0 auto;
     }
@@ -216,27 +190,27 @@ const base = import.meta.env.BASE_URL;
     position: fixed;
     bottom: 20px;
     right: 20px;
-    z-index: var(--z-fixed);
+    z-index: var(--z-overlay);
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: var(--color-azure-500);
+    background: var(--color-primary);
     color: white;
     border: none;
     box-shadow: var(--shadow-lg);
     cursor: pointer;
     align-items: center;
     justify-content: center;
-    transition: background-color 150ms ease-out, transform 150ms ease-out;
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
   }
 
   .tour-sidebar-trigger:hover {
-    background: var(--color-azure-600);
+    background: color-mix(in srgb, var(--color-primary) 80%, black);
     transform: scale(1.05);
   }
 
   .tour-sidebar-trigger:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -250,7 +224,7 @@ const base = import.meta.env.BASE_URL;
   .tour-sidebar-overlay {
     position: fixed;
     inset: 0;
-    z-index: var(--z-modal-backdrop);
+    z-index: var(--z-overlay);
     background: rgba(0, 0, 0, 0.5);
     opacity: 0;
     transition: opacity 200ms ease-out;

@@ -1,6 +1,8 @@
 name: Website Deploy
 
 on:
+  repository_dispatch:
+    types: [azd-web-core-updated]
   workflow_dispatch:  # Allow manual trigger
   workflow_call:  # Allow being called from release workflow
   push:
@@ -21,6 +23,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  packages: read
 
 jobs:
   # Build job - runs for all triggers except PR closed
@@ -42,10 +45,13 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: 'web/pnpm-lock.yaml'
+          registry-url: 'https://npm.pkg.github.com'
 
       - name: Install dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build website (Production)
         if: github.event_name != 'pull_request'

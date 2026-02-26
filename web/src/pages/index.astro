@@ -125,11 +125,21 @@ const demoSteps = [
     </div>
   </section>
 
+  <!-- Command Showcase -->
+  <section class="command-showcase" aria-label="Primary command">
+    <div class="command-container">
+      <div class="hero-command">
+        <span class="hero-cmd-prompt" aria-hidden="true">❯</span>
+        <span class="hero-cmd-text">azd app</span>
+      </div>
+    </div>
+  </section>
+
   <!-- Features Section -->
   <section class="features" aria-labelledby="features-heading">
     <div class="features-container">
       <div class="features-header">
-        <h2 id="features-heading" class="features-title">Everything You Need</h2>
+        <h2 id="features-heading" class="features-title">Features</h2>
         <p class="features-description">for Local Azure Development</p>
       </div>
       <div class="features-grid" role="list">
@@ -216,22 +226,68 @@ const demoSteps = [
 
 <style>
   /* ========================================
+     Command Showcase
+     ======================================== */
+  .command-showcase {
+    padding: 0 1.5rem 3rem;
+  }
+  .command-container {
+    max-width: 36rem;
+    margin: 0 auto;
+  }
+  .hero-command {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+    box-shadow: 0 0 40px color-mix(in srgb, var(--color-primary) 15%, transparent), 0 0 80px color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+  .hero-cmd-prompt {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    color: var(--color-primary);
+    line-height: 1;
+  }
+  .hero-cmd-text {
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    line-height: 1;
+  }
+  @media (min-width: 640px) {
+    .hero-cmd-prompt { font-size: 2.5rem; }
+    .hero-cmd-text { font-size: 3.5rem; }
+    .hero-command { padding: 1.25rem 2.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .hero-cmd-prompt { font-size: 3rem; }
+    .hero-cmd-text { font-size: 4rem; }
+    .hero-command { max-width: 36rem; padding: 1.5rem 3rem; }
+  }
+
+  /* ========================================
      Hero Section
      ======================================== */
   .hero {
-    padding: 4rem 1.5rem;
-    background: linear-gradient(to bottom, var(--color-bg-accent), var(--color-bg-primary));
+    padding: var(--space-16) var(--space-6);
+    background: linear-gradient(to bottom, var(--color-bg-accent), var(--color-background));
   }
 
   @media (min-width: 768px) {
     .hero {
-      padding: 5rem 2rem;
+      padding: var(--space-20) var(--space-8);
     }
   }
 
   @media (min-width: 1024px) {
     .hero {
-      padding: 6rem 2rem;
+      padding: 6rem var(--space-8);
     }
   }
 
@@ -240,14 +296,14 @@ const demoSteps = [
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: var(--space-8);
     align-items: center;
   }
 
   @media (min-width: 1024px) {
     .hero-container {
       flex-direction: row;
-      gap: 4rem;
+      gap: var(--space-16);
       align-items: center;
     }
   }
@@ -264,17 +320,17 @@ const demoSteps = [
   }
 
   .hero-title {
-    font-size: 2.25rem;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: 1.5rem;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+    margin-bottom: var(--space-6);
     line-height: 1.1;
     letter-spacing: -0.02em;
   }
 
   @media (min-width: 768px) {
     .hero-title {
-      font-size: 3rem;
+      font-size: var(--text-3xl);
     }
   }
 
@@ -285,9 +341,9 @@ const demoSteps = [
   }
 
   .hero-description {
-    font-size: 1.125rem;
-    color: var(--color-text-secondary);
-    margin-bottom: 2rem;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-8);
     line-height: 1.6;
     max-width: 36rem;
     margin-left: auto;
@@ -296,7 +352,7 @@ const demoSteps = [
 
   @media (min-width: 768px) {
     .hero-description {
-      font-size: 1.25rem;
+      font-size: var(--text-base);
     }
   }
 
@@ -310,9 +366,9 @@ const demoSteps = [
   .hero-actions {
     display: flex;
     justify-content: center;
-    gap: 1rem;
+    gap: var(--space-4);
     flex-wrap: wrap;
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--space-6);
   }
 
   @media (min-width: 1024px) {
@@ -325,9 +381,9 @@ const demoSteps = [
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--color-text-tertiary);
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
     margin: 0;
   }
 
@@ -384,12 +440,12 @@ const demoSteps = [
      Features Section
      ======================================== */
   .features {
-    padding: 5rem 1.5rem;
+    padding: var(--space-20) var(--space-6);
   }
 
   @media (min-width: 768px) {
     .features {
-      padding: 6rem 2rem;
+      padding: 6rem var(--space-8);
     }
   }
 
@@ -400,31 +456,31 @@ const demoSteps = [
 
   .features-header {
     text-align: center;
-    margin-bottom: 3rem;
+    margin-bottom: var(--space-12);
   }
 
   .features-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: 0.5rem;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+    margin-bottom: var(--space-2);
   }
 
   @media (min-width: 768px) {
     .features-title {
-      font-size: 2.5rem;
+      font-size: var(--text-2xl);
     }
   }
 
   .features-description {
-    font-size: 1.125rem;
-    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
     margin: 0;
   }
 
   .features-grid {
     display: grid;
-    gap: 1.5rem;
+    gap: var(--space-6);
     grid-template-columns: 1fr;
   }
 
@@ -444,13 +500,13 @@ const demoSteps = [
      Demo Section
      ======================================== */
   .demo {
-    padding: 5rem 1.5rem;
-    background: var(--color-bg-secondary);
+    padding: var(--space-20) var(--space-6);
+    background: var(--color-surface);
   }
 
   @media (min-width: 768px) {
     .demo {
-      padding: 6rem 2rem;
+      padding: 6rem var(--space-8);
     }
   }
 
@@ -461,25 +517,25 @@ const demoSteps = [
 
   .demo-header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: var(--space-8);
   }
 
   .demo-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin-bottom: 0.75rem;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+    margin-bottom: var(--space-3);
   }
 
   @media (min-width: 768px) {
     .demo-title {
-      font-size: 2.5rem;
+      font-size: var(--text-2xl);
     }
   }
 
   .demo-description {
-    font-size: 1.125rem;
-    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
     margin: 0;
     max-width: 600px;
     margin-left: auto;
@@ -487,35 +543,31 @@ const demoSteps = [
   }
 
   .demo-terminal-wrapper {
-    margin-bottom: 2rem;
-  }
-
-  .demo-terminal-wrapper :global(.terminal) {
-    box-shadow: var(--shadow-lg);
+    margin-bottom: var(--space-8);
   }
 
   .demo-steps {
     display: flex;
     justify-content: center;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
+    gap: var(--space-2);
+    margin-bottom: var(--space-8);
     flex-wrap: wrap;
   }
 
   @media (min-width: 640px) {
     .demo-steps {
-      gap: 1rem;
+      gap: var(--space-4);
     }
   }
 
   .demo-step {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border-default);
-    border-radius: 0.5rem;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
   }
 
   .demo-step-number {
@@ -524,10 +576,10 @@ const demoSteps = [
     justify-content: center;
     width: 2rem;
     height: 2rem;
-    background: var(--color-interactive-default);
+    background: var(--color-primary);
     color: white;
-    font-size: 0.875rem;
-    font-weight: 700;
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-bold);
     border-radius: 50%;
     flex-shrink: 0;
   }
@@ -537,14 +589,14 @@ const demoSteps = [
   }
 
   .demo-step-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-text-primary);
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
   }
 
   .demo-step-description {
     font-size: 0.75rem;
-    color: var(--color-text-tertiary);
+    color: var(--color-text-muted);
   }
 
   .demo-cta {
@@ -555,14 +607,14 @@ const demoSteps = [
      Stats Section
      ======================================== */
   .stats {
-    padding: 4rem 1.5rem;
-    background: var(--color-bg-secondary);
-    border-top: 1px solid var(--color-border-default);
+    padding: var(--space-16) var(--space-6);
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
   }
 
   @media (min-width: 768px) {
     .stats {
-      padding: 5rem 2rem;
+      padding: var(--space-20) var(--space-8);
     }
   }
 
@@ -574,7 +626,7 @@ const demoSteps = [
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 2rem;
+    gap: var(--space-8);
   }
 
   @media (min-width: 768px) {
@@ -588,22 +640,22 @@ const demoSteps = [
   }
 
   .stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--color-interactive-default);
-    margin-bottom: 0.25rem;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+    margin-bottom: var(--space-1);
   }
 
   @media (min-width: 768px) {
     .stat-value {
-      font-size: 2.5rem;
+      font-size: var(--text-2xl);
     }
   }
 
   .stat-label {
-    font-size: 0.875rem;
-    color: var(--color-text-secondary);
-    font-weight: 500;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-semibold);
   }
 
   /* ========================================
@@ -613,28 +665,28 @@ const demoSteps = [
   .btn-secondary {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    border-radius: 0.5rem;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-6);
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-semibold);
+    border-radius: var(--radius-md);
     text-decoration: none;
-    transition: background-color 150ms ease-out, transform 150ms ease-out, box-shadow 150ms ease-out;
+    transition: background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
   }
 
   .btn-primary {
-    background: var(--color-interactive-default);
+    background: var(--color-primary);
     color: white;
   }
 
   .btn-primary:hover {
-    background: var(--color-interactive-hover);
+    background: color-mix(in srgb, var(--color-primary) 80%, black);
     transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-hover);
   }
 
   .btn-primary:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -644,18 +696,18 @@ const demoSteps = [
 
   .btn-secondary {
     background: transparent;
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
   }
 
   .btn-secondary:hover {
-    background: var(--color-bg-secondary);
-    border-color: var(--color-interactive-default);
-    color: var(--color-interactive-default);
+    background: var(--color-surface);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
   }
 
   .btn-secondary:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -667,7 +719,7 @@ const demoSteps = [
   @media (max-width: 640px) {
     .btn-primary,
     .btn-secondary {
-      padding: 0.875rem 1.75rem;
+      padding: var(--space-3) var(--space-6);
       width: 100%;
       justify-content: center;
     }

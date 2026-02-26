@@ -2,10 +2,13 @@
 /**
  * Layout Component
  * Main structural foundation for all pages on the azd-app website.
- * Orchestrates Header, Sidebar (optional), Footer, and main content area.
+ * Uses shared Layout/Header/Footer from @jongio/azd-web-core.
+ * Orchestrates Sidebar (optional) and page-specific features.
  */
-import Header from './Header.astro';
-import Footer from './Footer.astro';
+import SharedLayout from '@jongio/azd-web-core/components/Layout.astro';
+import SharedHeader from '@jongio/azd-web-core/components/Header.astro';
+import SharedFooter from '@jongio/azd-web-core/components/Footer.astro';
+import SuiteNav from '@jongio/azd-web-core/components/SuiteNav.astro';
 import MobileMenu from './MobileMenu.astro';
 import Sidebar from './Sidebar.astro';
 import Lightbox from './Lightbox.astro';
@@ -75,42 +78,38 @@ const {
 const currentPath = Astro.url.pathname;
 const fullTitle = title === 'Home' ? 'azd app | Azure Developer CLI Extension' : `${title} | azd app`;
 const base = import.meta.env.BASE_URL;
+
+const navLinks = [
+  { label: 'Quick Start', href: `${base}quick-start/` },
+  { label: 'MCP Server', href: `${base}mcp/`, badge: 'AI' },
+  { label: 'Tour', href: `${base}tour/` },
+  { label: 'Examples', href: `${base}examples/` },
+  { label: 'Reference', href: `${base}reference/cli/` },
+];
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
+<SharedLayout
+  title={fullTitle}
+  description={description}
+  extensionName="app"
+>
+  <Fragment slot="head">
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content={Astro.generator} />
-    <meta name="description" content={description} />
-    <meta name="theme-color" content="#ffffff" />
-    <title>{fullTitle}</title>
-    
-    <!-- Prevent flash of wrong theme -->
-    <script is:inline>
-      (function() {
-        const stored = localStorage.getItem('azd-app:theme');
-        const theme = stored === 'dark' || 
-          (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          ? 'dark' 
-          : 'light';
-        document.documentElement.setAttribute('data-theme', stored || 'system');
-        document.documentElement.style.colorScheme = theme;
-        const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'dark' ? '#1e293b' : '#ffffff');
-      })();
-    </script>
-  </head>
-  <body class:list={['layout', `layout--${variant}`]}>
-    <!-- Header -->
-    <Header currentPath={currentPath} />
+  </Fragment>
 
-    <!-- Mobile Menu -->
-    <MobileMenu currentPath={currentPath} />
+  <SuiteNav currentExtension="app" hubUrl="https://jongio.github.io/azd-extensions/" />
 
-    <!-- Main Layout Container -->
+  <SharedHeader
+    extensionName="app"
+    navLinks={navLinks}
+    githubUrl="https://github.com/jongio/azd-app"
+  />
+
+  <!-- Mobile Menu (page-specific with icons and full nav) -->
+  <MobileMenu currentPath={currentPath} />
+
+  <!-- Main Layout Container -->
+  <div class:list={['layout', `layout--${variant}`]}>
     <div class="layout-container">
       {showSidebar && sidebarSections.length > 0 && (
         <Sidebar sections={sidebarSections} currentPath={currentPath} />
@@ -164,48 +163,25 @@ const base = import.meta.env.BASE_URL;
         )}
       </main>
     </div>
+  </div>
 
-    <!-- Footer -->
-    <Footer />
+  <!-- Footer -->
+  <SharedFooter
+    extensionName="app"
+    githubUrl="https://github.com/jongio/azd-app"
+    hubUrl="https://jongio.github.io/azd-extensions/"
+  />
 
-    <!-- Lightbox (global, for screenshots) -->
-    <Lightbox />
-  </body>
-</html>
+  <!-- Lightbox (global, for screenshots) -->
+  <Lightbox />
+</SharedLayout>
 
 <style is:global>
-  /* Skip Links */
-  .skip-links {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 100;
-  }
-
-  .skip-link {
-    position: absolute;
-    top: -100%;
-    left: 1rem;
-    padding: 0.75rem 1.5rem;
-    background: var(--color-interactive-default);
-    color: white;
-    font-weight: 600;
-    text-decoration: none;
-    border-radius: 0 0 0.5rem 0.5rem;
-    transition: top 0.2s ease-out;
-  }
-
-  .skip-link:focus {
-    top: 0;
-    outline: 2px solid var(--color-border-focus);
-    outline-offset: 2px;
-  }
-
   /* Layout */
   .layout {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    flex: 1;
   }
 
   .layout-container {
@@ -215,13 +191,13 @@ const base = import.meta.env.BASE_URL;
 
   .layout-main {
     flex: 1;
-    padding: 2rem 1.5rem;
+    padding: var(--space-8) var(--space-6);
     max-width: 100%;
   }
 
   @media (min-width: 1024px) {
     .layout-main {
-      padding: 3rem 2rem;
+      padding: var(--space-12) var(--space-8);
     }
   }
 
@@ -247,8 +223,8 @@ const base = import.meta.env.BASE_URL;
 
   /* Breadcrumb */
   .breadcrumb {
-    margin-bottom: 1.5rem;
-    font-size: 0.875rem;
+    margin-bottom: var(--space-6);
+    font-size: var(--text-xs);
   }
 
   .breadcrumb-list {
@@ -265,29 +241,29 @@ const base = import.meta.env.BASE_URL;
   }
 
   .breadcrumb-link {
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     text-decoration: none;
-    transition: color 100ms ease-out;
+    transition: color var(--transition-fast);
   }
 
   .breadcrumb-link:hover {
-    color: var(--color-text-primary);
+    color: var(--color-text);
     text-decoration: underline;
   }
 
   .breadcrumb-link:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
     border-radius: 0.125rem;
   }
 
   .breadcrumb-separator {
-    margin: 0 0.5rem;
+    margin: 0 var(--space-2);
     color: var(--color-text-muted);
   }
 
   .breadcrumb-current {
-    color: var(--color-text-primary);
+    color: var(--color-text);
     font-weight: 500;
   }
 
@@ -295,10 +271,10 @@ const base = import.meta.env.BASE_URL;
   .page-nav {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-top: 4rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--color-border-default);
+    gap: var(--space-4);
+    margin-top: var(--space-16);
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--color-border);
   }
 
   @media (max-width: 480px) {
@@ -310,20 +286,20 @@ const base = import.meta.env.BASE_URL;
   .page-nav-link {
     display: flex;
     flex-direction: column;
-    padding: 1rem;
-    border: 1px solid var(--color-border-default);
-    border-radius: 0.5rem;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     text-decoration: none;
-    transition: border-color 100ms ease-out, background-color 100ms ease-out;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
   }
 
   .page-nav-link:hover {
-    border-color: var(--color-border-strong);
-    background-color: var(--color-bg-secondary);
+    border-color: var(--color-primary);
+    background-color: var(--color-surface);
   }
 
   .page-nav-link:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
@@ -351,9 +327,9 @@ const base = import.meta.env.BASE_URL;
   }
 
   .page-nav-title {
-    font-size: 1rem;
+    font-size: var(--text-sm);
     font-weight: 500;
-    color: var(--color-interactive-default);
+    color: var(--color-primary);
   }
 
   /* Screen reader only */
