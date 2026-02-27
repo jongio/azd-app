@@ -485,7 +485,7 @@ func (s *Server) collectSetupIssues(response SetupStateResponse) []SetupIssue {
 			Fix:      "Add Log Analytics workspace to your Bicep infrastructure with required outputs. See setup guide for code example.",
 			DocsURL:  logsTroubleshootURL,
 		})
-	} else if response.Workspace.Status == StatusDeployedNotConfigured {
+	case StatusDeployedNotConfigured:
 		issues = append(issues, SetupIssue{
 			Severity: "warning",
 			Category: CategoryWorkspace,
