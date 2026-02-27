@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/magefile/mage/mg"
@@ -987,9 +988,803 @@ func CheckGitIgnore() error {
 	return nil
 }
 
+// gate is a completion signal used to coordinate parallel preflight steps.
+type gate struct {
+	ch   chan struct{}
+	once sync.Once
+}
+
+func newGate() *gate { return &gate{ch: make(chan struct{})} }
+
+func (g *gate) close() { g.once.Do(func() { close(g.ch) }) }
+
+func (g *gate) wait() { <-g.ch }
+
+// parallelGroup runs functions concurrently and collects errors.
+type parallelGroup struct {
+	wg   sync.WaitGroup
+	mu   sync.Mutex
+	errs []error
+}
+
+func (g *parallelGroup) run(fn func() error) {
+	g.wg.Add(1)
+	go func() {
+		defer g.wg.Done()
+		if err := fn(); err != nil {
+			g.mu.Lock()
+			g.errs = append(g.errs, err)
+			g.mu.Unlock()
+		}
+	}()
+}
+
+func (g *parallelGroup) wait() error {
+	g.wg.Wait()
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if len(g.errs) > 0 {
+		fmt.Fprintf(os.Stderr, "\n%d step(s) failed:\n", len(g.errs))
+		for _, e := range g.errs {
+			fmt.Fprintf(os.Stderr, "  • %v\n", e)
+		}
+		return g.errs[0]
+	}
+	return nil
+}
+
+// outputMu serializes progress markers so ▶/✓/✗ lines never interleave.
+var outputMu sync.Mutex
+
+// heavySem limits the number of concurrent CPU-heavy subprocesses.
+// Scale with available cores: wide machines get high concurrency, CI runners
+// (4 cores) get capped so Go compilers don't OOM-kill each other.
+var heavySem = make(chan struct{}, max(runtime.NumCPU()/2, 2))
+
+// coresPerSlot caps GOMAXPROCS for Go subprocesses so multiple Go tools
+// (test, lint, gosec, govulncheck) don't each spawn 32 threads.
+// Dividing by 8 reflects ~8 concurrent CPU-heavy tasks (4 Go + 4 Node).
+var coresPerSlot = max(runtime.NumCPU()/8, 2)
+
+// heavy wraps a function to acquire the heavyweight semaphore before running.
+// The semaphore is acquired AFTER any gate waits, so goroutines don't hold a
+// slot while blocked on dependencies.
+func heavy(fn func() error) func() error {
+	return func() error {
+		heavySem <- struct{}{}
+		defer func() { <-heavySem }()
+		return fn()
+	}
+}
+
+// runQuiet runs a command with captured output. On success output is
+// discarded. On error the output is included in the returned error.
+func runQuiet(name string, args ...string) error {
+	out, err := exec.Command(name, args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return nil
+}
+
+// runQuietDir runs a command in a directory with captured output.
+func runQuietDir(dir, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return nil
+}
+
+// goEnv returns os.Environ() with GOMAXPROCS set to coresPerSlot so Go
+// subprocesses don't oversubscribe when multiple run under the heavySem.
+func goEnv() []string {
+	return append(os.Environ(), fmt.Sprintf("GOMAXPROCS=%d", coresPerSlot))
+}
+
+// runHeavyGo runs a Go CLI tool with GOMAXPROCS capped to the per-slot share.
+func runHeavyGo(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = goEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return nil
+}
+
+// runQuietEnvRetry runs a command with env vars, captured output, and retries.
+func runQuietEnvRetry(env map[string]string, name string, args ...string) error {
+	const maxRetries = 3
+	environ := os.Environ()
+	for k, v := range env {
+		environ = append(environ, k+"="+v)
+	}
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if i > 0 {
+			time.Sleep(time.Duration(i*5) * time.Second)
+		}
+		cmd := exec.Command(name, args...)
+		cmd.Env = environ
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			return nil
+		}
+		lastErr = fmt.Errorf("%w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return lastErr
+}
+
+// preflightStep wraps a function with timing, logging, and gate signaling.
+// Progress markers are serialized to prevent interleaving in parallel output.
+func preflightStep(name string, fn func() error, gates ...*gate) func() error {
+	return func() error {
+		defer func() {
+			for _, g := range gates {
+				g.close()
+			}
+		}()
+		outputMu.Lock()
+		fmt.Printf("▶ %s\n", name)
+		outputMu.Unlock()
+
+		start := time.Now()
+		err := fn()
+		elapsed := time.Since(start).Round(time.Millisecond)
+
+		outputMu.Lock()
+		if err != nil {
+			fmt.Printf("✗ %s (%s)\n", name, elapsed)
+		} else {
+			fmt.Printf("✓ %s (%s)\n", name, elapsed)
+		}
+		outputMu.Unlock()
+
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		return nil
+	}
+}
+
+// preflightStepAfter wraps a step that must wait for dependencies before running.
+func preflightStepAfter(deps []*gate, name string, fn func() error, gates ...*gate) func() error {
+	return func() error {
+		for _, d := range deps {
+			d.wait()
+		}
+		return preflightStep(name, fn, gates...)()
+	}
+}
+
+// quietCheckDeps runs dependency freshness checks without printing to stdout.
+// These are informational (never fail the build). Run 'mage checkDeps' for verbose output.
+func quietCheckDeps() error {
+	exec.Command("go", "list", "-u", "-m", "all").CombinedOutput()                  //nolint:errcheck
+	exec.Command("pnpm", "outdated", "--dir", dashboardDir).CombinedOutput()        //nolint:errcheck
+	exec.Command("pnpm", "outdated", "--dir", websiteDir).CombinedOutput()          //nolint:errcheck
+	exec.Command("pnpm", "audit", "--dir", dashboardDir, "--json").CombinedOutput() //nolint:errcheck
+	exec.Command("pnpm", "audit", "--dir", websiteDir, "--json").CombinedOutput()   //nolint:errcheck
+	return nil
+}
+
+// fmtCheck verifies code is gofmt-formatted without modifying files.
+// Unlike Fmt(), this is safe to run concurrently with lint and test steps
+// because it never writes to source files.
+func fmtCheck() error {
+	out, err := exec.Command("gofmt", "-l", "-s", ".").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("gofmt check failed: %w\n%s", err, out)
+	}
+	if s := strings.TrimSpace(string(out)); s != "" {
+		return fmt.Errorf("files need formatting (run 'gofmt -w -s .'):\n%s", s)
+	}
+	return nil
+}
+
+// dashboardInstall runs pnpm install for the dashboard project.
+func dashboardInstall() error {
+	return runQuiet("pnpm", "install", "--dir", dashboardDir)
+}
+
+// dashboardBuildOnly builds the dashboard without running pnpm install.
+func dashboardBuildOnly() error {
+	return runQuiet("pnpm", "--dir", dashboardDir, "run", "build")
+}
+
+// websiteInstall runs pnpm install for the website project.
+func websiteInstall() error {
+	return runQuiet("pnpm", "install", "--dir", websiteDir)
+}
+
+// websiteValidateOnly validates website CLI docs without running pnpm install.
+func websiteValidateOnly() error {
+	return runQuiet("pnpm", "--dir", websiteDir, "run", "validate")
+}
+
+// websiteBuildOnly builds the website without running pnpm install.
+func websiteBuildOnly() error {
+	return runQuiet("pnpm", "--dir", websiteDir, "run", "build")
+}
+
+// quietLint runs golangci-lint with captured output.
+func quietLint() error {
+	return runHeavyGo("golangci-lint", "run", "--timeout=5m",
+		fmt.Sprintf("--concurrency=%d", coresPerSlot))
+}
+
+// quietModTidy runs go mod tidy and verifies no changes, with captured output.
+func quietModTidy() error {
+	goModBefore, err := fileHash("go.mod")
+	if err != nil {
+		return fmt.Errorf("failed to read go.mod before tidy: %w", err)
+	}
+	goSumBefore, err := fileHash("go.sum")
+	if err != nil {
+		return fmt.Errorf("failed to read go.sum before tidy: %w", err)
+	}
+
+	env := os.Environ()
+	if _, err := os.Stat("../go.work"); err == nil {
+		env = append(env, "GOWORK=off")
+	}
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Env = env
+	out, tidyErr := cmd.CombinedOutput()
+	if tidyErr != nil {
+		return fmt.Errorf("go mod tidy failed: %w\n%s", tidyErr, out)
+	}
+
+	goModAfter, err := fileHash("go.mod")
+	if err != nil {
+		return fmt.Errorf("failed to read go.mod after tidy: %w", err)
+	}
+	goSumAfter, err := fileHash("go.sum")
+	if err != nil {
+		return fmt.Errorf("failed to read go.sum after tidy: %w", err)
+	}
+
+	if goModBefore != goModAfter || goSumBefore != goSumAfter {
+		return fmt.Errorf("go.mod or go.sum changed after running go mod tidy - please review the changes")
+	}
+	return nil
+}
+
+// quietModVerify runs go mod verify with captured output.
+func quietModVerify() error {
+	return runQuiet("go", "mod", "verify")
+}
+
+// quietTestCoverage runs tests with coverage, skipping HTML report generation
+// for speed. Only test pass/fail matters in preflight.
+func quietTestCoverage() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	absCoverageDir := filepath.Join(cwd, coverageDir)
+	_ = os.RemoveAll(absCoverageDir)
+	if err := os.MkdirAll(absCoverageDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create coverage directory: %w", err)
+	}
+	coverageOut := filepath.Join(absCoverageDir, "coverage.out")
+
+	pkgPath := goSrcPattern
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/src/..."
+	}
+	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, pkgPath)
+	output, testErr := cmd.CombinedOutput()
+	if testErr != nil {
+		outputStr := string(output)
+		hasTestFailure := strings.Contains(outputStr, "FAIL") && !strings.Contains(outputStr, "[setup failed]")
+		hasVersionMismatch := strings.Contains(outputStr, "does not match go tool version")
+		if hasTestFailure || !hasVersionMismatch {
+			return fmt.Errorf("tests failed: %w\n%s", testErr, outputStr)
+		}
+	}
+	return nil
+}
+
+// quietTestOnly runs tests without coverage profiling for maximum speed.
+// Skipping -coverprofile eliminates code instrumentation overhead.
+// Uses -vet=off because golangci-lint (which includes vet) runs as a separate
+// parallel step — no need to run vet twice.
+// Use 'mage testCoverage' when you need coverage reports.
+func quietTestOnly() error {
+	pkgPath := goSrcPattern
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/src/..."
+	}
+	cmd := exec.Command("go", "test", "-short", "-vet=off", pkgPath)
+	output, testErr := cmd.CombinedOutput()
+	if testErr != nil {
+		outputStr := string(output)
+		hasTestFailure := strings.Contains(outputStr, "FAIL") && !strings.Contains(outputStr, "[setup failed]")
+		hasVersionMismatch := strings.Contains(outputStr, "does not match go tool version")
+		if hasTestFailure || !hasVersionMismatch {
+			return fmt.Errorf("tests failed: %w\n%s", testErr, outputStr)
+		}
+	}
+	return nil
+}
+
+// quietVulncheck runs govulncheck with captured output.
+func quietVulncheck() error {
+	if _, err := exec.LookPath("govulncheck"); err != nil {
+		return nil
+	}
+	pkgPath := "./..."
+	if _, err := os.Stat("../go.work"); err == nil {
+		pkgPath = "github.com/jongio/azd-app/cli/..."
+	}
+	return runQuiet("govulncheck", pkgPath)
+}
+
+// quietSecurity runs a fast security scan with captured output.
+func quietSecurity() error {
+	return runQuiet("gosec",
+		"-tests=false",
+		"-exclude-generated",
+		"-severity=high",
+		"-confidence=high",
+		"-quiet",
+		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
+		goSrcPattern,
+	)
+}
+
+// quietDashboardLint runs dashboard linting with captured output.
+func quietDashboardLint() error {
+	return runQuiet("pnpm", "--dir", dashboardDir, "run", "lint")
+}
+
+// quietDashboardTest runs dashboard tests with captured output.
+func quietDashboardTest() error {
+	return runQuiet("pnpm", "--dir", dashboardDir, "test")
+}
+
+// quietDashboardTestE2E runs dashboard E2E tests with maximum parallelism.
+func quietDashboardTestE2E() error {
+	absDashboardDir, err := filepath.Abs(dashboardDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute dashboard path: %w", err)
+	}
+	_ = runQuietDir(absDashboardDir, "npx", "playwright", "install", "--with-deps", "chromium")
+	return runQuietDir(absDashboardDir, "npx", "playwright", "test",
+		"--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU()))
+}
+
+// playwrightInstallBrowsers installs Playwright browsers once, shared by all E2E steps.
+// Installs from both dashboard and website dirs in parallel to handle potentially
+// different versions. Uses pnpm exec (faster than npx) and skips --with-deps
+// (system deps only needed on first-ever install).
+func playwrightInstallBrowsers() error {
+	absDash, err := filepath.Abs(dashboardDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute dashboard path: %w", err)
+	}
+	absWeb, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	// Install from both dirs concurrently — they may pin different Playwright versions.
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
+	for _, dir := range []string{absDash, absWeb} {
+		wg.Add(1)
+		go func(d string) {
+			defer wg.Done()
+			if err := runQuietDir(d, "pnpm", "exec", "playwright", "install", "chromium"); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(dir)
+	}
+	wg.Wait()
+
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	return nil
+}
+
+// quietDashboardTestE2EExecOnly runs dashboard E2E tests without installing Playwright
+// (assumes playwrightInstallBrowsers already ran).
+func quietDashboardTestE2EExecOnly() error {
+	absDashboardDir, err := filepath.Abs(dashboardDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute dashboard path: %w", err)
+	}
+	return runQuietDir(absDashboardDir, "npx", "playwright", "test",
+		"--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU()))
+}
+
+// buildGoOnly builds the Go binary (assumes dashboard already built).
+// Skips killAppProcesses since preflight doesn't need it.
+func buildGoOnly() error {
+	if err := ensureAzdExtensions(); err != nil {
+		return err
+	}
+	version, err := getVersion()
+	if err != nil {
+		return err
+	}
+	return runQuietEnvRetry(map[string]string{
+		"EXTENSION_ID":      extensionID,
+		"EXTENSION_VERSION": version,
+	}, "azd", "x", "build")
+}
+
+// websiteTestE2EOnly runs website E2E tests with maximum parallelism,
+// assuming the site is already built and pnpm install has already run.
+func websiteTestE2EOnly() error {
+	absWebsiteDir, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	updateSnapshots := false
+	snapshotsDir := filepath.Join(absWebsiteDir, "e2e", "screenshots.spec.ts-snapshots")
+	if _, err := os.Stat(snapshotsDir); os.IsNotExist(err) {
+		updateSnapshots = true
+	} else if err == nil {
+		entries, err := os.ReadDir(snapshotsDir)
+		if err == nil && len(entries) == 0 {
+			updateSnapshots = true
+		}
+	}
+
+	// Install Playwright browsers (output captured)
+	_ = runQuietDir(absWebsiteDir, "npx", "playwright", "install", "--with-deps", "chromium")
+
+	// Start the preview server (needs live stdout for port binding)
+	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd.Dir = absWebsiteDir
+	if err := serverCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start preview server: %w", err)
+	}
+	defer func() {
+		if serverCmd.Process != nil {
+			_ = serverCmd.Process.Kill()
+		}
+	}()
+
+	// Wait for server readiness
+	serverReady := false
+	for i := 0; i < 30; i++ {
+		resp, err := http.Get("http://localhost:4321/azd-app/")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				serverReady = true
+				break
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !serverReady {
+		return fmt.Errorf("server did not become ready within 30 seconds")
+	}
+
+	// Run tests with all CPU cores
+	args := []string{"playwright", "test", "--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU())}
+	if updateSnapshots {
+		args = append(args, "--update-snapshots")
+	}
+	cmd := exec.Command("npx", args...)
+	cmd.Dir = absWebsiteDir
+	cmd.Env = append(os.Environ(), "CI=true")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("website E2E tests failed: %w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return nil
+}
+
+// websiteTestE2EDevServer runs website E2E tests using the Astro dev server
+// instead of build+preview. This eliminates the ~2min build from the critical
+// path. Build correctness is verified separately by websiteBuildOnly.
+// Assumes Playwright is already installed (playwrightInstallBrowsers).
+func websiteTestE2EDevServer() error {
+	absWebsiteDir, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	updateSnapshots := false
+	snapshotsDir := filepath.Join(absWebsiteDir, "e2e", "screenshots.spec.ts-snapshots")
+	if _, err := os.Stat(snapshotsDir); os.IsNotExist(err) {
+		updateSnapshots = true
+	} else if err == nil {
+		entries, err := os.ReadDir(snapshotsDir)
+		if err == nil && len(entries) == 0 {
+			updateSnapshots = true
+		}
+	}
+
+	// Clean up stale dev servers from interrupted runs.
+	killProcessOnPort(4321)
+
+	// Use dev server — avoids the full Astro production build.
+	// Pages compile on first request; startup is faster than build+preview under contention.
+	serverCmd := exec.Command("npx", "astro", "dev", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd.Dir = absWebsiteDir
+	if err := serverCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start dev server: %w", err)
+	}
+	defer func() {
+		if serverCmd.Process != nil {
+			_ = serverCmd.Process.Kill()
+		}
+	}()
+
+	// Wait for server readiness with generous timeout (CPU contention slows startup).
+	serverReady := false
+	for i := 0; i < 90; i++ {
+		resp, err := http.Get("http://localhost:4321/azd-app/")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				serverReady = true
+				break
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !serverReady {
+		return fmt.Errorf("dev server did not become ready within 90 seconds")
+	}
+
+	args := []string{"playwright", "test", "--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU())}
+	if updateSnapshots {
+		args = append(args, "--update-snapshots")
+	}
+	cmd := exec.Command("npx", args...)
+	cmd.Dir = absWebsiteDir
+	cmd.Env = append(os.Environ(), "CI=true")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("website E2E tests failed: %w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return nil
+}
+
+// startWebsiteDevServer starts the Astro dev server and waits for it to become
+// ready. The returned *exec.Cmd allows the caller to kill the server when done.
+// Separated from E2E test execution so the server can start warming up while
+// Playwright browsers install in parallel.
+func startWebsiteDevServer() (*exec.Cmd, error) {
+	absWebsiteDir, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	// Kill any stale server from a previous interrupted run.
+	killProcessOnPort(4321)
+
+	serverCmd := exec.Command("npx", "astro", "dev", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd.Dir = absWebsiteDir
+	if err := serverCmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start dev server: %w", err)
+	}
+
+	// Wait for server readiness with generous timeout (CPU contention slows compilation).
+	for i := 0; i < 90; i++ {
+		resp, err := http.Get("http://localhost:4321/azd-app/")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				return serverCmd, nil
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	_ = serverCmd.Process.Kill()
+	return nil, fmt.Errorf("dev server did not become ready within 90 seconds")
+}
+
+// killProcessOnPort kills any process listening on the given TCP port.
+// Used to clean up stale dev servers from interrupted runs.
+func killProcessOnPort(port int) {
+	// On Windows, use netstat to find PIDs. On Unix, use lsof.
+	if runtime.GOOS == "windows" {
+		out, err := exec.Command("cmd", "/c",
+			fmt.Sprintf("netstat -ano | findstr \":%d \"", port)).CombinedOutput()
+		if err != nil {
+			return
+		}
+		for _, line := range strings.Split(string(out), "\n") {
+			fields := strings.Fields(strings.TrimSpace(line))
+			if len(fields) >= 5 && fields[3] == "LISTENING" {
+				pid := fields[4]
+				if pid != "0" {
+					_ = exec.Command("taskkill", "/F", "/PID", pid).Run()
+				}
+			}
+		}
+	} else {
+		out, _ := exec.Command("lsof", "-ti", fmt.Sprintf(":%d", port)).CombinedOutput()
+		for _, pid := range strings.Fields(strings.TrimSpace(string(out))) {
+			_ = exec.Command("kill", "-9", pid).Run()
+		}
+	}
+	time.Sleep(500 * time.Millisecond)
+}
+
+// websiteTestE2EExecOnly runs website E2E tests assuming the dev server is
+// already running and Playwright is already installed.
+func websiteTestE2EExecOnly() error {
+	absWebsiteDir, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	updateSnapshots := false
+	snapshotsDir := filepath.Join(absWebsiteDir, "e2e", "screenshots.spec.ts-snapshots")
+	if _, err := os.Stat(snapshotsDir); os.IsNotExist(err) {
+		updateSnapshots = true
+	} else if err == nil {
+		entries, err := os.ReadDir(snapshotsDir)
+		if err == nil && len(entries) == 0 {
+			updateSnapshots = true
+		}
+	}
+
+	args := []string{"playwright", "test", "--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU())}
+	if updateSnapshots {
+		args = append(args, "--update-snapshots")
+	}
+	cmd := exec.Command("npx", args...)
+	cmd.Dir = absWebsiteDir
+	cmd.Env = append(os.Environ(), "CI=true")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("website E2E tests failed: %w\n%s", err, strings.TrimRight(string(out), "\r\n"))
+	}
+	return nil
+}
+
+// websiteTestE2EPreviewOnly starts a preview server on an already-built site,
+// runs Playwright tests, and tears down the server. Assumes pnpm install,
+// Playwright install, and websiteBuildOnly have already run.
+func websiteTestE2EPreviewOnly() error {
+	absWebsiteDir, err := filepath.Abs(websiteDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute website path: %w", err)
+	}
+
+	killProcessOnPort(4321)
+
+	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
+	serverCmd.Dir = absWebsiteDir
+	if err := serverCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start preview server: %w", err)
+	}
+	defer func() {
+		if serverCmd.Process != nil {
+			_ = serverCmd.Process.Kill()
+		}
+	}()
+
+	// Generous timeout: preview server startup competes for CPU with other parallel tasks.
+	for i := 0; i < 90; i++ {
+		resp, err := http.Get("http://localhost:4321/azd-app/")
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				return websiteTestE2EExecOnly()
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("preview server did not become ready within 90 seconds")
+}
+
 // Preflight runs all checks before shipping: format, build, lint, security, tests, and coverage.
+// Steps run in parallel as a DAG, respecting only real dependencies between checks.
+// Vet and Staticcheck are omitted (already in golangci-lint). Format is check-only
+// (no file writes) so lint and tests start immediately without waiting.
+// Security and vulncheck are deferred until after Playwright install to reduce early
+// CPU contention (Go tasks + Astro build compete for cores during startup).
 func Preflight() error {
-	fmt.Println("🚀 Running preflight checks...")
+	fmt.Println("🚀 Running preflight checks (parallel)...")
+	fmt.Println()
+	start := time.Now()
+
+	modTidyDone := newGate()
+	dashInstall := newGate()
+	webInstall := newGate()
+	dashBuild := newGate()
+	webBuild := newGate()
+	playwrightDone := newGate()
+
+	var g parallelGroup
+
+	// === Immediate: light tasks ===
+	g.run(preflightStep("Checking .gitignore", func() error {
+		if _, err := os.Stat(filepath.Join("..", ".gitignore")); os.IsNotExist(err) {
+			return fmt.Errorf(".gitignore file not found")
+		}
+		return nil
+	}))
+	g.run(preflightStep("Checking .gitattributes", func() error {
+		if _, err := os.Stat(filepath.Join("..", ".gitattributes")); os.IsNotExist(err) {
+			return fmt.Errorf(".gitattributes file not found")
+		}
+		return nil
+	}))
+	g.run(preflightStep("Checking format (no rewrite)", fmtCheck))
+	g.run(preflightStep("Tidying go.mod and go.sum", quietModTidy, modTidyDone))
+	g.run(preflightStep("Installing dashboard deps", dashboardInstall, dashInstall))
+	g.run(preflightStep("Installing website deps", websiteInstall, webInstall))
+
+	// === Immediate: CPU-heavy Go tasks ===
+	// Note: Lint and TestCoverage compile Go code, which includes go:embed dist
+	// from the dashboard. They must wait for dashBuild to ensure dist/ exists.
+
+	// === After mod tidy ===
+	g.run(preflightStepAfter([]*gate{modTidyDone}, "Verifying module checksums", quietModVerify))
+
+	// === After both installs: install Playwright browsers ===
+	g.run(preflightStepAfter([]*gate{dashInstall, webInstall}, "Installing Playwright browsers", playwrightInstallBrowsers, playwrightDone))
+
+	// === After dashboard install ===
+	g.run(preflightStepAfter([]*gate{dashInstall}, "Building dashboard", heavy(dashboardBuildOnly), dashBuild))
+	g.run(preflightStepAfter([]*gate{dashInstall}, "Linting dashboard", heavy(quietDashboardLint)))
+	g.run(preflightStepAfter([]*gate{dashInstall}, "Running dashboard unit tests", heavy(quietDashboardTest)))
+
+	// === After dashboard install + Playwright ===
+	g.run(preflightStepAfter([]*gate{dashInstall, playwrightDone}, "Running dashboard E2E tests", heavy(quietDashboardTestE2EExecOnly)))
+
+	// === After website install ===
+	g.run(preflightStepAfter([]*gate{webInstall}, "Validating website CLI docs", websiteValidateOnly))
+	g.run(preflightStepAfter([]*gate{webInstall}, "Building website", heavy(websiteBuildOnly), webBuild))
+
+	// === After both installs ===
+	g.run(preflightStepAfter([]*gate{dashInstall, webInstall}, "Checking for outdated dependencies", quietCheckDeps))
+
+	// === After dashboard build: Go tests need go:embed dist from dashboard ===
+	g.run(preflightStepAfter([]*gate{dashBuild}, "Running linting (includes vet + staticcheck)", heavy(quietLint)))
+	g.run(preflightStepAfter([]*gate{dashBuild}, "Running tests with coverage", heavy(quietTestCoverage)))
+
+	// === After mod tidy + dashboard build: build Go binary ===
+	g.run(preflightStepAfter([]*gate{modTidyDone, dashBuild}, "Building Go binary", heavy(buildGoOnly)))
+
+	// === After Playwright + dashboard build: defer Go security tasks to reduce contention during startup ===
+	// These tools compile Go code, so they need go:embed dist from dashboard build.
+	g.run(preflightStepAfter([]*gate{playwrightDone, dashBuild}, "Running quick security scan", heavy(quietSecurity)))
+	g.run(preflightStepAfter([]*gate{playwrightDone, dashBuild}, "Checking for known vulnerabilities", heavy(quietVulncheck)))
+
+	// === After website build + Playwright: E2E with preview server (full production build) ===
+	g.run(preflightStepAfter([]*gate{webBuild, playwrightDone}, "Running website E2E tests", heavy(websiteTestE2EPreviewOnly)))
+
+	if err := g.wait(); err != nil {
+		fmt.Printf("\n❌ Preflight failed after %s\n", time.Since(start).Round(time.Second))
+		return err
+	}
+
+	fmt.Printf("\n✅ All preflight checks passed! (%s)\n", time.Since(start).Round(time.Second))
+	fmt.Println("💡 Tips:")
+	fmt.Println("   • Run 'mage preflightSequential' for sequential execution (debugging)")
+	fmt.Println("🎉 Ready to ship!")
+	return nil
+}
+
+// PreflightSequential runs all preflight checks one at a time for debugging.
+func PreflightSequential() error {
+	fmt.Println("🚀 Running preflight checks (sequential)...")
 	fmt.Println()
 
 	checks := []struct {
@@ -1027,8 +1822,6 @@ func Preflight() error {
 	}
 
 	fmt.Println("✅ All preflight checks passed!")
-	fmt.Println("💡 Tips:")
-	fmt.Println("   • Run 'mage security' for a full security scan (~4 minutes)")
 	fmt.Println("🎉 Ready to ship!")
 	return nil
 }

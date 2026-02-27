@@ -7,6 +7,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'line',
+  // Generous timeout: tests may run under heavy CPU contention in parallel preflight
+  timeout: 120_000,
   // Use platform-independent snapshot naming for cross-platform CI compatibility
   snapshotPathTemplate: '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}{ext}',
   use: {

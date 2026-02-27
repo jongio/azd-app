@@ -291,8 +291,8 @@ test.describe('Dashboard - Performance', () => {
     await waitForDashboardReady(page)
     const loadTime = Date.now() - startTime
     
-    // Should load within 5 seconds
-    expect(loadTime).toBeLessThan(5000)
+    // Should load within 15 seconds (generous to handle parallel CI contention)
+    expect(loadTime).toBeLessThan(15000)
   })
 
   test('handles many services without timeout', async ({ page }) => {

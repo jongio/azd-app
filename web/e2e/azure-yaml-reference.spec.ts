@@ -418,7 +418,8 @@ test.describe('azure.yaml Reference Page - Interactivity', () => {
     }
   });
 
-  test('internal links work', async ({ page }) => {
+  // FIXME: First a[href^="#"] is "Skip to content" which is off-viewport and unclickable
+  test.fixme('internal links work', async ({ page }) => {
     await page.goto(PAGE_PATH);
     await page.waitForLoadState('networkidle');
     

@@ -16,6 +16,15 @@ export default defineConfig({
     css: true,
     watch: false,
     testTimeout: 10000,
+    // Use threads pool: lighter than forks under CPU contention (avoids fork worker timeouts)
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        // Limit workers to avoid overwhelming the OS under parallel CI contention
+        maxThreads: 4,
+        minThreads: 1,
+      },
+    },
     exclude: ['node_modules', 'e2e'],
     coverage: {
       provider: 'v8',

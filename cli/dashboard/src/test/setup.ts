@@ -1,7 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 import * as React from 'react'
+
+// Increase waitFor timeout for CI environments where CPU contention delays React renders
+configure({ asyncUtilTimeout: 5000 })
 
 // Ensure React is globally available for React 19
 globalThis.React = React

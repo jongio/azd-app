@@ -3151,7 +3151,6 @@ services:
 	}
 }
 
-
 func TestDetectProjectsFromAzureYaml_PathTraversal(t *testing.T) {
 	tmpDir := t.TempDir()
 
