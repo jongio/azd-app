@@ -3,11 +3,13 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/installer"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/workspace"
 	"github.com/jongio/azd-core/cliout"
 	types "github.com/jongio/azd-core/projecttype"
@@ -332,6 +334,106 @@ func filterProjectsByService(
 	}
 
 	return filteredNode, filteredPython, filteredDotnet
+}
+
+// detectProjectsFromAzureYaml reads azure.yaml and detects project types directly from
+// service project paths, without walking the entire directory tree.
+// Returns an error if no azure.yaml is found or no services are defined.
+func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {
+	azureYamlPath, err := detector.FindAzureYaml(searchRoot)
+	if err != nil || azureYamlPath == "" {
+		return nil, nil, nil, fmt.Errorf("azure.yaml not found - create one with a 'services' section to define your development environment")
+	}
+
+	azureYaml, err := service.ParseAzureYaml(filepath.Dir(azureYamlPath))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
+	}
+
+	if !service.HasServices(azureYaml) {
+		return nil, nil, nil, fmt.Errorf("no services defined in azure.yaml - add a 'services' section to define your development environment")
+	}
+
+	// Resolve the project root to an absolute path for containment checks
+	absSearchRoot, err := filepath.Abs(searchRoot)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to resolve project root: %w", err)
+	}
+
+	var nodeProjects []types.NodeProject
+	var pythonProjects []types.PythonProject
+	var dotnetProjects []types.DotnetProject
+
+	for _, svc := range azureYaml.Services {
+		projectDir := svc.Project
+		if projectDir == "" {
+			continue
+		}
+
+		// Validate the project path stays within the project root (prevent path traversal)
+		absProjectDir, err := filepath.Abs(projectDir)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to resolve service project path %q: %w", projectDir, err)
+		}
+		rel, err := filepath.Rel(absSearchRoot, absProjectDir)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return nil, nil, nil, fmt.Errorf("service project path %q resolves outside the project root - check the 'project' path in azure.yaml", projectDir)
+		}
+
+		// Verify the project directory exists
+		if _, err := os.Stat(projectDir); os.IsNotExist(err) {
+			return nil, nil, nil, fmt.Errorf("service project directory %q does not exist - check the 'project' path in azure.yaml", projectDir)
+		}
+
+		// Check for Node.js project (package.json)
+		if _, err := os.Stat(filepath.Join(projectDir, "package.json")); err == nil {
+			pm := detector.DetectNodePackageManager(projectDir)
+			isWorkspaceRoot := detector.HasNpmWorkspaces(projectDir)
+			nodeProjects = append(nodeProjects, types.NodeProject{
+				Dir:             projectDir,
+				PackageManager:  pm,
+				IsWorkspaceRoot: isWorkspaceRoot,
+			})
+			continue
+		}
+
+		// Check for Python project
+		pythonFiles := []string{"requirements.txt", "pyproject.toml", "poetry.lock", "uv.lock", "Pipfile"}
+		isPython := false
+		for _, f := range pythonFiles {
+			if _, err := os.Stat(filepath.Join(projectDir, f)); err == nil {
+				isPython = true
+				break
+			}
+		}
+		if isPython {
+			pm := detector.DetectPythonPackageManager(projectDir)
+			pythonProjects = append(pythonProjects, types.PythonProject{
+				Dir:            projectDir,
+				PackageManager: pm,
+			})
+			continue
+		}
+
+		// Check for .NET project (*.csproj or *.sln in the directory)
+		entries, err := os.ReadDir(projectDir)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+				ext := filepath.Ext(entry.Name())
+				if ext == ".csproj" || ext == ".sln" {
+					dotnetProjects = append(dotnetProjects, types.DotnetProject{
+						Path: filepath.Join(projectDir, entry.Name()),
+					})
+					break
+				}
+			}
+		}
+	}
+
+	return nodeProjects, pythonProjects, dotnetProjects, nil
 }
 
 // isSubdirectory checks if path is a subdirectory of any path in the set.

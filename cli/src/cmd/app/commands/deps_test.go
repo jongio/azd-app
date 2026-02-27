@@ -2984,3 +2984,193 @@ version = "1.0.0"
 		t.Errorf("Expected 1 python project, got %d", len(pythonProjects))
 	}
 }
+
+// Tests for detectProjectsFromAzureYaml
+
+func TestDetectProjectsFromAzureYaml_NoAzureYaml(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, _, _, err := detectProjectsFromAzureYaml(tmpDir)
+	if err == nil {
+		t.Fatal("Expected error when no azure.yaml exists")
+	}
+	if !strings.Contains(err.Error(), "azure.yaml not found") {
+		t.Errorf("Expected 'azure.yaml not found' error, got: %v", err)
+	}
+}
+
+func TestDetectProjectsFromAzureYaml_NoServices(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	content := "name: test-app\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	_, _, _, err := detectProjectsFromAzureYaml(tmpDir)
+	if err == nil {
+		t.Fatal("Expected error when no services defined")
+	}
+	if !strings.Contains(err.Error(), "no services defined") {
+		t.Errorf("Expected 'no services defined' error, got: %v", err)
+	}
+}
+
+func TestDetectProjectsFromAzureYaml_MissingProjectDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// azure.yaml points to a directory that doesn't exist
+	content := "name: test-app\nservices:\n  web:\n    project: ./nonexistent\n    host: localhost\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	_, _, _, err := detectProjectsFromAzureYaml(tmpDir)
+	if err == nil {
+		t.Fatal("Expected error when project directory does not exist")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("Expected 'does not exist' error, got: %v", err)
+	}
+}
+
+func TestDetectProjectsFromAzureYaml_NodeProject(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	webDir := filepath.Join(tmpDir, "web")
+	if err := os.MkdirAll(webDir, 0750); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+		t.Fatalf("Failed to create package.json: %v", err)
+	}
+
+	content := "name: test-app\nservices:\n  web:\n    project: ./web\n    host: localhost\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	nodeProjects, pythonProjects, dotnetProjects, err := detectProjectsFromAzureYaml(tmpDir)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(nodeProjects) != 1 {
+		t.Errorf("Expected 1 node project, got %d", len(nodeProjects))
+	}
+	if len(pythonProjects) != 0 {
+		t.Errorf("Expected 0 python projects, got %d", len(pythonProjects))
+	}
+	if len(dotnetProjects) != 0 {
+		t.Errorf("Expected 0 dotnet projects, got %d", len(dotnetProjects))
+	}
+}
+
+func TestDetectProjectsFromAzureYaml_IgnoresNonServiceProjects(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	webDir := filepath.Join(tmpDir, "web")
+	if err := os.MkdirAll(webDir, 0750); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+		t.Fatalf("Failed to create package.json: %v", err)
+	}
+
+	// Non-service directory should be ignored
+	otherDir := filepath.Join(tmpDir, "other-tool")
+	if err := os.MkdirAll(otherDir, 0750); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(otherDir, "package.json"), []byte(`{"name":"other-tool"}`), 0600); err != nil {
+		t.Fatalf("Failed to create package.json: %v", err)
+	}
+
+	content := "name: test-app\nservices:\n  web:\n    project: ./web\n    host: localhost\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	nodeProjects, _, _, err := detectProjectsFromAzureYaml(tmpDir)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(nodeProjects) != 1 {
+		t.Errorf("Expected 1 node project, got %d", len(nodeProjects))
+	}
+}
+
+func TestDetectProjectsFromAzureYaml_MultipleServices(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	webDir := filepath.Join(tmpDir, "web")
+	apiDir := filepath.Join(tmpDir, "api")
+	backendDir := filepath.Join(tmpDir, "backend")
+	for _, dir := range []string{webDir, apiDir, backendDir} {
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+		t.Fatalf("Failed to write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(apiDir, "requirements.txt"), []byte("flask\n"), 0600); err != nil {
+		t.Fatalf("Failed to write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(backendDir, "app.csproj"), []byte("<Project></Project>"), 0600); err != nil {
+		t.Fatalf("Failed to write: %v", err)
+	}
+
+	content := `name: test-app
+services:
+  web:
+    project: ./web
+    host: localhost
+  api:
+    project: ./api
+    host: localhost
+  backend:
+    project: ./backend
+    host: localhost
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	nodeProjects, pythonProjects, dotnetProjects, err := detectProjectsFromAzureYaml(tmpDir)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(nodeProjects) != 1 {
+		t.Errorf("Expected 1 node project, got %d", len(nodeProjects))
+	}
+	if len(pythonProjects) != 1 {
+		t.Errorf("Expected 1 python project, got %d", len(pythonProjects))
+	}
+	if len(dotnetProjects) != 1 {
+		t.Errorf("Expected 1 dotnet project, got %d", len(dotnetProjects))
+	}
+}
+
+
+func TestDetectProjectsFromAzureYaml_PathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// azure.yaml with a service path that escapes the project root
+	content := `name: test-app
+services:
+  evil:
+    project: ../../etc
+    host: localhost
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	_, _, _, err := detectProjectsFromAzureYaml(tmpDir)
+	if err == nil {
+		t.Fatal("Expected error for path traversal, got nil")
+	}
+	if !strings.Contains(err.Error(), "resolves outside the project root") {
+		t.Errorf("Expected path traversal error, got: %v", err)
+	}
+}

@@ -59,13 +59,13 @@ func (e *depsExecutor) execute() error {
 		return handleDepsError(err, "failed to determine search root")
 	}
 
-	// Detect all projects
-	nodeProjects, pythonProjects, dotnetProjects, err := e.detectAllProjects(searchRoot)
+	// Detect projects from azure.yaml services only (no tree walk)
+	nodeProjects, pythonProjects, dotnetProjects, err := detectProjectsFromAzureYaml(searchRoot)
 	if err != nil {
-		return err
+		return handleDepsError(err, "failed to detect projects from azure.yaml")
 	}
 
-	// Apply service filter if specified
+	// Apply service filter if specified (further restricts to named services)
 	if len(e.opts.Services) > 0 {
 		nodeProjects, pythonProjects, dotnetProjects = e.filterProjectsByService(
 			nodeProjects, pythonProjects, dotnetProjects, searchRoot)
@@ -97,26 +97,6 @@ func (e *depsExecutor) execute() error {
 
 	// JSON mode: use sequential installer
 	return runJSONInstallation(searchRoot, nodeProjects, pythonProjects, dotnetProjects)
-}
-
-// detectAllProjects detects Node.js, Python, and .NET projects in the search root.
-func (e *depsExecutor) detectAllProjects(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {
-	nodeProjects, err := e.detectNode(searchRoot)
-	if err != nil {
-		return nil, nil, nil, handleDepsError(err, fmt.Sprintf("failed to detect Node.js projects in %s", searchRoot))
-	}
-
-	pythonProjects, err := e.detectPython(searchRoot)
-	if err != nil {
-		return nil, nil, nil, handleDepsError(err, fmt.Sprintf("failed to detect Python projects in %s", searchRoot))
-	}
-
-	dotnetProjects, err := e.detectDotnet(searchRoot)
-	if err != nil {
-		return nil, nil, nil, handleDepsError(err, fmt.Sprintf("failed to detect .NET projects in %s", searchRoot))
-	}
-
-	return nodeProjects, pythonProjects, dotnetProjects, nil
 }
 
 // filterProjectsByService filters projects to only those matching the specified services.
@@ -234,8 +214,8 @@ func NewDepsCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:          "deps",
-		Short:        "Install dependencies for all detected projects",
-		Long:         `Automatically detects and installs dependencies for Node.js (npm/pnpm/yarn), Python (uv/poetry/pip), and .NET projects`,
+		Short:        "Install dependencies for services defined in azure.yaml",
+		Long:         `Installs dependencies for services defined in azure.yaml. Only service project paths are checked (Node.js, Python, .NET). Requires azure.yaml with a 'services' section.`,
 		SilenceUsage: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Try to get the output flag from parent or self
