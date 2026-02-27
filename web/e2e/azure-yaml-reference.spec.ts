@@ -428,11 +428,17 @@ test.describe('azure.yaml Reference Page - Interactivity', () => {
     
     if (linkExists) {
       const href = await internalLink.getAttribute('href');
-      await internalLink.click();
-      await page.waitForTimeout(300);
       
-      // Verify URL updated
-      expect(page.url()).toContain(href || '');
+      // Scroll to the link first to ensure it's in view
+      await internalLink.scrollIntoViewIfNeeded();
+      await internalLink.click({ timeout: 5000 });
+      await page.waitForTimeout(500);
+      
+      // Verify URL updated (use hash check which is more reliable)
+      const url = page.url();
+      if (href) {
+        expect(url).toContain(href);
+      }
     }
   });
 
