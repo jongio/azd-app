@@ -1,3 +1,16 @@
+## [0.12.7] - 2026-02-27
+
+- fix: add GitHub Packages auth to preflight job (24e354fc)
+- fix: add packages:read permission to deploy-website job in release workflow (22ae660d)
+- feat: limit deps command to azure.yaml services only (#147) (ad5a6218)
+- fix: use correct repo creation dates for LinkedIn publish date (85897788)
+- fix: add LinkedIn publish date via azd-web-core v2.3.0 (86bd8f12)
+- fix: add LinkedIn author meta tag via azd-web-core v2.2.0 (007bba01)
+- feat: add social media OG images and consistent titles (e59857f2)
+- feat(web): redesign with shared azd-web-core v2 (#146) (026a03f7)
+- chore: remove orphaned Header, Footer, ThemeToggle components (0bbd2b3d)
+- chore: update registry for v0.12.6 (95204d60)
+
 ## [0.12.6] - 2026-02-23
 
 - chore: update registry for v0.12.5 (13ccec3f)
