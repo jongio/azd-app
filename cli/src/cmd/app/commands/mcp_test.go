@@ -835,8 +835,8 @@ func TestResourcesHaveAnnotations(t *testing.T) {
 		}
 
 		// Verify priority is set (0.9 for high importance)
-		if resource.Resource.Annotations.Priority != 0.9 {
-			t.Errorf("azure.yaml resource should have priority 0.9, got %f", resource.Resource.Annotations.Priority)
+		if resource.Resource.Annotations.Priority == nil || *resource.Resource.Annotations.Priority != 0.9 {
+			t.Errorf("azure.yaml resource should have priority 0.9, got %v", resource.Resource.Annotations.Priority)
 		}
 	})
 
@@ -859,8 +859,8 @@ func TestResourcesHaveAnnotations(t *testing.T) {
 		}
 
 		// Verify priority is set (0.7 for medium importance)
-		if resource.Resource.Annotations.Priority != 0.7 {
-			t.Errorf("service-configs resource should have priority 0.7, got %f", resource.Resource.Annotations.Priority)
+		if resource.Resource.Annotations.Priority == nil || *resource.Resource.Annotations.Priority != 0.7 {
+			t.Errorf("service-configs resource should have priority 0.7, got %v", resource.Resource.Annotations.Priority)
 		}
 	})
 }

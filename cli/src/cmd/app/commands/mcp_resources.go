@@ -19,7 +19,7 @@ func newAzureYamlResource() server.ServerResource {
 			"azure://project/azure.yaml",
 			"azure.yaml",
 			mcp.WithResourceDescription("The azure.yaml configuration file that defines the project structure, services, and dependencies."),
-			mcp.WithAnnotations([]mcp.Role{mcp.RoleUser, mcp.RoleAssistant}, 0.9),
+			mcp.WithAnnotations([]mcp.Role{mcp.RoleUser, mcp.RoleAssistant}, 0.9, ""),
 			mcp.WithMIMEType("application/x-yaml"),
 		),
 		Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
@@ -82,7 +82,7 @@ func newServiceConfigResource() server.ServerResource {
 			"azure://project/services/configs",
 			"service-configs",
 			mcp.WithResourceDescription("Configuration details for all services including environment variables, ports, and runtime settings."),
-			mcp.WithAnnotations([]mcp.Role{mcp.RoleAssistant}, 0.7),
+			mcp.WithAnnotations([]mcp.Role{mcp.RoleAssistant}, 0.7, ""),
 			mcp.WithMIMEType("application/json"),
 		),
 		Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
