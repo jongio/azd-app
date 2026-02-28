@@ -1,3 +1,9 @@
+## [0.12.8] - 2026-02-28
+
+- fix: make azd app run work without azd environment (#151) (9e36bbf4)
+- perf: parallelize mage preflight with DAG-based execution (27min → 3:24) (#149) (d0b61401)
+- chore: update registry for v0.12.7 (1de00410)
+
 ## [0.12.7] - 2026-02-27
 
 - fix: add GitHub Packages auth to preflight job (24e354fc)
