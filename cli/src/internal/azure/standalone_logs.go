@@ -121,7 +121,7 @@ func getServiceNameMap(projectDir string) map[string]string {
 	// When running as an azd extension, all environment variables are already available
 	// via os.Environ(). No need to shell out to 'azd env get-values'.
 	for _, line := range os.Environ() {
-		if strings.HasPrefix(line, "SERVICE_") && strings.Contains(line, "_NAME=") {
+		if strings.HasPrefix(line, "SERVICE_") && strings.Contains(line, "_NAME=") && !strings.Contains(line, "_IMAGE_NAME=") {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
 				key := parts[0]
@@ -374,10 +374,12 @@ func (e *AzureLogsError) Error() string {
 
 // GetWorkspaceIDFromEnv attempts to get the workspace GUID from azd environment.
 // Uses the azd extension framework's Environment service.
+// Returns empty string and nil error when no azd environment is available.
 func GetWorkspaceIDFromEnv(ctx context.Context) (string, error) {
 	azdClient, err := azdext.NewAzdClient()
 	if err != nil {
-		return "", fmt.Errorf("failed to create azd client: %w", err)
+		slog.Warn("azd client not available, skipping workspace ID lookup from env", "error", err)
+		return "", nil
 	}
 	defer azdClient.Close()
 
@@ -386,10 +388,12 @@ func GetWorkspaceIDFromEnv(ctx context.Context) (string, error) {
 	// Get current environment name
 	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
 	if err != nil {
-		return "", fmt.Errorf("failed to get current environment: %w", err)
+		slog.Warn("failed to get current azd environment for workspace ID lookup", "error", err)
+		return "", nil
 	}
 	if resp.Environment == nil || resp.Environment.Name == "" {
-		return "", fmt.Errorf("no current environment set")
+		slog.Debug("no current azd environment set, skipping workspace ID lookup")
+		return "", nil
 	}
 	envName := resp.Environment.Name
 
@@ -425,11 +429,13 @@ func GetWorkspaceIDFromEnv(ctx context.Context) (string, error) {
 }
 
 // DiscoverAndStoreWorkspaceID attempts to find Log Analytics workspace ID and store it.
-// Returns (workspaceGUID, wasDiscovered, error)
+// Returns (workspaceGUID, wasDiscovered, error).
+// Returns empty values and nil error when no azd environment is available.
 func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
 	azdClient, err := azdext.NewAzdClient()
 	if err != nil {
-		return "", false, fmt.Errorf("failed to create azd client: %w", err)
+		slog.Warn("azd client not available, skipping workspace discovery", "error", err)
+		return "", false, nil
 	}
 	defer azdClient.Close()
 
@@ -438,10 +444,12 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
 	// Get current environment name
 	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
 	if err != nil {
-		return "", false, fmt.Errorf("failed to get current environment: %w", err)
+		slog.Warn("failed to get current azd environment for workspace discovery", "error", err)
+		return "", false, nil
 	}
 	if resp.Environment == nil || resp.Environment.Name == "" {
-		return "", false, fmt.Errorf("no current environment set")
+		slog.Debug("no current azd environment set, skipping workspace discovery")
+		return "", false, nil
 	}
 	envName := resp.Environment.Name
 

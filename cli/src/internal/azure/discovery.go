@@ -179,6 +179,7 @@ func (d *ResourceDiscovery) getAzdEnvValues(ctx context.Context) (map[string]str
 	output, err := cmd.Output()
 	if err != nil {
 		// If azd env get-values fails, return empty map (not provisioned yet)
+		slog.Debug("azd env get-values failed, treating as not provisioned", "error", err)
 		return make(map[string]string), nil
 	}
 
@@ -224,6 +225,10 @@ func (d *ResourceDiscovery) detectResourceType(ctx context.Context, subscription
 
 		for _, resource := range page.Value {
 			if resource.Name != nil && strings.EqualFold(*resource.Name, resourceName) {
+				if resource.Type == nil || resource.ID == nil {
+					slog.Debug("detectResourceType: resource missing Type or ID", "name", *resource.Name)
+					continue
+				}
 				var kindStr string
 				if resource.Kind != nil {
 					kindStr = *resource.Kind
@@ -259,6 +264,9 @@ func (d *ResourceDiscovery) detectLogAnalyticsWorkspace(ctx context.Context, sub
 
 		for _, resource := range page.Value {
 			if resource.Type != nil && strings.EqualFold(*resource.Type, "Microsoft.OperationalInsights/workspaces") {
+				if resource.ID == nil {
+					continue
+				}
 				return *resource.ID
 			}
 		}
@@ -369,7 +377,8 @@ func GetDefaultEnvName(ctx context.Context) (string, error) {
 	// Fallback: Use gRPC for standalone mode or when reading from config.json
 	azdClient, err := azdext.NewAzdClient()
 	if err != nil {
-		return "", fmt.Errorf("failed to create azd client: %w", err)
+		slog.Warn("azd client not available, no environment name resolved", "error", err)
+		return "", nil
 	}
 	defer azdClient.Close()
 
@@ -377,7 +386,8 @@ func GetDefaultEnvName(ctx context.Context) (string, error) {
 
 	resp, err := azdClient.Environment().GetCurrent(ctx, &azdext.EmptyRequest{})
 	if err != nil {
-		return "", fmt.Errorf("failed to get current environment: %w", err)
+		slog.Debug("no azd environment available, no environment name resolved", "error", err)
+		return "", nil
 	}
 
 	if resp.Environment == nil || resp.Environment.Name == "" {

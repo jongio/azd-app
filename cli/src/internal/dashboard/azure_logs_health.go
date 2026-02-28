@@ -4,6 +4,7 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -95,10 +96,16 @@ func (s *Server) checkWorkspaceID() HealthCheck {
 	}
 
 	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
-	if err != nil || workspaceID == "" {
+	if err != nil {
 		check.Status = "fail"
 		check.Message = "Log Analytics workspace not configured"
 		check.Fix = "azd env refresh"
+		return check
+	}
+	if workspaceID == "" {
+		check.Status = "warn"
+		check.Message = "No azd environment available; Azure log streaming unavailable"
+		check.Fix = "Run 'azd init' and 'azd provision' to enable Azure log streaming"
 		return check
 	}
 
@@ -165,8 +172,9 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 	ctx := context.Background()
 	_, err = getOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
 	if err != nil {
+		slog.Error("failed to create Log Analytics client", "error", err)
 		check.Status = "fail"
-		check.Message = fmt.Sprintf("Failed to create Log Analytics client: %v", err)
+		check.Message = "Failed to connect to Log Analytics"
 		check.Fix = "Check Azure subscription and permissions"
 		return check
 	}

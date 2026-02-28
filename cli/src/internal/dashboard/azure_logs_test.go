@@ -193,7 +193,7 @@ func TestHandleAzureLogsHealthStatus(t *testing.T) {
 		wantStatus  string
 	}{
 		{name: "healthy", workspaceID: "00000000-0000-0000-0000-000000000000", wantStatus: "healthy"},
-		{name: "missing workspace", workspaceID: "", wantStatus: "error"},
+		{name: "missing workspace", workspaceID: "", wantStatus: "degraded"},
 	}
 
 	for _, tc := range cases {
