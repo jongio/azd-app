@@ -46,6 +46,8 @@ github.com/aymanbagabas/go-udiff v0.3.1 h1:LV+qyBQ2pqe0u42ZsUEtPiCaUoqgA9gYRDs3v
 github.com/aymanbagabas/go-udiff v0.3.1/go.mod h1:G0fsKmG+P6ylD0r6N/KgQD/nWzgfnl8ZBcNLgcbrw8E=
 github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuPk=
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
+github.com/azure/azure-dev/cli/azd v0.0.0-20260228002641-8f080b39d69b h1:45nJaQ/WywqgXV8UUFEM2zq1Oj1EU3Ru/AEPbkkIFW0=
+github.com/azure/azure-dev/cli/azd v0.0.0-20260228002641-8f080b39d69b/go.mod h1:zNtJ765AlE7Jsfy0T7qeiFHIHjNWLAYIXoPKVHVWpnk=
 github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPnH1Wvgk=
 github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
 github.com/benbjohnson/clock v1.3.5 h1:VvXlSJBzZpA/zum6Sj74hxwYI2DIxRWuNIoXAzHZz5o=
@@ -160,8 +162,6 @@ github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 github.com/jongio/azd-core v0.5.3-0.20260224175512-adb4c33ad704 h1:suCpNTx5Bi+GaTE5Cyj5LAQ4q3/gWsBEpZMehlgfp+E=
 github.com/jongio/azd-core v0.5.3-0.20260224175512-adb4c33ad704/go.mod h1:jQCP+px3Pxb3B0fyShfvSVa3KsWT1j2jGXMsPpQezlI=
-github.com/jongio/azure-dev/cli/azd v0.0.0-20260224163340-dd44e36d1cd2 h1:nw+lYEeXoPJJCETrAf9TXKsA0TGfi5WbmXch0ZkjalY=
-github.com/jongio/azure-dev/cli/azd v0.0.0-20260224163340-dd44e36d1cd2/go.mod h1:zNtJ765AlE7Jsfy0T7qeiFHIHjNWLAYIXoPKVHVWpnk=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 h1:Z9n2FFNUXsshfwJMBgNA0RU6/i7WVaAegv3PtuIHPMs=
 github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51/go.mod h1:CzGEWj7cYgsdH8dAjBGEr58BoE7ScuLd+fwFZ44+/x8=
 github.com/keybase/go-keychain v0.0.1 h1:way+bWYa6lDppZoZcgMbYsvC7GxljxrskdNInRtuthU=

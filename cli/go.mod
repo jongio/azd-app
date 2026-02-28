@@ -10,7 +10,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
-	github.com/azure/azure-dev/cli/azd v0.0.0-20260205194320-e04533f58fa7
+	github.com/azure/azure-dev/cli/azd v0.0.0-20260228002641-8f080b39d69b
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coder/websocket v1.8.14
 	github.com/jongio/azd-core v0.5.3-0.20260224175512-adb4c33ad704
@@ -138,5 +138,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
-
-replace github.com/azure/azure-dev/cli/azd => github.com/jongio/azure-dev/cli/azd v0.0.0-20260224163340-dd44e36d1cd2
