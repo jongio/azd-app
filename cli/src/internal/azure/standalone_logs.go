@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -113,6 +114,10 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 	return services, nil
 }
 
+// serviceNameEnvRe matches env var keys like SERVICE_API_NAME or SERVICE_MY_SVC_NAME
+// but NOT compound suffixes such as SERVICE_API_IMAGE_NAME or SERVICE_API_RESOURCE_NAME.
+var serviceNameEnvRe = regexp.MustCompile(`^SERVICE_(.+)_NAME$`)
+
 // getServiceNameMap returns a map of azure.yaml service names to Azure resource names.
 // Uses environment variables directly since the azd extension framework provides them.
 func getServiceNameMap(projectDir string) map[string]string {
@@ -121,18 +126,30 @@ func getServiceNameMap(projectDir string) map[string]string {
 	// When running as an azd extension, all environment variables are already available
 	// via os.Environ(). No need to shell out to 'azd env get-values'.
 	for _, line := range os.Environ() {
-		if strings.HasPrefix(line, "SERVICE_") && strings.Contains(line, "_NAME=") && !strings.Contains(line, "_IMAGE_NAME=") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				key := parts[0]
-				key = strings.TrimPrefix(key, "SERVICE_")
-				key = strings.TrimSuffix(key, "_NAME")
-				key = strings.ToLower(strings.ReplaceAll(key, "_", "-"))
-				value := strings.Trim(parts[1], "\"")
-				if value != "" {
-					serviceNameMap[key] = value
-				}
-			}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		envKey := parts[0]
+		m := serviceNameEnvRe.FindStringSubmatch(envKey)
+		if m == nil {
+			continue
+		}
+		// m[1] is the service-name portion (e.g. "API" from "SERVICE_API_NAME").
+		// Reject compound suffixes like IMAGE_NAME or RESOURCE_NAME by ensuring
+		// the captured group does not itself end with a known qualifier.
+		svcPart := m[1]
+		if strings.HasSuffix(svcPart, "_IMAGE") ||
+			strings.HasSuffix(svcPart, "_RESOURCE") ||
+			strings.HasSuffix(svcPart, "_ENDPOINT") ||
+			strings.HasSuffix(svcPart, "_IDENTITY") {
+			continue
+		}
+
+		key := strings.ToLower(strings.ReplaceAll(svcPart, "_", "-"))
+		value := strings.Trim(parts[1], "\"")
+		if value != "" {
+			serviceNameMap[key] = value
 		}
 	}
 
