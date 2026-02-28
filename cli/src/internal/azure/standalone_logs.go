@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 }
 
 // serviceNameEnvRe matches env var keys like SERVICE_API_NAME or SERVICE_MY_SVC_NAME
-// but NOT compound suffixes such as SERVICE_API_IMAGE_NAME or SERVICE_API_RESOURCE_NAME.
+// but NOT compound suffixes such as SERVICE_API_IMAGE_NAME (filtered separately below).
 var serviceNameEnvRe = regexp.MustCompile(`^SERVICE_(.+)_NAME$`)
 
 // getServiceNameMap returns a map of azure.yaml service names to Azure resource names.
@@ -139,10 +140,11 @@ func getServiceNameMap(projectDir string) map[string]string {
 		// Reject compound suffixes like IMAGE_NAME or RESOURCE_NAME by ensuring
 		// the captured group does not itself end with a known qualifier.
 		svcPart := m[1]
-		if strings.HasSuffix(svcPart, "_IMAGE") ||
-			strings.HasSuffix(svcPart, "_RESOURCE") ||
-			strings.HasSuffix(svcPart, "_ENDPOINT") ||
-			strings.HasSuffix(svcPart, "_IDENTITY") {
+		// Only exclude _IMAGE suffix – this is the only known compound property
+		// that produces a SERVICE_*_NAME env var (SERVICE_<svc>_IMAGE_NAME).
+		// Broader filtering would reject legitimate service names like "my-resource".
+		// See: serviceinfo/serviceinfo.go, dashboard/azure_logs_config.go for consistency.
+		if strings.HasSuffix(svcPart, "_IMAGE") {
 			continue
 		}
 
@@ -351,24 +353,16 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 
 // sortLogEntriesByTimeDesc sorts log entries by timestamp in descending order.
 func sortLogEntriesByTimeDesc(entries []LogEntry) {
-	for i := 0; i < len(entries)-1; i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if entries[j].Timestamp.After(entries[i].Timestamp) {
-				entries[i], entries[j] = entries[j], entries[i]
-			}
-		}
-	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp.After(entries[j].Timestamp)
+	})
 }
 
 // sortLogEntriesByTimeAsc sorts log entries by timestamp in ascending order.
 func sortLogEntriesByTimeAsc(entries []LogEntry) {
-	for i := 0; i < len(entries)-1; i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if entries[j].Timestamp.Before(entries[i].Timestamp) {
-				entries[i], entries[j] = entries[j], entries[i]
-			}
-		}
-	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp.Before(entries[j].Timestamp)
+	})
 }
 
 // AzureLogsError represents an error with actionable guidance.
