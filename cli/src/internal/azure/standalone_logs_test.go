@@ -86,7 +86,7 @@ func TestGetServiceNameMapEdgeCases(t *testing.T) {
 			name: "compound IMAGE suffix is excluded",
 			envVars: map[string]string{
 				"SERVICE_API_IMAGE_NAME": "registry.io/img:v1",
-				"SERVICE_API_NAME":      "api-prod",
+				"SERVICE_API_NAME":       "api-prod",
 			},
 			wantKeys: map[string]string{
 				"api": "api-prod",

@@ -792,17 +792,17 @@ func TestGetProjectDir(t *testing.T) {
 func TestAllToolsHaveTitles(t *testing.T) {
 	s := testBuildServer(t)
 	expected := map[string]string{
-		"get_services":             "Get Running Services",
-		"get_service_logs":         "Get Service Logs",
-		"get_service_errors":       "Get Service Errors",
-		"get_project_info":         "Get Project Information",
-		"run_services":             "Run Development Services",
-		"stop_services":            "Stop Running Services",
-		"restart_service":          "Restart Service",
-		"install_dependencies":     "Install Project Dependencies",
-		"check_requirements":       "Check Prerequisites",
+		"get_services":              "Get Running Services",
+		"get_service_logs":          "Get Service Logs",
+		"get_service_errors":        "Get Service Errors",
+		"get_project_info":          "Get Project Information",
+		"run_services":              "Run Development Services",
+		"stop_services":             "Stop Running Services",
+		"restart_service":           "Restart Service",
+		"install_dependencies":      "Install Project Dependencies",
+		"check_requirements":        "Check Prerequisites",
 		"get_environment_variables": "Get Environment Variables",
-		"set_environment_variable": "Set Environment Variable",
+		"set_environment_variable":  "Set Environment Variable",
 	}
 
 	for name, title := range expected {
