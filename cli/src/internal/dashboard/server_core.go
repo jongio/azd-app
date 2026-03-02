@@ -107,7 +107,7 @@ func (s *Server) Start() (string, error) {
 	s.port = port
 	s.server = &http.Server{
 		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
-		Handler:           s.mux,
+		Handler:           securityHeaders(s.mux),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

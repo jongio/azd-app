@@ -3,8 +3,13 @@ package azure
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+// kqlIdentifierPattern validates KQL table and column names.
+// KQL identifiers contain only letters, digits, and underscores.
+var kqlIdentifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 const (
 	// defaultQueryResultLimit is the default limit for query results to prevent excessive data transfer.
@@ -19,18 +24,41 @@ type QueryBuilder struct {
 	timespan    string
 }
 
+// kqlTimespanPattern validates KQL ago() timespan values.
+// Valid formats: 30m, 1h, 2d, 1h30m, etc. Only digits and time unit suffixes.
+var kqlTimespanPattern = regexp.MustCompile(`^[0-9]+[dhms]([0-9]+[dhms])?$`)
+
 // NewQueryBuilder creates a new query builder for the given service.
 func NewQueryBuilder(serviceName string, timespan string) *QueryBuilder {
+	// Sanitize serviceName for KQL string interpolation
+	sanitizedName := sanitizeKQLString(serviceName)
+	// Validate timespan format to prevent injection
+	if !kqlTimespanPattern.MatchString(timespan) {
+		timespan = "30m" // Safe default
+	}
 	return &QueryBuilder{
-		serviceName: serviceName,
+		serviceName: sanitizedName,
 		timespan:    timespan,
 	}
 }
 
 // WithTables sets the tables to query.
+// Table names are validated to prevent KQL injection.
 func (qb *QueryBuilder) WithTables(tables []string) *QueryBuilder {
-	qb.tables = tables
+	validated := make([]string, 0, len(tables))
+	for _, t := range tables {
+		if isValidKQLIdentifier(t) {
+			validated = append(validated, t)
+		}
+	}
+	qb.tables = validated
 	return qb
+}
+
+// isValidKQLIdentifier checks that a string is a safe KQL identifier (table or column name).
+// Valid identifiers contain only letters, digits, and underscores, and start with a letter or underscore.
+func isValidKQLIdentifier(s string) bool {
+	return s != "" && kqlIdentifierPattern.MatchString(s)
 }
 
 // Build generates the KQL query from the configuration.
@@ -104,8 +132,9 @@ func (qb *QueryBuilder) getServiceFilter(tableName string) string {
 		return ""
 	}
 
-	// Use case-insensitive comparison
-	return fmt.Sprintf("| where %s =~ '%s'", filterCol, sanitizeKQLString(qb.serviceName))
+	// Use case-insensitive comparison.
+	// serviceName is already sanitized by NewQueryBuilder, safe for KQL string interpolation.
+	return fmt.Sprintf("| where %s =~ '%s'", filterCol, qb.serviceName)
 }
 
 // getServiceFilterColumn returns the column to filter by service name for a table.
@@ -203,8 +232,13 @@ func BuildQueryFromTables(tables []string, serviceName, timespan string) string 
 }
 
 // SubstitutePlaceholders replaces {serviceName} and {timespan} placeholders in a query.
+// serviceName is sanitized to prevent KQL injection. timespan is validated against a safe pattern.
 func SubstitutePlaceholders(query, serviceName, timespan string) string {
 	query = strings.ReplaceAll(query, "{serviceName}", sanitizeKQLString(serviceName))
+	// Validate timespan format to prevent injection
+	if !kqlTimespanPattern.MatchString(timespan) {
+		timespan = "30m" // Safe default
+	}
 	query = strings.ReplaceAll(query, "{timespan}", timespan)
 	return query
 }

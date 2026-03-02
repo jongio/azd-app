@@ -14,6 +14,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/registry"
+	"github.com/jongio/azd-core/security"
 )
 
 // clientConn wraps a websocket connection with a write mutex for safe concurrent writes.
@@ -242,6 +243,12 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 // handleLogStream streams logs via WebSocket.
 func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
+
+	// Validate service name to prevent injection attacks
+	if err := security.ValidateServiceName(serviceName, true); err != nil {
+		BadRequest(w, "Invalid service name", nil)
+		return
+	}
 
 	// Capture rate limiter early to avoid race with Stop()
 	rl := s.rateLimiter

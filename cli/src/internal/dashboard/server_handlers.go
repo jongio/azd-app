@@ -16,6 +16,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/registry"
+	"github.com/jongio/azd-core/security"
 )
 
 const (
@@ -131,6 +132,12 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 
 	serviceName := r.URL.Query().Get("service")
 	tailStr := r.URL.Query().Get("tail")
+
+	// Validate service name to prevent injection attacks
+	if err := security.ValidateServiceName(serviceName, true); err != nil {
+		BadRequest(w, "Invalid service name", nil)
+		return
+	}
 
 	// Default to 500 lines with bounds checking
 	tail := 500

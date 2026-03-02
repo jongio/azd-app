@@ -10,6 +10,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/security"
 )
 
 // AzureServicesResponse represents the list of available services.
@@ -102,6 +103,12 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 	sinceStr := r.URL.Query().Get("since")
 	tailStr := r.URL.Query().Get("tail")
+
+	// Validate service name to prevent injection attacks
+	if err := security.ValidateServiceName(serviceName, true); err != nil {
+		BadRequest(w, "Invalid service name", nil)
+		return
+	}
 
 	// Parse since duration (e.g., "1h", "30m")
 	since := 1 * time.Hour // Default to 1 hour

@@ -372,7 +372,7 @@ func MaskSecrets(service Service, env map[string]string) map[string]string {
 		if strings.Contains(keyUpper, "SECRET") ||
 			strings.Contains(keyUpper, "PASSWORD") ||
 			strings.Contains(keyUpper, "TOKEN") ||
-			strings.Contains(keyUpper, "KEY") && !strings.Contains(keyUpper, "PUBLIC") {
+			(strings.Contains(keyUpper, "KEY") && !strings.Contains(keyUpper, "PUBLIC")) {
 			secrets[key] = true
 		}
 	}

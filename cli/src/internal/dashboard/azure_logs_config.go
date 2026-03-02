@@ -63,33 +63,12 @@ func getAllEnvironmentVars() map[string]string {
 }
 
 // substituteQueryPlaceholders replaces placeholders in a query for display.
+// NOTE: This is for display only, not for query execution. The actual query
+// execution path in loganalytics.go uses sanitizeKQLString for injection prevention.
 func substituteQueryPlaceholders(query, serviceName, timespan string) string {
-	query = replaceAll(query, "{serviceName}", serviceName)
-	query = replaceAll(query, "{timespan}", timespan)
+	query = strings.ReplaceAll(query, "{serviceName}", serviceName)
+	query = strings.ReplaceAll(query, "{timespan}", timespan)
 	return query
-}
-
-// replaceAll is a simple string replacement (avoids importing strings package).
-func replaceAll(s, old, new string) string {
-	result := ""
-	for {
-		i := indexOf(s, old)
-		if i < 0 {
-			return result + s
-		}
-		result += s[:i] + new
-		s = s[i+len(old):]
-	}
-}
-
-// indexOf finds the first occurrence of substr in s.
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }
 
 // truncateMiddle truncates a string in the middle, keeping prefix and suffix.

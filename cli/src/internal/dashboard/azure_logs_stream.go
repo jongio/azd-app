@@ -13,6 +13,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/security"
 )
 
 // handleAzureLogsStream handles WebSocket streaming of Azure logs via polling.
@@ -20,6 +21,12 @@ import (
 func (s *Server) handleAzureLogsStream(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
 	realtimeParam := r.URL.Query().Get("realtime")
+
+	// Validate service name to prevent injection attacks
+	if err := security.ValidateServiceName(serviceName, true); err != nil {
+		BadRequest(w, "Invalid service name", nil)
+		return
+	}
 
 	realtime := false
 	if realtimeParam != "" {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -22,15 +23,18 @@ func writeJSON(w http.ResponseWriter, data interface{}) error {
 }
 
 // writeJSONError writes a JSON error response.
+// Internal error details are logged server-side but never exposed to clients
+// to prevent information disclosure (CWE-209).
 func writeJSONError(w http.ResponseWriter, statusCode int, message string, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
+	if err != nil {
+		log.Printf("API error [%d] %s: %v", statusCode, message, err)
+	}
+
 	response := map[string]string{
 		"error": message,
-	}
-	if err != nil {
-		response["details"] = err.Error()
 	}
 
 	_ = json.NewEncoder(w).Encode(response)

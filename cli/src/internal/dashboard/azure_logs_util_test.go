@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -59,55 +60,59 @@ func TestSubstituteQueryPlaceholders(t *testing.T) {
 	}
 }
 
-func TestReplaceAll(t *testing.T) {
+// TestStdlibReplaceAll verifies that strings.ReplaceAll (which replaced the custom replaceAll)
+// behaves correctly for the patterns used in this package.
+func TestStdlibReplaceAll(t *testing.T) {
 	tests := []struct {
 		name     string
 		s        string
 		old      string
-		new      string
+		newStr   string
 		expected string
 	}{
 		{
 			name:     "simple replacement",
 			s:        "hello world",
 			old:      "world",
-			new:      "universe",
+			newStr:   "universe",
 			expected: "hello universe",
 		},
 		{
 			name:     "multiple occurrences",
 			s:        "foo bar foo",
 			old:      "foo",
-			new:      "baz",
+			newStr:   "baz",
 			expected: "baz bar baz",
 		},
 		{
 			name:     "no match",
 			s:        "hello world",
 			old:      "xyz",
-			new:      "abc",
+			newStr:   "abc",
 			expected: "hello world",
 		},
 		{
 			name:     "replace with empty",
 			s:        "hello world",
 			old:      " world",
-			new:      "",
+			newStr:   "",
 			expected: "hello",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := replaceAll(tt.s, tt.old, tt.new)
+			result := strings.ReplaceAll(tt.s, tt.old, tt.newStr)
 			if result != tt.expected {
-				t.Errorf("replaceAll() = %v, want %v", result, tt.expected)
+				t.Errorf("strings.ReplaceAll() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestIndexOf(t *testing.T) {
+// TestStdlibIndex verifies that strings.Index (which replaced the custom indexOf)
+// behaves correctly for the patterns used in this package.
+func TestStdlibIndex(t *testing.T) {
 	tests := []struct {
 		name     string
 		s        string
@@ -154,9 +159,9 @@ func TestIndexOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := indexOf(tt.s, tt.substr)
+			result := strings.Index(tt.s, tt.substr)
 			if result != tt.expected {
-				t.Errorf("indexOf() = %v, want %v", result, tt.expected)
+				t.Errorf("strings.Index() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
