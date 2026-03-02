@@ -1,3 +1,8 @@
+## [0.13.0] - 2026-03-02
+
+- feat: adopt azdext SDK helpers — full extension framework migration (#145) (969c6956)
+- chore: update registry for v0.12.8 (849b37b1)
+
 ## [0.12.8] - 2026-02-28
 
 - fix: make azd app run work without azd environment (#151) (9e36bbf4)
