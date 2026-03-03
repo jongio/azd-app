@@ -1,3 +1,7 @@
+## [0.13.2] - 2026-03-03
+
+
+
 ## [0.13.0] - 2026-03-02
 
 - feat: adopt azdext SDK helpers — full extension framework migration (#145) (969c6956)
