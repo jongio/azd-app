@@ -23,7 +23,7 @@
 - Acceptance criteria: Unit tests pass; any integration tests that require network access are documented and skipped on Windows or isolated.
 
 ### 7. Add azd-core dependency
-- Description: Leverage the existing Go workspace (`go.work`) in `c:\code` so local development uses `azd-core` without `go.mod replace`. For CI, add a `require` and pin to a tagged `azd-core` version (workspace not used in CI).
+- Description: Use the existing Go workspace (`go.work`) in `c:\code` so local development uses `azd-core` without `go.mod replace`. For CI, add a `require` and pin to a tagged `azd-core` version (workspace not used in CI).
 - Acceptance criteria: Local builds succeed via workspace; CI configured to use a tagged version without replace.
 
 ### 9. Deferred: other core methods

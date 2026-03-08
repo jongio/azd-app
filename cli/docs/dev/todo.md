@@ -39,7 +39,7 @@ Using `DefaultAzureCredential` which relies on Azure CLI credentials from `azd a
 **Impact**
 - Azure Logs feature must use `DefaultAzureCredential` instead of native extension auth
 - Inconsistent credential handling between ARM calls and Log Analytics calls
-- Cannot leverage azd's token caching/refresh for non-ARM APIs
+- Cannot use azd's token caching/refresh for non-ARM APIs
 
 **Related Files**
 - `cli/src/internal/azure/credentials.go` - `NewLogAnalyticsCredential()` workaround
@@ -75,7 +75,7 @@ See [CLI Output Styling Research](../research/cli-output-styling.md) for detaile
 5. **Box Messages**: Use lipgloss borders for important notices
 
 **Implementation Phases**
-- Phase 1: Leverage existing lipgloss for badges and boxes (quick wins)
+- Phase 1: Use existing lipgloss for badges and boxes (quick wins)
 - Phase 2: Add go-pretty and spinner libraries
 - Phase 3: Standardize color palette and refactor output functions
 

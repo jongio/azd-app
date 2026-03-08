@@ -92,7 +92,7 @@ Without this test, we wouldn't validate:
 - Virtual environment automatic management
 
 ### Real-World Scenario
-Modern Python projects prefer Poetry for its superior dependency resolution, lockfile guarantees, and simplified dependency management. This test ensures Poetry-based projects work seamlessly.
+Modern Python projects prefer Poetry for its superior dependency resolution, lockfile guarantees, and simplified dependency management. This test ensures Poetry-based projects are supported.
 
 ## Test Matrix
 

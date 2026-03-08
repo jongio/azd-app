@@ -768,7 +768,7 @@ interface StatItem {
 const socialProofContent = {
   testimonials: [
     {
-      quote: "azd-app with Copilot integration is a game-changer. I fixed a production bug in 5 minutes that would have taken hours to diagnose.",
+      quote: "azd-app with Copilot integration is exactly what I needed. I fixed a production bug in 5 minutes that would have taken hours to diagnose.",
       author: "Sarah Chen",
       role: "Senior Developer",
       company: "Contoso",
@@ -804,8 +804,8 @@ const socialProofContent = {
 │                                                                                  │
 │  ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────┐ │
 │  │ "azd-app with Copilot   │ │ "The MCP server         │ │ "Finally, a local   │ │
-│  │  integration is a       │ │  integration means I    │ │  development        │ │
-│  │  game-changer..."       │ │  can just ask..."       │ │  experience..."     │ │
+│  │  integration is        │ │  integration means I    │ │  development        │ │
+│  │  exactly what I needed." │ │  can just ask..."       │ │  experience..."     │ │
 │  │                         │ │                         │ │                     │ │
 │  │  👤 Sarah Chen          │ │  👤 Marcus Johnson      │ │  👤 Priya Sharma    │ │
 │  │  Senior Developer       │ │  Platform Engineer      │ │  Tech Lead          │ │

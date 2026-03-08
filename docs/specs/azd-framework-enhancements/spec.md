@@ -38,7 +38,7 @@ The azure-dev project has introduced several significant enhancements to the ext
 1. **Enhance Observability**: Add distributed tracing to azd-exec and azd-app
 2. **Improve Error Handling**: Adopt structured error model across all extensions
 3. **Better Developer Experience**: Export debugger support, interactive mode
-4. **Leverage Event Context**: Utilize ServiceContext in azd-app lifecycle handlers
+4. **Use Event Context**: Utilize ServiceContext in azd-app lifecycle handlers
 5. **Improve Reliability**: Auto cleanup, duplicate prevention
 6. **Enable Extensibility**: Support additional properties for extension config
 
@@ -349,7 +349,7 @@ type ServiceContext struct {
 #### Changes Required
 
 **azd-app/cli/src/cmd/app/commands/listen.go**
-Update all service event handlers to leverage ServiceContext:
+Update all service event handlers to use ServiceContext:
 ```go
 .WithServiceEventHandler("postbuild", func(ctx context.Context, args *azdext.ServiceEventArgs) error {
     // Example: Analyze build artifacts
@@ -542,7 +542,7 @@ Enable azd-app dashboard and other interactive features to work properly when la
 azd-app dashboard runs as background process, may have issues with interactive azd commands.
 
 #### Enhancement
-Leverage the new interactive extension support for TUI features.
+Use the new interactive extension support for TUI features.
 
 #### Changes Required
 
@@ -757,7 +757,7 @@ func NewStartCommand() *cobra.Command {
 ### Alternative 1: Custom Tracing Solution
 **Pros:** Full control, no azd dependency  
 **Cons:** Reinventing the wheel, no correlation with azd traces  
-**Decision:** Rejected - leverage existing framework
+**Decision:** Rejected - use existing framework
 
 ### Alternative 2: Separate Config File (app-config.yaml)
 **Pros:** Clear separation, easier validation  

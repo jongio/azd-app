@@ -471,7 +471,7 @@ Packages: +5 -1
 
 azd-app already has excellent foundations with `fatih/color` and `charmbracelet/lipgloss`. To achieve pnpm/Astro-level polish:
 
-1. **Leverage lipgloss** for badges, boxes, and layouts
+1. **Use lipgloss** for badges, boxes, and layouts
 2. **Add go-pretty** for better tables
 3. **Add spinner library** for long operations
 4. **Standardize color palette** across all output

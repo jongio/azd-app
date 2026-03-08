@@ -1054,4 +1054,4 @@ This design provides a comprehensive testing framework for `azd app` that:
 5. **Scales efficiently** with parallel execution and caching
 6. **Maintains security** through proper input validation
 
-The implementation follows the existing patterns in the codebase and integrates seamlessly with the command orchestration system.
+The implementation follows the existing patterns in the codebase and integrates with the command orchestration system.

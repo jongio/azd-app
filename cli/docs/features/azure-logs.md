@@ -272,7 +272,7 @@ Every step provides copy-paste code snippets:
 
 ### Integration Points
 
-The setup guide integrates seamlessly with other dashboard features:
+The setup guide works with other dashboard features:
 
 - **ModeToggle**: Triggers setup guide when switching to Azure mode
 - **ConsoleView**: Shows "Setup Guide" button in Azure log errors

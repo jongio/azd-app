@@ -323,7 +323,7 @@ web/src/pages/reference/
 
 **Key Messages**:
 - "Monitor production without leaving your terminal"
-- "Bridge local development and Azure cloud seamlessly"
+- "Bridge local development and Azure cloud with a single command"
 - "Real-time insights from Container Apps, App Service, and Functions"
 - "No context switching between Azure Portal and local environment"
 

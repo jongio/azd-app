@@ -232,7 +232,7 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 <div align="center">
 
-### Ready to supercharge your local development?
+### Ready to get started?
 
 [**🌐 Get Started at jongio.github.io/azd-app →**](https://jongio.github.io/azd-app/)
 
