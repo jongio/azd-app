@@ -1,3 +1,9 @@
+## [0.13.3] - 2026-03-12
+
+- chore: update azd-core to v0.5.6 (#160) (e4b75781)
+- ci: optimize GitHub Actions workflows (#159) (c3e6d945)
+- chore: update registry for v0.13.2 (1dc0814b)
+
 ## [0.13.2] - 2026-03-03
 
 
