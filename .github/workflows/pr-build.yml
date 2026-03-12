@@ -30,7 +30,7 @@ defaults:
     working-directory: cli
 
 env:
-  GO_VERSION: '1.26.0'
+  GO_VERSION: '1.26.1'
 
 jobs:
   # Check if build should run
