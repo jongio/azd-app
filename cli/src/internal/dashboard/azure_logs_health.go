@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+const (
+	statusPass = "pass"
+	statusFail = "fail"
+	statusWarn = "warn"
+)
+
 // HealthCheckResponse represents the overall health check result.
 type HealthCheckResponse struct {
 	Status    string        `json:"status"`    // "healthy" | "degraded" | "error"
@@ -48,7 +54,7 @@ func (s *Server) handleAzureLogsHealth(w http.ResponseWriter, r *http.Request) {
 	response.Checks = append(response.Checks, servicesCheck)
 
 	// Check 4: Connectivity
-	connectivityCheck := s.checkConnectivity(workspaceCheck.Status == "pass")
+	connectivityCheck := s.checkConnectivity(workspaceCheck.Status == statusPass)
 	response.Checks = append(response.Checks, connectivityCheck)
 
 	// Compute overall status
@@ -66,7 +72,7 @@ func (s *Server) checkAuthentication() HealthCheck {
 	// Try to create credentials
 	cred, err := newLogAnalyticsCredential()
 	if err != nil {
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Message = "Azure credentials not available"
 		check.Fix = "azd auth login"
 		return check
@@ -78,13 +84,13 @@ func (s *Server) checkAuthentication() HealthCheck {
 
 	err = validateCredentials(ctx, cred)
 	if err != nil {
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Message = "Azure credentials invalid or expired"
 		check.Fix = "azd auth login"
 		return check
 	}
 
-	check.Status = "pass"
+	check.Status = statusPass
 	check.Message = "Azure credentials valid"
 	return check
 }
@@ -97,19 +103,19 @@ func (s *Server) checkWorkspaceID() HealthCheck {
 
 	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
 	if err != nil {
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Message = "Log Analytics workspace not configured"
 		check.Fix = "azd env refresh"
 		return check
 	}
 	if workspaceID == "" {
-		check.Status = "warn"
+		check.Status = statusWarn
 		check.Message = "No azd environment available; Azure log streaming unavailable"
 		check.Fix = "Run 'azd init' and 'azd provision' to enable Azure log streaming"
 		return check
 	}
 
-	check.Status = "pass"
+	check.Status = statusPass
 	check.Message = fmt.Sprintf("Workspace ID configured: %s", truncateMiddle(workspaceID, 20))
 	return check
 }
@@ -131,13 +137,13 @@ func (s *Server) checkServicesDeployed() HealthCheck {
 	}
 
 	if serviceCount == 0 {
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Message = "No deployed services found"
 		check.Fix = "azd up"
 		return check
 	}
 
-	check.Status = "pass"
+	check.Status = statusPass
 	check.Message = fmt.Sprintf("Found %d deployed service(s)", serviceCount)
 	return check
 }
@@ -149,21 +155,21 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 	}
 
 	if !hasWorkspace {
-		check.Status = "warn"
+		check.Status = statusWarn
 		check.Message = "Cannot verify connectivity without workspace ID"
 		return check
 	}
 
 	workspaceID, err := getWorkspaceIDFromEnv(context.Background())
 	if err != nil || workspaceID == "" {
-		check.Status = "warn"
+		check.Status = statusWarn
 		check.Message = "Cannot get workspace ID"
 		return check
 	}
 
 	cred, err := newLogAnalyticsCredential()
 	if err != nil {
-		check.Status = "warn"
+		check.Status = statusWarn
 		check.Message = "Cannot create credentials for connectivity test"
 		return check
 	}
@@ -173,13 +179,13 @@ func (s *Server) checkConnectivity(hasWorkspace bool) HealthCheck {
 	_, err = getOrCreateLogAnalyticsClient(ctx, cred, workspaceID)
 	if err != nil {
 		slog.Error("failed to create Log Analytics client", "error", err)
-		check.Status = "fail"
+		check.Status = statusFail
 		check.Message = "Failed to connect to Log Analytics"
 		check.Fix = "Check Azure subscription and permissions"
 		return check
 	}
 
-	check.Status = "pass"
+	check.Status = statusPass
 	check.Message = "Log Analytics client created successfully"
 	return check
 }
@@ -191,15 +197,15 @@ func (s *Server) computeOverallStatus(checks []HealthCheck) string {
 
 	for _, check := range checks {
 		switch check.Status {
-		case "fail":
+		case statusFail:
 			hasError = true
-		case "warn":
+		case statusWarn:
 			hasWarn = true
 		}
 	}
 
 	if hasError {
-		return "error"
+		return StatusError
 	}
 	if hasWarn {
 		return "degraded"

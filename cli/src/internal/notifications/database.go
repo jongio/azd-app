@@ -76,6 +76,8 @@ func NewDatabase(path string) (*Database, error) {
 
 // initialize creates database schema
 func (d *Database) initialize() error {
+	ctx := context.Background()
+
 	// Create table
 	tableSchema := `CREATE TABLE IF NOT EXISTS notifications (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +92,7 @@ func (d *Database) initialize() error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	)`
 
-	if _, err := d.db.Exec(tableSchema); err != nil {
+	if _, err := d.db.ExecContext(ctx, tableSchema); err != nil {
 		return fmt.Errorf("failed to create notifications table: %w", err)
 	}
 
@@ -103,7 +105,7 @@ func (d *Database) initialize() error {
 	}
 
 	for _, indexSQL := range indexes {
-		if _, err := d.db.Exec(indexSQL); err != nil {
+		if _, err := d.db.ExecContext(ctx, indexSQL); err != nil {
 			return fmt.Errorf("failed to create index: %w", err)
 		}
 	}

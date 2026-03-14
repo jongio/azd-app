@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"net"
 )
@@ -10,11 +11,17 @@ import (
 // the chosen port. Caller should Close() the listener when done.
 func ListenLoopback(port int) (net.Listener, int, error) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	listener, err := net.Listen("tcp", addr)
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return nil, 0, err
 	}
 	// Extract actual port (in case 0 was passed)
-	actual := listener.Addr().(*net.TCPAddr).Port
-	return listener, actual, nil
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = listener.Close()
+		return nil, 0, fmt.Errorf("listener addr has unexpected type %T", listener.Addr())
+	}
+
+	return listener, tcpAddr.Port, nil
 }

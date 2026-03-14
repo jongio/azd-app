@@ -10,6 +10,24 @@ import (
 	"github.com/jongio/azd-core/security"
 )
 
+const (
+	langJavaScript      = "javascript"
+	langPython          = "python"
+	langGolang          = "golang"
+	langCSharp          = "csharp"
+	langFSharp          = "fsharp"
+	testTypeUnit        = "unit"
+	testTypeIntegration = "integration"
+	testTypeE2E         = "e2e"
+	langTypeScript      = "typescript"
+	dirVendor           = "vendor"
+	dirBin              = "bin"
+	dirGit              = ".git"
+	dirPycache          = "__pycache__"
+	dirNodeModules      = "node_modules"
+	dirObj              = "obj"
+)
+
 // TestTypeDetector detects available test types in a service directory.
 type TestTypeDetector struct {
 	dir      string
@@ -58,17 +76,17 @@ func (d *TestTypeDetector) Detect() *DetectedTestTypes {
 func (d *TestTypeDetector) detectByDirectories(result *DetectedTestTypes) {
 	// Common directory names for each test type
 	unitDirs := []string{
-		"unit", "tests/unit", "test/unit", "__tests__/unit",
-		"src/__tests__/unit", "spec/unit", "Unit", "UnitTests",
+		testTypeUnit, "tests/" + testTypeUnit, "test/" + testTypeUnit, "__tests__/" + testTypeUnit,
+		"src/__tests__/" + testTypeUnit, "spec/" + testTypeUnit, "Unit", "UnitTests",
 	}
 	integrationDirs := []string{
-		"integration", "tests/integration", "test/integration",
-		"__tests__/integration", "spec/integration",
+		testTypeIntegration, "tests/" + testTypeIntegration, "test/" + testTypeIntegration,
+		"__tests__/" + testTypeIntegration, "spec/" + testTypeIntegration,
 		"Integration", "IntegrationTests",
 	}
 	e2eDirs := []string{
-		"e2e", "tests/e2e", "test/e2e", "__tests__/e2e",
-		"spec/e2e", "E2E", "EndToEnd", "end-to-end",
+		testTypeE2E, "tests/" + testTypeE2E, "test/" + testTypeE2E, "__tests__/" + testTypeE2E,
+		"spec/" + testTypeE2E, "E2E", "EndToEnd", "end-to-end",
 		"cypress", "playwright",
 	}
 
@@ -106,15 +124,15 @@ func (d *TestTypeDetector) detectByFilePatterns(result *DetectedTestTypes) {
 
 	_ = filepath.WalkDir(d.dir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 
 		// Skip directories
 		if entry.IsDir() {
 			// Skip node_modules, vendor, etc.
 			name := entry.Name()
-			if name == "node_modules" || name == "vendor" || name == ".git" ||
-				name == "bin" || name == "obj" || name == "__pycache__" {
+			if name == dirNodeModules || name == dirVendor || name == dirGit ||
+				name == dirBin || name == dirObj || name == dirPycache {
 				return filepath.SkipDir
 			}
 			return nil
@@ -161,7 +179,7 @@ type filePatterns struct {
 // getFilePatterns returns file patterns for the language.
 func (d *TestTypeDetector) getFilePatterns() filePatterns {
 	switch d.language {
-	case "js", "javascript", "typescript", "ts":
+	case "js", langJavaScript, langTypeScript, "ts":
 		return filePatterns{
 			Unit: []string{
 				`\.unit\.test\.(ts|tsx|js|jsx)$`,
@@ -185,7 +203,7 @@ func (d *TestTypeDetector) getFilePatterns() filePatterns {
 			},
 		}
 
-	case "python", "py":
+	case langPython, "py":
 		return filePatterns{
 			Unit: []string{
 				`test_unit.*\.py$`,
@@ -207,7 +225,7 @@ func (d *TestTypeDetector) getFilePatterns() filePatterns {
 			},
 		}
 
-	case "go", "golang":
+	case "go", langGolang:
 		return filePatterns{
 			Unit: []string{
 				`.*_unit_test\.go$`,
@@ -223,7 +241,7 @@ func (d *TestTypeDetector) getFilePatterns() filePatterns {
 			},
 		}
 
-	case "csharp", "dotnet", "fsharp", "cs", "fs":
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 		return filePatterns{
 			Unit: []string{
 				`.*unittests?\.cs$`,
@@ -253,14 +271,14 @@ func (d *TestTypeDetector) detectByMarkers(result *DetectedTestTypes) {
 
 	_ = filepath.WalkDir(d.dir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 
 		// Skip directories
 		if entry.IsDir() {
 			name := entry.Name()
-			if name == "node_modules" || name == "vendor" || name == ".git" ||
-				name == "bin" || name == "obj" || name == "__pycache__" {
+			if name == dirNodeModules || name == dirVendor || name == dirGit ||
+				name == dirBin || name == dirObj || name == dirPycache {
 				return filepath.SkipDir
 			}
 			return nil
@@ -273,14 +291,14 @@ func (d *TestTypeDetector) detectByMarkers(result *DetectedTestTypes) {
 
 		// Validate path before reading (security G304 fix)
 		if err := security.ValidatePath(path); err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 
 		// Read file content
 		// #nosec G304 -- Path validated by security.ValidatePath above
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 
 		contentStr := string(content)
@@ -326,7 +344,7 @@ type markerPatterns struct {
 // getMarkers returns test markers for the language.
 func (d *TestTypeDetector) getMarkers() markerPatterns {
 	switch d.language {
-	case "python", "py":
+	case langPython, "py":
 		return markerPatterns{
 			Unit: []string{
 				"@pytest.mark.unit",
@@ -344,7 +362,7 @@ func (d *TestTypeDetector) getMarkers() markerPatterns {
 			},
 		}
 
-	case "csharp", "dotnet", "fsharp", "cs", "fs":
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 		return markerPatterns{
 			Unit: []string{
 				`[Trait("Category", "Unit")]`,
@@ -364,7 +382,7 @@ func (d *TestTypeDetector) getMarkers() markerPatterns {
 			},
 		}
 
-	case "go", "golang":
+	case "go", langGolang:
 		return markerPatterns{
 			Unit: []string{
 				"// +build unit",
@@ -383,7 +401,7 @@ func (d *TestTypeDetector) getMarkers() markerPatterns {
 			},
 		}
 
-	case "js", "javascript", "typescript", "ts":
+	case "js", langJavaScript, langTypeScript, "ts":
 		return markerPatterns{
 			Unit: []string{
 				"describe.unit",
@@ -415,19 +433,19 @@ func (d *TestTypeDetector) isTestFile(filename string) bool {
 	lowFilename := strings.ToLower(filename)
 
 	switch d.language {
-	case "js", "javascript", "typescript", "ts":
+	case "js", langJavaScript, langTypeScript, "ts":
 		return strings.Contains(lowFilename, ".test.") ||
 			strings.Contains(lowFilename, ".spec.") ||
 			strings.Contains(lowFilename, "_test.")
 
-	case "python", "py":
+	case langPython, "py":
 		return strings.HasPrefix(lowFilename, "test_") ||
 			strings.HasSuffix(lowFilename, "_test.py")
 
-	case "go", "golang":
+	case "go", langGolang:
 		return strings.HasSuffix(lowFilename, "_test.go")
 
-	case "csharp", "dotnet", "fsharp", "cs", "fs":
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 		return strings.Contains(lowFilename, "test") &&
 			(strings.HasSuffix(lowFilename, ".cs") || strings.HasSuffix(lowFilename, ".fs"))
 
@@ -442,13 +460,13 @@ func (d *TestTypeDetector) GetAvailableTestTypes() []string {
 	types := make([]string, 0, 3)
 
 	if detected.HasUnit {
-		types = append(types, "unit")
+		types = append(types, testTypeUnit)
 	}
 	if detected.HasIntegration {
-		types = append(types, "integration")
+		types = append(types, testTypeIntegration)
 	}
 	if detected.HasE2E {
-		types = append(types, "e2e")
+		types = append(types, testTypeE2E)
 	}
 
 	// If no specific types detected, return "all"
@@ -483,19 +501,19 @@ func SuggestTestTypeConfig(dir, language string) *ServiceTestConfig {
 
 	if detected.HasUnit && len(detected.UnitPaths) > 0 {
 		config.Unit = &TestTypeConfig{
-			Pattern: getPatternForType("unit", language),
+			Pattern: getPatternForType(testTypeUnit, language),
 		}
 	}
 
 	if detected.HasIntegration && len(detected.IntegrationPaths) > 0 {
 		config.Integration = &TestTypeConfig{
-			Pattern: getPatternForType("integration", language),
+			Pattern: getPatternForType(testTypeIntegration, language),
 		}
 	}
 
 	if detected.HasE2E && len(detected.E2EPaths) > 0 {
 		config.E2E = &TestTypeConfig{
-			Pattern: getPatternForType("e2e", language),
+			Pattern: getPatternForType(testTypeE2E, language),
 		}
 	}
 
@@ -507,37 +525,37 @@ func getPatternForType(testType, language string) string {
 	lang := strings.ToLower(language)
 
 	switch testType {
-	case "unit":
+	case testTypeUnit:
 		switch lang {
-		case "go", "golang":
+		case "go", langGolang:
 			return "^TestUnit"
-		case "python", "py":
+		case langPython, "py":
 			return "test_unit"
-		case "js", "javascript", "typescript", "ts":
-			return "unit"
-		case "csharp", "dotnet", "fsharp", "cs", "fs":
+		case "js", langJavaScript, langTypeScript, "ts":
+			return testTypeUnit
+		case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 			return "Category=Unit"
 		}
-	case "integration":
+	case testTypeIntegration:
 		switch lang {
-		case "go", "golang":
+		case "go", langGolang:
 			return "^TestIntegration"
-		case "python", "py":
+		case langPython, "py":
 			return "test_integration"
-		case "js", "javascript", "typescript", "ts":
-			return "integration"
-		case "csharp", "dotnet", "fsharp", "cs", "fs":
+		case "js", langJavaScript, langTypeScript, "ts":
+			return testTypeIntegration
+		case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 			return "Category=Integration"
 		}
-	case "e2e":
+	case testTypeE2E:
 		switch lang {
-		case "go", "golang":
+		case "go", langGolang:
 			return "^TestE2E"
-		case "python", "py":
+		case langPython, "py":
 			return "test_e2e"
-		case "js", "javascript", "typescript", "ts":
-			return "e2e"
-		case "csharp", "dotnet", "fsharp", "cs", "fs":
+		case "js", langJavaScript, langTypeScript, "ts":
+			return testTypeE2E
+		case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 			return "Category=E2E"
 		}
 	}

@@ -243,13 +243,17 @@ func RunDotnet(ctx context.Context, project types.DotnetProject) error {
 	// For .sln files, we need to run from the directory
 	// For .csproj files, we can pass the path directly
 	args := []string{"run"}
-	dir := ""
+	var dir string
 
 	if filepath.Ext(project.Path) == ".sln" {
 		dir = filepath.Dir(project.Path)
 	} else {
 		args = append(args, "--project", project.Path)
-		dir, _ = os.Getwd()
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		dir = cwd
 	}
 
 	return executor.StartCommand(ctx, "dotnet", args, dir)
@@ -270,8 +274,7 @@ func RunFunctionApp(ctx context.Context, project types.FunctionAppProject, port 
 	}
 
 	// Variant-specific validation
-	switch project.Variant {
-	case "logicapps":
+	if project.Variant == "logicapps" {
 		workflowsPath := filepath.Join(project.Dir, "workflows")
 		if info, err := os.Stat(workflowsPath); err != nil || !info.IsDir() {
 			return fmt.Errorf("logic Apps project missing workflows/ directory")

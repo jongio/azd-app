@@ -66,15 +66,15 @@ func (r *GoTestRunner) buildTestCommand(testType string, coverage bool) (string,
 	if r.config != nil {
 		// Check if explicit command is configured
 		switch testType {
-		case "unit":
+		case testTypeUnit:
 			if r.config.Unit != nil && r.config.Unit.Command != "" {
 				return r.parseCommand(r.config.Unit.Command)
 			}
-		case "integration":
+		case testTypeIntegration:
 			if r.config.Integration != nil && r.config.Integration.Command != "" {
 				return r.parseCommand(r.config.Integration.Command)
 			}
-		case "e2e":
+		case testTypeE2E:
 			if r.config.E2E != nil && r.config.E2E.Command != "" {
 				return r.parseCommand(r.config.E2E.Command)
 			}
@@ -82,7 +82,7 @@ func (r *GoTestRunner) buildTestCommand(testType string, coverage bool) (string,
 	}
 
 	// Add test pattern filter for test type
-	if testType != "all" {
+	if testType != testFilterAll {
 		pattern := r.getTestPattern(testType)
 		if pattern != "" {
 			args = append(args, "-run", pattern)
@@ -107,21 +107,21 @@ func (r *GoTestRunner) getTestPattern(testType string) string {
 	var pattern string
 
 	switch testType {
-	case "unit":
+	case testTypeUnit:
 		if r.config != nil && r.config.Unit != nil && r.config.Unit.Pattern != "" {
 			pattern = r.config.Unit.Pattern
 		} else {
 			// Default: match tests that don't contain Integration or E2E
 			pattern = "^Test[^IE]|^Test$|^TestUnit"
 		}
-	case "integration":
+	case testTypeIntegration:
 		if r.config != nil && r.config.Integration != nil && r.config.Integration.Pattern != "" {
 			pattern = r.config.Integration.Pattern
 		} else {
 			// Default: match tests with Integration in name
 			pattern = "Integration"
 		}
-	case "e2e":
+	case testTypeE2E:
 		if r.config != nil && r.config.E2E != nil && r.config.E2E.Pattern != "" {
 			pattern = r.config.E2E.Pattern
 		} else {
@@ -251,7 +251,7 @@ func (r *GoTestRunner) HasTests() bool {
 	hasTests := false
 	_ = filepath.Walk(r.projectDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 		if !info.IsDir() && strings.HasSuffix(info.Name(), "_test.go") {
 			hasTests = true

@@ -11,6 +11,7 @@ import (
 // DiagnosticStatus represents the overall health status of a service's logging configuration.
 type DiagnosticStatus string
 
+// DiagnosticStatusHealthy and related constants define logging diagnostic outcomes for a service.
 const (
 	DiagnosticStatusHealthy       DiagnosticStatus = "healthy"        // Logs flowing correctly
 	DiagnosticStatusPartial       DiagnosticStatus = "partial"        // Configured but no logs
@@ -21,6 +22,7 @@ const (
 // RequirementStatus represents whether a specific requirement is met.
 type RequirementStatus string
 
+// RequirementStatusMet and related constants define whether a diagnostic requirement is satisfied.
 const (
 	RequirementStatusMet     RequirementStatus = "met"
 	RequirementStatusNotMet  RequirementStatus = "not-met"

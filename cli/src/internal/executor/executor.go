@@ -108,10 +108,12 @@ func StartCommandWithOutputMonitoring(ctx context.Context, name string, args []s
 	cliout.Newline()
 
 	// Wait for the command to complete (this blocks until the process exits or is killed)
-	if err := cmd.Wait(); err != nil {
-		// Ignore exit errors from Ctrl+C
+	waitErr := cmd.Wait()
+	if waitErr == nil {
 		return nil
 	}
-
-	return nil
+	if ctx.Err() != nil {
+		return nil //nolint:nilerr // context cancellation from Ctrl+C is expected when stopping the command
+	}
+	return waitErr
 }

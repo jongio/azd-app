@@ -620,6 +620,7 @@ const (
 // LogLevel represents the severity of a log message.
 type LogLevel int
 
+// LogLevelInfo and related constants define the severity levels used for service log entries.
 const (
 	LogLevelInfo LogLevel = iota
 	LogLevelWarn
@@ -662,10 +663,12 @@ type LogEntryWithContext struct {
 }
 
 // ErrorEntry is deprecated: use LogEntryWithContext instead.
+//
 // Deprecated: This type alias exists for backward compatibility.
 type ErrorEntry = LogEntryWithContext
 
 // ErrorContext is deprecated: use LogContext instead.
+//
 // Deprecated: This type alias exists for backward compatibility.
 type ErrorContext = LogContext
 

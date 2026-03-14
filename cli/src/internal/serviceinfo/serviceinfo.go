@@ -398,7 +398,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	}
 
 	// Convert map to slice
-	var result []*ServiceInfo
+	result := make([]*ServiceInfo, 0, len(serviceMap))
 	for _, svc := range serviceMap {
 		result = append(result, svc)
 	}

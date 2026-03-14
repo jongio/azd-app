@@ -109,7 +109,7 @@ func savePreferencesWithClient(client azdconfig.ConfigClient, prefs UserPreferen
 // HTTP Handlers
 
 // handleGetPreferences returns user preferences
-func (s *Server) handleGetPreferences(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetPreferences(w http.ResponseWriter, _ *http.Request) {
 	client := s.getOrCreateConfigClient()
 	prefs, err := loadPreferencesWithClient(client)
 	if err != nil {

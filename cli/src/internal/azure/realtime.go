@@ -34,8 +34,8 @@ const (
 // Implementations provide low-latency log streaming using service-specific APIs.
 type RealtimeLogStreamer interface {
 	// Start begins streaming logs. Logs are sent to the provided channel.
-	// The method blocks until the context is cancelled or an error occurs.
-	// Returns nil on graceful shutdown (context cancelled), error otherwise.
+	// The method blocks until the context is canceled or an error occurs.
+	// Returns nil on graceful shutdown (context canceled), error otherwise.
 	Start(ctx context.Context, logs chan<- LogEntry) error
 
 	// Stop gracefully stops the streamer.
@@ -105,16 +105,19 @@ func (b *baseStreamer) setConnected(connected bool) {
 	b.connected = connected
 }
 
+// IsConnected reports whether the streamer currently has an active connection.
 func (b *baseStreamer) IsConnected() bool {
 	b.connectedMu.RLock()
 	defer b.connectedMu.RUnlock()
 	return b.connected
 }
 
+// ServiceName returns the configured service name for the streamer.
 func (b *baseStreamer) ServiceName() string {
 	return b.config.ServiceName
 }
 
+// Stop closes the streamer stop channel and marks the streamer as disconnected.
 func (b *baseStreamer) Stop() error {
 	b.stopOnce.Do(func() {
 		close(b.stopCh)

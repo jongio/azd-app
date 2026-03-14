@@ -28,7 +28,7 @@ type mockDashboardClient struct {
 	logEntries        []service.LogEntry
 	azureLogs         []service.LogEntry
 	getAzureLogsErr   error
-	azureStatus       *service.AzureStatus
+	azureStatus       *service.AzureStatus //nolint:staticcheck // required by interface
 	getAzureStatusErr error
 }
 
@@ -60,12 +60,12 @@ func (m *mockDashboardClient) GetAzureLogs(ctx context.Context, services []strin
 	return m.azureLogs, nil
 }
 
-func (m *mockDashboardClient) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
+func (m *mockDashboardClient) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) { //nolint:staticcheck // required by interface
 	if m.getAzureStatusErr != nil {
 		return nil, m.getAzureStatusErr
 	}
 	if m.azureStatus == nil {
-		return &service.AzureStatus{Enabled: false}, nil
+		return &service.AzureStatus{Enabled: false}, nil //nolint:staticcheck // required by interface
 	}
 	return m.azureStatus, nil
 }

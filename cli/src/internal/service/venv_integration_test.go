@@ -3,6 +3,7 @@
 package service_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,7 +32,7 @@ func TestPythonVenvIntegration(t *testing.T) {
 	} else if _, err := exec.LookPath("python"); err == nil {
 		pythonCmd = "python"
 		// Verify it's actually Python and not a Windows Store stub
-		verifyCmd := exec.Command(pythonCmd, "--version")
+		verifyCmd := exec.CommandContext(context.Background(), pythonCmd, "--version")
 		if err := verifyCmd.Run(); err != nil {
 			t.Skipf("Python found but not functional: %v", err)
 		}
@@ -134,7 +135,7 @@ services:
 
 			// Create real venv
 			t.Logf("Creating virtual environment in %s", tmpDir)
-			venvCmd := exec.Command(pythonCmd, "-m", "venv", ".venv")
+			venvCmd := exec.CommandContext(context.Background(), pythonCmd, "-m", "venv", ".venv")
 			venvCmd.Dir = tmpDir
 			venvCmd.Stdout = os.Stdout
 			venvCmd.Stderr = os.Stderr
@@ -156,7 +157,7 @@ services:
 			// Install dependencies
 			t.Logf("Installing dependencies: %v", tt.dependencies)
 			installArgs := append([]string{"install", "--quiet"}, tt.dependencies...)
-			installCmd := exec.Command(pipPath, installArgs...)
+			installCmd := exec.CommandContext(context.Background(), pipPath, installArgs...)
 			installCmd.Dir = tmpDir
 			installCmd.Stdout = os.Stdout
 			installCmd.Stderr = os.Stderr
@@ -226,7 +227,7 @@ services:
 			// Verify the module is actually installed in venv
 			t.Logf("Verifying %s is installed in venv", tt.expectedModule)
 			venvPython := runtimeInfo.Command
-			checkCmd := exec.Command(venvPython, "-c", "import "+tt.expectedModule)
+			checkCmd := exec.CommandContext(context.Background(), venvPython, "-c", "import "+tt.expectedModule)
 			checkCmd.Dir = tmpDir
 			if err := checkCmd.Run(); err != nil {
 				t.Errorf("Module %s not importable from venv Python: %v", tt.expectedModule, err)
@@ -251,7 +252,7 @@ func TestPythonVenvFallback(t *testing.T) {
 		pythonCmd = "python3"
 	}
 
-	verifyCmd := exec.Command(pythonCmd, "--version")
+	verifyCmd := exec.CommandContext(context.Background(), pythonCmd, "--version")
 	if err := verifyCmd.Run(); err != nil {
 		t.Skipf("Python not available or not functional: %v", err)
 	}

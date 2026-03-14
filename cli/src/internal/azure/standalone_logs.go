@@ -24,6 +24,7 @@ const (
 	kqlWhere             = "| where %s\n"
 	kqlResourceIDFilter  = "_ResourceId contains '%s'"
 	azureDirName         = ".azure"
+	valTrue              = "true"
 )
 
 // StandaloneLogsConfig holds configuration for standalone Azure log fetching.
@@ -73,11 +74,11 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 	serviceNameMap := getServiceNameMap(projectDir)
 
 	// Debug: log service name mapping
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Service name map from environment: %v\n", serviceNameMap)
 	}
 
-	var services []ServiceInfo
+	services := make([]ServiceInfo, 0, len(config.Services))
 	for name, svc := range config.Services {
 		// Skip local-only services
 		if svc.Host == "local" || svc.Host == "" {
@@ -104,7 +105,7 @@ func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
 		}
 
 		// Debug: log each service mapping
-		if os.Getenv("AZD_APP_DEBUG") == "true" {
+		if os.Getenv("AZD_APP_DEBUG") == valTrue {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Service %s: host=%s, resourceType=%s, azureName=%s\n",
 				name, svc.Host, info.ResourceType, info.AzureName)
 		}
@@ -121,7 +122,7 @@ var serviceNameEnvRe = regexp.MustCompile(`^SERVICE_(.+)_NAME$`)
 
 // getServiceNameMap returns a map of azure.yaml service names to Azure resource names.
 // Uses environment variables directly since the azd extension framework provides them.
-func getServiceNameMap(projectDir string) map[string]string {
+func getServiceNameMap(_ string) map[string]string {
 	serviceNameMap := make(map[string]string)
 
 	// When running as an azd extension, all environment variables are already available
@@ -172,10 +173,10 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 			// Try auto-discovery
 			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx); err == nil && wasDiscovered {
 				workspaceID = discovered
-				if os.Getenv("AZD_APP_DEBUG") == "true" {
+				if os.Getenv("AZD_APP_DEBUG") == valTrue {
 					fmt.Fprintf(os.Stderr, "[DEBUG] Auto-discovered workspace ID: %s\n", workspaceID)
 				}
-			} else if err != nil && os.Getenv("AZD_APP_DEBUG") == "true" {
+			} else if err != nil && os.Getenv("AZD_APP_DEBUG") == valTrue {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Workspace discovery failed: %v\n", err)
 			}
 		}
@@ -258,7 +259,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	}
 
 	// Debug: log service grouping
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Target services: %v\n", targetServices)
 		fmt.Fprintf(os.Stderr, "[DEBUG] Services by type: %v\n", servicesByType)
 	}
@@ -284,7 +285,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 			if ctx.Err() == nil {
 				// Log error but continue with other resource types
 				slog.Warn("Query failed for resource type", "resourceType", resourceType, "error", err)
-				if os.Getenv("AZD_APP_DEBUG") == "true" {
+				if os.Getenv("AZD_APP_DEBUG") == valTrue {
 					fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
 				}
 			}
@@ -496,7 +497,7 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
 	}
 
 	// Try to discover workspace using az CLI
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Attempting to discover workspace in resource group: %s\n", resourceGroup)
 	}
 
@@ -519,7 +520,7 @@ func DiscoverAndStoreWorkspaceID(ctx context.Context) (string, bool, error) {
 		return "", false, fmt.Errorf("failed to store workspace ID: %w", err)
 	}
 
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Discovered and stored workspace ID: %s\n", workspaceID)
 	}
 
@@ -759,7 +760,7 @@ type StreamConfig struct {
 }
 
 // StreamAzureLogsStandalone streams Azure logs by polling Log Analytics.
-// Logs are sent to the provided channel. The function blocks until ctx is cancelled.
+// Logs are sent to the provided channel. The function blocks until ctx is canceled.
 // This enables `azd app logs -f --source azure` without requiring `azd app run`.
 func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs chan<- LogEntry) error {
 	// Get workspace ID from environment if not provided
@@ -773,10 +774,10 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 			// Try auto-discovery
 			if discovered, wasDiscovered, err := DiscoverAndStoreWorkspaceID(ctx); err == nil && wasDiscovered {
 				workspaceID = discovered
-				if os.Getenv("AZD_APP_DEBUG") == "true" {
+				if os.Getenv("AZD_APP_DEBUG") == valTrue {
 					fmt.Fprintf(os.Stderr, "[DEBUG] Auto-discovered workspace ID: %s\n", workspaceID)
 				}
-			} else if err != nil && os.Getenv("AZD_APP_DEBUG") == "true" {
+			} else if err != nil && os.Getenv("AZD_APP_DEBUG") == valTrue {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Workspace discovery failed: %v\n", err)
 			}
 		}
@@ -856,7 +857,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	if window <= 0 {
 		window = 1 * time.Hour
 	}
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Streaming initial window: %v\n", window)
 	}
 	lastSeen := time.Now().Add(-window)
@@ -867,7 +868,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	// Do initial fetch immediately
 	if err := fetchAndSendLogsMultiType(ctx, client, servicesByType, lastSeen, logs, &lastSeen); err != nil {
 		// Log error but continue - transient failures shouldn't stop streaming
-		if os.Getenv("AZD_APP_DEBUG") == "true" {
+		if os.Getenv("AZD_APP_DEBUG") == valTrue {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Initial fetch failed: %v\n", err)
 		}
 		// Don't return - continue to poll loop
@@ -882,7 +883,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 			if err := fetchAndSendLogsMultiType(ctx, client, servicesByType, lastSeen, logs, &lastSeen); err != nil {
 				// For streaming, we don't return on transient errors
 				// Just skip this poll cycle
-				if os.Getenv("AZD_APP_DEBUG") == "true" {
+				if os.Getenv("AZD_APP_DEBUG") == valTrue {
 					fmt.Fprintf(os.Stderr, "[DEBUG] Poll fetch failed: %v\n", err)
 				}
 				continue
@@ -892,7 +893,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 }
 
 // fetchAndSendLogsMultiType fetches logs from multiple resource types and sends them to the channel.
-func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, since time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
+func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, _ time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
 	// Use precise timestamp filtering instead of ago() to avoid duplicate fetches
 	// This queries: TimeGenerated > lastSeen instead of TimeGenerated > ago(Nm)
 
@@ -909,14 +910,14 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 		// Build query with timestamp-based filtering
 		query := buildTimestampQuery(resourceType, azureNames, *lastSeen)
 
-		if os.Getenv("AZD_APP_DEBUG") == "true" {
+		if os.Getenv("AZD_APP_DEBUG") == valTrue {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Streaming query for %s: %s\n", resourceType, strings.ReplaceAll(query, "\n", " | "))
 		}
 
 		// Query using custom query (bypasses ago() duration logic)
 		entries, err := client.QueryLogs(ctx, "", resourceType, 0, query)
 		if err != nil {
-			if os.Getenv("AZD_APP_DEBUG") == "true" {
+			if os.Getenv("AZD_APP_DEBUG") == valTrue {
 				fmt.Fprintf(os.Stderr, "[DEBUG] Query failed for %s: %v\n", resourceType, err)
 			}
 			errorCount++
@@ -936,7 +937,7 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 	// Sort by timestamp ascending for streaming (oldest first)
 	sortLogEntriesByTimeAsc(allEntries)
 
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Fetched %d total entries, lastSeen=%v\n", len(allEntries), lastSeen.Format(time.RFC3339))
 	}
 
@@ -955,12 +956,12 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 		}
 	}
 
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Sent %d entries to channel\n", sentCount)
 	}
 
 	// Fix 3: Last poll timestamp only shown in debug mode (was always shown, spamming stderr)
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] [%s] Last polled (sent %d entries)\n", time.Now().Format("15:04:05"), sentCount)
 	}
 

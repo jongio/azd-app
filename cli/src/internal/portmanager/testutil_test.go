@@ -248,7 +248,8 @@ func waitForPort(ctx context.Context, port int, timeout time.Duration) error {
 		default:
 		}
 
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 100*time.Millisecond)
+		dialer := net.Dialer{Timeout: 100 * time.Millisecond}
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err == nil {
 			_ = conn.Close()
 			return nil
@@ -346,10 +347,10 @@ func getNetstatOutput(port int) string {
 	var cmd *exec.Cmd
 
 	if runtime.GOOS == osWindows {
-		cmd = exec.Command("powershell", "-Command", fmt.Sprintf("netstat -ano | Select-String ':%d '", port))
+		cmd = exec.CommandContext(context.Background(), "powershell", "-Command", fmt.Sprintf("netstat -ano | Select-String ':%d '", port))
 	} else {
 		// Try ss first, then netstat
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("ss -tlnp 2>/dev/null | grep ':%d ' || netstat -tlnp 2>/dev/null | grep ':%d '", port, port))
+		cmd = exec.CommandContext(context.Background(), "sh", "-c", fmt.Sprintf("ss -tlnp 2>/dev/null | grep ':%d ' || netstat -tlnp 2>/dev/null | grep ':%d '", port, port))
 	}
 
 	output, err := cmd.Output()

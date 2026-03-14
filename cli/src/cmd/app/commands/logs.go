@@ -52,6 +52,8 @@ const (
 	// filterCapacityEstimate is the estimated match rate for level filtering.
 	// Assumes ~25% of logs match a specific level filter.
 	filterCapacityEstimate = 4
+	logLevelWarn           = "warn"
+	logLevelDebug          = "debug"
 )
 
 // DashboardClient defines the interface for dashboard operations needed by logs.
@@ -61,7 +63,7 @@ type DashboardClient interface {
 	GetServices(ctx context.Context) ([]*serviceinfo.ServiceInfo, error)
 	StreamLogs(ctx context.Context, serviceName string, logs chan<- service.LogEntry) error
 	GetAzureLogs(ctx context.Context, services []string, tail int, since time.Time) ([]service.LogEntry, error)
-	GetAzureStatus(ctx context.Context) (*service.AzureStatus, error)
+	GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) //nolint:staticcheck // backward-compatible API
 	StreamAzureLogs(ctx context.Context, logs chan<- service.LogEntry) error
 }
 
@@ -332,7 +334,7 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		cliout.Warning("%s", w)
 	}
 
-	if e.opts.source == "azure" && !e.opts.follow {
+	if e.opts.source == string(LogSourceAzure) && !e.opts.follow {
 		isEmpty := (!collected.HasContext && len(collected.Entries) == 0) ||
 			(collected.HasContext && len(collected.EntriesWithContext) == 0)
 		if isEmpty {
@@ -354,13 +356,13 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 
 	// Display logs
 	if collected.HasContext {
-		if e.opts.format == "json" {
+		if e.opts.format == jsonOutputVal {
 			displayLogsWithContextJSON(collected.EntriesWithContext, outputWriter)
 		} else {
 			displayLogsWithContextText(collected.EntriesWithContext, outputWriter, e.opts.timestamps, e.opts.noColor)
 		}
 	} else {
-		if e.opts.format == "json" {
+		if e.opts.format == jsonOutputVal {
 			displayLogsJSON(collected.Entries, outputWriter)
 		} else {
 			displayLogsText(collected.Entries, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -494,12 +496,12 @@ func (e *logsExecutor) collect(ctx context.Context, args []string) (*CollectedLo
 	// Get logs based on source option
 	var logs []service.LogEntry
 	switch e.opts.source {
-	case "azure":
+	case string(LogSourceAzure):
 		logs, err = e.collectAzureLogs(ctx, cwd, dashboardClient, targetServices, sinceTime, result)
 		if err != nil {
 			return nil, err
 		}
-	case "all":
+	case string(LogSourceAll):
 		logs, err = e.collectAllLogsQuiet(ctx, cwd, dashboardClient, targetServices, logManager, sinceTime, result)
 		if err != nil {
 			return nil, fmt.Errorf("failed to collect logs: %w", err)
@@ -555,7 +557,7 @@ func (e *logsExecutor) collect(ctx context.Context, args []string) (*CollectedLo
 
 // collectAllLogsQuiet collects logs from both local and Azure sources,
 // appending warnings to the CollectedLogs result instead of calling cliout.
-func (e *logsExecutor) collectAllLogsQuiet(ctx context.Context, cwd string, dashboardClient DashboardClient, targetServices []string, logManager LogManagerInterface, sinceTime time.Time, result *CollectedLogs) ([]service.LogEntry, error) {
+func (e *logsExecutor) collectAllLogsQuiet(ctx context.Context, cwd string, dashboardClient DashboardClient, targetServices []string, logManager LogManagerInterface, sinceTime time.Time, result *CollectedLogs) ([]service.LogEntry, error) { //nolint:unparam // return value kept for future use/interface conformance
 	var allLogs []service.LogEntry
 
 	// Collect local logs (requires dashboard)
@@ -647,7 +649,7 @@ func (e *logsExecutor) setupOutputWriter() (io.Writer, func(), error) {
 	// Ensure parent directory exists
 	outputDir := filepath.Dir(e.opts.file)
 	if outputDir != "" && outputDir != "." {
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			return nil, nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
 	}
@@ -866,11 +868,11 @@ func logLevelToString(level service.LogLevel) string {
 	case service.LogLevelInfo:
 		return "info"
 	case service.LogLevelWarn:
-		return "warn"
+		return logLevelWarn
 	case service.LogLevelError:
-		return "error"
+		return statusError
 	case service.LogLevelDebug:
-		return "debug"
+		return logLevelDebug
 	default:
 		return "info"
 	}
@@ -958,9 +960,9 @@ func (e *logsExecutor) shouldDisplayEntry(entry service.LogEntry, levelFilter se
 func (e *logsExecutor) followLogs(ctx context.Context, projectDir string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Handle source-specific follow modes
 	switch e.opts.source {
-	case "azure":
+	case string(LogSourceAzure):
 		return e.followAzureLogs(ctx, dashboardClient, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
-	case "all":
+	case string(LogSourceAll):
 		return e.followAllLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
 	default: // "local"
 		return e.followLocalLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
@@ -968,7 +970,7 @@ func (e *logsExecutor) followLogs(ctx context.Context, projectDir string, logMan
 }
 
 // followLocalLogs subscribes to local log streams and displays them.
-func (e *logsExecutor) followLocalLogs(ctx context.Context, projectDir string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followLocalLogs(ctx context.Context, _ string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Try in-memory subscriptions first
 	subscriptions := make(map[string]chan service.LogEntry)
 
@@ -1009,7 +1011,7 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 
 	cliout.Info("Streaming logs from dashboard...")
 
-	// Create context for streaming that can be cancelled
+	// Create context for streaming that can be canceled
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -1056,7 +1058,7 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 			}
 
 			// Display log entry
-			if e.opts.format == "json" {
+			if e.opts.format == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -1147,7 +1149,7 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 			}
 
 			// Display log entry
-			if e.opts.format == "json" {
+			if e.opts.format == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -1194,7 +1196,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 
 	cliout.Info("Streaming Azure logs (polling every 30s)...")
 
-	// Create context for streaming that can be cancelled
+	// Create context for streaming that can be canceled
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -1239,7 +1241,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 			}
 
 			// Display log entry
-			if e.opts.format == "json" {
+			if e.opts.format == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -1262,7 +1264,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir string, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	cliout.Info("Streaming Azure logs (standalone, polling)...")
 
-	// Create context for streaming that can be cancelled
+	// Create context for streaming that can be canceled
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -1328,7 +1330,7 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 				continue
 			}
 
-			if e.opts.format == "json" {
+			if e.opts.format == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -1348,7 +1350,7 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 }
 
 // followAllLogs streams logs from both local and Azure sources.
-func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, _ LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	if dashboardClient == nil {
 		cliout.Warning("Dashboard not running; following Azure logs only.")
 		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
@@ -1362,7 +1364,7 @@ func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, log
 
 	cliout.Info("Streaming logs from local and Azure sources...")
 
-	// Create context for streaming that can be cancelled
+	// Create context for streaming that can be canceled
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -1452,7 +1454,7 @@ func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, log
 			}
 
 			// Display log entry
-			if e.opts.format == "json" {
+			if e.opts.format == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -1508,7 +1510,8 @@ func readLogsFromFile(projectDir, serviceName string, tail int, sinceTime time.T
 
 // readSingleLogFile reads log entries from a single log file.
 func readSingleLogFile(logFile, serviceName string, sinceTime time.Time) ([]service.LogEntry, error) {
-	file, err := os.Open(logFile)
+	cleanLogFile := filepath.Clean(logFile)
+	file, err := os.Open(cleanLogFile)
 	if err != nil {
 		return nil, err
 	}
@@ -1732,9 +1735,9 @@ func displayLogsWithContextText(logs []LogEntryWithContext, w io.Writer, showTim
 			switch entry.Level {
 			case "error":
 				line.WriteString(colorRed + entry.Message + colorReset)
-			case "warn":
+			case logLevelWarn:
 				line.WriteString(colorYellow + entry.Message + colorReset)
-			case "debug":
+			case logLevelDebug:
 				line.WriteString(colorGray + entry.Message + colorReset)
 			default:
 				line.WriteString(entry.Message)
@@ -1764,11 +1767,11 @@ func parseLogLevel(level string) service.LogLevel {
 	switch strings.ToLower(level) {
 	case "info":
 		return service.LogLevelInfo
-	case "warn", "warning":
+	case logLevelWarn, "warning":
 		return service.LogLevelWarn
 	case "error":
 		return service.LogLevelError
-	case "debug":
+	case logLevelDebug:
 		return service.LogLevelDebug
 	case "all":
 		return LogLevelAll
@@ -1799,6 +1802,7 @@ func filterLogsByLevel(logs []service.LogEntry, level service.LogLevel) []servic
 
 // buildLogFilter creates a log filter from options and azure.yaml config.
 // This is a test helper function that wraps buildLogFilterInternal.
+//
 // Deprecated: Use executor.buildLogFilterInternal directly in new code.
 func buildLogFilter(cwd string, exclude string, noBuiltins bool) (*service.LogFilter, error) {
 	var customPatterns []string
@@ -1848,7 +1852,7 @@ func validateLogsOptions(opts *logsOptions) error {
 
 	// Validate format
 	switch opts.format {
-	case "text", "json":
+	case "text", jsonOutputVal:
 		// Valid formats
 	default:
 		return fmt.Errorf("--format must be 'text' or 'json', got '%s'", opts.format)
@@ -1856,7 +1860,7 @@ func validateLogsOptions(opts *logsOptions) error {
 
 	// Validate level
 	switch strings.ToLower(opts.level) {
-	case "info", "warn", "warning", "error", "debug", "all":
+	case "info", logLevelWarn, "warning", "error", logLevelDebug, "all":
 		// Valid levels
 	default:
 		return fmt.Errorf("--level must be one of: info, warn, error, debug, all; got '%s'", opts.level)
@@ -1887,12 +1891,12 @@ func validateLogsOptions(opts *logsOptions) error {
 
 	// Validate source
 	switch strings.ToLower(opts.source) {
-	case "local", "azure", "all":
+	case string(LogSourceLocal), string(LogSourceAzure), string(LogSourceAll):
 		// Valid sources - normalize to lowercase
 		opts.source = strings.ToLower(opts.source)
 	case "":
 		// Default to local if not specified
-		opts.source = "local"
+		opts.source = string(LogSourceLocal)
 	default:
 		return fmt.Errorf("--source must be 'local', 'azure', or 'all'; got '%s'", opts.source)
 	}

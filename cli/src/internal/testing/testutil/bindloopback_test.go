@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"net"
 	"testing"
 	"time"
@@ -31,7 +32,8 @@ func TestListenLoopback(t *testing.T) {
 	deadline := time.Now().Add(500 * time.Millisecond)
 	var conn net.Conn
 	for time.Now().Before(deadline) {
-		conn, err = net.Dial("tcp", listener.Addr().String())
+		dialer := net.Dialer{}
+		conn, err = dialer.DialContext(context.Background(), "tcp", listener.Addr().String())
 		if err == nil {
 			_ = conn.Close()
 			return

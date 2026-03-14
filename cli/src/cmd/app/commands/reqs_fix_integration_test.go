@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -327,7 +328,7 @@ func TestReqsFixIntegration_CacheClearing(t *testing.T) {
 
 // Helper functions
 
-func buildTestTool(t *testing.T, targetDir string) string {
+func buildTestTool(t *testing.T, targetDir string) string { //nolint:unparam // return value kept for future use in integration tests
 	t.Helper()
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
@@ -347,7 +348,7 @@ func buildTestTool(t *testing.T, targetDir string) string {
 	}
 	exePath := filepath.Join(targetDir, exeName)
 
-	cmd := exec.Command("go", "build", "-o", exePath, sourcePath)
+	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", exePath, sourcePath)
 	cmd.Dir = targetDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -371,7 +372,7 @@ func addToUserPATH(t *testing.T, dir string) {
 	}
 
 	// Read current User PATH from registry
-	cmd := exec.Command("powershell", "-Command",
+	cmd := exec.CommandContext(context.Background(), "powershell", "-Command",
 		"[Environment]::GetEnvironmentVariable('Path', 'User')")
 	output, err := cmd.Output()
 	if err != nil {
@@ -386,7 +387,7 @@ func addToUserPATH(t *testing.T, dir string) {
 
 	// Add to User PATH
 	newPath := currentPath + ";" + dir
-	cmd = exec.Command("powershell", "-Command",
+	cmd = exec.CommandContext(context.Background(), "powershell", "-Command",
 		fmt.Sprintf("[Environment]::SetEnvironmentVariable('Path', '%s', 'User')", newPath))
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add to User PATH: %v", err)
@@ -403,7 +404,7 @@ func cleanupUserPATH(t *testing.T, dir string) {
 	}
 
 	// Read current User PATH
-	cmd := exec.Command("powershell", "-Command",
+	cmd := exec.CommandContext(context.Background(), "powershell", "-Command",
 		"[Environment]::GetEnvironmentVariable('Path', 'User')")
 	output, err := cmd.Output()
 	if err != nil {
@@ -421,7 +422,7 @@ func cleanupUserPATH(t *testing.T, dir string) {
 	newPath = strings.ReplaceAll(newPath, dir+";", "")
 	newPath = strings.ReplaceAll(newPath, dir, "")
 
-	cmd = exec.Command("powershell", "-Command",
+	cmd = exec.CommandContext(context.Background(), "powershell", "-Command",
 		fmt.Sprintf("[Environment]::SetEnvironmentVariable('Path', '%s', 'User')", newPath))
 	if err := cmd.Run(); err != nil {
 		t.Logf("Warning: Failed to remove from User PATH: %v", err)

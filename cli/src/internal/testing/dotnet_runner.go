@@ -13,6 +13,14 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
+const (
+	testFilterAll           = "all"
+	dotnetCommand           = "dotnet"
+	testCategoryUnit        = "Category=Unit"
+	testCategoryIntegration = "Category=Integration"
+	testCategoryE2E         = "Category=E2E"
+)
+
 // DotnetTestRunner runs tests for .NET projects.
 type DotnetTestRunner struct {
 	projectDir string
@@ -66,15 +74,15 @@ func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (str
 	if r.config != nil {
 		// Check if explicit command is configured
 		switch testType {
-		case "unit":
+		case testTypeUnit:
 			if r.config.Unit != nil && r.config.Unit.Command != "" {
 				return r.parseCommand(r.config.Unit.Command)
 			}
-		case "integration":
+		case testTypeIntegration:
 			if r.config.Integration != nil && r.config.Integration.Command != "" {
 				return r.parseCommand(r.config.Integration.Command)
 			}
-		case "e2e":
+		case testTypeE2E:
 			if r.config.E2E != nil && r.config.E2E.Command != "" {
 				return r.parseCommand(r.config.E2E.Command)
 			}
@@ -89,7 +97,7 @@ func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (str
 	}
 
 	// Add filter for test type
-	if testType != "all" {
+	if testType != testFilterAll {
 		filter := r.getTestFilter(testType)
 		if filter != "" {
 			args = append(args, "--filter", filter)
@@ -104,7 +112,7 @@ func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (str
 	// Add logger for better output
 	args = append(args, "--logger", "console;verbosity=normal")
 
-	return "dotnet", args
+	return dotnetCommand, args
 }
 
 // getTestFilter returns the test filter expression for the test type.
@@ -112,26 +120,26 @@ func (r *DotnetTestRunner) getTestFilter(testType string) string {
 	var filter string
 
 	switch testType {
-	case "unit":
+	case testTypeUnit:
 		if r.config != nil && r.config.Unit != nil && r.config.Unit.Filter != "" {
 			filter = r.config.Unit.Filter
 		} else {
 			// Default unit test filter
-			filter = "Category=Unit"
+			filter = testCategoryUnit
 		}
-	case "integration":
+	case testTypeIntegration:
 		if r.config != nil && r.config.Integration != nil && r.config.Integration.Filter != "" {
 			filter = r.config.Integration.Filter
 		} else {
 			// Default integration test filter
-			filter = "Category=Integration"
+			filter = testCategoryIntegration
 		}
-	case "e2e":
+	case testTypeE2E:
 		if r.config != nil && r.config.E2E != nil && r.config.E2E.Filter != "" {
 			filter = r.config.E2E.Filter
 		} else {
 			// Default E2E test filter
-			filter = "Category=E2E"
+			filter = testCategoryE2E
 		}
 	}
 
@@ -175,7 +183,7 @@ func (r *DotnetTestRunner) findTestProjects() []string {
 func (r *DotnetTestRunner) parseCommand(cmdStr string) (string, []string) {
 	parts := ParseCommandString(cmdStr)
 	if len(parts) == 0 {
-		return "dotnet", []string{"test"}
+		return dotnetCommand, []string{"test"}
 	}
 	if len(parts) == 1 {
 		return parts[0], []string{}

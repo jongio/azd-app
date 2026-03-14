@@ -224,7 +224,8 @@ func findAzureYamlForAdd() (string, error) {
 }
 
 func serviceExistsInYaml(path string, serviceName string) (bool, error) {
-	data, err := os.ReadFile(path)
+	cleanPath := filepath.Clean(path)
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return false, err
 	}
@@ -266,7 +267,8 @@ func serviceExistsInYaml(path string, serviceName string) (bool, error) {
 
 func addServiceToYaml(path string, serviceName string, def *wellknown.ServiceDefinition) error {
 	// Read file
-	data, err := os.ReadFile(path)
+	cleanPath := filepath.Clean(path)
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return err
 	}

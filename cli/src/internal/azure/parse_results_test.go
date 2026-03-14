@@ -268,7 +268,7 @@ func createMockLogsResponse(rows []mockRow) azlogs.QueryWorkspaceResponse {
 	}
 
 	// Convert rows to interface slices
-	var rowData []azlogs.Row
+	rowData := make([]azlogs.Row, 0, len(rows))
 	for _, r := range rows {
 		row := azlogs.Row{
 			r.TimeGenerated,
@@ -312,7 +312,7 @@ func createMockLogsResponseWithoutSource(rows []mockRowNoSource) azlogs.QueryWor
 		{Name: &levelCol, Type: &typeStr},
 	}
 
-	var rowData []azlogs.Row
+	rowData := make([]azlogs.Row, 0, len(rows))
 	for _, r := range rows {
 		row := azlogs.Row{
 			r.TimeGenerated,
@@ -352,7 +352,7 @@ func createMockLogsResponseWithNullSource(rows []mockRowNullSource) azlogs.Query
 		{Name: &levelCol, Type: &typeStr},
 	}
 
-	var rowData []azlogs.Row
+	rowData := make([]azlogs.Row, 0, len(rows))
 	for _, r := range rows {
 		row := azlogs.Row{
 			r.TimeGenerated,

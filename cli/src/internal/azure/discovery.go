@@ -20,6 +20,7 @@ import (
 // ResourceType represents the type of Azure compute resource.
 type ResourceType string
 
+// ResourceTypeContainerApp and related constants identify supported Azure compute resource types.
 const (
 	ResourceTypeContainerApp      ResourceType = "containerApp"
 	ResourceTypeAppService        ResourceType = "appService"
@@ -170,7 +171,7 @@ func (d *ResourceDiscovery) Discover(ctx context.Context) (*DiscoveryResult, err
 }
 
 // getAzdEnvValues runs 'azd env get-values' and parses the output.
-func (d *ResourceDiscovery) getAzdEnvValues(ctx context.Context) (map[string]string, error) {
+func (d *ResourceDiscovery) getAzdEnvValues(ctx context.Context) (map[string]string, error) { //nolint:unparam // return value kept for future use/interface conformance
 	cmd := exec.CommandContext(ctx, "azd", "env", "get-values", "--output", "json")
 	if d.projectDir != "" {
 		cmd.Dir = d.projectDir

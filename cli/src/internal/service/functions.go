@@ -284,7 +284,7 @@ func detectFunctionsLanguage(variant FunctionsVariant, projectDir string) (strin
 	case FunctionsVariantNodeJS:
 		// Check if it's TypeScript
 		if fileExists(projectDir, "tsconfig.json") {
-			return "TypeScript", nil
+			return langTypeScript, nil
 		}
 		return "JavaScript", nil
 

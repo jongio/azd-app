@@ -7,7 +7,6 @@ import (
 
 const (
 	testServiceName       = "test-service"
-	testTimespan          = "30m"
 	testMyApp             = "my-app"
 	nonEmptyQueryMessage  = "Build should return non-empty query"
 	orderByTimeDescending = "order by TimeGenerated desc"
@@ -22,8 +21,8 @@ func TestNewQueryBuilder(t *testing.T) {
 	if qb.serviceName != "test-service" {
 		t.Errorf("serviceName = %q, want %q", qb.serviceName, "test-service")
 	}
-	if qb.timespan != "30m" {
-		t.Errorf("timespan = %q, want %q", qb.timespan, "30m")
+	if qb.timespan != testTimespan {
+		t.Errorf("timespan = %q, want %q", qb.timespan, testTimespan)
 	}
 	if len(qb.tables) != 0 {
 		t.Errorf("tables should be empty, got %d tables", len(qb.tables))
@@ -31,7 +30,7 @@ func TestNewQueryBuilder(t *testing.T) {
 }
 
 func TestQueryBuilder_WithTables(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m")
+	qb := NewQueryBuilder("test-service", testTimespan)
 	tables := []string{"ContainerAppConsoleLogs_CL", "AppServiceConsoleLogs"}
 
 	result := qb.WithTables(tables)
@@ -48,7 +47,7 @@ func TestQueryBuilder_WithTables(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_EmptyTables(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m")
+	qb := NewQueryBuilder("test-service", testTimespan)
 
 	query := qb.Build()
 
@@ -58,7 +57,7 @@ func TestQueryBuilder_Build_EmptyTables(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_SingleTable(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m").
+	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL"})
 
 	query := qb.Build()
@@ -105,7 +104,7 @@ func TestQueryBuilder_Build_SingleTable_NoServiceFilter(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_MultipleTablesUnion(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m").
+	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL", "ContainerAppSystemLogs_CL"})
 
 	query := qb.Build()
@@ -188,7 +187,7 @@ func TestGetMessageColumn(t *testing.T) {
 }
 
 func TestGetProjectColumns(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m")
+	qb := NewQueryBuilder("test-service", testTimespan)
 
 	// Test with known table
 	columns := qb.getProjectColumns("ContainerAppConsoleLogs_CL")
@@ -247,7 +246,7 @@ func TestBuildQueryFromTables(t *testing.T) {
 
 func TestBuildQueryFromTables_MultipleServices(t *testing.T) {
 	tables := []string{"AppServiceConsoleLogs", "AppServiceHTTPLogs"}
-	query := BuildQueryFromTables(tables, "my-app", "30m")
+	query := BuildQueryFromTables(tables, "my-app", testTimespan)
 
 	if query == "" {
 		t.Fatal("BuildQueryFromTables should return non-empty query")
@@ -276,7 +275,7 @@ func TestSubstitutePlaceholders(t *testing.T) {
 			name:        "Replace service name",
 			query:       "MyTable | where Service == '{serviceName}'",
 			serviceName: "test-service",
-			timespan:    "30m",
+			timespan:    testTimespan,
 			wantContain: []string{"test-service"},
 		},
 		{
@@ -297,7 +296,7 @@ func TestSubstitutePlaceholders(t *testing.T) {
 			name:        "No placeholders",
 			query:       "MyTable | project TimeGenerated, Message",
 			serviceName: "test-service",
-			timespan:    "30m",
+			timespan:    testTimespan,
 			wantContain: []string{"MyTable", "TimeGenerated", "Message"},
 		},
 	}
@@ -327,7 +326,7 @@ func TestSubstitutePlaceholders_SanitizeServiceName(t *testing.T) {
 	// Service names should be sanitized to prevent KQL injection
 	query := "MyTable | where Service == '{serviceName}'"
 	serviceName := "test'; drop table--"
-	timespan := "30m"
+	timespan := testTimespan
 
 	result := SubstitutePlaceholders(query, serviceName, timespan)
 
@@ -390,7 +389,7 @@ func TestQueryBuilder_Build_DifferentResourceTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			qb := NewQueryBuilder(tt.serviceName, "30m").
+			qb := NewQueryBuilder(tt.serviceName, testTimespan).
 				WithTables([]string{tt.table})
 
 			query := qb.Build()
@@ -403,7 +402,7 @@ func TestQueryBuilder_Build_DifferentResourceTypes(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_ResultLimit(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m").
+	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL"})
 
 	query := qb.Build()
@@ -415,7 +414,7 @@ func TestQueryBuilder_Build_ResultLimit(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_TimeOrdering(t *testing.T) {
-	qb := NewQueryBuilder("test-service", "30m").
+	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL"})
 
 	query := qb.Build()

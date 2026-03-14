@@ -23,13 +23,13 @@ func FindDotnetProjects(rootDir string) ([]types.DotnetProject, error) {
 
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 
 		// Ensure we don't traverse outside rootDir
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 		relPath, err := filepath.Rel(rootDir, absPath)
 		if err != nil || strings.HasPrefix(relPath, "..") {
@@ -93,7 +93,7 @@ func FindAppHost(rootDir string) (*types.AspireProject, error) {
 		// Ensure we don't traverse outside rootDir
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 		relPath, err := filepath.Rel(rootDir, absPath)
 		if err != nil || strings.HasPrefix(relPath, "..") {
@@ -113,7 +113,7 @@ func FindAppHost(rootDir string) (*types.AspireProject, error) {
 			dir := filepath.Dir(path)
 			matches, err := filepath.Glob(filepath.Join(dir, "*.csproj"))
 			if err != nil {
-				return nil // Skip on error
+				return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 			}
 			if len(matches) > 0 {
 				aspireProject = &types.AspireProject{

@@ -75,11 +75,17 @@ func ValidateServiceName(name string) error {
 // Thread-safe via sync.Map.
 var timeCache sync.Map
 
+const severityWarning = "warning"
+
 // parseTimeCached parses a time string with caching.
 // Returns the parsed time or an error if the format is invalid.
 func parseTimeCached(timeStr string) (time.Time, error) {
 	if cached, ok := timeCache.Load(timeStr); ok {
-		return cached.(time.Time), nil
+		parsed, parsedOK := cached.(time.Time)
+		if !parsedOK {
+			return time.Time{}, fmt.Errorf("cached time for %q has unexpected type %T", timeStr, cached)
+		}
+		return parsed, nil
 	}
 
 	parsed, err := time.Parse("15:04", timeStr)
@@ -208,10 +214,10 @@ func GetGlobalNotificationPreferences() *NotificationPreferences {
 func (p *NotificationPreferences) Validate() error {
 	// Validate severity filter
 	validSeverities := map[string]bool{
-		"critical": true,
-		"warning":  true,
-		"info":     true,
-		"all":      true,
+		"critical":      true,
+		severityWarning: true,
+		"info":          true,
+		"all":           true,
 	}
 	if !validSeverities[p.SeverityFilter] {
 		return fmt.Errorf("invalid severity filter: %s (must be critical, warning, info, or all)", p.SeverityFilter)
@@ -335,10 +341,10 @@ func (p *NotificationPreferences) ShouldNotify(serviceName string, severity stri
 	switch p.SeverityFilter {
 	case "critical":
 		return severity == "critical"
-	case "warning":
-		return severity == "critical" || severity == "warning"
+	case severityWarning:
+		return severity == "critical" || severity == severityWarning
 	case "info":
-		return severity == "critical" || severity == "warning" || severity == "info"
+		return severity == "critical" || severity == severityWarning || severity == "info"
 	case "all":
 		return true
 	default:

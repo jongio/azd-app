@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -333,10 +334,10 @@ func TestPerformHealthCheck_ProcessType(t *testing.T) {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		// On Windows, use ping with count to wait
-		cmd = exec.Command("ping", "-n", "10", "127.0.0.1")
+		cmd = exec.CommandContext(context.Background(), "ping", "-n", "10", "127.0.0.1")
 	} else {
 		// On Unix, use sleep
-		cmd = exec.Command("sleep", "5")
+		cmd = exec.CommandContext(context.Background(), "sleep", "5")
 	}
 
 	if err := cmd.Start(); err != nil {

@@ -132,7 +132,7 @@ func (v *FunctionValidator) Validate(ctx context.Context, serviceName string, re
 }
 
 // checkApplicationInsights checks if Application Insights is configured in the environment.
-func (v *FunctionValidator) checkApplicationInsights(ctx context.Context, serviceName string) (bool, error) {
+func (v *FunctionValidator) checkApplicationInsights(ctx context.Context, _ string) (bool, error) {
 	// Run azd env get-values to check for APPLICATIONINSIGHTS_CONNECTION_STRING
 	cmd := exec.CommandContext(ctx, "azd", "env", "get-values")
 	if v.projectDir != "" {
@@ -149,7 +149,7 @@ func (v *FunctionValidator) checkApplicationInsights(ctx context.Context, servic
 }
 
 // checkDiagnosticSettings checks if diagnostic settings are configured for the Function App.
-func (v *FunctionValidator) checkDiagnosticSettings(ctx context.Context, resourceID string) (bool, error) {
+func (v *FunctionValidator) checkDiagnosticSettings(ctx context.Context, resourceID string) (bool, error) { //nolint:unparam // return value kept for future use/interface conformance
 	checker := &DiagnosticSettingsChecker{
 		credential: v.credential,
 		projectDir: v.projectDir,
@@ -160,7 +160,7 @@ func (v *FunctionValidator) checkDiagnosticSettings(ctx context.Context, resourc
 }
 
 // generateSetupGuide creates a setup guide for Azure Functions.
-func (v *FunctionValidator) generateSetupGuide(serviceName string, resource *AzureResource, hasAppInsights bool, hasLogs bool) *SetupGuide {
+func (v *FunctionValidator) generateSetupGuide(serviceName string, _ *AzureResource, hasAppInsights bool, hasLogs bool) *SetupGuide {
 	if hasLogs {
 		return nil
 	}

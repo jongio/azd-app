@@ -1,6 +1,7 @@
 package portmanager
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"log/slog"
@@ -47,7 +48,8 @@ func (pm *PortManager) ReservePort(port int) (*PortReservation, error) {
 	// Use just ":port" to let Go choose the appropriate address family
 	// This typically creates a dual-stack listener that binds both IPv4 and IPv6
 	addr := fmt.Sprintf(":%d", port)
-	listener, err := net.Listen("tcp", addr)
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("port %d is not available: %w", port, err)
 	}
@@ -177,7 +179,8 @@ func (pm *PortManager) defaultIsPortAvailable(port int) bool {
 	// Use tcp6 with [::] to check both IPv4 and IPv6 on dual-stack systems
 	// Go's dual-stack listener will fail if either IPv4 or IPv6 is in use
 	addr := fmt.Sprintf(":%d", port)
-	listener, err := net.Listen("tcp", addr)
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		slog.Debug("port bind test failed", "port", port, "error", err)
 		return false

@@ -367,7 +367,7 @@ data: {"Log":"Error occurred","Stream":"stderr","time":"2024-01-15T10:30:47.123Z
 	}()
 
 	// Collect results
-	var entries []LogEntry
+	entries := make([]LogEntry, 0, 3)
 	for entry := range logs {
 		entries = append(entries, entry)
 	}

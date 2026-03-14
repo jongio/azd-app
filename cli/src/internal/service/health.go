@@ -2,6 +2,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -54,7 +55,7 @@ func PerformHealthCheck(process *ServiceProcess) error {
 		var err error
 
 		switch config.Type {
-		case "http":
+		case ServiceTypeHTTP:
 			err = HTTPHealthCheck(process.Port, config.Path)
 		case "tcp":
 			err = PortHealthCheck(process.Port)
@@ -131,8 +132,14 @@ func HTTPHealthCheck(port int, path string) error {
 		},
 	}
 
+	ctx := context.Background()
+
 	// Try HEAD request first (lightweight)
-	resp, err := client.Head(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP HEAD request: %w", err)
+	}
+	resp, err := client.Do(req)
 	if err == nil {
 		defer SafeClose(resp.Body, "HEAD response body")
 		// Accept any 2xx or 3xx status code
@@ -142,7 +149,11 @@ func HTTPHealthCheck(port int, path string) error {
 	}
 
 	// If HEAD fails or returns error code, try GET
-	resp, err = client.Get(url)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP GET request: %w", err)
+	}
+	resp, err = client.Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -159,7 +170,8 @@ func HTTPHealthCheck(port int, path string) error {
 // PortHealthCheck verifies that a port is listening.
 func PortHealthCheck(port int) error {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, ConnectionTimeout)
+	dialer := net.Dialer{Timeout: ConnectionTimeout}
+	conn, err := dialer.DialContext(context.Background(), "tcp", address)
 	if err != nil {
 		return fmt.Errorf("port %d not listening: %w", port, err)
 	}
@@ -216,7 +228,8 @@ func TryHTTPHealthCheck(port int, path string) bool {
 // IsPortListening checks if a port is currently listening.
 func IsPortListening(port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", address, PortCheckTimeout)
+	dialer := net.Dialer{Timeout: PortCheckTimeout}
+	conn, err := dialer.DialContext(context.Background(), "tcp", address)
 	if err != nil {
 		return false
 	}

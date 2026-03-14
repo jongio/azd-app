@@ -16,6 +16,7 @@ import (
 // EventType represents different notification event types
 type EventType string
 
+// EventServiceStateChange and related constants identify notification events emitted by the pipeline.
 const (
 	EventServiceStateChange EventType = "service_state_change"
 	EventResourceUpdate     EventType = "resource_update"
@@ -116,10 +117,10 @@ func (p *Pipeline) processEvents() {
 // It respects the pipeline's context for cancellation, allowing handlers
 // to be interrupted when the pipeline is stopping.
 func (p *Pipeline) handleEvent(event Event) {
-	// Check if context is already cancelled before processing
+	// Check if context is already canceled before processing
 	select {
 	case <-p.ctx.Done():
-		slog.Debug("Skipping event handling - pipeline context cancelled",
+		slog.Debug("Skipping event handling - pipeline context canceled",
 			"eventType", event.Type,
 			"service", event.ServiceName)
 		return
@@ -135,7 +136,7 @@ func (p *Pipeline) handleEvent(event Event) {
 		// Check context before each handler to allow early termination
 		select {
 		case <-p.ctx.Done():
-			slog.Debug("Stopping event distribution - pipeline context cancelled",
+			slog.Debug("Stopping event distribution - pipeline context canceled",
 				"eventType", event.Type,
 				"service", event.ServiceName)
 			return
@@ -143,7 +144,7 @@ func (p *Pipeline) handleEvent(event Event) {
 		}
 
 		if err := handler.Handle(p.ctx, event); err != nil {
-			// Log error but continue processing (unless context cancelled)
+			// Log error but continue processing (unless context canceled)
 			if p.ctx.Err() != nil {
 				return // Pipeline is stopping, don't log spurious errors
 			}
@@ -233,7 +234,7 @@ func (h *OSNotificationHandler) Close() error {
 
 // Handle processes an event and sends OS notification if appropriate
 func (h *OSNotificationHandler) Handle(ctx context.Context, event Event) error {
-	severityStr := string(event.Severity)
+	severityStr := event.Severity
 	if !h.config.ShouldNotify(event.ServiceName, severityStr) {
 		return nil
 	}

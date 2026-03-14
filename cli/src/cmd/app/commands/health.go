@@ -269,7 +269,7 @@ func validateHealthFlags() error {
 	if healthStream && healthInterval <= healthTimeout {
 		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
 	}
-	if healthOutput != "text" && healthOutput != "json" && healthOutput != "table" {
+	if healthOutput != "text" && healthOutput != jsonOutputVal && healthOutput != "table" {
 		return fmt.Errorf("invalid output format: must be 'text', 'json', or 'table'")
 	}
 	// Validate metrics port is in valid range
@@ -300,7 +300,7 @@ func parseServiceFilter(serviceStr string) []string {
 }
 
 // setupSignalHandler sets up signal handling for graceful shutdown
-// The goroutine will exit when either a signal is received or the context is cancelled
+// The goroutine will exit when either a signal is received or the context is canceled
 func setupSignalHandler(ctx context.Context, cancel context.CancelFunc) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -317,7 +317,7 @@ func setupSignalHandler(ctx context.Context, cancel context.CancelFunc) {
 			fmt.Fprintf(os.Stderr, "\nReceived signal %v, shutting down gracefully...\n", sig)
 			cancel()
 		case <-ctx.Done():
-			// Context cancelled (normal exit) - just clean up
+			// Context canceled (normal exit) - just clean up
 		}
 	}()
 }
@@ -375,7 +375,7 @@ func runStreamingMode(ctx context.Context, monitor *healthcheck.HealthMonitor, s
 		case <-ticker.C:
 			if err := performStreamCheck(ctx, monitor, serviceFilter, &checkCount, &prevReport, isTTY); err != nil {
 				if ctx.Err() != nil {
-					return nil // Context cancelled, normal shutdown
+					return nil // Context canceled, normal shutdown
 				}
 				return err
 			}
@@ -420,7 +420,7 @@ func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor,
 
 func displayHealthReport(report *healthcheck.HealthReport) error {
 	switch healthOutput {
-	case "json":
+	case jsonOutputVal:
 		return displayJSONReport(report)
 	case "table":
 		return displayTableReport(report)
@@ -507,7 +507,7 @@ func displayTableReport(report *healthcheck.HealthReport) error {
 		if result.ResponseTime > 0 {
 			response = fmt.Sprintf("%dms", result.ResponseTime.Milliseconds())
 		} else if result.Error != "" {
-			response = "error"
+			response = statusError
 		}
 
 		fmt.Printf("│ %-12s │ %-9s │ %-9s │ %-32s │ %-8s │\n",

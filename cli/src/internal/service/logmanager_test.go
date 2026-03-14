@@ -327,7 +327,7 @@ func TestLogManagerConcurrency(t *testing.T) {
 	// Test concurrent buffer creation
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
-		go func(n int) {
+		go func(_ int) {
 			_, err := lm.CreateBuffer("concurrent-test", 1000, false)
 			if err != nil {
 				t.Errorf("concurrent CreateBuffer failed: %v", err)

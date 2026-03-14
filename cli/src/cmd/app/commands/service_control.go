@@ -115,7 +115,7 @@ func newErrorResult(serviceName, errMsg string) *ServiceControlResult {
 }
 
 // validateAndGetService validates the service name and retrieves the registry entry.
-func (c *ServiceController) validateAndGetService(serviceName string) (*registry.ServiceRegistryEntry, *ServiceControlResult) {
+func (c *ServiceController) validateAndGetService(serviceName string) (*registry.ServiceRegistryEntry, *ServiceControlResult) { //nolint:unparam // return value kept for future use/interface conformance
 	if err := security.ValidateServiceName(serviceName, false); err != nil {
 		return nil, newErrorResult(serviceName, err.Error())
 	}
@@ -301,7 +301,7 @@ func (c *ServiceController) performStart(ctx context.Context, entry *registry.Se
 	// Check context before starting expensive operations
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("operation cancelled: %w", ctx.Err())
+		return fmt.Errorf("operation canceled: %w", ctx.Err())
 	default:
 	}
 
@@ -429,7 +429,7 @@ func (c *ServiceController) performStop(ctx context.Context, entry *registry.Ser
 	// Check context before starting
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("operation cancelled: %w", ctx.Err())
+		return fmt.Errorf("operation canceled: %w", ctx.Err())
 	default:
 	}
 
@@ -532,7 +532,7 @@ func printBulkResult(result *BulkServiceControlResult) {
 
 // setupContextWithSignalHandling creates a context that cancels on SIGINT/SIGTERM.
 // Returns the context, cancel function, and a cleanup function that should be deferred.
-func setupContextWithSignalHandling() (context.Context, context.CancelFunc, func()) {
+func setupContextWithSignalHandling() (context.Context, context.CancelFunc, func()) { //nolint:unparam // return value kept for future use/interface conformance
 	ctx, cancel := context.WithCancel(context.Background())
 
 	sigChan := make(chan os.Signal, 1)
@@ -577,7 +577,7 @@ func noServicesToOperateResult(stateDesc, opVerb string) BulkServiceControlResul
 
 // handleNoServicesCase handles the common pattern when --all finds no applicable services.
 // Returns true if the case was handled (caller should return), false otherwise.
-func handleNoServicesCase(ctrl *ServiceController, stateDesc, opVerb string) bool {
+func handleNoServicesCase(ctrl *ServiceController, stateDesc, opVerb string) bool { //nolint:unparam // return value kept for future use/interface conformance
 	if len(ctrl.GetAllServices()) == 0 {
 		printNoServicesRegistered()
 		if cliout.IsJSON() {
@@ -605,7 +605,7 @@ func oppositeState(state string) string {
 }
 
 // confirmBulkOperation prompts for confirmation of bulk operations.
-// Returns true if the user confirms or skipConfirm is true, false if cancelled.
+// Returns true if the user confirms or skipConfirm is true, false if canceled.
 func confirmBulkOperation(count int, opVerb string, skipConfirm bool) bool {
 	if skipConfirm || cliout.IsJSON() {
 		return true

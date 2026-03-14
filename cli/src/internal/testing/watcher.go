@@ -47,9 +47,9 @@ func WithDebounceDelay(delay time.Duration) WatcherOption {
 }
 
 // WithClearConsole enables clearing the console between runs
-func WithClearConsole(clear bool) WatcherOption {
+func WithClearConsole(clearConsole bool) WatcherOption {
 	return func(w *FileWatcher) {
-		w.clearConsole = clear
+		w.clearConsole = clearConsole
 	}
 }
 
@@ -189,7 +189,7 @@ func (w *FileWatcher) WatchWithServiceFilter(ctx context.Context, callback Watch
 }
 
 // scheduleDebouncedCallback schedules a callback after debounce delay
-func (w *FileWatcher) scheduleDebouncedCallback(ctx context.Context, callback WatchCallback) {
+func (w *FileWatcher) scheduleDebouncedCallback(_ context.Context, callback WatchCallback) {
 	// Cancel existing timer if any
 	if w.debounceTimer != nil {
 		w.debounceTimer.Stop()
@@ -334,7 +334,7 @@ func (w *FileWatcher) scanFiles() error {
 	for _, path := range w.paths {
 		err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil // Skip files we can't access
+				return nil //nolint:nilerr // missing file is expected in detection logic
 			}
 
 			// Skip directories and ignored patterns
@@ -368,7 +368,7 @@ func (w *FileWatcher) checkForChanges() ([]string, error) {
 	for _, path := range w.paths {
 		err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil // Skip files we can't access
+				return nil //nolint:nilerr // missing file is expected in detection logic
 			}
 
 			// Skip directories and ignored patterns

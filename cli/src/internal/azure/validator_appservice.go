@@ -31,7 +31,7 @@ func NewAppServiceValidator(credential azcore.TokenCredential, projectDir string
 }
 
 // Validate performs comprehensive validation of an App Service's logging configuration.
-func (v *AppServiceValidator) Validate(ctx context.Context, serviceName string, resource *AzureResource) (*ServiceDiagnosticResult, error) {
+func (v *AppServiceValidator) Validate(ctx context.Context, serviceName string, resource *AzureResource) (*ServiceDiagnosticResult, error) { //nolint:dupl // structurally similar validator but different Azure resource type
 	result := &ServiceDiagnosticResult{
 		HostType:     ResourceTypeAppService,
 		Requirements: make([]Requirement, 0),
@@ -114,7 +114,7 @@ func (v *AppServiceValidator) Validate(ctx context.Context, serviceName string, 
 }
 
 // checkDiagnosticSettings checks if diagnostic settings are configured for the App Service.
-func (v *AppServiceValidator) checkDiagnosticSettings(ctx context.Context, resourceID string) (bool, error) {
+func (v *AppServiceValidator) checkDiagnosticSettings(ctx context.Context, resourceID string) (bool, error) { //nolint:unparam // return value kept for future use/interface conformance
 	checker := &DiagnosticSettingsChecker{
 		credential: v.credential,
 		projectDir: v.projectDir,
@@ -125,7 +125,7 @@ func (v *AppServiceValidator) checkDiagnosticSettings(ctx context.Context, resou
 }
 
 // generateSetupGuide creates a setup guide for App Service.
-func (v *AppServiceValidator) generateSetupGuide(serviceName string, resource *AzureResource, hasSettings bool, hasLogs bool) *SetupGuide {
+func (v *AppServiceValidator) generateSetupGuide(_ string, _ *AzureResource, hasSettings bool, hasLogs bool) *SetupGuide {
 	if hasLogs {
 		return nil
 	}

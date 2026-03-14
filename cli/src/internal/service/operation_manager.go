@@ -26,6 +26,7 @@ const (
 // OperationType represents the type of service operation.
 type OperationType string
 
+// OpStart and related constants identify the service operations coordinated by the operation manager.
 const (
 	OpStart   OperationType = "start"
 	OpStop    OperationType = "stop"

@@ -7,6 +7,20 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 )
 
+const (
+	frameworkDocker    = "Docker"
+	packageMgrDocker   = "docker"
+	langNameJavaScript = "JavaScript"
+	langTypeScript     = "TypeScript"
+	langNamePython     = "Python"
+	langNameDotNet     = ".NET"
+	langNameJava       = "Java"
+	langNameRust       = "Rust"
+	langNamePHP        = "PHP"
+	watchModeNone      = "none"
+	langDotnet         = "dotnet"
+)
+
 // detectLanguage determines the programming language used by the service.
 func detectLanguage(projectDir string, host string) (string, error) {
 	// Define language detection rules in priority order
@@ -14,32 +28,32 @@ func detectLanguage(projectDir string, host string) (string, error) {
 		name      string
 		checkFunc func() bool
 	}{
-		{"TypeScript", func() bool {
+		{langTypeScript, func() bool {
 			return fileExists(projectDir, "package.json") && fileExists(projectDir, "tsconfig.json")
 		}},
-		{"JavaScript", func() bool {
+		{langNameJavaScript, func() bool {
 			return fileExists(projectDir, "package.json")
 		}},
-		{"Python", func() bool {
+		{langNamePython, func() bool {
 			return fileExists(projectDir, "requirements.txt") ||
 				fileExists(projectDir, "pyproject.toml") ||
 				fileExists(projectDir, "poetry.lock") ||
 				fileExists(projectDir, "uv.lock")
 		}},
-		{".NET", func() bool {
+		{langNameDotNet, func() bool {
 			return hasFileWithExt(projectDir, ".csproj") ||
 				hasFileWithExt(projectDir, ".sln") ||
 				hasFileWithExt(projectDir, ".fsproj")
 		}},
-		{"Java", func() bool {
+		{langNameJava, func() bool {
 			return fileExists(projectDir, "pom.xml") ||
 				fileExists(projectDir, "build.gradle") ||
 				fileExists(projectDir, "build.gradle.kts")
 		}},
 		{"Go", func() bool { return fileExists(projectDir, "go.mod") }},
-		{"Rust", func() bool { return fileExists(projectDir, "Cargo.toml") }},
-		{"PHP", func() bool { return fileExists(projectDir, "composer.json") }},
-		{"Docker", func() bool {
+		{langNameRust, func() bool { return fileExists(projectDir, "Cargo.toml") }},
+		{langNamePHP, func() bool { return fileExists(projectDir, "composer.json") }},
+		{frameworkDocker, func() bool {
 			return fileExists(projectDir, "Dockerfile") || fileExists(projectDir, "docker-compose.yml")
 		}},
 	}
@@ -53,7 +67,7 @@ func detectLanguage(projectDir string, host string) (string, error) {
 
 	// Fallback: use host type as hint
 	if host == "containerapp" || host == "aks" {
-		return "Docker", nil
+		return frameworkDocker, nil
 	}
 
 	return "", errCouldNotDetectLanguage(projectDir)
@@ -62,22 +76,22 @@ func detectLanguage(projectDir string, host string) (string, error) {
 // detectFrameworkAndPackageManager detects the specific framework and package manager.
 func detectFrameworkAndPackageManager(projectDir string, language string) (string, string, error) {
 	switch language {
-	case "TypeScript", "JavaScript":
+	case langTypeScript, langNameJavaScript:
 		return detectNodeFramework(projectDir)
-	case "Python":
+	case langNamePython:
 		return detectPythonFramework(projectDir)
-	case ".NET":
+	case langNameDotNet:
 		return detectDotNetFramework(projectDir)
-	case "Java":
+	case langNameJava:
 		return detectJavaFramework(projectDir)
 	case "Go":
 		return "Go", "go", nil
-	case "Rust":
-		return "Rust", "cargo", nil
-	case "PHP":
+	case langNameRust:
+		return langNameRust, "cargo", nil
+	case langNamePHP:
 		return detectPHPFramework(projectDir)
-	case "Docker":
-		return "Docker", "docker", nil
+	case frameworkDocker:
+		return frameworkDocker, packageMgrDocker, nil
 	default:
 		return language, "", nil
 	}
@@ -150,14 +164,14 @@ func detectPythonFramework(projectDir string) (string, string, error) {
 	}
 
 	// Default to generic Python
-	return "Python", packageManager, nil
+	return langNamePython, packageManager, nil
 }
 
 // detectDotNetFramework detects .NET framework.
 func detectDotNetFramework(projectDir string) (string, string, error) {
 	// Check for Aspire
 	if fileExists(projectDir, "AppHost.cs") {
-		return "Aspire", "dotnet", nil
+		return "Aspire", langDotnet, nil
 	}
 
 	// Check for ASP.NET Core
@@ -166,13 +180,13 @@ func detectDotNetFramework(projectDir string) (string, string, error) {
 		csprojFiles, _ := filepath.Glob(filepath.Join(projectDir, "*.csproj"))
 		for _, csprojFile := range csprojFiles {
 			if containsText(csprojFile, "Microsoft.NET.Sdk.Web") {
-				return "ASP.NET Core", "dotnet", nil
+				return "ASP.NET Core", langDotnet, nil
 			}
 		}
 	}
 
 	// Default to generic .NET
-	return ".NET", "dotnet", nil
+	return langNameDotNet, langDotnet, nil
 }
 
 // detectJavaFramework detects Java framework.
@@ -184,21 +198,21 @@ func detectJavaFramework(projectDir string) (string, string, error) {
 
 	// Check for Spring Boot in pom.xml
 	if fileExists(projectDir, "pom.xml") && containsText(filepath.Join(projectDir, "pom.xml"), "spring-boot") {
-		return "Spring Boot", packageManager, nil
+		return frameworkSpringBoot, packageManager, nil
 	}
 
 	// Check for frameworks in build.gradle
 	if fileExists(projectDir, "build.gradle") {
 		buildGradle := filepath.Join(projectDir, "build.gradle")
 		if containsText(buildGradle, "spring-boot") {
-			return "Spring Boot", packageManager, nil
+			return frameworkSpringBoot, packageManager, nil
 		}
 		if containsText(buildGradle, "quarkus") {
 			return "Quarkus", packageManager, nil
 		}
 	}
 
-	return "Java", packageManager, nil
+	return langNameJava, packageManager, nil
 }
 
 // detectPHPFramework detects PHP framework.
@@ -207,5 +221,5 @@ func detectPHPFramework(projectDir string) (string, string, error) {
 		return "Laravel", "composer", nil
 	}
 
-	return "PHP", "composer", nil
+	return langNamePHP, "composer", nil
 }

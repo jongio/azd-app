@@ -137,7 +137,7 @@ func runServicesFromAzureYaml(ctx context.Context, azureYamlPath string, runtime
 }
 
 // runAzdMode runs services in azd mode with individual service orchestration.
-func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
+func runAzdMode(_ context.Context, azureYamlPath, azureYamlDir string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -520,7 +520,7 @@ func startDashboardMonitor(ctx context.Context, wg *sync.WaitGroup, dashboardSer
 			cliout.Hint("Press Ctrl+C to stop", "--web to open browser")
 		}
 
-		// Block until context is cancelled
+		// Block until context is canceled
 		<-ctx.Done()
 	}()
 }
@@ -691,7 +691,7 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 		}
 		// Intentionally don't cancel context - other services should continue
 	case <-ctx.Done():
-		// Context cancelled by signal - proceed to graceful shutdown
+		// Context canceled by signal - proceed to graceful shutdown
 		return
 	}
 }

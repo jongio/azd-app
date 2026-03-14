@@ -149,7 +149,7 @@ func handleGetServiceLogs(ctx context.Context, args azdext.ToolArgs) (*mcp.CallT
 	}
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return azdext.MCPErrorResult("Request cancelled: %v", ctxErr), nil
+		return azdext.MCPErrorResult("Request canceled: %v", ctxErr), nil
 	}
 
 	collectCtx, collectCancel := context.WithTimeout(ctx, defaultCommandTimeout)
@@ -243,7 +243,7 @@ func handleGetServiceErrors(ctx context.Context, args azdext.ToolArgs) (*mcp.Cal
 	}
 
 	if err := ctx.Err(); err != nil {
-		return azdext.MCPErrorResult("Request cancelled: %v", err), nil
+		return azdext.MCPErrorResult("Request canceled: %v", err), nil
 	}
 
 	collectCtx, collectCancel := context.WithTimeout(ctx, defaultCommandTimeout)
@@ -354,9 +354,8 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 	}
 
 	// Note: azd app run is interactive and long-running, so we run it in a non-blocking way
-	// and return information about the command being executed
-	// The context is intentionally NOT used here because the process should continue running
-	cmd := exec.Command(azdCommand, append([]string{appSubcommand, "run"}, cmdArgs...)...)
+	// and return information about the command being executed.
+	cmd := exec.CommandContext(context.WithoutCancel(ctx), azdCommand, append([]string{appSubcommand, "run"}, cmdArgs...)...)
 
 	// Create pipes to capture startup errors without blocking
 	stderrPipe, err := cmd.StderrPipe()
@@ -575,7 +574,7 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 	}
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return azdext.MCPErrorResult("Request cancelled: %v", ctxErr), nil
+		return azdext.MCPErrorResult("Request canceled: %v", ctxErr), nil
 	}
 
 	cmdCtx, cancel := context.WithTimeout(ctx, dependencyInstallTimeout)
@@ -585,7 +584,7 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.Canceled) {
-			return azdext.MCPErrorResult("Request was cancelled"), nil
+			return azdext.MCPErrorResult("Request was canceled"), nil
 		}
 		if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
 			return azdext.MCPErrorResult("Dependency installation timed out after %v", dependencyInstallTimeout), nil

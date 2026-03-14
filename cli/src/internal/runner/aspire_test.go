@@ -232,5 +232,5 @@ func (w *testLineWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 
-	return n, nil
+	return n, nil //nolint:nilerr // partial line buffering is expected until a full line is available
 }

@@ -1185,6 +1185,52 @@ func fmtCheck() error {
 	return nil
 }
 
+// preflightGofumpt checks that all Go files are formatted with gofumpt (stricter than gofmt).
+func preflightGofumpt() error {
+	if _, err := exec.LookPath("gofumpt"); err != nil {
+		fmt.Println("   ⚠️  gofumpt not installed — skipping strict format check")
+		fmt.Println("      Install with: go install mvdan.cc/gofumpt@latest")
+		return nil
+	}
+	output, err := sh.Output("gofumpt", "-l", ".")
+	if err != nil {
+		return fmt.Errorf("gofumpt check failed: %w", err)
+	}
+	if strings.TrimSpace(output) != "" {
+		fmt.Println("   Files not formatted with gofumpt:")
+		for _, f := range strings.Split(strings.TrimSpace(output), "\n") {
+			fmt.Printf("   • %s\n", f)
+		}
+		return fmt.Errorf("code is not gofumpt-formatted. Run 'gofumpt -w .' to fix")
+	}
+	fmt.Println("   ✅ Code is gofumpt-formatted")
+	return nil
+}
+
+// preflightDeadcode checks for unreachable functions using golang.org/x/tools deadcode analyzer.
+func preflightDeadcode() error {
+	if _, err := exec.LookPath("deadcode"); err != nil {
+		fmt.Println("   ⚠️  deadcode not installed — skipping dead code check")
+		fmt.Println("      Install with: go install golang.org/x/tools/cmd/deadcode@latest")
+		return nil
+	}
+	output, err := sh.Output("deadcode", "-test", "./...")
+	if err != nil {
+		fmt.Println("   ⚠️  Dead code found:")
+		fmt.Println(output)
+		// Non-fatal for now — report but don't fail
+		fmt.Println("   ⚠️  Dead code check completed with findings (non-fatal)")
+		return nil
+	}
+	if strings.TrimSpace(output) != "" {
+		fmt.Println("   ⚠️  Potential dead code found:")
+		fmt.Println(output)
+	} else {
+		fmt.Println("   ✅ No dead code detected")
+	}
+	return nil
+}
+
 // dashboardInstall runs pnpm install for the dashboard project.
 func dashboardInstall() error {
 	return runQuiet("pnpm", "install", "--dir", dashboardDir)
@@ -1214,6 +1260,23 @@ func websiteBuildOnly() error {
 func quietLint() error {
 	return runHeavyGo("golangci-lint", "run", "--timeout=5m",
 		fmt.Sprintf("--concurrency=%d", coresPerSlot))
+}
+
+// preflightCrossGOOSLint runs golangci-lint with GOOS=linux to catch cross-platform issues.
+func preflightCrossGOOSLint() error {
+	if runtime.GOOS == "linux" {
+		fmt.Println("   ⏭️  Already on Linux — skipping cross-OS lint")
+		return nil
+	}
+	cmd := exec.Command("golangci-lint", "run", "./...")
+	cmd.Env = append(os.Environ(), "GOOS=linux")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cross-OS lint (GOOS=linux) failed: %w", err)
+	}
+	fmt.Println("   ✅ Cross-OS lint passed (GOOS=linux)")
+	return nil
 }
 
 // quietModTidy runs go mod tidy and verifies no changes, with captured output.
@@ -1726,6 +1789,7 @@ func Preflight() error {
 		return nil
 	}))
 	g.run(preflightStep("Checking format (no rewrite)", fmtCheck))
+	g.run(preflightStep("Checking gofumpt formatting", preflightGofumpt))
 	g.run(preflightStep("Tidying go.mod and go.sum", quietModTidy, modTidyDone))
 	g.run(preflightStep("Installing dashboard deps", dashboardInstall, dashInstall))
 	g.run(preflightStep("Installing website deps", websiteInstall, webInstall))
@@ -1757,6 +1821,8 @@ func Preflight() error {
 
 	// === After dashboard build: Go tests need go:embed dist from dashboard ===
 	g.run(preflightStepAfter([]*gate{dashBuild}, "Running linting (includes vet + staticcheck)", heavy(quietLint)))
+	g.run(preflightStepAfter([]*gate{dashBuild}, "Checking for dead code", heavy(preflightDeadcode)))
+	g.run(preflightStepAfter([]*gate{dashBuild}, "Cross-OS lint (GOOS=linux)", preflightCrossGOOSLint))
 	g.run(preflightStepAfter([]*gate{dashBuild}, "Running tests with coverage", heavy(quietTestCoverage)))
 
 	// === After mod tidy + dashboard build: build Go binary ===
@@ -1808,6 +1874,9 @@ func PreflightSequential() error {
 		{"Running go vet", Vet},
 		{"Running staticcheck", Staticcheck},
 		{"Running standard linting", Lint},
+		{"Checking gofumpt formatting", preflightGofumpt},
+		{"Checking for dead code", preflightDeadcode},
+		{"Cross-OS lint (GOOS=linux)", preflightCrossGOOSLint},
 		{"Running quick security scan", runQuickSecurity},
 		{"Checking for known vulnerabilities", runVulncheck},
 		{"Running all tests with coverage", TestCoverage},

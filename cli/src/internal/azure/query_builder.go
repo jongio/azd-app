@@ -15,6 +15,8 @@ const (
 	// defaultQueryResultLimit is the default limit for query results to prevent excessive data transfer.
 	// Set to 1000 rows as a balance between completeness and performance.
 	defaultQueryResultLimit = 1000
+	testTimespan            = "30m"
+	fieldMessage            = "Message"
 )
 
 // QueryBuilder helps construct KQL queries from table selections.
@@ -34,7 +36,7 @@ func NewQueryBuilder(serviceName string, timespan string) *QueryBuilder {
 	sanitizedName := sanitizeKQLString(serviceName)
 	// Validate timespan format to prevent injection
 	if !kqlTimespanPattern.MatchString(timespan) {
-		timespan = "30m" // Safe default
+		timespan = testTimespan // Safe default
 	}
 	return &QueryBuilder{
 		serviceName: sanitizedName,
@@ -96,7 +98,7 @@ func (qb *QueryBuilder) buildSingleTableQuery(tableName string) string {
 
 // buildUnionQuery generates a union query for multiple tables.
 func (qb *QueryBuilder) buildUnionQuery() string {
-	var parts []string
+	parts := make([]string, 0, len(qb.tables))
 
 	for _, tableName := range qb.tables {
 		filter := qb.getServiceFilter(tableName)
@@ -164,11 +166,11 @@ func (qb *QueryBuilder) getProjectColumns(tableName string) string {
 	columns := TableColumns[tableName]
 	if len(columns) == 0 {
 		// Default columns if table is not known
-		return "Message=tostring(column_ifexists('Message', '')), Level=tostring(column_ifexists('Level', 'INFO'))"
+		return fieldMessage + "=tostring(column_ifexists('" + fieldMessage + "', '')), Level=tostring(column_ifexists('Level', 'INFO'))"
 	}
 
 	// Build projection with column aliases for common fields
-	var parts []string
+	parts := make([]string, 0, len(columns))
 	for _, col := range columns {
 		if col == "TimeGenerated" {
 			continue // Already in the base projection
@@ -178,8 +180,8 @@ func (qb *QueryBuilder) getProjectColumns(tableName string) string {
 
 	// Add Message alias for display
 	messageCol := getMessageColumn(tableName)
-	if messageCol != "" && !containsString(parts, "Message") {
-		parts = append(parts, fmt.Sprintf("Message=%s", messageCol))
+	if messageCol != "" && !containsString(parts, fieldMessage) {
+		parts = append(parts, fmt.Sprintf("%s=%s", fieldMessage, messageCol))
 	}
 
 	return strings.Join(parts, ", ")
@@ -197,9 +199,9 @@ func getMessageColumn(tableName string) string {
 	case "AppServiceHTTPLogs":
 		return "CsUriStem"
 	case "AppServicePlatformLogs":
-		return "Message"
+		return fieldMessage
 	case "FunctionAppLogs":
-		return "Message"
+		return fieldMessage
 	case "ContainerLogV2":
 		return "LogMessage"
 	case "ContainerLog":
@@ -207,7 +209,7 @@ func getMessageColumn(tableName string) string {
 	case "ContainerInstanceLog_CL":
 		return "Message_s"
 	case "KubeEvents":
-		return "Message"
+		return fieldMessage
 	default:
 		return ""
 	}
@@ -237,7 +239,7 @@ func SubstitutePlaceholders(query, serviceName, timespan string) string {
 	query = strings.ReplaceAll(query, "{serviceName}", sanitizeKQLString(serviceName))
 	// Validate timespan format to prevent injection
 	if !kqlTimespanPattern.MatchString(timespan) {
-		timespan = "30m" // Safe default
+		timespan = testTimespan // Safe default
 	}
 	query = strings.ReplaceAll(query, "{timespan}", timespan)
 	return query

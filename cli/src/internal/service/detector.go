@@ -51,9 +51,9 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	}
 
 	// Determine default health check type based on service configuration
-	defaultHealthCheckType := "http"
+	defaultHealthCheckType := ServiceTypeHTTP
 	if service.IsHealthcheckDisabled() {
-		defaultHealthCheckType = "none"
+		defaultHealthCheckType = watchModeNone
 	} else if service.Healthcheck != nil && service.Healthcheck.Type != "" {
 		defaultHealthCheckType = service.Healthcheck.Type
 	}
@@ -160,7 +160,7 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 	// Determine default health check type - TCP for containers (port connectivity)
 	defaultHealthCheckType := "tcp"
 	if service.IsHealthcheckDisabled() {
-		defaultHealthCheckType = "none"
+		defaultHealthCheckType = watchModeNone
 	} else if service.Healthcheck != nil && service.Healthcheck.Type != "" {
 		defaultHealthCheckType = service.Healthcheck.Type
 	}
@@ -184,7 +184,7 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 	// Should add a dedicated Image field to ServiceRuntime struct for container-based services.
 	runtime.Command = image
 	runtime.Language = "container"
-	runtime.Framework = "docker"
+	runtime.Framework = packageMgrDocker
 
 	// Copy environment variables from service config
 	for key, value := range service.GetEnvironment() {
@@ -293,13 +293,13 @@ func isBuildCommand(cmd string, language string) bool {
 
 	// Language-specific build commands
 	buildCommands := map[string][]string{
-		"TypeScript": {"tsc", "npm run build", "pnpm build", "yarn build", "bun build"},
-		"JavaScript": {"npm run build", "pnpm build", "yarn build", "bun build", "webpack", "rollup", "esbuild"},
-		"Go":         {"go build", "go install"},
-		".NET":       {"dotnet build", "dotnet publish"},
-		"Rust":       {"cargo build"},
-		"Java":       {"mvn package", "mvn compile", "gradle build", "gradle assemble"},
-		"Python":     {"python setup.py build", "pip wheel"},
+		langTypeScript:     {"tsc", "npm run build", "pnpm build", "yarn build", "bun build"},
+		langNameJavaScript: {"npm run build", "pnpm build", "yarn build", "bun build", "webpack", "rollup", "esbuild"},
+		"Go":               {"go build", "go install"},
+		langNameDotNet:     {"dotnet build", "dotnet publish"},
+		langNameRust:       {"cargo build"},
+		langNameJava:       {"mvn package", "mvn compile", "gradle build", "gradle assemble"},
+		langNamePython:     {"python setup.py build", "pip wheel"},
 	}
 
 	// Check language-specific build commands
@@ -318,9 +318,9 @@ func isBuildCommand(cmd string, language string) bool {
 }
 
 // hasWatchModeIndicators checks project structure for watch mode configuration.
-func hasWatchModeIndicators(projectDir string, language string, packageManager string) bool {
+func hasWatchModeIndicators(projectDir string, language string, _ string) bool {
 	switch language {
-	case "TypeScript", "JavaScript":
+	case langTypeScript, langNameJavaScript:
 		// Check package.json for watch scripts
 		return hasWatchScriptInPackageJSON(projectDir)
 	case "Go":
@@ -328,10 +328,10 @@ func hasWatchModeIndicators(projectDir string, language string, packageManager s
 		return fileExists(projectDir, "air.toml") ||
 			fileExists(projectDir, ".air.toml") ||
 			fileExists(projectDir, "reflex.conf")
-	case ".NET":
+	case langNameDotNet:
 		// .NET watch is typically in command, not config
 		return false
-	case "Python":
+	case langNamePython:
 		// Check for watchdog or watchfiles in requirements
 		return containsWatchDependency(projectDir)
 	default:

@@ -11,9 +11,10 @@ import (
 	"github.com/jongio/azd-core/logutil"
 )
 
-// Re-export Level type and constants from logutil.
+// Level re-exports the logutil level type used by the app logger.
 type Level = logutil.Level
 
+// LevelDebug and related constants re-export logutil log levels for app logging.
 const (
 	LevelDebug = logutil.LevelDebug
 	LevelInfo  = logutil.LevelInfo

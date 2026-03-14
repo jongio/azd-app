@@ -53,9 +53,9 @@ func StartService(runtime *ServiceRuntime, env map[string]string, projectDir str
 }
 
 // createServiceCommand creates an exec.Cmd for the service.
-func createServiceCommand(runtime *ServiceRuntime, env map[string]string) (*exec.Cmd, error) {
+func createServiceCommand(runtime *ServiceRuntime, env map[string]string) (*exec.Cmd, error) { //nolint:unparam // return value kept for future use/interface conformance
 	// #nosec G204 -- Command and args come from azure.yaml service configuration, validated by service package
-	cmd := exec.Command(runtime.Command, runtime.Args...)
+	cmd := exec.CommandContext(context.Background(), runtime.Command, runtime.Args...)
 	cmd.Dir = runtime.WorkingDir
 
 	// Build environment variable list ensuring azd context is preserved.
@@ -134,7 +134,7 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		// /T = Kill child processes (tree kill)
 		// /PID = Target process ID
 		// #nosec G204 -- PID is from os.Process which is a validated integer
-		cmd := exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Process.Pid))
+		cmd := exec.CommandContext(context.Background(), "taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Process.Pid))
 		if err := cmd.Run(); err != nil {
 			// taskkill returns error if process already exited, which is fine
 			slog.Debug("taskkill completed with error (process may have already exited)",

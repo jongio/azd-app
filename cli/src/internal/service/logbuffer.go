@@ -354,7 +354,9 @@ func (lb *LogBuffer) GetLogsWithContext(level LogLevel, limit int, contextLines 
 }
 
 // GetErrors is deprecated: use GetLogsWithContext instead.
+//
 // Deprecated: This method exists for backward compatibility.
+//
 // Parameters:
 //   - limit: maximum number of error entries to return (0 = no limit)
 //   - contextLines: number of log lines before and after each error (0-10)

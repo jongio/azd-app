@@ -25,7 +25,7 @@ type ModeResponse struct {
 }
 
 // handleGetMode returns the current log source mode.
-func (s *Server) handleGetMode(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetMode(w http.ResponseWriter, _ *http.Request) {
 	// Get current mode from server state
 	s.modeMu.RLock()
 	currentMode := s.currentMode

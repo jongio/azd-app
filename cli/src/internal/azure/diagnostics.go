@@ -20,6 +20,7 @@ import (
 // DiagnosticSettingsStatus represents the status of diagnostic settings for a service.
 type DiagnosticSettingsStatus string
 
+// DiagnosticSettingsConfigured and related constants describe whether diagnostic settings are available for a service.
 const (
 	DiagnosticSettingsConfigured    DiagnosticSettingsStatus = "configured"
 	DiagnosticSettingsNotConfigured DiagnosticSettingsStatus = "not-configured"

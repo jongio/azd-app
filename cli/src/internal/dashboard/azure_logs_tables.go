@@ -10,6 +10,8 @@ import (
 	"github.com/jongio/azd-core/yamlutil"
 )
 
+const resourceTables = "tables"
+
 // TablesResponse represents the response from the tables API.
 type TablesResponse struct {
 	Tables      []azure.TableInfo `json:"tables"`
@@ -127,7 +129,7 @@ func (s *Server) handleGetLogConfig(w http.ResponseWriter, r *http.Request) {
 
 	response := LogConfigResponse{
 		Service:      serviceName,
-		Mode:         "tables",
+		Mode:         resourceTables,
 		ResourceType: "containerapp", // Default
 	}
 
@@ -150,16 +152,16 @@ func (s *Server) handleGetLogConfig(w http.ResponseWriter, r *http.Request) {
 		svcConfig := svc.Logs.Analytics
 		if len(svcConfig.Tables) > 0 {
 			response.Tables = svcConfig.Tables
-			response.Mode = "tables"
+			response.Mode = resourceTables
 		}
 		if svcConfig.Query != "" {
 			response.Query = svcConfig.Query
-			response.Mode = "custom"
+			response.Mode = queryTypeCustom
 		}
 	}
 
 	// If still no tables and mode is tables, use recommended
-	if response.Mode == "tables" && len(response.Tables) == 0 {
+	if response.Mode == resourceTables && len(response.Tables) == 0 {
 		resourceType := azure.ResourceType(response.ResourceType)
 		response.Tables = azure.GetRecommendedTables(resourceType)
 	}
@@ -183,15 +185,15 @@ func (s *Server) handleSaveLogConfig(w http.ResponseWriter, r *http.Request) {
 		BadRequest(w, errModeRequired, nil)
 		return
 	}
-	if req.Mode != "tables" && req.Mode != "custom" {
+	if req.Mode != resourceTables && req.Mode != queryTypeCustom {
 		BadRequest(w, "mode must be 'tables' or 'custom'", nil)
 		return
 	}
-	if req.Mode == "tables" && len(req.Tables) == 0 {
+	if req.Mode == resourceTables && len(req.Tables) == 0 {
 		BadRequest(w, "tables required when mode is 'tables'", nil)
 		return
 	}
-	if req.Mode == "custom" && req.Query == "" {
+	if req.Mode == queryTypeCustom && req.Query == "" {
 		BadRequest(w, "query required when mode is 'custom'", nil)
 		return
 	}
@@ -214,7 +216,7 @@ func (s *Server) handleSaveLogConfig(w http.ResponseWriter, r *http.Request) {
 	// Prepare tables and query based on mode
 	var tables []string
 	var query string
-	if req.Mode == "tables" {
+	if req.Mode == resourceTables {
 		tables = req.Tables
 		query = ""
 	} else {

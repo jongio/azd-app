@@ -48,7 +48,7 @@ func FindPythonProjects(rootDir string) ([]types.PythonProject, error) {
 		// Ensure we don't traverse outside rootDir
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 		relPath, err := filepath.Rel(rootDir, absPath)
 		if err != nil || strings.HasPrefix(relPath, "..") {

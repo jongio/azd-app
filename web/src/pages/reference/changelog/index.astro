@@ -34,10 +34,109 @@ import Layout from '../../../components/Layout.astro';
     <article class="mb-12 pb-8 border-b-2 border-blue-200 dark:border-blue-800">
       <header class="flex items-center gap-4 mb-4">
         <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
+          v0.13.0
+        </h2>
+        <time class="text-sm text-neutral-500" datetime="2026-03-02">2026-03-02</time>
+        <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">Latest</span>
+      </header>
+      <ul class="space-y-1">
+        
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: adopt azdext SDK helpers — full extension framework migration (<a href="https://github.com/jongio/azd-app/pull/145" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#145</a>) (969c6956)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.12.8 (849b37b1)</span>
+        </li>
+      </ul>
+    </article>
+
+    <article class="mb-12 ">
+      <header class="flex items-center gap-4 mb-4">
+        <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
+          v0.12.8
+        </h2>
+        <time class="text-sm text-neutral-500" datetime="2026-02-28">2026-02-28</time>
+        
+      </header>
+      <ul class="space-y-1">
+        
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: make azd app run work without azd environment (<a href="https://github.com/jongio/azd-app/pull/151" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#151</a>) (9e36bbf4)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">📝</span>
+          <span class="text-neutral-700 dark:text-neutral-300">perf: parallelize mage preflight with DAG-based execution (27min → 3:24) (<a href="https://github.com/jongio/azd-app/pull/149" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#149</a>) (d0b61401)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.12.7 (1de00410)</span>
+        </li>
+      </ul>
+    </article>
+
+    <article class="mb-12 ">
+      <header class="flex items-center gap-4 mb-4">
+        <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
+          v0.12.7
+        </h2>
+        <time class="text-sm text-neutral-500" datetime="2026-02-27">2026-02-27</time>
+        
+      </header>
+      <ul class="space-y-1">
+        
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: add GitHub Packages auth to preflight job (24e354fc)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: add packages:read permission to deploy-website job in release workflow (22ae660d)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: limit deps command to azure.yaml services only (<a href="https://github.com/jongio/azd-app/pull/147" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#147</a>) (ad5a6218)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: use correct repo creation dates for LinkedIn publish date (85897788)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: add LinkedIn publish date via azd-web-core v2.3.0 (86bd8f12)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: add LinkedIn author meta tag via azd-web-core v2.2.0 (007bba01)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: add social media OG images and consistent titles (e59857f2)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">📝</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat(web): redesign with shared azd-web-core v2 (<a href="https://github.com/jongio/azd-app/pull/146" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#146</a>) (026a03f7)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: remove orphaned Header, Footer, ThemeToggle components (0bbd2b3d)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.12.6 (95204d60)</span>
+        </li>
+      </ul>
+    </article>
+
+    <article class="mb-12 ">
+      <header class="flex items-center gap-4 mb-4">
+        <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
           v0.12.6
         </h2>
         <time class="text-sm text-neutral-500" datetime="2026-02-23">2026-02-23</time>
-        <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">Latest</span>
+        
       </header>
       <ul class="space-y-1">
         

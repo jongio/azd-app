@@ -9,16 +9,34 @@ import (
 	core "github.com/jongio/azd-core/healthcheck"
 )
 
-// Re-export public types from azd-core/healthcheck.
+// HealthStatus re-exports the core health status enumeration for monitored services.
 type HealthStatus = core.HealthStatus
+
+// HealthCheckType re-exports the core health check type enumeration.
 type HealthCheckType = core.HealthCheckType
+
+// HealthCheckResult re-exports the core health check result for an individual monitored service.
 type HealthCheckResult = core.HealthCheckResult
+
+// HealthReport re-exports the core health report returned by monitoring operations.
 type HealthReport = core.HealthReport
+
+// HealthSummary re-exports the aggregate core health summary across monitored services.
 type HealthSummary = core.HealthSummary
+
+// MonitorConfig re-exports the core monitor configuration used to set up health monitoring.
 type MonitorConfig = core.MonitorConfig
+
+// ServiceInfo re-exports the core service metadata used during health checks.
 type ServiceInfo = core.ServiceInfo
+
+// HealthCheckConfig re-exports the core probe configuration for a single health check.
 type HealthCheckConfig = core.HealthCheckConfig
+
+// HealthProfile re-exports the core named health profile definition loaded from configuration.
 type HealthProfile = core.HealthProfile
+
+// HealthProfiles re-exports the collection of named core health profiles.
 type HealthProfiles = core.HealthProfiles
 
 // Local aliases for backward compatibility with unexported references.

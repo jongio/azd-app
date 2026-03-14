@@ -9,6 +9,11 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+const (
+	queryTypeCustom      = "custom"
+	defaultQueryTimespan = "30m"
+)
+
 // AzureQueryResponse represents the KQL query used for a service.
 type AzureQueryResponse struct {
 	Service      string `json:"service"`
@@ -51,7 +56,7 @@ func (s *Server) handleAzureQuery(w http.ResponseWriter, r *http.Request) {
 		if svc, ok := azureYaml.Services[serviceName]; ok && svc.Logs != nil && svc.Logs.Analytics != nil {
 			if svc.Logs.Analytics.Query != "" {
 				query = svc.Logs.Analytics.Query
-				resourceType = "custom"
+				resourceType = queryTypeCustom
 			}
 		}
 	}
@@ -62,7 +67,7 @@ func (s *Server) handleAzureQuery(w http.ResponseWriter, r *http.Request) {
 		resourceType = "containerapp" // Default assumption
 		query = azure.GetDefaultQuery(azure.ResourceType(resourceType))
 		// Substitute placeholders for display
-		query = substituteQueryPlaceholders(query, serviceName, "30m")
+		query = substituteQueryPlaceholders(query, serviceName, defaultQueryTimespan)
 	}
 
 	response := AzureQueryResponse{
@@ -137,7 +142,7 @@ func (s *Server) handleSaveAzureQuery(w http.ResponseWriter, r *http.Request) {
 	// Return updated query info
 	response := AzureQueryResponse{
 		Service:      req.Service,
-		ResourceType: "custom",
+		ResourceType: queryTypeCustom,
 		Query:        req.Query,
 	}
 

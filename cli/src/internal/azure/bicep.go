@@ -270,7 +270,7 @@ resource functionAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-0
 }
 
 // buildInstructions creates integration instructions for the Bicep template.
-func (g *BicepGenerator) buildInstructions(serviceTypes map[ResourceType]bool) BicepInstructions {
+func (g *BicepGenerator) buildInstructions(_ map[ResourceType]bool) BicepInstructions {
 	steps := []string{
 		"Save this template as infra/modules/diagnostic-settings.bicep in your project",
 		"Ensure your main.bicep has a Log Analytics workspace resource or parameter",

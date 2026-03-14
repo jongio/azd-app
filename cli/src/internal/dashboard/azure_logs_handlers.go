@@ -150,7 +150,7 @@ func (s *Server) handleAzureLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		response.Status = "error"
+		response.Status = StatusError
 		response.Count = 0
 		response.Error = mapAzureErrorToInfo(err)
 

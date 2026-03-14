@@ -81,7 +81,7 @@ func runRestart(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 		if !confirmBulkOperation(len(servicesToRestart), "restart", restartYes) {
-			cliout.Info("Operation cancelled")
+			cliout.Info("Operation canceled")
 			return nil
 		}
 	} else {

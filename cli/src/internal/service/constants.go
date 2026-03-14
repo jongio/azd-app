@@ -57,8 +57,8 @@ const (
 	// DefaultContextLines is the default number of context lines when not specified.
 	DefaultContextLines = 3
 
-	// Environment variable prefixes and patterns
-	// EnvServiceURLPrefix is the prefix for service URL environment variables (e.g., SERVICE_WEB_URL)
+	// EnvServiceURLPrefix is the prefix for service URL environment variables (for example, SERVICE_WEB_URL).
 	EnvServiceURLPrefix = "SERVICE_"
+	// EnvServiceURLSuffix is the suffix appended to service URL environment variables.
 	EnvServiceURLSuffix = "_URL"
 )

@@ -11,6 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const configTest = "test"
+
 // GenerateTestConfigYAML generates a YAML snippet for discovered test configurations.
 // Only includes services that were auto-detected (had no config in azure.yaml).
 // Returns an empty string if no auto-detected services are found.
@@ -167,7 +169,7 @@ func addTestConfigToServices(root *yaml.Node, autoDetected map[string]string) er
 		// Check if test config already exists
 		hasTestConfig := false
 		for j := 0; j < len(serviceNode.Content)-1; j += 2 {
-			if serviceNode.Content[j].Value == "test" {
+			if serviceNode.Content[j].Value == configTest {
 				hasTestConfig = true
 				break
 			}
@@ -181,7 +183,7 @@ func addTestConfigToServices(root *yaml.Node, autoDetected map[string]string) er
 		testKeyNode := &yaml.Node{
 			Kind:  yaml.ScalarNode,
 			Tag:   "!!str",
-			Value: "test",
+			Value: configTest,
 		}
 
 		testValueNode := &yaml.Node{

@@ -3,6 +3,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os/exec"
@@ -20,7 +21,7 @@ import (
 
 func checkDockerAvailable(t *testing.T) {
 	t.Helper()
-	cmd := exec.Command("docker", "version")
+	cmd := exec.CommandContext(context.Background(), "docker", "version")
 	if err := cmd.Run(); err != nil {
 		t.Skip("Docker not available, skipping integration tests")
 	}
@@ -310,7 +311,8 @@ func TestContainerService_Cleanup(t *testing.T) {
 // checkTCPPort is a helper function to verify TCP port connectivity.
 func checkTCPPort(host string, port int, timeout time.Duration) bool {
 	addr := fmt.Sprintf("%s:%d", host, port)
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+	dialer := net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}

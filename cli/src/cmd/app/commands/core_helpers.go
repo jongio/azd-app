@@ -337,7 +337,10 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 // Returns an error if removal fails.
 func cleanDirectory(path string) error {
 	if _, err := os.Stat(path); err != nil {
-		return nil // Directory doesn't exist, nothing to clean
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 
 	// Validate that we're only cleaning expected dependency directories

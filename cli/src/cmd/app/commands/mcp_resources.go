@@ -25,7 +25,7 @@ func newAzureYamlResource() server.ServerResource {
 		Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 			// Check context
 			if err := ctx.Err(); err != nil {
-				return nil, fmt.Errorf("request cancelled: %w", err)
+				return nil, fmt.Errorf("request canceled: %w", err)
 			}
 
 			// Get and validate project directory
@@ -88,7 +88,7 @@ func newServiceConfigResource() server.ServerResource {
 		Handler: func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 			// Check context
 			if err := ctx.Err(); err != nil {
-				return nil, fmt.Errorf("request cancelled: %w", err)
+				return nil, fmt.Errorf("request canceled: %w", err)
 			}
 
 			// Get service configurations from project directory

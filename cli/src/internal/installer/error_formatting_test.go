@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -71,7 +72,7 @@ func TestFormatNodeInstallError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a mock command that will fail
-			cmd := exec.Command("nonexistent-command-xyz-123")
+			cmd := exec.CommandContext(context.Background(), "nonexistent-command-xyz-123")
 			cmd.Args = []string{tt.packageManager, "install"}
 
 			// Create a mock error - we can't create ExitError directly,
@@ -129,7 +130,7 @@ func TestFormatPythonInstallError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command("nonexistent-command-xyz-123")
+			cmd := exec.CommandContext(context.Background(), "nonexistent-command-xyz-123")
 			cmd.Args = []string{tt.tool}
 
 			cmdErr := fmt.Errorf("exit status %d", tt.exitCode)
@@ -223,7 +224,7 @@ func TestFormatCommand(t *testing.T) {
 	}{
 		{
 			name: "normal_command",
-			cmd:  exec.Command("pnpm", "install", "--prefer-offline"),
+			cmd:  exec.CommandContext(context.Background(), "pnpm", "install", "--prefer-offline"),
 			want: "pnpm install --prefer-offline",
 		},
 		{

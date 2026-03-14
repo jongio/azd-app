@@ -78,7 +78,7 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 }
 
 // runMCPServer implements the MCP server logic
-func runMCPServer(ctx context.Context) error {
+func runMCPServer(_ context.Context) error {
 	// System instructions to guide AI on how to use the tools
 	// This server is part of the azd extension framework and provides runtime operations
 	instructions := `This MCP server is provided by the azd app extension and focuses on runtime operations for azd projects.
@@ -149,9 +149,9 @@ func executeAzdAppCommand(ctx context.Context, command string, args []string) (m
 
 // executeAzdAppCommandWithTimeout executes an azd app command with a custom timeout
 func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args []string, timeout time.Duration) (map[string]interface{}, error) {
-	// Check if context is already cancelled
+	// Check if context is already canceled
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("command cancelled before execution: %w", err)
+		return nil, fmt.Errorf("command canceled before execution: %w", err)
 	}
 
 	cmdArgs := append([]string{command}, args...)
@@ -169,9 +169,9 @@ func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args [
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Check if parent context was cancelled
+		// Check if parent context was canceled
 		if errors.Is(ctx.Err(), context.Canceled) {
-			return nil, fmt.Errorf("command cancelled: %w", ctx.Err())
+			return nil, fmt.Errorf("command canceled: %w", ctx.Err())
 		}
 		// Check if command context timed out
 		if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {

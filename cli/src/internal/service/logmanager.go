@@ -203,7 +203,9 @@ func (lm *LogManager) GetAllLogsWithContext(serviceName string, level LogLevel, 
 }
 
 // GetAllErrors is deprecated: use GetAllLogsWithContext instead.
+//
 // Deprecated: This method exists for backward compatibility.
+//
 // Parameters:
 //   - serviceName: filter to specific service (empty = all services)
 //   - limit: maximum total errors to return (0 = default 50)

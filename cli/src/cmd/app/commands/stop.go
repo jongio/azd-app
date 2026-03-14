@@ -78,7 +78,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if !confirmBulkOperation(len(servicesToStop), "stop", stopYes) {
-			cliout.Info("Operation cancelled")
+			cliout.Info("Operation canceled")
 			return nil
 		}
 	} else {

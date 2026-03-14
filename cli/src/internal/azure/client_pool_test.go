@@ -227,7 +227,7 @@ func TestGetOrCreateLogAnalyticsClient_ThreadSafety(t *testing.T) {
 	}
 
 	// Collect all clients
-	var clients []*LogAnalyticsClient
+	clients := make([]*LogAnalyticsClient, 0, numGoroutines)
 	for client := range results {
 		clients = append(clients, client)
 	}
@@ -465,7 +465,7 @@ func TestClientPool_DoubleCheckedLocking(t *testing.T) {
 	close(results)
 
 	// Collect results
-	var clients []*LogAnalyticsClient
+	clients := make([]*LogAnalyticsClient, 0, 2)
 	for client := range results {
 		clients = append(clients, client)
 	}

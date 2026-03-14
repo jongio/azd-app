@@ -23,7 +23,7 @@ type ClassificationsResponse struct {
 }
 
 // handleGetClassifications returns all classifications from azure.yaml
-func (s *Server) handleGetClassifications(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetClassifications(w http.ResponseWriter, _ *http.Request) {
 	classificationsMu.RLock()
 	defer classificationsMu.RUnlock()
 

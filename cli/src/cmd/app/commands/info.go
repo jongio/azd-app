@@ -18,6 +18,13 @@ var (
 	infoAll bool
 )
 
+const (
+	statusUnknown = "unknown"
+	statusRunning = "running"
+	statusStopped = "stopped"
+	statusError   = "error"
+)
+
 // NewInfoCommand creates the info command.
 func NewInfoCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -130,8 +137,8 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 		}
 
 		// Get status and health from Local (with defaults if Local is nil)
-		status := "unknown"
-		health := "unknown"
+		status := statusUnknown
+		health := statusUnknown
 		if svc.Local != nil {
 			status = svc.Local.Status
 			health = svc.Local.Health
@@ -193,7 +200,7 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 		}
 
 		// Runtime info (only if service is running)
-		if svc.Local != nil && svc.Local.Status == "running" {
+		if svc.Local != nil && svc.Local.Status == statusRunning {
 			if svc.Local.Port > 0 {
 				cliout.Label("  Port", fmt.Sprintf("%d", svc.Local.Port))
 			}
@@ -211,7 +218,7 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 		// Status and health (from Local)
 		if svc.Local != nil {
 			cliout.Label("  Status", formatStatus(svc.Local.Status))
-			if svc.Local.Health != "unknown" {
+			if svc.Local.Health != statusUnknown {
 				cliout.Label("  Health", formatHealth(svc.Local.Health))
 			}
 		}
@@ -262,15 +269,15 @@ func getServiceEnvironmentVars(serviceName string, azureEnv map[string]string) m
 // Valid statuses: "running", "starting", "error", "stopped", "not-running", "unknown"
 func formatStatus(status string) string {
 	switch status {
-	case "running":
+	case statusRunning:
 		return colorGreen + status + colorReset
 	case "starting":
 		return colorYellow + status + colorReset
-	case "error":
+	case statusError:
 		return colorRed + status + colorReset
-	case "stopped", "not-running":
+	case statusStopped, "not-running":
 		return colorGray + status + colorReset
-	case "unknown":
+	case statusUnknown:
 		return colorYellow + status + colorReset
 	default:
 		return status
@@ -284,7 +291,7 @@ func formatHealth(health string) string {
 		return colorGreen + health + colorReset
 	case "unhealthy":
 		return colorRed + health + colorReset
-	case "unknown":
+	case statusUnknown:
 		return colorYellow + health + colorReset
 	default:
 		return health
@@ -325,11 +332,11 @@ func formatInfoDuration(d time.Duration) string {
 // Valid statuses: "running", "starting", "error", "stopped", "not-running", "unknown"
 func getInfoStatusIcon(status, health string) string {
 	// Running and healthy - green check
-	if status == "running" && health == "healthy" {
+	if status == statusRunning && health == "healthy" {
 		return colorGreen + "✓" + colorReset
 	}
 	// Running but unhealthy - red X
-	if status == "running" && health == "unhealthy" {
+	if status == statusRunning && health == "unhealthy" {
 		return colorRed + "✗" + colorReset
 	}
 	// Starting - yellow circle
@@ -337,11 +344,11 @@ func getInfoStatusIcon(status, health string) string {
 		return colorYellow + "○" + colorReset
 	}
 	// Error status - red X
-	if status == "error" {
+	if status == statusError {
 		return colorRed + "✗" + colorReset
 	}
 	// Stopped or not-running - gray dot
-	if status == "stopped" || status == "not-running" {
+	if status == statusStopped || status == "not-running" {
 		return colorGray + "●" + colorReset
 	}
 	// Unknown or any other status - yellow question mark

@@ -117,7 +117,7 @@ func normalizeLanguage(language string) string {
 	case "js", "javascript", "node", "nodejs", "node.js":
 		return "JavaScript"
 	case "ts", "typescript":
-		return "TypeScript"
+		return langTypeScript
 	case "py", "python":
 		return "Python"
 	case "cs", "csharp", "c#":

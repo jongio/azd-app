@@ -13,6 +13,8 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 )
 
+const pkgMgrPoetry = "poetry"
+
 // PythonTestRunner runs tests for Python projects.
 type PythonTestRunner struct {
 	projectDir     string
@@ -72,15 +74,15 @@ func (r *PythonTestRunner) buildTestCommand(testType string, coverage bool) (str
 
 	// Check if explicit command is configured
 	switch testType {
-	case "unit":
+	case testTypeUnit:
 		if r.config.Unit != nil && r.config.Unit.Command != "" {
 			return r.parseCommand(r.config.Unit.Command)
 		}
-	case "integration":
+	case testTypeIntegration:
 		if r.config.Integration != nil && r.config.Integration.Command != "" {
 			return r.parseCommand(r.config.Integration.Command)
 		}
-	case "e2e":
+	case testTypeE2E:
 		if r.config.E2E != nil && r.config.E2E.Command != "" {
 			return r.parseCommand(r.config.E2E.Command)
 		}
@@ -88,7 +90,7 @@ func (r *PythonTestRunner) buildTestCommand(testType string, coverage bool) (str
 
 	// Build default command based on framework and package manager
 	switch r.config.Framework {
-	case "pytest":
+	case frameworkPytest:
 		return r.buildPytestCommand(testType, coverage)
 	case "unittest":
 		return r.buildUnittestCommand(testType, coverage)
@@ -107,36 +109,36 @@ func (r *PythonTestRunner) buildPytestCommand(testType string, coverage bool) (s
 	switch r.packageManager {
 	case "uv":
 		command = "uv"
-		args = []string{"run", "pytest"}
-	case "poetry":
-		command = "poetry"
-		args = []string{"run", "pytest"}
+		args = []string{"run", frameworkPytest}
+	case pkgMgrPoetry:
+		command = pkgMgrPoetry
+		args = []string{"run", frameworkPytest}
 	default:
-		command = "pytest"
+		command = frameworkPytest
 	}
 
 	// Add markers for test type filtering
-	if testType != "all" && r.config != nil {
+	if testType != testFilterAll && r.config != nil {
 		// Check if config has markers
 		var markers []string
 		switch testType {
-		case "unit":
+		case testTypeUnit:
 			if r.config.Unit != nil && len(r.config.Unit.Markers) > 0 {
 				markers = r.config.Unit.Markers
 			} else {
-				markers = []string{"unit"}
+				markers = []string{testTypeUnit}
 			}
-		case "integration":
+		case testTypeIntegration:
 			if r.config.Integration != nil && len(r.config.Integration.Markers) > 0 {
 				markers = r.config.Integration.Markers
 			} else {
-				markers = []string{"integration"}
+				markers = []string{testTypeIntegration}
 			}
-		case "e2e":
+		case testTypeE2E:
 			if r.config.E2E != nil && len(r.config.E2E.Markers) > 0 {
 				markers = r.config.E2E.Markers
 			} else {
-				markers = []string{"e2e"}
+				markers = []string{testTypeE2E}
 			}
 		}
 
@@ -144,7 +146,7 @@ func (r *PythonTestRunner) buildPytestCommand(testType string, coverage bool) (s
 		for _, marker := range markers {
 			args = append(args, "-m", marker)
 		}
-	} else if testType != "all" {
+	} else if testType != testFilterAll {
 		// Default markers when config is nil
 		args = append(args, "-m", testType)
 	}
@@ -174,8 +176,8 @@ func (r *PythonTestRunner) buildUnittestCommand(testType string, coverage bool) 
 		case "uv":
 			command = "uv"
 			args = []string{"run", "coverage", "run", "-m", "unittest", "discover"}
-		case "poetry":
-			command = "poetry"
+		case pkgMgrPoetry:
+			command = pkgMgrPoetry
 			args = []string{"run", "coverage", "run", "-m", "unittest", "discover"}
 		default:
 			command = "coverage"
@@ -187,17 +189,17 @@ func (r *PythonTestRunner) buildUnittestCommand(testType string, coverage bool) 
 		case "uv":
 			command = "uv"
 			args = []string{"run", "python", "-m", "unittest", "discover"}
-		case "poetry":
-			command = "poetry"
+		case pkgMgrPoetry:
+			command = pkgMgrPoetry
 			args = []string{"run", "python", "-m", "unittest", "discover"}
 		default:
-			command = "python"
+			command = langPython
 			args = []string{"-m", "unittest", "discover"}
 		}
 	}
 
 	// Add test path - either type-specific or general tests directory
-	if testType != "all" {
+	if testType != testFilterAll {
 		// Try to filter by directory
 		testDir := fmt.Sprintf("tests/%s", testType)
 		if _, err := os.Stat(filepath.Join(r.projectDir, testDir)); err == nil {
@@ -218,7 +220,7 @@ func (r *PythonTestRunner) buildUnittestCommand(testType string, coverage bool) 
 func (r *PythonTestRunner) parseCommand(cmdStr string) (string, []string) {
 	parts := ParseCommandString(cmdStr)
 	if len(parts) == 0 {
-		return "pytest", []string{}
+		return frameworkPytest, []string{}
 	}
 	if len(parts) == 1 {
 		return parts[0], []string{}
@@ -236,7 +238,7 @@ func (r *PythonTestRunner) parseTestOutput(output string, result *TestResult) {
 		// Parse pytest summary line
 		// Example: "5 passed in 1.23s"
 		// Example: "4 passed, 1 failed in 1.23s"
-		if r.config.Framework == "pytest" || r.config.Framework == "" {
+		if r.config.Framework == frameworkPytest || r.config.Framework == "" {
 			r.parsePytestSummary(line, result)
 		}
 
@@ -351,7 +353,7 @@ func detectPythonPackageManager(dir string) string {
 
 	// Check for poetry
 	if _, err := os.Stat(filepath.Join(dir, "poetry.lock")); err == nil {
-		return "poetry"
+		return pkgMgrPoetry
 	}
 
 	// Check for pyproject.toml with uv or poetry
@@ -363,7 +365,7 @@ func detectPythonPackageManager(dir string) string {
 			return "uv"
 		}
 		if strings.Contains(content, "[tool.poetry]") {
-			return "poetry"
+			return pkgMgrPoetry
 		}
 	}
 

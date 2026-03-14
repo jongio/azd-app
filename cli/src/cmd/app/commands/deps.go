@@ -156,6 +156,7 @@ func (e *depsExecutor) handleNoProjectsCase(searchRoot string) error {
 }
 
 // GetDepsOptions is a legacy getter function for backward compatibility.
+//
 // Deprecated: Use executor pattern instead.
 func GetDepsOptions() *DepsOptions {
 	depsOptionsMutex.RLock()

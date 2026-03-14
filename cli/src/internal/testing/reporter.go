@@ -30,13 +30,13 @@ func NewReportGenerator(format, outputDir string) *ReportGenerator {
 // GenerateTestReport generates a test report based on the configured format.
 func (g *ReportGenerator) GenerateTestReport(results *AggregateResult) error {
 	if g.outputDir != "" {
-		if err := os.MkdirAll(g.outputDir, 0o755); err != nil {
+		if err := os.MkdirAll(g.outputDir, 0o750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 	}
 
 	switch strings.ToLower(g.format) {
-	case "json":
+	case formatJSON:
 		return g.generateJSONReport(results)
 	case "junit":
 		return g.generateJUnitReport(results)
@@ -56,7 +56,7 @@ func (g *ReportGenerator) generateJSONReport(results *AggregateResult) error {
 		return fmt.Errorf("failed to marshal test results: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
+	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write JSON report: %w", err)
 	}
 
@@ -201,7 +201,7 @@ func (g *ReportGenerator) generateJUnitReport(results *AggregateResult) error {
 	// Add XML header
 	xmlData := append([]byte(xml.Header), data...)
 
-	if err := os.WriteFile(outputPath, xmlData, 0o644); err != nil {
+	if err := os.WriteFile(outputPath, xmlData, 0o600); err != nil {
 		return fmt.Errorf("failed to write JUnit report: %w", err)
 	}
 
@@ -233,7 +233,7 @@ func (g *ReportGenerator) generateGitHubReport(results *AggregateResult) error {
 	summaryFile := os.Getenv("GITHUB_STEP_SUMMARY")
 	if summaryFile != "" {
 		summary := g.generateGitHubSummary(results)
-		if err := os.WriteFile(summaryFile, []byte(summary), 0644); err != nil {
+		if err := os.WriteFile(summaryFile, []byte(summary), 0o600); err != nil {
 			// Don't fail if we can't write summary
 			log := logging.NewLogger("test")
 			log.Warn("failed to write GitHub summary", "error", err.Error())
@@ -257,7 +257,7 @@ func (g *ReportGenerator) generateGitHubReport(results *AggregateResult) error {
 				fmt.Sprintf("coverage_percent=%.1f", results.Coverage.Aggregate.Lines.Percent))
 		}
 
-		f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 		if err == nil {
 			defer func() { _ = f.Close() }()
 			for _, output := range outputs {

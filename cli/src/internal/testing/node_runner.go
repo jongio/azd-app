@@ -17,6 +17,11 @@ import (
 // ansiStripRegex matches ANSI escape sequences for removal.
 var ansiStripRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
+const (
+	pkgMgrNPM  = "npm"
+	pkgMgrPNPM = "pnpm"
+)
+
 // stripAnsi removes ANSI escape codes from a string.
 func stripAnsi(s string) string {
 	return ansiStripRegex.ReplaceAllString(s, "")
@@ -34,7 +39,7 @@ func NewNodeTestRunner(projectDir string, config *ServiceTestConfig) *NodeTestRu
 	// Detect package manager
 	packageManager := detector.DetectNodePackageManagerWithBoundary(projectDir, projectDir)
 	if packageManager == "" {
-		packageManager = "npm"
+		packageManager = pkgMgrNPM
 	}
 
 	return &NodeTestRunner{
@@ -86,15 +91,15 @@ func (r *NodeTestRunner) buildTestCommand(testType string, coverage bool) (strin
 
 	// Check if explicit command is configured
 	switch testType {
-	case "unit":
+	case testTypeUnit:
 		if r.config.Unit != nil && r.config.Unit.Command != "" {
 			return r.parseCommand(r.config.Unit.Command)
 		}
-	case "integration":
+	case testTypeIntegration:
 		if r.config.Integration != nil && r.config.Integration.Command != "" {
 			return r.parseCommand(r.config.Integration.Command)
 		}
-	case "e2e":
+	case testTypeE2E:
 		if r.config.E2E != nil && r.config.E2E.Command != "" {
 			return r.parseCommand(r.config.E2E.Command)
 		}
@@ -102,28 +107,28 @@ func (r *NodeTestRunner) buildTestCommand(testType string, coverage bool) (strin
 
 	// Build default command based on framework
 	switch r.config.Framework {
-	case "jest":
+	case frameworkJest:
 		args = []string{"test"}
-		if testType != "all" {
+		if testType != testFilterAll {
 			args = append(args, "--", fmt.Sprintf("--testPathPattern=%s", testType))
 		}
 		if coverage {
 			args = append(args, "--coverage")
 		}
 
-	case "vitest":
+	case frameworkVitest:
 		args = []string{"test", "--run"}
-		if testType != "all" {
+		if testType != testFilterAll {
 			args = append(args, fmt.Sprintf("--testNamePattern=%s", testType))
 		}
 		if coverage {
 			args = append(args, "--coverage")
 		}
 
-	case "mocha":
+	case frameworkMocha:
 		args = []string{"test"}
 		// Mocha typically uses different test files for different types
-		if testType != "all" {
+		if testType != testFilterAll {
 			args = append(args, fmt.Sprintf("test/%s/**/*.test.js", testType))
 		}
 

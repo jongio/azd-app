@@ -22,7 +22,7 @@ on:
         type: number
 
 concurrency:
-  group: pr-build-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -57,7 +57,7 @@ jobs:
     steps:
       - name: Check if build is allowed
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             let allowed = false;
@@ -168,7 +168,7 @@ jobs:
     steps:
       - name: Get PR details
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             let prNumber = '${{ needs.check-permission.outputs.pr_number }}';
@@ -203,24 +203,24 @@ jobs:
             core.setOutput('title', pr.data.title);
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ steps.pr.outputs.sha }}
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '${{ env.GO_VERSION }}'
           cache: true
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
         with:
           version: 9
 
@@ -248,7 +248,7 @@ jobs:
           azd extension install microsoft.azd.extensions --source azd
 
       - name: Setup pnpm cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('cli/dashboard/pnpm-lock.yaml') }}
@@ -383,7 +383,7 @@ jobs:
           EOF
 
       - name: Comment on PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const fs = require('fs');

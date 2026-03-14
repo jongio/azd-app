@@ -90,7 +90,7 @@ func TestLogAnalyticsQuery_Integration(t *testing.T) {
 }
 
 func truncateRow(row []any) []string {
-	var result []string
+	result := make([]string, 0, len(row))
 	for _, v := range row {
 		s := fmt.Sprintf("%v", v)
 		if len(s) > 50 {

@@ -27,7 +27,7 @@ const (
 
 	// Common messages
 	MsgWorkspaceNotConfigured = "Log Analytics workspace not configured"
-	MsgAzureCredsNotAvailable = "Azure credentials not available. Run 'azd auth login' to authenticate."
+	MsgAzureCredsNotAvailable = "Azure credentials not available. Run 'azd auth login' to authenticate." //nolint:gosec // G101 - not a credential, just a status message constant
 	MsgAuthFailed             = "Authentication failed or expired. Run 'azd auth login' to re-authenticate."
 
 	// Setup steps

@@ -34,7 +34,7 @@ func (tc *TokenCache) Get() string {
 
 	// Check if token exists and hasn't expired
 	if tc.token == "" || time.Now().After(tc.expiresAt) {
-		if os.Getenv("AZD_APP_DEBUG") == "true" {
+		if os.Getenv("AZD_APP_DEBUG") == valTrue {
 			if tc.token == "" {
 				slog.Debug("Token cache miss", "reason", "no token", "scope", tc.scope)
 			} else {
@@ -44,7 +44,7 @@ func (tc *TokenCache) Get() string {
 		return ""
 	}
 
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		slog.Debug("Token cache hit", "expiresIn", time.Until(tc.expiresAt).Round(time.Second), "scope", tc.scope)
 	}
 
@@ -62,7 +62,7 @@ func (tc *TokenCache) Set(token string) {
 	// Azure tokens are typically valid for 1 hour, so 5 minutes is a safe refresh interval
 	tc.expiresAt = time.Now().Add(5 * time.Minute)
 
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		slog.Debug("Token cached", "expiresAt", tc.expiresAt, "scope", tc.scope)
 	}
 }
@@ -74,7 +74,7 @@ func (tc *TokenCache) Clear() {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 
-	if os.Getenv("AZD_APP_DEBUG") == "true" {
+	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		if tc.token != "" {
 			slog.Debug("Token cache cleared", "reason", "auth error", "scope", tc.scope)
 		}

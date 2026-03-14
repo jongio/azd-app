@@ -23,6 +23,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	statusRunning  = "running"
+	statusBuilt    = "built"
+	statusStarting = "starting"
+)
+
 var (
 	// metricsEnabled controls whether Prometheus metrics are recorded.
 	// Uses atomic.Bool for thread-safe concurrent access from multiple goroutines.
@@ -167,8 +173,12 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 
 	if m.cache != nil {
 		if cached, found := m.cache.Get(cacheKey); found {
+			report, ok := cached.(*HealthReport)
+			if !ok {
+				return nil, fmt.Errorf("cached health report for %q has unexpected type %T", cacheKey, cached)
+			}
 			log.Debug().Str("key", cacheKey).Msg("Returning cached health report")
-			return cached.(*HealthReport), nil
+			return report, nil
 		}
 	}
 
@@ -207,7 +217,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 					ServiceName: svc.Name,
 					Timestamp:   time.Now(),
 					Status:      HealthStatusUnknown,
-					Error:       "context cancelled before check started",
+					Error:       "context canceled before check started",
 				}}
 				return
 			}
@@ -222,7 +232,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 					ServiceName: svc.Name,
 					Timestamp:   time.Now(),
 					Status:      HealthStatusUnknown,
-					Error:       "context cancelled",
+					Error:       "context canceled",
 				}}
 				return
 			}
@@ -237,7 +247,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 					ServiceName: svc.Name,
 					Timestamp:   time.Now(),
 					Status:      HealthStatusUnknown,
-					Error:       "context cancelled",
+					Error:       "context canceled",
 				}}
 				return
 			}
@@ -344,7 +354,7 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 		}
 	}
 
-	var services []serviceInfo
+	services := make([]serviceInfo, 0, len(serviceMap))
 	for _, svc := range serviceMap {
 		services = append(services, svc)
 	}
@@ -445,8 +455,8 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 		now := time.Now()
 		m.lastSuccessTime[serviceName] = now
 		result.LastSuccessTime = &now
-	default:
-		// For other statuses (degraded, starting, unknown), include current count without incrementing
+	case HealthStatusDegraded, HealthStatusStarting, HealthStatusUnknown:
+		// For non-terminal states, include current count without incrementing.
 		if count, exists := m.failureCount[serviceName]; exists {
 			result.ConsecutiveFailures = count
 		}
@@ -466,7 +476,7 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 			continue
 		}
 
-		if exists && currentEntry.Status == "running" && result.Status == HealthStatusStarting {
+		if exists && currentEntry.Status == statusRunning && result.Status == HealthStatusStarting {
 			log.Debug().
 				Str("service", result.ServiceName).
 				Msg("Keeping running status during health check grace period")
@@ -480,36 +490,38 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 			case HealthStatusHealthy:
 				if details, ok := result.Details["state"].(string); ok {
 					switch details {
-					case "built":
-						status = "built"
-					case "completed":
-						status = "completed"
-					case "building", "running":
-						status = "running"
+					case statusBuilt:
+						status = statusBuilt
+					case statusCompleted:
+						status = statusCompleted
+					case "building", statusRunning:
+						status = statusRunning
 					case "failed":
-						status = "error"
+						status = statusError
 					default:
-						status = "running"
+						status = statusRunning
 					}
 				} else {
-					status = "running"
+					status = statusRunning
 				}
 			case HealthStatusUnhealthy:
-				status = "error"
+				status = statusError
 			case HealthStatusStarting:
-				status = "starting"
-			default:
-				status = "running"
+				status = statusStarting
+			case HealthStatusDegraded, HealthStatusUnknown:
+				status = statusRunning
 			}
 		} else {
-			status = "running"
+			status = statusRunning
 			switch result.Status {
 			case HealthStatusUnhealthy:
-				status = "error"
+				status = statusError
 			case HealthStatusDegraded:
 				status = "degraded"
 			case HealthStatusStarting:
-				status = "starting"
+				status = statusStarting
+			case HealthStatusHealthy, HealthStatusUnknown:
+				status = statusRunning
 			}
 		}
 

@@ -376,7 +376,7 @@ func (s *Server) checkDiagnosticSettings(ctx context.Context, serviceName, works
 
 // checkLogsFlowing queries for recent logs to verify log flow.
 // Returns ISO timestamp of most recent log, or empty string if no logs found.
-func (s *Server) checkLogsFlowing(ctx context.Context, serviceName, workspaceID string, cred azcore.TokenCredential) string {
+func (s *Server) checkLogsFlowing(ctx context.Context, serviceName, workspaceID string, _ azcore.TokenCredential) string {
 	if workspaceID == "" {
 		return ""
 	}
@@ -788,7 +788,7 @@ func (s *Server) handleAzureLogsVerify(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		level := "INFO"
+		var level string
 		switch log.Level {
 		case azure.LogLevelError:
 			level = "ERROR"
@@ -796,6 +796,8 @@ func (s *Server) handleAzureLogsVerify(w http.ResponseWriter, r *http.Request) {
 			level = "WARN"
 		case azure.LogLevelDebug:
 			level = "DEBUG"
+		default:
+			level = "INFO"
 		}
 
 		samples = append(samples, VerifyLogsSample{

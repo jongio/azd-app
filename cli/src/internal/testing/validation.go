@@ -47,13 +47,13 @@ func ValidateService(service ServiceInfo) ServiceValidation {
 
 	// Validate based on language
 	switch strings.ToLower(service.Language) {
-	case "js", "javascript", "typescript", "ts":
+	case "js", langJavaScript, langTypeScript, "ts":
 		return validateNodeService(service, validation)
-	case "python", "py":
+	case langPython, "py":
 		return validatePythonService(service, validation)
-	case "go", "golang":
+	case "go", langGolang:
 		return validateGoService(service, validation)
-	case "csharp", "dotnet", "fsharp", "cs", "fs":
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 		return validateDotnetService(service, validation)
 	default:
 		validation.SkipReason = "Unsupported language: " + service.Language
@@ -65,11 +65,11 @@ func ValidateService(service ServiceInfo) ServiceValidation {
 func validateNodeService(service ServiceInfo, validation ServiceValidation) ServiceValidation {
 	// Check for test framework config files
 	frameworkConfigs := map[string]string{
-		"jest.config.js":   "jest",
-		"jest.config.ts":   "jest",
-		"jest.config.json": "jest",
-		"vitest.config.js": "vitest",
-		"vitest.config.ts": "vitest",
+		"jest.config.js":   frameworkJest,
+		"jest.config.ts":   frameworkJest,
+		"jest.config.json": frameworkJest,
+		"vitest.config.js": frameworkVitest,
+		"vitest.config.ts": frameworkVitest,
 		".mocharc.js":      "mocha",
 		".mocharc.json":    "mocha",
 		".mocharc.yaml":    "mocha",
@@ -96,10 +96,10 @@ func validateNodeService(service ServiceInfo, validation ServiceValidation) Serv
 
 		// Detect framework from dependencies if not already detected
 		if validation.Framework == "" {
-			if strings.Contains(content, `"vitest"`) {
-				validation.Framework = "vitest"
-			} else if strings.Contains(content, `"jest"`) {
-				validation.Framework = "jest"
+			if strings.Contains(content, "\""+frameworkVitest+"\"") {
+				validation.Framework = frameworkVitest
+			} else if strings.Contains(content, "\""+frameworkJest+"\"") {
+				validation.Framework = frameworkJest
 			} else if strings.Contains(content, `"mocha"`) {
 				validation.Framework = "mocha"
 			}
@@ -125,7 +125,7 @@ func validateNodeService(service ServiceInfo, validation ServiceValidation) Serv
 	if testFileCount > 0 || hasTestScript {
 		validation.CanTest = true
 		if validation.Framework == "" {
-			validation.Framework = "npm"
+			validation.Framework = pkgMgrNPM
 		}
 	} else {
 		validation.SkipReason = "No test script in package.json and no test files found"
@@ -148,13 +148,13 @@ func validatePythonService(service ServiceInfo, validation ServiceValidation) Se
 				if data, err := os.ReadFile(configPath); err == nil {
 					if strings.Contains(string(data), "[tool.pytest") {
 						hasPytestConfig = true
-						validation.Framework = "pytest"
+						validation.Framework = frameworkPytest
 						break
 					}
 				}
 			} else {
 				hasPytestConfig = true
-				validation.Framework = "pytest"
+				validation.Framework = frameworkPytest
 				break
 			}
 		}
@@ -186,7 +186,7 @@ func validatePythonService(service ServiceInfo, validation ServiceValidation) Se
 	if testFileCount > 0 || hasTestDir || hasPytestConfig {
 		validation.CanTest = true
 		if validation.Framework == "" {
-			validation.Framework = "pytest"
+			validation.Framework = frameworkPytest
 		}
 	} else {
 		validation.SkipReason = "No pytest configuration and no test files found"
@@ -208,7 +208,7 @@ func validateGoService(service ServiceInfo, validation ServiceValidation) Servic
 	testFileCount := 0
 	_ = filepath.WalkDir(service.Dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 		// Skip vendor directory
 		if d.IsDir() && d.Name() == "vendor" {
@@ -221,7 +221,7 @@ func validateGoService(service ServiceInfo, validation ServiceValidation) Servic
 	})
 
 	validation.TestFiles = testFileCount
-	validation.Framework = "gotest"
+	validation.Framework = frameworkGoTest
 
 	if testFileCount > 0 {
 		validation.CanTest = true
@@ -240,7 +240,7 @@ func validateDotnetService(service ServiceInfo, validation ServiceValidation) Se
 
 	_ = filepath.WalkDir(service.Dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // missing file is expected in detection logic
 		}
 		// Skip bin and obj directories
 		if d.IsDir() && (d.Name() == "bin" || d.Name() == "obj") {
@@ -257,8 +257,8 @@ func validateDotnetService(service ServiceInfo, validation ServiceValidation) Se
 					// #nosec G304 -- Path is from filepath.WalkDir of validated service.Dir
 					if data, err := os.ReadFile(path); err == nil {
 						content := string(data)
-						if strings.Contains(content, "xunit") {
-							framework = "xunit"
+						if strings.Contains(content, frameworkXUnit) {
+							framework = frameworkXUnit
 						} else if strings.Contains(content, "NUnit") {
 							framework = "nunit"
 						} else if strings.Contains(content, "MSTest") {
@@ -275,7 +275,7 @@ func validateDotnetService(service ServiceInfo, validation ServiceValidation) Se
 	if framework != "" {
 		validation.Framework = framework
 	} else if testProjectCount > 0 {
-		validation.Framework = "dotnet"
+		validation.Framework = dotnetCommand
 	}
 
 	if testProjectCount > 0 {
@@ -310,7 +310,7 @@ func countTestFiles(dir string, patterns []string) int {
 			basePattern := strings.Replace(pattern, "**/", "", 1)
 			_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 				if err != nil {
-					return nil
+					return nil //nolint:nilerr // missing file is expected in detection logic
 				}
 				// Skip node_modules, vendor, and other common ignore dirs
 				if d.IsDir() {

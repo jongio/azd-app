@@ -109,7 +109,7 @@ func TestRefreshEnvironmentCache_ConcurrentAccess(t *testing.T) {
 	// Concurrent refreshes
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
 				RefreshEnvironmentCache()
@@ -120,7 +120,7 @@ func TestRefreshEnvironmentCache_ConcurrentAccess(t *testing.T) {
 	// Concurrent reads
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
 				getAzureEnvironmentValues()

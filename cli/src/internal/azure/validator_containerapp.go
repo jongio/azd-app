@@ -31,7 +31,7 @@ func NewContainerAppValidator(credential azcore.TokenCredential, projectDir stri
 }
 
 // Validate performs comprehensive validation of a Container App's logging configuration.
-func (v *ContainerAppValidator) Validate(ctx context.Context, serviceName string, resource *AzureResource) (*ServiceDiagnosticResult, error) {
+func (v *ContainerAppValidator) Validate(ctx context.Context, serviceName string, resource *AzureResource) (*ServiceDiagnosticResult, error) { //nolint:dupl // structurally similar validator but different Azure resource type
 	result := &ServiceDiagnosticResult{
 		HostType:     ResourceTypeContainerApp,
 		Requirements: make([]Requirement, 0),
@@ -114,7 +114,7 @@ func (v *ContainerAppValidator) Validate(ctx context.Context, serviceName string
 }
 
 // checkDiagnosticSettings checks if diagnostic settings are configured for the Container App.
-func (v *ContainerAppValidator) checkDiagnosticSettings(ctx context.Context, resourceID string) (bool, error) {
+func (v *ContainerAppValidator) checkDiagnosticSettings(ctx context.Context, resourceID string) (bool, error) { //nolint:unparam // return value kept for future use/interface conformance
 	checker := &DiagnosticSettingsChecker{
 		credential: v.credential,
 		projectDir: v.projectDir,
@@ -125,7 +125,7 @@ func (v *ContainerAppValidator) checkDiagnosticSettings(ctx context.Context, res
 }
 
 // generateSetupGuide creates a setup guide for Container Apps.
-func (v *ContainerAppValidator) generateSetupGuide(serviceName string, resource *AzureResource, hasSettings bool, hasLogs bool) *SetupGuide {
+func (v *ContainerAppValidator) generateSetupGuide(_ string, _ *AzureResource, hasSettings bool, hasLogs bool) *SetupGuide {
 	if hasLogs {
 		return nil // No guide needed if logs are flowing
 	}

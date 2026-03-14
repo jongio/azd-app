@@ -57,6 +57,7 @@ type StateTransition struct {
 // Severity represents the severity of a state transition.
 type Severity int
 
+// SeverityInfo and related constants define the severity assigned to service state transitions.
 const (
 	SeverityInfo Severity = iota
 	SeverityWarning

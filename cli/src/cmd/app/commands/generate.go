@@ -2,6 +2,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,6 +41,13 @@ type GenerateResult struct {
 	Added         int  // Number of reqs added
 	Skipped       int  // Number of existing reqs preserved
 }
+
+const (
+	langPython = "python"
+	langDotnet = "dotnet"
+	pkgPNPM    = "pnpm"
+	pkgPoetry  = "poetry"
+)
 
 // runGenerate is the main entry point for the generate command.
 func runGenerate(config GenerateConfig) error {
@@ -110,7 +118,7 @@ func runGenerate(config GenerateConfig) error {
 }
 
 // detectProjectReqs scans the project directory for all dependencies.
-func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
+func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) { //nolint:unparam // return value kept for future use/interface conformance
 	var requirements []DetectedRequirement
 	foundSources := make(map[string]bool)
 
@@ -186,9 +194,9 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 				foundSources["Logic Apps Standard"] = true
 			case "nodejs":
 				foundSources["Node.js Functions"] = true
-			case "python":
+			case langPython:
 				foundSources["Python Functions"] = true
-			case "dotnet":
+			case langDotnet:
 				foundSources[".NET Functions"] = true
 			case "java":
 				foundSources["Java Functions"] = true
@@ -220,7 +228,7 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 						requirements = append(requirements, req)
 					}
 				}
-			case "python":
+			case langPython:
 				// Python already detected above if requirements.txt exists
 				// But we should ensure it's added for Functions projects
 				if !hasPythonProject(projectDir) {
@@ -228,7 +236,7 @@ func detectProjectReqs(projectDir string) ([]DetectedRequirement, error) {
 						requirements = append(requirements, req)
 					}
 				}
-			case "dotnet":
+			case langDotnet:
 				// .NET already detected above if .csproj exists
 				// But we should ensure it's added for Functions projects
 				if !hasDotnetProject(projectDir) {
@@ -348,7 +356,7 @@ func detectNodePackageManager(projectDir string) DetectedRequirement {
 }
 
 func detectPython(_ string) DetectedRequirement {
-	return detectToolWithSource("python", "requirements.txt or pyproject.toml", false)
+	return detectToolWithSource(langPython, "requirements.txt or pyproject.toml", false)
 }
 
 func detectPythonPackageManager(projectDir string) DetectedRequirement {
@@ -358,7 +366,7 @@ func detectPythonPackageManager(projectDir string) DetectedRequirement {
 }
 
 func detectDotnet(_ string) DetectedRequirement {
-	return detectToolWithSource("dotnet", ".csproj or .sln", false)
+	return detectToolWithSource(langDotnet, ".csproj or .sln", false)
 }
 
 func detectAspire(_ string) DetectedRequirement {
@@ -459,7 +467,7 @@ func getToolVersion(toolName string) (string, error) {
 
 	// Execute version command directly to capture output
 	// #nosec G204 -- Command and args come from toolRegistry which is a controlled map
-	cmd := exec.Command(toolConfig.Command, toolConfig.Args...)
+	cmd := exec.CommandContext(context.Background(), toolConfig.Command, toolConfig.Args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("tool not installed: %s", toolName)
@@ -531,17 +539,17 @@ func normalizeVersion(installedVersion string, toolName string) string {
 	parts := strings.Split(installedVersion, ".")
 
 	switch toolName {
-	case "node", "dotnet", "go", "rust", "docker", "git":
+	case "node", langDotnet, "go", "rust", "docker", "git":
 		// Major version only: "22.3.0" -> "22.0.0"
 		if len(parts) >= 1 {
 			return parts[0] + ".0.0"
 		}
-	case "python":
+	case langPython:
 		// Major.Minor version: "3.12.5" -> "3.12.0"
 		if len(parts) >= 2 {
 			return parts[0] + "." + parts[1] + ".0"
 		}
-	case "pnpm", "npm", "yarn", "poetry", "uv", "pip", "pipenv":
+	case pkgPNPM, "npm", "yarn", pkgPoetry, "uv", "pip", "pipenv":
 		// Major version for package managers: "9.1.4" -> "9.0.0"
 		if len(parts) >= 1 {
 			return parts[0] + ".0.0"
@@ -583,13 +591,13 @@ func displayDetectedDependencies(requirements []DetectedRequirement) {
 			if req.Name == "node" {
 				// Look for package manager in other requirements
 				for _, r := range requirements {
-					if r.Name == "pnpm" || r.Name == "yarn" || r.Name == "npm" {
+					if r.Name == pkgPNPM || r.Name == "yarn" || r.Name == "npm" {
 						pkgMgr = r.Name
 						break
 					}
 				}
 			}
-			if req.Name == "node" || req.Name == "npm" || req.Name == "pnpm" || req.Name == "yarn" {
+			if req.Name == "node" || req.Name == "npm" || req.Name == pkgPNPM || req.Name == "yarn" {
 				sources[fmt.Sprintf("Node.js project (%s)", pkgMgr)] = true
 			}
 		} else if strings.Contains(req.Source, "AppHost.cs") {
@@ -602,15 +610,15 @@ func displayDetectedDependencies(requirements []DetectedRequirement) {
 			sources["Docker configuration"] = true
 		} else if strings.Contains(req.Source, "requirements.txt") || strings.Contains(req.Source, "pyproject.toml") {
 			pkgMgr := req.Name
-			if req.Name == "python" {
+			if req.Name == langPython {
 				for _, r := range requirements {
-					if r.Name == "poetry" || r.Name == "uv" || r.Name == "pip" || r.Name == "pipenv" {
+					if r.Name == pkgPoetry || r.Name == "uv" || r.Name == "pip" || r.Name == "pipenv" {
 						pkgMgr = r.Name
 						break
 					}
 				}
 			}
-			if req.Name == "python" || req.Name == "pip" || req.Name == "poetry" || req.Name == "uv" || req.Name == "pipenv" {
+			if req.Name == langPython || req.Name == "pip" || req.Name == pkgPoetry || req.Name == "uv" || req.Name == "pipenv" {
 				sources[fmt.Sprintf("Python project (%s)", pkgMgr)] = true
 			}
 		}
@@ -651,9 +659,9 @@ func displayDetectedReqs(reqs []DetectedRequirement) {
 			if req.InstalledVersion == "" {
 				cliout.ItemError("%s: NOT INSTALLED", req.Name)
 				switch req.Name {
-				case "pnpm":
+				case pkgPNPM:
 					cliout.Item("     Install: npm install -g pnpm")
-				case "poetry":
+				case pkgPoetry:
 					cliout.Item("     Install: curl -sSL https://install.python-poetry.org | python3 -")
 				case "uv":
 					cliout.Item("     Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
@@ -732,7 +740,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	existingCount := len(azureYaml.Reqs)
 
 	// Convert detected requirements to generic map format for yamlutil
-	var items []map[string]interface{}
+	items := make([]map[string]interface{}, 0, len(detected))
 	for _, det := range detected {
 		item := map[string]interface{}{
 			"name":       det.Name,
@@ -771,26 +779,27 @@ func formatReqItem(item map[string]interface{}, arrayIndent string) string {
 	var builder strings.Builder
 
 	// Array item with Name
-	builder.WriteString(arrayIndent)
-	builder.WriteString("- name: ")
-	builder.WriteString(item["name"].(string))
-	builder.WriteString("\n")
+	_, _ = builder.WriteString(arrayIndent)
+	_, _ = builder.WriteString("- name: ")
+	name, _ := item["name"].(string)
+	_, _ = builder.WriteString(name)
+	_, _ = builder.WriteString("\n")
 
 	// MinVersion (quoted)
-	builder.WriteString(arrayIndent)
-	builder.WriteString("  minVersion: ")
-	minVersion := item["minVersion"].(string)
+	_, _ = builder.WriteString(arrayIndent)
+	_, _ = builder.WriteString("  minVersion: ")
+	minVersion, _ := item["minVersion"].(string)
 	if strings.HasPrefix(minVersion, `"`) {
-		builder.WriteString(minVersion)
+		_, _ = builder.WriteString(minVersion)
 	} else {
-		builder.WriteString(`"` + minVersion + `"`)
+		_, _ = builder.WriteString(`"` + minVersion + `"`)
 	}
-	builder.WriteString("\n")
+	_, _ = builder.WriteString("\n")
 
 	// CheckRunning (if present)
 	if checkRunning, ok := item["checkRunning"].(bool); ok && checkRunning {
-		builder.WriteString(arrayIndent)
-		builder.WriteString("  checkRunning: true\n")
+		_, _ = builder.WriteString(arrayIndent)
+		_, _ = builder.WriteString("  checkRunning: true\n")
 	}
 
 	return builder.String()

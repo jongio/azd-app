@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -46,7 +47,7 @@ func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
 	// Detect if running in VS Code (desktop) vs browser-based Codespace
 	// In VS Code desktop (including VS Code connected to Codespace), localhost URLs work natively
 	// Only in browser-based Codespace do we need to transform localhost URLs
-	isVsCodeDesktop := runningOnVsCodeDesktop()
+	isVsCodeDesktop := runningOnVsCodeDesktop(r.Context())
 
 	// Get Azure environment name if available
 	azureEnvName := os.Getenv("AZURE_ENV_NAME")
@@ -70,7 +71,7 @@ func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
 // In browser-based Codespace, 'code --status' returns:
 // "The --status argument is not yet supported in browsers."
 // Reference: azure/azure-dev cli/azd/cmd/auth_login.go runningOnCodespacesBrowser
-func runningOnVsCodeDesktop() bool {
+func runningOnVsCodeDesktop(ctx context.Context) bool {
 	// Check if running in Codespace first - if not, no need to check
 	if os.Getenv("CODESPACES") != "true" {
 		return false
@@ -78,7 +79,7 @@ func runningOnVsCodeDesktop() bool {
 
 	// Try to run 'code --status' to detect VS Code desktop vs browser
 	// This command returns specific output in browser-based VS Code
-	cmd := exec.Command("code", "--status")
+	cmd := exec.CommandContext(ctx, "code", "--status")
 	output, err := cmd.Output()
 	if err != nil {
 		// If code command fails or doesn't exist, we're likely in browser Codespace
@@ -246,8 +247,8 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 			switch svc.Status {
 			case "ready":
 				statusClass = "ready"
-			case "error":
-				statusClass = "error"
+			case StatusError:
+				statusClass = StatusError
 			}
 
 			// Escape all user-controllable values to prevent XSS

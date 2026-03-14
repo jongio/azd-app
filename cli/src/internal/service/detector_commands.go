@@ -10,6 +10,8 @@ import (
 	"github.com/jongio/azd-core/security"
 )
 
+const frameworkSpringBoot = "Spring Boot"
+
 // buildRunCommand builds the command and arguments to run the service.
 //
 // Priority:
@@ -60,7 +62,7 @@ func buildFrameworkCommand(runtime *ServiceRuntime, projectDir, runtimeMode stri
 	// Handle Python frameworks with venv support
 	pythonFrameworks := map[string]struct{}{
 		"Django": {}, "FastAPI": {}, "Flask": {},
-		"Streamlit": {}, "Gradio": {}, "Python": {},
+		"Streamlit": {}, "Gradio": {}, langNamePython: {},
 	}
 
 	if _, isPython := pythonFrameworks[runtime.Framework]; isPython {
@@ -100,14 +102,14 @@ func buildFrameworkCommand(runtime *ServiceRuntime, projectDir, runtimeMode stri
 	case "Aspire":
 		return buildDotNetCommand(runtime, projectDir, runtimeMode, true)
 
-	case "ASP.NET Core", ".NET":
+	case "ASP.NET Core", langNameDotNet:
 		return buildDotNetCommand(runtime, projectDir, runtimeMode, false)
 
-	case "Spring Boot":
+	case frameworkSpringBoot:
 		buildJavaCommand(runtime, true)
 		return nil
 
-	case "Java":
+	case langNameJava:
 		buildJavaCommand(runtime, false)
 		return nil
 
@@ -115,7 +117,7 @@ func buildFrameworkCommand(runtime *ServiceRuntime, projectDir, runtimeMode stri
 		runtime.Command = "go"
 		runtime.Args = []string{"run", "."}
 
-	case "Rust":
+	case langNameRust:
 		runtime.Command = "cargo"
 		runtime.Args = []string{"run"}
 
@@ -123,7 +125,7 @@ func buildFrameworkCommand(runtime *ServiceRuntime, projectDir, runtimeMode stri
 		runtime.Command = "php"
 		runtime.Args = []string{"artisan", "serve", "--host=0.0.0.0", "--port=" + fmt.Sprintf("%d", runtime.Port)}
 
-	case "PHP":
+	case langNamePHP:
 		runtime.Command = "php"
 		runtime.Args = []string{"-S", fmt.Sprintf("0.0.0.0:%d", runtime.Port)}
 
@@ -136,7 +138,7 @@ func buildFrameworkCommand(runtime *ServiceRuntime, projectDir, runtimeMode stri
 
 // buildDotNetCommand configures a .NET service runtime command.
 func buildDotNetCommand(runtime *ServiceRuntime, projectDir, runtimeMode string, isAspire bool) error {
-	runtime.Command = "dotnet"
+	runtime.Command = langDotnet
 
 	csprojFiles, _ := filepath.Glob(filepath.Join(projectDir, "*.csproj"))
 	if len(csprojFiles) > 0 {
@@ -195,12 +197,9 @@ func getPythonVenvPath(projectDir string) string {
 }
 
 // resolvePythonEntrypoint resolves and validates the Python entrypoint file.
-// Returns the entrypoint filename, with fallback to auto-detection if not provided.
-func resolvePythonEntrypoint(projectDir, entrypoint string) (string, error) {
-	appFile := entrypoint
-	if appFile == "" {
-		appFile = findPythonAppFile(projectDir)
-	}
+// Returns the auto-detected entrypoint filename.
+func resolvePythonEntrypoint(projectDir, _ string) (string, error) {
+	appFile := findPythonAppFile(projectDir)
 	if err := validatePythonEntrypoint(projectDir, appFile); err != nil {
 		return "", err
 	}
@@ -254,7 +253,7 @@ func buildPythonDefaultCommand(runtime *ServiceRuntime, projectDir, pythonCmd st
 		runtime.Args = []string{"-m", "streamlit", "run", appFile + ".py", "--server.port", fmt.Sprintf("%d", runtime.Port)}
 		return nil
 
-	case "Gradio", "Python":
+	case "Gradio", langNamePython:
 		appFile, err := resolvePythonEntrypoint(projectDir, "") // Auto-detect
 		if err != nil {
 			return fmt.Errorf("%s: %w", runtime.Framework, err)
@@ -278,7 +277,7 @@ func configureHealthCheck(runtime *ServiceRuntime) {
 		"Aspire":              {"/", "Now listening on"},
 		"Next.js":             {"/", "ready on"},
 		"Django":              {"/", "Starting development server"},
-		"Spring Boot":         {"/actuator/health", "Started"},
+		frameworkSpringBoot:   {"/actuator/health", "Started"},
 		"FastAPI":             {"/docs", ""},
 	}
 

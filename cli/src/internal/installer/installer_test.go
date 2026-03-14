@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -743,7 +744,7 @@ func TestFormatDotnetRestoreError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command("dotnet", "restore", tt.projectPath)
+			cmd := exec.CommandContext(context.Background(), "dotnet", "restore", tt.projectPath)
 			cmdErr := fmt.Errorf("exit status %d", tt.exitCode)
 
 			err := formatDotnetRestoreError(tt.projectPath, filepath.Dir(tt.projectPath), cmd, cmdErr, tt.stderr)

@@ -23,6 +23,11 @@ import (
 	"golang.org/x/time/rate"
 )
 
+const (
+	statusError     = "error"
+	statusCompleted = "completed"
+)
+
 // HealthChecker performs individual health checks with circuit breaker and rate limiting.
 type HealthChecker struct {
 	timeout            time.Duration
@@ -68,12 +73,15 @@ func (c *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker
 		Interval:    c.breakerTimeout,
 		Timeout:     c.breakerTimeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			// Validate positive breakerFailures to prevent underflow/overflow
-			if c.breakerFailures < 0 {
+			// Validate breakerFailures to prevent underflow/overflow
+			if c.breakerFailures < 0 || int64(c.breakerFailures) > int64(^uint32(0)) {
+				return false
+			}
+			if counts.Requests == 0 {
 				return false
 			}
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6
+			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6 //nolint:gosec // G115 - breakerFailures bounds checked above
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
 			log.Info().
@@ -783,7 +791,7 @@ func (c *HealthChecker) parseHealthResponseBody(body []byte, result *httpHealthC
 				result.Status = HealthStatusHealthy
 			case "degraded", "warning":
 				result.Status = HealthStatusDegraded
-			case "unhealthy", "down", "error":
+			case "unhealthy", "down", statusError:
 				result.Status = HealthStatusUnhealthy
 			}
 		}
@@ -791,7 +799,7 @@ func (c *HealthChecker) parseHealthResponseBody(body []byte, result *httpHealthC
 }
 
 // performProcessHealthCheck handles health checks for process-type services.
-func (c *HealthChecker) performProcessHealthCheck(ctx context.Context, svc serviceInfo, isInStartupGracePeriod bool) HealthCheckResult {
+func (c *HealthChecker) performProcessHealthCheck(_ context.Context, svc serviceInfo, isInStartupGracePeriod bool) HealthCheckResult {
 	result := HealthCheckResult{
 		ServiceName: svc.Name,
 		Timestamp:   time.Now(),
@@ -873,7 +881,7 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 			if svc.Mode == ServiceModeBuild {
 				result.Details = map[string]interface{}{"state": "built", "exitCode": 0}
 			} else {
-				result.Details = map[string]interface{}{"state": "completed", "exitCode": 0}
+				result.Details = map[string]interface{}{"state": statusCompleted, "exitCode": 0}
 			}
 		} else {
 			result.Status = HealthStatusUnhealthy
@@ -888,7 +896,7 @@ func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartup
 		if svc.Mode == ServiceModeBuild {
 			result.Details = map[string]interface{}{"state": "built", "note": "exit code not captured"}
 		} else {
-			result.Details = map[string]interface{}{"state": "completed", "note": "exit code not captured"}
+			result.Details = map[string]interface{}{"state": statusCompleted, "note": "exit code not captured"}
 		}
 		return result
 	}
@@ -916,7 +924,7 @@ func (c *HealthChecker) performOutputHealthCheck(svc serviceInfo, isInStartupGra
 		if svc.ExitCode != nil {
 			if *svc.ExitCode == 0 {
 				result.Status = HealthStatusHealthy
-				result.Details["state"] = "completed"
+				result.Details["state"] = statusCompleted
 				return result
 			}
 			result.Status = HealthStatusUnhealthy
@@ -1004,7 +1012,7 @@ func suggestTCPErrorAction(err error, port int) string {
 }
 
 // suggestProcessErrorAction provides actionable suggestions for process check errors.
-func suggestProcessErrorAction(pid int, isRunning bool, mode string) string {
+func suggestProcessErrorAction(pid int, isRunning bool, _ string) string {
 	if !isRunning {
 		return fmt.Sprintf("Process %d not running. Check service logs and verify start command.", pid)
 	}
@@ -1051,7 +1059,7 @@ func parseErrorDetailsFromBody(body []byte) string {
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal(body, &jsonData); err == nil {
 		// Look for common error fields
-		for _, key := range []string{"error", "message", "detail", "details", "error_description"} {
+		for _, key := range []string{statusError, "message", "detail", "details", "error_description"} {
 			if val, ok := jsonData[key]; ok {
 				if str, ok := val.(string); ok && str != "" {
 					return str

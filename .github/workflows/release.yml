@@ -32,17 +32,17 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '${{ env.GO_VERSION }}'
           cache: true
           cache-dependency-path: cli/go.sum
 
       - name: Cache Go tools
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: ~/go/bin
           key: go-tools-${{ runner.os }}-${{ env.GO_VERSION }}
@@ -51,13 +51,13 @@ jobs:
         run: go version
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           registry-url: 'https://npm.pkg.github.com'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
         with:
           version: 9
 
@@ -100,22 +100,22 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '${{ env.GO_VERSION }}'
           cache: true
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
         with:
           version: 9
 
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: github.repository == 'jongio/azd-app'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           file: coverage/coverage.out
           flags: unittests
@@ -171,34 +171,20 @@ jobs:
           fail_ci_if_error: false
           verbose: true
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [preflight, test]
-    timeout-minutes: 15
-    
-    defaults:
-      run:
-        working-directory: cli
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '${{ env.GO_VERSION }}'
           cache: true
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
         with:
           version: 9
 
@@ -217,7 +203,7 @@ jobs:
           GOOS=darwin GOARCH=arm64 go build -o bin/darwin-arm64/app ./src/cmd/app
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: binaries
           path: cli/bin/
@@ -230,27 +216,28 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write  # Required for cosign OIDC signing
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '${{ env.GO_VERSION }}'
           cache: true
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
         with:
           version: 9
 
@@ -503,6 +490,52 @@ jobs:
             --version "${{ steps.version.outputs.next }}" \
             --notes-file /tmp/release-notes.md \
             --confirm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@3454372be43e8ddeec39df0f73bb47954da3a1f1 # v3
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@e11c554f704a0b820cbf8c51673f6945e0731532 # v0
+
+      - name: Sign release artifacts with cosign
+        working-directory: cli
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          echo "Signing release artifacts for v${VERSION}..."
+          
+          # Download release assets
+          gh release download "v${VERSION}" --dir /tmp/release-assets --repo "${{ github.repository }}" || true
+          
+          # Sign each artifact
+          if [ -d /tmp/release-assets ]; then
+            for file in /tmp/release-assets/*; do
+              if [ -f "$file" ]; then
+                echo "Signing $(basename $file)..."
+                cosign sign-blob --yes "$file" --output-signature "${file}.sig" --output-certificate "${file}.pem"
+              fi
+            done
+            
+            # Upload signatures and certificates to the release
+            gh release upload "v${VERSION}" /tmp/release-assets/*.sig /tmp/release-assets/*.pem --repo "${{ github.repository }}" || true
+            echo "✅ All artifacts signed with cosign (keyless/OIDC)"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SBOM
+        working-directory: cli
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          echo "Generating SBOM for v${VERSION}..."
+          
+          # Generate SBOM for the Go module
+          syft . -o spdx-json=/tmp/sbom-spdx.json -o cyclonedx-json=/tmp/sbom-cyclonedx.json
+          
+          # Upload SBOM to the release
+          gh release upload "v${VERSION}" /tmp/sbom-spdx.json /tmp/sbom-cyclonedx.json --repo "${{ github.repository }}" || true
+          echo "✅ SBOM generated and uploaded (SPDX + CycloneDX)"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,7 @@ func NewClient() *ExecClient {
 
 // IsAvailable checks if Docker is installed and running.
 func (c *ExecClient) IsAvailable() bool {
-	cmd := exec.Command("docker", "info")
+	cmd := exec.CommandContext(context.Background(), "docker", "info")
 	err := cmd.Run()
 	return err == nil
 }
@@ -34,7 +35,7 @@ func (c *ExecClient) Pull(image string) error {
 		return err
 	}
 
-	cmd := exec.Command("docker", "pull", image)
+	cmd := exec.CommandContext(context.Background(), "docker", "pull", image)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -56,7 +57,7 @@ func (c *ExecClient) Run(config ContainerConfig) (string, error) {
 	}
 
 	args := buildRunArgs(config)
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -133,7 +134,7 @@ func (c *ExecClient) Stop(containerID string, timeoutSeconds int) error {
 	}
 
 	args := []string{"stop", "-t", fmt.Sprintf("%d", timeoutSeconds), containerID}
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -155,7 +156,7 @@ func (c *ExecClient) Start(containerID string) error {
 		return errors.New(errEmptyContainerID)
 	}
 
-	cmd := exec.Command("docker", "start", containerID)
+	cmd := exec.CommandContext(context.Background(), "docker", "start", containerID)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -176,7 +177,7 @@ func (c *ExecClient) Remove(containerID string) error {
 		return errors.New(errEmptyContainerID)
 	}
 
-	cmd := exec.Command("docker", "rm", containerID)
+	cmd := exec.CommandContext(context.Background(), "docker", "rm", containerID)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -199,7 +200,7 @@ func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 		return nil, errors.New(errEmptyContainerID)
 	}
 
-	cmd := exec.Command("docker", "logs", "-f", containerID)
+	cmd := exec.CommandContext(context.Background(), "docker", "logs", "-f", containerID)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
@@ -261,6 +262,7 @@ func (c *combinedReadCloser) Read(p []byte) (int, error) {
 	return c.reader.Read(p)
 }
 
+// Close shuts down the combined reader by closing the pipe and terminating the underlying command.
 func (c *combinedReadCloser) Close() error {
 	// Close the pipe writer to unblock any pending reads
 	if c.pipe != nil {
@@ -291,7 +293,7 @@ func (c *ExecClient) Inspect(containerID string) (*Container, error) {
 		return nil, errors.New(errEmptyContainerID)
 	}
 
-	cmd := exec.Command("docker", "inspect", containerID)
+	cmd := exec.CommandContext(context.Background(), "docker", "inspect", containerID)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -331,7 +333,7 @@ func (c *ExecClient) IsRunning(containerID string) bool {
 		return false
 	}
 
-	cmd := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", containerID)
+	cmd := exec.CommandContext(context.Background(), "docker", "inspect", "-f", "{{.State.Running}}", containerID)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -364,7 +366,7 @@ func (c *ExecClient) Exec(containerName string, command []string) (int, string, 
 	}
 
 	args := append([]string{"exec", containerName}, command...)
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

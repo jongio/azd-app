@@ -14,6 +14,8 @@ import (
 	"github.com/jongio/azd-core/security"
 )
 
+const formatJSON = "json"
+
 // CoverageAggregator collects and merges coverage data from multiple services
 type CoverageAggregator struct {
 	serviceCoverage map[string]*CoverageData
@@ -139,13 +141,13 @@ func (a *CoverageAggregator) GenerateReport(format string) error {
 
 	if a.outputDir != "" {
 		// Ensure output directory exists
-		if err := os.MkdirAll(a.outputDir, 0o755); err != nil {
+		if err := os.MkdirAll(a.outputDir, 0o750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 	}
 
 	switch strings.ToLower(format) {
-	case "json":
+	case formatJSON:
 		return a.generateJSONReport(aggregate)
 	case "cobertura", "xml":
 		return a.generateCoberturaReport(aggregate)
@@ -158,7 +160,7 @@ func (a *CoverageAggregator) GenerateReport(format string) error {
 
 // GenerateAllReports generates all coverage report formats
 func (a *CoverageAggregator) GenerateAllReports() error {
-	formats := []string{"json", "cobertura", "html"}
+	formats := []string{formatJSON, "cobertura", "html"}
 	for _, format := range formats {
 		if err := a.GenerateReport(format); err != nil {
 			return err
@@ -263,7 +265,7 @@ func (a *CoverageAggregator) generateJSONReport(aggregate *AggregateCoverage) er
 		return fmt.Errorf("failed to marshal coverage data: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
+	if err := os.WriteFile(outputPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write JSON report: %w", err)
 	}
 
@@ -381,7 +383,7 @@ func (a *CoverageAggregator) generateCoberturaReport(aggregate *AggregateCoverag
 	// Add XML header
 	xmlData := append([]byte(xml.Header), data...)
 
-	if err := os.WriteFile(outputPath, xmlData, 0o644); err != nil {
+	if err := os.WriteFile(outputPath, xmlData, 0o600); err != nil {
 		return fmt.Errorf("failed to write Cobertura report: %w", err)
 	}
 
@@ -560,7 +562,7 @@ func (a *CoverageAggregator) generateHTMLIndex(aggregate *AggregateCoverage) err
 </body>
 </html>`
 
-	if err := os.WriteFile(outputPath, []byte(htmlContent), 0o644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(htmlContent), 0o600); err != nil {
 		return fmt.Errorf("failed to write HTML report: %w", err)
 	}
 
@@ -640,7 +642,7 @@ func (a *CoverageAggregator) generateServiceHTML(service string, coverage *Cover
 </body>
 </html>`
 
-	if err := os.WriteFile(outputPath, []byte(htmlContent), 0o644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(htmlContent), 0o600); err != nil {
 		return fmt.Errorf("failed to write service HTML: %w", err)
 	}
 
@@ -652,7 +654,7 @@ func (a *CoverageAggregator) generateFileHTML(file *FileCoverage) error {
 	outputPath := filepath.Join(a.outputDir, fmt.Sprintf("file-%s.html", sanitizeFilename(file.Path)))
 
 	// Try to read source file
-	sourceContent := ""
+	var sourceContent string
 	sourcePath := file.Path
 	if a.sourceRoot != "" {
 		sourcePath = filepath.Join(a.sourceRoot, file.Path)
@@ -746,7 +748,7 @@ func (a *CoverageAggregator) generateFileHTML(file *FileCoverage) error {
 </body>
 </html>`
 
-	if err := os.WriteFile(outputPath, []byte(htmlContent), 0o644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(htmlContent), 0o600); err != nil {
 		return fmt.Errorf("failed to write file HTML: %w", err)
 	}
 

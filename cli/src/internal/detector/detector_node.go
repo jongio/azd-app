@@ -11,6 +11,8 @@ import (
 	"github.com/jongio/azd-core/security"
 )
 
+const pkgNPM = "npm"
+
 // FindNodeProjects searches for package.json files.
 // Only searches within rootDir and does not traverse outside it.
 // Detects npm/yarn/pnpm workspace configurations and marks workspace relationships.
@@ -30,13 +32,13 @@ func FindNodeProjects(rootDir string) ([]types.NodeProject, error) {
 	// First pass: find all package.json files and identify workspace roots
 	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 
 		// Ensure we don't traverse outside rootDir
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 		relPath, err := filepath.Rel(rootDir, absPath)
 		if err != nil || strings.HasPrefix(relPath, "..") {
@@ -153,11 +155,11 @@ func DetectNodePackageManagerWithBoundaryAndSource(projectDir string, boundaryDi
 		return PackageManagerInfo{Name: "yarn", Source: "yarn.lock"}
 	}
 	if _, err := os.Stat(filepath.Join(absDir, "package-lock.json")); err == nil {
-		return PackageManagerInfo{Name: "npm", Source: "package-lock.json"}
+		return PackageManagerInfo{Name: pkgNPM, Source: "package-lock.json"}
 	}
 
 	// Default to npm if no lock files found
-	return PackageManagerInfo{Name: "npm", Source: "package.json"}
+	return PackageManagerInfo{Name: pkgNPM, Source: "package.json"}
 }
 
 // GetPackageManagerFromPackageJSON reads package.json and extracts the packageManager field.
@@ -202,7 +204,7 @@ func GetPackageManagerFromPackageJSON(projectDir string) string {
 
 	// Validate it's a supported package manager
 	switch pkgMgrName {
-	case "npm", "yarn", "pnpm":
+	case pkgNPM, "yarn", "pnpm":
 		return pkgMgrName
 	default:
 		// Unsupported package manager, fall back to lock file detection

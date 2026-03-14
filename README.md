@@ -11,6 +11,12 @@ One command starts all services, manages dependencies, and provides real-time mo
 [![codecov](https://codecov.io/gh/jongio/azd-app/branch/main/graph/badge.svg)](https://codecov.io/gh/jongio/azd-app)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jongio/azd-app/cli?refresh=1)](https://goreportcard.com/report/github.com/jongio/azd-app/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CodeQL](https://github.com/jongio/azd-app/actions/workflows/codeql.yml/badge.svg)](https://github.com/jongio/azd-app/actions/workflows/codeql.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jongio/azd-app/cli.svg)](https://pkg.go.dev/github.com/jongio/azd-app/cli)
+[![govulncheck](https://img.shields.io/badge/govulncheck-passing-brightgreen)](https://github.com/jongio/azd-app/actions/workflows/govulncheck.yml)
+[![golangci-lint](https://img.shields.io/badge/golangci--lint-enabled-blue)](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/badge/go-1.26.0-blue)](https://go.dev/)
+[![Platform Support](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](https://github.com/jongio/azd-app)
 
 <br />
 

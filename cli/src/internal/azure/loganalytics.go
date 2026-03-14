@@ -15,6 +15,7 @@ import (
 // LogLevel represents the severity of a log message.
 type LogLevel int
 
+// LogLevelInfo and related constants define the severity levels assigned to Log Analytics entries.
 const (
 	LogLevelInfo LogLevel = iota
 	LogLevelWarn
@@ -315,7 +316,7 @@ func (c *LogAnalyticsClient) extractMessage(row []any, colIndex map[string]int, 
 }
 
 // extractLevel extracts the log level from the row.
-func (c *LogAnalyticsClient) extractLevel(row []any, colIndex map[string]int, message string, resourceType ResourceType) LogLevel {
+func (c *LogAnalyticsClient) extractLevel(row []any, colIndex map[string]int, message string, _ ResourceType) LogLevel {
 	// Try to get explicit level field
 	levelStr := getStringFromRow(row, colIndex, "Level", "Stream_s")
 	levelStr = strings.ToLower(levelStr)

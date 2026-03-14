@@ -1,6 +1,7 @@
 package healthcheck
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -196,7 +197,7 @@ func TestCreateMetricsServer_HealthEndpoint(t *testing.T) {
 	server := CreateMetricsServer(0) // Use port 0 for testing
 
 	// Create a test request to /health
-	req, err := http.NewRequest("GET", "/health", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}

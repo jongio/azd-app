@@ -13,6 +13,7 @@ import (
 // WorkspaceVerificationStatus represents the overall status of workspace verification.
 type WorkspaceVerificationStatus string
 
+// VerificationStatusSuccess and related constants describe the overall outcome of workspace verification.
 const (
 	VerificationStatusSuccess WorkspaceVerificationStatus = "success"
 	VerificationStatusPartial WorkspaceVerificationStatus = "partial"
@@ -22,6 +23,7 @@ const (
 // ServiceVerificationStatus represents the verification status of a single service.
 type ServiceVerificationStatus string
 
+// ServiceStatusOK and related constants describe per-service verification results.
 const (
 	ServiceStatusOK                      ServiceVerificationStatus = "ok"
 	ServiceStatusNoLogs                  ServiceVerificationStatus = "no-logs"

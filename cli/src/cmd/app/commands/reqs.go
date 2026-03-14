@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -53,6 +54,11 @@ type AzureYaml struct {
 	Services map[string]ReqsService `yaml:"services,omitempty"`
 }
 
+const (
+	toolDocker = "docker"
+	osWindows  = "windows"
+)
+
 // hasContainerServices returns true if any service is a container service.
 func (a *AzureYaml) hasContainerServices() bool {
 	for _, svc := range a.Services {
@@ -69,7 +75,7 @@ func (a *AzureYaml) hasContainerServices() bool {
 // hasDockerReq returns true if Docker is already in the reqs list.
 func (a *AzureYaml) hasDockerReq() bool {
 	for _, req := range a.Reqs {
-		if strings.EqualFold(req.Name, "docker") {
+		if strings.EqualFold(req.Name, toolDocker) {
 			return true
 		}
 	}
@@ -148,8 +154,8 @@ var toolRegistry = map[string]ToolConfig{
 		Command: "aspire",
 		Args:    []string{"--version"},
 	},
-	"docker": {
-		Command:      "docker",
+	toolDocker: {
+		Command:      toolDocker,
 		Args:         []string{"--version"},
 		VersionField: 2, // "Docker version 28.5.1, build ..." -> take field 2
 	},
@@ -206,28 +212,28 @@ var toolAliases = map[string]string{
 
 // installURLRegistry maps tool names to their installation page URLs.
 var installURLRegistry = map[string]string{
-	"node":   "https://nodejs.org/",
-	"npm":    "https://nodejs.org/",
-	"pnpm":   "https://pnpm.io/installation",
-	"yarn":   "https://yarnpkg.com/getting-started/install",
-	"python": "https://www.python.org/downloads/",
-	"pip":    "https://www.python.org/downloads/",
-	"poetry": "https://python-poetry.org/docs/#installation",
-	"uv":     "https://docs.astral.sh/uv/getting-started/installation/",
-	"pipenv": "https://pipenv.pypa.io/en/latest/installation.html",
-	"dotnet": "https://dotnet.microsoft.com/download",
-	"aspire": "https://learn.microsoft.com/dotnet/aspire/fundamentals/setup-tooling",
-	"docker": "https://www.docker.com/products/docker-desktop",
-	"git":    "https://git-scm.com/downloads",
-	"go":     "https://go.dev/dl/",
-	"azd":    "https://aka.ms/install-azd",
-	"az":     "https://aka.ms/installazurecli",
-	"air":    "https://github.com/air-verse/air#installation",
-	"func":   "https://learn.microsoft.com/azure/azure-functions/functions-run-local#install-the-azure-functions-core-tools",
-	"java":   "https://adoptium.net/",
-	"mvn":    "https://maven.apache.org/install.html",
-	"gradle": "https://gradle.org/install/",
-	"gh":     "https://cli.github.com/",
+	"node":     "https://nodejs.org/",
+	"npm":      "https://nodejs.org/",
+	"pnpm":     "https://pnpm.io/installation",
+	"yarn":     "https://yarnpkg.com/getting-started/install",
+	"python":   "https://www.python.org/downloads/",
+	"pip":      "https://www.python.org/downloads/",
+	"poetry":   "https://python-poetry.org/docs/#installation",
+	"uv":       "https://docs.astral.sh/uv/getting-started/installation/",
+	"pipenv":   "https://pipenv.pypa.io/en/latest/installation.html",
+	"dotnet":   "https://dotnet.microsoft.com/download",
+	"aspire":   "https://learn.microsoft.com/dotnet/aspire/fundamentals/setup-tooling",
+	toolDocker: "https://www.docker.com/products/docker-desktop",
+	"git":      "https://git-scm.com/downloads",
+	"go":       "https://go.dev/dl/",
+	"azd":      "https://aka.ms/install-azd",
+	"az":       "https://aka.ms/installazurecli",
+	"air":      "https://github.com/air-verse/air#installation",
+	"func":     "https://learn.microsoft.com/azure/azure-functions/functions-run-local#install-the-azure-functions-core-tools",
+	"java":     "https://adoptium.net/",
+	"mvn":      "https://maven.apache.org/install.html",
+	"gradle":   "https://gradle.org/install/",
+	"gh":       "https://cli.github.com/",
 }
 
 // NewReqsCommand creates the reqs command.
@@ -357,7 +363,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 
 	// When Podman is aliased to Docker, skip version comparison since version schemes differ.
 	// Podman uses its own versioning (e.g., 5.7.0) which is not comparable to Docker versions (e.g., 20.10.0).
-	if isPodman && prereq.Name == "docker" {
+	if isPodman && prereq.Name == toolDocker {
 		result.Message = "Podman detected (version check skipped)"
 		if !cliout.IsJSON() {
 			cliout.ItemSuccess("%s: %s via Podman (version check skipped)", prereq.Name, version)
@@ -445,7 +451,7 @@ func (pc *PrerequisiteChecker) getInstalledVersion(prereq Prerequisite) (install
 	config := pc.getToolConfig(prereq)
 
 	// #nosec G204 -- Command and args come from toolRegistry or validated azure.yaml prerequisite configuration
-	cmd := exec.Command(config.Command, config.Args...)
+	cmd := exec.CommandContext(context.Background(), config.Command, config.Args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, "", false
@@ -506,8 +512,8 @@ func (pc *PrerequisiteChecker) checkIsRunning(prereq Prerequisite) bool {
 	// Default checks for known tools
 	if command == "" {
 		switch prereq.Name {
-		case "docker":
-			command = "docker"
+		case toolDocker:
+			command = toolDocker
 			args = []string{"ps"}
 		default:
 			// No default running check for this tool
@@ -518,7 +524,7 @@ func (pc *PrerequisiteChecker) checkIsRunning(prereq Prerequisite) bool {
 	}
 
 	// #nosec G204 -- Command and args come from azure.yaml running check configuration or default Docker check
-	cmd := exec.Command(command, args...)
+	cmd := exec.CommandContext(context.Background(), command, args...)
 	output, err := cmd.CombinedOutput()
 
 	// Check exit code
@@ -920,7 +926,7 @@ func runReqsFix() error {
 	cliout.Info("ℹ️  Note: Tools may not be available in THIS terminal session")
 
 	// Provide platform-specific refresh instructions
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		cliout.Info("   To refresh PATH in your current PowerShell session, run:")
 		cliout.Info("   %s$env:PATH = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")%s", cliout.Dim, cliout.Reset)
 		cliout.Info("   Or simply restart your terminal")

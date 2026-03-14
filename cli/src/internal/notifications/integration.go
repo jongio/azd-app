@@ -13,6 +13,8 @@ import (
 	"github.com/jongio/azd-core/registry"
 )
 
+const levelInfo = "info"
+
 // NotificationManager integrates the state monitor with the notification pipeline.
 // It watches for service state changes and sends OS notifications when appropriate.
 type NotificationManager struct {
@@ -149,14 +151,14 @@ func (nm *NotificationManager) Stop() error {
 // handleStateTransition converts monitor transitions to notification events.
 func (nm *NotificationManager) handleStateTransition(transition monitor.StateTransition) {
 	// Convert monitor severity to notification severity string
-	severity := "info"
+	severity := levelInfo
 	switch transition.Severity {
 	case monitor.SeverityCritical:
 		severity = "critical"
 	case monitor.SeverityWarning:
 		severity = "warning"
 	case monitor.SeverityInfo:
-		severity = "info"
+		severity = levelInfo
 	}
 
 	// Create notification event
@@ -198,7 +200,7 @@ func (nm *NotificationManager) SendTestNotification() error {
 	notification := notify.Notification{
 		Title:     "Azure Dev Test",
 		Message:   "Notifications are working!",
-		Severity:  "info",
+		Severity:  levelInfo,
 		Timestamp: time.Now(),
 	}
 

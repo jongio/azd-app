@@ -11,6 +11,12 @@ import (
 	types "github.com/jongio/azd-core/projecttype"
 )
 
+const (
+	langPython = "python"
+	langDotnet = "dotnet"
+	langJava   = "java"
+)
+
 // FindFunctionApps searches for Azure Functions projects (all variants including Logic Apps).
 // Only searches within rootDir and does not traverse outside it.
 // Returns all discovered Function Apps with their variant and language detected.
@@ -34,7 +40,7 @@ func FindFunctionApps(rootDir string) ([]types.FunctionAppProject, error) {
 		// Ensure we don't traverse outside rootDir
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // file not found is expected, means this detector doesn't match
 		}
 		relPath, err := filepath.Rel(rootDir, absPath)
 		if err != nil || strings.HasPrefix(relPath, "..") {
@@ -99,10 +105,10 @@ func detectFunctionsVariantForDiscovery(dir string) string {
 
 	// Check for Python Functions (function_app.py or requirements.txt + function.json)
 	if fileExistsInDir(dir, "function_app.py") {
-		return "python"
+		return langPython
 	}
 	if fileExistsInDir(dir, "requirements.txt") && hasFunctionJsonInDir(dir) {
-		return "python"
+		return langPython
 	}
 
 	// Check for .NET Functions (.csproj with Azure Functions references)
@@ -111,7 +117,7 @@ func detectFunctionsVariantForDiscovery(dir string) string {
 		for _, csprojFile := range csprojFiles {
 			if containsTextInFile(csprojFile, "Microsoft.Azure.Functions.Worker") ||
 				containsTextInFile(csprojFile, "Microsoft.NET.Sdk.Functions") {
-				return "dotnet"
+				return langDotnet
 			}
 		}
 	}
@@ -119,19 +125,19 @@ func detectFunctionsVariantForDiscovery(dir string) string {
 	// Check for Java Functions (pom.xml or build.gradle with Azure Functions plugin)
 	if fileExistsInDir(dir, "pom.xml") {
 		if containsTextInFile(filepath.Join(dir, "pom.xml"), "azure-functions-maven-plugin") {
-			return "java"
+			return langJava
 		}
 	}
 	if fileExistsInDir(dir, "build.gradle") {
 		buildGradle := filepath.Join(dir, "build.gradle")
 		if containsTextInFile(buildGradle, "azurefunctions") || containsTextInFile(buildGradle, "azure-functions") {
-			return "java"
+			return langJava
 		}
 	}
 	if fileExistsInDir(dir, "build.gradle.kts") {
 		buildGradleKts := filepath.Join(dir, "build.gradle.kts")
 		if containsTextInFile(buildGradleKts, "azurefunctions") || containsTextInFile(buildGradleKts, "azure-functions") {
-			return "java"
+			return langJava
 		}
 	}
 
@@ -148,11 +154,11 @@ func detectFunctionsLanguageForDiscovery(variant string, dir string) string {
 			return "TypeScript"
 		}
 		return "JavaScript"
-	case "python":
+	case langPython:
 		return "Python"
-	case "dotnet":
+	case langDotnet:
 		return "C#"
-	case "java":
+	case langJava:
 		return "Java"
 	default:
 		return ""

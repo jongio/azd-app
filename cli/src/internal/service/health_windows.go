@@ -40,7 +40,7 @@ func processIsRunning(pid int) error {
 
 	ret, _, err := getExitCodeProcess.Call(
 		uintptr(handle),
-		uintptr(unsafe.Pointer(&exitCode)),
+		uintptr(unsafe.Pointer(&exitCode)), //nolint:gosec // G103 - unsafe required for Windows process handle operations
 	)
 	if ret == 0 {
 		return fmt.Errorf("failed to get exit code for process %d: %w", pid, err)

@@ -181,12 +181,12 @@ func newNotificationsClearCmd() *cobra.Command {
 			case response = <-responseChan:
 				// User provided input
 			case <-ctx.Done():
-				fmt.Println("\nCancelled by context")
+				fmt.Println("\nCanceled by context")
 				return ctx.Err()
 			}
 
 			if response != "y" && response != "Y" {
-				fmt.Println("Cancelled")
+				fmt.Println("Canceled")
 				return nil
 			}
 

@@ -310,7 +310,7 @@ func TestServer_ConcurrentBroadcasts(t *testing.T) {
 		}
 
 		// Start reading messages in background
-		go func(idx int, w *websocket.Conn) {
+		go func(_ int, w *websocket.Conn) {
 			for {
 				var msg map[string]interface{}
 				if err := wsjson.Read(ctx, w, &msg); err != nil {

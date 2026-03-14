@@ -35,6 +35,7 @@ const (
 // HealthEventType represents the type of health event sent via SSE.
 type HealthEventType string
 
+// HealthEventTypeHealth and related constants identify the SSE event payloads emitted by health streaming.
 const (
 	HealthEventTypeHealth    HealthEventType = "health"
 	HealthEventTypeChange    HealthEventType = "health-change"

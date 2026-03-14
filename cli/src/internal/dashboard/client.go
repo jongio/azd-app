@@ -254,7 +254,7 @@ func (c *Client) GetWebSocketURL() string {
 
 // StreamLogs connects to the dashboard's log stream via WebSocket and sends log entries to the provided channel.
 // The serviceName parameter filters logs to a specific service (empty string for all services).
-// The function blocks until the context is cancelled or an error occurs.
+// The function blocks until the context is canceled or an error occurs.
 // The caller is responsible for closing the logs channel after StreamLogs returns.
 func (c *Client) StreamLogs(ctx context.Context, serviceName string, logs chan<- service.LogEntry) error {
 	// Build WebSocket URL
@@ -267,7 +267,10 @@ func (c *Client) StreamLogs(ctx context.Context, serviceName string, logs chan<-
 	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	conn, _, err := websocket.Dial(dialCtx, wsURL, nil)
+	conn, resp, err := websocket.Dial(dialCtx, wsURL, nil)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close() //nolint:errcheck // best-effort cleanup
+	}
 	if err != nil {
 		return fmt.Errorf("failed to connect to log stream: %w", err)
 	}
@@ -281,7 +284,7 @@ func (c *Client) StreamLogs(ctx context.Context, serviceName string, logs chan<-
 		default:
 			var entry service.LogEntry
 			if err := wsjson.Read(ctx, conn, &entry); err != nil {
-				// Check if context was cancelled
+				// Check if context was canceled
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
@@ -378,6 +381,8 @@ func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, 
 
 // GetAzureStatus retrieves the Azure connection status from the dashboard.
 // Checks if Azure logging is configured in azure.yaml.
+//
+//nolint:staticcheck // service.AzureStatus is deprecated but kept for backward compatibility
 func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
 	// Check if Azure services are available (indicates Azure is configured)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/azure/services", nil)
@@ -422,7 +427,7 @@ func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, erro
 }
 
 // StreamAzureLogs connects to the dashboard's Azure log stream via WebSocket.
-// The function blocks until the context is cancelled or an error occurs.
+// The function blocks until the context is canceled or an error occurs.
 func (c *Client) StreamAzureLogs(ctx context.Context, logs chan<- service.LogEntry) error {
 	// Build WebSocket URL
 	wsURL := c.GetWebSocketURL() + "/api/azure/logs/stream"
@@ -431,7 +436,10 @@ func (c *Client) StreamAzureLogs(ctx context.Context, logs chan<- service.LogEnt
 	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	conn, _, err := websocket.Dial(dialCtx, wsURL, nil)
+	conn, resp, err := websocket.Dial(dialCtx, wsURL, nil)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close() //nolint:errcheck // best-effort cleanup
+	}
 	if err != nil {
 		return fmt.Errorf("failed to connect to Azure log stream: %w", err)
 	}

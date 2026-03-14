@@ -604,7 +604,7 @@ func TestConcurrentBroadcasts(t *testing.T) {
 		_ = wsjson.Read(ctx, ws, &msg)
 
 		// Read in background
-		go func(w *websocket.Conn, idx int) {
+		go func(w *websocket.Conn, _ int) {
 			for {
 				var m map[string]interface{}
 				if err := wsjson.Read(ctx, w, &m); err != nil {

@@ -3,6 +3,7 @@ package installer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -86,9 +87,9 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	if runtime.GOOS == "windows" {
 		// Use cmd.exe /c to properly invoke .cmd files
 		cmdArgs := append([]string{"/c", project.PackageManager}, args...)
-		cmd = exec.Command("cmd.exe", cmdArgs...)
+		cmd = exec.CommandContext(context.Background(), "cmd.exe", cmdArgs...)
 	} else {
-		cmd = exec.Command(project.PackageManager, args...)
+		cmd = exec.CommandContext(context.Background(), project.PackageManager, args...)
 	}
 
 	cmd.Dir = project.Dir
@@ -148,7 +149,7 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 
 	// Run restore with streaming output
 	dir := filepath.Dir(project.Path)
-	cmd := exec.Command("dotnet", "restore", project.Path)
+	cmd := exec.CommandContext(context.Background(), "dotnet", "restore", project.Path)
 	cmd.Dir = dir
 
 	// Capture stderr for error reporting
@@ -213,7 +214,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 		cliout.Item("Installing dependencies into .venv (uv)...")
 	}
 
-	cmd := exec.Command("uv", "sync", "--no-progress")
+	cmd := exec.CommandContext(context.Background(), "uv", "sync", "--no-progress")
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -236,7 +237,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			if !cliout.IsJSON() && progressWriter == nil {
 				cliout.Item("Creating virtual environment at .venv (uv)...")
 			}
-			venvCmd := exec.Command("uv", "venv")
+			venvCmd := exec.CommandContext(context.Background(), "uv", "venv")
 			venvCmd.Dir = projectDir
 			venvCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -260,7 +261,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			if !cliout.IsJSON() && progressWriter == nil {
 				cliout.Item("Installing dependencies into .venv (uv pip)...")
 			}
-			installCmd := exec.Command("uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
+			installCmd := exec.CommandContext(context.Background(), "uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
 			installCmd.Dir = projectDir
 			installCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -301,7 +302,7 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	}
 
 	// Check if virtual environment exists
-	checkCmd := exec.Command("poetry", "env", "info", "--path")
+	checkCmd := exec.CommandContext(context.Background(), "poetry", "env", "info", "--path")
 	checkCmd.Dir = projectDir
 	checkCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 	cmdOutput, err := checkCmd.CombinedOutput()
@@ -319,7 +320,7 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	}
 
 	// Install dependencies (use --no-root to avoid installing the package itself)
-	cmd := exec.Command("poetry", "install", "--no-root")
+	cmd := exec.CommandContext(context.Background(), "poetry", "install", "--no-root")
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -356,7 +357,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		}
 
 		// Create virtual environment
-		cmd := exec.Command("python", "-m", "venv", ".venv")
+		cmd := exec.CommandContext(context.Background(), "python", "-m", "venv", ".venv")
 		cmd.Dir = projectDir
 		cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -396,7 +397,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		}
 
 		// Run pip install with streaming output and optimizations
-		pipCmd := exec.Command(pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
+		pipCmd := exec.CommandContext(context.Background(), pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
 		pipCmd.Dir = projectDir
 
 		var stderrBuf bytes.Buffer
@@ -499,7 +500,7 @@ type errorFormatter struct {
 }
 
 // formatInstallError creates a detailed error message using ecosystem-specific formatters
-func formatInstallError(tool, projectDir string, cmd *exec.Cmd, cmdErr error, stderr string, formatter errorFormatter) error {
+func formatInstallError(tool, _ string, cmd *exec.Cmd, cmdErr error, stderr string, formatter errorFormatter) error {
 	// Extract exit code
 	var exitCode int
 	if exitErr, ok := cmdErr.(*exec.ExitError); ok {
@@ -541,7 +542,7 @@ func formatInstallError(tool, projectDir string, cmd *exec.Cmd, cmdErr error, st
 }
 
 // nodeErrorFormatter provides Node.js-specific error formatting
-func nodeErrorFormatter(packageManager, projectDir string) errorFormatter {
+func nodeErrorFormatter(_ string, projectDir string) errorFormatter {
 	return errorFormatter{
 		baseMessage: func(tool string) string {
 			return fmt.Sprintf("failed to run %s install", tool)
@@ -602,7 +603,7 @@ func formatDotnetRestoreError(projectPath, dir string, cmd *exec.Cmd, cmdErr err
 }
 
 // extractErrorDetails extracts the most relevant error lines from stderr
-func extractErrorDetails(stderr, tool string) string {
+func extractErrorDetails(stderr, _ string) string {
 	if stderr == "" {
 		return ""
 	}
@@ -807,10 +808,13 @@ func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error 
 			// Calculate exponential backoff delay with bounds checking
 			// Limit shift to prevent overflow (max 2^5 = 32 seconds)
 			shiftAmount := attempt - 1
+			if shiftAmount < 0 {
+				shiftAmount = 0
+			}
 			if shiftAmount > 5 {
 				shiftAmount = 5
 			}
-			delay := time.Duration(1<<uint(shiftAmount)) * time.Second
+			delay := time.Duration(1<<shiftAmount) * time.Second
 			if !cliout.IsJSON() {
 				cliout.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
 			}
@@ -820,7 +824,7 @@ func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error 
 			stderrBuf.Reset()
 
 			// Recreate the command for the next attempt (exec.Cmd can only be run once)
-			newCmd := exec.Command(cmd.Path, cmd.Args[1:]...)
+			newCmd := exec.CommandContext(context.Background(), cmd.Path, cmd.Args[1:]...)
 			newCmd.Dir = cmd.Dir
 			newCmd.Env = cmd.Env
 			newCmd.Stdout = cmd.Stdout

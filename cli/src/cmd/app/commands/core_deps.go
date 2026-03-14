@@ -107,7 +107,7 @@ func (di *DependencyInstaller) InstallAllFiltered() ([]InstallResult, error) {
 
 // installNodeProjectList installs dependencies for a list of Node.js projects.
 func (di *DependencyInstaller) installNodeProjectList(nodeProjects []types.NodeProject) []InstallResult {
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(nodeProjects))
 	for _, nodeProject := range nodeProjects {
 		result := di.installProject("node", nodeProject.Dir, nodeProject.PackageManager, func() error {
 			return installer.InstallNodeDependencies(nodeProject)
@@ -119,7 +119,7 @@ func (di *DependencyInstaller) installNodeProjectList(nodeProjects []types.NodeP
 
 // installPythonProjectList installs dependencies for a list of Python projects.
 func (di *DependencyInstaller) installPythonProjectList(pythonProjects []types.PythonProject) []InstallResult {
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(pythonProjects))
 	for _, pyProject := range pythonProjects {
 		result := di.installProject("python", pyProject.Dir, pyProject.PackageManager, func() error {
 			return installer.SetupPythonVirtualEnv(pyProject)
@@ -131,7 +131,7 @@ func (di *DependencyInstaller) installPythonProjectList(pythonProjects []types.P
 
 // installDotnetProjectList installs dependencies for a list of .NET projects.
 func (di *DependencyInstaller) installDotnetProjectList(dotnetProjects []types.DotnetProject) []InstallResult {
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(dotnetProjects))
 	for _, dotnetProject := range dotnetProjects {
 		result := di.installProject("dotnet", filepath.Dir(dotnetProject.Path), "dotnet", func() error {
 			return installer.RestoreDotnetProject(dotnetProject)
@@ -155,7 +155,7 @@ func (di *DependencyInstaller) installNodeProjects() ([]InstallResult, error) {
 		cliout.Step("📦", "Found %s Node.js project(s)", cliout.Count(len(nodeProjects)))
 	}
 
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(nodeProjects))
 	for _, nodeProject := range nodeProjects {
 		result := di.installProject("node", nodeProject.Dir, nodeProject.PackageManager, func() error {
 			return installer.InstallNodeDependencies(nodeProject)
@@ -181,7 +181,7 @@ func (di *DependencyInstaller) installPythonProjects() ([]InstallResult, error) 
 		cliout.Step("🐍", "Found %s Python project(s)", cliout.Count(len(pythonProjects)))
 	}
 
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(pythonProjects))
 	for _, pyProject := range pythonProjects {
 		result := di.installProject("python", pyProject.Dir, pyProject.PackageManager, func() error {
 			return installer.SetupPythonVirtualEnv(pyProject)
@@ -207,7 +207,7 @@ func (di *DependencyInstaller) installDotnetProjects() ([]InstallResult, error) 
 		cliout.Step("🔷", "Found %s .NET project(s)", cliout.Count(len(dotnetProjects)))
 	}
 
-	var results []InstallResult
+	results := make([]InstallResult, 0, len(dotnetProjects))
 	for _, dotnetProject := range dotnetProjects {
 		result := InstallResult{
 			Type: "dotnet",

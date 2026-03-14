@@ -67,7 +67,7 @@ func validateURL(urlStr, fieldName, serviceName string) error {
 	}
 
 	// Protocol enforcement - only http and https allowed
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+	if parsedURL.Scheme != ServiceTypeHTTP && parsedURL.Scheme != "https" {
 		return fmt.Errorf("%s for service '%s' must use http:// or https://, got %s://", fieldName, serviceName, parsedURL.Scheme)
 	}
 

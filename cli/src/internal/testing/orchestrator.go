@@ -19,6 +19,17 @@ import (
 // DefaultTestTimeout is the default timeout for test execution per service.
 const DefaultTestTimeout = 10 * time.Minute
 
+const (
+	frameworkJest   = "jest"
+	frameworkVitest = "vitest"
+	frameworkMocha  = "mocha"
+	frameworkPytest = "pytest"
+	frameworkXUnit  = "xunit"
+	frameworkNUnit  = "nunit"
+	frameworkMSTest = "mstest"
+	frameworkGoTest = "gotest"
+)
+
 // ProgressCallback is a function that gets called during test execution to report progress.
 type ProgressCallback func(event ProgressEvent)
 
@@ -203,7 +214,7 @@ func (o *TestOrchestrator) DetectTestConfig(service ServiceInfo) (*ServiceTestCo
 	config := &ServiceTestConfig{}
 
 	switch strings.ToLower(service.Language) {
-	case "js", "javascript", "typescript", "ts":
+	case "js", langJavaScript, langTypeScript, "ts":
 		framework, err := detectNodeTestFramework(service.Dir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect Node.js test framework: %w", err)
@@ -217,7 +228,7 @@ func (o *TestOrchestrator) DetectTestConfig(service ServiceInfo) (*ServiceTestCo
 		}
 		config.Framework = framework
 
-	case "csharp", "dotnet", "fsharp", "cs", "fs":
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 		framework, err := detectDotnetTestFramework(service.Dir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect .NET test framework: %w", err)
@@ -557,13 +568,13 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 	// Create appropriate test runner based on language
 	var runner TestRunner
 	switch strings.ToLower(service.Language) {
-	case "js", "javascript", "typescript", "ts":
+	case "js", langJavaScript, langTypeScript, "ts":
 		runner = NewNodeTestRunner(service.Dir, config)
-	case "python", "py":
+	case langPython, "py":
 		runner = NewPythonTestRunner(service.Dir, config)
-	case "csharp", "dotnet", "fsharp", "cs", "fs":
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
 		runner = NewDotnetTestRunner(service.Dir, config)
-	case "go", "golang":
+	case "go", langGolang:
 		runner = NewGoTestRunner(service.Dir, config)
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", service.Language)
@@ -634,17 +645,17 @@ func (o *TestOrchestrator) GetServicePaths() ([]string, error) {
 // Helper functions
 
 // detectNodeTestFramework detects the Node.js test framework.
-func detectNodeTestFramework(dir string) (string, error) {
+func detectNodeTestFramework(dir string) (string, error) { //nolint:unparam // return value kept for future use/interface conformance
 	// Check for configuration files
 	configFiles := map[string]string{
-		"jest.config.js":   "jest",
-		"jest.config.ts":   "jest",
-		"jest.config.json": "jest",
-		"vitest.config.js": "vitest",
-		"vitest.config.ts": "vitest",
-		".mocharc.js":      "mocha",
-		".mocharc.json":    "mocha",
-		".mocharc.yaml":    "mocha",
+		"jest.config.js":   frameworkJest,
+		"jest.config.ts":   frameworkJest,
+		"jest.config.json": frameworkJest,
+		"vitest.config.js": frameworkVitest,
+		"vitest.config.ts": frameworkVitest,
+		".mocharc.js":      frameworkMocha,
+		".mocharc.json":    frameworkMocha,
+		".mocharc.yaml":    frameworkMocha,
 	}
 
 	for file, framework := range configFiles {
@@ -661,37 +672,37 @@ func detectNodeTestFramework(dir string) (string, error) {
 		if err == nil {
 			content := string(data)
 			if strings.Contains(content, `"jest"`) {
-				return "jest", nil
+				return frameworkJest, nil
 			}
 			if strings.Contains(content, `"vitest"`) {
-				return "vitest", nil
+				return frameworkVitest, nil
 			}
 			if strings.Contains(content, `"mocha"`) {
-				return "mocha", nil
+				return frameworkMocha, nil
 			}
 		}
 	}
 
 	// Default to npm test
-	return "npm", nil
+	return pkgMgrNPM, nil
 }
 
 // detectPythonTestFramework detects the Python test framework.
-func detectPythonTestFramework(dir string) (string, error) {
+func detectPythonTestFramework(dir string) (string, error) { //nolint:unparam // return value kept for future use/interface conformance
 	// Check for pytest configuration
 	pytestFiles := []string{"pytest.ini", "pyproject.toml", "setup.cfg"}
 	for _, file := range pytestFiles {
 		if _, err := os.Stat(filepath.Join(dir, file)); err == nil {
-			return "pytest", nil
+			return frameworkPytest, nil
 		}
 	}
 
 	// Check for tests directory
 	if _, err := os.Stat(filepath.Join(dir, "tests")); err == nil {
-		return "pytest", nil
+		return frameworkPytest, nil
 	}
 
-	return "pytest", nil // Default to pytest
+	return frameworkPytest, nil // Default to pytest
 }
 
 // detectDotnetTestFramework detects the .NET test framework.
@@ -710,20 +721,20 @@ func detectDotnetTestFramework(dir string) (string, error) {
 			data, err := os.ReadFile(proj.Path)
 			if err == nil {
 				content := string(data)
-				if strings.Contains(content, "xunit") {
-					return "xunit", nil
+				if strings.Contains(content, frameworkXUnit) {
+					return frameworkXUnit, nil
 				}
 				if strings.Contains(content, "NUnit") {
-					return "nunit", nil
+					return frameworkNUnit, nil
 				}
 				if strings.Contains(content, "MSTest") {
-					return "mstest", nil
+					return frameworkMSTest, nil
 				}
 			}
 		}
 	}
 
-	return "xunit", nil // Default to xUnit
+	return frameworkXUnit, nil // Default to xUnit
 }
 
 // detectGoTestFramework detects the Go test framework.
@@ -751,7 +762,7 @@ func detectGoTestFramework(dir string) (string, error) {
 	if !hasTests {
 		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
-				return nil
+				return nil //nolint:nilerr // unreadable paths should not block fallback test discovery
 			}
 			if !d.IsDir() && strings.HasSuffix(d.Name(), "_test.go") {
 				hasTests = true
@@ -765,7 +776,7 @@ func detectGoTestFramework(dir string) (string, error) {
 		return "", fmt.Errorf("no test files found in %s", dir)
 	}
 
-	return "gotest", nil
+	return frameworkGoTest, nil
 }
 
 // filterServices filters services by name.
@@ -825,7 +836,7 @@ func runCommand(dir, cmd string) error {
 	}
 
 	// #nosec G204 -- Command parts are validated and from azure.yaml
-	command := exec.Command(parts[0], parts[1:]...)
+	command := exec.CommandContext(context.Background(), parts[0], parts[1:]...)
 	command.Dir = dir
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr

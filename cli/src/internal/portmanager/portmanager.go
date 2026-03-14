@@ -229,7 +229,7 @@ func getPortRangeEnd() int {
 //   - port: The assigned port number (guaranteed to be in the valid range 3000-65535)
 //   - wasAutoAssigned: True if the user was prompted and chose to auto-assign a different port.
 //     This signals that azure.yaml should be updated with the new port.
-//   - error: Non-nil if the assignment failed (validation error, user cancelled, no ports available)
+//   - error: Non-nil if the assignment failed (validation error, user canceled, no ports available)
 //
 // Port range: 3000-65535
 //   - Minimum 3000: Avoids well-known ports (0-1023) and registered ports (1024-2999)
@@ -365,7 +365,7 @@ func (pm *PortManager) handleConflictAndAssign(serviceName string, port int, pro
 		return pm.killAndAssign(serviceName, port)
 
 	default: // ActionCancel
-		return 0, false, fmt.Errorf("operation cancelled by user")
+		return 0, false, fmt.Errorf("operation canceled by user")
 	}
 }
 
@@ -407,7 +407,7 @@ func (pm *PortManager) killAndAssign(serviceName string, port int) (int, bool, e
 
 // reassignPort finds an alternative port and assigns it to the service.
 // Must be called with pm.mu held. May temporarily release the lock for user input.
-func (pm *PortManager) reassignPort(serviceName string, originalPort int, isExplicit bool) (int, bool, error) {
+func (pm *PortManager) reassignPort(serviceName string, _ int, isExplicit bool) (int, bool, error) {
 	printFindingPortMessage(serviceName)
 
 	port, err := pm.findAvailablePort()
@@ -456,7 +456,7 @@ func (pm *PortManager) autoAssignPort(serviceName string) (int, bool, error) {
 
 // saveAssignment saves a port assignment and returns the port.
 // Must be called with pm.mu held.
-func (pm *PortManager) saveAssignment(serviceName string, port int, wasAutoAssigned bool) (int, bool, error) {
+func (pm *PortManager) saveAssignment(serviceName string, port int, wasAutoAssigned bool) (int, bool, error) { //nolint:unparam // return value kept for future use/interface conformance
 	pm.assignments[serviceName] = &PortAssignment{
 		ServiceName: serviceName,
 		Port:        port,
@@ -513,7 +513,7 @@ func (pm *PortManager) CleanStalePorts() error {
 // getConfigClient returns the azdconfig client, creating it lazily if needed.
 // If no gRPC connection is available (e.g., during tests), falls back to a shared
 // in-memory storage that persists across port manager instances.
-func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) {
+func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) { //nolint:unparam // return value kept for future use/interface conformance
 	if pm.configClient != nil {
 		return pm.configClient, nil
 	}
@@ -584,7 +584,7 @@ func (pm *PortManager) setAlwaysKillPreference(alwaysKill bool) error {
 }
 
 // load reads port assignments from azd's UserConfig service.
-func (pm *PortManager) load() error {
+func (pm *PortManager) load() error { //nolint:unparam // return value kept for future use/interface conformance
 	client, err := pm.getConfigClient()
 	if err != nil {
 		// If we can't connect to azd, start with empty assignments

@@ -83,9 +83,9 @@ func TestStateMonitor_DetectProcessCrash(t *testing.T) {
 	// Start a real process
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("timeout", "10")
+		cmd = exec.CommandContext(context.Background(), "timeout", "10")
 	} else {
-		cmd = exec.Command("sleep", "10")
+		cmd = exec.CommandContext(context.Background(), "sleep", "10")
 	}
 
 	if err := cmd.Start(); err != nil {

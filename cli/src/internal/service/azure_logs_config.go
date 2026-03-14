@@ -80,7 +80,9 @@ const (
 )
 
 // AzureStatus represents the Azure log streaming status.
-// DEPRECATED: This type is preserved for backward compatibility with old clients.
+//
+// Deprecated: This type is preserved for backward compatibility with old clients.
+//
 // New code should use /api/azure/logs/health endpoint instead.
 type AzureStatus struct {
 	Mode                 LogMode `json:"mode"`
