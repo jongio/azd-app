@@ -1,3 +1,7 @@
+## [0.13.5] - 2026-03-16
+
+- fix: reorder release steps - registry before cosign/SBOM (1ee4be02)
+
 ## [0.13.4] - 2026-03-16
 
 - fix: correct cosign-installer SHA for v3 (e6869b8f)
