@@ -43,17 +43,17 @@ describe('shortcuts-utils', () => {
   })
 
   describe('isMacPlatform', () => {
-    const originalNavigator = global.navigator
+    const originalNavigator = globalThis.navigator
 
     afterEach(() => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: originalNavigator,
         writable: true,
       })
     })
 
     it('should return false when navigator is undefined', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: undefined,
         writable: true,
       })
@@ -61,7 +61,7 @@ describe('shortcuts-utils', () => {
     })
 
     it('should return true on Mac platform', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
         writable: true,
       })
@@ -69,7 +69,7 @@ describe('shortcuts-utils', () => {
     })
 
     it('should return true on Mac when using userAgentData API', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgentData: { platform: 'macOS' }, userAgent: '' },
         writable: true,
       })
@@ -77,7 +77,7 @@ describe('shortcuts-utils', () => {
     })
 
     it('should return false on Windows platform', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         writable: true,
       })
@@ -85,7 +85,7 @@ describe('shortcuts-utils', () => {
     })
 
     it('should return false on Linux platform', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36' },
         writable: true,
       })
@@ -94,18 +94,18 @@ describe('shortcuts-utils', () => {
   })
 
   describe('formatKey', () => {
-    const originalNavigator = global.navigator
+    const originalNavigator = globalThis.navigator
 
     beforeEach(() => {
       // Default to non-Mac for tests
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         writable: true,
       })
     })
 
     afterEach(() => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: originalNavigator,
         writable: true,
       })
@@ -123,7 +123,7 @@ describe('shortcuts-utils', () => {
     })
 
     it('should replace Ctrl with ⌘ on Mac', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
         writable: true,
       })
@@ -136,7 +136,7 @@ describe('shortcuts-utils', () => {
     })
 
     it('should replace Alt with ⌥ on Mac', () => {
-      Object.defineProperty(global, 'navigator', {
+      Object.defineProperty(globalThis, 'navigator', {
         value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
         writable: true,
       })

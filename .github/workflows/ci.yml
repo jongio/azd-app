@@ -37,7 +37,7 @@ jobs:
           cache-dependency-path: cli/go.sum
 
       - name: Cache Go tools
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/go/bin
           key: go-tools-${{ runner.os }}-${{ env.GO_VERSION }}
@@ -291,7 +291,7 @@ jobs:
           version: 9
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.11'
 

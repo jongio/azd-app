@@ -17,18 +17,18 @@
     "test:e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
-    "@astrojs/mdx": "^4.3.13",
+    "@astrojs/mdx": "^4.3.14",
     "@jongio/azd-web-core": "^2.4.1",
-    "@tailwindcss/vite": "^4.1.18",
-    "astro": "^5.17.1",
-    "astro-expressive-code": "^0.41.6",
-    "tailwindcss": "^4.1.18"
+    "@tailwindcss/vite": "^4.2.2",
+    "astro": "^5.18.1",
+    "astro-expressive-code": "^0.41.7",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.1",
-    "@types/node": "^25.2.1",
+    "@playwright/test": "^1.59.0",
+    "@types/node": "^25.5.0",
     "pagefind": "^1.4.0",
-    "playwright": "^1.58.1",
+    "playwright": "^1.59.0",
     "sharp": "^0.34.5",
     "tsx": "^4.21.0"
   }

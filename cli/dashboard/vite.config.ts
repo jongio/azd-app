@@ -21,11 +21,16 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Split vendor libraries into separate chunks
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-ui': ['lucide-react', '@radix-ui/react-dropdown-menu', '@radix-ui/react-slot'],
-          'vendor-utils': ['clsx', 'tailwind-merge', 'class-variance-authority', 'ansi-to-html'],
+        manualChunks(id: string) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
+            return 'vendor-react'
+          }
+          if (id.includes('lucide-react') || id.includes('@radix-ui/react-dropdown-menu') || id.includes('@radix-ui/react-slot')) {
+            return 'vendor-ui'
+          }
+          if (id.includes('node_modules/clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority') || id.includes('ansi-to-html')) {
+            return 'vendor-utils'
+          }
         },
       },
     },

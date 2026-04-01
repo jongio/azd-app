@@ -49,20 +49,16 @@ import Layout from '../../../components/Layout.astro';
     <article class="mb-12 pb-8 border-b-2 border-blue-200 dark:border-blue-800">
       <header class="flex items-center gap-4 mb-4">
         <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
-          v0.13.0
+          v0.13.5
         </h2>
-        <time class="text-sm text-neutral-500" datetime="2026-03-02">2026-03-02</time>
+        <time class="text-sm text-neutral-500" datetime="2026-03-16">2026-03-16</time>
         <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">Latest</span>
       </header>
       <ul class="space-y-1">
         
         <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">✨</span>
-          <span class="text-neutral-700 dark:text-neutral-300">feat: adopt azdext SDK helpers — full extension framework migration (<a href="https://github.com/jongio/azd-app/pull/145" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#145</a>) (969c6956)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🔧</span>
-          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.12.8 (849b37b1)</span>
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: reorder release steps - registry before cosign/SBOM (1ee4be02)</span>
         </li>
       </ul>
     </article>
@@ -70,24 +66,52 @@ import Layout from '../../../components/Layout.astro';
     <article class="mb-12 ">
       <header class="flex items-center gap-4 mb-4">
         <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
-          v0.12.8
+          v0.13.4
         </h2>
-        <time class="text-sm text-neutral-500" datetime="2026-02-28">2026-02-28</time>
+        <time class="text-sm text-neutral-500" datetime="2026-03-16">2026-03-16</time>
         
       </header>
       <ul class="space-y-1">
         
         <li class="flex items-start gap-3 py-2">
           <span class="shrink-0 text-lg">🐛</span>
-          <span class="text-neutral-700 dark:text-neutral-300">fix: make azd app run work without azd environment (<a href="https://github.com/jongio/azd-app/pull/151" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#151</a>) (9e36bbf4)</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: correct cosign-installer SHA for v3 (e6869b8f)</span>
         </li>
         <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">📝</span>
-          <span class="text-neutral-700 dark:text-neutral-300">perf: parallelize mage preflight with DAG-based execution (27min → 3:24) (<a href="https://github.com/jongio/azd-app/pull/149" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#149</a>) (d0b61401)</span>
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: release workflow - add shell:bash, limit build to ubuntu, fix gosec (08eb0c64)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🐛</span>
+          <span class="text-neutral-700 dark:text-neutral-300">fix: remove non-existent &#039;build&#039; job from release.yml needs (7e585647)</span>
         </li>
         <li class="flex items-start gap-3 py-2">
           <span class="shrink-0 text-lg">🔧</span>
-          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.12.7 (1de00410)</span>
+          <span class="text-neutral-700 dark:text-neutral-300">ci: bump actions/upload-artifact from 4.6.2 to 7.0.0 (<a href="https://github.com/jongio/azd-app/pull/165" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#165</a>) (0609dbbf)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">ci: bump actions/checkout from 4.3.1 to 6.0.2 (<a href="https://github.com/jongio/azd-app/pull/167" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#167</a>) (0b7e3604)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">ci: bump actions/github-script from 7.1.0 to 8.0.0 (<a href="https://github.com/jongio/azd-app/pull/166" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#166</a>) (14981f1b)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">ci: bump actions/setup-go from 5.6.0 to 6.3.0 (<a href="https://github.com/jongio/azd-app/pull/164" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#164</a>) (a54ed150)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">ci: bump anchore/sbom-action from 0.20.0 to 0.23.1 (<a href="https://github.com/jongio/azd-app/pull/163" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#163</a>) (15590c5c)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">✨</span>
+          <span class="text-neutral-700 dark:text-neutral-300">feat: dispatch-parity quality improvements (<a href="https://github.com/jongio/azd-app/pull/162" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#162</a>) (70dde10b)</span>
+        </li>
+        <li class="flex items-start gap-3 py-2">
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.13.3 (26c663e6)</span>
         </li>
       </ul>
     </article>
@@ -95,52 +119,24 @@ import Layout from '../../../components/Layout.astro';
     <article class="mb-12 ">
       <header class="flex items-center gap-4 mb-4">
         <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
-          v0.12.7
+          v0.13.3
         </h2>
-        <time class="text-sm text-neutral-500" datetime="2026-02-27">2026-02-27</time>
+        <time class="text-sm text-neutral-500" datetime="2026-03-12">2026-03-12</time>
         
       </header>
       <ul class="space-y-1">
         
         <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🐛</span>
-          <span class="text-neutral-700 dark:text-neutral-300">fix: add GitHub Packages auth to preflight job (24e354fc)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🐛</span>
-          <span class="text-neutral-700 dark:text-neutral-300">fix: add packages:read permission to deploy-website job in release workflow (22ae660d)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">✨</span>
-          <span class="text-neutral-700 dark:text-neutral-300">feat: limit deps command to azure.yaml services only (<a href="https://github.com/jongio/azd-app/pull/147" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#147</a>) (ad5a6218)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🐛</span>
-          <span class="text-neutral-700 dark:text-neutral-300">fix: use correct repo creation dates for LinkedIn publish date (85897788)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🐛</span>
-          <span class="text-neutral-700 dark:text-neutral-300">fix: add LinkedIn publish date via azd-web-core v2.3.0 (86bd8f12)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">🐛</span>
-          <span class="text-neutral-700 dark:text-neutral-300">fix: add LinkedIn author meta tag via azd-web-core v2.2.0 (007bba01)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">✨</span>
-          <span class="text-neutral-700 dark:text-neutral-300">feat: add social media OG images and consistent titles (e59857f2)</span>
-        </li>
-        <li class="flex items-start gap-3 py-2">
-          <span class="shrink-0 text-lg">📝</span>
-          <span class="text-neutral-700 dark:text-neutral-300">feat(web): redesign with shared azd-web-core v2 (<a href="https://github.com/jongio/azd-app/pull/146" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#146</a>) (026a03f7)</span>
+          <span class="shrink-0 text-lg">🔧</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update azd-core to v0.5.6 (<a href="https://github.com/jongio/azd-app/pull/160" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#160</a>) (e4b75781)</span>
         </li>
         <li class="flex items-start gap-3 py-2">
           <span class="shrink-0 text-lg">🔧</span>
-          <span class="text-neutral-700 dark:text-neutral-300">chore: remove orphaned Header, Footer, ThemeToggle components (0bbd2b3d)</span>
+          <span class="text-neutral-700 dark:text-neutral-300">ci: optimize GitHub Actions workflows (<a href="https://github.com/jongio/azd-app/pull/159" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">#159</a>) (c3e6d945)</span>
         </li>
         <li class="flex items-start gap-3 py-2">
           <span class="shrink-0 text-lg">🔧</span>
-          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.12.6 (95204d60)</span>
+          <span class="text-neutral-700 dark:text-neutral-300">chore: update registry for v0.13.2 (1dc0814b)</span>
         </li>
       </ul>
     </article>

@@ -104,8 +104,8 @@ describe('BicepTemplateModal', () => {
     })
 
     // Mock URL.createObjectURL and revokeObjectURL for download tests
-    global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
-    global.URL.revokeObjectURL = vi.fn()
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+    globalThis.URL.revokeObjectURL = vi.fn()
   })
 
   afterEach(() => {
@@ -615,7 +615,7 @@ describe('BicepTemplateModal', () => {
       await user.click(downloadButton)
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      const createObjectURLMock = global.URL.createObjectURL as ReturnType<typeof vi.fn>
+      const createObjectURLMock = globalThis.URL.createObjectURL as ReturnType<typeof vi.fn>
       // eslint-disable-next-line @typescript-eslint/unbound-method
       const createElementMock = document.createElement as unknown as ReturnType<typeof vi.fn>
       await waitFor(() => {
@@ -662,7 +662,7 @@ describe('BicepTemplateModal', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       // Mock createObjectURL to throw
-      global.URL.createObjectURL = vi.fn(() => {
+      globalThis.URL.createObjectURL = vi.fn(() => {
         throw new Error('Blob creation failed')
       })
 

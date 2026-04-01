@@ -186,7 +186,7 @@ export function ConsoleView({
 
   const handleCopyPane = React.useCallback((logs: LogEntry[]) => {
     const format = preferences.copy.defaultFormat
-    let content = ''
+    let content: string
 
     switch (format) {
       case 'json':

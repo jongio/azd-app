@@ -40,8 +40,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       }
 
       // Default fallback UI
-      // Show error details in development mode (NODE_ENV !== 'production')
-      const isDevelopment = process.env.NODE_ENV !== 'production'
+      // Show error details in development mode
+      const isDevelopment = import.meta.env.DEV
 
       return (
         <div className="flex flex-col items-center justify-center min-h-[200px] p-6 bg-destructive/10 border border-destructive/30 rounded-lg">

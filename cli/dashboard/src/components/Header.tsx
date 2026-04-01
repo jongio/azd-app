@@ -10,7 +10,6 @@ import {
   Settings2,
   HelpCircle,
   Settings,
-  Github,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
@@ -18,6 +17,25 @@ import { HealthPill, ConnectionStatus } from './StatusIndicator'
 import { ServiceStatusCard } from './ServiceStatusCard'
 import { EnvironmentBadge } from './EnvironmentBadge'
 import type { HealthSummary, Service } from '@/types'
+
+// GitHub brand icon (removed from lucide-react v1.x)
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </svg>
+  )
+}
 
 // =============================================================================
 // Types
@@ -150,7 +168,7 @@ export function Header({
     const tabsArray = Array.from(tabs) as HTMLElement[]
     const currentIndex = tabsArray.findIndex(tab => tab === document.activeElement)
     
-    let nextIndex = currentIndex
+    let nextIndex: number
 
     switch (e.key) {
       case 'ArrowLeft':
@@ -320,7 +338,7 @@ export function Header({
           className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors hidden sm:flex"
           aria-label="View on GitHub"
         >
-          <Github className="w-[18px] h-[18px]" />
+          <GitHubIcon className="w-[18px] h-[18px]" />
         </a>
 
         {/* Help */}
