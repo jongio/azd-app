@@ -38,36 +38,6 @@ func NewLogger(component string) *Logger {
 	}
 }
 
-// TestStarted logs a test execution start event.
-func (l *Logger) TestStarted(service, testFile string) {
-	l.Info("test started",
-		"event", "test_started",
-		"service", service,
-		"file", testFile,
-	)
-}
-
-// TestCompleted logs a test execution completion event.
-func (l *Logger) TestCompleted(service string, passed, failed, skipped int, duration float64) {
-	l.Info("test completed",
-		"event", "test_completed",
-		"service", service,
-		"passed", passed,
-		"failed", failed,
-		"skipped", skipped,
-		"duration_sec", duration,
-	)
-}
-
-// CoverageCollected logs a coverage collection event.
-func (l *Logger) CoverageCollected(service string, coverage float64) {
-	l.Info("coverage collected",
-		"event", "coverage_collected",
-		"service", service,
-		"coverage_pct", coverage,
-	)
-}
-
 func init() {
 	SetupLogger(false, false)
 }

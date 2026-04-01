@@ -3,6 +3,7 @@ package service
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -821,7 +822,11 @@ func (s *Service) GetPortMappings() ([]PortMapping, bool) {
 	isDocker := s.Docker != nil
 
 	for _, portSpec := range s.Ports {
-		mapping := ParsePortSpec(portSpec, isDocker)
+		mapping, err := ParsePortSpec(portSpec, isDocker)
+		if err != nil {
+			slog.Warn("Skipping invalid port spec", "spec", portSpec, "error", err)
+			continue
+		}
 		if mapping.HostPort > 0 {
 			hasExplicitPort = true
 		}

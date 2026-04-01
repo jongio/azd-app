@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
@@ -543,4 +544,21 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 		cliout.Info("%s", msgNoProjectsDetected)
 	}
 	return nil
+}
+
+// redactSecretValue masks the value of environment variables whose names
+// suggest they contain secrets (passwords, tokens, keys, connection strings).
+// Values with 4 or fewer characters are fully masked.
+func redactSecretValue(key, value string) string {
+	upper := strings.ToUpper(key)
+	sensitivePatterns := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CONNECTION_STRING", "CONNECTIONSTRING"}
+	for _, pattern := range sensitivePatterns {
+		if strings.Contains(upper, pattern) {
+			if len(value) <= 4 {
+				return "***"
+			}
+			return value[:2] + "***" + value[len(value)-2:]
+		}
+	}
+	return value
 }

@@ -1,12 +1,10 @@
 package commands
 
 import (
+	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	coreversion "github.com/jongio/azd-core/version"
 	"github.com/spf13/cobra"
 )
-
-// Version is set at build time via -ldflags.
-var Version = "dev"
 
 // BuildTime is set at build time via -ldflags.
 var BuildTime = "unknown"
@@ -18,7 +16,7 @@ var Commit = "unknown"
 var VersionInfo = coreversion.New("jongio.azd.app", "azd app")
 
 func init() {
-	VersionInfo.Version = Version
+	VersionInfo.Version = internalversion.Version
 	VersionInfo.BuildDate = BuildTime
 	VersionInfo.GitCommit = Commit
 }

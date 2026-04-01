@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/config"
@@ -50,6 +51,7 @@ type Pipeline struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
+	stopped  atomic.Bool
 }
 
 // NewPipeline creates a new notification pipeline
@@ -78,14 +80,25 @@ func (p *Pipeline) Start() {
 
 // Stop gracefully shuts down the pipeline
 func (p *Pipeline) Stop() error {
+	p.stopped.Store(true)
 	p.cancel()
-	close(p.events)
-	p.wg.Wait()
-	return nil
+	// Drain remaining events without closing the channel to avoid
+	// a panic if a concurrent Publish races with shutdown.
+	for {
+		select {
+		case <-p.events:
+		default:
+			p.wg.Wait()
+			return nil
+		}
+	}
 }
 
 // Publish sends an event to the pipeline
 func (p *Pipeline) Publish(event Event) error {
+	if p.stopped.Load() {
+		return fmt.Errorf("pipeline stopped")
+	}
 	select {
 	case p.events <- event:
 		return nil

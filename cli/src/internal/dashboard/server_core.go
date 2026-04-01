@@ -217,7 +217,13 @@ func (s *Server) Stop() error {
 	// Clear dashboard port from azdconfig so other commands know it's not running
 	s.clearPortFromConfig()
 
-	// Close the config client if it was created
+	// Close the HTTP server first to drain in-flight handlers.
+	// This ensures no handlers are running when we nil dependent resources.
+	if s.server != nil {
+		_ = s.server.Close()
+	}
+
+	// Now safe — no more handlers running
 	if s.configClient != nil {
 		s.configClient.Close()
 		s.configClient = nil
@@ -229,8 +235,5 @@ func (s *Server) Stop() error {
 		s.rateLimiter = nil
 	}
 
-	if s.server != nil {
-		return s.server.Close()
-	}
 	return nil
 }

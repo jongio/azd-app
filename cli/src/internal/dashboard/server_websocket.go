@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -81,6 +82,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		for {
 			if err := readMessage(client); err != nil {
+				if errors.Is(err, errNormalClosure) {
+					// Normal client disconnect — not an error
+					readDone <- nil
+					return
+				}
 				readDone <- err
 				return
 			}

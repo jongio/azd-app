@@ -137,7 +137,7 @@ func runServicesFromAzureYaml(ctx context.Context, azureYamlPath string, runtime
 }
 
 // runAzdMode runs services in azd mode with individual service orchestration.
-func runAzdMode(_ context.Context, azureYamlPath, azureYamlDir string) error {
+func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -179,7 +179,7 @@ func runAzdMode(_ context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Execute and monitor services
-	return executeAndMonitorServices(runtimes, cwd, azureYaml, azureYamlDir)
+	return executeAndMonitorServices(ctx, runtimes, cwd, azureYaml, azureYamlDir)
 }
 
 // showNoServicesMessage displays a message when no services are defined.
@@ -238,7 +238,7 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 }
 
 // executeAndMonitorServices starts services and monitors them until interrupted.
-func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
+func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceRuntime, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
 	// Create logger
 	logger := service.NewServiceLogger(runVerbose)
 	logger.LogStartup(len(runtimes))
@@ -250,7 +250,7 @@ func executeAndMonitorServices(runtimes []*service.ServiceRuntime, cwd string, a
 	}
 
 	// Orchestrate services with dependency ordering
-	result, err := service.OrchestrateServices(runtimes, azureYaml.Services, envVars, logger, runRestartContainers)
+	result, err := service.OrchestrateServices(ctx, runtimes, azureYaml.Services, envVars, logger, runRestartContainers)
 	if err != nil {
 		return fmt.Errorf("service orchestration failed: %w", err)
 	}

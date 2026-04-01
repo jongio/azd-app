@@ -3,10 +3,12 @@ package commands
 import (
 	"bytes"
 	"testing"
+
+	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 )
 
 func TestVersionConstants(t *testing.T) {
-	if Version == "" {
+	if internalversion.Version == "" {
 		t.Error("Version should not be empty")
 	}
 	if BuildTime == "" {

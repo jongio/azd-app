@@ -222,8 +222,11 @@ func StreamLogs(processes map[string]*ServiceProcess, logger *ServiceLogger) {
 		go func(serviceName string, proc *ServiceProcess) {
 			outputChan := make(chan string, 100)
 
-			go ReadServiceOutput(proc.Stdout, outputChan)
-			go ReadServiceOutput(proc.Stderr, outputChan)
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() { defer wg.Done(); ReadServiceOutput(proc.Stdout, outputChan) }()
+			go func() { defer wg.Done(); ReadServiceOutput(proc.Stderr, outputChan) }()
+			go func() { wg.Wait(); close(outputChan) }()
 
 			for line := range outputChan {
 				// Filter empty lines

@@ -16,6 +16,9 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+// errNormalClosure is returned by readMessage when the client disconnects normally.
+var errNormalClosure = errors.New("websocket: normal closure")
+
 // isExpectedCloseError returns true if the error is an expected WebSocket closure.
 // These occur when clients disconnect (tab closed, page refresh, navigation).
 func isExpectedCloseError(err error) bool {
@@ -78,7 +81,7 @@ func newConnectionRateLimiter() *connectionRateLimiter {
 		connections: make(map[string]*connectionTracker),
 		maxPerIP:    100, // Maximum 100 concurrent connections per IP (generous for localhost testing)
 		maxTotal:    500, // Maximum 500 total concurrent connections
-		stopCleanup: make(chan struct{}),
+		stopCleanup: make(chan struct{}, 1),
 	}
 	// Start cleanup goroutine
 	rl.cleanupTick = time.NewTicker(1 * time.Minute)
@@ -305,7 +308,7 @@ func readMessage(client *wsClient) error {
 	if err != nil {
 		// Check if it's a normal closure
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-			return nil
+			return errNormalClosure
 		}
 		return err
 	}

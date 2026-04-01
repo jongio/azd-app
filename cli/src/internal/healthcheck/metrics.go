@@ -9,7 +9,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/zerolog/log"
 	"github.com/sony/gobreaker"
 )
 
@@ -155,13 +154,6 @@ func containsAny(s string, substrs ...string) bool {
 		}
 	}
 	return false
-}
-
-// ServeMetrics starts a Prometheus metrics HTTP server.
-func ServeMetrics(port int) error {
-	server := CreateMetricsServer(port)
-	log.Info().Int("port", port).Str("endpoint", "/metrics").Msg("Starting Prometheus metrics server")
-	return server.ListenAndServe()
 }
 
 // CreateMetricsServer creates a configured HTTP server for Prometheus metrics.

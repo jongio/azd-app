@@ -3,7 +3,7 @@ package skills
 import (
 	"embed"
 
-	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
+	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	"github.com/jongio/azd-core/copilotskills"
 )
 
@@ -12,5 +12,5 @@ var skillFS embed.FS
 
 // InstallSkill installs the azd-app skill to ~/.copilot/skills/azd-app.
 func InstallSkill() error {
-	return copilotskills.Install("azd-app", commands.Version, skillFS, "azd-app")
+	return copilotskills.Install("azd-app", internalversion.Version, skillFS, "azd-app")
 }

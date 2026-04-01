@@ -101,7 +101,10 @@ func TestParsePortSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mapping := ParsePortSpec(tt.spec, tt.isDocker)
+			mapping, err := ParsePortSpec(tt.spec, tt.isDocker)
+			if err != nil {
+				t.Fatalf("ParsePortSpec(%q, %v) returned unexpected error: %v", tt.spec, tt.isDocker, err)
+			}
 
 			if mapping.HostPort != tt.wantHost {
 				t.Errorf("HostPort = %d, want %d", mapping.HostPort, tt.wantHost)

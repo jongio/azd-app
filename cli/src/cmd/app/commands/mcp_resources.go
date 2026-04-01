@@ -52,7 +52,7 @@ func newAzureYamlResource() server.ServerResource {
 			}
 
 			// Ensure resolved path is still within the validated directory
-			if !strings.HasPrefix(resolvedPath, validatedDir) {
+			if !strings.HasPrefix(resolvedPath, validatedDir+string(filepath.Separator)) && resolvedPath != validatedDir {
 				return nil, fmt.Errorf("azure.yaml path escapes project directory")
 			}
 

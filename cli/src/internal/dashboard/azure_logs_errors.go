@@ -2,6 +2,8 @@
 package dashboard
 
 import (
+	"errors"
+
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 )
 
@@ -26,7 +28,8 @@ type ErrorInfo struct {
 
 // mapAzureErrorToInfo converts Azure errors to structured ErrorInfo with docs links.
 func mapAzureErrorToInfo(err error) *ErrorInfo {
-	if azErr, ok := err.(*azure.AzureLogsError); ok {
+	var azErr *azure.AzureLogsError
+	if errors.As(err, &azErr) {
 		info := &ErrorInfo{
 			Message: azErr.Message,
 			Code:    azErr.Code,

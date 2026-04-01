@@ -33,12 +33,6 @@ type ServiceInfo = core.ServiceInfo
 // HealthCheckConfig re-exports the core probe configuration for a single health check.
 type HealthCheckConfig = core.HealthCheckConfig
 
-// HealthProfile re-exports the core named health profile definition loaded from configuration.
-type HealthProfile = core.HealthProfile
-
-// HealthProfiles re-exports the collection of named core health profiles.
-type HealthProfiles = core.HealthProfiles
-
 // Local aliases for backward compatibility with unexported references.
 type serviceInfo = core.ServiceInfo
 type healthCheckConfig = core.HealthCheckConfig

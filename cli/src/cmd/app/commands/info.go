@@ -105,7 +105,7 @@ func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azure
 				// Include environment variables related to this service
 				if strings.HasPrefix(envKeyUpper, serviceName+"_") ||
 					strings.HasPrefix(envKeyUpper, "SERVICE_"+serviceName+"_") {
-					svc.EnvironmentVars[envKey] = envValue
+					svc.EnvironmentVars[envKey] = redactSecretValue(envKey, envValue)
 				}
 			}
 		}
@@ -229,7 +229,7 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 			cliout.Newline()
 			cliout.Info("  Environment Variables:")
 			for key, value := range envVars {
-				cliout.Item("  %s = %s", key, value)
+				cliout.Item("  %s = %s", key, redactSecretValue(key, value))
 			}
 		}
 	}

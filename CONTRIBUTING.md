@@ -8,7 +8,7 @@ Thank you for your interest in contributing to azd-app! This document provides g
 
 Before contributing, ensure you have the following installed:
 
-- **Go**: 1.25 or later
+- **Go**: 1.26.1 or later
 - **Node.js**: 20.0.0 or later
 - **npm**: 10.0.0 or later  
 - **PowerShell**: 7.4 or later (recommended: 7.5.4 for full compatibility)
@@ -17,7 +17,7 @@ Before contributing, ensure you have the following installed:
 
 You can verify your versions:
 ```bash
-go version                  # Should be 1.25+
+go version                  # Should be 1.26.1+
 node --version             # Should be v20.0.0+
 npm --version              # Should be 10.0.0+
 pwsh --version            # Should be 7.4+ or 7.5.4
@@ -188,18 +188,30 @@ Then create a Pull Request on GitHub.
 ## Project Structure
 
 ```
-src/
-├── cmd/              # Command implementations
-├── internal/
-│   ├── detector/     # Project detection logic
-│   ├── installer/    # Dependency installation
-│   └── runner/       # Project execution
-└── types/            # Shared types
-
-tests/
-└── projects/         # Test fixtures
-
-docs/                 # Documentation
+cli/
+├── src/
+│   ├── cmd/app/commands/   # CLI command implementations
+│   └── internal/
+│       ├── azure/          # Azure integration (credentials, logs)
+│       ├── config/         # Configuration loading
+│       ├── dashboard/      # Web dashboard server
+│       ├── detector/       # Project detection logic
+│       ├── docker/         # Docker/container support
+│       ├── executor/       # Process execution
+│       ├── healthcheck/    # Service health monitoring
+│       ├── installer/      # Dependency installation
+│       ├── logging/        # Structured logging
+│       ├── monitor/        # Service state monitoring
+│       ├── notifications/  # Desktop notifications
+│       ├── orchestrator/   # Service lifecycle orchestration
+│       ├── portmanager/    # Port allocation
+│       ├── runner/         # Project execution
+│       ├── service/        # Service management core
+│       └── workspace/      # Workspace utilities
+├── dashboard/              # React dashboard (Vite)
+├── tests/projects/         # Test fixture projects
+└── magefile.go             # Build tasks (mage)
+web/                        # Astro documentation site
 ```
 
 ## Adding a New Command

@@ -190,6 +190,7 @@ else {
 }
 
 $APP_PATH = "github.com/jongio/azd-app/cli/src/cmd/app/commands"
+$VERSION_PATH = "github.com/jongio/azd-app/cli/src/internal/version"
 
 # Loop through platforms and build
 foreach ($PLATFORM in $PLATFORMS) {
@@ -223,7 +224,7 @@ foreach ($PLATFORM in $PLATFORMS) {
     $env:GOOS = $OS
     $env:GOARCH = $ARCH
 
-    $ldflags = "-s -w -X '$APP_PATH.Version=$env:EXTENSION_VERSION' -X '$APP_PATH.BuildTime=$BUILD_DATE' -X '$APP_PATH.Commit=$COMMIT'"
+    $ldflags = "-s -w -X '$VERSION_PATH.Version=$env:EXTENSION_VERSION' -X '$APP_PATH.BuildTime=$BUILD_DATE' -X '$APP_PATH.Commit=$COMMIT'"
 
     go build `
         "-ldflags=$ldflags" `

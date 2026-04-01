@@ -9,6 +9,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/cmd/app/commands"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
 	"github.com/jongio/azd-app/cli/src/internal/skills"
+	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/env"
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ func main() {
 	// - gRPC access token injection via WithAccessToken()
 	rootCmd, extCtx := azdext.NewExtensionRootCommand(azdext.ExtensionCommandOptions{
 		Name:    "app",
-		Version: commands.Version,
+		Version: internalversion.Version,
 		Short:   "App - Automate your development environment setup",
 		Long:    `App is an Azure Developer CLI extension that automatically detects and sets up your development environment across multiple languages and frameworks.`,
 	})
@@ -59,14 +60,14 @@ func main() {
 
 		if extCtx.Debug {
 			logging.Debug("Starting azd app extension",
-				"version", commands.Version,
+				"version", internalversion.Version,
 				"command", cmd.Name(),
 				"args", args,
 				"cwd", extCtx.Cwd,
 			)
 			if !cliout.IsJSON() {
 				fmt.Fprintf(os.Stderr, "%s[DEBUG]%s Build: %s (built on %s, commit: %.8s)\n",
-					cliout.Dim, cliout.Reset, commands.Version, commands.BuildTime, commands.Commit)
+					cliout.Dim, cliout.Reset, internalversion.Version, commands.BuildTime, commands.Commit)
 			}
 		}
 

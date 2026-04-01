@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
+	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
@@ -118,7 +119,7 @@ This server complements azd's core MCP capabilities:
 
 	// Build MCP server using the azdext SDK builder
 	// Server name follows azd extension naming convention: {namespace}-mcp-server
-	builder := azdext.NewMCPServerBuilder("app-mcp-server", Version).
+	builder := azdext.NewMCPServerBuilder("app-mcp-server", internalversion.Version).
 		WithRateLimit(burstSize, float64(maxToolCallsPerMinute)/60.0).
 		WithInstructions(instructions).
 		WithResourceCapabilities(false, true). // subscribe=false, listChanged=true

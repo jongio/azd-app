@@ -54,7 +54,7 @@ import (
 //	// Bind to localhost only
 //	mapping := ParsePortSpec("127.0.0.1:3000:8080", false)
 //	// Result: BindIP="127.0.0.1", HostPort=3000, ContainerPort=8080
-func ParsePortSpec(spec string, isDocker bool) PortMapping {
+func ParsePortSpec(spec string, isDocker bool) (PortMapping, error) {
 	spec = strings.TrimSpace(spec)
 
 	// Handle protocol suffix (e.g., "8080/udp")
@@ -84,14 +84,20 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 	// If we extracted an IPv6 address, we're in ip:host:container format
 	if bindIP != "" {
 		if len(parts) == 2 {
-			host, _ := strconv.Atoi(parts[0])
-			container, _ := strconv.Atoi(parts[1])
+			host, err := strconv.Atoi(parts[0])
+			if err != nil {
+				return PortMapping{}, fmt.Errorf("invalid host port %q: %w", parts[0], err)
+			}
+			container, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return PortMapping{}, fmt.Errorf("invalid container port %q: %w", parts[1], err)
+			}
 			return PortMapping{
 				BindIP:        bindIP,
 				HostPort:      host,
 				ContainerPort: container,
 				Protocol:      protocol,
-			}
+			}, nil
 		}
 	}
 
@@ -115,14 +121,17 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 				HostPort:      hostPort,
 				ContainerPort: containerPort,
 				Protocol:      protocol,
-			}
+			}, nil
 		}
 	}
 
 	switch len(parts) {
 	case 1:
 		// "8080" - single port
-		port, _ := strconv.Atoi(parts[0])
+		port, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return PortMapping{}, fmt.Errorf("invalid port %q: %w", parts[0], err)
+		}
 
 		if isDocker {
 			// Docker: container port only, host auto-assigned (Docker Compose behavior)
@@ -130,7 +139,7 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 				HostPort:      0, // 0 = auto-assign
 				ContainerPort: port,
 				Protocol:      protocol,
-			}
+			}, nil
 		}
 
 		// Non-Docker: same port for both host and app
@@ -138,32 +147,44 @@ func ParsePortSpec(spec string, isDocker bool) PortMapping {
 			HostPort:      port,
 			ContainerPort: port,
 			Protocol:      protocol,
-		}
+		}, nil
 
 	case 2:
 		// "3000:8080" - host:container
-		host, _ := strconv.Atoi(parts[0])
-		container, _ := strconv.Atoi(parts[1])
+		host, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return PortMapping{}, fmt.Errorf("invalid host port %q: %w", parts[0], err)
+		}
+		container, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return PortMapping{}, fmt.Errorf("invalid container port %q: %w", parts[1], err)
+		}
 		return PortMapping{
 			HostPort:      host,
 			ContainerPort: container,
 			Protocol:      protocol,
-		}
+		}, nil
 
 	case 3:
 		// "127.0.0.1:3000:8080" - ip:host:container
-		host, _ := strconv.Atoi(parts[1])
-		container, _ := strconv.Atoi(parts[2])
+		host, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return PortMapping{}, fmt.Errorf("invalid host port %q: %w", parts[1], err)
+		}
+		container, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return PortMapping{}, fmt.Errorf("invalid container port %q: %w", parts[2], err)
+		}
 		return PortMapping{
 			BindIP:        parts[0],
 			HostPort:      host,
 			ContainerPort: container,
 			Protocol:      protocol,
-		}
+		}, nil
 	}
 
-	// Invalid format - return empty
-	return PortMapping{Protocol: protocol}
+	// Invalid format - return error
+	return PortMapping{Protocol: protocol}, fmt.Errorf("invalid port spec format %q", spec)
 }
 
 // DetectPort attempts to detect the port for a service using multiple strategies.

@@ -15,7 +15,7 @@ One command starts all services, manages dependencies, and provides real-time mo
 [![Go Reference](https://pkg.go.dev/badge/github.com/jongio/azd-app/cli.svg)](https://pkg.go.dev/github.com/jongio/azd-app/cli)
 [![govulncheck](https://img.shields.io/badge/govulncheck-passing-brightgreen)](https://github.com/jongio/azd-app/actions/workflows/govulncheck.yml)
 [![golangci-lint](https://img.shields.io/badge/golangci--lint-enabled-blue)](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/badge/go-1.26.0-blue)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-1.26.1-blue)](https://go.dev/)
 [![Platform Support](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](https://github.com/jongio/azd-app)
 
 <br />
@@ -153,9 +153,9 @@ azd app run
 
 azd app includes a Model Context Protocol (MCP) server that connects your running application to AI assistants like GitHub Copilot.
 
-**10 AI Tools Available:**
-- **Observability**: `get_services`, `get_service_logs`, `get_project_info`
-- **Operations**: `run_services`, `stop_services`, `restart_service`, `install_dependencies`
+**12 AI Tools Available:**
+- **Observability**: `get_services`, `get_service_logs`, `get_service_errors`, `get_project_info`
+- **Operations**: `run_services`, `stop_services`, `start_service`, `restart_service`, `install_dependencies`
 - **Configuration**: `check_requirements`, `get_environment_variables`, `set_environment_variable`
 
 Ask Copilot things like:
@@ -186,7 +186,7 @@ Ask Copilot things like:
 
 <div align="center">
 
-| 10+ MCP Tools | <5 min Setup | 100% Open Source | Works with Copilot |
+| 12 MCP Tools | <5 min Setup | 100% Open Source | Works with Copilot |
 |:-------------:|:------------:|:----------------:|:------------------:|
 | Full AI integration | Quick start | MIT License | GitHub Copilot ready |
 

@@ -17,9 +17,6 @@ import (
 	"github.com/jongio/azd-core/cmdutil"
 )
 
-// DefaultTimeout is the default timeout for command execution.
-const DefaultTimeout = cmdutil.DefaultTimeout
-
 // RunWithContext executes a command with context for cancellation and timeout.
 // The command inherits all environment variables from the parent process, including
 // azd-specific variables like AZD_SERVER, AZD_ACCESS_TOKEN, and environment values.

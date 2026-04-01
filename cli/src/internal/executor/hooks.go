@@ -12,16 +12,6 @@ import (
 	"github.com/jongio/azd-core/cmdutil"
 )
 
-// Shell type constants re-exported from cmdutil for platform-specific shell detection.
-const (
-	ShellSh         = cmdutil.ShellSh
-	ShellBash       = cmdutil.ShellBash
-	ShellPwsh       = cmdutil.ShellPwsh
-	ShellPowerShell = cmdutil.ShellPowerShell
-	ShellCmd        = cmdutil.ShellCmd
-	ShellZsh        = cmdutil.ShellZsh
-)
-
 // HookConfig represents the configuration for executing a hook.
 // Re-exported from cmdutil to prevent type drift.
 type HookConfig = cmdutil.HookConfig

@@ -169,6 +169,7 @@ else
 fi
 
 APP_PATH="github.com/jongio/azd-app/cli/src/cmd/app/commands"
+VERSION_PATH="github.com/jongio/azd-app/cli/src/internal/version"
 
 # Loop through platforms and build
 for PLATFORM in "${PLATFORMS[@]}"; do
@@ -186,7 +187,7 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     # Delete the output file if it already exists
     [ -f "$OUTPUT_NAME" ] && rm -f "$OUTPUT_NAME"
 
-    LDFLAGS="-s -w -X '$APP_PATH.Version=$EXTENSION_VERSION' -X '$APP_PATH.BuildTime=$BUILD_DATE' -X '$APP_PATH.Commit=$COMMIT'"
+    LDFLAGS="-s -w -X '$VERSION_PATH.Version=$EXTENSION_VERSION' -X '$APP_PATH.BuildTime=$BUILD_DATE' -X '$APP_PATH.Commit=$COMMIT'"
 
     # Set environment variables for Go build
     GOOS=$OS GOARCH=$ARCH go build \
