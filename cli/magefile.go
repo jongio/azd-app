@@ -1037,9 +1037,17 @@ func (g *parallelGroup) wait() error {
 var outputMu sync.Mutex
 
 // heavySem limits the number of concurrent CPU-heavy subprocesses.
-// Scale with available cores: wide machines get high concurrency, CI runners
-// (4 cores) get capped so Go compilers don't OOM-kill each other.
-var heavySem = make(chan struct{}, max(runtime.NumCPU()/2, 2))
+// On CI runners (ubuntu-latest: 2 vCPUs, 7 GB RAM) multiple Go compilers
+// compiling the deep azd→azidentity→MSAL dependency chain each need 2-4 GB,
+// so cap to 1 to prevent OOM kills.  Local dev machines get higher parallelism.
+var heavySem = make(chan struct{}, heavySemSize())
+
+func heavySemSize() int {
+	if os.Getenv("CI") != "" {
+		return 1
+	}
+	return max(runtime.NumCPU()/2, 2)
+}
 
 // coresPerSlot caps GOMAXPROCS for Go subprocesses so multiple Go tools
 // (test, lint, gosec, govulncheck) don't each spawn 32 threads.
