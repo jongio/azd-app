@@ -1,0 +1,17 @@
+// ProjectService exposes azure.yaml-derived project metadata.
+syntax = "proto3";
+
+package azdapp.v1;
+
+service ProjectService {
+  // GetProject returns top-level project metadata (name, working dir).
+  // Replaces GET /api/project.
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+}
+
+message GetProjectRequest {}
+
+message GetProjectResponse {
+  string name = 1;        // azure.yaml `name`
+  string dir = 2;         // absolute project directory
+}

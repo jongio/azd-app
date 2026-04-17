@@ -1,0 +1,131 @@
+// HealthService exposes service health probes and the two streaming health
+// channels (continuous health and severity-classified state transitions).
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "azdapp/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+service HealthService {
+  // GetHealth runs a one-shot health check across every service (or a
+  // filtered subset) and returns the result. Replaces GET /api/health.
+  rpc GetHealth(GetHealthRequest) returns (GetHealthResponse);
+
+  // StreamHealth emits periodic health reports plus per-service change
+  // events. Replaces the /api/health/stream SSE endpoint.
+  //
+  // BACK-PRESSURE POLICY: last-value-wins (coalesce).
+  // Rationale: the underlying health_stream.go uses periodic polling at a
+  // configurable interval and only emits when state changes. There is no
+  // value in queueing a backlog of stale reports - the most recent state
+  // is always the only useful one. If a client cannot keep up, we drop
+  // intermediate reports and ensure the next emission carries the latest
+  // snapshot. The heartbeat keeps connections alive across idle periods.
+  rpc StreamHealth(StreamHealthRequest) returns (stream StreamHealthResponse);
+
+  // StreamStateTransitions emits severity-classified state transitions
+  // produced by internal/monitor.StateMonitor. The existing implementation
+  // delivers these via the /api/ws broadcast channel; with Connect each
+  // consumer (CLI, dashboard, MCP, future TUI) gets its own typed stream.
+  //
+  // BACK-PRESSURE POLICY: block-producer with bounded buffer.
+  // Rationale: state transitions (process crashed, port unbound,
+  // healthy->unhealthy) are operational events. Losing a CRITICAL transition
+  // is unacceptable - the user must see that their service died. The
+  // monitor already rate-limits at the source (see shouldRateLimit in
+  // state_monitor.go) so the producer cannot be overwhelmed. A bounded
+  // per-subscriber buffer (default 256 events) absorbs short bursts; if a
+  // client falls farther behind than that, the server applies back-pressure
+  // to the listener invocation rather than dropping.
+  rpc StreamStateTransitions(StreamStateTransitionsRequest) returns (stream StreamStateTransitionsResponse);
+}
+
+message StreamHealthResponse { HealthEvent event = 1; }
+message StreamStateTransitionsResponse { StateTransition transition = 1; }
+
+message GetHealthRequest {
+  // Empty -> probe all services.
+  repeated string service_names = 1;
+}
+
+message HealthCheckResult {
+  string service_name = 1;
+  HealthState state = 2;
+  string message = 3;
+  google.protobuf.Timestamp checked_at = 4;
+  int64 latency_ms = 5;
+  // Probe-specific details (status_code, body_excerpt, ...).
+  map<string, string> details = 6;
+}
+
+message GetHealthResponse {
+  repeated HealthCheckResult results = 1;
+  google.protobuf.Timestamp generated_at = 2;
+}
+
+message StreamHealthRequest {
+  // Polling interval requested by the client. Server clamps to a sensible
+  // range (1s..60s, default 5s) and reports the effective value in the
+  // first HealthEvent.
+  int64 interval_seconds = 1;
+  repeated string service_names = 2;
+}
+
+// HealthEvent is a tagged union of the three event types the existing
+// /api/health/stream emits: report, change, heartbeat.
+message HealthEvent {
+  oneof event {
+    HealthReport report = 1;
+    HealthChange change = 2;
+    Heartbeat heartbeat = 3;
+  }
+}
+
+message HealthReport {
+  repeated HealthCheckResult results = 1;
+  google.protobuf.Timestamp generated_at = 2;
+}
+
+message HealthChange {
+  string service_name = 1;
+  HealthState previous_state = 2;
+  HealthState current_state = 3;
+  string message = 4;
+  google.protobuf.Timestamp changed_at = 5;
+}
+
+message Heartbeat {
+  google.protobuf.Timestamp server_time = 1;
+}
+
+message StreamStateTransitionsRequest {
+  // Optional severity floor (e.g. WARNING -> only WARNING+CRITICAL).
+  Severity min_severity = 1;
+  // Optional service filter.
+  repeated string service_names = 2;
+  // Number of historical transitions to replay before live updates begin
+  // (capped server-side at 100).
+  int32 backfill = 3;
+}
+
+// StateTransition mirrors internal/monitor.StateTransition. Only the fields
+// the dashboard and MCP currently consume are exposed.
+message StateTransition {
+  string id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string service_name = 3;
+  Severity severity = 4;
+  string event_type = 5;          // "crashed" | "port-unbound" | "degraded" | ...
+  string message = 6;
+  // Optional previous/current state snapshots (status, health, pid, port).
+  ServiceStateSnapshot previous = 7;
+  ServiceStateSnapshot current = 8;
+}
+
+message ServiceStateSnapshot {
+  ServiceStatus status = 1;
+  HealthState health = 2;
+  int32 pid = 3;
+  int32 port = 4;
+}

@@ -1,0 +1,132 @@
+// LogsService covers local log retrieval, live tailing, log classification
+// rules, and user log preferences.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "azdapp/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+service LogsService {
+  // GetLogs returns recent buffered logs for a service or, when service_name
+  // is empty, the merged tail across all services. Replaces GET /api/logs.
+  rpc GetLogs(GetLogsRequest) returns (GetLogsResponse);
+
+  // StreamLocalLogs tails local service logs in real time. Replaces the
+  // /api/logs/stream WebSocket.
+  //
+  // BACK-PRESSURE POLICY: drop-oldest at the buffer boundary.
+  // Rationale: matches the existing logbuffer implementation
+  // (logbuffer.go uses a bounded ring with drop-oldest semantics, see
+  // logbuffer_context_test.go). Live log tails are best-effort - dropping
+  // old lines under load is preferable to blocking the producing service or
+  // exhausting memory. When the server drops, it emits a synthetic LogEntry
+  // with level=WARN and a `logs.dropped=N` field so clients can surface the
+  // gap to the user.
+  rpc StreamLocalLogs(StreamLocalLogsRequest) returns (stream StreamLocalLogsResponse);
+
+  // GetClassifications returns the user-defined log classification rules for
+  // this project. Replaces GET /api/logs/classifications.
+  rpc GetClassifications(GetClassificationsRequest) returns (GetClassificationsResponse);
+
+  // CreateClassification appends a classification rule. Replaces
+  // POST /api/logs/classifications.
+  rpc CreateClassification(CreateClassificationRequest) returns (CreateClassificationResponse);
+
+  // DeleteClassification removes a rule by id. Replaces
+  // DELETE /api/logs/classifications/{id}.
+  rpc DeleteClassification(DeleteClassificationRequest) returns (DeleteClassificationResponse);
+
+  // GetPreferences returns the user's saved log preferences (theme, default
+  // filters, etc.). Replaces GET /api/logs/preferences.
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+
+  // SavePreferences persists the user's preferences. Replaces
+  // PUT /api/logs/preferences.
+  rpc SavePreferences(SavePreferencesRequest) returns (SavePreferencesResponse);
+}
+
+message StreamLocalLogsResponse { LogEntry entry = 1; }
+message CreateClassificationResponse { Classification classification = 1; }
+message DeleteClassificationResponse { OperationResult result = 1; }
+message GetPreferencesResponse { Preferences preferences = 1; }
+message SavePreferencesResponse { Preferences preferences = 1; }
+
+
+message GetLogsRequest {
+  // Empty -> merged tail of all services.
+  string service_name = 1;
+  // Maximum lines to return. Server enforces 1 <= tail <= 10_000; values
+  // outside that range are clamped (and the response notes the clamp).
+  int32 tail = 2;
+  // Optional minimum level filter (entries below this level are excluded).
+  LogLevel min_level = 3;
+  // Optional time bound; only entries at-or-after this timestamp are returned.
+  google.protobuf.Timestamp since = 4;
+}
+
+message GetLogsResponse {
+  repeated LogEntry entries = 1;
+  // True if the server clamped `tail` (e.g. caller asked for 50000).
+  bool tail_clamped = 2;
+}
+
+message StreamLocalLogsRequest {
+  // Empty -> stream merged tail of all services.
+  string service_name = 1;
+  // Number of historical lines to deliver before live tail begins (0 = none).
+  int32 backfill = 2;
+  LogLevel min_level = 3;
+}
+
+// Classification is a regex/level rule that the dashboard uses to colorize
+// and group log lines (e.g. "treat /^E\d+:/ as level=ERROR with tag=startup").
+message Classification {
+  string id = 1;
+  string name = 2;
+  string pattern = 3;            // regex
+  LogLevel level = 4;            // override level when matched
+  string tag = 5;                // free-form label
+  string color = 6;              // hex color used by the UI
+  bool enabled = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message GetClassificationsRequest {}
+
+message GetClassificationsResponse {
+  repeated Classification classifications = 1;
+}
+
+message CreateClassificationRequest {
+  string name = 1;
+  string pattern = 2;
+  LogLevel level = 3;
+  string tag = 4;
+  string color = 5;
+  bool enabled = 6;
+}
+
+message DeleteClassificationRequest {
+  string id = 1;
+}
+
+// Preferences mirrors the dashboard's persisted user preferences. Field set
+// matches loadPreferencesWithClient in internal/dashboard/logs_config.go.
+message Preferences {
+  string theme = 1;              // "system" | "light" | "dark"
+  LogLevel default_min_level = 2;
+  bool show_timestamps = 3;
+  bool wrap_long_lines = 4;
+  // Per-service collapsed state, keyed by service name.
+  map<string, bool> collapsed_services = 5;
+  // Saved KQL queries keyed by name (for the Azure logs panel).
+  map<string, string> saved_queries = 6;
+}
+
+message GetPreferencesRequest {}
+
+message SavePreferencesRequest {
+  Preferences preferences = 1;
+}

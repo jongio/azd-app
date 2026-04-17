@@ -1,0 +1,360 @@
+// AzureService covers all Azure-side observability operations: enabling
+// diagnostic settings, querying Log Analytics, polling streaming logs,
+// running setup checks, listing tables, and persisting per-service log
+// configuration.
+//
+// Several response payloads here use google.protobuf.Struct for parts of the
+// shape that today are map[string]interface{} on the Go side. The ADR
+// (docs/adr/0001-connect-go-transport.md, "Struct Usage Inventory") tracks
+// each one and the PR in which it will be firmed up. The criterion is:
+//
+//   - typed when the consumer (dashboard hook or MCP tool) expects a fixed
+//     set of fields TODAY.
+//   - Struct when the consumer reads it as opaque JSON or the field set is
+//     in flux as the diagnostics engine evolves.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "azdapp/v1/common.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service AzureService {
+  // EnableAzureLogging mutates azure.yaml to turn on the logging block for
+  // the project. Replaces POST /api/azure/enable.
+  rpc EnableAzureLogging(EnableAzureLoggingRequest) returns (EnableAzureLoggingResponse);
+
+  // GetAzureServices returns the Azure-side resource list discovered for the
+  // project (resource ids, types, workspaces). Replaces
+  // GET /api/azure/services.
+  rpc GetAzureServices(GetAzureServicesRequest) returns (GetAzureServicesResponse);
+
+  // GetAzureLogs runs a historical KQL query over Log Analytics. Replaces
+  // GET /api/azure/logs.
+  rpc GetAzureLogs(GetAzureLogsRequest) returns (GetAzureLogsResponse);
+
+  // StreamAzureLogs polls Log Analytics on an interval and streams new rows
+  // as they appear. Replaces the /api/azure/logs/stream WebSocket.
+  //
+  // BACK-PRESSURE POLICY: block-producer with backoff.
+  // Rationale: Azure Log Analytics polling is expensive (metered queries,
+  // KQL workspace cost). The producer side already runs on a fixed interval
+  // (see azure_logs_stream.go streamAzureLogsViaPolling), so the natural
+  // back-pressure mechanism is to skip the next poll if the client buffer
+  // is full. We block the polling loop on the per-subscriber buffer and
+  // back off the interval when blocked. Dropping rows is unacceptable here
+  // because each row corresponds to a billed query result and the user
+  // expects to see every error log from their Azure resources.
+  rpc StreamAzureLogs(StreamAzureLogsRequest) returns (stream StreamAzureLogsResponse);
+
+  // GetAzureLogsHealth runs the Azure-side health checks (auth, workspace
+  // resolution, services deployed, connectivity). Replaces
+  // GET /api/azure/logs/health.
+  rpc GetAzureLogsHealth(GetAzureLogsHealthRequest) returns (GetAzureLogsHealthResponse);
+
+  // GetAzureSetupState is the multi-stage discovery used by the Azure setup
+  // wizard. Replaces GET /api/azure/logs/setup-state.
+  //
+  // The response shape is intricate (workspace, auth, per-service setup,
+  // recommended next step) and the dashboard's setup wizard reads many
+  // fields. Modelled as a Struct in PR 1 to avoid premature shape lock-in;
+  // PR 2 will swap in a typed sub-message once the Connect handler is wired.
+  rpc GetAzureSetupState(GetAzureSetupStateRequest) returns (GetAzureSetupStateResponse);
+
+  // VerifyAzureLogs confirms log connectivity for a single deployed service
+  // by running a small probe query. Replaces POST /api/azure/logs/verify.
+  rpc VerifyAzureLogs(VerifyAzureLogsRequest) returns (VerifyAzureLogsResponse);
+
+  // CheckDiagnosticSettings inspects each Azure resource's diagnostic
+  // settings. Replaces GET /api/azure/diagnostic-settings/check.
+  rpc CheckDiagnosticSettings(CheckDiagnosticSettingsRequest) returns (CheckDiagnosticSettingsResponse);
+
+  // GetAzureDiagnostics runs the comprehensive diagnostics pipeline (auth,
+  // resource graph, workspace, settings, query roundtrip). Replaces
+  // GET /api/azure/diagnostics.
+  rpc GetAzureDiagnostics(GetAzureDiagnosticsRequest) returns (GetAzureDiagnosticsResponse);
+
+  // VerifyWorkspace runs a recent-logs query against the workspace to
+  // confirm read access. Replaces POST /api/azure/workspace/verify.
+  rpc VerifyWorkspace(VerifyWorkspaceRequest) returns (VerifyWorkspaceResponse);
+
+  // GetAzureLogConfig returns the saved per-service log configuration
+  // (custom KQL, table override, lookback window). Replaces
+  // GET /api/azure/logs/config.
+  rpc GetAzureLogConfig(GetAzureLogConfigRequest) returns (GetAzureLogConfigResponse);
+
+  // SaveAzureLogConfig persists per-service log configuration. Replaces
+  // PUT /api/azure/logs/config.
+  rpc SaveAzureLogConfig(SaveAzureLogConfigRequest) returns (SaveAzureLogConfigResponse);
+
+  // ListAzureTables returns the Log Analytics tables visible to this
+  // workspace. Replaces GET /api/azure/tables.
+  rpc ListAzureTables(ListAzureTablesRequest) returns (ListAzureTablesResponse);
+
+  // QueryAzureLogs runs an arbitrary KQL query and returns the raw rows.
+  // Replaces GET /api/azure/query.
+  rpc QueryAzureLogs(QueryAzureLogsRequest) returns (QueryAzureLogsResponse);
+
+  // SaveAzureQuery persists a named KQL query for reuse. Replaces
+  // POST /api/azure/query.
+  rpc SaveAzureQuery(SaveAzureQueryRequest) returns (SaveAzureQueryResponse);
+}
+
+// Per-RPC response wrappers (buf STANDARD lint requires unique types per RPC
+// so individual operations can evolve independently).
+message EnableAzureLoggingResponse { OperationResult result = 1; }
+message StreamAzureLogsResponse { LogEntry entry = 1; }
+message GetAzureLogConfigResponse { AzureLogConfig config = 1; }
+message SaveAzureLogConfigResponse { AzureLogConfig config = 1; }
+message SaveAzureQueryResponse { SavedAzureQuery query = 1; }
+
+// ---------------------------------------------------------------------------
+// EnableAzureLogging
+// ---------------------------------------------------------------------------
+
+message EnableAzureLoggingRequest {
+  // Optional: list of service names to enable. Empty -> enable for all
+  // detected services.
+  repeated string service_names = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+message GetAzureServicesRequest {}
+
+message AzureServiceEntry {
+  string name = 1;
+  AzureDeploymentInfo deployment = 2;
+  bool logging_configured = 3;
+  string detected_table = 4;
+}
+
+message GetAzureServicesResponse {
+  repeated AzureServiceEntry services = 1;
+  string subscription_id = 2;
+  string resource_group = 3;
+  string workspace_id = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Logs (historical query)
+// ---------------------------------------------------------------------------
+
+// AzureResourceType mirrors internal/azure.ResourceType.
+enum AzureResourceType {
+  AZURE_RESOURCE_TYPE_UNSPECIFIED = 0;
+  AZURE_RESOURCE_TYPE_APP_SERVICE = 1;
+  AZURE_RESOURCE_TYPE_CONTAINER_APP = 2;
+  AZURE_RESOURCE_TYPE_FUNCTION_APP = 3;
+}
+
+message GetAzureLogsRequest {
+  string service_name = 1;
+  AzureResourceType resource_type = 2;
+  // Lookback window. Server clamps to a sane range (1m..7d).
+  int64 since_seconds = 3;
+  int32 max_rows = 4;
+  // Optional override KQL (otherwise the saved/default query is used).
+  string kql = 5;
+}
+
+message GetAzureLogsResponse {
+  repeated LogEntry entries = 1;
+  string effective_kql = 2;
+  google.protobuf.Timestamp queried_at = 3;
+  bool truncated = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Streaming
+// ---------------------------------------------------------------------------
+
+message StreamAzureLogsRequest {
+  string service_name = 1;
+  AzureResourceType resource_type = 2;
+  int64 poll_interval_seconds = 3;   // server clamps to 5..300
+  // Whether to deliver an initial backfill window before live tail.
+  int64 backfill_seconds = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Health checks
+// ---------------------------------------------------------------------------
+
+message GetAzureLogsHealthRequest {}
+
+message AzureHealthCheck {
+  string name = 1;             // "auth" | "workspace" | "services" | "connectivity"
+  HealthState state = 2;
+  string message = 3;
+  string remediation = 4;      // user-facing fix instructions
+}
+
+message GetAzureLogsHealthResponse {
+  repeated AzureHealthCheck checks = 1;
+  HealthState overall = 2;
+  google.protobuf.Timestamp generated_at = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Setup state (Struct passthrough; firmed up in PR 2)
+// ---------------------------------------------------------------------------
+
+message GetAzureSetupStateRequest {}
+
+message GetAzureSetupStateResponse {
+  // Mirrors SetupStateResponse from azure_setup.go - shape is large and the
+  // dashboard reads it as JSON today. Kept opaque in PR 1; PR 2 swaps in a
+  // typed sub-message once the consumer hook is migrated.
+  google.protobuf.Struct state = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Verify
+// ---------------------------------------------------------------------------
+
+message VerifyAzureLogsRequest {
+  string service_name = 1;
+}
+
+message VerifyAzureLogsResponse {
+  bool success = 1;
+  string message = 2;
+  int32 rows_returned = 3;
+  google.protobuf.Timestamp queried_at = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostic settings check
+// ---------------------------------------------------------------------------
+
+message CheckDiagnosticSettingsRequest {}
+
+message DiagnosticSettingResult {
+  string service_name = 1;
+  string resource_id = 2;
+  bool configured = 3;
+  string expected_workspace = 4;
+  string actual_workspace = 5;
+  string message = 6;
+}
+
+message CheckDiagnosticSettingsResponse {
+  repeated DiagnosticSettingResult results = 1;
+  bool all_ok = 2;
+  google.protobuf.Timestamp checked_at = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Comprehensive diagnostics (Struct passthrough)
+// ---------------------------------------------------------------------------
+
+message GetAzureDiagnosticsRequest {}
+
+message GetAzureDiagnosticsResponse {
+  // Mirrors the diagnostic pipeline output - per-service per-stage results
+  // plus aggregate. Read as JSON today; firmed up in PR 2.
+  google.protobuf.Struct diagnostics = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace verify
+// ---------------------------------------------------------------------------
+
+message VerifyWorkspaceRequest {
+  string workspace_id = 1;     // optional override; defaults to env-discovered
+}
+
+message VerifyWorkspaceResponse {
+  bool success = 1;
+  string message = 2;
+  int32 rows_returned = 3;
+  string workspace_id = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Per-service log config
+// ---------------------------------------------------------------------------
+
+message AzureLogConfig {
+  string service_name = 1;
+  string custom_kql = 2;
+  string table_override = 3;
+  int64 lookback_seconds = 4;
+  bool follow = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message GetAzureLogConfigRequest {
+  string service_name = 1;
+}
+
+message SaveAzureLogConfigRequest {
+  AzureLogConfig config = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+
+message ListAzureTablesRequest {
+  AzureResourceType resource_type = 1;   // optional filter
+}
+
+message AzureTableInfo {
+  string name = 1;
+  string description = 2;
+  bool is_default_for_resource = 3;
+  AzureResourceType resource_type = 4;
+}
+
+message ListAzureTablesResponse {
+  repeated AzureTableInfo tables = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Custom queries
+// ---------------------------------------------------------------------------
+
+message QueryAzureLogsRequest {
+  string kql = 1;
+  int64 timespan_seconds = 2;
+  string workspace_id = 3;     // optional override
+  int32 max_rows = 4;
+}
+
+message QueryColumn {
+  string name = 1;
+  string type = 2;
+}
+
+message QueryRow {
+  // Cell values as JSON (heterogeneous types from Log Analytics).
+  repeated string values = 1;
+}
+
+message QueryAzureLogsResponse {
+  repeated QueryColumn columns = 1;
+  repeated QueryRow rows = 2;
+  int32 row_count = 3;
+  bool truncated = 4;
+  google.protobuf.Timestamp queried_at = 5;
+}
+
+message SavedAzureQuery {
+  string id = 1;
+  string name = 2;
+  string kql = 3;
+  string description = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message SaveAzureQueryRequest {
+  string name = 1;
+  string kql = 2;
+  string description = 3;
+}

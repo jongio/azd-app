@@ -1,0 +1,33 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/jongio/azd-app/cli/src/gen/proto
+inputs:
+  - directory: proto
+plugins:
+  # ---- Go side: messages + Connect-Go service stubs ----
+  - local: protoc-gen-go
+    out: cli/src/gen/proto
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-connect-go
+    out: cli/src/gen/proto
+    opt:
+      - paths=source_relative
+
+  # ---- TypeScript side: messages + Connect-ES service stubs ----
+  # Run via pnpm exec from cli/dashboard so the local node_modules versions are
+  # used. buf invokes the binary on PATH; we set PATH in scripts/proto-gen.ps1
+  # to include cli/dashboard/node_modules/.bin.
+  - local: protoc-gen-es
+    out: cli/dashboard/src/gen/proto
+    opt:
+      - target=ts
+      - import_extension=js
+  - local: protoc-gen-connect-es
+    out: cli/dashboard/src/gen/proto
+    opt:
+      - target=ts
+      - import_extension=js

@@ -1,0 +1,15 @@
+version: v2
+modules:
+  - path: .
+    name: buf.build/jongio/azd-app
+lint:
+  use:
+    - STANDARD
+  except:
+    # We use a single versioned package (azdapp.v1) per file, which is the
+    # standard buf layout. STANDARD includes PACKAGE_DIRECTORY_MATCH which we
+    # satisfy by placing files under proto/azdapp/v1/.
+    - PACKAGE_NO_IMPORT_CYCLE
+breaking:
+  use:
+    - FILE

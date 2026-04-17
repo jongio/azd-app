@@ -1,0 +1,33 @@
+// ModeService toggles the dashboard's primary log source between local
+// process logs and Azure Log Analytics.
+syntax = "proto3";
+
+package azdapp.v1;
+
+service ModeService {
+  // GetMode returns the active LogMode for this project. Replaces
+  // GET /api/mode.
+  rpc GetMode(GetModeRequest) returns (GetModeResponse);
+
+  // SetMode switches the active LogMode. Replaces PUT /api/mode.
+  rpc SetMode(SetModeRequest) returns (SetModeResponse);
+}
+
+message SetModeResponse { LogMode mode = 1; }
+
+// LogMode mirrors internal/service.LogMode.
+enum LogMode {
+  LOG_MODE_UNSPECIFIED = 0;
+  LOG_MODE_LOCAL = 1;
+  LOG_MODE_AZURE = 2;
+}
+
+message GetModeRequest {}
+
+message GetModeResponse {
+  LogMode mode = 1;
+}
+
+message SetModeRequest {
+  LogMode mode = 1;
+}
