@@ -25,9 +25,9 @@ plugins:
     out: cli/dashboard/src/gen/proto
     opt:
       - target=ts
-      - import_extension=js
+      - import_extension=.js
   - local: protoc-gen-connect-es
     out: cli/dashboard/src/gen/proto
     opt:
       - target=ts
-      - import_extension=js
+      - import_extension=.js
