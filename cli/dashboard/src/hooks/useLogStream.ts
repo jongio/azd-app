@@ -1,6 +1,28 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+/**
+ * useLogStream — standalone log-stream hook (no shared multiplexer).
+ *
+ * Wire migration note: the streaming portion has moved from the
+ * legacy `/api/logs/stream` WebSocket onto `LogsService.StreamLocalLogs`
+ * (Connect server-streaming). The initial REST GET against `/api/logs`
+ * stays - the unary `LogsService.GetLogs` migration is a separate
+ * commit because it touches the static-cache and pagination story.
+ *
+ * Public surface preserved exactly: same options, same return
+ * `{ logs, isConnected, clearLogs, refetch }`. New additive fields:
+ *   - `droppedCount`: total log entries the server reported as dropped
+ *     on the active stream (drop-OLDEST back-pressure). UI can render
+ *     a "lost N lines" banner.
+ *   - `transport`: optional `Transport` for tests; production omits it
+ *     and the hook builds its own client.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Code, ConnectError, type Transport } from '@connectrpc/connect'
+
 import { MAX_LOGS_IN_MEMORY } from '@/lib/log-utils'
 import { WEBSOCKET_CONSTANTS } from '@/lib/constants'
+import { createLogsClient } from '@/lib/connectClient'
+import { protoToLogEntry } from '@/hooks/useSharedLogStream'
+import { StreamLocalLogsRequest } from '@/gen/proto/azdapp/v1/logs_pb.js'
 
 export interface LogEntry {
   service: string
@@ -11,183 +33,210 @@ export interface LogEntry {
 }
 
 interface UseLogStreamOptions {
-  /** Service name to filter logs. If 'all' or undefined, returns logs from all services */
+  /** Service name to filter logs. If 'all' or undefined, returns logs from all services. */
   serviceName?: string
-  /** Number of historical logs to fetch initially. Defaults to 500 */
+  /** Number of historical logs to fetch initially. Defaults to 500. */
   initialTail?: number
-  /** Whether to pause streaming. Defaults to false */
+  /** Whether to pause streaming. Defaults to false. */
   isPaused?: boolean
-  /** Callback when logs are cleared externally */
+  /** Trigger to clear logs externally; non-zero new value clears state. */
   onClearTrigger?: number
+  /**
+   * Test seam. Production code never passes a transport; tests inject
+   * `createRouterTransport(...)`. Same convention as `useHealthStream`.
+   */
+  transport?: Transport
 }
 
-// WebSocket reconnection constants
-const WS_INITIAL_RETRY_DELAY_MS = WEBSOCKET_CONSTANTS.WS_INITIAL_RETRY_DELAY_MS
-const WS_MAX_RETRY_DELAY_MS = WEBSOCKET_CONSTANTS.WS_MAX_RETRY_DELAY_MS
-const WS_MAX_RETRIES = WEBSOCKET_CONSTANTS.WS_MAX_RETRIES
+const INITIAL_RETRY_DELAY_MS = WEBSOCKET_CONSTANTS.WS_INITIAL_RETRY_DELAY_MS
+const MAX_RETRY_DELAY_MS = WEBSOCKET_CONSTANTS.WS_MAX_RETRY_DELAY_MS
+const MAX_RETRIES = WEBSOCKET_CONSTANTS.WS_MAX_RETRIES
 
 /**
- * Shared hook for streaming logs from the backend via WebSocket.
- * Consolidates WebSocket logic previously duplicated across LogsView, LogsPane, and useServiceErrors.
- * 
- * Features:
- * - Fetches initial logs from REST API
- * - Streams new logs via WebSocket
- * - Handles connection lifecycle and cleanup
- * - Respects pause state for buffering
- * - Limits memory usage with MAX_LOGS_IN_MEMORY
- * - Automatic reconnection with exponential backoff
+ * Hook for streaming a single service's logs (or all services). Owns
+ * its own connection lifecycle, exponential backoff and memory cap.
  */
 export function useLogStream({
   serviceName,
   initialTail = 500,
   isPaused = false,
-  onClearTrigger = 0
+  onClearTrigger = 0,
+  transport,
 }: UseLogStreamOptions = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isConnected, setIsConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-  const isPausedRef = useRef(isPaused)
-  const retryCountRef = useRef(0)
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isMountedRef = useRef(true)
+  const [droppedCount, setDroppedCount] = useState(0)
 
-  // Keep isPaused ref in sync without causing reconnects
+  const isPausedRef = useRef(isPaused)
+  const isMountedRef = useRef(true)
+  const controllerRef = useRef<AbortController | null>(null)
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryCountRef = useRef(0)
+  const connectRef = useRef<() => void>(() => {})
+
+  const client = useMemo(() => createLogsClient(transport), [transport])
+
+  // Keep isPaused ref in sync without forcing reconnects.
   useEffect(() => {
     isPausedRef.current = isPaused
   }, [isPaused])
 
-  // Clear logs when trigger changes
+  // External clear trigger.
   useEffect(() => {
     if (onClearTrigger > 0) {
       setLogs([])
     }
   }, [onClearTrigger])
 
-  // Fetch initial logs
   const fetchLogs = useCallback(async () => {
     const serviceParam = serviceName && serviceName !== 'all' ? `service=${serviceName}&` : ''
     const url = `/api/logs?${serviceParam}tail=${initialTail}`
 
     try {
       const res = await fetch(url)
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data = await res.json() as LogEntry[]
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+      const data = (await res.json()) as LogEntry[]
+      if (!isMountedRef.current) return
       setLogs(data ?? [])
     } catch (err) {
       console.error('Failed to fetch logs:', err)
-      setLogs([])
+      if (isMountedRef.current) setLogs([])
     }
   }, [serviceName, initialTail])
 
-  // Schedule reconnection with exponential backoff
-  const scheduleReconnect = useCallback((setupFn: () => void) => {
+  // Build the connect closure once, then store in a ref so the
+  // setTimeout-based retry path always invokes the latest function
+  // (matches useHealthStream's connectRef pattern).
+  const connect = useCallback(() => {
     if (!isMountedRef.current) return
-    if (retryCountRef.current >= WS_MAX_RETRIES) {
-      console.error(`WebSocket: Max retries (${WS_MAX_RETRIES}) exceeded, giving up`)
+
+    // Tear down previous controller before issuing a fresh one so an
+    // old in-flight stream can't race with the new one.
+    if (controllerRef.current) {
+      controllerRef.current.abort()
+    }
+
+    const controller = new AbortController()
+    controllerRef.current = controller
+
+    let firstMessageSeen = false
+
+    void (async () => {
+      try {
+        const req = new StreamLocalLogsRequest({
+          serviceName: serviceName && serviceName !== 'all' ? serviceName : '',
+          // Backfill 0 because the REST GET above already populated
+          // `logs` with the historical tail; backfill here would
+          // duplicate those entries.
+          backfill: 0,
+        })
+
+        for await (const resp of client.streamLocalLogs(req, { signal: controller.signal })) {
+          if (!isMountedRef.current || controller.signal.aborted) break
+
+          if (!firstMessageSeen) {
+            firstMessageSeen = true
+            setIsConnected(true)
+            retryCountRef.current = 0
+          }
+
+          const event = resp.event
+          if (!event) continue
+          if (event.case === 'entry') {
+            const proto = event.value
+            if (!proto || !proto.service) continue
+            // Honour pause without dropping the stream: the Connect
+            // back-pressure design is "drop oldest server-side", so
+            // the UI keeps the wire alive and silently ignores
+            // entries while paused.
+            if (isPausedRef.current) continue
+            const entry = protoToLogEntry(proto)
+            setLogs((prev) => {
+              const next = prev.concat(entry)
+              return next.length > MAX_LOGS_IN_MEMORY ? next.slice(-MAX_LOGS_IN_MEMORY) : next
+            })
+          } else if (event.case === 'dropped') {
+            const count = Number(event.value?.count ?? 0)
+            if (count > 0) {
+              setDroppedCount((prev) => prev + count)
+            }
+          }
+        }
+
+        // Stream ended cleanly. The server only ends StreamLocalLogs
+        // on context cancellation or process shutdown; treat as
+        // transient and reschedule with backoff.
+        if (isMountedRef.current && !controller.signal.aborted) {
+          setIsConnected(false)
+          scheduleReconnect()
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return
+        if (err instanceof ConnectError && err.code === Code.Canceled) return
+        if (!isMountedRef.current) return
+        if (retryCountRef.current === 0) {
+          console.warn(
+            'LogsService.StreamLocalLogs error:',
+            err instanceof Error ? err.message : 'Unknown error',
+          )
+        }
+        setIsConnected(false)
+        scheduleReconnect()
+      } finally {
+        if (controllerRef.current === controller) {
+          controllerRef.current = null
+        }
+      }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleReconnect is stable (depends only on refs)
+  }, [client, serviceName])
+
+  const scheduleReconnect = useCallback(() => {
+    if (!isMountedRef.current) return
+    if (retryTimeoutRef.current) return
+    if (retryCountRef.current >= MAX_RETRIES) {
+      console.error(`useLogStream: Max retries (${MAX_RETRIES}) exceeded, giving up`)
       return
     }
 
-    // Calculate delay with exponential backoff: 1s, 2s, 4s, 8s, ... up to 30s
     const delay = Math.min(
-      WS_INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCountRef.current),
-      WS_MAX_RETRY_DELAY_MS
+      INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCountRef.current),
+      MAX_RETRY_DELAY_MS,
     )
-    
-    console.warn(`WebSocket: Reconnecting in ${delay}ms (attempt ${retryCountRef.current + 1}/${WS_MAX_RETRIES})`)
-    
+    console.warn(
+      `useLogStream: Reconnecting in ${delay}ms (attempt ${retryCountRef.current + 1}/${MAX_RETRIES})`,
+    )
+
     retryTimeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current) {
-        retryCountRef.current++
-        setupFn()
-      }
+      retryTimeoutRef.current = null
+      if (!isMountedRef.current) return
+      retryCountRef.current++
+      connectRef.current()
     }, delay)
   }, [])
 
-  // Setup WebSocket connection
-  const setupWebSocket = useCallback(() => {
-    // Close existing connection
-    if (wsRef.current) {
-      const currentWs = wsRef.current
-      wsRef.current = null
-      // Only close if connection is open to avoid warnings
-      if (currentWs.readyState === WebSocket.OPEN) {
-        currentWs.close()
-      }
-      // For CONNECTING, just nullify reference - browser will abort
-    }
+  useEffect(() => {
+    connectRef.current = connect
+  }, [connect])
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const serviceParam = serviceName && serviceName !== 'all' ? `?service=${serviceName}` : ''
-    const url = `${protocol}//${window.location.host}/api/logs/stream${serviceParam}`
-
-    const ws = new WebSocket(url)
-
-    ws.onopen = () => {
-      setIsConnected(true)
-      // Reset retry count on successful connection
-      retryCountRef.current = 0
-    }
-
-    ws.onmessage = (event: MessageEvent<string>) => {
-      // Check pause state from ref to avoid stale closure
-      if (!isPausedRef.current) {
-        try {
-          const entry = JSON.parse(event.data) as LogEntry
-          setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-        } catch (err) {
-          console.error('Failed to parse log entry:', err)
-        }
-      }
-    }
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-      setIsConnected(false)
-    }
-
-    ws.onclose = (event) => {
-      setIsConnected(false)
-      
-      // Don't reconnect if this was a clean close (e.g., component unmounting)
-      // Code 1000 = normal closure, 1001 = going away (page navigation)
-      if (event.code !== 1000 && event.code !== 1001 && isMountedRef.current) {
-        scheduleReconnect(setupWebSocket)
-      }
-    }
-
-    wsRef.current = ws
-  }, [serviceName, scheduleReconnect])
-
-  // Initialize connection
+  // Initialize: fetch + open stream.
   useEffect(() => {
     isMountedRef.current = true
     void fetchLogs()
-    setupWebSocket()
+    connect()
 
     return () => {
       isMountedRef.current = false
-      
-      // Clear any pending reconnection
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current)
         retryTimeoutRef.current = null
       }
-      
-      if (wsRef.current) {
-        const currentWs = wsRef.current
-        wsRef.current = null
-        
-        // Only close if connection is open to avoid warnings
-        if (currentWs.readyState === WebSocket.OPEN) {
-          currentWs.close(1000, 'Component unmounting')
-        }
-        // For CONNECTING, just nullify reference - browser will abort
+      if (controllerRef.current) {
+        controllerRef.current.abort()
+        controllerRef.current = null
       }
     }
-  }, [fetchLogs, setupWebSocket])
+  }, [fetchLogs, connect])
 
   const clearLogs = useCallback(() => {
     setLogs([])
@@ -196,7 +245,9 @@ export function useLogStream({
   return {
     logs,
     isConnected,
+    /** Cumulative drop count from the server (drop-oldest back-pressure). */
+    droppedCount,
     clearLogs,
-    refetch: fetchLogs
+    refetch: fetchLogs,
   }
 }

@@ -9,7 +9,7 @@ vi.mock('@/hooks/useBackendConnection', () => ({
 
 // Mock the shared log stream hook
 vi.mock('@/hooks/useSharedLogStream', () => ({
-  useSharedLogStream: () => ({ connectionState: 'disconnected' })
+  useSharedLogStream: () => ({ connectionState: 'disconnected', droppedCount: 0 })
 }))
 
 describe('useLogsStream flood prevention', () => {

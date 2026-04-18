@@ -87,7 +87,10 @@ describe('LogsPane', () => {
       />
     )
 
-    await waitFor(() => expect(capturedWebSocketUrls.length).toBeGreaterThan(0))
+    // Local mode now streams via Connect (LogsService.StreamLocalLogs), not raw
+    // WebSocket — the legacy WS bridge is gone. We just need to give effects a
+    // tick to mount the streaming hook before checking the title text.
+    await waitFor(() => expect(screen.getByTestId('logs-pane-header-title')).toBeTruthy())
 
     const title = screen.getByTestId('logs-pane-header-title')
     expect(title.textContent ?? '').toContain('example-service')
@@ -143,10 +146,11 @@ describe('LogsPane', () => {
       />
     )
 
-    // Ensure the local-mode WebSocket effect ran.
-    await waitFor(() => expect(capturedWebSocketUrls.length).toBeGreaterThan(0))
+    // Allow effects to mount. Local mode now uses Connect (LogsService.StreamLocalLogs),
+    // not WebSocket, so we don't poke at capturedWebSocketUrls anymore.
+    await new Promise((resolve) => setTimeout(resolve, 50))
 
-    // Local mode uses WebSocket, should not fetch /api/azure/logs
+    // Local mode must not fetch /api/azure/logs regardless of transport.
     expect(capturedAzureUrls.length).toBe(0)
   })
 

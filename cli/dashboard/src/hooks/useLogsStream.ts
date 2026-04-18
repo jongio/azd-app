@@ -67,7 +67,9 @@ export interface UseLogsStreamParams {
  * The frontend doesn't distinguish between backend polling vs streaming - 
  * the WebSocket connection abstracts this complexity.
  */
-export function useLogsStream(params: UseLogsStreamParams): { retry: () => void } {
+export function useLogsStream(
+  params: UseLogsStreamParams,
+): { retry: () => void; droppedCount: number } {
   const { 
     serviceName, fetchKey, logMode, timeRange, azureRealtime, isPausedRef, lastClearTimeRef,
     setLogs, setErrorMessage, onFetchSettled,
@@ -393,12 +395,12 @@ export function useLogsStream(params: UseLogsStreamParams): { retry: () => void 
     connected && 
     (logMode === 'local' || (logMode === 'azure' && azureRealtime))
 
-  useSharedLogStream({
+  const { droppedCount } = useSharedLogStream({
     serviceName,
     enabled: shouldUseSharedStream,
     mode: logMode === 'azure' ? 'azure' : 'local',
     onLogEntry: handleSharedLogEntry,
   })
-  
-  return { retry }
+
+  return { retry, droppedCount }
 }
