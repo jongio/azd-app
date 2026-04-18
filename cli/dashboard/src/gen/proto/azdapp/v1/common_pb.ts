@@ -218,6 +218,13 @@ proto3.util.setEnumType(ServiceStatus, "azdapp.v1.ServiceStatus", [
 
 /**
  * HealthState mirrors internal/healthcheck health states.
+ * 
+ * Wire stability: enum values are append-only. DEGRADED was added after the
+ * initial draft when wiring HealthService — the existing dashboard summary
+ * distinguishes degraded from unhealthy, and dropping that distinction would
+ * silently lose information. Older clients that don't recognise the value
+ * will see HEALTH_STATE_UNSPECIFIED (proto3 unknown-enum semantics) rather
+ * than crash.
  *
  * @generated from enum azdapp.v1.HealthState
  */
@@ -246,6 +253,11 @@ export enum HealthState {
    * @generated from enum value: HEALTH_STATE_STARTING = 4;
    */
   STARTING = 4,
+
+  /**
+   * @generated from enum value: HEALTH_STATE_DEGRADED = 5;
+   */
+  DEGRADED = 5,
 }
 // Retrieve enum metadata with: proto3.getEnumType(HealthState)
 proto3.util.setEnumType(HealthState, "azdapp.v1.HealthState", [
@@ -254,6 +266,7 @@ proto3.util.setEnumType(HealthState, "azdapp.v1.HealthState", [
   { no: 2, name: "HEALTH_STATE_UNHEALTHY" },
   { no: 3, name: "HEALTH_STATE_UNKNOWN" },
   { no: 4, name: "HEALTH_STATE_STARTING" },
+  { no: 5, name: "HEALTH_STATE_DEGRADED" },
 ]);
 
 /**

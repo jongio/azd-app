@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   __setDefaultTransportForTesting,
+  createHealthClient,
   createLifecycleClient,
   createModeClient,
   createProjectClient,
@@ -34,12 +35,16 @@ describe('connectClient factories', () => {
     const lifecycle = createLifecycleClient(transport)
     const mode = createModeClient(transport)
     const project = createProjectClient(transport)
+    const health = createHealthClient(transport)
 
     expect(typeof lifecycle.getEnvironment).toBe('function')
     expect(typeof lifecycle.streamBroadcast).toBe('function')
     expect(typeof mode.getMode).toBe('function')
     expect(typeof mode.setMode).toBe('function')
     expect(typeof project.getProject).toBe('function')
+    expect(typeof health.getHealth).toBe('function')
+    expect(typeof health.streamHealth).toBe('function')
+    expect(typeof health.streamStateTransitions).toBe('function')
   })
 
   it('routes calls through the supplied transport', async () => {

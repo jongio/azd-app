@@ -84,6 +84,19 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	// HealthService is mounted whenever a HealthSource is wired. The
+	// secondary StateTransitionSource is optional - if absent,
+	// StreamStateTransitions returns Unimplemented so clients can detect
+	// "feature off" cleanly. GetHealth + StreamHealth depend only on
+	// HealthSource and remain functional in that mode.
+	if deps.Health != nil {
+		path, handler := azdappv1connect.NewHealthServiceHandler(
+			NewHealthHandler(deps.Health, deps.StateTransitions),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -133,4 +146,16 @@ type Dependencies struct {
 	// only when this is non-nil and ProjectDir is set. Tests that focus
 	// on other services can leave it unset.
 	BicepFactory BicepGeneratorFactory
+
+	// Health probes services for HealthService.GetHealth and
+	// HealthService.StreamHealth. Optional: HealthService is mounted
+	// only when this is non-nil. Production wires it to a per-call
+	// HealthStreamManager via HealthSourceFunc.
+	Health HealthSource
+
+	// StateTransitions feeds HealthService.StreamStateTransitions.
+	// Optional even when Health is set: dashboards without a wired
+	// monitor.StateMonitor leave this nil and the handler returns
+	// Unimplemented to clients invoking that one RPC.
+	StateTransitions StateTransitionSource
 }

@@ -317,6 +317,13 @@ func (ServiceStatus) EnumDescriptor() ([]byte, []int) {
 }
 
 // HealthState mirrors internal/healthcheck health states.
+//
+// Wire stability: enum values are append-only. DEGRADED was added after the
+// initial draft when wiring HealthService — the existing dashboard summary
+// distinguishes degraded from unhealthy, and dropping that distinction would
+// silently lose information. Older clients that don't recognise the value
+// will see HEALTH_STATE_UNSPECIFIED (proto3 unknown-enum semantics) rather
+// than crash.
 type HealthState int32
 
 const (
@@ -325,6 +332,7 @@ const (
 	HealthState_HEALTH_STATE_UNHEALTHY   HealthState = 2
 	HealthState_HEALTH_STATE_UNKNOWN     HealthState = 3
 	HealthState_HEALTH_STATE_STARTING    HealthState = 4
+	HealthState_HEALTH_STATE_DEGRADED    HealthState = 5
 )
 
 // Enum value maps for HealthState.
@@ -335,6 +343,7 @@ var (
 		2: "HEALTH_STATE_UNHEALTHY",
 		3: "HEALTH_STATE_UNKNOWN",
 		4: "HEALTH_STATE_STARTING",
+		5: "HEALTH_STATE_DEGRADED",
 	}
 	HealthState_value = map[string]int32{
 		"HEALTH_STATE_UNSPECIFIED": 0,
@@ -342,6 +351,7 @@ var (
 		"HEALTH_STATE_UNHEALTHY":   2,
 		"HEALTH_STATE_UNKNOWN":     3,
 		"HEALTH_STATE_STARTING":    4,
+		"HEALTH_STATE_DEGRADED":    5,
 	}
 )
 
@@ -934,13 +944,14 @@ const file_azdapp_v1_common_proto_rawDesc = "" +
 	"\x14SERVICE_STATUS_READY\x10\x03\x12\x1b\n" +
 	"\x17SERVICE_STATUS_DEGRADED\x10\x04\x12\x18\n" +
 	"\x14SERVICE_STATUS_ERROR\x10\x05\x12\x1b\n" +
-	"\x17SERVICE_STATUS_STOPPING\x10\x06*\x96\x01\n" +
+	"\x17SERVICE_STATUS_STOPPING\x10\x06*\xb1\x01\n" +
 	"\vHealthState\x12\x1c\n" +
 	"\x18HEALTH_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14HEALTH_STATE_HEALTHY\x10\x01\x12\x1a\n" +
 	"\x16HEALTH_STATE_UNHEALTHY\x10\x02\x12\x18\n" +
 	"\x14HEALTH_STATE_UNKNOWN\x10\x03\x12\x19\n" +
-	"\x15HEALTH_STATE_STARTING\x10\x04B\xa1\x01\n" +
+	"\x15HEALTH_STATE_STARTING\x10\x04\x12\x19\n" +
+	"\x15HEALTH_STATE_DEGRADED\x10\x05B\xa1\x01\n" +
 	"\rcom.azdapp.v1B\vCommonProtoP\x01Z>github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1;azdappv1\xa2\x02\x03AXX\xaa\x02\tAzdapp.V1\xca\x02\tAzdapp\\V1\xe2\x02\x15Azdapp\\V1\\GPBMetadata\xea\x02\n" +
 	"Azdapp::V1b\x06proto3"
 

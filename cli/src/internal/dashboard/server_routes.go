@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"embed"
 	"io"
 	"io/fs"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/healthcheck"
 	"github.com/jongio/azd-app/cli/src/internal/rpc"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
@@ -77,6 +79,26 @@ func (s *Server) setupRoutes() {
 		ServicesLister:    rpc.ServiceListerFunc(serviceinfo.GetServiceInfo),
 		ServicesLifecycle: newServicesLifecycleAdapter(s),
 		BicepFactory:      newBicepGeneratorFactory(s),
+		// HealthSource constructs a fresh HealthStreamManager per call,
+		// matching the legacy /api/health/stream behaviour: each stream
+		// gets isolated change-detection state. The constructor is
+		// inexpensive (one struct + map allocation) and avoids leaking
+		// state across reconnects, including the "stale previousStates
+		// after a service rename" failure mode.
+		Health: rpc.HealthSourceFunc(func(ctx context.Context, serviceFilter []string) (*healthcheck.HealthReport, error) {
+			mgr, err := NewHealthStreamManager(s.projectDir)
+			if err != nil {
+				return nil, err
+			}
+			return mgr.PerformHealthCheck(ctx, serviceFilter)
+		}),
+		// StateTransitions is intentionally left unset: the dashboard
+		// does not currently instantiate a monitor.StateMonitor, so
+		// HealthService.StreamStateTransitions returns Unimplemented.
+		// Wiring the source belongs in a follow-up batch alongside the
+		// monitor lifecycle work; stubbing it here would expose a
+		// permanently-empty stream that's worse than the explicit
+		// Unimplemented signal.
 	})
 
 	// Serve static files

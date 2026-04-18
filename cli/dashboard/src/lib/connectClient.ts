@@ -28,6 +28,7 @@ import { ModeService } from '@/gen/proto/azdapp/v1/mode_connect.js'
 import { ProjectService } from '@/gen/proto/azdapp/v1/project_connect.js'
 import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
 import { BicepService } from '@/gen/proto/azdapp/v1/bicep_connect.js'
+import { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
 
 // =============================================================================
 // Default transport
@@ -137,4 +138,15 @@ export function createBicepClient(
   transport: Transport = getDefaultTransport()
 ): PromiseClient<typeof BicepService> {
   return createPromiseClient(BicepService, transport)
+}
+
+/**
+ * Construct a HealthService Connect client. Used by useHealthStream for
+ * the server-streaming `streamHealth` and `streamStateTransitions` RPCs
+ * plus the unary `getHealth` one-shot probe.
+ */
+export function createHealthClient(
+  transport: Transport = getDefaultTransport()
+): PromiseClient<typeof HealthService> {
+  return createPromiseClient(HealthService, transport)
 }

@@ -81,12 +81,20 @@ enum ServiceStatus {
 }
 
 // HealthState mirrors internal/healthcheck health states.
+//
+// Wire stability: enum values are append-only. DEGRADED was added after the
+// initial draft when wiring HealthService — the existing dashboard summary
+// distinguishes degraded from unhealthy, and dropping that distinction would
+// silently lose information. Older clients that don't recognise the value
+// will see HEALTH_STATE_UNSPECIFIED (proto3 unknown-enum semantics) rather
+// than crash.
 enum HealthState {
   HEALTH_STATE_UNSPECIFIED = 0;
   HEALTH_STATE_HEALTHY = 1;
   HEALTH_STATE_UNHEALTHY = 2;
   HEALTH_STATE_UNKNOWN = 3;
   HEALTH_STATE_STARTING = 4;
+  HEALTH_STATE_DEGRADED = 5;
 }
 
 // ServiceInfo is the merged service descriptor returned by /api/services.
