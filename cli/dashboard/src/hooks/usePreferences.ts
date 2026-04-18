@@ -1,4 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { type Transport } from '@connectrpc/connect'
+
+import { createLogsClient } from '@/lib/connectClient'
+import {
+  Preferences as PbPreferences,
+  UIPreferences as PbUIPreferences,
+  BehaviorPreferences as PbBehaviorPreferences,
+  CopyPreferences as PbCopyPreferences,
+} from '@/gen/proto/azdapp/v1/logs_pb.js'
 
 export type Theme = 'light' | 'dark'
 
@@ -30,117 +39,114 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     gridColumns: 2,
     viewMode: 'grid',
     gridAutoFit: true,
-    selectedServices: []
+    selectedServices: [],
   },
   behavior: {
     autoScroll: true,
     pauseOnScroll: true,
-    timestampFormat: 'hh:mm:ss.sss'
+    timestampFormat: 'hh:mm:ss.sss',
   },
   copy: {
     defaultFormat: 'plaintext',
     includeTimestamp: true,
-    includeService: true
-  }
+    includeService: true,
+  },
+}
+
+function isValidViewMode(v: string): v is 'grid' | 'unified' {
+  return v === 'grid' || v === 'unified'
+}
+
+function isValidCopyFormat(
+  v: string
+): v is 'plaintext' | 'json' | 'markdown' | 'csv' {
+  return v === 'plaintext' || v === 'json' || v === 'markdown' || v === 'csv'
+}
+
+function isValidTheme(v: string): v is Theme {
+  return v === 'light' || v === 'dark'
 }
 
 /**
- * Type guard to check if a value is a valid view mode.
+ * Convert the proto Preferences message into the dashboard's
+ * UserPreferences shape, falling back to defaults for any field that's
+ * missing or invalid. This is the moral equivalent of the legacy
+ * `validatePreferences` function: the wire is now strongly typed but
+ * the SERVER may emit a future schema we can't fully decode (theme is
+ * a string, not an enum, precisely so the dashboard can drift ahead),
+ * and a corrupt blob round-trips as a default Preferences message.
  */
-function isValidViewMode(value: unknown): value is 'grid' | 'unified' {
-  return value === 'grid' || value === 'unified'
-}
-
-/**
- * Type guard to check if a value is a valid copy format.
- */
-function isValidCopyFormat(value: unknown): value is 'plaintext' | 'json' | 'markdown' | 'csv' {
-  return value === 'plaintext' || value === 'json' || value === 'markdown' || value === 'csv'
-}
-
-/**
- * Type guard to check if a value is a valid theme.
- */
-function isValidTheme(value: unknown): value is Theme {
-  return value === 'light' || value === 'dark'
-}
-
-/**
- * Validates and sanitizes preferences data from the API.
- * Returns a valid UserPreferences object with defaults for any invalid/missing fields.
- */
-function validatePreferences(data: unknown): UserPreferences {
-  if (typeof data !== 'object' || data === null) {
+function pbToUserPreferences(pb: PbPreferences | undefined): UserPreferences {
+  if (!pb) {
     return DEFAULT_PREFERENCES
   }
-
-  const raw = data as Record<string, unknown>
-
-  // Validate theme
-  const theme = isValidTheme(raw.theme) ? raw.theme : DEFAULT_PREFERENCES.theme
-
-  // Validate UI preferences
-  const rawUI = (typeof raw.ui === 'object' && raw.ui !== null
-    ? raw.ui
-    : {}) as Record<string, unknown>
-  
-  const ui: UserPreferences['ui'] = {
-    gridColumns: typeof rawUI.gridColumns === 'number' && rawUI.gridColumns >= 1 && rawUI.gridColumns <= 6
-      ? rawUI.gridColumns
-      : DEFAULT_PREFERENCES.ui.gridColumns,
-    viewMode: isValidViewMode(rawUI.viewMode)
-      ? rawUI.viewMode
-      : DEFAULT_PREFERENCES.ui.viewMode,
-    gridAutoFit: typeof rawUI.gridAutoFit === 'boolean'
-      ? rawUI.gridAutoFit
-      : DEFAULT_PREFERENCES.ui.gridAutoFit,
-    selectedServices: Array.isArray(rawUI.selectedServices) && 
-      rawUI.selectedServices.every((s): s is string => typeof s === 'string')
-      ? rawUI.selectedServices
-      : DEFAULT_PREFERENCES.ui.selectedServices
-  }
-
-  // Validate behavior preferences
-  const rawBehavior = typeof raw.behavior === 'object' && raw.behavior !== null
-    ? raw.behavior as Record<string, unknown>
-    : {}
-  
-  const behavior: UserPreferences['behavior'] = {
-    autoScroll: typeof rawBehavior.autoScroll === 'boolean'
-      ? rawBehavior.autoScroll
-      : DEFAULT_PREFERENCES.behavior.autoScroll,
-    pauseOnScroll: typeof rawBehavior.pauseOnScroll === 'boolean'
-      ? rawBehavior.pauseOnScroll
-      : DEFAULT_PREFERENCES.behavior.pauseOnScroll,
-    timestampFormat: typeof rawBehavior.timestampFormat === 'string'
-      ? rawBehavior.timestampFormat
-      : DEFAULT_PREFERENCES.behavior.timestampFormat
-  }
-
-  // Validate copy preferences
-  const rawCopy = typeof raw.copy === 'object' && raw.copy !== null
-    ? raw.copy as Record<string, unknown>
-    : {}
-  
-  const copy: UserPreferences['copy'] = {
-    defaultFormat: isValidCopyFormat(rawCopy.defaultFormat)
-      ? rawCopy.defaultFormat
-      : DEFAULT_PREFERENCES.copy.defaultFormat,
-    includeTimestamp: typeof rawCopy.includeTimestamp === 'boolean'
-      ? rawCopy.includeTimestamp
-      : DEFAULT_PREFERENCES.copy.includeTimestamp,
-    includeService: typeof rawCopy.includeService === 'boolean'
-      ? rawCopy.includeService
-      : DEFAULT_PREFERENCES.copy.includeService
-  }
+  const ui = pb.ui ?? new PbUIPreferences()
+  const behavior = pb.behavior ?? new PbBehaviorPreferences()
+  const copy = pb.copy ?? new PbCopyPreferences()
 
   return {
-    version: typeof raw.version === 'string' ? raw.version : DEFAULT_PREFERENCES.version,
-    theme,
-    ui,
-    behavior,
-    copy
+    version: pb.version || DEFAULT_PREFERENCES.version,
+    theme: isValidTheme(pb.theme) ? pb.theme : DEFAULT_PREFERENCES.theme,
+    ui: {
+      gridColumns:
+        ui.gridColumns >= 1 && ui.gridColumns <= 6
+          ? ui.gridColumns
+          : DEFAULT_PREFERENCES.ui.gridColumns,
+      viewMode: isValidViewMode(ui.viewMode)
+        ? ui.viewMode
+        : DEFAULT_PREFERENCES.ui.viewMode,
+      // gridAutoFit is a proto bool with default false, but the
+      // dashboard default is true. We can't tell "user set false" from
+      // "field absent" on the wire, so we honour what the server sends.
+      // The server-side handler returns the dashboard default when the
+      // stored blob is empty, which preserves the legacy behaviour end
+      // to end.
+      gridAutoFit: ui.gridAutoFit,
+      selectedServices: ui.selectedServices ?? [],
+    },
+    behavior: {
+      autoScroll: behavior.autoScroll,
+      pauseOnScroll: behavior.pauseOnScroll,
+      timestampFormat:
+        behavior.timestampFormat || DEFAULT_PREFERENCES.behavior.timestampFormat,
+    },
+    copy: {
+      defaultFormat: isValidCopyFormat(copy.defaultFormat)
+        ? copy.defaultFormat
+        : DEFAULT_PREFERENCES.copy.defaultFormat,
+      includeTimestamp: copy.includeTimestamp,
+      includeService: copy.includeService,
+    },
   }
+}
+
+/**
+ * Convert a dashboard UserPreferences object into the proto Preferences
+ * message used by SavePreferences. The handler immediately re-serialises
+ * to JSON via protojson, so we don't need to worry about field defaults
+ * being elided here - everything we set lands in the persisted blob.
+ */
+function userPreferencesToPb(prefs: UserPreferences): PbPreferences {
+  return new PbPreferences({
+    version: prefs.version,
+    theme: prefs.theme,
+    ui: new PbUIPreferences({
+      gridColumns: prefs.ui.gridColumns,
+      gridAutoFit: prefs.ui.gridAutoFit,
+      viewMode: prefs.ui.viewMode,
+      selectedServices: prefs.ui.selectedServices,
+    }),
+    behavior: new PbBehaviorPreferences({
+      autoScroll: prefs.behavior.autoScroll,
+      pauseOnScroll: prefs.behavior.pauseOnScroll,
+      timestampFormat: prefs.behavior.timestampFormat,
+    }),
+    copy: new PbCopyPreferences({
+      defaultFormat: prefs.copy.defaultFormat,
+      includeTimestamp: prefs.copy.includeTimestamp,
+      includeService: prefs.copy.includeService,
+    }),
+  })
 }
 
 /** Return type of usePreferences hook */
@@ -153,56 +159,74 @@ export interface UsePreferencesReturn {
   reload: () => Promise<void>
 }
 
-export function usePreferences(): UsePreferencesReturn {
-  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES)
+/**
+ * Persist user preferences (theme, grid layout, copy format, etc.) via
+ * the LogsService Connect handler. The optional `transport` argument
+ * exists for tests that wire a `createRouterTransport`; production
+ * callers omit it and use the singleton transport.
+ */
+export function usePreferences(transport?: Transport): UsePreferencesReturn {
+  const [preferences, setPreferences] = useState<UserPreferences>(
+    DEFAULT_PREFERENCES
+  )
   const [isLoading, setIsLoading] = useState(true)
+
+  const client = useMemo(() => createLogsClient(transport), [transport])
 
   const loadPreferences = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/logs/preferences')
-      if (response.ok) {
-        const data: unknown = await response.json()
-        const validatedPrefs = validatePreferences(data)
-        setPreferences(validatedPrefs)
-      } else {
-        setPreferences(DEFAULT_PREFERENCES)
-      }
+      const resp = await client.getPreferences({})
+      setPreferences(pbToUserPreferences(resp.preferences))
     } catch (err) {
+      // Preferences are best-effort: a network blip should not break
+      // the dashboard. Fall back to defaults and log so devtools shows
+      // the underlying error without throwing inside React's render.
       console.error('Failed to load preferences:', err)
       setPreferences(DEFAULT_PREFERENCES)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [client])
 
   useEffect(() => {
     void loadPreferences()
   }, [loadPreferences])
 
-  const savePreferences = useCallback(async (updates: Partial<UserPreferences>) => {
-    try {
-      const updated = { ...preferences, ...updates }
-      setPreferences(updated)
+  const savePreferences = useCallback(
+    async (updates: Partial<UserPreferences>) => {
+      const merged: UserPreferences = { ...preferences, ...updates }
+      // Optimistic local apply so the UI doesn't lag the network. If
+      // the save fails we keep the optimistic state - matches legacy
+      // behaviour and avoids snapping a slider back mid-drag.
+      setPreferences(merged)
+      try {
+        const resp = await client.savePreferences({
+          preferences: userPreferencesToPb(merged),
+        })
+        // Server normalises (e.g. clamps invalid grid columns); honour
+        // its echo so client + server agree.
+        setPreferences(pbToUserPreferences(resp.preferences))
+      } catch (err) {
+        console.error('Failed to save preferences:', err)
+      }
+    },
+    [client, preferences]
+  )
 
-      await fetch('/api/logs/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      })
-    } catch (err) {
-      console.error('Failed to save preferences:', err)
-    }
-  }, [preferences])
+  const updateUI = useCallback(
+    (updates: Partial<UserPreferences['ui']>) => {
+      void savePreferences({ ui: { ...preferences.ui, ...updates } })
+    },
+    [preferences.ui, savePreferences]
+  )
 
-  const updateUI = useCallback((updates: Partial<UserPreferences['ui']>) => {
-    const updated = { ...preferences, ui: { ...preferences.ui, ...updates } }
-    void savePreferences(updated)
-  }, [preferences, savePreferences])
-
-  const setTheme = useCallback((theme: Theme) => {
-    void savePreferences({ ...preferences, theme })
-  }, [preferences, savePreferences])
+  const setTheme = useCallback(
+    (theme: Theme) => {
+      void savePreferences({ theme })
+    },
+    [savePreferences]
+  )
 
   return {
     preferences,
@@ -210,6 +234,6 @@ export function usePreferences(): UsePreferencesReturn {
     savePreferences,
     updateUI,
     setTheme,
-    reload: loadPreferences
+    reload: loadPreferences,
   }
 }

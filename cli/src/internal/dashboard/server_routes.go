@@ -99,6 +99,16 @@ func (s *Server) setupRoutes() {
 		// monitor lifecycle work; stubbing it here would expose a
 		// permanently-empty stream that's worse than the explicit
 		// Unimplemented signal.
+
+		// Logs wires the LogsService umbrella to the same primitives
+		// the legacy REST handlers use: service.GetLogManager for log
+		// reads + subscriptions, the package-private loadAzureYaml /
+		// saveAzureYaml pair (guarded by classificationsMu so REST and
+		// Connect handlers serialise classification writes), and
+		// getOrCreateConfigClient for the preferences blob. Closing
+		// over those helpers keeps them un-exported and avoids leaking
+		// the classifications mutex through a wrapper struct.
+		Logs: newLogsStoreFuncs(s),
 	})
 
 	// Serve static files

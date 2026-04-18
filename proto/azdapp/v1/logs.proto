@@ -1,5 +1,20 @@
 // LogsService covers local log retrieval, live tailing, log classification
 // rules, and user log preferences.
+//
+// Schema authority:
+//   - Classifications mirror cli/src/internal/service/logfilter.go
+//     (LogClassification: text + level only).
+//   - Preferences mirror cli/src/internal/dashboard/logs_config.go
+//     (UserPreferences) AND cli/dashboard/src/hooks/usePreferences.ts.
+//   - GetLogs mirrors cli/src/internal/dashboard/server_handlers.go
+//     (handleGetLogs: service + tail; no level/since filtering).
+//   - StreamLocalLogs mirrors cli/src/internal/dashboard/server_websocket.go
+//     (handleLogStream).
+//
+// An earlier draft of this file invented filter fields (min_level, since,
+// regex/color/tag classifications, id-keyed deletes) that did not exist on
+// either side of the wire. Those have been removed: this schema is the
+// shape the server actually serves and the dashboard actually consumes.
 syntax = "proto3";
 
 package azdapp.v1;
@@ -8,125 +23,234 @@ import "azdapp/v1/common.proto";
 import "google/protobuf/timestamp.proto";
 
 service LogsService {
-  // GetLogs returns recent buffered logs for a service or, when service_name
-  // is empty, the merged tail across all services. Replaces GET /api/logs.
+  // GetLogs returns recent buffered logs for a service or, when
+  // service_name is empty, the merged tail across all services. Wraps
+  // service.LogManager.GetAllLogs / *LogBuffer.GetRecent. Replaces
+  // GET /api/logs (handleGetLogs in server_handlers.go).
+  //
+  // Server-side filtering is intentionally NOT supported. The legacy
+  // REST handler accepts only `service` and `tail` query parameters,
+  // and the dashboard's level/time/text filters all run client-side
+  // after fetch. Adding min_level/since here would (a) misrepresent
+  // what the server does and (b) double the test surface for behaviour
+  // no client uses today. Reintroduce as a typed message if a future
+  // client genuinely needs it - do not reserve speculative field
+  // numbers in the meantime.
   rpc GetLogs(GetLogsRequest) returns (GetLogsResponse);
 
-  // StreamLocalLogs tails local service logs in real time. Replaces the
-  // /api/logs/stream WebSocket.
+  // StreamLocalLogs tails local service logs in real time. Wraps the
+  // per-buffer Subscribe channels exposed by service.LogBuffer.
+  // Replaces the /api/logs/stream WebSocket (handleLogStream in
+  // server_websocket.go).
   //
-  // BACK-PRESSURE POLICY: drop-oldest at the buffer boundary.
-  // Rationale: matches the existing logbuffer implementation
-  // (logbuffer.go uses a bounded ring with drop-oldest semantics, see
-  // logbuffer_context_test.go). Live log tails are best-effort - dropping
-  // old lines under load is preferable to blocking the producing service or
-  // exhausting memory. When the server drops, it emits a synthetic LogEntry
-  // with level=WARN and a `logs.dropped=N` field so clients can surface the
-  // gap to the user.
+  // BACK-PRESSURE POLICY: drop-oldest, per-subscriber bounded ring
+  // (1024 entries). The underlying *service.LogBuffer subscriber
+  // channel is 100-buffered with drop-newest semantics inside
+  // LogBuffer.broadcast (see cli/src/internal/service/logbuffer.go);
+  // the Connect handler pumps that channel into its own 1024-entry
+  // ring with proper drop-OLDEST semantics so live consumers always
+  // see the most recent state when they fall behind.
+  //
+  // When entries are dropped, the next StreamLocalLogsResponse on the
+  // wire is a DroppedNotice carrying the count of entries lost since
+  // the last notice. Clients SHOULD surface a "lost N lines" banner
+  // so the user knows there is a gap rather than silently believing
+  // they have a complete tail.
   rpc StreamLocalLogs(StreamLocalLogsRequest) returns (stream StreamLocalLogsResponse);
 
-  // GetClassifications returns the user-defined log classification rules for
-  // this project. Replaces GET /api/logs/classifications.
-  rpc GetClassifications(GetClassificationsRequest) returns (GetClassificationsResponse);
+  // ListClassifications returns the project-level log classification
+  // rules from azure.yaml. Wraps service.LogsConfig.GetClassifications
+  // via dashboard/classifications.go (handleGetClassifications).
+  // Replaces GET /api/logs/classifications.
+  rpc ListClassifications(ListClassificationsRequest) returns (ListClassificationsResponse);
 
-  // CreateClassification appends a classification rule. Replaces
+  // AddClassification appends or updates a classification in
+  // azure.yaml. Wraps the legacy add-or-update semantic in
+  // handleCreateClassification (classifications.go): if a rule with
+  // the same `text` (case-insensitive) already exists, its `level` is
+  // updated in place; otherwise the rule is appended. Replaces
   // POST /api/logs/classifications.
-  rpc CreateClassification(CreateClassificationRequest) returns (CreateClassificationResponse);
+  rpc AddClassification(AddClassificationRequest) returns (AddClassificationResponse);
 
-  // DeleteClassification removes a rule by id. Replaces
-  // DELETE /api/logs/classifications/{id}.
+  // DeleteClassification removes a classification by POSITIONAL INDEX
+  // (zero-based) into the slice returned by ListClassifications.
+  // Wraps handleDeleteClassification in classifications.go. Replaces
+  // DELETE /api/logs/classifications/{index}.
+  //
+  // POSITIONAL-INDEX CONTRACT:
+  //   - Index 0 refers to the first item in the list ListClassifications
+  //     returns. Index N refers to the (N+1)th item.
+  //   - The index is NOT a stable identifier; concurrent Add or Delete
+  //     calls invalidate previously observed indexes. Dashboard flows
+  //     SHOULD list-then-delete without intermediate writes.
+  //   - index < 0 returns InvalidArgument (the dashboard never sends
+  //     negative indexes; surfacing as a 400 makes that a clear bug).
+  //   - index >= len(classifications) returns NotFound (matches the
+  //     legacy REST 404 for an out-of-range slot).
   rpc DeleteClassification(DeleteClassificationRequest) returns (DeleteClassificationResponse);
 
-  // GetPreferences returns the user's saved log preferences (theme, default
-  // filters, etc.). Replaces GET /api/logs/preferences.
+  // GetPreferences returns the user's saved log preferences. Wraps
+  // dashboard.loadPreferencesWithClient (logs_config.go), which reads
+  // azdconfig.GetPreferenceSection("logs") and decodes the JSON blob.
+  // Replaces GET /api/logs/preferences.
   rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
 
-  // SavePreferences persists the user's preferences. Replaces
-  // PUT /api/logs/preferences.
+  // SavePreferences persists the user's preferences via
+  // dashboard.savePreferencesWithClient (logs_config.go), which writes
+  // the JSON blob through azdconfig.SetPreferenceSection("logs").
+  // Replaces POST /api/logs/preferences. The response echoes the
+  // saved value so clients can confirm what the server actually
+  // persisted (in particular: defaults filled in for unset fields).
   rpc SavePreferences(SavePreferencesRequest) returns (SavePreferencesResponse);
 }
 
-message StreamLocalLogsResponse { LogEntry entry = 1; }
-message CreateClassificationResponse { Classification classification = 1; }
-message DeleteClassificationResponse { OperationResult result = 1; }
-message GetPreferencesResponse { Preferences preferences = 1; }
-message SavePreferencesResponse { Preferences preferences = 1; }
-
-
+// GetLogsRequest mirrors handleGetLogs query parameters one-for-one.
+// service: empty -> merged tail across all buffers.
+// tail: server clamps to [1, 10_000]; values outside the range are
+// adjusted silently and the response sets tail_clamped=true.
 message GetLogsRequest {
-  // Empty -> merged tail of all services.
   string service_name = 1;
-  // Maximum lines to return. Server enforces 1 <= tail <= 10_000; values
-  // outside that range are clamped (and the response notes the clamp).
   int32 tail = 2;
-  // Optional minimum level filter (entries below this level are excluded).
-  LogLevel min_level = 3;
-  // Optional time bound; only entries at-or-after this timestamp are returned.
-  google.protobuf.Timestamp since = 4;
 }
 
 message GetLogsResponse {
   repeated LogEntry entries = 1;
-  // True if the server clamped `tail` (e.g. caller asked for 50000).
+  // True when the server clamped a caller-requested tail value (e.g.
+  // the client asked for 50_000 and got 10_000 entries back).
   bool tail_clamped = 2;
 }
 
+// StreamLocalLogsRequest subscribes to the live tail of one service
+// (service_name set) or all services (service_name empty). backfill
+// requests up to N most-recent buffered entries before live tail
+// begins; the server caps backfill at the per-buffer max size.
 message StreamLocalLogsRequest {
-  // Empty -> stream merged tail of all services.
   string service_name = 1;
-  // Number of historical lines to deliver before live tail begins (0 = none).
   int32 backfill = 2;
-  LogLevel min_level = 3;
 }
 
-// Classification is a regex/level rule that the dashboard uses to colorize
-// and group log lines (e.g. "treat /^E\d+:/ as level=ERROR with tag=startup").
+// StreamLocalLogsResponse is one event on the wire. Either a log
+// entry arrived OR a dropped-notice signals the consumer fell behind
+// far enough that the per-subscriber ring overflowed. Modelling the
+// notice as a typed oneof (rather than a synthetic LogEntry with
+// magic fields) keeps the schema honest: consumers explicitly
+// switch over the variant and cannot accidentally render a drop
+// sentinel as a log line.
+message StreamLocalLogsResponse {
+  oneof event {
+    LogEntry entry = 1;
+    DroppedNotice dropped = 2;
+  }
+}
+
+// DroppedNotice reports how many entries were dropped since the last
+// notice was sent on this stream. Always carries a non-zero count;
+// the server never sends an empty notice. Timestamp is the server
+// time the notice was generated (NOT the timestamp of the dropped
+// entries, which by definition are no longer available).
+message DroppedNotice {
+  int64 count = 1;
+  google.protobuf.Timestamp at = 2;
+}
+
+// Classification mirrors service.LogClassification (logfilter.go).
+// `text` is matched case-insensitively against log lines; `level`
+// must be LOG_LEVEL_INFO, LOG_LEVEL_WARN, or LOG_LEVEL_ERROR (the
+// only values service.ValidateClassificationLevel accepts). Other
+// LogLevel values returned by the wire enum are rejected at the
+// handler boundary with InvalidArgument.
 message Classification {
-  string id = 1;
-  string name = 2;
-  string pattern = 3;            // regex
-  LogLevel level = 4;            // override level when matched
-  string tag = 5;                // free-form label
-  string color = 6;              // hex color used by the UI
-  bool enabled = 7;
-  google.protobuf.Timestamp created_at = 8;
-  google.protobuf.Timestamp updated_at = 9;
+  string text = 1;
+  LogLevel level = 2;
 }
 
-message GetClassificationsRequest {}
+message ListClassificationsRequest {}
 
-message GetClassificationsResponse {
+message ListClassificationsResponse {
   repeated Classification classifications = 1;
 }
 
-message CreateClassificationRequest {
-  string name = 1;
-  string pattern = 2;
-  LogLevel level = 3;
-  string tag = 4;
-  string color = 5;
-  bool enabled = 6;
+message AddClassificationRequest {
+  Classification classification = 1;
+}
+
+message AddClassificationResponse {
+  // The classification as persisted (with any server-side
+  // normalisation applied). For an update-in-place against an
+  // existing text, this is the post-update record.
+  Classification classification = 1;
 }
 
 message DeleteClassificationRequest {
-  string id = 1;
+  int32 index = 1;
 }
 
-// Preferences mirrors the dashboard's persisted user preferences. Field set
-// matches loadPreferencesWithClient in internal/dashboard/logs_config.go.
+message DeleteClassificationResponse {}
+
+// Preferences mirrors dashboard.UserPreferences (logs_config.go) AND
+// the dashboard hook UserPreferences (cli/dashboard/src/hooks/usePreferences.ts).
+//
+// Storage shape: opaque JSON blob via azdconfig.ConfigClient
+// (key "logs"). The Connect handler decodes/encodes via protojson with
+// DiscardUnknown=true so JSON keys persisted by an older or newer
+// schema version do not break GetPreferences. Adding a new field to
+// this message is forward-compatible with previously stored data.
+//
+// Field-by-field intent:
+//   - version, theme, ui.grid_auto_fit are present on the dashboard
+//     side TODAY but missing from the Go UserPreferences struct.
+//     The Connect handler routes preference reads/writes through
+//     protojson on top of the raw azdconfig JSON blob, NOT through
+//     the Go UserPreferences struct, so these fields round-trip
+//     end-to-end without any change to the legacy REST handler. The
+//     legacy REST handler still drops them silently (Go json.Unmarshal
+//     ignores unknown fields by design); Connect callers get the
+//     correct behaviour.
+//   - All other fields mirror dashboard.UserPreferences one-for-one.
 message Preferences {
-  string theme = 1;              // "system" | "light" | "dark"
-  LogLevel default_min_level = 2;
-  bool show_timestamps = 3;
-  bool wrap_long_lines = 4;
-  // Per-service collapsed state, keyed by service name.
-  map<string, bool> collapsed_services = 5;
-  // Saved KQL queries keyed by name (for the Azure logs panel).
-  map<string, string> saved_queries = 6;
+  string version = 1;
+  string theme = 2;
+  UIPreferences ui = 3;
+  BehaviorPreferences behavior = 4;
+  CopyPreferences copy = 5;
+}
+
+// UIPreferences mirrors dashboard.UIPreferences (logs_config.go) plus
+// the grid_auto_fit field that exists only on the dashboard hook.
+message UIPreferences {
+  int32 grid_columns = 1;
+  bool grid_auto_fit = 2;
+  string view_mode = 3;
+  repeated string selected_services = 4;
+}
+
+// BehaviorPreferences mirrors dashboard.BehaviorPreferences.
+message BehaviorPreferences {
+  bool auto_scroll = 1;
+  bool pause_on_scroll = 2;
+  string timestamp_format = 3;
+}
+
+// CopyPreferences mirrors dashboard.CopyPreferences.
+message CopyPreferences {
+  string default_format = 1;
+  bool include_timestamp = 2;
+  bool include_service = 3;
 }
 
 message GetPreferencesRequest {}
 
+message GetPreferencesResponse {
+  Preferences preferences = 1;
+}
+
 message SavePreferencesRequest {
+  Preferences preferences = 1;
+}
+
+message SavePreferencesResponse {
+  // Echoes the saved preferences so clients can confirm exactly what
+  // landed in storage (server defaults applied, unknown fields
+  // preserved verbatim).
   Preferences preferences = 1;
 }

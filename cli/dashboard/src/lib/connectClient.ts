@@ -29,6 +29,7 @@ import { ProjectService } from '@/gen/proto/azdapp/v1/project_connect.js'
 import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
 import { BicepService } from '@/gen/proto/azdapp/v1/bicep_connect.js'
 import { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
 
 // =============================================================================
 // Default transport
@@ -149,4 +150,16 @@ export function createHealthClient(
   transport: Transport = getDefaultTransport()
 ): PromiseClient<typeof HealthService> {
   return createPromiseClient(HealthService, transport)
+}
+
+/**
+ * Construct a LogsService Connect client. Backs `useLogClassifications`
+ * and `usePreferences` for the unary RPCs (list/add/delete classifications,
+ * get/save preferences) and will back the streaming local-log hooks once
+ * the WebSocket→server-stream migration lands in a follow-up commit.
+ */
+export function createLogsClient(
+  transport: Transport = getDefaultTransport()
+): PromiseClient<typeof LogsService> {
+  return createPromiseClient(LogsService, transport)
 }

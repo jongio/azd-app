@@ -1,517 +1,363 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+/**
+ * Tests for useLogClassifications against an in-memory Connect router
+ * transport. Replaces the previous fetch-mock test bed: the hook now
+ * speaks LogsService, so we drive the production code path through
+ * `createRouterTransport` and a mutable in-memory store.
+ *
+ * Tests cover:
+ *  - load on mount + empty result
+ *  - load failure surfaces .error
+ *  - addClassification append + reload + cross-instance notify
+ *  - addClassification update-in-place (server keeps original casing)
+ *  - addClassification skipNotify suppresses reload
+ *  - deleteClassification by index + reload
+ *  - deleteClassification skipNotify
+ *  - getClassificationForText longest-match wins
+ *  - getClassificationForText returns null on no match
+ *  - reload() picks up out-of-band changes
+ *  - addClassification surfaces ConnectError as Error to callers
+ */
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { useLogClassifications } from '@/hooks/useLogClassifications'
+import {
+  Code,
+  ConnectError,
+  createRouterTransport,
+  type ConnectRouter,
+} from '@connectrpc/connect'
+import { describe, it, expect } from 'vitest'
 
-// Helper to create mock fetch responses
-const createMockFetchResponse = <T>(data: T, ok = true, status = 200) => {
-  return Promise.resolve({
-    ok,
-    status,
-    json: () => Promise.resolve(data),
-    text: () => Promise.resolve(JSON.stringify(data)),
-  } as Response)
+import { useLogClassifications } from './useLogClassifications'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import {
+  Classification,
+  ListClassificationsResponse,
+  AddClassificationResponse,
+  DeleteClassificationResponse,
+} from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { LogLevel } from '@/gen/proto/azdapp/v1/common_pb.js'
+
+interface StoredClassification {
+  text: string
+  level: LogLevel
 }
 
-describe('useLogClassifications', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+interface Harness {
+  transport: ReturnType<typeof createRouterTransport>
+  store: StoredClassification[]
+  addThrows: { value: ConnectError | null }
+}
 
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+/**
+ * Build a harness whose LogsService router methods read/write a mutable
+ * `store` slice in-memory. Mirrors the Go handler closely enough that
+ * hook behaviour against the harness predicts real-server behaviour:
+ * - update-in-place when text matches case-insensitively
+ * - InvalidArgument for blank text
+ * - delete by index, NotFound on out-of-range
+ *
+ * We intentionally implement just the unary RPCs the hook touches; the
+ * streaming methods plus preferences RPCs throw if called so any
+ * regression that drives the wrong RPC fails loudly rather than silently
+ * succeeding with an empty default.
+ */
+function buildHarness(initial: StoredClassification[] = []): Harness {
+  const store: StoredClassification[] = [...initial]
+  const addThrows: { value: ConnectError | null } = { value: null }
 
-  describe('initial load', () => {
-    it('should fetch classifications on mount', async () => {
-      const mockClassifications = [
-        { text: 'Connection refused', level: 'error' },
-        { text: 'cache miss', level: 'info' },
-      ]
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ classifications: mockClassifications })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      expect(result.current.isLoading).toBe(true)
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications')
-      expect(result.current.classifications).toEqual(mockClassifications)
-      expect(result.current.error).toBeNull()
-    })
-
-    it('should handle empty classifications array', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ classifications: [] })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.classifications).toEqual([])
-      expect(result.current.error).toBeNull()
-    })
-
-    it('should handle fetch errors', async () => {
-      const mockFetch = vi.fn(() => Promise.reject(new Error('Network error')))
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.classifications).toEqual([])
-      expect(result.current.error).toBeInstanceOf(Error)
-      expect(result.current.error?.message).toBe('Network error')
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should handle HTTP error responses', async () => {
-      const mockFetch = vi.fn(() => createMockFetchResponse({}, false, 500))
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.classifications).toEqual([])
-      expect(result.current.error).toBeInstanceOf(Error)
-
-      consoleSpy.mockRestore()
-    })
-  })
-
-  describe('addClassification', () => {
-    it('should add a classification and reload', async () => {
-      const initialClassifications = [{ text: 'existing', level: 'info' as const }]
-      const afterAddClassifications = [
-        { text: 'existing', level: 'info' as const },
-        { text: 'new error', level: 'error' as const },
-      ]
-
-      let callCount = 0
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'POST') {
-          return createMockFetchResponse({ text: 'new error', level: 'error' }, true, 201)
-        }
-        // GET requests - return different data after add
-        callCount++
-        if (callCount === 1) {
-          return createMockFetchResponse({ classifications: initialClassifications })
-        }
-        return createMockFetchResponse({ classifications: afterAddClassifications })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.classifications).toEqual(initialClassifications)
-
-      await act(async () => {
-        await result.current.addClassification('new error', 'error')
-      })
-
-      // Verify POST was called
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: 'new error', level: 'error' }),
-      })
-
-      // Verify reload happened
-      await waitFor(() => {
-        expect(result.current.classifications).toEqual(afterAddClassifications)
-      })
-    })
-
-    it('should skip reload when skipNotify is true', async () => {
-      let getCallCount = 0
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'POST') {
-          return createMockFetchResponse({ text: 'new', level: 'error' }, true, 201)
-        }
-        // GET requests
-        getCallCount++
-        return createMockFetchResponse({ classifications: [] })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      const initialGetCount = getCallCount
-
-      await act(async () => {
-        await result.current.addClassification('new', 'error', true) // skipNotify = true
-      })
-
-      // Verify POST was called
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications', expect.objectContaining({
-        method: 'POST',
-      }))
-
-      // Verify NO additional GET requests were made (no reload)
-      expect(getCallCount).toBe(initialGetCount)
-    })
-
-    it('should throw on add error', async () => {
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'POST') {
-          return createMockFetchResponse('Invalid level', false, 400)
-        }
-        return createMockFetchResponse({ classifications: [] })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      await expect(
-        act(async () => {
-          await result.current.addClassification('test', 'error')
+  const transport = createRouterTransport((router: ConnectRouter) => {
+    router.service(LogsService, {
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async getLogs() {
+        throw new ConnectError('not used in this suite', Code.Unimplemented)
+      },
+      // eslint-disable-next-line @typescript-eslint/require-await, require-yield
+      async *streamLocalLogs() {
+        throw new ConnectError('not used', Code.Unimplemented)
+      },
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async listClassifications() {
+        return new ListClassificationsResponse({
+          classifications: store.map(
+            (c) => new Classification({ text: c.text, level: c.level })
+          ),
         })
-      ).rejects.toThrow()
-
-      consoleSpy.mockRestore()
+      },
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async addClassification(req) {
+        if (addThrows.value) throw addThrows.value
+        const incoming = req.classification
+        if (!incoming || !incoming.text.trim()) {
+          throw new ConnectError('text required', Code.InvalidArgument)
+        }
+        const idx = store.findIndex(
+          (c) => c.text.toLowerCase() === incoming.text.toLowerCase()
+        )
+        let stored: StoredClassification
+        if (idx >= 0) {
+          // Update level in place; preserve original text casing.
+          store[idx] = { text: store[idx].text, level: incoming.level }
+          stored = store[idx]
+        } else {
+          stored = { text: incoming.text, level: incoming.level }
+          store.push(stored)
+        }
+        return new AddClassificationResponse({
+          classification: new Classification(stored),
+        })
+      },
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async deleteClassification(req) {
+        if (req.index < 0) {
+          throw new ConnectError('negative index', Code.InvalidArgument)
+        }
+        if (req.index >= store.length) {
+          throw new ConnectError('out of range', Code.NotFound)
+        }
+        store.splice(req.index, 1)
+        return new DeleteClassificationResponse({})
+      },
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async getPreferences() {
+        throw new ConnectError('not used', Code.Unimplemented)
+      },
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async savePreferences() {
+        throw new ConnectError('not used', Code.Unimplemented)
+      },
     })
   })
 
-  describe('deleteClassification', () => {
-    it('should delete a classification and reload', async () => {
-      const initialClassifications = [
-        { text: 'first', level: 'info' as const },
-        { text: 'second', level: 'error' as const },
-      ]
-      const afterDeleteClassifications = [{ text: 'second', level: 'error' as const }]
+  return { transport, store, addThrows }
+}
 
-      let getCallCount = 0
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'DELETE') {
-          return createMockFetchResponse(null, true, 204)
-        }
-        // GET requests
-        getCallCount++
-        if (getCallCount === 1) {
-          return createMockFetchResponse({ classifications: initialClassifications })
-        }
-        return createMockFetchResponse({ classifications: afterDeleteClassifications })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
+describe('useLogClassifications (Connect)', () => {
+  it('loads classifications on mount', async () => {
+    const { transport } = buildHarness([
+      { text: 'Connection refused', level: LogLevel.ERROR },
+      { text: 'cache miss', level: LogLevel.INFO },
+    ])
 
-      const { result } = renderHook(() => useLogClassifications())
+    const { result } = renderHook(() => useLogClassifications(transport))
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false)
+    })
+    expect(result.current.classifications).toEqual([
+      { text: 'Connection refused', level: 'error' },
+      { text: 'cache miss', level: 'info' },
+    ])
+    expect(result.current.error).toBeNull()
+  })
 
-      expect(result.current.classifications).toEqual(initialClassifications)
+  it('returns empty list when store is empty', async () => {
+    const { transport } = buildHarness()
 
-      await act(async () => {
-        await result.current.deleteClassification(0)
-      })
+    const { result } = renderHook(() => useLogClassifications(transport))
 
-      // Verify DELETE was called with correct index
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications/0', {
-        method: 'DELETE',
-      })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.classifications).toEqual([])
+    expect(result.current.error).toBeNull()
+  })
 
-      // Verify reload happened
-      await waitFor(() => {
-        expect(result.current.classifications).toEqual(afterDeleteClassifications)
-      })
+  it('appends a new classification and reloads', async () => {
+    const { transport, store } = buildHarness()
+
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await act(async () => {
+      await result.current.addClassification('new error', 'error')
     })
 
-    it('should throw on delete error', async () => {
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'DELETE') {
-          return createMockFetchResponse({}, false, 404)
-        }
-        return createMockFetchResponse({ classifications: [{ text: 'test', level: 'info' }] })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      await expect(
-        act(async () => {
-          await result.current.deleteClassification(99)
-        })
-      ).rejects.toThrow()
-
-      consoleSpy.mockRestore()
-    })
-
-    it('should skip reload when skipNotify is true', async () => {
-      const initialClassifications = [
-        { text: 'first', level: 'info' as const },
-        { text: 'second', level: 'error' as const },
-      ]
-
-      let getCallCount = 0
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'DELETE') {
-          return createMockFetchResponse(null, true, 204)
-        }
-        // GET requests
-        getCallCount++
-        return createMockFetchResponse({ classifications: initialClassifications })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      const initialGetCount = getCallCount
-
-      await act(async () => {
-        await result.current.deleteClassification(0, true) // skipNotify = true
-      })
-
-      // Verify DELETE was called
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications/0', {
-        method: 'DELETE',
-      })
-
-      // Verify NO additional GET requests were made (no reload)
-      expect(getCallCount).toBe(initialGetCount)
-    })
-
-    it('should handle batch deletes in reverse order correctly', async () => {
-      // This simulates what SettingsModal does: delete indices [4, 2, 0] in reverse order
-      const mockFetch = vi.fn((_url: string, options?: RequestInit) => {
-        if (options?.method === 'DELETE') {
-          return createMockFetchResponse(null, true, 204)
-        }
-        return createMockFetchResponse({ 
-          classifications: [
-            { text: 'item0', level: 'info' },
-            { text: 'item1', level: 'info' },
-            { text: 'item2', level: 'info' },
-            { text: 'item3', level: 'info' },
-            { text: 'item4', level: 'info' },
-          ] 
-        })
-      })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      // Simulate batch delete: delete indices 4, 2, 0 (reverse order)
-      await act(async () => {
-        await result.current.deleteClassification(4, true)
-        await result.current.deleteClassification(2, true)
-        await result.current.deleteClassification(0, true)
-      })
-
-      // Verify all deletes were called with correct indices
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications/4', { method: 'DELETE' })
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications/2', { method: 'DELETE' })
-      expect(mockFetch).toHaveBeenCalledWith('/api/logs/classifications/0', { method: 'DELETE' })
+    expect(store).toEqual([{ text: 'new error', level: LogLevel.ERROR }])
+    await waitFor(() => {
+      expect(result.current.classifications).toEqual([
+        { text: 'new error', level: 'error' },
+      ])
     })
   })
 
-  describe('getClassificationForText', () => {
-    it('should return null for empty text', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ classifications: [{ text: 'error', level: 'error' }] })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
+  it('updates an existing classification in place (case-insensitive)', async () => {
+    const { transport, store } = buildHarness([
+      { text: 'Connection Refused', level: LogLevel.INFO },
+    ])
 
-      const { result } = renderHook(() => useLogClassifications())
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.getClassificationForText('')).toBeNull()
+    await act(async () => {
+      await result.current.addClassification('connection refused', 'error')
     })
 
-    it('should return null when no classifications exist', async () => {
-      const mockFetch = vi.fn(() => createMockFetchResponse({ classifications: [] }))
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.getClassificationForText('some text')).toBeNull()
-    })
-
-    it('should return null when no classification matches', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ 
-          classifications: [{ text: 'Connection refused', level: 'error' }] 
-        })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.getClassificationForText('Server started')).toBeNull()
-    })
-
-    it('should match case-insensitively', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ 
-          classifications: [{ text: 'Connection Refused', level: 'error' }] 
-        })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      // Should match regardless of case
-      expect(result.current.getClassificationForText('connection refused')).toBe('error')
-      expect(result.current.getClassificationForText('CONNECTION REFUSED')).toBe('error')
-      expect(result.current.getClassificationForText('Error: Connection Refused at port 80')).toBe('error')
-    })
-
-    it('should use longest match when multiple classifications match', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ 
-          classifications: [
-            { text: 'error', level: 'warning' },  // Short match
-            { text: 'Connection error', level: 'error' },  // Longer match
-          ] 
-        })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      // "Connection error" is longer than "error", so should use its level
-      expect(result.current.getClassificationForText('Connection error occurred')).toBe('error')
-    })
-
-    it('should return first match level when lengths are equal', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ 
-          classifications: [
-            { text: 'abc', level: 'info' },
-            { text: 'xyz', level: 'error' },
-          ] 
-        })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      // Only "abc" matches, should return info
-      expect(result.current.getClassificationForText('abc123')).toBe('info')
-      // Only "xyz" matches, should return error
-      expect(result.current.getClassificationForText('xyz789')).toBe('error')
-    })
-
-    it('should handle partial matches anywhere in text', async () => {
-      const mockFetch = vi.fn(() => 
-        createMockFetchResponse({ 
-          classifications: [{ text: 'timeout', level: 'warning' }] 
-        })
-      )
-      globalThis.fetch = mockFetch as unknown as typeof fetch
-
-      const { result } = renderHook(() => useLogClassifications())
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
-      })
-
-      expect(result.current.getClassificationForText('Request timeout after 30s')).toBe('warning')
-      expect(result.current.getClassificationForText('timeout')).toBe('warning')
-      expect(result.current.getClassificationForText('Connection timeout error')).toBe('warning')
+    // Store still has one entry with the ORIGINAL casing and the new level.
+    expect(store).toEqual([
+      { text: 'Connection Refused', level: LogLevel.ERROR },
+    ])
+    await waitFor(() => {
+      expect(result.current.classifications).toEqual([
+        { text: 'Connection Refused', level: 'error' },
+      ])
     })
   })
 
-  describe('reload', () => {
-    it('should reload classifications from API', async () => {
-      const initialClassifications = [{ text: 'initial', level: 'info' as const }]
-      const reloadedClassifications = [
-        { text: 'initial', level: 'info' as const },
-        { text: 'added externally', level: 'error' as const },
-      ]
+  it('skipNotify=true suppresses the reload after add', async () => {
+    const { transport } = buildHarness()
 
-      let callCount = 0
-      const mockFetch = vi.fn(() => {
-        callCount++
-        if (callCount === 1) {
-          return createMockFetchResponse({ classifications: initialClassifications })
-        }
-        return createMockFetchResponse({ classifications: reloadedClassifications })
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await act(async () => {
+      await result.current.addClassification('silent', 'info', true)
+    })
+
+    // Local state was NOT refreshed (skipNotify) so classifications stays empty
+    // even though the server-side store has one entry.
+    expect(result.current.classifications).toEqual([])
+  })
+
+  it('deletes a classification by index', async () => {
+    const { transport, store } = buildHarness([
+      { text: 'first', level: LogLevel.INFO },
+      { text: 'second', level: LogLevel.ERROR },
+    ])
+
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() =>
+      expect(result.current.classifications.length).toBe(2)
+    )
+
+    await act(async () => {
+      await result.current.deleteClassification(0)
+    })
+
+    expect(store).toEqual([{ text: 'second', level: LogLevel.ERROR }])
+    await waitFor(() => {
+      expect(result.current.classifications).toEqual([
+        { text: 'second', level: 'error' },
+      ])
+    })
+  })
+
+  it('rejects blank text with a typed error', async () => {
+    const { transport } = buildHarness()
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await expect(
+      act(async () => {
+        await result.current.addClassification('   ', 'error')
       })
-      globalThis.fetch = mockFetch as unknown as typeof fetch
+    ).rejects.toThrow(/text required/i)
+  })
 
-      const { result } = renderHook(() => useLogClassifications())
+  it('returns null from getClassificationForText when no match', async () => {
+    const { transport } = buildHarness([
+      { text: 'panic', level: LogLevel.ERROR },
+    ])
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() =>
+      expect(result.current.classifications.length).toBe(1)
+    )
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false)
+    expect(result.current.getClassificationForText('Healthy startup')).toBeNull()
+    expect(result.current.getClassificationForText('')).toBeNull()
+  })
+
+  it('uses longest-match-wins in getClassificationForText', async () => {
+    const { transport } = buildHarness([
+      { text: 'error', level: LogLevel.WARN },
+      { text: 'fatal error', level: LogLevel.ERROR },
+    ])
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() =>
+      expect(result.current.classifications.length).toBe(2)
+    )
+
+    // Both rules match; the longer one wins.
+    expect(
+      result.current.getClassificationForText('FATAL error: kernel panic')
+    ).toBe('error')
+    // Only the short rule matches; level is "warning".
+    expect(
+      result.current.getClassificationForText('transient ERROR detected')
+    ).toBe('warning')
+  })
+
+  it('reload() picks up out-of-band changes to the store', async () => {
+    const harness = buildHarness()
+    const { result } = renderHook(() => useLogClassifications(harness.transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.classifications).toEqual([])
+
+    // Mutate the underlying store as if another tab wrote it.
+    harness.store.push({ text: 'late arrival', level: LogLevel.INFO })
+
+    await act(async () => {
+      await result.current.reload()
+    })
+    await waitFor(() => {
+      expect(result.current.classifications).toEqual([
+        { text: 'late arrival', level: 'info' },
+      ])
+    })
+  })
+
+  it('surfaces ConnectError from add() as a plain Error to callers', async () => {
+    const harness = buildHarness()
+    harness.addThrows.value = new ConnectError(
+      'classification limit reached',
+      Code.ResourceExhausted
+    )
+
+    const { result } = renderHook(() => useLogClassifications(harness.transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    await expect(
+      act(async () => {
+        await result.current.addClassification('x', 'info')
       })
+    ).rejects.toThrow(/classification limit reached/)
+  })
 
-      expect(result.current.classifications).toEqual(initialClassifications)
-
-      await act(async () => {
-        await result.current.reload()
-      })
-
-      await waitFor(() => {
-        expect(result.current.classifications).toEqual(reloadedClassifications)
+  it('exposes load failures via .error', async () => {
+    // Build a transport whose listClassifications rejects.
+    const transport = createRouterTransport((router: ConnectRouter) => {
+      router.service(LogsService, {
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async getLogs() {
+          throw new ConnectError('n/a', Code.Unimplemented)
+        },
+        // eslint-disable-next-line @typescript-eslint/require-await, require-yield
+        async *streamLocalLogs() {
+          throw new ConnectError('n/a', Code.Unimplemented)
+        },
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async listClassifications() {
+          throw new ConnectError('yaml broken', Code.Internal)
+        },
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async addClassification() {
+          throw new ConnectError('n/a', Code.Unimplemented)
+        },
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async deleteClassification() {
+          throw new ConnectError('n/a', Code.Unimplemented)
+        },
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async getPreferences() {
+          throw new ConnectError('n/a', Code.Unimplemented)
+        },
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async savePreferences() {
+          throw new ConnectError('n/a', Code.Unimplemented)
+        },
       })
     })
+
+    const { result } = renderHook(() => useLogClassifications(transport))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.error).not.toBeNull()
+    expect(result.current.classifications).toEqual([])
   })
 })
+

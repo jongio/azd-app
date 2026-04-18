@@ -97,6 +97,20 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	// LogsService is mounted whenever a LogsStore is wired. The store
+	// covers all three slices the proto needs (logs, classifications,
+	// preferences); a partial wiring is a programming error rather than
+	// a useful intermediate state, so we mount on the single store
+	// pointer and let LogsStoreFuncs assemble it from the dashboard's
+	// internals.
+	if deps.Logs != nil {
+		path, handler := azdappv1connect.NewLogsServiceHandler(
+			NewLogsHandler(deps.Logs),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -158,4 +172,12 @@ type Dependencies struct {
 	// monitor.StateMonitor leave this nil and the handler returns
 	// Unimplemented to clients invoking that one RPC.
 	StateTransitions StateTransitionSource
+
+	// Logs is the umbrella store backing LogsService (GetLogs,
+	// StreamLocalLogs, classifications, preferences). Optional:
+	// LogsService is mounted only when this is non-nil. Production
+	// wires it via LogsStoreFuncs closing over the dashboard's private
+	// loadAzureYaml/saveAzureYaml/getOrCreateConfigClient helpers and
+	// service.GetLogManager.
+	Logs LogsStore
 }
