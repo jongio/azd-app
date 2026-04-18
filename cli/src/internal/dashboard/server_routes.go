@@ -69,6 +69,10 @@ func (s *Server) setupRoutes() {
 		Version:    version.Version,
 		Project:    rpc.ProjectSourceFunc(service.ParseAzureYaml),
 		ProjectDir: s.projectDir,
+		Mode: rpc.ModeStoreFuncs{
+			Get: s.getCurrentMode,
+			Set: s.setCurrentMode,
+		},
 	})
 
 	// Serve static files

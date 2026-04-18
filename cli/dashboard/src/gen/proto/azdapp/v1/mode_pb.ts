@@ -46,6 +46,30 @@ export class SetModeResponse extends Message<SetModeResponse> {
    */
   mode = LogMode.UNSPECIFIED;
 
+  /**
+   * Mirrors the legacy /api/mode JSON. azure_status is a string (not an
+   * enum) on purpose: the frontend treats it as an opaque tag and the
+   * server may grow new states (e.g. "throttled") without a proto bump.
+   *
+   * @generated from field: bool azure_enabled = 2;
+   */
+  azureEnabled = false;
+
+  /**
+   * @generated from field: string azure_status = 3;
+   */
+  azureStatus = "";
+
+  /**
+   * @generated from field: bool azure_realtime = 4;
+   */
+  azureRealtime = false;
+
+  /**
+   * @generated from field: string connection_message = 5;
+   */
+  connectionMessage = "";
+
   constructor(data?: PartialMessage<SetModeResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -55,6 +79,10 @@ export class SetModeResponse extends Message<SetModeResponse> {
   static readonly typeName = "azdapp.v1.SetModeResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "mode", kind: "enum", T: proto3.getEnumType(LogMode) },
+    { no: 2, name: "azure_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "azure_status", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "azure_realtime", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 5, name: "connection_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SetModeResponse {
@@ -114,6 +142,26 @@ export class GetModeResponse extends Message<GetModeResponse> {
    */
   mode = LogMode.UNSPECIFIED;
 
+  /**
+   * @generated from field: bool azure_enabled = 2;
+   */
+  azureEnabled = false;
+
+  /**
+   * @generated from field: string azure_status = 3;
+   */
+  azureStatus = "";
+
+  /**
+   * @generated from field: bool azure_realtime = 4;
+   */
+  azureRealtime = false;
+
+  /**
+   * @generated from field: string connection_message = 5;
+   */
+  connectionMessage = "";
+
   constructor(data?: PartialMessage<GetModeResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -123,6 +171,10 @@ export class GetModeResponse extends Message<GetModeResponse> {
   static readonly typeName = "azdapp.v1.GetModeResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "mode", kind: "enum", T: proto3.getEnumType(LogMode) },
+    { no: 2, name: "azure_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "azure_status", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "azure_realtime", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 5, name: "connection_message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetModeResponse {

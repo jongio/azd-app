@@ -86,6 +86,25 @@ func (s *Server) GetURL() string {
 	return fmt.Sprintf("http://localhost:%d", s.port)
 }
 
+// getCurrentMode is a thread-safe accessor for currentMode. Exported via
+// rpc.ModeStoreFuncs so the Connect ModeService handler can read state
+// without grabbing s.modeMu directly.
+func (s *Server) getCurrentMode() service.LogMode {
+	s.modeMu.RLock()
+	defer s.modeMu.RUnlock()
+	return s.currentMode
+}
+
+// setCurrentMode is the matching writer. The Connect ModeService handler
+// validates the mode (and azure.yaml availability for AZURE) before
+// calling this; this function performs no validation of its own and
+// simply enforces the mutex contract.
+func (s *Server) setCurrentMode(m service.LogMode) {
+	s.modeMu.Lock()
+	defer s.modeMu.Unlock()
+	s.currentMode = m
+}
+
 // Start starts the dashboard server on an assigned port.
 func (s *Server) Start() (string, error) {
 	// Use port manager to get a persistent port for the dashboard

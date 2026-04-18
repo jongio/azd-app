@@ -46,6 +46,18 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	// ModeService rides the same Project + ProjectDir plumbing because
+	// it also probes azure.yaml. Mounting it requires a ModeStore on
+	// top; tests that don't exercise mode can leave Mode unset and the
+	// service simply isn't registered (clients get 404).
+	if deps.Mode != nil && deps.Project != nil && deps.ProjectDir != "" {
+		path, handler := azdappv1connect.NewModeServiceHandler(
+			NewModeHandler(deps.Mode, deps.Project, deps.ProjectDir),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -72,4 +84,9 @@ type Dependencies struct {
 	// ProjectDir is the absolute working directory for ProjectService.
 	// Paired with Project (see above).
 	ProjectDir string
+
+	// Mode is the read/write store backing ModeService.GetMode/SetMode.
+	// Optional: ModeService is mounted only when Mode, Project, and
+	// ProjectDir are all set (Mode RPCs probe azure.yaml via Project).
+	Mode ModeStore
 }

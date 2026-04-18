@@ -75,10 +75,17 @@ func (LogMode) EnumDescriptor() ([]byte, []int) {
 }
 
 type SetModeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mode          LogMode                `protobuf:"varint,1,opt,name=mode,proto3,enum=azdapp.v1.LogMode" json:"mode,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Mode  LogMode                `protobuf:"varint,1,opt,name=mode,proto3,enum=azdapp.v1.LogMode" json:"mode,omitempty"`
+	// Mirrors the legacy /api/mode JSON. azure_status is a string (not an
+	// enum) on purpose: the frontend treats it as an opaque tag and the
+	// server may grow new states (e.g. "throttled") without a proto bump.
+	AzureEnabled      bool   `protobuf:"varint,2,opt,name=azure_enabled,json=azureEnabled,proto3" json:"azure_enabled,omitempty"`
+	AzureStatus       string `protobuf:"bytes,3,opt,name=azure_status,json=azureStatus,proto3" json:"azure_status,omitempty"`
+	AzureRealtime     bool   `protobuf:"varint,4,opt,name=azure_realtime,json=azureRealtime,proto3" json:"azure_realtime,omitempty"`
+	ConnectionMessage string `protobuf:"bytes,5,opt,name=connection_message,json=connectionMessage,proto3" json:"connection_message,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *SetModeResponse) Reset() {
@@ -118,6 +125,34 @@ func (x *SetModeResponse) GetMode() LogMode {
 	return LogMode_LOG_MODE_UNSPECIFIED
 }
 
+func (x *SetModeResponse) GetAzureEnabled() bool {
+	if x != nil {
+		return x.AzureEnabled
+	}
+	return false
+}
+
+func (x *SetModeResponse) GetAzureStatus() string {
+	if x != nil {
+		return x.AzureStatus
+	}
+	return ""
+}
+
+func (x *SetModeResponse) GetAzureRealtime() bool {
+	if x != nil {
+		return x.AzureRealtime
+	}
+	return false
+}
+
+func (x *SetModeResponse) GetConnectionMessage() string {
+	if x != nil {
+		return x.ConnectionMessage
+	}
+	return ""
+}
+
 type GetModeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -155,10 +190,14 @@ func (*GetModeRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetModeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mode          LogMode                `protobuf:"varint,1,opt,name=mode,proto3,enum=azdapp.v1.LogMode" json:"mode,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Mode              LogMode                `protobuf:"varint,1,opt,name=mode,proto3,enum=azdapp.v1.LogMode" json:"mode,omitempty"`
+	AzureEnabled      bool                   `protobuf:"varint,2,opt,name=azure_enabled,json=azureEnabled,proto3" json:"azure_enabled,omitempty"`
+	AzureStatus       string                 `protobuf:"bytes,3,opt,name=azure_status,json=azureStatus,proto3" json:"azure_status,omitempty"`
+	AzureRealtime     bool                   `protobuf:"varint,4,opt,name=azure_realtime,json=azureRealtime,proto3" json:"azure_realtime,omitempty"`
+	ConnectionMessage string                 `protobuf:"bytes,5,opt,name=connection_message,json=connectionMessage,proto3" json:"connection_message,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetModeResponse) Reset() {
@@ -196,6 +235,34 @@ func (x *GetModeResponse) GetMode() LogMode {
 		return x.Mode
 	}
 	return LogMode_LOG_MODE_UNSPECIFIED
+}
+
+func (x *GetModeResponse) GetAzureEnabled() bool {
+	if x != nil {
+		return x.AzureEnabled
+	}
+	return false
+}
+
+func (x *GetModeResponse) GetAzureStatus() string {
+	if x != nil {
+		return x.AzureStatus
+	}
+	return ""
+}
+
+func (x *GetModeResponse) GetAzureRealtime() bool {
+	if x != nil {
+		return x.AzureRealtime
+	}
+	return false
+}
+
+func (x *GetModeResponse) GetConnectionMessage() string {
+	if x != nil {
+		return x.ConnectionMessage
+	}
+	return ""
 }
 
 type SetModeRequest struct {
@@ -246,12 +313,20 @@ var File_azdapp_v1_mode_proto protoreflect.FileDescriptor
 
 const file_azdapp_v1_mode_proto_rawDesc = "" +
 	"\n" +
-	"\x14azdapp/v1/mode.proto\x12\tazdapp.v1\"9\n" +
+	"\x14azdapp/v1/mode.proto\x12\tazdapp.v1\"\xd7\x01\n" +
 	"\x0fSetModeResponse\x12&\n" +
-	"\x04mode\x18\x01 \x01(\x0e2\x12.azdapp.v1.LogModeR\x04mode\"\x10\n" +
-	"\x0eGetModeRequest\"9\n" +
+	"\x04mode\x18\x01 \x01(\x0e2\x12.azdapp.v1.LogModeR\x04mode\x12#\n" +
+	"\razure_enabled\x18\x02 \x01(\bR\fazureEnabled\x12!\n" +
+	"\fazure_status\x18\x03 \x01(\tR\vazureStatus\x12%\n" +
+	"\x0eazure_realtime\x18\x04 \x01(\bR\razureRealtime\x12-\n" +
+	"\x12connection_message\x18\x05 \x01(\tR\x11connectionMessage\"\x10\n" +
+	"\x0eGetModeRequest\"\xd7\x01\n" +
 	"\x0fGetModeResponse\x12&\n" +
-	"\x04mode\x18\x01 \x01(\x0e2\x12.azdapp.v1.LogModeR\x04mode\"8\n" +
+	"\x04mode\x18\x01 \x01(\x0e2\x12.azdapp.v1.LogModeR\x04mode\x12#\n" +
+	"\razure_enabled\x18\x02 \x01(\bR\fazureEnabled\x12!\n" +
+	"\fazure_status\x18\x03 \x01(\tR\vazureStatus\x12%\n" +
+	"\x0eazure_realtime\x18\x04 \x01(\bR\razureRealtime\x12-\n" +
+	"\x12connection_message\x18\x05 \x01(\tR\x11connectionMessage\"8\n" +
 	"\x0eSetModeRequest\x12&\n" +
 	"\x04mode\x18\x01 \x01(\x0e2\x12.azdapp.v1.LogModeR\x04mode*K\n" +
 	"\aLogMode\x12\x18\n" +
