@@ -72,6 +72,18 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	// BicepService is mounted only when the caller wires a generator
+	// factory. Keeping the factory optional means rpc-only tests don't
+	// need to plumb Azure credentials, and dashboards built without the
+	// Bicep feature can omit it without failing startup.
+	if deps.BicepFactory != nil && deps.ProjectDir != "" {
+		path, handler := azdappv1connect.NewBicepServiceHandler(
+			NewBicepHandler(deps.BicepFactory, deps.ProjectDir),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -115,4 +127,10 @@ type Dependencies struct {
 	// ServicesLifecycle drives Start/Stop/Restart RPCs. See ServicesLister
 	// for mounting rules.
 	ServicesLifecycle ServiceLifecycle
+
+	// BicepFactory builds a per-request BicepGenerator for
+	// BicepService.GetBicepTemplate. Optional: BicepService is mounted
+	// only when this is non-nil and ProjectDir is set. Tests that focus
+	// on other services can leave it unset.
+	BicepFactory BicepGeneratorFactory
 }

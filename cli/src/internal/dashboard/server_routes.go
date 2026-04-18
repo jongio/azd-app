@@ -76,6 +76,7 @@ func (s *Server) setupRoutes() {
 		},
 		ServicesLister:    rpc.ServiceListerFunc(serviceinfo.GetServiceInfo),
 		ServicesLifecycle: newServicesLifecycleAdapter(s),
+		BicepFactory:      newBicepGeneratorFactory(s),
 	})
 
 	// Serve static files
