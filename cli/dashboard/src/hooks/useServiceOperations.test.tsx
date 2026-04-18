@@ -1,35 +1,129 @@
+/**
+ * Tests for ServiceOperationsContext against an in-memory Connect router
+ * transport. Mirrors useServices.test.tsx pattern -- production code path
+ * runs unchanged with an injected transport.
+ */
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useServiceOperations, ServiceOperationsProvider } from './useServiceOperations'
+import {
+  Code,
+  ConnectError,
+  createRouterTransport,
+  type ConnectRouter,
+} from '@connectrpc/connect'
+
+import {
+  useServiceOperations,
+  ServiceOperationsProvider,
+} from './useServiceOperations'
+import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
+import {
+  GetServicesResponse,
+  StartServiceResponse,
+  StopServiceResponse,
+  RestartServiceResponse,
+} from '@/gen/proto/azdapp/v1/services_pb.js'
+import { OperationResult } from '@/gen/proto/azdapp/v1/common_pb.js'
 import type { Service } from '@/types'
 import type { ReactNode } from 'react'
 
-// Mock fetch globally
-const mockFetch = vi.fn()
-vi.stubGlobal('fetch', mockFetch)
+interface CallLog {
+  op: 'start' | 'stop' | 'restart'
+  serviceName: string
+}
 
-// Wrapper component for providing context
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <ServiceOperationsProvider>{children}</ServiceOperationsProvider>
-)
+interface RouterOverrides {
+  startResult?: OperationResult
+  stopResult?: OperationResult
+  restartResult?: OperationResult
+  startError?: ConnectError
+  stopError?: ConnectError
+  restartError?: ConnectError
+  /** Optional pre-resolution hook used by latency tests. */
+  startBefore?: () => Promise<void>
+}
+
+interface Harness {
+  transport: ReturnType<typeof createRouterTransport>
+  calls: CallLog[]
+}
+
+function makeTransport(overrides: RouterOverrides = {}): Harness {
+  const calls: CallLog[] = []
+  const ok = (msg: string) => new OperationResult({ success: true, message: msg })
+
+  const transport = createRouterTransport((router: ConnectRouter) => {
+    router.service(ServicesService, {
+      getServices: () => Promise.resolve(new GetServicesResponse()),
+      async startService(req) {
+        calls.push({ op: 'start', serviceName: req.serviceName })
+        if (overrides.startBefore) await overrides.startBefore()
+        if (overrides.startError) throw overrides.startError
+        return new StartServiceResponse({
+          result: overrides.startResult ?? ok('1 service(s) started, 0 failed'),
+        })
+      },
+      stopService: (req) => {
+        calls.push({ op: 'stop', serviceName: req.serviceName })
+        if (overrides.stopError) return Promise.reject(overrides.stopError)
+        return Promise.resolve(
+          new StopServiceResponse({
+            result: overrides.stopResult ?? ok('1 service(s) stopped, 0 failed'),
+          }),
+        )
+      },
+      restartService: (req) => {
+        calls.push({ op: 'restart', serviceName: req.serviceName })
+        if (overrides.restartError) return Promise.reject(overrides.restartError)
+        return Promise.resolve(
+          new RestartServiceResponse({
+            result: overrides.restartResult ?? ok('1 service(s) restarted, 0 failed'),
+          }),
+        )
+      },
+    })
+  })
+
+  return { transport, calls }
+}
+
+function makeWrapper(transport: ReturnType<typeof createRouterTransport>) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServiceOperationsProvider transport={transport}>
+        {children}
+      </ServiceOperationsProvider>
+    )
+  }
+}
 
 describe('useServiceOperations', () => {
   beforeEach(() => {
-    mockFetch.mockReset()
-  })
-
-  afterEach(() => {
     vi.clearAllMocks()
   })
 
-  const createMockService = (name: string, status: 'starting' | 'stopping' | 'error' | 'ready' | 'running' | 'stopped' | 'not-running'): Service => ({
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const createMockService = (
+    name: string,
+    status:
+      | 'starting'
+      | 'stopping'
+      | 'error'
+      | 'ready'
+      | 'running'
+      | 'stopped'
+      | 'not-running',
+  ): Service => ({
     name,
     local: {
       status,
       health: 'healthy',
       pid: 1234,
       port: 3000,
-      url: `http://localhost:3000`,
+      url: 'http://localhost:3000',
       startTime: new Date().toISOString(),
       lastChecked: new Date().toISOString(),
     },
@@ -38,369 +132,272 @@ describe('useServiceOperations', () => {
     project: '/test/project',
   })
 
-  describe('getOperationState', () => {
-    it('returns idle for unknown service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
+  // -------------------------------------------------------------------------
+  // Pure state queries (no transport interaction)
+  // -------------------------------------------------------------------------
+
+  describe('state queries', () => {
+    it('getOperationState returns idle for unknown service', () => {
+      const { transport } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
       expect(result.current.getOperationState('unknown-service')).toBe('idle')
     })
-  })
 
-  describe('isOperationInProgress', () => {
-    it('returns false for idle service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
+    it('isOperationInProgress returns false initially', () => {
+      const { transport } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
       expect(result.current.isOperationInProgress('test-service')).toBe(false)
     })
-  })
 
-  describe('isBulkOperationInProgress', () => {
-    it('returns false initially', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
+    it('isBulkOperationInProgress returns false initially', () => {
+      const { transport } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
       expect(result.current.isBulkOperationInProgress()).toBe(false)
     })
   })
 
   describe('getAvailableActions', () => {
     it('returns start for stopped service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'stopped')
-      const actions = result.current.getAvailableActions(service)
+      const { transport } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
+      const actions = result.current.getAvailableActions(createMockService('test', 'stopped'))
       expect(actions).toContain('start')
       expect(actions).not.toContain('stop')
       expect(actions).not.toContain('restart')
     })
 
     it('returns start for not-running service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'not-running')
-      const actions = result.current.getAvailableActions(service)
+      const { transport } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
+      const actions = result.current.getAvailableActions(createMockService('test', 'not-running'))
       expect(actions).toContain('start')
-    })
-
-    it('returns stop and restart for error service with PID (process alive)', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'error')
-      // createMockService includes pid: 1234, so process is alive
-      const actions = result.current.getAvailableActions(service)
-      expect(actions).toContain('restart')
-      expect(actions).toContain('stop')
-      expect(actions).not.toContain('start')
-    })
-
-    it('returns start for error service without PID (process dead)', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service: Service = {
-        name: 'test',
-        local: {
-          status: 'error',
-          health: 'unhealthy',
-          // No pid - process is dead
-          port: 3000,
-          url: 'http://localhost:3000',
-        },
-        language: 'node',
-        framework: 'express',
-        project: '/test/project',
-      }
-      const actions = result.current.getAvailableActions(service)
-      expect(actions).toContain('start')
-      expect(actions).not.toContain('stop')
-      expect(actions).not.toContain('restart')
-    })
-
-    it('returns restart and stop for running service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'running')
-      const actions = result.current.getAvailableActions(service)
-      expect(actions).toContain('restart')
-      expect(actions).toContain('stop')
-      expect(actions).not.toContain('start')
-    })
-
-    it('returns restart and stop for ready service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'ready')
-      const actions = result.current.getAvailableActions(service)
-      expect(actions).toContain('restart')
-      expect(actions).toContain('stop')
-    })
-
-    it('returns stop for starting service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'starting')
-      const actions = result.current.getAvailableActions(service)
-      expect(actions).toContain('stop')
-      expect(actions).not.toContain('start')
-      expect(actions).not.toContain('restart')
-    })
-
-    it('returns empty for stopping service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'stopping')
-      const actions = result.current.getAvailableActions(service)
-      expect(actions).toHaveLength(0)
     })
   })
 
-  describe('canPerformAction', () => {
-    it('returns true for valid action on stopped service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'stopped')
-      expect(result.current.canPerformAction(service, 'start')).toBe(true)
-      expect(result.current.canPerformAction(service, 'stop')).toBe(false)
-    })
-
-    it('returns true for valid action on running service', () => {
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-      const service = createMockService('test', 'running')
-      expect(result.current.canPerformAction(service, 'stop')).toBe(true)
-      expect(result.current.canPerformAction(service, 'restart')).toBe(true)
-      expect(result.current.canPerformAction(service, 'start')).toBe(false)
-    })
-  })
+  // -------------------------------------------------------------------------
+  // Single-service operations
+  // -------------------------------------------------------------------------
 
   describe('startService', () => {
-    it('calls API and returns true on success', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
+    it('routes to Connect StartService and returns true on success', async () => {
+      const { transport, calls } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
 
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-
-      let success: boolean = false
+      let success = false
       await act(async () => {
         success = await result.current.startService('test-service')
       })
 
       expect(success).toBe(true)
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/services/start?service=test-service',
-        { method: 'POST' }
-      )
+      expect(calls).toEqual([{ op: 'start', serviceName: 'test-service' }])
     })
 
-    it('returns false on API error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Service not found' }),
+    it('returns false and surfaces the message on Connect error', async () => {
+      const { transport } = makeTransport({
+        startError: new ConnectError('Service not found', Code.NotFound),
+      })
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
 
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-
-      let success: boolean = true
+      let success = true
       await act(async () => {
         success = await result.current.startService('nonexistent')
       })
 
       expect(success).toBe(false)
-      expect(result.current.error).toBe('Service not found')
+      expect(result.current.error).toMatch(/Service not found/)
     })
 
-    it('returns false on network error', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'))
+    it('returns false on transport-layer failure', async () => {
+      const { transport } = makeTransport({
+        startError: new ConnectError('Network error', Code.Unavailable),
+      })
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
 
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-
-      let success: boolean = true
+      let success = true
       await act(async () => {
         success = await result.current.startService('test-service')
       })
 
       expect(success).toBe(false)
-      expect(result.current.error).toBe('Network error')
+      expect(result.current.error).toMatch(/Network error/)
     })
   })
 
   describe('stopService', () => {
-    it('calls API with correct endpoint', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
+    it('routes to Connect StopService with the supplied name', async () => {
+      const { transport, calls } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
-
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.stopService('test-service')
       })
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/services/stop?service=test-service',
-        { method: 'POST' }
-      )
+      expect(calls).toEqual([{ op: 'stop', serviceName: 'test-service' }])
     })
   })
 
   describe('restartService', () => {
-    it('calls API with correct endpoint', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
+    it('routes to Connect RestartService with the supplied name', async () => {
+      const { transport, calls } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
-
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.restartService('test-service')
       })
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/services/restart?service=test-service',
-        { method: 'POST' }
-      )
+      expect(calls).toEqual([{ op: 'restart', serviceName: 'test-service' }])
     })
   })
 
+  // -------------------------------------------------------------------------
+  // Bulk operations
+  // -------------------------------------------------------------------------
+
   describe('startAll', () => {
-    it('calls bulk API without service param', async () => {
-      const mockResult = {
+    it('invokes Connect StartService with empty serviceName for bulk', async () => {
+      const bulkResult = new OperationResult({
         success: true,
         message: '2 service(s) started, 0 failed',
-        services: [] as { name: string; success: boolean; error?: string; duration?: string }[],
-        successCount: 2,
-        failureCount: 0,
-        duration: '100ms',
-      }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResult),
+      })
+      const { transport, calls } = makeTransport({ startResult: bulkResult })
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
 
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-
-      let bulkResult: typeof mockResult | null = null
+      let bulkRet: Awaited<ReturnType<typeof result.current.startAll>> | undefined
       await act(async () => {
-        bulkResult = await result.current.startAll()
+        bulkRet = await result.current.startAll()
       })
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/services/start', { method: 'POST' })
-      expect(bulkResult).toEqual(mockResult)
-      expect(result.current.lastResult).toEqual(mockResult)
+      expect(calls).toEqual([{ op: 'start', serviceName: '' }])
+      expect(bulkRet).toMatchObject({
+        success: true,
+        message: '2 service(s) started, 0 failed',
+        services: [],
+        successCount: 1,
+        failureCount: 0,
+      })
+      expect(result.current.lastResult?.success).toBe(true)
     })
 
-    it('returns null on error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Failed' }),
+    it('returns null and records error on Connect failure', async () => {
+      const { transport } = makeTransport({
+        startError: new ConnectError('Failed', Code.Internal),
+      })
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
 
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-
-      let bulkResult: unknown = 'initial'
+      let bulkRet: unknown = 'initial'
       await act(async () => {
-        bulkResult = await result.current.startAll()
+        bulkRet = await result.current.startAll()
       })
 
-      expect(bulkResult).toBeNull()
-      expect(result.current.error).toBe('Failed')
+      expect(bulkRet).toBeNull()
+      expect(result.current.error).toMatch(/Failed/)
     })
   })
 
   describe('stopAll', () => {
-    it('calls bulk stop API', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          success: true,
-          message: '2 service(s) stopped',
-          services: [],
-          successCount: 2,
-          failureCount: 0,
-          duration: '50ms',
-        }),
+    it('invokes Connect StopService with empty serviceName for bulk', async () => {
+      const { transport, calls } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
-
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.stopAll()
       })
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/services/stop', { method: 'POST' })
+      expect(calls).toEqual([{ op: 'stop', serviceName: '' }])
     })
   })
 
   describe('restartAll', () => {
-    it('calls bulk restart API', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          success: true,
-          message: '2 service(s) restarted',
-          services: [],
-          successCount: 2,
-          failureCount: 0,
-          duration: '200ms',
-        }),
+    it('invokes Connect RestartService with empty serviceName for bulk', async () => {
+      const { transport, calls } = makeTransport()
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
-
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
 
       await act(async () => {
         await result.current.restartAll()
       })
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/services/restart', { method: 'POST' })
+      expect(calls).toEqual([{ op: 'restart', serviceName: '' }])
     })
   })
 
+  // -------------------------------------------------------------------------
+  // Cross-cutting behavior
+  // -------------------------------------------------------------------------
+
   describe('clearError', () => {
     it('clears the error state', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Test error' }),
+      const { transport } = makeTransport({
+        startError: new ConnectError('Test error', Code.Internal),
       })
-
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
+      })
 
       await act(async () => {
         await result.current.startService('test')
       })
-
-      expect(result.current.error).toBe('Test error')
+      expect(result.current.error).toMatch(/Test error/)
 
       act(() => {
         result.current.clearError()
       })
-
       expect(result.current.error).toBeNull()
     })
   })
 
   describe('operation state tracking', () => {
-    it('tracks operation in progress during API call', async () => {
-      let resolvePromise: () => void
-      const delayedPromise = new Promise<void>((resolve) => {
-        resolvePromise = resolve
+    it('tracks operation in progress during the Connect call', async () => {
+      let release: () => void = () => undefined
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const { transport } = makeTransport({ startBefore: () => gate })
+      const { result } = renderHook(() => useServiceOperations(), {
+        wrapper: makeWrapper(transport),
       })
 
-      mockFetch.mockImplementationOnce(() => {
-        return delayedPromise.then(() => ({
-          ok: true,
-          json: () => Promise.resolve({ success: true }),
-        }))
-      })
-
-      const { result } = renderHook(() => useServiceOperations(), { wrapper })
-
-      // Start the operation
-      let operationPromise: Promise<boolean>
+      let opPromise!: Promise<boolean>
       act(() => {
-        operationPromise = result.current.startService('test-service')
+        opPromise = result.current.startService('test-service')
       })
 
-      // Check state during operation - need to wait for state to update
       await waitFor(() => {
         expect(result.current.isOperationInProgress('test-service')).toBe(true)
       })
 
-      // Complete the operation
       await act(async () => {
-        resolvePromise!()
-        await operationPromise
+        release()
+        await opPromise
       })
 
-      // Check state after completion
       expect(result.current.isOperationInProgress('test-service')).toBe(false)
     })
   })

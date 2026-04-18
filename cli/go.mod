@@ -14,6 +14,7 @@ require (
 	github.com/azure/azure-dev/cli/azd v1.23.13
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/coder/websocket v1.8.14
+	github.com/google/uuid v1.6.0
 	github.com/jongio/azd-core v0.5.7
 	github.com/magefile/mage v1.16.0
 	github.com/mark3labs/mcp-go v0.46.0
@@ -72,7 +73,6 @@ require (
 	github.com/golobby/container/v3 v3.3.2 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/pprof v0.0.0-20251114195745-4902fdda35c8 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect

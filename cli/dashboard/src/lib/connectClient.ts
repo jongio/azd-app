@@ -26,6 +26,7 @@ import { createConnectTransport } from '@connectrpc/connect-web'
 import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
 import { ModeService } from '@/gen/proto/azdapp/v1/mode_connect.js'
 import { ProjectService } from '@/gen/proto/azdapp/v1/project_connect.js'
+import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
 
 // =============================================================================
 // Default transport
@@ -117,4 +118,13 @@ export function createModeClient(
   transport: Transport = getDefaultTransport()
 ): PromiseClient<typeof ModeService> {
   return createPromiseClient(ModeService, transport)
+}
+
+/**
+ * Construct a ServicesService Connect client.
+ */
+export function createServicesClient(
+  transport: Transport = getDefaultTransport()
+): PromiseClient<typeof ServicesService> {
+  return createPromiseClient(ServicesService, transport)
 }

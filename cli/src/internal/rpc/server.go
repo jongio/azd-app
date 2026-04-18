@@ -58,6 +58,20 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	// ServicesService needs both the read-only Lister (for GetServices)
+	// and the mutating Lifecycle (for Start/Stop/Restart). We mount it
+	// only when both are present so Connect tests focused on other
+	// services don't have to thread a stub through Dependencies. A
+	// production wiring that supplies one without the other is a
+	// programming error, so the conditional intentionally ANDs both.
+	if deps.ServicesLister != nil && deps.ServicesLifecycle != nil && deps.ProjectDir != "" {
+		path, handler := azdappv1connect.NewServicesServiceHandler(
+			NewServicesHandler(deps.ServicesLister, deps.ServicesLifecycle, deps.ProjectDir),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -89,4 +103,16 @@ type Dependencies struct {
 	// Optional: ModeService is mounted only when Mode, Project, and
 	// ProjectDir are all set (Mode RPCs probe azure.yaml via Project).
 	Mode ModeStore
+
+	// ServicesLister enumerates services for ServicesService.GetServices.
+	// Production wires it to serviceinfo.GetServiceInfo via
+	// ServiceListerFunc; tests inject a stub.
+	//
+	// Optional: ServicesService is mounted only when both ServicesLister
+	// and ServicesLifecycle are set, alongside a non-empty ProjectDir.
+	ServicesLister ServiceLister
+
+	// ServicesLifecycle drives Start/Stop/Restart RPCs. See ServicesLister
+	// for mounting rules.
+	ServicesLifecycle ServiceLifecycle
 }

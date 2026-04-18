@@ -27,10 +27,10 @@ func withProbe(t *testing.T, probe func(ctx context.Context) ([]byte, error)) {
 
 func TestDetectOutsideCodespaceReturnsZeroValues(t *testing.T) {
 	withEnv(t, map[string]string{
-		"CODESPACES":                                "",
-		"CODESPACE_NAME":                            "",
-		"GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN":  "",
-		"AZURE_ENV_NAME":                            "",
+		"CODESPACES":     "",
+		"CODESPACE_NAME": "",
+		"GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": "",
+		"AZURE_ENV_NAME": "",
 	})
 	withProbe(t, func(ctx context.Context) ([]byte, error) {
 		t.Fatal("probe must not be called outside a Codespace")
@@ -58,7 +58,7 @@ func TestDetectInBrowserCodespaceFillsDefaultDomain(t *testing.T) {
 		"CODESPACE_NAME": "test-codespace",
 		// GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN intentionally unset
 		"GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": "",
-		"AZURE_ENV_NAME":                           "dev",
+		"AZURE_ENV_NAME": "dev",
 	})
 	withProbe(t, func(ctx context.Context) ([]byte, error) {
 		// Browser Codespace returns the unsupported-in-browsers message.
@@ -88,7 +88,7 @@ func TestDetectInDesktopCodespaceUsesProvidedDomain(t *testing.T) {
 		"CODESPACES":     "true",
 		"CODESPACE_NAME": "ws-1",
 		"GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": "preview.app.github.dev",
-		"AZURE_ENV_NAME":                           "prod",
+		"AZURE_ENV_NAME": "prod",
 	})
 	withProbe(t, func(ctx context.Context) ([]byte, error) {
 		// Desktop returns normal status output (no browser sentinel).
@@ -109,7 +109,7 @@ func TestDetectFallsBackWhenProbeFails(t *testing.T) {
 		"CODESPACES":     "true",
 		"CODESPACE_NAME": "ws-2",
 		"GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": "",
-		"AZURE_ENV_NAME":                           "",
+		"AZURE_ENV_NAME": "",
 	})
 	withProbe(t, func(ctx context.Context) ([]byte, error) {
 		return nil, errors.New("code: command not found")

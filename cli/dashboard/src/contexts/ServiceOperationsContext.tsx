@@ -1,4 +1,7 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react'
+import type { Transport } from '@connectrpc/connect'
+
+import { createServicesClient } from '@/lib/connectClient'
 import type { Service } from '@/types'
 
 /**
@@ -82,13 +85,18 @@ const ServiceOperationsContext = createContext<ServiceOperationsContextValue | n
 
 interface ServiceOperationsProviderProps {
   children: ReactNode
+  /**
+   * Optional Connect transport override for tests. Production code never
+   * passes this.
+   */
+  transport?: Transport
 }
 
 /**
  * Provider for service operations context.
  * Wraps the application to share operation state across all components.
  */
-export function ServiceOperationsProvider({ children }: ServiceOperationsProviderProps) {
+export function ServiceOperationsProvider({ children, transport }: ServiceOperationsProviderProps) {
   const [tracker, setTracker] = useState<OperationTracker>({
     states: new Map(),
     bulkInProgress: false,
@@ -96,6 +104,30 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
   })
   const [error, setError] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<BulkOperationResult | null>(null)
+
+  // Memoize the Connect client so callbacks below have a stable dep.
+  const client = useMemo(() => createServicesClient(transport), [transport])
+
+  /**
+   * Synthesise a BulkOperationResult from the proto OperationResult.
+   *
+   * The new RPC returns a single OperationResult (success/message/op_id);
+   * the legacy REST endpoint returned a richer per-service breakdown that
+   * a few existing components type against. No component currently reads
+   * `services[]` (verified via grep), so we keep the shape but fill it
+   * with an empty array. Counts derive from the success flag so the
+   * existing toast logic ("X succeeded, Y failed") keeps working.
+   */
+  const synthesizeBulkResult = useCallback((
+    payload: { success: boolean; message: string },
+  ): BulkOperationResult => ({
+    success: payload.success,
+    message: payload.message,
+    services: [],
+    successCount: payload.success ? 1 : 0,
+    failureCount: payload.success ? 0 : 1,
+    duration: '',
+  }), [])
 
   /**
    * Get the operation state for a specific service.
@@ -196,16 +228,20 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
     setOperationState(serviceName, operationToState(operation))
 
     try {
-      const response = await fetch(
-        `/api/services/${operation}?service=${encodeURIComponent(serviceName)}`,
-        { method: 'POST' }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string }
-        throw new Error(errorData.error ?? `Failed to ${operation} service`)
+      // Route to the matching Connect RPC. The handler accepts an empty
+      // service_name for bulk; here we always pass the explicit name and
+      // let the handler fail with FAILED_PRECONDITION/NOT_FOUND/etc.
+      switch (operation) {
+        case 'start':
+          await client.startService({ serviceName })
+          break
+        case 'stop':
+          await client.stopService({ serviceName })
+          break
+        case 'restart':
+          await client.restartService({ serviceName })
+          break
       }
-
       return true
     } catch (err) {
       const message = err instanceof Error ? err.message : `Failed to ${operation} service`
@@ -215,7 +251,7 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
     } finally {
       setOperationState(serviceName, 'idle')
     }
-  }, [isOperationInProgress, setOperationState])
+  }, [client, isOperationInProgress, setOperationState])
 
   /**
    * Start a service.
@@ -258,16 +294,28 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
     }))
 
     try {
-      const response = await fetch(`/api/services/${operation}`, {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string }
-        throw new Error(errorData.error ?? `Failed to ${operation} all services`)
+      // Bulk path: empty service_name routes through the same Connect
+      // handler the single-name path uses. The Go adapter's bulk runner
+      // returns a single OperationResult (e.g., "3 service(s) started, 0
+      // failed"), which we lift into the legacy BulkOperationResult shape
+      // for components still typed against it.
+      let resp: { result?: { success: boolean; message: string } }
+      switch (operation) {
+        case 'start':
+          resp = await client.startService({})
+          break
+        case 'stop':
+          resp = await client.stopService({})
+          break
+        case 'restart':
+          resp = await client.restartService({})
+          break
       }
-
-      const result = await response.json() as BulkOperationResult
+      const payload = resp.result ?? { success: false, message: '' }
+      const result = synthesizeBulkResult({
+        success: payload.success,
+        message: payload.message,
+      })
       setLastResult(result)
       return result
     } catch (err) {
@@ -282,7 +330,7 @@ export function ServiceOperationsProvider({ children }: ServiceOperationsProvide
         bulkOperation: null,
       }))
     }
-  }, [tracker.bulkInProgress])
+  }, [client, synthesizeBulkResult, tracker.bulkInProgress])
 
   /**
    * Start all stopped services.

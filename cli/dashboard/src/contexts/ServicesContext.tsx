@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
-import type { Service } from '@/types'
+import type { Transport } from '@connectrpc/connect'
 
-const API_BASE = ''
+import { createServicesClient } from '@/lib/connectClient'
+import { protoServiceToService } from '@/lib/protoServiceTranslator'
+import type { Service } from '@/types'
 
 // Mock data for development when backend isn't running
 const MOCK_SERVICES: Service[] = [
@@ -61,25 +63,33 @@ const ServicesContext = createContext<ServicesContextValue | null>(null)
 
 interface ServicesProviderProps {
   children: ReactNode
+  /**
+   * Optional Connect transport override. Production code never passes
+   * this -- it lets vitest specs inject `createRouterTransport` against
+   * an in-memory ServicesService stub instead of monkey-patching fetch.
+   */
+  transport?: Transport
 }
 
 /**
  * Provider for services context.
  * Wraps the application to share services data across all components with real-time WebSocket updates.
  */
-export function ServicesProvider({ children }: ServicesProviderProps) {
+export function ServicesProvider({ children, transport }: ServicesProviderProps) {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [useMock, setUseMock] = useState(false)
 
+  // Memoize the client per-transport so re-renders don't churn it.
+  // Default-arg path resolves to the singleton transport from connectClient.
+  const client = useMemo(() => createServicesClient(transport), [transport])
+
   const fetchServices = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/services`)
-      if (!response.ok) throw new Error('Failed to fetch services')
-      const data = await response.json() as Service[] | null
-      setServices(data ?? [])
+      const resp = await client.getServices({})
+      setServices(resp.services.map(protoServiceToService))
       setError(null)
       setUseMock(false)
     } catch {
@@ -90,7 +100,7 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [client])
 
   useEffect(() => {
     void fetchServices()

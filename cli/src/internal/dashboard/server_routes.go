@@ -10,6 +10,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/rpc"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-app/cli/src/internal/version"
 )
 
@@ -73,6 +74,8 @@ func (s *Server) setupRoutes() {
 			Get: s.getCurrentMode,
 			Set: s.setCurrentMode,
 		},
+		ServicesLister:    rpc.ServiceListerFunc(serviceinfo.GetServiceInfo),
+		ServicesLifecycle: newServicesLifecycleAdapter(s),
 	})
 
 	// Serve static files
