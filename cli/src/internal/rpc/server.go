@@ -31,11 +31,21 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		connect.WithInterceptors(NewObservabilityInterceptor()),
 	}
 
-	path, handler := azdappv1connect.NewLifecycleServiceHandler(
-		NewLifecycleHandler(deps),
-		opts...,
-	)
-	mux.Handle(path, handler)
+	{
+		path, handler := azdappv1connect.NewLifecycleServiceHandler(
+			NewLifecycleHandler(deps),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
+
+	if deps.Project != nil && deps.ProjectDir != "" {
+		path, handler := azdappv1connect.NewProjectServiceHandler(
+			NewProjectHandler(deps.Project, deps.ProjectDir),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -51,4 +61,15 @@ type Dependencies struct {
 	// Version is the server build version reported by Ping. Empty string
 	// is allowed (e.g., in unit tests) and surfaces as "" on the wire.
 	Version string
+
+	// Project parses azure.yaml for ProjectService.GetProject. Optional:
+	// if either Project or ProjectDir is unset, the ProjectService handler
+	// is not mounted, leaving the legacy /api/project endpoint as the sole
+	// provider. This lets unit tests that only exercise Lifecycle skip the
+	// project plumbing entirely.
+	Project ProjectSource
+
+	// ProjectDir is the absolute working directory for ProjectService.
+	// Paired with Project (see above).
+	ProjectDir string
 }

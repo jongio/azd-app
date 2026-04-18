@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/rpc"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/version"
 )
 
@@ -64,8 +65,10 @@ func (s *Server) setupRoutes() {
 	// patterns so the explicit /api/* prefixes take precedence and Connect
 	// owns its own /azdapp.v1.* prefix.
 	rpc.Mount(s.mux, rpc.Dependencies{
-		Broadcast: s.broadcast,
-		Version:   version.Version,
+		Broadcast:  s.broadcast,
+		Version:    version.Version,
+		Project:    rpc.ProjectSourceFunc(service.ParseAzureYaml),
+		ProjectDir: s.projectDir,
 	})
 
 	// Serve static files
