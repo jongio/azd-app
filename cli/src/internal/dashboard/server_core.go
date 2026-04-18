@@ -12,6 +12,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-app/cli/src/internal/dashboard/broadcast"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
@@ -37,6 +38,12 @@ type Server struct {
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
+
+	// broadcast fans coarse-grained UI events out to Connect
+	// StreamBroadcast subscribers in parallel with the existing /api/ws
+	// fanout. See cli/src/internal/dashboard/broadcast for back-pressure
+	// policy. Always non-nil; constructed in newServer.
+	broadcast *broadcast.Manager
 }
 
 // GetServer returns the dashboard server instance for the specified project.
@@ -61,6 +68,7 @@ func GetServer(projectDir string) *Server {
 		rateLimiter: newConnectionRateLimiter(),
 		stopChan:    make(chan struct{}),
 		currentMode: service.LogModeLocal, // Default to local mode
+		broadcast:   broadcast.New(),
 	}
 	srv.setupRoutes()
 	servers[key] = srv
@@ -222,6 +230,10 @@ func (s *Server) Stop() error {
 	if s.server != nil {
 		_ = s.server.Close()
 	}
+
+	// Tear down Connect StreamBroadcast subscribers AFTER http.Server.Close
+	// so any in-flight stream handlers have already started exiting.
+	s.broadcast.StopAll()
 
 	// Now safe — no more handlers running
 	if s.configClient != nil {

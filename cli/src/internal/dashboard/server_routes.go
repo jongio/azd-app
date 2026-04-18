@@ -7,6 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/jongio/azd-app/cli/src/internal/rpc"
+	"github.com/jongio/azd-app/cli/src/internal/version"
 )
 
 //go:embed dist
@@ -55,6 +58,15 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
 	s.mux.HandleFunc("/api/health/stream", MethodGuard(s.handleHealthStream, http.MethodGet))
 	s.mux.HandleFunc("/api/environment", MethodGuard(s.handleGetEnvironment, http.MethodGet))
+
+	// Connect-RPC handlers run side-by-side with the legacy REST/WS routes
+	// during the transport migration (ADR-0001). Mount AFTER the REST
+	// patterns so the explicit /api/* prefixes take precedence and Connect
+	// owns its own /azdapp.v1.* prefix.
+	rpc.Mount(s.mux, rpc.Dependencies{
+		Broadcast: s.broadcast,
+		Version:   version.Version,
+	})
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))

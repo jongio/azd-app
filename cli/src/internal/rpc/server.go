@@ -1,0 +1,54 @@
+// Package rpc hosts Connect-RPC handlers for the azdapp.v1.* services.
+//
+// Handlers in this package are intentionally thin: they translate between
+// the generated proto request/response types and the existing dashboard
+// internals (broadcast.Manager, environment detection helpers, project
+// state). Business logic stays in the dashboard package; this package owns
+// only the wire/transport concerns.
+//
+// Mounting: dashboard.Server.setupRoutes calls Mount(s.mux, deps...) once
+// after the legacy REST routes are registered. Connect handlers and REST
+// endpoints coexist during the transport migration (see ADR-0001) so the
+// dashboard can move one consumer at a time.
+package rpc
+
+import (
+	"net/http"
+
+	"connectrpc.com/connect"
+
+	"github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1/azdappv1connect"
+)
+
+// Mount registers every Connect handler from this package onto mux. It is
+// the single entry point dashboard code uses; adding a new service is a
+// one-line edit here, not a search across the dashboard package.
+//
+// All handlers share the same []connect.HandlerOption set so observability
+// and policy interceptors apply uniformly.
+func Mount(mux *http.ServeMux, deps Dependencies) {
+	opts := []connect.HandlerOption{
+		connect.WithInterceptors(NewObservabilityInterceptor()),
+	}
+
+	path, handler := azdappv1connect.NewLifecycleServiceHandler(
+		NewLifecycleHandler(deps),
+		opts...,
+	)
+	mux.Handle(path, handler)
+}
+
+// Dependencies bundles the dashboard internals every service handler may
+// need. Adding a new dependency is a single-line struct field; no handler
+// constructor signatures change. Each handler picks the subset it actually
+// uses, keeping its surface narrow without forcing call sites to thread N
+// args through Mount.
+type Dependencies struct {
+	// Broadcast is the in-process pub/sub manager that backs
+	// LifecycleService.StreamBroadcast. Required (non-nil).
+	Broadcast BroadcastSource
+
+	// Version is the server build version reported by Ping. Empty string
+	// is allowed (e.g., in unit tests) and surfaces as "" on the wire.
+	Version string
+}

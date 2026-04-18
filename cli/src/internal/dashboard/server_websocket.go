@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/jongio/azd-app/cli/src/internal/dashboard/broadcast"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/registry"
@@ -109,6 +110,17 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 // BroadcastUpdate sends service updates to all connected WebSocket clients.
 // Broadcasts asynchronously with goroutine limiting to prevent resource exhaustion.
 func (s *Server) BroadcastUpdate(services []*registry.ServiceRegistryEntry) {
+	// Fan out to Connect StreamBroadcast subscribers first; this is a cheap
+	// in-memory operation and lets new transport consumers receive the same
+	// events the WebSocket fanout below delivers. Nil-guarded for
+	// historical tests that construct Server literals without newServer.
+	if s.broadcast != nil {
+		s.broadcast.Emit(broadcast.Event{
+			Type:    broadcast.TypeServicesChanged,
+			Payload: servicesPayload(services),
+		})
+	}
+
 	// Copy client list to avoid holding lock during writes
 	s.clientsMu.RLock()
 	clients := make([]*clientConn, 0, len(s.clients))
@@ -180,6 +192,15 @@ func (s *Server) BroadcastServiceUpdate(projectDir string) error {
 	services, err := serviceinfo.GetServiceInfo(projectDir)
 	if err != nil {
 		return fmt.Errorf("failed to get service info: %w", err)
+	}
+
+	// Fan out to Connect StreamBroadcast subscribers (parallel transport).
+	// Nil-guarded for tests that construct Server literals without newServer.
+	if s.broadcast != nil {
+		s.broadcast.Emit(broadcast.Event{
+			Type:    broadcast.TypeServicesChanged,
+			Payload: serviceInfoPayload(services),
+		})
 	}
 
 	// Copy client list to avoid holding lock during writes

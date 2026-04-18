@@ -2,18 +2,16 @@ package dashboard
 
 import (
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"log"
 	"net/http"
-	"os"
-	"os/exec"
 	"runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/dashboard/envinfo"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/registry"
@@ -33,63 +31,25 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetEnvironment returns environment information for Codespace detection.
+//
+// Wire shape (camelCase JSON) is preserved verbatim for the legacy
+// /api/environment consumers; the underlying detection logic lives in
+// envinfo.Detect so the Connect-RPC handler in cli/src/internal/rpc
+// produces an identical view of the world.
 func (s *Server) handleGetEnvironment(w http.ResponseWriter, r *http.Request) {
-
-	// Detect GitHub Codespace environment
-	codespaceName := os.Getenv("CODESPACE_NAME")
-	codespacePortDomain := os.Getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
-
-	// Default domain if not set but in Codespace
-	if codespaceName != "" && codespacePortDomain == "" {
-		codespacePortDomain = "app.github.dev"
-	}
-
-	// Detect if running in VS Code (desktop) vs browser-based Codespace
-	// In VS Code desktop (including VS Code connected to Codespace), localhost URLs work natively
-	// Only in browser-based Codespace do we need to transform localhost URLs
-	isVsCodeDesktop := runningOnVsCodeDesktop(r.Context())
-
-	// Get Azure environment name if available
-	azureEnvName := os.Getenv("AZURE_ENV_NAME")
+	env := envinfo.Detect(r.Context())
 
 	response := map[string]interface{}{
 		"codespace": map[string]interface{}{
-			"enabled":         codespaceName != "",
-			"name":            codespaceName,
-			"domain":          codespacePortDomain,
-			"isVsCodeDesktop": isVsCodeDesktop,
+			"enabled":         env.Codespace.Enabled,
+			"name":            env.Codespace.Name,
+			"domain":          env.Codespace.Domain,
+			"isVsCodeDesktop": env.Codespace.IsVsCodeDesktop,
 		},
-		"environmentName": azureEnvName,
+		"environmentName": env.EnvironmentName,
 	}
 
 	WriteJSONSuccess(w, response)
-}
-
-// runningOnVsCodeDesktop detects if VS Code desktop is available.
-// When VS Code desktop is available (including when connected to Codespace),
-// localhost URLs work natively without transformation.
-// In browser-based Codespace, 'code --status' returns:
-// "The --status argument is not yet supported in browsers."
-// Reference: azure/azure-dev cli/azd/cmd/auth_login.go runningOnCodespacesBrowser
-func runningOnVsCodeDesktop(ctx context.Context) bool {
-	// Check if running in Codespace first - if not, no need to check
-	if os.Getenv("CODESPACES") != "true" {
-		return false
-	}
-
-	// Try to run 'code --status' to detect VS Code desktop vs browser
-	// This command returns specific output in browser-based VS Code
-	cmd := exec.CommandContext(ctx, "code", "--status")
-	output, err := cmd.Output()
-	if err != nil {
-		// If code command fails or doesn't exist, we're likely in browser Codespace
-		// or some environment where VS Code CLI isn't available
-		return false
-	}
-
-	// If output contains the browser-specific message, we're in browser Codespace
-	// Otherwise, we're in VS Code desktop connected to Codespace
-	return !strings.Contains(string(output), "The --status argument is not yet supported in browsers")
 }
 
 // handleGetServices returns services for the current project.
