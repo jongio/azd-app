@@ -840,7 +840,7 @@ func TestStreamLocalLogsClientCancelExitsCleanly(t *testing.T) {
 		return
 	}
 	if stream.Receive() {
-		// Maybe a heartbeat-less stream returns a real entry first; that's fine, just keep draining until cancel takes effect.
+		_ = stream // drain a frame if one arrives before cancel takes effect
 	}
 	rerr := stream.Err()
 	if rerr != nil &&

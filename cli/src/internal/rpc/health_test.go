@@ -487,13 +487,13 @@ func TestStreamStateTransitionsBackfillThenLive(t *testing.T) {
 	now := time.Date(2026, 4, 17, 9, 0, 0, 0, time.UTC)
 	historic := []monitor.StateTransition{
 		{
-			Timestamp: now,
+			Timestamp:   now,
 			ServiceName: "api", Severity: monitor.SeverityInfo,
 			Description: "started",
 			ToState:     &monitor.ServiceState{Status: "ready", Health: "healthy", PIDValid: true, PortListens: true, PID: 100, Port: 3000},
 		},
 		{
-			Timestamp: now.Add(time.Minute),
+			Timestamp:   now.Add(time.Minute),
 			ServiceName: "api", Severity: monitor.SeverityCritical,
 			Description: "process exited unexpectedly",
 			FromState:   &monitor.ServiceState{Status: "ready", Health: "healthy", PIDValid: true, PortListens: true, PID: 100, Port: 3000},
@@ -649,7 +649,7 @@ func TestStreamStateTransitionsBackfillCapped(t *testing.T) {
 	history := make([]monitor.StateTransition, 250)
 	for i := range history {
 		history[i] = monitor.StateTransition{
-			Timestamp: now.Add(time.Duration(i) * time.Millisecond),
+			Timestamp:   now.Add(time.Duration(i) * time.Millisecond),
 			ServiceName: "api",
 			Severity:    monitor.SeverityInfo,
 			ToState:     &monitor.ServiceState{Status: "ready", Health: "healthy"},

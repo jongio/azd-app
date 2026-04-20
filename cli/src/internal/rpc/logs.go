@@ -41,12 +41,6 @@ const (
 	// 10k. tailClamped is set on the response when adjustment happens.
 	defaultGetLogsTail = 500
 	maxGetLogsTail     = 10_000
-
-	// preferencesConfigKey mirrors dashboard.prefsConfigKey (logs_config.go).
-	// Centralising the constant here keeps the Connect handler's
-	// storage shape identical to the legacy REST handler so both
-	// surfaces read/write the same blob.
-	preferencesConfigKey = "logs"
 )
 
 // LogSource is the narrow read/subscribe slice of service.LogManager that
@@ -562,7 +556,7 @@ func (h *LogsHandler) SavePreferences(
 	// tools). UseProtoNames=false keeps camelCase on the wire, matching
 	// the legacy REST handler's Go-json output.
 	mopts := protojson.MarshalOptions{
-		UseProtoNames: false,
+		UseProtoNames:   false,
 		EmitUnpopulated: false,
 	}
 	data, err := mopts.Marshal(prefs)
@@ -824,5 +818,3 @@ func defaultProtoPreferences() *v1.Preferences {
 		},
 	}
 }
-
-

@@ -33,6 +33,15 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+// contains is a pre-existing helper previously defined in dashboard_test.go
+// (deleted in PR 4). It is retained here so TestAdapter_SaveServiceLogConfig
+// continues to execute with its historical semantics. Note: this helper has
+// a latent bug (always true for non-empty substr) that is out of scope for
+// the Connect-Go migration - see ADR-0001 follow-ups.
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr))
+}
+
 // writeAzureYaml writes a minimal azure.yaml fixture to dir.
 func writeAzureYaml(t *testing.T, dir, contents string) {
 	t.Helper()

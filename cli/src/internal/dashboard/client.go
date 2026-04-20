@@ -1,21 +1,20 @@
 // Package dashboard exposes a typed client that CLI cobra commands and MCP
-// tool handlers use to query a running azd-app dashboard. As of Stage 3 of
+// tool handlers use to query a running azd-app dashboard. As of Stage 4 of
 // the Connect-Go migration (see docs/adr/0001-connect-go-transport.md) it
-// speaks Connect-over-HTTP against the same handlers the browser uses; the
-// CLI and dashboard are separate OS processes, so this is NOT an in-process
-// client. The public surface - NewClient, Ping, GetServices, StreamLogs,
+// speaks Connect-over-HTTP exclusively against the azdapp.v1.* services;
+// the legacy REST and WebSocket surface has been removed. The CLI and
+// dashboard are separate OS processes, so this is NOT an in-process client.
+// The public surface - NewClient, Ping, GetServices, StreamLogs,
 // GetAzureLogs, GetAzureStatus, StreamAzureLogs - is intentionally preserved
 // so logs.go / info.go / MCP handlers did not need rewriting.
 //
 // Auth posture: no interceptor is attached. The dashboard binds to localhost
-// only, matching the trust boundary of the REST surface this client
-// replaces. Stage 5+ may add authentication; scope-limited here on purpose.
+// only, matching the trust boundary of the previous REST surface. Stage 5+
+// may add authentication; scope-limited here on purpose.
 //
-// GetAzureStatus still hits the legacy REST endpoint. The proto schema does
-// not expose the deprecated service.AzureStatus shape verbatim and the REST
-// handler is still mounted through Stage 4. When Stage 4 removes REST this
-// method will need to be rebuilt on top of AzureService.GetAzureLogsHealth /
-// GetAzureSetupState. Tracked in ADR-0001.
+// GetAzureStatus is synthesised on top of the AzureService.GetAzureServices
+// RPC and mirrors the shape of the historical service.AzureStatus struct
+// that logs.go / info.go still consume.
 package dashboard
 
 import (
@@ -209,10 +208,10 @@ func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, 
 	return all, nil
 }
 
-// GetAzureStatus mirrors the legacy /api/azure/status REST response by
-// probing GetAzureServices and deriving the minimum fields logs.go consults
-// (Mode / Enabled / Connected / ConnectionMessage). Falls back to a
-// disabled-shape response when Azure is not configured.
+// GetAzureStatus mirrors the legacy service.AzureStatus shape logs.go /
+// info.go consume, by probing GetAzureServices and deriving the minimum
+// fields those call sites read (Mode / Enabled / Connected / ResourceCount).
+// Returns a disabled-shape response when Azure is not configured.
 //
 //nolint:staticcheck // service.AzureStatus is deprecated but kept for API compat.
 func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
@@ -344,7 +343,7 @@ func (t *azureStreamStatusTracker) observe(w io.Writer, s *v1.StreamStatus) {
 		return
 	}
 	t.last = s.GetStatus()
-	fmt.Fprintf(w, "azd-app: azure log stream for %q is %s (mode=%s, fails=%d)%s\n",
+	_, _ = fmt.Fprintf(w, "azd-app: azure log stream for %q is %s (mode=%s, fails=%d)%s\n",
 		t.service, s.GetStatus(), s.GetMode(), s.GetConsecutiveFails(), formatStreamError(s.GetError()))
 }
 
@@ -363,7 +362,7 @@ func noticeDropped(w io.Writer, svc string, count int64) {
 	if target == "" {
 		target = "all services"
 	}
-	fmt.Fprintf(w, "azd-app: dropped %d local log entr%s for %s (subscriber fell behind)\n",
+	_, _ = fmt.Fprintf(w, "azd-app: dropped %d local log entr%s for %s (subscriber fell behind)\n",
 		count, pluralEntries(count), target)
 }
 
@@ -375,7 +374,7 @@ func noticeAzureDropped(w io.Writer, svc string, d *v1.AzureDroppedNotice) {
 	if reason == "" {
 		reason = "realtime_buffer_overflow"
 	}
-	fmt.Fprintf(w, "azd-app: dropped %d azure log entr%s for %q (%s)\n",
+	_, _ = fmt.Fprintf(w, "azd-app: dropped %d azure log entr%s for %q (%s)\n",
 		d.GetCount(), pluralEntries(d.GetCount()), svc, reason)
 }
 

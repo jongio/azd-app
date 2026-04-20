@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -16,51 +15,14 @@ const (
 	statusWarn = "warn"
 )
 
-// HealthCheckResponse represents the overall health check result.
-type HealthCheckResponse struct {
-	Status    string        `json:"status"`    // "healthy" | "degraded" | "error"
-	Checks    []HealthCheck `json:"checks"`    // Individual health checks
-	DocsURL   string        `json:"docsUrl"`   // Documentation URL
-	Timestamp time.Time     `json:"timestamp"` // When check was performed
-}
-
-// HealthCheck represents an individual health check result.
+// HealthCheck represents an individual health check result. Emitted by the
+// four per-aspect check helpers below and aggregated by computeOverallStatus
+// for the Connect AzureService HealthCheck RPC (rpc_azure_adapter.go).
 type HealthCheck struct {
 	Name    string `json:"name"`          // Check name
 	Status  string `json:"status"`        // "pass" | "warn" | "fail"
 	Message string `json:"message"`       // Result message
 	Fix     string `json:"fix,omitempty"` // Fix instructions for failures
-}
-
-// handleAzureLogsHealth performs diagnostic checks for Azure logs troubleshooting.
-// GET /api/azure/logs/health
-func (s *Server) handleAzureLogsHealth(w http.ResponseWriter, r *http.Request) {
-	response := HealthCheckResponse{
-		Checks:    make([]HealthCheck, 0, 4),
-		DocsURL:   logsTroubleshootURL,
-		Timestamp: time.Now(),
-	}
-
-	// Check 1: Authentication
-	authCheck := s.checkAuthentication()
-	response.Checks = append(response.Checks, authCheck)
-
-	// Check 2: Workspace ID
-	workspaceCheck := s.checkWorkspaceID()
-	response.Checks = append(response.Checks, workspaceCheck)
-
-	// Check 3: Services Deployed
-	servicesCheck := s.checkServicesDeployed()
-	response.Checks = append(response.Checks, servicesCheck)
-
-	// Check 4: Connectivity
-	connectivityCheck := s.checkConnectivity(workspaceCheck.Status == statusPass)
-	response.Checks = append(response.Checks, connectivityCheck)
-
-	// Compute overall status
-	response.Status = s.computeOverallStatus(response.Checks)
-
-	WriteJSONSuccess(w, response)
 }
 
 // checkAuthentication verifies Azure credentials are available.

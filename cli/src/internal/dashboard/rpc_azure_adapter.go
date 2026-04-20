@@ -33,11 +33,11 @@ func newAzureStoreFuncs(s *Server) rpc.AzureStoreFuncs {
 	diag := newAzureDiagnosticsFuncs(s)
 	return rpc.AzureStoreFuncs{
 		// Config
-		LoadAzureYamlFn:           cfg.LoadAzureYamlFn,
-		SaveAzureYamlFn:           cfg.SaveAzureYamlFn,
-		EnableGlobalAnalyticsFn:   cfg.EnableGlobalAnalyticsFn,
-		SaveServiceLogConfigFn:    cfg.SaveServiceLogConfigFn,
-		SaveServiceCustomQueryFn:  cfg.SaveServiceCustomQueryFn,
+		LoadAzureYamlFn:          cfg.LoadAzureYamlFn,
+		SaveAzureYamlFn:          cfg.SaveAzureYamlFn,
+		EnableGlobalAnalyticsFn:  cfg.EnableGlobalAnalyticsFn,
+		SaveServiceLogConfigFn:   cfg.SaveServiceLogConfigFn,
+		SaveServiceCustomQueryFn: cfg.SaveServiceCustomQueryFn,
 
 		// Catalog
 		ServiceNamesFromEnvFn:         cat.ServiceNamesFromEnvFn,

@@ -13,7 +13,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/azure/azure-dev/cli/azd v1.23.13
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/coder/websocket v1.8.14
 	github.com/google/uuid v1.6.0
 	github.com/jongio/azd-core v0.5.7
 	github.com/magefile/mage v1.16.0

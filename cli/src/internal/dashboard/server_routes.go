@@ -29,44 +29,9 @@ func (s *Server) setupRoutes() {
 		return
 	}
 
-	// API endpoints (these take precedence over the file server)
-	// Wrap handlers with MethodGuard middleware for proper HTTP method validation
-	s.mux.HandleFunc("/api/ping", MethodGuard(s.handlePing, http.MethodGet))
-	s.mux.HandleFunc("/api/project", MethodGuard(s.handleGetProject, http.MethodGet))
-	s.mux.HandleFunc("/api/services", MethodGuard(s.handleGetServices, http.MethodGet))
-	s.mux.HandleFunc("/api/services/start", MethodGuard(s.handleStartService, http.MethodPost))
-	s.mux.HandleFunc("/api/services/stop", MethodGuard(s.handleStopService, http.MethodPost))
-	s.mux.HandleFunc("/api/services/restart", MethodGuard(s.handleRestartService, http.MethodPost))
-	s.mux.HandleFunc("/api/logs", MethodGuard(s.handleGetLogs, http.MethodGet))
-	s.mux.HandleFunc("/api/logs/stream", MethodGuard(s.handleLogStream, http.MethodGet))
-	s.mux.HandleFunc("/api/logs/classifications", s.handleClassificationsRouter)
-	s.mux.HandleFunc("/api/logs/classifications/", s.handleClassificationsRouter)
-	s.mux.HandleFunc("/api/logs/preferences", s.handlePreferencesRouter)
-	s.mux.HandleFunc("/api/mode", s.handleModeRouter)
-	// V2 Azure endpoints (request/response model)
-	s.mux.HandleFunc("/api/azure/enable", MethodGuard(s.handleEnableAzureLogging, http.MethodPost)) // Enable Azure logging in azure.yaml
-	s.mux.HandleFunc("/api/azure/services", MethodGuard(s.handleAzureServices, http.MethodGet))
-	s.mux.HandleFunc("/api/azure/logs", MethodGuard(s.handleAzureLogs, http.MethodGet))
-	s.mux.HandleFunc("/api/azure/logs/stream", MethodGuard(s.handleAzureLogsStream, http.MethodGet)) // WebSocket streaming for Azure logs
-	s.mux.HandleFunc("/api/azure/logs/health", MethodGuard(s.handleAzureLogsHealth, http.MethodGet))
-	s.mux.HandleFunc("/api/azure/logs/setup-state", MethodGuard(s.handleAzureSetupState, http.MethodGet))                       // Setup state detection for setup guide
-	s.mux.HandleFunc("/api/azure/logs/verify", MethodGuard(s.handleAzureLogsVerify, http.MethodPost))                           // Verify log connectivity for a service
-	s.mux.HandleFunc("/api/azure/diagnostic-settings/check", MethodGuard(s.handleAzureDiagnosticSettingsCheck, http.MethodGet)) // Check diagnostic settings for all services
-	s.mux.HandleFunc("/api/azure/diagnostics", MethodGuard(s.handleAzureDiagnostics, http.MethodGet))                           // Comprehensive diagnostics for all services
-	s.mux.HandleFunc("/api/azure/workspace/verify", MethodGuard(s.handleAzureWorkspaceVerify, http.MethodPost))                 // Verify workspace connection by querying for recent logs
-	s.mux.HandleFunc("/api/azure/bicep-template", MethodGuard(s.handleAzureBicepTemplate, http.MethodGet))                      // Generate consolidated Bicep template for all detected services
-	s.mux.HandleFunc("/api/azure/logs/config", s.handleAzureLogConfigRouter)                                                    // Get/save log config per service
-	s.mux.HandleFunc("/api/azure/tables", MethodGuard(s.handleAzureTables, http.MethodGet))                                     // List available Log Analytics tables
-	s.mux.HandleFunc("/api/azure/query", s.handleAzureQueryRouter)
-	s.mux.HandleFunc("/api/ws", s.handleWebSocket)
-	s.mux.HandleFunc("/api/health", s.handleHealthCheck)
-	s.mux.HandleFunc("/api/health/stream", MethodGuard(s.handleHealthStream, http.MethodGet))
-	s.mux.HandleFunc("/api/environment", MethodGuard(s.handleGetEnvironment, http.MethodGet))
-
-	// Connect-RPC handlers run side-by-side with the legacy REST/WS routes
-	// during the transport migration (ADR-0001). Mount AFTER the REST
-	// patterns so the explicit /api/* prefixes take precedence and Connect
-	// owns its own /azdapp.v1.* prefix.
+	// Connect-RPC handlers own the entire API surface post-PR4.
+	// All legacy /api/* REST handlers and /api/ws WebSocket have been
+	// removed; dashboard clients use the azdapp.v1.* Connect services.
 	rpc.Mount(s.mux, rpc.Dependencies{
 		Broadcast:  s.broadcast,
 		Version:    version.Version,

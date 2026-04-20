@@ -128,11 +128,11 @@ type AzureHealthCheckSnapshot struct {
 // from its package-private helpers without exporting them.
 type AzureStoreFuncs struct {
 	// AzureConfigStore
-	LoadAzureYamlFn           func() (*service.AzureYaml, error)
-	SaveAzureYamlFn           func(ay *service.AzureYaml) error
-	EnableGlobalAnalyticsFn   func() (bool, error)
-	SaveServiceLogConfigFn    func(serviceName string, tables []string, query string) error
-	SaveServiceCustomQueryFn  func(serviceName, query string) error
+	LoadAzureYamlFn          func() (*service.AzureYaml, error)
+	SaveAzureYamlFn          func(ay *service.AzureYaml) error
+	EnableGlobalAnalyticsFn  func() (bool, error)
+	SaveServiceLogConfigFn   func(serviceName string, tables []string, query string) error
+	SaveServiceCustomQueryFn func(serviceName, query string) error
 
 	// AzureCatalog
 	ServiceNamesFromEnvFn         func() []string
@@ -147,12 +147,12 @@ type AzureStoreFuncs struct {
 	ListLiveTablesFn              func(ctx context.Context, workspaceID string) ([]azure.TableInfo, error)
 
 	// AzureLogsClient
-	FetchLogsFn                func(ctx context.Context, config azure.StandaloneLogsConfig) ([]azure.LogEntry, error)
-	ResolveResourceFn          func(ctx context.Context, serviceName string) (*azure.AzureResource, error)
-	NewRealtimeStreamerFn      func(rt azure.ResourceType, cfg azure.StreamerConfig) (azure.RealtimeLogStreamer, error)
+	FetchLogsFn                 func(ctx context.Context, config azure.StandaloneLogsConfig) ([]azure.LogEntry, error)
+	ResolveResourceFn           func(ctx context.Context, serviceName string) (*azure.AzureResource, error)
+	NewRealtimeStreamerFn       func(rt azure.ResourceType, cfg azure.StreamerConfig) (azure.RealtimeLogStreamer, error)
 	NewLogAnalyticsCredentialFn func() (azcore.TokenCredential, error)
-	VerifyWorkspaceFn          func(ctx context.Context, req *azure.WorkspaceVerificationRequest) (*azure.WorkspaceVerificationResponse, error)
-	VerifyServiceLogsFn        func(ctx context.Context, serviceName string) (*VerifyServiceLogsResult, error)
+	VerifyWorkspaceFn           func(ctx context.Context, req *azure.WorkspaceVerificationRequest) (*azure.WorkspaceVerificationResponse, error)
+	VerifyServiceLogsFn         func(ctx context.Context, serviceName string) (*VerifyServiceLogsResult, error)
 
 	// AzureDiagnostics
 	CheckDiagnosticSettingsFn func(ctx context.Context) (*azure.DiagnosticSettingsCheckResponse, error)
@@ -175,13 +175,17 @@ func (f AzureStoreFuncs) SaveServiceCustomQuery(s, q string) error {
 
 // --- AzureCatalog ---
 
-func (f AzureStoreFuncs) ServiceNamesFromEnv() []string                  { return f.ServiceNamesFromEnvFn() }
-func (f AzureStoreFuncs) WorkspaceID(ctx context.Context) (string, error) { return f.WorkspaceIDFn(ctx) }
-func (f AzureStoreFuncs) DefaultQuery(rt string) string                   { return f.DefaultQueryFn(rt) }
-func (f AzureStoreFuncs) RecommendedTables(rt string) []string            { return f.RecommendedTablesFn(rt) }
-func (f AzureStoreFuncs) AllKnownTables() []azure.TableInfo               { return f.AllKnownTablesFn() }
-func (f AzureStoreFuncs) IsRecommendedTable(n, rt string) bool            { return f.IsRecommendedTableFn(n, rt) }
-func (f AzureStoreFuncs) TableCategories() map[string]azure.TableCategory { return f.TableCategoriesFn() }
+func (f AzureStoreFuncs) ServiceNamesFromEnv() []string { return f.ServiceNamesFromEnvFn() }
+func (f AzureStoreFuncs) WorkspaceID(ctx context.Context) (string, error) {
+	return f.WorkspaceIDFn(ctx)
+}
+func (f AzureStoreFuncs) DefaultQuery(rt string) string        { return f.DefaultQueryFn(rt) }
+func (f AzureStoreFuncs) RecommendedTables(rt string) []string { return f.RecommendedTablesFn(rt) }
+func (f AzureStoreFuncs) AllKnownTables() []azure.TableInfo    { return f.AllKnownTablesFn() }
+func (f AzureStoreFuncs) IsRecommendedTable(n, rt string) bool { return f.IsRecommendedTableFn(n, rt) }
+func (f AzureStoreFuncs) TableCategories() map[string]azure.TableCategory {
+	return f.TableCategoriesFn()
+}
 func (f AzureStoreFuncs) SubstituteQueryPlaceholders(q, s, ts string) string {
 	return f.SubstituteQueryPlaceholdersFn(q, s, ts)
 }
@@ -216,8 +220,12 @@ func (f AzureStoreFuncs) VerifyServiceLogs(ctx context.Context, s string) (*Veri
 func (f AzureStoreFuncs) CheckDiagnosticSettings(ctx context.Context) (*azure.DiagnosticSettingsCheckResponse, error) {
 	return f.CheckDiagnosticSettingsFn(ctx)
 }
-func (f AzureStoreFuncs) RunDiagnostics(ctx context.Context) (any, error) { return f.RunDiagnosticsFn(ctx) }
-func (f AzureStoreFuncs) GetSetupState(ctx context.Context) (any, error)  { return f.GetSetupStateFn(ctx) }
+func (f AzureStoreFuncs) RunDiagnostics(ctx context.Context) (any, error) {
+	return f.RunDiagnosticsFn(ctx)
+}
+func (f AzureStoreFuncs) GetSetupState(ctx context.Context) (any, error) {
+	return f.GetSetupStateFn(ctx)
+}
 func (f AzureStoreFuncs) GetHealth(ctx context.Context) AzureHealthSnapshot {
 	return f.GetHealthFn(ctx)
 }

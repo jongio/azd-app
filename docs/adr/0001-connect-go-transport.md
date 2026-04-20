@@ -1,7 +1,7 @@
 ---
-status: accepted
+status: implemented
 created: 2025-01-09
-updated: 2025-01-09
+updated: 2025-01-10
 category: architecture
 deciders: jongio
 ---
@@ -10,7 +10,7 @@ deciders: jongio
 
 ## Status
 
-Accepted (PR 1 of 4 — foundation only, no behavior change).
+Implemented. All four PRs have landed: PR 1 (foundation/proto), PR 2 (Connect handlers mounted in parallel), Stage 3 (CLI/MCP converged on typed Connect client), Stage 3.5 (dashboard TS migrated to Connect-ES), and PR 4 (REST + WebSocket surface deleted). The dashboard, CLI cobra commands, and MCP tools all talk to the same Connect handlers. `handleCheckRequirements` remains a subprocess path — no `RequirementsService` exists in the proto yet, so the MCP `reqs` tool still shells out to `azd app reqs`; adding that service is a follow-up ADR.
 
 ## Context
 
@@ -143,10 +143,11 @@ Every RPC in the rewritten proto is doc-commented with a citation to the legacy 
 
 | PR | Scope | Behavior change? |
 |---|---|---|
-| **PR 1 (this PR)** | proto schema, codegen, generated stubs, ADR | None — no handlers wired |
-| PR 2 (Stage 2) | Connect handlers mounted in parallel with existing REST. Dashboard reads via Connect-ES client. REST handlers untouched. AzureService proto rewrite + handler + 4 sub-store decomposition + dashboard migration land in a 3-commit batch. | Dashboard reads via Connect; REST still works for legacy callers |
-| PR 3 (Stage 3) | CLI cobra commands (`app info`, `app logs`) and MCP tool handlers call a typed Connect client over localhost HTTP against the running dashboard process. (The CLI and dashboard are separate processes — "in-process" calls are not possible; the Connect client talks to the same Connect handlers the browser uses.) MCP `info`-shaped tools stop spawning `azd app info` subprocesses; `reqs` remains a subprocess until a dedicated RequirementsService exists. No authentication interceptor is added — the dashboard continues to bind to localhost only, matching the trust posture of the REST surface it replaces. | MCP/CLI converge on the proto contract; subprocess round-trip eliminated for info; legacy REST still available. |
-| PR 4 | Delete REST handlers and the dashboard's REST fetchers. | REST surface removed |
+| **PR 1** ✅ | proto schema, codegen, generated stubs, ADR | None — no handlers wired |
+| PR 2 (Stage 2) ✅ | Connect handlers mounted in parallel with existing REST. Dashboard reads via Connect-ES client. REST handlers untouched. AzureService proto rewrite + handler + 4 sub-store decomposition + dashboard migration land in a 3-commit batch. | Dashboard reads via Connect; REST still works for legacy callers |
+| PR 3 (Stage 3) ✅ | CLI cobra commands (`app info`, `app logs`) and MCP tool handlers call a typed Connect client over localhost HTTP against the running dashboard process. (The CLI and dashboard are separate processes — "in-process" calls are not possible; the Connect client talks to the same Connect handlers the browser uses.) MCP `info`-shaped tools stop spawning `azd app info` subprocesses; `reqs` remains a subprocess until a dedicated RequirementsService exists. No authentication interceptor is added — the dashboard continues to bind to localhost only, matching the trust posture of the REST surface it replaces. | MCP/CLI converge on the proto contract; subprocess round-trip eliminated for info; legacy REST still available. |
+| Stage 3.5 ✅ | Remaining TS dashboard REST fetchers cut over to Connect-ES; WebSocket client replaced by Connect `StreamBroadcast` consumer. Landed between Stage 3 and PR 4 so PR 4 could remove the server with no live callers. | Dashboard fully on Connect; zero REST/WS callers remaining |
+| PR 4 ✅ | Delete REST handlers, WebSocket plumbing, and the dashboard's REST fetchers. `github.com/coder/websocket` dropped from `cli/go.mod`. `BroadcastServiceUpdate` relocated to `server_broadcast.go`; securityHeaders middleware, port-discovery/lifecycle, and `broadcast.Manager` retained. `handleCheckRequirements` remains a subprocess path (no `RequirementsService` in proto yet). | REST + WebSocket surface removed |
 
 ## Consequences
 

@@ -49,11 +49,3 @@ func TestConvertAzureLogLevel(t *testing.T) {
 		})
 	}
 }
-
-func TestInvalidIntError_Error(t *testing.T) {
-	err := &invalidIntError{}
-	expected := "invalid integer"
-	if err.Error() != expected {
-		t.Errorf("invalidIntError.Error() = %v, want %v", err.Error(), expected)
-	}
-}
