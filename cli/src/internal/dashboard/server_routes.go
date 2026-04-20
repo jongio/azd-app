@@ -109,6 +109,12 @@ func (s *Server) setupRoutes() {
 		// over those helpers keeps them un-exported and avoids leaking
 		// the classifications mutex through a wrapper struct.
 		Logs: newLogsStoreFuncs(s),
+
+		// AzureService: 15 RPCs split across 4 narrow sub-stores
+		// (config / catalog / logs client / diagnostics) wired in
+		// rpc_azure_adapter.go. Closures over s.azureYamlMu serialise
+		// azure.yaml writes with the parallel REST handlers.
+		Azure: newAzureStoreFuncs(s),
 	})
 
 	// Serve static files

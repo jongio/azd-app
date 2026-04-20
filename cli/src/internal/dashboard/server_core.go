@@ -38,6 +38,7 @@ type Server struct {
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
+	azureYamlMu  sync.RWMutex    // Protect azure.yaml read/write across REST + Connect handlers
 
 	// broadcast fans coarse-grained UI events out to Connect
 	// StreamBroadcast subscribers in parallel with the existing /api/ws

@@ -111,6 +111,19 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	// AzureService is mounted whenever an AzureService store is wired.
+	// Like LogsService, the umbrella store covers all four sub-stores
+	// (config, catalog, logs client, diagnostics). A partial wiring is
+	// a programming error caught at the AzureStoreFuncs adapter layer
+	// (nil func fields panic at call time).
+	if deps.Azure != nil {
+		path, handler := azdappv1connect.NewAzureServiceHandler(
+			NewAzureHandler(deps.Azure),
+			opts...,
+		)
+		mux.Handle(path, handler)
+	}
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -180,4 +193,12 @@ type Dependencies struct {
 	// loadAzureYaml/saveAzureYaml/getOrCreateConfigClient helpers and
 	// service.GetLogManager.
 	Logs LogsStore
+
+	// Azure is the umbrella store backing AzureService (15 RPCs split
+	// into AzureConfigStore + AzureCatalog + AzureLogsClient +
+	// AzureDiagnostics sub-stores). Optional: AzureService is mounted
+	// only when this is non-nil. Production wires it via
+	// AzureStoreFuncs closing over the dashboard's azure.yaml mutex
+	// (azureYamlMu) and package-private azure.* helpers.
+	Azure AzureService
 }
