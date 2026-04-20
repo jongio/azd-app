@@ -76,7 +76,7 @@ Service split (8 services):
 - `LogsService` — GetLogs, StreamLocalLogs, classifications CRUD, preferences GET/SAVE
 - `HealthService` — GetHealth, StreamHealth, StreamStateTransitions
 - `ModeService` — GetMode, SetMode
-- `AzureService` — 14 unary + StreamAzureLogs
+- `AzureService` — 14 unary + 1 streaming RPC (`StreamAzureLogs`); the stream takes a `bool realtime` flag and the server picks polling or realtime transparently. Responses are framed in a `oneof { LogEntry entry; StreamStatus status; AzureDroppedNotice dropped; }` envelope so clients see entries, mode/health transitions, and overflow notices on a single wire stream.
 - `BicepService` — GetBicepTemplate
 
 ### Stream back-pressure (locked in proto comments)
@@ -86,7 +86,8 @@ The five server-streaming RPCs each codify a back-pressure policy. These match w
 | Stream | Policy | Rationale |
 |---|---|---|
 | `LogsService.StreamLocalLogs` | Drop-oldest, bounded ring | Matches existing `logbuffer`. Local logs are high-volume; latest matters most. |
-| `AzureService.StreamAzureLogs` | Block producer with backoff | Azure Log Analytics queries are billed and rate-limited. Cannot drop. |
+| `AzureService.StreamAzureLogs` (polling) | Block producer with backoff | Azure Log Analytics queries are billed and rate-limited. Cannot drop. |
+| `AzureService.StreamAzureLogs` (realtime) | Drop-oldest, emit `AzureDroppedNotice` | Realtime push has no producer-side rate limit; matches the local-log ring policy. |
 | `HealthService.StreamHealth` | Last-value-wins | Only the most recent snapshot is meaningful; intermediate states are noise. |
 | `LifecycleService.StreamBroadcast` | Drop-oldest, disconnect slow consumer | UI hints are best-effort. Slow consumers shed load. |
 | `HealthService.StreamStateTransitions` | Block producer, 256-event bounded buffer | CRITICAL state changes cannot drop. Producer is rate-limited at source. |
@@ -100,14 +101,33 @@ PR 2 will wire Connect handlers in parallel with the existing REST handlers. The
 
 Extracting interfaces around the concrete types is an orthogonal testability concern. It is **not required** for the transport swap. PR 2 calls concrete types directly (mirroring REST). A later PR (3 or post-4) extracts interfaces if the in-process MCP/cobra refactor needs them.
 
-### Well-known type usage
+### Struct usage inventory
 
-Two responses use `google.protobuf.Struct` instead of typed messages, intentionally:
+Two responses use `google.protobuf.Struct` instead of typed messages, intentionally. Every other response - including all 14 typed Azure unary RPCs and the streaming envelope - is fully typed.
 
-- `AzureService.GetSetupState` — the setup state shape is in flux as PR 2 firms up the Azure provider model. Locking it now would force a breaking change.
-- `AzureService.GetComprehensiveDiagnostics` — aggregates heterogeneous probe results. A typed union is premature until the diagnostic catalog stabilizes.
+| RPC | Reason for `Struct` | Promotion trigger |
+|---|---|---|
+| `AzureService.GetAzureSetupState` | The setup state aggregates ~12 sub-objects (Workspace, Authentication, Services, Issues, NextSteps, ...) whose shapes are still drifting as the Azure provider model firms up. A typed message would force a breaking proto change every time a probe is added. | When the shape goes a full release cycle without churn. |
+| `AzureService.GetAzureDiagnostics` | Aggregates heterogeneous probe results into a single response keyed by probe name. The diagnostic catalog is still expanding (workspace, table, retention, RBAC, query-permission probes have all landed in the last quarter). | When the probe catalog stabilizes. |
 
-Both are flagged in PR 2 to be promoted to typed messages once the shape settles.
+Both are tracked in the migration plan and revisited every release. Adding a third Struct-typed response requires an ADR amendment.
+
+### AzureService proto rewrite (Stage 2)
+
+The original AzureService proto was generated from a schema sketch and drifted from the legacy REST/WebSocket handlers. Stage 2 starts with a one-shot rewrite that aligns the proto with what the legacy Go handlers (`cli/src/internal/dashboard/azure_*.go`) actually return today, so subsequent commits can wire handlers without amending the contract:
+
+- `QueryAzureLogs` / `SaveAzureQuery` renamed to `GetServiceQuery` / `SaveServiceQuery` - the legacy handler stores a per-service KQL string, not a saved-query library.
+- `GetAzureServices` response shrinks to `repeated string services` - the legacy endpoint returns service names only.
+- `EnableAzureLogging` request loses `service_names` - the legacy handler takes no body.
+- `GetAzureLogConfig` / `SaveAzureLogConfig` add an `AzureLogConfigMode` enum (`UNSPECIFIED` / `TABLES` / `CUSTOM`) plus `tables[]`, `query`, and `resource_type` fields - the legacy config carries all four.
+- `ListAzureTables` response gains `recommended[]`, `workspace`, and `categories[]` alongside `tables[]` - the legacy handler returns all four.
+- `CheckDiagnosticSettings` response keys per-service results by name (`map<string, DiagnosticSettingsResult>`) and adds the workspace ID at the top level.
+- `VerifyWorkspace` request gains `services` + `timespan`; response gains `status`, `workspace`, per-service `results` map, and `guidance[]`.
+- New typed envelope: `StreamAzureLogsResponse` is a `oneof { LogEntry entry; StreamStatus status; AzureDroppedNotice dropped; }`. `StreamStatus` carries `{status, mode, consecutive_fails, error, next_retry}` so health-channel JSON frames stop being out-of-band.
+- New enums: `AzureCheckStatus`, `AzureOverallStatus`, `DiagnosticSettingsStatus`, `WorkspaceVerificationStatus`, `ServiceVerificationStatus`, `AzureResourceType` - replacing the legacy string-typed status fields.
+- `AzureDroppedNotice` (rather than reusing `logs.proto`'s `DroppedNotice`) - lets the Azure overflow vocabulary evolve independently as the realtime streamer matures.
+
+Every RPC in the rewritten proto is doc-commented with a citation to the legacy Go function it mirrors. Subsequent commits in Stage 2 wire the handler and migrate the dashboard hooks. No further proto changes are expected during Stage 2.
 
 ## Alternatives considered
 
@@ -124,7 +144,7 @@ Both are flagged in PR 2 to be promoted to typed messages once the shape settles
 | PR | Scope | Behavior change? |
 |---|---|---|
 | **PR 1 (this PR)** | proto schema, codegen, generated stubs, ADR | None — no handlers wired |
-| PR 2 | Connect handlers mounted in parallel with existing REST. Dashboard reads via Connect-ES client. REST handlers untouched. | Dashboard reads via Connect; REST still works for legacy callers |
+| PR 2 (Stage 2) | Connect handlers mounted in parallel with existing REST. Dashboard reads via Connect-ES client. REST handlers untouched. AzureService proto rewrite + handler + 4 sub-store decomposition + dashboard migration land in a 3-commit batch. | Dashboard reads via Connect; REST still works for legacy callers |
 | PR 3 | MCP and cobra commands call Connect services in-process via `connect.Client` against the same handler set. | MCP/CLI converge on the proto contract |
 | PR 4 | Delete REST handlers and the dashboard's REST fetchers. | REST surface removed |
 
