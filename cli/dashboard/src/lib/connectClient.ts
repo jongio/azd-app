@@ -30,6 +30,7 @@ import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
 import { BicepService } from '@/gen/proto/azdapp/v1/bicep_connect.js'
 import { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
 import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
 
 // =============================================================================
 // Default transport
@@ -162,4 +163,24 @@ export function createLogsClient(
   transport: Transport = getDefaultTransport()
 ): PromiseClient<typeof LogsService> {
   return createPromiseClient(LogsService, transport)
+}
+
+/**
+ * Construct an AzureService Connect client. Backs all dashboard Azure
+ * touchpoints: setup wizard (workspace/auth/diagnostic settings checks,
+ * verification), the LogsView's historical fetch + realtime stream, the
+ * diagnostics modal, the table picker, and per-service log config.
+ *
+ * The AzureService surface deliberately preserves the legacy REST shape
+ * (one RPC per old endpoint) so the consumer hooks can swap transports
+ * one at a time without behavioural drift. The single server-streaming
+ * RPC (`streamAzureLogs`) replaces the legacy
+ * `/api/azure/logs/stream?realtime=true` WebSocket and ships a typed
+ * three-event oneof: log entries, status frames (mode + connection
+ * health), and back-pressure drop notices.
+ */
+export function createAzureClient(
+  transport: Transport = getDefaultTransport()
+): PromiseClient<typeof AzureService> {
+  return createPromiseClient(AzureService, transport)
 }

@@ -1,36 +1,93 @@
+/**
+ * DiagnosticsModal tests.
+ *
+ * The component previously fetched `/api/azure/logs/health`. It now calls
+ * `AzureService.GetAzureLogsHealth` through Connect, so we mock
+ * `@/lib/connectClient`'s `createAzureClient` factory and let each test
+ * stage a proto response (built by `buildHealthResponse`) or a thrown
+ * error. The assertion surface (rendered status, names, fix-setup
+ * routing, etc.) is unchanged because the component still renders a
+ * `HealthCheckResponse` internally — only the wire shape differs.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { DiagnosticsModal } from './DiagnosticsModal'
-import type { SetupStep as _SetupStep } from './AzureSetupGuide'
+import { Timestamp } from '@bufbuild/protobuf'
 
-interface HealthCheck {
+import {
+  AzureCheckStatus,
+  AzureHealthCheck,
+  AzureOverallStatus,
+  GetAzureLogsHealthResponse,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
+
+const { getAzureLogsHealthMock } = vi.hoisted(() => ({
+  getAzureLogsHealthMock: vi.fn(),
+}))
+
+vi.mock('@/lib/connectClient', () => ({
+  createAzureClient: () => ({
+    getAzureLogsHealth: (...args: unknown[]) =>
+      getAzureLogsHealthMock(...args) as Promise<GetAzureLogsHealthResponse>,
+  }),
+}))
+
+import { DiagnosticsModal } from './DiagnosticsModal'
+
+interface DashboardHealthCheck {
   name: string
   status: 'pass' | 'warn' | 'fail'
   message: string
   fix?: string
 }
 
-interface HealthCheckResponse {
-  status: 'healthy' | 'degraded' | 'error'
-  checks: HealthCheck[]
-  docsUrl: string
-  timestamp: string
+function statusToProto(
+  s: 'healthy' | 'degraded' | 'error',
+): AzureOverallStatus {
+  switch (s) {
+    case 'healthy':
+      return AzureOverallStatus.HEALTHY
+    case 'degraded':
+      return AzureOverallStatus.DEGRADED
+    default:
+      return AzureOverallStatus.ERROR
+  }
 }
 
-const createMockHealthResponse = (status: 'healthy' | 'degraded' | 'error', checks: HealthCheck[]): HealthCheckResponse => ({
-  status,
-  checks,
-  docsUrl: 'https://docs.example.com',
-  timestamp: new Date().toISOString(),
-})
+function checkStatusToProto(s: 'pass' | 'warn' | 'fail'): AzureCheckStatus {
+  switch (s) {
+    case 'pass':
+      return AzureCheckStatus.PASS
+    case 'warn':
+      return AzureCheckStatus.WARN
+    default:
+      return AzureCheckStatus.FAIL
+  }
+}
 
-const fetchMock = vi.fn()
-globalThis.fetch = fetchMock as unknown as typeof fetch
+function buildHealthResponse(
+  status: 'healthy' | 'degraded' | 'error',
+  checks: DashboardHealthCheck[],
+): GetAzureLogsHealthResponse {
+  return new GetAzureLogsHealthResponse({
+    status: statusToProto(status),
+    checks: checks.map(
+      (c) =>
+        new AzureHealthCheck({
+          name: c.name,
+          status: checkStatusToProto(c.status),
+          message: c.message,
+          fix: c.fix ?? '',
+        }),
+    ),
+    docsUrl: 'https://docs.example.com',
+    timestamp: Timestamp.now(),
+  })
+}
 
 describe('DiagnosticsModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    getAzureLogsHealthMock.mockReset()
   })
 
   afterEach(() => {
@@ -43,21 +100,22 @@ describe('DiagnosticsModal', () => {
   })
 
   it('renders when open and fetches health checks', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('healthy', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('healthy', [
         { name: 'Workspace Check', status: 'pass', message: 'Workspace configured' },
       ]),
-    })
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
     expect(screen.getByText('Azure Logs Diagnostics')).toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/azure/logs/health', expect.any(Object)))
+    await waitFor(() => expect(getAzureLogsHealthMock).toHaveBeenCalled())
   })
 
   it('shows loading state while fetching', async () => {
-    fetchMock.mockImplementation(() => new Promise(() => {/* never resolves */}))
+    getAzureLogsHealthMock.mockImplementation(
+      () => new Promise(() => {/* never resolves */}),
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
@@ -65,13 +123,12 @@ describe('DiagnosticsModal', () => {
   })
 
   it('displays health check results', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Workspace Check', status: 'pass', message: 'Workspace configured' },
         { name: 'Auth Check', status: 'fail', message: 'Authentication failed', fix: 'az login' },
       ]),
-    })
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
@@ -83,7 +140,7 @@ describe('DiagnosticsModal', () => {
   })
 
   it('shows error state when fetch fails', async () => {
-    fetchMock.mockRejectedValueOnce(new Error('Network error'))
+    getAzureLogsHealthMock.mockRejectedValueOnce(new Error('Network error'))
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
@@ -92,10 +149,9 @@ describe('DiagnosticsModal', () => {
   })
 
   it('calls onClose when close button clicked', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('healthy', []),
-    })
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('healthy', []),
+    )
 
     const onClose = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={onClose} />)
@@ -107,13 +163,12 @@ describe('DiagnosticsModal', () => {
   })
 
   it('does NOT show Fix Setup button when all checks pass', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('healthy', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('healthy', [
         { name: 'Workspace Check', status: 'pass', message: 'OK' },
         { name: 'Auth Check', status: 'pass', message: 'OK' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -124,12 +179,11 @@ describe('DiagnosticsModal', () => {
   })
 
   it('does NOT show Fix Setup button when onOpenSetupGuide not provided', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Auth Check', status: 'fail', message: 'Failed' },
       ]),
-    })
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
@@ -139,13 +193,12 @@ describe('DiagnosticsModal', () => {
   })
 
   it('shows Fix Setup button when checks fail and callback provided', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Workspace Check', status: 'pass', message: 'OK' },
         { name: 'Auth Check', status: 'fail', message: 'Authentication failed' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -154,12 +207,11 @@ describe('DiagnosticsModal', () => {
   })
 
   it('calls onOpenSetupGuide with correct step for workspace failure', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('error', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('error', [
         { name: 'Workspace Configuration', status: 'fail', message: 'Workspace not found' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -171,12 +223,11 @@ describe('DiagnosticsModal', () => {
   })
 
   it('calls onOpenSetupGuide with correct step for auth failure', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Authentication Check', status: 'fail', message: 'Not authenticated' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -188,12 +239,11 @@ describe('DiagnosticsModal', () => {
   })
 
   it('calls onOpenSetupGuide with correct step for permission failure', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Permission Check', status: 'fail', message: 'Insufficient permissions' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -205,12 +255,11 @@ describe('DiagnosticsModal', () => {
   })
 
   it('calls onOpenSetupGuide with correct step for diagnostic settings failure', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Diagnostic Settings', status: 'fail', message: 'Not configured' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -222,12 +271,11 @@ describe('DiagnosticsModal', () => {
   })
 
   it('calls onOpenSetupGuide with verification step for other failures', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Log Connectivity', status: 'fail', message: 'Cannot connect to logs' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -239,14 +287,13 @@ describe('DiagnosticsModal', () => {
   })
 
   it('prioritizes workspace step when multiple checks fail', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('error', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('error', [
         { name: 'Workspace Check', status: 'fail', message: 'No workspace' },
         { name: 'Auth Check', status: 'fail', message: 'Not authenticated' },
         { name: 'Diagnostic Settings', status: 'fail', message: 'Not configured' },
       ]),
-    })
+    )
 
     const onOpenSetupGuide = vi.fn()
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} onOpenSetupGuide={onOpenSetupGuide} />)
@@ -259,34 +306,32 @@ describe('DiagnosticsModal', () => {
   })
 
   it('re-runs diagnostics when Run Diagnostics button clicked', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: () => createMockHealthResponse('healthy', [
+    getAzureLogsHealthMock.mockResolvedValue(
+      buildHealthResponse('healthy', [
         { name: 'Test Check', status: 'pass', message: 'OK' },
       ]),
-    })
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByText('Run Diagnostics')).toBeInTheDocument())
-    
+
     // Initial fetch
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(getAzureLogsHealthMock).toHaveBeenCalledTimes(1)
 
     const runButton = screen.getByText('Run Diagnostics')
     await userEvent.click(runButton)
 
     // Second fetch
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(getAzureLogsHealthMock).toHaveBeenCalledTimes(2))
   })
 
   it('shows correct status badge for degraded state', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('degraded', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('degraded', [
         { name: 'Test', status: 'warn', message: 'Warning' },
       ]),
-    })
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 
@@ -301,12 +346,11 @@ describe('DiagnosticsModal', () => {
       },
     })
 
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: () => createMockHealthResponse('healthy', [
+    getAzureLogsHealthMock.mockResolvedValueOnce(
+      buildHealthResponse('healthy', [
         { name: 'Test Check', status: 'pass', message: 'All good' },
       ]),
-    })
+    )
 
     render(<DiagnosticsModal isOpen={true} onClose={vi.fn()} />)
 

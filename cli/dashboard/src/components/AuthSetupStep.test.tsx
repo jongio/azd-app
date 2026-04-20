@@ -4,6 +4,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+const { fetchAzureSetupStateMock } = vi.hoisted(() => ({
+  fetchAzureSetupStateMock: vi.fn(),
+}))
+
+vi.mock('@/lib/azureSetupState', () => ({
+  fetchAzureSetupState: (...args: unknown[]): unknown =>
+    fetchAzureSetupStateMock(...args) as unknown,
+}))
+
 import { AuthSetupStep } from './AuthSetupStep'
 
 // =============================================================================
@@ -62,11 +71,8 @@ const mockError = {
 // =============================================================================
 
 describe('AuthSetupStep', () => {
-  let fetchMock: ReturnType<typeof vi.fn>
-
   beforeEach(() => {
-    fetchMock = vi.fn()
-    globalThis.fetch = fetchMock as unknown as typeof fetch
+    fetchAzureSetupStateMock.mockReset()
 
     // Mock clipboard API
     Object.defineProperty(navigator, 'clipboard', {
@@ -88,7 +94,7 @@ describe('AuthSetupStep', () => {
 
   describe('Loading State', () => {
     it('should show loading spinner while fetching auth state', () => {
-      fetchMock.mockReturnValue(new Promise(() => {})) // Never resolves
+      fetchAzureSetupStateMock.mockReturnValue(new Promise(() => {})) // Never resolves
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -99,7 +105,7 @@ describe('AuthSetupStep', () => {
     })
 
     it('should call onValidationChange with false during loading', () => {
-      fetchMock.mockReturnValue(new Promise(() => {}))
+      fetchAzureSetupStateMock.mockReturnValue(new Promise(() => {}))
       const onValidationChange = vi.fn()
 
       render(<AuthSetupStep onValidationChange={onValidationChange} />)
@@ -115,10 +121,7 @@ describe('AuthSetupStep', () => {
 
   describe('Authenticated with Permission', () => {
     beforeEach(() => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockAuthenticatedWithPermission)
     })
 
     it('should display "Authorized" status badge', async () => {
@@ -182,10 +185,7 @@ describe('AuthSetupStep', () => {
 
   describe('Authenticated without Permission', () => {
     beforeEach(() => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockAuthenticatedWithoutPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockAuthenticatedWithoutPermission)
     })
 
     it('should display "Permission Missing" status badge', async () => {
@@ -266,10 +266,7 @@ describe('AuthSetupStep', () => {
 
   describe('Not Authenticated', () => {
     beforeEach(() => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockNotAuthenticated)
     })
 
     it('should display "Not Authenticated" status badge', async () => {
@@ -330,10 +327,7 @@ describe('AuthSetupStep', () => {
 
   describe('Permission Denied', () => {
     beforeEach(() => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockPermissionDenied,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockPermissionDenied)
     })
 
     it('should display "Permission Denied" status badge', async () => {
@@ -361,10 +355,7 @@ describe('AuthSetupStep', () => {
 
   describe('Error State', () => {
     beforeEach(() => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockError,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockError)
     })
 
     it('should display "Error" status badge', async () => {
@@ -392,7 +383,7 @@ describe('AuthSetupStep', () => {
 
   describe('Fetch Errors', () => {
     it('should show error message when fetch fails', async () => {
-      fetchMock.mockRejectedValue(new Error('Network error'))
+      fetchAzureSetupStateMock.mockRejectedValue(new Error('Network error'))
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -403,10 +394,7 @@ describe('AuthSetupStep', () => {
     })
 
     it('should show error when response is not ok', async () => {
-      fetchMock.mockResolvedValue({
-        ok: false,
-        statusText: 'Internal Server Error',
-      })
+      fetchAzureSetupStateMock.mockRejectedValue(new Error('Failed to fetch setup state: Internal Server Error'))
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -416,7 +404,7 @@ describe('AuthSetupStep', () => {
     })
 
     it('should call onValidationChange with false on error', async () => {
-      fetchMock.mockRejectedValue(new Error('Network error'))
+      fetchAzureSetupStateMock.mockRejectedValue(new Error('Network error'))
       const onValidationChange = vi.fn()
 
       render(<AuthSetupStep onValidationChange={onValidationChange} />)
@@ -427,7 +415,7 @@ describe('AuthSetupStep', () => {
     })
 
     it('should show retry button on error', async () => {
-      fetchMock.mockRejectedValue(new Error('Network error'))
+      fetchAzureSetupStateMock.mockRejectedValue(new Error('Network error'))
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -438,11 +426,8 @@ describe('AuthSetupStep', () => {
 
     it('should retry fetch when retry button clicked', async () => {
       const user = userEvent.setup({ delay: null })
-      fetchMock.mockRejectedValueOnce(new Error('Network error'))
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockRejectedValueOnce(new Error('Network error'))
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockAuthenticatedWithPermission)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -465,10 +450,7 @@ describe('AuthSetupStep', () => {
 
   describe('Recheck Functionality', () => {
     it('should have a recheck button', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockNotAuthenticated)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -479,10 +461,7 @@ describe('AuthSetupStep', () => {
 
     it('should refetch auth state when recheck clicked', async () => {
       const user = userEvent.setup({ delay: null })
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockNotAuthenticated)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -490,10 +469,7 @@ describe('AuthSetupStep', () => {
         expect(screen.getByText('Not Authenticated')).toBeInTheDocument()
       })
 
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockAuthenticatedWithPermission)
 
       const recheckButton = screen.getByRole('button', { name: /Recheck/i })
       await user.click(recheckButton)
@@ -505,10 +481,7 @@ describe('AuthSetupStep', () => {
 
     it('should show "Checking..." text while refreshing', async () => {
       const user = userEvent.setup({ delay: null })
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockAuthenticatedWithPermission)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -516,7 +489,7 @@ describe('AuthSetupStep', () => {
         expect(screen.getByRole('button', { name: /Recheck/i })).toBeInTheDocument()
       })
 
-      fetchMock.mockReturnValueOnce(new Promise(() => {})) // Never resolves
+      fetchAzureSetupStateMock.mockReturnValueOnce(new Promise(() => {})) // Never resolves
 
       const recheckButton = screen.getByRole('button', { name: /Recheck/i })
       await user.click(recheckButton)
@@ -528,10 +501,7 @@ describe('AuthSetupStep', () => {
 
     it('should disable recheck button while refreshing', async () => {
       const user = userEvent.setup({ delay: null })
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockAuthenticatedWithPermission)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -539,7 +509,7 @@ describe('AuthSetupStep', () => {
         expect(screen.getByRole('button', { name: /Recheck/i })).toBeInTheDocument()
       })
 
-      fetchMock.mockReturnValueOnce(new Promise(() => {}))
+      fetchAzureSetupStateMock.mockReturnValueOnce(new Promise(() => {}))
 
       const recheckButton = screen.getByRole('button', { name: /Recheck/i })
       await user.click(recheckButton)
@@ -553,10 +523,7 @@ describe('AuthSetupStep', () => {
       const user = userEvent.setup({ delay: null })
       const onValidationChange = vi.fn()
       
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockAuthenticatedWithoutPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockAuthenticatedWithoutPermission)
 
       render(<AuthSetupStep onValidationChange={onValidationChange} />)
 
@@ -566,10 +533,7 @@ describe('AuthSetupStep', () => {
 
       onValidationChange.mockClear()
 
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockAuthenticatedWithPermission)
 
       const recheckButton = screen.getByRole('button', { name: /Recheck/i })
       await user.click(recheckButton)
@@ -586,10 +550,7 @@ describe('AuthSetupStep', () => {
 
   describe('Copy Functionality', () => {
     it('should have copy buttons in code blocks', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockNotAuthenticated)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -604,10 +565,7 @@ describe('AuthSetupStep', () => {
 
     it('should show "Copied" text after copying', async () => {
       const user = userEvent.setup({ delay: null })
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockNotAuthenticated)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -630,10 +588,7 @@ describe('AuthSetupStep', () => {
 
   describe('Collapsible Help Sections', () => {
     it('should show all help section headers', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockAuthenticatedWithPermission)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -653,15 +608,12 @@ describe('AuthSetupStep', () => {
 
   describe('Polling Behavior', () => {
     it('should fetch state on mount', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockNotAuthenticated)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
       await waitFor(() => {
-        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(fetchAzureSetupStateMock).toHaveBeenCalledTimes(1)
       })
     })
   })
@@ -672,10 +624,7 @@ describe('AuthSetupStep', () => {
 
   describe('Status Messages', () => {
     it('should display auth state message', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValue(mockAuthenticatedWithPermission)
 
       render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -691,10 +640,7 @@ describe('AuthSetupStep', () => {
 
     it('should show different message for each state', async () => {
       // Test authenticated with permission
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockAuthenticatedWithPermission,
-      })
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockAuthenticatedWithPermission)
 
       const { rerender } = render(<AuthSetupStep onValidationChange={vi.fn()} />)
 
@@ -704,10 +650,7 @@ describe('AuthSetupStep', () => {
       })
 
       // Test not authenticated
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => mockNotAuthenticated,
-      })
+      fetchAzureSetupStateMock.mockResolvedValueOnce(mockNotAuthenticated)
 
       rerender(<AuthSetupStep onValidationChange={vi.fn()} />)
 

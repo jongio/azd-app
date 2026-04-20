@@ -1,7 +1,25 @@
 /**
- * useDiagnosticSettings - Hook to check diagnostic settings status for Azure services
+ * useDiagnosticSettings - Hook to check diagnostic settings status for
+ * Azure services via the Connect AzureService.
+ *
+ * Wire migration note: replaces the previous REST GET against
+ * `/api/azure/diagnostic-settings/check`. The hook return shape
+ * (services map keyed by service name with status/resourceId/etc.) is
+ * preserved exactly so consumer components keep compiling. Only the
+ * wire moves: the proto `DiagnosticSettingsStatus` enum is mapped
+ * back to the legacy lowercase strings ('configured' | 'not-configured'
+ * | 'error') here so downstream UI never sees a proto type.
  */
 import * as React from 'react'
+import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+
+import { createAzureClient } from '@/lib/connectClient'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import {
+  CheckDiagnosticSettingsRequest,
+  type DiagnosticSettingResult as ProtoDiagnosticSettingResult,
+  DiagnosticSettingsStatus as ProtoDiagnosticSettingsStatus,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 // =============================================================================
 // Types
@@ -24,7 +42,9 @@ export interface ServiceDiagnosticStatus {
 }
 
 /**
- * API response from /api/azure/diagnostic-settings/check
+ * Aggregated check result keyed by service name. Kept as an exported
+ * type so tests and other hooks can construct fixture data without
+ * reaching into the proto layer.
  */
 export interface DiagnosticSettingsResponse {
   workspaceId: string
@@ -32,7 +52,7 @@ export interface DiagnosticSettingsResponse {
 }
 
 /**
- * Hook state
+ * Hook state.
  */
 export interface UseDiagnosticSettingsResult {
   /** Loading state: true on initial fetch */
@@ -55,40 +75,91 @@ export interface UseDiagnosticSettingsResult {
   totalCount: number
 }
 
+export interface UseDiagnosticSettingsOptions {
+  /**
+   * Override the underlying Connect transport. Production code never
+   * passes this; tests inject `createRouterTransport(...)` so the real
+   * client code path runs against an in-memory service handler.
+   */
+  transport?: Transport
+}
+
+// =============================================================================
+// Proto -> dashboard mappers
+// =============================================================================
+
+/**
+ * Map proto enum to the legacy lowercase string the dashboard renders.
+ * UNSPECIFIED collapses to 'error' rather than silently dropping, so a
+ * future proto enum addition surfaces as a visible problem instead of
+ * a phantom "not configured".
+ */
+function statusToString(status: ProtoDiagnosticSettingsStatus): DiagnosticSettingsStatus {
+  switch (status) {
+    case ProtoDiagnosticSettingsStatus.CONFIGURED:
+      return 'configured'
+    case ProtoDiagnosticSettingsStatus.NOT_CONFIGURED:
+      return 'not-configured'
+    case ProtoDiagnosticSettingsStatus.ERROR:
+    case ProtoDiagnosticSettingsStatus.UNSPECIFIED:
+    default:
+      return 'error'
+  }
+}
+
+function protoToStatus(r: ProtoDiagnosticSettingResult): ServiceDiagnosticStatus {
+  // Only include optional fields when populated. The legacy REST handler
+  // omitted empty strings and the dashboard UI checks for `truthy` to
+  // decide whether to render diagnostic resource links.
+  const out: ServiceDiagnosticStatus = {
+    status: statusToString(r.status),
+  }
+  if (r.resourceId) out.resourceId = r.resourceId
+  if (r.diagnosticSettingName) out.diagnosticSettingName = r.diagnosticSettingName
+  if (r.error) out.error = r.error
+  if (r.workspaceId) out.workspaceId = r.workspaceId
+  return out
+}
+
 // =============================================================================
 // Hook
 // =============================================================================
 
 /**
  * Hook to check diagnostic settings status for all Azure services.
- * 
- * Makes a single API call to /api/azure/diagnostic-settings/check to get
- * aggregated status for all services.
- * 
+ *
+ * Calls AzureService.CheckDiagnosticSettings and returns aggregated
+ * status keyed by service name. Cancellation is plumbed through Connect
+ * via `AbortController.signal`, matching the legacy fetch-cancel
+ * semantics.
+ *
  * @example
  * ```tsx
  * const { isLoading, services, allConfigured, recheck } = useDiagnosticSettings()
- * 
  * if (isLoading) return <Spinner />
- * 
- * if (allConfigured) {
- *   return <Success message="All services configured" />
- * }
+ * if (allConfigured) return <Success message="All services configured" />
  * ```
  */
-export function useDiagnosticSettings(): UseDiagnosticSettingsResult {
+export function useDiagnosticSettings(
+  options: UseDiagnosticSettingsOptions = {},
+): UseDiagnosticSettingsResult {
+  const { transport } = options
+  const client = React.useMemo<PromiseClient<typeof AzureService>>(
+    () => createAzureClient(transport),
+    [transport],
+  )
+
   const [isLoading, setIsLoading] = React.useState(true)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [workspaceId, setWorkspaceId] = React.useState<string | null>(null)
   const [services, setServices] = React.useState<Record<string, ServiceDiagnosticStatus>>({})
 
-  // Abort controller for cleanup
+  // Track the in-flight controller so a manual recheck can pre-empt an
+  // initial fetch without leaving stale state behind.
   const abortControllerRef = React.useRef<AbortController | null>(null)
 
-  // Fetch diagnostic settings status
   const fetchDiagnosticSettings = React.useCallback(async (isManualRefresh = false) => {
-    // Cancel any in-flight request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
@@ -103,47 +174,51 @@ export function useDiagnosticSettings(): UseDiagnosticSettingsResult {
     }
 
     try {
-      const response = await fetch('/api/azure/diagnostic-settings/check', {
-        signal: controller.signal,
-      })
+      const resp = await client.checkDiagnosticSettings(
+        new CheckDiagnosticSettingsRequest(),
+        { signal: controller.signal },
+      )
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`API returned ${response.status}: ${errorText || response.statusText}`)
+      // Bail if a newer request superseded us before the response landed.
+      if (controller.signal.aborted) return
+
+      const next: Record<string, ServiceDiagnosticStatus> = {}
+      for (const [name, result] of Object.entries(resp.services)) {
+        next[name] = protoToStatus(result)
       }
 
-      const data = (await response.json()) as DiagnosticSettingsResponse
-      
-      setWorkspaceId(data.workspaceId || null)
-      setServices(data.services || {})
+      setWorkspaceId(resp.workspaceId || null)
+      setServices(next)
       setError(null)
     } catch (err) {
-      // Ignore abort errors
-      if (err instanceof Error && err.name === 'AbortError') {
-        return
-      }
-
-      const errorMessage = err instanceof Error ? err.message : 'Failed to check diagnostic settings'
-      setError(errorMessage)
+      if (controller.signal.aborted) return
+      // ConnectError surfaces a `.rawMessage` plus a status code; the
+      // legacy hook just stringified the fetch error so we mirror that
+      // surface (consumer renders `error` directly in the alert banner).
+      const message =
+        err instanceof ConnectError
+          ? err.rawMessage || err.message
+          : err instanceof Error
+          ? err.message
+          : 'Failed to check diagnostic settings'
+      setError(message)
       setServices({})
       setWorkspaceId(null)
     } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
-      
-      // Clear the abort controller if this is still our request
+      if (!controller.signal.aborted) {
+        setIsLoading(false)
+        setIsRefreshing(false)
+      }
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null
       }
     }
-  }, [])
+  }, [client])
 
-  // Initial fetch on mount
   React.useEffect(() => {
     void fetchDiagnosticSettings()
   }, [fetchDiagnosticSettings])
 
-  // Cleanup on unmount
   React.useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -153,14 +228,14 @@ export function useDiagnosticSettings(): UseDiagnosticSettingsResult {
     }
   }, [])
 
-  // Manual recheck function
   const recheck = React.useCallback(async () => {
     await fetchDiagnosticSettings(true)
   }, [fetchDiagnosticSettings])
 
-  // Calculate derived state
+  // Derived state - cheap enough to recompute every render so we skip
+  // useMemo and avoid the indirection.
   const serviceList = Object.values(services)
-  const configuredCount = serviceList.filter(s => s.status === 'configured').length
+  const configuredCount = serviceList.filter((s) => s.status === 'configured').length
   const totalCount = serviceList.length
   const allConfigured = totalCount > 0 && configuredCount === totalCount
 

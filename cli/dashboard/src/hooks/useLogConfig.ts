@@ -1,12 +1,34 @@
 /**
- * useLogConfig - Hooks for Log Analytics table selection and configuration
- * Provides state management for available tables and service log configuration.
+ * useLogConfig - Connect-RPC hooks for Log Analytics table selection
+ * and per-service log configuration.
+ *
+ * Wire migration note: previously hit GET `/api/azure/tables`,
+ * GET `/api/azure/logs/config`, and PUT `/api/azure/logs/config`. All
+ * three now route through `AzureService` (`listAzureTables`,
+ * `getAzureLogConfig`, `saveAzureLogConfig`). The hook return surface
+ * is preserved verbatim - including the `TableInfo.category` field,
+ * which the proto does not carry per-table. We synthesise it here by
+ * inverting the `categories[].tables[]` relation so the
+ * `TableSelector` component (which groups by `table.category`) keeps
+ * working without changes.
  */
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+
 import { useBackendConnection } from '@/hooks/useBackendConnection'
+import { createAzureClient } from '@/lib/connectClient'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import {
+  AzureLogConfigMode as ProtoAzureLogConfigMode,
+  AzureResourceType as ProtoAzureResourceType,
+  GetAzureLogConfigRequest,
+  ListAzureTablesRequest,
+  type ListAzureTablesResponse,
+  SaveAzureLogConfigRequest,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 // =============================================================================
-// Types
+// Types (preserved from the legacy hook surface)
 // =============================================================================
 
 export interface TableInfo {
@@ -39,63 +61,142 @@ export interface LogConfig {
 }
 
 export interface UseAvailableTablesOptions {
-  /** Resource type to filter/recommend tables */
+  /** Resource type to filter/recommend tables (e.g. 'containerapp', 'appservice', 'function') */
   resourceType?: string
   /** Auto-fetch on mount */
   autoFetch?: boolean
+  /** Test transport injection - production omits */
+  transport?: Transport
 }
 
 export interface UseAvailableTablesReturn {
-  /** Available tables from Log Analytics */
   tables: TableInfo[]
-  /** Table categories for grouping */
   categories: TableCategory[]
-  /** Recommended tables for the resource type */
   recommended: string[]
-  /** Workspace ID (truncated) */
   workspace: string
-  /** Loading state */
   isLoading: boolean
-  /** Error message */
   error: string | null
-  /** Fetch/refresh tables */
   fetchTables: () => Promise<void>
 }
 
 export interface UseLogConfigOptions {
-  /** Service name */
   serviceName: string
-  /** Auto-fetch config on mount */
   autoFetch?: boolean
+  transport?: Transport
 }
 
 export interface UseLogConfigReturn {
-  /** Current configuration */
   config: LogConfig | null
-  /** Loading state */
   isLoading: boolean
-  /** Saving state */
   isSaving: boolean
-  /** Error message */
   error: string | null
-  /** Fetch config from server */
   fetchConfig: () => Promise<void>
-  /** Save config to server - provide tables OR query, mode is inferred */
   saveConfig: (options: { tables?: string[]; query?: string }) => Promise<boolean>
 }
 
 // =============================================================================
-// useAvailableTables Hook
+// Mappers (proto <-> dashboard)
 // =============================================================================
 
 /**
- * Hook for fetching available Log Analytics tables.
+ * Map the dashboard's lowercase resource type string to the proto enum.
+ * Unknowns fall back to UNSPECIFIED, which the server defaults to
+ * CONTAINER_APP - same behaviour as the legacy REST endpoint.
+ */
+function resourceTypeToProto(rt: string | undefined): ProtoAzureResourceType {
+  switch (rt) {
+    case 'containerapp':
+      return ProtoAzureResourceType.CONTAINER_APP
+    case 'appservice':
+      return ProtoAzureResourceType.APP_SERVICE
+    case 'function':
+      return ProtoAzureResourceType.FUNCTION_APP
+    default:
+      return ProtoAzureResourceType.UNSPECIFIED
+  }
+}
+
+function modeFromProto(mode: ProtoAzureLogConfigMode): 'tables' | 'custom' {
+  switch (mode) {
+    case ProtoAzureLogConfigMode.TABLES:
+      return 'tables'
+    case ProtoAzureLogConfigMode.CUSTOM:
+      return 'custom'
+    default:
+      // Server returns UNSPECIFIED only for never-configured services.
+      // Surfacing as 'tables' matches legacy default (empty list).
+      return 'tables'
+  }
+}
+
+function modeToProto(mode: 'tables' | 'custom'): ProtoAzureLogConfigMode {
+  return mode === 'custom' ? ProtoAzureLogConfigMode.CUSTOM : ProtoAzureLogConfigMode.TABLES
+}
+
+/**
+ * Build the (tableName -> categoryName) lookup the dashboard uses to
+ * drive `TableInfo.category`. The proto puts category membership on
+ * `AzureTableCategory.tables`, not on the table itself, so we invert
+ * once per response. Tables not in any category default to 'other'
+ * (matching `TableSelector`'s fallback).
+ */
+function buildCategoryIndex(resp: ListAzureTablesResponse): Map<string, string> {
+  const index = new Map<string, string>()
+  for (const cat of resp.categories) {
+    for (const tableName of cat.tables) {
+      index.set(tableName, cat.name)
+    }
+  }
+  return index
+}
+
+function protoTablesToDashboard(resp: ListAzureTablesResponse): TablesResponse {
+  const categoryIndex = buildCategoryIndex(resp)
+  return {
+    tables: resp.tables.map((t) => ({
+      name: t.name,
+      // Prefer explicit category mapping; fall back to 'other' so the
+      // TableSelector groups orphans into a visible bucket instead of
+      // dropping them.
+      category: categoryIndex.get(t.name) ?? 'other',
+      description: t.description,
+      recommended: t.recommended,
+    })),
+    recommended: resp.recommended,
+    workspace: resp.workspace,
+    categories: resp.categories.map((c) => ({
+      name: c.name,
+      displayName: c.displayName,
+      tables: c.tables,
+    })),
+  }
+}
+
+function connectErrMessage(err: unknown, fallback: string): string {
+  if (err instanceof ConnectError) return err.rawMessage || err.message
+  if (err instanceof Error) return err.message
+  return fallback
+}
+
+// =============================================================================
+// useAvailableTables
+// =============================================================================
+
+/**
+ * Fetch the Log Analytics tables available for a given resource type,
+ * along with category groupings and the "recommended" subset.
  */
 export function useAvailableTables({
   resourceType = 'containerapp',
   autoFetch = true,
+  transport,
 }: UseAvailableTablesOptions = {}): UseAvailableTablesReturn {
   const { connected } = useBackendConnection()
+  const client = useMemo<PromiseClient<typeof AzureService>>(
+    () => createAzureClient(transport),
+    [transport],
+  )
+
   const [tables, setTables] = useState<TableInfo[]>([])
   const [categories, setCategories] = useState<TableCategory[]>([])
   const [recommended, setRecommended] = useState<string[]>([])
@@ -104,53 +205,34 @@ export function useAvailableTables({
   const [error, setError] = useState<string | null>(null)
 
   const fetchTables = useCallback(async () => {
-    if (!connected) {
-      return
-    }
+    if (!connected) return
 
     setIsLoading(true)
     setError(null)
 
     try {
-      const params = new URLSearchParams()
-      if (resourceType) {
-        params.set('resourceType', resourceType)
-      }
-
-      const response = await fetch(`/api/azure/tables?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tables: ${response.status}`)
-      }
-
-      const data = await response.json() as TablesResponse
-
-      // Defensive: backend/network issues can return unexpected shapes.
-      // Normalize to arrays to avoid runtime errors in components using `.filter`, `.map`, etc.
-      const tables = Array.isArray(data.tables) ? data.tables : []
-      const categories = Array.isArray(data.categories) ? data.categories : []
-      const recommended = Array.isArray(data.recommended) ? data.recommended : []
-
-      setTables(tables)
-      setCategories(categories)
-      setRecommended(recommended)
-      setWorkspace(typeof data.workspace === 'string' ? data.workspace : '')
+      const resp = await client.listAzureTables(
+        new ListAzureTablesRequest({
+          resourceType: resourceTypeToProto(resourceType),
+        }),
+      )
+      const data = protoTablesToDashboard(resp)
+      setTables(data.tables)
+      setCategories(data.categories)
+      setRecommended(data.recommended)
+      setWorkspace(data.workspace)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch tables'
-      setError(message)
+      setError(connectErrMessage(err, 'Failed to fetch tables'))
       setTables([])
       setCategories([])
       setRecommended([])
     } finally {
       setIsLoading(false)
     }
-  }, [connected, resourceType])
+  }, [client, connected, resourceType])
 
-  // Auto-fetch on mount
   useEffect(() => {
-    if (autoFetch) {
-      void fetchTables()
-    }
+    if (autoFetch) void fetchTables()
   }, [autoFetch, fetchTables])
 
   return {
@@ -165,109 +247,112 @@ export function useAvailableTables({
 }
 
 // =============================================================================
-// useLogConfig Hook
+// useLogConfig
 // =============================================================================
 
 /**
- * Hook for managing log configuration per service.
+ * Manage per-service log configuration: read the current mode/tables/
+ * query from the server and save user edits back. The hook intentionally
+ * accepts `{tables?, query?}` and infers `mode` so callers don't have
+ * to thread the discriminator through their own state.
  */
 export function useLogConfig({
   serviceName,
   autoFetch = true,
+  transport,
 }: UseLogConfigOptions): UseLogConfigReturn {
   const { connected } = useBackendConnection()
+  const client = useMemo<PromiseClient<typeof AzureService>>(
+    () => createAzureClient(transport),
+    [transport],
+  )
+
   const [config, setConfig] = useState<LogConfig | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchConfig = useCallback(async () => {
-    if (!connected || !serviceName) {
-      return
-    }
+    if (!connected || !serviceName) return
 
     setIsLoading(true)
     setError(null)
 
     try {
-      const params = new URLSearchParams({ service: serviceName })
-      const response = await fetch(`/api/azure/logs/config?${params.toString()}`)
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch config: ${response.status}`)
-      }
-
-      const data = await response.json() as LogConfig
-      setConfig(data)
+      const resp = await client.getAzureLogConfig(
+        new GetAzureLogConfigRequest({ service: serviceName }),
+      )
+      setConfig({
+        service: resp.service,
+        mode: modeFromProto(resp.mode),
+        tables: resp.tables,
+        query: resp.query,
+        resourceType: resp.resourceType,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch config'
-      setError(message)
+      setError(connectErrMessage(err, 'Failed to fetch config'))
       setConfig(null)
     } finally {
       setIsLoading(false)
     }
-  }, [connected, serviceName])
+  }, [client, connected, serviceName])
 
-  const saveConfig = useCallback(async (
-    options: { tables?: string[]; query?: string }
-  ): Promise<boolean> => {
-    if (!connected) {
-      setError('Backend connection lost')
-      return false
-    }
-    
-    if (!serviceName) {
-      setError('Service name is required')
-      return false
-    }
-
-    const { tables, query } = options
-
-    // Validate: must have either tables or query
-    if (!query && (!tables || tables.length === 0)) {
-      setError('Either tables or query is required')
-      return false
-    }
-
-    setIsSaving(true)
-    setError(null)
-
-    try {
-      const response = await fetch('/api/azure/logs/config', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          service: serviceName,
-          mode: query ? 'custom' : 'tables',
-          tables: query ? undefined : tables,  // Only include tables if no query
-          query: query || undefined,           // Query takes precedence
-        }),
-      })
-
-      if (!response.ok) {
-        const text = await response.text()
-        throw new Error(text || `Failed to save config: ${response.status}`)
+  const saveConfig = useCallback(
+    async (options: { tables?: string[]; query?: string }): Promise<boolean> => {
+      if (!connected) {
+        setError('Backend connection lost')
+        return false
+      }
+      if (!serviceName) {
+        setError('Service name is required')
+        return false
       }
 
-      const data = await response.json() as LogConfig
-      setConfig(data)
-      return true
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save config'
-      setError(message)
-      return false
-    } finally {
-      setIsSaving(false)
-    }
-  }, [connected, serviceName])
+      const { tables, query } = options
+      // Mirror legacy validation: mode is inferred and at least one
+      // payload must be present. The server enforces this too but
+      // catching client-side gives a clearer error and avoids a round
+      // trip.
+      if (!query && (!tables || tables.length === 0)) {
+        setError('Either tables or query is required')
+        return false
+      }
 
-  // Auto-fetch on mount or service change
+      setIsSaving(true)
+      setError(null)
+
+      try {
+        const mode: 'tables' | 'custom' = query ? 'custom' : 'tables'
+        const resp = await client.saveAzureLogConfig(
+          new SaveAzureLogConfigRequest({
+            service: serviceName,
+            mode: modeToProto(mode),
+            // Only include the field matching the inferred mode. The
+            // server rejects empty payloads with InvalidArgument either
+            // way; this just keeps the wire request minimal.
+            tables: query ? [] : tables ?? [],
+            query: query ?? '',
+          }),
+        )
+        setConfig({
+          service: resp.service,
+          mode: modeFromProto(resp.mode),
+          tables: resp.tables,
+          query: resp.query,
+        })
+        return true
+      } catch (err) {
+        setError(connectErrMessage(err, 'Failed to save config'))
+        return false
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [client, connected, serviceName],
+  )
+
   useEffect(() => {
-    if (autoFetch && serviceName) {
-      void fetchConfig()
-    }
+    if (autoFetch && serviceName) void fetchConfig()
   }, [autoFetch, serviceName, fetchConfig])
 
   return {

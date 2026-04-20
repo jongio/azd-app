@@ -5,7 +5,7 @@
  * manager fans incoming entries out to every matching subscriber.
  *
  * Wire migration note (April 2026):
- *   - Local mode now drives `LogsService.StreamLocalLogs` (Connect
+ *   - Local mode drives `LogsService.StreamLocalLogs` (Connect
  *     server-streaming) instead of the legacy `/api/logs/stream`
  *     WebSocket. The drop-OLDEST 1024-entry ring lives server-side
  *     (cli/src/internal/rpc/logs.go) so a stalled tab catches up to
@@ -13,26 +13,39 @@
  *     ring overflows the next on-wire event is a `DroppedNotice` and
  *     we surface the running total via `droppedCount` on the hook
  *     return so the UI can show a "lost N lines" banner.
- *   - Azure mode (`/api/azure/logs/stream`) still runs on the legacy
- *     WebSocket. AzureService.StreamAzureLogs is the next migration
- *     target; flipping that path is intentionally a separate review
- *     unit because the back-pressure policy (block-with-backoff)
- *     differs from local (drop-oldest) and warrants its own commit.
+ *   - Azure mode now drives `AzureService.StreamAzureLogs` (Connect
+ *     server-streaming) instead of the legacy
+ *     `/api/azure/logs/stream` WebSocket. The proto requires a
+ *     non-empty service per stream (one Log-Analytics resource per
+ *     subscription), so the Azure manager opens one upstream stream
+ *     per subscribed service name - unlike local which multiplexes
+ *     all services on a single stream. The 3-event oneof (entry /
+ *     status / dropped) is fanned out to: entries → registry, dropped
+ *     → drop counter, status → new `streamStatus` subscriber surface
+ *     that drives the polling-health UI.
  *
  * The class-based manager pattern from the WebSocket era is preserved
  * because it carries useful state independent of the wire protocol:
  * subscribe/unsubscribe ref-counting, late-subscriber message replay,
  * connection-state callbacks, and the "no subscribers? close after a
- * debounce" flap-prevention. Each manager (Connect for local, WS for
- * Azure) owns its own lifecycle but exposes the same surface so
- * `useSharedLogStream` can pick one without branching.
+ * debounce" flap-prevention. Each manager (Connect-local for all
+ * services; Connect-azure for one stream per service) owns its own
+ * lifecycle but exposes the same surface so `useSharedLogStream` can
+ * pick one without branching.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { protoInt64 } from '@bufbuild/protobuf'
 
 import type { LogEntry } from '@/components/LogsPane'
-import { createLogsClient } from '@/lib/connectClient'
+import { createAzureClient, createLogsClient } from '@/lib/connectClient'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
 import type { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import {
+  StreamAzureLogsRequest,
+  type StreamAzureLogsResponse,
+  type StreamStatus,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
   StreamLocalLogsRequest,
   type StreamLocalLogsResponse,
@@ -50,6 +63,7 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'err
 type StateChangeCallback = (state: ConnectionState) => void
 type DroppedCallback = (count: number) => void
 type LogCallback = (entry: LogEntry) => void
+type StreamStatusCallback = (status: StreamStatus | null) => void
 
 interface ManagerConfig {
   /** Maximum reconnect attempts before surfacing 'error' state. */
@@ -81,10 +95,19 @@ interface LogStreamManager {
    * Subscribe to running drop-counter updates. Production hook surfaces
    * this so consumers can render a "lost N lines" banner. Connect
    * (local) increments the counter from server `DroppedNotice` events;
-   * the WS (Azure) manager never increments because the legacy WS wire
-   * has no equivalent signal.
+   * Connect (Azure) increments from realtime-mode `AzureDroppedNotice`
+   * events (polling mode emits a status='degraded' StreamStatus
+   * instead - never drops entries).
    */
   subscribeToDroppedCount(callback: DroppedCallback): () => void
+  /**
+   * Subscribe to the most-recent server-emitted stream status. Azure
+   * uses this to surface polling-health transitions
+   * (connected/degraded/disconnected) and realtime↔polling mode flips
+   * to the LogsView UI. Local always emits `null` once because the
+   * local stream has no equivalent signal.
+   */
+  subscribeToStreamStatus(callback: StreamStatusCallback): () => void
   getState(): ConnectionState
   getDroppedCount(): number
   destroy(): void
@@ -108,8 +131,10 @@ class SubscriberRegistry {
   private readonly subscribers = new Map<string, Set<LogCallback>>()
   private readonly stateSubscribers = new Set<StateChangeCallback>()
   private readonly droppedSubscribers = new Set<DroppedCallback>()
+  private readonly streamStatusSubscribers = new Set<StreamStatusCallback>()
   private currentState: ConnectionState = 'disconnected'
   private droppedCount = 0
+  private latestStreamStatus: StreamStatus | null = null
   // Keep the last MAX_BUFFER_SIZE entries so a late-mounting subscriber
   // immediately sees recent activity instead of staring at an empty
   // pane until the next live message arrives.
@@ -121,6 +146,12 @@ class SubscriberRegistry {
 
   hasSubscribers(): boolean {
     return this.subscribers.size > 0
+  }
+
+  /** True when `service` (or 'all') has at least one log subscriber. */
+  hasSubscribersFor(service: string): boolean {
+    const bucket = this.subscribers.get(service)
+    return !!bucket && bucket.size > 0
   }
 
   addLogSubscriber(serviceName: string, callback: LogCallback): boolean {
@@ -170,6 +201,38 @@ class SubscriberRegistry {
 
   removeDroppedSubscriber(callback: DroppedCallback): void {
     this.droppedSubscribers.delete(callback)
+  }
+
+  addStreamStatusSubscriber(callback: StreamStatusCallback): void {
+    this.streamStatusSubscribers.add(callback)
+  }
+
+  removeStreamStatusSubscriber(callback: StreamStatusCallback): void {
+    this.streamStatusSubscribers.delete(callback)
+  }
+
+  getStreamStatus(): StreamStatus | null {
+    return this.latestStreamStatus
+  }
+
+  /**
+   * Record the latest server-emitted stream status and notify
+   * subscribers. Azure path drives this from `StreamAzureLogsResponse`
+   * status events; local path never calls this so subscribers stay on
+   * the initial `null` value.
+   */
+  recordStreamStatus(status: StreamStatus): void {
+    this.latestStreamStatus = status
+    const toRemove: StreamStatusCallback[] = []
+    Array.from(this.streamStatusSubscribers).forEach((callback) => {
+      try {
+        callback(status)
+      } catch (err) {
+        console.error('[useSharedLogStream] Stream status subscriber error:', err)
+        toRemove.push(callback)
+      }
+    })
+    toRemove.forEach((cb) => this.streamStatusSubscribers.delete(cb))
   }
 
   setState(newState: ConnectionState): void {
@@ -260,6 +323,7 @@ class SubscriberRegistry {
     this.subscribers.clear()
     this.stateSubscribers.clear()
     this.droppedSubscribers.clear()
+    this.streamStatusSubscribers.clear()
     this.messageBuffer.length = 0
   }
 }
@@ -427,6 +491,25 @@ class ConnectLocalLogStreamManager implements LogStreamManager {
     return () => this.registry.removeDroppedSubscriber(callback)
   }
 
+  /**
+   * Local stream has no equivalent of Azure's `StreamStatus` event, so
+   * subscribers receive `null` once and never again. Implementing it
+   * keeps the `LogStreamManager` interface uniform - the hook calls
+   * the same `manager.subscribeToStreamStatus(...)` regardless of mode.
+   */
+  subscribeToStreamStatus(callback: StreamStatusCallback): () => void {
+    if (this.isDestroyed) return () => {}
+    queueMicrotask(() => {
+      if (this.isDestroyed) return
+      try {
+        callback(null)
+      } catch (err) {
+        console.error('[useSharedLogStream] Stream status init error:', err)
+      }
+    })
+    return () => {}
+  }
+
   getState(): ConnectionState {
     return this.registry.getState()
   }
@@ -590,44 +673,63 @@ class ConnectLocalLogStreamManager implements LogStreamManager {
 }
 
 // =============================================================================
-// Azure log manager (legacy WebSocket - DEFERRED migration)
+// Connect-backed Azure log manager
 // =============================================================================
 
 /**
- * Azure realtime log manager. Still on the legacy WebSocket
- * (`/api/azure/logs/stream?realtime=true`) because `AzureService.
- * StreamAzureLogs` lives behind a different back-pressure policy
- * (block-with-backoff, see ADR-0001) that warrants its own migration
- * commit. When that migration lands this whole class collapses into a
- * sibling of `ConnectLocalLogStreamManager`.
- *
- * The class is intentionally narrower than the old singleton: no
- * heartbeat (Connect-web handles per-stream health for the local
- * path; the legacy WS path's heartbeat was tuned for the WS-specific
- * silent-disconnect failure mode and is preserved in the inline code
- * below) and no init-message machinery beyond the Azure-specific
- * `since` timestamp the realtime endpoint expects.
+ * Parse the dashboard's "since" string (e.g. "1h", "30m", "15m", "6h",
+ * "24h", "1d") into seconds for the proto `backfillSeconds` field.
+ * Returns 0 on unparseable input so the server falls back to its
+ * 30-minute default - matches what the legacy WS init handler did
+ * when `since` was missing or malformed.
  */
-class WebSocketAzureLogStreamManager implements LogStreamManager {
+function sinceToBackfillSeconds(since: string | undefined): bigint {
+  if (!since) return protoInt64.zero
+  const match = /^(\d+)([smhd])$/i.exec(since.trim())
+  if (!match) return protoInt64.zero
+  const value = parseInt(match[1], 10)
+  if (!Number.isFinite(value) || value <= 0) return protoInt64.zero
+  const unit = match[2].toLowerCase()
+  const multiplier = unit === 's' ? 1 : unit === 'm' ? 60 : unit === 'h' ? 3600 : 86400
+  return protoInt64.parse(value * multiplier)
+}
+
+/**
+ * Azure realtime log manager backed by `AzureService.StreamAzureLogs`
+ * (Connect server-streaming). The Azure proto requires a NON-EMPTY
+ * service per stream (one Log-Analytics resource per call) so this
+ * manager opens one upstream stream per subscribed service - unlike
+ * the local manager which multiplexes all services on a single
+ * stream.
+ *
+ * Wildcard "all" subscribers DO NOT open a stream of their own (the
+ * proto rejects empty service); they instead piggyback on whatever
+ * per-service streams happen to be open. In practice the Azure UI
+ * always selects a specific service before subscribing, so this only
+ * matters for tests.
+ *
+ * Reconnect strategy: per-service exponential backoff (1s → 2s → ...
+ * capped at 30s with jitter), independent counters per service so a
+ * dead resource doesn't starve a healthy one. Counter resets on first
+ * successful event (matches local manager behaviour).
+ */
+class ConnectAzureLogStreamManager implements LogStreamManager {
   private readonly registry = new SubscriberRegistry()
+  private readonly client: PromiseClient<typeof AzureService>
   private readonly config: ManagerConfig
-  private readonly pendingInitConfigs = new Map<string, { since?: string }>()
-  private ws: WebSocket | null = null
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private disconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
-  private heartbeatTimeoutTimer: ReturnType<typeof setTimeout> | null = null
-  private backoffDelay = MIN_BACKOFF_MS
-  private reconnectAttempts = 0
-  private isConnecting = false
+  /** Per-service stream lifecycle. Key is service name. */
+  private readonly streams = new Map<string, ServiceStreamState>()
+  private readonly disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  /**
+   * Pending backfill window per service, captured at subscribe time
+   * and consumed by the next stream open for that service. Mirrors
+   * the WS-era `pendingInitConfigs` map.
+   */
+  private readonly pendingSince = new Map<string, string>()
   private isDestroyed = false
-  private initSent = false
 
-  // Heartbeat tunables match the pre-migration manager.
-  private static readonly HEARTBEAT_INTERVAL_MS = 30_000
-  private static readonly HEARTBEAT_TIMEOUT_MS = 5_000
-
-  constructor(config: Partial<ManagerConfig> = {}) {
+  constructor(client: PromiseClient<typeof AzureService>, config: Partial<ManagerConfig> = {}) {
+    this.client = client
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
 
@@ -638,30 +740,54 @@ class WebSocketAzureLogStreamManager implements LogStreamManager {
   ): () => void {
     if (this.isDestroyed) return () => {}
 
-    if (this.disconnectTimer) {
-      clearTimeout(this.disconnectTimer)
-      this.disconnectTimer = null
+    // Cancel a queued teardown for this service if a new subscriber
+    // arrives before the debounce fires.
+    const pendingTeardown = this.disconnectTimers.get(serviceName)
+    if (pendingTeardown) {
+      clearTimeout(pendingTeardown)
+      this.disconnectTimers.delete(serviceName)
     }
 
-    const wasEmpty = !this.registry.hasSubscribers()
     this.registry.addLogSubscriber(serviceName, callback)
     if (config?.since) {
-      this.pendingInitConfigs.set(serviceName, { since: config.since })
+      this.pendingSince.set(serviceName, config.since)
     }
 
-    if (wasEmpty && !this.ws && !this.isConnecting) {
-      this.connect()
+    // 'all' subscribers can't open their own stream (proto requires
+    // non-empty service). They'll receive entries from any per-service
+    // stream that is or becomes open via the registry's "all" fanout.
+    if (serviceName !== 'all' && !this.streams.has(serviceName)) {
+      this.startStream(serviceName)
     }
 
     return () => {
-      const nowEmpty = this.registry.removeLogSubscriber(serviceName, callback)
-      this.pendingInitConfigs.delete(serviceName)
-      if (nowEmpty) {
-        if (this.disconnectTimer) clearTimeout(this.disconnectTimer)
-        this.disconnectTimer = setTimeout(() => {
-          this.disconnectTimer = null
-          if (!this.registry.hasSubscribers()) this.disconnect()
-        }, DISCONNECT_DEBOUNCE_MS)
+      this.registry.removeLogSubscriber(serviceName, callback)
+      this.pendingSince.delete(serviceName)
+
+      // Only the per-service bucket matters for stream lifecycle;
+      // empty 'all' is meaningless because no stream was opened for it.
+      if (serviceName === 'all') return
+
+      // If this service still has subscribers, keep the stream open.
+      // Otherwise debounce the teardown so a quick remount doesn't
+      // tear down and re-establish the upstream stream on every paint.
+      if (this.serviceHasSubscribers(serviceName)) return
+
+      const timer = setTimeout(() => {
+        this.disconnectTimers.delete(serviceName)
+        if (!this.serviceHasSubscribers(serviceName)) {
+          this.stopStream(serviceName)
+        }
+      }, DISCONNECT_DEBOUNCE_MS)
+      this.disconnectTimers.set(serviceName, timer)
+
+      // When the LAST per-service stream goes away, fully reset shared
+      // state (drop counter, buffer) so the next subscribe starts
+      // clean - same contract as the local manager's full disconnect.
+      if (this.streams.size === 0) {
+        this.registry.clearBuffer()
+        this.registry.resetDroppedCount()
+        this.registry.setState('disconnected')
       }
     }
   }
@@ -683,17 +809,32 @@ class WebSocketAzureLogStreamManager implements LogStreamManager {
   subscribeToDroppedCount(callback: DroppedCallback): () => void {
     if (this.isDestroyed) return () => {}
     this.registry.addDroppedSubscriber(callback)
-    // Azure path has no drop signal; emit 0 so the React state init
-    // path fires once instead of staying undefined.
     queueMicrotask(() => {
       if (this.isDestroyed) return
       try {
-        callback(0)
+        callback(this.registry.getDroppedCount())
       } catch (err) {
         console.error('[useSharedLogStream:azure] Dropped init error:', err)
       }
     })
     return () => this.registry.removeDroppedSubscriber(callback)
+  }
+
+  subscribeToStreamStatus(callback: StreamStatusCallback): () => void {
+    if (this.isDestroyed) return () => {}
+    this.registry.addStreamStatusSubscriber(callback)
+    // Echo current status (or null if none seen yet) so subscribers
+    // don't have to special-case "did I subscribe before or after the
+    // first status event?".
+    queueMicrotask(() => {
+      if (this.isDestroyed) return
+      try {
+        callback(this.registry.getStreamStatus())
+      } catch (err) {
+        console.error('[useSharedLogStream:azure] Stream status init error:', err)
+      }
+    })
+    return () => this.registry.removeStreamStatusSubscriber(callback)
   }
 
   getState(): ConnectionState {
@@ -705,205 +846,170 @@ class WebSocketAzureLogStreamManager implements LogStreamManager {
   }
 
   resetReconnectionState(): void {
-    this.reconnectAttempts = 0
-    this.backoffDelay = MIN_BACKOFF_MS
+    this.streams.forEach((state) => {
+      state.reconnectAttempts = 0
+      state.backoffDelay = MIN_BACKOFF_MS
+    })
   }
 
   destroy(): void {
     this.isDestroyed = true
-    this.disconnect()
+    Array.from(this.streams.keys()).forEach((service) => this.stopStream(service))
+    this.disconnectTimers.forEach((t) => clearTimeout(t))
+    this.disconnectTimers.clear()
+    this.pendingSince.clear()
     this.registry.clearAll()
   }
 
-  private getStreamUrl(): string {
-    const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    return `${protocol}//${globalThis.location.host}/api/azure/logs/stream?realtime=true`
+  /** Return true if `service` (or 'all') still has any registered subscriber. */
+  private serviceHasSubscribers(service: string): boolean {
+    // The registry's hasSubscribers() is global; we need a per-bucket
+    // check. Using the public dispatch contract: dispatch a synthetic
+    // probe is too heavy, so we re-implement the bucket check by
+    // inspecting via the registry's add/remove return values is also
+    // not enough. Fall back to a private helper on the registry.
+    return this.registry.hasSubscribersFor(service)
   }
 
-  private connect(): void {
-    if (this.isDestroyed || this.ws || this.isConnecting) return
-    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
+  private startStream(serviceName: string): void {
+    if (this.isDestroyed) return
+    const existing = this.streams.get(serviceName)
+    if (existing && existing.isStreaming) return
+
+    const reconnectAttempts = (existing?.reconnectAttempts ?? 0) + 1
+    if (reconnectAttempts > this.config.maxReconnectAttempts) {
       this.registry.setState('error')
       return
     }
 
-    this.isConnecting = true
+    const controller = new AbortController()
+    const state: ServiceStreamState = {
+      service: serviceName,
+      controller,
+      reconnectAttempts,
+      backoffDelay: existing?.backoffDelay ?? MIN_BACKOFF_MS,
+      reconnectTimer: null,
+      isStreaming: true,
+    }
+    this.streams.set(serviceName, state)
     this.registry.setState('connecting')
-    this.reconnectAttempts++
 
+    void this.consumeStream(state)
+  }
+
+  private async consumeStream(state: ServiceStreamState): Promise<void> {
+    const { service, controller } = state
+    let firstMessageSeen = false
     try {
-      const ws = new WebSocket(this.getStreamUrl())
-      ws.addEventListener('open', this.handleOpen)
-      ws.addEventListener('message', this.handleMessage)
-      ws.addEventListener('error', this.handleError)
-      ws.addEventListener('close', this.handleClose)
-      this.ws = ws
+      const since = this.pendingSince.get(service)
+      const req = new StreamAzureLogsRequest({
+        service,
+        // Always realtime: the legacy WS path sets ?realtime=true and
+        // the dashboard never opened a polling-only stream. Server
+        // falls back to polling if realtime setup fails.
+        realtime: true,
+        backfillSeconds: sinceToBackfillSeconds(since),
+      })
+      // Backfill is consumed on first stream open; clear so a
+      // mid-session reconnect doesn't re-replay the original window.
+      this.pendingSince.delete(service)
+
+      for await (const resp of this.client.streamAzureLogs(req, { signal: controller.signal })) {
+        if (this.isDestroyed || controller.signal.aborted) break
+        if (!firstMessageSeen) {
+          firstMessageSeen = true
+          this.registry.setState('connected')
+          state.reconnectAttempts = 0
+          state.backoffDelay = MIN_BACKOFF_MS
+        }
+        this.handleResponse(resp)
+      }
+
+      if (!this.isDestroyed && !controller.signal.aborted && this.serviceHasSubscribers(service)) {
+        this.scheduleReconnect(state)
+      }
     } catch (err) {
-      this.isConnecting = false
-      this.registry.setState('error')
-      if (this.reconnectAttempts === 1) {
+      if (controller.signal.aborted) return
+      if (err instanceof ConnectError && err.code === Code.Canceled) return
+      if (this.isDestroyed) return
+      if (state.reconnectAttempts === 1) {
         console.warn(
-          '[useSharedLogStream:azure] Failed to create WebSocket:',
+          `[useSharedLogStream:azure] Connect stream for "${service}" failed:`,
           err instanceof Error ? err.message : 'Unknown error',
         )
       }
-      if (this.registry.hasSubscribers()) {
-        this.scheduleReconnect()
-      }
-    }
-  }
-
-  private readonly handleOpen = (): void => {
-    if (this.isDestroyed) return
-    this.isConnecting = false
-    this.backoffDelay = MIN_BACKOFF_MS
-    this.reconnectAttempts = 0
-    this.registry.setState('connected')
-    this.sendInitMessage()
-    this.startHeartbeat()
-  }
-
-  private sendInitMessage(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.initSent) return
-    const firstService = Array.from(this.pendingInitConfigs.keys())[0]
-    const firstConfig = firstService ? this.pendingInitConfigs.get(firstService) : undefined
-    if (!firstService && !firstConfig) return
-    try {
-      this.ws.send(
-        JSON.stringify({
-          type: 'init',
-          service: firstService ?? 'all',
-          since: firstConfig?.since ?? '1h',
-        }),
-      )
-      this.initSent = true
-    } catch (err) {
-      console.error('[useSharedLogStream:azure] Failed to send init message:', err)
-    }
-  }
-
-  private readonly handleMessage = (event: MessageEvent): void => {
-    if (this.heartbeatTimeoutTimer) {
-      clearTimeout(this.heartbeatTimeoutTimer)
-      this.heartbeatTimeoutTimer = null
-    }
-    try {
-      const message = JSON.parse(event.data as string) as unknown
-      // Status messages are heartbeats / health updates, not log lines.
-      if (typeof message === 'object' && message !== null && 'type' in message) {
-        const typed = message as { type?: unknown }
-        if (typed.type === 'status') return
-      }
-      const entries = Array.isArray(message) ? (message as LogEntry[]) : [message as LogEntry]
-      entries.forEach((entry) => {
-        if (!entry || typeof entry !== 'object' || !entry.service) {
-          console.warn('[useSharedLogStream:azure] Invalid log entry received:', entry)
-          return
+      if (this.serviceHasSubscribers(service)) {
+        this.scheduleReconnect(state)
+      } else {
+        this.streams.delete(service)
+        if (this.streams.size === 0) {
+          this.registry.setState('disconnected')
         }
-        this.registry.dispatch(entry)
-      })
-    } catch (err) {
-      console.error('[useSharedLogStream:azure] Failed to parse message:', err)
+      }
+    } finally {
+      state.isStreaming = false
     }
   }
 
-  private readonly handleError = (event: Event): void => {
-    // onerror is always followed by onclose; let onclose handle state.
-    void event
-  }
-
-  private readonly handleClose = (event: CloseEvent): void => {
-    if (this.isDestroyed) return
-    this.detachListeners()
-    this.ws = null
-    this.isConnecting = false
-    this.stopHeartbeat()
-    this.initSent = false
-
-    // Clean close (1000) or no subscribers means we don't reconnect.
-    if (event.code === 1000 || !this.registry.hasSubscribers()) {
-      this.registry.setState('disconnected')
-      return
-    }
-
-    this.registry.setState('error')
-    this.scheduleReconnect()
-  }
-
-  private detachListeners(): void {
-    if (!this.ws) return
-    this.ws.removeEventListener('open', this.handleOpen)
-    this.ws.removeEventListener('message', this.handleMessage)
-    this.ws.removeEventListener('error', this.handleError)
-    this.ws.removeEventListener('close', this.handleClose)
-  }
-
-  private startHeartbeat(): void {
-    this.stopHeartbeat()
-    this.heartbeatTimer = setInterval(() => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        this.stopHeartbeat()
+  private handleResponse(resp: StreamAzureLogsResponse): void {
+    const event = resp.event
+    if (!event) return
+    switch (event.case) {
+      case 'entry': {
+        const proto = event.value
+        if (!proto || !proto.service) return
+        this.registry.dispatch(protoToLogEntry(proto))
         return
       }
-      if (this.heartbeatTimeoutTimer) clearTimeout(this.heartbeatTimeoutTimer)
-      this.heartbeatTimeoutTimer = setTimeout(() => {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.close(1000, 'Heartbeat timeout')
-        }
-      }, WebSocketAzureLogStreamManager.HEARTBEAT_TIMEOUT_MS)
-    }, WebSocketAzureLogStreamManager.HEARTBEAT_INTERVAL_MS)
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
-    }
-    if (this.heartbeatTimeoutTimer) {
-      clearTimeout(this.heartbeatTimeoutTimer)
-      this.heartbeatTimeoutTimer = null
-    }
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectTimer || this.isDestroyed) return
-    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) return
-    const delay = this.backoffDelay
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null
-      if (this.registry.hasSubscribers() && !this.isDestroyed) this.connect()
-    }, delay)
-    this.backoffDelay = Math.min(this.backoffDelay * 2 + Math.random() * 1000, MAX_BACKOFF_MS)
-  }
-
-  private disconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = null
-    }
-    if (this.disconnectTimer) {
-      clearTimeout(this.disconnectTimer)
-      this.disconnectTimer = null
-    }
-    this.stopHeartbeat()
-    if (this.ws) {
-      this.detachListeners()
-      const ws = this.ws
-      this.ws = null
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close(1000, 'No more subscribers')
+      case 'status': {
+        if (event.value) this.registry.recordStreamStatus(event.value)
+        return
+      }
+      case 'dropped': {
+        const count = Number(event.value?.count ?? 0)
+        if (count > 0) this.registry.recordDropped(count)
+        return
       }
     }
-    this.isConnecting = false
-    this.backoffDelay = MIN_BACKOFF_MS
-    this.reconnectAttempts = 0
-    this.initSent = false
-    this.pendingInitConfigs.clear()
-    this.registry.clearBuffer()
-    if (!this.isDestroyed) {
-      this.registry.setState('disconnected')
-    }
   }
+
+  private scheduleReconnect(state: ServiceStreamState): void {
+    if (state.reconnectTimer || this.isDestroyed) return
+    if (state.reconnectAttempts >= this.config.maxReconnectAttempts) {
+      this.registry.setState('error')
+      return
+    }
+    this.registry.setState('error')
+    const delay = state.backoffDelay
+    state.reconnectTimer = setTimeout(() => {
+      state.reconnectTimer = null
+      if (!this.isDestroyed && this.serviceHasSubscribers(state.service)) {
+        this.startStream(state.service)
+      }
+    }, delay)
+    state.backoffDelay = Math.min(state.backoffDelay * 2 + Math.random() * 1000, MAX_BACKOFF_MS)
+  }
+
+  private stopStream(serviceName: string): void {
+    const state = this.streams.get(serviceName)
+    if (!state) return
+    if (state.reconnectTimer) {
+      clearTimeout(state.reconnectTimer)
+      state.reconnectTimer = null
+    }
+    state.controller.abort()
+    state.isStreaming = false
+    this.streams.delete(serviceName)
+  }
+}
+
+interface ServiceStreamState {
+  service: string
+  controller: AbortController
+  reconnectAttempts: number
+  backoffDelay: number
+  reconnectTimer: ReturnType<typeof setTimeout> | null
+  isStreaming: boolean
 }
 
 // =============================================================================
@@ -911,15 +1017,15 @@ class WebSocketAzureLogStreamManager implements LogStreamManager {
 // =============================================================================
 
 let localLogManager: ConnectLocalLogStreamManager | null = null
-let azureLogManager: WebSocketAzureLogStreamManager | null = null
+let azureLogManager: ConnectAzureLogStreamManager | null = null
 
 function getLocalLogManager(): ConnectLocalLogStreamManager {
   localLogManager ??= new ConnectLocalLogStreamManager(createLogsClient())
   return localLogManager
 }
 
-function getAzureLogManager(): WebSocketAzureLogStreamManager {
-  azureLogManager ??= new WebSocketAzureLogStreamManager()
+function getAzureLogManager(): ConnectAzureLogStreamManager {
+  azureLogManager ??= new ConnectAzureLogStreamManager(createAzureClient())
   return azureLogManager
 }
 
@@ -947,12 +1053,11 @@ interface UseSharedLogStreamOptions {
   /** Time range for initial fetch (Azure realtime only, e.g. '1h', '30m'). */
   since?: string
   /**
-   * Override the Connect transport for the local-mode manager. Tests
-   * pass `createRouterTransport(...)`; production omits it. Providing a
+   * Override the Connect transport for the active manager. Tests pass
+   * `createRouterTransport(...)`; production omits it. Providing a
    * transport bypasses the singleton so each test instance gets its
-   * own isolated manager.
-   *
-   * No effect when `mode === 'azure'` (legacy WS path).
+   * own isolated manager - applies to BOTH local and azure modes
+   * since both run on Connect.
    */
   transport?: Transport
 }
@@ -961,23 +1066,31 @@ export interface UseSharedLogStreamReturn {
   connectionState: ConnectionState
   /**
    * Total number of log entries the server reported as dropped on the
-   * current Connect stream (drop-OLDEST back-pressure). Always 0 for
-   * `mode === 'azure'` until AzureService.StreamAzureLogs migration
-   * lands. Resets to 0 when all subscribers disconnect.
+   * current Connect stream. Local: drop-OLDEST back-pressure.
+   * Azure: realtime-mode buffer overflow (polling mode never drops
+   * and emits a degraded `streamStatus` instead). Resets to 0 when
+   * all subscribers disconnect.
    */
   droppedCount: number
+  /**
+   * Latest server-emitted stream status, or `null` if none received
+   * yet (or in local mode, which has no equivalent signal). Azure
+   * surfaces this so the LogsView can render polling health and
+   * realtime↔polling mode flips.
+   */
+  streamStatus: StreamStatus | null
 }
 
 /**
- * Subscribe a component to the shared local-log (Connect) or Azure-log
- * (legacy WS) stream. Returns the connection state plus a running
- * drop-counter so consumers can render a "lost N lines" banner.
+ * Subscribe a component to the shared local-log or Azure-log Connect
+ * stream. Returns the connection state, a running drop counter, and
+ * the latest server-emitted stream status (Azure only).
  *
  * Public surface preserved from the WebSocket era: same name, same
- * positional options, same connectionState semantics. `droppedCount`
- * and `transport` are NEW additive fields - the WS-era return was
- * `{ connectionState }` and existing call sites continue to compile
- * because TypeScript widens the return type only when consumed.
+ * positional options, same connectionState semantics. `droppedCount`,
+ * `streamStatus`, and `transport` are additive fields - existing
+ * call sites that destructure only `connectionState` continue to
+ * compile.
  */
 export function useSharedLogStream({
   serviceName,
@@ -998,6 +1111,9 @@ export function useSharedLogStream({
   // module-level cache.
   const manager = useMemo<LogStreamManager>(() => {
     if (mode === 'azure') {
+      if (transport) {
+        return new ConnectAzureLogStreamManager(createAzureClient(transport))
+      }
       return getAzureLogManager()
     }
     if (transport) {
@@ -1008,6 +1124,7 @@ export function useSharedLogStream({
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(() => manager.getState())
   const [droppedCount, setDroppedCount] = useState<number>(() => manager.getDroppedCount())
+  const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null)
 
   useEffect(() => {
     callbackRef.current = onLogEntry
@@ -1043,6 +1160,15 @@ export function useSharedLogStream({
     })
   }, [manager])
 
+  // Stream-status subscription (Azure only emits real values; local
+  // emits null once for interface uniformity).
+  useEffect(() => {
+    return manager.subscribeToStreamStatus((status) => {
+      if (!isMountedRef.current) return
+      setStreamStatus(status)
+    })
+  }, [manager])
+
   // Per-service log subscription.
   useEffect(() => {
     if (!enabled) return undefined
@@ -1059,16 +1185,16 @@ export function useSharedLogStream({
 
   // Per-instance manager cleanup. The singleton path is intentionally
   // not destroyed on unmount because other components may share it;
-  // the test path (local mode + injected transport) creates a fresh
-  // manager per hook so we both can - and must - tear it down.
+  // the test path (transport injected) creates a fresh manager per
+  // hook so we both can - and must - tear it down.
   useEffect(() => {
-    if (mode === 'azure' || !transport) return undefined
+    if (!transport) return undefined
     return () => {
       manager.destroy()
     }
-  }, [manager, mode, transport])
+  }, [manager, transport])
 
-  return { connectionState, droppedCount }
+  return { connectionState, droppedCount, streamStatus }
 }
 
 // =============================================================================

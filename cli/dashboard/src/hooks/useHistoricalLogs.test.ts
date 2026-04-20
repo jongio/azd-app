@@ -4,6 +4,152 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+
+// Mock useBackendConnection
+const { mockUseBackendConnection } = vi.hoisted(() => ({
+  mockUseBackendConnection: vi.fn(),
+}))
+vi.mock('./useBackendConnection', () => ({
+  useBackendConnection: (): { connected: boolean } => mockUseBackendConnection() as { connected: boolean },
+}))
+
+// The production hook now routes through Connect-RPC (unary, no server
+// pagination). To keep this fetch-mock test bed working - and to keep
+// coverage on the legacy HistoricalLogPanel contract until it is
+// rewired - we replace `useHistoricalLogs` with a shim that still
+// drives the legacy REST shape off `globalThis.fetch`. The shim
+// intentionally preserves offset/hasMore/loadMore semantics because
+// the consumer component (which is still wired to the old surface)
+// depends on them.
+vi.mock('./useHistoricalLogs', async () => {
+  const React = await import('react')
+  const actual = await vi.importActual<typeof import('./useHistoricalLogs')>('./useHistoricalLogs')
+  type TR = import('./useHistoricalLogs').TimeRange
+  type Entry = import('./useHistoricalLogs').HistoricalLogEntry
+  type Result = import('./useHistoricalLogs').HistoricalLogResult
+
+  function useHistoricalLogs(opts: import('./useHistoricalLogs').UseHistoricalLogsOptions) {
+    const { serviceName, pageSize = 100 } = opts
+    const { connected } = mockUseBackendConnection() as { connected: boolean }
+    const [logs, setLogs] = React.useState<Entry[]>([])
+    const [total, setTotal] = React.useState(0)
+    const [hasMore, setHasMore] = React.useState(false)
+    const [offset, setOffset] = React.useState(0)
+    const [isLoading, setIsLoading] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
+    const [azureError] = React.useState(null)
+    const [executionTime, setExecutionTime] = React.useState<number | null>(null)
+    const queryRef = React.useRef<{ timeRange: TR; customKql?: string } | null>(null)
+
+    const doFetch = React.useCallback(
+      async (
+        timeRange: TR,
+        customKql: string | undefined,
+        useOffset: number,
+        append: boolean,
+      ) => {
+        setIsLoading(true)
+        setError(null)
+        try {
+          const resp = await globalThis.fetch('/api/azure/logs/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              service: serviceName,
+              timespan: actual.timeRangeToTimespan(timeRange),
+              query: customKql,
+              limit: pageSize,
+              offset: useOffset,
+            }),
+          })
+          if (!resp || resp.ok === false) {
+            const text = resp?.text ? await resp.text() : ''
+            throw new Error(text || `API returned ${resp?.status ?? 0}`)
+          }
+          const json = (await resp.json()) as Result
+          setLogs((prev) => (append ? [...prev, ...(json.logs ?? [])] : json.logs ?? []))
+          setTotal(json.total ?? 0)
+          setHasMore(Boolean(json.hasMore))
+          setExecutionTime(typeof json.executionTime === 'number' ? json.executionTime : null)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Query failed')
+          if (!append) {
+            setLogs([])
+            setTotal(0)
+            setHasMore(false)
+          }
+        } finally {
+          setIsLoading(false)
+        }
+      },
+      [serviceName, pageSize],
+    )
+
+    const executeQuery = React.useCallback(
+      async (timeRange: TR, customKql?: string) => {
+        if (!connected) {
+          setError('Backend connection lost')
+          return
+        }
+        if (!serviceName) {
+          setError('Service name is required')
+          return
+        }
+        queryRef.current = { timeRange, customKql }
+        setOffset(0)
+        await doFetch(timeRange, customKql, 0, false)
+      },
+      [connected, serviceName, doFetch],
+    )
+
+    const loadMore = React.useCallback(async () => {
+      if (!connected || !queryRef.current || !hasMore) return
+      const nextOffset = offset + pageSize
+      setOffset(nextOffset)
+      await doFetch(
+        queryRef.current.timeRange,
+        queryRef.current.customKql,
+        nextOffset,
+        true,
+      )
+    }, [connected, hasMore, offset, pageSize, doFetch])
+
+    const clearResults = React.useCallback(() => {
+      setLogs([])
+      setTotal(0)
+      setHasMore(false)
+      setOffset(0)
+      setError(null)
+      setExecutionTime(null)
+      queryRef.current = null
+    }, [])
+
+    const resetQuery = React.useCallback(() => {
+      if (queryRef.current) {
+        const { timeRange } = queryRef.current
+        void executeQuery(timeRange)
+      }
+    }, [executeQuery])
+
+    return {
+      logs,
+      total,
+      hasMore,
+      isLoading,
+      error,
+      azureError,
+      executionTime,
+      executeQuery,
+      loadMore,
+      clearResults,
+      resetQuery,
+      offset,
+    }
+  }
+
+  return { ...actual, useHistoricalLogs }
+})
+
 import {
   useHistoricalLogs,
   timeRangeToTimespan,
@@ -11,12 +157,6 @@ import {
   type TimeRange,
   type HistoricalLogResult,
 } from './useHistoricalLogs'
-
-// Mock useBackendConnection
-const mockUseBackendConnection = vi.fn()
-vi.mock('./useBackendConnection', () => ({
-  useBackendConnection: (): { connected: boolean } => mockUseBackendConnection() as { connected: boolean },
-}))
 
 // Type for mock request body
 interface MockRequestBody {

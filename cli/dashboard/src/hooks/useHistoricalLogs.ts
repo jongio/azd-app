@@ -1,14 +1,41 @@
 /**
- * useHistoricalLogs - Hook for querying historical Azure logs
- * Handles pagination, time range conversion, and API communication.
+ * useHistoricalLogs - Hook for querying historical Azure logs via the
+ * Connect AzureService.
+ *
+ * Wire migration note: previously POSTed JSON to `/api/azure/logs/query`,
+ * which was a planned legacy endpoint that never actually shipped on
+ * the Go side (the route was wired but returned 404). The hook is
+ * preserved because the Connect proto exposes the equivalent capability
+ * via `getAzureLogs` and a future panel will consume it.
+ *
+ * Pagination intentionally degraded: the proto `GetAzureLogs` RPC does
+ * not surface a server-side offset/cursor (the legacy plan was to add
+ * one but the dashboard never relied on it). To keep the hook surface
+ * stable we treat the unary response as the full result set: `total`
+ * equals `entries.length`, `hasMore` is always `false`, and `loadMore`
+ * is a no-op. Callers retain the same options shape so the
+ * `HistoricalLogPanel` (currently unwired) can light up later without
+ * another type churn. Custom KQL is also dropped because the unary RPC
+ * does not currently accept it; the field remains in the options for
+ * forward compatibility.
  */
-import { useState, useCallback, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { protoInt64 } from '@bufbuild/protobuf'
+
 import type { ParsedAzureError } from '@/types'
 import { createParsedAzureError } from '@/lib/azure-errors'
 import { useBackendConnection } from '@/hooks/useBackendConnection'
+import { createAzureClient } from '@/lib/connectClient'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import {
+  GetAzureLogsRequest,
+  type GetAzureLogsResponse,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
+import { LogLevel, LogStream, type LogEntry as ProtoLogEntry } from '@/gen/proto/azdapp/v1/common_pb.js'
 
 // =============================================================================
-// Types
+// Types (preserved from legacy hook surface)
 // =============================================================================
 
 export type TimeRangePreset = '15m' | '30m' | '6h' | '24h' | 'custom'
@@ -46,36 +73,24 @@ export interface HistoricalLogResult {
 }
 
 export interface UseHistoricalLogsOptions {
-  /** Service name to query logs for */
   serviceName: string
-  /** Number of logs per page */
   pageSize?: number
+  /** Test transport injection - production omits */
+  transport?: Transport
 }
 
 export interface UseHistoricalLogsReturn {
-  /** Fetched log entries */
   logs: HistoricalLogEntry[]
-  /** Total count of matching logs */
   total: number
-  /** Whether more logs are available */
   hasMore: boolean
-  /** Whether a query is in progress */
   isLoading: boolean
-  /** Error message if query failed */
   error: string | null
-  /** Parsed Azure error with type and metadata */
   azureError: ParsedAzureError | null
-  /** Last query execution time in ms */
   executionTime: number | null
-  /** Execute a log query */
   executeQuery: (timeRange: TimeRange, customKql?: string) => Promise<void>
-  /** Load more logs (pagination) */
   loadMore: () => Promise<void>
-  /** Clear all results */
   clearResults: () => void
-  /** Reset to default query (clears custom KQL) */
   resetQuery: () => void
-  /** Current offset for pagination */
   offset: number
 }
 
@@ -84,15 +99,14 @@ export interface UseHistoricalLogsReturn {
 // =============================================================================
 
 const DEFAULT_PAGE_SIZE = 100
+const SECONDS_PER_MINUTE = 60
+const SECONDS_PER_HOUR = 60 * 60
+const SECONDS_PER_DAY = 60 * 60 * 24
 
 // =============================================================================
-// Helper Functions
+// Time range helpers (exported for component reuse)
 // =============================================================================
 
-/**
- * Converts a TimeRange to ISO 8601 duration string for the API.
- * Custom ranges calculate the duration between start and end.
- */
 export function timeRangeToTimespan(timeRange: TimeRange): string {
   if (timeRange.preset !== 'custom') {
     switch (timeRange.preset) {
@@ -109,11 +123,10 @@ export function timeRangeToTimespan(timeRange: TimeRange): string {
     }
   }
 
-  // For custom range, calculate duration
   if (timeRange.start && timeRange.end) {
     const durationMs = timeRange.end.getTime() - timeRange.start.getTime()
     const durationMinutes = Math.ceil(durationMs / 60000)
-    
+
     if (durationMinutes < 60) {
       return `PT${durationMinutes}M`
     } else if (durationMinutes < 1440) {
@@ -125,12 +138,9 @@ export function timeRangeToTimespan(timeRange: TimeRange): string {
     }
   }
 
-  return 'PT30M' // Default fallback
+  return 'PT30M'
 }
 
-/**
- * Formats a time range for display in the results header.
- */
 export function formatTimeRangeDisplay(timeRange: TimeRange): string {
   if (timeRange.preset !== 'custom') {
     switch (timeRange.preset) {
@@ -148,27 +158,122 @@ export function formatTimeRangeDisplay(timeRange: TimeRange): string {
   }
 
   if (timeRange.start && timeRange.end) {
-    const formatDate = (d: Date) => d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const formatDate = (d: Date) =>
+      d.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
     return `${formatDate(timeRange.start)} - ${formatDate(timeRange.end)}`
   }
 
   return 'custom range'
 }
 
+/**
+ * Convert a TimeRange (or the equivalent ISO 8601 duration the legacy
+ * REST sent) into seconds for the proto `since_seconds` field. Anything
+ * unparseable falls back to 30 minutes - matches the legacy server
+ * default when `timespan` was empty.
+ */
+function timeRangeToSeconds(timeRange: TimeRange): number {
+  if (timeRange.preset === 'custom' && timeRange.start && timeRange.end) {
+    const durationMs = Math.max(0, timeRange.end.getTime() - timeRange.start.getTime())
+    return Math.ceil(durationMs / 1000)
+  }
+  switch (timeRange.preset) {
+    case '15m':
+      return 15 * SECONDS_PER_MINUTE
+    case '30m':
+      return 30 * SECONDS_PER_MINUTE
+    case '6h':
+      return 6 * SECONDS_PER_HOUR
+    case '24h':
+      return SECONDS_PER_DAY
+    default:
+      return 30 * SECONDS_PER_MINUTE
+  }
+}
+
 // =============================================================================
-// Hook Implementation
+// Proto -> dashboard mappers
+// =============================================================================
+
+function levelToNumeric(level: LogLevel): number {
+  // Mirrors `protoLevelToNumeric` in useSharedLogStream so historical
+  // and realtime entries render with consistent badges.
+  switch (level) {
+    case LogLevel.ERROR:
+    case LogLevel.FATAL:
+      return 3
+    case LogLevel.WARN:
+      return 2
+    case LogLevel.INFO:
+    case LogLevel.TRACE:
+    case LogLevel.DEBUG:
+    case LogLevel.UNSPECIFIED:
+    default:
+      return 1
+  }
+}
+
+function readStringField(fields: Record<string, unknown> | null, key: string): string | undefined {
+  if (!fields) return undefined
+  const v = fields[key]
+  return typeof v === 'string' && v.length > 0 ? v : undefined
+}
+
+function protoEntryToHistorical(entry: ProtoLogEntry): HistoricalLogEntry {
+  const out: HistoricalLogEntry = {
+    service: entry.service,
+    message: entry.message,
+    level: levelToNumeric(entry.level),
+    timestamp: entry.timestamp ? entry.timestamp.toDate().toISOString() : '',
+    isStderr: entry.stream === LogStream.STDERR,
+  }
+  if (entry.fields) {
+    const json = entry.fields.toJson()
+    const obj =
+      json && typeof json === 'object' && !Array.isArray(json)
+        ? (json as Record<string, unknown>)
+        : null
+    const resourceId = readStringField(obj, 'resourceId') ?? readStringField(obj, 'resource_id')
+    const operationName =
+      readStringField(obj, 'operationName') ?? readStringField(obj, 'operation_name')
+    if (resourceId) out.resourceId = resourceId
+    if (operationName) out.operationName = operationName
+  }
+  return out
+}
+
+function buildResult(resp: GetAzureLogsResponse, executionTimeMs: number): HistoricalLogResult {
+  return {
+    logs: resp.entries.map(protoEntryToHistorical),
+    total: resp.entries.length,
+    // Proto `getAzureLogs` is a single-shot unary RPC - there is no
+    // server-side cursor. Reflect that honestly so consumers don't render
+    // a phantom "load more" link.
+    hasMore: false,
+    executionTime: executionTimeMs,
+  }
+}
+
+// =============================================================================
+// Hook
 // =============================================================================
 
 export function useHistoricalLogs({
   serviceName,
   pageSize = DEFAULT_PAGE_SIZE,
+  transport,
 }: UseHistoricalLogsOptions): UseHistoricalLogsReturn {
   const { connected } = useBackendConnection()
+  const client = useMemo<PromiseClient<typeof AzureService>>(
+    () => createAzureClient(transport),
+    [transport],
+  )
+
   const [logs, setLogs] = useState<HistoricalLogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -176,130 +281,79 @@ export function useHistoricalLogs({
   const [error, setError] = useState<string | null>(null)
   const [azureError, setAzureError] = useState<ParsedAzureError | null>(null)
   const [executionTime, setExecutionTime] = useState<number | null>(null)
-  const [offset, setOffset] = useState(0)
 
-  // Store current query params for pagination and reset
+  // The proto RPC is unary and does not paginate, so `offset` stays 0.
+  // It remains in the return for API stability.
+  const offset = 0
+
   const currentQueryRef = useRef<{
     timeRange: TimeRange
     customKql?: string
   } | null>(null)
 
-  const executeQuery = useCallback(async (timeRange: TimeRange, customKql?: string) => {
-    if (!connected) {
-      setError('Backend connection lost')
-      return
-    }
+  const executeQuery = useCallback(
+    async (timeRange: TimeRange, customKql?: string) => {
+      if (!connected) {
+        setError('Backend connection lost')
+        return
+      }
+      if (!serviceName) {
+        setError('Service name is required')
+        return
+      }
 
-    setIsLoading(true)
-    setError(null)
-    setAzureError(null)
-    setOffset(0)
+      setIsLoading(true)
+      setError(null)
+      setAzureError(null)
+      currentQueryRef.current = { timeRange, customKql }
 
-    // Store query params for pagination
-    currentQueryRef.current = { timeRange, customKql }
-
-    let response: Response | undefined
-
-    try {
-      response = await fetch('/api/azure/logs/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          service: serviceName,
-          timespan: timeRangeToTimespan(timeRange),
-          query: customKql || undefined,
-          limit: pageSize,
-          offset: 0,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        const message = errorText || `Query failed with status ${response.status}`
-        const parsedError = createParsedAzureError(message, response)
+      const startedAt = Date.now()
+      try {
+        const resp = await client.getAzureLogs(
+          new GetAzureLogsRequest({
+            service: serviceName,
+            sinceSeconds: protoInt64.parse(timeRangeToSeconds(timeRange)),
+            tail: pageSize,
+          }),
+        )
+        const result = buildResult(resp, Date.now() - startedAt)
+        setLogs(result.logs)
+        setTotal(result.total)
+        setHasMore(result.hasMore)
+        setExecutionTime(result.executionTime)
+      } catch (err) {
+        const message =
+          err instanceof ConnectError
+            ? err.rawMessage || err.message
+            : err instanceof Error
+            ? err.message
+            : 'Query failed'
+        // `createParsedAzureError` accepts an optional Response; without
+        // one it still classifies based on message content (e.g. rate
+        // limit detection by phrase), which is what we want here since
+        // ConnectError doesn't carry a Response.
         setError(message)
-        setAzureError(parsedError)
+        setAzureError(createParsedAzureError(message))
         setLogs([])
         setTotal(0)
         setHasMore(false)
-        return
+      } finally {
+        setIsLoading(false)
       }
+    },
+    [client, connected, serviceName, pageSize],
+  )
 
-      const result = await response.json() as HistoricalLogResult
-      
-      setLogs(result.logs ?? [])
-      setTotal(result.total ?? 0)
-      setHasMore(result.hasMore ?? false)
-      setExecutionTime(result.executionTime ?? null)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Query failed'
-      const parsedError = createParsedAzureError(message, response)
-      setError(message)
-      setAzureError(parsedError)
-      setLogs([])
-      setTotal(0)
-      setHasMore(false)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [connected, serviceName, pageSize])
-
+  /**
+   * Pagination intentionally not supported through the proto API. Kept
+   * as a no-op so the existing consumer prop wiring continues to type
+   * check; calling it after the first page is a no-op rather than an
+   * error to avoid spurious failures from list virtualisation
+   * components that fire it on scroll.
+   */
   const loadMore = useCallback(async () => {
-    if (!connected || !currentQueryRef.current || isLoading || !hasMore) {
-      return
-    }
-
-    const { timeRange, customKql } = currentQueryRef.current
-    const newOffset = offset + pageSize
-
-    setIsLoading(true)
-    setError(null)
-    setAzureError(null)
-
-    let response: Response | undefined
-
-    try {
-      response = await fetch('/api/azure/logs/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          service: serviceName,
-          timespan: timeRangeToTimespan(timeRange),
-          query: customKql || undefined,
-          limit: pageSize,
-          offset: newOffset,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        const message = errorText || `Query failed with status ${response.status}`
-        const parsedError = createParsedAzureError(message, response)
-        setError(message)
-        setAzureError(parsedError)
-        return
-      }
-
-      const result = await response.json() as HistoricalLogResult
-
-      setLogs(prev => [...prev, ...(result.logs ?? [])])
-      setTotal(result.total ?? total)
-      setHasMore(result.hasMore ?? false)
-      setOffset(newOffset)
-      setExecutionTime(result.executionTime ?? null)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load more logs'
-      const parsedError = createParsedAzureError(message, response)
-      setError(message)
-      setAzureError(parsedError)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [connected, serviceName, pageSize, offset, isLoading, hasMore, total])
+    /* no-op: proto getAzureLogs is unary; see file header */
+  }, [])
 
   const clearResults = useCallback(() => {
     setLogs([])
@@ -308,15 +362,12 @@ export function useHistoricalLogs({
     setError(null)
     setAzureError(null)
     setExecutionTime(null)
-    setOffset(0)
     currentQueryRef.current = null
   }, [])
 
-  // Reset to default query (clears custom KQL)
   const resetQuery = useCallback(() => {
     if (currentQueryRef.current) {
       const { timeRange } = currentQueryRef.current
-      // Re-execute with no custom query
       void executeQuery(timeRange)
     }
   }, [executeQuery])
