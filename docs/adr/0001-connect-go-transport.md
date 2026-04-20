@@ -99,7 +99,7 @@ PR 2 will wire Connect handlers in parallel with the existing REST handlers. The
 - `azdconfig.ConfigClient` is already an interface ✓
 - `service.LogManager`, `monitor.StateMonitor`, `azure.LogAnalyticsClient`, `azure.DiagnosticSettingsChecker` are concrete structs
 
-Extracting interfaces around the concrete types is an orthogonal testability concern. It is **not required** for the transport swap. PR 2 calls concrete types directly (mirroring REST). A later PR (3 or post-4) extracts interfaces if the in-process MCP/cobra refactor needs them.
+Extracting interfaces around the concrete types is an orthogonal testability concern. It is **not required** for the transport swap. PR 2 calls concrete types directly (mirroring REST). A later PR (3 or post-4) extracts interfaces if the MCP/cobra clients need them — PR 3 adds a typed Connect client that talks to the dashboard over localhost HTTP, so interface extraction only matters for unit tests that want to stand in a fake handler.
 
 ### Struct usage inventory
 
@@ -145,7 +145,7 @@ Every RPC in the rewritten proto is doc-commented with a citation to the legacy 
 |---|---|---|
 | **PR 1 (this PR)** | proto schema, codegen, generated stubs, ADR | None — no handlers wired |
 | PR 2 (Stage 2) | Connect handlers mounted in parallel with existing REST. Dashboard reads via Connect-ES client. REST handlers untouched. AzureService proto rewrite + handler + 4 sub-store decomposition + dashboard migration land in a 3-commit batch. | Dashboard reads via Connect; REST still works for legacy callers |
-| PR 3 | MCP and cobra commands call Connect services in-process via `connect.Client` against the same handler set. | MCP/CLI converge on the proto contract |
+| PR 3 (Stage 3) | CLI cobra commands (`app info`, `app logs`) and MCP tool handlers call a typed Connect client over localhost HTTP against the running dashboard process. (The CLI and dashboard are separate processes — "in-process" calls are not possible; the Connect client talks to the same Connect handlers the browser uses.) MCP `info`-shaped tools stop spawning `azd app info` subprocesses; `reqs` remains a subprocess until a dedicated RequirementsService exists. No authentication interceptor is added — the dashboard continues to bind to localhost only, matching the trust posture of the REST surface it replaces. | MCP/CLI converge on the proto contract; subprocess round-trip eliminated for info; legacy REST still available. |
 | PR 4 | Delete REST handlers and the dashboard's REST fetchers. | REST surface removed |
 
 ## Consequences
