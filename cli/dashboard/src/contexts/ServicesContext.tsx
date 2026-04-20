@@ -1,9 +1,25 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
-import type { Transport } from '@connectrpc/connect'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
+import { ConnectError, Code, type Transport } from '@connectrpc/connect'
 
-import { createServicesClient } from '@/lib/connectClient'
+import { createServicesClient, createLifecycleClient } from '@/lib/connectClient'
 import { protoServiceToService } from '@/lib/protoServiceTranslator'
 import type { Service } from '@/types'
+
+/**
+ * Event type emitted by the server whenever the services list changes
+ * (add/update/remove). Must match the Go constant
+ * `broadcast.TypeServicesChanged` in
+ * `cli/src/internal/dashboard/broadcast/events.go`.
+ *
+ * The server sends a full bulk snapshot under `payload.services`, so
+ * consumers always replace the services array on each event; there
+ * is no "add/update/remove" variant on the wire.
+ */
+const EVENT_SERVICES_CHANGED = 'services-changed'
+
+/** Initial reconnect delay; doubles up to RECONNECT_MAX_MS on each failure. */
+const RECONNECT_INITIAL_MS = 500
+const RECONNECT_MAX_MS = 30_000
 
 // Mock data for development when backend isn't running
 const MOCK_SERVICES: Service[] = [
@@ -85,6 +101,8 @@ export function ServicesProvider({ children, transport }: ServicesProviderProps)
   // Memoize the client per-transport so re-renders don't churn it.
   // Default-arg path resolves to the singleton transport from connectClient.
   const client = useMemo(() => createServicesClient(transport), [transport])
+  const lifecycleClient = useMemo(() => createLifecycleClient(transport), [transport])
+  const useMockRef = useRef(false)
 
   const fetchServices = useCallback(async () => {
     try {
@@ -92,10 +110,12 @@ export function ServicesProvider({ children, transport }: ServicesProviderProps)
       setServices(resp.services.map(protoServiceToService))
       setError(null)
       setUseMock(false)
+      useMockRef.current = false
     } catch {
       console.warn('Backend not available, using mock data')
       setServices(MOCK_SERVICES)
       setUseMock(true)
+      useMockRef.current = true
       setError(null) // Don't show error when using mock data
     } finally {
       setLoading(false)
@@ -105,68 +125,75 @@ export function ServicesProvider({ children, transport }: ServicesProviderProps)
   useEffect(() => {
     void fetchServices()
 
-    // Set up WebSocket connection
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`)
-    let isMounted = true
+    // Subscribe to the server-streaming Connect RPC that replaces the
+    // legacy /api/ws fanout. The server emits a `services-changed`
+    // event carrying a full bulk snapshot (`payload.services`) every
+    // time the internal registry mutates -- the client-side `update`,
+    // `add`, and `remove` branches that existed during the WebSocket
+    // era were dead code (the server never emitted them) and have
+    // been removed to match the wire contract exactly.
+    const abort = new AbortController()
+    let cancelled = false
 
-    ws.onopen = () => {
-      if (isMounted) {
-        setConnected(true)
-      }
-    }
-
-    ws.onmessage = (event: MessageEvent<string>) => {
-      if (!isMounted) return
-      try {
-        const update = JSON.parse(event.data) as { type: string; service?: Service; services?: Service[] }
-        if (update.type === 'services' && update.services) {
-          // Bulk update: replace all services
-          setServices(update.services)
-        } else if ((update.type === 'update' || update.type === 'add') && update.service) {
-          setServices(prev => {
-            const index = prev.findIndex(
-              s => s.name === update.service!.name
-            )
-            if (index >= 0) {
-              const updated = [...prev]
-              updated[index] = update.service!
-              return updated
-            }
-            return [...prev, update.service!]
-          })
-        } else if (update.type === 'remove' && update.service) {
-          setServices(prev =>
-            prev.filter(
-              s => s.name !== update.service!.name
-            )
-          )
+    const run = async () => {
+      let backoff = RECONNECT_INITIAL_MS
+      while (!cancelled) {
+        // Skip the stream entirely when we're in mock mode: the
+        // backend isn't running, so dialing StreamBroadcast would
+        // just flood the console with reconnect errors.
+        if (useMockRef.current) {
+          setConnected(false)
+          await new Promise((resolve) => setTimeout(resolve, RECONNECT_MAX_MS))
+          continue
         }
-      } catch (err) {
-        console.error('Failed to parse WebSocket message:', err)
+
+        try {
+          const stream = lifecycleClient.streamBroadcast(
+            { eventTypes: [EVENT_SERVICES_CHANGED] },
+            { signal: abort.signal },
+          )
+          setConnected(true)
+          backoff = RECONNECT_INITIAL_MS
+          for await (const msg of stream) {
+            if (cancelled) break
+            const ev = msg.event
+            if (!ev || ev.type !== EVENT_SERVICES_CHANGED) continue
+            const payload = ev.payload?.toJson() as
+              | { services?: Service[] }
+              | undefined
+            if (payload?.services) {
+              setServices(payload.services)
+            }
+          }
+        } catch (err) {
+          if (cancelled) return
+          // Signal-triggered aborts (component unmount) are expected
+          // -- swallow them without logging to avoid scary messages
+          // in the console during ordinary navigation.
+          if (err instanceof ConnectError && err.code === Code.Canceled) {
+            return
+          }
+          if (err instanceof Error && err.name === 'AbortError') {
+            return
+          }
+          console.warn('services broadcast stream interrupted, reconnecting:', err)
+        } finally {
+          setConnected(false)
+        }
+
+        if (cancelled) break
+        await new Promise((resolve) => setTimeout(resolve, backoff))
+        backoff = Math.min(backoff * 2, RECONNECT_MAX_MS)
       }
     }
 
-    ws.onerror = () => {
-      if (isMounted) {
-        setConnected(false)
-        console.warn('WebSocket not available (this is normal in dev mode)')
-      }
-    }
-
-    ws.onclose = () => {
-      if (isMounted) {
-        setConnected(false)
-      }
-    }
+    void run()
 
     return () => {
-      isMounted = false
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close(1000, 'Component unmounting')
-      }
+      cancelled = true
+      abort.abort()
     }
-  }, [fetchServices])
+  }, [fetchServices, lifecycleClient])
 
   // Memoize service names for convenience
   const serviceNames = useMemo(() => services.map(s => s.name), [services])

@@ -8,14 +8,11 @@ import { formatLogTimestamp } from '@/lib/service-utils'
 import { cn } from '@/lib/utils'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import { useSharedLogStream } from '@/hooks/useSharedLogStream'
-import { createAzureClient } from '@/lib/connectClient'
+import { useServicesContext } from '@/contexts/ServicesContext'
+import { createAzureClient, createLogsClient } from '@/lib/connectClient'
 import { GetAzureLogsRequest } from '@/gen/proto/azdapp/v1/azure_pb.js'
-import {
-  LogLevel,
-  LogStream,
-  type LogEntry as ProtoLogEntry,
-} from '@/gen/proto/azdapp/v1/common_pb.js'
-import type { Service } from '@/types'
+import { GetLogsRequest } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { protoLogEntryToView, type DashboardLogEntry } from '@/lib/log-proto'
 import type { LogMode } from './ModeToggle'
 import {
   MAX_LOGS_IN_MEMORY,
@@ -28,13 +25,7 @@ import {
   getServiceColor,
 } from '@/lib/log-utils'
 
-interface LogEntry {
-  service: string
-  message: string
-  level: number
-  timestamp: string
-  isStderr: boolean
-}
+type LogEntry = DashboardLogEntry
 
 // =============================================================================
 // Azure Connect mappers (mirror the WS-era JSON shape)
@@ -61,41 +52,6 @@ function azureTimeRangeToSeconds(preset: '15m' | '30m' | '6h' | '24h'): number {
       return 24 * SECONDS_PER_HOUR
     default:
       return 30 * SECONDS_PER_MINUTE
-  }
-}
-
-/**
- * Collapse the proto LogLevel enum onto the dashboard's three numeric
- * buckets (1=info, 2=warning, 3=error). Same mapping as
- * useSharedLogStream.protoLevelToNumeric so behaviour is identical
- * regardless of which path delivered the entry.
- */
-function levelToNumeric(level: LogLevel): number {
-  switch (level) {
-    case LogLevel.ERROR:
-    case LogLevel.FATAL:
-      return 3
-    case LogLevel.WARN:
-      return 2
-    default:
-      return 1
-  }
-}
-
-function timestampToIso(ts: ProtoLogEntry['timestamp']): string {
-  if (!ts) return new Date().toISOString()
-  const seconds = typeof ts.seconds === 'bigint' ? Number(ts.seconds) : Number(ts.seconds ?? 0)
-  const nanos = typeof ts.nanos === 'number' ? ts.nanos : 0
-  return new Date(seconds * 1000 + Math.floor(nanos / 1e6)).toISOString()
-}
-
-function protoLogEntryToView(proto: ProtoLogEntry): LogEntry {
-  return {
-    service: proto.service,
-    message: proto.message,
-    level: levelToNumeric(proto.level),
-    timestamp: timestampToIso(proto.timestamp),
-    isStderr: proto.stream === LogStream.STDERR,
   }
 }
 
@@ -148,7 +104,6 @@ export function LogsView({
   azureRealtime = false,
 }: LogsViewProps = {}) {
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [internalServices, setInternalServices] = useState<string[]>([])
   const [selectedService, setSelectedService] = useState<string>('all')
   const [internalSearchTerm, setInternalSearchTerm] = useState('')
   const [internalIsPaused, setInternalIsPaused] = useState(false)
@@ -157,45 +112,30 @@ export function LogsView({
   const [hasFetched, setHasFetched] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
-  const wsRef = useRef<WebSocket | null>(null)
   const isPausedRef = useRef(false)
   const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
-  
+
   // Get Codespace config for URL transformation in logs
   const { config: codespaceConfig } = useCodespaceEnv()
-  
-  // Use external services when provided (controlled mode), otherwise internal
-  const services = servicesProp ?? internalServices
-  
+
+  // Services are sourced from context (live-updated via the
+  // LifecycleService.StreamBroadcast subscription in ServicesProvider)
+  // unless the parent supplies an explicit list. The legacy path
+  // that re-fetched `/api/services` inside this component has been
+  // removed; the provider's stream is the single source of truth.
+  const { serviceNames: contextServiceNames } = useServicesContext()
+  const services = servicesProp ?? contextServiceNames
+
   // Use external values when provided (controlled mode from parent), otherwise internal
   const isPaused = externalIsPaused ?? internalIsPaused
   const autoScroll = externalAutoScroll ?? true
   const searchTerm = globalSearchTerm ?? internalSearchTerm
-  
-  // Keep ref in sync for WebSocket callback
+
+  // Keep ref in sync so the shared-log-stream callback (which runs
+  // outside the normal render cycle) sees the current pause state.
   useEffect(() => {
     isPausedRef.current = isPaused
   }, [isPaused])
-
-  // Fetch services list only if not provided via prop
-  useEffect(() => {
-    if (servicesProp) return // Skip fetch when services provided via prop
-    
-    const fetchServices = async () => {
-      try {
-        const res = await fetch('/api/services')
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        const data = await res.json() as Service[]
-        const serviceNames = data.map((s) => s.name)
-        setInternalServices(serviceNames)
-      } catch (err) {
-        console.error('Failed to fetch services:', err)
-      }
-    }
-    void fetchServices()
-  }, [servicesProp])
 
   const fetchLogs = useCallback(async () => {
     const serviceValue = (logMode === 'azure' && azureServiceFilter)
@@ -227,23 +167,22 @@ export function LogsView({
       return
     }
 
-    // Local mode: legacy REST path is unchanged for this commit. The
-    // local-mode Connect migration is a separate PR and will route
-    // through `client.getLogs(...)` once it lands.
-    const baseEndpoint = '/api/logs'
-    const params = new URLSearchParams({ tail: String(INITIAL_LOG_TAIL) })
-    if (serviceValue !== 'all' && serviceValue !== '') {
-      params.set('service', serviceValue)
-    }
-    const url = `${baseEndpoint}?${params.toString()}`
-
+    // Local mode: Connect RPC replaces the legacy GET /api/logs.
+    // Empty `serviceName` asks the server for the merged tail across
+    // every service (GetAll); a specific service name returns just
+    // that service's ring. A missing service surfaces as Connect
+    // `NotFound`, which is equivalent to the legacy 404 and handled
+    // by `useLogsStream`; here in LogsView we just fall through to
+    // the empty-logs state so the pane renders cleanly.
     try {
-      const res = await fetch(url)
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
-      const data = await res.json() as LogEntry[]
-      setLogs(Array.isArray(data) ? data : [])
+      const client = createLogsClient()
+      const resp = await client.getLogs(
+        new GetLogsRequest({
+          serviceName: serviceValue !== 'all' && serviceValue !== '' ? serviceValue : '',
+          tail: INITIAL_LOG_TAIL,
+        }),
+      )
+      setLogs(resp.entries.map(protoLogEntryToView))
     } catch (err) {
       console.error('Failed to fetch local logs:', err)
       setLogs([])
@@ -252,109 +191,52 @@ export function LogsView({
     }
   }, [selectedService, logMode, azureServiceFilter, timeRange?.preset])
 
-  const setupWebSocket = useCallback(() => {
-    // Close existing connection
-    if (wsRef.current) {
-      wsRef.current.close()
-    }
-
-    // Azure realtime now flows through `useSharedLogStream({mode:'azure'})`
-    // (Connect server-streaming). The legacy WebSocket path here only
-    // services the local-mode branch until that migration lands.
-    if (logMode === 'azure') {
-      return
-    }
-
-    const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const baseStreamEndpoint = '/api/logs/stream'
-
-    const params = new URLSearchParams()
-    if (selectedService !== 'all' && selectedService !== '') {
-      params.set('service', selectedService)
-    }
-
-    const query = params.toString()
-    const url = query.length > 0
-      ? `${protocol}//${globalThis.location.host}${baseStreamEndpoint}?${query}`
-      : `${protocol}//${globalThis.location.host}${baseStreamEndpoint}`
-
-    const ws = new WebSocket(url)
-
-    ws.onopen = () => {
-      // WebSocket connected
-    }
-
-    ws.onmessage = (event: MessageEvent<string>) => {
-      // Check pause state from ref to get current value (not stale closure)
-      if (isPausedRef.current) {
-        return
-      }
-      // Ignore messages received within 100ms of a clear operation
-      // This prevents race conditions where in-flight messages appear after clear
-      if (Date.now() - lastClearTimeRef.current < 100) {
-        return
-      }
-      try {
-        const entry = JSON.parse(event.data) as LogEntry
-        setLogs(prev => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
-      } catch (err) {
-        console.error('Failed to parse log entry:', err)
-      }
-    }
-
-    ws.onerror = (error) => {
-      console.error(`WebSocket error (${logMode}):`, error)
-    }
-
-    ws.onclose = () => {
-      // WebSocket closed
-    }
-
-    wsRef.current = ws
-  }, [selectedService, logMode]) // Reconnect when mode/filter changes
-
-  // Azure realtime via Connect server-streaming. Replaces the legacy
-  // `/api/azure/logs/stream` WebSocket path. The hook handles
-  // reconnect, back-pressure, and the per-service stream lifecycle.
-  // We append entries to the same `logs` state the historical fetch
-  // populates so the UI sees a continuous tail.
-  const azureRealtimeService = useMemo(() => {
-    if (logMode !== 'azure') return ''
-    const value = azureServiceFilter || selectedService
-    // Connect Azure stream requires a non-empty service. When the user
-    // hasn't picked one yet ('all' or empty), defer streaming until
-    // they do - the historical fetch still populates the pane.
-    return value && value !== 'all' ? value : ''
-  }, [logMode, azureServiceFilter, selectedService])
-
-  const azureStreamEnabled = logMode === 'azure' && azureRealtime && azureRealtimeService !== ''
-
-  const handleAzureRealtimeEntry = useCallback((entry: LogEntry) => {
-    // Mirror the legacy WS handler: respect pause + clear-debounce so
-    // a paused pane doesn't accumulate background entries and a freshly
-    // cleared pane doesn't immediately re-fill from in-flight events.
+  // Unified realtime entry handler: both local and Azure streams drop
+  // through the same pause + clear-debounce gate so the two code paths
+  // can't diverge. Kept as a `useCallback` so the useSharedLogStream
+  // effect stays stable across renders.
+  const handleRealtimeEntry = useCallback((entry: LogEntry) => {
     if (isPausedRef.current) return
     if (Date.now() - lastClearTimeRef.current < 100) return
     setLogs((prev) => [...prev, entry].slice(-MAX_LOGS_IN_MEMORY))
   }, [])
 
+  // Azure realtime requires a concrete service name (the streamer
+  // attaches to a per-resource event-hub); for local mode the server
+  // multiplexes every service onto a single stream so empty or 'all'
+  // are both valid.
+  const streamServiceName = useMemo(() => {
+    if (logMode === 'azure') {
+      const value = azureServiceFilter || selectedService
+      return value && value !== 'all' ? value : ''
+    }
+    return selectedService && selectedService !== 'all' ? selectedService : ''
+  }, [logMode, azureServiceFilter, selectedService])
+
+  // Enable the shared stream whenever we're actively rendering logs
+  // for the current mode. Azure honours the `azureRealtime` toggle
+  // (polling mode still uses the periodic fetch below); local mode
+  // is always streaming since that's the only path after the WS
+  // migration. Mode-switching suspends the stream to avoid
+  // interleaving entries from the outgoing and incoming modes.
+  const streamEnabled = !isModeSwitching && (
+    logMode === 'local' ||
+    (logMode === 'azure' && azureRealtime && streamServiceName !== '')
+  )
+
   useSharedLogStream({
-    serviceName: azureRealtimeService || 'all',
-    enabled: azureStreamEnabled,
-    mode: 'azure',
-    onLogEntry: handleAzureRealtimeEntry,
-    since: timeRange?.preset,
+    serviceName: streamServiceName || 'all',
+    enabled: streamEnabled,
+    mode: logMode === 'azure' ? 'azure' : 'local',
+    onLogEntry: handleRealtimeEntry,
+    since: logMode === 'azure' ? timeRange?.preset : undefined,
   })
 
-  // Fetch initial logs and setup WebSocket (when applicable)
+  // Fetch initial logs whenever the effective fetch key changes.
+  // Live updates flow through useSharedLogStream above.
   useEffect(() => {
     void fetchLogs()
-    setupWebSocket()
-
-    return () => {
-      wsRef.current?.close()
-    }
-  }, [fetchLogs, setupWebSocket])
+  }, [fetchLogs])
 
   // Azure polling (non-realtime): periodically refetch logs.
   useEffect(() => {

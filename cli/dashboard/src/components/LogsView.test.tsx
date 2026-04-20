@@ -1,39 +1,117 @@
+/**
+ * LogsView component tests.
+ *
+ * After the Connect-RPC migration, the component no longer talks to
+ * REST (`/api/services`, `/api/logs`) or WebSockets (`/api/logs/stream`,
+ * `/api/azure/logs/stream`). Tests stub the three seams the component
+ * still depends on:
+ *
+ *   1. `useServicesContext` - source of the services dropdown. The
+ *      legacy `/api/services` fetch is gone; the provider streams
+ *      updates via LifecycleService.StreamBroadcast.
+ *   2. `createLogsClient` / `createAzureClient` - unary historical
+ *      fetches that replaced `GET /api/logs` and `GET /api/azure/logs`.
+ *   3. `useSharedLogStream` - server-streaming live updates that
+ *      replaced the `/api/logs/stream` WebSocket. Tests drive live
+ *      entries by invoking the captured `onLogEntry` callback.
+ *
+ * The historical tests exercising pause, clear-debounce, the 1000-
+ * entry cap, and the clearAllTrigger race are preserved verbatim -
+ * they now fire entries via the stub callback instead of the removed
+ * WebSocket mock.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { LogsView } from '@/components/LogsView'
-import {
-  mockLogs,
-  mockLogsWithAnsi,
-  mockServices,
-  createMockFetchResponse,
-  createMockWebSocketMessage,
-} from '@/test/mocks'
 
-interface MockWebSocket {
-  url: string
-  onopen: ((event: Event) => void) | null
-  onmessage: ((event: MessageEvent) => void) | null
-  onerror: ((event: Event) => void) | null
-  onclose: ((event: CloseEvent) => void) | null
-  close: ReturnType<typeof vi.fn>
+import { LogsView } from '@/components/LogsView'
+import { mockLogs, mockLogsWithAnsi } from '@/test/mocks'
+
+// Pass proto LogEntry-shaped values through unchanged. The component
+// calls `protoLogEntryToView` on every entry from the Connect
+// unary fetch; making the mapper an identity lets us hand it the
+// dashboard `LogEntry` fixtures directly without re-building proto
+// objects just to assert on dashboard fields.
+vi.mock('@/lib/log-proto', () => ({
+  protoLogEntryToView: <T,>(entry: T) => entry,
+}))
+
+// ServicesContext: the component reads `serviceNames` for the
+// services dropdown. Return the same three mock services every test
+// used to see through the legacy `/api/services` fetch so the
+// dropdown assertions still pass without re-authoring them.
+vi.mock('@/contexts/ServicesContext', () => ({
+  useServicesContext: () => ({
+    services: [],
+    serviceNames: ['api', 'web', 'database'],
+    loading: false,
+    error: null,
+    connected: true,
+    refetch: vi.fn(),
+    getService: vi.fn(),
+  }),
+  // Included so any accidental import of the provider from a test
+  // doesn't break - a noop wrapper is safe here because the component
+  // pulls everything through `useServicesContext`.
+  ServicesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+// useSharedLogStream: capture the options on each render so tests
+// can (a) assert wiring (mode/enabled/serviceName) and (b) invoke
+// the stored `onLogEntry` to simulate a live server-streamed entry,
+// the same way the old WebSocket tests pushed messages into
+// `wsRef.current.onmessage`.
+type LogEntryArg = {
+  service: string
+  message: string
+  level: number
+  timestamp: string
+  isStderr: boolean
+}
+type SharedStreamOpts = {
+  serviceName: string
+  enabled: boolean
+  mode: 'local' | 'azure'
+  onLogEntry: (entry: LogEntryArg) => void
+  since?: string
+}
+
+let latestSharedArgs: SharedStreamOpts | null = null
+vi.mock('@/hooks/useSharedLogStream', () => ({
+  useSharedLogStream: (opts: SharedStreamOpts) => {
+    latestSharedArgs = opts
+    return { connectionState: 'connected' as const, droppedCount: 0 }
+  },
+}))
+
+// Connect factories: the component calls these on every historical
+// fetch. Tests mutate the mock return values per-case. We preserve
+// all other exports from `@/lib/connectClient` because
+// `useCodespaceEnv` (pulled in transitively by LogsView) dials
+// `createLifecycleClient` and must keep working against the default
+// singleton transport.
+const getLogsMock = vi.fn()
+const getAzureLogsMock = vi.fn()
+vi.mock('@/lib/connectClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/connectClient')>()
+  return {
+    ...actual,
+    createLogsClient: () => ({ getLogs: getLogsMock }),
+    createAzureClient: () => ({ getAzureLogs: getAzureLogsMock }),
+  }
+})
+
+function pushLive(entry: LogEntryArg): void {
+  if (!latestSharedArgs) throw new Error('useSharedLogStream was never called')
+  latestSharedArgs.onLogEntry(entry)
 }
 
 describe('LogsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-
-    // Mock fetch for services and logs
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
-      }
-      if (url.includes('/api/logs')) {
-        return createMockFetchResponse(mockLogs)
-      }
-      return createMockFetchResponse([])
-    })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
+    latestSharedArgs = null
+    getLogsMock.mockResolvedValue({ entries: mockLogs })
+    getAzureLogsMock.mockResolvedValue({ entries: [] })
   })
 
   it('should render logs view with controls', async () => {
@@ -68,22 +146,21 @@ describe('LogsView', () => {
 
   it('should filter logs by service', async () => {
     const user = userEvent.setup()
-    
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
+
+    // When the user selects a service, LogsView re-fetches through
+    // the Connect client. Return only that service's entries so the
+    // assertion on the outgoing request is meaningful.
+    getLogsMock.mockImplementation((req: { serviceName: string }) => {
+      if (req.serviceName === 'api') {
+        return Promise.resolve({ entries: [mockLogs[0], mockLogs[1]] })
       }
-      if (url.includes('service=api')) {
-        return createMockFetchResponse([mockLogs[0], mockLogs[1]])
-      }
-      return createMockFetchResponse(mockLogs)
+      return Promise.resolve({ entries: mockLogs })
     })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
 
     render(<LogsView />)
 
     const select = screen.getByRole('combobox')
-    
+
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'api' })).toBeInTheDocument()
     })
@@ -91,7 +168,9 @@ describe('LogsView', () => {
     await user.selectOptions(select, 'api')
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('service=api'))
+      expect(getLogsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ serviceName: 'api' }),
+      )
     })
   })
 
@@ -128,7 +207,6 @@ describe('LogsView', () => {
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
 
-    // Find pause button
     const pauseButton = screen.getByTitle('Pause')
     await user.click(pauseButton)
 
@@ -136,7 +214,6 @@ describe('LogsView', () => {
       expect(screen.getByText(/Paused - scroll stopped/)).toBeInTheDocument()
     })
 
-    // Find resume button
     const resumeButton = screen.getByTitle('Resume')
     await user.click(resumeButton)
 
@@ -156,7 +233,6 @@ describe('LogsView', () => {
     const exportButton = screen.getByTitle('Export logs')
     await user.click(exportButton)
 
-    // Check that URL.createObjectURL was called
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const mockFn = globalThis.URL.createObjectURL as ReturnType<typeof vi.fn>
     expect(mockFn.mock.calls).toHaveLength(1)
@@ -165,7 +241,7 @@ describe('LogsView', () => {
   it('should clear logs with confirmation', async () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
-    
+
     render(<LogsView />)
 
     await waitFor(() => {
@@ -186,7 +262,7 @@ describe('LogsView', () => {
   it('should not clear logs when confirmation is cancelled', async () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false)
-    
+
     render(<LogsView />)
 
     await waitFor(() => {
@@ -198,7 +274,6 @@ describe('LogsView', () => {
 
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalled()
-      // Logs should still be visible
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
 
@@ -206,22 +281,10 @@ describe('LogsView', () => {
   })
 
   it('should display empty state when no logs', async () => {
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
-      }
-      return createMockFetchResponse([])
-    })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
+    getLogsMock.mockResolvedValue({ entries: [] })
 
     render(<LogsView />)
 
-    // First should show loading state
-    await waitFor(() => {
-      expect(screen.getByText(/Fetching local logs/)).toBeInTheDocument()
-    })
-
-    // Then should show empty state after fetch completes
     await waitFor(() => {
       expect(screen.getByText('No logs to display')).toBeInTheDocument()
     })
@@ -243,122 +306,68 @@ describe('LogsView', () => {
     })
   })
 
-  it('should handle WebSocket log streaming', async () => {
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    let mockConstructorCalled = false
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      addEventListener = vi.fn((event: string, handler: EventListener) => {
-        if (event === 'open') this.onopen = handler as (event: Event) => void
-        if (event === 'message') this.onmessage = handler as (event: MessageEvent) => void
-        if (event === 'error') this.onerror = handler as (event: Event) => void
-        if (event === 'close') this.onclose = handler as (event: CloseEvent) => void
-      })
-      removeEventListener = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        mockConstructorCalled = true
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
+  it('should handle live log streaming', async () => {
     render(<LogsView />)
 
-    // Wait for initial logs to be fetched and rendered
     await waitFor(() => {
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
-    }, { timeout: 10000 })
-
-    // Wait for WebSocket constructor to be called
-    await waitFor(() => {
-      expect(mockConstructorCalled).toBe(true)
-    }, { timeout: 10000 })
-
-    // Wait for WebSocket to be fully connected (onmessage handler set)
-    await waitFor(() => {
-      expect(wsRef.current?.onmessage).not.toBeNull()
-    }, { timeout: 10000 })
-
-    // Give a bit more time for component to stabilize
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    // Simulate receiving a new log entry
-    const newLogEntry = {
-      service: 'api',
-      message: 'New log message from WebSocket',
-      level: 0,
-      timestamp: new Date().toISOString(),
-      isStderr: false,
-    }
-
-    act(() => {
-      if (wsRef.current?.onmessage) {
-        wsRef.current.onmessage(createMockWebSocketMessage(newLogEntry))
-      }
     })
 
-    // Wait a bit for the message to be processed
-    await new Promise(resolve => setTimeout(resolve, 100))
+    // Shared-stream hook should be mounted and enabled for local mode.
+    await waitFor(() => {
+      expect(latestSharedArgs).not.toBeNull()
+      expect(latestSharedArgs?.enabled).toBe(true)
+      expect(latestSharedArgs?.mode).toBe('local')
+    })
+
+    // The mode-change effect in LogsView stamps `lastClearTimeRef` on
+    // mount, which gates realtime entries for 100ms to avoid races
+    // with clearAllTrigger. Wait past that window before pushing.
+    await new Promise((resolve) => setTimeout(resolve, 150))
+
+    act(() => {
+      pushLive({
+        service: 'api',
+        message: 'New log message from shared stream',
+        level: 0,
+        timestamp: new Date().toISOString(),
+        isStderr: false,
+      })
+    })
 
     await waitFor(() => {
-      expect(screen.getByText('New log message from WebSocket')).toBeInTheDocument()
-    }, { timeout: 10000 })
-  }, 15000) // Increase overall test timeout to 15s
+      expect(screen.getByText('New log message from shared stream')).toBeInTheDocument()
+    })
+  })
 
   it('should format timestamps correctly', async () => {
     render(<LogsView />)
 
     await waitFor(() => {
-      // Should display formatted timestamps in MM-DD HH:MM:SS.mmm format
       const timestamps = screen.getAllByText(/\[\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}/)
       expect(timestamps.length).toBeGreaterThan(0)
     })
   })
 
   it('should color-code error messages in red', async () => {
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
-      }
-      return createMockFetchResponse([mockLogs[4]]) // Error log
-    })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
+    getLogsMock.mockResolvedValue({ entries: [mockLogs[4]] }) // Error log
     const { container } = render(<LogsView />)
 
     await waitFor(() => {
       expect(screen.getByText(/Error: Connection timeout/)).toBeInTheDocument()
     })
 
-    // Check for red color class
     expect(container.querySelector('.text-red-400')).toBeInTheDocument()
   })
 
   it('should color-code warning messages in yellow', async () => {
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
-      }
-      return createMockFetchResponse([mockLogs[3]]) // Warning log
-    })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
+    getLogsMock.mockResolvedValue({ entries: [mockLogs[3]] }) // Warning log
     const { container } = render(<LogsView />)
 
     await waitFor(() => {
       expect(screen.getByText(/Warning/)).toBeInTheDocument()
     })
 
-    // Check for yellow color class
     expect(container.querySelector('.text-yellow-400')).toBeInTheDocument()
   })
 
@@ -369,24 +378,15 @@ describe('LogsView', () => {
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
 
-    // Check for service name color classes
     const serviceNames = container.querySelectorAll('[class*="text-"]')
     expect(serviceNames.length).toBeGreaterThan(0)
   })
 
   it('should convert ANSI codes to HTML', async () => {
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
-      }
-      return createMockFetchResponse(mockLogsWithAnsi)
-    })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
+    getLogsMock.mockResolvedValue({ entries: mockLogsWithAnsi })
     render(<LogsView />)
 
     await waitFor(() => {
-      // ANSI codes should be converted (the text should still be visible)
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
   })
@@ -399,7 +399,6 @@ describe('LogsView', () => {
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
 
-    // Pause
     const pauseButton = screen.getByTitle('Pause')
     await user.click(pauseButton)
 
@@ -416,7 +415,6 @@ describe('LogsView', () => {
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
 
-    // Pause
     const pauseButton = screen.getByTitle('Pause')
     await user.click(pauseButton)
 
@@ -424,7 +422,6 @@ describe('LogsView', () => {
       expect(screen.getByText('Jump to Bottom')).toBeInTheDocument()
     })
 
-    // Click jump to bottom
     const jumpButton = screen.getByText('Jump to Bottom')
     await user.click(jumpButton)
 
@@ -434,25 +431,8 @@ describe('LogsView', () => {
   })
 
   it('should limit logs to 1000 entries', async () => {
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    // Create 1000 log entries
+    // Pre-populate with 1000 entries via the unary fetch, then push
+    // one more through the live stream and assert the cap holds.
     const manyLogs = Array.from({ length: 1000 }, (_, i) => ({
       service: 'api',
       message: `Log entry ${i}`,
@@ -460,14 +440,7 @@ describe('LogsView', () => {
       timestamp: new Date().toISOString(),
       isStderr: false,
     }))
-
-    const mockFetch = vi.fn((url: string) => {
-      if (url === '/api/services') {
-        return createMockFetchResponse(mockServices)
-      }
-      return createMockFetchResponse(manyLogs)
-    })
-    globalThis.fetch = mockFetch as unknown as typeof fetch
+    getLogsMock.mockResolvedValue({ entries: manyLogs })
 
     render(<LogsView />)
 
@@ -475,99 +448,67 @@ describe('LogsView', () => {
       expect(screen.getByText(/Showing \d+ of \d+ log entries/)).toBeInTheDocument()
     })
 
-    // Add one more via WebSocket
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(
-          createMockWebSocketMessage({
-            service: 'api',
-            message: 'New entry',
-            level: 0,
-            timestamp: new Date().toISOString(),
-            isStderr: false,
-          })
-        )
-      })
-    }
+    await waitFor(() => {
+      expect(latestSharedArgs).not.toBeNull()
+    })
 
-    // Should be limited to 1000
+    act(() => {
+      pushLive({
+        service: 'api',
+        message: 'New entry',
+        level: 0,
+        timestamp: new Date().toISOString(),
+        isStderr: false,
+      })
+    })
+
     await waitFor(() => {
       const countText = screen.getByText(/Showing (\d+) of (\d+) log entries/)
       expect(countText.textContent).toContain('1000')
     })
   })
 
-  it('should not re-add logs from WebSocket after clearing', async () => {
+  it('should not re-add logs from live stream after clearing', async () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true)
-    
-    // Mock WebSocket
-    const wsRef = { current: null as MockWebSocket | null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
 
     render(<LogsView />)
 
-    // Wait for initial logs to load
     await waitFor(() => {
       expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
     })
 
-    // Simulate WebSocket message arriving just before clear
-    const pendingEntry = {
-      service: 'web',
-      message: 'This should not appear after clear',
-      level: 0,
-      timestamp: new Date().toISOString(),
-      isStderr: false,
-    }
+    await waitFor(() => {
+      expect(latestSharedArgs).not.toBeNull()
+    })
 
-    // Clear logs
     const clearButton = screen.getByTitle('Clear logs')
-    
-    // Send WebSocket message right before clear (simulating race condition)
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(createMockWebSocketMessage(pendingEntry))
-      })
-    }
 
-    // Then clear
+    // Push one live entry immediately before clicking clear.
+    act(() => {
+      pushLive({
+        service: 'web',
+        message: 'This should not appear after clear',
+        level: 0,
+        timestamp: new Date().toISOString(),
+        isStderr: false,
+      })
+    })
+
     await user.click(clearButton)
 
-    // Send another WebSocket message right after clear
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(
-          createMockWebSocketMessage({
-            service: 'web',
-            message: 'This should also not appear',
-            level: 0,
-            timestamp: new Date().toISOString(),
-            isStderr: false,
-          })
-        )
+    // Push another right after clear - should be dropped by the 100ms
+    // clear-debounce window.
+    act(() => {
+      pushLive({
+        service: 'web',
+        message: 'This should also not appear',
+        level: 0,
+        timestamp: new Date().toISOString(),
+        isStderr: false,
       })
-    }
+    })
 
-    // Should show empty state and NOT contain the WebSocket messages
     await waitFor(() => {
       expect(screen.getByText('No logs to display')).toBeInTheDocument()
       expect(screen.queryByText('This should not appear after clear')).not.toBeInTheDocument()
@@ -581,15 +522,12 @@ describe('LogsView', () => {
     it('should clear logs when clearAllTrigger is incremented', async () => {
       const { rerender } = render(<LogsView clearAllTrigger={0} />)
 
-      // Wait for initial logs to load
       await waitFor(() => {
         expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
       })
 
-      // Increment clearAllTrigger to trigger clear
       rerender(<LogsView clearAllTrigger={1} />)
 
-      // Logs should be cleared
       await waitFor(() => {
         expect(screen.getByText('No logs to display')).toBeInTheDocument()
         expect(screen.queryByText(/Starting Flask application/)).not.toBeInTheDocument()
@@ -598,130 +536,90 @@ describe('LogsView', () => {
 
     it('should clear logs without confirmation when using clearAllTrigger', async () => {
       const confirmSpy = vi.spyOn(globalThis, 'confirm')
-      
+
       const { rerender } = render(<LogsView clearAllTrigger={0} hideControls={true} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
       })
 
-      // Increment clearAllTrigger
       rerender(<LogsView clearAllTrigger={1} hideControls={true} />)
 
       await waitFor(() => {
         expect(screen.getByText('No logs to display')).toBeInTheDocument()
       })
 
-      // Should NOT have shown confirmation dialog
       expect(confirmSpy).not.toHaveBeenCalled()
-      
+
       confirmSpy.mockRestore()
     })
 
     it('should handle multiple clearAllTrigger increments', async () => {
-      const wsRef = { current: null as MockWebSocket | null }
-      class WebSocketMock {
-        url: string
-        onopen: ((event: Event) => void) | null = null
-        onmessage: ((event: MessageEvent) => void) | null = null
-        onerror: ((event: Event) => void) | null = null
-        onclose: ((event: CloseEvent) => void) | null = null
-        close = vi.fn()
-        constructor(url: string) {
-          this.url = url
-          wsRef.current = this
-          setTimeout(() => {
-            this.onopen?.(new Event('open'))
-          }, 0)
-        }
-      }
-      globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
       const { rerender } = render(<LogsView clearAllTrigger={0} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
       })
 
-      // First clear
+      await waitFor(() => {
+        expect(latestSharedArgs).not.toBeNull()
+      })
+
+      // First clear.
       rerender(<LogsView clearAllTrigger={1} />)
       await waitFor(() => {
         expect(screen.getByText('No logs to display')).toBeInTheDocument()
       })
 
-      // Add new logs via WebSocket
-      if (wsRef.current?.onmessage) {
-        const handler = wsRef.current.onmessage
-        // Wait 150ms to be past the 100ms race condition window
-        await new Promise(resolve => setTimeout(resolve, 150))
-        act(() => {
-          handler(createMockWebSocketMessage({
-            service: 'api',
-            message: 'New log after clear',
-            level: 0,
-            timestamp: new Date().toISOString(),
-            isStderr: false,
-          }))
+      // Wait past the 100ms clear-debounce, then push a live entry.
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      act(() => {
+        pushLive({
+          service: 'api',
+          message: 'New log after clear',
+          level: 0,
+          timestamp: new Date().toISOString(),
+          isStderr: false,
         })
-      }
-      
-      // Wait for logs to appear
+      })
+
       await waitFor(() => {
         expect(screen.getByText('New log after clear')).toBeInTheDocument()
       })
 
-      // Second clear
+      // Second clear.
       rerender(<LogsView clearAllTrigger={2} />)
-      
+
       await waitFor(() => {
         expect(screen.getByText('No logs to display')).toBeInTheDocument()
         expect(screen.queryByText('New log after clear')).not.toBeInTheDocument()
       })
     })
 
-    it('should prevent WebSocket messages immediately after clearAllTrigger', async () => {
-      const wsRef = { current: null as MockWebSocket | null }
-      class WebSocketMock {
-        url: string
-        onopen: ((event: Event) => void) | null = null
-        onmessage: ((event: MessageEvent) => void) | null = null
-        onerror: ((event: Event) => void) | null = null
-        onclose: ((event: CloseEvent) => void) | null = null
-        close = vi.fn()
-        constructor(url: string) {
-          this.url = url
-          wsRef.current = this
-          setTimeout(() => {
-            this.onopen?.(new Event('open'))
-          }, 0)
-        }
-      }
-      globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
+    it('should prevent live-stream entries immediately after clearAllTrigger', async () => {
       const { rerender } = render(<LogsView clearAllTrigger={0} />)
 
       await waitFor(() => {
         expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
       })
 
-      // Trigger clear
+      await waitFor(() => {
+        expect(latestSharedArgs).not.toBeNull()
+      })
+
       rerender(<LogsView clearAllTrigger={1} />)
 
-      // Try to send WebSocket message right after clear
-      if (wsRef.current?.onmessage) {
-        const handler = wsRef.current.onmessage
-        act(() => {
-          handler(createMockWebSocketMessage({
-            service: 'web',
-            message: 'Should not appear',
-            level: 0,
-            timestamp: new Date().toISOString(),
-            isStderr: false,
-          }))
+      // Push a live entry inside the debounce window - should be dropped.
+      act(() => {
+        pushLive({
+          service: 'web',
+          message: 'Should not appear',
+          level: 0,
+          timestamp: new Date().toISOString(),
+          isStderr: false,
         })
-      }
+      })
 
-      // Should show empty state
       await waitFor(() => {
         expect(screen.getByText('No logs to display')).toBeInTheDocument()
         expect(screen.queryByText('Should not appear')).not.toBeInTheDocument()
@@ -737,7 +635,6 @@ describe('LogsView', () => {
         expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
       })
 
-      // Controls should be hidden
       expect(screen.queryByPlaceholderText('Search logs...')).not.toBeInTheDocument()
       expect(screen.queryByTitle('Clear logs')).not.toBeInTheDocument()
       expect(screen.queryByTitle('Pause')).not.toBeInTheDocument()
@@ -752,10 +649,8 @@ describe('LogsView', () => {
         expect(screen.getByText(/Express server/)).toBeInTheDocument()
       })
 
-      // Change search term externally
       rerender(<LogsView globalSearchTerm="Flask" />)
 
-      // Should filter logs
       await waitFor(() => {
         expect(screen.getByText(/Starting Flask application/)).toBeInTheDocument()
         expect(screen.queryByText(/Express server/)).not.toBeInTheDocument()

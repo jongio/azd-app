@@ -1,18 +1,41 @@
 /**
- * Tests for useLogsStream — the orchestrator hook that wires the
+ * Tests for useLogsStream - the orchestrator hook that wires the
  * historical-fetch path together with the live shared stream.
  *
- * After the WebSocket -> Connect migration, all transport-specific
- * concerns moved into useSharedLogStream (and its sibling Azure
- * manager). This file now exercises the orchestration logic in
- * isolation by mocking useSharedLogStream; transport behaviour is
- * covered separately by useSharedLogStream.test.ts.
+ * After the WebSocket -> Connect migration, the initial-fetch path
+ * uses Connect-RPC unary calls (`LogsService.GetLogs` /
+ * `AzureService.GetAzureLogs`) instead of the legacy REST endpoints,
+ * and live updates flow through `useSharedLogStream` (mocked here;
+ * transport behaviour is covered by useSharedLogStream.test.ts).
+ *
+ * Tests drive the Connect path via `createRouterTransport` and pass
+ * the transport through the hook's new `transport` param so both
+ * unary fetch and (mocked) stream subscriber see the same in-memory
+ * backend.
  */
 import { act, renderHook } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  ConnectError,
+  Code,
+  createRouterTransport,
+  type ConnectRouter,
+  type ServiceImpl,
+  type Transport,
+} from '@connectrpc/connect'
 
 import { useLogsStream } from './useLogsStream'
 import type { LogMode } from '@/components/ModeToggle'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import {
+  GetLogsRequest,
+  GetLogsResponse,
+} from '@/gen/proto/azdapp/v1/logs_pb.js'
+import {
+  GetAzureLogsRequest,
+  GetAzureLogsResponse,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 vi.mock('@/hooks/useBackendConnection', () => ({
   useBackendConnection: () => ({ connected: true }),
@@ -42,6 +65,59 @@ vi.mock('@/hooks/useSharedLogStream', () => ({
   useSharedLogStream: (opts: SharedLogStreamArgs) => sharedLogStreamMock(opts),
 }))
 
+/**
+ * Build a Connect router transport with overridable unary handlers
+ * for GetLogs / GetAzureLogs. Other methods on the two services are
+ * stubbed with Unimplemented rejections - the hook never touches
+ * them, and casting through `unknown` avoids hand-writing stubs for
+ * every RPC just to keep the `ServiceImpl` type happy.
+ */
+interface TransportOverrides {
+  getLogs?: (req: GetLogsRequest) => GetLogsResponse | Promise<GetLogsResponse>
+  getAzureLogs?: (req: GetAzureLogsRequest) => GetAzureLogsResponse | Promise<GetAzureLogsResponse>
+}
+
+function makeTransport(overrides: TransportOverrides = {}): Transport {
+  return createRouterTransport((router: ConnectRouter) => {
+    const notUsed = () =>
+      Promise.reject(new ConnectError('unused in these tests', Code.Unimplemented))
+
+    router.service(LogsService, {
+      getLogs(req: GetLogsRequest): Promise<GetLogsResponse> {
+        if (overrides.getLogs) return Promise.resolve(overrides.getLogs(req))
+        return Promise.resolve(new GetLogsResponse({ entries: [] }))
+      },
+      streamLocalLogs: notUsed,
+      listClassifications: notUsed,
+      addClassification: notUsed,
+      deleteClassification: notUsed,
+      getPreferences: notUsed,
+      savePreferences: notUsed,
+    } as unknown as ServiceImpl<typeof LogsService>)
+
+    router.service(AzureService, {
+      getAzureLogs(req: GetAzureLogsRequest): Promise<GetAzureLogsResponse> {
+        if (overrides.getAzureLogs) return Promise.resolve(overrides.getAzureLogs(req))
+        return Promise.resolve(new GetAzureLogsResponse({ entries: [] }))
+      },
+      streamAzureLogs: notUsed,
+      enableAzureLogging: notUsed,
+      getAzureServices: notUsed,
+      getAzureLogsHealth: notUsed,
+      getAzureSetupState: notUsed,
+      verifyAzureLogs: notUsed,
+      checkDiagnosticSettings: notUsed,
+      getAzureDiagnostics: notUsed,
+      verifyWorkspace: notUsed,
+      getAzureLogConfig: notUsed,
+      saveAzureLogConfig: notUsed,
+      listAzureTables: notUsed,
+      getServiceQuery: notUsed,
+      saveServiceQuery: notUsed,
+    } as unknown as ServiceImpl<typeof AzureService>)
+  })
+}
+
 describe('useLogsStream (orchestration)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -50,11 +126,6 @@ describe('useLogsStream (orchestration)', () => {
       connectionState: 'disconnected',
       droppedCount: 0,
     }))
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-      text: () => Promise.resolve(''),
-    })
   })
 
   afterEach(() => {
@@ -80,6 +151,7 @@ describe('useLogsStream (orchestration)', () => {
     setLogs: vi.fn(),
     setErrorMessage: vi.fn(),
     onFetchSettled: vi.fn(),
+    transport: makeTransport(),
     ...overrides,
   })
 

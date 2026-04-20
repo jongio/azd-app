@@ -1,21 +1,103 @@
+/**
+ * Flood-prevention tests for useLogsStream.
+ *
+ * Post-Connect migration, the per-service fetch count is observed
+ * through a router-transport handler (not globalThis.fetch) since the
+ * hook now dials `LogsService.GetLogs` via a Connect transport. Each
+ * test still measures the same invariant - the hook must not flood
+ * the backend when many services mount simultaneously, and must not
+ * fall back to polling in local mode now that the WebSocket has been
+ * replaced with a server-streaming Connect RPC.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import {
+  ConnectError,
+  Code,
+  createRouterTransport,
+  type ConnectRouter,
+  type ServiceImpl,
+  type Transport,
+} from '@connectrpc/connect'
+
 import { useLogsStream } from './useLogsStream'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import {
+  GetLogsRequest,
+  GetLogsResponse,
+} from '@/gen/proto/azdapp/v1/logs_pb.js'
 
-// Mock the backend connection hook
 vi.mock('@/hooks/useBackendConnection', () => ({
-  useBackendConnection: () => ({ connected: true })
+  useBackendConnection: () => ({ connected: true }),
 }))
 
-// Mock the shared log stream hook
 vi.mock('@/hooks/useSharedLogStream', () => ({
-  useSharedLogStream: () => ({ connectionState: 'disconnected', droppedCount: 0 })
+  useSharedLogStream: () => ({ connectionState: 'disconnected', droppedCount: 0 }),
 }))
+
+/**
+ * Build a transport that counts per-service GetLogs calls. Returning
+ * `{entries: []}` is deliberate - the hook treats empty results as a
+ * possibly-slow-start service and schedules retries (500ms, 1s), so
+ * an empty response is the worst-case for flood detection.
+ */
+function makeCountingTransport(): {
+  transport: Transport
+  callsByService: Map<string, number>
+  totalCalls: () => number
+} {
+  const callsByService = new Map<string, number>()
+  let totalCalls = 0
+
+  const transport = createRouterTransport((router: ConnectRouter) => {
+    const notUsed = () =>
+      Promise.reject(new ConnectError('unused in these tests', Code.Unimplemented))
+
+    router.service(LogsService, {
+      getLogs(req: GetLogsRequest): Promise<GetLogsResponse> {
+        totalCalls++
+        const key = req.serviceName || 'all'
+        callsByService.set(key, (callsByService.get(key) ?? 0) + 1)
+        return Promise.resolve(new GetLogsResponse({ entries: [] }))
+      },
+      streamLocalLogs: notUsed,
+      listClassifications: notUsed,
+      addClassification: notUsed,
+      deleteClassification: notUsed,
+      getPreferences: notUsed,
+      savePreferences: notUsed,
+    } as unknown as ServiceImpl<typeof LogsService>)
+
+    // AzureService stubs - the flood tests run in local mode so Azure
+    // methods are never invoked, but `router.service` still needs the
+    // full impl registered so `createAzureClient(transport)` inside
+    // the hook can resolve.
+    router.service(AzureService, {
+      getAzureLogs: notUsed,
+      streamAzureLogs: notUsed,
+      enableAzureLogging: notUsed,
+      getAzureServices: notUsed,
+      getAzureLogsHealth: notUsed,
+      getAzureSetupState: notUsed,
+      verifyAzureLogs: notUsed,
+      checkDiagnosticSettings: notUsed,
+      getAzureDiagnostics: notUsed,
+      verifyWorkspace: notUsed,
+      getAzureLogConfig: notUsed,
+      saveAzureLogConfig: notUsed,
+      listAzureTables: notUsed,
+      getServiceQuery: notUsed,
+      saveServiceQuery: notUsed,
+    } as unknown as ServiceImpl<typeof AzureService>)
+  })
+
+  return { transport, callsByService, totalCalls: () => totalCalls }
+}
 
 describe('useLogsStream flood prevention', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    globalThis.fetch = vi.fn()
   })
 
   afterEach(() => {
@@ -25,23 +107,17 @@ describe('useLogsStream flood prevention', () => {
   })
 
   it('should not flood the server when multiple services mount simultaneously', async () => {
-    const mockFetch = vi.fn().mockImplementation(() => {
-      return {
-        ok: true,
-        json: () => [],
-      }
-    })
-    globalThis.fetch = mockFetch
+    const { transport, callsByService, totalCalls } = makeCountingTransport()
 
     const services = ['appservice-web', 'azurite', 'containerapp-api', 'functions-worker']
-    
-    // Render hooks for all services simultaneously (like on app mount)
-    services.forEach(serviceName => {
+
+    // Render hooks for all services simultaneously (like on app mount).
+    services.forEach((serviceName) => {
       const setLogs = vi.fn()
       const setErrorMessage = vi.fn()
       const isPausedRef = { current: false }
       const lastClearTimeRef = { current: 0 }
-      
+
       renderHook(() =>
         useLogsStream({
           serviceName,
@@ -54,52 +130,30 @@ describe('useLogsStream flood prevention', () => {
           setLogs,
           setErrorMessage,
           onFetchSettled: vi.fn(),
-        })
+          transport,
+        }),
       )
     })
 
-    // Run all timers to execute fetches
+    // Run all timers to execute the initial fetch and any empty-result
+    // retry cascades.
     await vi.runAllTimersAsync()
 
-    // Should make exactly 4 requests (one per service), not more
-    // Each service should only fetch once, not repeatedly
-    console.warn(`Total fetch calls: ${mockFetch.mock.calls.length}`)
-    
-    // Group by service to see how many times each was called
-    const callsByService = new Map<string, number>()
-    mockFetch.mock.calls.forEach(call => {
-      const url = call[0] as string
-      const match = url.match(/service=([^&]+)/)
-      if (match) {
-        const service = match[1]
-        callsByService.set(service, (callsByService.get(service) || 0) + 1)
-      }
+    // Each service should be called at most 6 times:
+    //   - 1 initial fetch
+    //   - 2 empty-result retries (500ms, 1s)
+    //   - Possibly doubled by React Strict Mode
+    services.forEach((service) => {
+      const count = callsByService.get(service) ?? 0
+      expect(count).toBeLessThanOrEqual(6)
     })
-    
-    console.warn('Calls by service:', Object.fromEntries(callsByService))
-    
-    // Each service should be called at most 4 times:
-    // - 1 initial fetch
-    // - 2 retries when empty (with 500ms, 1s delays)
-    // - Possibly doubled by React Strict Mode
-    // This is acceptable for the initial load when there are no logs
-    services.forEach(service => {
-      const count = callsByService.get(service) || 0
-      expect(count).toBeLessThanOrEqual(6) // Allow for retries + strict mode
-    })
-    
-    // Total should not exceed 24 (4 services * 6 max)
-    expect(mockFetch.mock.calls.length).toBeLessThanOrEqual(24)
+
+    // Global ceiling: 4 services * 6 max.
+    expect(totalCalls()).toBeLessThanOrEqual(24)
   })
 
-  it('should not repeatedly poll in local mode when using WebSocket', async () => {
-    const mockFetch = vi.fn().mockImplementation(() => {
-      return {
-        ok: true,
-        json: () => [],
-      }
-    })
-    globalThis.fetch = mockFetch
+  it('should not repeatedly poll in local mode when using the streaming RPC', async () => {
+    const { transport, totalCalls } = makeCountingTransport()
 
     const setLogs = vi.fn()
     const setErrorMessage = vi.fn()
@@ -118,60 +172,20 @@ describe('useLogsStream flood prevention', () => {
         setLogs,
         setErrorMessage,
         onFetchSettled: vi.fn(),
-      })
+        transport,
+      }),
     )
 
-    // Run timers for initial fetch
+    // Run timers for the initial fetch + its empty-result retries.
     await vi.runAllTimersAsync()
-    
-    const initialCallCount = mockFetch.mock.calls.length
-    console.warn(`Initial calls: ${initialCallCount}`)
-    
-    mockFetch.mockClear()
 
-    // Advance time significantly (30 seconds)
+    const initialCallCount = totalCalls()
+    expect(initialCallCount).toBeGreaterThan(0)
+
+    // Advance 30 seconds; local mode must not fall back to polling
+    // now that live updates are driven by StreamLocalLogs.
     await vi.advanceTimersByTimeAsync(30000)
 
-    // In local mode, we should NOT be polling via HTTP - we use WebSocket
-    // So there should be NO additional HTTP requests after the initial one
-    console.warn(`Additional calls after 30s: ${mockFetch.mock.calls.length}`)
-    expect(mockFetch.mock.calls.length).toBe(0)
-  })
-
-  it('should not make HTTP requests in local mode at all when WebSocket is available', async () => {
-    const mockFetch = vi.fn().mockImplementation(() => {
-      return {
-        ok: true,
-        json: () => [],
-      }
-    })
-    globalThis.fetch = mockFetch
-
-    const setLogs = vi.fn()
-    const setErrorMessage = vi.fn()
-    const isPausedRef = { current: false }
-    const lastClearTimeRef = { current: 0 }
-
-    // In local mode, should use WebSocket only, not HTTP polling
-    renderHook(() =>
-      useLogsStream({
-        serviceName: 'api',
-        fetchKey: 'local:stream',
-        logMode: 'local',
-        timeRange: { preset: '15m' },
-        azureRealtime: false,
-        isPausedRef,
-        lastClearTimeRef,
-        setLogs,
-        setErrorMessage,
-        onFetchSettled: vi.fn(),
-      })
-    )
-
-    await vi.runAllTimersAsync()
-
-    // The question: should local mode use HTTP polling at all?
-    // Looking at the code, it seems like it shouldn't - WebSocket should handle it
-    console.warn(`HTTP fetch calls in local mode: ${mockFetch.mock.calls.length}`)
+    expect(totalCalls()).toBe(initialCallCount)
   })
 })

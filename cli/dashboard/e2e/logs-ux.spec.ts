@@ -95,16 +95,21 @@ test.describe('Console - Logs UX', () => {
     let azureRequestedForWeb = false
     let azureRequestedForApi = false
 
+    // Post-Connect-RPC the legacy `GET /api/azure/logs?service=...` is
+    // gone - the dashboard now POSTs to
+    // `/azdapp.v1.AzureService/GetAzureLogs` with a JSON body carrying
+    // the service name. Sniff the request body instead of the URL
+    // query string so the per-service assertion still works.
     page.on('request', req => {
       const url = req.url()
-      if (!url.includes('/api/azure/logs')) return
+      if (!url.includes('/azdapp.v1.AzureService/GetAzureLogs')) return
       try {
-        const parsed = new URL(url)
-        const service = parsed.searchParams.get('service')
-        if (service === 'web') azureRequestedForWeb = true
-        if (service === 'api') azureRequestedForApi = true
+        const body = req.postData() ?? ''
+        const parsed = JSON.parse(body) as { service?: string }
+        if (parsed.service === 'web') azureRequestedForWeb = true
+        if (parsed.service === 'api') azureRequestedForApi = true
       } catch {
-        // Ignore URL parsing issues
+        // Ignore body parsing issues
       }
     })
 
