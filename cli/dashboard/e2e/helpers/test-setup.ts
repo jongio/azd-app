@@ -1,5 +1,10 @@
 import type { Page } from '@playwright/test'
 import type { Service, HealthCheckResult, HealthSummary } from '../../src/types'
+import {
+  mockConnectUnary,
+  mockConnectServerStream,
+  encodeStreamEnvelopeNoEnd,
+} from './connect-mock'
 
 // =============================================================================
 // Service Fixtures
@@ -718,6 +723,394 @@ export async function mockApiRoutes(page: Page, options: {
   })
 }
 
+// =============================================================================
+// Connect-RPC route mocks
+// =============================================================================
+
+/**
+ * Connect proto ServiceStatus enum values. Must stay in sync with
+ * `src/gen/proto/azdapp/v1/common_pb.ts`; we duplicate them here instead
+ * of importing the generated module to keep the e2e helpers independent
+ * of the proto build (they're loaded by Playwright, not Vite).
+ */
+const PROTO_SERVICE_STATUS = {
+  UNSPECIFIED: 0,
+  STOPPED: 1,
+  STARTING: 2,
+  READY: 3,
+  DEGRADED: 4,
+  ERROR: 5,
+  STOPPING: 6,
+} as const
+
+const PROTO_HEALTH_STATE = {
+  UNSPECIFIED: 0,
+  HEALTHY: 1,
+  UNHEALTHY: 2,
+  UNKNOWN: 3,
+  STARTING: 4,
+  DEGRADED: 5,
+} as const
+
+const PROTO_LOG_MODE = {
+  UNSPECIFIED: 0,
+  LOCAL: 1,
+  AZURE: 2,
+} as const
+
+/**
+ * Translate a Service fixture into the proto ServiceInfo JSON shape the
+ * Connect transport produces on the wire. This is the forward inverse
+ * of `protoServiceToService`: whatever fields get packed here must
+ * survive a round trip through the translator and still render under
+ * the dashboard's domain-string contract.
+ *
+ * Notable encoding choices:
+ * - Enums travel as integers. connect-web's JSON codec accepts both
+ *   integer and string forms; integers dodge the short-name-vs-prefixed
+ *   ambiguity (READY vs SERVICE_STATUS_READY).
+ * - Overrides for non-enum health ('degraded'), port, url, and azure
+ *   sub-fields land in the metadata Struct because the translator reads
+ *   them from metadata exclusively (see azureFromProto + autoUrl
+ *   precedence).
+ * - Timestamps use google.protobuf.Timestamp JSON ({seconds, nanos}).
+ *   seconds is a string because protoInt64 decodes strings for int64.
+ */
+function fixtureStatusToProto(status: string | undefined): number {
+  switch (status) {
+    case 'ready':
+    case 'running':
+    case 'watching':
+    case 'building':
+    case 'built':
+    case 'completed':
+      return PROTO_SERVICE_STATUS.READY
+    case 'starting':
+      return PROTO_SERVICE_STATUS.STARTING
+    case 'stopping':
+      return PROTO_SERVICE_STATUS.STOPPING
+    case 'stopped':
+    case 'not-running':
+    case 'not-started':
+      return PROTO_SERVICE_STATUS.STOPPED
+    case 'error':
+    case 'failed':
+      return PROTO_SERVICE_STATUS.ERROR
+    default:
+      return PROTO_SERVICE_STATUS.UNSPECIFIED
+  }
+}
+
+function fixtureHealthToProto(health: string | undefined): { state: number; override?: string } {
+  switch (health) {
+    case 'healthy':
+      return { state: PROTO_HEALTH_STATE.HEALTHY }
+    case 'unhealthy':
+      return { state: PROTO_HEALTH_STATE.UNHEALTHY }
+    case 'starting':
+      return { state: PROTO_HEALTH_STATE.STARTING }
+    case 'degraded':
+      // Translator recognises 'degraded' only when it arrives via
+      // metadata.health override because the proto enum's semantic
+      // 'DEGRADED' originally meant "service ok, health check slow" --
+      // not the richer product surface the dashboard ships. Mirror the
+      // Go side's packing.
+      return { state: PROTO_HEALTH_STATE.UNSPECIFIED, override: 'degraded' }
+    case 'unknown':
+      return { state: PROTO_HEALTH_STATE.UNKNOWN }
+    default:
+      return { state: PROTO_HEALTH_STATE.UNSPECIFIED }
+  }
+}
+
+function isoToTimestamp(iso: string | undefined): string | undefined {
+  if (!iso) return undefined
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return undefined
+  // proto3 JSON encodes google.protobuf.Timestamp as an RFC 3339 string
+  // with nanosecond precision and a trailing 'Z'. Date#toISOString only
+  // emits milliseconds, which protobuf-es accepts; pad to 9 digits so the
+  // shape matches what the Go server emits.
+  return new Date(ms).toISOString()
+}
+
+function serviceFixtureToProto(service: Service): Record<string, unknown> {
+  const local = service.local
+  const azure = service.azure
+  const healthPacked = fixtureHealthToProto(local?.health as string | undefined)
+
+  // Metadata fields the translator reads. Keys match the shape
+  // `structToObject` + `metaString` expect; nested azure is a nested
+  // object, everything else is a flat string.
+  const metadata: Record<string, unknown> = {}
+  if (healthPacked.override) metadata.health = healthPacked.override
+  if (local?.lastChecked) metadata.lastChecked = local.lastChecked
+  if (local?.serviceType) metadata.serviceType = local.serviceType
+  if (local?.serviceMode) metadata.serviceMode = local.serviceMode
+
+  // Azure metadata (url / customUrl / customDomain / imageName) flows
+  // through `azureMeta`, not the top-level metadata.
+  const azureMeta: Record<string, unknown> = {}
+  if (azure?.url) azureMeta.url = azure.url
+  if (azure?.customUrl) azureMeta.customUrl = azure.customUrl
+  if (azure?.customDomain) azureMeta.customDomain = azure.customDomain
+  if (azure?.customDomainSource) azureMeta.customDomainSource = azure.customDomainSource
+  if (azure?.imageName) azureMeta.imageName = azure.imageName
+  if (Object.keys(azureMeta).length > 0) metadata.azure = azureMeta
+
+  const proto: Record<string, unknown> = {
+    name: service.name,
+    status: fixtureStatusToProto(local?.status as string | undefined),
+    health: healthPacked.state,
+  }
+  if (service.host) proto.kind = service.host
+  if (service.language) proto.language = service.language
+  if (service.framework) proto.framework = service.framework
+  if (service.project) proto.projectDir = service.project
+  if (local?.url) proto.url = local.url
+  if (local?.port) proto.port = local.port
+  if (local?.pid) proto.pid = local.pid
+  const startTime = isoToTimestamp(local?.startTime)
+  if (startTime) proto.startTime = startTime
+
+  if (Object.keys(metadata).length > 0) {
+    // google.protobuf.Struct JSON == the JSON object itself. connect-web
+    // re-wraps it via fromJson, which matches how the translator reads
+    // `info.metadata.toJson()`.
+    proto.metadata = metadata
+  }
+
+  if (azure) {
+    const azureProto: Record<string, unknown> = {}
+    if (azure.resourceName) azureProto.resourceId = azure.resourceName
+    if (azure.resourceType) azureProto.resourceType = azure.resourceType
+    if (azure.resourceGroup) azureProto.resourceGroup = azure.resourceGroup
+    if (azure.subscriptionId) azureProto.subscriptionId = azure.subscriptionId
+    if (azure.location) azureProto.region = azure.location
+    if (azure.logAnalyticsId) azureProto.workspaceId = azure.logAnalyticsId
+    if (Object.keys(azureProto).length > 0) proto.azure = azureProto
+  }
+
+  return proto
+}
+
+export interface MockConnectOptions {
+  scenario?: TestScenario
+  projectName?: string
+  projectDir?: string
+  codespace?: {
+    enabled: boolean
+    name?: string
+    domain?: string
+    isVsCodeDesktop?: boolean
+  }
+  environmentName?: string
+  azure?: {
+    enabled?: boolean
+    status?: 'connected' | 'disconnected' | 'connecting' | 'disabled'
+    mode?: 'local' | 'azure'
+    connectionMessage?: string
+  }
+}
+
+/**
+ * Register Connect-RPC mocks that cover every service call the dashboard
+ * performs on page load plus the main interactive paths (mode toggle,
+ * service start/stop/restart, preferences save). Call this alongside
+ * `mockApiRoutes`; the two don't overlap (different URL paths) so they
+ * compose cleanly.
+ *
+ * Stream mocks intentionally emit a single heartbeat or end-only
+ * envelope rather than a live feed. The dashboard's reconnect logic
+ * handles the "stream closed" case by scheduling backoff, which the
+ * App.tsx overlay gate keeps silent, so tests stay interactive without
+ * needing real streaming infrastructure.
+ */
+export async function mockConnectRoutes(page: Page, options: MockConnectOptions = {}) {
+  const scenario = options.scenario ?? scenarios.standard()
+  const projectName = options.projectName ?? 'test-project'
+  const projectDir = options.projectDir ?? '/test'
+  const azureEnabled = options.azure?.enabled ?? false
+  const azureStatus = options.azure?.status ?? (azureEnabled ? 'connected' : 'disabled')
+  const connectionMessage = options.azure?.connectionMessage ?? ''
+  let currentMode: 'local' | 'azure' = options.azure?.mode ?? 'local'
+
+  const codespace = {
+    enabled: options.codespace?.enabled ?? false,
+    name: options.codespace?.name ?? '',
+    domain: options.codespace?.domain ?? '',
+    isVsCodeDesktop: options.codespace?.isVsCodeDesktop ?? false,
+  }
+
+  // -- ProjectService ---------------------------------------------------
+  await mockConnectUnary(page, 'ProjectService', 'GetProject', () => ({
+    name: projectName,
+    dir: projectDir,
+  }))
+
+  // -- ServicesService --------------------------------------------------
+  await mockConnectUnary(page, 'ServicesService', 'GetServices', () => ({
+    services: scenario.services.map(serviceFixtureToProto),
+  }))
+  const ack = () => ({ success: true })
+  await mockConnectUnary(page, 'ServicesService', 'StartService', ack)
+  await mockConnectUnary(page, 'ServicesService', 'StopService', ack)
+  await mockConnectUnary(page, 'ServicesService', 'RestartService', ack)
+
+  // -- LifecycleService -------------------------------------------------
+  await mockConnectUnary(page, 'LifecycleService', 'Ping', () => ({
+    status: 'ok',
+    version: 'test',
+    serverTime: isoToTimestamp(new Date().toISOString()),
+  }))
+  await mockConnectUnary(page, 'LifecycleService', 'GetEnvironment', () => ({
+    codespace,
+    environmentName: options.environmentName ?? '',
+  }))
+  // Broadcast stream: no events needed on load, so emit an end trailer
+  // immediately and let useBroadcast (if wired) treat the stream as
+  // empty.
+  await mockConnectServerStream(page, 'LifecycleService', 'StreamBroadcast', () => [])
+
+  // -- ModeService ------------------------------------------------------
+  const modeSnapshot = () => ({
+    mode: currentMode === 'azure' ? PROTO_LOG_MODE.AZURE : PROTO_LOG_MODE.LOCAL,
+    azureEnabled,
+    azureStatus,
+    azureRealtime: false,
+    connectionMessage,
+  })
+  await mockConnectUnary(page, 'ModeService', 'GetMode', modeSnapshot)
+  await mockConnectUnary<{ mode?: number | string }, ReturnType<typeof modeSnapshot>>(
+    page,
+    'ModeService',
+    'SetMode',
+    (req) => {
+      // proto3 JSON accepts either integer or string enum values.
+      if (req.mode === PROTO_LOG_MODE.AZURE || req.mode === 'AZURE' || req.mode === 'LOG_MODE_AZURE') {
+        currentMode = 'azure'
+      } else if (req.mode === PROTO_LOG_MODE.LOCAL || req.mode === 'LOCAL' || req.mode === 'LOG_MODE_LOCAL') {
+        currentMode = 'local'
+      }
+      return modeSnapshot()
+    },
+  )
+
+  // -- HealthService ----------------------------------------------------
+  // StreamHealthResponse wire shape:
+  // { event: { report: { results, generatedAt } } }
+  // The oneof field surfaces as a plain JSON key per proto3; connect-web
+  // re-packs it into the `{case, value}` discriminant post-parse.
+  const healthResults = scenario.healthChecks.map((hc) => ({
+    serviceName: hc.serviceName,
+    state: (() => {
+      switch (hc.status) {
+        case 'healthy': return PROTO_HEALTH_STATE.HEALTHY
+        case 'unhealthy': return PROTO_HEALTH_STATE.UNHEALTHY
+        case 'degraded': return PROTO_HEALTH_STATE.DEGRADED
+        case 'unknown': return PROTO_HEALTH_STATE.UNKNOWN
+        default: return PROTO_HEALTH_STATE.UNSPECIFIED
+      }
+    })(),
+    message: hc.error ?? '',
+    checkedAt: isoToTimestamp(hc.timestamp),
+    latencyMs: String(Math.max(0, Math.floor((hc.responseTime ?? 0) / 1_000_000))),
+  }))
+  const streamReportFrame = {
+    event: {
+      report: {
+        results: healthResults,
+        generatedAt: isoToTimestamp(new Date().toISOString()),
+      },
+    },
+  }
+  await mockConnectUnary(page, 'HealthService', 'GetHealth', () => ({
+    results: healthResults,
+    generatedAt: isoToTimestamp(new Date().toISOString()),
+  }))
+  // StreamHealth is special: we CANNOT emit the end-stream envelope or
+  // close the connection, because `useHealthStream` flips `connected` to
+  // false on stream close and schedules a reconnect. React batches state
+  // updates, so a setConnected(true) + setConnected(false) within the
+  // same tick collapses to false — tests never observe the "connected"
+  // state and downstream hooks gated on it (useLogsStream for Azure)
+  // never fire their first fetch.
+  //
+  // Patch window.fetch before the page loads to serve StreamHealth as a
+  // never-closing ReadableStream that emits exactly one data envelope.
+  // Everything else falls through to Playwright's normal routing.
+  const healthFrameBytes = Array.from(encodeStreamEnvelopeNoEnd(streamReportFrame))
+  await page.addInitScript(
+    ({ frameBytes, matchUrl }) => {
+      const origFetch = window.fetch.bind(window)
+      window.fetch = (input, init) => {
+        const url = typeof input === 'string' ? input : (input as Request).url
+        if (url.includes(matchUrl)) {
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new Uint8Array(frameBytes))
+              // Intentionally no controller.close(): keeps the response
+              // hanging so `connected` stays true for the test window.
+            },
+          })
+          return Promise.resolve(
+            new Response(stream, {
+              status: 200,
+              headers: { 'content-type': 'application/connect+json' },
+            }),
+          )
+        }
+        return origFetch(input, init)
+      }
+    },
+    { frameBytes: healthFrameBytes, matchUrl: 'azdapp.v1.HealthService/StreamHealth' },
+  )
+  await mockConnectServerStream(page, 'HealthService', 'StreamStateTransitions', () => [])
+
+  // -- LogsService ------------------------------------------------------
+  let currentPreferences = {
+    version: '1.0',
+    theme: 'light',
+    ui: { gridColumns: 2, gridAutoFit: true, viewMode: 'grid', selectedServices: [] as string[] },
+    behavior: { autoScroll: true, pauseOnScroll: true, timestampFormat: 'hh:mm:ss.sss' },
+    copy: { defaultFormat: 'plaintext', includeTimestamp: true, includeService: true },
+  }
+  await mockConnectUnary(page, 'LogsService', 'GetPreferences', () => ({
+    preferences: currentPreferences,
+  }))
+  await mockConnectUnary<{ preferences?: typeof currentPreferences }, { preferences: typeof currentPreferences }>(
+    page,
+    'LogsService',
+    'SavePreferences',
+    (req) => {
+      if (req.preferences) {
+        currentPreferences = { ...currentPreferences, ...req.preferences }
+      }
+      return { preferences: currentPreferences }
+    },
+  )
+  await mockConnectUnary(page, 'LogsService', 'ListClassifications', () => ({
+    classifications: [],
+  }))
+  await mockConnectUnary(page, 'LogsService', 'AddClassification', (req: { classification?: unknown }) => ({
+    classification: req.classification ?? { text: '', level: 0 },
+  }))
+  await mockConnectUnary(page, 'LogsService', 'DeleteClassification', () => ({}))
+  await mockConnectUnary(page, 'LogsService', 'GetLogs', () => ({
+    entries: [],
+    tailClamped: false,
+  }))
+  await mockConnectServerStream(page, 'LogsService', 'StreamLocalLogs', () => [])
+
+  // -- BicepService -----------------------------------------------------
+  await mockConnectUnary(page, 'BicepService', 'GetBicepTemplate', () => ({
+    template: '// mocked',
+    includedServices: scenario.services.map((s) => s.name),
+    workspaceId: '',
+    generatedAt: isoToTimestamp(new Date().toISOString()),
+  }))
+}
+
 /**
  * Mock WebSocket for real-time updates
  */
@@ -774,8 +1167,15 @@ export async function setupTest(page: Page, options: {
     mode?: 'local' | 'azure'
     connectionMessage?: string
   }
+  codespace?: {
+    enabled: boolean
+    name?: string
+    domain?: string
+    isVsCodeDesktop?: boolean
+  }
+  environmentName?: string
 } = {}) {
-  const { scenario, projectName = 'test-project', clearStorage = true, azure } = options
+  const { scenario, projectName = 'test-project', clearStorage = true, azure, codespace, environmentName } = options
   
   // Clear storage
   if (clearStorage) {
@@ -786,6 +1186,7 @@ export async function setupTest(page: Page, options: {
   await mockEventSource(page, scenario)
   await mockWebSocket(page)
   await mockApiRoutes(page, { scenario, projectName, azure })
+  await mockConnectRoutes(page, { scenario, projectName, azure, codespace, environmentName })
 }
 
 // =============================================================================
