@@ -72,7 +72,7 @@ reqs:
 			}
 
 			azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(tt.azureYAML), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(tt.azureYAML), 0o600); err != nil {
 				t.Fatal(err)
 			}
 
@@ -162,7 +162,7 @@ reqs:
 			}
 
 			azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(tt.azureYAML), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(tt.azureYAML), 0o600); err != nil {
 				t.Fatal(err)
 			}
 

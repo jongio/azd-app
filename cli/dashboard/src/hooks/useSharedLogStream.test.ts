@@ -12,15 +12,16 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { Code, ConnectError, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
 import { describe, it, expect, afterEach } from 'vitest'
-import { Timestamp } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
+import { TimestampSchema } from '@bufbuild/protobuf/wkt'
 
 import { useSharedLogStream, resetManagers, protoToLogEntry } from './useSharedLogStream'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import {
-  StreamLocalLogsResponse,
-  DroppedNotice,
+  StreamLocalLogsResponseSchema,
+  DroppedNoticeSchema,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
-import { LogEntry as ProtoLogEntry, LogLevel, LogStream } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { LogEntrySchema, type LogEntry as ProtoLogEntry, LogLevel, LogStream } from '@/gen/proto/azdapp/v1/common_pb.js'
 
 type EmittedEvent =
   | { kind: 'entry'; entry: ProtoLogEntry }
@@ -89,16 +90,16 @@ function buildHarness(): Harness {
           if (next.kind === 'end') return
           if (next.kind === 'error') throw next.err
           if (next.kind === 'entry') {
-            yield new StreamLocalLogsResponse({
+            yield create(StreamLocalLogsResponseSchema, {
               event: { case: 'entry', value: next.entry },
             })
             continue
           }
           if (next.kind === 'dropped') {
-            yield new StreamLocalLogsResponse({
+            yield create(StreamLocalLogsResponseSchema, {
               event: {
                 case: 'dropped',
-                value: new DroppedNotice({ count: BigInt(next.count), at: new Timestamp() }),
+                value: create(DroppedNoticeSchema, { count: BigInt(next.count), at: create(TimestampSchema) }),
               },
             })
           }
@@ -133,16 +134,16 @@ function buildHarness(): Harness {
 }
 
 const sampleEntry = (overrides?: Partial<ProtoLogEntry>): ProtoLogEntry => {
-  return new ProtoLogEntry({
+  const entry = create(LogEntrySchema, {
     id: '1',
-    timestamp: new Timestamp(),
+    timestamp: create(TimestampSchema),
     service: 'web',
     level: LogLevel.INFO,
     stream: LogStream.STDOUT,
-    source: undefined,
     message: 'hello world',
-    ...overrides,
   })
+  if (overrides) Object.assign(entry, overrides)
+  return entry
 }
 
 describe('useSharedLogStream (Connect local mode)', () => {
@@ -285,7 +286,7 @@ describe('protoToLogEntry mapping', () => {
   })
 
   it('emits an ISO timestamp string', () => {
-    const ts = new Timestamp({ seconds: 1_700_000_000n, nanos: 500_000_000 })
+    const ts = create(TimestampSchema, { seconds: 1_700_000_000n, nanos: 500_000_000 })
     const out = protoToLogEntry(sampleEntry({ timestamp: ts }))
     expect(out.timestamp).toBe(new Date(1_700_000_000 * 1000 + 500).toISOString())
   })

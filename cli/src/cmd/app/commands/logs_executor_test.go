@@ -270,12 +270,12 @@ func TestLogsExecutor_CollectLogs(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
-	_ = os.MkdirAll(logsDir, 0755)
+	_ = os.MkdirAll(logsDir, 0o755)
 
 	logContent := `[2024-01-15 10:30:45.100] [INFO] [OUT] Message 1
 [2024-01-15 10:30:45.200] [INFO] [OUT] Message 2
 `
-	_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644)
+	_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0o644)
 
 	t.Run("from log files", func(t *testing.T) {
 		opts := &logsOptions{tail: 100}
@@ -362,11 +362,11 @@ func TestLogsExecutor_Execute(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
-	_ = os.MkdirAll(logsDir, 0755)
+	_ = os.MkdirAll(logsDir, 0o755)
 
 	logContent := `[2024-01-15 10:30:45.100] [INFO] [OUT] Test message
 `
-	_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644)
+	_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0o644)
 
 	t.Run("dashboard not running shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
@@ -556,7 +556,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 [2024-01-15 10:30:45.200] [ERROR] [ERR] Error message
 [2024-01-15 10:30:45.300] [WARN] [OUT] Warn message
 `
-		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(levelContent), 0644)
+		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(levelContent), 0o644)
 
 		var buf bytes.Buffer
 		opts := &logsOptions{tail: 100, level: "error", format: "text", timestamps: true, noColor: true}
@@ -592,7 +592,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 		for i := 0; i < 50; i++ {
 			fmt.Fprintf(&manyLogs, "[2024-01-15 10:30:%02d.000] [INFO] [OUT] Message %d\n", i, i)
 		}
-		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(manyLogs.String()), 0644)
+		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(manyLogs.String()), 0o644)
 
 		var buf bytes.Buffer
 		opts := &logsOptions{tail: 5, level: "all", format: "text", noColor: true}

@@ -11,12 +11,13 @@
  * | 'error') here so downstream UI never sees a proto type.
  */
 import * as React from 'react'
-import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { ConnectError, type Client, type Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import { createAzureClient } from '@/lib/connectClient'
-import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
-  CheckDiagnosticSettingsRequest,
+  CheckDiagnosticSettingsRequestSchema,
   type DiagnosticSettingResult as ProtoDiagnosticSettingResult,
   DiagnosticSettingsStatus as ProtoDiagnosticSettingsStatus,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
@@ -144,7 +145,7 @@ export function useDiagnosticSettings(
   options: UseDiagnosticSettingsOptions = {},
 ): UseDiagnosticSettingsResult {
   const { transport } = options
-  const client = React.useMemo<PromiseClient<typeof AzureService>>(
+  const client = React.useMemo<Client<typeof AzureService>>(
     () => createAzureClient(transport),
     [transport],
   )
@@ -175,7 +176,7 @@ export function useDiagnosticSettings(
 
     try {
       const resp = await client.checkDiagnosticSettings(
-        new CheckDiagnosticSettingsRequest(),
+        create(CheckDiagnosticSettingsRequestSchema),
         { signal: controller.signal },
       )
 

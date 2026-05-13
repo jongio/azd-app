@@ -195,7 +195,7 @@ func TestReqsFixIntegration_ToolNotFound(t *testing.T) {
 	testProjectDir := filepath.Join(testDir, "test-project")
 
 	// Create project requiring nonexistent tool
-	if err := os.MkdirAll(testProjectDir, 0755); err != nil {
+	if err := os.MkdirAll(testProjectDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -207,7 +207,7 @@ reqs:
     args: ["--version"]
 `
 	yamlPath := filepath.Join(testProjectDir, "azure.yaml")
-	if err := os.WriteFile(yamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(yamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -271,7 +271,7 @@ func TestReqsFixIntegration_CacheClearing(t *testing.T) {
 
 	// Create initial cache
 	cacheDir := filepath.Join(testProjectDir, ".azure", "cache")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -331,13 +331,13 @@ func TestReqsFixIntegration_CacheClearing(t *testing.T) {
 func buildTestTool(t *testing.T, targetDir string) string { //nolint:unparam // return value kept for future use in integration tests
 	t.Helper()
 
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		t.Fatalf("Failed to create target directory: %v", err)
 	}
 
 	// Create test-tool.go source
 	sourcePath := filepath.Join(targetDir, "test-tool.go")
-	if err := os.WriteFile(sourcePath, []byte(testToolSource), 0600); err != nil {
+	if err := os.WriteFile(sourcePath, []byte(testToolSource), 0o600); err != nil {
 		t.Fatalf("Failed to write test-tool source: %v", err)
 	}
 
@@ -439,7 +439,7 @@ func commandExists(cmd string) bool {
 func createTestProject(t *testing.T, dir string, minVersion string) {
 	t.Helper()
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("Failed to create test project directory: %v", err)
 	}
 
@@ -453,7 +453,7 @@ reqs:
 `, minVersion)
 
 	yamlPath := filepath.Join(dir, "azure.yaml")
-	if err := os.WriteFile(yamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(yamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to write azure.yaml: %v", err)
 	}
 

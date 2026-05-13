@@ -225,7 +225,8 @@ func (w *FileWatcher) scheduleDebouncedCallback(_ context.Context, callback Watc
 		// Structured logging for machine-parseable output
 		log := logging.NewLogger("watch")
 		elapsed := time.Since(w.lastRunTime)
-		log.Info("changes detected",
+		log.Info(
+			"changes detected",
 			"event", "file_changed",
 			"file_count", len(changes),
 			"files", changedFileNames,
@@ -352,7 +353,6 @@ func (w *FileWatcher) scanFiles() error {
 
 			return nil
 		})
-
 		if err != nil {
 			return err
 		}
@@ -392,7 +392,6 @@ func (w *FileWatcher) checkForChanges() ([]string, error) {
 
 			return nil
 		})
-
 		if err != nil {
 			return nil, err
 		}

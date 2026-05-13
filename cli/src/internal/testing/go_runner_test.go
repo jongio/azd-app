@@ -321,14 +321,14 @@ func TestGoTestRunner_HasTests(t *testing.T) {
 
 	// Create go.mod
 	goModPath := filepath.Join(tempDir, "go.mod")
-	err := os.WriteFile(goModPath, []byte("module test\n\ngo 1.21\n"), 0644)
+	err := os.WriteFile(goModPath, []byte("module test\n\ngo 1.21\n"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// Create a test file
 	testFilePath := filepath.Join(tempDir, "main_test.go")
-	err = os.WriteFile(testFilePath, []byte("package main\n"), 0644)
+	err = os.WriteFile(testFilePath, []byte("package main\n"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestGoTestRunner_HasTests_NoTestFiles(t *testing.T) {
 
 	// Create go.mod but no test files
 	goModPath := filepath.Join(tempDir, "go.mod")
-	err := os.WriteFile(goModPath, []byte("module test\n\ngo 1.21\n"), 0644)
+	err := os.WriteFile(goModPath, []byte("module test\n\ngo 1.21\n"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
@@ -377,7 +377,7 @@ github.com/user/pkg/main.go:10.2,12.15 3 1
 github.com/user/pkg/main.go:14.2,18.15 5 0
 github.com/user/pkg/util.go:5.2,10.15 6 1
 `
-	err := os.WriteFile(profilePath, []byte(coverageData), 0644)
+	err := os.WriteFile(profilePath, []byte(coverageData), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create coverage profile: %v", err)
 	}

@@ -20,16 +20,17 @@
  * forward compatibility.
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
-import { protoInt64 } from '@bufbuild/protobuf'
+import { ConnectError, type Client, type Transport } from '@connectrpc/connect'
+import { create, protoInt64 } from '@bufbuild/protobuf'
+import { timestampDate } from '@bufbuild/protobuf/wkt'
 
 import type { ParsedAzureError } from '@/types'
 import { createParsedAzureError } from '@/lib/azure-errors'
 import { useBackendConnection } from '@/hooks/useBackendConnection'
 import { createAzureClient } from '@/lib/connectClient'
-import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
-  GetAzureLogsRequest,
+  GetAzureLogsRequestSchema,
   type GetAzureLogsResponse,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import { LogLevel, LogStream, type LogEntry as ProtoLogEntry } from '@/gen/proto/azdapp/v1/common_pb.js'
@@ -229,15 +230,11 @@ function protoEntryToHistorical(entry: ProtoLogEntry): HistoricalLogEntry {
     service: entry.service,
     message: entry.message,
     level: levelToNumeric(entry.level),
-    timestamp: entry.timestamp ? entry.timestamp.toDate().toISOString() : '',
+    timestamp: entry.timestamp ? timestampDate(entry.timestamp).toISOString() : '',
     isStderr: entry.stream === LogStream.STDERR,
   }
   if (entry.fields) {
-    const json = entry.fields.toJson()
-    const obj =
-      json && typeof json === 'object' && !Array.isArray(json)
-        ? (json as Record<string, unknown>)
-        : null
+    const obj = entry.fields as Record<string, unknown>
     const resourceId = readStringField(obj, 'resourceId') ?? readStringField(obj, 'resource_id')
     const operationName =
       readStringField(obj, 'operationName') ?? readStringField(obj, 'operation_name')
@@ -269,7 +266,7 @@ export function useHistoricalLogs({
   transport,
 }: UseHistoricalLogsOptions): UseHistoricalLogsReturn {
   const { connected } = useBackendConnection()
-  const client = useMemo<PromiseClient<typeof AzureService>>(
+  const client = useMemo<Client<typeof AzureService>>(
     () => createAzureClient(transport),
     [transport],
   )
@@ -310,7 +307,7 @@ export function useHistoricalLogs({
       const startedAt = Date.now()
       try {
         const resp = await client.getAzureLogs(
-          new GetAzureLogsRequest({
+          create(GetAzureLogsRequestSchema, {
             service: serviceName,
             sinceSeconds: protoInt64.parse(timeRangeToSeconds(timeRange)),
             tail: pageSize,

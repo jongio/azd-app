@@ -56,12 +56,12 @@ func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging b
 		logsDir := filepath.Join(projectDir, ".azure", "logs")
 		// Use 0700 for directory permissions to match file privacy intent (0600)
 		// This ensures only the owner can access log files
-		if err := os.MkdirAll(logsDir, 0700); err != nil {
+		if err := os.MkdirAll(logsDir, 0o700); err != nil {
 			return nil, fmt.Errorf("failed to create logs directory: %w", err)
 		}
 
 		lb.filePath = filepath.Join(logsDir, fmt.Sprintf("%s.log", serviceName))
-		file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
 		}
@@ -161,7 +161,7 @@ func (lb *LogBuffer) rotateLogFile() {
 	}
 
 	// Open new file
-	file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to create new log file after rotation: %v\n", err)
 		return

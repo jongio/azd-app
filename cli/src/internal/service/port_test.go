@@ -136,7 +136,7 @@ func TestDetectPort_PackageJSON_NotExplicit(t *testing.T) {
 	}`
 
 	packagePath := filepath.Join(tempDir, "package.json")
-	if err := os.WriteFile(packagePath, []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(packagePath, []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -168,7 +168,7 @@ func TestDetectPort_ExplicitOverridesFrameworkConfig(t *testing.T) {
 	}`
 
 	packagePath := filepath.Join(tempDir, "package.json")
-	if err := os.WriteFile(packagePath, []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(packagePath, []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -292,6 +292,7 @@ func TestDetectPortFromEnv_Invalid(t *testing.T) {
 		t.Errorf("Expected 0 for invalid port value, got %d", port)
 	}
 }
+
 func TestExtractPortFromURL(t *testing.T) {
 	tests := []struct {
 		name string

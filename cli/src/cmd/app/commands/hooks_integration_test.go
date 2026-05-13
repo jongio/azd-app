@@ -35,7 +35,7 @@ services:
       - "3000"
 `
 
-	err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYamlContent), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
@@ -49,7 +49,7 @@ services:
   }
 }`
 
-	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSONContent), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSONContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
@@ -95,7 +95,7 @@ services:
       - "3000"
 `
 
-	err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYamlContent), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
@@ -106,7 +106,7 @@ services:
   "version": "1.0.0"
 }`
 
-	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSONContent), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSONContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
@@ -145,7 +145,7 @@ services:
       - "3000"
 `
 
-	err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYamlContent), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
@@ -156,7 +156,7 @@ services:
   "version": "1.0.0"
 }`
 
-	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSONContent), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSONContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}

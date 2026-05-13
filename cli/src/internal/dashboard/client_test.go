@@ -12,7 +12,7 @@ func TestReadDashboardPortFromAzdConfig(t *testing.T) {
 	// Create a temporary home directory for the test
 	tmpHome := t.TempDir()
 	azdDir := filepath.Join(tmpHome, ".azd")
-	if err := os.MkdirAll(azdDir, 0700); err != nil {
+	if err := os.MkdirAll(azdDir, 0o700); err != nil {
 		t.Fatalf("failed to create .azd directory: %v", err)
 	}
 
@@ -73,7 +73,7 @@ func TestReadDashboardPortFromAzdConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath := filepath.Join(azdDir, "config.json")
-			if err := os.WriteFile(configPath, []byte(tt.config), 0600); err != nil {
+			if err := os.WriteFile(configPath, []byte(tt.config), 0o600); err != nil {
 				t.Fatalf("failed to write config: %v", err)
 			}
 

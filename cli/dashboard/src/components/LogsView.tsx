@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { protoInt64 } from '@bufbuild/protobuf'
+import { create, protoInt64 } from '@bufbuild/protobuf'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,8 +10,8 @@ import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
 import { useSharedLogStream } from '@/hooks/useSharedLogStream'
 import { useServicesContext } from '@/contexts/ServicesContext'
 import { createAzureClient, createLogsClient } from '@/lib/connectClient'
-import { GetAzureLogsRequest } from '@/gen/proto/azdapp/v1/azure_pb.js'
-import { GetLogsRequest } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { GetAzureLogsRequestSchema } from '@/gen/proto/azdapp/v1/azure_pb.js'
+import { GetLogsRequestSchema } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import { protoLogEntryToView, type DashboardLogEntry } from '@/lib/log-proto'
 import type { LogMode } from './ModeToggle'
 import {
@@ -151,7 +151,7 @@ export function LogsView({
         const sinceSeconds = azureTimeRangeToSeconds(timeRange?.preset ?? '15m')
         const client = createAzureClient()
         const resp = await client.getAzureLogs(
-          new GetAzureLogsRequest({
+          create(GetAzureLogsRequestSchema, {
             service: serviceValue !== 'all' && serviceValue !== '' ? serviceValue : '',
             sinceSeconds: protoInt64.parse(sinceSeconds),
             tail: INITIAL_LOG_TAIL,
@@ -177,7 +177,7 @@ export function LogsView({
     try {
       const client = createLogsClient()
       const resp = await client.getLogs(
-        new GetLogsRequest({
+        create(GetLogsRequestSchema, {
           serviceName: serviceValue !== 'all' && serviceValue !== '' ? serviceValue : '',
           tail: INITIAL_LOG_TAIL,
         }),

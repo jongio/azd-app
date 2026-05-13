@@ -21,12 +21,14 @@ import {
 } from '@connectrpc/connect'
 
 import { useLogsStream } from './useLogsStream'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
-import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
-  GetLogsRequest,
-  GetLogsResponse,
+  type GetLogsRequest,
+  GetLogsResponseSchema,
+  type GetLogsResponse,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 vi.mock('@/hooks/useBackendConnection', () => ({
   useBackendConnection: () => ({ connected: true }),
@@ -59,7 +61,7 @@ function makeCountingTransport(): {
         totalCalls++
         const key = req.serviceName || 'all'
         callsByService.set(key, (callsByService.get(key) ?? 0) + 1)
-        return Promise.resolve(new GetLogsResponse({ entries: [] }))
+        return Promise.resolve(create(GetLogsResponseSchema, { entries: [] }))
       },
       streamLocalLogs: notUsed,
       listClassifications: notUsed,

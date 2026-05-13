@@ -113,11 +113,11 @@ func TestLoadCorruptedFile(t *testing.T) {
 	portsDir := filepath.Join(tempDir, ".azure")
 	portsFile := filepath.Join(portsDir, "ports.json")
 
-	if err := os.MkdirAll(portsDir, 0750); err != nil {
+	if err := os.MkdirAll(portsDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
-	if err := os.WriteFile(portsFile, []byte("invalid json"), 0600); err != nil {
+	if err := os.WriteFile(portsFile, []byte("invalid json"), 0o600); err != nil {
 		t.Fatalf("Failed to write corrupt file: %v", err)
 	}
 

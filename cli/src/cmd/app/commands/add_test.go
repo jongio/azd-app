@@ -24,7 +24,7 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite:latest
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -59,7 +59,7 @@ func TestServiceExistsInYamlNoServices(t *testing.T) {
 	content := `name: test-app
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -83,7 +83,7 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -132,7 +132,7 @@ func TestAddServiceToYamlCreatesServicesSection(t *testing.T) {
 	content := `name: test-app
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 

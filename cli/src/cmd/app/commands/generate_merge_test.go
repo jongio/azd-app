@@ -23,10 +23,10 @@ func TestMergeReqsPreservesStructure(t *testing.T) {
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create package-lock.json: %v", err)
 	}
 
@@ -42,7 +42,7 @@ reqs:
     minVersion: "20.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(originalYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(originalYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -115,10 +115,10 @@ func TestMergeReqsNoDuplicates(t *testing.T) {
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create package-lock.json: %v", err)
 	}
 
@@ -131,7 +131,7 @@ reqs:
     minVersion: "20.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -187,10 +187,10 @@ func TestMergeReqsNoReqsSection(t *testing.T) {
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create package-lock.json: %v", err)
 	}
 
@@ -202,7 +202,7 @@ services:
     port: 3000
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -264,10 +264,10 @@ func TestMergeReqsUserAddedCustomReq(t *testing.T) {
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create package-lock.json: %v", err)
 	}
 
@@ -283,7 +283,7 @@ reqs:
     checkRunning: true
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -343,10 +343,10 @@ func TestMergeReqsMultipleRuns(t *testing.T) {
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create package-lock.json: %v", err)
 	}
 
@@ -357,7 +357,7 @@ reqs:
     minVersion: "20.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

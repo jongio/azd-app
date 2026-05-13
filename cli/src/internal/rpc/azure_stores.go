@@ -164,11 +164,15 @@ type AzureStoreFuncs struct {
 // --- AzureConfigStore ---
 
 func (f AzureStoreFuncs) LoadAzureYaml() (*service.AzureYaml, error) { return f.LoadAzureYamlFn() }
-func (f AzureStoreFuncs) SaveAzureYaml(ay *service.AzureYaml) error  { return f.SaveAzureYamlFn(ay) }
-func (f AzureStoreFuncs) EnableGlobalAnalytics() (bool, error)       { return f.EnableGlobalAnalyticsFn() }
+
+func (f AzureStoreFuncs) SaveAzureYaml(ay *service.AzureYaml) error { return f.SaveAzureYamlFn(ay) }
+
+func (f AzureStoreFuncs) EnableGlobalAnalytics() (bool, error) { return f.EnableGlobalAnalyticsFn() }
+
 func (f AzureStoreFuncs) SaveServiceLogConfig(s string, t []string, q string) error {
 	return f.SaveServiceLogConfigFn(s, t, q)
 }
+
 func (f AzureStoreFuncs) SaveServiceCustomQuery(s, q string) error {
 	return f.SaveServiceCustomQueryFn(s, q)
 }
@@ -176,6 +180,7 @@ func (f AzureStoreFuncs) SaveServiceCustomQuery(s, q string) error {
 // --- AzureCatalog ---
 
 func (f AzureStoreFuncs) ServiceNamesFromEnv() []string { return f.ServiceNamesFromEnvFn() }
+
 func (f AzureStoreFuncs) WorkspaceID(ctx context.Context) (string, error) {
 	return f.WorkspaceIDFn(ctx)
 }
@@ -183,9 +188,11 @@ func (f AzureStoreFuncs) DefaultQuery(rt string) string        { return f.Defaul
 func (f AzureStoreFuncs) RecommendedTables(rt string) []string { return f.RecommendedTablesFn(rt) }
 func (f AzureStoreFuncs) AllKnownTables() []azure.TableInfo    { return f.AllKnownTablesFn() }
 func (f AzureStoreFuncs) IsRecommendedTable(n, rt string) bool { return f.IsRecommendedTableFn(n, rt) }
+
 func (f AzureStoreFuncs) TableCategories() map[string]azure.TableCategory {
 	return f.TableCategoriesFn()
 }
+
 func (f AzureStoreFuncs) SubstituteQueryPlaceholders(q, s, ts string) string {
 	return f.SubstituteQueryPlaceholdersFn(q, s, ts)
 }
@@ -199,18 +206,23 @@ func (f AzureStoreFuncs) ListLiveTables(ctx context.Context, w string) ([]azure.
 func (f AzureStoreFuncs) FetchLogs(ctx context.Context, c azure.StandaloneLogsConfig) ([]azure.LogEntry, error) {
 	return f.FetchLogsFn(ctx, c)
 }
+
 func (f AzureStoreFuncs) ResolveResource(ctx context.Context, s string) (*azure.AzureResource, error) {
 	return f.ResolveResourceFn(ctx, s)
 }
+
 func (f AzureStoreFuncs) NewRealtimeStreamer(rt azure.ResourceType, c azure.StreamerConfig) (azure.RealtimeLogStreamer, error) {
 	return f.NewRealtimeStreamerFn(rt, c)
 }
+
 func (f AzureStoreFuncs) NewLogAnalyticsCredential() (azcore.TokenCredential, error) {
 	return f.NewLogAnalyticsCredentialFn()
 }
+
 func (f AzureStoreFuncs) VerifyWorkspace(ctx context.Context, req *azure.WorkspaceVerificationRequest) (*azure.WorkspaceVerificationResponse, error) {
 	return f.VerifyWorkspaceFn(ctx, req)
 }
+
 func (f AzureStoreFuncs) VerifyServiceLogs(ctx context.Context, s string) (*VerifyServiceLogsResult, error) {
 	return f.VerifyServiceLogsFn(ctx, s)
 }
@@ -220,12 +232,15 @@ func (f AzureStoreFuncs) VerifyServiceLogs(ctx context.Context, s string) (*Veri
 func (f AzureStoreFuncs) CheckDiagnosticSettings(ctx context.Context) (*azure.DiagnosticSettingsCheckResponse, error) {
 	return f.CheckDiagnosticSettingsFn(ctx)
 }
+
 func (f AzureStoreFuncs) RunDiagnostics(ctx context.Context) (any, error) {
 	return f.RunDiagnosticsFn(ctx)
 }
+
 func (f AzureStoreFuncs) GetSetupState(ctx context.Context) (any, error) {
 	return f.GetSetupStateFn(ctx)
 }
+
 func (f AzureStoreFuncs) GetHealth(ctx context.Context) AzureHealthSnapshot {
 	return f.GetHealthFn(ctx)
 }

@@ -43,7 +43,7 @@ func saveAzureYaml(projectDir string, azureYaml *service.AzureYaml) error {
 		return fmt.Errorf("failed to marshal azure.yaml: %w", err)
 	}
 
-	if err := fileutil.AtomicWriteFile(azureYamlPath, data, 0644); err != nil {
+	if err := fileutil.AtomicWriteFile(azureYamlPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write azure.yaml: %w", err)
 	}
 

@@ -12,12 +12,13 @@
  * readable across the rollout window.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { Code, ConnectError, type Client, type Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import { createLifecycleClient } from '@/lib/connectClient'
 import type { CodespaceConfig, EnvironmentInfo } from '@/lib/codespace-utils'
-import type { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
-import { GetEnvironmentRequest } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+import type { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+import { GetEnvironmentRequestSchema } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
 
 // =============================================================================
 // Types
@@ -119,7 +120,7 @@ export function useCodespaceEnv(options?: UseCodespaceEnvOptions): UseCodespaceE
   // Memoising on `transport` keeps tests deterministic when a spec swaps
   // the in-memory transport between renders.
   const transport = options?.transport
-  const client = useMemo<PromiseClient<typeof LifecycleService>>(
+  const client = useMemo<Client<typeof LifecycleService>>(
     () => createLifecycleClient(transport),
     [transport]
   )
@@ -157,7 +158,7 @@ export function useCodespaceEnv(options?: UseCodespaceEnvOptions): UseCodespaceE
       setLoading(true)
       setError(null)
 
-      const resp = await client.getEnvironment(new GetEnvironmentRequest(), {
+      const resp = await client.getEnvironment(create(GetEnvironmentRequestSchema), {
         signal: controller.signal,
       })
 

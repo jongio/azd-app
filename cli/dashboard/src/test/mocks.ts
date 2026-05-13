@@ -188,8 +188,9 @@ export const createMockWebSocketMessage = (data: unknown) => {
 // Proto helpers (Connect transport tests)
 // =============================================================================
 
-import { Timestamp } from '@bufbuild/protobuf'
-import { ServiceInfo, ServiceStatus, HealthState, AzureDeploymentInfo } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { timestampFromDate } from '@bufbuild/protobuf/wkt'
+import { create } from '@bufbuild/protobuf'
+import { ServiceInfoSchema, type ServiceInfo, ServiceStatus, HealthState, AzureDeploymentInfoSchema } from '@/gen/proto/azdapp/v1/common_pb.js'
 
 /**
  * Convert a dashboard Service into the proto ServiceInfo the Connect
@@ -198,7 +199,7 @@ import { ServiceInfo, ServiceStatus, HealthState, AzureDeploymentInfo } from '@/
  * Connect router without re-authoring fixtures.
  */
 export function serviceToProto(svc: Service): ServiceInfo {
-  const out = new ServiceInfo({
+  const out = create(ServiceInfoSchema, {
     name: svc.name,
     framework: svc.framework ?? '',
     language: svc.language ?? '',
@@ -212,7 +213,7 @@ export function serviceToProto(svc: Service): ServiceInfo {
     out.health = mapHealth(svc.local.health)
     if (svc.local.port !== undefined) out.port = svc.local.port
     if (svc.local.pid !== undefined) out.pid = svc.local.pid
-    if (svc.local.startTime) out.startTime = Timestamp.fromDate(new Date(svc.local.startTime))
+    if (svc.local.startTime) out.startTime = timestampFromDate(new Date(svc.local.startTime))
     if (svc.local.customUrl) {
       out.url = svc.local.customUrl
     } else if (svc.local.url) {
@@ -221,7 +222,7 @@ export function serviceToProto(svc: Service): ServiceInfo {
   }
 
   if (svc.azure) {
-    out.azure = new AzureDeploymentInfo({
+    out.azure = create(AzureDeploymentInfoSchema, {
       resourceId: svc.azure.resourceName ?? '',
       resourceType: svc.host ?? '',
       resourceGroup: svc.azure.resourceGroup ?? '',

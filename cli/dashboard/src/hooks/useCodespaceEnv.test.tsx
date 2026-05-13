@@ -12,11 +12,13 @@ import { ConnectError, Code, createRouterTransport, type ConnectRouter } from '@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { useCodespaceEnv } from './useCodespaceEnv'
-import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
+import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
 import {
-  CodespaceInfo,
-  GetEnvironmentResponse,
+  CodespaceInfoSchema,
+  GetEnvironmentResponseSchema,
+  type GetEnvironmentResponse,
 } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 interface RouterOverrides {
   getEnvironment?: () => Promise<GetEnvironmentResponse> | GetEnvironmentResponse
@@ -35,8 +37,8 @@ function makeTransport(overrides: RouterOverrides = {}) {
         if (overrides.getEnvironment) {
           return overrides.getEnvironment()
         }
-        return new GetEnvironmentResponse({
-          codespace: new CodespaceInfo({
+        return create(GetEnvironmentResponseSchema, {
+          codespace: create(CodespaceInfoSchema, {
             enabled: false,
             name: '',
             domain: '',
@@ -73,8 +75,8 @@ describe('useCodespaceEnv (Connect)', () => {
   it('surfaces Codespace info from the GetEnvironment response', async () => {
     const transport = makeTransport({
       getEnvironment: () =>
-        new GetEnvironmentResponse({
-          codespace: new CodespaceInfo({
+        create(GetEnvironmentResponseSchema, {
+          codespace: create(CodespaceInfoSchema, {
             enabled: true,
             name: 'silver-space-xyzzy',
             domain: 'app.github.dev',
@@ -102,8 +104,8 @@ describe('useCodespaceEnv (Connect)', () => {
     const transport = makeTransport({
       getEnvironment: () => {
         callCount += 1
-        return new GetEnvironmentResponse({
-          codespace: new CodespaceInfo({
+        return create(GetEnvironmentResponseSchema, {
+          codespace: create(CodespaceInfoSchema, {
             enabled: true,
             name: 'cached-codespace',
             domain: 'app.github.dev',
@@ -131,8 +133,8 @@ describe('useCodespaceEnv (Connect)', () => {
     const transport = makeTransport({
       getEnvironment: () => {
         callCount += 1
-        return new GetEnvironmentResponse({
-          codespace: new CodespaceInfo({
+        return create(GetEnvironmentResponseSchema, {
+          codespace: create(CodespaceInfoSchema, {
             enabled: callCount === 1,
             name: callCount === 1 ? 'first' : 'second',
             domain: 'app.github.dev',
@@ -172,8 +174,8 @@ describe('useCodespaceEnv (Connect)', () => {
   it('treats empty environmentName as undefined to match legacy semantics', async () => {
     const transport = makeTransport({
       getEnvironment: () =>
-        new GetEnvironmentResponse({
-          codespace: new CodespaceInfo({ enabled: false }),
+        create(GetEnvironmentResponseSchema, {
+          codespace: create(CodespaceInfoSchema, { enabled: false }),
           environmentName: '',
         }),
     })

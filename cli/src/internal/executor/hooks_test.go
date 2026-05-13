@@ -861,7 +861,7 @@ func TestExecuteHook_ScriptFileWithoutExecutePermission(t *testing.T) {
 echo "Script executed successfully"
 exit 0
 `
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o644); err != nil {
 		t.Fatalf("Failed to create script file: %v", err)
 	}
 
@@ -870,7 +870,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("Failed to stat script file: %v", err)
 	}
-	if info.Mode()&0111 != 0 {
+	if info.Mode()&0o111 != 0 {
 		t.Fatal("Script should not be executable for this test")
 	}
 

@@ -489,7 +489,7 @@ func TestRunPrereqsWithInvalidYAML(t *testing.T) {
 	}
 
 	invalidYAML := `this is not valid: yaml: content: [[[`
-	if err := os.WriteFile("azure.yaml", []byte(invalidYAML), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(invalidYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -565,7 +565,7 @@ services:
 			}
 
 			// Write azure.yaml
-			if err := os.WriteFile("azure.yaml", []byte(tt.yamlContent), 0600); err != nil {
+			if err := os.WriteFile("azure.yaml", []byte(tt.yamlContent), 0o600); err != nil {
 				t.Fatal(err)
 			}
 
@@ -629,7 +629,7 @@ reqs:
     command: echo
     args: ["1.0.0"]
 `
-	if err := os.WriteFile("azure.yaml", []byte(validYAML), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(validYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -936,7 +936,7 @@ reqs:
     versionField: 1
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1167,7 +1167,7 @@ reqs:
     runningCheckExitCode: 0
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1239,7 +1239,7 @@ reqs:
     args: %v
 `, versionCmd, yamlArgsString(versionArgs))
 
-	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1304,7 +1304,7 @@ reqs:
     minVersion: 1.0.0
 `, versionCmd, yamlArgsString(versionArgs))
 
-	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1337,7 +1337,7 @@ func TestRunReqsFix_NoFailedRequirements(t *testing.T) {
 	yamlContent := `name: test
 reqs: []
 `
-	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1379,7 +1379,7 @@ reqs:
     args: %v
 `, versionCmd, yamlArgsString(versionArgs))
 
-	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1425,7 +1425,7 @@ reqs:
     args: %v
 `, versionCmd, yamlArgsString(versionArgs))
 
-	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(yamlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1456,7 +1456,7 @@ func TestRunReqsFix_InvalidYAML(t *testing.T) {
 
 	// Create invalid azure.yaml
 	invalidYAML := `this is not: valid: yaml: [[[`
-	if err := os.WriteFile("azure.yaml", []byte(invalidYAML), 0600); err != nil {
+	if err := os.WriteFile("azure.yaml", []byte(invalidYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

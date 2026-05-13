@@ -175,7 +175,7 @@ func SaveNotificationPreferences(prefs *NotificationPreferences) error {
 
 	// Ensure directory exists with restrictive permissions (owner + group only)
 	prefsDir := filepath.Dir(prefsPath)
-	if err := os.MkdirAll(prefsDir, 0750); err != nil {
+	if err := os.MkdirAll(prefsDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 

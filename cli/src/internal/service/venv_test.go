@@ -94,7 +94,7 @@ func TestPythonVenvDetection(t *testing.T) {
 			// Create project files
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -109,12 +109,12 @@ func TestPythonVenvDetection(t *testing.T) {
 				}
 
 				// Create venv directory structure
-				if err := os.MkdirAll(filepath.Dir(venvPythonPath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(venvPythonPath), 0o750); err != nil {
 					t.Fatalf("Failed to create venv directory: %v", err)
 				}
 
 				// Create a dummy python executable file
-				if err := os.WriteFile(venvPythonPath, []byte("#!/usr/bin/env python"), 0755); err != nil {
+				if err := os.WriteFile(venvPythonPath, []byte("#!/usr/bin/env python"), 0o755); err != nil {
 					t.Fatalf("Failed to create venv python: %v", err)
 				}
 			}
@@ -127,7 +127,7 @@ services:
     language: python
     host: containerapp`
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 

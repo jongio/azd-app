@@ -13,16 +13,20 @@ import { Code, ConnectError, createRouterTransport, type ConnectRouter } from '@
 import { describe, it, expect } from 'vitest'
 
 import { useHealthStream } from './useHealthStream'
-import { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
+import { HealthService } from '@/gen/proto/azdapp/v1/health_pb.js'
 import {
-  HealthCheckResult as ProtoHealthCheckResult,
-  HealthChange as ProtoHealthChange,
-  HealthEvent,
-  HealthReport,
-  StreamHealthResponse,
+  HealthCheckResultSchema,
+  type HealthCheckResult as ProtoHealthCheckResult,
+  HealthChangeSchema,
+  type HealthChange as ProtoHealthChange,
+  HealthEventSchema,
+  HealthReportSchema,
+  type HealthReport,
+  StreamHealthResponseSchema,
 } from '@/gen/proto/azdapp/v1/health_pb.js'
 import { HealthState } from '@/gen/proto/azdapp/v1/common_pb.js'
-import { Timestamp } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
+import { type Timestamp, TimestampSchema } from '@bufbuild/protobuf/wkt'
 
 type EmittedEvent =
   | { kind: 'report'; report: HealthReport }
@@ -71,7 +75,7 @@ function buildHarness(): Harness {
 
   const controller: StreamController = {
     emitReport: (results, generatedAt) => {
-      const report = new HealthReport({ results, generatedAt: generatedAt ?? new Timestamp() })
+      const report = create(HealthReportSchema, { results, generatedAt: generatedAt ?? create(TimestampSchema) })
       push({ kind: 'report', report })
     },
     emitChange: (change) => push({ kind: 'change', change }),
@@ -101,20 +105,20 @@ function buildHarness(): Harness {
           if (next.kind === 'end') return
           if (next.kind === 'error') throw next.err
           if (next.kind === 'report') {
-            yield new StreamHealthResponse({
-              event: new HealthEvent({ event: { case: 'report', value: next.report } }),
+            yield create(StreamHealthResponseSchema, {
+              event: create(HealthEventSchema, { event: { case: 'report', value: next.report } }),
             })
             continue
           }
           if (next.kind === 'change') {
-            yield new StreamHealthResponse({
-              event: new HealthEvent({ event: { case: 'change', value: next.change } }),
+            yield create(StreamHealthResponseSchema, {
+              event: create(HealthEventSchema, { event: { case: 'change', value: next.change } }),
             })
             continue
           }
           if (next.kind === 'heartbeat') {
-            yield new StreamHealthResponse({
-              event: new HealthEvent({ event: { case: 'heartbeat', value: {} } }),
+            yield create(StreamHealthResponseSchema, {
+              event: create(HealthEventSchema, { event: { case: 'heartbeat', value: {} } }),
             })
           }
         }
@@ -130,11 +134,11 @@ function buildHarness(): Harness {
 }
 
 function makeResult(serviceName: string, state: HealthState, message?: string): ProtoHealthCheckResult {
-  return new ProtoHealthCheckResult({
+  return create(HealthCheckResultSchema, {
     serviceName,
     state,
     message: message ?? '',
-    checkedAt: new Timestamp(),
+    checkedAt: create(TimestampSchema),
     latencyMs: BigInt(45),
   })
 }
@@ -240,20 +244,20 @@ describe('useHealthStream (Connect)', () => {
     await waitFor(() => expect(result.current.connected).toBe(true))
 
     controller.emitChange(
-      new ProtoHealthChange({
+      create(HealthChangeSchema, {
         serviceName: 'api',
         previousState: HealthState.HEALTHY,
         currentState: HealthState.UNHEALTHY,
         message: 'connection refused',
-        changedAt: new Timestamp(),
+        changedAt: create(TimestampSchema),
       })
     )
     controller.emitChange(
-      new ProtoHealthChange({
+      create(HealthChangeSchema, {
         serviceName: 'api',
         previousState: HealthState.UNHEALTHY,
         currentState: HealthState.HEALTHY,
-        changedAt: new Timestamp(),
+        changedAt: create(TimestampSchema),
       })
     )
 
@@ -278,11 +282,11 @@ describe('useHealthStream (Connect)', () => {
 
     for (let i = 0; i < 60; i++) {
       controller.emitChange(
-        new ProtoHealthChange({
+        create(HealthChangeSchema, {
           serviceName: `svc-${i}`,
           previousState: HealthState.HEALTHY,
           currentState: HealthState.UNHEALTHY,
-          changedAt: new Timestamp(),
+          changedAt: create(TimestampSchema),
         })
       )
     }
@@ -317,11 +321,11 @@ describe('useHealthStream (Connect)', () => {
 
     controller.emitReport([makeResult('api', HealthState.HEALTHY)])
     controller.emitChange(
-      new ProtoHealthChange({
+      create(HealthChangeSchema, {
         serviceName: 'api',
         previousState: HealthState.HEALTHY,
         currentState: HealthState.UNHEALTHY,
-        changedAt: new Timestamp(),
+        changedAt: create(TimestampSchema),
       })
     )
     await waitFor(() => expect(result.current.changes).toHaveLength(1))

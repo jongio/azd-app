@@ -24,10 +24,10 @@ func TestFindDotnetProjects(t *testing.T) {
 
 	for _, file := range files {
 		fullPath := filepath.Join(tmpDir, file)
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
-		if err := os.WriteFile(fullPath, []byte("<Project></Project>"), 0600); err != nil {
+		if err := os.WriteFile(fullPath, []byte("<Project></Project>"), 0o600); err != nil {
 			t.Fatalf("failed to create file %s: %v", file, err)
 		}
 	}
@@ -62,10 +62,10 @@ func TestFindAppHost(t *testing.T) {
 
 	for path, content := range files {
 		fullPath := filepath.Join(tmpDir, path)
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 			t.Fatalf("failed to create file %s: %v", path, err)
 		}
 	}
@@ -155,10 +155,10 @@ func TestFindFunctionApps(t *testing.T) {
 
 	for path, content := range projects {
 		fullPath := filepath.Join(tmpDir, path)
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 			t.Fatalf("failed to create file %s: %v", path, err)
 		}
 	}
@@ -331,10 +331,10 @@ func TestDetectFunctionsVariantForDiscovery(t *testing.T) {
 			// Create test files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 					t.Fatalf("failed to create directory: %v", err)
 				}
-				if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create file %s: %v", path, err)
 				}
 			}
@@ -413,7 +413,7 @@ func TestDetectFunctionsLanguageForDiscovery(t *testing.T) {
 			// Create test files
 			for path, content := range tt.files {
 				fullPath := filepath.Join(tmpDir, path)
-				if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create file %s: %v", path, err)
 				}
 			}

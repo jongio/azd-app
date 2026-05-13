@@ -68,7 +68,8 @@ func (e *depsExecutor) execute() error {
 	// Apply service filter if specified (further restricts to named services)
 	if len(e.opts.Services) > 0 {
 		nodeProjects, pythonProjects, dotnetProjects = e.filterProjectsByService(
-			nodeProjects, pythonProjects, dotnetProjects, searchRoot)
+			nodeProjects, pythonProjects, dotnetProjects, searchRoot,
+		)
 	}
 
 	totalProjects := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
@@ -177,8 +178,10 @@ func GetDepsOptions() *DepsOptions {
 }
 
 // Global options for backward compatibility (temporary).
-var globalDepsOptions = &DepsOptions{}
-var depsOptionsMutex sync.RWMutex
+var (
+	globalDepsOptions = &DepsOptions{}
+	depsOptionsMutex  sync.RWMutex
+)
 
 // ResetDepsOptions resets the global options to defaults.
 // This is primarily used for testing to ensure clean state.

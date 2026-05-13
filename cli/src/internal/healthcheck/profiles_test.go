@@ -121,7 +121,7 @@ func TestLoadHealthProfiles_NoFile(t *testing.T) {
 func TestLoadHealthProfiles_ValidFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	azdDir := filepath.Join(tmpDir, ".azd")
-	if err := os.MkdirAll(azdDir, 0755); err != nil {
+	if err := os.MkdirAll(azdDir, 0o755); err != nil {
 		t.Fatalf("Failed to create .azd directory: %v", err)
 	}
 
@@ -144,7 +144,7 @@ func TestLoadHealthProfiles_ValidFile(t *testing.T) {
     cacheTTL: 1s
 `
 
-	if err := os.WriteFile(profilePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(profilePath, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to write test profile: %v", err)
 	}
 
@@ -175,14 +175,14 @@ func TestLoadHealthProfiles_ValidFile(t *testing.T) {
 func TestLoadHealthProfiles_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	azdDir := filepath.Join(tmpDir, ".azd")
-	if err := os.MkdirAll(azdDir, 0755); err != nil {
+	if err := os.MkdirAll(azdDir, 0o755); err != nil {
 		t.Fatalf("Failed to create .azd directory: %v", err)
 	}
 
 	profilePath := filepath.Join(azdDir, "health-profiles.yaml")
 	invalidContent := `this is not valid yaml: [[[`
 
-	if err := os.WriteFile(profilePath, []byte(invalidContent), 0644); err != nil {
+	if err := os.WriteFile(profilePath, []byte(invalidContent), 0o644); err != nil {
 		t.Fatalf("Failed to write test profile: %v", err)
 	}
 

@@ -34,8 +34,10 @@ type ServiceInfo = core.ServiceInfo
 type HealthCheckConfig = core.HealthCheckConfig
 
 // Local aliases for backward compatibility with unexported references.
-type serviceInfo = core.ServiceInfo
-type healthCheckConfig = core.HealthCheckConfig
+type (
+	serviceInfo       = core.ServiceInfo
+	healthCheckConfig = core.HealthCheckConfig
+)
 
 // Re-export constants from azd-core/healthcheck.
 const (

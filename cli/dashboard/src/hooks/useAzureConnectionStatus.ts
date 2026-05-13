@@ -11,16 +11,17 @@
  * gets the singleton shared with every other hook.
  */
 import * as React from 'react'
-import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { Code, ConnectError, type Client, type Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import type { LogMode } from '@/components/ModeToggle'
 import { createModeClient } from '@/lib/connectClient'
-import type { ModeService } from '@/gen/proto/azdapp/v1/mode_connect.js'
+import type { ModeService } from '@/gen/proto/azdapp/v1/mode_pb.js'
 import {
-  GetModeRequest,
+  GetModeRequestSchema,
   type GetModeResponse,
   LogMode as ProtoLogMode,
-  SetModeRequest,
+  SetModeRequestSchema,
   type SetModeResponse,
 } from '@/gen/proto/azdapp/v1/mode_pb.js'
 
@@ -141,7 +142,7 @@ export function useAzureConnectionStatus(
   const transport = options?.transport
   const onAzureRealtimeConfig = options?.onAzureRealtimeConfig
 
-  const client = React.useMemo<PromiseClient<typeof ModeService>>(
+  const client = React.useMemo<Client<typeof ModeService>>(
     () => createModeClient(transport),
     [transport]
   )
@@ -167,7 +168,7 @@ export function useAzureConnectionStatus(
     abortControllerRef.current = controller
 
     try {
-      const resp = await client.getMode(new GetModeRequest(), { signal: controller.signal })
+      const resp = await client.getMode(create(GetModeRequestSchema), { signal: controller.signal })
       const snap = normalizeModeResponse(resp)
 
       if (snap.mode) {
@@ -231,7 +232,7 @@ export function useAzureConnectionStatus(
 
       try {
         const resp = await client.setMode(
-          new SetModeRequest({ mode: logModeToProto(newMode) })
+          create(SetModeRequestSchema, { mode: logModeToProto(newMode) })
         )
         const snap = normalizeModeResponse(resp)
 

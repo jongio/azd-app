@@ -136,7 +136,6 @@ func TestUnixKillCommand_NoXargs(t *testing.T) {
 	// Try to kill a process on a port that doesn't exist
 	// This should fail gracefully without xargs errors
 	err := pm.killProcessOnPort(12345) // Random unlikely port
-
 	// Should return nil (no error) because getProcessOnPort will fail
 	// and killProcessOnPort returns nil when port is not in use
 	if err != nil {

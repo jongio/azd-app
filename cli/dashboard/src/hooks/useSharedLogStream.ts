@@ -34,25 +34,26 @@
  * pick one without branching.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { Code, ConnectError, type Client, type Transport } from '@connectrpc/connect'
 import { protoInt64 } from '@bufbuild/protobuf'
 
 import type { LogEntry } from '@/components/LogsPane'
 import { createAzureClient, createLogsClient } from '@/lib/connectClient'
-import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
-import type { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
+import type { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { create } from '@bufbuild/protobuf'
 import {
-  StreamAzureLogsRequest,
+  StreamAzureLogsRequestSchema,
   type StreamAzureLogsResponse,
   type StreamStatus,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
-  StreamLocalLogsRequest,
+  StreamLocalLogsRequestSchema,
   type StreamLocalLogsResponse,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import { LogLevel } from '@/gen/proto/azdapp/v1/common_pb.js'
 import type { LogEntry as ProtoLogEntry } from '@/gen/proto/azdapp/v1/common_pb.js'
-import type { Timestamp } from '@bufbuild/protobuf'
+import type { Timestamp } from '@bufbuild/protobuf/wkt'
 
 // =============================================================================
 // Shared types
@@ -409,7 +410,7 @@ export function protoToLogEntry(proto: ProtoLogEntry): LogEntry {
  */
 class ConnectLocalLogStreamManager implements LogStreamManager {
   private readonly registry = new SubscriberRegistry()
-  private readonly client: PromiseClient<typeof LogsService>
+  private readonly client: Client<typeof LogsService>
   private readonly config: ManagerConfig
   private controller: AbortController | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -419,7 +420,7 @@ class ConnectLocalLogStreamManager implements LogStreamManager {
   private isStreaming = false
   private isDestroyed = false
 
-  constructor(client: PromiseClient<typeof LogsService>, config: Partial<ManagerConfig> = {}) {
+  constructor(client: Client<typeof LogsService>, config: Partial<ManagerConfig> = {}) {
     this.client = client
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
@@ -557,7 +558,7 @@ class ConnectLocalLogStreamManager implements LogStreamManager {
   private async consumeStream(controller: AbortController): Promise<void> {
     let firstMessageSeen = false
     try {
-      const req = new StreamLocalLogsRequest({
+      const req = create(StreamLocalLogsRequestSchema, {
         serviceName: '',
         // Backfill 0: each subscriber that needs initial history fetches
         // it via GetLogs (REST today, GetLogs unary RPC after the next
@@ -715,7 +716,7 @@ function sinceToBackfillSeconds(since: string | undefined): bigint {
  */
 class ConnectAzureLogStreamManager implements LogStreamManager {
   private readonly registry = new SubscriberRegistry()
-  private readonly client: PromiseClient<typeof AzureService>
+  private readonly client: Client<typeof AzureService>
   private readonly config: ManagerConfig
   /** Per-service stream lifecycle. Key is service name. */
   private readonly streams = new Map<string, ServiceStreamState>()
@@ -728,7 +729,7 @@ class ConnectAzureLogStreamManager implements LogStreamManager {
   private readonly pendingSince = new Map<string, string>()
   private isDestroyed = false
 
-  constructor(client: PromiseClient<typeof AzureService>, config: Partial<ManagerConfig> = {}) {
+  constructor(client: Client<typeof AzureService>, config: Partial<ManagerConfig> = {}) {
     this.client = client
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
@@ -902,7 +903,7 @@ class ConnectAzureLogStreamManager implements LogStreamManager {
     let firstMessageSeen = false
     try {
       const since = this.pendingSince.get(service)
-      const req = new StreamAzureLogsRequest({
+      const req = create(StreamAzureLogsRequestSchema, {
         service,
         // Always realtime: the legacy WS path sets ?realtime=true and
         // the dashboard never opened a polling-only stream. Server

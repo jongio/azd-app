@@ -9,8 +9,9 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { ConnectError, Code, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
 
 import { useBicepTemplate } from './useBicepTemplate'
-import { BicepService } from '@/gen/proto/azdapp/v1/bicep_connect.js'
-import { GetBicepTemplateResponse } from '@/gen/proto/azdapp/v1/bicep_pb.js'
+import { BicepService } from '@/gen/proto/azdapp/v1/bicep_pb.js'
+import { GetBicepTemplateResponseSchema, type GetBicepTemplateResponse } from '@/gen/proto/azdapp/v1/bicep_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 // =============================================================================
 // Helpers
@@ -25,7 +26,7 @@ function makeTransport(overrides: RouterOverrides = {}) {
     router.service(BicepService, {
       getBicepTemplate: () => {
         if (overrides.getBicepTemplate) return overrides.getBicepTemplate()
-        return new GetBicepTemplateResponse({
+        return create(GetBicepTemplateResponseSchema, {
           template: '// generated bicep',
           includedServices: ['api', 'web'],
           workspaceId: '',
@@ -149,7 +150,7 @@ describe('useBicepTemplate', () => {
         if (shouldFail) {
           return Promise.reject(new ConnectError('boom', Code.Unavailable))
         }
-        return new GetBicepTemplateResponse({
+        return create(GetBicepTemplateResponseSchema, {
           template: '// retry success',
           includedServices: ['api'],
         })

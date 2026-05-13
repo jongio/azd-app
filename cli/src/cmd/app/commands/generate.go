@@ -704,7 +704,7 @@ reqs:
 `, dirName)
 
 	// #nosec G306 -- azure.yaml is a config file, 0644 is appropriate for team access
-	if err := os.WriteFile(newPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(newPath, []byte(content), 0o644); err != nil {
 		return "", false, fmt.Errorf("failed to create azure.yaml: %w", err)
 	}
 
@@ -767,7 +767,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 
 	// Write back to file
 	// #nosec G306 -- azure.yaml is a config file, 0644 is appropriate for team access
-	if err := os.WriteFile(azureYamlPath, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(newContent), 0o644); err != nil {
 		return 0, 0, fmt.Errorf("failed to write azure.yaml: %w", err)
 	}
 

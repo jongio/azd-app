@@ -43,7 +43,7 @@ type NotificationRecord struct {
 func NewDatabase(path string) (*Database, error) {
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
@@ -128,7 +128,8 @@ func (d *Database) Save(ctx context.Context, event Event) error {
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
-	_, err = d.db.ExecContext(ctx, query,
+	_, err = d.db.ExecContext(
+		ctx, query,
 		event.Type,
 		event.ServiceName,
 		event.Message,
@@ -136,7 +137,6 @@ func (d *Database) Save(ctx context.Context, event Event) error {
 		event.Timestamp,
 		string(metadata),
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to insert notification: %w", err)
 	}

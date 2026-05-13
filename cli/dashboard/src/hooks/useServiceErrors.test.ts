@@ -4,12 +4,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Code, ConnectError, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
 import { renderHook, act } from '@testing-library/react'
-import { Timestamp } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
+import { TimestampSchema } from '@bufbuild/protobuf/wkt'
 
 import { useServiceErrors } from './useServiceErrors'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
-import { StreamLocalLogsResponse } from '@/gen/proto/azdapp/v1/logs_pb.js'
-import { LogEntry as ProtoLogEntry, LogLevel, LogStream } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { StreamLocalLogsResponseSchema } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { LogEntrySchema, type LogEntry as ProtoLogEntry, LogLevel, LogStream } from '@/gen/proto/azdapp/v1/common_pb.js'
 
 vi.mock('@/hooks/useBackendConnection', () => ({
   useBackendConnection: () => ({ connected: true }),
@@ -80,7 +81,7 @@ function buildHarness(): Harness {
           if (!next) continue
           if (next.kind === 'end') return
           if (next.kind === 'error') throw next.err
-          yield new StreamLocalLogsResponse({
+          yield create(StreamLocalLogsResponseSchema, {
             event: { case: 'entry', value: next.entry },
           })
         }
@@ -110,9 +111,9 @@ function buildHarness(): Harness {
 }
 
 const errorEntry = (service: string, message = 'BOOM!'): ProtoLogEntry =>
-  new ProtoLogEntry({
+  create(LogEntrySchema, {
     id: '1',
-    timestamp: new Timestamp(),
+    timestamp: create(TimestampSchema),
     service,
     level: LogLevel.ERROR,
     stream: LogStream.STDERR,
@@ -120,9 +121,9 @@ const errorEntry = (service: string, message = 'BOOM!'): ProtoLogEntry =>
   })
 
 const infoEntry = (service: string, message = 'fine'): ProtoLogEntry =>
-  new ProtoLogEntry({
+  create(LogEntrySchema, {
     id: '1',
-    timestamp: new Timestamp(),
+    timestamp: create(TimestampSchema),
     service,
     level: LogLevel.INFO,
     stream: LogStream.STDOUT,

@@ -92,7 +92,6 @@ func TestPerformStreamCheck(t *testing.T) {
 		&prevReport,
 		false, // non-TTY mode
 	)
-
 	if err != nil {
 		t.Errorf("performStreamCheck failed: %v", err)
 	}

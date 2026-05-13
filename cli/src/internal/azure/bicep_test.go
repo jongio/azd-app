@@ -48,7 +48,6 @@ func TestGenerateTemplate_SingleContainerApp(t *testing.T) {
 
 	generator := NewBicepGenerator(discovery)
 	result, err := generator.GenerateTemplate(context.Background())
-
 	if err != nil {
 		t.Fatalf("GenerateTemplate failed: %v", err)
 	}
@@ -140,7 +139,6 @@ func TestGenerateTemplate_SingleAppService(t *testing.T) {
 
 	generator := NewBicepGenerator(discovery)
 	result, err := generator.GenerateTemplate(context.Background())
-
 	if err != nil {
 		t.Fatalf("GenerateTemplate failed: %v", err)
 	}
@@ -193,7 +191,6 @@ func TestGenerateTemplate_SingleFunction(t *testing.T) {
 
 	generator := NewBicepGenerator(discovery)
 	result, err := generator.GenerateTemplate(context.Background())
-
 	if err != nil {
 		t.Fatalf("GenerateTemplate failed: %v", err)
 	}
@@ -253,7 +250,6 @@ func TestGenerateTemplate_MultipleServices(t *testing.T) {
 
 	generator := NewBicepGenerator(discovery)
 	result, err := generator.GenerateTemplate(context.Background())
-
 	if err != nil {
 		t.Fatalf("GenerateTemplate failed: %v", err)
 	}
@@ -351,7 +347,6 @@ func TestGenerateTemplate_TemplateStructure(t *testing.T) {
 
 	generator := NewBicepGenerator(discovery)
 	result, err := generator.GenerateTemplate(context.Background())
-
 	if err != nil {
 		t.Fatalf("GenerateTemplate failed: %v", err)
 	}
@@ -411,7 +406,6 @@ func TestGenerateTemplate_RetentionPolicy(t *testing.T) {
 
 	generator := NewBicepGenerator(discovery)
 	result, err := generator.GenerateTemplate(context.Background())
-
 	if err != nil {
 		t.Fatalf("GenerateTemplate failed: %v", err)
 	}

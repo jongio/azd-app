@@ -26,10 +26,10 @@ func TestFindNodeProjects(t *testing.T) {
 
 	for path, content := range projects {
 		fullPath := filepath.Join(tmpDir, path)
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 			t.Fatalf("failed to create file %s: %v", path, err)
 		}
 	}
@@ -71,7 +71,7 @@ func TestHasPackageJson(t *testing.T) {
 
 	// Create package.json
 	packageJSONPath := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0600); err != nil {
+	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0o600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
@@ -86,7 +86,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 
 	// Create package.json
 	packageJSONPath := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0644); err != nil {
+	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0o644); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 
 	// Create pnpm-lock.yaml
 	pnpmLockPath := filepath.Join(tmpDir, "pnpm-lock.yaml")
-	if err := os.WriteFile(pnpmLockPath, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(pnpmLockPath, []byte(""), 0o644); err != nil {
 		t.Fatalf("failed to create pnpm-lock.yaml: %v", err)
 	}
 
@@ -113,7 +113,7 @@ func TestDetectNodePackageManagerWithSource(t *testing.T) {
 
 	// Create package.json
 	packageJSONPath := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0644); err != nil {
+	if err := os.WriteFile(packageJSONPath, []byte(`{"name":"test"}`), 0o644); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
@@ -129,7 +129,7 @@ func TestDetectNodePackageManagerWithSource(t *testing.T) {
 
 	// Create yarn.lock
 	yarnLockPath := filepath.Join(tmpDir, "yarn.lock")
-	if err := os.WriteFile(yarnLockPath, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(yarnLockPath, []byte(""), 0o644); err != nil {
 		t.Fatalf("failed to create yarn.lock: %v", err)
 	}
 
@@ -186,7 +186,7 @@ func TestDetectPnpmScript(t *testing.T) {
 
 			// Create package.json
 			packageJsonPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0600); err != nil {
+			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0o600); err != nil {
 				t.Fatalf("failed to create package.json: %v", err)
 			}
 
@@ -233,7 +233,7 @@ func TestHasDockerComposeScript(t *testing.T) {
 
 			// Create package.json
 			packageJsonPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0600); err != nil {
+			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0o600); err != nil {
 				t.Fatalf("failed to create package.json: %v", err)
 			}
 
@@ -305,7 +305,7 @@ func TestGetPackageManagerFromPackageJSON(t *testing.T) {
 
 			// Create package.json
 			packageJsonPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0600); err != nil {
+			if err := os.WriteFile(packageJsonPath, []byte(tt.content), 0o600); err != nil {
 				t.Fatalf("failed to create package.json: %v", err)
 			}
 
@@ -374,14 +374,14 @@ func TestDetectNodePackageManagerWithPackageManagerField(t *testing.T) {
 
 			// Create package.json
 			packageJSONPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJson), 0600); err != nil {
+			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJson), 0o600); err != nil {
 				t.Fatalf("failed to create package.json: %v", err)
 			}
 
 			// Create lock files
 			for _, lockFile := range tt.lockFiles {
 				lockPath := filepath.Join(tmpDir, lockFile)
-				if err := os.WriteFile(lockPath, []byte(""), 0600); err != nil {
+				if err := os.WriteFile(lockPath, []byte(""), 0o600); err != nil {
 					t.Fatalf("failed to create lock file %s: %v", lockFile, err)
 				}
 			}
@@ -439,7 +439,7 @@ func TestFindDockerComposeScript(t *testing.T) {
 
 			if tt.content != "" {
 				packageJSONPath := filepath.Join(tmpDir, "package.json")
-				if err := os.WriteFile(packageJSONPath, []byte(tt.content), 0644); err != nil {
+				if err := os.WriteFile(packageJSONPath, []byte(tt.content), 0o644); err != nil {
 					t.Fatalf("failed to create package.json: %v", err)
 				}
 			}

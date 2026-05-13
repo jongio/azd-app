@@ -259,7 +259,7 @@ func TestRunInfoNoServices(t *testing.T) {
 
 	// Create .azure directory (no services.json)
 	azureDir := filepath.Join(tmpDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o750); err != nil {
 		t.Fatalf("Failed to create .azure directory: %v", err)
 	}
 
@@ -287,7 +287,7 @@ func TestRunInfoWithServices(t *testing.T) {
 
 	// Create .azure directory
 	azureDir := filepath.Join(tmpDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o750); err != nil {
 		t.Fatalf("Failed to create .azure directory: %v", err)
 	}
 
@@ -345,7 +345,7 @@ func TestRunInfoWithDifferentWorkingDirectory(t *testing.T) {
 
 	// Create .azure directory
 	azureDir := filepath.Join(tmpDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o750); err != nil {
 		t.Fatalf("Failed to create .azure directory: %v", err)
 	}
 
@@ -405,7 +405,7 @@ func TestRunInfoWithErrorService(t *testing.T) {
 
 	// Create .azure directory
 	azureDir := filepath.Join(tmpDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o750); err != nil {
 		t.Fatalf("Failed to create .azure directory: %v", err)
 	}
 

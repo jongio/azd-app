@@ -66,7 +66,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 			// Create test files
 			for filename, content := range tt.files {
 				path := filepath.Join(tmpDir, filename)
-				if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create test file %s: %v", filename, err)
 				}
 			}
@@ -100,10 +100,10 @@ func TestFindPythonProjects(t *testing.T) {
 
 	for path, content := range projects {
 		fullPath := filepath.Join(tmpDir, path)
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 			t.Fatalf("failed to create directory: %v", err)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
 			t.Fatalf("failed to create file %s: %v", path, err)
 		}
 	}

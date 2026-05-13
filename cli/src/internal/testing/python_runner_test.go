@@ -237,14 +237,14 @@ func TestDetectPythonPackageManager(t *testing.T) {
 		{
 			name: "Detect uv",
 			setupFunc: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0644)
+				return os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0o644)
 			},
 			expectedResult: "uv",
 		},
 		{
 			name: "Detect poetry",
 			setupFunc: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "poetry.lock"), []byte(""), 0644)
+				return os.WriteFile(filepath.Join(dir, "poetry.lock"), []byte(""), 0o644)
 			},
 			expectedResult: "poetry",
 		},
@@ -260,7 +260,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testDir := filepath.Join(tmpDir, tt.name)
-			if err := os.MkdirAll(testDir, 0755); err != nil {
+			if err := os.MkdirAll(testDir, 0o755); err != nil {
 				t.Fatalf("Failed to create test dir: %v", err)
 			}
 
@@ -281,10 +281,10 @@ func TestPythonRunnerHasTests(t *testing.T) {
 
 	// Create a tests directory
 	testsDir := filepath.Join(tmpDir, "tests")
-	if err := os.MkdirAll(testsDir, 0755); err != nil {
+	if err := os.MkdirAll(testsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create tests dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(testsDir, "test_example.py"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testsDir, "test_example.py"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -316,7 +316,7 @@ func TestPythonRunnerRunTests_Integration(t *testing.T) {
 	content := `def test_example():
     assert True
 `
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -326,7 +326,6 @@ func TestPythonRunnerRunTests_Integration(t *testing.T) {
 
 	runner := NewPythonTestRunner(tmpDir, config)
 	result, err := runner.RunTests("unit", false)
-
 	// The command might fail if pytest isn't installed, that's ok
 	if err != nil {
 		t.Logf("RunTests returned error (expected in test env): %v", err)
@@ -435,7 +434,7 @@ func TestPythonRunnerBuildUnittestCommand_WithTestType(t *testing.T) {
 
 	// Create test directory structure
 	unitDir := filepath.Join(tmpDir, "tests", "unit")
-	if err := os.MkdirAll(unitDir, 0755); err != nil {
+	if err := os.MkdirAll(unitDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test dir: %v", err)
 	}
 
@@ -463,7 +462,7 @@ func TestPythonRunnerBuildPytestCommand_WithUV(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create uv.lock to simulate uv environment
-	if err := os.WriteFile(filepath.Join(tmpDir, "uv.lock"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "uv.lock"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create uv.lock: %v", err)
 	}
 
@@ -498,7 +497,7 @@ func TestPythonRunnerBuildPytestCommand_WithPoetry(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create poetry.lock to simulate poetry environment
-	if err := os.WriteFile(filepath.Join(tmpDir, "poetry.lock"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "poetry.lock"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create poetry.lock: %v", err)
 	}
 
@@ -803,12 +802,12 @@ func TestDetectPythonPackageManager_FromPyprojectToml(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testDir := filepath.Join(tmpDir, tt.name)
-			if err := os.MkdirAll(testDir, 0755); err != nil {
+			if err := os.MkdirAll(testDir, 0o755); err != nil {
 				t.Fatalf("Failed to create test dir: %v", err)
 			}
 
 			pyprojectPath := filepath.Join(testDir, "pyproject.toml")
-			if err := os.WriteFile(pyprojectPath, []byte(tt.content), 0644); err != nil {
+			if err := os.WriteFile(pyprojectPath, []byte(tt.content), 0o644); err != nil {
 				t.Fatalf("Failed to create pyproject.toml: %v", err)
 			}
 
@@ -825,7 +824,7 @@ func TestPythonRunnerHasTests_WithTestFile(t *testing.T) {
 
 	// Create a test file in project root
 	testFile := filepath.Join(tmpDir, "test_example.py")
-	if err := os.WriteFile(testFile, []byte("def test_something(): pass"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("def test_something(): pass"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -842,7 +841,7 @@ func TestPythonRunnerHasTests_WithTestDir(t *testing.T) {
 
 	// Create a 'test' directory (singular)
 	testDir := filepath.Join(tmpDir, "test")
-	if err := os.MkdirAll(testDir, 0755); err != nil {
+	if err := os.MkdirAll(testDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test dir: %v", err)
 	}
 

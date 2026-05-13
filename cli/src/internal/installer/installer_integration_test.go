@@ -32,7 +32,7 @@ func TestInstallNodeDependenciesIntegration(t *testing.T) {
     "lodash": "^4.17.21"
   }
 }`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(packageJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -48,11 +48,11 @@ func TestInstallNodeDependenciesIntegration(t *testing.T) {
     "lodash": "^4.17.21"
   }
 }`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(packageJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				// Create pnpm-lock.yaml to indicate pnpm
-				if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte("lockfileVersion: '6.0'\n"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte("lockfileVersion: '6.0'\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -68,11 +68,11 @@ func TestInstallNodeDependenciesIntegration(t *testing.T) {
     "lodash": "^4.17.21"
   }
 }`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(packageJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				// Create yarn.lock to indicate yarn
-				if err := os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte("# yarn lockfile v1\n"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte("# yarn lockfile v1\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -124,7 +124,7 @@ func TestRestoreDotnetProjectIntegration(t *testing.T) {
 </Project>`
 
 	csprojPath := filepath.Join(tempDir, "TestProject.csproj")
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0600); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -158,7 +158,7 @@ func TestSetupPythonVirtualEnvIntegration(t *testing.T) {
 			packageManager: "pip",
 			setupFunc: func(t *testing.T, dir string) {
 				requirements := "requests==2.31.0\n"
-				if err := os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte(requirements), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte(requirements), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -178,7 +178,7 @@ name = "test-uv-project"
 version = "0.1.0"
 dependencies = ["requests>=2.31.0"]
 `
-				if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(pyproject), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(pyproject), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -201,7 +201,7 @@ version = "0.1.0"
 python = "^3.8"
 requests = "^2.31.0"
 `
-				if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(pyproject), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(pyproject), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},

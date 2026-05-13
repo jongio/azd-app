@@ -23,7 +23,7 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -84,7 +84,7 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -139,7 +139,7 @@ func TestAddCommandIntegration_AddRedis(t *testing.T) {
 	content := `name: test-app
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -197,7 +197,7 @@ services:
     project: ./web
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -260,7 +260,7 @@ services:
       - "6379:6379"
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -307,7 +307,7 @@ func TestAddCommandIntegration_UnknownService(t *testing.T) {
 	content := `name: test-app
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -373,7 +373,7 @@ func TestAddCommandIntegration_ListServices(t *testing.T) {
 	content := `name: test-app
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -410,7 +410,7 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 

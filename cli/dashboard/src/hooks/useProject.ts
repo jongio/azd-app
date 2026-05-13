@@ -15,11 +15,12 @@
  * single-shot semantics silently.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { Code, ConnectError, type Client, type Transport } from '@connectrpc/connect'
 
 import { createProjectClient } from '@/lib/connectClient'
-import type { ProjectService } from '@/gen/proto/azdapp/v1/project_connect.js'
-import { GetProjectRequest } from '@/gen/proto/azdapp/v1/project_pb.js'
+import type { ProjectService } from '@/gen/proto/azdapp/v1/project_pb.js'
+import { create } from '@bufbuild/protobuf'
+import { GetProjectRequestSchema } from '@/gen/proto/azdapp/v1/project_pb.js'
 
 export interface UseProjectReturn {
   /** azure.yaml `name`. Empty string until the first response lands. */
@@ -43,7 +44,7 @@ export interface UseProjectOptions {
 
 export function useProject(options?: UseProjectOptions): UseProjectReturn {
   const transport = options?.transport
-  const client = useMemo<PromiseClient<typeof ProjectService>>(
+  const client = useMemo<Client<typeof ProjectService>>(
     () => createProjectClient(transport),
     [transport]
   )
@@ -63,7 +64,7 @@ export function useProject(options?: UseProjectOptions): UseProjectReturn {
 
     void (async () => {
       try {
-        const resp = await client.getProject(new GetProjectRequest(), {
+        const resp = await client.getProject(create(GetProjectRequestSchema), {
           signal: controller.signal,
         })
         if (!mountedRef.current) return

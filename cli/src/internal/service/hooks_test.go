@@ -32,7 +32,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -113,7 +113,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -172,7 +172,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -207,7 +207,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -253,7 +253,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -402,7 +402,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -470,7 +470,7 @@ services:
 	tmpDir := t.TempDir()
 	yamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}

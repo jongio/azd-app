@@ -47,7 +47,7 @@ func TestAspireRuntimeModes(t *testing.T) {
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 </Project>`
-			if err := os.WriteFile(csprojPath, []byte(csprojContent), 0600); err != nil {
+			if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
 				t.Fatalf("Failed to create csproj: %v", err)
 			}
 
@@ -60,7 +60,7 @@ public class Program {
         builder.Build().Run();
     }
 }`
-			if err := os.WriteFile(appHostPath, []byte(appHostContent), 0600); err != nil {
+			if err := os.WriteFile(appHostPath, []byte(appHostContent), 0o600); err != nil {
 				t.Fatalf("Failed to create AppHost.cs: %v", err)
 			}
 
@@ -72,7 +72,7 @@ services:
     language: dotnet
     host: containerapp`
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -184,22 +184,22 @@ func TestDetectServiceRuntimeWithMode(t *testing.T) {
 			switch tt.framework {
 			case "Next.js":
 				packageJSON := `{"name":"test","scripts":{"dev":"next dev"}}`
-				if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 					t.Fatalf("Failed to create package.json: %v", err)
 				}
-				if err := os.WriteFile(filepath.Join(tmpDir, "next.config.js"), []byte("module.exports = {}"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "next.config.js"), []byte("module.exports = {}"), 0o600); err != nil {
 					t.Fatalf("Failed to create next.config.js: %v", err)
 				}
 			case "ASP.NET Core":
 				csproj := `<Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>`
-				if err := os.WriteFile(filepath.Join(tmpDir, "Web.csproj"), []byte(csproj), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "Web.csproj"), []byte(csproj), 0o600); err != nil {
 					t.Fatalf("Failed to create .csproj: %v", err)
 				}
 			case "FastAPI":
-				if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte("fastapi"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte("fastapi"), 0o600); err != nil {
 					t.Fatalf("Failed to create requirements.txt: %v", err)
 				}
-				if err := os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("from fastapi import FastAPI"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("from fastapi import FastAPI"), 0o600); err != nil {
 					t.Fatalf("Failed to create main.py: %v", err)
 				}
 			}
@@ -211,7 +211,7 @@ services:
     project: .
     host: containerapp`
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -259,11 +259,11 @@ func TestRuntimeModeAspireVsAzd(t *testing.T) {
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 </Project>`
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0600); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "AppHost.cs"), []byte("// Aspire"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "AppHost.cs"), []byte("// Aspire"), 0o600); err != nil {
 		t.Fatalf("Failed to create AppHost.cs: %v", err)
 	}
 
@@ -274,7 +274,7 @@ services:
   apphost:
     project: .
     host: containerapp`
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

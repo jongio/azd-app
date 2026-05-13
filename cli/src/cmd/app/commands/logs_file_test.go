@@ -13,7 +13,7 @@ func TestReadLogsFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -24,7 +24,7 @@ func TestReadLogsFromFile(t *testing.T) {
 [2024-01-15 10:30:45.500] [INFO] [OUT] Line 5
 `
 	logFile := filepath.Join(logsDir, "api.log")
-	if err := os.WriteFile(logFile, []byte(logContent), 0644); err != nil {
+	if err := os.WriteFile(logFile, []byte(logContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,7 +95,7 @@ func TestReadLogsFromRotatedFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	logsDir := filepath.Join(tmpDir, ".azure", "logs")
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,13 +109,13 @@ func TestReadLogsFromRotatedFiles(t *testing.T) {
 [2024-01-15 10:30:45.000] [INFO] [OUT] Current entry 2
 `
 
-	if err := os.WriteFile(filepath.Join(logsDir, "api.log.2"), []byte(log2Content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(logsDir, "api.log.2"), []byte(log2Content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(logsDir, "api.log.1"), []byte(log1Content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(logsDir, "api.log.1"), []byte(log1Content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(logContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,10 +153,10 @@ func TestReadLogsFromRotatedFiles(t *testing.T) {
 `
 		content := `[2024-01-15 10:30:45.000] [INFO] [OUT] Current entry
 `
-		if err := os.WriteFile(filepath.Join(logsDir, "partial.log.1"), []byte(content1), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(logsDir, "partial.log.1"), []byte(content1), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(logsDir, "partial.log"), []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(logsDir, "partial.log"), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -182,7 +182,7 @@ func TestReadSingleLogFile(t *testing.T) {
 
 	t.Run("empty file", func(t *testing.T) {
 		emptyFile := filepath.Join(tmpDir, "empty.log")
-		if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
+		if err := os.WriteFile(emptyFile, []byte(""), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		entries, err := readSingleLogFile(emptyFile, "api", time.Time{})
@@ -202,7 +202,7 @@ another invalid line
 malformed again
 [2024-01-15 10:30:46.000] [ERROR] [ERR] Another valid line
 `
-		if err := os.WriteFile(badFile, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(badFile, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		entries, err := readSingleLogFile(badFile, "api", time.Time{})
@@ -218,7 +218,7 @@ malformed again
 		longFile := filepath.Join(tmpDir, "long.log")
 		longMsg := strings.Repeat("x", 100000)
 		content := fmt.Sprintf("[2024-01-15 10:30:45.123] [INFO] [OUT] %s\n", longMsg)
-		if err := os.WriteFile(longFile, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(longFile, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		entries, err := readSingleLogFile(longFile, "api", time.Time{})
@@ -237,7 +237,7 @@ malformed again
 		hugeFile := filepath.Join(tmpDir, "huge.log")
 		hugeMsg := strings.Repeat("x", maxLogLineSize+1000)
 		content := fmt.Sprintf("[2024-01-15 10:30:45.123] [INFO] [OUT] %s", hugeMsg)
-		if err := os.WriteFile(hugeFile, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(hugeFile, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		_, err := readSingleLogFile(hugeFile, "api", time.Time{})

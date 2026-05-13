@@ -15,7 +15,7 @@ func TestFindAzureYaml(t *testing.T) {
 
 		// Create azure.yaml in the temp directory
 		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-		err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0644)
+		err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644)
 		require.NoError(t, err)
 
 		// Find from the same directory
@@ -29,12 +29,12 @@ func TestFindAzureYaml(t *testing.T) {
 
 		// Create azure.yaml in parent directory
 		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-		err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0644)
+		err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644)
 		require.NoError(t, err)
 
 		// Create a subdirectory
 		subDir := filepath.Join(tmpDir, "subdir")
-		err = os.Mkdir(subDir, 0755)
+		err = os.Mkdir(subDir, 0o755)
 		require.NoError(t, err)
 
 		// Find from subdirectory
@@ -48,12 +48,12 @@ func TestFindAzureYaml(t *testing.T) {
 
 		// Create a .git directory
 		gitDir := filepath.Join(tmpDir, ".git")
-		err := os.Mkdir(gitDir, 0755)
+		err := os.Mkdir(gitDir, 0o755)
 		require.NoError(t, err)
 
 		// Create a subdirectory
 		subDir := filepath.Join(tmpDir, "subdir")
-		err = os.Mkdir(subDir, 0755)
+		err = os.Mkdir(subDir, 0o755)
 		require.NoError(t, err)
 
 		// azure.yaml does not exist - search should stop at .git
@@ -76,7 +76,7 @@ func TestFindAzureYaml(t *testing.T) {
 
 		// Create azure.yaml
 		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-		err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0644)
+		err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644)
 		require.NoError(t, err)
 
 		// Find using relative path

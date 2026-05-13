@@ -528,7 +528,8 @@ func (h *LogsHandler) GetPreferences(
 			// blob falls back to defaults rather than failing the read,
 			// so a single bad write doesn't lock the user out of their
 			// preferences UI. Log so the operator can debug.
-			slog.Warn("LogsService.GetPreferences: stored blob did not decode; returning defaults",
+			slog.Warn(
+				"LogsService.GetPreferences: stored blob did not decode; returning defaults",
 				"err", err.Error(),
 			)
 			prefs = defaultProtoPreferences()

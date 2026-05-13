@@ -426,7 +426,7 @@ func TestGenerateFileHTML(t *testing.T) {
 
 	// Create a source file
 	sourceDir := filepath.Join(tmpDir, "src")
-	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
 		t.Fatalf("Failed to create source dir: %v", err)
 	}
 
@@ -437,7 +437,7 @@ func main() {
 	fmt.Println("Hello, World!")
 }
 `
-	if err := os.WriteFile(sourceFile, []byte(sourceContent), 0644); err != nil {
+	if err := os.WriteFile(sourceFile, []byte(sourceContent), 0o644); err != nil {
 		t.Fatalf("Failed to create source file: %v", err)
 	}
 

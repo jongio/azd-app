@@ -510,7 +510,8 @@ func displayTableReport(report *healthcheck.HealthReport) error {
 			response = statusError
 		}
 
-		fmt.Printf("│ %-12s │ %-9s │ %-9s │ %-32s │ %-8s │\n",
+		fmt.Printf(
+			"│ %-12s │ %-9s │ %-9s │ %-32s │ %-8s │\n",
 			truncate(result.ServiceName, 12),
 			truncate(string(result.Status), 9),
 			truncate(string(result.CheckType), 9),
@@ -555,7 +556,8 @@ func displayStreamStatus(report *healthcheck.HealthReport, checkCount int) {
 			uptime = formatDuration(result.Uptime)
 		}
 
-		fmt.Printf("│ %s %-12s %-10s %6s  Up: %-10s      │\n",
+		fmt.Printf(
+			"│ %s %-12s %-10s %6s  Up: %-10s      │\n",
 			icon,
 			truncate(result.ServiceName, 12),
 			truncate(string(result.Status), 10),
@@ -572,7 +574,8 @@ func displayStreamChanges(prev, curr *healthcheck.HealthReport) {
 	if len(changes) > 0 {
 		fmt.Println("\nRecent Changes:")
 		for _, change := range changes {
-			fmt.Printf("  %s - %s: %s → %s\n",
+			fmt.Printf(
+				"  %s - %s: %s → %s\n",
 				change.Timestamp.Format("15:04:05"),
 				change.ServiceName,
 				change.OldStatus,

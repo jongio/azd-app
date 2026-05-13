@@ -130,7 +130,7 @@ func TestFileExists(t *testing.T) {
 
 	// Create a test file
 	testFile := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(testFile, []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(testFile, []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -168,7 +168,7 @@ func TestHasPackageJSON(t *testing.T) {
 		{
 			name: "has package.json",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}"), 0600)
+				return os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}"), 0o600)
 			},
 			expected: true,
 		},
@@ -210,28 +210,28 @@ func TestHasPythonProject(t *testing.T) {
 		{
 			name: "has requirements.txt",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
 		{
 			name: "has pyproject.toml",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
 		{
 			name: "has poetry.lock",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "poetry.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "poetry.lock"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
 		{
 			name: "has uv.lock",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
@@ -273,21 +273,21 @@ func TestHasDockerConfig(t *testing.T) {
 		{
 			name: "has Dockerfile",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
 		{
 			name: "has docker-compose.yml",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "docker-compose.yml"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
 		{
 			name: "has compose.yaml",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(""), 0o600)
 			},
 			expected: true,
 		},
@@ -329,7 +329,7 @@ func TestHasGit(t *testing.T) {
 		{
 			name: "has .git directory",
 			setup: func(dir string) error {
-				return os.Mkdir(filepath.Join(dir, ".git"), 0750)
+				return os.Mkdir(filepath.Join(dir, ".git"), 0o750)
 			},
 			expected: true,
 		},
@@ -341,7 +341,7 @@ func TestHasGit(t *testing.T) {
 		{
 			name: ".git is a file (not directory)",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, ".git"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, ".git"), []byte(""), 0o600)
 			},
 			expected: false,
 		},
@@ -404,7 +404,7 @@ func TestFindOrCreateAzureYaml(t *testing.T) {
 
 		// Create existing azure.yaml
 		existingPath := filepath.Join(testDir, "azure.yaml")
-		if err := os.WriteFile(existingPath, []byte("name: test\nreqs:\n"), 0600); err != nil {
+		if err := os.WriteFile(existingPath, []byte("name: test\nreqs:\n"), 0o600); err != nil {
 			t.Fatalf("Failed to create existing azure.yaml: %v", err)
 		}
 
@@ -464,7 +464,7 @@ func TestMergeReqs(t *testing.T) {
 		content := `name: test
 reqs:
 `
-		if err := os.WriteFile(testFile, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(testFile, []byte(content), 0o600); err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 
@@ -495,7 +495,7 @@ reqs:
   - name: npm
     minVersion: 10.0.0
 `
-		if err := os.WriteFile(testFile, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(testFile, []byte(content), 0o600); err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 
@@ -557,7 +557,7 @@ reqs:
 # Services will go here
 services: []
 `
-		if err := os.WriteFile(testFile, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(testFile, []byte(content), 0o600); err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 
@@ -639,7 +639,7 @@ services: []
 reqs: []
 `
 		azurePath := filepath.Join(tmpDir, "azure.yaml")
-		if err := os.WriteFile(azurePath, []byte(azureYaml), 0600); err != nil {
+		if err := os.WriteFile(azurePath, []byte(azureYaml), 0o600); err != nil {
 			t.Fatalf("Failed to write azure.yaml: %v", err)
 		}
 
@@ -683,7 +683,7 @@ reqs:
     minVersion: "20.0.0"
 `
 		azurePath := filepath.Join(tmpDir, "azure.yaml")
-		if err := os.WriteFile(azurePath, []byte(azureYaml), 0600); err != nil {
+		if err := os.WriteFile(azurePath, []byte(azureYaml), 0o600); err != nil {
 			t.Fatalf("Failed to write azure.yaml: %v", err)
 		}
 
@@ -741,7 +741,7 @@ services:
       other: data
 `
 		azurePath := filepath.Join(tmpDir, "azure.yaml")
-		if err := os.WriteFile(azurePath, []byte(azureYaml), 0600); err != nil {
+		if err := os.WriteFile(azurePath, []byte(azureYaml), 0o600); err != nil {
 			t.Fatalf("Failed to write azure.yaml: %v", err)
 		}
 
@@ -810,11 +810,11 @@ func TestDetectNodePackageManager(t *testing.T) {
 			name: "packageManager field takes priority over lock files - pnpm",
 			setup: func(dir string) error {
 				pkgJSON := `{"name": "test", "packageManager": "pnpm@8.15.0"}`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o600); err != nil {
 					return err
 				}
 				// Create yarn.lock to test priority
-				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0o600)
 			},
 			expectedID:     "pnpm",
 			expectedSource: "package.json (packageManager field)",
@@ -823,11 +823,11 @@ func TestDetectNodePackageManager(t *testing.T) {
 			name: "packageManager field takes priority over lock files - yarn",
 			setup: func(dir string) error {
 				pkgJSON := `{"name": "test", "packageManager": "yarn@4.1.0"}`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o600); err != nil {
 					return err
 				}
 				// Create pnpm-lock.yaml to test priority
-				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0o600)
 			},
 			expectedID:     "yarn",
 			expectedSource: "package.json (packageManager field)",
@@ -836,11 +836,11 @@ func TestDetectNodePackageManager(t *testing.T) {
 			name: "packageManager field takes priority over lock files - npm",
 			setup: func(dir string) error {
 				pkgJSON := `{"name": "test", "packageManager": "npm@10.5.0"}`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o600); err != nil {
 					return err
 				}
 				// Create yarn.lock to test priority
-				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0o600)
 			},
 			expectedID:     "npm",
 			expectedSource: "package.json (packageManager field)",
@@ -848,7 +848,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 		{
 			name: "detects pnpm from lock file",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0o600)
 			},
 			expectedID:     "pnpm",
 			expectedSource: "pnpm-lock.yaml",
@@ -856,7 +856,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 		{
 			name: "detects pnpm from workspace file",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "pnpm-workspace.yaml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "pnpm-workspace.yaml"), []byte(""), 0o600)
 			},
 			expectedID:     "pnpm",
 			expectedSource: "pnpm-workspace.yaml",
@@ -864,7 +864,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 		{
 			name: "detects yarn from lock file",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "yarn.lock"), []byte(""), 0o600)
 			},
 			expectedID:     "yarn",
 			expectedSource: "yarn.lock",
@@ -872,7 +872,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 		{
 			name: "detects npm from lock file",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "package-lock.json"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "package-lock.json"), []byte(""), 0o600)
 			},
 			expectedID:     "npm",
 			expectedSource: "package-lock.json",
@@ -888,11 +888,11 @@ func TestDetectNodePackageManager(t *testing.T) {
 			setup: func(dir string) error {
 				// Set packageManager to an unsupported manager (e.g., "bun")
 				pkgJSON := `{"name": "test", "packageManager": "bun@1.0.0"}`
-				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o600); err != nil {
 					return err
 				}
 				// Create pnpm-lock.yaml - should fall back to this
-				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0o600)
 			},
 			expectedID:     "pnpm",
 			expectedSource: "pnpm-lock.yaml",
@@ -902,7 +902,7 @@ func TestDetectNodePackageManager(t *testing.T) {
 			setup: func(dir string) error {
 				// Set packageManager to an unsupported manager with no lock files
 				pkgJSON := `{"name": "test", "packageManager": "bun@1.0.0"}`
-				return os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0600)
+				return os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o600)
 			},
 			expectedID:     "npm",
 			expectedSource: "package.json",
@@ -944,7 +944,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 		{
 			name: "detects uv from lock file",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0o600)
 			},
 			expectedID:     "uv",
 			expectedSource: "uv.lock",
@@ -953,7 +953,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 			name: "detects uv from pyproject.toml",
 			setup: func(dir string) error {
 				content := "[tool.uv]\n"
-				return os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(content), 0600)
+				return os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(content), 0o600)
 			},
 			expectedID:     "uv",
 			expectedSource: "pyproject.toml",
@@ -962,7 +962,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 			name: "detects poetry from pyproject.toml",
 			setup: func(dir string) error {
 				content := "[tool.poetry]\n"
-				return os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(content), 0600)
+				return os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(content), 0o600)
 			},
 			expectedID:     "poetry",
 			expectedSource: "pyproject.toml",
@@ -970,7 +970,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 		{
 			name: "detects poetry from lock file",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "poetry.lock"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "poetry.lock"), []byte(""), 0o600)
 			},
 			expectedID:     "poetry",
 			expectedSource: "poetry.lock",
@@ -978,7 +978,7 @@ func TestDetectPythonPackageManager(t *testing.T) {
 		{
 			name: "detects pipenv from Pipfile",
 			setup: func(dir string) error {
-				return os.WriteFile(filepath.Join(dir, "Pipfile"), []byte(""), 0600)
+				return os.WriteFile(filepath.Join(dir, "Pipfile"), []byte(""), 0o600)
 			},
 			expectedID:     "pipenv",
 			expectedSource: "Pipfile",

@@ -102,10 +102,10 @@ func TestDetectFunctionsVariant_LogicApps(t *testing.T) {
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
 				dir := filepath.Dir(filePath)
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
 					t.Fatalf("Failed to create directory %s: %v", dir, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to write file %s: %v", filePath, err)
 				}
 			}
@@ -188,10 +188,10 @@ func TestDetectFunctionsVariant_NodeJS(t *testing.T) {
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
 				dir := filepath.Dir(filePath)
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
 					t.Fatalf("Failed to create directory %s: %v", dir, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to write file %s: %v", filePath, err)
 				}
 			}
@@ -202,7 +202,6 @@ func TestDetectFunctionsVariant_NodeJS(t *testing.T) {
 			}
 			usedPorts := make(map[int]bool)
 			runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 			if err != nil {
 				t.Fatalf("Expected successful detection, got error: %v", err)
 			}
@@ -256,10 +255,10 @@ def hello(req: func.HttpRequest) -> func.HttpResponse:
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
 				dir := filepath.Dir(filePath)
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
 					t.Fatalf("Failed to create directory %s: %v", dir, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to write file %s: %v", filePath, err)
 				}
 			}
@@ -270,7 +269,6 @@ def hello(req: func.HttpRequest) -> func.HttpResponse:
 			}
 			usedPorts := make(map[int]bool)
 			runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 			if err != nil {
 				t.Fatalf("Expected successful detection, got error: %v", err)
 			}
@@ -323,7 +321,7 @@ func TestDetectFunctionsVariant_DotNet(t *testing.T) {
 
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to write file %s: %v", filePath, err)
 				}
 			}
@@ -334,7 +332,6 @@ func TestDetectFunctionsVariant_DotNet(t *testing.T) {
 			}
 			usedPorts := make(map[int]bool)
 			runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 			if err != nil {
 				t.Fatalf("Expected successful detection, got error: %v", err)
 			}
@@ -392,7 +389,7 @@ plugins {
 
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatalf("Failed to write file %s: %v", filePath, err)
 				}
 			}
@@ -403,7 +400,6 @@ plugins {
 			}
 			usedPorts := make(map[int]bool)
 			runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 			if err != nil {
 				t.Fatalf("Expected successful detection, got error: %v", err)
 			}
@@ -423,7 +419,7 @@ func TestDetectFunctionsVariant_NoHostJson(t *testing.T) {
 
 	// Create a Node.js project WITHOUT host.json
 	packageJSON := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packageJSON, []byte(`{"dependencies": {"@azure/functions": "^4.0.0"}}`), 0644); err != nil {
+	if err := os.WriteFile(packageJSON, []byte(`{"dependencies": {"@azure/functions": "^4.0.0"}}`), 0o644); err != nil {
 		t.Fatalf("Failed to write package.json: %v", err)
 	}
 
@@ -448,7 +444,7 @@ func TestDetectFunctionsVariant_NoFunctions(t *testing.T) {
 
 	// Create host.json but no function definitions
 	hostJSON := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJSON, []byte(`{"version": "2.0"}`), 0644); err != nil {
+	if err := os.WriteFile(hostJSON, []byte(`{"version": "2.0"}`), 0o644); err != nil {
 		t.Fatalf("Failed to write host.json: %v", err)
 	}
 
@@ -478,7 +474,7 @@ func TestBuildFunctionsRuntime_DefaultPort(t *testing.T) {
 		"extensionBundle": {
 			"id": "Microsoft.Azure.Functions.ExtensionBundle.Workflows"
 		}
-	}`), 0644); err != nil {
+	}`), 0o644); err != nil {
 		t.Fatalf("Failed to write host.json: %v", err)
 	}
 
@@ -488,7 +484,6 @@ func TestBuildFunctionsRuntime_DefaultPort(t *testing.T) {
 	}
 	usedPorts := make(map[int]bool)
 	runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 	if err != nil {
 		t.Fatalf("Expected successful detection, got error: %v", err)
 	}
@@ -508,7 +503,7 @@ func TestBuildFunctionsRuntime_ExplicitPort(t *testing.T) {
 		"extensionBundle": {
 			"id": "Microsoft.Azure.Functions.ExtensionBundle.Workflows"
 		}
-	}`), 0644); err != nil {
+	}`), 0o644); err != nil {
 		t.Fatalf("Failed to write host.json: %v", err)
 	}
 
@@ -519,7 +514,6 @@ func TestBuildFunctionsRuntime_ExplicitPort(t *testing.T) {
 	}
 	usedPorts := make(map[int]bool)
 	runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 	if err != nil {
 		t.Fatalf("Expected successful detection, got error: %v", err)
 	}
@@ -539,7 +533,7 @@ func TestBuildFunctionsRuntime_PortConflict(t *testing.T) {
 		"extensionBundle": {
 			"id": "Microsoft.Azure.Functions.ExtensionBundle.Workflows"
 		}
-	}`), 0644); err != nil {
+	}`), 0o644); err != nil {
 		t.Fatalf("Failed to write host.json: %v", err)
 	}
 
@@ -551,7 +545,6 @@ func TestBuildFunctionsRuntime_PortConflict(t *testing.T) {
 		Host:    "function",
 	}
 	runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 	if err != nil {
 		t.Fatalf("Expected successful detection, got error: %v", err)
 	}
@@ -567,10 +560,10 @@ func TestBuildFunctionsRuntime_Command(t *testing.T) {
 	// Create a Node.js Functions project
 	hostJSON := filepath.Join(tmpDir, "host.json")
 	packageJSON := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(hostJSON, []byte(`{"version": "2.0"}`), 0644); err != nil {
+	if err := os.WriteFile(hostJSON, []byte(`{"version": "2.0"}`), 0o644); err != nil {
 		t.Fatalf("Failed to write host.json: %v", err)
 	}
-	if err := os.WriteFile(packageJSON, []byte(`{"dependencies": {"@azure/functions": "^4.0.0"}}`), 0644); err != nil {
+	if err := os.WriteFile(packageJSON, []byte(`{"dependencies": {"@azure/functions": "^4.0.0"}}`), 0o644); err != nil {
 		t.Fatalf("Failed to write package.json: %v", err)
 	}
 
@@ -580,7 +573,6 @@ func TestBuildFunctionsRuntime_Command(t *testing.T) {
 	}
 	usedPorts := make(map[int]bool)
 	runtime, err := service.DetectServiceRuntime("test-service", svc, usedPorts, tmpDir, "")
-
 	if err != nil {
 		t.Fatalf("Expected successful detection, got error: %v", err)
 	}

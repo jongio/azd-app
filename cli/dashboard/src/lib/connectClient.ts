@@ -20,17 +20,17 @@
  * below. Do NOT cache the client at module scope — the caller (typically
  * a hook with a stable transport reference) is responsible for memoising.
  */
-import { createPromiseClient, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { createClient, type Client, type Transport } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 
-import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
-import { ModeService } from '@/gen/proto/azdapp/v1/mode_connect.js'
-import { ProjectService } from '@/gen/proto/azdapp/v1/project_connect.js'
-import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
-import { BicepService } from '@/gen/proto/azdapp/v1/bicep_connect.js'
-import { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
-import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+import { ModeService } from '@/gen/proto/azdapp/v1/mode_pb.js'
+import { ProjectService } from '@/gen/proto/azdapp/v1/project_pb.js'
+import { ServicesService } from '@/gen/proto/azdapp/v1/services_pb.js'
+import { BicepService } from '@/gen/proto/azdapp/v1/bicep_pb.js'
+import { HealthService } from '@/gen/proto/azdapp/v1/health_pb.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 // =============================================================================
 // Default transport
@@ -102,8 +102,8 @@ export function __setDefaultTransportForTesting(transport: Transport | null): vo
  */
 export function createLifecycleClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof LifecycleService> {
-  return createPromiseClient(LifecycleService, transport)
+): Client<typeof LifecycleService> {
+  return createClient(LifecycleService, transport)
 }
 
 /**
@@ -111,8 +111,8 @@ export function createLifecycleClient(
  */
 export function createProjectClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof ProjectService> {
-  return createPromiseClient(ProjectService, transport)
+): Client<typeof ProjectService> {
+  return createClient(ProjectService, transport)
 }
 
 /**
@@ -120,8 +120,8 @@ export function createProjectClient(
  */
 export function createModeClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof ModeService> {
-  return createPromiseClient(ModeService, transport)
+): Client<typeof ModeService> {
+  return createClient(ModeService, transport)
 }
 
 /**
@@ -129,8 +129,8 @@ export function createModeClient(
  */
 export function createServicesClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof ServicesService> {
-  return createPromiseClient(ServicesService, transport)
+): Client<typeof ServicesService> {
+  return createClient(ServicesService, transport)
 }
 
 /**
@@ -138,8 +138,8 @@ export function createServicesClient(
  */
 export function createBicepClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof BicepService> {
-  return createPromiseClient(BicepService, transport)
+): Client<typeof BicepService> {
+  return createClient(BicepService, transport)
 }
 
 /**
@@ -149,8 +149,8 @@ export function createBicepClient(
  */
 export function createHealthClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof HealthService> {
-  return createPromiseClient(HealthService, transport)
+): Client<typeof HealthService> {
+  return createClient(HealthService, transport)
 }
 
 /**
@@ -161,8 +161,8 @@ export function createHealthClient(
  */
 export function createLogsClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof LogsService> {
-  return createPromiseClient(LogsService, transport)
+): Client<typeof LogsService> {
+  return createClient(LogsService, transport)
 }
 
 /**
@@ -181,6 +181,6 @@ export function createLogsClient(
  */
 export function createAzureClient(
   transport: Transport = getDefaultTransport()
-): PromiseClient<typeof AzureService> {
-  return createPromiseClient(AzureService, transport)
+): Client<typeof AzureService> {
+  return createClient(AzureService, transport)
 }

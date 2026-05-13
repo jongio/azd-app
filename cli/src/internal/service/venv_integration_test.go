@@ -125,10 +125,10 @@ services:
 			// Create project files
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory: %v", err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -276,7 +276,7 @@ services:
 
 	for filename, content := range projectFiles {
 		filePath := filepath.Join(tmpDir, filename)
-		if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 			t.Fatalf("Failed to create file %s: %v", filename, err)
 		}
 	}

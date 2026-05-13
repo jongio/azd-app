@@ -209,7 +209,8 @@ func newLogsTestServer(t *testing.T, store LogsStore) (azdappv1connect.LogsServi
 func TestGetLogsReturnsEntriesForService(t *testing.T) {
 	store := newFakeStore()
 	now := time.Now()
-	store.addBuffer("api",
+	store.addBuffer(
+		"api",
 		service.LogEntry{Service: "api", Message: "one", Timestamp: now.Add(-2 * time.Second)},
 		service.LogEntry{Service: "api", Message: "two", Timestamp: now.Add(-1 * time.Second)},
 		service.LogEntry{Service: "api", Message: "three", Timestamp: now},
@@ -752,7 +753,8 @@ func TestStreamLocalLogsReceivesEntries(t *testing.T) {
 
 func TestStreamLocalLogsEmitsBackfill(t *testing.T) {
 	store := newFakeStore()
-	store.addBuffer("api",
+	store.addBuffer(
+		"api",
 		service.LogEntry{Service: "api", Message: "old1", Timestamp: time.Now().Add(-2 * time.Second)},
 		service.LogEntry{Service: "api", Message: "old2", Timestamp: time.Now().Add(-1 * time.Second)},
 	)

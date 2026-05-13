@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react'
 import { ConnectError, Code, type Transport } from '@connectrpc/connect'
-import { protoInt64 } from '@bufbuild/protobuf'
+import { create, protoInt64 } from '@bufbuild/protobuf'
 
 import type { LogEntry } from '@/components/LogsPane'
 import type { LogMode } from '@/components/ModeToggle'
@@ -9,8 +9,8 @@ import { MAX_LOGS_IN_MEMORY } from '@/lib/log-utils'
 import { useBackendConnection } from '@/hooks/useBackendConnection'
 import { useSharedLogStream } from '@/hooks/useSharedLogStream'
 import { createAzureClient, createLogsClient } from '@/lib/connectClient'
-import { GetAzureLogsRequest } from '@/gen/proto/azdapp/v1/azure_pb.js'
-import { GetLogsRequest } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { GetAzureLogsRequestSchema } from '@/gen/proto/azdapp/v1/azure_pb.js'
+import { GetLogsRequestSchema } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import { protoLogEntryToView } from '@/lib/log-proto'
 
 /** Default tail passed to GetLogs/GetAzureLogs on the initial historical fetch. */
@@ -192,7 +192,7 @@ export function useLogsStream(
 
         let nextLogs: LogEntry[]
         if (logMode === 'azure') {
-          const req = new GetAzureLogsRequest({
+          const req = create(GetAzureLogsRequestSchema, {
             // Empty string means "all services merged" - matches the
             // legacy REST contract and the Go handler's fallback.
             service: serviceName === 'all' ? '' : serviceName,
@@ -202,7 +202,7 @@ export function useLogsStream(
           const resp = await azureClient.getAzureLogs(req, { signal: controller.signal })
           nextLogs = resp.entries.map(protoLogEntryToView)
         } else {
-          const req = new GetLogsRequest({
+          const req = create(GetLogsRequestSchema, {
             serviceName: serviceName === 'all' ? '' : serviceName,
             tail: INITIAL_FETCH_TAIL,
           })

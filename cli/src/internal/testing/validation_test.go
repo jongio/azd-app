@@ -11,16 +11,16 @@ func TestValidateService_NodeJS_WithVitest(t *testing.T) {
 
 	// Create vitest config
 	vitestConfig := `export default { test: {} }`
-	if err := os.WriteFile(filepath.Join(tmpDir, "vitest.config.ts"), []byte(vitestConfig), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "vitest.config.ts"), []byte(vitestConfig), 0o644); err != nil {
 		t.Fatalf("Failed to create vitest config: %v", err)
 	}
 
 	// Create test file
 	testsDir := filepath.Join(tmpDir, "tests")
-	if err := os.MkdirAll(testsDir, 0755); err != nil {
+	if err := os.MkdirAll(testsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create tests dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(testsDir, "example.test.ts"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testsDir, "example.test.ts"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -48,7 +48,7 @@ func TestValidateService_NodeJS_WithJest(t *testing.T) {
 
 	// Create jest config
 	jestConfig := `module.exports = { testEnvironment: 'node' }`
-	if err := os.WriteFile(filepath.Join(tmpDir, "jest.config.js"), []byte(jestConfig), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "jest.config.js"), []byte(jestConfig), 0o644); err != nil {
 		t.Fatalf("Failed to create jest config: %v", err)
 	}
 
@@ -78,7 +78,7 @@ func TestValidateService_NodeJS_WithPackageJSON(t *testing.T) {
 			"jest": "^29.0.0"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -108,7 +108,7 @@ func TestValidateService_NodeJS_NoTests(t *testing.T) {
 			"start": "node index.js"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -135,16 +135,16 @@ func TestValidateService_Python_WithPytest(t *testing.T) {
 	pytestIni := `[pytest]
 testpaths = tests
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "pytest.ini"), []byte(pytestIni), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "pytest.ini"), []byte(pytestIni), 0o644); err != nil {
 		t.Fatalf("Failed to create pytest.ini: %v", err)
 	}
 
 	// Create tests directory with test file
 	testsDir := filepath.Join(tmpDir, "tests")
-	if err := os.MkdirAll(testsDir, 0755); err != nil {
+	if err := os.MkdirAll(testsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create tests dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(testsDir, "test_example.py"), []byte("def test_one(): pass"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testsDir, "test_example.py"), []byte("def test_one(): pass"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -172,7 +172,7 @@ func TestValidateService_Python_WithTestsDirectory(t *testing.T) {
 
 	// Create tests directory
 	testsDir := filepath.Join(tmpDir, "tests")
-	if err := os.MkdirAll(testsDir, 0755); err != nil {
+	if err := os.MkdirAll(testsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create tests dir: %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestValidateService_Python_NoTests(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create just a main.py
-	if err := os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("print('hello')"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("print('hello')"), 0o644); err != nil {
 		t.Fatalf("Failed to create main.py: %v", err)
 	}
 
@@ -224,7 +224,7 @@ func TestValidateService_Go_WithTests(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
@@ -235,7 +235,7 @@ import "testing"
 
 func TestExample(t *testing.T) {}
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte(testFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte(testFile), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -285,12 +285,12 @@ func TestValidateService_Go_NoTestFiles(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// Create non-test file
-	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0o644); err != nil {
 		t.Fatalf("Failed to create main.go: %v", err)
 	}
 
@@ -315,7 +315,7 @@ func TestValidateService_Dotnet_WithXUnit(t *testing.T) {
 
 	// Create test project directory
 	testProjDir := filepath.Join(tmpDir, "MyApp.Tests")
-	if err := os.MkdirAll(testProjDir, 0755); err != nil {
+	if err := os.MkdirAll(testProjDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test project dir: %v", err)
 	}
 
@@ -328,7 +328,7 @@ func TestValidateService_Dotnet_WithXUnit(t *testing.T) {
     <PackageReference Include="xunit" Version="2.5.0" />
   </ItemGroup>
 </Project>`
-	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.csproj"), []byte(csproj), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.csproj"), []byte(csproj), 0o644); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
@@ -356,7 +356,7 @@ func TestValidateService_Dotnet_NoTestProjects(t *testing.T) {
 
 	// Create non-test project
 	projDir := filepath.Join(tmpDir, "MyApp")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	if err := os.MkdirAll(projDir, 0o755); err != nil {
 		t.Fatalf("Failed to create project dir: %v", err)
 	}
 
@@ -365,7 +365,7 @@ func TestValidateService_Dotnet_NoTestProjects(t *testing.T) {
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 </Project>`
-	if err := os.WriteFile(filepath.Join(projDir, "MyApp.csproj"), []byte(csproj), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(projDir, "MyApp.csproj"), []byte(csproj), 0o644); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
@@ -427,20 +427,20 @@ func TestValidateServices(t *testing.T) {
 	// Create two service directories
 	webDir := filepath.Join(tmpDir, "web")
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(webDir, 0755); err != nil {
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
 	// Add vitest config to web
-	if err := os.WriteFile(filepath.Join(webDir, "vitest.config.ts"), []byte("export default {}"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "vitest.config.ts"), []byte("export default {}"), 0o644); err != nil {
 		t.Fatalf("Failed to create vitest config: %v", err)
 	}
 
 	// Add test file to web
-	if err := os.WriteFile(filepath.Join(webDir, "app.test.ts"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "app.test.ts"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -510,17 +510,17 @@ func TestCountTestFiles(t *testing.T) {
 	}
 
 	for _, f := range testFiles {
-		if err := os.WriteFile(filepath.Join(tmpDir, f), []byte("test"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, f), []byte("test"), 0o644); err != nil {
 			t.Fatalf("Failed to create file %s: %v", f, err)
 		}
 	}
 
 	// Create nested directory with test file
 	nestedDir := filepath.Join(tmpDir, "src", "components")
-	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
 		t.Fatalf("Failed to create nested dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(nestedDir, "button.test.tsx"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nestedDir, "button.test.tsx"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create nested test file: %v", err)
 	}
 
@@ -542,16 +542,16 @@ func TestCountTestFiles_SkipsNodeModules(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test file in root
-	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.ts"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.ts"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
 	// Create test file in node_modules (should be skipped)
 	nodeModulesDir := filepath.Join(tmpDir, "node_modules", "some-package")
-	if err := os.MkdirAll(nodeModulesDir, 0755); err != nil {
+	if err := os.MkdirAll(nodeModulesDir, 0o755); err != nil {
 		t.Fatalf("Failed to create node_modules dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(nodeModulesDir, "index.test.js"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeModulesDir, "index.test.js"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file in node_modules: %v", err)
 	}
 
@@ -572,13 +572,13 @@ func TestValidateService_Go_WithSubdirectoryTests(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// Create test file in subdirectory
 	subDir := filepath.Join(tmpDir, "pkg", "utils")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 	testFile := `package utils
@@ -587,7 +587,7 @@ import "testing"
 
 func TestHelper(t *testing.T) {}
 `
-	if err := os.WriteFile(filepath.Join(subDir, "utils_test.go"), []byte(testFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subDir, "utils_test.go"), []byte(testFile), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -615,21 +615,21 @@ func TestValidateService_Go_SkipsVendor(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// Create test file in root
-	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte("package main"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte("package main"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
 	// Create test file in vendor (should be skipped)
 	vendorDir := filepath.Join(tmpDir, "vendor", "somelib")
-	if err := os.MkdirAll(vendorDir, 0755); err != nil {
+	if err := os.MkdirAll(vendorDir, 0o755); err != nil {
 		t.Fatalf("Failed to create vendor dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(vendorDir, "lib_test.go"), []byte("package somelib"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(vendorDir, "lib_test.go"), []byte("package somelib"), 0o644); err != nil {
 		t.Fatalf("Failed to create vendor test file: %v", err)
 	}
 
@@ -655,7 +655,7 @@ func TestValidateService_Dotnet_WithNUnit(t *testing.T) {
 
 	// Create test project directory
 	testProjDir := filepath.Join(tmpDir, "MyApp.Tests")
-	if err := os.MkdirAll(testProjDir, 0755); err != nil {
+	if err := os.MkdirAll(testProjDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test project dir: %v", err)
 	}
 
@@ -668,7 +668,7 @@ func TestValidateService_Dotnet_WithNUnit(t *testing.T) {
     <PackageReference Include="NUnit" Version="3.14.0" />
   </ItemGroup>
 </Project>`
-	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.csproj"), []byte(csproj), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.csproj"), []byte(csproj), 0o644); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
@@ -699,7 +699,7 @@ version = "0.1.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "pyproject.toml"), []byte(pyproject), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "pyproject.toml"), []byte(pyproject), 0o644); err != nil {
 		t.Fatalf("Failed to create pyproject.toml: %v", err)
 	}
 
@@ -723,7 +723,7 @@ func TestValidateService_NodeJS_WithTestFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test files without any config
-	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.js"), []byte("test('works', () => {})"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.js"), []byte("test('works', () => {})"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -747,12 +747,12 @@ func TestValidateService_NodeJS_WithMocha(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create mocha config
-	if err := os.WriteFile(filepath.Join(tmpDir, ".mocharc.json"), []byte("{}"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".mocharc.json"), []byte("{}"), 0o644); err != nil {
 		t.Fatalf("Failed to create mocha config: %v", err)
 	}
 
 	// Create test file
-	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.js"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.js"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -785,7 +785,7 @@ func TestValidateService_NodeJS_WithVitestInPackageJSON(t *testing.T) {
 			"vitest": "^1.0.0"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -810,7 +810,7 @@ func TestValidateService_Dotnet_WithMSTest(t *testing.T) {
 
 	// Create test project directory
 	testProjDir := filepath.Join(tmpDir, "MyApp.Tests")
-	if err := os.MkdirAll(testProjDir, 0755); err != nil {
+	if err := os.MkdirAll(testProjDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test project dir: %v", err)
 	}
 
@@ -823,7 +823,7 @@ func TestValidateService_Dotnet_WithMSTest(t *testing.T) {
     <PackageReference Include="MSTest.TestFramework" Version="3.0.0" />
   </ItemGroup>
 </Project>`
-	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.csproj"), []byte(csproj), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.csproj"), []byte(csproj), 0o644); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
@@ -847,7 +847,7 @@ func TestValidateService_Python_WithTestFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test file with test_ prefix
-	if err := os.WriteFile(filepath.Join(tmpDir, "test_main.py"), []byte("def test_one(): pass"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "test_main.py"), []byte("def test_one(): pass"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -882,7 +882,7 @@ func TestCountTestFiles_NonRecursivePattern(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test file in root
-	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.ts"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "app.test.ts"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -900,7 +900,7 @@ func TestValidateService_Dotnet_WithFSharpTestProject(t *testing.T) {
 
 	// Create F# test project directory
 	testProjDir := filepath.Join(tmpDir, "MyApp.Tests")
-	if err := os.MkdirAll(testProjDir, 0755); err != nil {
+	if err := os.MkdirAll(testProjDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test project dir: %v", err)
 	}
 
@@ -913,7 +913,7 @@ func TestValidateService_Dotnet_WithFSharpTestProject(t *testing.T) {
     <PackageReference Include="xunit" Version="2.5.0" />
   </ItemGroup>
 </Project>`
-	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.fsproj"), []byte(fsproj), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(testProjDir, "MyApp.Tests.fsproj"), []byte(fsproj), 0o644); err != nil {
 		t.Fatalf("Failed to create fsproj: %v", err)
 	}
 

@@ -8,8 +8,9 @@ import { Code, ConnectError, createRouterTransport, type ConnectRouter } from '@
 import { describe, expect, it } from 'vitest'
 
 import { useProject } from './useProject'
-import { ProjectService } from '@/gen/proto/azdapp/v1/project_connect.js'
-import { GetProjectResponse } from '@/gen/proto/azdapp/v1/project_pb.js'
+import { ProjectService } from '@/gen/proto/azdapp/v1/project_pb.js'
+import { GetProjectResponseSchema, type GetProjectResponse } from '@/gen/proto/azdapp/v1/project_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 interface RouterOverrides {
   getProject?: () => Promise<GetProjectResponse> | GetProjectResponse
@@ -22,7 +23,7 @@ function makeTransport(overrides: RouterOverrides = {}) {
         if (overrides.getProject) {
           return overrides.getProject()
         }
-        return new GetProjectResponse({ name: '', dir: '' })
+        return create(GetProjectResponseSchema, { name: '', dir: '' })
       },
     })
   })
@@ -32,7 +33,7 @@ describe('useProject (Connect)', () => {
   it('starts in loading state and resolves to the server-reported name and dir', async () => {
     const transport = makeTransport({
       getProject: () =>
-        new GetProjectResponse({
+        create(GetProjectResponseSchema, {
           name: 'fullstack-demo',
           dir: '/abs/projects/fullstack',
         }),
@@ -69,7 +70,7 @@ describe('useProject (Connect)', () => {
     // App.tsx) can apply their own fallback ("Project") rather than
     // having one baked in here.
     const transport = makeTransport({
-      getProject: () => new GetProjectResponse({ name: '', dir: '/abs/projects/anon' }),
+      getProject: () => create(GetProjectResponseSchema, { name: '', dir: '/abs/projects/anon' }),
     })
 
     const { result } = renderHook(() => useProject({ transport }))
@@ -94,7 +95,7 @@ describe('useProject (Connect)', () => {
     // Resolve after unmount; the hook must swallow the response without
     // touching state. We can't observe state directly post-unmount, but
     // we can confirm no unhandled rejection bubbles up.
-    resolveLater(new GetProjectResponse({ name: 'late', dir: '/late' }))
+    resolveLater(create(GetProjectResponseSchema, { name: 'late', dir: '/late' }))
     await new Promise((r) => setTimeout(r, 10))
   })
 })

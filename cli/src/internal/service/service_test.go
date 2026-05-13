@@ -30,7 +30,7 @@ resources:
     type: postgres.database
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
@@ -233,7 +233,7 @@ services:
     invalid yaml structure with no proper indentation
   - this should fail`
 
-	if err := os.WriteFile(invalidYamlPath, []byte(invalidContent), 0600); err != nil {
+	if err := os.WriteFile(invalidYamlPath, []byte(invalidContent), 0o600); err != nil {
 		t.Fatalf("Failed to create invalid yaml: %v", err)
 	}
 
@@ -357,7 +357,7 @@ func TestParseAzureYaml_EmptyFile(t *testing.T) {
 	// ParseAzureYaml expects file to be named exactly "azure.yaml"
 	emptyYamlPath := filepath.Join(tmpDir, "azure.yaml")
 
-	if err := os.WriteFile(emptyYamlPath, []byte(""), 0600); err != nil {
+	if err := os.WriteFile(emptyYamlPath, []byte(""), 0o600); err != nil {
 		t.Fatalf("Failed to create empty yaml: %v", err)
 	}
 
@@ -377,7 +377,7 @@ func TestParseAzureYaml_OnlyName(t *testing.T) {
 	simpleYamlPath := filepath.Join(tmpDir, "azure.yaml")
 
 	content := `name: my-app`
-	if err := os.WriteFile(simpleYamlPath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(simpleYamlPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create simple yaml: %v", err)
 	}
 
@@ -394,6 +394,7 @@ func TestParseAzureYaml_OnlyName(t *testing.T) {
 		t.Errorf("Expected no services, got %d", len(azureYaml.Services))
 	}
 }
+
 func TestGetServiceProjectDir(t *testing.T) {
 	tests := []struct {
 		name       string

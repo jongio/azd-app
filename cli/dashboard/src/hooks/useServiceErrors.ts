@@ -22,7 +22,8 @@ import { LOG_LEVELS, isErrorLine } from '@/lib/log-utils'
 import { useBackendConnection } from '@/hooks/useBackendConnection'
 import { createLogsClient } from '@/lib/connectClient'
 import { protoToLogEntry } from '@/hooks/useSharedLogStream'
-import { StreamLocalLogsRequest } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { create } from '@bufbuild/protobuf'
+import { StreamLocalLogsRequestSchema } from '@/gen/proto/azdapp/v1/logs_pb.js'
 
 interface UseServiceErrorsOptions {
   /** Test-only Connect transport override; production omits. */
@@ -58,7 +59,7 @@ export function useServiceErrors(
       const controller = controllers[idx]
       void (async () => {
         try {
-          const req = new StreamLocalLogsRequest({ serviceName, backfill: 0 })
+          const req = create(StreamLocalLogsRequestSchema, { serviceName, backfill: 0 })
           for await (const resp of client.streamLocalLogs(req, { signal: controller.signal })) {
             if (controller.signal.aborted) break
             const event = resp.event

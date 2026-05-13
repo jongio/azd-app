@@ -732,7 +732,6 @@ func TestExec_ErrorMessageFormat(t *testing.T) {
 	// Test that error messages include container name
 	containerName := "test-container-name"
 	_, _, err := client.Exec(containerName, []string{"invalid-command"})
-
 	if err != nil {
 		// Error message should mention the container (when exec fails, not validation)
 		// For validation errors, we have specific messages

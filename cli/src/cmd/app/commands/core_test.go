@@ -370,7 +370,7 @@ func TestSaveToCache(t *testing.T) {
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
 
 	// Create a simple azure.yaml
-	err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0644)
+	err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644)
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}

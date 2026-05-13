@@ -17,18 +17,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { ConnectError, Code, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
-import { Struct } from '@bufbuild/protobuf'
+import type { JsonObject } from '@bufbuild/protobuf'
 import type { ReactNode } from 'react'
 
 import { useServicesContext, ServicesProvider } from '@/contexts/ServicesContext'
 import { mockServices, serviceToProto } from '@/test/mocks'
-import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
-import { GetServicesResponse } from '@/gen/proto/azdapp/v1/services_pb.js'
-import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
+import { ServicesService } from '@/gen/proto/azdapp/v1/services_pb.js'
+import { GetServicesResponseSchema, type GetServicesResponse } from '@/gen/proto/azdapp/v1/services_pb.js'
+import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
 import {
-  BroadcastEvent,
-  StreamBroadcastResponse,
+  BroadcastEventSchema,
+  type BroadcastEvent,
+  StreamBroadcastResponseSchema,
+  type StreamBroadcastResponse,
 } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 interface RouterOverrides {
   getServices?: () => Promise<GetServicesResponse> | GetServicesResponse
@@ -85,7 +88,7 @@ function createStreamController(): StreamController {
       while (!closed) {
         while (queue.length > 0) {
           const event = queue.shift()
-          if (event) yield new StreamBroadcastResponse({ event })
+          if (event) yield create(StreamBroadcastResponseSchema, { event })
         }
         if (closed) return
         await new Promise<void>((resolve) => {
@@ -105,7 +108,7 @@ async function* defaultStreamHandler(): AsyncGenerator<StreamBroadcastResponse> 
     await new Promise<void>((resolve) => setTimeout(resolve, 50))
     // Unreachable yield silences require-yield; the Connect runtime
     // tears the generator down via abort before this point.
-    yield new StreamBroadcastResponse()
+    yield create(StreamBroadcastResponseSchema)
   }
 }
 
@@ -115,7 +118,7 @@ function makeTransport(overrides: RouterOverrides = {}) {
       getServices(): Promise<GetServicesResponse> {
         if (overrides.getServices) return Promise.resolve(overrides.getServices())
         return Promise.resolve(
-          new GetServicesResponse({
+          create(GetServicesResponseSchema, {
             services: mockServices.map(serviceToProto),
           }),
         )
@@ -151,9 +154,9 @@ function servicesChangedEvent(services: unknown[]): BroadcastEvent {
   // Struct. Tests construct the JSON the same way so the
   // toJson()-then-cast dance in ServicesContext reads the fixtures
   // faithfully.
-  return new BroadcastEvent({
+  return create(BroadcastEventSchema, {
     type: 'services-changed',
-    payload: Struct.fromJson({ services: services as never }),
+    payload: { services: services as never } as JsonObject,
   })
 }
 
@@ -208,7 +211,7 @@ describe('useServicesContext', () => {
 
   it('handles an empty service list', async () => {
     const transport = makeTransport({
-      getServices: () => new GetServicesResponse({ services: [] }),
+      getServices: () => create(GetServicesResponseSchema, { services: [] }),
     })
     const { result } = renderHook(() => useServicesContext(), {
       wrapper: makeWrapper(transport),
@@ -263,9 +266,9 @@ describe('useServicesContext', () => {
 
     act(() => {
       stream.push(
-        new BroadcastEvent({
+        create(BroadcastEventSchema, {
           type: 'mode-toggled',
-          payload: Struct.fromJson({ mode: 'azure' }),
+          payload: { mode: 'azure' } as JsonObject,
         }),
       )
     })
@@ -281,7 +284,7 @@ describe('useServicesContext', () => {
     const transport = makeTransport({
       getServices: () => {
         callCount++
-        return new GetServicesResponse({ services: mockServices.map(serviceToProto) })
+        return create(GetServicesResponseSchema, { services: mockServices.map(serviceToProto) })
       },
     })
 

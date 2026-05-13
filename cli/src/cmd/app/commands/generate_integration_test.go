@@ -129,7 +129,7 @@ func TestGenerateDryRun(t *testing.T) {
 
 	// Create a simple Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -165,7 +165,7 @@ func TestGenerateMerge(t *testing.T) {
 
 	// Create a Node.js project
 	packageJson := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJson), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -178,7 +178,7 @@ reqs:
     minVersion: "18.0.0"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(existingYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

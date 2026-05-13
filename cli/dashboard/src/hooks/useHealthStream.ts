@@ -29,13 +29,14 @@
  * "Backend connection lost") stays identical.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { Code, ConnectError, type Client, type Transport } from '@connectrpc/connect'
 
 import { createHealthClient } from '@/lib/connectClient'
-import type { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
-import { StreamHealthRequest, type HealthCheckResult as ProtoHealthCheckResult, type HealthChange as ProtoHealthChange } from '@/gen/proto/azdapp/v1/health_pb.js'
+import type { HealthService } from '@/gen/proto/azdapp/v1/health_pb.js'
+import { StreamHealthRequestSchema, type HealthCheckResult as ProtoHealthCheckResult, type HealthChange as ProtoHealthChange } from '@/gen/proto/azdapp/v1/health_pb.js'
 import { HealthState } from '@/gen/proto/azdapp/v1/common_pb.js'
-import { protoInt64, Timestamp } from '@bufbuild/protobuf'
+import { create, protoInt64 } from '@bufbuild/protobuf'
+import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import type { HealthReportEvent, HealthChangeEvent, HealthCheckResult, HealthSummary, HealthStatus } from '@/types'
 import { WEBSOCKET_CONSTANTS, HEALTH_CONSTANTS } from '@/lib/constants'
 
@@ -252,7 +253,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
   // Memoise the client per (transport) reference. Construction is cheap
   // but a new client object per render would invalidate the effect's
   // dep array on every render and reopen the stream, churning sockets.
-  const client = useMemo<PromiseClient<typeof HealthService>>(
+  const client = useMemo<Client<typeof HealthService>>(
     () => createHealthClient(transport),
     [transport]
   )
@@ -345,7 +346,7 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
     // Build request once per attempt. We don't memoise it because the
     // construction cost is negligible vs. the lifetime of the stream
     // and pulling it out of the closure would create more state.
-    const req = new StreamHealthRequest({
+    const req = create(StreamHealthRequestSchema, {
       intervalSeconds: protoInt64.parse(intervalRef.current),
       serviceNames: servicesRef.current ?? [],
     })

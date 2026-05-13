@@ -195,7 +195,7 @@ func TestExplicitPortPriority(t *testing.T) {
 	}`
 
 	packagePath := filepath.Join(tempDir, "package.json")
-	if err := os.WriteFile(packagePath, []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(packagePath, []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 

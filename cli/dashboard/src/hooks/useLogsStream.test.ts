@@ -26,16 +26,19 @@ import {
 
 import { useLogsStream } from './useLogsStream'
 import type { LogMode } from '@/components/ModeToggle'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
-import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
-  GetLogsRequest,
-  GetLogsResponse,
+  type GetLogsRequest,
+  GetLogsResponseSchema,
+  type GetLogsResponse,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import {
-  GetAzureLogsRequest,
-  GetAzureLogsResponse,
+  type GetAzureLogsRequest,
+  GetAzureLogsResponseSchema,
+  type GetAzureLogsResponse,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 vi.mock('@/hooks/useBackendConnection', () => ({
   useBackendConnection: () => ({ connected: true }),
@@ -85,7 +88,7 @@ function makeTransport(overrides: TransportOverrides = {}): Transport {
     router.service(LogsService, {
       getLogs(req: GetLogsRequest): Promise<GetLogsResponse> {
         if (overrides.getLogs) return Promise.resolve(overrides.getLogs(req))
-        return Promise.resolve(new GetLogsResponse({ entries: [] }))
+        return Promise.resolve(create(GetLogsResponseSchema, { entries: [] }))
       },
       streamLocalLogs: notUsed,
       listClassifications: notUsed,
@@ -98,7 +101,7 @@ function makeTransport(overrides: TransportOverrides = {}): Transport {
     router.service(AzureService, {
       getAzureLogs(req: GetAzureLogsRequest): Promise<GetAzureLogsResponse> {
         if (overrides.getAzureLogs) return Promise.resolve(overrides.getAzureLogs(req))
-        return Promise.resolve(new GetAzureLogsResponse({ entries: [] }))
+        return Promise.resolve(create(GetAzureLogsResponseSchema, { entries: [] }))
       },
       streamAzureLogs: notUsed,
       enableAzureLogging: notUsed,

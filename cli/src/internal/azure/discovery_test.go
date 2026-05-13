@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-
 	"testing"
 	"time"
 )

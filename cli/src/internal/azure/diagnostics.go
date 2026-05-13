@@ -432,7 +432,8 @@ func (c *DiagnosticSettingsChecker) CheckDiagnosticSettingsWithPipeline(ctx cont
 	}
 
 	// Create a pipeline for making authenticated requests
-	pipeline := runtime.NewPipeline("azd-app", "1.0",
+	pipeline := runtime.NewPipeline(
+		"azd-app", "1.0",
 		runtime.PipelineOptions{
 			PerRetry: []policy.Policy{
 				runtime.NewBearerTokenPolicy(c.credential, []string{"https://management.azure.com/.default"}, nil),

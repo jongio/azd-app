@@ -36,7 +36,7 @@ func TestNewCacheManagerExistingAzureDir(t *testing.T) {
 	// Create a temporary directory with .azure
 	tempDir := t.TempDir()
 	azureDir := filepath.Join(tempDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o750); err != nil {
 		t.Fatalf("failed to create .azure directory: %v", err)
 	}
 
@@ -72,12 +72,12 @@ func TestFindAzureDir(t *testing.T) {
 	// Create a temporary directory structure
 	tempDir := t.TempDir()
 	azureDir := filepath.Join(tempDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o750); err != nil {
 		t.Fatalf("failed to create .azure directory: %v", err)
 	}
 
 	subDir := filepath.Join(tempDir, "sub1", "sub2")
-	if err := os.MkdirAll(subDir, 0750); err != nil {
+	if err := os.MkdirAll(subDir, 0o750); err != nil {
 		t.Fatalf("failed to create subdirectory: %v", err)
 	}
 
@@ -135,7 +135,7 @@ func TestGetCachedResultsNoCache(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -168,7 +168,7 @@ func TestGetCachedResultsValid(t *testing.T) {
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
 	content := []byte("test: content")
-	if err := os.WriteFile(azureYamlPath, content, 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, content, 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -226,7 +226,7 @@ func TestGetCachedResultsInvalidHash(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -237,7 +237,7 @@ func TestGetCachedResultsInvalidHash(t *testing.T) {
 	}
 
 	// Modify azure.yaml to invalidate hash
-	if err := os.WriteFile(azureYamlPath, []byte("test: different content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: different content"), 0o600); err != nil {
 		t.Fatalf("failed to modify azure.yaml: %v", err)
 	}
 
@@ -271,7 +271,7 @@ func TestGetCachedResultsExpired(t *testing.T) {
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
 	content := []byte("test: content")
-	if err := os.WriteFile(azureYamlPath, content, 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, content, 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -312,7 +312,7 @@ func TestSaveResults(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -375,7 +375,7 @@ func TestSaveResultsFailedClearsCache(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -431,7 +431,7 @@ func TestClearCache(t *testing.T) {
 
 	// Create a test azure.yaml and save cache
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -480,7 +480,7 @@ func TestCalculateFileHash(t *testing.T) {
 	// Create test file
 	testFile := filepath.Join(tempDir, "test.txt")
 	content := []byte("test content")
-	if err := os.WriteFile(testFile, content, 0600); err != nil {
+	if err := os.WriteFile(testFile, content, 0o600); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -506,7 +506,7 @@ func TestCalculateFileHash(t *testing.T) {
 
 	// Verify different content produces different hash
 	testFile2 := filepath.Join(tempDir, "test2.txt")
-	if err := os.WriteFile(testFile2, []byte("different content"), 0600); err != nil {
+	if err := os.WriteFile(testFile2, []byte("different content"), 0o600); err != nil {
 		t.Fatalf("failed to create test file 2: %v", err)
 	}
 
@@ -602,7 +602,7 @@ func TestCacheManagerDisabled(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -643,7 +643,7 @@ func TestCacheStats(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -697,7 +697,7 @@ func TestCacheVersionMismatch(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 
@@ -727,7 +727,7 @@ func TestAtomicWrite(t *testing.T) {
 
 	// Create a test azure.yaml file
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("test: content"), 0o600); err != nil {
 		t.Fatalf("failed to create azure.yaml: %v", err)
 	}
 

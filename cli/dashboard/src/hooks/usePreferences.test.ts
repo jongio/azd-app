@@ -16,15 +16,17 @@ import {
 import { describe, it, expect } from 'vitest'
 
 import { usePreferences } from './usePreferences'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import {
-  Preferences,
-  UIPreferences,
-  BehaviorPreferences,
-  CopyPreferences,
-  GetPreferencesResponse,
-  SavePreferencesResponse,
+  PreferencesSchema,
+  type Preferences,
+  UIPreferencesSchema,
+  BehaviorPreferencesSchema,
+  CopyPreferencesSchema,
+  GetPreferencesResponseSchema,
+  SavePreferencesResponseSchema,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 interface Harness {
   transport: ReturnType<typeof createRouterTransport>
@@ -58,14 +60,14 @@ function buildHarness(initial?: Preferences): Harness {
       },
       // eslint-disable-next-line @typescript-eslint/require-await
       async getPreferences() {
-        return new GetPreferencesResponse({ preferences: state.value })
+        return create(GetPreferencesResponseSchema, { preferences: state.value })
       },
       // eslint-disable-next-line @typescript-eslint/require-await
       async savePreferences(req) {
         // Echo back what was saved (mirrors the real handler that
         // protojson-roundtrips the input).
         state.value = req.preferences
-        return new SavePreferencesResponse({ preferences: req.preferences })
+        return create(SavePreferencesResponseSchema, { preferences: req.preferences })
       },
     })
   })
@@ -87,21 +89,21 @@ describe('usePreferences (Connect)', () => {
   })
 
   it('decodes a stored Preferences message including theme and gridAutoFit', async () => {
-    const stored = new Preferences({
+    const stored = create(PreferencesSchema, {
       version: '1.0',
       theme: 'dark',
-      ui: new UIPreferences({
+      ui: create(UIPreferencesSchema, {
         gridColumns: 4,
         gridAutoFit: true,
         viewMode: 'unified',
         selectedServices: ['api'],
       }),
-      behavior: new BehaviorPreferences({
+      behavior: create(BehaviorPreferencesSchema, {
         autoScroll: false,
         pauseOnScroll: true,
         timestampFormat: 'iso',
       }),
-      copy: new CopyPreferences({
+      copy: create(CopyPreferencesSchema, {
         defaultFormat: 'json',
         includeTimestamp: false,
         includeService: true,
@@ -124,14 +126,14 @@ describe('usePreferences (Connect)', () => {
     // gridColumns=99 is out of [1,6]; viewMode=foo is invalid; theme=neon
     // is invalid. All three should fall back to defaults rather than
     // propagate junk into the UI.
-    const stored = new Preferences({
+    const stored = create(PreferencesSchema, {
       version: '1.0',
       theme: 'neon',
-      ui: new UIPreferences({
+      ui: create(UIPreferencesSchema, {
         gridColumns: 99,
         viewMode: 'foo',
       }),
-      copy: new CopyPreferences({ defaultFormat: 'binary' }),
+      copy: create(CopyPreferencesSchema, { defaultFormat: 'binary' }),
     })
     const { transport } = buildHarness(stored)
     const { result } = renderHook(() => usePreferences(transport))
@@ -197,10 +199,10 @@ describe('usePreferences (Connect)', () => {
     const { result } = renderHook(() => usePreferences(transport))
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    state.value = new Preferences({
+    state.value = create(PreferencesSchema, {
       version: '1.0',
       theme: 'dark',
-      ui: new UIPreferences({ gridColumns: 6, viewMode: 'grid' }),
+      ui: create(UIPreferencesSchema, { gridColumns: 6, viewMode: 'grid' }),
     })
 
     await act(async () => {
@@ -237,7 +239,7 @@ describe('usePreferences (Connect)', () => {
         },
         // eslint-disable-next-line @typescript-eslint/require-await
         async getPreferences() {
-          return new GetPreferencesResponse({ preferences: undefined })
+          return create(GetPreferencesResponseSchema, { preferences: undefined })
         },
         // eslint-disable-next-line @typescript-eslint/require-await
         async savePreferences() {
@@ -245,7 +247,7 @@ describe('usePreferences (Connect)', () => {
             throwOnce = false
             throw new ConnectError('disk full', Code.ResourceExhausted)
           }
-          return new SavePreferencesResponse({})
+          return create(SavePreferencesResponseSchema, {})
         },
       })
     })

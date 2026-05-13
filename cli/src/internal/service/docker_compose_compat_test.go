@@ -63,7 +63,7 @@ services:
 `
 
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -208,7 +208,7 @@ services:
 `
 
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -261,7 +261,7 @@ services:
 `
 
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

@@ -147,7 +147,7 @@ services:
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(tt.yaml), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(tt.yaml), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -304,7 +304,7 @@ services:
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(tt.yaml), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(tt.yaml), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 

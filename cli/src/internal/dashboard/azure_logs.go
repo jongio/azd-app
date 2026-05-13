@@ -14,8 +14,10 @@ const (
 )
 
 // Shared function variables for dependency injection and testing
-var fetchAzureLogsStandalone = azure.FetchAzureLogsStandalone
-var newLogAnalyticsCredential = azure.NewLogAnalyticsCredential
-var validateCredentials = azure.ValidateCredentials
-var getWorkspaceIDFromEnv = azure.GetWorkspaceIDFromEnv
-var getOrCreateLogAnalyticsClient = azure.GetOrCreateLogAnalyticsClient
+var (
+	fetchAzureLogsStandalone      = azure.FetchAzureLogsStandalone
+	newLogAnalyticsCredential     = azure.NewLogAnalyticsCredential
+	validateCredentials           = azure.ValidateCredentials
+	getWorkspaceIDFromEnv         = azure.GetWorkspaceIDFromEnv
+	getOrCreateLogAnalyticsClient = azure.GetOrCreateLogAnalyticsClient
+)

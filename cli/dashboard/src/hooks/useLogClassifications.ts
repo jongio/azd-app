@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Code, ConnectError, type Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import { createLogsClient } from '@/lib/connectClient'
 import {
-  Classification as PbClassification,
+  ClassificationSchema,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import { LogLevel } from '@/gen/proto/azdapp/v1/common_pb.js'
 
@@ -135,7 +136,7 @@ export function useLogClassifications(transport?: Transport) {
   ): Promise<LogClassification> => {
     try {
       const resp = await client.addClassification({
-        classification: new PbClassification({
+        classification: create(ClassificationSchema, {
           text,
           level: literalToPbLevel(level),
         }),

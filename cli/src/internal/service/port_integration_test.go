@@ -22,7 +22,7 @@ services:
       - "8080"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -34,10 +34,10 @@ services:
 		}
 	}`
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(apiDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(apiDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -88,12 +88,12 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -144,12 +144,12 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -223,12 +223,12 @@ services:
       - "8080"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -272,12 +272,12 @@ services:
       - "3000:8080"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -332,12 +332,12 @@ services:
       - "9091"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -402,12 +402,12 @@ services:
       - "127.0.0.1:5432:5432"
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	dbDir := filepath.Join(tmpDir, "db")
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
+	if err := os.MkdirAll(dbDir, 0o755); err != nil {
 		t.Fatalf("Failed to create db dir: %v", err)
 	}
 

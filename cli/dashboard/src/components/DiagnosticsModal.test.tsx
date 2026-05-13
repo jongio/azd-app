@@ -12,13 +12,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Timestamp } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
+import { timestampNow } from '@bufbuild/protobuf/wkt'
 
 import {
   AzureCheckStatus,
-  AzureHealthCheck,
+  AzureHealthCheckSchema,
   AzureOverallStatus,
-  GetAzureLogsHealthResponse,
+  GetAzureLogsHealthResponseSchema,
+  type GetAzureLogsHealthResponse,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 const { getAzureLogsHealthMock } = vi.hoisted(() => ({
@@ -69,11 +71,11 @@ function buildHealthResponse(
   status: 'healthy' | 'degraded' | 'error',
   checks: DashboardHealthCheck[],
 ): GetAzureLogsHealthResponse {
-  return new GetAzureLogsHealthResponse({
+  return create(GetAzureLogsHealthResponseSchema, {
     status: statusToProto(status),
     checks: checks.map(
       (c) =>
-        new AzureHealthCheck({
+        create(AzureHealthCheckSchema, {
           name: c.name,
           status: checkStatusToProto(c.status),
           message: c.message,
@@ -81,7 +83,7 @@ function buildHealthResponse(
         }),
     ),
     docsUrl: 'https://docs.example.com',
-    timestamp: Timestamp.now(),
+    timestamp: timestampNow(),
   })
 }
 

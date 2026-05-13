@@ -63,7 +63,6 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cmd := exec.CommandContext(ctx, binaryPath, "deps")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
-
 		if err != nil {
 			t.Logf("deps output: %s", output)
 			t.Fatalf("Failed to install dependencies: %v", err)
@@ -161,7 +160,6 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cmd.Stderr = nil // Discard stderr
 
 		err := cmd.Run()
-
 		// Ignore non-zero exit codes, focus on JSON validity
 		if err != nil {
 			t.Logf("Command returned error (expected during startup): %v", err)
@@ -192,7 +190,6 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "table")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
-
 		if err != nil {
 			t.Logf("Command returned error (acceptable): %v", err)
 		}
@@ -218,7 +215,6 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cmd := exec.CommandContext(ctx, binaryPath, "health", "--service", "web,api")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
-
 		if err != nil {
 			t.Logf("Command returned error (acceptable): %v", err)
 		}
@@ -246,7 +242,6 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cmd := exec.CommandContext(ctx, binaryPath, "health", "--verbose")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
-
 		if err != nil {
 			t.Logf("Command returned error (acceptable): %v", err)
 		}
@@ -311,7 +306,6 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		cmd := exec.CommandContext(ctx, binaryPath, "info")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
-
 		if err != nil {
 			t.Fatalf("Service info failed: %v\nOutput: %s", err, output)
 		}
@@ -456,7 +450,6 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		cmd.Stderr = nil // Discard stderr
 
 		err = cmd.Run()
-
 		if err != nil {
 			t.Logf("Health check returned: %v", err)
 		}

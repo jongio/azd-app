@@ -582,6 +582,7 @@ func (e *logsExecutor) collectAllLogsQuiet(ctx context.Context, cwd string, dash
 
 	return allLogs, nil
 }
+
 func (e *logsExecutor) parseServiceFilter(args []string) []string {
 	var serviceFilter []string
 	if len(args) > 0 {
@@ -649,7 +650,7 @@ func (e *logsExecutor) setupOutputWriter() (io.Writer, func(), error) {
 	// Ensure parent directory exists
 	outputDir := filepath.Dir(e.opts.file)
 	if outputDir != "" && outputDir != "." {
-		if err := os.MkdirAll(outputDir, 0750); err != nil {
+		if err := os.MkdirAll(outputDir, 0o750); err != nil {
 			return nil, nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
 	}

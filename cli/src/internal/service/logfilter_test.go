@@ -356,6 +356,7 @@ func TestLogsConfig_GetFilters(t *testing.T) {
 func boolPtr(b bool) *bool {
 	return &b
 }
+
 func TestLogsConfig_GetClassifications(t *testing.T) {
 	tests := []struct {
 		name    string

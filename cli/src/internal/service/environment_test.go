@@ -638,7 +638,7 @@ func TestLoadDotEnv(t *testing.T) {
 			// Create temp file
 			tmpDir := t.TempDir()
 			envFile := filepath.Join(tmpDir, ".env")
-			err := os.WriteFile(envFile, []byte(tt.content), 0644)
+			err := os.WriteFile(envFile, []byte(tt.content), 0o644)
 			if err != nil {
 				t.Fatalf("failed to create test file: %v", err)
 			}
@@ -777,7 +777,7 @@ func TestLoadEnvFileIfExists(t *testing.T) {
 		tmpDir := t.TempDir()
 		envFile := ".env"
 		content := "TEST_VAR=test_value\n"
-		err := os.WriteFile(filepath.Join(tmpDir, envFile), []byte(content), 0644)
+		err := os.WriteFile(filepath.Join(tmpDir, envFile), []byte(content), 0o644)
 		if err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
@@ -905,7 +905,7 @@ func TestLoadLocalSettings(t *testing.T) {
 			}
 		}`
 
-		err := os.WriteFile(settingsFile, []byte(content), 0600)
+		err := os.WriteFile(settingsFile, []byte(content), 0o600)
 		if err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
@@ -935,7 +935,7 @@ func TestLoadLocalSettings(t *testing.T) {
 		tempDir := t.TempDir()
 		settingsFile := filepath.Join(tempDir, "local.settings.json")
 
-		err := os.WriteFile(settingsFile, []byte("invalid json"), 0600)
+		err := os.WriteFile(settingsFile, []byte("invalid json"), 0o600)
 		if err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}

@@ -95,10 +95,10 @@ func TestDockerComposeStyleEntrypoint(t *testing.T) {
 			// Create project files
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory for %s: %v", filename, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -120,7 +120,7 @@ services:
 			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -260,10 +260,10 @@ func TestAutoDetectWhenNoOverride(t *testing.T) {
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
 				// Create parent directory if needed
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory for %s: %v", filename, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -277,7 +277,7 @@ services:
     host: containerapp`
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -364,10 +364,10 @@ func TestEntrypointValidation(t *testing.T) {
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
 				// Create parent directory if needed
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory for %s: %v", filename, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -387,7 +387,7 @@ services:
 			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -488,7 +488,7 @@ services:
 			// Create temporary azure.yaml
 			tmpDir := t.TempDir()
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(tt.yamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(tt.yamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -557,10 +557,10 @@ func TestAutoDetectMissingFile(t *testing.T) {
 			// Create project files
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory: %v", err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -574,7 +574,7 @@ services:
     host: containerapp`
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -659,10 +659,10 @@ func TestGoServiceDetection(t *testing.T) {
 			// Create project files
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory for %s: %v", filename, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -680,7 +680,7 @@ services:
 			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -737,23 +737,23 @@ func TestGoWorkerServiceWithProcessHealthcheck(t *testing.T) {
 
 	// Create go.mod
 	goMod := "module example.com/app\n\ngo 1.21"
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o600); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// Create main.go
 	mainGo := "package main\n\nfunc main() {}"
-	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(mainGo), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(mainGo), 0o600); err != nil {
 		t.Fatalf("Failed to create main.go: %v", err)
 	}
 
 	// Create cmd/worker/main.go
 	workerDir := filepath.Join(tmpDir, "cmd", "worker")
-	if err := os.MkdirAll(workerDir, 0750); err != nil {
+	if err := os.MkdirAll(workerDir, 0o750); err != nil {
 		t.Fatalf("Failed to create worker directory: %v", err)
 	}
 	workerGo := "package main\n\nfunc main() {}"
-	if err := os.WriteFile(filepath.Join(workerDir, "main.go"), []byte(workerGo), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(workerDir, "main.go"), []byte(workerGo), 0o600); err != nil {
 		t.Fatalf("Failed to create worker/main.go: %v", err)
 	}
 
@@ -776,7 +776,7 @@ services:
       type: process`
 
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -869,44 +869,44 @@ services:
       - "8080"`
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
 			// Create language-specific files to support detection
 			switch tt.expected {
 			case "Go":
-				if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test\n\ngo 1.21"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test\n\ngo 1.21"), 0o600); err != nil {
 					t.Fatalf("Failed to create go.mod: %v", err)
 				}
-				if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main\n\nfunc main() {}"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main\n\nfunc main() {}"), 0o600); err != nil {
 					t.Fatalf("Failed to create main.go: %v", err)
 				}
 			case "JavaScript", "TypeScript":
-				if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(`{"name":"test","scripts":{"start":"node index.js"}}`), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(`{"name":"test","scripts":{"start":"node index.js"}}`), 0o600); err != nil {
 					t.Fatalf("Failed to create package.json: %v", err)
 				}
 			case "Python":
-				if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte("requests"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte("requests"), 0o600); err != nil {
 					t.Fatalf("Failed to create requirements.txt: %v", err)
 				}
-				if err := os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("print('hello')"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "main.py"), []byte("print('hello')"), 0o600); err != nil {
 					t.Fatalf("Failed to create main.py: %v", err)
 				}
 			case ".NET":
-				if err := os.WriteFile(filepath.Join(tmpDir, "test.csproj"), []byte("<Project></Project>"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "test.csproj"), []byte("<Project></Project>"), 0o600); err != nil {
 					t.Fatalf("Failed to create test.csproj: %v", err)
 				}
 			case "Java":
-				if err := os.WriteFile(filepath.Join(tmpDir, "pom.xml"), []byte("<project></project>"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "pom.xml"), []byte("<project></project>"), 0o600); err != nil {
 					t.Fatalf("Failed to create pom.xml: %v", err)
 				}
 			case "Rust":
-				if err := os.WriteFile(filepath.Join(tmpDir, "Cargo.toml"), []byte("[package]\nname = \"test\""), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "Cargo.toml"), []byte("[package]\nname = \"test\""), 0o600); err != nil {
 					t.Fatalf("Failed to create Cargo.toml: %v", err)
 				}
 			case "PHP":
-				if err := os.WriteFile(filepath.Join(tmpDir, "composer.json"), []byte("{}"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "composer.json"), []byte("{}"), 0o600); err != nil {
 					t.Fatalf("Failed to create composer.json: %v", err)
 				}
 			}
@@ -995,10 +995,10 @@ func TestServiceModeDetection(t *testing.T) {
 			// Create project files
 			for filename, content := range tt.projectFiles {
 				filePath := filepath.Join(tmpDir, filename)
-				if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 					t.Fatalf("Failed to create directory for %s: %v", filename, err)
 				}
-				if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 					t.Fatalf("Failed to create file %s: %v", filename, err)
 				}
 			}
@@ -1017,7 +1017,7 @@ services:
 			}
 
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create azure.yaml: %v", err)
 			}
 
@@ -1258,7 +1258,7 @@ services:
       type: tcp
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -1370,7 +1370,7 @@ services:
       retries: 3
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

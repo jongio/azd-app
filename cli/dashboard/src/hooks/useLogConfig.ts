@@ -13,18 +13,19 @@
  * working without changes.
  */
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { ConnectError, type Client, type Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import { useBackendConnection } from '@/hooks/useBackendConnection'
 import { createAzureClient } from '@/lib/connectClient'
-import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
   AzureLogConfigMode as ProtoAzureLogConfigMode,
   AzureResourceType as ProtoAzureResourceType,
-  GetAzureLogConfigRequest,
-  ListAzureTablesRequest,
+  GetAzureLogConfigRequestSchema,
+  ListAzureTablesRequestSchema,
   type ListAzureTablesResponse,
-  SaveAzureLogConfigRequest,
+  SaveAzureLogConfigRequestSchema,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 // =============================================================================
@@ -192,7 +193,7 @@ export function useAvailableTables({
   transport,
 }: UseAvailableTablesOptions = {}): UseAvailableTablesReturn {
   const { connected } = useBackendConnection()
-  const client = useMemo<PromiseClient<typeof AzureService>>(
+  const client = useMemo<Client<typeof AzureService>>(
     () => createAzureClient(transport),
     [transport],
   )
@@ -212,7 +213,7 @@ export function useAvailableTables({
 
     try {
       const resp = await client.listAzureTables(
-        new ListAzureTablesRequest({
+        create(ListAzureTablesRequestSchema, {
           resourceType: resourceTypeToProto(resourceType),
         }),
       )
@@ -262,7 +263,7 @@ export function useLogConfig({
   transport,
 }: UseLogConfigOptions): UseLogConfigReturn {
   const { connected } = useBackendConnection()
-  const client = useMemo<PromiseClient<typeof AzureService>>(
+  const client = useMemo<Client<typeof AzureService>>(
     () => createAzureClient(transport),
     [transport],
   )
@@ -280,7 +281,7 @@ export function useLogConfig({
 
     try {
       const resp = await client.getAzureLogConfig(
-        new GetAzureLogConfigRequest({ service: serviceName }),
+        create(GetAzureLogConfigRequestSchema, { service: serviceName }),
       )
       setConfig({
         service: resp.service,
@@ -324,7 +325,7 @@ export function useLogConfig({
       try {
         const mode: 'tables' | 'custom' = query ? 'custom' : 'tables'
         const resp = await client.saveAzureLogConfig(
-          new SaveAzureLogConfigRequest({
+          create(SaveAzureLogConfigRequestSchema, {
             service: serviceName,
             mode: modeToProto(mode),
             // Only include the field matching the inferred mode. The

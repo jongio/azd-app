@@ -158,7 +158,7 @@ export function ServicesProvider({ children, transport }: ServicesProviderProps)
             if (cancelled) break
             const ev = msg.event
             if (!ev || ev.type !== EVENT_SERVICES_CHANGED) continue
-            const payload = ev.payload?.toJson() as
+            const payload = ev.payload as
               | { services?: Service[] }
               | undefined
             if (payload?.services) {

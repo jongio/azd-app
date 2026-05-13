@@ -469,7 +469,7 @@ func TestValidateProjectDir(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir) //nolint:errcheck
 	tempFile := filepath.Join(tempDir, "testfile.txt")
-	err = os.WriteFile(tempFile, []byte("test"), 0644)
+	err = os.WriteFile(tempFile, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	// Create a symlink for testing
@@ -621,7 +621,6 @@ func TestGetServicesToolHandlerWithParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := testToolArgs(tt.args)
 			result, err := handleGetServices(ctx, args)
-
 			// Handler should return error result, not Go error
 			if err != nil {
 				t.Errorf("Handler returned Go error (should use mcp.NewToolResultError): %v", err)
@@ -667,7 +666,6 @@ func TestGetServiceLogsToolHandlerWithParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := testToolArgs(tt.args)
 			result, err := handleGetServiceLogs(ctx, args)
-
 			if err != nil {
 				t.Errorf("Handler returned Go error: %v", err)
 			}
@@ -684,7 +682,6 @@ func TestGetProjectInfoToolHandlerWithParams(t *testing.T) {
 	args := testToolArgs(map[string]interface{}{})
 
 	result, err := handleGetProjectInfo(ctx, args)
-
 	if err != nil {
 		t.Errorf("Handler returned Go error: %v", err)
 	}
@@ -718,7 +715,6 @@ func TestRestartServiceToolHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := testToolArgs(tt.args)
 			result, err := handleRestartService(ctx, args)
-
 			if err != nil {
 				t.Errorf("Handler returned Go error: %v", err)
 			}
@@ -1304,7 +1300,7 @@ services:
   api:
     language: python
 `
-	err = os.WriteFile(azureYamlPath, []byte(content), 0644)
+	err = os.WriteFile(azureYamlPath, []byte(content), 0o644)
 	require.NoError(t, err)
 
 	// Set environment variable for project dir

@@ -22,7 +22,7 @@ func BenchmarkCacheManagerGetCachedResults(b *testing.B) {
 
 	// Create a dummy azure.yaml
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -58,7 +58,7 @@ func BenchmarkCacheManagerSaveResults(b *testing.B) {
 	}
 
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -85,7 +85,7 @@ func BenchmarkCalculateFileHash(b *testing.B) {
 	for i := range content {
 		content[i] = byte(i % 256)
 	}
-	if err := os.WriteFile(testFile, content, 0644); err != nil {
+	if err := os.WriteFile(testFile, content, 0o644); err != nil {
 		b.Fatal(err)
 	}
 

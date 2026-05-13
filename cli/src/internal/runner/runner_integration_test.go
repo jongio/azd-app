@@ -90,7 +90,7 @@ func TestRunPnpmScriptIntegration(t *testing.T) {
     "build": "echo Build complete"
   }
 }`
-			if err := os.WriteFile(filepath.Join(tempDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(tempDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 				t.Fatal(err)
 			}
 
@@ -122,7 +122,7 @@ services:
     image: alpine:latest
     command: echo "Test service"
 `
-	if err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeYAML), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -134,7 +134,7 @@ services:
     "start": "docker compose up"
   }
 }`
-	if err := os.WriteFile(filepath.Join(tempDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

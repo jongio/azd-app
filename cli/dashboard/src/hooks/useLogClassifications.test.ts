@@ -27,14 +27,15 @@ import {
 import { describe, it, expect } from 'vitest'
 
 import { useLogClassifications } from './useLogClassifications'
-import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import {
-  Classification,
-  ListClassificationsResponse,
-  AddClassificationResponse,
-  DeleteClassificationResponse,
+  ClassificationSchema,
+  ListClassificationsResponseSchema,
+  AddClassificationResponseSchema,
+  DeleteClassificationResponseSchema,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
 import { LogLevel } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 interface StoredClassification {
   text: string
@@ -76,9 +77,9 @@ function buildHarness(initial: StoredClassification[] = []): Harness {
       },
       // eslint-disable-next-line @typescript-eslint/require-await
       async listClassifications() {
-        return new ListClassificationsResponse({
+        return create(ListClassificationsResponseSchema, {
           classifications: store.map(
-            (c) => new Classification({ text: c.text, level: c.level })
+            (c) => create(ClassificationSchema, { text: c.text, level: c.level })
           ),
         })
       },
@@ -101,8 +102,8 @@ function buildHarness(initial: StoredClassification[] = []): Harness {
           stored = { text: incoming.text, level: incoming.level }
           store.push(stored)
         }
-        return new AddClassificationResponse({
-          classification: new Classification(stored),
+        return create(AddClassificationResponseSchema, {
+          classification: create(ClassificationSchema, stored),
         })
       },
       // eslint-disable-next-line @typescript-eslint/require-await
@@ -114,7 +115,7 @@ function buildHarness(initial: StoredClassification[] = []): Harness {
           throw new ConnectError('out of range', Code.NotFound)
         }
         store.splice(req.index, 1)
-        return new DeleteClassificationResponse({})
+        return create(DeleteClassificationResponseSchema, {})
       },
       // eslint-disable-next-line @typescript-eslint/require-await
       async getPreferences() {

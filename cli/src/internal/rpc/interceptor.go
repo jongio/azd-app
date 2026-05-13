@@ -41,7 +41,8 @@ func (i *observabilityInterceptor) WrapUnary(next connect.UnaryFunc) connect.Una
 		resp, err := next(ctx, req)
 		elapsed := time.Since(start)
 		if err != nil {
-			slog.Warn("rpc unary error",
+			slog.Warn(
+				"rpc unary error",
 				"procedure", spec.Procedure,
 				"code", connect.CodeOf(err).String(),
 				"elapsed_ms", elapsed.Milliseconds(),
@@ -74,7 +75,8 @@ func (i *observabilityInterceptor) WrapStreamingHandler(next connect.StreamingHa
 		err := next(ctx, conn)
 		elapsed := time.Since(start)
 		if err != nil {
-			slog.Warn("rpc stream error",
+			slog.Warn(
+				"rpc stream error",
 				"procedure", spec.Procedure,
 				"code", connect.CodeOf(err).String(),
 				"elapsed_ms", elapsed.Milliseconds(),

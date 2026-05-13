@@ -45,7 +45,6 @@ func ExecuteHook(ctx context.Context, hookName string, config HookConfig, workin
 
 	// Execute the hook
 	err := cmd.Run()
-
 	// Handle execution result
 	if err != nil {
 		if config.ContinueOnError {

@@ -185,7 +185,7 @@ services:
 `
 
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
-	err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0644)
+	err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to write azure.yaml: %v", err)
 	}

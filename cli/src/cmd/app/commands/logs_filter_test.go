@@ -136,7 +136,7 @@ logs:
       - yaml_pattern1
       - yaml_pattern2
 `
-		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -159,7 +159,7 @@ logs:
     exclude:
       - yaml_pattern
 `
-		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -179,7 +179,7 @@ logs:
     exclude:
       - custom_only
 `
-		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -200,7 +200,7 @@ logs:
     exclude:
       - custom_pattern
 `
-		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0o644); err != nil {
 			t.Fatal(err)
 		}
 

@@ -120,6 +120,7 @@ func getKeys(m map[string]AzureServiceInfo) []string {
 	}
 	return keys
 }
+
 func TestGetServiceInfo(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
@@ -137,7 +138,7 @@ services:
     project: ./web
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -218,7 +219,7 @@ services:
     host: local
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

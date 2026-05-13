@@ -26,7 +26,7 @@ func TestRunAspire(t *testing.T) {
 	</Project>`
 
 	csprojPath := filepath.Join(tmpDir, "AppHost.csproj")
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0600); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
 		t.Fatalf("failed to create .csproj: %v", err)
 	}
 
@@ -284,12 +284,12 @@ func TestFindPythonEntryPoint(t *testing.T) {
 				dir := filepath.Dir(fullPath)
 
 				// Create directory if needed
-				if err := os.MkdirAll(dir, 0750); err != nil {
+				if err := os.MkdirAll(dir, 0o750); err != nil {
 					t.Fatalf("failed to create directory %s: %v", dir, err)
 				}
 
 				// Create file
-				if err := os.WriteFile(fullPath, []byte("# Python file"), 0600); err != nil {
+				if err := os.WriteFile(fullPath, []byte("# Python file"), 0o600); err != nil {
 					t.Fatalf("failed to create file %s: %v", fullPath, err)
 				}
 			}
@@ -466,7 +466,7 @@ func TestRunPython_InvalidPackageManager(t *testing.T) {
 
 	// Create main.py
 	mainPath := filepath.Join(tmpDir, "main.py")
-	if err := os.WriteFile(mainPath, []byte("print('hello')"), 0600); err != nil {
+	if err := os.WriteFile(mainPath, []byte("print('hello')"), 0o600); err != nil {
 		t.Fatalf("failed to create main.py: %v", err)
 	}
 
@@ -486,7 +486,7 @@ func TestRunPython_NoEntryPoint(t *testing.T) {
 
 	// Create requirements.txt but no Python entry point
 	reqPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(reqPath, []byte("requests==2.28.0\n"), 0600); err != nil {
+	if err := os.WriteFile(reqPath, []byte("requests==2.28.0\n"), 0o600); err != nil {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
@@ -510,7 +510,7 @@ func TestRunPython_WithExplicitEntrypoint(t *testing.T) {
 
 	// Create custom entry point
 	customPath := filepath.Join(tmpDir, "custom_entry.py")
-	if err := os.WriteFile(customPath, []byte("print('hello')"), 0600); err != nil {
+	if err := os.WriteFile(customPath, []byte("print('hello')"), 0o600); err != nil {
 		t.Fatalf("failed to create custom_entry.py: %v", err)
 	}
 
@@ -530,7 +530,7 @@ func TestRunPython_UnsupportedPackageManager(t *testing.T) {
 
 	// Create main.py
 	mainPath := filepath.Join(tmpDir, "main.py")
-	if err := os.WriteFile(mainPath, []byte("print('hello')"), 0600); err != nil {
+	if err := os.WriteFile(mainPath, []byte("print('hello')"), 0o600); err != nil {
 		t.Fatalf("failed to create main.py: %v", err)
 	}
 
@@ -565,10 +565,10 @@ func TestFindPythonEntryPoint_Priority(t *testing.T) {
 	mainPath := filepath.Join(tmpDir, "main.py")
 	appPath := filepath.Join(tmpDir, "app.py")
 
-	if err := os.WriteFile(mainPath, []byte("# main"), 0600); err != nil {
+	if err := os.WriteFile(mainPath, []byte("# main"), 0o600); err != nil {
 		t.Fatalf("failed to create main.py: %v", err)
 	}
-	if err := os.WriteFile(appPath, []byte("# app"), 0600); err != nil {
+	if err := os.WriteFile(appPath, []byte("# app"), 0o600); err != nil {
 		t.Fatalf("failed to create app.py: %v", err)
 	}
 
@@ -591,14 +591,14 @@ func TestFindPythonEntryPoint_DirectoryPriority(t *testing.T) {
 	srcDir := filepath.Join(tmpDir, "src")
 	srcPath := filepath.Join(srcDir, "app.py")
 
-	if err := os.MkdirAll(srcDir, 0750); err != nil {
+	if err := os.MkdirAll(srcDir, 0o750); err != nil {
 		t.Fatalf("failed to create src dir: %v", err)
 	}
 
-	if err := os.WriteFile(rootPath, []byte("# root"), 0600); err != nil {
+	if err := os.WriteFile(rootPath, []byte("# root"), 0o600); err != nil {
 		t.Fatalf("failed to create root app.py: %v", err)
 	}
-	if err := os.WriteFile(srcPath, []byte("# src"), 0600); err != nil {
+	if err := os.WriteFile(srcPath, []byte("# src"), 0o600); err != nil {
 		t.Fatalf("failed to create src app.py: %v", err)
 	}
 
@@ -651,7 +651,7 @@ func TestRunFunctionApp_LogicAppsMissingWorkflows(t *testing.T) {
 
 	// Create host.json
 	hostJSONPath := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0o600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
@@ -689,7 +689,7 @@ func TestRunFunctionApp_WithHostJson(t *testing.T) {
 			"version": "[3.*, 4.0.0)"
 		}
 	}`
-	if err := os.WriteFile(hostJSONPath, []byte(hostJSONContent), 0600); err != nil {
+	if err := os.WriteFile(hostJSONPath, []byte(hostJSONContent), 0o600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
@@ -726,13 +726,13 @@ func TestRunFunctionApp_LogicAppsWithWorkflows(t *testing.T) {
 
 	// Create host.json
 	hostJSONPath := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0o600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
 	// Create workflows directory
 	workflowsDir := filepath.Join(tmpDir, "workflows")
-	if err := os.MkdirAll(workflowsDir, 0750); err != nil {
+	if err := os.MkdirAll(workflowsDir, 0o750); err != nil {
 		t.Fatalf("failed to create workflows directory: %v", err)
 	}
 
@@ -779,13 +779,13 @@ func TestRunFunctionApp_LogicApps(t *testing.T) {
 
 	// Create host.json
 	hostJSONPath := filepath.Join(tmpDir, "host.json")
-	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(hostJSONPath, []byte("{}"), 0o600); err != nil {
 		t.Fatalf("failed to create host.json: %v", err)
 	}
 
 	// Create workflows directory
 	workflowsDir := filepath.Join(tmpDir, "workflows")
-	if err := os.MkdirAll(workflowsDir, 0750); err != nil {
+	if err := os.MkdirAll(workflowsDir, 0o750); err != nil {
 		t.Fatalf("failed to create workflows directory: %v", err)
 	}
 

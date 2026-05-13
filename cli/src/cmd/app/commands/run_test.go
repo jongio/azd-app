@@ -173,7 +173,7 @@ func TestRunAspireMode(t *testing.T) {
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 </Project>`
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0600); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
@@ -187,7 +187,7 @@ public class Program {
         builder.Build().Run();
     }
 }`
-	if err := os.WriteFile(appHostPath, []byte(appHostContent), 0600); err != nil {
+	if err := os.WriteFile(appHostPath, []byte(appHostContent), 0o600); err != nil {
 		t.Fatalf("Failed to create AppHost.cs: %v", err)
 	}
 
@@ -554,7 +554,7 @@ func TestMonitorServices_RunsIndefinitely(t *testing.T) {
 	// Create a simple batch script that runs for a long time
 	scriptPath := filepath.Join(tmpDir, "long-running.bat")
 	scriptContent := "@echo off\necho Starting long-running service\n:loop\nping 127.0.0.1 -n 2 > nul\ngoto loop"
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0700); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o700); err != nil {
 		t.Fatalf("Failed to create test script: %v", err)
 	}
 

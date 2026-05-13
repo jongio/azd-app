@@ -11,9 +11,10 @@
  * returned, then each step casts to its own narrower interface.
  */
 import type { Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import { createAzureClient } from '@/lib/connectClient'
-import { GetAzureSetupStateRequest } from '@/gen/proto/azdapp/v1/azure_pb.js'
+import { GetAzureSetupStateRequestSchema } from '@/gen/proto/azdapp/v1/azure_pb.js'
 
 /**
  * Fetch the full setup-state document via Connect. Returns a plain JSON
@@ -27,14 +28,14 @@ export async function fetchAzureSetupState(
   const { signal, transport } = options
   const client = createAzureClient(transport)
   const resp = await client.getAzureSetupState(
-    new GetAzureSetupStateRequest(),
+    create(GetAzureSetupStateRequestSchema),
     signal ? { signal } : undefined,
   )
   // `state` is required-on-the-wire but defensive code lets us tolerate
   // an unset field by returning {} - matches what the legacy `data`
   // would have looked like for an empty 200.
   if (!resp.state) return {}
-  const json = resp.state.toJson()
+  const json = resp.state
   if (json && typeof json === 'object' && !Array.isArray(json)) {
     return json as Record<string, unknown>
   }

@@ -14,9 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	infoAll bool
-)
+var infoAll bool
 
 const (
 	statusUnknown = "unknown"

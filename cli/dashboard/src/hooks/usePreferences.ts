@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { type Transport } from '@connectrpc/connect'
 
+import { create } from '@bufbuild/protobuf'
+
 import { createLogsClient } from '@/lib/connectClient'
 import {
-  Preferences as PbPreferences,
-  UIPreferences as PbUIPreferences,
-  BehaviorPreferences as PbBehaviorPreferences,
-  CopyPreferences as PbCopyPreferences,
+  PreferencesSchema,
+  UIPreferencesSchema,
+  BehaviorPreferencesSchema,
+  CopyPreferencesSchema,
+  type Preferences as PbPreferences,
 } from '@/gen/proto/azdapp/v1/logs_pb.js'
 
 export type Theme = 'light' | 'dark'
@@ -80,9 +83,9 @@ function pbToUserPreferences(pb: PbPreferences | undefined): UserPreferences {
   if (!pb) {
     return DEFAULT_PREFERENCES
   }
-  const ui = pb.ui ?? new PbUIPreferences()
-  const behavior = pb.behavior ?? new PbBehaviorPreferences()
-  const copy = pb.copy ?? new PbCopyPreferences()
+  const ui = pb.ui ?? create(UIPreferencesSchema)
+  const behavior = pb.behavior ?? create(BehaviorPreferencesSchema)
+  const copy = pb.copy ?? create(CopyPreferencesSchema)
 
   return {
     version: pb.version || DEFAULT_PREFERENCES.version,
@@ -127,21 +130,21 @@ function pbToUserPreferences(pb: PbPreferences | undefined): UserPreferences {
  * being elided here - everything we set lands in the persisted blob.
  */
 function userPreferencesToPb(prefs: UserPreferences): PbPreferences {
-  return new PbPreferences({
+  return create(PreferencesSchema, {
     version: prefs.version,
     theme: prefs.theme,
-    ui: new PbUIPreferences({
+    ui: create(UIPreferencesSchema, {
       gridColumns: prefs.ui.gridColumns,
       gridAutoFit: prefs.ui.gridAutoFit,
       viewMode: prefs.ui.viewMode,
       selectedServices: prefs.ui.selectedServices,
     }),
-    behavior: new PbBehaviorPreferences({
+    behavior: create(BehaviorPreferencesSchema, {
       autoScroll: prefs.behavior.autoScroll,
       pauseOnScroll: prefs.behavior.pauseOnScroll,
       timestampFormat: prefs.behavior.timestampFormat,
     }),
-    copy: new PbCopyPreferences({
+    copy: create(CopyPreferencesSchema, {
       defaultFormat: prefs.copy.defaultFormat,
       includeTimestamp: prefs.copy.includeTimestamp,
       includeService: prefs.copy.includeService,

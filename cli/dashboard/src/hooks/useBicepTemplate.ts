@@ -12,10 +12,11 @@
  */
 import * as React from 'react'
 import { Code, ConnectError } from '@connectrpc/connect'
-import type { PromiseClient, Transport } from '@connectrpc/connect'
+import type { Client, Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
-import { GetBicepTemplateRequest } from '@/gen/proto/azdapp/v1/bicep_pb.js'
-import type { BicepService } from '@/gen/proto/azdapp/v1/bicep_connect.js'
+import { GetBicepTemplateRequestSchema } from '@/gen/proto/azdapp/v1/bicep_pb.js'
+import type { BicepService } from '@/gen/proto/azdapp/v1/bicep_pb.js'
 import { createBicepClient } from '@/lib/connectClient'
 
 // =============================================================================
@@ -156,7 +157,7 @@ export function useBicepTemplate(transport?: Transport): UseBicepTemplateResult 
   // stable client. Without this, every render rebuilds the client and the
   // fetchTemplate identity churns, defeating downstream React.useCallback
   // memoization.
-  const client: PromiseClient<typeof BicepService> = React.useMemo(
+  const client: Client<typeof BicepService> = React.useMemo(
     () => createBicepClient(transport),
     [transport]
   )
@@ -179,7 +180,7 @@ export function useBicepTemplate(transport?: Transport): UseBicepTemplateResult 
 
     try {
       const response = await client.getBicepTemplate(
-        new GetBicepTemplateRequest({ serviceNames: [] }),
+        create(GetBicepTemplateRequestSchema, { serviceNames: [] }),
         { signal: controller.signal }
       )
 

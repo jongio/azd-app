@@ -80,7 +80,8 @@ func (qb *QueryBuilder) Build() string {
 func (qb *QueryBuilder) buildSingleTableQuery(tableName string) string {
 	filter := qb.getServiceFilter(tableName)
 
-	query := fmt.Sprintf(`%s
+	query := fmt.Sprintf(
+		`%s
 | where TimeGenerated > ago(%s)
 %s
 | project TimeGenerated, %s
@@ -102,7 +103,8 @@ func (qb *QueryBuilder) buildUnionQuery() string {
 
 	for _, tableName := range qb.tables {
 		filter := qb.getServiceFilter(tableName)
-		part := fmt.Sprintf(`(%s | where TimeGenerated > ago(%s) %s | project TimeGenerated, Table="%s", %s)`,
+		part := fmt.Sprintf(
+			`(%s | where TimeGenerated > ago(%s) %s | project TimeGenerated, Table="%s", %s)`,
 			tableName,
 			qb.timespan,
 			filter,
@@ -112,7 +114,8 @@ func (qb *QueryBuilder) buildUnionQuery() string {
 		parts = append(parts, part)
 	}
 
-	query := fmt.Sprintf(`union %s
+	query := fmt.Sprintf(
+		`union %s
 | order by TimeGenerated desc
 | take %d`,
 		strings.Join(parts, ", "),

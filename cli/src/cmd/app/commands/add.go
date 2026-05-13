@@ -329,7 +329,7 @@ func addServiceToYaml(path string, serviceName string, def *wellknown.ServiceDef
 	}
 
 	// #nosec G306 -- azure.yaml needs to be readable
-	return os.WriteFile(path, yamlOutput, 0644)
+	return os.WriteFile(path, yamlOutput, 0o644)
 }
 
 func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
@@ -339,7 +339,8 @@ func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
 	}
 
 	// Add image
-	node.Content = append(node.Content,
+	node.Content = append(
+		node.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Value: "image", Tag: "!!str"},
 		&yaml.Node{Kind: yaml.ScalarNode, Value: def.Image, Tag: "!!str"},
 	)
@@ -348,11 +349,13 @@ func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
 	if len(def.Ports) > 0 {
 		portsNode := &yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{}}
 		for _, port := range def.Ports {
-			portsNode.Content = append(portsNode.Content,
+			portsNode.Content = append(
+				portsNode.Content,
 				&yaml.Node{Kind: yaml.ScalarNode, Value: port, Tag: "!!str"},
 			)
 		}
-		node.Content = append(node.Content,
+		node.Content = append(
+			node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "ports", Tag: "!!str"},
 			portsNode,
 		)
@@ -368,12 +371,14 @@ func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			envNode.Content = append(envNode.Content,
+			envNode.Content = append(
+				envNode.Content,
 				&yaml.Node{Kind: yaml.ScalarNode, Value: k, Tag: "!!str"},
 				&yaml.Node{Kind: yaml.ScalarNode, Value: def.Environment[k], Tag: "!!str"},
 			)
 		}
-		node.Content = append(node.Content,
+		node.Content = append(
+			node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "environment", Tag: "!!str"},
 			envNode,
 		)

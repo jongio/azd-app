@@ -71,7 +71,7 @@ func TestHasNpmWorkspaces(t *testing.T) {
 
 			// Write package.json
 			packageJSONPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJSON), 0600); err != nil {
+			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJSON), 0o600); err != nil {
 				t.Fatalf("Failed to write package.json: %v", err)
 			}
 
@@ -102,39 +102,39 @@ func TestFindNodeProjects_Workspaces(t *testing.T) {
 		"workspaces": ["packages/*"]
 	}`
 	workspacePackageJSONPath := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(workspacePackageJSONPath, []byte(workspacePackageJSON), 0600); err != nil {
+	if err := os.WriteFile(workspacePackageJSONPath, []byte(workspacePackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create workspace package.json: %v", err)
 	}
 
 	// Create packages directory
 	packagesDir := filepath.Join(tmpDir, "packages")
-	if err := os.MkdirAll(packagesDir, 0755); err != nil {
+	if err := os.MkdirAll(packagesDir, 0o755); err != nil {
 		t.Fatalf("Failed to create packages directory: %v", err)
 	}
 
 	// Create api package
 	apiDir := filepath.Join(packagesDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api directory: %v", err)
 	}
 	apiPackageJSON := `{
 		"name": "@workspace/api",
 		"version": "1.0.0"
 	}`
-	if err := os.WriteFile(filepath.Join(apiDir, "package.json"), []byte(apiPackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(apiDir, "package.json"), []byte(apiPackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create api package.json: %v", err)
 	}
 
 	// Create webapp package
 	webappDir := filepath.Join(packagesDir, "webapp")
-	if err := os.MkdirAll(webappDir, 0755); err != nil {
+	if err := os.MkdirAll(webappDir, 0o755); err != nil {
 		t.Fatalf("Failed to create webapp directory: %v", err)
 	}
 	webappPackageJSON := `{
 		"name": "@workspace/webapp",
 		"version": "1.0.0"
 	}`
-	if err := os.WriteFile(filepath.Join(webappDir, "package.json"), []byte(webappPackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(webappDir, "package.json"), []byte(webappPackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create webapp package.json: %v", err)
 	}
 
@@ -187,27 +187,27 @@ func TestFindNodeProjects_NoWorkspaces(t *testing.T) {
 
 	// Create project1
 	project1Dir := filepath.Join(tmpDir, "project1")
-	if err := os.MkdirAll(project1Dir, 0755); err != nil {
+	if err := os.MkdirAll(project1Dir, 0o755); err != nil {
 		t.Fatalf("Failed to create project1: %v", err)
 	}
 	project1PackageJSON := `{
 		"name": "project1",
 		"version": "1.0.0"
 	}`
-	if err := os.WriteFile(filepath.Join(project1Dir, "package.json"), []byte(project1PackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(project1Dir, "package.json"), []byte(project1PackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create project1 package.json: %v", err)
 	}
 
 	// Create project2
 	project2Dir := filepath.Join(tmpDir, "project2")
-	if err := os.MkdirAll(project2Dir, 0755); err != nil {
+	if err := os.MkdirAll(project2Dir, 0o755); err != nil {
 		t.Fatalf("Failed to create project2: %v", err)
 	}
 	project2PackageJSON := `{
 		"name": "project2",
 		"version": "1.0.0"
 	}`
-	if err := os.WriteFile(filepath.Join(project2Dir, "package.json"), []byte(project2PackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(project2Dir, "package.json"), []byte(project2PackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create project2 package.json: %v", err)
 	}
 
@@ -245,20 +245,20 @@ func TestFindNodeProjects_YarnWorkspaces(t *testing.T) {
 			"packages": ["packages/*"]
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(workspacePackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(workspacePackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create workspace package.json: %v", err)
 	}
 
 	// Create a package
 	pkgDir := filepath.Join(tmpDir, "packages", "pkg1")
-	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 		t.Fatalf("Failed to create package directory: %v", err)
 	}
 	pkgPackageJSON := `{
 		"name": "pkg1",
 		"version": "1.0.0"
 	}`
-	if err := os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgPackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgPackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package package.json: %v", err)
 	}
 
@@ -346,14 +346,14 @@ func TestHasNpmWorkspaces_PnpmWorkspaceYaml(t *testing.T) {
 			// Write pnpm-workspace.yaml if provided
 			if tt.pnpmWorkspaceYAML != "" {
 				pnpmWorkspacePath := filepath.Join(tmpDir, "pnpm-workspace.yaml")
-				if err := os.WriteFile(pnpmWorkspacePath, []byte(tt.pnpmWorkspaceYAML), 0600); err != nil {
+				if err := os.WriteFile(pnpmWorkspacePath, []byte(tt.pnpmWorkspaceYAML), 0o600); err != nil {
 					t.Fatalf("Failed to write pnpm-workspace.yaml: %v", err)
 				}
 			}
 
 			// Write package.json
 			packageJSONPath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJSON), 0600); err != nil {
+			if err := os.WriteFile(packageJSONPath, []byte(tt.packageJSON), 0o600); err != nil {
 				t.Fatalf("Failed to write package.json: %v", err)
 			}
 
@@ -374,7 +374,7 @@ func TestFindNodeProjects_PnpmWorkspaces(t *testing.T) {
 	pnpmWorkspaceYAML := `packages:
   - 'packages/*'
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte(pnpmWorkspaceYAML), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte(pnpmWorkspaceYAML), 0o600); err != nil {
 		t.Fatalf("Failed to create pnpm-workspace.yaml: %v", err)
 	}
 
@@ -383,26 +383,26 @@ func TestFindNodeProjects_PnpmWorkspaces(t *testing.T) {
 		"name": "pnpm-workspace",
 		"private": true
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(workspacePackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(workspacePackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create workspace package.json: %v", err)
 	}
 
 	// Create packages directory
 	packagesDir := filepath.Join(tmpDir, "packages")
-	if err := os.MkdirAll(packagesDir, 0755); err != nil {
+	if err := os.MkdirAll(packagesDir, 0o755); err != nil {
 		t.Fatalf("Failed to create packages directory: %v", err)
 	}
 
 	// Create package
 	pkg1Dir := filepath.Join(packagesDir, "pkg1")
-	if err := os.MkdirAll(pkg1Dir, 0755); err != nil {
+	if err := os.MkdirAll(pkg1Dir, 0o755); err != nil {
 		t.Fatalf("Failed to create pkg1 directory: %v", err)
 	}
 	pkg1PackageJSON := `{
 		"name": "@workspace/pkg1",
 		"version": "1.0.0"
 	}`
-	if err := os.WriteFile(filepath.Join(pkg1Dir, "package.json"), []byte(pkg1PackageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pkg1Dir, "package.json"), []byte(pkg1PackageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create pkg1 package.json: %v", err)
 	}
 

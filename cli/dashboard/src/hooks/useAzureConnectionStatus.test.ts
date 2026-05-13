@@ -13,14 +13,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { Code, ConnectError, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
 
 import { useAzureConnectionStatus } from './useAzureConnectionStatus'
 import type { LogMode } from '@/components/ModeToggle'
-import { ModeService } from '@/gen/proto/azdapp/v1/mode_connect.js'
+import { ModeService } from '@/gen/proto/azdapp/v1/mode_pb.js'
 import {
-  GetModeResponse,
+  GetModeResponseSchema,
+  type GetModeResponse,
   LogMode as ProtoLogMode,
-  SetModeResponse,
+  SetModeResponseSchema,
+  type SetModeResponse,
 } from '@/gen/proto/azdapp/v1/mode_pb.js'
 
 interface RouterOverrides {
@@ -41,7 +44,7 @@ function makeTransport(overrides: RouterOverrides = {}) {
         if (overrides.getMode) {
           return overrides.getMode()
         }
-        return new GetModeResponse({
+        return create(GetModeResponseSchema, {
           mode: ProtoLogMode.LOCAL,
           azureEnabled: false,
           azureStatus: 'disabled',
@@ -53,7 +56,7 @@ function makeTransport(overrides: RouterOverrides = {}) {
         if (overrides.setMode) {
           return overrides.setMode(req.mode)
         }
-        return new SetModeResponse({
+        return create(SetModeResponseSchema, {
           mode: req.mode,
           azureEnabled: req.mode === ProtoLogMode.AZURE,
           azureStatus: req.mode === ProtoLogMode.AZURE ? 'connected' : 'disabled',
@@ -80,7 +83,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       const transport = makeTransport({
         getMode: () => {
           calls += 1
-          return new GetModeResponse({ mode: ProtoLogMode.LOCAL })
+          return create(GetModeResponseSchema, { mode: ProtoLogMode.LOCAL })
         },
       })
 
@@ -96,7 +99,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
     it('populates state from a successful GetMode response', async () => {
       const transport = makeTransport({
         getMode: () =>
-          new GetModeResponse({
+          create(GetModeResponseSchema, {
             mode: ProtoLogMode.AZURE,
             azureEnabled: true,
             azureStatus: 'connected',
@@ -120,7 +123,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
     it('treats empty connectionMessage as undefined to match legacy semantics', async () => {
       const transport = makeTransport({
         getMode: () =>
-          new GetModeResponse({
+          create(GetModeResponseSchema, {
             mode: ProtoLogMode.LOCAL,
             azureEnabled: false,
             azureStatus: 'disabled',
@@ -141,7 +144,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       // while enabled=false would otherwise mislead the toggle UI.
       const transport = makeTransport({
         getMode: () =>
-          new GetModeResponse({
+          create(GetModeResponseSchema, {
             mode: ProtoLogMode.LOCAL,
             azureEnabled: false,
             azureStatus: 'connected',
@@ -195,7 +198,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
 
       // Settle the in-flight call; a fresh fetch is now allowed.
       await act(async () => {
-        resolve(new GetModeResponse({ mode: ProtoLogMode.LOCAL }))
+        resolve(create(GetModeResponseSchema, { mode: ProtoLogMode.LOCAL }))
         await firstSettled
       })
 
@@ -212,7 +215,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       const transport = makeTransport({
         setMode: (mode) => {
           setModeMode = mode
-          return new SetModeResponse({
+          return create(SetModeResponseSchema, {
             mode,
             azureEnabled: true,
             azureStatus: 'connected',
@@ -239,7 +242,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       const transport = makeTransport({
         setMode: (mode) => {
           setCalls += 1
-          return new SetModeResponse({ mode })
+          return create(SetModeResponseSchema, { mode })
         },
       })
 
@@ -303,7 +306,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
         // Resolve the SetMode promise — switching stays true until the
         // 1500ms cleanup timeout fires.
         await act(async () => {
-          resolveSet(new SetModeResponse({
+          resolveSet(create(SetModeResponseSchema, {
             mode: ProtoLogMode.AZURE,
             azureEnabled: true,
             azureStatus: 'connected',
@@ -329,7 +332,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       const transport = makeTransport({
         setMode: (mode) => {
           setCalls += 1
-          return new SetModeResponse({ mode })
+          return create(SetModeResponseSchema, { mode })
         },
       })
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -390,7 +393,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       const onAzureRealtimeConfig = vi.fn()
       const transport = makeTransport({
         getMode: () =>
-          new GetModeResponse({
+          create(GetModeResponseSchema, {
             mode: ProtoLogMode.AZURE,
             azureEnabled: true,
             azureStatus: 'connected',
@@ -415,7 +418,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       const onAzureRealtimeConfig = vi.fn()
       const transport = makeTransport({
         setMode: (mode) =>
-          new SetModeResponse({
+          create(SetModeResponseSchema, {
             mode,
             azureEnabled: true,
             azureStatus: 'connected',
@@ -440,7 +443,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
       vi.useFakeTimers()
       try {
         const transport = makeTransport({
-          setMode: (mode) => new SetModeResponse({ mode }),
+          setMode: (mode) => create(SetModeResponseSchema, { mode }),
         })
 
         const { result, unmount } = renderHook(() => useAzureConnectionStatus({ transport }))

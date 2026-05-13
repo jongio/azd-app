@@ -15,9 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	structuredLogs bool
-)
+var structuredLogs bool
 
 func main() {
 	// Use the standard extension root command which provides:
@@ -59,7 +57,8 @@ func main() {
 		logging.SetupLogger(extCtx.Debug, structuredLogs)
 
 		if extCtx.Debug {
-			logging.Debug("Starting azd app extension",
+			logging.Debug(
+				"Starting azd app extension",
 				"version", internalversion.Version,
 				"command", cmd.Name(),
 				"args", args,

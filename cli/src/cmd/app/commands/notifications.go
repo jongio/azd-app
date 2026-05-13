@@ -257,7 +257,8 @@ func printNotifications(records []notifications.NotificationRecord) {
 			message = truncateUTF8(message, 47) + "..."
 		}
 
-		_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(
+			w, "%d\t%s\t%s\t%s\t%s\t%s\n",
 			r.ID,
 			r.ServiceName,
 			r.Severity,

@@ -164,7 +164,8 @@ func (h *HealthHandler) StreamHealth(
 			if ctx.Err() != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
-			slog.Warn("StreamHealth: probe failed; skipping tick",
+			slog.Warn(
+				"StreamHealth: probe failed; skipping tick",
 				"err", err.Error(),
 				"services", serviceFilter,
 			)
@@ -356,7 +357,8 @@ func (h *HealthHandler) StreamStateTransitions(
 		select {
 		case <-ctx.Done():
 			if d := droppedOnShutdown.Load(); d > 0 {
-				slog.Warn("StreamStateTransitions: dropped transitions during shutdown",
+				slog.Warn(
+					"StreamStateTransitions: dropped transitions during shutdown",
 					"count", d,
 				)
 			}
@@ -576,7 +578,8 @@ func toStateTransitionResponse(t *monitor.StateTransition) *v1.StreamStateTransi
 // service to one per 5min, so collisions would require two CRITICAL
 // transitions for the same service in the same nanosecond.
 func synthesiseTransitionID(t *monitor.StateTransition) string {
-	return fmt.Sprintf("%d-%s-%d",
+	return fmt.Sprintf(
+		"%d-%s-%d",
 		t.Timestamp.UnixNano(),
 		t.ServiceName,
 		int(t.Severity),

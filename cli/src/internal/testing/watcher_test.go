@@ -32,7 +32,8 @@ func TestNewFileWatcher_WithOptions(t *testing.T) {
 		"/path/to/service": "api",
 	}
 
-	watcher := NewFileWatcher([]string{tmpDir},
+	watcher := NewFileWatcher(
+		[]string{tmpDir},
 		WithDebounceDelay(500*time.Millisecond),
 		WithClearConsole(true),
 		WithShowElapsedTime(false),
@@ -342,7 +343,8 @@ func TestFileWatcherGetAffectedServices(t *testing.T) {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
 
-	watcher := NewFileWatcher([]string{tmpDir},
+	watcher := NewFileWatcher(
+		[]string{tmpDir},
 		WithServicePathMap(map[string]string{
 			apiDir: "api-service",
 			webDir: "web-service",

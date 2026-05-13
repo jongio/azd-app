@@ -338,7 +338,6 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 		err := <-done
-
 		if err != nil {
 			t.Errorf("Expected nil error, got: %v", err)
 		}
@@ -365,7 +364,6 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 		err := <-done
-
 		if err != nil {
 			t.Errorf("Expected nil error, got: %v", err)
 		}
@@ -400,7 +398,6 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 		err := <-done
-
 		if err != nil {
 			t.Errorf("Expected nil error, got: %v", err)
 		}
@@ -425,7 +422,6 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 		err := <-done
-
 		if err != nil {
 			t.Errorf("Expected nil error, got: %v", err)
 		}
@@ -447,7 +443,6 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 		err := <-done
-
 		if err != nil {
 			t.Errorf("Expected nil error, got: %v", err)
 		}
@@ -472,7 +467,6 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 		err := <-done
-
 		if err != nil {
 			t.Errorf("Expected nil error, got: %v", err)
 		}

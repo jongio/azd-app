@@ -321,7 +321,6 @@ func TestNotificationIDValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var id int64
 			_, err := fmt.Sscanf(tt.input, "%d", &id)
-
 			if err != nil {
 				if !tt.expectErr {
 					t.Errorf("Unexpected error parsing %q: %v", tt.input, err)

@@ -13,12 +13,12 @@ func BenchmarkFindNodeProjects(b *testing.B) {
 
 	// Create a simple project structure
 	projectDir := filepath.Join(tmpDir, "test-project")
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
 		b.Fatal(err)
 	}
 
 	packageJSON := filepath.Join(projectDir, "package.json")
-	if err := os.WriteFile(packageJSON, []byte(`{"name":"test"}`), 0644); err != nil {
+	if err := os.WriteFile(packageJSON, []byte(`{"name":"test"}`), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -36,12 +36,12 @@ func BenchmarkFindPythonProjects(b *testing.B) {
 	tmpDir := b.TempDir()
 
 	projectDir := filepath.Join(tmpDir, "test-project")
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
 		b.Fatal(err)
 	}
 
 	reqFile := filepath.Join(projectDir, "requirements.txt")
-	if err := os.WriteFile(reqFile, []byte("flask==2.0.0"), 0644); err != nil {
+	if err := os.WriteFile(reqFile, []byte("flask==2.0.0"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -59,12 +59,12 @@ func BenchmarkFindDotnetProjects(b *testing.B) {
 	tmpDir := b.TempDir()
 
 	projectDir := filepath.Join(tmpDir, "test-project")
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
 		b.Fatal(err)
 	}
 
 	csproj := filepath.Join(projectDir, "test.csproj")
-	if err := os.WriteFile(csproj, []byte(`<Project Sdk="Microsoft.NET.Sdk"></Project>`), 0644); err != nil {
+	if err := os.WriteFile(csproj, []byte(`<Project Sdk="Microsoft.NET.Sdk"></Project>`), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -82,7 +82,7 @@ func BenchmarkDetectNodePackageManager(b *testing.B) {
 	tmpDir := b.TempDir()
 
 	packageJSON := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packageJSON, []byte(`{"packageManager":"pnpm@8.15.0"}`), 0644); err != nil {
+	if err := os.WriteFile(packageJSON, []byte(`{"packageManager":"pnpm@8.15.0"}`), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -97,7 +97,7 @@ func BenchmarkFindAzureYaml(b *testing.B) {
 	tmpDir := b.TempDir()
 
 	azureYaml := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYaml, []byte("name: test"), 0644); err != nil {
+	if err := os.WriteFile(azureYaml, []byte("name: test"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 

@@ -28,7 +28,7 @@ func TestInstallNodeDependencies(t *testing.T) {
 	}`
 
 	packagePath := filepath.Join(tmpDir, "package.json")
-	if err := os.WriteFile(packagePath, []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(packagePath, []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
@@ -101,7 +101,7 @@ func TestRestoreDotnetProject(t *testing.T) {
 	</Project>`
 
 	csprojPath := filepath.Join(tmpDir, "test.csproj")
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0600); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
 		t.Fatalf("failed to create .csproj: %v", err)
 	}
 
@@ -123,7 +123,7 @@ func TestSetupPythonVirtualEnv(t *testing.T) {
 
 	// Create requirements.txt
 	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0600); err != nil {
+	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
@@ -194,7 +194,7 @@ func TestSetupPythonVirtualEnv(t *testing.T) {
 			// Create setup files
 			for filename, content := range tt.setupFiles {
 				path := filepath.Join(testDir, filename)
-				if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+				if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 					t.Fatalf("failed to create %s: %v", filename, err)
 				}
 			}
@@ -237,13 +237,13 @@ func TestSetupWithPip_VenvExists(t *testing.T) {
 
 	// Create .venv directory to simulate existing environment
 	venvDir := filepath.Join(tmpDir, ".venv")
-	if err := os.MkdirAll(venvDir, 0750); err != nil {
+	if err := os.MkdirAll(venvDir, 0o750); err != nil {
 		t.Fatalf("failed to create .venv: %v", err)
 	}
 
 	// Create requirements.txt
 	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0600); err != nil {
+	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
@@ -263,7 +263,7 @@ func TestSetupWithUv_FallbackToPip(t *testing.T) {
 
 	// Create requirements.txt for pip fallback
 	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0600); err != nil {
+	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
@@ -282,7 +282,7 @@ func TestSetupWithPoetry_FallbackToPip(t *testing.T) {
 
 	// Create requirements.txt for pip fallback
 	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0600); err != nil {
+	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
@@ -352,7 +352,7 @@ func TestSetupWithPip_ExistingVenv(t *testing.T) {
 
 	// Create .venv directory to simulate existing environment
 	venvDir := filepath.Join(tmpDir, ".venv")
-	if err := os.MkdirAll(venvDir, 0750); err != nil {
+	if err := os.MkdirAll(venvDir, 0o750); err != nil {
 		t.Fatalf("failed to create .venv: %v", err)
 	}
 
@@ -404,7 +404,7 @@ func TestSetupWithUv_NoUvInstalled(t *testing.T) {
 
 	// Create requirements.txt for fallback
 	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("# empty\n"), 0600); err != nil {
+	if err := os.WriteFile(requirementsPath, []byte("# empty\n"), 0o600); err != nil {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
@@ -428,7 +428,7 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 			packageManager: "npm",
 			setupFunc: func(tmpDir string) error {
 				// Create node_modules but no lock file
-				return os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0750)
+				return os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0o750)
 			},
 			want: false,
 		},
@@ -437,7 +437,7 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 			packageManager: "npm",
 			setupFunc: func(tmpDir string) error {
 				// Create lock file but no node_modules
-				return os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600)
+				return os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600)
 			},
 			want: false,
 		},
@@ -446,14 +446,14 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 			packageManager: "npm",
 			setupFunc: func(tmpDir string) error {
 				// Create lock file first
-				if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 					return err
 				}
 				// Create node_modules and internal lock after main lock
-				if err := os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0750); err != nil {
+				if err := os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0o750); err != nil {
 					return err
 				}
-				return os.WriteFile(filepath.Join(tmpDir, "node_modules", ".package-lock.json"), []byte("{}"), 0600)
+				return os.WriteFile(filepath.Join(tmpDir, "node_modules", ".package-lock.json"), []byte("{}"), 0o600)
 			},
 			want: true,
 		},
@@ -461,10 +461,10 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 			name:           "pnpm_no_internal_store",
 			packageManager: "pnpm",
 			setupFunc: func(tmpDir string) error {
-				if err := os.WriteFile(filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "pnpm-lock.yaml"), []byte(""), 0o600); err != nil {
 					return err
 				}
-				return os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0750)
+				return os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0o750)
 			},
 			want: false,
 		},
@@ -472,10 +472,10 @@ func TestIsDependenciesUpToDate(t *testing.T) {
 			name:           "yarn_up_to_date",
 			packageManager: "yarn",
 			setupFunc: func(tmpDir string) error {
-				if err := os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0o600); err != nil {
 					return err
 				}
-				return os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0750)
+				return os.MkdirAll(filepath.Join(tmpDir, "node_modules"), 0o750)
 			},
 			want: true,
 		},
@@ -567,18 +567,18 @@ func TestPackageJSONHasWorkspacePackages(t *testing.T) {
 
 			// Create package.json
 			packagePath := filepath.Join(tmpDir, "package.json")
-			if err := os.WriteFile(packagePath, []byte(tt.packageJSON), 0600); err != nil {
+			if err := os.WriteFile(packagePath, []byte(tt.packageJSON), 0o600); err != nil {
 				t.Fatalf("failed to create package.json: %v", err)
 			}
 
 			// Create a workspace package if needed
 			if tt.createPkg {
 				pkgDir := filepath.Join(tmpDir, "packages", "test-pkg")
-				if err := os.MkdirAll(pkgDir, 0755); err != nil {
+				if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 					t.Fatalf("failed to create package dir: %v", err)
 				}
 				pkgJSON := filepath.Join(pkgDir, "package.json")
-				if err := os.WriteFile(pkgJSON, []byte(`{"name":"test-pkg"}`), 0600); err != nil {
+				if err := os.WriteFile(pkgJSON, []byte(`{"name":"test-pkg"}`), 0o600); err != nil {
 					t.Fatalf("failed to create workspace package.json: %v", err)
 				}
 			}
@@ -767,22 +767,22 @@ func TestInstallNodeDependencies_UpToDate(t *testing.T) {
 
 	// Create package.json
 	packageJSON := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
 	// Create package-lock.json
-	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("failed to create package-lock.json: %v", err)
 	}
 
 	// Create node_modules and internal lock file
 	nodeModulesPath := filepath.Join(tmpDir, "node_modules")
-	if err := os.MkdirAll(nodeModulesPath, 0750); err != nil {
+	if err := os.MkdirAll(nodeModulesPath, 0o750); err != nil {
 		t.Fatalf("failed to create node_modules: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(nodeModulesPath, ".package-lock.json"), []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeModulesPath, ".package-lock.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("failed to create internal lock: %v", err)
 	}
 
@@ -811,17 +811,17 @@ func TestInstallNodeDependencies_Workspace(t *testing.T) {
 		"version": "1.0.0",
 		"workspaces": ["packages/*"]
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("failed to create package.json: %v", err)
 	}
 
 	// Create at least one workspace package so `npm --workspaces` has matching packages
 	pkgDir := filepath.Join(tmpDir, "packages", "pkg1")
-	if err := os.MkdirAll(pkgDir, 0750); err != nil {
+	if err := os.MkdirAll(pkgDir, 0o750); err != nil {
 		t.Fatalf("failed to create workspace package dir: %v", err)
 	}
 	pkgJSON := `{"name":"pkg1","version":"0.0.0"}`
-	if err := os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgJSON), 0o600); err != nil {
 		t.Fatalf("failed to create workspace package.json: %v", err)
 	}
 

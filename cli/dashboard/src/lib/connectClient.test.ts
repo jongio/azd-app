@@ -16,11 +16,12 @@ import {
   createProjectClient,
   getDefaultTransport,
 } from './connectClient'
-import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
+import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
 import {
-  CodespaceInfo,
-  GetEnvironmentResponse,
+  CodespaceInfoSchema,
+  GetEnvironmentResponseSchema,
 } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+import { create } from '@bufbuild/protobuf'
 
 afterEach(() => {
   __setDefaultTransportForTesting(null)
@@ -54,8 +55,8 @@ describe('connectClient factories', () => {
         getEnvironment() {
           received += 1
           return Promise.resolve(
-            new GetEnvironmentResponse({
-              codespace: new CodespaceInfo({ enabled: true, name: 'router-cs' }),
+            create(GetEnvironmentResponseSchema, {
+              codespace: create(CodespaceInfoSchema, { enabled: true, name: 'router-cs' }),
               environmentName: 'env-from-router',
             })
           )

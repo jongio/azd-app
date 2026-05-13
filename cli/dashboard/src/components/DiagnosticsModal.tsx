@@ -4,6 +4,8 @@
  */
 import * as React from 'react'
 import { ConnectError } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
+import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { X, CheckCircle, AlertCircle, XCircle, Copy, Check, ExternalLink, Loader2, RefreshCw, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
@@ -13,7 +15,7 @@ import {
   AzureCheckStatus,
   AzureOverallStatus,
   type AzureHealthCheck as ProtoAzureHealthCheck,
-  GetAzureLogsHealthRequest,
+  GetAzureLogsHealthRequestSchema,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import type { SetupStep } from './AzureSetupGuide'
 
@@ -225,7 +227,7 @@ export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly
       // legacy JSON returned so the rendering code below is unchanged.
       const client = createAzureClient()
       const resp = await client.getAzureLogsHealth(
-        new GetAzureLogsHealthRequest(),
+        create(GetAzureLogsHealthRequestSchema),
         { signal: abortController.signal },
       )
       if (abortController.signal.aborted) return
@@ -233,7 +235,7 @@ export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly
         status: overallStatusToString(resp.status),
         checks: resp.checks.map(protoCheckToHealthCheck),
         docsUrl: resp.docsUrl,
-        timestamp: resp.timestamp ? resp.timestamp.toDate().toISOString() : '',
+        timestamp: resp.timestamp ? timestampDate(resp.timestamp).toISOString() : '',
       }
       setData(result)
     } catch (err) {

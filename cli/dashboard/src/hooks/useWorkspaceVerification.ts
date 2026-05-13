@@ -12,14 +12,16 @@
  * to render.
  */
 import * as React from 'react'
-import { ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+import { ConnectError, type Client, type Transport } from '@connectrpc/connect'
+import { create } from '@bufbuild/protobuf'
+import { timestampDate } from '@bufbuild/protobuf/wkt'
 
 import { createAzureClient } from '@/lib/connectClient'
-import type { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import type { AzureService } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import {
   type ServiceVerificationResult as ProtoServiceVerificationResult,
   ServiceVerificationStatus as ProtoServiceVerificationStatus,
-  VerifyWorkspaceRequest,
+  VerifyWorkspaceRequestSchema,
   WorkspaceVerificationStatus as ProtoWorkspaceVerificationStatus,
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 
@@ -133,7 +135,7 @@ function serviceStatusToString(status: ProtoServiceVerificationStatus): ServiceV
  */
 function readMessageFromDetails(r: ProtoServiceVerificationResult): string | undefined {
   if (!r.details) return undefined
-  const obj = r.details.toJson()
+  const obj = r.details
   if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
     const msg = (obj as Record<string, unknown>).message
     if (typeof msg === 'string' && msg.length > 0) return msg
@@ -152,7 +154,7 @@ function protoToServiceResult(
   }
   if (r.queriedAt) {
     // Proto Timestamp -> ISO string. toDate() handles seconds+nanos.
-    out.lastLogTime = r.queriedAt.toDate().toISOString()
+    out.lastLogTime = timestampDate(r.queriedAt).toISOString()
   }
   const msg = readMessageFromDetails(r)
   if (msg) out.message = msg
@@ -183,7 +185,7 @@ export function useWorkspaceVerification(
   options: UseWorkspaceVerificationOptions = {},
 ): UseWorkspaceVerificationResult {
   const { transport } = options
-  const client = React.useMemo<PromiseClient<typeof AzureService>>(
+  const client = React.useMemo<Client<typeof AzureService>>(
     () => createAzureClient(transport),
     [transport],
   )
@@ -212,7 +214,7 @@ export function useWorkspaceVerification(
 
       try {
         const resp = await client.verifyWorkspace(
-          new VerifyWorkspaceRequest({
+          create(VerifyWorkspaceRequestSchema, {
             services: services ?? [],
             // Default 'PT15M' matches legacy behaviour; empty string
             // triggers server default but explicit is friendlier when

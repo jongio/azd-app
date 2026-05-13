@@ -16,16 +16,17 @@ import {
   useServiceOperations,
   ServiceOperationsProvider,
 } from './useServiceOperations'
-import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
+import { ServicesService } from '@/gen/proto/azdapp/v1/services_pb.js'
 import {
-  GetServicesResponse,
-  StartServiceResponse,
-  StopServiceResponse,
-  RestartServiceResponse,
+  GetServicesResponseSchema,
+  StartServiceResponseSchema,
+  StopServiceResponseSchema,
+  RestartServiceResponseSchema,
 } from '@/gen/proto/azdapp/v1/services_pb.js'
-import { OperationResult } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { OperationResultSchema, type OperationResult } from '@/gen/proto/azdapp/v1/common_pb.js'
 import type { Service } from '@/types'
 import type { ReactNode } from 'react'
+import { create } from '@bufbuild/protobuf'
 
 interface CallLog {
   op: 'start' | 'stop' | 'restart'
@@ -50,16 +51,16 @@ interface Harness {
 
 function makeTransport(overrides: RouterOverrides = {}): Harness {
   const calls: CallLog[] = []
-  const ok = (msg: string) => new OperationResult({ success: true, message: msg })
+  const ok = (msg: string) => create(OperationResultSchema, { success: true, message: msg })
 
   const transport = createRouterTransport((router: ConnectRouter) => {
     router.service(ServicesService, {
-      getServices: () => Promise.resolve(new GetServicesResponse()),
+      getServices: () => Promise.resolve(create(GetServicesResponseSchema)),
       async startService(req) {
         calls.push({ op: 'start', serviceName: req.serviceName })
         if (overrides.startBefore) await overrides.startBefore()
         if (overrides.startError) throw overrides.startError
-        return new StartServiceResponse({
+        return create(StartServiceResponseSchema, {
           result: overrides.startResult ?? ok('1 service(s) started, 0 failed'),
         })
       },
@@ -67,7 +68,7 @@ function makeTransport(overrides: RouterOverrides = {}): Harness {
         calls.push({ op: 'stop', serviceName: req.serviceName })
         if (overrides.stopError) return Promise.reject(overrides.stopError)
         return Promise.resolve(
-          new StopServiceResponse({
+          create(StopServiceResponseSchema, {
             result: overrides.stopResult ?? ok('1 service(s) stopped, 0 failed'),
           }),
         )
@@ -76,7 +77,7 @@ function makeTransport(overrides: RouterOverrides = {}): Harness {
         calls.push({ op: 'restart', serviceName: req.serviceName })
         if (overrides.restartError) return Promise.reject(overrides.restartError)
         return Promise.resolve(
-          new RestartServiceResponse({
+          create(RestartServiceResponseSchema, {
             result: overrides.restartResult ?? ok('1 service(s) restarted, 0 failed'),
           }),
         )
@@ -275,7 +276,7 @@ describe('useServiceOperations', () => {
 
   describe('startAll', () => {
     it('invokes Connect StartService with empty serviceName for bulk', async () => {
-      const bulkResult = new OperationResult({
+      const bulkResult = create(OperationResultSchema, {
         success: true,
         message: '2 service(s) started, 0 failed',
       })

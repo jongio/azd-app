@@ -485,7 +485,7 @@ services:
     language: dotnet
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -496,7 +496,7 @@ services:
 	otherDir := filepath.Join(tmpDir, "other")
 
 	for _, dir := range []string{apiDir, webDir, backendDir, otherDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -572,7 +572,7 @@ func TestFilterProjectsByService_InvalidAzureYaml(t *testing.T) {
 	// Create invalid azure.yaml
 	invalidYamlContent := `invalid: yaml: content: [[[`
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(invalidYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(invalidYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -676,7 +676,7 @@ services:
     language: nodejs
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(validYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(validYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -707,7 +707,7 @@ func TestParseAzureYaml_InvalidYaml(t *testing.T) {
 	// Create invalid YAML
 	invalidYaml := `name: [invalid yaml`
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(invalidYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(invalidYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -729,7 +729,7 @@ func TestParseAzureYaml_EmptyFile(t *testing.T) {
 
 	// Create empty file
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(""), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(""), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -753,13 +753,13 @@ func TestCleanDirectory_ExistingDirectory(t *testing.T) {
 
 	// Create a directory to clean
 	dirToClean := filepath.Join(tmpDir, "node_modules")
-	if err := os.MkdirAll(dirToClean, 0750); err != nil {
+	if err := os.MkdirAll(dirToClean, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
 	// Create some files inside
 	testFile := filepath.Join(dirToClean, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0600); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -798,7 +798,7 @@ func TestCleanDependencies_AllTypes(t *testing.T) {
 	dotnetDir := filepath.Join(tmpDir, "dotnet-project")
 
 	for _, dir := range []string{nodeDir, pythonDir, dotnetDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -810,7 +810,7 @@ func TestCleanDependencies_AllTypes(t *testing.T) {
 	binDir := filepath.Join(dotnetDir, "bin")
 
 	for _, dir := range []string{nodeModules, venv, objDir, binDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -884,13 +884,13 @@ func TestGetSearchRoot_WithAzureYaml(t *testing.T) {
 
 	// Create azure.yaml
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	// Create subdirectory
 	subDir := filepath.Join(tmpDir, "subdir")
-	if err := os.MkdirAll(subDir, 0750); err != nil {
+	if err := os.MkdirAll(subDir, 0o750); err != nil {
 		t.Fatalf("Failed to create subdirectory: %v", err)
 	}
 
@@ -934,7 +934,7 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -942,7 +942,7 @@ services:
 	apiDir := filepath.Join(tmpDir, "api")
 	apiSubDir := filepath.Join(apiDir, "src")
 	for _, dir := range []string{apiDir, apiSubDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
@@ -1224,7 +1224,7 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -1252,13 +1252,13 @@ services:
     project: ./api
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	// Create api directory
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0750); err != nil {
+	if err := os.MkdirAll(apiDir, 0o750); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -1294,7 +1294,7 @@ func TestCleanDependencies_NodeProjectsOnly(t *testing.T) {
 	// Create node project with node_modules
 	nodeDir := filepath.Join(tmpDir, "node-project")
 	nodeModules := filepath.Join(nodeDir, "node_modules")
-	if err := os.MkdirAll(nodeModules, 0750); err != nil {
+	if err := os.MkdirAll(nodeModules, 0o750); err != nil {
 		t.Fatalf("Failed to create node_modules: %v", err)
 	}
 
@@ -1318,7 +1318,7 @@ func TestCleanDependencies_PythonProjectsOnly(t *testing.T) {
 	// Create python project with .venv
 	pythonDir := filepath.Join(tmpDir, "python-project")
 	venv := filepath.Join(pythonDir, ".venv")
-	if err := os.MkdirAll(venv, 0750); err != nil {
+	if err := os.MkdirAll(venv, 0o750); err != nil {
 		t.Fatalf("Failed to create .venv: %v", err)
 	}
 
@@ -1344,7 +1344,7 @@ func TestCleanDependencies_DotnetProjectsOnly(t *testing.T) {
 	objDir := filepath.Join(dotnetDir, "obj")
 	binDir := filepath.Join(dotnetDir, "bin")
 	for _, dir := range []string{objDir, binDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -1371,7 +1371,7 @@ func TestCleanDirectory_WithNestedFiles(t *testing.T) {
 	// Create nested directory structure
 	dirToClean := filepath.Join(tmpDir, "node_modules")
 	nestedDir := filepath.Join(dirToClean, "package", "lib")
-	if err := os.MkdirAll(nestedDir, 0750); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o750); err != nil {
 		t.Fatalf("Failed to create nested directory: %v", err)
 	}
 
@@ -1382,7 +1382,7 @@ func TestCleanDirectory_WithNestedFiles(t *testing.T) {
 		filepath.Join(nestedDir, "file3.txt"),
 	}
 	for _, f := range files {
-		if err := os.WriteFile(f, []byte("test"), 0600); err != nil {
+		if err := os.WriteFile(f, []byte("test"), 0o600); err != nil {
 			t.Fatalf("Failed to create file %s: %v", f, err)
 		}
 	}
@@ -1490,7 +1490,7 @@ services:
     host: containerapp
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(validYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(validYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -1519,7 +1519,7 @@ services:
     language: python
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -1527,7 +1527,7 @@ services:
 	apiDir := filepath.Join(tmpDir, "api")
 	otherDir := filepath.Join(tmpDir, "other")
 	for _, dir := range []string{apiDir, otherDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
@@ -1558,7 +1558,7 @@ services:
     language: dotnet
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -1566,7 +1566,7 @@ services:
 	backendDir := filepath.Join(tmpDir, "backend")
 	otherDir := filepath.Join(tmpDir, "other")
 	for _, dir := range []string{backendDir, otherDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
@@ -1692,7 +1692,7 @@ func TestDetectAllProjects_WithNodeProject(t *testing.T) {
 
 	// Create package.json
 	packageJSON := `{"name": "test", "version": "1.0.0"}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -1716,7 +1716,7 @@ func TestDetectAllProjects_WithPythonProject(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create requirements.txt
-	if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte("flask==2.0.0"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte("flask==2.0.0"), 0o600); err != nil {
 		t.Fatalf("Failed to create requirements.txt: %v", err)
 	}
 
@@ -1741,7 +1741,7 @@ func TestDetectAllProjects_WithDotnetProject(t *testing.T) {
 
 	// Create .csproj file
 	csproj := `<Project Sdk="Microsoft.NET.Sdk"></Project>`
-	if err := os.WriteFile(filepath.Join(tmpDir, "project.csproj"), []byte(csproj), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "project.csproj"), []byte(csproj), 0o600); err != nil {
 		t.Fatalf("Failed to create project.csproj: %v", err)
 	}
 
@@ -1770,19 +1770,19 @@ func TestDetectAllProjects_MultipleProjectTypes(t *testing.T) {
 	dotnetDir := filepath.Join(tmpDir, "backend")
 
 	for _, dir := range []string{nodeDir, pythonDir, dotnetDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
 
 	// Create project files
-	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"test"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"test"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0o600); err != nil {
 		t.Fatalf("Failed to create requirements.txt: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dotnetDir, "project.csproj"), []byte("<Project></Project>"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dotnetDir, "project.csproj"), []byte("<Project></Project>"), 0o600); err != nil {
 		t.Fatalf("Failed to create project.csproj: %v", err)
 	}
 
@@ -1877,7 +1877,6 @@ func TestHandleDepsError_JSONMode(t *testing.T) {
 
 	originalErr := &testError{msg: "test error"}
 	err := handleDepsError(originalErr, "failed to do something")
-
 	// In JSON mode, handleDepsError prints JSON, which may return an error
 	if err != nil {
 		t.Logf("handleDepsError returned: %v", err)
@@ -1891,7 +1890,7 @@ func TestCleanDirectory_SuccessPath(t *testing.T) {
 
 	// Create a valid dependency directory to clean (must be in validDirs whitelist)
 	dirToClean := filepath.Join(tmpDir, "node_modules")
-	if err := os.MkdirAll(dirToClean, 0750); err != nil {
+	if err := os.MkdirAll(dirToClean, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -1908,11 +1907,11 @@ func TestInstallAllFiltered_WithNodeProjects(t *testing.T) {
 
 	// Create a node project
 	nodeDir := filepath.Join(tmpDir, "node-app")
-	if err := os.MkdirAll(nodeDir, 0750); err != nil {
+	if err := os.MkdirAll(nodeDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	// Create package.json
-	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"test"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"test"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -1941,11 +1940,11 @@ func TestInstallAllFiltered_WithPythonProjects(t *testing.T) {
 
 	// Create a python project
 	pythonDir := filepath.Join(tmpDir, "python-app")
-	if err := os.MkdirAll(pythonDir, 0750); err != nil {
+	if err := os.MkdirAll(pythonDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	// Create requirements.txt
-	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0o600); err != nil {
 		t.Fatalf("Failed to create requirements.txt: %v", err)
 	}
 
@@ -1971,13 +1970,13 @@ func TestInstallAllFiltered_WithDotnetProjects(t *testing.T) {
 
 	// Create a dotnet project
 	dotnetDir := filepath.Join(tmpDir, "dotnet-app")
-	if err := os.MkdirAll(dotnetDir, 0750); err != nil {
+	if err := os.MkdirAll(dotnetDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	// Create .csproj file
 	csproj := `<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>`
 	csprojPath := filepath.Join(dotnetDir, "project.csproj")
-	if err := os.WriteFile(csprojPath, []byte(csproj), 0600); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csproj), 0o600); err != nil {
 		t.Fatalf("Failed to create project.csproj: %v", err)
 	}
 
@@ -2006,16 +2005,16 @@ func TestInstallAllFiltered_MixedProjects(t *testing.T) {
 	pythonDir := filepath.Join(tmpDir, "python-app")
 
 	for _, dir := range []string{nodeDir, pythonDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
 
 	// Create project files
-	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"test"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"test"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0o600); err != nil {
 		t.Fatalf("Failed to create requirements.txt: %v", err)
 	}
 
@@ -2051,13 +2050,13 @@ func TestGetSearchRoot_InSubdirectory(t *testing.T) {
 
 	// Create azure.yaml in root
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte("name: test"), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
 	// Create nested subdirectory
 	subDir := filepath.Join(tmpDir, "services", "api", "src")
-	if err := os.MkdirAll(subDir, 0750); err != nil {
+	if err := os.MkdirAll(subDir, 0o750); err != nil {
 		t.Fatalf("Failed to create subdirectory: %v", err)
 	}
 
@@ -2127,7 +2126,7 @@ func TestCleanDependencies_NonExistentDirectories(t *testing.T) {
 	dotnetDir := filepath.Join(tmpDir, "dotnet-project")
 
 	for _, dir := range []string{nodeDir, pythonDir, dotnetDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
@@ -2166,7 +2165,7 @@ services:
     host: function
 `
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(complexYaml), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(complexYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -2212,7 +2211,7 @@ func TestCleanDirectory_JSONMode(t *testing.T) {
 
 	// Create a valid dependency directory to clean (must be in validDirs whitelist)
 	dirToClean := filepath.Join(tmpDir, "node_modules")
-	if err := os.MkdirAll(dirToClean, 0750); err != nil {
+	if err := os.MkdirAll(dirToClean, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -2237,7 +2236,7 @@ func TestCleanDependencies_JSONMode(t *testing.T) {
 	// Create node project with node_modules
 	nodeDir := filepath.Join(tmpDir, "node-project")
 	nodeModules := filepath.Join(nodeDir, "node_modules")
-	if err := os.MkdirAll(nodeModules, 0750); err != nil {
+	if err := os.MkdirAll(nodeModules, 0o750); err != nil {
 		t.Fatalf("Failed to create node_modules: %v", err)
 	}
 
@@ -2262,7 +2261,7 @@ func TestHandleNoProjectsCase_EmptyFunctionApps(t *testing.T) {
 
 	// Create azure.yaml to make it a valid workspace
 	azureYaml := `name: test`
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(azureYaml), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -2281,7 +2280,7 @@ func TestGetSearchRoot_ErrorCase(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create azure.yaml
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte("name: test"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte("name: test"), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -2402,16 +2401,16 @@ func TestDetectAllProjects_WithNestedProjects(t *testing.T) {
 	apiSrcDir := filepath.Join(apiDir, "src")
 
 	for _, dir := range []string{apiDir, webDir, apiSrcDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
 
 	// Create project files
-	if err := os.WriteFile(filepath.Join(apiDir, "requirements.txt"), []byte("flask"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(apiDir, "requirements.txt"), []byte("flask"), 0o600); err != nil {
 		t.Fatalf("Failed to create requirements.txt: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -2438,13 +2437,13 @@ func TestHandleNoProjectsCase_WithFunctionApps(t *testing.T) {
 
 	// Create a function app structure (not logic apps)
 	funcDir := filepath.Join(tmpDir, "func-app")
-	if err := os.MkdirAll(funcDir, 0750); err != nil {
+	if err := os.MkdirAll(funcDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
 	// Create host.json to indicate function app
 	hostJSON := `{"version": "2.0"}`
-	if err := os.WriteFile(filepath.Join(funcDir, "host.json"), []byte(hostJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(funcDir, "host.json"), []byte(hostJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create host.json: %v", err)
 	}
 
@@ -2462,7 +2461,7 @@ func TestHandleNoProjectsCase_LogicAppsOnly(t *testing.T) {
 	// Create a Logic Apps structure with workflows directory
 	logicAppDir := filepath.Join(tmpDir, "logic-app")
 	workflowsDir := filepath.Join(logicAppDir, "workflows", "myworkflow")
-	if err := os.MkdirAll(workflowsDir, 0750); err != nil {
+	if err := os.MkdirAll(workflowsDir, 0o750); err != nil {
 		t.Fatalf("Failed to create workflows directory: %v", err)
 	}
 
@@ -2474,13 +2473,13 @@ func TestHandleNoProjectsCase_LogicAppsOnly(t *testing.T) {
 			"version": "[1.*, 2.0.0)"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(logicAppDir, "host.json"), []byte(hostJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(logicAppDir, "host.json"), []byte(hostJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create host.json: %v", err)
 	}
 
 	// Create workflow.json file
 	workflowJSON := `{"definition": {}}`
-	if err := os.WriteFile(filepath.Join(workflowsDir, "workflow.json"), []byte(workflowJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(workflowsDir, "workflow.json"), []byte(workflowJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create workflow.json: %v", err)
 	}
 
@@ -2499,7 +2498,7 @@ func TestHandleNoProjectsCase_MixedFunctionApps(t *testing.T) {
 	// Create a Logic Apps structure
 	logicAppDir := filepath.Join(tmpDir, "logic-app")
 	workflowsDir := filepath.Join(logicAppDir, "workflows", "myworkflow")
-	if err := os.MkdirAll(workflowsDir, 0750); err != nil {
+	if err := os.MkdirAll(workflowsDir, 0o750); err != nil {
 		t.Fatalf("Failed to create workflows directory: %v", err)
 	}
 
@@ -2510,25 +2509,25 @@ func TestHandleNoProjectsCase_MixedFunctionApps(t *testing.T) {
 			"version": "[1.*, 2.0.0)"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(logicAppDir, "host.json"), []byte(hostJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(logicAppDir, "host.json"), []byte(hostJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create host.json: %v", err)
 	}
 	workflowJSON := `{"definition": {}}`
-	if err := os.WriteFile(filepath.Join(workflowsDir, "workflow.json"), []byte(workflowJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(workflowsDir, "workflow.json"), []byte(workflowJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create workflow.json: %v", err)
 	}
 
 	// Create a Node.js function app (not Logic Apps)
 	nodeFuncDir := filepath.Join(tmpDir, "node-func")
-	if err := os.MkdirAll(nodeFuncDir, 0750); err != nil {
+	if err := os.MkdirAll(nodeFuncDir, 0o750); err != nil {
 		t.Fatalf("Failed to create node-func directory: %v", err)
 	}
 	nodeHostJSON := `{"version": "2.0"}`
-	if err := os.WriteFile(filepath.Join(nodeFuncDir, "host.json"), []byte(nodeHostJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeFuncDir, "host.json"), []byte(nodeHostJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create host.json: %v", err)
 	}
 	packageJSON := `{"name": "func", "dependencies": {"@azure/functions": "^4.0.0"}}`
-	if err := os.WriteFile(filepath.Join(nodeFuncDir, "package.json"), []byte(packageJSON), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeFuncDir, "package.json"), []byte(packageJSON), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -2573,12 +2572,12 @@ func TestCleanDirectory_JSONMode_Existing(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Use valid dependency directory name
 	dirToClean := filepath.Join(tmpDir, "node_modules")
-	if err := os.MkdirAll(dirToClean, 0750); err != nil {
+	if err := os.MkdirAll(dirToClean, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
 	// Create a file inside
-	if err := os.WriteFile(filepath.Join(dirToClean, "file.txt"), []byte("test"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dirToClean, "file.txt"), []byte("test"), 0o600); err != nil {
 		t.Fatalf("Failed to create file: %v", err)
 	}
 
@@ -2606,7 +2605,7 @@ func TestCleanDependencies_JSONMode_AllTypes(t *testing.T) {
 	dotnetDir := filepath.Join(tmpDir, "dotnet-project")
 
 	for _, dir := range []string{nodeDir, pythonDir, dotnetDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -2618,7 +2617,7 @@ func TestCleanDependencies_JSONMode_AllTypes(t *testing.T) {
 	binDir := filepath.Join(dotnetDir, "bin")
 
 	for _, dir := range []string{nodeModules, venv, objDir, binDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -2645,7 +2644,7 @@ func TestGetSearchRoot_AzureYamlInRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create azure.yaml
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte("name: test"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte("name: test"), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -2681,23 +2680,23 @@ func TestDetectAllProjects_AllTypes(t *testing.T) {
 	dotnetDir := filepath.Join(tmpDir, "backend")
 
 	for _, dir := range []string{nodeDir, pythonDir, dotnetDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
 
 	// Create package.json for node
-	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"web"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
 	// Create requirements.txt for python
-	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pythonDir, "requirements.txt"), []byte("flask"), 0o600); err != nil {
 		t.Fatalf("Failed to create requirements.txt: %v", err)
 	}
 
 	// Create .csproj for dotnet
-	if err := os.WriteFile(filepath.Join(dotnetDir, "project.csproj"), []byte("<Project></Project>"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dotnetDir, "project.csproj"), []byte("<Project></Project>"), 0o600); err != nil {
 		t.Fatalf("Failed to create project.csproj: %v", err)
 	}
 
@@ -2817,7 +2816,7 @@ func TestCleanDependencies_JSONMode_Success(t *testing.T) {
 
 	// Create directories without dependency subdirectories (nothing to clean)
 	nodeDir := filepath.Join(tmpDir, "node-project")
-	if err := os.MkdirAll(nodeDir, 0750); err != nil {
+	if err := os.MkdirAll(nodeDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -2838,7 +2837,7 @@ func TestCleanDependencies_TextMode_SuccessMessage(t *testing.T) {
 	// Create node project with node_modules
 	nodeDir := filepath.Join(tmpDir, "node-project")
 	nodeModules := filepath.Join(nodeDir, "node_modules")
-	if err := os.MkdirAll(nodeModules, 0750); err != nil {
+	if err := os.MkdirAll(nodeModules, 0o750); err != nil {
 		t.Fatalf("Failed to create node_modules: %v", err)
 	}
 
@@ -2858,7 +2857,7 @@ func TestCleanDirectory_TextMode_Success(t *testing.T) {
 
 	// Use valid dependency directory name
 	dirToClean := filepath.Join(tmpDir, "node_modules")
-	if err := os.MkdirAll(dirToClean, 0750); err != nil {
+	if err := os.MkdirAll(dirToClean, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -2879,7 +2878,7 @@ func TestDetectAllProjects_PyprojectToml(t *testing.T) {
 
 	// Create pyproject.toml for python
 	pythonDir := filepath.Join(tmpDir, "python-app")
-	if err := os.MkdirAll(pythonDir, 0750); err != nil {
+	if err := os.MkdirAll(pythonDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -2887,7 +2886,7 @@ func TestDetectAllProjects_PyprojectToml(t *testing.T) {
 name = "myapp"
 version = "1.0.0"
 `
-	if err := os.WriteFile(filepath.Join(pythonDir, "pyproject.toml"), []byte(pyproject), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pythonDir, "pyproject.toml"), []byte(pyproject), 0o600); err != nil {
 		t.Fatalf("Failed to create pyproject.toml: %v", err)
 	}
 
@@ -2907,12 +2906,12 @@ func TestDetectAllProjects_NonCsprojDotnet(t *testing.T) {
 
 	// Create .fsproj for dotnet (should NOT be detected as the detector only looks for .csproj and .sln)
 	dotnetDir := filepath.Join(tmpDir, "fsharp-app")
-	if err := os.MkdirAll(dotnetDir, 0750); err != nil {
+	if err := os.MkdirAll(dotnetDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
 	fsproj := `<Project Sdk="Microsoft.NET.Sdk"></Project>`
-	if err := os.WriteFile(filepath.Join(dotnetDir, "project.fsproj"), []byte(fsproj), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dotnetDir, "project.fsproj"), []byte(fsproj), 0o600); err != nil {
 		t.Fatalf("Failed to create project.fsproj: %v", err)
 	}
 
@@ -2933,14 +2932,14 @@ func TestDetectAllProjects_PnpmLockfile(t *testing.T) {
 
 	// Create package.json and pnpm-lock.yaml
 	nodeDir := filepath.Join(tmpDir, "pnpm-app")
-	if err := os.MkdirAll(nodeDir, 0750); err != nil {
+	if err := os.MkdirAll(nodeDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"pnpm-app"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeDir, "package.json"), []byte(`{"name":"pnpm-app"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(nodeDir, "pnpm-lock.yaml"), []byte("lockfileVersion: 5"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(nodeDir, "pnpm-lock.yaml"), []byte("lockfileVersion: 5"), 0o600); err != nil {
 		t.Fatalf("Failed to create pnpm-lock.yaml: %v", err)
 	}
 
@@ -2963,7 +2962,7 @@ func TestDetectAllProjects_Poetry(t *testing.T) {
 
 	// Create pyproject.toml with poetry section
 	pythonDir := filepath.Join(tmpDir, "poetry-app")
-	if err := os.MkdirAll(pythonDir, 0750); err != nil {
+	if err := os.MkdirAll(pythonDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 
@@ -2971,7 +2970,7 @@ func TestDetectAllProjects_Poetry(t *testing.T) {
 name = "myapp"
 version = "1.0.0"
 `
-	if err := os.WriteFile(filepath.Join(pythonDir, "pyproject.toml"), []byte(pyproject), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(pythonDir, "pyproject.toml"), []byte(pyproject), 0o600); err != nil {
 		t.Fatalf("Failed to create pyproject.toml: %v", err)
 	}
 
@@ -3003,7 +3002,7 @@ func TestDetectProjectsFromAzureYaml_NoServices(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	content := "name: test-app\n"
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -3021,7 +3020,7 @@ func TestDetectProjectsFromAzureYaml_MissingProjectDir(t *testing.T) {
 
 	// azure.yaml points to a directory that doesn't exist
 	content := "name: test-app\nservices:\n  web:\n    project: ./nonexistent\n    host: localhost\n"
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -3038,15 +3037,15 @@ func TestDetectProjectsFromAzureYaml_NodeProject(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	webDir := filepath.Join(tmpDir, "web")
-	if err := os.MkdirAll(webDir, 0750); err != nil {
+	if err := os.MkdirAll(webDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
 	content := "name: test-app\nservices:\n  web:\n    project: ./web\n    host: localhost\n"
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -3069,24 +3068,24 @@ func TestDetectProjectsFromAzureYaml_IgnoresNonServiceProjects(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	webDir := filepath.Join(tmpDir, "web")
-	if err := os.MkdirAll(webDir, 0750); err != nil {
+	if err := os.MkdirAll(webDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
 	// Non-service directory should be ignored
 	otherDir := filepath.Join(tmpDir, "other-tool")
-	if err := os.MkdirAll(otherDir, 0750); err != nil {
+	if err := os.MkdirAll(otherDir, 0o750); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(otherDir, "package.json"), []byte(`{"name":"other-tool"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(otherDir, "package.json"), []byte(`{"name":"other-tool"}`), 0o600); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
 	content := "name: test-app\nservices:\n  web:\n    project: ./web\n    host: localhost\n"
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -3106,17 +3105,17 @@ func TestDetectProjectsFromAzureYaml_MultipleServices(t *testing.T) {
 	apiDir := filepath.Join(tmpDir, "api")
 	backendDir := filepath.Join(tmpDir, "backend")
 	for _, dir := range []string{webDir, apiDir, backendDir} {
-		if err := os.MkdirAll(dir, 0750); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "package.json"), []byte(`{"name":"web"}`), 0o600); err != nil {
 		t.Fatalf("Failed to write: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(apiDir, "requirements.txt"), []byte("flask\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(apiDir, "requirements.txt"), []byte("flask\n"), 0o600); err != nil {
 		t.Fatalf("Failed to write: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(backendDir, "app.csproj"), []byte("<Project></Project>"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(backendDir, "app.csproj"), []byte("<Project></Project>"), 0o600); err != nil {
 		t.Fatalf("Failed to write: %v", err)
 	}
 
@@ -3132,7 +3131,7 @@ services:
     project: ./backend
     host: localhost
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 
@@ -3161,7 +3160,7 @@ services:
     project: ../../etc
     host: localhost
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create azure.yaml: %v", err)
 	}
 

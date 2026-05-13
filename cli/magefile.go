@@ -1397,7 +1397,8 @@ func quietVulncheck() error {
 
 // quietSecurity runs a fast security scan with captured output.
 func quietSecurity() error {
-	return runQuiet("gosec",
+	return runQuiet(
+		"gosec",
 		"-tests=false",
 		"-exclude-generated",
 		"-severity=high",
@@ -1547,8 +1548,10 @@ func websiteTestE2EOnly() error {
 	}
 
 	// Run tests with all CPU cores
-	args := []string{"playwright", "test", "--reporter=line", "--project=chromium",
-		fmt.Sprintf("--workers=%d", runtime.NumCPU())}
+	args := []string{
+		"playwright", "test", "--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU()),
+	}
 	if updateSnapshots {
 		args = append(args, "--update-snapshots")
 	}
@@ -1616,8 +1619,10 @@ func websiteTestE2EDevServer() error {
 		return fmt.Errorf("dev server did not become ready within 90 seconds")
 	}
 
-	args := []string{"playwright", "test", "--reporter=line", "--project=chromium",
-		fmt.Sprintf("--workers=%d", runtime.NumCPU())}
+	args := []string{
+		"playwright", "test", "--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU()),
+	}
 	if updateSnapshots {
 		args = append(args, "--update-snapshots")
 	}
@@ -1712,8 +1717,10 @@ func websiteTestE2EExecOnly() error {
 		}
 	}
 
-	args := []string{"playwright", "test", "--reporter=line", "--project=chromium",
-		fmt.Sprintf("--workers=%d", runtime.NumCPU())}
+	args := []string{
+		"playwright", "test", "--reporter=line", "--project=chromium",
+		fmt.Sprintf("--workers=%d", runtime.NumCPU()),
+	}
 	if updateSnapshots {
 		args = append(args, "--update-snapshots")
 	}
@@ -1922,7 +1929,8 @@ func runQuickSecurity() error {
 	// G402: Bad TLS settings - CRITICAL
 	// G403: Weak RSA key length - HIGH
 	// This reduces scan time from ~600s to ~90s while catching critical vulnerabilities
-	if err := sh.RunV("gosec",
+	if err := sh.RunV(
+		"gosec",
 		"-tests=false",
 		"-exclude-generated",
 		"-severity=high",
@@ -1947,7 +1955,8 @@ func runGosec() error {
 	// Use -fmt=text for faster scanning (skip JSON formatting overhead)
 	// Use -concurrency to parallelize (defaults to number of CPUs)
 	// Only check specific high-priority rules to speed up scanning
-	if err := sh.RunV("gosec",
+	if err := sh.RunV(
+		"gosec",
 		"-tests=false",
 		"-exclude-generated",
 		"-fmt=text",

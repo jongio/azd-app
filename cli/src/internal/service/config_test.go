@@ -535,7 +535,7 @@ services:
 			// Create temporary azure.yaml
 			tmpDir := t.TempDir()
 			azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-			if err := os.WriteFile(azureYamlPath, []byte(tt.yamlContent), 0600); err != nil {
+			if err := os.WriteFile(azureYamlPath, []byte(tt.yamlContent), 0o600); err != nil {
 				t.Fatalf("Failed to create test azure.yaml: %v", err)
 			}
 
@@ -581,7 +581,7 @@ resources:
 
 	tmpDir := t.TempDir()
 	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0600); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o600); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 

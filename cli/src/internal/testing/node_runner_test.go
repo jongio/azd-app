@@ -222,7 +222,7 @@ func TestNodeRunnerHasTests(t *testing.T) {
 			"test": "jest"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -257,7 +257,7 @@ func TestNodeRunnerRunTests_Integration(t *testing.T) {
 "test": "echo 'Tests: 5 passed, 5 total'"
 }
 }`
-	if err := os.WriteFile(packageJSON, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(packageJSON, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -267,7 +267,6 @@ func TestNodeRunnerRunTests_Integration(t *testing.T) {
 
 	runner := NewNodeTestRunner(tmpDir, config)
 	result, err := runner.RunTests("unit", false)
-
 	// The command should execute (even if it's just echo)
 	if err != nil {
 		// It's ok if it fails due to npm not being available

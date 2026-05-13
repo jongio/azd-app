@@ -18,6 +18,7 @@
  */
 import type { ServiceInfo, AzureDeploymentInfo } from '@/gen/proto/azdapp/v1/common_pb.js'
 import { ServiceStatus, HealthState } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { timestampDate } from '@bufbuild/protobuf/wkt'
 import type { Service, ServiceStatus as DashboardServiceStatus, AzureServiceInfo, LocalServiceInfo } from '@/types'
 
 /**
@@ -133,7 +134,7 @@ function azureFromProto(
  *   from the local block for components that still read the flat shape.
  */
 export function protoServiceToService(info: ServiceInfo): Service {
-  const meta = info.metadata ? structToObject(info.metadata.toJson()) : {}
+  const meta = info.metadata ? structToObject(info.metadata) : {}
   const azureMetaRaw = meta.azure
   const azureMeta = azureMetaRaw && typeof azureMetaRaw === 'object'
     ? (azureMetaRaw as Record<string, unknown>)
@@ -175,7 +176,7 @@ export function protoServiceToService(info: ServiceInfo): Service {
     }
     if (info.port !== 0) local.port = info.port
     if (info.pid !== 0) local.pid = info.pid
-    if (info.startTime) local.startTime = info.startTime.toDate().toISOString()
+    if (info.startTime) local.startTime = timestampDate(info.startTime).toISOString()
     if (lastChecked) local.lastChecked = lastChecked
     if (serviceType) local.serviceType = serviceType as LocalServiceInfo['serviceType']
     if (serviceMode) local.serviceMode = serviceMode as LocalServiceInfo['serviceMode']
@@ -198,7 +199,7 @@ export function protoServiceToService(info: ServiceInfo): Service {
   if (healthStr === 'healthy' || healthStr === 'unhealthy' || healthStr === 'unknown') {
     service.health = healthStr
   }
-  if (info.startTime) service.startTime = info.startTime.toDate().toISOString()
+  if (info.startTime) service.startTime = timestampDate(info.startTime).toISOString()
   if (lastChecked) service.lastChecked = lastChecked
 
   return service

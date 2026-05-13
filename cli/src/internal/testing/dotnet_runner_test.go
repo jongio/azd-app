@@ -221,7 +221,7 @@ func TestDotnetRunnerHasTests(t *testing.T) {
   </ItemGroup>
 </Project>`
 
-	if err := os.WriteFile(testProject, []byte(csprojContent), 0644); err != nil {
+	if err := os.WriteFile(testProject, []byte(csprojContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test project: %v", err)
 	}
 
@@ -249,12 +249,12 @@ func TestFindTestProjects(t *testing.T) {
 
 	// Create test project structure
 	testsDir := filepath.Join(tmpDir, "tests")
-	if err := os.MkdirAll(testsDir, 0755); err != nil {
+	if err := os.MkdirAll(testsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create tests dir: %v", err)
 	}
 
 	testProject := filepath.Join(testsDir, "UnitTests.csproj")
-	if err := os.WriteFile(testProject, []byte("<Project></Project>"), 0644); err != nil {
+	if err := os.WriteFile(testProject, []byte("<Project></Project>"), 0o644); err != nil {
 		t.Fatalf("Failed to create test project: %v", err)
 	}
 
@@ -292,7 +292,7 @@ func TestDotnetRunnerRunTests_Integration(t *testing.T) {
 <PackageReference Include="xunit" Version="2.4.2" />
 </ItemGroup>
 </Project>`
-	if err := os.WriteFile(csprojFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(csprojFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to create csproj file: %v", err)
 	}
 
@@ -302,7 +302,6 @@ func TestDotnetRunnerRunTests_Integration(t *testing.T) {
 
 	runner := NewDotnetTestRunner(tmpDir, config)
 	result, err := runner.RunTests("unit", false)
-
 	// The command might fail if dotnet isn't installed, that's ok
 	if err != nil {
 		t.Logf("RunTests returned error (expected in test env): %v", err)

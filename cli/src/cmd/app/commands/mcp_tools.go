@@ -37,7 +37,8 @@ func registerAllTools(b *azdext.MCPServerBuilder) {
 // --- get_services ---
 
 func addGetServicesTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("get_services", handleGetServices,
+	b.AddTool(
+		"get_services", handleGetServices,
 		azdext.MCPToolOptions{
 			Title:       "Get Running Services",
 			Description: "Get comprehensive information about all running services in the current azd app project. Returns service status, health, URLs, ports, Azure deployment information, and environment variables.",
@@ -45,7 +46,8 @@ func addGetServicesTool(b *azdext.MCPServerBuilder) {
 			Idempotent:  true,
 		},
 		mcp.WithOutputSchema[ServiceInfo](),
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -68,29 +70,36 @@ func handleGetServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 // --- get_service_logs ---
 
 func addGetServiceLogsTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("get_service_logs", handleGetServiceLogs,
+	b.AddTool(
+		"get_service_logs", handleGetServiceLogs,
 		azdext.MCPToolOptions{
 			Title:       "Get Service Logs",
 			Description: "Get logs from running services. Can filter by service name, log level, and time range. Supports both local and Azure cloud logs via the source parameter.",
 			ReadOnly:    true,
 			Idempotent:  true,
 		},
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Optional service name to filter logs. If not provided, shows logs from all services."),
 		),
-		mcp.WithNumber("tail",
+		mcp.WithNumber(
+			"tail",
 			mcp.Description("Number of recent log lines to retrieve. Default is 100."),
 		),
-		mcp.WithString("level",
+		mcp.WithString(
+			"level",
 			mcp.Description("Filter by log level: 'info', 'warn', 'error', 'debug', or 'all'. Default is 'all'."),
 		),
-		mcp.WithString("since",
+		mcp.WithString(
+			"since",
 			mcp.Description("Show logs since duration (e.g., '5m', '1h', '30s'). If provided, overrides tail parameter."),
 		),
-		mcp.WithString("source",
+		mcp.WithString(
+			"source",
 			mcp.Description("Log source: 'local' for locally running services, 'azure' for Azure cloud services, 'both' for combined logs. Default is 'local'."),
 		),
 	)
@@ -170,26 +179,32 @@ func handleGetServiceLogs(ctx context.Context, args azdext.ToolArgs) (*mcp.CallT
 // --- get_service_errors ---
 
 func addGetServiceErrorsTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("get_service_errors", handleGetServiceErrors,
+	b.AddTool(
+		"get_service_errors", handleGetServiceErrors,
 		azdext.MCPToolOptions{
 			Title:       "Get Service Errors",
 			Description: "Get error logs from services with surrounding context for debugging. Optimized for AI-assisted troubleshooting - returns only errors with relevant context to help diagnose issues quickly. Uses the logs command filtered to error level.",
 			ReadOnly:    true,
 			Idempotent:  true,
 		},
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Optional service name to filter errors. If not provided, shows errors from all services."),
 		),
-		mcp.WithString("since",
+		mcp.WithString(
+			"since",
 			mcp.Description("Show errors since duration (e.g., '5m', '1h', '30s'). Default is '10m'."),
 		),
-		mcp.WithNumber("tail",
+		mcp.WithNumber(
+			"tail",
 			mcp.Description("Number of log lines to retrieve. Default is 500."),
 		),
-		mcp.WithNumber("contextLines",
+		mcp.WithNumber(
+			"contextLines",
 			mcp.Description("Number of log lines before and after each error for context. Default is 3, max is 10."),
 		),
 	)
@@ -273,7 +288,8 @@ func handleGetServiceErrors(ctx context.Context, args azdext.ToolArgs) (*mcp.Cal
 // --- get_project_info ---
 
 func addGetProjectInfoTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("get_project_info", handleGetProjectInfo,
+	b.AddTool(
+		"get_project_info", handleGetProjectInfo,
 		azdext.MCPToolOptions{
 			Title:       "Get Project Information",
 			Description: "Get project metadata and configuration from azure.yaml. Returns project name, directory, and service definitions.",
@@ -281,7 +297,8 @@ func addGetProjectInfoTool(b *azdext.MCPServerBuilder) {
 			Idempotent:  true,
 		},
 		mcp.WithOutputSchema[ProjectInfo](),
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -326,15 +343,18 @@ func handleGetProjectInfo(ctx context.Context, args azdext.ToolArgs) (*mcp.CallT
 // --- run_services ---
 
 func addRunServicesTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("run_services", handleRunServices,
+	b.AddTool(
+		"run_services", handleRunServices,
 		azdext.MCPToolOptions{
 			Title:       "Run Development Services",
 			Description: "Start development services defined in azure.yaml, Aspire, or docker compose. This command will start the application in the background and return information about the started services.",
 		},
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
-		mcp.WithString("runtime",
+		mcp.WithString(
+			"runtime",
 			mcp.Description("Optional runtime mode: 'azd' (default), 'aspire', 'pnpm', or 'docker-compose'."),
 		),
 	)
@@ -421,16 +441,19 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 // --- stop_services ---
 
 func addStopServicesTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("stop_services", handleStopServices,
+	b.AddTool(
+		"stop_services", handleStopServices,
 		azdext.MCPToolOptions{
 			Title:       "Stop Running Services",
 			Description: "Stop all running development services. This will gracefully shut down services started with run_services.",
 			Idempotent:  true,
 		},
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Optional specific service to stop. If not provided, stops all running services."),
 		),
 	)
@@ -471,16 +494,19 @@ func handleStopServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToo
 // --- start_service ---
 
 func addStartServiceTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("start_service", handleStartService,
+	b.AddTool(
+		"start_service", handleStartService,
 		azdext.MCPToolOptions{
 			Title:       "Start Service",
 			Description: "Start a specific stopped service. Use this to start individual services that were previously stopped.",
 		},
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Name of the service to start"),
 			mcp.Required(),
 		),
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -513,16 +539,19 @@ func handleStartService(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToo
 // --- restart_service ---
 
 func addRestartServiceTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("restart_service", handleRestartService,
+	b.AddTool(
+		"restart_service", handleRestartService,
 		azdext.MCPToolOptions{
 			Title:       "Restart Service",
 			Description: "Restart a specific service. This will stop and start the specified service.",
 		},
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Name of the service to restart"),
 			mcp.Required(),
 		),
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -555,13 +584,15 @@ func handleRestartService(ctx context.Context, args azdext.ToolArgs) (*mcp.CallT
 // --- install_dependencies ---
 
 func addInstallDependenciesTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("install_dependencies", handleInstallDependencies,
+	b.AddTool(
+		"install_dependencies", handleInstallDependencies,
 		azdext.MCPToolOptions{
 			Title:       "Install Project Dependencies",
 			Description: "Install dependencies for all detected projects (Node.js, Python, .NET). Automatically detects package managers (npm/pnpm/yarn, uv/poetry/pip, dotnet) and installs dependencies.",
 			Idempotent:  true,
 		},
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -604,7 +635,8 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 // --- check_requirements ---
 
 func addCheckRequirementsTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("check_requirements", handleCheckRequirements,
+	b.AddTool(
+		"check_requirements", handleCheckRequirements,
 		azdext.MCPToolOptions{
 			Title:       "Check Prerequisites",
 			Description: "Check if all required prerequisites (tools, CLIs, SDKs) defined in azure.yaml are installed and meet minimum version requirements. Returns detailed status of each requirement.",
@@ -612,7 +644,8 @@ func addCheckRequirementsTool(b *azdext.MCPServerBuilder) {
 			Idempotent:  true,
 		},
 		mcp.WithOutputSchema[RequirementsResult](),
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -635,17 +668,20 @@ func handleCheckRequirements(ctx context.Context, args azdext.ToolArgs) (*mcp.Ca
 // --- get_environment_variables ---
 
 func addGetEnvironmentVariablesTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("get_environment_variables", handleGetEnvironmentVariables,
+	b.AddTool(
+		"get_environment_variables", handleGetEnvironmentVariables,
 		azdext.MCPToolOptions{
 			Title:       "Get Environment Variables",
 			Description: "Get environment variables configured for services. Returns all environment variables that services will use.",
 			ReadOnly:    true,
 			Idempotent:  true,
 		},
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Optional service name to filter environment variables. If not provided, returns all."),
 		),
-		mcp.WithString("projectDir",
+		mcp.WithString(
+			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),
 		),
 	)
@@ -691,22 +727,26 @@ func handleGetEnvironmentVariables(ctx context.Context, args azdext.ToolArgs) (*
 // --- set_environment_variable ---
 
 func addSetEnvironmentVariableTool(b *azdext.MCPServerBuilder) {
-	b.AddTool("set_environment_variable", handleSetEnvironmentVariable,
+	b.AddTool(
+		"set_environment_variable", handleSetEnvironmentVariable,
 		azdext.MCPToolOptions{
 			Title:       "Set Environment Variable",
 			Description: "Set an environment variable for services. Note: This provides guidance on how to set environment variables, as they must be configured in azure.yaml or .env files.",
 			ReadOnly:    true,
 			Idempotent:  true,
 		},
-		mcp.WithString("name",
+		mcp.WithString(
+			"name",
 			mcp.Description("Name of the environment variable"),
 			mcp.Required(),
 		),
-		mcp.WithString("value",
+		mcp.WithString(
+			"value",
 			mcp.Description("Value of the environment variable"),
 			mcp.Required(),
 		),
-		mcp.WithString("serviceName",
+		mcp.WithString(
+			"serviceName",
 			mcp.Description("Optional service name. If not provided, applies to all services."),
 		),
 	)

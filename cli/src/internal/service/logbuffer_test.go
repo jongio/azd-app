@@ -526,6 +526,7 @@ func TestLogBuffer_WithoutFilter(t *testing.T) {
 		t.Errorf("Expected %d entries without filter, got %d", len(messages), len(entries))
 	}
 }
+
 func TestLogBuffer_ContainsPattern(t *testing.T) {
 	tmpDir := t.TempDir()
 	buffer, err := NewLogBuffer("test-service", 100, false, tmpDir)

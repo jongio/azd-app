@@ -91,7 +91,7 @@ func NewCacheManagerWithOptions(opts CacheOptions) (*CacheManager, error) {
 		if azureDir == "" {
 			// Create .azure directory in current directory if not found
 			azureDir = filepath.Join(cwd, ".azure")
-			if err := os.MkdirAll(azureDir, 0750); err != nil {
+			if err := os.MkdirAll(azureDir, 0o750); err != nil {
 				return nil, fmt.Errorf("failed to create .azure directory: %w", err)
 			}
 		}
@@ -99,7 +99,7 @@ func NewCacheManagerWithOptions(opts CacheOptions) (*CacheManager, error) {
 		cacheDir = filepath.Join(azureDir, "cache")
 	}
 
-	if err := os.MkdirAll(cacheDir, 0750); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 

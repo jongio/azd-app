@@ -46,7 +46,7 @@ services:
         command: pytest tests/unit
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestLoadServicesFromAzureYaml_NoServices(t *testing.T) {
 services: {}
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
@@ -113,7 +113,7 @@ func TestDetectTestConfig(t *testing.T) {
 
 	// Create a service directory with package.json
 	serviceDir := filepath.Join(tmpDir, "web")
-	if err := os.MkdirAll(serviceDir, 0755); err != nil {
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
 		t.Fatalf("Failed to create service dir: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func TestDetectTestConfig(t *testing.T) {
 		}
 	}`
 
-	if err := os.WriteFile(filepath.Join(serviceDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(serviceDir, "package.json"), []byte(packageJSON), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -182,10 +182,10 @@ func TestGetServicePaths(t *testing.T) {
 	// Create service directories
 	webDir := filepath.Join(tmpDir, "web")
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(webDir, 0755); err != nil {
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -226,7 +226,7 @@ func TestDetectTestConfig_GoLanguage(t *testing.T) {
 
 	// Create a Go service directory with go.mod and test files
 	serviceDir := filepath.Join(tmpDir, "go-service")
-	if err := os.MkdirAll(serviceDir, 0755); err != nil {
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
 		t.Fatalf("Failed to create service dir: %v", err)
 	}
 
@@ -234,7 +234,7 @@ func TestDetectTestConfig_GoLanguage(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(serviceDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(serviceDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
@@ -245,7 +245,7 @@ import "testing"
 func TestSomething(t *testing.T) {
 }
 `
-	if err := os.WriteFile(filepath.Join(serviceDir, "main_test.go"), []byte(testFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(serviceDir, "main_test.go"), []byte(testFile), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -293,7 +293,7 @@ func TestDetectNodeTestFramework_Vitest(t *testing.T) {
 	vitestConfig := `export default {
   test: {}
 }`
-	if err := os.WriteFile(filepath.Join(tmpDir, "vitest.config.ts"), []byte(vitestConfig), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "vitest.config.ts"), []byte(vitestConfig), 0o644); err != nil {
 		t.Fatalf("Failed to create vitest config: %v", err)
 	}
 
@@ -312,7 +312,7 @@ func TestDetectNodeTestFramework_Mocha(t *testing.T) {
 
 	// Create mocha config
 	mochaConfig := `{}`
-	if err := os.WriteFile(filepath.Join(tmpDir, ".mocharc.json"), []byte(mochaConfig), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".mocharc.json"), []byte(mochaConfig), 0o644); err != nil {
 		t.Fatalf("Failed to create mocha config: %v", err)
 	}
 
@@ -334,7 +334,7 @@ func TestDetectNodeTestFramework_FromPackageJSON(t *testing.T) {
 			"vitest": "^1.0.0"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(packageJSON), 0o644); err != nil {
 		t.Fatalf("Failed to create package.json: %v", err)
 	}
 
@@ -354,7 +354,7 @@ func TestDetectPythonTestFramework_FromPytestIni(t *testing.T) {
 	pytestIni := `[pytest]
 testpaths = tests
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "pytest.ini"), []byte(pytestIni), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "pytest.ini"), []byte(pytestIni), 0o644); err != nil {
 		t.Fatalf("Failed to create pytest.ini: %v", err)
 	}
 
@@ -372,7 +372,7 @@ func TestDetectPythonTestFramework_FromTestsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	testsDir := filepath.Join(tmpDir, "tests")
-	if err := os.MkdirAll(testsDir, 0755); err != nil {
+	if err := os.MkdirAll(testsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create tests dir: %v", err)
 	}
 
@@ -402,7 +402,7 @@ func TestDetectGoTestFramework_NoTestFiles(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
@@ -419,7 +419,7 @@ func TestDetectGoTestFramework_WithTestFiles(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
@@ -427,7 +427,7 @@ go 1.21
 
 func TestExample(t *testing.T) {}
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte(testFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "main_test.go"), []byte(testFile), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -448,13 +448,13 @@ func TestDetectGoTestFramework_WithSubdirectoryTests(t *testing.T) {
 
 go 1.21
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// Create test file in subdirectory
 	subDir := filepath.Join(tmpDir, "pkg")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
@@ -462,7 +462,7 @@ go 1.21
 
 func TestExample(t *testing.T) {}
 `
-	if err := os.WriteFile(filepath.Join(subDir, "pkg_test.go"), []byte(testFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(subDir, "pkg_test.go"), []byte(testFile), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -556,7 +556,7 @@ services:
         source: src
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
@@ -700,7 +700,7 @@ services:
     project: ../../../etc
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
@@ -723,7 +723,7 @@ func TestLoadServicesFromAzureYaml_ValidNestedPath(t *testing.T) {
 
 	// Create valid nested directory structure
 	serviceDir := filepath.Join(tmpDir, "services", "web")
-	if err := os.MkdirAll(serviceDir, 0755); err != nil {
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
 		t.Fatalf("Failed to create service dir: %v", err)
 	}
 
@@ -734,7 +734,7 @@ services:
     project: ./services/web
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
@@ -766,7 +766,7 @@ func TestDetectDotnetTestFramework(t *testing.T) {
 
 	// Create a test project with xUnit
 	projectDir := filepath.Join(tmpDir, "TestProject")
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
 		t.Fatalf("Failed to create project dir: %v", err)
 	}
 
@@ -780,7 +780,7 @@ func TestDetectDotnetTestFramework(t *testing.T) {
   </ItemGroup>
 </Project>`
 	csprojPath := filepath.Join(projectDir, "TestProject.Tests.csproj")
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0644); err != nil {
+	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o644); err != nil {
 		t.Fatalf("Failed to create csproj: %v", err)
 	}
 
@@ -804,18 +804,18 @@ func TestGetAvailableTestTypesForService(t *testing.T) {
 	unitDir := filepath.Join(testsDir, "unit")
 	integrationDir := filepath.Join(testsDir, "integration")
 
-	if err := os.MkdirAll(unitDir, 0755); err != nil {
+	if err := os.MkdirAll(unitDir, 0o755); err != nil {
 		t.Fatalf("Failed to create unit dir: %v", err)
 	}
-	if err := os.MkdirAll(integrationDir, 0755); err != nil {
+	if err := os.MkdirAll(integrationDir, 0o755); err != nil {
 		t.Fatalf("Failed to create integration dir: %v", err)
 	}
 
 	// Create test files
-	if err := os.WriteFile(filepath.Join(unitDir, "test_example.py"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(unitDir, "test_example.py"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create unit test file: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(integrationDir, "test_api.py"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(integrationDir, "test_api.py"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create integration test file: %v", err)
 	}
 
@@ -841,10 +841,10 @@ func TestGetAvailableTestTypes(t *testing.T) {
 	// Create service directories
 	webDir := filepath.Join(tmpDir, "web")
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(filepath.Join(webDir, "tests", "unit"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(webDir, "tests", "unit"), 0o755); err != nil {
 		t.Fatalf("Failed to create web test dir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(apiDir, "tests", "integration"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(apiDir, "tests", "integration"), 0o755); err != nil {
 		t.Fatalf("Failed to create api test dir: %v", err)
 	}
 
@@ -923,12 +923,12 @@ services:
           - docker-compose down
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
 	// Create service directory
-	if err := os.MkdirAll(filepath.Join(tmpDir, "web"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmpDir, "web"), 0o755); err != nil {
 		t.Fatalf("Failed to create service dir: %v", err)
 	}
 
@@ -985,12 +985,12 @@ services:
           - "*_test.py"
 `
 
-	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(azureYamlPath, []byte(yamlContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test azure.yaml: %v", err)
 	}
 
 	// Create service directory
-	if err := os.MkdirAll(filepath.Join(tmpDir, "api"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmpDir, "api"), 0o755); err != nil {
 		t.Fatalf("Failed to create service dir: %v", err)
 	}
 
@@ -1023,7 +1023,7 @@ func TestDetectTestConfig_Python(t *testing.T) {
 	pytestIni := `[pytest]
 testpaths = tests
 `
-	if err := os.WriteFile(filepath.Join(tmpDir, "pytest.ini"), []byte(pytestIni), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "pytest.ini"), []byte(pytestIni), 0o644); err != nil {
 		t.Fatalf("Failed to create pytest.ini: %v", err)
 	}
 
@@ -1032,18 +1032,18 @@ testpaths = tests
 	unitDir := filepath.Join(testsDir, "unit")
 	integrationDir := filepath.Join(testsDir, "integration")
 
-	if err := os.MkdirAll(unitDir, 0755); err != nil {
+	if err := os.MkdirAll(unitDir, 0o755); err != nil {
 		t.Fatalf("Failed to create unit dir: %v", err)
 	}
-	if err := os.MkdirAll(integrationDir, 0755); err != nil {
+	if err := os.MkdirAll(integrationDir, 0o755); err != nil {
 		t.Fatalf("Failed to create integration dir: %v", err)
 	}
 
 	// Create test files
-	if err := os.WriteFile(filepath.Join(unitDir, "test_utils.py"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(unitDir, "test_utils.py"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create unit test: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(integrationDir, "test_api.py"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(integrationDir, "test_api.py"), []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to create integration test: %v", err)
 	}
 
@@ -1090,7 +1090,7 @@ func TestExecuteTests_ContinueOnError(t *testing.T) {
 
 	// Create a service directory
 	serviceDir := filepath.Join(tmpDir, "web")
-	if err := os.MkdirAll(serviceDir, 0755); err != nil {
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
 		t.Fatalf("Failed to create service dir: %v", err)
 	}
 
@@ -1103,7 +1103,6 @@ func TestExecuteTests_ContinueOnError(t *testing.T) {
 	}
 
 	result, err := orchestrator.ExecuteTests("all", nil)
-
 	// Should not return error, but result should show failure
 	if err != nil {
 		t.Logf("ExecuteTests returned error: %v", err)
@@ -1203,10 +1202,10 @@ func TestGetServices(t *testing.T) {
 	// Create service directories
 	webDir := filepath.Join(tmpDir, "web")
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(webDir, 0755); err != nil {
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -1229,23 +1228,23 @@ func TestValidateAllServices(t *testing.T) {
 
 	// Create a service directory with tests
 	webDir := filepath.Join(tmpDir, "web")
-	if err := os.MkdirAll(webDir, 0755); err != nil {
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
 
 	// Create vitest config
-	if err := os.WriteFile(filepath.Join(webDir, "vitest.config.ts"), []byte("export default {}"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "vitest.config.ts"), []byte("export default {}"), 0o644); err != nil {
 		t.Fatalf("Failed to create vitest config: %v", err)
 	}
 
 	// Create test file
-	if err := os.WriteFile(filepath.Join(webDir, "app.test.ts"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(webDir, "app.test.ts"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
 	// Create a service directory without tests
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -1303,7 +1302,7 @@ func TestExecuteTestsWithValidation_AllSkipped(t *testing.T) {
 
 	// Create service directory without tests
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -1361,10 +1360,10 @@ func TestExecuteTestsWithValidation_ServiceFilter(t *testing.T) {
 	// Create service directories
 	webDir := filepath.Join(tmpDir, "web")
 	apiDir := filepath.Join(tmpDir, "api")
-	if err := os.MkdirAll(webDir, 0755); err != nil {
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
-	if err := os.MkdirAll(apiDir, 0755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatalf("Failed to create api dir: %v", err)
 	}
 
@@ -1395,7 +1394,7 @@ func TestExecuteTestsWithValidation_ProgressEvents(t *testing.T) {
 
 	// Create service directory without tests
 	webDir := filepath.Join(tmpDir, "web")
-	if err := os.MkdirAll(webDir, 0755); err != nil {
+	if err := os.MkdirAll(webDir, 0o755); err != nil {
 		t.Fatalf("Failed to create web dir: %v", err)
 	}
 
