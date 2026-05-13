@@ -17,7 +17,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { ConnectError, Code, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
-import type { JsonObject } from '@bufbuild/protobuf'
 import type { ReactNode } from 'react'
 
 import { useServicesContext, ServicesProvider } from '@/contexts/ServicesContext'
@@ -156,7 +155,7 @@ function servicesChangedEvent(services: unknown[]): BroadcastEvent {
   // faithfully.
   return create(BroadcastEventSchema, {
     type: 'services-changed',
-    payload: { services: services as never } as JsonObject,
+    payload: { services: services as never },
   })
 }
 
@@ -268,7 +267,7 @@ describe('useServicesContext', () => {
       stream.push(
         create(BroadcastEventSchema, {
           type: 'mode-toggled',
-          payload: { mode: 'azure' } as JsonObject,
+          payload: { mode: 'azure' },
         }),
       )
     })

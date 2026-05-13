@@ -99,13 +99,16 @@ export function LogsPane({
     return `azure:${resolvedTimeRange.preset}:${end}:${azureRealtime ? 'realtime' : 'poll'}`
   }, [logMode, resolvedTimeRange.preset, resolvedTimeRange.end, azureRealtime])
 
-  useEffect(() => {
+  // Reset state when fetchKey changes — render-time reset
+  const [prevFetchKey, setPrevFetchKey] = useState(fetchKey)
+  if (fetchKey !== prevFetchKey) {
+    setPrevFetchKey(fetchKey)
     setHasFetchedForKey(false)
     setErrorMessage(null)
     setIsLoadingLogs(false)
     setLoadingMessage('')
     setCanRetry(false)
-  }, [fetchKey])
+  }
   
   const handleFetchSettled = useCallback(() => {
     setHasFetchedForKey(true)
@@ -151,7 +154,7 @@ export function LogsPane({
         : undefined
   
   const isPausedRef = useRef(isPaused)
-  const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
+  const lastClearTimeRef = useRef<number>(0)
   const { addClassification } = useLogClassifications()
 
   useEffect(() => {
@@ -184,6 +187,8 @@ export function LogsPane({
     setHasFetchedForKey(false)
   }, [])
 
+  // Clear logs when clearAllTrigger changes
+  /* eslint-disable react-hooks/set-state-in-effect -- ref access + setState to clear logs on trigger */
   useEffect(() => {
     if (clearAllTrigger > 0) {
       // Record clear time to ignore WebSocket messages for a brief period
@@ -192,12 +197,14 @@ export function LogsPane({
     }
   }, [clearAllTrigger])
 
+  // Clear logs when logMode changes
   useEffect(() => {
     // Record clear time when mode changes to prevent stale logs from appearing
     lastClearTimeRef.current = Date.now()
     setLogs([])
     setErrorMessage(null)
   }, [logMode])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const { retry: retryLogs } = useLogsStream({
     serviceName,

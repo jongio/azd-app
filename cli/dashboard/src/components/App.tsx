@@ -142,6 +142,18 @@ export function App({
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
   const [selectedService, setSelectedService] = React.useState<Service | null>(null)
   const [isPanelOpen, setIsPanelOpen] = React.useState(false)
+
+  // Sync selected service with services list (in case it updates) — render-time reset
+  const [prevServices, setPrevServices] = React.useState(services)
+  if (services !== prevServices) {
+    setPrevServices(services)
+    if (selectedService && isPanelOpen) {
+      const updated = services.find((s) => s.name === selectedService.name)
+      if (updated) {
+        setSelectedService(updated)
+      }
+    }
+  }
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = React.useState(false)
   const { setTimeout } = useTimeout()
@@ -268,14 +280,7 @@ export function App({
   }, [isShortcutsModalOpen, isSettingsOpen, activeView])
 
   // Sync selected service with services list (in case it updates)
-  React.useEffect(() => {
-    if (selectedService && isPanelOpen) {
-      const updated = services.find((s) => s.name === selectedService.name)
-      if (updated) {
-        setSelectedService(updated)
-      }
-    }
-  }, [services, selectedService, isPanelOpen])
+  // (moved to render-time reset above)
 
   // Get latest health report event (if array)
   // This is no longer needed as we receive a single HealthReportEvent now

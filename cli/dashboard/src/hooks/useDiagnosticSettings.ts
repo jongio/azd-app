@@ -216,6 +216,7 @@ export function useDiagnosticSettings(
     }
   }, [client])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   React.useEffect(() => {
     void fetchDiagnosticSettings()
   }, [fetchDiagnosticSettings])
@@ -228,6 +229,7 @@ export function useDiagnosticSettings(
       }
     }
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const recheck = React.useCallback(async () => {
     await fetchDiagnosticSettings(true)

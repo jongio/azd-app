@@ -61,7 +61,7 @@ function healthEnumToString(
     // The dashboard `HealthStatus` union accepts 'degraded' even though
     // LocalServiceInfo's narrower 'healthy'|'unhealthy'|'unknown' alias
     // doesn't -- preserve the richer string by escaping the type here.
-    return 'degraded' as LocalServiceInfo['health']
+    return 'degraded'
   }
   switch (health) {
     case HealthState.HEALTHY:

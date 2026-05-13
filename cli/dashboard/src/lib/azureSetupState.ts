@@ -37,7 +37,7 @@ export async function fetchAzureSetupState(
   if (!resp.state) return {}
   const json = resp.state
   if (json && typeof json === 'object' && !Array.isArray(json)) {
-    return json as Record<string, unknown>
+    return json
   }
   return {}
 }

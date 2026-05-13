@@ -232,9 +232,11 @@ export function useAvailableTables({
     }
   }, [client, connected, resourceType])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   useEffect(() => {
     if (autoFetch) void fetchTables()
   }, [autoFetch, fetchTables])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     tables,
@@ -352,9 +354,11 @@ export function useLogConfig({
     [client, connected, serviceName],
   )
 
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   useEffect(() => {
     if (autoFetch && serviceName) void fetchConfig()
   }, [autoFetch, serviceName, fetchConfig])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     config,

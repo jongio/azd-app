@@ -93,7 +93,7 @@ function buildHarness(): Harness {
       async getHealth() {
         // Not used by the hook; kept for completeness so the router has
         // a definition for every method on the service.
-        return { results: [] } as never
+        return { results: [] }
       },
       async *streamHealth() {
         while (true) {

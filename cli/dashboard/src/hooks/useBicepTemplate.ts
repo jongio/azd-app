@@ -220,6 +220,7 @@ export function useBicepTemplate(transport?: Transport): UseBicepTemplateResult 
 
   // Initial fetch on mount (and whenever the client identity changes, which
   // in production never happens after first render).
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   React.useEffect(() => {
     void fetchTemplate()
   }, [fetchTemplate])
@@ -234,6 +235,7 @@ export function useBicepTemplate(transport?: Transport): UseBicepTemplateResult 
       }
     }
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     isLoading,

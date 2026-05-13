@@ -222,6 +222,7 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
   }, [onValidationChange])
 
   // Initial fetch
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   React.useEffect(() => {
     void fetchWorkspaceState()
   }, [fetchWorkspaceState])
@@ -238,6 +239,7 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
       }
     }
   }, [fetchWorkspaceState])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleRefresh = () => {
     void fetchWorkspaceState(true)

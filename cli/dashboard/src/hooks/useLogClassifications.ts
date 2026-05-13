@@ -112,6 +112,7 @@ export function useLogClassifications(transport?: Transport) {
   }, [client])
 
   // Load on mount and listen for changes from other hook instances.
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch + event subscription with cleanup */
   useEffect(() => {
     void loadClassifications()
     const handleChange = () => {
@@ -122,6 +123,7 @@ export function useLogClassifications(transport?: Transport) {
       window.removeEventListener(CLASSIFICATIONS_CHANGED_EVENT, handleChange)
     }
   }, [loadClassifications])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /**
    * Add a new classification. If the text already exists, updates the

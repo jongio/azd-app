@@ -203,6 +203,7 @@ export function useCodespaceEnv(options?: UseCodespaceEnvOptions): UseCodespaceE
   }, [client])
 
   // Fetch on mount if not cached
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch with cleanup */
   useEffect(() => {
     mountedRef.current = true
     const cached = getCachedEnv()
@@ -214,6 +215,7 @@ export function useCodespaceEnv(options?: UseCodespaceEnvOptions): UseCodespaceE
       abortRef.current?.abort()
     }
   }, [fetchEnvironment])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const refresh = useCallback(() => {
     // Clear cache and refetch

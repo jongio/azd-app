@@ -113,7 +113,7 @@ export function LogsView({
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
   const isPausedRef = useRef(false)
-  const lastClearTimeRef = useRef<number>(Date.now() - 1000) // Initialize to 1s in the past
+  const lastClearTimeRef = useRef<number>(0)
 
   // Get Codespace config for URL transformation in logs
   const { config: codespaceConfig } = useCodespaceEnv()
@@ -137,6 +137,7 @@ export function LogsView({
     isPausedRef.current = isPaused
   }, [isPaused])
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- complex async callback; compiler can't preserve memoization
   const fetchLogs = useCallback(async () => {
     const serviceValue = (logMode === 'azure' && azureServiceFilter)
       ? azureServiceFilter
@@ -234,6 +235,7 @@ export function LogsView({
 
   // Fetch initial logs whenever the effective fetch key changes.
   // Live updates flow through useSharedLogStream above.
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   useEffect(() => {
     void fetchLogs()
   }, [fetchLogs])
@@ -254,8 +256,10 @@ export function LogsView({
       globalThis.clearInterval(id)
     }
   }, [logMode, azureRealtime, syncInterval, isPaused, fetchLogs])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Clear logs when mode/filter/timeframe changes
+  /* eslint-disable react-hooks/set-state-in-effect -- ref access + setState to clear logs on mode/filter change */
   useEffect(() => {
     lastClearTimeRef.current = Date.now()
     setLogs([]) // Clear logs when switching modes or changing filter
@@ -279,6 +283,7 @@ export function LogsView({
       setLogs([])
     }
   }, [clearAllTrigger])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Detect manual scrolling - only affects internal state in uncontrolled mode
   const handleScroll = () => {

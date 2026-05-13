@@ -18,7 +18,7 @@ import {
   Box,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DualStatusBadge, StatusDot, type EffectiveStatus } from './StatusIndicator'
+import { DualStatusBadge, StatusDot } from './StatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
@@ -83,7 +83,7 @@ export function ServiceCard({
   const localUrl = getEffectiveServiceUrl(effectiveLocal.url, service.local?.port, codespaceConfig)
 
   // Use unified display status from service-utils (SINGLE SOURCE OF TRUTH)
-  const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState) as EffectiveStatus
+  const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState)
   const isHealthy = effectiveStatus === 'healthy' || effectiveStatus === 'running' || effectiveStatus === 'watching' || effectiveStatus === 'built' || effectiveStatus === 'completed'
   const hasError = !!service.error || healthStatus?.error
 

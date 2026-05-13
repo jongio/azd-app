@@ -95,13 +95,15 @@ export function TableSelector({
     new Set<string>()
   )
 
-  // Initialize expanded categories once categories are available.
-  React.useEffect(() => {
+  // Initialize expanded categories once categories are available — render-time reset
+  const [prevSafeCategories, setPrevSafeCategories] = React.useState(safeCategories)
+  if (safeCategories !== prevSafeCategories) {
+    setPrevSafeCategories(safeCategories)
     setExpandedCategories((prev) => {
       if (prev.size > 0) return prev
       return new Set(safeCategories.map((c) => c.name))
     })
-  }, [safeCategories])
+  }
 
   // Filter tables by search query
   const filteredTables = React.useMemo(() => {

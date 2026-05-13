@@ -76,21 +76,25 @@ export function LogConfigPanel({
   // Close on Escape
   useEscapeKey(onClose, isOpen)
 
-  // Fetch data when panel opens
-  React.useEffect(() => {
+  // Fetch data when panel opens — render-time reset
+  const [prevIsOpen, setPrevIsOpen] = React.useState(isOpen)
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen)
     if (isOpen) {
       void fetchTables()
       void fetchConfig()
       setSaveSuccess(false)
     }
-  }, [isOpen, fetchTables, fetchConfig])
+  }
 
-  // Sync local state with fetched config
-  React.useEffect(() => {
+  // Sync local state with fetched config — render-time reset
+  const [prevConfig, setPrevConfig] = React.useState(config)
+  if (config !== prevConfig) {
+    setPrevConfig(config)
     if (config) {
       setSelectedTables(config.tables || [])
     }
-  }, [config])
+  }
 
   // Focus management
   React.useEffect(() => {

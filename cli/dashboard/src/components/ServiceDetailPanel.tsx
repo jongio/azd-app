@@ -774,12 +774,14 @@ export function ServiceDetailPanel({
 
   useEscapeKey(onClose, isOpen)
 
-  // Reset tab when service changes
-  React.useEffect(() => {
+  // Reset tab when service changes — render-time reset
+  const [prevService, setPrevService] = React.useState(service)
+  if (service !== prevService) {
+    setPrevService(service)
     if (service) {
       setActiveTab('overview')
     }
-  }, [service])
+  }
 
   // Focus management
   React.useEffect(() => {

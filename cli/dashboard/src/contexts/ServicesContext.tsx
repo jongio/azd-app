@@ -122,6 +122,7 @@ export function ServicesProvider({ children, transport }: ServicesProviderProps)
     }
   }, [client])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch + streaming subscription with cleanup */
   useEffect(() => {
     void fetchServices()
 
@@ -194,6 +195,7 @@ export function ServicesProvider({ children, transport }: ServicesProviderProps)
       abort.abort()
     }
   }, [fetchServices, lifecycleClient])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Memoize service names for convenience
   const serviceNames = useMemo(() => services.map(s => s.name), [services])

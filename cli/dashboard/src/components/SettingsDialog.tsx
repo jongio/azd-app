@@ -79,13 +79,15 @@ export function SettingsDialog({
     }
   }, [])
 
-  // Reset pending changes when dialog opens
-  React.useEffect(() => {
+  // Reset pending changes when dialog opens — render-time reset
+  const [prevIsOpen, setPrevIsOpen] = React.useState(isOpen)
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen)
     if (isOpen) {
       setPendingChanges([])
       setSaveStatus('idle')
     }
-  }, [isOpen])
+  }
 
   // Focus management
   React.useEffect(() => {

@@ -243,6 +243,7 @@ export function AuthSetupStep({ onValidationChange }: Readonly<AuthSetupStepProp
   }, [onValidationChange])
 
   // Initial fetch
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   React.useEffect(() => {
     void fetchAuthState()
   }, [fetchAuthState])
@@ -259,6 +260,7 @@ export function AuthSetupStep({ onValidationChange }: Readonly<AuthSetupStepProp
       }
     }
   }, [fetchAuthState])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleRefresh = () => {
     void fetchAuthState(true)

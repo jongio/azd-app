@@ -60,7 +60,7 @@ const localStorageMock = {
     return keys[index] ?? null
   }),
 }
-globalThis.localStorage = localStorageMock as Storage
+globalThis.localStorage = localStorageMock
 
 // Mock WebSocket
 class WebSocketMock {

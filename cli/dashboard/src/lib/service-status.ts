@@ -210,7 +210,7 @@ export function getServiceDisplayStatus(
   
   // 1. Operation states take absolute priority (user-initiated actions)
   if (operationState && operationState !== 'idle') {
-    return operationState as EffectiveDisplayStatus
+    return operationState
   }
   
   // 2. Process-specific statuses (from backend)

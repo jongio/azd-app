@@ -1,6 +1,6 @@
 module github.com/jongio/azd-app/cli
 
-go 1.26.2
+go 1.26.3
 
 // Local development: use go.work to resolve azd-core, no local replace
 // CI: azd-core is pinned to a tagged version in go.mod

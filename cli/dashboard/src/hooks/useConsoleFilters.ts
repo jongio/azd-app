@@ -151,23 +151,25 @@ export function useConsoleFilters(services: Service[]): UseConsoleFiltersResult 
     () => new Set(savedFilters?.healthFilter?.length ? savedFilters.healthFilter : ['healthy', 'degraded', 'unhealthy', 'unknown'])
   )
 
-  // Sync selected services with available services
-  React.useEffect(() => {
+  // Sync selected services with available services — render-time reset
+  const [prevSyncKey, setPrevSyncKey] = React.useState(() => `${services.map(s => s.name).join(',')}:${serviceSelectionMode}`)
+  const syncKey = `${services.map(s => s.name).join(',')}:${serviceSelectionMode}`
+  if (syncKey !== prevSyncKey) {
+    setPrevSyncKey(syncKey)
     if (services.length > 0) {
       const currentServiceNames = new Set(services.map((s) => s.name))
 
       if (serviceSelectionMode === 'all') {
         setSelectedServices(currentServiceNames)
-        return
+      } else {
+        // Custom selection: preserve user's choices, but drop services that no longer exist.
+        setSelectedServices((prev) => {
+          const next = new Set(Array.from(prev).filter((name) => currentServiceNames.has(name)))
+          return next.size > 0 ? next : currentServiceNames
+        })
       }
-
-      // Custom selection: preserve user's choices, but drop services that no longer exist.
-      setSelectedServices((prev) => {
-        const next = new Set(Array.from(prev).filter((name) => currentServiceNames.has(name)))
-        return next.size > 0 ? next : currentServiceNames
-      })
     }
-  }, [services, serviceSelectionMode])
+  }
 
   // Persist filter state to localStorage
   React.useEffect(() => {

@@ -274,15 +274,18 @@ export function HistoricalLogPanel({
     }
   }, [isOpen])
 
-  // Reset state when panel opens with new service
-  React.useEffect(() => {
+  // Reset state when panel opens with new service — render-time reset
+  const [prevOpenKey, setPrevOpenKey] = React.useState(() => `${isOpen}:${serviceName}:${defaultTimeRange}`)
+  const openKey = `${isOpen}:${serviceName}:${defaultTimeRange}`
+  if (openKey !== prevOpenKey) {
+    setPrevOpenKey(openKey)
     if (isOpen) {
       setTimeRange({ preset: defaultTimeRange })
       setKqlQuery('')
       setKqlCollapsed(true)
       clearResults()
     }
-  }, [isOpen, serviceName, defaultTimeRange, clearResults])
+  }
 
   // Execute query when time range preset changes (not for custom)
   const handleTimeRangeChange = React.useCallback((newTimeRange: TimeRange) => {

@@ -257,6 +257,7 @@ export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly
   }, [])
 
   // Fetch health check data when modal opens
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch with cleanup */
   React.useEffect(() => {
     if (!isOpen) {
       abortRef.current?.abort()
@@ -269,6 +270,7 @@ export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly
       abortRef.current?.abort()
     }
   }, [isOpen, runHealthCheck])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Focus management
   React.useEffect(() => {

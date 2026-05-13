@@ -96,13 +96,15 @@ export function TimeRangeSelector({
     formatDateTimeLocal(value.end ?? getDefaultEnd())
   )
 
-  // Update local state when value changes externally
-  React.useEffect(() => {
+  // Update local state when value changes externally — render-time reset
+  const [prevValue, setPrevValue] = React.useState(value)
+  if (value !== prevValue) {
+    setPrevValue(value)
     if (value.preset === 'custom' && value.start && value.end) {
       setCustomStart(formatDateTimeLocal(value.start))
       setCustomEnd(formatDateTimeLocal(value.end))
     }
-  }, [value])
+  }
 
   const handlePresetClick = (preset: TimeRangePreset) => {
     if (disabled) return

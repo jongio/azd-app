@@ -17,7 +17,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DualStatusBadge, type EffectiveStatus } from './StatusIndicator'
+import { DualStatusBadge } from './StatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations } from '@/hooks/useServiceOperations'
 import { useServiceUrls } from '@/hooks/useServiceUrls'
@@ -81,7 +81,7 @@ function ServiceTableRow({
   } = useServiceUrls(service)
     
   // Use unified display status from service-utils (SINGLE SOURCE OF TRUTH)
-  const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState) as EffectiveStatus
+  const effectiveStatus = getServiceDisplayStatus(service, healthStatus, operationState)
   
   const startTime = service.local?.startTime ?? service.startTime
   

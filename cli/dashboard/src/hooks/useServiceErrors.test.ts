@@ -90,7 +90,7 @@ function buildHarness(): Harness {
         return { entries: [], lastId: 0n } as never
       },
       async listClassifications() {
-        return { classifications: [] } as never
+        return { classifications: [] }
       },
       async addClassification() {
         return { classifications: [] } as never
@@ -99,10 +99,10 @@ function buildHarness(): Harness {
         return { classifications: [] } as never
       },
       async getPreferences() {
-        return { preferences: undefined } as never
+        return { preferences: undefined }
       },
       async savePreferences() {
-        return { preferences: undefined } as never
+        return { preferences: undefined }
       },
     })
   })

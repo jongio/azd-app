@@ -192,9 +192,11 @@ export function usePreferences(transport?: Transport): UsePreferencesReturn {
     }
   }, [client])
 
+  /* eslint-disable react-hooks/set-state-in-effect -- async fetch; setState happens asynchronously */
   useEffect(() => {
     void loadPreferences()
   }, [loadPreferences])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const savePreferences = useCallback(
     async (updates: Partial<UserPreferences>) => {

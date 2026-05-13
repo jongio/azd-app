@@ -22,7 +22,7 @@ describe('LogsPane refresh footer', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ logs: [] }),
-    }) as unknown as typeof fetch
+    })
   })
 
   afterEach(() => {

@@ -42,9 +42,9 @@ describe('LogsPane header actions', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ logs: [] }),
-    }) as unknown as typeof fetch
+    })
 
-    globalThis.open = vi.fn() as unknown as typeof globalThis.open
+    globalThis.open = vi.fn()
   })
 
   afterEach(() => {

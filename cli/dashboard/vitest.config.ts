@@ -16,28 +16,21 @@ export default defineConfig({
     css: true,
     watch: false,
     testTimeout: 10000,
-    // Use threads pool: lighter than forks under CPU contention (avoids fork worker timeouts)
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        // Limit workers to avoid overwhelming the OS under parallel CI contention
-        maxThreads: 4,
-        minThreads: 1,
-      },
-    },
+    // Use forks pool: avoids worker thread timeouts on Windows where thread-based
+    // workers can stall under CPU contention (vitest issue #4734).
+    pool: 'forks',
+    maxWorkers: 4,
     exclude: ['node_modules', 'e2e'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      include: ['src/**/*.{ts,tsx}'],
       exclude: [
-        'node_modules/',
         'src/hooks/useServiceOperations.ts',
-        'src/test/',
-        'e2e/',
+        'src/test/**',
+        'src/gen/**',
         '**/*.d.ts',
         '**/*.config.*',
-        '**/dist/**',
-        '**/coverage/**',
       ],
     },
   },

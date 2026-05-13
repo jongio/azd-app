@@ -278,10 +278,12 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
   const servicesRef = useRef(services)
   const reconnectDelayRef = useRef(reconnectDelay)
   const maxReconnectAttemptsRef = useRef(maxReconnectAttempts)
-  intervalRef.current = interval
-  servicesRef.current = services
-  reconnectDelayRef.current = reconnectDelay
-  maxReconnectAttemptsRef.current = maxReconnectAttempts
+  useEffect(() => {
+    intervalRef.current = interval
+    servicesRef.current = services
+    reconnectDelayRef.current = reconnectDelay
+    maxReconnectAttemptsRef.current = maxReconnectAttempts
+  })
 
   // Forward declaration so connect() can recurse via the reconnect
   // scheduler and the scheduler can call connect().
@@ -420,7 +422,9 @@ export function useHealthStream(options: UseHealthStreamOptions = {}): UseHealth
   // Keep the ref to the latest connect() in sync so scheduleReconnect's
   // setTimeout callback always invokes the current closure (which has
   // captured the current props/transport).
-  connectRef.current = connect
+  useEffect(() => {
+    connectRef.current = connect
+  })
 
   const reconnect = useCallback(() => {
     reconnectAttemptsRef.current = 0
