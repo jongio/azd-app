@@ -5,6 +5,7 @@
 import * as React from 'react'
 import { CheckCircle, AlertTriangle, Circle, RefreshCw, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fetchAzureSetupState } from '@/lib/azureSetupState'
 import { CodeBlock } from './shared/CodeBlock'
 import { CollapsibleSection } from './shared/CollapsibleSection'
 
@@ -198,12 +199,10 @@ export function WorkspaceSetupStep({ onValidationChange }: Readonly<WorkspaceSet
     }
 
     try {
-      const response = await fetch('/api/azure/logs/setup-state')
-      if (!response.ok) {
-        throw new Error(`Failed to fetch setup state: ${response.statusText}`)
-      }
-
-      const data = (await response.json()) as SetupStateResponse
+      // Connect RPC replaces the legacy GET /api/azure/logs/setup-state.
+      // Server returns the same JSON document inside a proto Struct;
+      // `fetchAzureSetupState` toJson()s it back to the plain object.
+      const data = (await fetchAzureSetupState()) as unknown as SetupStateResponse
       setWorkspaceState(data.workspace)
       setError(null)
 

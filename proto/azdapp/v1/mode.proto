@@ -1,0 +1,46 @@
+// ModeService toggles the dashboard's primary log source between local
+// process logs and Azure Log Analytics.
+syntax = "proto3";
+
+package azdapp.v1;
+
+service ModeService {
+  // GetMode returns the active LogMode for this project. Replaces
+  // GET /api/mode.
+  rpc GetMode(GetModeRequest) returns (GetModeResponse);
+
+  // SetMode switches the active LogMode. Replaces PUT /api/mode.
+  rpc SetMode(SetModeRequest) returns (SetModeResponse);
+}
+
+message SetModeResponse {
+  LogMode mode = 1;
+  // Mirrors the legacy /api/mode JSON. azure_status is a string (not an
+  // enum) on purpose: the frontend treats it as an opaque tag and the
+  // server may grow new states (e.g. "throttled") without a proto bump.
+  bool azure_enabled = 2;
+  string azure_status = 3;
+  bool azure_realtime = 4;
+  string connection_message = 5;
+}
+
+// LogMode mirrors internal/service.LogMode.
+enum LogMode {
+  LOG_MODE_UNSPECIFIED = 0;
+  LOG_MODE_LOCAL = 1;
+  LOG_MODE_AZURE = 2;
+}
+
+message GetModeRequest {}
+
+message GetModeResponse {
+  LogMode mode = 1;
+  bool azure_enabled = 2;
+  string azure_status = 3;
+  bool azure_realtime = 4;
+  string connection_message = 5;
+}
+
+message SetModeRequest {
+  LogMode mode = 1;
+}

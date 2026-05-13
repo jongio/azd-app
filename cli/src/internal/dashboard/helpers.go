@@ -2,58 +2,20 @@ package dashboard
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"time"
 )
 
-// writeJSON writes a JSON response with proper error handling.
-func writeJSON(w http.ResponseWriter, data interface{}) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		// Don't call http.Error here - headers already written
-		// Just log and return the error
-		return fmt.Errorf("failed to encode JSON response: %w", err)
-	}
-	return nil
-}
-
-// writeJSONError writes a JSON error response.
-// Internal error details are logged server-side but never exposed to clients
-// to prevent information disclosure (CWE-209).
-func writeJSONError(w http.ResponseWriter, statusCode int, message string, err error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	if err != nil {
-		log.Printf("API error [%d] %s: %v", statusCode, message, err)
-	}
-
-	response := map[string]string{
-		"error": message,
-	}
-
-	_ = json.NewEncoder(w).Encode(response)
-}
-
-// writeWebSocketJSON safely writes JSON to a WebSocket connection with mutex protection.
-func (c *clientConn) writeWebSocketJSON(data interface{}) error {
-	if c.client == nil {
-		return fmt.Errorf("WebSocket client not initialized")
-	}
-	return c.client.writeJSON(data)
-}
-
-// timeoutContext creates a context with timeout.
+// timeoutContext creates a context with the given timeout, rooted at
+// context.Background(). Shared by the kept Azure Monitor query helpers
+// (azure_setup.go, azure_logs_health.go) for bounding upstream ARM calls.
 func timeoutContext(timeout time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), timeout)
 }
 
-// getEnvironment returns all environment variables.
+// getEnvironment returns all process environment variables. Extracted as a
+// small seam so tests can stub it (currently unused in tests, retained for
+// parity with azure_logs_config.go's workspace ID discovery path).
 func getEnvironment() []string {
 	return os.Environ()
 }

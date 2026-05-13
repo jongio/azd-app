@@ -1,0 +1,28 @@
+// BicepService generates the consolidated Bicep template that fixes missing
+// diagnostic settings across detected services.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service BicepService {
+  // GetBicepTemplate returns the generated Bicep source. Replaces
+  // GET /api/azure/bicep-template.
+  rpc GetBicepTemplate(GetBicepTemplateRequest) returns (GetBicepTemplateResponse);
+}
+
+message GetBicepTemplateRequest {
+  // When non-empty, restrict the generated template to these services only.
+  repeated string service_names = 1;
+}
+
+message GetBicepTemplateResponse {
+  // The Bicep source as a single document.
+  string template = 1;
+  // Convenience metadata so the dashboard can render a header without
+  // re-parsing the template.
+  repeated string included_services = 2;
+  string workspace_id = 3;
+  google.protobuf.Timestamp generated_at = 4;
+}

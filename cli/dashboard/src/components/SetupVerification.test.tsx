@@ -7,6 +7,85 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+
+// Replace the Connect-backed hook with a shim that still drives
+// globalThis.fetch against the legacy REST shape. This lets the large
+// fetch-mock test bed keep working without rewriting every test.
+vi.mock('@/hooks/useWorkspaceVerification', async () => {
+  const React = await import('react')
+  const actual =
+    await vi.importActual<typeof import('@/hooks/useWorkspaceVerification')>(
+      '@/hooks/useWorkspaceVerification',
+    )
+  type Resp = import('@/hooks/useWorkspaceVerification').WorkspaceVerificationResponse
+
+  function useWorkspaceVerification(): ReturnType<
+    typeof actual.useWorkspaceVerification
+  > {
+    const [isVerifying, setVerifying] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
+    const [data, setData] = React.useState<Resp | null>(null)
+    const [started, setStarted] = React.useState(false)
+
+    const verify = React.useCallback(async (services?: string[]) => {
+      setStarted(true)
+      setVerifying(true)
+      setError(null)
+      const controller = new AbortController()
+      try {
+        const resp = await globalThis.fetch('/api/azure/workspace/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            services: services ?? [],
+            timespan: 'PT15M',
+          }),
+          signal: controller.signal,
+        })
+        if (!resp || resp.ok === false) {
+          throw new Error(
+            `API returned ${resp?.status ?? 0}: ${resp?.statusText ?? 'unknown'}`,
+          )
+        }
+        const json = (await resp.json()) as Resp
+        setData(json)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+        setData(null)
+      } finally {
+        setVerifying(false)
+      }
+    }, [])
+
+    const results = data?.results ?? {}
+    const totalServices = Object.keys(results).length
+    const servicesWithLogs = Object.values(results).filter(
+      (s) => s.status === 'ok',
+    ).length
+
+    let status: 'idle' | 'verifying' | 'success' | 'partial' | 'error'
+    if (!started) status = 'idle'
+    else if (isVerifying) status = 'verifying'
+    else if (error) status = 'error'
+    else status = data?.status ?? 'idle'
+
+    return {
+      isVerifying,
+      error,
+      status,
+      workspace: data?.workspace ?? null,
+      results,
+      guidance: data?.guidance ?? [],
+      servicesWithLogs,
+      totalServices,
+      allVerified: status === 'success' && totalServices > 0 && servicesWithLogs === totalServices,
+      partiallyVerified: status === 'partial' && totalServices > 0,
+      verify,
+    }
+  }
+  return { ...actual, useWorkspaceVerification }
+})
+
 import { SetupVerification } from './SetupVerification'
 import type { WorkspaceVerificationResponse } from '@/hooks/useWorkspaceVerification'
 

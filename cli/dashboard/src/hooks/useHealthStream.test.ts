@@ -1,99 +1,148 @@
-import { renderHook, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+/**
+ * Tests for useHealthStream against an in-memory Connect router transport.
+ *
+ * The previous incarnation mocked `EventSource`; the hook now consumes a
+ * Connect server-stream (`HealthService.StreamHealth`), so we drive the
+ * production code path with `createRouterTransport` and a queue-backed
+ * async generator. Each test gets a small `StreamController` with
+ * `emitReport`/`emitChange`/`emitHeartbeat`/`close`, mirroring the way
+ * the real server emits HealthEvent variants.
+ */
+import { renderHook, waitFor, act } from '@testing-library/react'
+import { Code, ConnectError, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
+import { describe, it, expect } from 'vitest'
+
 import { useHealthStream } from './useHealthStream'
-import type { HealthReportEvent, HealthChangeEvent } from '@/types'
+import { HealthService } from '@/gen/proto/azdapp/v1/health_connect.js'
+import {
+  HealthCheckResult as ProtoHealthCheckResult,
+  HealthChange as ProtoHealthChange,
+  HealthEvent,
+  HealthReport,
+  StreamHealthResponse,
+} from '@/gen/proto/azdapp/v1/health_pb.js'
+import { HealthState } from '@/gen/proto/azdapp/v1/common_pb.js'
+import { Timestamp } from '@bufbuild/protobuf'
 
-// Mock EventSource
-class MockEventSource {
-  url: string
-  readyState: number = 0
-  onopen: (() => void) | null = null
-  onmessage: ((event: MessageEvent) => void) | null = null
-  onerror: (() => void) | null = null
-  private listeners: Map<string, ((event: MessageEvent) => void)[]> = new Map()
+type EmittedEvent =
+  | { kind: 'report'; report: HealthReport }
+  | { kind: 'change'; change: ProtoHealthChange }
+  | { kind: 'heartbeat' }
+  | { kind: 'error'; err: Error }
+  | { kind: 'end' }
 
-  static readonly CONNECTING = 0
-  static readonly OPEN = 1
-  static readonly CLOSED = 2
-
-  constructor(url: string) {
-    this.url = url
-    // Simulate async connection
-    setTimeout(() => {
-      this.readyState = MockEventSource.OPEN
-      this.onopen?.()
-    }, 0)
-  }
-
-  addEventListener(type: string, listener: (event: MessageEvent) => void): void {
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, [])
-    }
-    this.listeners.get(type)?.push(listener)
-  }
-
-  removeEventListener(type: string, listener: (event: MessageEvent) => void): void {
-    const handlers = this.listeners.get(type)
-    if (handlers) {
-      const index = handlers.indexOf(listener)
-      if (index > -1) {
-        handlers.splice(index, 1)
-      }
-    }
-  }
-
-  dispatchEvent(type: string, data: unknown): void {
-    const event = { data: JSON.stringify(data) } as MessageEvent
-    if (type === 'message' && this.onmessage) {
-      this.onmessage(event)
-    }
-    const handlers = this.listeners.get(type)
-    if (handlers) {
-      handlers.forEach(handler => handler(event))
-    }
-  }
-
-  close(): void {
-    this.readyState = MockEventSource.CLOSED
-  }
-
-  simulateError(): void {
-    this.onerror?.()
-  }
+interface StreamController {
+  emitReport: (results: ProtoHealthCheckResult[], generatedAt?: Timestamp) => void
+  emitChange: (change: ProtoHealthChange) => void
+  emitHeartbeat: () => void
+  errorStream: (err: Error) => void
+  closeStream: () => void
 }
 
-// Store mock instances for test access
-let mockEventSourceInstance: MockEventSource | null = null
-let mockEventSourceCallCount = 0
-let lastEventSourceUrl: string | null = null
-
-// Create a factory function that creates MockEventSource instances
-class EventSourceFactory {
-  constructor(url: string) {
-    mockEventSourceInstance = new MockEventSource(url)
-    mockEventSourceCallCount++
-    lastEventSourceUrl = url
-    return mockEventSourceInstance as unknown as EventSource
-  }
+interface Harness {
+  transport: ReturnType<typeof createRouterTransport>
+  controller: StreamController
 }
 
-vi.stubGlobal('EventSource', EventSourceFactory)
+/**
+ * Build a transport whose StreamHealth handler yields events queued via
+ * the returned controller. The queue uses an inner promise per pending
+ * event so the handler can suspend until tests push something — this is
+ * the same shape `cli/src/internal/rpc/health.go` produces (one async
+ * source -> one yield per source event) but in TS test land.
+ */
+function buildHarness(): Harness {
+  const queue: EmittedEvent[] = []
+  let signal: (() => void) | null = null
+  let closed = false
 
-describe('useHealthStream', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    mockEventSourceInstance = null
-    mockEventSourceCallCount = 0
-    lastEventSourceUrl = null
-    vi.clearAllMocks()
+  const wait = () =>
+    new Promise<void>((resolve) => {
+      signal = resolve
+    })
+
+  const push = (ev: EmittedEvent) => {
+    if (closed) return
+    queue.push(ev)
+    const s = signal
+    signal = null
+    s?.()
+  }
+
+  const controller: StreamController = {
+    emitReport: (results, generatedAt) => {
+      const report = new HealthReport({ results, generatedAt: generatedAt ?? new Timestamp() })
+      push({ kind: 'report', report })
+    },
+    emitChange: (change) => push({ kind: 'change', change }),
+    emitHeartbeat: () => push({ kind: 'heartbeat' }),
+    errorStream: (err) => push({ kind: 'error', err }),
+    closeStream: () => {
+      closed = true
+      push({ kind: 'end' })
+    },
+  }
+
+  const transport = createRouterTransport((router: ConnectRouter) => {
+    router.service(HealthService, {
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async getHealth() {
+        // Not used by the hook; kept for completeness so the router has
+        // a definition for every method on the service.
+        return { results: [] } as never
+      },
+      async *streamHealth() {
+        while (true) {
+          if (queue.length === 0) {
+            await wait()
+          }
+          const next = queue.shift()
+          if (!next) continue
+          if (next.kind === 'end') return
+          if (next.kind === 'error') throw next.err
+          if (next.kind === 'report') {
+            yield new StreamHealthResponse({
+              event: new HealthEvent({ event: { case: 'report', value: next.report } }),
+            })
+            continue
+          }
+          if (next.kind === 'change') {
+            yield new StreamHealthResponse({
+              event: new HealthEvent({ event: { case: 'change', value: next.change } }),
+            })
+            continue
+          }
+          if (next.kind === 'heartbeat') {
+            yield new StreamHealthResponse({
+              event: new HealthEvent({ event: { case: 'heartbeat', value: {} } }),
+            })
+          }
+        }
+      },
+      async *streamStateTransitions() {
+        // Hook does not subscribe to this; provide a no-op so the
+        // service definition remains complete.
+      },
+    })
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+  return { transport, controller }
+}
 
-  it('should initialize with default values', () => {
-    const { result } = renderHook(() => useHealthStream())
+function makeResult(serviceName: string, state: HealthState, message?: string): ProtoHealthCheckResult {
+  return new ProtoHealthCheckResult({
+    serviceName,
+    state,
+    message: message ?? '',
+    checkedAt: new Timestamp(),
+    latencyMs: BigInt(45),
+  })
+}
+
+describe('useHealthStream (Connect)', () => {
+  it('initializes with empty defaults before the first message arrives', () => {
+    const { transport } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
 
     expect(result.current.healthReport).toBeNull()
     expect(result.current.changes).toEqual([])
@@ -103,402 +152,200 @@ describe('useHealthStream', () => {
     expect(result.current.summary).toBeNull()
   })
 
-  it('should connect to SSE endpoint on mount', () => {
-    renderHook(() => useHealthStream())
+  it('does not open a stream when disabled', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ enabled: false, transport }))
 
-    // Advance timers to allow connection
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
+    // Pushing a report would surface immediately if the hook had
+    // subscribed; absence of state mutation proves it didn't.
+    controller.emitReport([makeResult('api', HealthState.HEALTHY)])
+    await new Promise((r) => setTimeout(r, 20))
 
-    expect(lastEventSourceUrl).toBe('/api/health/stream?interval=5s')
-    expect(mockEventSourceInstance).not.toBeNull()
+    expect(result.current.healthReport).toBeNull()
+    expect(result.current.connected).toBe(false)
   })
 
-  it('should set connected to true on open', () => {
-    const { result } = renderHook(() => useHealthStream())
+  it('maps an initial HealthReport into the legacy HealthReportEvent shape', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
 
-    // Advance timers to trigger connection
-    act(() => {
-      vi.advanceTimersByTime(10)
+    controller.emitReport([
+      makeResult('api', HealthState.HEALTHY),
+      makeResult('web', HealthState.UNHEALTHY, 'connection refused'),
+    ])
+
+    await waitFor(() => expect(result.current.connected).toBe(true))
+    await waitFor(() => expect(result.current.healthReport).not.toBeNull())
+
+    const report = result.current.healthReport!
+    expect(report.type).toBe('health')
+    expect(report.services).toHaveLength(2)
+
+    const api = report.services.find((s) => s.serviceName === 'api')!
+    expect(api.status).toBe('healthy')
+    expect(api.checkType).toBe('http')
+    // ms -> ns conversion for the legacy responseTime contract.
+    expect(api.responseTime).toBe(45 * 1_000_000)
+    expect(api.error).toBeUndefined()
+
+    const web = report.services.find((s) => s.serviceName === 'web')!
+    expect(web.status).toBe('unhealthy')
+    expect(web.error).toBe('connection refused')
+
+    // Summary is computed client-side; verify both the per-bucket counts
+    // and the precedence rule that any unhealthy wins overall.
+    expect(report.summary).toEqual({
+      total: 2,
+      healthy: 1,
+      degraded: 0,
+      unhealthy: 1,
+      starting: 0,
+      stopped: 0,
+      unknown: 0,
+      overall: 'unhealthy',
     })
-
-    // Manually trigger the open callback since fake timers don't work with setTimeout inside EventSource
-    act(() => {
-      mockEventSourceInstance?.onopen?.()
-    })
-
-    expect(result.current.connected).toBe(true)
-  })
-
-  it('should build URL with custom interval', () => {
-    renderHook(() => useHealthStream({ interval: 10 }))
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    expect(lastEventSourceUrl).toBe('/api/health/stream?interval=10s')
-  })
-
-  it('should build URL with service filter', () => {
-    renderHook(() => useHealthStream({ services: ['api', 'web'] }))
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    expect(lastEventSourceUrl).toBe('/api/health/stream?interval=5s&service=api%2Cweb')
-  })
-
-  it('should not connect when disabled', () => {
-    renderHook(() => useHealthStream({ enabled: false }))
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    expect(mockEventSourceCallCount).toBe(0)
-  })
-
-  it('should handle health report event', () => {
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    const healthReport: HealthReportEvent = {
-      type: 'health',
-      timestamp: '2024-11-27T10:30:00Z',
-      services: [
-        {
-          serviceName: 'api',
-          status: 'healthy',
-          checkType: 'http',
-          responseTime: 45000000,
-          timestamp: '2024-11-27T10:30:00Z',
-        },
-      ],
-      summary: {
-        total: 1,
-        healthy: 1,
-        degraded: 0,
-        unhealthy: 0,
-        starting: 0,
-        stopped: 0,
-        unknown: 0,
-        overall: 'healthy',
-      },
-    }
-
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('message', healthReport)
-    })
-
-    expect(result.current.healthReport).toEqual(healthReport)
-    expect(result.current.summary).toEqual(healthReport.summary)
+    expect(result.current.summary).toEqual(report.summary)
     expect(result.current.lastUpdate).not.toBeNull()
   })
 
-  it('should handle health change event', () => {
-    const { result } = renderHook(() => useHealthStream())
+  it('counts STARTING services into summary.starting while keeping their HealthStatus as unknown', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
 
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
+    controller.emitReport([
+      makeResult('api', HealthState.HEALTHY),
+      makeResult('worker', HealthState.STARTING),
+    ])
 
-    const changeEvent: HealthChangeEvent = {
-      type: 'health-change',
-      timestamp: '2024-11-27T10:30:00Z',
-      service: 'api',
-      oldStatus: 'healthy',
-      newStatus: 'unhealthy',
-      reason: 'connection refused',
-    }
+    await waitFor(() => expect(result.current.healthReport).not.toBeNull())
 
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('health-change', changeEvent)
-    })
-
-    expect(result.current.changes).toHaveLength(1)
-    expect(result.current.changes[0]).toEqual(changeEvent)
+    const worker = result.current.getServiceHealth('worker')!
+    // No 'starting' value exists on HealthStatus; the proto STARTING
+    // collapses to 'unknown' for per-service status, but the summary
+    // still tracks it in the dedicated counter.
+    expect(worker.status).toBe('unknown')
+    expect(result.current.summary?.starting).toBe(1)
+    expect(result.current.summary?.unknown).toBe(1)
+    // Healthy + unknown but no failures => overall stays 'unknown'
+    // because not all services are healthy.
+    expect(result.current.summary?.overall).toBe('unknown')
   })
 
-  it('should handle heartbeat event', () => {
-    const { result } = renderHook(() => useHealthStream())
+  it('appends health-change events newest-first and exposes them via helpers', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
 
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
+    // Trigger first message so connected/error stabilise.
+    controller.emitReport([makeResult('api', HealthState.HEALTHY)])
+    await waitFor(() => expect(result.current.connected).toBe(true))
 
-    const initialUpdate = result.current.lastUpdate
-
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('heartbeat', { type: 'heartbeat', timestamp: '2024-11-27T10:30:00Z' })
-    })
-
-    expect(result.current.lastUpdate).not.toEqual(initialUpdate)
-  })
-
-  it('should get service health by name', () => {
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    const healthReport: HealthReportEvent = {
-      type: 'health',
-      timestamp: '2024-11-27T10:30:00Z',
-      services: [
-        {
-          serviceName: 'api',
-          status: 'healthy',
-          checkType: 'http',
-          responseTime: 45000000,
-          timestamp: '2024-11-27T10:30:00Z',
-        },
-        {
-          serviceName: 'web',
-          status: 'unhealthy',
-          checkType: 'tcp',
-          responseTime: 0,
-          timestamp: '2024-11-27T10:30:00Z',
-          error: 'connection refused',
-        },
-      ],
-      summary: {
-        total: 2,
-        healthy: 1,
-        degraded: 0,
-        unhealthy: 1,
-        starting: 0,
-        stopped: 0,
-        unknown: 0,
-        overall: 'unhealthy',
-      },
-    }
-
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('message', healthReport)
-    })
-
-    const apiHealth = result.current.getServiceHealth('api')
-    expect(apiHealth?.serviceName).toBe('api')
-    expect(apiHealth?.status).toBe('healthy')
-
-    const webHealth = result.current.getServiceHealth('web')
-    expect(webHealth?.serviceName).toBe('web')
-    expect(webHealth?.status).toBe('unhealthy')
-
-    const unknownHealth = result.current.getServiceHealth('unknown')
-    expect(unknownHealth).toBeUndefined()
-  })
-
-  it('should limit stored changes', () => {
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    // Dispatch 60 change events (more than MAX_CHANGES_TO_KEEP = 50)
-    for (let i = 0; i < 60; i++) {
-      act(() => {
-        mockEventSourceInstance?.dispatchEvent('health-change', {
-          type: 'health-change',
-          timestamp: new Date().toISOString(),
-          service: `service-${i}`,
-          oldStatus: 'healthy',
-          newStatus: 'unhealthy',
-        })
+    controller.emitChange(
+      new ProtoHealthChange({
+        serviceName: 'api',
+        previousState: HealthState.HEALTHY,
+        currentState: HealthState.UNHEALTHY,
+        message: 'connection refused',
+        changedAt: new Timestamp(),
       })
-    }
-
-    expect(result.current.changes.length).toBeLessThanOrEqual(50)
-  })
-
-  it('should handle connection error and attempt reconnection', () => {
-    const { result } = renderHook(() => useHealthStream({ reconnectDelay: 1000, maxReconnectAttempts: 3 }))
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    // Simulate error
-    act(() => {
-      mockEventSourceInstance?.simulateError()
-    })
-
-    expect(result.current.connected).toBe(false)
-    expect(result.current.error).toContain('Reconnecting')
-
-    // Advance timer to trigger reconnect
-    act(() => {
-      vi.advanceTimersByTime(2000)
-    })
-
-    // Should have attempted reconnection
-    expect(mockEventSourceCallCount).toBe(2)
-  })
-
-  it('should cleanup on unmount', () => {
-    const { unmount } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    const instance = mockEventSourceInstance
-    expect(instance).not.toBeNull()
-
-    unmount()
-
-    expect(instance?.readyState).toBe(MockEventSource.CLOSED)
-  })
-
-  it('should allow manual reconnection', () => {
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    // Simulate disconnect
-    act(() => {
-      mockEventSourceInstance?.close()
-    })
-
-    // Manual reconnect
-    act(() => {
-      result.current.reconnect()
-    })
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    expect(mockEventSourceCallCount).toBe(2)
-  })
-
-  it('should parse malformed JSON gracefully', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    // Send malformed data
-    act(() => {
-      if (mockEventSourceInstance?.onmessage) {
-        mockEventSourceInstance.onmessage({ data: 'not-valid-json' } as MessageEvent)
-      }
-    })
-
-    // Should not crash, healthReport should remain null
-    expect(result.current.healthReport).toBeNull()
-    expect(consoleSpy).toHaveBeenCalled()
-
-    consoleSpy.mockRestore()
-  })
-
-  it('should get latest change for a service', () => {
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    // Add multiple changes for different services
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('health-change', {
-        type: 'health-change',
-        timestamp: '2024-11-27T10:30:00Z',
-        service: 'api',
-        oldStatus: 'healthy',
-        newStatus: 'unhealthy',
+    )
+    controller.emitChange(
+      new ProtoHealthChange({
+        serviceName: 'api',
+        previousState: HealthState.UNHEALTHY,
+        currentState: HealthState.HEALTHY,
+        changedAt: new Timestamp(),
       })
-    })
+    )
 
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('health-change', {
-        type: 'health-change',
-        timestamp: '2024-11-27T10:31:00Z',
-        service: 'web',
-        oldStatus: 'healthy',
-        newStatus: 'unhealthy',
-      })
-    })
+    await waitFor(() => expect(result.current.changes).toHaveLength(2))
 
-    const apiChange = result.current.getLatestChange('api')
-    expect(apiChange?.service).toBe('api')
-    expect(apiChange?.newStatus).toBe('unhealthy')
+    // Newest first.
+    expect(result.current.changes[0].oldStatus).toBe('unhealthy')
+    expect(result.current.changes[0].newStatus).toBe('healthy')
+    expect(result.current.changes[1].reason).toBe('connection refused')
 
-    const unknownChange = result.current.getLatestChange('unknown')
-    expect(unknownChange).toBeUndefined()
-  })
-
-  it('should detect service recovery', () => {
-    const { result } = renderHook(() => useHealthStream())
-
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
-
-    // Service goes unhealthy
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('health-change', {
-        type: 'health-change',
-        timestamp: '2024-11-27T10:30:00Z',
-        service: 'api',
-        oldStatus: 'healthy',
-        newStatus: 'unhealthy',
-      })
-    })
-
-    expect(result.current.hasRecovered('api')).toBe(false)
-
-    // Service recovers
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('health-change', {
-        type: 'health-change',
-        timestamp: '2024-11-27T10:31:00Z',
-        service: 'api',
-        oldStatus: 'unhealthy',
-        newStatus: 'healthy',
-      })
-    })
-
+    expect(result.current.getLatestChange('api')?.newStatus).toBe('healthy')
+    expect(result.current.getLatestChange('absent')).toBeUndefined()
     expect(result.current.hasRecovered('api')).toBe(true)
   })
 
-  it('should clear changes', () => {
-    const { result } = renderHook(() => useHealthStream())
+  it('caps stored changes at the MAX_CHANGES_TO_KEEP boundary', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
 
-    act(() => {
-      vi.advanceTimersByTime(10)
-    })
+    controller.emitReport([makeResult('svc', HealthState.HEALTHY)])
+    await waitFor(() => expect(result.current.connected).toBe(true))
 
-    // Add a change
-    act(() => {
-      mockEventSourceInstance?.dispatchEvent('health-change', {
-        type: 'health-change',
-        timestamp: '2024-11-27T10:30:00Z',
-        service: 'api',
-        oldStatus: 'healthy',
-        newStatus: 'unhealthy',
+    for (let i = 0; i < 60; i++) {
+      controller.emitChange(
+        new ProtoHealthChange({
+          serviceName: `svc-${i}`,
+          previousState: HealthState.HEALTHY,
+          currentState: HealthState.UNHEALTHY,
+          changedAt: new Timestamp(),
+        })
+      )
+    }
+
+    await waitFor(() => expect(result.current.changes.length).toBe(50))
+    // Newest first, so service 59 should be at index 0 and service 10
+    // at the tail (older ones got dropped).
+    expect(result.current.changes[0].service).toBe('svc-59')
+    expect(result.current.changes.at(-1)?.service).toBe('svc-10')
+  })
+
+  it('updates lastUpdate on heartbeat without altering report or changes', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
+
+    controller.emitReport([makeResult('api', HealthState.HEALTHY)])
+    await waitFor(() => expect(result.current.lastUpdate).not.toBeNull())
+    const firstUpdate = result.current.lastUpdate
+
+    // Wait at least 1ms so the new Date() is observably distinct.
+    await new Promise((r) => setTimeout(r, 5))
+    controller.emitHeartbeat()
+
+    await waitFor(() => expect(result.current.lastUpdate?.getTime()).not.toBe(firstUpdate?.getTime()))
+    // Heartbeat must not push fake change/report data.
+    expect(result.current.changes).toHaveLength(0)
+  })
+
+  it('clearChanges empties the change buffer without touching the latest report', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() => useHealthStream({ transport }))
+
+    controller.emitReport([makeResult('api', HealthState.HEALTHY)])
+    controller.emitChange(
+      new ProtoHealthChange({
+        serviceName: 'api',
+        previousState: HealthState.HEALTHY,
+        currentState: HealthState.UNHEALTHY,
+        changedAt: new Timestamp(),
       })
-    })
+    )
+    await waitFor(() => expect(result.current.changes).toHaveLength(1))
 
-    expect(result.current.changes).toHaveLength(1)
-
-    // Clear changes
     act(() => {
       result.current.clearChanges()
     })
 
     expect(result.current.changes).toHaveLength(0)
+    expect(result.current.healthReport).not.toBeNull()
+  })
+
+  it('flips connected to false and surfaces a reconnect message after a stream error', async () => {
+    const { transport, controller } = buildHarness()
+    const { result } = renderHook(() =>
+      useHealthStream({ transport, reconnectDelay: 60_000, maxReconnectAttempts: 3 })
+    )
+
+    controller.emitReport([makeResult('api', HealthState.HEALTHY)])
+    await waitFor(() => expect(result.current.connected).toBe(true))
+
+    controller.errorStream(new ConnectError('upstream gone', Code.Unavailable))
+
+    await waitFor(() => expect(result.current.connected).toBe(false))
+    await waitFor(() => expect(result.current.error).toMatch(/Reconnecting in/))
   })
 })

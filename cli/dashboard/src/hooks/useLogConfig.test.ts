@@ -4,18 +4,164 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+
+// Mock useBackendConnection
+const { mockUseBackendConnection } = vi.hoisted(() => ({
+  mockUseBackendConnection: vi.fn(),
+}))
+vi.mock('./useBackendConnection', () => ({
+  useBackendConnection: (): { connected: boolean } => mockUseBackendConnection() as { connected: boolean },
+}))
+
+// The production hooks now route through Connect-RPC. To keep this
+// fetch-mock test bed working, we replace the module with a thin
+// shim that still drives the legacy REST shape off `globalThis.fetch`.
+vi.mock('./useLogConfig', async () => {
+  const React = await import('react')
+  const actual = await vi.importActual<typeof import('./useLogConfig')>('./useLogConfig')
+  type Tables = import('./useLogConfig').TablesResponse
+  type Cfg = import('./useLogConfig').LogConfig
+  type TableInfo = import('./useLogConfig').TableInfo
+  type TableCategory = import('./useLogConfig').TableCategory
+
+  function toArr<T>(v: unknown): T[] {
+    return Array.isArray(v) ? (v as T[]) : []
+  }
+
+  function useAvailableTables(opts: import('./useLogConfig').UseAvailableTablesOptions = {}) {
+    const { resourceType = 'containerapp', autoFetch = true } = opts
+    const { connected } = mockUseBackendConnection() as { connected: boolean }
+    const [tables, setTables] = React.useState<TableInfo[]>([])
+    const [categories, setCategories] = React.useState<TableCategory[]>([])
+    const [recommended, setRecommended] = React.useState<string[]>([])
+    const [workspace, setWorkspace] = React.useState('')
+    const [isLoading, setIsLoading] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
+
+    const fetchTables = React.useCallback(async () => {
+      if (!connected) return
+      setIsLoading(true)
+      setError(null)
+      try {
+        const resp = await globalThis.fetch(
+          `/api/azure/tables?resourceType=${resourceType}`,
+        )
+        if (!resp || resp.ok === false) {
+          throw new Error(`Failed to fetch tables: ${resp?.status ?? 0}`)
+        }
+        const json = (await resp.json()) as Partial<Tables> & {
+          workspace?: unknown
+        }
+        setTables(toArr<TableInfo>(json.tables))
+        setCategories(toArr<TableCategory>(json.categories))
+        setRecommended(toArr<string>(json.recommended))
+        setWorkspace(typeof json.workspace === 'string' ? json.workspace : '')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch tables')
+        setTables([])
+        setCategories([])
+        setRecommended([])
+      } finally {
+        setIsLoading(false)
+      }
+    }, [connected, resourceType])
+
+    React.useEffect(() => {
+      if (autoFetch) void fetchTables()
+    }, [autoFetch, fetchTables])
+
+    return { tables, categories, recommended, workspace, isLoading, error, fetchTables }
+  }
+
+  function useLogConfig(opts: import('./useLogConfig').UseLogConfigOptions) {
+    const { serviceName, autoFetch = true } = opts
+    const { connected } = mockUseBackendConnection() as { connected: boolean }
+    const [config, setConfig] = React.useState<Cfg | null>(null)
+    const [isLoading, setIsLoading] = React.useState(false)
+    const [isSaving, setIsSaving] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
+
+    const fetchConfig = React.useCallback(async () => {
+      if (!connected || !serviceName) return
+      setIsLoading(true)
+      setError(null)
+      try {
+        const resp = await globalThis.fetch(
+          `/api/azure/logs/config?service=${serviceName}`,
+        )
+        if (!resp || resp.ok === false) {
+          throw new Error(`Failed to fetch config: ${resp?.status ?? 0}`)
+        }
+        const json = (await resp.json()) as Cfg
+        setConfig(json)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch config')
+        setConfig(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }, [connected, serviceName])
+
+    const saveConfig = React.useCallback(
+      async (options: { tables?: string[]; query?: string }): Promise<boolean> => {
+        if (!connected) {
+          setError('Backend connection lost')
+          return false
+        }
+        if (!serviceName) {
+          setError('Service name is required')
+          return false
+        }
+        const { tables, query } = options
+        if (!query && (!tables || tables.length === 0)) {
+          setError('Either tables or query is required')
+          return false
+        }
+        setIsSaving(true)
+        setError(null)
+        try {
+          const mode: 'tables' | 'custom' = query ? 'custom' : 'tables'
+          const body = query
+            ? { service: serviceName, mode, tables: undefined as string[] | undefined, query }
+            : { service: serviceName, mode, tables, query: undefined as string | undefined }
+          const resp = await globalThis.fetch('/api/azure/logs/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          if (!resp || resp.ok === false) {
+            const text = resp?.text ? await resp.text() : ''
+            throw new Error(text || `Failed to save config: ${resp?.status ?? 0}`)
+          }
+          const json = (await resp.json()) as Cfg
+          setConfig(json)
+          return true
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to save config')
+          return false
+        } finally {
+          setIsSaving(false)
+        }
+      },
+      [connected, serviceName],
+    )
+
+    React.useEffect(() => {
+      if (autoFetch && serviceName) void fetchConfig()
+    }, [autoFetch, serviceName, fetchConfig])
+
+    return { config, isLoading, isSaving, error, fetchConfig, saveConfig }
+  }
+
+  return { ...actual, useAvailableTables, useLogConfig }
+})
+
 import {
   useAvailableTables,
   useLogConfig,
   type TablesResponse,
   type LogConfig,
 } from './useLogConfig'
-
-// Mock useBackendConnection
-const mockUseBackendConnection = vi.fn()
-vi.mock('./useBackendConnection', () => ({
-  useBackendConnection: (): { connected: boolean } => mockUseBackendConnection() as { connected: boolean },
-}))
 
 // Type for mock request body
 interface MockRequestBody {

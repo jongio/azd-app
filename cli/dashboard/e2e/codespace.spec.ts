@@ -5,6 +5,7 @@
  */
 import { test, expect, type Page, type Route } from '@playwright/test'
 import { setupTest, scenarios, waitForDashboardReady, getServiceCard } from './helpers/test-setup'
+import { mockConnectUnary } from './helpers/connect-mock'
 
 // =============================================================================
 // Codespace Environment Mock
@@ -41,20 +42,25 @@ const NON_CODESPACE_CONFIG = {
 // =============================================================================
 
 /**
- * Mock the /api/environment endpoint to return Codespace configuration
+ * Mock the LifecycleService.GetEnvironment RPC to return Codespace
+ * configuration. Overrides the default GetEnvironment mock installed by
+ * setupTest; the later `page.route` registration wins (Playwright routes
+ * resolve in reverse-registration order).
  */
 async function mockCodespaceEnvironment(page: Page, enabled: boolean = true, isVsCodeDesktop: boolean = false) {
-  await page.route('**/api/environment', async (route: Route) => {
-    let config = NON_CODESPACE_CONFIG
-    if (enabled) {
-      config = isVsCodeDesktop ? VSCODE_DESKTOP_CONFIG : CODESPACE_CONFIG
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(config),
-    })
-  })
+  let cfg: { codespace: { enabled: boolean; name: string; domain: string; isVsCodeDesktop?: boolean } } = NON_CODESPACE_CONFIG
+  if (enabled) {
+    cfg = isVsCodeDesktop ? VSCODE_DESKTOP_CONFIG : CODESPACE_CONFIG
+  }
+  await mockConnectUnary(page, 'LifecycleService', 'GetEnvironment', () => ({
+    codespace: {
+      enabled: cfg.codespace.enabled,
+      name: cfg.codespace.name,
+      domain: cfg.codespace.domain,
+      isVsCodeDesktop: cfg.codespace.isVsCodeDesktop ?? false,
+    },
+    environmentName: '',
+  }))
 }
 
 // =============================================================================
@@ -198,13 +204,18 @@ test.describe('Codespace URL Forwarding', () => {
       // Setup test first (sets up default mocks)
       await setupTest(page, { scenario: scenarios.standard() })
       
-      // Then set up our tracking route (after setupTest so it takes precedence)
-      await page.route('**/api/environment', async (route: Route) => {
+      // Then set up our tracking route (after setupTest so it takes precedence).
+      // Intercepts the Connect-RPC path used by useCodespaceEnv; matches the
+      // env-fetching behaviour the legacy REST route used to cover.
+      await page.route('**/azdapp.v1.LifecycleService/GetEnvironment', async (route: Route) => {
         apiCalled = true
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(CODESPACE_CONFIG),
+          body: JSON.stringify({
+            codespace: { ...CODESPACE_CONFIG.codespace, isVsCodeDesktop: false },
+            environmentName: '',
+          }),
         })
       })
       
@@ -226,12 +237,15 @@ test.describe('Codespace URL Forwarding', () => {
       // Setup test first
       await setupTest(page, { scenario: scenarios.standard() })
       
-      // Then mock API error (after setupTest so it takes precedence)
-      await page.route('**/api/environment', async (route: Route) => {
+      // Then mock API error on the Connect-RPC path (after setupTest so it
+      // takes precedence). useCodespaceEnv treats any non-2xx as a
+      // ConnectError; the hook surfaces an error string but the rest of the
+      // UI must keep rendering normally with localhost URLs.
+      await page.route('**/azdapp.v1.LifecycleService/GetEnvironment', async (route: Route) => {
         await route.fulfill({
           status: 500,
           contentType: 'application/json',
-          body: JSON.stringify({ error: 'Internal server error' }),
+          body: JSON.stringify({ code: 'internal', message: 'Internal server error' }),
         })
       })
       

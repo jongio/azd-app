@@ -183,3 +183,88 @@ export const createMockWebSocketMessage = (data: unknown) => {
     data: JSON.stringify(data),
   } as MessageEvent
 }
+
+// =============================================================================
+// Proto helpers (Connect transport tests)
+// =============================================================================
+
+import { Timestamp } from '@bufbuild/protobuf'
+import { ServiceInfo, ServiceStatus, HealthState, AzureDeploymentInfo } from '@/gen/proto/azdapp/v1/common_pb.js'
+
+/**
+ * Convert a dashboard Service into the proto ServiceInfo the Connect
+ * handler emits. Mirrors the Go-side `serviceInfoToProto` flattening so
+ * tests can re-use existing dashboard mocks against an in-memory
+ * Connect router without re-authoring fixtures.
+ */
+export function serviceToProto(svc: Service): ServiceInfo {
+  const out = new ServiceInfo({
+    name: svc.name,
+    framework: svc.framework ?? '',
+    language: svc.language ?? '',
+    projectDir: svc.project ?? '',
+    kind: svc.host ?? '',
+    environment: svc.environmentVariables ?? {},
+  })
+
+  if (svc.local) {
+    out.status = mapStatus(svc.local.status)
+    out.health = mapHealth(svc.local.health)
+    if (svc.local.port !== undefined) out.port = svc.local.port
+    if (svc.local.pid !== undefined) out.pid = svc.local.pid
+    if (svc.local.startTime) out.startTime = Timestamp.fromDate(new Date(svc.local.startTime))
+    if (svc.local.customUrl) {
+      out.url = svc.local.customUrl
+    } else if (svc.local.url) {
+      out.url = svc.local.url
+    }
+  }
+
+  if (svc.azure) {
+    out.azure = new AzureDeploymentInfo({
+      resourceId: svc.azure.resourceName ?? '',
+      resourceType: svc.host ?? '',
+      resourceGroup: svc.azure.resourceGroup ?? '',
+      subscriptionId: svc.azure.subscriptionId ?? '',
+      region: svc.azure.location ?? '',
+      workspaceId: svc.azure.logAnalyticsId ?? '',
+    })
+  }
+
+  return out
+}
+
+function mapStatus(s: string | undefined): ServiceStatus {
+  switch (s) {
+    case 'ready':
+    case 'running':
+      return ServiceStatus.READY
+    case 'starting':
+      return ServiceStatus.STARTING
+    case 'stopped':
+    case 'not-running':
+      return ServiceStatus.STOPPED
+    case 'stopping':
+      return ServiceStatus.STOPPING
+    case 'error':
+      return ServiceStatus.ERROR
+    default:
+      return ServiceStatus.UNSPECIFIED
+  }
+}
+
+function mapHealth(h: string | undefined): HealthState {
+  switch (h) {
+    case 'healthy':
+      return HealthState.HEALTHY
+    case 'unhealthy':
+    case 'degraded':
+      return HealthState.UNHEALTHY
+    case 'starting':
+      return HealthState.STARTING
+    case 'unknown':
+      return HealthState.UNKNOWN
+    default:
+      return HealthState.UNSPECIFIED
+  }
+}

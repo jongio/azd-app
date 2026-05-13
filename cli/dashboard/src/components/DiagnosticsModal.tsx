@@ -3,10 +3,18 @@
  * Displays health check results and provides troubleshooting guidance
  */
 import * as React from 'react'
+import { ConnectError } from '@connectrpc/connect'
 import { X, CheckCircle, AlertCircle, XCircle, Copy, Check, ExternalLink, Loader2, RefreshCw, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useTimeout } from '@/hooks/useTimeout'
+import { createAzureClient } from '@/lib/connectClient'
+import {
+  AzureCheckStatus,
+  AzureOverallStatus,
+  type AzureHealthCheck as ProtoAzureHealthCheck,
+  GetAzureLogsHealthRequest,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
 import type { SetupStep } from './AzureSetupGuide'
 
 // =============================================================================
@@ -124,6 +132,49 @@ const statusDisplay: Record<HealthCheckResponse['status'], {
 // =============================================================================
 
 /**
+ * Map proto AzureOverallStatus enum to the legacy lowercase string the
+ * dashboard renders. UNSPECIFIED collapses to 'error' so a malformed
+ * server response surfaces visibly rather than rendering as healthy.
+ */
+function overallStatusToString(status: AzureOverallStatus): HealthCheckResponse['status'] {
+  switch (status) {
+    case AzureOverallStatus.HEALTHY:
+      return 'healthy'
+    case AzureOverallStatus.DEGRADED:
+      return 'degraded'
+    case AzureOverallStatus.ERROR:
+    case AzureOverallStatus.UNSPECIFIED:
+    default:
+      return 'error'
+  }
+}
+
+function checkStatusToString(status: AzureCheckStatus): HealthCheck['status'] {
+  switch (status) {
+    case AzureCheckStatus.PASS:
+      return 'pass'
+    case AzureCheckStatus.WARN:
+      return 'warn'
+    case AzureCheckStatus.FAIL:
+    case AzureCheckStatus.UNSPECIFIED:
+    default:
+      return 'fail'
+  }
+}
+
+function protoCheckToHealthCheck(c: ProtoAzureHealthCheck): HealthCheck {
+  const out: HealthCheck = {
+    name: c.name,
+    status: checkStatusToString(c.status),
+    message: c.message,
+  }
+  // Mirror legacy: omit `fix` when empty so existing `c.fix &&` guards
+  // continue to short-circuit cleanly.
+  if (c.fix) out.fix = c.fix
+  return out
+}
+
+/**
  * Determine which setup step failed based on health check results
  * Used for deep linking to the correct step in the setup guide
  */
@@ -169,22 +220,32 @@ export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly
     setError(null)
 
     try {
-      const response = await fetch('/api/azure/logs/health', {
-        signal: abortController.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      // Connect RPC replaces the legacy GET /api/azure/logs/health.
+      // Proto enums collapse back to the same lowercase strings the
+      // legacy JSON returned so the rendering code below is unchanged.
+      const client = createAzureClient()
+      const resp = await client.getAzureLogsHealth(
+        new GetAzureLogsHealthRequest(),
+        { signal: abortController.signal },
+      )
+      if (abortController.signal.aborted) return
+      const result: HealthCheckResponse = {
+        status: overallStatusToString(resp.status),
+        checks: resp.checks.map(protoCheckToHealthCheck),
+        docsUrl: resp.docsUrl,
+        timestamp: resp.timestamp ? resp.timestamp.toDate().toISOString() : '',
       }
-
-      const result = await response.json() as HealthCheckResponse
       setData(result)
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return
-      }
+      if (abortController.signal.aborted) return
       setData(null)
-      setError(err instanceof Error ? err.message : 'Failed to fetch health check')
+      const message =
+        err instanceof ConnectError
+          ? err.rawMessage || err.message
+          : err instanceof Error
+          ? err.message
+          : 'Failed to fetch health check'
+      setError(message)
     } finally {
       if (abortRef.current === abortController) {
         abortRef.current = null

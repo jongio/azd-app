@@ -35,6 +35,8 @@ comment:
 ignore:
   - "cli/src/cmd/app/main.go"  # Entry point
   - "**/generated/**"
+  - "cli/src/gen/**"  # protoc/buf-generated Connect stubs
+  - "**/*.pb.go"  # protoc-generated Go files
   - "**/*_test.go"  # Test files themselves
 
 # Flag management for different test types

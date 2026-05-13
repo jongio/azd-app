@@ -1,0 +1,152 @@
+// Common types shared across all azd-app services.
+//
+// This file defines the canonical typed representations of:
+//   - log levels and entries (matches internal/service.LogEntry)
+//   - service info (matches internal/serviceinfo.ServiceInfo)
+//   - severity (matches internal/monitor.Severity)
+//
+// Where existing Go types use map[string]interface{} or interface{}, we either
+// model the structured shape here (preferred) or use google.protobuf.Struct
+// to defer firming up the schema until PR 2 wires the corresponding handler.
+// The ADR (docs/adr/0001-connect-go-transport.md) tracks every Struct usage.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// LogLevel mirrors internal/service.LogLevel. UNSPECIFIED is wire-default and
+// must never be emitted by a server; clients treat it as "unknown -> info".
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_TRACE = 1;
+  LOG_LEVEL_DEBUG = 2;
+  LOG_LEVEL_INFO = 3;
+  LOG_LEVEL_WARN = 4;
+  LOG_LEVEL_ERROR = 5;
+  LOG_LEVEL_FATAL = 6;
+}
+
+// LogSource indicates which pipeline produced the entry.
+enum LogSource {
+  LOG_SOURCE_UNSPECIFIED = 0;
+  LOG_SOURCE_LOCAL = 1;
+  LOG_SOURCE_AZURE = 2;
+}
+
+// LogStream distinguishes stdout/stderr for local logs. Azure logs always
+// report STREAM_UNSPECIFIED.
+enum LogStream {
+  LOG_STREAM_UNSPECIFIED = 0;
+  LOG_STREAM_STDOUT = 1;
+  LOG_STREAM_STDERR = 2;
+}
+
+// LogEntry mirrors internal/service.LogEntry. Field numbers are stable wire
+// contract once shipped; do not renumber without a breaking-change cycle.
+message LogEntry {
+  string id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string service = 3;
+  LogLevel level = 4;
+  LogStream stream = 5;
+  LogSource source = 6;
+  string message = 7;
+  // Optional structured fields that some emitters attach (e.g. Azure
+  // resource_id, table_name, custom_dimensions). Kept as a Struct so we can
+  // evolve without breaking the wire format.
+  google.protobuf.Struct fields = 8;
+}
+
+// Severity mirrors internal/monitor.Severity.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_CRITICAL = 3;
+}
+
+// ServiceStatus mirrors the textual status used in dashboard/serviceinfo.
+// Codes match the strings the existing REST API emits to avoid breaking the
+// dashboard during the parallel-stack window in PR 2.
+enum ServiceStatus {
+  SERVICE_STATUS_UNSPECIFIED = 0;
+  SERVICE_STATUS_STOPPED = 1;
+  SERVICE_STATUS_STARTING = 2;
+  SERVICE_STATUS_READY = 3;
+  SERVICE_STATUS_DEGRADED = 4;
+  SERVICE_STATUS_ERROR = 5;
+  SERVICE_STATUS_STOPPING = 6;
+}
+
+// HealthState mirrors internal/healthcheck health states.
+//
+// Wire stability: enum values are append-only. DEGRADED was added after the
+// initial draft when wiring HealthService — the existing dashboard summary
+// distinguishes degraded from unhealthy, and dropping that distinction would
+// silently lose information. Older clients that don't recognise the value
+// will see HEALTH_STATE_UNSPECIFIED (proto3 unknown-enum semantics) rather
+// than crash.
+enum HealthState {
+  HEALTH_STATE_UNSPECIFIED = 0;
+  HEALTH_STATE_HEALTHY = 1;
+  HEALTH_STATE_UNHEALTHY = 2;
+  HEALTH_STATE_UNKNOWN = 3;
+  HEALTH_STATE_STARTING = 4;
+  HEALTH_STATE_DEGRADED = 5;
+}
+
+// ServiceInfo is the merged service descriptor returned by /api/services.
+// Matches internal/serviceinfo.ServiceInfo. Azure-specific fields are absent
+// when the service has not been deployed.
+message ServiceInfo {
+  string name = 1;
+  string framework = 2;
+  string language = 3;
+  string url = 4;
+  ServiceStatus status = 5;
+  HealthState health = 6;
+  int32 port = 7;
+  int32 pid = 8;
+  google.protobuf.Timestamp start_time = 9;
+  string project_dir = 10;
+  // Per-service environment variables surfaced for the dashboard env panel.
+  map<string, string> environment = 11;
+  // Azure deployment info when known. nil/missing when the service is not
+  // deployed to Azure or discovery has not run.
+  AzureDeploymentInfo azure = 12;
+  // Optional categorisation used by the dashboard ServiceCard (web, api,
+  // worker, db, container, ...).
+  string kind = 13;
+  // Free-form metadata that did not warrant a typed field. Kept narrow.
+  google.protobuf.Struct metadata = 14;
+}
+
+// AzureDeploymentInfo describes the Azure-side resource backing a service.
+message AzureDeploymentInfo {
+  string resource_id = 1;
+  string resource_group = 2;
+  string subscription_id = 3;
+  string resource_type = 4;       // appservice | containerapp | function | ...
+  string workspace_id = 5;        // log analytics workspace id (if known)
+  string region = 6;
+  string portal_url = 7;
+}
+
+// PageInfo is reused by paginated list responses.
+message PageInfo {
+  string next_page_token = 1;
+  int32 total_count = 2;
+}
+
+// OperationResult is the canonical response for any mutating RPC that does
+// not need a richer typed payload (start/stop/restart, save preferences,
+// enable azure logging, ...). The id field lets clients correlate with
+// downstream stream events when the operation kicks off async work.
+message OperationResult {
+  bool success = 1;
+  string message = 2;
+  string operation_id = 3;
+  google.protobuf.Timestamp completed_at = 4;
+}

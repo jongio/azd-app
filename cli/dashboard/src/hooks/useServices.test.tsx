@@ -1,21 +1,160 @@
+/**
+ * Tests for the ServicesContext provider against an in-memory Connect
+ * router transport.
+ *
+ * After the WebSocket -> LifecycleService.StreamBroadcast migration the
+ * provider has two RPC dependencies:
+ *   1. ServicesService.GetServices  - initial snapshot
+ *   2. LifecycleService.StreamBroadcast - live `services-changed` events
+ *
+ * Tests drive both via `createRouterTransport`, which wires the
+ * provider's transport hook directly to in-memory handlers. The
+ * legacy WebSocket-era "add / update / remove" message variants are
+ * gone: the server only ever emitted `services-changed` bulk
+ * snapshots, and the dashboard's wire contract now reflects that
+ * reality. Those tests have been dropped rather than rewritten.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { useServicesContext, ServicesProvider } from '@/contexts/ServicesContext'
-import { mockServices, createMockFetchResponse, createMockWebSocketMessage } from '@/test/mocks'
+import { ConnectError, Code, createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
+import { Struct } from '@bufbuild/protobuf'
 import type { ReactNode } from 'react'
 
-interface MockWebSocket {
-  url: string
-  onopen: ((event: Event) => void) | null
-  onmessage: ((event: MessageEvent) => void) | null
-  onerror: ((event: Event) => void) | null
-  onclose: ((event: CloseEvent) => void) | null
-  close: ReturnType<typeof vi.fn>
+import { useServicesContext, ServicesProvider } from '@/contexts/ServicesContext'
+import { mockServices, serviceToProto } from '@/test/mocks'
+import { ServicesService } from '@/gen/proto/azdapp/v1/services_connect.js'
+import { GetServicesResponse } from '@/gen/proto/azdapp/v1/services_pb.js'
+import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
+import {
+  BroadcastEvent,
+  StreamBroadcastResponse,
+} from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
+
+interface RouterOverrides {
+  getServices?: () => Promise<GetServicesResponse> | GetServicesResponse
+  streamController?: StreamController
 }
 
-// Wrapper component for tests
-function TestWrapper({ children }: { children: ReactNode }) {
-  return <ServicesProvider>{children}</ServicesProvider>
+/**
+ * A controllable in-memory stream used by the LifecycleService router
+ * handler. Tests push `BroadcastEvent` messages at will and the
+ * handler yields them as `StreamBroadcastResponse` frames. `close()`
+ * ends the stream cleanly so reconnect-backoff tests can observe the
+ * provider looping.
+ */
+interface StreamController {
+  push(event: BroadcastEvent): void
+  close(): void
+  /** Count of times the provider has dialed the stream. */
+  connections(): number
+  /** Internal: bound by `makeTransport` onto the LifecycleService router. */
+  _handler(): AsyncGenerator<StreamBroadcastResponse>
+}
+
+function createStreamController(): StreamController {
+  const queue: BroadcastEvent[] = []
+  let resolveNext: (() => void) | null = null
+  let closed = false
+  let connections = 0
+
+  const push: StreamController['push'] = (event) => {
+    queue.push(event)
+    const resolver = resolveNext
+    resolveNext = null
+    resolver?.()
+  }
+  const close: StreamController['close'] = () => {
+    closed = true
+    const resolver = resolveNext
+    resolveNext = null
+    resolver?.()
+  }
+  const connections_: StreamController['connections'] = () => connections
+
+  // Attached to the router below. Async generator is re-entered each
+  // time the provider dials the stream, so `connections` increments
+  // naturally.
+  ;(push as StreamController['push'] & { handler?: unknown }).handler = null
+
+  const controller: StreamController = {
+    push,
+    close,
+    connections: connections_,
+    async *_handler() {
+      connections++
+      while (!closed) {
+        while (queue.length > 0) {
+          const event = queue.shift()
+          if (event) yield new StreamBroadcastResponse({ event })
+        }
+        if (closed) return
+        await new Promise<void>((resolve) => {
+          resolveNext = resolve
+        })
+      }
+    },
+  }
+
+  return controller
+}
+
+async function* defaultStreamHandler(): AsyncGenerator<StreamBroadcastResponse> {
+  // Keep the stream open until the provider aborts on unmount.
+  // `await new Promise` lets the Connect runtime observe abort.
+  while (true) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 50))
+    // Unreachable yield silences require-yield; the Connect runtime
+    // tears the generator down via abort before this point.
+    yield new StreamBroadcastResponse()
+  }
+}
+
+function makeTransport(overrides: RouterOverrides = {}) {
+  return createRouterTransport((router: ConnectRouter) => {
+    router.service(ServicesService, {
+      getServices(): Promise<GetServicesResponse> {
+        if (overrides.getServices) return Promise.resolve(overrides.getServices())
+        return Promise.resolve(
+          new GetServicesResponse({
+            services: mockServices.map(serviceToProto),
+          }),
+        )
+      },
+      startService: () =>
+        Promise.reject(new ConnectError('not used in these tests', Code.Unimplemented)),
+      stopService: () =>
+        Promise.reject(new ConnectError('not used in these tests', Code.Unimplemented)),
+      restartService: () =>
+        Promise.reject(new ConnectError('not used in these tests', Code.Unimplemented)),
+    })
+
+    router.service(LifecycleService, {
+      ping: () =>
+        Promise.reject(new ConnectError('not used in these tests', Code.Unimplemented)),
+      getEnvironment: () =>
+        Promise.reject(new ConnectError('not used in these tests', Code.Unimplemented)),
+      streamBroadcast: overrides.streamController
+        ? overrides.streamController._handler.bind(overrides.streamController)
+        : defaultStreamHandler,
+    })
+  })
+}
+
+function makeWrapper(transport: ReturnType<typeof makeTransport>) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <ServicesProvider transport={transport}>{children}</ServicesProvider>
+  }
+}
+
+function servicesChangedEvent(services: unknown[]): BroadcastEvent {
+  // Server serialises the bulk snapshot as `{services: [...]}` under
+  // Struct. Tests construct the JSON the same way so the
+  // toJson()-then-cast dance in ServicesContext reads the fixtures
+  // faithfully.
+  return new BroadcastEvent({
+    type: 'services-changed',
+    payload: Struct.fromJson({ services: services as never }),
+  })
 }
 
 describe('useServicesContext', () => {
@@ -28,402 +167,149 @@ describe('useServicesContext', () => {
     vi.restoreAllMocks()
   })
 
-  it('should fetch services on mount', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    expect(result.current.loading).toBe(true)
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('fetches services on mount via Connect', async () => {
+    const transport = makeTransport()
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(transport),
     })
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/services')
-    expect(result.current.services).toEqual(mockServices)
+    expect(result.current.loading).toBe(true)
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.services).toHaveLength(mockServices.length)
+    expect(result.current.services[0].name).toBe(mockServices[0].name)
+    expect(result.current.services[0].local?.status).toBe('ready')
     expect(result.current.error).toBeNull()
   })
 
-  it('should handle fetch errors and use mock data', async () => {
-    const mockFetch = vi.fn(() => Promise.reject(new Error('Network error')))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
+  it('falls back to mock data when the RPC fails', async () => {
+    const transport = makeTransport({
+      getServices: () => {
+        throw new ConnectError('backend down', Code.Unavailable)
+      },
+    })
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(transport),
     })
 
-    expect(result.current.error).toBeNull() // No error shown when using mock data
-    expect(result.current.services.length).toBeGreaterThan(0) // Should have mock services
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.error).toBeNull()
+    expect(result.current.services.length).toBeGreaterThan(0)
     expect(consoleSpy).toHaveBeenCalledWith('Backend not available, using mock data')
+
+    // Mock mode reports connected=true because `connected || useMock`.
+    expect(result.current.connected).toBe(true)
 
     consoleSpy.mockRestore()
   })
 
-  it('should handle empty service list', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse([]))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('handles an empty service list', async () => {
+    const transport = makeTransport({
+      getServices: () => new GetServicesResponse({ services: [] }),
+    })
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(transport),
     })
 
+    await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.services).toEqual([])
   })
 
-  it('should set up WebSocket connection', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('reports connected=true once the broadcast stream opens', async () => {
+    const stream = createStreamController()
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(makeTransport({ streamController: stream })),
     })
-
-    // WebSocket should be created (checked via constructor call)
-    expect(result.current.connected).toBe(true)
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitFor(() => expect(result.current.connected).toBe(true))
   })
 
-  it('should handle WebSocket service updates', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    // Create a custom WebSocket mock class that we can control
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('applies a bulk services-changed snapshot from the stream', async () => {
+    const stream = createStreamController()
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(makeTransport({ streamController: stream })),
     })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitFor(() => expect(result.current.connected).toBe(true))
 
-    // Simulate receiving an update message
-    const updatedService = {
-      ...mockServices[0],
-      local: { ...mockServices[0].local, status: 'stopping' as const },
-    }
-
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(
-          createMockWebSocketMessage({
-            type: 'update',
-            service: updatedService,
-          })
-        )
-      })
-    }
-
-    await waitFor(() => {
-      const apiService = result.current.services.find(s => s.name === 'api')
-      expect(apiService?.local?.status).toBe('stopping')
-    })
-  })
-
-  it('should handle WebSocket bulk services update', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    // Create a custom WebSocket mock class that we can control
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
-    // Simulate receiving a bulk services update (e.g., after stop all)
-    const updatedServices = mockServices.map(s => ({
+    const updatedServices = mockServices.map((s) => ({
       ...s,
-      local: { ...s.local, status: 'stopped' as const, health: 'unknown' as const },
+      local: { ...s.local, status: 'stopped', health: 'unknown' },
     }))
 
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(
-          createMockWebSocketMessage({
-            type: 'services',
-            services: updatedServices,
-          })
-        )
-      })
-    }
+    act(() => {
+      stream.push(servicesChangedEvent(updatedServices))
+    })
 
     await waitFor(() => {
-      // All services should be stopped
-      result.current.services.forEach(service => {
+      result.current.services.forEach((service) => {
         expect(service.local?.status).toBe('stopped')
       })
     })
   })
 
-  it('should handle WebSocket service addition', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('ignores broadcast events that are not services-changed', async () => {
+    const stream = createStreamController()
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(makeTransport({ streamController: stream })),
     })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitFor(() => expect(result.current.connected).toBe(true))
 
-    const initialCount = result.current.services.length
+    const snapshotBefore = result.current.services
 
-    // Add a new service
-    const newService = {
-      name: 'new-service',
-      language: 'rust',
-      framework: 'actix',
-      local: {
-        status: 'ready' as const,
-        health: 'healthy' as const,
-        port: 8080,
-      },
-    }
-
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(
-          createMockWebSocketMessage({
-            type: 'add',
-            service: newService,
-          })
-        )
-      })
-    }
-
-    await waitFor(() => {
-      expect(result.current.services.length).toBe(initialCount + 1)
-      expect(result.current.services.find(s => s.name === 'new-service')).toBeDefined()
-    })
-  })
-
-  it('should handle WebSocket service removal', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
-    const initialCount = result.current.services.length
-
-    // Remove a service
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(
-          createMockWebSocketMessage({
-            type: 'remove',
-            service: mockServices[0],
-          })
-        )
-      })
-    }
-
-    await waitFor(() => {
-      expect(result.current.services.length).toBe(initialCount - 1)
-      expect(result.current.services.find(s => s.name === mockServices[0].name)).toBeUndefined()
-    })
-  })
-
-  it('should handle malformed WebSocket messages', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    const wsRef: { current: MockWebSocket | null } = { current: null }
-    class WebSocketMock {
-      url: string
-      onopen: ((event: Event) => void) | null = null
-      onmessage: ((event: MessageEvent) => void) | null = null
-      onerror: ((event: Event) => void) | null = null
-      onclose: ((event: CloseEvent) => void) | null = null
-      close = vi.fn()
-      constructor(url: string) {
-        this.url = url
-        wsRef.current = this
-        setTimeout(() => {
-          this.onopen?.(new Event('open'))
-        }, 0)
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
-    const initialServices = [...result.current.services]
-
-    // Send malformed message
-    if (wsRef.current?.onmessage) {
-      const handler = wsRef.current.onmessage
-      act(() => {
-        handler(new MessageEvent('message', { data: 'not-valid-json' }))
-      })
-    }
-
-    await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to parse WebSocket message:',
-        expect.any(Error)
+    act(() => {
+      stream.push(
+        new BroadcastEvent({
+          type: 'mode-toggled',
+          payload: Struct.fromJson({ mode: 'azure' }),
+        }),
       )
     })
 
-    // Services should remain unchanged
-    expect(result.current.services).toEqual(initialServices)
+    // Give the stream reader a microtask tick to observe the event.
+    await new Promise((resolve) => setTimeout(resolve, 50))
 
-    consoleErrorSpy.mockRestore()
+    expect(result.current.services).toBe(snapshotBefore)
   })
 
-  it('should provide refetch function', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const closeMock = vi.fn()
-    // Mock WebSocket as a class for vitest 4.x compatibility
-    class WebSocketMock {
-      onopen: ((this: WebSocket, ev: Event) => unknown) | null = null
-      onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null = null
-      onerror: ((this: WebSocket, ev: Event) => unknown) | null = null
-      onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null = null
-      close = closeMock
-      send = vi.fn()
-      constructor(_url: string) {
-        // no-op
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { result } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+  it('refetches via Connect when refetch() is invoked', async () => {
+    let callCount = 0
+    const transport = makeTransport({
+      getServices: () => {
+        callCount++
+        return new GetServicesResponse({ services: mockServices.map(serviceToProto) })
+      },
     })
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const { result } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(transport),
+    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(callCount).toBe(1)
 
-    // Call refetch
     await act(async () => {
       await result.current.refetch()
     })
 
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(2)
-    })
+    await waitFor(() => expect(callCount).toBe(2))
   })
 
-  it('should close WebSocket on unmount', async () => {
-    const mockFetch = vi.fn(() => createMockFetchResponse(mockServices))
-    globalThis.fetch = mockFetch as unknown as typeof fetch
-
-    const closeMock = vi.fn()
-    // Mock WebSocket as a class for vitest 4.x compatibility
-    class WebSocketMock {
-      onopen: ((this: WebSocket, ev: Event) => unknown) | null = null
-      onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null = null
-      onerror: ((this: WebSocket, ev: Event) => unknown) | null = null
-      onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null = null
-      close = closeMock
-      send = vi.fn()
-      constructor(_url: string) {
-        // no-op
-      }
-    }
-    globalThis.WebSocket = WebSocketMock as unknown as typeof WebSocket
-
-    const { unmount } = renderHook(() => useServicesContext(), { wrapper: TestWrapper })
-
-    await waitFor(() => {
-      // Give time for WebSocket to be created
-      expect(true).toBe(true)
+  it('cleanly aborts the broadcast stream on unmount', async () => {
+    const stream = createStreamController()
+    const { result, unmount } = renderHook(() => useServicesContext(), {
+      wrapper: makeWrapper(makeTransport({ streamController: stream })),
     })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitFor(() => expect(stream.connections()).toBe(1))
 
+    // No assertion beyond "this doesn't throw". The provider's cleanup
+    // calls abort.abort(), which surfaces as a Canceled ConnectError
+    // the run loop swallows -- the test would error if the provider
+    // mishandled the abort.
     unmount()
-
-    expect(closeMock).toHaveBeenCalled()
   })
 })

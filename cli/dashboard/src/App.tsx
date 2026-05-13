@@ -1,13 +1,14 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useServicesContext } from '@/contexts/ServicesContext'
 import { useHealthStream } from '@/hooks/useHealthStream'
 import { useCodespaceEnv } from '@/hooks/useCodespaceEnv'
+import { useProject } from '@/hooks/useProject'
 import { App as DashboardApp } from '@/components/App'
 import { BackendConnectionContext } from '@/hooks/useBackendConnection'
 import type { HealthCheckResult } from '@/types'
 
 function App() {
-  const [projectName, setProjectName] = useState<string>('')
+  const { name: projectName } = useProject()
   const { services } = useServicesContext()
   
   // Environment info (includes Azure environment name)
@@ -35,22 +36,15 @@ function App() {
     return map
   }, [services, getServiceHealth])
 
+  // Update document title whenever the project name resolves. Keeping
+  // this side-effect in App.tsx (vs. inside useProject) preserves the
+  // hook's purity — useProject is reused-safe and shouldn't mutate the
+  // browser document just by being called.
   useEffect(() => {
-    const fetchProjectName = async () => {
-      try {
-        const res = await fetch('/api/project')
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        const data = await res.json() as { name: string }
-        setProjectName(data.name)
-        document.title = `${data.name}`
-      } catch (err) {
-        console.error('Failed to fetch project name:', err)
-      }
+    if (projectName) {
+      document.title = projectName
     }
-    void fetchProjectName()
-  }, [])
+  }, [projectName])
 
   // Provide global connection state to all components
   const connectionState = useMemo(() => ({

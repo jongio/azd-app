@@ -1,0 +1,54 @@
+// ServicesService manages the per-project service registry: list current
+// services and start/stop/restart them.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "azdapp/v1/common.proto";
+
+service ServicesService {
+  // GetServices returns the merged service list (azure.yaml + runtime state
+  // + Azure deployment info). Replaces GET /api/services.
+  rpc GetServices(GetServicesRequest) returns (GetServicesResponse);
+
+  // StartService starts a single named service or, when service_name is
+  // empty, starts every service in dependency order. Replaces
+  // POST /api/services/start.
+  rpc StartService(StartServiceRequest) returns (StartServiceResponse);
+
+  // StopService stops a single named service or all services when
+  // service_name is empty. Replaces POST /api/services/stop.
+  rpc StopService(StopServiceRequest) returns (StopServiceResponse);
+
+  // RestartService stops + starts a single service or all services.
+  // Replaces POST /api/services/restart.
+  rpc RestartService(RestartServiceRequest) returns (RestartServiceResponse);
+}
+
+message StartServiceResponse { OperationResult result = 1; }
+message StopServiceResponse { OperationResult result = 1; }
+message RestartServiceResponse { OperationResult result = 1; }
+
+
+message GetServicesRequest {}
+
+message GetServicesResponse {
+  repeated ServiceInfo services = 1;
+}
+
+message StartServiceRequest {
+  // Empty -> start all services. Specific name -> start that one.
+  string service_name = 1;
+  // When true and service_name is empty, services are started concurrently
+  // ignoring the dependency graph. Defaults to false.
+  bool no_wait = 2;
+}
+
+message StopServiceRequest {
+  string service_name = 1;
+  bool force = 2;          // SIGKILL if graceful stop times out
+}
+
+message RestartServiceRequest {
+  string service_name = 1;
+}

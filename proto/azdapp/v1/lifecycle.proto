@@ -1,0 +1,72 @@
+// LifecycleService covers transport-level liveness, environment detection,
+// and the broadcast fanout channel that today is /api/ws.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service LifecycleService {
+  // Ping is a liveness check. Cheap, no side effects, no auth required.
+  // Replaces GET /api/ping.
+  rpc Ping(PingRequest) returns (PingResponse);
+
+  // GetEnvironment returns Codespace + AZD environment metadata used by the
+  // dashboard to decide whether to rewrite localhost URLs and which Azure
+  // environment to read. Replaces GET /api/environment.
+  rpc GetEnvironment(GetEnvironmentRequest) returns (GetEnvironmentResponse);
+
+  // StreamBroadcast is the fanout channel currently exposed as the /api/ws
+  // WebSocket. The server emits coarse-grained UI hints (service-list-changed,
+  // log-config-saved, mode-toggled, ...) so the dashboard can invalidate
+  // caches without polling.
+  //
+  // BACK-PRESSURE POLICY: drop-oldest with slow-consumer disconnect.
+  // Rationale: broadcast events are best-effort UI hints. A slow client must
+  // not block the producer or starve other subscribers. The existing
+  // websocket implementation already disconnects clients that fall too far
+  // behind (see broadcast_test.go, websocket_concurrency_test.go); we keep
+  // the same semantics. Clients must be resilient to dropped events and
+  // re-fetch authoritative state on reconnect.
+  rpc StreamBroadcast(StreamBroadcastRequest) returns (stream StreamBroadcastResponse);
+}
+
+message StreamBroadcastResponse { BroadcastEvent event = 1; }
+
+message PingRequest {}
+
+message PingResponse {
+  string status = 1;            // always "ok"
+  google.protobuf.Timestamp server_time = 2;
+  string version = 3;           // server build version
+}
+
+message GetEnvironmentRequest {}
+
+message CodespaceInfo {
+  bool enabled = 1;
+  string name = 2;
+  string domain = 3;
+  bool is_vs_code_desktop = 4;
+}
+
+message GetEnvironmentResponse {
+  CodespaceInfo codespace = 1;
+  string environment_name = 2;  // AZURE_ENV_NAME
+}
+
+message StreamBroadcastRequest {
+  // Optional event-name filter. Empty list = subscribe to all events.
+  repeated string event_types = 1;
+}
+
+message BroadcastEvent {
+  string type = 1;              // e.g. "service-list-changed", "mode-toggled"
+  google.protobuf.Timestamp timestamp = 2;
+  // Payload shape varies per event type. Existing /api/ws emits arbitrary
+  // JSON, so we mirror that with Struct. PR 2 will firm up well-known event
+  // payloads (service-state-change, log-config-saved) into oneof variants
+  // once the consumer side is migrated.
+  google.protobuf.Struct payload = 3;
+}

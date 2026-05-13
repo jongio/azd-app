@@ -1,18 +1,19 @@
 module github.com/jongio/azd-app/cli
 
-go 1.26.1
+go 1.26.2
 
 // Local development: use go.work to resolve azd-core, no local replace
 // CI: azd-core is pinned to a tagged version in go.mod
 
 require (
+	connectrpc.com/connect v1.19.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/azure/azure-dev/cli/azd v1.23.13
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/coder/websocket v1.8.14
+	github.com/google/uuid v1.6.0
 	github.com/jongio/azd-core v0.5.7
 	github.com/magefile/mage v1.16.0
 	github.com/mark3labs/mcp-go v0.46.0
@@ -24,6 +25,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.35.0
 	golang.org/x/time v0.15.0
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.48.0
 )
@@ -70,7 +72,6 @@ require (
 	github.com/golobby/container/v3 v3.3.2 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/pprof v0.0.0-20251114195745-4902fdda35c8 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
@@ -131,7 +132,6 @@ require (
 	golang.org/x/term v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

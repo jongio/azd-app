@@ -7,6 +7,71 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+
+// Replace the Connect-backed hook with a tiny shim that still consumes
+// `globalThis.fetch` so the pre-existing fetch-mock staged payloads keep
+// driving the UI. The shim maps the legacy `/api/azure/diagnostic-settings/
+// check` JSON payload onto the hook's result shape verbatim — which
+// matches what the real hook surfaces once it's decoded the proto.
+vi.mock('@/hooks/useDiagnosticSettings', async () => {
+  const React = await import('react')
+  const actual = await vi.importActual<typeof import('@/hooks/useDiagnosticSettings')>(
+    '@/hooks/useDiagnosticSettings',
+  )
+  type Status = import('@/hooks/useDiagnosticSettings').DiagnosticSettingsResponse
+  function useDiagnosticSettings(): ReturnType<typeof actual.useDiagnosticSettings> {
+    const [isLoading, setLoading] = React.useState(true)
+    const [isRefreshing, setRefreshing] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
+    const [data, setData] = React.useState<Status | null>(null)
+
+    const load = React.useCallback(async (isRecheck: boolean) => {
+      if (isRecheck) setRefreshing(true)
+      else setLoading(true)
+      try {
+        const resp = await globalThis.fetch(
+          '/api/azure/diagnostic-settings/check',
+          { signal: undefined as unknown as AbortSignal },
+        )
+        if (!resp || resp.ok === false) {
+          throw new Error(`API returned ${resp?.status ?? 0}: ${resp?.statusText ?? 'unknown'}`)
+        }
+        const json = (await resp.json()) as Status
+        setData(json)
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+        setData(null)
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    }, [])
+
+    React.useEffect(() => {
+      void load(false)
+    }, [load])
+
+    const services = data?.services ?? {}
+    const totalCount = Object.keys(services).length
+    const configuredCount = Object.values(services).filter(
+      (s) => s.status === 'configured',
+    ).length
+    return {
+      isLoading,
+      isRefreshing,
+      error,
+      workspaceId: data?.workspaceId ?? null,
+      services,
+      recheck: () => load(true),
+      allConfigured: totalCount > 0 && configuredCount === totalCount,
+      configuredCount,
+      totalCount,
+    }
+  }
+  return { ...actual, useDiagnosticSettings }
+})
+
 import { DiagnosticSettingsStep } from './DiagnosticSettingsStep'
 import type { DiagnosticSettingsResponse } from '@/hooks/useDiagnosticSettings'
 

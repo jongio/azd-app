@@ -12,6 +12,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-app/cli/src/internal/dashboard/broadcast"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
@@ -27,9 +28,6 @@ type Server struct {
 	mux          *http.ServeMux
 	server       *http.Server
 	projectDir   string
-	clients      map[*clientConn]bool
-	clientsMu    sync.RWMutex
-	rateLimiter  *connectionRateLimiter // Per-server rate limiter
 	stopChan     chan struct{}
 	stopOnce     sync.Once  // Ensure stopChan is only closed once
 	started      bool       // Track if server was successfully started
@@ -37,6 +35,12 @@ type Server struct {
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
+	azureYamlMu  sync.RWMutex    // Protect azure.yaml read/write across Connect handlers
+
+	// broadcast fans coarse-grained UI events out to Connect
+	// StreamBroadcast subscribers. See cli/src/internal/dashboard/broadcast
+	// for back-pressure policy. Always non-nil; constructed in newServer.
+	broadcast *broadcast.Manager
 }
 
 // GetServer returns the dashboard server instance for the specified project.
@@ -57,10 +61,9 @@ func GetServer(projectDir string) *Server {
 		port:        0, // Will be assigned by port manager
 		mux:         http.NewServeMux(),
 		projectDir:  absPath,
-		clients:     make(map[*clientConn]bool),
-		rateLimiter: newConnectionRateLimiter(),
 		stopChan:    make(chan struct{}),
 		currentMode: service.LogModeLocal, // Default to local mode
+		broadcast:   broadcast.New(),
 	}
 	srv.setupRoutes()
 	servers[key] = srv
@@ -76,6 +79,25 @@ func (s *Server) GetURL() string {
 		return ""
 	}
 	return fmt.Sprintf("http://localhost:%d", s.port)
+}
+
+// getCurrentMode is a thread-safe accessor for currentMode. Exported via
+// rpc.ModeStoreFuncs so the Connect ModeService handler can read state
+// without grabbing s.modeMu directly.
+func (s *Server) getCurrentMode() service.LogMode {
+	s.modeMu.RLock()
+	defer s.modeMu.RUnlock()
+	return s.currentMode
+}
+
+// setCurrentMode is the matching writer. The Connect ModeService handler
+// validates the mode (and azure.yaml availability for AZURE) before
+// calling this; this function performs no validation of its own and
+// simply enforces the mutex contract.
+func (s *Server) setCurrentMode(m service.LogMode) {
+	s.modeMu.Lock()
+	defer s.modeMu.Unlock()
+	s.currentMode = m
 }
 
 // Start starts the dashboard server on an assigned port.
@@ -194,26 +216,6 @@ func (s *Server) Stop() error {
 		close(s.stopChan)
 	})
 
-	// Gracefully close all active WebSocket connections with timeout
-	done := make(chan struct{})
-	go func() {
-		s.clientsMu.Lock()
-		for client := range s.clients {
-			_ = client.client.close()
-			delete(s.clients, client)
-		}
-		s.clientsMu.Unlock()
-		close(done)
-	}()
-
-	// Wait for graceful shutdown with timeout
-	select {
-	case <-done:
-		// All clients closed gracefully
-	case <-time.After(5 * time.Second):
-		log.Printf("Warning: WebSocket shutdown timeout, some connections may not have closed gracefully")
-	}
-
 	// Clear dashboard port from azdconfig so other commands know it's not running
 	s.clearPortFromConfig()
 
@@ -223,16 +225,14 @@ func (s *Server) Stop() error {
 		_ = s.server.Close()
 	}
 
+	// Tear down Connect StreamBroadcast subscribers AFTER http.Server.Close
+	// so any in-flight stream handlers have already started exiting.
+	s.broadcast.StopAll()
+
 	// Now safe — no more handlers running
 	if s.configClient != nil {
 		s.configClient.Close()
 		s.configClient = nil
-	}
-
-	// Shutdown rate limiter
-	if s.rateLimiter != nil {
-		s.rateLimiter.shutdown()
-		s.rateLimiter = nil
 	}
 
 	return nil

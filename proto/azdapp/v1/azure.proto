@@ -1,0 +1,659 @@
+// AzureService covers all Azure-side observability operations: enabling
+// the global logs.analytics block in azure.yaml, listing services, running
+// historical KQL queries, polling/streaming Azure logs, performing setup
+// + diagnostics checks, listing Log Analytics tables, and persisting the
+// per-service log configuration (tables vs custom KQL).
+//
+// Every RPC below cites the legacy Go function and source file it
+// preserves byte-for-byte. The point of this rewrite (PR 1, commit A
+// of the Azure migration) is to lock the wire shape to what the
+// dashboard already consumes today via REST, so the parallel Connect
+// surface can replace REST one consumer at a time without dashboard
+// drift. New behavior does NOT belong in this commit; aspirational
+// fields were stripped.
+//
+// Two responses still pass through google.protobuf.Struct
+// (GetAzureSetupState and GetAzureDiagnostics). Both are tracked in the
+// ADR's "Struct Usage Inventory" subsection; the rationale lives there.
+syntax = "proto3";
+
+package azdapp.v1;
+
+import "azdapp/v1/common.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service AzureService {
+  // EnableAzureLogging mutates azure.yaml to turn on the global
+  // logs.analytics block for the project. Replaces
+  // POST /api/azure/enable. Mirrors handleEnableAzureLogging in
+  // dashboard/azure_logs_handlers.go: the legacy endpoint takes no
+  // body and enables logging globally (Logs.Analytics initialized);
+  // it does NOT scope to a list of services.
+  rpc EnableAzureLogging(EnableAzureLoggingRequest) returns (EnableAzureLoggingResponse);
+
+  // GetAzureServices returns the names of services that have an
+  // SERVICE_*_NAME environment variable in the resolved azd
+  // environment - i.e. services that have been deployed to Azure.
+  // Replaces GET /api/azure/services. Mirrors
+  // handleAzureServices + extractServiceNamesFromEnv in
+  // dashboard/azure_logs_handlers.go and azure_logs_tables.go: the
+  // legacy endpoint returns a flat string slice, no resource ids,
+  // workspace, or per-service status.
+  rpc GetAzureServices(GetAzureServicesRequest) returns (GetAzureServicesResponse);
+
+  // GetAzureLogs runs a one-shot historical KQL query over Log
+  // Analytics for one (or all) services. Replaces GET /api/azure/logs.
+  // Mirrors handleAzureLogs in dashboard/azure_logs_handlers.go:
+  //   - empty service => merged across all SERVICE_*_NAME entries
+  //   - since defaults to 1h when not supplied
+  //   - tail defaults to 500 and is clamped to 10_000
+  //   - NO_RESULTS from the standalone fetcher is a SUCCESS with an
+  //     empty entries slice, NOT an error.
+  rpc GetAzureLogs(GetAzureLogsRequest) returns (GetAzureLogsResponse);
+
+  // StreamAzureLogs streams Azure log entries for a service. A single
+  // RPC covers both transports legacy /api/azure/logs/stream
+  // multiplexes:
+  //   - realtime=false (default): polling via Log Analytics on an
+  //     adaptive interval (azure.PollingState 5s base, exponential
+  //     backoff to 60s on consecutive failures). Mirrors
+  //     streamAzureLogsViaPolling in dashboard/azure_logs_stream.go.
+  //   - realtime=true: server resolves the deployed resource and
+  //     attaches a per-resource event-hub style streamer
+  //     (azure.NewRealtimeStreamer). Mirrors streamAzureLogsRealtime
+  //     in the same file. If realtime setup fails, the server
+  //     transparently falls back to polling - the legacy WebSocket
+  //     does the same.
+  //
+  // BACK-PRESSURE POLICY (split per mode; tracked in ADR-0001):
+  //   POLLING: per-subscriber bounded buffer (256 entries). The
+  //   producer side BLOCKS on the per-subscriber send, and the
+  //   polling-loop interval itself is extended (50ms -> 2s
+  //   exponential back-off on consecutive blocked sends, on top of
+  //   PollingState's existing failure back-off). Skipping a poll is
+  //   the right answer because Log Analytics queries are metered.
+  //   REALTIME: the upstream event-hub streamer cannot be back-
+  //   pressured. The handler falls back to drop-OLDEST and emits a
+  //   DroppedNotice carrying the dropped count + reason
+  //   ("realtime_buffer_overflow"). A warning is logged so the
+  //   operator can tune the buffer size.
+  //
+  // STATUS EVENTS: a StreamStatus event is sent on first connect,
+  // on every mode transition (e.g. realtime -> polling fallback,
+  // polling -> degraded -> connected), and on retry/recovery so the
+  // dashboard's polling-health UI can render without inferring state
+  // from gaps in the entry stream.
+  rpc StreamAzureLogs(StreamAzureLogsRequest) returns (stream StreamAzureLogsResponse);
+
+  // GetAzureLogsHealth runs the four diagnostic probes the troubleshooting
+  // pane uses (auth, workspace id, services deployed, connectivity) and
+  // computes an overall status. Replaces GET /api/azure/logs/health.
+  // Mirrors handleAzureLogsHealth + the four checkXxx methods in
+  // dashboard/azure_logs_health.go.
+  rpc GetAzureLogsHealth(GetAzureLogsHealthRequest) returns (GetAzureLogsHealthResponse);
+
+  // GetAzureSetupState is the multi-stage setup wizard probe used by
+  // the dashboard's Azure setup flow. Replaces
+  // GET /api/azure/logs/setup-state. Mirrors handleAzureSetupState in
+  // dashboard/azure_setup.go.
+  //
+  // The response is intentionally Struct-typed (passthrough). See the
+  // ADR's "Struct Usage Inventory" subsection: the wizard reads the
+  // shape directly as JSON today; locking a typed schema in this
+  // commit would force a breaking change as the setup state model
+  // evolves with the in-progress Azure provider work. Promotion to a
+  // typed message is a follow-up.
+  rpc GetAzureSetupState(GetAzureSetupStateRequest) returns (GetAzureSetupStateResponse);
+
+  // VerifyAzureLogs runs a small probe query for one service to
+  // confirm log connectivity end-to-end. Replaces
+  // POST /api/azure/logs/verify. Mirrors the verifier path in
+  // dashboard/azure_setup.go (handleAzureLogsVerify).
+  rpc VerifyAzureLogs(VerifyAzureLogsRequest) returns (VerifyAzureLogsResponse);
+
+  // CheckDiagnosticSettings inspects the diagnostic-settings configuration
+  // of every discovered Azure resource. Replaces
+  // GET /api/azure/diagnostic-settings/check. Mirrors
+  // handleAzureDiagnosticSettingsCheck in dashboard/azure_logs_handlers.go,
+  // which delegates to azure.DiagnosticSettingsChecker.CheckAllServices.
+  rpc CheckDiagnosticSettings(CheckDiagnosticSettingsRequest) returns (CheckDiagnosticSettingsResponse);
+
+  // GetAzureDiagnostics runs the comprehensive diagnostics pipeline
+  // (auth, resource graph, workspace, settings, query roundtrip) and
+  // returns a per-service per-stage tree. Replaces
+  // GET /api/azure/diagnostics. Mirrors handleAzureDiagnostics in
+  // dashboard/azure_logs_handlers.go.
+  //
+  // Struct-typed (passthrough). See the ADR's "Struct Usage Inventory"
+  // subsection: the diagnostics pipeline aggregates heterogeneous
+  // probe results whose catalogue is still being shaped, so a
+  // discriminated-union schema is premature.
+  rpc GetAzureDiagnostics(GetAzureDiagnosticsRequest) returns (GetAzureDiagnosticsResponse);
+
+  // VerifyWorkspace runs a recent-logs query against the Log Analytics
+  // workspace to confirm read access and per-service log flow.
+  // Replaces POST /api/azure/workspace/verify. Mirrors
+  // handleAzureWorkspaceVerify in dashboard/azure_logs_handlers.go,
+  // which delegates to azure.WorkspaceVerifier.VerifyWorkspace.
+  rpc VerifyWorkspace(VerifyWorkspaceRequest) returns (VerifyWorkspaceResponse);
+
+  // GetAzureLogConfig returns the per-service log configuration stored
+  // in azure.yaml (services.<name>.logs.analytics). Replaces
+  // GET /api/azure/logs/config. Mirrors handleGetLogConfig in
+  // dashboard/azure_logs_tables.go: the response is a discriminated
+  // union (mode=tables vs mode=custom) mapping directly onto the
+  // dashboard's setup UI. Default resourceType is "containerapp"
+  // (matching legacy) and tables fall back to GetRecommendedTables when
+  // the service config is absent.
+  rpc GetAzureLogConfig(GetAzureLogConfigRequest) returns (GetAzureLogConfigResponse);
+
+  // SaveAzureLogConfig persists the per-service log configuration to
+  // azure.yaml via the non-destructive yamlutil.UpdateServiceLogsConfig
+  // path (preserves comments + schema). Replaces
+  // PUT /api/azure/logs/config. Mirrors handleSaveLogConfig in
+  // dashboard/azure_logs_tables.go.
+  rpc SaveAzureLogConfig(SaveAzureLogConfigRequest) returns (SaveAzureLogConfigResponse);
+
+  // ListAzureTables returns the Log Analytics tables visible to the
+  // workspace, plus the recommended-for-resource-type list and the
+  // categorisation used by the dashboard's table picker. Replaces
+  // GET /api/azure/tables. Mirrors handleAzureTables in
+  // dashboard/azure_logs_tables.go.
+  rpc ListAzureTables(ListAzureTablesRequest) returns (ListAzureTablesResponse);
+
+  // GetServiceQuery returns the KQL query currently in effect for a
+  // service (custom from azure.yaml when present, otherwise the
+  // resource-type default with placeholders substituted for display).
+  // Replaces GET /api/azure/query?service=<name>. Mirrors
+  // handleAzureQuery in dashboard/azure_logs_query.go.
+  //
+  // Renamed from "QueryAzureLogs" to make it clear this returns the
+  // configured KQL for one service - it does NOT execute an arbitrary
+  // query (legacy never did either; the name was misleading). The
+  // "saved queries library" concept is dropped; no caller exists.
+  rpc GetServiceQuery(GetServiceQueryRequest) returns (GetServiceQueryResponse);
+
+  // SaveServiceQuery persists a custom KQL query for one service to
+  // azure.yaml (services.<name>.logs.analytics.query). Replaces
+  // PUT /api/azure/query. Mirrors handleSaveAzureQuery in
+  // dashboard/azure_logs_query.go.
+  //
+  // Renamed from "SaveAzureQuery" to match GetServiceQuery and to
+  // surface that this writes ONE service's query, not a global query
+  // library entry.
+  rpc SaveServiceQuery(SaveServiceQueryRequest) returns (SaveServiceQueryResponse);
+}
+
+// ---------------------------------------------------------------------------
+// EnableAzureLogging - mirrors handleEnableAzureLogging
+// ---------------------------------------------------------------------------
+
+message EnableAzureLoggingRequest {}
+
+message EnableAzureLoggingResponse {
+  // True when azure.yaml now has Logs.Analytics initialized. Always
+  // true on success - the legacy endpoint never returns enabled=false
+  // (an enable-then-already-enabled request is also true).
+  bool enabled = 1;
+  // Human-readable status (legacy text, e.g. "Azure logging enabled!
+  // Refresh to start viewing logs." or "Azure logging is already
+  // enabled").
+  string message = 2;
+}
+
+// ---------------------------------------------------------------------------
+// GetAzureServices - mirrors handleAzureServices
+// ---------------------------------------------------------------------------
+
+message GetAzureServicesRequest {}
+
+message GetAzureServicesResponse {
+  // Service names parsed from SERVICE_*_NAME env vars (lowercase,
+  // hyphenated). Sorted alphabetically. The legacy endpoint returns
+  // ONLY this list - resource ids, workspace, and per-service
+  // logging status are NOT part of the response. Promoting to a
+  // richer struct is non-breaking when needed.
+  repeated string services = 1;
+}
+
+// ---------------------------------------------------------------------------
+// GetAzureLogs - mirrors handleAzureLogs
+// ---------------------------------------------------------------------------
+
+message GetAzureLogsRequest {
+  // Empty service => merged across all SERVICE_*_NAME entries.
+  // Validated against security.ValidateServiceName (allows empty).
+  string service = 1;
+  // Lookback window. Legacy parses Go duration strings ("1h", "30m");
+  // protobuf encodes the same value as seconds. <=0 => default 1h.
+  int64 since_seconds = 2;
+  // Page size. <=0 => default 500. Server clamps to 10_000.
+  int32 tail = 3;
+}
+
+message GetAzureLogsResponse {
+  // Status is "ok" on success (NO_RESULTS also surfaces as ok with an
+  // empty entries slice - matches legacy behavior). Error scenarios
+  // are not modelled here because the Connect handler maps Azure
+  // ErrorInfo.Code to Connect status codes (see handler comments).
+  repeated LogEntry entries = 1;
+  // Server time the response was assembled (NOT the timestamp of the
+  // newest entry).
+  google.protobuf.Timestamp timestamp = 2;
+  // Convenience count = len(entries). Mirrors legacy "count" field;
+  // kept for parity with REST clients that read it directly.
+  int32 count = 3;
+}
+
+// ---------------------------------------------------------------------------
+// StreamAzureLogs - mirrors handleAzureLogsStream
+// ---------------------------------------------------------------------------
+
+message StreamAzureLogsRequest {
+  // Required (non-empty); validated against security.ValidateServiceName.
+  // Empty service is rejected with InvalidArgument because the realtime
+  // path requires a single resource and the polling path also tails one
+  // service today.
+  string service = 1;
+
+  // Realtime mode flag. When true, the server tries the per-resource
+  // event-hub streamer; on setup failure it transparently falls back
+  // to polling (matching the legacy WebSocket). When false, the
+  // server polls Log Analytics on an adaptive interval. When
+  // unspecified at the wire level (default false), the server
+  // consults azure.yaml's logs.analytics.realtime flag - matches the
+  // legacy "?realtime=" query-param fallback in handleAzureLogsStream.
+  // The dashboard SHOULD set realtime explicitly to avoid surprises.
+  bool realtime = 2;
+
+  // Initial backfill window in seconds. <=0 => 30 minutes default
+  // (matches the legacy 30m default in azure_logs_stream.go).
+  // Capped server-side to bound per-stream cost.
+  int64 backfill_seconds = 3;
+}
+
+// StreamAzureLogsResponse is one event on the wire. The dashboard
+// distinguishes three event kinds, modelled as a typed oneof:
+//   - entry: a normal log row
+//   - status: a StreamStatus describing connection health, used to
+//     drive the polling-health UI in the LogsView
+//   - dropped: a DroppedNotice surfacing back-pressure loss in
+//     realtime mode (polling mode never drops; see the per-mode
+//     back-pressure rationale in the RPC comment + ADR-0001).
+message StreamAzureLogsResponse {
+  oneof event {
+    LogEntry entry = 1;
+    StreamStatus status = 2;
+    AzureDroppedNotice dropped = 3;
+  }
+}
+
+// StreamStatus reports a connection-health transition for the Azure
+// log stream. Mirrors the JSON status frames the legacy WebSocket
+// emits via sendHealthStatus (azure_logs_stream.go) so the existing
+// dashboard polling-health UI can render against the new transport
+// without redesigning the field set.
+message StreamStatus {
+  // "connected" | "degraded" | "disconnected" - matches
+  // azure.PollingState.GetHealth().Status verbatim.
+  string status = 1;
+  // "polling" | "realtime" - which transport the server is using
+  // RIGHT NOW. Useful for the dashboard to surface mode flips when
+  // realtime setup fails and the handler falls back to polling.
+  string mode = 2;
+  // Number of consecutive failures observed by the polling loop.
+  // Zero in realtime mode (the realtime path doesn't track this).
+  int32 consecutive_fails = 3;
+  // Last error message, if any. Empty when status is "connected".
+  string error = 4;
+  // When the next polling attempt is scheduled. Zero/unset means
+  // either we are connected or we are in realtime mode.
+  google.protobuf.Timestamp next_retry = 5;
+}
+
+// AzureDroppedNotice reports realtime-mode buffer overflow. Polling
+// mode emits a StreamStatus event with status="degraded" instead - it
+// never drops entries. The {count, at} fields mirror logs.proto's
+// DroppedNotice for consistency across log-stream RPCs; an extra
+// reason field distinguishes overflow causes as the realtime
+// streamer matures. The type is namespaced (AzureDroppedNotice
+// rather than the bare DroppedNotice in logs.proto) so the two can
+// evolve independently as their failure-mode catalogues diverge.
+message AzureDroppedNotice {
+  int64 count = 1;
+  google.protobuf.Timestamp at = 2;
+  // Cause string (e.g. "realtime_buffer_overflow"). Free-form for
+  // now; promoted to an enum once the streamer reports more
+  // failure modes.
+  string reason = 3;
+}
+
+// ---------------------------------------------------------------------------
+// GetAzureLogsHealth - mirrors handleAzureLogsHealth
+// ---------------------------------------------------------------------------
+
+message GetAzureLogsHealthRequest {}
+
+// AzureCheckStatus mirrors the per-check "pass"|"warn"|"fail" string
+// the legacy handler emits. Modelled as a typed enum so the
+// dashboard can switch on it without string compares.
+enum AzureCheckStatus {
+  AZURE_CHECK_STATUS_UNSPECIFIED = 0;
+  AZURE_CHECK_STATUS_PASS = 1;
+  AZURE_CHECK_STATUS_WARN = 2;
+  AZURE_CHECK_STATUS_FAIL = 3;
+}
+
+// AzureOverallStatus mirrors the overall "healthy"|"degraded"|"error"
+// computed by computeOverallStatus in azure_logs_health.go.
+enum AzureOverallStatus {
+  AZURE_OVERALL_STATUS_UNSPECIFIED = 0;
+  AZURE_OVERALL_STATUS_HEALTHY = 1;
+  AZURE_OVERALL_STATUS_DEGRADED = 2;
+  AZURE_OVERALL_STATUS_ERROR = 3;
+}
+
+message AzureHealthCheck {
+  // Check name, stable strings: "Authentication" | "Workspace ID" |
+  // "Services Deployed" | "Connectivity".
+  string name = 1;
+  AzureCheckStatus status = 2;
+  string message = 3;
+  // Optional fix instruction (e.g. "azd auth login"). Empty when
+  // status is pass.
+  string fix = 4;
+}
+
+message GetAzureLogsHealthResponse {
+  AzureOverallStatus status = 1;
+  repeated AzureHealthCheck checks = 2;
+  // Documentation URL for the troubleshoot guide. Stable across
+  // calls; included in the response for the legacy "Open docs"
+  // button that reads it from the JSON.
+  string docs_url = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+// ---------------------------------------------------------------------------
+// GetAzureSetupState - Struct passthrough (see ADR)
+// ---------------------------------------------------------------------------
+
+message GetAzureSetupStateRequest {}
+
+message GetAzureSetupStateResponse {
+  // Mirrors SetupStateResponse from dashboard/azure_setup.go. Read as
+  // JSON by the setup wizard. Promotion to a typed sub-message is a
+  // tracked follow-up (see ADR Struct Usage Inventory).
+  google.protobuf.Struct state = 1;
+}
+
+// ---------------------------------------------------------------------------
+// VerifyAzureLogs - mirrors handleAzureLogsVerify
+// ---------------------------------------------------------------------------
+
+message VerifyAzureLogsRequest {
+  // Required service name; rejected with InvalidArgument when empty.
+  string service = 1;
+}
+
+message VerifyAzureLogsResponse {
+  bool success = 1;
+  string message = 2;
+  int32 rows_returned = 3;
+  google.protobuf.Timestamp queried_at = 4;
+}
+
+// ---------------------------------------------------------------------------
+// CheckDiagnosticSettings - mirrors handleAzureDiagnosticSettingsCheck
+// ---------------------------------------------------------------------------
+
+message CheckDiagnosticSettingsRequest {}
+
+// DiagnosticSettingsStatus mirrors azure.DiagnosticSettingsStatus.
+enum DiagnosticSettingsStatus {
+  DIAGNOSTIC_SETTINGS_STATUS_UNSPECIFIED = 0;
+  DIAGNOSTIC_SETTINGS_STATUS_CONFIGURED = 1;
+  DIAGNOSTIC_SETTINGS_STATUS_NOT_CONFIGURED = 2;
+  DIAGNOSTIC_SETTINGS_STATUS_ERROR = 3;
+}
+
+// DiagnosticSettingResult mirrors azure.DiagnosticSettingsCheckResult
+// (azure/diagnostics.go).
+message DiagnosticSettingResult {
+  DiagnosticSettingsStatus status = 1;
+  string resource_id = 2;
+  string diagnostic_setting_name = 3;
+  string error = 4;
+  // Workspace this service actually sends logs to (for cross-checking
+  // against the response-level workspace_id).
+  string workspace_id = 5;
+}
+
+message CheckDiagnosticSettingsResponse {
+  // Expected workspace id (the project's resolved workspace).
+  string workspace_id = 1;
+  // Per-service result keyed by service name. Mirrors the
+  // map<string, *DiagnosticSettingsCheckResult> shape of the legacy
+  // CheckAllServices response.
+  map<string, DiagnosticSettingResult> services = 2;
+}
+
+// ---------------------------------------------------------------------------
+// GetAzureDiagnostics - Struct passthrough (see ADR)
+// ---------------------------------------------------------------------------
+
+message GetAzureDiagnosticsRequest {}
+
+message GetAzureDiagnosticsResponse {
+  // Mirrors azure.DiagnosticsEngine.RunDiagnostics output. Per-service
+  // per-stage results plus aggregate. Tracked in the ADR Struct Usage
+  // Inventory; promoted to a typed sub-message once the diagnostic
+  // catalogue stabilizes.
+  google.protobuf.Struct diagnostics = 1;
+}
+
+// ---------------------------------------------------------------------------
+// VerifyWorkspace - mirrors handleAzureWorkspaceVerify
+// ---------------------------------------------------------------------------
+
+message VerifyWorkspaceRequest {
+  // Optional list of services to probe. Empty => probe all discovered.
+  // Maps to azure.WorkspaceVerificationRequest.Services.
+  repeated string services = 1;
+  // Optional ISO 8601 duration (e.g. "PT15M"). Empty => default
+  // PT15M. Maps to azure.WorkspaceVerificationRequest.Timespan. The
+  // server returns InvalidArgument when the legacy verifier reports
+  // "invalid timespan".
+  string timespan = 2;
+}
+
+// WorkspaceVerificationStatus mirrors azure.WorkspaceVerificationStatus.
+enum WorkspaceVerificationStatus {
+  WORKSPACE_VERIFICATION_STATUS_UNSPECIFIED = 0;
+  WORKSPACE_VERIFICATION_STATUS_SUCCESS = 1;
+  WORKSPACE_VERIFICATION_STATUS_PARTIAL = 2;
+  WORKSPACE_VERIFICATION_STATUS_ERROR = 3;
+}
+
+// ServiceVerificationStatus mirrors azure.ServiceVerificationStatus.
+enum ServiceVerificationStatus {
+  SERVICE_VERIFICATION_STATUS_UNSPECIFIED = 0;
+  SERVICE_VERIFICATION_STATUS_OK = 1;
+  SERVICE_VERIFICATION_STATUS_NO_LOGS = 2;
+  SERVICE_VERIFICATION_STATUS_ERROR = 3;
+  SERVICE_VERIFICATION_STATUS_DIAGNOSTIC_NOT_CONFIGURED = 4;
+}
+
+// WorkspaceInfo mirrors azure.WorkspaceInfo.
+message WorkspaceInfo {
+  string id = 1;
+  string name = 2;
+}
+
+// ServiceVerificationResult mirrors azure.ServiceVerificationResult.
+// Some upstream fields (e.g. raw query payload) are intentionally
+// omitted - the dashboard reads only what is exposed here.
+message ServiceVerificationResult {
+  ServiceVerificationStatus status = 1;
+  string service = 2;
+  int32 rows_returned = 3;
+  string error = 4;
+  google.protobuf.Timestamp queried_at = 5;
+  // Free-form details for the dashboard tooltip (e.g. table queried,
+  // KQL effective). Kept narrow so promotion to a typed field is
+  // non-breaking.
+  google.protobuf.Struct details = 6;
+}
+
+message VerifyWorkspaceResponse {
+  WorkspaceVerificationStatus status = 1;
+  WorkspaceInfo workspace = 2;
+  // Per-service results keyed by service name. Mirrors the
+  // map<string, *ServiceVerificationResult> shape of the legacy
+  // response.
+  map<string, ServiceVerificationResult> results = 3;
+  // Free-form remediation guidance lines (legacy field).
+  repeated string guidance = 4;
+}
+
+// ---------------------------------------------------------------------------
+// GetAzureLogConfig / SaveAzureLogConfig - mirrors handleGetLogConfig and
+// handleSaveLogConfig in dashboard/azure_logs_tables.go
+// ---------------------------------------------------------------------------
+
+// AzureLogConfigMode reflects the discriminated union the legacy
+// endpoint returns: a service either has a list of tables OR a custom
+// KQL query, never both. Modelled as an enum so the handler can
+// reject mixed payloads (legacy validates this server-side).
+enum AzureLogConfigMode {
+  AZURE_LOG_CONFIG_MODE_UNSPECIFIED = 0;
+  AZURE_LOG_CONFIG_MODE_TABLES = 1;
+  AZURE_LOG_CONFIG_MODE_CUSTOM = 2;
+}
+
+message GetAzureLogConfigRequest {
+  // Required; rejected with InvalidArgument when empty.
+  string service = 1;
+}
+
+message GetAzureLogConfigResponse {
+  string service = 1;
+  AzureLogConfigMode mode = 2;
+  // Populated when mode = TABLES. May be the resolved recommended
+  // list when azure.yaml has none configured.
+  repeated string tables = 3;
+  // Populated when mode = CUSTOM.
+  string query = 4;
+  // Resource type string from azure.yaml's services.<name>.host (e.g.
+  // "containerapp", "appservice"). Defaults to "containerapp" when
+  // not set, matching legacy.
+  string resource_type = 5;
+}
+
+message SaveAzureLogConfigRequest {
+  string service = 1;
+  AzureLogConfigMode mode = 2;
+  // Required when mode = TABLES (empty list rejected with
+  // InvalidArgument).
+  repeated string tables = 3;
+  // Required when mode = CUSTOM (empty rejected with
+  // InvalidArgument).
+  string query = 4;
+}
+
+message SaveAzureLogConfigResponse {
+  // Echoes the saved config so clients can confirm the round-trip
+  // without re-reading. Resource type is NOT echoed - legacy never
+  // returns it on PUT.
+  string service = 1;
+  AzureLogConfigMode mode = 2;
+  repeated string tables = 3;
+  string query = 4;
+}
+
+// ---------------------------------------------------------------------------
+// ListAzureTables - mirrors handleAzureTables
+// ---------------------------------------------------------------------------
+
+// AzureResourceType mirrors internal/azure.ResourceType. Wire values
+// match the lowercase strings azure_logs_tables.go reads from the
+// resourceType query param ("containerapp", "appservice",
+// "function").
+enum AzureResourceType {
+  AZURE_RESOURCE_TYPE_UNSPECIFIED = 0;
+  AZURE_RESOURCE_TYPE_CONTAINER_APP = 1;
+  AZURE_RESOURCE_TYPE_APP_SERVICE = 2;
+  AZURE_RESOURCE_TYPE_FUNCTION_APP = 3;
+}
+
+message ListAzureTablesRequest {
+  // Defaults to CONTAINER_APP server-side when UNSPECIFIED, matching
+  // legacy.
+  AzureResourceType resource_type = 1;
+}
+
+// AzureTableInfo mirrors azure.TableInfo (the parts the dashboard
+// reads). The legacy TableInfo has more diagnostic fields; only the
+// ones used by the table picker are surfaced.
+message AzureTableInfo {
+  string name = 1;
+  string description = 2;
+  // Indicates the table is in the "recommended for resource type"
+  // list. Mirrors azure.IsRecommendedTable.
+  bool recommended = 3;
+}
+
+// AzureTableCategory mirrors dashboard.TableCategory.
+message AzureTableCategory {
+  string name = 1;
+  string display_name = 2;
+  repeated string tables = 3;
+}
+
+message ListAzureTablesResponse {
+  repeated AzureTableInfo tables = 1;
+  // Recommended table names for the request's resource type. Mirrors
+  // azure.GetRecommendedTables.
+  repeated string recommended = 2;
+  // Workspace id with the middle truncated for display (legacy uses
+  // truncateMiddle(workspaceID, 20)).
+  string workspace = 3;
+  repeated AzureTableCategory categories = 4;
+}
+
+// ---------------------------------------------------------------------------
+// GetServiceQuery / SaveServiceQuery - mirrors handleAzureQuery and
+// handleSaveAzureQuery (dashboard/azure_logs_query.go)
+// ---------------------------------------------------------------------------
+
+message GetServiceQueryRequest {
+  // Required; rejected with InvalidArgument when empty.
+  string service = 1;
+}
+
+message GetServiceQueryResponse {
+  string service = 1;
+  // "custom" when a per-service query is stored in azure.yaml,
+  // otherwise the resource-type string ("containerapp" by default).
+  // Wire string kept loose because the legacy field doubles as the
+  // resource-type marker for the dashboard's query editor banner.
+  string resource_type = 2;
+  // The KQL query in effect. Custom queries are returned verbatim;
+  // default queries have placeholders ({serviceName}, {timespan})
+  // substituted for display.
+  string query = 3;
+}
+
+message SaveServiceQueryRequest {
+  string service = 1;
+  string query = 2;
+}
+
+message SaveServiceQueryResponse {
+  // Echoes the saved query with resource_type pinned to "custom"
+  // (matching legacy: a saved query is always custom by definition).
+  string service = 1;
+  string resource_type = 2;
+  string query = 3;
+}

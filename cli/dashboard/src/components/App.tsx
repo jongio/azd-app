@@ -290,13 +290,27 @@ export function App({
         className
       )}
     >
-      {/* Connection Lost / Reconnecting Overlay */}
-      {healthError && (
+      {/* Connection Lost Overlay
+       *
+       * The full-screen blocking overlay only renders when the backend is
+       * genuinely unreachable (reconnect attempts exhausted). Transient
+       * reconnect cycles — `Connection lost. Reconnecting in Ns...` and
+       * bare `Backend connection lost` during attempts 4-5 — must not
+       * block the UI; the page stays interactive and recovers silently
+       * when the stream re-attaches. The exhaustion signal is the single
+       * `Click to reconnect` substring that useHealthStream sets exactly
+       * once at `reconnectAttemptsRef >= maxReconnectAttemptsRef`; every
+       * other healthError value represents an in-progress recovery and
+       * must keep the dashboard usable. Matches the pre-Connect legacy
+       * SSE UX, where transient reconnects surfaced as a non-blocking
+       * header banner rather than a modal.
+       */}
+      {healthError?.includes('Click to reconnect') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-slate-900/95 transition-opacity duration-300">
           <div className="flex flex-col items-center gap-6 p-8 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md mx-4">
             {/* Animated Icon */}
             <div className="relative w-24 h-24 flex items-center justify-center">
-              {healthError.includes('Failed to connect') ? (
+              {healthError.includes('Click to reconnect') ? (
                 <>
                   {/* Disconnected state */}
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -331,7 +345,7 @@ export function App({
             {/* Message */}
             <div className="text-center">
               <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                {healthError.includes('Failed to connect') ? 'Connection Lost' : 'Reconnecting...'}
+                {healthError.includes('Click to reconnect') ? 'Connection Lost' : 'Reconnecting...'}
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">{healthError}</p>
             </div>

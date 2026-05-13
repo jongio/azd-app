@@ -1,22 +1,34 @@
 /**
- * useAzureConnectionStatus - Manages Azure connection status and mode switching
+ * useAzureConnectionStatus - Manages Azure connection status and mode switching.
+ *
+ * Wire migration: this hook used to talk to GET/PUT /api/mode through
+ * raw fetch. It now uses the ModeService Connect client. The public
+ * surface (return shape, options, behavior) is preserved on purpose so
+ * existing consumers (ConsoleView, ModeToggle) need no changes.
+ *
+ * Test seam: an optional `transport` option lets tests inject an
+ * in-memory router transport. Production code never passes one and
+ * gets the singleton shared with every other hook.
  */
 import * as React from 'react'
+import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+
 import type { LogMode } from '@/components/ModeToggle'
+import { createModeClient } from '@/lib/connectClient'
+import type { ModeService } from '@/gen/proto/azdapp/v1/mode_connect.js'
+import {
+  GetModeRequest,
+  type GetModeResponse,
+  LogMode as ProtoLogMode,
+  SetModeRequest,
+  type SetModeResponse,
+} from '@/gen/proto/azdapp/v1/mode_pb.js'
 
 // =============================================================================
 // Types
 // =============================================================================
 
 export type AzureConnectionStatus = 'connected' | 'degraded' | 'disconnected' | 'connecting' | 'disabled'
-
-interface ModeApiResponse {
-  mode?: LogMode
-  azureEnabled?: boolean
-  azureStatus?: AzureConnectionStatus
-  azureRealtime?: boolean
-  connectionMessage?: string
-}
 
 // =============================================================================
 // Helpers
@@ -26,24 +38,81 @@ function isLogMode(value: unknown): value is LogMode {
   return value === 'local' || value === 'azure'
 }
 
-function isAzureConnectionStatus(value: unknown): value is AzureConnectionStatus {
-  return value === 'connected' || value === 'degraded' || value === 'disconnected' || value === 'connecting' || value === 'disabled'
+function isAzureConnectionStatus(value: string): value is AzureConnectionStatus {
+  return (
+    value === 'connected' ||
+    value === 'degraded' ||
+    value === 'disconnected' ||
+    value === 'connecting' ||
+    value === 'disabled'
+  )
 }
 
-function parseModeApiResponse(value: unknown): ModeApiResponse {
-  if (typeof value !== 'object' || value === null) {
-    return {}
+/**
+ * Map proto LogMode → string LogMode used by the rest of the dashboard.
+ * UNSPECIFIED is treated as undefined (not a valid mode); the hook then
+ * leaves the existing local state alone.
+ */
+function protoToLogMode(m: ProtoLogMode): LogMode | undefined {
+  switch (m) {
+    case ProtoLogMode.LOCAL:
+      return 'local'
+    case ProtoLogMode.AZURE:
+      return 'azure'
+    default:
+      return undefined
   }
+}
 
-  const record = value as Record<string, unknown>
+/**
+ * Map string LogMode → proto LogMode for SetMode requests. Invalid
+ * inputs map to UNSPECIFIED, which the server rejects with
+ * InvalidArgument; that signal bubbles back as a ConnectError and the
+ * caller logs/rolls back exactly like the legacy 400 path.
+ */
+function logModeToProto(m: LogMode): ProtoLogMode {
+  switch (m) {
+    case 'local':
+      return ProtoLogMode.LOCAL
+    case 'azure':
+      return ProtoLogMode.AZURE
+    default:
+      return ProtoLogMode.UNSPECIFIED
+  }
+}
 
-  const mode = isLogMode(record.mode) ? record.mode : undefined
-  const azureEnabled = typeof record.azureEnabled === 'boolean' ? record.azureEnabled : undefined
-  const azureStatus = isAzureConnectionStatus(record.azureStatus) ? record.azureStatus : undefined
-  const azureRealtime = typeof record.azureRealtime === 'boolean' ? record.azureRealtime : undefined
-  const connectionMessage = typeof record.connectionMessage === 'string' ? record.connectionMessage : undefined
+/**
+ * Project a Get/SetMode response onto the local state shape. Keeps the
+ * two response handlers in sync — both messages share the same fields,
+ * so a divergence here would silently desync the UI.
+ */
+interface NormalizedModeSnapshot {
+  mode?: LogMode
+  azureEnabled: boolean
+  azureStatus: AzureConnectionStatus
+  azureRealtime: boolean
+  connectionMessage: string | undefined
+}
 
-  return { mode, azureEnabled, azureStatus, azureRealtime, connectionMessage }
+function normalizeModeResponse(resp: GetModeResponse | SetModeResponse): NormalizedModeSnapshot {
+  const enabled = resp.azureEnabled
+  // Server is the source of truth for status; if it sends an unknown
+  // string we fall back to "disconnected" (enabled-but-broken) or
+  // "disabled" (disabled), matching the legacy parseModeApiResponse
+  // contract that swallowed bad values.
+  let azureStatus: AzureConnectionStatus
+  if (isAzureConnectionStatus(resp.azureStatus)) {
+    azureStatus = resp.azureStatus
+  } else {
+    azureStatus = enabled ? 'disconnected' : 'disabled'
+  }
+  return {
+    mode: protoToLogMode(resp.mode),
+    azureEnabled: enabled,
+    azureStatus: enabled ? azureStatus : 'disabled',
+    azureRealtime: resp.azureRealtime,
+    connectionMessage: resp.connectionMessage === '' ? undefined : resp.connectionMessage,
+  }
 }
 
 // =============================================================================
@@ -62,24 +131,34 @@ export interface UseAzureConnectionStatusResult {
 
 export interface UseAzureConnectionStatusOptions {
   onAzureRealtimeConfig?: (azureRealtime: boolean | undefined) => void
+  /** Test seam — inject a Connect transport (e.g. createRouterTransport). */
+  transport?: Transport
 }
 
 export function useAzureConnectionStatus(
   options?: UseAzureConnectionStatusOptions
 ): UseAzureConnectionStatusResult {
+  const transport = options?.transport
+  const onAzureRealtimeConfig = options?.onAzureRealtimeConfig
+
+  const client = React.useMemo<PromiseClient<typeof ModeService>>(
+    () => createModeClient(transport),
+    [transport]
+  )
+
   const [logMode, setLogMode] = React.useState<LogMode>('local')
   const [isModeSwitching, setIsModeSwitching] = React.useState(false)
   const [azureEnabled, setAzureEnabled] = React.useState(false)
   const [azureStatus, setAzureStatus] = React.useState<AzureConnectionStatus>('disabled')
   const [azureConnectionMessage, setAzureConnectionMessage] = React.useState<string | undefined>(undefined)
-  
-  // Track in-flight requests to prevent concurrent fetches
+
+  // Track in-flight requests to prevent concurrent fetches. The
+  // AbortController is kept for symmetry with the legacy hook (so
+  // cleanup on unmount aborts the call); Connect honours the signal.
   const abortControllerRef = React.useRef<AbortController | null>(null)
-  // Track mode switch cleanup timeout
   const modeSwitchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchAzureStatus = React.useCallback(async () => {
-    // Guard: prevent concurrent requests
     if (abortControllerRef.current) {
       return // Already fetching, skip this request
     }
@@ -88,54 +167,29 @@ export function useAzureConnectionStatus(
     abortControllerRef.current = controller
 
     try {
-      const res = await fetch('/api/mode', { signal: controller.signal })
-      if (res.ok) {
-        let raw: unknown
-        try {
-          raw = await res.json()
-        } catch (error_) {
-          console.warn('[useAzureConnectionStatus] Failed to parse mode response:', error_)
-          return
-        }
-        
-        const data = parseModeApiResponse(raw)
+      const resp = await client.getMode(new GetModeRequest(), { signal: controller.signal })
+      const snap = normalizeModeResponse(resp)
 
-        // Set the current mode from backend (important for initial page load)
-        if (data.mode) {
-          setLogMode(data.mode)
-        }
-
-        const enabled = data.azureEnabled ?? false
-        setAzureEnabled(enabled)
-        setAzureConnectionMessage(data.connectionMessage)
-
-        // Notify about default realtime toggle from config
-        options?.onAzureRealtimeConfig?.(data.azureRealtime)
-
-        if (enabled) {
-          setAzureStatus(data.azureStatus ?? 'disconnected')
-        } else {
-          setAzureStatus('disabled')
-        }
-      } else {
-        // Non-OK response - backend is up but returned error
-        const statusText = res.statusText || 'Unknown error'
-        console.warn(`[useAzureConnectionStatus] Failed to fetch mode: ${res.status} ${statusText}`)
+      if (snap.mode) {
+        setLogMode(snap.mode)
       }
+      setAzureEnabled(snap.azureEnabled)
+      setAzureConnectionMessage(snap.connectionMessage)
+      onAzureRealtimeConfig?.(snap.azureRealtime)
+      setAzureStatus(snap.azureEnabled ? snap.azureStatus : 'disabled')
     } catch (err) {
-      // Ignore abort errors (from cleanup or concurrent request prevention)
-      if (err instanceof Error && err.name === 'AbortError') {
-        return
-      }
-      // Network error - backend is likely down, don't spam console
-      // Status will remain as-is (disabled or last known state)
+      if (controller.signal.aborted) return
+      if (err instanceof ConnectError && err.code === Code.Canceled) return
+      // Network/server error - log without spamming. Status stays as-is
+      // so a transient failure doesn't visually flip the toggle.
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(`[useAzureConnectionStatus] Failed to fetch mode: ${message}`)
     } finally {
-      // Clear the abort controller if this is still our request
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null
       }
     }
-  }, [options])
+  }, [client, onAzureRealtimeConfig])
 
   // Cleanup: abort any in-flight request and clear timeout on unmount
   React.useEffect(() => {
@@ -151,13 +205,13 @@ export function useAzureConnectionStatus(
 
   const handleLogModeChange = React.useCallback(
     async (newMode: LogMode) => {
-      // Validate input
       if (!isLogMode(newMode)) {
         console.error(`[useAzureConnectionStatus] Invalid mode: ${String(newMode)}`)
         return
       }
 
-      // Get current mode synchronously
+      // Snapshot current mode synchronously so we don't kick off a
+      // SetMode call when nothing would change.
       let currentModeSnapshot: LogMode | null = null
       setLogMode((current) => {
         currentModeSnapshot = current
@@ -165,42 +219,35 @@ export function useAzureConnectionStatus(
       })
 
       if (!currentModeSnapshot || newMode === currentModeSnapshot) {
-        return // No change needed
+        return
       }
 
-      // Start async mode switch operation
       setIsModeSwitching(true)
 
-      // Clear any pending timeout
       if (modeSwitchTimeoutRef.current) {
         clearTimeout(modeSwitchTimeoutRef.current)
         modeSwitchTimeoutRef.current = null
       }
 
       try {
-        // Call backend API to switch mode - this starts/stops Azure polling
-        const res = await fetch('/api/mode', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: newMode }),
-        })
+        const resp = await client.setMode(
+          new SetModeRequest({ mode: logModeToProto(newMode) })
+        )
+        const snap = normalizeModeResponse(resp)
 
-        if (res.ok) {
-          // Success - update mode
-          setLogMode(newMode)
-          // Refresh Azure status after mode change
-          await fetchAzureStatus()
-        } else {
-          const errorText = await res.text()
-          const statusText = res.statusText || 'Unknown error'
-          console.error(
-            `[useAzureConnectionStatus] Failed to switch mode to '${newMode}': ${res.status} ${statusText}`,
-            errorText
-          )
-          // Keep the previous mode on error
-        }
+        // Trust the server's echo of the new mode rather than the
+        // requested one; if the server clamps to something else (it
+        // doesn't today, but the contract allows it) we follow.
+        setLogMode(snap.mode ?? newMode)
+        setAzureEnabled(snap.azureEnabled)
+        setAzureConnectionMessage(snap.connectionMessage)
+        onAzureRealtimeConfig?.(snap.azureRealtime)
+        setAzureStatus(snap.azureEnabled ? snap.azureStatus : 'disabled')
       } catch (err) {
-        console.error(`[useAzureConnectionStatus] Error switching mode to '${newMode}':`, err)
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(
+          `[useAzureConnectionStatus] Failed to switch mode to '${newMode}': ${message}`
+        )
         // Keep the previous mode on error
       } finally {
         // Clear switching state after a short delay to let panes reconnect
@@ -210,7 +257,7 @@ export function useAzureConnectionStatus(
         }, 1500)
       }
     },
-    [fetchAzureStatus]
+    [client, onAzureRealtimeConfig]
   )
 
   return {

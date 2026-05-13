@@ -1,53 +1,106 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Code, ConnectError, type Transport } from '@connectrpc/connect'
+
+import { createLogsClient } from '@/lib/connectClient'
+import {
+  Classification as PbClassification,
+} from '@/gen/proto/azdapp/v1/logs_pb.js'
+import { LogLevel } from '@/gen/proto/azdapp/v1/common_pb.js'
 
 /**
- * Log classification stored in azure.yaml
+ * Log classification stored in azure.yaml. Public shape preserved across
+ * the Connect migration: callers (LogsView, useSharedLogStream, the test
+ * harness) match on the literal level strings, so the proto LogLevel
+ * enum is converted at the hook boundary rather than leaked.
  */
 export interface LogClassification {
   text: string   // Text to match (case-insensitive)
   level: 'info' | 'warning' | 'error'
 }
 
-interface ClassificationsResponse {
-  classifications: LogClassification[]
-}
-
-// Custom event name for classification changes
+// Custom event name for classification changes. Kept as a window-scoped
+// CustomEvent so multiple useLogClassifications instances stay in sync
+// without a shared store - the same in-process pub/sub the legacy hook
+// used. The Connect migration only swaps the wire; cross-instance sync
+// still has to flow through the DOM.
 const CLASSIFICATIONS_CHANGED_EVENT = 'classificationsChanged'
 
-/**
- * Notify all hook instances that classifications have changed
- */
 function notifyClassificationsChanged() {
   window.dispatchEvent(new CustomEvent(CLASSIFICATIONS_CHANGED_EVENT))
 }
 
 /**
- * Hook for managing log classifications stored in azure.yaml.
- * 
- * Classifications allow users to override the default log level detection
- * by specifying text patterns and their desired classification level.
- * 
- * Example: "Connection refused" -> error
- *          "cache miss" -> info (downgrade from warning)
+ * Translate the proto LogLevel enum into the legacy literal strings the
+ * dashboard already uses. WARN maps to "warning" because the legacy
+ * REST contract used the long form and downstream filters key on it.
+ * Anything that isn't INFO/WARN/ERROR is treated as INFO for safety
+ * (UNSPECIFIED, TRACE, DEBUG, FATAL aren't valid classification levels
+ * server-side, so receiving one is a server bug rather than a hot path
+ * we should crash on).
  */
-export function useLogClassifications() {
+function pbLevelToLiteral(level: LogLevel): 'info' | 'warning' | 'error' {
+  switch (level) {
+    case LogLevel.ERROR:
+    case LogLevel.FATAL:
+      return 'error'
+    case LogLevel.WARN:
+      return 'warning'
+    case LogLevel.INFO:
+    case LogLevel.TRACE:
+    case LogLevel.DEBUG:
+    case LogLevel.UNSPECIFIED:
+    default:
+      return 'info'
+  }
+}
+
+function literalToPbLevel(level: 'info' | 'warning' | 'error'): LogLevel {
+  switch (level) {
+    case 'error':
+      return LogLevel.ERROR
+    case 'warning':
+      return LogLevel.WARN
+    case 'info':
+    default:
+      return LogLevel.INFO
+  }
+}
+
+/**
+ * Hook for managing log classifications stored in azure.yaml.
+ *
+ * Classifications allow users to override the default log-level detection
+ * by specifying text patterns and their desired classification level.
+ *
+ * Example: "Connection refused" -> error
+ *          "cache miss"         -> info (downgrade from warning)
+ *
+ * The optional `transport` argument is for tests that wire an in-memory
+ * `createRouterTransport` against a stub LogsService handler. Production
+ * callers pass nothing and get the singleton browser transport from
+ * connectClient.ts.
+ */
+export function useLogClassifications(transport?: Transport) {
   const [classifications, setClassifications] = useState<LogClassification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+
+  // Memoise the client so referential identity is stable across renders
+  // when the transport is. Without this, every render would rebuild the
+  // client and the loadClassifications useCallback would re-fire.
+  const client = useMemo(() => createLogsClient(transport), [transport])
 
   const loadClassifications = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
-      
-      const response = await fetch('/api/logs/classifications')
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const data = await response.json() as ClassificationsResponse
-      setClassifications(data.classifications ?? [])
+      const resp = await client.listClassifications({})
+      setClassifications(
+        resp.classifications.map(c => ({
+          text: c.text,
+          level: pbLevelToLiteral(c.level),
+        }))
+      )
     } catch (err) {
       console.error('Failed to load classifications:', err)
       setError(err instanceof Error ? err : new Error('Failed to load classifications'))
@@ -55,17 +108,14 @@ export function useLogClassifications() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [client])
 
-  // Load on mount and listen for changes from other hook instances
+  // Load on mount and listen for changes from other hook instances.
   useEffect(() => {
     void loadClassifications()
-
-    // Listen for changes from other instances
     const handleChange = () => {
       void loadClassifications()
     }
-    
     window.addEventListener(CLASSIFICATIONS_CHANGED_EVENT, handleChange)
     return () => {
       window.removeEventListener(CLASSIFICATIONS_CHANGED_EVENT, handleChange)
@@ -73,97 +123,92 @@ export function useLogClassifications() {
   }, [loadClassifications])
 
   /**
-   * Add a new classification.
-   * If the text already exists, updates the level instead.
-   * @param skipNotify - If true, skip reload and notification (for batch operations)
+   * Add a new classification. If the text already exists, updates the
+   * level instead (case-insensitive match, server-side).
+   * @param skipNotify - true skips reload + cross-instance notification
+   *                     for batch operations (matches legacy contract).
    */
   const addClassification = useCallback(async (
-    text: string, 
+    text: string,
     level: 'info' | 'warning' | 'error',
     skipNotify = false
   ): Promise<LogClassification> => {
-    const classification: LogClassification = { text, level }
-    
     try {
-      const response = await fetch('/api/logs/classifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(classification)
+      const resp = await client.addClassification({
+        classification: new PbClassification({
+          text,
+          level: literalToPbLevel(level),
+        }),
       })
+      const stored = resp.classification
+      const result: LogClassification = stored
+        ? { text: stored.text, level: pbLevelToLiteral(stored.level) }
+        : { text, level }
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(errorText || `HTTP error! status: ${response.status}`)
-      }
-
-      // Reload and notify other instances (unless in batch mode)
       if (!skipNotify) {
         await loadClassifications()
         notifyClassificationsChanged()
       }
-      
-      return classification
+      return result
     } catch (err) {
       console.error('Failed to add classification:', err)
-      throw err
+      // ConnectError surfaces a useful .message; rethrow as Error so
+      // existing toast-on-throw call sites keep their copy.
+      throw err instanceof ConnectError
+        ? new Error(err.rawMessage || err.message)
+        : err
     }
-  }, [loadClassifications])
+  }, [client, loadClassifications])
 
   /**
-   * Delete a classification by index.
-   * @param skipNotify - If true, skip reload and notification (for batch operations)
+   * Delete a classification by its current index. The index is the
+   * position in the most recent ListClassifications response; callers
+   * are expected to refresh via reload() / event before issuing
+   * positional deletes if they may be racing other writers.
    */
-  const deleteClassification = useCallback(async (index: number, skipNotify = false): Promise<void> => {
+  const deleteClassification = useCallback(async (
+    index: number,
+    skipNotify = false
+  ): Promise<void> => {
     try {
-      const response = await fetch(`/api/logs/classifications/${index}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      // Reload and notify other instances (unless in batch mode)
+      await client.deleteClassification({ index })
       if (!skipNotify) {
         await loadClassifications()
         notifyClassificationsChanged()
       }
     } catch (err) {
       console.error('Failed to delete classification:', err)
-      throw err
+      throw err instanceof ConnectError
+        ? new Error(err.rawMessage || err.message)
+        : err
     }
-  }, [loadClassifications])
+  }, [client, loadClassifications])
 
   /**
-   * Get the classification level for a given log message.
-   * Uses longest-match-wins strategy when multiple classifications match.
-   * 
-   * @param text The log message to check
-   * @returns The classification level, or null if no classification matches
+   * Get the classification level for a given log message. Uses
+   * longest-match-wins when multiple classifications match. Pure on the
+   * current `classifications` state - no network. Behaviour is bit-for-
+   * bit identical to the legacy hook.
    */
-  const getClassificationForText = useCallback((text: string): 'info' | 'warning' | 'error' | null => {
-    if (!text || classifications.length === 0) {
-      return null
-    }
-
-    const lowerText = text.toLowerCase()
-    
-    // Find all matching classifications
-    const matches = classifications.filter(c => 
-      lowerText.includes(c.text.toLowerCase())
-    )
-
-    if (matches.length === 0) {
-      return null
-    }
-
-    // Use longest match (most specific)
-    const longestMatch = matches.reduce((prev, curr) => 
-      curr.text.length > prev.text.length ? curr : prev
-    )
-
-    return longestMatch.level
-  }, [classifications])
+  const getClassificationForText = useCallback(
+    (text: string): 'info' | 'warning' | 'error' | null => {
+      if (!text || classifications.length === 0) {
+        return null
+      }
+      const lowerText = text.toLowerCase()
+      const matches = classifications.filter(c =>
+        lowerText.includes(c.text.toLowerCase())
+      )
+      if (matches.length === 0) {
+        return null
+      }
+      const longestMatch = matches.reduce((prev, curr) =>
+        curr.text.length > prev.text.length ? curr : prev
+      )
+      return longestMatch.level
+    },
+    [classifications]
+  )
 
   return {
     classifications,
@@ -172,6 +217,10 @@ export function useLogClassifications() {
     addClassification,
     deleteClassification,
     getClassificationForText,
-    reload: loadClassifications
+    reload: loadClassifications,
   }
 }
+
+// Re-export Code for tests/callers that want to assert specific Connect
+// codes on rejected promises without importing connect-web directly.
+export { Code as ConnectCode }

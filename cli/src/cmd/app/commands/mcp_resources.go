@@ -91,18 +91,11 @@ func newServiceConfigResource() server.ServerResource {
 				return nil, fmt.Errorf("request canceled: %w", err)
 			}
 
-			// Get service configurations from project directory
-			var cmdArgs []string
+			// Get service configurations from project directory.
+			// getProjectDir already validates; no extra validation needed.
 			projectDir := getProjectDir()
-			if projectDir != "." {
-				validatedDir, err := validateProjectDir(projectDir)
-				if err != nil {
-					return nil, fmt.Errorf("invalid project directory: %w", err)
-				}
-				cmdArgs = append(cmdArgs, cwdFlag, validatedDir)
-			}
 
-			result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
+			result, err := getAppInfoForMCP(ctx, projectDir)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get service configs: %w", err)
 			}

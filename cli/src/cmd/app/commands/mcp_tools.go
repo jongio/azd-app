@@ -52,12 +52,12 @@ func addGetServicesTool(b *azdext.MCPServerBuilder) {
 }
 
 func handleGetServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToolResult, error) {
-	cmdArgs, err := extractProjectDirArg(args)
+	projectDir, err := extractValidatedProjectDir(args)
 	if err != nil {
 		return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 	}
 
-	result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
+	result, err := getAppInfoForMCP(ctx, projectDir)
 	if err != nil {
 		return azdext.MCPErrorResult("Failed to get services: %v", err), nil
 	}
@@ -288,12 +288,12 @@ func addGetProjectInfoTool(b *azdext.MCPServerBuilder) {
 }
 
 func handleGetProjectInfo(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToolResult, error) {
-	cmdArgs, err := extractProjectDirArg(args)
+	projectDir, err := extractValidatedProjectDir(args)
 	if err != nil {
 		return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 	}
 
-	result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
+	result, err := getAppInfoForMCP(ctx, projectDir)
 	if err != nil {
 		return azdext.MCPErrorResult("Failed to get project info: %v", err), nil
 	}
@@ -652,7 +652,7 @@ func addGetEnvironmentVariablesTool(b *azdext.MCPServerBuilder) {
 }
 
 func handleGetEnvironmentVariables(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToolResult, error) {
-	cmdArgs, err := extractProjectDirArg(args)
+	projectDir, err := extractValidatedProjectDir(args)
 	if err != nil {
 		return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
 	}
@@ -665,7 +665,7 @@ func handleGetEnvironmentVariables(ctx context.Context, args azdext.ToolArgs) (*
 		}
 	}
 
-	result, err := executeAzdAppCommand(ctx, "info", cmdArgs)
+	result, err := getAppInfoForMCP(ctx, projectDir)
 	if err != nil {
 		return azdext.MCPErrorResult("Failed to get environment variables: %v", err), nil
 	}

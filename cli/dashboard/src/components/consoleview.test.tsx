@@ -143,9 +143,26 @@ vi.mock('@/components/LogsPane', () => ({
   },
 }))
 
-const fetchMock = vi.fn()
+// Connect-RPC migration: ConsoleView consumes useAzureConnectionStatus, which now talks Connect
+// instead of fetch('/api/mode'). Stub the hook directly so component tests stay focused on the UI
+// surface and don't depend on transport plumbing. Hook behavior is covered in
+// useAzureConnectionStatus.test.ts.
+let mockLogMode: 'azure' | 'local' = 'azure'
+let mockAzureEnabled = true
+const fetchAzureStatusMock = vi.fn().mockResolvedValue(undefined)
+const handleLogModeChangeMock = vi.fn().mockResolvedValue(undefined)
 
-globalThis.fetch = fetchMock as unknown as typeof fetch
+vi.mock('@/hooks/useAzureConnectionStatus', () => ({
+  useAzureConnectionStatus: () => ({
+    logMode: mockLogMode,
+    isModeSwitching: false,
+    azureEnabled: mockAzureEnabled,
+    azureStatus: mockAzureEnabled ? 'connected' : 'disabled',
+    azureConnectionMessage: undefined,
+    fetchAzureStatus: fetchAzureStatusMock,
+    handleLogModeChange: handleLogModeChangeMock,
+  }),
+}))
 
 describe('ConsoleView', () => {
   beforeEach(() => {
@@ -153,11 +170,9 @@ describe('ConsoleView', () => {
     paneProps.length = 0
     mockServices = createMockServices()
     mockViewMode = 'grid'
+    mockLogMode = 'azure'
+    mockAzureEnabled = true
     updateUIMock.mockClear()
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ mode: 'azure', azureEnabled: true, azureStatus: 'connected' }),
-    })
     globalThis.localStorage.clear()
   })
 
@@ -171,12 +186,8 @@ describe('ConsoleView', () => {
     healthReport?: HealthReportEvent,
     onServiceClick?: (service: Service) => void
   ) => {
-    // Clear all previous mocks and set up the specific mock for this render
-    fetchMock.mockClear()
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ mode, azureEnabled, azureStatus: 'connected' }),
-    })
+    mockLogMode = mode
+    mockAzureEnabled = azureEnabled
     return render(<ConsoleView healthReport={healthReport} onServiceClick={onServiceClick} />)
   }
 
@@ -187,7 +198,6 @@ describe('ConsoleView', () => {
 
   it('hides diagnostics button in local mode', async () => {
     renderConsoleView('local', false)
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
     // Wait for the mode to actually update to 'local' in the UI
     await waitFor(() => expect(screen.getByTestId('mode-toggle')).toHaveTextContent('local'))
     expect(screen.queryByText('Diagnostics')).not.toBeInTheDocument()

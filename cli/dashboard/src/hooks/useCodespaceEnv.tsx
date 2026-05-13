@@ -1,11 +1,23 @@
 /**
  * Hook for detecting and providing Codespace environment configuration.
- * 
- * Fetches environment info from the backend API and caches it for the session.
- * Used to transform localhost URLs to Codespace-forwarded URLs.
+ *
+ * Fetches environment info from the dashboard's LifecycleService Connect
+ * handler and caches it for the session. Used to transform localhost URLs
+ * to Codespace-forwarded URLs.
+ *
+ * Wire migration note: this hook used to call GET /api/environment with
+ * raw `fetch`. It now uses the generated Connect client. The cached
+ * payload shape (sessionStorage `azd-codespace-env`) is preserved as
+ * `EnvironmentInfo` so a stale cache from a previous build remains
+ * readable across the rollout window.
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Code, ConnectError, type PromiseClient, type Transport } from '@connectrpc/connect'
+
+import { createLifecycleClient } from '@/lib/connectClient'
 import type { CodespaceConfig, EnvironmentInfo } from '@/lib/codespace-utils'
+import type { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_connect.js'
+import { GetEnvironmentRequest } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
 
 // =============================================================================
 // Types
@@ -26,11 +38,19 @@ export interface UseCodespaceEnvReturn {
   refresh: () => void
 }
 
+export interface UseCodespaceEnvOptions {
+  /**
+   * Override the underlying Connect transport. Production code never
+   * passes this; it exists exclusively as a unit-test seam so specs can
+   * inject `createRouterTransport(...)` and exercise the real client
+   * code path against an in-memory service handler.
+   */
+  transport?: Transport
+}
+
 // =============================================================================
 // Constants
 // =============================================================================
-
-const API_BASE = ''
 
 /** Cache key for sessionStorage */
 const CACHE_KEY = 'azd-codespace-env'
@@ -86,15 +106,24 @@ function setCachedEnv(data: EnvironmentInfo): void {
 
 /**
  * Hook for detecting Codespace environment and providing configuration.
- * 
+ *
  * @example
  * const { isCodespace, config } = useCodespaceEnv()
- * 
+ *
  * const url = isCodespace
  *   ? transformLocalhostUrl('http://localhost:3000', config)
  *   : 'http://localhost:3000'
  */
-export function useCodespaceEnv(): UseCodespaceEnvReturn {
+export function useCodespaceEnv(options?: UseCodespaceEnvOptions): UseCodespaceEnvReturn {
+  // The client is constructed once per (hook instance, transport) pair.
+  // Memoising on `transport` keeps tests deterministic when a spec swaps
+  // the in-memory transport between renders.
+  const transport = options?.transport
+  const client = useMemo<PromiseClient<typeof LifecycleService>>(
+    () => createLifecycleClient(transport),
+    [transport]
+  )
+
   const [config, setConfig] = useState<CodespaceConfig | null>(() => {
     // Initialize from cache if available
     const cached = getCachedEnv()
@@ -111,38 +140,77 @@ export function useCodespaceEnv(): UseCodespaceEnvReturn {
   })
   const [error, setError] = useState<string | null>(null)
 
+  // Track in-flight requests so unmount can abort and so concurrent
+  // refresh() calls don't race to setState on a dead component.
+  const abortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
+
   const fetchEnvironment = useCallback(async () => {
+    // Cancel any in-flight request from a prior call. Connect honours
+    // AbortSignal and surfaces it as a CodeCanceled ConnectError, which
+    // we explicitly swallow below.
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       setLoading(true)
       setError(null)
 
-      const response = await fetch(`${API_BASE}/api/environment`)
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch environment: ${response.statusText}`)
+      const resp = await client.getEnvironment(new GetEnvironmentRequest(), {
+        signal: controller.signal,
+      })
+
+      const codespace = resp.codespace
+      const data: EnvironmentInfo = {
+        codespace: {
+          enabled: codespace?.enabled ?? false,
+          name: codespace?.name ?? '',
+          domain: codespace?.domain ?? '',
+          isVsCodeDesktop: codespace?.isVsCodeDesktop ?? false,
+        },
+        // proto3 returns `""` for unset string; preserve the legacy REST
+        // semantic of `undefined when empty` so downstream code that does
+        // `if (environmentName)` keeps working unchanged.
+        environmentName: resp.environmentName !== '' ? resp.environmentName : undefined,
       }
 
-      const data = await response.json() as EnvironmentInfo
-      
       // Cache the result
       setCachedEnv(data)
-      
+
+      if (!mountedRef.current) return
       setConfig(data.codespace)
       setEnvironmentName(data.environmentName)
     } catch (err) {
+      // Aborted requests are not errors at the hook contract; they fire
+      // on unmount or when a newer fetch supersedes us.
+      if (controller.signal.aborted) return
+      if (err instanceof ConnectError && err.code === Code.Canceled) return
+
       const message = err instanceof Error ? err.message : 'Unknown error'
+      if (!mountedRef.current) return
       setError(message)
       // Don't clear config on error - keep using cached value if available
     } finally {
-      setLoading(false)
+      if (abortRef.current === controller) {
+        abortRef.current = null
+      }
+      if (mountedRef.current) {
+        setLoading(false)
+      }
     }
-  }, [])
+  }, [client])
 
   // Fetch on mount if not cached
   useEffect(() => {
+    mountedRef.current = true
     const cached = getCachedEnv()
     if (!cached) {
       void fetchEnvironment()
+    }
+    return () => {
+      mountedRef.current = false
+      abortRef.current?.abort()
     }
   }, [fetchEnvironment])
 

@@ -1,76 +1,137 @@
+/**
+ * Tests for useLogsStream - the orchestrator hook that wires the
+ * historical-fetch path together with the live shared stream.
+ *
+ * After the WebSocket -> Connect migration, the initial-fetch path
+ * uses Connect-RPC unary calls (`LogsService.GetLogs` /
+ * `AzureService.GetAzureLogs`) instead of the legacy REST endpoints,
+ * and live updates flow through `useSharedLogStream` (mocked here;
+ * transport behaviour is covered by useSharedLogStream.test.ts).
+ *
+ * Tests drive the Connect path via `createRouterTransport` and pass
+ * the transport through the hook's new `transport` param so both
+ * unary fetch and (mocked) stream subscriber see the same in-memory
+ * backend.
+ */
 import { act, renderHook } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useLogsStream } from './useLogsStream'
-import type { LogEntry } from '@/components/LogsPane'
-import type { LogMode } from '@/components/ModeToggle'
-import { resetManagers } from './useSharedLogStream'
+import {
+  ConnectError,
+  Code,
+  createRouterTransport,
+  type ConnectRouter,
+  type ServiceImpl,
+  type Transport,
+} from '@connectrpc/connect'
 
-// Mock useBackendConnection
-vi.mock('./useBackendConnection', () => ({
+import { useLogsStream } from './useLogsStream'
+import type { LogMode } from '@/components/ModeToggle'
+import { LogsService } from '@/gen/proto/azdapp/v1/logs_connect.js'
+import { AzureService } from '@/gen/proto/azdapp/v1/azure_connect.js'
+import {
+  GetLogsRequest,
+  GetLogsResponse,
+} from '@/gen/proto/azdapp/v1/logs_pb.js'
+import {
+  GetAzureLogsRequest,
+  GetAzureLogsResponse,
+} from '@/gen/proto/azdapp/v1/azure_pb.js'
+
+vi.mock('@/hooks/useBackendConnection', () => ({
   useBackendConnection: () => ({ connected: true }),
 }))
 
-describe('useLogsStream', () => {
-  interface MockWebSocketInstance {
-    url: string
-    onopen: ((ev: Event) => void) | null
-    onmessage: ((ev: MessageEvent) => void) | null
-    onerror: ((ev: Event) => void) | null
-    onclose: ((ev: CloseEvent) => void) | null
-    readyState: number
-    close: ReturnType<typeof vi.fn>
-    send: ReturnType<typeof vi.fn>
-  }
-  
-  let webSocketInstances: MockWebSocketInstance[] = []
-  let originalWebSocket: typeof WebSocket
+type SharedLogStreamArgs = {
+  serviceName: string
+  enabled: boolean
+  mode: 'local' | 'azure'
+  onLogEntry: (entry: { service: string; message: string; level: number; timestamp: string; isStderr: boolean }) => void
+  since?: string
+}
 
+type SharedLogStreamReturn = {
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'error'
+  droppedCount: number
+}
+
+const sharedLogStreamMock = vi.fn(
+  (_opts: SharedLogStreamArgs): SharedLogStreamReturn => ({
+    connectionState: 'disconnected',
+    droppedCount: 0,
+  }),
+)
+
+vi.mock('@/hooks/useSharedLogStream', () => ({
+  useSharedLogStream: (opts: SharedLogStreamArgs) => sharedLogStreamMock(opts),
+}))
+
+/**
+ * Build a Connect router transport with overridable unary handlers
+ * for GetLogs / GetAzureLogs. Other methods on the two services are
+ * stubbed with Unimplemented rejections - the hook never touches
+ * them, and casting through `unknown` avoids hand-writing stubs for
+ * every RPC just to keep the `ServiceImpl` type happy.
+ */
+interface TransportOverrides {
+  getLogs?: (req: GetLogsRequest) => GetLogsResponse | Promise<GetLogsResponse>
+  getAzureLogs?: (req: GetAzureLogsRequest) => GetAzureLogsResponse | Promise<GetAzureLogsResponse>
+}
+
+function makeTransport(overrides: TransportOverrides = {}): Transport {
+  return createRouterTransport((router: ConnectRouter) => {
+    const notUsed = () =>
+      Promise.reject(new ConnectError('unused in these tests', Code.Unimplemented))
+
+    router.service(LogsService, {
+      getLogs(req: GetLogsRequest): Promise<GetLogsResponse> {
+        if (overrides.getLogs) return Promise.resolve(overrides.getLogs(req))
+        return Promise.resolve(new GetLogsResponse({ entries: [] }))
+      },
+      streamLocalLogs: notUsed,
+      listClassifications: notUsed,
+      addClassification: notUsed,
+      deleteClassification: notUsed,
+      getPreferences: notUsed,
+      savePreferences: notUsed,
+    } as unknown as ServiceImpl<typeof LogsService>)
+
+    router.service(AzureService, {
+      getAzureLogs(req: GetAzureLogsRequest): Promise<GetAzureLogsResponse> {
+        if (overrides.getAzureLogs) return Promise.resolve(overrides.getAzureLogs(req))
+        return Promise.resolve(new GetAzureLogsResponse({ entries: [] }))
+      },
+      streamAzureLogs: notUsed,
+      enableAzureLogging: notUsed,
+      getAzureServices: notUsed,
+      getAzureLogsHealth: notUsed,
+      getAzureSetupState: notUsed,
+      verifyAzureLogs: notUsed,
+      checkDiagnosticSettings: notUsed,
+      getAzureDiagnostics: notUsed,
+      verifyWorkspace: notUsed,
+      getAzureLogConfig: notUsed,
+      saveAzureLogConfig: notUsed,
+      listAzureTables: notUsed,
+      getServiceQuery: notUsed,
+      saveServiceQuery: notUsed,
+    } as unknown as ServiceImpl<typeof AzureService>)
+  })
+}
+
+describe('useLogsStream (orchestration)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    webSocketInstances = []
-    
-    // Mock WebSocket constructor
-    originalWebSocket = globalThis.WebSocket
-    
-    // Create a proper mock class with spy on close
-    const MockWebSocket = vi.fn().mockImplementation(function(this: MockWebSocketInstance, url: string) {
-      const instance: MockWebSocketInstance = {
-        url,
-        onopen: null,
-        onmessage: null,
-        onerror: null,
-        onclose: null,
-        readyState: 0, // CONNECTING
-        close: vi.fn(function(this: MockWebSocketInstance, code?: number) {
-          this.readyState = 3 // CLOSED
-          if (this.onclose) {
-            this.onclose({ code: code ?? 1000 } as CloseEvent)
-          }
-        }),
-        send: vi.fn(),
-      }
-      
-      webSocketInstances.push(instance)
-      Object.assign(this, instance)
-      return instance
-    })
-    
-    globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket
-    
-    // Mock fetch
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-      text: () => Promise.resolve(''),
-    })
+    sharedLogStreamMock.mockClear()
+    sharedLogStreamMock.mockImplementation(() => ({
+      connectionState: 'disconnected',
+      droppedCount: 0,
+    }))
   })
 
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
-    globalThis.WebSocket = originalWebSocket
     vi.restoreAllMocks()
-    resetManagers()
   })
 
   const flushTimersInAct = async () => {
@@ -85,122 +146,146 @@ describe('useLogsStream', () => {
     logMode: 'local' as LogMode,
     timeRange: { preset: '15m' as const },
     azureRealtime: false,
-    refreshTrigger: 0,
     isPausedRef: { current: false },
-    lastClearTimeRef: { current: Date.now() - 1000 }, // Initialize to 1s in the past
+    lastClearTimeRef: { current: Date.now() - 1000 },
     setLogs: vi.fn(),
     setErrorMessage: vi.fn(),
     onFetchSettled: vi.fn(),
+    transport: makeTransport(),
     ...overrides,
   })
 
-  describe('WebSocket connection management', () => {
-    it('creates WebSocket on mount in local mode', () => {
-      const params = createParams()
-      renderHook(() => useLogsStream(params))
-      
-      expect(globalThis.WebSocket).toHaveBeenCalledWith(
-        expect.stringContaining('/api/logs/stream')
+  const lastSharedCall = (): SharedLogStreamArgs => {
+    const calls = sharedLogStreamMock.mock.calls
+    expect(calls.length).toBeGreaterThan(0)
+    return calls[calls.length - 1][0]
+  }
+
+  describe('shared-stream wiring', () => {
+    it('subscribes to the shared local stream when in local mode', () => {
+      renderHook(() => useLogsStream(createParams()))
+      expect(sharedLogStreamMock).toHaveBeenCalled()
+      const arg = lastSharedCall()
+      expect(arg.mode).toBe('local')
+      expect(arg.enabled).toBe(true)
+      expect(arg.serviceName).toBe('test-service')
+    })
+
+    it('subscribes to the shared azure stream when in azure realtime mode', () => {
+      renderHook(() =>
+        useLogsStream(
+          createParams({
+            logMode: 'azure',
+            azureRealtime: true,
+            fetchKey: 'azure:15m::realtime',
+          }),
+        ),
       )
-      expect(webSocketInstances).toHaveLength(1)
+      const arg = lastSharedCall()
+      expect(arg.mode).toBe('azure')
+      expect(arg.enabled).toBe(true)
     })
 
-    it('creates WebSocket with azure endpoint in azure realtime mode', () => {
-      const params = createParams({
-        logMode: 'azure',
-        azureRealtime: true,
-        fetchKey: 'azure:15m::realtime',
-      })
-      renderHook(() => useLogsStream(params))
-      
-      expect(globalThis.WebSocket).toHaveBeenCalledWith(
-        expect.stringContaining('/api/azure/logs/stream?realtime=true')
+    it('does not enable the shared stream in azure polling (non-realtime) mode', () => {
+      renderHook(() =>
+        useLogsStream(
+          createParams({
+            logMode: 'azure',
+            azureRealtime: false,
+            fetchKey: 'azure:15m::poll',
+          }),
+        ),
       )
+      const arg = lastSharedCall()
+      expect(arg.enabled).toBe(false)
     })
 
-    it('does not create WebSocket in azure polling mode', () => {
-      const params = createParams({
-        logMode: 'azure',
-        azureRealtime: false,
-        fetchKey: 'azure:15m::poll',
-      })
-      renderHook(() => useLogsStream(params))
-      
-      expect(globalThis.WebSocket).not.toHaveBeenCalled()
+    it('forwards droppedCount from the shared stream', () => {
+      sharedLogStreamMock.mockImplementation(() => ({
+        connectionState: 'connected',
+        droppedCount: 42,
+      }))
+      const { result } = renderHook(() => useLogsStream(createParams()))
+      expect(result.current.droppedCount).toBe(42)
     })
-
   })
 
-  describe('WebSocket message handling', () => {
-    it('ignores messages when paused', () => {
+  describe('shared-stream message handling', () => {
+    it('routes incoming entries through setLogs when not paused', () => {
       const setLogs = vi.fn()
-      const isPausedRef = { current: true }
-      const params = createParams({ setLogs, isPausedRef })
+      const params = createParams({ setLogs })
       renderHook(() => useLogsStream(params))
-      
-      const ws = webSocketInstances[0]
-      const logEntry: LogEntry = {
-        service: 'test-service',
-        message: 'Test log',
-        level: 1,
-        timestamp: new Date().toISOString(),
-        isStderr: false,
-      }
-      
-      if (ws.onmessage) {
-        ws.onmessage({ data: JSON.stringify(logEntry) } as MessageEvent)
-      }
-      
+
+      const handler = lastSharedCall().onLogEntry
+      act(() => {
+        handler({
+          service: 'test-service',
+          message: 'hello',
+          level: 1,
+          timestamp: new Date().toISOString(),
+          isStderr: false,
+        })
+      })
+
+      expect(setLogs).toHaveBeenCalled()
+    })
+
+    it('drops entries when paused', () => {
+      const setLogs = vi.fn()
+      const params = createParams({ setLogs, isPausedRef: { current: true } })
+      renderHook(() => useLogsStream(params))
+
+      const handler = lastSharedCall().onLogEntry
+      act(() => {
+        handler({
+          service: 'test-service',
+          message: 'paused',
+          level: 1,
+          timestamp: new Date().toISOString(),
+          isStderr: false,
+        })
+      })
+
       expect(setLogs).not.toHaveBeenCalled()
     })
   })
 
   describe('onFetchSettled callback', () => {
-    it('calls onFetchSettled only after first fetch completes', async () => {
+    it('calls onFetchSettled after the initial fetch resolves', async () => {
       const onFetchSettled = vi.fn()
-      const params = createParams({ onFetchSettled })
-      
-      renderHook(() => useLogsStream(params))
-      
-      // Should not be called synchronously on mount
+      renderHook(() => useLogsStream(createParams({ onFetchSettled })))
+
       expect(onFetchSettled).not.toHaveBeenCalled()
-      
-      // Wait for fetch to complete
       await flushTimersInAct()
-      
-      // Should be called after first fetch (may be called multiple times due to retries/WebSocket reconnects)
       expect(onFetchSettled).toHaveBeenCalled()
     })
 
-    it('does not call onFetchSettled immediately when fetchKey changes', async () => {
+    it('does not synchronously call onFetchSettled when fetchKey changes', async () => {
       const onFetchSettled = vi.fn()
-      const params = createParams({ onFetchSettled, fetchKey: 'local:stream' })
-      
+      const initial = createParams({ onFetchSettled, fetchKey: 'local:stream' })
+
       const { rerender } = renderHook((props) => useLogsStream(props), {
-        initialProps: params,
+        initialProps: initial,
       })
-      
-      // Wait for initial fetch
+
       await flushTimersInAct()
       expect(onFetchSettled).toHaveBeenCalled()
-      
-      const initialCallCount = onFetchSettled.mock.calls.length
-      
-      // Change fetchKey (e.g., switching time range in Azure mode)
-      rerender(createParams({ 
-        onFetchSettled, 
-        fetchKey: 'azure:30m::poll',
-        logMode: 'azure',
-      }))
-      
-      // Should NOT be called immediately after fetchKey change (still same count)
-      expect(onFetchSettled).toHaveBeenCalledTimes(initialCallCount)
-      
-      // Wait for new fetch to complete
+      const initialCalls = onFetchSettled.mock.calls.length
+
+      rerender(
+        createParams({
+          onFetchSettled,
+          fetchKey: 'azure:30m::poll',
+          logMode: 'azure',
+        }),
+      )
+
+      // Should not fire synchronously on prop change; only after the
+      // queued fetch resolves.
+      expect(onFetchSettled).toHaveBeenCalledTimes(initialCalls)
+
       await flushTimersInAct()
-      
-      // Should be called at least once more after the new fetch completes
-      expect(onFetchSettled.mock.calls.length).toBeGreaterThan(initialCallCount)
+      expect(onFetchSettled.mock.calls.length).toBeGreaterThan(initialCalls)
     })
   })
 })
