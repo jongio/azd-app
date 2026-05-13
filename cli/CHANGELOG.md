@@ -1,3 +1,13 @@
+## [0.14.0] - 2026-05-13
+
+- fix(ci): update all workflows to Go 1.26.3 and Node 22 (bcfcad32)
+- fix: resolve pre-existing lint, test, and security issues (c03b3e0c)
+- deps: update all dependencies, migrate Connect-RPC v2 + Astro 6 (329793a9)
+- feat(azd-app): migrate transport to Connect-RPC (one schema for dashboard, CLI, MCP, TUI) (#183) (ae415e5c)
+- deps: update all dependencies (Go, Node, GitHub Actions) (#177) (d1078d15)
+- fix: MQ quality audit — 12 critical/high fixes, dead code removal, docs corrections (#176) (d9c0bb8f)
+- chore: update registry for v0.13.5 (3b06f3a3)
+
 ## [0.13.5] - 2026-03-16
 
 - fix: reorder release steps - registry before cosign/SBOM (1ee4be02)
