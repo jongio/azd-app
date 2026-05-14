@@ -24,10 +24,11 @@
 | Go packages | 22 internal packages (detector, orchestrator, runner, dashboard, azure, healthcheck, monitor, service, …) |
 | CLI commands | 16 top-level commands (`run`, `logs`, `info`, `health`, `reqs`, `deps`, `test`, `start`, `stop`, `restart`, `add`, `mcp`, `notifications`, `listen`, `metadata`, `version`) |
 | Dashboard components | **92 React components**, **45 hooks**, **4 contexts**, **33 lib modules** |
-| HTTP API surface | 28 endpoints across `/api/**` — project, services, logs, azure, health, environment, mode |
-| Streaming surfaces | 5 WebSocket / SSE endpoints (local logs, azure logs, service health, dashboard broadcast, notifications) |
+| HTTP API surface | 8 Connect-RPC services (proto-defined) with 30+ RPC methods across `proto/azdapp/v1/*.proto` |
+| Streaming surfaces | 5 server-streaming RPCs (local logs, azure logs, health, state transitions, broadcast) + WebSocket fallback |
 | MCP tools | **12 agent-consumable tools** — observability, operations, configuration |
 | Shipping vehicle | Single `azd` extension binary (`jongio.azd.app`) with embedded dashboard, no external deps |
+| Transport | **Connect-RPC v2** (proto-defined services over HTTP/1.1 JSON + HTTP/2 binary). Single `.proto` schema drives Go server, TS dashboard client, MCP tools, and future TUI. |
 | Azure integration | Log Analytics (KQL, time range, tables), diagnostic settings discovery, Bicep template generation, App Service / Container Apps / Functions validators |
 | Supported languages | Node (npm/pnpm/yarn), Python (pip/uv/poetry), .NET, Java (Maven/Gradle), Go, Rust, PHP, Docker Compose |
 
@@ -64,13 +65,14 @@ fulfils all six priorities.
 │  └─────┬──────┘   └────────┬───────┘   └────┬─────┘   └──────┬─────┘ │
 │        │                   │                │                │        │
 └────────┼───────────────────┼────────────────┼────────────────┼───────┘
-         │                   │ HTTP/WS        │ stdio          │
+         │                   │ Connect-RPC    │ stdio          │
+         │                   │ (HTTP/1.1+h2)  │                │
          │                   ▼                ▼                │
          │        ┌──────────────────────────────────────┐     │
          │        │   Local HTTP Server (Go net/http)    │     │
-         │        │   28 REST endpoints + 5 streams      │◄────┘
+         │        │   8 Connect-RPC services (proto)     │◄────┘
+         │        │   + WebSocket streams                │
          │        │   Per-project, auto-assigned port    │
-         │        │   Rate-limited, method-guarded       │
          │        └────────────────┬─────────────────────┘
          │                         │
          ▼                         ▼
@@ -105,15 +107,23 @@ fulfils all six priorities.
 
 ### Key architectural points
 
-1. **The browser UI is a client of the HTTP server, not the server itself.** A TUI, another CLI,
-   or an AI agent consumes exactly the same endpoints. Replacing or augmenting the UI does not
-   touch the data layer.
-2. **All state is owned by the Go process.** The SPA is stateless; it subscribes to streams and
-   POSTs operations. This is why the server can embed the SPA via `//go:embed` and ship as one
-   binary.
-3. **The server is per-project.** `dashboard.GetServer(projectDir)` returns a cached instance keyed
+1. **Single proto schema drives all surfaces.** The `proto/azdapp/v1/*.proto` files define every
+   RPC method, message type, and streaming contract. Go server code, TypeScript dashboard client,
+   MCP tool wrappers, and any future TUI all derive from the same `.proto` source. This eliminates
+   drift between consumers.
+2. **Connect-RPC v2 as the transport.** The server exposes 8 gRPC-compatible services over
+   HTTP/1.1 (JSON) and HTTP/2 (binary proto). The dashboard uses `@connectrpc/connect-web` for
+   typed RPC calls; the same service definitions could be consumed by a Go TUI client, a Python
+   script, or any gRPC-compatible tool.
+3. **The browser UI is a client of the Connect-RPC server, not the server itself.** A TUI, another
+   CLI, or an AI agent consumes exactly the same typed RPCs. Replacing or augmenting the UI does
+   not touch the data layer.
+4. **All state is owned by the Go process.** The SPA is stateless; it subscribes to streams and
+   calls operations via Connect-RPC. This is why the server can embed the SPA via `//go:embed`
+   and ship as one binary.
+5. **The server is per-project.** `dashboard.GetServer(projectDir)` returns a cached instance keyed
    by normalised project path, so multiple azd projects can be monitored in parallel.
-4. **The MCP server is a sibling surface, not a translation layer.** `azd app mcp serve` runs a
+6. **The MCP server is a sibling surface, not a translation layer.** `azd app mcp serve` runs a
    Model Context Protocol server backed by the same data layer, registered as `jongio.azd.app`
    with the `mcp-server` capability in `extension.yaml`.
 
@@ -188,48 +198,54 @@ All under `internal/azure`:
 
 ### 5.4 Dashboard Server
 
-`internal/dashboard` — HTTP server with 28 REST endpoints + WebSocket/SSE streams, method
-guards, rate limiters, port manager, embedded static assets:
+`internal/dashboard` — HTTP server hosting 8 Connect-RPC services + WebSocket streams, port
+manager, embedded static assets. The API is defined in `proto/azdapp/v1/*.proto`:
 
 ```
-/api/ping                              GET
-/api/project                           GET
-/api/services                          GET
-/api/services/start|stop|restart       POST
-/api/logs                              GET    (local, filtered, paginated)
-/api/logs/stream                       GET    (WebSocket, live tail)
-/api/logs/classifications              GET/POST/PUT/DELETE
-/api/logs/preferences                  GET/PUT
-/api/mode                              GET/PUT (local ↔ azure toggle)
-/api/azure/enable                      POST   (writes azure.yaml logging block)
-/api/azure/services                    GET    (Azure-side resources)
-/api/azure/logs                        GET    (KQL-backed historical)
-/api/azure/logs/stream                 GET    (WebSocket, polled Azure stream)
-/api/azure/logs/health                 GET
-/api/azure/logs/setup-state            GET
-/api/azure/logs/verify                 POST
-/api/azure/diagnostic-settings/check   GET
-/api/azure/diagnostics                 GET    (comprehensive per-service)
-/api/azure/workspace/verify            POST
-/api/azure/bicep-template              GET    (generated fix template)
-/api/azure/logs/config                 GET/PUT
-/api/azure/tables                      GET
-/api/azure/query                       GET/POST
-/api/ws                                WS     (broadcast channel)
-/api/health                            GET
-/api/health/stream                     GET    (WebSocket)
-/api/environment                       GET
+Proto Services (Connect-RPC v2):
+
+ServicesService                     (services.proto)
+  GetServices, StartService, StopService, RestartService
+
+LogsService                         (logs.proto)
+  GetLogs, StreamLocalLogs (server-stream),
+  GetClassifications, CreateClassification, UpdateClassification, DeleteClassification,
+  GetPreferences, UpdatePreferences
+
+HealthService                       (health.proto)
+  GetHealth, StreamHealth (server-stream), StreamStateTransitions (server-stream)
+
+ProjectService                      (project.proto)
+  GetProject
+
+AzureService                        (azure.proto)
+  EnableAzure, GetAzureServices, GetAzureLogs, StreamAzureLogs (server-stream),
+  GetAzureLogsHealth, GetAzureSetupState, VerifyAzureLogs,
+  CheckDiagnosticSettings, GetAzureDiagnostics, VerifyWorkspace,
+  GetAzureLogConfig, SetAzureLogConfig, GetAzureTables, RunAzureQuery
+
+LifecycleService                    (lifecycle.proto)
+  Ping, GetEnvironment, StreamBroadcast (server-stream)
+
+ModeService                         (mode.proto)
+  GetMode, SetMode
+
+BicepService                        (bicep.proto)
+  GetBicepTemplate
 ```
 
-Every endpoint returns JSON and has been security-tested (see `server_security_test.go`,
-`websocket_*_test.go`).
+The Connect-RPC handler serves over standard HTTP/1.1 (JSON serialization) and HTTP/2 (binary
+proto), making it consumable by browsers (`@connectrpc/connect-web`), Go clients
+(`connectrpc.com/connect`), `buf curl`, and any gRPC-compatible tool.
 
 ---
 
 ## 6. Web Dashboard (Optional Consumer Surface)
 
 Built with **React 19 + Vite + TypeScript + Tailwind v4 + Radix UI + Playwright**, compiled into
-the Go binary via `//go:embed dist`.
+the Go binary via `//go:embed dist`. Communicates with the server via **Connect-RPC v2**
+(`@connectrpc/connect-web`) for all data operations, using typed client stubs generated from
+the same `.proto` files that define the server.
 
 **Structure** (`cli/dashboard/src/`):
 
@@ -282,11 +298,11 @@ JSON-schema-validated args. This means **azd-app already fulfils the agent-consu
 
 | Stream | Transport | Backpressure | Tested |
 |---|---|---|---|
-| Local log tail per service | WebSocket (`/api/logs/stream`) + CLI `-f` | Bounded `logbuffer` with drop-oldest policy | `useLogsStream.flood.test.ts`, `logbuffer_context_test.go` |
-| Azure Log Analytics tail | WebSocket (`/api/azure/logs/stream`) polling LA every N seconds | Dedup by row key; time-window cursor | `azure_logs_stream.go`, `loganalytics_integration_test.go` |
-| Service health | WebSocket (`/api/health/stream`) | Poll at configurable interval, last-value cache | `health_stream.go`, `useHealthStream.test.ts` |
-| State transitions | In-process listener pattern (`monitor.AddListener`) | Rate-limited by severity + per-service window | `state_monitor_test.go` |
-| Broadcast channel | WebSocket (`/api/ws`) | Per-client slow-consumer disconnect | `websocket_concurrency_test.go`, `broadcast_test.go` |
+| Local log tail per service | Connect-RPC server-stream (`LogsService.StreamLocalLogs`) + CLI `-f` | Bounded `logbuffer` with drop-oldest policy | `useLogsStream.flood.test.ts`, `logbuffer_context_test.go` |
+| Azure Log Analytics tail | Connect-RPC server-stream (`AzureService.StreamAzureLogs`) polling LA every N seconds | Dedup by row key; time-window cursor | `azure_logs_stream.go`, `loganalytics_integration_test.go` |
+| Service health | Connect-RPC server-stream (`HealthService.StreamHealth`) | Poll at configurable interval, last-value cache | `health_stream.go`, `useHealthStream.test.ts` |
+| State transitions | Connect-RPC server-stream (`HealthService.StreamStateTransitions`) + in-process listener | Rate-limited by severity + per-service window | `state_monitor_test.go` |
+| Broadcast channel | Connect-RPC server-stream (`LifecycleService.StreamBroadcast`) | Per-client slow-consumer disconnect | `websocket_concurrency_test.go`, `broadcast_test.go` |
 
 The streaming infrastructure is not hypothetical: there are **6 dedicated WebSocket concurrency
 test files** (`websocket_concurrency_test.go`, `websocket_fixes_test.go`,
@@ -324,9 +340,10 @@ and Bicep-generation work that none of the four options in the discussion would 
    ahead of the discussion's assessment of every option.
 4. **Keep the browser dashboard** as an opt-in (`--web`) surface for developers who want the rich
    UI. Nobody is forced into a browser.
-5. **Add a TUI** (Option 4) as a new presentation surface consuming the existing HTTP +
-   `monitor.StateTransition` API. Estimated scope: the TUI code itself (Bubble Tea, panels,
-   keybindings). No data-layer work. This is a 17th command, not a new project.
+5. **Add a TUI** (Option 4) as a new presentation surface consuming the existing Connect-RPC
+   services (same typed Go client the dashboard uses). Estimated scope: the TUI code itself
+   (Bubble Tea, panels, keybindings). No data-layer work. This is a 17th command, not a new
+   project.
 6. **Optionally add OTel ingestion** (Option 1's strength) as a new endpoint under `/api/otel`
    feeding into the existing log/health streams. Again, additive.
 
@@ -364,7 +381,20 @@ dashboard/                              # React SPA embedded into Go binary
 │   ├── hooks/                          # 45 hooks (streaming, state, Azure)
 │   ├── contexts/                       # 4 contexts
 │   └── lib/                            # 33 lib modules
-└── package.json                        # React 19, Vite 8, Tailwind 4
+└── package.json                        # React 19, Vite 8, Tailwind 4, Connect-RPC v2
+
+proto/                                  # Single source of truth for all API surfaces
+├── azdapp/v1/
+│   ├── common.proto                    # Shared types (LogEntry, ServiceInfo, Severity)
+│   ├── services.proto                  # ServicesService (CRUD + lifecycle)
+│   ├── logs.proto                      # LogsService (query, stream, classifications)
+│   ├── health.proto                    # HealthService (probe, stream, state transitions)
+│   ├── project.proto                   # ProjectService (metadata)
+│   ├── azure.proto                     # AzureService (LA queries, diagnostics, setup)
+│   ├── lifecycle.proto                 # LifecycleService (ping, env, broadcast)
+│   ├── mode.proto                      # ModeService (local/azure toggle)
+│   └── bicep.proto                     # BicepService (template generation)
+└── buf.gen.yaml                        # Code gen config (Go + TypeScript)
 
 docs/                                   # existing project docs
 ```
