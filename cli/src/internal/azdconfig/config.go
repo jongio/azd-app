@@ -218,7 +218,7 @@ func (c *Client) GetAllServicePorts(projectHash string) (map[string]int, error) 
 		return make(map[string]int), nil
 	}
 
-	var ports map[string]interface{}
+	var ports map[string]any
 	if err := json.Unmarshal(resp.Section, &ports); err != nil {
 		return nil, fmt.Errorf("failed to parse service ports: %w", err)
 	}
@@ -309,7 +309,7 @@ func (c *Client) ClearPreference(key string) error {
 // This allows unit tests to run without requiring a gRPC connection to azd.
 type InMemoryClient struct {
 	mu   sync.RWMutex
-	data map[string]interface{}
+	data map[string]any
 }
 
 // Ensure InMemoryClient implements ConfigClient
@@ -318,7 +318,7 @@ var _ ConfigClient = (*InMemoryClient)(nil)
 // NewInMemoryClient creates a new in-memory configuration client for testing.
 func NewInMemoryClient() *InMemoryClient {
 	return &InMemoryClient{
-		data: make(map[string]interface{}),
+		data: make(map[string]any),
 	}
 }
 

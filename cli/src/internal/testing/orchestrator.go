@@ -151,7 +151,7 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 			Language string                 `yaml:"language"`
 			Project  string                 `yaml:"project"`
 			Test     *ServiceTestConfig     `yaml:"test"`
-			Config   map[string]interface{} `yaml:",inline"`
+			Config   map[string]any `yaml:",inline"`
 		} `yaml:"services"`
 	}
 

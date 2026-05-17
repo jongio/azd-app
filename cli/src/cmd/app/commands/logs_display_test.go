@@ -134,7 +134,7 @@ func TestDisplayLogsJSON(t *testing.T) {
 		}
 
 		for i, line := range lines {
-			var entry map[string]interface{}
+			var entry map[string]any
 			if err := json.Unmarshal([]byte(line), &entry); err != nil {
 				t.Errorf("Line %d is not valid JSON: %v", i, err)
 			}
@@ -149,7 +149,7 @@ func TestDisplayLogsJSON(t *testing.T) {
 		var buf bytes.Buffer
 		displayLogsJSON(specialLogs, &buf)
 
-		var entry map[string]interface{}
+		var entry map[string]any
 		if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
 			t.Errorf("Output is not valid JSON: %v", err)
 		}

@@ -710,7 +710,7 @@ func runClearCache() error {
 	}
 
 	if cliout.IsJSON() {
-		return cliout.PrintJSON(map[string]interface{}{
+		return cliout.PrintJSON(map[string]any{
 			"success": true,
 			"message": "Reqs cache cleared successfully",
 		})
@@ -759,7 +759,7 @@ func runReqsFix() error {
 
 	if len(failedReqs) == 0 {
 		if cliout.IsJSON() {
-			return cliout.PrintJSON(map[string]interface{}{
+			return cliout.PrintJSON(map[string]any{
 				"success": true,
 				"message": "All requirements already satisfied",
 			})
@@ -893,7 +893,7 @@ func runReqsFix() error {
 
 	// JSON output
 	if cliout.IsJSON() {
-		return cliout.PrintJSON(map[string]interface{}{
+		return cliout.PrintJSON(map[string]any{
 			"success":      fixedCount > 0,
 			"fixed":        fixedCount,
 			"total":        len(failedReqs),

@@ -478,7 +478,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-		var entry map[string]interface{}
+		var entry map[string]any
 		if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
 			t.Errorf("Output should be valid JSON: %v", err)
 		}

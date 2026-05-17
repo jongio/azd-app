@@ -166,7 +166,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		}
 
 		output := stdout.Bytes()
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal(output, &result); err != nil {
 			t.Fatalf("Invalid JSON output: %v\nOutput: %s", err, output)
 		}
@@ -179,7 +179,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 			t.Error("JSON output missing 'summary' field")
 		}
 
-		t.Logf("JSON output valid: %d services", len(result["services"].([]interface{})))
+		t.Logf("JSON output valid: %d services", len(result["services"].([]any)))
 	})
 
 	// Test 4: Table output format
@@ -455,12 +455,12 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		}
 
 		output := stdout.Bytes()
-		var result map[string]interface{}
+		var result map[string]any
 		if err := json.Unmarshal(output, &result); err != nil {
 			t.Fatalf("Invalid JSON: %v", err)
 		}
 
-		services := result["services"].([]interface{})
+		services := result["services"].([]any)
 		if len(services) == 0 {
 			t.Error("No services detected on " + runtime.GOOS)
 		}

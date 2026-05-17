@@ -101,15 +101,15 @@ func newServiceConfigResource() server.ServerResource {
 			}
 
 			// Extract just the configuration parts (not runtime status)
-			configs := make(map[string]interface{})
-			if services, ok := result["services"].([]interface{}); ok {
+			configs := make(map[string]any)
+			if services, ok := result["services"].([]any); ok {
 				for _, svc := range services {
-					if svcMap, ok := svc.(map[string]interface{}); ok {
+					if svcMap, ok := svc.(map[string]any); ok {
 						svcName, _ := svcMap["name"].(string)
 						if svcName == "" {
 							continue // Skip services without names
 						}
-						config := map[string]interface{}{
+						config := map[string]any{
 							"name":      svcMap["name"],
 							"language":  svcMap["language"],
 							"framework": svcMap["framework"],

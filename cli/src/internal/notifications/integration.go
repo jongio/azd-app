@@ -170,7 +170,7 @@ func (nm *NotificationManager) handleStateTransition(transition monitor.StateTra
 		Message:     transition.Description,
 		Severity:    severity,
 		Timestamp:   transition.Timestamp,
-		Metadata:    make(map[string]interface{}),
+		Metadata:    make(map[string]any),
 	}
 
 	// Add metadata

@@ -35,7 +35,7 @@ type Event struct {
 	Message     string
 	Severity    string // "critical", "warning", "info"
 	Timestamp   time.Time
-	Metadata    map[string]interface{}
+	Metadata    map[string]any
 }
 
 // Handler processes notification events

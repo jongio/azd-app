@@ -740,9 +740,9 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	existingCount := len(azureYaml.Reqs)
 
 	// Convert detected requirements to generic map format for yamlutil
-	items := make([]map[string]interface{}, 0, len(detected))
+	items := make([]map[string]any, 0, len(detected))
 	for _, det := range detected {
-		item := map[string]interface{}{
+		item := map[string]any{
 			"name":       det.Name,
 			"minVersion": det.MinVersion,
 		}
@@ -775,7 +775,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 }
 
 // formatReqItem formats a requirement item as YAML text.
-func formatReqItem(item map[string]interface{}, arrayIndent string) string {
+func formatReqItem(item map[string]any, arrayIndent string) string {
 	var builder strings.Builder
 
 	// Array item with Name

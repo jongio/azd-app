@@ -131,7 +131,7 @@ type serviceRaw struct {
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to handle healthcheck: false.
-func (s *Service) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *Service) UnmarshalYAML(unmarshal func(any) error) error {
 	var raw serviceRaw
 	if err := unmarshal(&raw); err != nil {
 		return err
@@ -439,7 +439,7 @@ type EnvVar struct {
 type Environment map[string]string
 
 // UnmarshalYAML implements custom YAML unmarshaling for Docker Compose compatibility.
-func (e *Environment) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (e *Environment) UnmarshalYAML(unmarshal func(any) error) error {
 	if *e == nil {
 		*e = make(Environment)
 	}

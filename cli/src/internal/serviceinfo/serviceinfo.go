@@ -48,14 +48,14 @@ func RefreshEnvironmentCache() {
 
 // RefreshEnvironmentFromEvent updates the cached environment variables from a provision event.
 // This is called by the listen command when azd fires an "environment updated" event.
-func RefreshEnvironmentFromEvent(bicepOutputs map[string]interface{}) {
+func RefreshEnvironmentFromEvent(bicepOutputs map[string]any) {
 	environmentCacheMu.Lock()
 	defer environmentCacheMu.Unlock()
 
 	// Extract environment variables from bicep outputs
 	// Bicep outputs are typically in the format: { "outputName": { "value": "actualValue" } }
 	for key, val := range bicepOutputs {
-		if outputMap, ok := val.(map[string]interface{}); ok {
+		if outputMap, ok := val.(map[string]any); ok {
 			if value, ok := outputMap["value"].(string); ok {
 				environmentCache[strings.ToUpper(key)] = value
 			}

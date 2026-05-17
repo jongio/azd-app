@@ -21,7 +21,7 @@ type ProjectInstallTask struct {
 	Dir         string
 	Path        string
 	Manager     string
-	Project     interface{} // Store the actual project for installation
+	Project     any // Store the actual project for installation
 }
 
 // ParallelInstaller handles parallel installation of multiple projects with progress tracking.

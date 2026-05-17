@@ -151,7 +151,7 @@ func TestDisplayJSONReport(t *testing.T) {
 	}
 
 	// Verify it's valid JSON
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &result); err == nil {
 		// Only test if we captured output
 		if len(buf.Bytes()) > 0 {

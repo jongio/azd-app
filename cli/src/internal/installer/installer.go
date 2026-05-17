@@ -861,7 +861,7 @@ func packageJSONHasWorkspacePackages(dir string) bool {
 		return false
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		return false
 	}
@@ -870,15 +870,15 @@ func packageJSONHasWorkspacePackages(dir string) bool {
 	var patterns []string
 	if ws, ok := parsed["workspaces"]; ok {
 		switch v := ws.(type) {
-		case []interface{}:
+		case []any:
 			for _, it := range v {
 				if s, ok := it.(string); ok {
 					patterns = append(patterns, s)
 				}
 			}
-		case map[string]interface{}:
+		case map[string]any:
 			if pkgs, ok := v["packages"]; ok {
-				if arr, ok := pkgs.([]interface{}); ok {
+				if arr, ok := pkgs.([]any); ok {
 					for _, it := range arr {
 						if s, ok := it.(string); ok {
 							patterns = append(patterns, s)

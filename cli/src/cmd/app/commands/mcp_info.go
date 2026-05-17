@@ -25,9 +25,9 @@ import (
 // process environment is scanned for SERVICE_<NAME>_* / <NAME>_* keys and
 // secret-like values are masked via redactSecretValue. Result is JSON
 // round-tripped so MCP tool handlers continue to consume
-// map[string]interface{} the way they did when the source was subprocess
+// map[string]any the way they did when the source was subprocess
 // stdout.
-func getAppInfoForMCP(ctx context.Context, projectDir string) (map[string]interface{}, error) {
+func getAppInfoForMCP(ctx context.Context, projectDir string) (map[string]any, error) {
 	if projectDir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -51,17 +51,17 @@ func getAppInfoForMCP(ctx context.Context, projectDir string) (map[string]interf
 		outputServices = append(outputServices, *svc)
 	}
 
-	// JSON round-trip so callers see map[string]interface{} (MCP handlers
+	// JSON round-trip so callers see map[string]any (MCP handlers
 	// index into this shape); marshalling the typed struct directly would
 	// hand back a pointer the handlers aren't prepared to type-assert.
-	raw, err := json.Marshal(map[string]interface{}{
+	raw, err := json.Marshal(map[string]any{
 		"project":  projectDir,
 		"services": outputServices,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode service info: %w", err)
 	}
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		return nil, fmt.Errorf("failed to decode service info: %w", err)
 	}

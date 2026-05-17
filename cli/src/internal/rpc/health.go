@@ -463,14 +463,14 @@ func toProtoResults(results []healthcheck.HealthCheckResult) []*v1.HealthCheckRe
 }
 
 // detailsToStringMap flattens healthcheck.HealthCheckResult.Details
-// (map[string]interface{}) into the proto's map<string,string>. Strings
+// (map[string]any) into the proto's map<string,string>. Strings
 // pass through; other primitives stringify via strconv; complex values
 // JSON-marshal (so a nested map shows up as the JSON literal). This is
 // lossy by design: the Details map exists for human-readable diagnostics,
 // not structured consumption, and proto's map<string,string> matches that
 // intent. Switching to google.protobuf.Struct here would force every
 // dashboard consumer through a Value-tree decoder for negligible benefit.
-func detailsToStringMap(in map[string]interface{}) map[string]string {
+func detailsToStringMap(in map[string]any) map[string]string {
 	if len(in) == 0 {
 		return nil
 	}
@@ -481,7 +481,7 @@ func detailsToStringMap(in map[string]interface{}) map[string]string {
 	return out
 }
 
-func stringifyDetailValue(v interface{}) string {
+func stringifyDetailValue(v any) string {
 	switch x := v.(type) {
 	case nil:
 		return ""
