@@ -4,6 +4,7 @@ package healthcheck
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -16,8 +17,6 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/service" // for AzureYaml, Service, GetLogManager (app-specific)
 	"github.com/jongio/azd-core/registry"
 	cache "github.com/patrickmn/go-cache"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
@@ -62,36 +61,32 @@ type HealthMonitor struct {
 	failureCountMu  sync.RWMutex         // Thread-safe access to failure tracking maps
 }
 
-// InitializeLogging configures the zerolog logger based on config.
+// InitializeLogging configures the slog default logger based on config.
 func InitializeLogging(logLevel, logFormat string) {
-	zerolog.TimeFieldFormat = time.RFC3339
+	var level slog.Level
+	switch strings.ToLower(logLevel) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info", "":
+		level = slog.LevelInfo
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
 
+	opts := &slog.HandlerOptions{Level: level}
+
+	var handler slog.Handler
 	switch logFormat {
 	case "json":
-		log.Logger = log.Output(os.Stderr)
-	case "pretty":
-		log.Logger = log.Output(zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: "15:04:05",
-		})
-	case "text":
-		log.Logger = log.Output(zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			NoColor:    true,
-			TimeFormat: time.RFC3339,
-		})
+		handler = slog.NewJSONHandler(os.Stderr, opts)
 	default:
-		log.Logger = log.Output(zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: "15:04:05",
-		})
+		handler = slog.NewTextHandler(os.Stderr, opts)
 	}
-
-	level, err := zerolog.ParseLevel(logLevel)
-	if err != nil {
-		level = zerolog.InfoLevel
-	}
-	zerolog.SetGlobalLevel(level)
+	slog.SetDefault(slog.New(handler))
 }
 
 // NewHealthMonitor creates a new health monitor.
@@ -99,20 +94,14 @@ func NewHealthMonitor(config MonitorConfig) (*HealthMonitor, error) {
 	InitializeLogging(config.LogLevel, config.LogFormat)
 	metricsEnabled.Store(config.EnableMetrics)
 
-	log.Debug().
-		Str("project_dir", config.ProjectDir).
-		Str("endpoint", config.DefaultEndpoint).
-		Dur("timeout", config.Timeout).
-		Bool("metrics", config.EnableMetrics).
-		Bool("circuit_breaker", config.EnableCircuitBreaker).
-		Msg("Creating health monitor")
+	slog.Debug("Creating health monitor", "project_dir", config.ProjectDir, "endpoint", config.DefaultEndpoint, "timeout", config.Timeout, "metrics", config.EnableMetrics, "circuit_breaker", config.EnableCircuitBreaker)
 
 	reg := registry.GetRegistry(config.ProjectDir)
 
 	var healthCache *cache.Cache
 	if config.CacheTTL > 0 {
 		healthCache = cache.New(config.CacheTTL, config.CacheTTL*2)
-		log.Debug().Dur("ttl", config.CacheTTL).Msg("Health check caching enabled")
+		slog.Debug("Health check caching enabled", "ttl", config.CacheTTL)
 	}
 
 	// Determine startup grace period
@@ -177,16 +166,16 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 			if !ok {
 				return nil, fmt.Errorf("cached health report for %q has unexpected type %T", cacheKey, cached)
 			}
-			log.Debug().Str("key", cacheKey).Msg("Returning cached health report")
+			slog.Debug("Returning cached health report", "key", cacheKey)
 			return report, nil
 		}
 	}
 
-	log.Debug().Strs("filter", serviceFilter).Msg("Performing health checks")
+	slog.Debug("Performing health checks", "filter", serviceFilter)
 
 	azureYaml, err := m.loadAzureYaml()
 	if err != nil && m.config.Verbose {
-		log.Warn().Err(err).Msg("Could not load azure.yaml")
+		slog.Warn("Could not load azure.yaml", "err", err)
 	}
 
 	registeredServices := m.registry.ListAll()
@@ -196,7 +185,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 		services = filterServices(services, serviceFilter)
 	}
 
-	log.Info().Int("total_services", len(services)).Msg("Starting health checks")
+	slog.Info("Starting health checks", "total_services", len(services))
 
 	results := make([]HealthCheckResult, len(services))
 	resultChan := make(chan struct {
@@ -269,12 +258,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 
 	summary := calculateSummary(results)
 
-	log.Info().
-		Int("healthy", summary.Healthy).
-		Int("unhealthy", summary.Unhealthy).
-		Int("degraded", summary.Degraded).
-		Int("unknown", summary.Unknown).
-		Msg("Health checks completed")
+	slog.Info("Health checks completed", "healthy", summary.Healthy, "unhealthy", summary.Unhealthy, "degraded", summary.Degraded, "unknown", summary.Unknown)
 
 	report := &HealthReport{
 		Timestamp: time.Now(),
@@ -287,7 +271,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 
 	if m.cache != nil {
 		m.cache.Set(cacheKey, report, cache.DefaultExpiration)
-		log.Debug().Str("key", cacheKey).Msg("Cached health report")
+		slog.Debug("Cached health report", "key", cacheKey)
 	}
 
 	return report, nil
@@ -470,16 +454,12 @@ func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 	for _, result := range results {
 		currentEntry, exists := m.registry.GetService(result.ServiceName)
 		if exists && currentEntry.Status == "stopped" {
-			log.Debug().
-				Str("service", result.ServiceName).
-				Msg("Skipping registry update for stopped service")
+			slog.Debug("Skipping registry update for stopped service", "service", result.ServiceName)
 			continue
 		}
 
 		if exists && currentEntry.Status == statusRunning && result.Status == HealthStatusStarting {
-			log.Debug().
-				Str("service", result.ServiceName).
-				Msg("Keeping running status during health check grace period")
+			slog.Debug("Keeping running status during health check grace period", "service", result.ServiceName)
 			continue
 		}
 

@@ -2,23 +2,14 @@ package healthcheck
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"log/slog"
 	"net"
 	"net/http"
-	"os"
-	"os/exec"
-	"runtime"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/jongio/azd-app/cli/src/internal/docker"
-	"github.com/jongio/azd-app/cli/src/internal/service" // for GetLogManager (app-specific)
-	"github.com/jongio/azd-core/procutil"
-	"github.com/rs/zerolog/log"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
 )
@@ -84,11 +75,7 @@ func (c *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker
 			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6 //nolint:gosec // G115 - breakerFailures bounds checked above
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			log.Info().
-				Str("service", name).
-				Str("from", from.String()).
-				Str("to", to.String()).
-				Msg("Circuit breaker state changed")
+			slog.Info("Circuit breaker state changed", "service", name, "from", from.String(), "to", to.String())
 
 			// Record state change in metrics
 			if metricsEnabled.Load() {
@@ -127,10 +114,7 @@ func (c *HealthChecker) getOrCreateRateLimiter(serviceName string) *rate.Limiter
 	// Create rate limiter with burst capacity
 	limiter = rate.NewLimiter(rate.Limit(c.rateLimit), c.rateLimit*2)
 	c.rateLimiters[serviceName] = limiter
-	log.Debug().
-		Str("service", serviceName).
-		Int("rate_limit", c.rateLimit).
-		Msg("Created rate limiter")
+	slog.Debug("Created rate limiter", "service", serviceName, "rate_limit", c.rateLimit)
 
 	return limiter
 }
@@ -143,9 +127,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 	// Skip health checks for stopped services - they should remain in their stopped state
 	// without being marked as unhealthy
 	if svc.RegistryStatus == "stopped" {
-		log.Debug().
-			Str("service", serviceName).
-			Msg("Skipping health check for stopped service")
+		slog.Debug("Skipping health check for stopped service", "service", serviceName)
 
 		return HealthCheckResult{
 			ServiceName:  serviceName,
@@ -157,20 +139,13 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 		}
 	}
 
-	log.Debug().
-		Str("service", serviceName).
-		Int("port", svc.Port).
-		Int("pid", svc.PID).
-		Msg("Starting health check")
+	slog.Debug("Starting health check", "service", serviceName, "port", svc.Port, "pid", svc.PID)
 
 	// Apply rate limiting if configured
 	limiter := c.getOrCreateRateLimiter(serviceName)
 	if limiter != nil {
 		if err := limiter.Wait(ctx); err != nil {
-			log.Warn().
-				Str("service", serviceName).
-				Err(err).
-				Msg("Rate limit exceeded")
+			slog.Warn("Rate limit exceeded", "service", serviceName, "err", err)
 
 			return HealthCheckResult{
 				ServiceName: serviceName,
@@ -192,10 +167,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Error().
-						Str("service", serviceName).
-						Interface("panic", r).
-						Msg("Panic recovered during circuit breaker operation")
+					slog.Error("Panic recovered during circuit breaker operation", "service", serviceName, "panic", r)
 					result = HealthCheckResult{
 						ServiceName: serviceName,
 						Timestamp:   time.Now(),
@@ -215,9 +187,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 
 			if err != nil {
 				if errors.Is(err, gobreaker.ErrOpenState) {
-					log.Warn().
-						Str("service", serviceName).
-						Msg("Circuit breaker open - skipping check")
+					slog.Warn("Circuit breaker open - skipping check", "service", serviceName)
 
 					result = HealthCheckResult{
 						ServiceName: serviceName,
@@ -240,10 +210,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 					result = typedResult
 				} else {
 					// Unexpected type returned from circuit breaker - should never happen
-					log.Error().
-						Str("service", serviceName).
-						Str("type", fmt.Sprintf("%T", output)).
-						Msg("Circuit breaker returned unexpected type")
+					slog.Error("Circuit breaker returned unexpected type", "service", serviceName, "type", fmt.Sprintf("%T", output))
 					result = HealthCheckResult{
 						ServiceName: serviceName,
 						Timestamp:   time.Now(),
@@ -270,11 +237,7 @@ func (c *HealthChecker) CheckService(ctx context.Context, svc serviceInfo) Healt
 	result.ServiceType = svc.Type
 	result.ServiceMode = svc.Mode
 
-	log.Debug().
-		Str("service", serviceName).
-		Str("status", string(result.Status)).
-		Dur("duration", duration).
-		Msg("Health check completed")
+	slog.Debug("Health check completed", "service", serviceName, "status", string(result.Status), "duration", duration)
 
 	return result
 }
@@ -392,686 +355,3 @@ func (c *HealthChecker) performServiceCheck(ctx context.Context, svc serviceInfo
 }
 
 // buildResultFromHTTPCheck builds a HealthCheckResult from an HTTP check result.
-func (c *HealthChecker) buildResultFromHTTPCheck(result HealthCheckResult, httpResult *httpHealthCheckResult, port int, isInStartupGracePeriod bool) HealthCheckResult {
-	result.CheckType = HealthCheckTypeHTTP
-	result.Endpoint = httpResult.Endpoint
-	result.ResponseTime = httpResult.ResponseTime
-	result.StatusCode = httpResult.StatusCode
-	result.Status = httpResult.Status
-	result.Details = httpResult.Details
-	result.Error = httpResult.Error
-	// Store detailed error information separately if available
-	if httpResult.Error != "" && len(httpResult.Error) > 100 {
-		result.ErrorDetails = httpResult.Error
-		result.Error = httpResult.Error[:100] + "..." // Truncate main error field
-	}
-	if port > 0 {
-		result.Port = port
-	}
-	// If check failed but we're in startup grace period, keep "starting" status
-	if isInStartupGracePeriod && result.Status != HealthStatusHealthy {
-		result.Status = HealthStatusStarting
-	}
-	return result
-}
-
-// tryCustomHealthCheck performs a health check using custom configuration from azure.yaml.
-// For container services (svc.Type == "container"), CMD and CMD-SHELL health checks
-// are executed inside the container using docker exec.
-func (c *HealthChecker) tryCustomHealthCheck(ctx context.Context, config *healthCheckConfig, svc serviceInfo) *httpHealthCheckResult {
-	if len(config.Test) == 0 {
-		return nil
-	}
-
-	test := config.Test[0]
-
-	// Check if it's an HTTP URL (cross-platform approach)
-	if strings.HasPrefix(test, "http://") || strings.HasPrefix(test, "https://") {
-		return c.performHTTPCheck(ctx, test)
-	}
-
-	// Check for CMD or CMD-SHELL format
-	if len(config.Test) > 1 {
-		switch config.Test[0] {
-		case "CMD":
-			return c.performCommandCheck(ctx, config.Test[1:], svc)
-		case "CMD-SHELL":
-			return c.performShellCheck(ctx, config.Test[1], svc)
-		case "NONE":
-			return &httpHealthCheckResult{
-				Endpoint: "none",
-				Status:   HealthStatusHealthy,
-			}
-		}
-	}
-
-	// Single string that's not a URL - treat as shell command
-	return c.performShellCheck(ctx, test, svc)
-}
-
-// performHTTPCheck performs a direct HTTP health check to a specific URL.
-func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *httpHealthCheckResult {
-	startTime := time.Now()
-	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
-	if err != nil {
-		return &httpHealthCheckResult{
-			Endpoint: urlStr,
-			Status:   HealthStatusUnhealthy,
-			Error:    fmt.Sprintf("failed to create request: %v", err),
-		}
-	}
-
-	resp, err := c.httpClient.Do(req)
-	responseTime := time.Since(startTime)
-
-	if err != nil {
-		return &httpHealthCheckResult{
-			Endpoint:     urlStr,
-			ResponseTime: responseTime,
-			Status:       HealthStatusUnhealthy,
-			Error:        fmt.Sprintf("connection failed: %v", err),
-		}
-	}
-
-	// Read and close body
-	limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
-	body, readErr := io.ReadAll(limitedReader)
-	if closeErr := resp.Body.Close(); closeErr != nil {
-		log.Warn().Err(closeErr).Str("url", urlStr).Msg("Failed to close response body")
-	}
-
-	result := &httpHealthCheckResult{
-		Endpoint:     urlStr,
-		ResponseTime: responseTime,
-		StatusCode:   resp.StatusCode,
-		Details:      make(map[string]any),
-	}
-
-	// Determine status based on HTTP status code
-	result.Status = c.statusFromHTTPCode(resp.StatusCode)
-
-	// Add suggestion for error responses
-	if resp.StatusCode >= 400 {
-		result.Details["suggestion"] = suggestHTTPErrorAction(resp.StatusCode)
-
-		// Try to parse error details from response body
-		if readErr == nil && len(body) > 0 {
-			if errorDetails := parseErrorDetailsFromBody(body); errorDetails != "" {
-				result.Error = errorDetails
-			}
-		}
-	}
-
-	// Try to parse response body for additional details
-	if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		c.parseHealthResponseBody(body, result)
-	}
-
-	return result
-}
-
-// performCommandCheck executes a command for health check (CMD format).
-// For container services, the command is executed inside the container using docker exec.
-func (c *HealthChecker) performCommandCheck(ctx context.Context, args []string, svc serviceInfo) *httpHealthCheckResult {
-	if len(args) == 0 {
-		return nil
-	}
-
-	startTime := time.Now()
-	result := &httpHealthCheckResult{
-		Endpoint:     strings.Join(args, " "),
-		ResponseTime: 0,
-	}
-
-	// For container services, execute inside the container
-	if svc.Type == ServiceTypeContainer {
-		containerName := fmt.Sprintf("azd-%s", svc.Name)
-		client := docker.NewClient()
-
-		exitCode, output, err := client.Exec(containerName, args)
-		result.ResponseTime = time.Since(startTime)
-
-		if err != nil {
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("docker exec failed: %v", err)
-		} else if exitCode != 0 {
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("command exited with code %d: %s", exitCode, output)
-		} else {
-			result.Status = HealthStatusHealthy
-		}
-		return result
-	}
-
-	// For native services, execute on host
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	err := cmd.Run()
-	result.ResponseTime = time.Since(startTime)
-
-	if err != nil {
-		result.Status = HealthStatusUnhealthy
-		result.Error = fmt.Sprintf("command failed: %v", err)
-	} else {
-		result.Status = HealthStatusHealthy
-	}
-
-	return result
-}
-
-// performShellCheck executes a shell command for health check (CMD-SHELL format).
-// For container services, the command is executed inside the container using docker exec sh -c.
-func (c *HealthChecker) performShellCheck(ctx context.Context, command string, svc serviceInfo) *httpHealthCheckResult {
-	startTime := time.Now()
-	result := &httpHealthCheckResult{
-		Endpoint:     command,
-		ResponseTime: 0,
-	}
-
-	// For container services, execute inside the container
-	if svc.Type == ServiceTypeContainer {
-		containerName := fmt.Sprintf("azd-%s", svc.Name)
-		client := docker.NewClient()
-
-		exitCode, output, err := client.ExecShell(containerName, command)
-		result.ResponseTime = time.Since(startTime)
-
-		if err != nil {
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("docker exec failed: %v", err)
-		} else if exitCode != 0 {
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("command exited with code %d: %s", exitCode, output)
-		} else {
-			result.Status = HealthStatusHealthy
-		}
-		return result
-	}
-
-	// For native services, execute on host
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "cmd", "/C", command)
-	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-c", command)
-	}
-
-	err := cmd.Run()
-	result.ResponseTime = time.Since(startTime)
-
-	if err != nil {
-		result.Status = HealthStatusUnhealthy
-		result.Error = fmt.Sprintf("command failed: %v", err)
-	} else {
-		result.Status = HealthStatusHealthy
-	}
-
-	return result
-}
-
-// tryHTTPHealthCheck attempts HTTP health checks using smart endpoint discovery.
-// Uses endpoint caching to avoid spamming multiple endpoints on every check.
-// Discovery only happens on first check or when cached endpoint fails.
-func (c *HealthChecker) tryHTTPHealthCheck(ctx context.Context, port int) *httpHealthCheckResult {
-	cacheKey := fmt.Sprintf("port:%d", port)
-
-	// Ensure endpointCache is initialized (for backward compatibility with tests)
-	c.mu.Lock()
-	if c.endpointCache == nil {
-		c.endpointCache = make(map[string]string)
-	}
-	c.mu.Unlock()
-
-	// Check if we have a cached endpoint for this port
-	c.mu.RLock()
-	cachedEndpoint, hasCached := c.endpointCache[cacheKey]
-	c.mu.RUnlock()
-
-	// If we have a cached endpoint, ONLY check that endpoint first
-	if hasCached {
-		// Special marker indicates no HTTP endpoint exists - skip to TCP fallback
-		if cachedEndpoint == endpointCacheNone {
-			log.Debug().
-				Int("port", port).
-				Msg("Skipping HTTP check - no endpoint found in previous discovery")
-			return nil
-		}
-
-		result := c.checkSingleEndpoint(ctx, port, cachedEndpoint)
-		if result != nil && result.Status == HealthStatusHealthy {
-			return result
-		}
-		// Cached endpoint failed - clear cache and rediscover
-		c.mu.Lock()
-		delete(c.endpointCache, cacheKey)
-		c.mu.Unlock()
-		log.Debug().
-			Int("port", port).
-			Str("cached_endpoint", cachedEndpoint).
-			Msg("Cached health endpoint failed, will rediscover on next check")
-		// Fall through to discovery - gives one chance to find a working endpoint
-	}
-
-	// No cached endpoint - perform endpoint discovery
-	log.Debug().
-		Int("port", port).
-		Msg("Discovering health endpoint (first check or cache miss)")
-
-	// Build list of endpoints to try, prioritizing common ones
-	endpoints := []string{c.defaultEndpoint}
-	for _, path := range commonHealthPaths {
-		if path != c.defaultEndpoint {
-			endpoints = append(endpoints, path)
-		}
-	}
-
-	// Track the last non-nil result in case no healthy endpoint is found
-	var lastResult *httpHealthCheckResult
-
-	for _, endpoint := range endpoints {
-		// Check context before each attempt
-		if ctx.Err() != nil {
-			return nil
-		}
-
-		result := c.checkSingleEndpoint(ctx, port, endpoint)
-		if result != nil {
-			// If healthy, cache and return immediately - stop discovery
-			if result.Status == HealthStatusHealthy {
-				c.mu.Lock()
-				c.endpointCache[cacheKey] = endpoint
-				c.mu.Unlock()
-				log.Debug().
-					Int("port", port).
-					Str("endpoint", endpoint).
-					Msg("Discovered and cached health endpoint")
-				return result
-			}
-			// Keep track of last non-nil result for fallback
-			lastResult = result
-		}
-	}
-
-	// No healthy endpoint found during discovery
-	// Cache a marker to skip HTTP checks in future (will fall back to TCP/process checks)
-	if lastResult == nil {
-		c.mu.Lock()
-		c.endpointCache[cacheKey] = endpointCacheNone
-		c.mu.Unlock()
-		log.Debug().
-			Int("port", port).
-			Msg("No HTTP health endpoint found, will use TCP fallback")
-	}
-
-	return lastResult
-}
-
-// checkSingleEndpoint performs a single HTTP health check on a specific endpoint.
-func (c *HealthChecker) checkSingleEndpoint(ctx context.Context, port int, endpoint string) *httpHealthCheckResult {
-	url := fmt.Sprintf("http://localhost:%d%s", port, endpoint)
-
-	startTime := time.Now()
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil
-	}
-
-	resp, err := c.httpClient.Do(req)
-	responseTime := time.Since(startTime)
-
-	if err != nil {
-		// Check if error is due to context cancellation
-		if ctx.Err() != nil {
-			return nil
-		}
-		return nil
-	}
-
-	limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
-	body, readErr := io.ReadAll(limitedReader)
-	closeErr := resp.Body.Close()
-	if closeErr != nil {
-		log.Warn().Err(closeErr).Str("url", url).Msg("Failed to close response body")
-	}
-
-	// Skip 404 and 400 responses - these indicate endpoint doesn't exist
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
-		return nil
-	}
-
-	result := &httpHealthCheckResult{
-		Endpoint:     url,
-		ResponseTime: responseTime,
-		StatusCode:   resp.StatusCode,
-		Status:       c.statusFromHTTPCode(resp.StatusCode),
-		Details:      make(map[string]any),
-	}
-
-	// Add suggestion for error responses
-	if resp.StatusCode >= 400 {
-		result.Details["suggestion"] = suggestHTTPErrorAction(resp.StatusCode)
-
-		// Try to parse error details from response body
-		if readErr == nil && len(body) > 0 {
-			if errorDetails := parseErrorDetailsFromBody(body); errorDetails != "" {
-				result.Error = errorDetails
-			}
-		}
-	}
-
-	if readErr == nil && len(body) > 0 && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		c.parseHealthResponseBody(body, result)
-	}
-
-	return result
-}
-
-// statusFromHTTPCode determines health status from HTTP status code.
-func (c *HealthChecker) statusFromHTTPCode(statusCode int) HealthStatus {
-	switch {
-	case statusCode >= 200 && statusCode < 300:
-		return HealthStatusHealthy
-	case statusCode >= 300 && statusCode < 400:
-		return HealthStatusHealthy // Redirects OK
-	case statusCode >= 500:
-		return HealthStatusUnhealthy
-	default:
-		return HealthStatusDegraded
-	}
-}
-
-// parseHealthResponseBody parses JSON response body for health details.
-func (c *HealthChecker) parseHealthResponseBody(body []byte, result *httpHealthCheckResult) {
-	var details map[string]any
-	if err := json.Unmarshal(body, &details); err == nil {
-		result.Details = details
-
-		if status, ok := details["status"].(string); ok {
-			switch strings.ToLower(status) {
-			case "healthy", "ok", "up":
-				result.Status = HealthStatusHealthy
-			case "degraded", "warning":
-				result.Status = HealthStatusDegraded
-			case "unhealthy", "down", statusError:
-				result.Status = HealthStatusUnhealthy
-			}
-		}
-	}
-}
-
-// performProcessHealthCheck handles health checks for process-type services.
-func (c *HealthChecker) performProcessHealthCheck(_ context.Context, svc serviceInfo, isInStartupGracePeriod bool) HealthCheckResult {
-	result := HealthCheckResult{
-		ServiceName: svc.Name,
-		Timestamp:   time.Now(),
-		CheckType:   HealthCheckTypeProcess,
-		ServiceMode: svc.Mode,
-	}
-
-	if !svc.StartTime.IsZero() {
-		if !svc.EndTime.IsZero() {
-			result.Uptime = svc.EndTime.Sub(svc.StartTime)
-		} else {
-			result.Uptime = time.Since(svc.StartTime)
-		}
-	}
-
-	if svc.Mode == ServiceModeBuild || svc.Mode == ServiceModeTask {
-		return c.performBuildTaskHealthCheck(svc, isInStartupGracePeriod, result)
-	}
-
-	if svc.HealthCheck != nil && svc.HealthCheck.Type == "output" && svc.HealthCheck.Pattern != "" {
-		return c.performOutputHealthCheck(svc, isInStartupGracePeriod, result)
-	}
-
-	if svc.PID > 0 {
-		result.PID = svc.PID
-		if result.Details == nil {
-			result.Details = make(map[string]any)
-		}
-
-		isRunning := isProcessRunning(svc.PID)
-		if isRunning {
-			result.Status = HealthStatusHealthy
-			result.Details["pid"] = svc.PID
-		} else {
-			if isInStartupGracePeriod {
-				result.Status = HealthStatusStarting
-			} else {
-				result.Status = HealthStatusUnhealthy
-			}
-			result.Error = fmt.Sprintf("process %d not running", svc.PID)
-			// Add actionable suggestion
-			result.Details["suggestion"] = suggestProcessErrorAction(svc.PID, isRunning, svc.Mode)
-			result.Details["pid"] = svc.PID
-		}
-		return result
-	}
-
-	if isInStartupGracePeriod {
-		result.Status = HealthStatusStarting
-	} else {
-		result.Status = HealthStatusUnknown
-	}
-	result.Error = "no process ID available for health check"
-
-	return result
-}
-
-// performBuildTaskHealthCheck handles health checks for build and task mode services.
-func (c *HealthChecker) performBuildTaskHealthCheck(svc serviceInfo, isInStartupGracePeriod bool, result HealthCheckResult) HealthCheckResult {
-	result.PID = svc.PID
-
-	if svc.PID > 0 && isProcessRunning(svc.PID) {
-		if isInStartupGracePeriod {
-			result.Status = HealthStatusStarting
-		} else {
-			result.Status = HealthStatusHealthy
-		}
-		if svc.Mode == ServiceModeBuild {
-			result.Details = map[string]any{"state": "building"}
-		} else {
-			result.Details = map[string]any{"state": "running"}
-		}
-		return result
-	}
-
-	if svc.ExitCode != nil {
-		if *svc.ExitCode == 0 {
-			result.Status = HealthStatusHealthy
-			if svc.Mode == ServiceModeBuild {
-				result.Details = map[string]any{"state": "built", "exitCode": 0}
-			} else {
-				result.Details = map[string]any{"state": statusCompleted, "exitCode": 0}
-			}
-		} else {
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("process exited with code %d", *svc.ExitCode)
-			result.Details = map[string]any{"state": "failed", "exitCode": *svc.ExitCode}
-		}
-		return result
-	}
-
-	if svc.PID > 0 {
-		result.Status = HealthStatusHealthy
-		if svc.Mode == ServiceModeBuild {
-			result.Details = map[string]any{"state": "built", "note": "exit code not captured"}
-		} else {
-			result.Details = map[string]any{"state": statusCompleted, "note": "exit code not captured"}
-		}
-		return result
-	}
-
-	if isInStartupGracePeriod {
-		result.Status = HealthStatusStarting
-		return result
-	}
-
-	result.Status = HealthStatusUnknown
-	result.Error = "no process information available"
-	return result
-}
-
-// performOutputHealthCheck handles health checks for services using output pattern matching.
-func (c *HealthChecker) performOutputHealthCheck(svc serviceInfo, isInStartupGracePeriod bool, result HealthCheckResult) HealthCheckResult {
-	pattern := svc.HealthCheck.Pattern
-	result.PID = svc.PID
-	result.Details = map[string]any{
-		"checkType": "output",
-		"pattern":   pattern,
-	}
-
-	if svc.PID > 0 && !isProcessRunning(svc.PID) {
-		if svc.ExitCode != nil {
-			if *svc.ExitCode == 0 {
-				result.Status = HealthStatusHealthy
-				result.Details["state"] = statusCompleted
-				return result
-			}
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("process exited with code %d before pattern matched", *svc.ExitCode)
-			result.Details["state"] = "failed"
-			return result
-		}
-		if isInStartupGracePeriod {
-			result.Status = HealthStatusStarting
-		} else {
-			result.Status = HealthStatusUnhealthy
-			result.Error = "process not running"
-		}
-		return result
-	}
-
-	projectDir, _ := os.Getwd()
-	logManager := service.GetLogManager(projectDir)
-	buffer, exists := logManager.GetBuffer(svc.Name)
-
-	if !exists {
-		if isInStartupGracePeriod {
-			result.Status = HealthStatusStarting
-			result.Details["state"] = "waiting_for_logs"
-		} else {
-			result.Status = HealthStatusUnknown
-			result.Error = "log buffer not available"
-		}
-		return result
-	}
-
-	if buffer.ContainsPattern(pattern) {
-		result.Status = HealthStatusHealthy
-		result.Details["state"] = "pattern_matched"
-		return result
-	}
-
-	if isInStartupGracePeriod {
-		result.Status = HealthStatusStarting
-		result.Details["state"] = "waiting_for_pattern"
-	} else {
-		if svc.Mode == ServiceModeWatch {
-			result.Status = HealthStatusHealthy
-			result.Details["state"] = "watching"
-		} else {
-			result.Status = HealthStatusUnhealthy
-			result.Error = fmt.Sprintf("pattern %q not found in output", pattern)
-			result.Details["state"] = "pattern_not_matched"
-			result.Details["suggestion"] = "Check output pattern configuration. Service may still be starting or pattern may be incorrect."
-		}
-	}
-
-	return result
-}
-
-// checkPort checks if a TCP port is listening.
-func (c *HealthChecker) checkPort(ctx context.Context, port int) bool {
-	address := fmt.Sprintf("localhost:%d", port)
-	dialer := net.Dialer{Timeout: defaultPortCheckTimeout}
-	conn, err := dialer.DialContext(ctx, "tcp", address)
-	if err != nil {
-		return false
-	}
-	_ = conn.Close()
-	return true
-}
-
-// suggestTCPErrorAction provides actionable suggestions for TCP connection errors.
-func suggestTCPErrorAction(err error, port int) string {
-	if err == nil {
-		return ""
-	}
-
-	errMsg := err.Error()
-	if strings.Contains(errMsg, "connection refused") || strings.Contains(errMsg, "actively refused") {
-		return fmt.Sprintf("Port %d connection refused. Verify service is running and port is correct.", port)
-	}
-	if strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "i/o timeout") {
-		return fmt.Sprintf("Port %d connection timeout. Check network connectivity and firewall rules.", port)
-	}
-	if strings.Contains(errMsg, "no route to host") {
-		return "Network unreachable. Check network configuration."
-	}
-	return fmt.Sprintf("Port %d connection failed. Verify service is running.", port)
-}
-
-// suggestProcessErrorAction provides actionable suggestions for process check errors.
-func suggestProcessErrorAction(pid int, isRunning bool, _ string) string {
-	if !isRunning {
-		return fmt.Sprintf("Process %d not running. Check service logs and verify start command.", pid)
-	}
-	return ""
-}
-
-// isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
-func isProcessRunning(pid int) bool {
-	return procutil.IsProcessRunning(pid)
-}
-
-// suggestHTTPErrorAction provides actionable suggestions based on HTTP status code.
-func suggestHTTPErrorAction(statusCode int) string {
-	switch statusCode {
-	case 503:
-		return "Service temporarily unavailable. Check if dependencies are running."
-	case 500, 501, 502, 504, 505, 506, 507, 508, 509, 510, 511:
-		return "Server error. Check application logs for details."
-	case 404:
-		return "Health endpoint not found. Verify endpoint configuration."
-	case 401:
-		return "Authentication failed. Check credentials."
-	case 403:
-		return "Authorization failed. Check permissions."
-	case 429:
-		return "Rate limited. Reduce request rate or check quotas."
-	case 408:
-		return "Request timeout. Check network connectivity and service performance."
-	default:
-		if statusCode >= 500 && statusCode < 600 {
-			return "Server error. Check application logs for details."
-		}
-		return "HTTP request failed. Check service logs for details."
-	}
-}
-
-// parseErrorDetailsFromBody attempts to extract error details from HTTP response body.
-func parseErrorDetailsFromBody(body []byte) string {
-	if len(body) == 0 {
-		return ""
-	}
-
-	// Try to parse as JSON
-	var jsonData map[string]any
-	if err := json.Unmarshal(body, &jsonData); err == nil {
-		// Look for common error fields
-		for _, key := range []string{statusError, "message", "detail", "details", "error_description"} {
-			if val, ok := jsonData[key]; ok {
-				if str, ok := val.(string); ok && str != "" {
-					return str
-				}
-			}
-		}
-	}
-
-	// If JSON parsing failed or no error field found, return truncated body (first 200 chars)
-	bodyStr := string(body)
-	if len(bodyStr) > 200 {
-		return bodyStr[:200] + "..."
-	}
-	return bodyStr
-}

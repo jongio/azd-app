@@ -513,27 +513,9 @@ func addStartServiceTool(b *azdext.MCPServerBuilder) {
 }
 
 func handleStartService(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToolResult, error) {
-	serviceName, err := args.RequireString("serviceName")
-	if err != nil {
-		return azdext.MCPErrorResult("%s", err.Error()), nil
-	}
-
-	if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
-		return azdext.MCPErrorResult("%s", valErr.Error()), nil
-	}
-
-	projectDir, err := extractValidatedProjectDir(args)
-	if err != nil {
-		return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
-	}
-
-	ctrl, err := NewServiceController(projectDir)
-	if err != nil {
-		return azdext.MCPErrorResult("Failed to initialize service controller: %v", err), nil
-	}
-
-	result := ctrl.StartService(ctx, serviceName)
-	return marshalToolResult(result)
+	return handleSingleServiceOp(ctx, args, func(ctx context.Context, ctrl *ServiceController, name string) (*mcp.CallToolResult, error) {
+		return marshalToolResult(ctrl.StartService(ctx, name))
+	})
 }
 
 // --- restart_service ---
@@ -558,27 +540,9 @@ func addRestartServiceTool(b *azdext.MCPServerBuilder) {
 }
 
 func handleRestartService(ctx context.Context, args azdext.ToolArgs) (*mcp.CallToolResult, error) {
-	serviceName, err := args.RequireString("serviceName")
-	if err != nil {
-		return azdext.MCPErrorResult("%s", err.Error()), nil
-	}
-
-	if valErr := security.ValidateServiceName(serviceName, false); valErr != nil {
-		return azdext.MCPErrorResult("%s", valErr.Error()), nil
-	}
-
-	projectDir, err := extractValidatedProjectDir(args)
-	if err != nil {
-		return azdext.MCPErrorResult("Invalid project directory: %v", err), nil
-	}
-
-	ctrl, err := NewServiceController(projectDir)
-	if err != nil {
-		return azdext.MCPErrorResult("Failed to initialize service controller: %v", err), nil
-	}
-
-	result := ctrl.RestartService(ctx, serviceName)
-	return marshalToolResult(result)
+	return handleSingleServiceOp(ctx, args, func(ctx context.Context, ctrl *ServiceController, name string) (*mcp.CallToolResult, error) {
+		return marshalToolResult(ctrl.RestartService(ctx, name))
+	})
 }
 
 // --- install_dependencies ---

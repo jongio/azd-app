@@ -62,6 +62,17 @@ func GetOperationManager() *ServiceOperationManager {
 	return operationManagerInstance
 }
 
+// NewOperationManager creates a new ServiceOperationManager with the given
+// operation timeout. Use this for dependency injection instead of the package-level
+// GetOperationManager singleton.
+func NewOperationManager(timeout time.Duration) *ServiceOperationManager {
+	return &ServiceOperationManager{
+		serviceStates:  make(map[string]OperationState),
+		serviceMutexes: make(map[string]*sync.Mutex),
+		timeout:        timeout,
+	}
+}
+
 // getServiceMutex returns the mutex for a specific service, creating it if necessary.
 func (m *ServiceOperationManager) getServiceMutex(serviceName string) *sync.Mutex {
 	m.mu.Lock()
