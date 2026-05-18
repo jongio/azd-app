@@ -458,7 +458,7 @@ func TestBuildResultFromHTTPCheck(t *testing.T) {
 		ResponseTime: 50 * time.Millisecond,
 		StatusCode:   200,
 		Status:       HealthStatusHealthy,
-		Details:      map[string]interface{}{"version": "1.0"},
+		Details:      map[string]any{"version": "1.0"},
 		Error:        "",
 	}
 

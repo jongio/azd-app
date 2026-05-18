@@ -561,7 +561,7 @@ func getPrincipalFromCredentials(ctx context.Context, cred azcore.TokenCredentia
 	}
 
 	// Parse JSON payload
-	var claims map[string]interface{}
+	var claims map[string]any
 	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
 		return ""
 	}

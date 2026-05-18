@@ -35,7 +35,7 @@ func TestHealthcheckConfig_IsDisabled(t *testing.T) {
 		},
 		{
 			name:     "test NONE array",
-			config:   &HealthcheckConfig{Test: []interface{}{"NONE"}},
+			config:   &HealthcheckConfig{Test: []any{"NONE"}},
 			expected: true,
 		},
 		{

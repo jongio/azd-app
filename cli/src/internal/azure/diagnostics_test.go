@@ -30,7 +30,7 @@ func (m *simpleMockCredential) GetToken(ctx context.Context, options policy.Toke
 func TestDiagnosticSettingsChecker_CheckDiagnosticSettings(t *testing.T) {
 	tests := []struct {
 		name                string
-		mockResponse        interface{}
+		mockResponse        any
 		mockStatusCode      int
 		expectedStatus      DiagnosticSettingsStatus
 		expectedWorkspace   string

@@ -363,7 +363,7 @@ func TestDatabaseIntegration(t *testing.T) {
 		Message:     "Test notification",
 		Severity:    "info",
 		Timestamp:   time.Now(),
-		Metadata:    map[string]interface{}{"key": "value"},
+		Metadata:    map[string]any{"key": "value"},
 	}
 
 	if err := db.Save(ctx, event); err != nil {

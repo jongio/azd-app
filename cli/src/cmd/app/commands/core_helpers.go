@@ -382,7 +382,7 @@ func readFileSecure(path string) ([]byte, error) {
 }
 
 // unmarshalYaml unmarshals YAML data into a struct.
-func unmarshalYaml(data []byte, v interface{}) error {
+func unmarshalYaml(data []byte, v any) error {
 	return yaml.Unmarshal(data, v)
 }
 

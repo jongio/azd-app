@@ -36,7 +36,7 @@ type NotificationRecord struct {
 	Timestamp    time.Time              `json:"timestamp"`
 	Read         bool                   `json:"read"`
 	Acknowledged bool                   `json:"acknowledged"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // NewDatabase creates a new notification database

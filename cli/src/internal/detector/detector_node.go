@@ -241,7 +241,7 @@ func HasNpmWorkspaces(dir string) bool {
 	}
 
 	var pkg struct {
-		Workspaces interface{} `json:"workspaces"`
+		Workspaces any `json:"workspaces"`
 	}
 
 	if err := json.Unmarshal(data, &pkg); err != nil {
@@ -255,10 +255,10 @@ func HasNpmWorkspaces(dir string) bool {
 
 	// workspaces can be either an array or an object with packages field
 	switch v := pkg.Workspaces.(type) {
-	case []interface{}:
+	case []any:
 		return len(v) > 0
-	case map[string]interface{}:
-		if packages, ok := v["packages"].([]interface{}); ok {
+	case map[string]any:
+		if packages, ok := v["packages"].([]any); ok {
 			return len(packages) > 0
 		}
 		return false

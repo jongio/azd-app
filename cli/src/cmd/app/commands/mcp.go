@@ -144,12 +144,12 @@ This server complements azd's core MCP capabilities:
 }
 
 // executeAzdAppCommand executes an azd app command and returns JSON output
-func executeAzdAppCommand(ctx context.Context, command string, args []string) (map[string]interface{}, error) {
+func executeAzdAppCommand(ctx context.Context, command string, args []string) (map[string]any, error) {
 	return executeAzdAppCommandWithTimeout(ctx, command, args, defaultCommandTimeout)
 }
 
 // executeAzdAppCommandWithTimeout executes an azd app command with a custom timeout
-func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args []string, timeout time.Duration) (map[string]interface{}, error) {
+func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args []string, timeout time.Duration) (map[string]any, error) {
 	// Check if context is already canceled
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("command canceled before execution: %w", err)
@@ -181,7 +181,7 @@ func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args [
 		return nil, fmt.Errorf("failed to execute azd app %s: %w\nOutput: %s", command, err, string(output))
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(output, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON output: %w\nRaw output: %s", err, string(output))
 	}
@@ -215,7 +215,7 @@ func extractValidatedProjectDir(args azdext.ToolArgs) (string, error) {
 
 // marshalToolResult marshals data to JSON and returns an MCP tool result with structured content.
 // This is for tools with output schemas that need to return structured data.
-func marshalToolResult(data interface{}) (*mcp.CallToolResult, error) {
+func marshalToolResult(data any) (*mcp.CallToolResult, error) {
 	jsonBytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return azdext.MCPErrorResult("Failed to marshal result: %v", err), nil
@@ -397,7 +397,7 @@ func getProjectDir() string {
 
 // ServiceInfo represents the output schema for get_services tool
 type ServiceInfo struct {
-	Project  map[string]interface{} `json:"project" jsonschema:"description=Project metadata including name and directory"`
+	Project  map[string]any `json:"project" jsonschema:"description=Project metadata including name and directory"`
 	Services []ServiceDetails       `json:"services" jsonschema:"description=List of services with their status and configuration"`
 }
 
@@ -417,7 +417,7 @@ type ServiceDetails struct {
 
 // ProjectInfo represents the output schema for get_project_info tool
 type ProjectInfo struct {
-	Project  map[string]interface{}  `json:"project" jsonschema:"description=Project metadata"`
+	Project  map[string]any  `json:"project" jsonschema:"description=Project metadata"`
 	Services []ProjectServiceSummary `json:"services" jsonschema:"description=Summary of services defined in the project"`
 }
 

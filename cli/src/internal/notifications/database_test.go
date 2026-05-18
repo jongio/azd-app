@@ -27,7 +27,7 @@ func TestDatabase(t *testing.T) {
 			Message:     "Service started",
 			Severity:    "info",
 			Timestamp:   time.Now(),
-			Metadata:    map[string]interface{}{"port": 8080},
+			Metadata:    map[string]any{"port": 8080},
 		}
 
 		err := db.Save(ctx, event)

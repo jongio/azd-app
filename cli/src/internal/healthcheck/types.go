@@ -97,7 +97,7 @@ type httpHealthCheckResult struct {
 	ResponseTime time.Duration
 	StatusCode   int
 	Status       HealthStatus
-	Details      map[string]interface{}
+	Details      map[string]any
 	Error        string
 }
 

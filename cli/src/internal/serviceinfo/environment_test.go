@@ -295,17 +295,17 @@ func TestRefreshEnvironmentFromEvent(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		bicepOutputs  map[string]interface{}
+		bicepOutputs  map[string]any
 		wantCacheKeys map[string]string
 	}{
 		{
 			name: "bicep outputs with value field",
-			bicepOutputs: map[string]interface{}{
-				"apiUrl": map[string]interface{}{
+			bicepOutputs: map[string]any{
+				"apiUrl": map[string]any{
 					"value": "https://api.azure.com",
 					"type":  "string",
 				},
-				"webUrl": map[string]interface{}{
+				"webUrl": map[string]any{
 					"value": "https://web.azure.com",
 				},
 			},
@@ -316,14 +316,14 @@ func TestRefreshEnvironmentFromEvent(t *testing.T) {
 		},
 		{
 			name: "mixed output types - only strings extracted",
-			bicepOutputs: map[string]interface{}{
-				"apiUrl": map[string]interface{}{
+			bicepOutputs: map[string]any{
+				"apiUrl": map[string]any{
 					"value": "https://api.azure.com",
 				},
-				"port": map[string]interface{}{
+				"port": map[string]any{
 					"value": 8080, // Not a string, should be ignored
 				},
-				"enabled": map[string]interface{}{
+				"enabled": map[string]any{
 					"value": true, // Not a string, should be ignored
 				},
 			},
@@ -333,9 +333,9 @@ func TestRefreshEnvironmentFromEvent(t *testing.T) {
 		},
 		{
 			name: "outputs without value field ignored",
-			bicepOutputs: map[string]interface{}{
+			bicepOutputs: map[string]any{
 				"apiUrl": "just-a-string", // Not a map, should be ignored
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"setting": "value", // No "value" key
 				},
 			},

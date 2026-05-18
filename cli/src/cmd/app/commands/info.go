@@ -111,7 +111,7 @@ func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azure
 		outputServices = append(outputServices, *svc) // Dereference pointer
 	}
 
-	return cliout.PrintJSON(map[string]interface{}{
+	return cliout.PrintJSON(map[string]any{
 		"project":  projectDir,
 		"services": outputServices,
 	})

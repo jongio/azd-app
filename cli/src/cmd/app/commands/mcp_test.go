@@ -23,7 +23,7 @@ func testBuildServer(t *testing.T) *server.MCPServer {
 }
 
 // testToolArgs creates ToolArgs from a map for use in handler tests.
-func testToolArgs(args map[string]interface{}) azdext.ToolArgs {
+func testToolArgs(args map[string]any) azdext.ToolArgs {
 	return azdext.ParseToolArgs(mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Arguments: args,
@@ -108,7 +108,7 @@ func TestGetProjectInfoToolDefinition(t *testing.T) {
 
 func TestGetServicesToolHandlerBehavior(t *testing.T) {
 	ctx := context.Background()
-	args := testToolArgs(map[string]interface{}{})
+	args := testToolArgs(map[string]any{})
 
 	result, err := handleGetServices(ctx, args)
 	if err != nil {
@@ -126,7 +126,7 @@ func TestGetServicesToolHandlerBehavior(t *testing.T) {
 
 func TestGetServiceLogsToolHandlerBehavior(t *testing.T) {
 	ctx := context.Background()
-	args := testToolArgs(map[string]interface{}{"tail": float64(10)})
+	args := testToolArgs(map[string]any{"tail": float64(10)})
 
 	result, err := handleGetServiceLogs(ctx, args)
 	if err != nil {
@@ -144,7 +144,7 @@ func TestGetServiceLogsToolHandlerBehavior(t *testing.T) {
 
 func TestGetProjectInfoToolHandlerBehavior(t *testing.T) {
 	ctx := context.Background()
-	args := testToolArgs(map[string]interface{}{})
+	args := testToolArgs(map[string]any{})
 
 	result, err := handleGetProjectInfo(ctx, args)
 	if err != nil {
@@ -285,12 +285,12 @@ func TestServiceConfigResourceDefinition(t *testing.T) {
 func TestMarshalToolResult(t *testing.T) {
 	tests := []struct {
 		name      string
-		data      interface{}
+		data      any
 		wantError bool
 	}{
 		{
 			name:      "Valid map",
-			data:      map[string]interface{}{"key": "value"},
+			data:      map[string]any{"key": "value"},
 			wantError: false,
 		},
 		{
@@ -300,7 +300,7 @@ func TestMarshalToolResult(t *testing.T) {
 		},
 		{
 			name:      "Empty map",
-			data:      map[string]interface{}{},
+			data:      map[string]any{},
 			wantError: false,
 		},
 	}
@@ -341,31 +341,31 @@ func TestExtractProjectDirArg(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		args      map[string]interface{}
+		args      map[string]any
 		wantLen   int
 		wantError bool
 	}{
 		{
 			name:      "With valid project dir",
-			args:      map[string]interface{}{"projectDir": tempDir},
+			args:      map[string]any{"projectDir": tempDir},
 			wantLen:   2, // --cwd and the path
 			wantError: false,
 		},
 		{
 			name:      "Without project dir",
-			args:      map[string]interface{}{},
+			args:      map[string]any{},
 			wantLen:   0,
 			wantError: false,
 		},
 		{
 			name:      "Empty project dir",
-			args:      map[string]interface{}{"projectDir": ""},
+			args:      map[string]any{"projectDir": ""},
 			wantLen:   0,
 			wantError: false,
 		},
 		{
 			name:      "With non-existent project dir",
-			args:      map[string]interface{}{"projectDir": "/nonexistent/path/that/does/not/exist"},
+			args:      map[string]any{"projectDir": "/nonexistent/path/that/does/not/exist"},
 			wantLen:   0,
 			wantError: true,
 		},
@@ -605,15 +605,15 @@ func TestGetServicesToolHandlerWithParams(t *testing.T) {
 
 	tests := []struct {
 		name string
-		args map[string]interface{}
+		args map[string]any
 	}{
 		{
 			name: "With project dir",
-			args: map[string]interface{}{"projectDir": "/test/project"},
+			args: map[string]any{"projectDir": "/test/project"},
 		},
 		{
 			name: "Without project dir",
-			args: map[string]interface{}{},
+			args: map[string]any{},
 		},
 	}
 
@@ -638,27 +638,27 @@ func TestGetServiceLogsToolHandlerWithParams(t *testing.T) {
 
 	tests := []struct {
 		name string
-		args map[string]interface{}
+		args map[string]any
 	}{
 		{
 			name: "With service name",
-			args: map[string]interface{}{"serviceName": "api"},
+			args: map[string]any{"serviceName": "api"},
 		},
 		{
 			name: "With tail parameter",
-			args: map[string]interface{}{"tail": float64(50)},
+			args: map[string]any{"tail": float64(50)},
 		},
 		{
 			name: "With level parameter",
-			args: map[string]interface{}{"level": "error"},
+			args: map[string]any{"level": "error"},
 		},
 		{
 			name: "With since parameter",
-			args: map[string]interface{}{"since": "5m"},
+			args: map[string]any{"since": "5m"},
 		},
 		{
 			name: "No parameters",
-			args: map[string]interface{}{},
+			args: map[string]any{},
 		},
 	}
 
@@ -679,7 +679,7 @@ func TestGetServiceLogsToolHandlerWithParams(t *testing.T) {
 
 func TestGetProjectInfoToolHandlerWithParams(t *testing.T) {
 	ctx := context.Background()
-	args := testToolArgs(map[string]interface{}{})
+	args := testToolArgs(map[string]any{})
 
 	result, err := handleGetProjectInfo(ctx, args)
 	if err != nil {
@@ -696,17 +696,17 @@ func TestRestartServiceToolHandler(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		args        map[string]interface{}
+		args        map[string]any
 		expectError bool
 	}{
 		{
 			name:        "With service name",
-			args:        map[string]interface{}{"serviceName": "api"},
+			args:        map[string]any{"serviceName": "api"},
 			expectError: false,
 		},
 		{
 			name:        "Without service name (should show guidance)",
-			args:        map[string]interface{}{},
+			args:        map[string]any{},
 			expectError: false,
 		},
 	}
@@ -866,37 +866,37 @@ func TestGetServiceLogsToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Invalid level parameter",
-			args:           map[string]interface{}{"level": "invalid_level"},
+			args:           map[string]any{"level": "invalid_level"},
 			expectErrorMsg: "invalid level",
 		},
 		{
 			name:           "Invalid since format - missing unit",
-			args:           map[string]interface{}{"since": "30"},
+			args:           map[string]any{"since": "30"},
 			expectErrorMsg: "Invalid 'since' format",
 		},
 		{
 			name:           "Invalid since format - invalid unit",
-			args:           map[string]interface{}{"since": "30x"},
+			args:           map[string]any{"since": "30x"},
 			expectErrorMsg: "Invalid 'since' format",
 		},
 		{
 			name:           "Invalid service name - injection attempt",
-			args:           map[string]interface{}{"serviceName": "api; rm -rf /"},
+			args:           map[string]any{"serviceName": "api; rm -rf /"},
 			expectErrorMsg: "service name",
 		},
 		{
 			name:           "Invalid project dir - non-existent",
-			args:           map[string]interface{}{"projectDir": "/nonexistent/path/xyz123"},
+			args:           map[string]any{"projectDir": "/nonexistent/path/xyz123"},
 			expectErrorMsg: "project directory",
 		},
 		{
 			name:           "Tail parameter exceeds max - should be capped",
-			args:           map[string]interface{}{"tail": float64(20000)},
+			args:           map[string]any{"tail": float64(20000)},
 			expectErrorMsg: "", // Should succeed but cap at 10000
 		},
 	}
@@ -929,37 +929,37 @@ func TestRunServicesToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Invalid runtime parameter",
-			args:           map[string]interface{}{"runtime": "invalid_runtime"},
+			args:           map[string]any{"runtime": "invalid_runtime"},
 			expectErrorMsg: "invalid runtime",
 		},
 		{
 			name:           "Valid runtime - azd",
-			args:           map[string]interface{}{"runtime": "azd"},
+			args:           map[string]any{"runtime": "azd"},
 			expectErrorMsg: "",
 		},
 		{
 			name:           "Valid runtime - aspire",
-			args:           map[string]interface{}{"runtime": "aspire"},
+			args:           map[string]any{"runtime": "aspire"},
 			expectErrorMsg: "",
 		},
 		{
 			name:           "Valid runtime - pnpm",
-			args:           map[string]interface{}{"runtime": "pnpm"},
+			args:           map[string]any{"runtime": "pnpm"},
 			expectErrorMsg: "",
 		},
 		{
 			name:           "Valid runtime - docker-compose",
-			args:           map[string]interface{}{"runtime": "docker-compose"},
+			args:           map[string]any{"runtime": "docker-compose"},
 			expectErrorMsg: "",
 		},
 		{
 			name:           "Invalid project dir",
-			args:           map[string]interface{}{"projectDir": "/nonexistent/path/xyz123"},
+			args:           map[string]any{"projectDir": "/nonexistent/path/xyz123"},
 			expectErrorMsg: "project directory",
 		},
 	}
@@ -994,42 +994,42 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Missing name parameter",
-			args:           map[string]interface{}{"value": "test"},
+			args:           map[string]any{"value": "test"},
 			expectErrorMsg: "required argument \"name\" not found",
 		},
 		{
 			name:           "Missing value parameter",
-			args:           map[string]interface{}{"name": "TEST_VAR"},
+			args:           map[string]any{"name": "TEST_VAR"},
 			expectErrorMsg: "required argument \"value\" not found",
 		},
 		{
 			name:           "Invalid env var name - starts with hyphen",
-			args:           map[string]interface{}{"name": "-INVALID", "value": "test"},
+			args:           map[string]any{"name": "-INVALID", "value": "test"},
 			expectErrorMsg: "Invalid environment variable name",
 		},
 		{
 			name:           "Invalid env var name - special chars",
-			args:           map[string]interface{}{"name": "VAR;DROP TABLE", "value": "test"},
+			args:           map[string]any{"name": "VAR;DROP TABLE", "value": "test"},
 			expectErrorMsg: "Invalid environment variable name",
 		},
 		{
 			name:           "Invalid service name",
-			args:           map[string]interface{}{"name": "TEST_VAR", "value": "test", "serviceName": "; rm -rf /"},
+			args:           map[string]any{"name": "TEST_VAR", "value": "test", "serviceName": "; rm -rf /"},
 			expectErrorMsg: "service name",
 		},
 		{
 			name:           "Valid parameters",
-			args:           map[string]interface{}{"name": "MY_VAR", "value": "my_value"},
+			args:           map[string]any{"name": "MY_VAR", "value": "my_value"},
 			expectErrorMsg: "",
 		},
 		{
 			name:           "Valid with service name",
-			args:           map[string]interface{}{"name": "MY_VAR", "value": "my_value", "serviceName": "api"},
+			args:           map[string]any{"name": "MY_VAR", "value": "my_value", "serviceName": "api"},
 			expectErrorMsg: "",
 		},
 	}
@@ -1063,22 +1063,22 @@ func TestGetEnvironmentVariablesToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Invalid service name - injection",
-			args:           map[string]interface{}{"serviceName": "api; rm -rf /"},
+			args:           map[string]any{"serviceName": "api; rm -rf /"},
 			expectErrorMsg: "service name",
 		},
 		{
 			name:           "Invalid project dir",
-			args:           map[string]interface{}{"projectDir": "/nonexistent/path/xyz123"},
+			args:           map[string]any{"projectDir": "/nonexistent/path/xyz123"},
 			expectErrorMsg: "project directory",
 		},
 		{
 			name:           "Valid service name",
-			args:           map[string]interface{}{"serviceName": "api"},
+			args:           map[string]any{"serviceName": "api"},
 			expectErrorMsg: "",
 		},
 	}
@@ -1112,22 +1112,22 @@ func TestRestartServiceToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Missing service name",
-			args:           map[string]interface{}{},
+			args:           map[string]any{},
 			expectErrorMsg: "required argument \"serviceName\" not found",
 		},
 		{
 			name:           "Invalid service name - injection",
-			args:           map[string]interface{}{"serviceName": "api; rm -rf /"},
+			args:           map[string]any{"serviceName": "api; rm -rf /"},
 			expectErrorMsg: "service name",
 		},
 		{
 			name:           "Valid service name",
-			args:           map[string]interface{}{"serviceName": "api"},
+			args:           map[string]any{"serviceName": "api"},
 			expectErrorMsg: "",
 		},
 	}
@@ -1158,7 +1158,7 @@ func TestRestartServiceToolValidation(t *testing.T) {
 // TestStopServicesToolHandler tests the stop_services tool handler
 func TestStopServicesToolHandler(t *testing.T) {
 	ctx := context.Background()
-	args := testToolArgs(map[string]interface{}{})
+	args := testToolArgs(map[string]any{})
 
 	result, err := handleStopServices(ctx, args)
 	if err != nil {
@@ -1185,17 +1185,17 @@ func TestCheckRequirementsToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Invalid project dir",
-			args:           map[string]interface{}{"projectDir": "/nonexistent/path/xyz123"},
+			args:           map[string]any{"projectDir": "/nonexistent/path/xyz123"},
 			expectErrorMsg: "project directory",
 		},
 		{
 			name:           "No parameters",
-			args:           map[string]interface{}{},
+			args:           map[string]any{},
 			expectErrorMsg: "",
 		},
 	}
@@ -1229,12 +1229,12 @@ func TestInstallDependenciesToolValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		args           map[string]interface{}
+		args           map[string]any
 		expectErrorMsg string
 	}{
 		{
 			name:           "Invalid project dir",
-			args:           map[string]interface{}{"projectDir": "/nonexistent/path/xyz123"},
+			args:           map[string]any{"projectDir": "/nonexistent/path/xyz123"},
 			expectErrorMsg: "project directory",
 		},
 	}
@@ -1268,7 +1268,7 @@ func TestContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	args := testToolArgs(map[string]interface{}{})
+	args := testToolArgs(map[string]any{})
 	result, err := handleGetServiceLogs(ctx, args)
 	if err != nil {
 		t.Fatalf("Handler returned Go error: %v", err)
@@ -1457,7 +1457,7 @@ func TestRateLimitIntegration(t *testing.T) {
 		request := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Name:      "run_services",
-				Arguments: map[string]interface{}{},
+				Arguments: map[string]any{},
 			},
 		}
 		result, _ := tool.Handler(ctx, request)
@@ -1474,7 +1474,7 @@ func TestRateLimitIntegration(t *testing.T) {
 	request := mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Name:      "run_services",
-			Arguments: map[string]interface{}{},
+			Arguments: map[string]any{},
 		},
 	}
 	result, _ := tool.Handler(ctx, request)

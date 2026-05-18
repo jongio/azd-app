@@ -274,8 +274,8 @@ func handleGetServiceErrors(ctx context.Context, args azdext.ToolArgs) (*mcp.Cal
 	}
 
 	entries := collected.EntriesWithContext
-	result := map[string]interface{}{
-		"summary": map[string]interface{}{
+	result := map[string]any{
+		"summary": map[string]any{
 			"totalErrors": len(entries),
 			"since":       opts.since,
 		},
@@ -316,16 +316,16 @@ func handleGetProjectInfo(ctx context.Context, args azdext.ToolArgs) (*mcp.CallT
 	}
 
 	// Extract just project-level info
-	projectInfo := map[string]interface{}{
+	projectInfo := map[string]any{
 		"project": result["project"],
 	}
 
 	// Extract service metadata (name, language, framework, project path)
-	if services, ok := result["services"].([]interface{}); ok {
-		simplifiedServices := []map[string]interface{}{}
+	if services, ok := result["services"].([]any); ok {
+		simplifiedServices := []map[string]any{}
 		for _, svc := range services {
-			if svcMap, ok := svc.(map[string]interface{}); ok {
-				simplified := map[string]interface{}{
+			if svcMap, ok := svc.(map[string]any); ok {
+				simplified := map[string]any{
 					"name":      svcMap["name"],
 					"language":  svcMap["language"],
 					"framework": svcMap["framework"],
@@ -427,7 +427,7 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 		_ = cmd.Wait()
 	}()
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"status":  "started",
 		"message": "Services are starting in the background. Use get_services to check their status.",
 	}
@@ -623,7 +623,7 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 		return azdext.MCPErrorResult("Failed to install dependencies: %v\nOutput: %s", err, string(output)), nil
 	}
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"status":  "completed",
 		"message": "Dependencies installed successfully",
 		"output":  string(output),
@@ -706,15 +706,15 @@ func handleGetEnvironmentVariables(ctx context.Context, args azdext.ToolArgs) (*
 		return azdext.MCPErrorResult("Failed to get environment variables: %v", err), nil
 	}
 
-	envVars := make(map[string]interface{})
-	if services, ok := result["services"].([]interface{}); ok {
+	envVars := make(map[string]any)
+	if services, ok := result["services"].([]any); ok {
 		for _, svc := range services {
-			if svcMap, ok := svc.(map[string]interface{}); ok {
+			if svcMap, ok := svc.(map[string]any); ok {
 				svcName, _ := svcMap["name"].(string)
 				if hasFilter && svcName != serviceName {
 					continue
 				}
-				if env, ok := svcMap["env"].(map[string]interface{}); ok {
+				if env, ok := svcMap["env"].(map[string]any); ok {
 					envVars[svcName] = env
 				}
 			}
@@ -799,7 +799,7 @@ After updating, restart services for changes to take effect.`,
 		name, value,
 		name, value)
 
-	result := map[string]interface{}{
+	result := map[string]any{
 		"status":   "guidance",
 		"message":  guidance,
 		"variable": name,

@@ -331,7 +331,7 @@ func TestParseHealthCheckConfig(t *testing.T) {
 		{
 			name: "CMD array test",
 			healthcheck: &service.HealthcheckConfig{
-				Test: []interface{}{"CMD", "curl", "-f", "http://localhost/health"},
+				Test: []any{"CMD", "curl", "-f", "http://localhost/health"},
 			},
 			expectedTest:    []string{"CMD", "curl", "-f", "http://localhost/health"},
 			expectedRetries: 3, // default
@@ -339,7 +339,7 @@ func TestParseHealthCheckConfig(t *testing.T) {
 		{
 			name: "CMD-SHELL test",
 			healthcheck: &service.HealthcheckConfig{
-				Test: []interface{}{"CMD-SHELL", "curl -f http://localhost/health || exit 1"},
+				Test: []any{"CMD-SHELL", "curl -f http://localhost/health || exit 1"},
 			},
 			expectedTest:    []string{"CMD-SHELL", "curl -f http://localhost/health || exit 1"},
 			expectedRetries: 3, // default

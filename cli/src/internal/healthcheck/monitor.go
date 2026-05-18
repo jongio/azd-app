@@ -383,7 +383,7 @@ func parseHealthCheckConfig(svc service.Service) *healthCheckConfig {
 	switch t := svc.Healthcheck.Test.(type) {
 	case string:
 		config.Test = []string{t}
-	case []interface{}:
+	case []any:
 		for _, item := range t {
 			if s, ok := item.(string); ok {
 				config.Test = append(config.Test, s)

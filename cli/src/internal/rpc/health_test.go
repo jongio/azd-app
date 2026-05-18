@@ -172,7 +172,7 @@ func TestGetHealthReturnsResults(t *testing.T) {
 					Status:       healthcheck.HealthStatusHealthy,
 					ResponseTime: 12 * time.Millisecond,
 					Timestamp:    now,
-					Details:      map[string]interface{}{"statusCode": 200, "endpoint": "/health"},
+					Details:      map[string]any{"statusCode": 200, "endpoint": "/health"},
 				},
 				{
 					ServiceName:  "worker",
