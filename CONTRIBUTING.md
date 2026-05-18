@@ -8,20 +8,20 @@ Thank you for your interest in contributing to azd-app! This document provides g
 
 Before contributing, ensure you have the following installed:
 
-- **Go**: 1.26.1 or later
+- **Go**: 1.26.3 or later
 - **Node.js**: 20.0.0 or later
-- **npm**: 10.0.0 or later  
+- **pnpm**: 9.0.0 or later  
 - **PowerShell**: 7.4 or later (recommended: 7.5.4 for full compatibility)
 - **TypeScript**: 5.9.3 (installed via npm when building dashboard)
 - **Azure Developer CLI (azd)**: Latest version
 
 You can verify your versions:
 ```bash
-go version                  # Should be 1.26.1+
+go version                  # Should be 1.26.3+
 node --version             # Should be v20.0.0+
-npm --version              # Should be 10.0.0+
+pnpm --version             # Should be 9.0.0+
 pwsh --version            # Should be 7.4+ or 7.5.4
-tsc --version             # Should be 5.9.3 (after npm install in dashboard/)
+tsc --version             # Should be 5.9.3 (after pnpm install in dashboard/)
 azd version               # Should be latest
 ```
 
@@ -41,7 +41,7 @@ go mod download
 
 # Install dashboard dependencies
 cd dashboard
-npm install
+pnpm install
 cd ..
 
 # Build the extension
