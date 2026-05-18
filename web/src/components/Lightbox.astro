@@ -582,6 +582,13 @@
     });
     observer.observe(document.documentElement, { attributes: true });
 
+    // Clean up observer and globals on Astro page transition to prevent leaks
+    document.addEventListener('astro:before-swap', () => {
+      observer.disconnect();
+      delete (window as any).openScreenshotLightbox;
+      delete (window as any).closeScreenshotLightbox;
+    }, { once: true });
+
     // Expose global function for Screenshot component
     (window as any).openScreenshotLightbox = openLightbox;
     (window as any).closeScreenshotLightbox = closeLightbox;

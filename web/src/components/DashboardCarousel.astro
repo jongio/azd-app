@@ -450,6 +450,11 @@ const slides = [
 
       // Start autoplay
       startAutoplay();
+
+      // Clean up autoplay timer on Astro page transition to prevent leaks
+      document.addEventListener('astro:before-swap', () => {
+        stopAutoplay();
+      }, { once: true });
     });
   });
 </script>

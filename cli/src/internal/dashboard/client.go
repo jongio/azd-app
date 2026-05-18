@@ -35,6 +35,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"golang.org/x/sync/errgroup"
 )
 
 // Client speaks Connect over HTTP to a running dashboard process.
@@ -168,7 +169,7 @@ func (c *Client) StreamLogs(ctx context.Context, serviceName string, logs chan<-
 
 // GetAzureLogs fetches buffered Azure logs for the given services. The proto
 // request tails one service at a time; multi-service callers are served by
-// issuing one RPC per service and merging results. Client-side `since`
+// issuing concurrent RPCs per service and merging results. Client-side `since`
 // filtering matches the legacy REST behavior (since_seconds is not a
 // 1:1 replacement because the server clamps it differently).
 func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, since time.Time) ([]service.LogEntry, error) {
@@ -182,30 +183,74 @@ func (c *Client) GetAzureLogs(ctx context.Context, services []string, tail int, 
 		serviceList = []string{""}
 	}
 
-	var all []service.LogEntry
-	for _, svc := range serviceList {
+	// Fast path: single service needs no goroutine overhead
+	if len(serviceList) == 1 {
 		resp, err := c.azure.GetAzureLogs(ctx, connect.NewRequest(&v1.GetAzureLogsRequest{
-			Service: svc,
+			Service: serviceList[0],
 			Tail:    int32(tail),
 		}))
 		if err != nil {
 			return nil, err
 		}
+		all := make([]service.LogEntry, 0, len(resp.Msg.GetEntries()))
 		for _, p := range resp.Msg.GetEntries() {
 			all = append(all, protoToLogEntry(p))
 		}
+		return filterSince(all, since), nil
 	}
 
-	if !since.IsZero() {
-		filtered := all[:0]
-		for _, entry := range all {
-			if !entry.Timestamp.Before(since) {
-				filtered = append(filtered, entry)
-			}
-		}
-		all = filtered
+	// Parallel path: launch one goroutine per service
+	type result struct {
+		entries []service.LogEntry
+		err     error
 	}
-	return all, nil
+	results := make([]result, len(serviceList))
+
+	g, gctx := errgroup.WithContext(ctx)
+	for i, svc := range serviceList {
+		i, svc := i, svc
+		g.Go(func() error {
+			resp, err := c.azure.GetAzureLogs(gctx, connect.NewRequest(&v1.GetAzureLogsRequest{
+				Service: svc,
+				Tail:    int32(tail),
+			}))
+			if err != nil {
+				results[i] = result{err: err}
+				return err
+			}
+			entries := make([]service.LogEntry, 0, len(resp.Msg.GetEntries()))
+			for _, p := range resp.Msg.GetEntries() {
+				entries = append(entries, protoToLogEntry(p))
+			}
+			results[i] = result{entries: entries}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	var all []service.LogEntry
+	for _, r := range results {
+		all = append(all, r.entries...)
+	}
+
+	return filterSince(all, since), nil
+}
+
+// filterSince returns entries at or after since. Returns all if since is zero.
+func filterSince(all []service.LogEntry, since time.Time) []service.LogEntry {
+	if since.IsZero() {
+		return all
+	}
+	filtered := all[:0]
+	for _, entry := range all {
+		if !entry.Timestamp.Before(since) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 
 // GetAzureStatus mirrors the legacy service.AzureStatus shape logs.go /

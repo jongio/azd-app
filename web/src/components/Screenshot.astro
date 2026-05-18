@@ -447,12 +447,20 @@ const imageStyles = [
     observer.observe(document.documentElement, { attributes: true });
 
     // Listen for system preference changes
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaHandler = () => {
       const theme = document.documentElement.getAttribute('data-theme');
       if (!theme || theme === 'system') {
         handleThemeChange();
       }
-    });
+    };
+    mediaQuery.addEventListener('change', mediaHandler);
+
+    // Clean up observer and listener on Astro page transition to prevent leaks
+    document.addEventListener('astro:before-swap', () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', mediaHandler);
+    }, { once: true });
   }
 
   // Initialize

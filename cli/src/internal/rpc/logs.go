@@ -588,6 +588,7 @@ type localLogRing struct {
 	mu      sync.Mutex
 	buf     []*v1.LogEntry
 	cap     int
+	head    int // index of the oldest entry when ring is full
 	dropped int64
 	notify  chan struct{}
 }
@@ -609,12 +610,13 @@ func newLocalLogRing(capacity int) *localLogRing {
 func (r *localLogRing) push(e *v1.LogEntry) {
 	r.mu.Lock()
 	if len(r.buf) >= r.cap {
-		// Drop oldest. Allocation is O(cap) once; subsequent pushes
-		// reuse the trimmed backing array up to cap.
-		r.buf = append(r.buf[:0], r.buf[1:]...)
+		// Ring full: overwrite oldest via index, O(1).
+		r.buf[r.head] = e
+		r.head = (r.head + 1) % r.cap
 		r.dropped++
+	} else {
+		r.buf = append(r.buf, e)
 	}
-	r.buf = append(r.buf, e)
 	r.mu.Unlock()
 
 	select {
@@ -625,18 +627,27 @@ func (r *localLogRing) push(e *v1.LogEntry) {
 	}
 }
 
-// drain returns all entries currently in the ring plus the cumulative
-// dropped count. Resets the ring; the caller compares dropped against
-// its previously-observed value to compute the delta.
+// drain returns all entries currently in the ring in insertion order plus
+// the cumulative dropped count. Resets the ring; the caller compares
+// dropped against its previously-observed value to compute the delta.
 func (r *localLogRing) drain() ([]*v1.LogEntry, int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.buf) == 0 {
 		return nil, r.dropped
 	}
-	out := make([]*v1.LogEntry, len(r.buf))
-	copy(out, r.buf)
+	n := len(r.buf)
+	out := make([]*v1.LogEntry, n)
+	if r.head == 0 || n < r.cap {
+		// Not wrapped yet or head is at start - simple copy
+		copy(out, r.buf)
+	} else {
+		// Ring has wrapped: linearize from head
+		copy(out, r.buf[r.head:])
+		copy(out[n-r.head:], r.buf[:r.head])
+	}
 	r.buf = r.buf[:0]
+	r.head = 0
 	return out, r.dropped
 }
 

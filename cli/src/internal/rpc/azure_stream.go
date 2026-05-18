@@ -337,6 +337,7 @@ type localAzureLogRing struct {
 	mu      sync.Mutex
 	buf     []*v1.LogEntry
 	cap     int
+	head    int // index of oldest entry when ring is full
 	dropped int64
 	notify  chan struct{}
 }
@@ -355,10 +356,13 @@ func newAzureLogRing(capacity int) *localAzureLogRing {
 func (r *localAzureLogRing) push(e *v1.LogEntry) {
 	r.mu.Lock()
 	if len(r.buf) >= r.cap {
-		r.buf = append(r.buf[:0], r.buf[1:]...)
+		// Ring full: overwrite oldest via index, O(1).
+		r.buf[r.head] = e
+		r.head = (r.head + 1) % r.cap
 		r.dropped++
+	} else {
+		r.buf = append(r.buf, e)
 	}
-	r.buf = append(r.buf, e)
 	r.mu.Unlock()
 	select {
 	case r.notify <- struct{}{}:
@@ -372,9 +376,16 @@ func (r *localAzureLogRing) drain() ([]*v1.LogEntry, int64) {
 	if len(r.buf) == 0 {
 		return nil, r.dropped
 	}
-	out := make([]*v1.LogEntry, len(r.buf))
-	copy(out, r.buf)
+	n := len(r.buf)
+	out := make([]*v1.LogEntry, n)
+	if r.head == 0 || n < r.cap {
+		copy(out, r.buf)
+	} else {
+		copy(out, r.buf[r.head:])
+		copy(out[n-r.head:], r.buf[:r.head])
+	}
 	r.buf = r.buf[:0]
+	r.head = 0
 	return out, r.dropped
 }
 
