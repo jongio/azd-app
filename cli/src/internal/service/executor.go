@@ -327,6 +327,9 @@ func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuff
 		}
 		buffer.Add(entry)
 	}
+	if err := scanner.Err(); err != nil {
+		slog.Debug("error reading stream logs", slog.String("service", serviceName), slog.Bool("stderr", isStderr), slog.Any("error", err))
+	}
 }
 
 // collectFunctionsStreamLogs reads from a stream, adds entries to the log buffer, and parses Functions output.
@@ -347,6 +350,9 @@ func collectFunctionsStreamLogs(reader io.ReadCloser, serviceName string, buffer
 
 		// Also parse for function endpoints
 		parser.ParseLine(serviceName, line)
+	}
+	if err := scanner.Err(); err != nil {
+		slog.Debug("error reading functions stream logs", slog.String("service", serviceName), slog.Bool("stderr", isStderr), slog.Any("error", err))
 	}
 }
 

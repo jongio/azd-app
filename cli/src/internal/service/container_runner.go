@@ -53,8 +53,8 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		return nil, fmt.Errorf("invalid service name: %w", err)
 	}
 
-	// Get the container image from runtime.Command (set by detectContainerRuntime)
-	image := runtime.Command
+	// Get the container image from runtime.Image (set by detectContainerRuntime)
+	image := runtime.Image
 	if image == "" {
 		return nil, fmt.Errorf("no image specified for container service %s", runtime.Name)
 	}
@@ -297,6 +297,9 @@ func collectContainerLogs(reader io.ReadCloser, serviceName string, buffer *LogB
 			Level:     inferLogLevel(scanner.Text()),
 		}
 		buffer.Add(entry)
+	}
+	if err := scanner.Err(); err != nil {
+		slog.Debug("error reading container logs", slog.String("service", serviceName), slog.Any("error", err))
 	}
 }
 

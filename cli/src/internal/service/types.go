@@ -513,6 +513,7 @@ type ServiceRuntime struct {
 	PackageManager        string
 	Command               string
 	Args                  []string
+	Image                 string // Container image reference (for type=container services)
 	WorkingDir            string
 	Port                  int
 	Protocol              string

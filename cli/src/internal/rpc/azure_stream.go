@@ -116,7 +116,7 @@ func (h *AzureHandler) streamPolling(
 			if !l.Timestamp.After(lastSentTimestamp) {
 				continue
 			}
-			err := sendWithBackpressure(stream, &v1.StreamAzureLogsResponse{
+			err := sendWithBackpressure(ctx, stream, &v1.StreamAzureLogsResponse{
 				Event: &v1.StreamAzureLogsResponse_Entry{Entry: toProtoAzureLogEntry(l)},
 			})
 			if err != nil {
@@ -312,7 +312,11 @@ var errStreamBlocked = errors.New("stream blocked")
 // "non-blocking" by running it in a goroutine and racing it against a
 // ticker. The 100ms budget is small enough not to dominate the polling
 // loop's cadence and large enough to amortise the goroutine cost.
+//
+// The context ensures the background goroutine is not leaked when the
+// stream's parent context is cancelled (e.g. client disconnect).
 func sendWithBackpressure(
+	ctx context.Context,
 	stream *connect.ServerStream[v1.StreamAzureLogsResponse],
 	msg *v1.StreamAzureLogsResponse,
 ) error {
@@ -321,6 +325,8 @@ func sendWithBackpressure(
 	select {
 	case err := <-done:
 		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-time.After(100 * time.Millisecond):
 		return errStreamBlocked
 	}

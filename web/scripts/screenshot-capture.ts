@@ -18,11 +18,12 @@ async function checkElement(page: Page, rule: ValidationRule): Promise<string[]>
       errors.push(`Not enough: ${rule.description} - found ${elements.length}, expected ${rule.minCount}+`);
     }
     if (rule.textContent) {
+      const expectedContent = rule.textContent;
       const foundMatch = await Promise.all(elements.map(async el => {
         const text = await el.textContent();
-        return text && (typeof rule.textContent === 'string' 
-          ? text.includes(rule.textContent) 
-          : rule.textContent.test(text));
+        return text && (typeof expectedContent === 'string' 
+          ? text.includes(expectedContent) 
+          : expectedContent.test(text));
       })).then(results => results.some(Boolean));
       if (!foundMatch) errors.push(`Wrong content: ${rule.description}`);
     }

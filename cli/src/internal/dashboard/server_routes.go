@@ -3,7 +3,6 @@ package dashboard
 import (
 	"context"
 	"embed"
-	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -82,6 +81,9 @@ func (s *Server) setupRoutes() {
 		Azure: newAzureStoreFuncs(s),
 	})
 
+	// Pre-read index.html once for SPA client-side routing fallback
+	indexContent, indexReadErr := fs.ReadFile(distFS, "index.html")
+
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -96,16 +98,8 @@ func (s *Server) setupRoutes() {
 		if err != nil {
 			// File doesn't exist - serve index.html for client-side routing
 			// This handles routes like /console, /services, /environment, /metrics
-			indexFile, indexErr := distFS.Open("index.html")
-			if indexErr != nil {
+			if indexReadErr != nil {
 				http.NotFound(w, r)
-				return
-			}
-			defer func() { _ = indexFile.Close() }()
-
-			indexContent, readErr := io.ReadAll(indexFile)
-			if readErr != nil {
-				http.Error(w, "Failed to read index.html", http.StatusInternalServerError)
 				return
 			}
 
