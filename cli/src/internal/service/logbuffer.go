@@ -21,10 +21,14 @@ const (
 )
 
 // LogBuffer is a circular buffer for storing service logs with pub/sub support.
+// Uses a fixed-size ring buffer with head/count tracking for O(1) push
+// instead of O(n) slice shifting.
 type LogBuffer struct {
 	serviceName     string
 	entries         []LogEntry
 	maxSize         int
+	head            int // index of the oldest entry in the ring
+	count           int // number of valid entries in the ring
 	mu              sync.RWMutex
 	subscribers     map[chan LogEntry]bool
 	subMu           sync.RWMutex
@@ -45,8 +49,10 @@ func NewLogBuffer(serviceName string, maxSize int, enableFileLogging bool, proje
 func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging bool, projectDir string, filter *LogFilter) (*LogBuffer, error) {
 	lb := &LogBuffer{
 		serviceName: serviceName,
-		entries:     make([]LogEntry, 0, maxSize),
+		entries:     make([]LogEntry, maxSize),
 		maxSize:     maxSize,
+		head:        0,
+		count:       0,
 		subscribers: make(map[chan LogEntry]bool),
 		logFilter:   filter,
 	}
@@ -89,12 +95,16 @@ func (lb *LogBuffer) Add(entry LogEntry) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	// Add to circular buffer
-	if len(lb.entries) >= lb.maxSize {
-		// Remove oldest entry
-		lb.entries = lb.entries[1:]
+	// Write into the ring buffer at the next position (O(1))
+	idx := (lb.head + lb.count) % lb.maxSize
+	if lb.count >= lb.maxSize {
+		// Buffer full: overwrite oldest, advance head
+		lb.entries[lb.head] = entry
+		lb.head = (lb.head + 1) % lb.maxSize
+	} else {
+		lb.entries[idx] = entry
+		lb.count++
 	}
-	lb.entries = append(lb.entries, entry)
 
 	// Write to file if enabled
 	if lb.fileWriter != nil {
@@ -177,13 +187,16 @@ func (lb *LogBuffer) GetRecent(n int) []LogEntry {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()
 
-	if n <= 0 || n > len(lb.entries) {
-		n = len(lb.entries)
+	if n <= 0 || n > lb.count {
+		n = lb.count
 	}
 
-	start := len(lb.entries) - n
 	result := make([]LogEntry, n)
-	copy(result, lb.entries[start:])
+	// Start reading from (head + count - n) mod maxSize
+	start := (lb.head + lb.count - n) % lb.maxSize
+	for i := 0; i < n; i++ {
+		result[i] = lb.entries[(start+i)%lb.maxSize]
+	}
 	return result
 }
 
@@ -199,7 +212,8 @@ func (lb *LogBuffer) ContainsPattern(pattern string) bool {
 
 	// Use simple string matching for common patterns (faster)
 	// Fall back to regex for complex patterns
-	for _, entry := range lb.entries {
+	for i := 0; i < lb.count; i++ {
+		entry := lb.entries[(lb.head+i)%lb.maxSize]
 		if strings.Contains(entry.Message, pattern) {
 			return true
 		}
@@ -223,7 +237,8 @@ func (lb *LogBuffer) ContainsPatternRegex(pattern string) (bool, error) {
 		return false, fmt.Errorf("invalid regex pattern: %w", err)
 	}
 
-	for _, entry := range lb.entries {
+	for i := 0; i < lb.count; i++ {
+		entry := lb.entries[(lb.head+i)%lb.maxSize]
 		if re.MatchString(entry.Message) {
 			return true, nil
 		}
@@ -238,7 +253,8 @@ func (lb *LogBuffer) GetSince(since time.Time) []LogEntry {
 	defer lb.mu.RUnlock()
 
 	result := make([]LogEntry, 0)
-	for _, entry := range lb.entries {
+	for i := 0; i < lb.count; i++ {
+		entry := lb.entries[(lb.head+i)%lb.maxSize]
 		if entry.Timestamp.After(since) || entry.Timestamp.Equal(since) {
 			result = append(result, entry)
 		}
@@ -252,7 +268,8 @@ func (lb *LogBuffer) GetByLevel(level LogLevel) []LogEntry {
 	defer lb.mu.RUnlock()
 
 	result := make([]LogEntry, 0)
-	for _, entry := range lb.entries {
+	for i := 0; i < lb.count; i++ {
+		entry := lb.entries[(lb.head+i)%lb.maxSize]
 		if entry.Level == level {
 			result = append(result, entry)
 		}
@@ -280,6 +297,9 @@ func (lb *LogBuffer) GetLogsWithContext(level LogLevel, limit int, contextLines 
 		contextLines = MaxContextLines
 	}
 
+	// Linearize the ring into a contiguous slice for indexed access
+	linear := lb.linearize()
+
 	// Find all matching indices
 	type matchIndex struct {
 		index int
@@ -287,7 +307,7 @@ func (lb *LogBuffer) GetLogsWithContext(level LogLevel, limit int, contextLines 
 	}
 	var matchIndices []matchIndex
 
-	for i, entry := range lb.entries {
+	for i, entry := range linear {
 		// Apply time filter
 		if !since.IsZero() && entry.Timestamp.Before(since) {
 			continue
@@ -331,18 +351,18 @@ func (lb *LogBuffer) GetLogsWithContext(level LogLevel, limit int, contextLines 
 			}
 			before := make([]string, 0, contextLines)
 			for i := startBefore; i < mi.index; i++ {
-				before = append(before, lb.entries[i].Message)
+				before = append(before, linear[i].Message)
 			}
 			logEntry.Context.Before = before
 
 			// After context
 			endAfter := mi.index + contextLines + 1
-			if endAfter > len(lb.entries) {
-				endAfter = len(lb.entries)
+			if endAfter > len(linear) {
+				endAfter = len(linear)
 			}
 			after := make([]string, 0, contextLines)
 			for i := mi.index + 1; i < endAfter; i++ {
-				after = append(after, lb.entries[i].Message)
+				after = append(after, linear[i].Message)
 			}
 			logEntry.Context.After = after
 		}
@@ -374,6 +394,9 @@ func (lb *LogBuffer) GetErrors(limit int, contextLines int, includeStderr bool, 
 		contextLines = MaxContextLines
 	}
 
+	// Linearize the ring into a contiguous slice for indexed access
+	linear := lb.linearize()
+
 	// Find all error indices
 	type errorIndex struct {
 		index int
@@ -381,7 +404,7 @@ func (lb *LogBuffer) GetErrors(limit int, contextLines int, includeStderr bool, 
 	}
 	var errorIndices []errorIndex
 
-	for i, entry := range lb.entries {
+	for i, entry := range linear {
 		// Apply time filter
 		if !since.IsZero() && entry.Timestamp.Before(since) {
 			continue
@@ -430,18 +453,18 @@ func (lb *LogBuffer) GetErrors(limit int, contextLines int, includeStderr bool, 
 			}
 			before := make([]string, 0, contextLines)
 			for i := startBefore; i < ei.index; i++ {
-				before = append(before, lb.entries[i].Message)
+				before = append(before, linear[i].Message)
 			}
 			errEntry.Context.Before = before
 
 			// After context
 			endAfter := ei.index + contextLines + 1
-			if endAfter > len(lb.entries) {
-				endAfter = len(lb.entries)
+			if endAfter > len(linear) {
+				endAfter = len(linear)
 			}
 			after := make([]string, 0, contextLines)
 			for i := ei.index + 1; i < endAfter; i++ {
-				after = append(after, lb.entries[i].Message)
+				after = append(after, linear[i].Message)
 			}
 			errEntry.Context.After = after
 		}
@@ -449,6 +472,19 @@ func (lb *LogBuffer) GetErrors(limit int, contextLines int, includeStderr bool, 
 		result = append(result, errEntry)
 	}
 
+	return result
+}
+
+// linearize returns the ring buffer contents as a contiguous slice in
+// insertion order. Must be called with lb.mu held (read or write).
+func (lb *LogBuffer) linearize() []LogEntry {
+	if lb.count == 0 {
+		return nil
+	}
+	result := make([]LogEntry, lb.count)
+	for i := 0; i < lb.count; i++ {
+		result[i] = lb.entries[(lb.head+i)%lb.maxSize]
+	}
 	return result
 }
 
@@ -507,7 +543,8 @@ func (lb *LogBuffer) Clear() {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	lb.entries = make([]LogEntry, 0, lb.maxSize)
+	lb.head = 0
+	lb.count = 0
 }
 
 // Close closes the log buffer and cleans up resources.
