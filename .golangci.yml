@@ -93,22 +93,11 @@ linters:
       - path: _test\.go
         linters:
           - dupl
-          - errcheck
           - goconst
           - unparam
-          - forcetypeassert
+          - prealloc
           - noctx
           - exhaustive
-          - prealloc
-          - gosec
-          - revive
-          - misspell
-          - bodyclose
-          - nilerr
-          - gocritic
-          - nolintlint
-          - wastedassign
-          - staticcheck
       - path: magefile\.go
         linters:
           - unparam
