@@ -3,7 +3,6 @@ package azure
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"testing"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 )
 
-// simpleMockCredential is a simple mock implementation of azcore.TokenCredential for testing diagnostics.
+// simpleMockCredential is a simple mock implementation of azcore.TokenCredential for testing.
 type simpleMockCredential struct {
 	token string
 	err   error
@@ -25,113 +24,6 @@ func (m *simpleMockCredential) GetToken(ctx context.Context, options policy.Toke
 		Token:     m.token,
 		ExpiresOn: time.Now().Add(1 * time.Hour),
 	}, nil
-}
-
-func TestDiagnosticSettingsChecker_CheckDiagnosticSettings(t *testing.T) {
-	tests := []struct {
-		name                string
-		mockResponse        any
-		mockStatusCode      int
-		expectedStatus      DiagnosticSettingsStatus
-		expectedWorkspace   string
-		expectedSettingName string
-		expectError         bool
-	}{
-		{
-			name: "configured with workspace",
-			mockResponse: diagnosticSettingsListResponse{
-				Value: []diagnosticSetting{
-					{
-						ID:   "/subscriptions/test-sub/resourceGroups/test-rg/providers/Microsoft.Web/sites/test-app/providers/Microsoft.Insights/diagnosticSettings/toLogAnalytics",
-						Name: "toLogAnalytics",
-						Type: "Microsoft.Insights/diagnosticSettings",
-						Properties: diagnosticSettingProperties{
-							WorkspaceID: "/subscriptions/test-sub/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace",
-							Logs: []diagnosticLog{
-								{Category: "AppServiceConsoleLogs", Enabled: true},
-								{Category: "AppServiceHTTPLogs", Enabled: true},
-							},
-						},
-					},
-				},
-			},
-			mockStatusCode:      http.StatusOK,
-			expectedStatus:      DiagnosticSettingsConfigured,
-			expectedWorkspace:   "/subscriptions/test-sub/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace",
-			expectedSettingName: "toLogAnalytics",
-			expectError:         false,
-		},
-		{
-			name:           "not configured - no settings found",
-			mockResponse:   diagnosticSettingsListResponse{Value: []diagnosticSetting{}},
-			mockStatusCode: http.StatusOK,
-			expectedStatus: DiagnosticSettingsNotConfigured,
-			expectError:    false,
-		},
-		{
-			name:           "not configured - 404 response",
-			mockResponse:   map[string]string{"error": "not found"},
-			mockStatusCode: http.StatusNotFound,
-			expectedStatus: DiagnosticSettingsNotConfigured,
-			expectError:    false,
-		},
-		{
-			name:           "error - 403 forbidden",
-			mockResponse:   map[string]string{"error": "insufficient permissions"},
-			mockStatusCode: http.StatusForbidden,
-			expectedStatus: DiagnosticSettingsError,
-			expectError:    false,
-		},
-		{
-			name:           "error - 500 internal server error",
-			mockResponse:   map[string]string{"error": "internal server error"},
-			mockStatusCode: http.StatusInternalServerError,
-			expectedStatus: DiagnosticSettingsError,
-			expectError:    false,
-		},
-		{
-			name: "configured but wrong workspace",
-			mockResponse: diagnosticSettingsListResponse{
-				Value: []diagnosticSetting{
-					{
-						Name: "wrongWorkspace",
-						Properties: diagnosticSettingProperties{
-							WorkspaceID: "/subscriptions/test-sub/resourceGroups/test-rg/providers/Microsoft.OperationalInsights/workspaces/wrong-workspace",
-						},
-					},
-				},
-			},
-			mockStatusCode: http.StatusOK,
-			expectedStatus: DiagnosticSettingsError,
-			expectError:    false,
-		},
-		{
-			name: "configured with storage account only (no workspace)",
-			mockResponse: diagnosticSettingsListResponse{
-				Value: []diagnosticSetting{
-					{
-						Name: "toStorage",
-						Properties: diagnosticSettingProperties{
-							StorageAccountID: "/subscriptions/test-sub/resourceGroups/test-rg/providers/Microsoft.Storage/storageAccounts/teststorage",
-							// No workspace configured
-						},
-					},
-				},
-			},
-			mockStatusCode: http.StatusOK,
-			expectedStatus: DiagnosticSettingsNotConfigured,
-			expectError:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// TODO: This test needs to be implemented with proper mocking of HTTP client
-			// The DiagnosticSettingsChecker struct doesn't support endpoint injection
-			// and the CheckDiagnosticSettings method with this signature doesn't exist
-			t.Skip("Test needs refactoring - function signature mismatch")
-		})
-	}
 }
 
 func TestWorkspaceMatches(t *testing.T) {
@@ -251,23 +143,6 @@ func TestExtractWorkspaceName(t *testing.T) {
 	}
 }
 
-func TestDiagnosticSettingsChecker_CheckAllServices_EmptyDiscovery(t *testing.T) {
-	// Test with no services discovered
-	cred := &simpleMockCredential{token: "test-token"}
-
-	// We'll need to mock the discovery as well
-	// For this, we'd need to refactor DiagnosticSettingsChecker to accept a discovery interface
-	// For now, this test demonstrates the structure
-
-	checker := NewDiagnosticSettingsChecker(cred, "/test/project")
-
-	// This would actually try to run azd commands, so we skip it in unit tests
-	// In a real test, we'd mock the ResourceDiscovery
-	_ = checker
-
-	t.Skip("Skipping integration test - requires mocked ResourceDiscovery")
-}
-
 func TestDiagnosticSettingsResponse_Serialization(t *testing.T) {
 	// Test that the response types serialize correctly to JSON
 	response := DiagnosticSettingsCheckResponse{
@@ -343,33 +218,3 @@ func TestDiagnosticSettingsStatus_StringValues(t *testing.T) {
 	}
 }
 
-// TestDiagnosticSettingsChecker_Integration is an integration test that requires
-// actual Azure credentials and deployed resources. It should be run separately
-// with the -integration flag.
-func TestDiagnosticSettingsChecker_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	// This would be run with actual Azure credentials in a real environment
-	// For CI/CD, you'd set up proper mocking or use recorded responses
-	t.Skip("Integration test requires live Azure environment")
-
-	// Example integration test structure:
-	// ctx := context.Background()
-	// cred, err := NewCredentialChain()
-	// if err != nil {
-	//     t.Fatalf("Failed to create credentials: %v", err)
-	// }
-	//
-	// checker := NewDiagnosticSettingsChecker(cred, "/path/to/project")
-	// response, err := checker.CheckAllServices(ctx)
-	// if err != nil {
-	//     t.Fatalf("CheckAllServices failed: %v", err)
-	// }
-	//
-	// // Verify response
-	// if response.WorkspaceID == "" {
-	//     t.Error("Expected workspace ID to be populated")
-	// }
-}

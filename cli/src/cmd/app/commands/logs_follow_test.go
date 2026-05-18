@@ -23,6 +23,22 @@ func newTestExecutor(buf *bytes.Buffer, sigChan chan os.Signal, opts *logsOption
 	}
 }
 
+// waitForOutput polls the buffer until it contains the expected string or times out.
+func waitForOutput(buf *bytes.Buffer, contains string, timeout time.Duration) bool {
+	deadline := time.After(timeout)
+	for {
+		select {
+		case <-deadline:
+			return false
+		default:
+			if strings.Contains(buf.String(), contains) {
+				return true
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+}
+
 func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 	t.Run("ping error", func(t *testing.T) {
 		var buf bytes.Buffer
@@ -60,7 +76,10 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(100 * time.Millisecond)
+		// Poll for output instead of fixed sleep
+		if !waitForOutput(&buf, "Log", 2*time.Second) {
+			t.Fatal("timed out waiting for log output")
+		}
 		cancel()
 
 		err := <-done
@@ -98,7 +117,10 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, service.LogLevelError, nil, &buf)
 		}()
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for the error log to appear (it passes the filter)
+		if !waitForOutput(&buf, "Error log", 2*time.Second) {
+			t.Log("Warning: no filtered output appeared within timeout")
+		}
 		cancel()
 
 		<-done
@@ -133,7 +155,10 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 			done <- executor.followLogsViaDashboard(ctx, mockClient, []string{"api", "worker"}, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for the API log to appear (it passes the service filter)
+		if !waitForOutput(&buf, "API log", 2*time.Second) {
+			t.Log("Warning: no filtered output appeared within timeout")
+		}
 		cancel()
 
 		<-done
@@ -153,17 +178,21 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 
 		ctx := context.Background()
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
+		// Buffered channel - signal will be picked up when goroutine reaches select
 		sigChan <- os.Interrupt
 
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error on signal, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error on signal, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for signal to interrupt streaming")
 		}
 	})
 }
@@ -177,17 +206,20 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		subscriptions := make(map[string]chan service.LogEntry)
 		mockLM := newMockLogManager()
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
 
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error on signal, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error on signal, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for signal to interrupt streaming")
 		}
 	})
 
@@ -217,7 +249,10 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		now := time.Now()
 		logChan <- service.LogEntry{Service: "api", Level: service.LogLevelInfo, Message: "Test message", Timestamp: now}
 
-		time.Sleep(50 * time.Millisecond)
+		// Poll for output instead of fixed sleep
+		if !waitForOutput(&buf, "Test message", 2*time.Second) {
+			t.Fatal("timed out waiting for log output")
+		}
 		sigChan <- os.Interrupt
 
 		<-done
@@ -253,7 +288,10 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		logChan <- service.LogEntry{Service: "api", Level: service.LogLevelInfo, Message: "Info msg", Timestamp: now}
 		logChan <- service.LogEntry{Service: "api", Level: service.LogLevelError, Message: "Error msg", Timestamp: now}
 
-		time.Sleep(50 * time.Millisecond)
+		// Poll for the error message to appear (it passes the filter)
+		if !waitForOutput(&buf, "Error msg", 2*time.Second) {
+			t.Log("Warning: no filtered output appeared within timeout")
+		}
 		sigChan <- os.Interrupt
 
 		<-done
@@ -276,17 +314,21 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		buf3, _ := service.NewLogBuffer("api", 100, false, "")
 		mockLM.buffers["api"] = buf3
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
+		// Close channel - buffered done chan ensures we don't block
 		close(logChan)
 
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error when channels close, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error when channels close, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for close to propagate")
 		}
 	})
 
@@ -311,7 +353,9 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		now := time.Now()
 		logChan <- service.LogEntry{Service: "api", Level: service.LogLevelInfo, Message: "JSON test", Timestamp: now}
 
-		time.Sleep(50 * time.Millisecond)
+		if !waitForOutput(&buf, "JSON test", 2*time.Second) {
+			t.Fatal("timed out waiting for JSON output")
+		}
 		sigChan <- os.Interrupt
 
 		<-done
@@ -330,16 +374,19 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
 
 		mockClient := &mockDashboardClient{}
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogsViaDashboard(context.Background(), mockClient, nil, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for completion")
 		}
 	})
 
@@ -356,16 +403,19 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 		buf6, _ := service.NewLogBuffer("api", 100, false, "")
 		mockLM.buffers["api"] = buf6
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for completion")
 		}
 	})
 }
@@ -390,16 +440,19 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 			pingErr: context.DeadlineExceeded,
 		}
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogs(context.Background(), tmpDir, mockLM, mockClient, nil, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for completion")
 		}
 	})
 
@@ -414,16 +467,19 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 
 		mockClient := &mockDashboardClient{}
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogs(context.Background(), tmpDir, mockLM, mockClient, []string{"api"}, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for completion")
 		}
 	})
 
@@ -435,16 +491,19 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		mockLM := newMockLogManager()
 		mockClient := &mockDashboardClient{}
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogs(context.Background(), tmpDir, mockLM, mockClient, nil, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for completion")
 		}
 	})
 
@@ -459,16 +518,19 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 
 		mockClient := &mockDashboardClient{}
 
-		done := make(chan error)
+		done := make(chan error, 1)
 		go func() {
 			done <- executor.followLogs(context.Background(), tmpDir, mockLM, mockClient, []string{"nonexistent"}, LogLevelAll, nil, &buf)
 		}()
 
-		time.Sleep(10 * time.Millisecond)
 		sigChan <- os.Interrupt
-		err := <-done
-		if err != nil {
-			t.Errorf("Expected nil error, got: %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Expected nil error, got: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for completion")
 		}
 	})
 }
