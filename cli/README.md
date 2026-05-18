@@ -41,7 +41,7 @@ The built-in **Azure Logs Setup Guide** makes it easy to configure log streaming
 
 Access the guide by clicking the **Azure** button in the dashboard when logs aren't configured yet.
 
-👉 Learn more: [Azure Logs Documentation](docs/features/azure-logs.md)
+👉 Learn more: [Azure Logs Documentation](./docs/features/azure-logs.md)
 
 ## Installation
 
