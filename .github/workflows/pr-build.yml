@@ -248,7 +248,7 @@ jobs:
           azd extension install microsoft.azd.extensions --source azd
 
       - name: Setup pnpm cache
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('cli/dashboard/pnpm-lock.yaml') }}
