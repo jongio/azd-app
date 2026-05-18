@@ -1,3 +1,10 @@
+// service_process.go manages service lifecycle operations (start, stop, restart)
+// for services defined in the project configuration. This is distinct from the
+// internal/executor package, which provides low-level local command execution.
+//
+// The naming clarifies the separation:
+//   - internal/executor: runs arbitrary commands locally (exec.Command wrapper)
+//   - internal/service/service_process.go: orchestrates service lifecycle states
 package service
 
 import (
