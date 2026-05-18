@@ -178,11 +178,8 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 		},
 	}
 
-	// Store container image in the runtime (using Command field for now)
-	// TODO(#1002): Add dedicated Image field to ServiceRuntime
-	// Currently storing container image in Command field which is semantically incorrect.
-	// Should add a dedicated Image field to ServiceRuntime struct for container-based services.
-	runtime.Command = image
+	// Store container image in the runtime
+	runtime.Image = image
 	runtime.Language = "container"
 	runtime.Framework = packageMgrDocker
 

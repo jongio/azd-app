@@ -341,25 +341,7 @@ const variantClasses = {
   const FEEDBACK_DURATION = 2000;
 
   async function copyToClipboard(text: string): Promise<void> {
-    if (navigator.clipboard?.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
-
-    // Fallback for older browsers
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    textarea.style.pointerEvents = 'none';
-    document.body.appendChild(textarea);
-    textarea.select();
-
-    try {
-      const success = document.execCommand('copy');
-      if (!success) throw new Error('Copy command failed');
-    } finally {
-      document.body.removeChild(textarea);
-    }
+    await navigator.clipboard.writeText(text);
   }
 
   function announceToSR(message: string, button: HTMLButtonElement): void {

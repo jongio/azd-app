@@ -286,20 +286,23 @@
 
   async function initSearch() {
     const trigger = document.getElementById('search-trigger');
-    const modal = document.getElementById('search-modal');
+    const modalEl = document.getElementById('search-modal');
     const input = document.getElementById('search-input') as HTMLInputElement;
-    const results = document.getElementById('search-results');
-    const backdrop = modal?.querySelector('.search-backdrop');
-    const closeBtn = modal?.querySelector('.search-close');
+    const resultsEl = document.getElementById('search-results');
 
-    if (!trigger || !modal || !input || !results) return;
+    if (!trigger || !modalEl || !input || !resultsEl) return;
+
+    const modal: HTMLElement = modalEl;
+    const results: HTMLElement = resultsEl;
+    const backdrop = modal.querySelector('.search-backdrop');
+    const closeBtn = modal.querySelector('.search-close');
 
     // Load Pagefind dynamically at runtime
     async function loadPagefind() {
       if (pagefind) return pagefind;
       try {
         // Dynamic import at runtime - Pagefind is generated after build
-        const pf = await (Function('return import("/azd-app/pagefind/pagefind.js")')());
+        const pf = await import(/* @vite-ignore */ '/azd-app/pagefind/pagefind.js');
         await pf.init();
         pagefind = pf;
         return pagefind;

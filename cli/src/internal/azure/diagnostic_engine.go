@@ -97,11 +97,8 @@ func NewDiagnosticsEngine(credential azcore.TokenCredential, projectDir string) 
 		validators: make(map[ResourceType]ServiceValidator),
 	}
 
-	// Register validators for each host type
-	// TODO: Register validators as they are implemented
-	// engine.validators[ResourceTypeContainerApp] = NewContainerAppValidator(credential, projectDir)
-	// engine.validators[ResourceTypeFunction] = NewFunctionValidator(credential, projectDir)
-	// engine.validators[ResourceTypeAppService] = NewAppServiceValidator(credential, projectDir)
+	// Validators are registered lazily in RunDiagnostics via initializeValidators
+	// once a workspace ID is discovered.
 
 	return engine
 }
@@ -115,9 +112,7 @@ func (e *DiagnosticsEngine) RunDiagnostics(ctx context.Context) (*DiagnosticsRes
 	}
 
 	// Initialize validators with workspace ID
-	if discoveryResult.LogAnalyticsWorkspaceID != "" {
-		e.initializeValidators(discoveryResult.LogAnalyticsWorkspaceID)
-	}
+	e.initializeValidators(discoveryResult.LogAnalyticsWorkspaceID)
 
 	response := &DiagnosticsResponse{
 		WorkspaceID:   discoveryResult.LogAnalyticsWorkspaceID,
