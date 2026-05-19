@@ -3,7 +3,7 @@ package dashboard
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -123,7 +123,7 @@ func (s *Server) Start() (string, error) {
 	// Release reservation just before server binds
 	// The server must bind immediately after this
 	if err := reservation.Release(); err != nil {
-		log.Printf("Warning: failed to release port reservation: %v", err)
+		slog.Warn("failed to release port reservation", "error", err)
 	}
 
 	s.port = port
@@ -137,7 +137,7 @@ func (s *Server) Start() (string, error) {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Dashboard server error: %v", err)
+			slog.Error("dashboard server error", "error", err)
 			errChan <- err
 		}
 	}()
@@ -147,10 +147,10 @@ func (s *Server) Start() (string, error) {
 		select {
 		case err := <-errChan:
 			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-				log.Printf("Dashboard server encountered port conflict after startup: %v", err)
-				log.Printf("Another instance may be running. Check for other 'azd app run' processes.")
+				slog.Warn("dashboard server encountered port conflict after startup", "error", err)
+				slog.Warn("another instance may be running; check for other azd app run processes")
 			} else {
-				log.Printf("Dashboard server encountered error after startup: %v", err)
+				slog.Error("dashboard server encountered error after startup", "error", err)
 			}
 		case <-s.stopChan:
 			return

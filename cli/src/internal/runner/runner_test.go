@@ -102,39 +102,6 @@ func TestRunDockerCompose(t *testing.T) {
 	}
 }
 
-// TestRunnerFunctionSignatures verifies runner function signatures and basic structure.
-// Skip: These functions start background processes without cleanup mechanisms.
-func TestRunnerFunctionSignatures(t *testing.T) {
-	t.Skip("Unit test disabled - functions start background processes without cleanup")
-
-	// This test verifies that the runner functions have the correct signatures
-	// and can be called without errors (even if we skip actual execution)
-
-	t.Run("RunAspire signature", func(t *testing.T) {
-		project := types.AspireProject{
-			Dir:         "/tmp/test",
-			ProjectFile: "/tmp/test/app.csproj",
-		}
-
-		// Just verify it compiles and has the right signature
-		_ = RunAspire(context.Background(), project)
-		// We expect this to fail since the directory doesn't exist
-		// but that's okay - we're just testing the signature
-	})
-
-	t.Run("RunPnpmScript signature", func(t *testing.T) {
-		_ = RunPnpmScript(context.Background(), "dev")
-		// We expect this to fail if pnpm isn't installed
-		// but that's okay - we're just testing the signature
-	})
-
-	t.Run("RunDockerCompose signature", func(t *testing.T) {
-		_ = RunDockerCompose(context.Background(), "start", "docker compose up")
-		// We expect this to fail if pnpm isn't installed
-		// but that's okay - we're just testing the signature
-	})
-}
-
 func TestRunNode(t *testing.T) {
 	tests := []struct {
 		name           string

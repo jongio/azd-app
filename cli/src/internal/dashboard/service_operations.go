@@ -2,7 +2,7 @@ package dashboard
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -77,7 +77,7 @@ func (h *serviceOperationHandler) executeBulkServiceOperation(entry *registry.Se
 	// For restart, stop the service first
 	if h.operation == opRestart && entry.Status != constants.StatusStopped && entry.Status != constants.StatusNotRunning {
 		if err := h.stopService(entry, serviceName); err != nil {
-			log.Printf("Warning: error during restart stop phase for %s: %v", serviceName, err)
+			slog.Warn("error during restart stop phase", "service", serviceName, "error", err)
 		}
 	}
 
@@ -94,20 +94,20 @@ func (h *serviceOperationHandler) executeBulkServiceOperation(entry *registry.Se
 func (h *serviceOperationHandler) performStopBulk(entry *registry.ServiceRegistryEntry, serviceName string, reg *registry.ServiceRegistry) error {
 	// Update registry to stopping state
 	if err := reg.UpdateStatus(serviceName, constants.StatusStopping); err != nil {
-		log.Printf("Warning: failed to update status: %v", err)
+		slog.Warn("failed to update status", "error", err)
 	}
 
 	if err := h.stopService(entry, serviceName); err != nil {
-		log.Printf("Warning: %v", err)
+		slog.Warn("service operation warning", "error", err)
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
-			log.Printf("Warning: failed to update status: %v", regErr)
+			slog.Warn("failed to update status", "error", regErr)
 		}
 		return err
 	}
 
 	// Update registry to stopped state
 	if err := reg.UpdateStatus(serviceName, constants.StatusStopped); err != nil {
-		log.Printf("Warning: failed to update status: %v", err)
+		slog.Warn("failed to update status", "error", err)
 	}
 
 	return nil
@@ -135,7 +135,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 
 	// Update registry to starting state
 	if updateErr := reg.UpdateStatus(serviceName, constants.StatusStarting); updateErr != nil {
-		log.Printf("Warning: failed to update status: %v", updateErr)
+		slog.Warn("failed to update status", "error", updateErr)
 	}
 
 	// Start the service - use container runner for container services
@@ -145,7 +145,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		if err == nil {
 			// Start container log collection
 			if logErr := service.StartContainerLogCollection(process, h.server.projectDir); logErr != nil {
-				log.Printf("Warning: failed to start container log collection for %s: %v", serviceName, logErr)
+				slog.Warn("failed to start container log collection", "service", serviceName, "error", logErr)
 			}
 		}
 	} else {
@@ -157,7 +157,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 
 	if err != nil {
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
-			log.Printf("Warning: failed to update status: %v", regErr)
+			slog.Warn("failed to update status", "error", regErr)
 		}
 		return fmt.Errorf("failed to start service: %w", err)
 	}
@@ -166,21 +166,21 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 	// Container services have ContainerID instead of Process.Pid
 	if process == nil {
 		if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
-			log.Printf("Warning: failed to update status: %v", regErr)
+			slog.Warn("failed to update status", "error", regErr)
 		}
 		return fmt.Errorf("service process not created")
 	}
 	if runtime.Type == service.ServiceTypeContainer {
 		if process.ContainerID == "" {
 			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
-				log.Printf("Warning: failed to update status: %v", regErr)
+				slog.Warn("failed to update status", "error", regErr)
 			}
 			return fmt.Errorf("container not created")
 		}
 	} else {
 		if process.Process == nil {
 			if regErr := reg.UpdateStatus(serviceName, constants.StatusError); regErr != nil {
-				log.Printf("Warning: failed to update status: %v", regErr)
+				slog.Warn("failed to update status", "error", regErr)
 			}
 			return fmt.Errorf("native service process not created")
 		}
@@ -206,7 +206,7 @@ func (h *serviceOperationHandler) performStartBulk(entry *registry.ServiceRegist
 		updatedEntry.PID = process.Process.Pid
 	}
 	if err := reg.Register(updatedEntry); err != nil {
-		log.Printf("Warning: failed to register service: %v", err)
+		slog.Warn("failed to register service", "error", err)
 	}
 
 	return nil
@@ -244,7 +244,7 @@ func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEnt
 	if entry.PID > 0 {
 		process, err := os.FindProcess(entry.PID)
 		if err != nil {
-			log.Printf("Warning: could not find process %d: %v", entry.PID, err)
+			slog.Warn("could not find process", "pid", entry.PID, "error", err)
 		} else {
 			serviceProcess := &service.ServiceProcess{
 				Name:    serviceName,
@@ -252,7 +252,7 @@ func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEnt
 			}
 			if err := service.StopServiceGraceful(serviceProcess, service.DefaultStopTimeout); err != nil {
 				// Log but continue - the PID might be stale, we'll try by port next
-				log.Printf("Warning: error stopping service %s by PID %d: %v", serviceName, entry.PID, err)
+				slog.Warn("error stopping service by pid", "service", serviceName, "pid", entry.PID, "error", err)
 			}
 		}
 	}
@@ -265,7 +265,7 @@ func (h *serviceOperationHandler) stopService(entry *registry.ServiceRegistryEnt
 		pm := portmanager.GetPortManager(h.server.projectDir)
 		if err := pm.KillProcessOnPort(entry.Port); err != nil {
 			// Not a fatal error - port might already be free
-			log.Printf("Warning: error freeing port %d for service %s: %v", entry.Port, serviceName, err)
+			slog.Warn("error freeing port for service", "port", entry.Port, "service", serviceName, "error", err)
 		}
 	}
 
@@ -280,12 +280,12 @@ func (h *serviceOperationHandler) stopContainerByName(serviceName string) error 
 
 	// Stop container with grace period
 	if err := client.Stop(containerName, 10); err != nil {
-		log.Printf("Warning: failed to stop container %s: %v", containerName, err)
+		slog.Warn("failed to stop container", "container", containerName, "error", err)
 	}
 
 	// Remove container to allow fresh start
 	if err := client.Remove(containerName); err != nil {
-		log.Printf("Warning: failed to remove container %s: %v", containerName, err)
+		slog.Warn("failed to remove container", "container", containerName, "error", err)
 	}
 
 	return nil

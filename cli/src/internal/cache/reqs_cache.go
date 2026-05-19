@@ -253,9 +253,3 @@ func (cm *CacheManager) GetStats() CacheStats {
 func (cm *CacheManager) IsEnabled() bool {
 	return cm.enabled
 }
-
-// calculateFileHash calculates SHA256 hash of a file.
-// Delegates to core cache.HashFile.
-func calculateFileHash(filePath string) (string, error) {
-	return corecache.HashFile(filePath)
-}

@@ -20,16 +20,21 @@
     "@astrojs/mdx": "^5.0.6",
     "@jongio/azd-web-core": "^2.4.1",
     "@tailwindcss/vite": "^4.3.0",
-    "astro": "^6.3.5",
+    "astro": "^6.3.3",
     "astro-expressive-code": "^0.42.0",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@types/node": "^25.9.0",
+    "@types/node": "^25.8.0",
     "pagefind": "^1.5.2",
     "playwright": "^1.60.0",
     "sharp": "^0.34.5",
-    "tsx": "^4.22.3"
+    "tsx": "^4.22.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "yaml@>=2.0.0 <2.8.3": ">=2.8.3"
+    }
   }
 }

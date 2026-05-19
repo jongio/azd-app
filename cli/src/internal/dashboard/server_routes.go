@@ -4,7 +4,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -23,7 +23,7 @@ func (s *Server) setupRoutes() {
 	// Serve static files from embedded FS first (before catch-all patterns)
 	distFS, err := fs.Sub(staticFiles, "dist")
 	if err != nil {
-		log.Printf("Warning: Failed to load static files: %v", err)
+		slog.Warn("failed to load static files", "error", err)
 		s.mux.HandleFunc("/", s.handleFallback)
 		return
 	}

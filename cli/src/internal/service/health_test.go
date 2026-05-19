@@ -24,7 +24,7 @@ func TestPortHealthCheck_Success(t *testing.T) {
 	// Extract port from server URL
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
-	err := PortHealthCheck(port)
+	err := PortHealthCheck(context.Background(), port)
 	if err != nil {
 		t.Errorf("PortHealthCheck() error = %v, want nil", err)
 	}
@@ -34,7 +34,7 @@ func TestPortHealthCheck_PortNotListening(t *testing.T) {
 	// Use a port that's unlikely to be listening
 	port := 64999
 
-	err := PortHealthCheck(port)
+	err := PortHealthCheck(context.Background(), port)
 	if err == nil {
 		t.Error("PortHealthCheck() expected error for non-listening port")
 	}
@@ -48,7 +48,7 @@ func TestHTTPHealthCheck_Success(t *testing.T) {
 
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
-	err := HTTPHealthCheck(port, "/")
+	err := HTTPHealthCheck(context.Background(), port, "/")
 	if err != nil {
 		t.Errorf("HTTPHealthCheck() error = %v, want nil", err)
 	}
@@ -66,7 +66,7 @@ func TestHTTPHealthCheck_WithPath(t *testing.T) {
 
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
-	err := HTTPHealthCheck(port, "/health")
+	err := HTTPHealthCheck(context.Background(), port, "/health")
 	if err != nil {
 		t.Errorf("HTTPHealthCheck() error = %v, want nil", err)
 	}
@@ -81,7 +81,7 @@ func TestHTTPHealthCheck_Redirect(t *testing.T) {
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	// Should succeed because 3xx is acceptable
-	err := HTTPHealthCheck(port, "/")
+	err := HTTPHealthCheck(context.Background(), port, "/")
 	if err != nil {
 		t.Errorf("HTTPHealthCheck() error = %v, want nil for redirect", err)
 	}
@@ -95,7 +95,7 @@ func TestHTTPHealthCheck_ServerError(t *testing.T) {
 
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
-	err := HTTPHealthCheck(port, "/")
+	err := HTTPHealthCheck(context.Background(), port, "/")
 	if err == nil {
 		t.Error("HTTPHealthCheck() expected error for 500 status")
 	}
@@ -104,7 +104,7 @@ func TestHTTPHealthCheck_ServerError(t *testing.T) {
 func TestHTTPHealthCheck_PortNotListening(t *testing.T) {
 	port := 64998
 
-	err := HTTPHealthCheck(port, "/")
+	err := HTTPHealthCheck(context.Background(), port, "/")
 	if err == nil {
 		t.Error("HTTPHealthCheck() expected error for non-listening port")
 	}
@@ -140,7 +140,7 @@ func TestIsPortListening(t *testing.T) {
 	port := server.Listener.Addr().(*net.TCPAddr).Port
 
 	// Port should be listening
-	if !IsPortListening(port) {
+	if !IsPortListening(context.Background(), port) {
 		t.Error("IsPortListening() = false, want true")
 	}
 
@@ -149,7 +149,7 @@ func TestIsPortListening(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Port should not be listening
-	if IsPortListening(port) {
+	if IsPortListening(context.Background(), port) {
 		t.Error("IsPortListening() = true, want false after server closed")
 	}
 }

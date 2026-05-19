@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	corecache "github.com/jongio/azd-core/cache"
 )
 
 func TestNewCacheManager(t *testing.T) {
@@ -485,23 +487,23 @@ func TestCalculateFileHash(t *testing.T) {
 	}
 
 	// Calculate hash
-	hash, err := calculateFileHash(testFile)
+	hash, err := corecache.HashFile(testFile)
 	if err != nil {
-		t.Fatalf("calculateFileHash() error = %v", err)
+		t.Fatalf("corecache.HashFile() error = %v", err)
 	}
 
 	if hash == "" {
-		t.Errorf("calculateFileHash() returned empty hash")
+		t.Errorf("corecache.HashFile() returned empty hash")
 	}
 
 	// Verify same content produces same hash
-	hash2, err := calculateFileHash(testFile)
+	hash2, err := corecache.HashFile(testFile)
 	if err != nil {
-		t.Fatalf("calculateFileHash() error = %v", err)
+		t.Fatalf("corecache.HashFile() error = %v", err)
 	}
 
 	if hash != hash2 {
-		t.Errorf("calculateFileHash() inconsistent: %v != %v", hash, hash2)
+		t.Errorf("corecache.HashFile() inconsistent: %v != %v", hash, hash2)
 	}
 
 	// Verify different content produces different hash
@@ -510,20 +512,20 @@ func TestCalculateFileHash(t *testing.T) {
 		t.Fatalf("failed to create test file 2: %v", err)
 	}
 
-	hash3, err := calculateFileHash(testFile2)
+	hash3, err := corecache.HashFile(testFile2)
 	if err != nil {
-		t.Fatalf("calculateFileHash() error = %v", err)
+		t.Fatalf("corecache.HashFile() error = %v", err)
 	}
 
 	if hash == hash3 {
-		t.Errorf("calculateFileHash() same hash for different content")
+		t.Errorf("corecache.HashFile() same hash for different content")
 	}
 }
 
 func TestCalculateFileHashNonexistent(t *testing.T) {
-	_, err := calculateFileHash("/nonexistent/file.txt")
+	_, err := corecache.HashFile("/nonexistent/file.txt")
 	if err == nil {
-		t.Errorf("calculateFileHash() expected error for nonexistent file")
+		t.Errorf("corecache.HashFile() expected error for nonexistent file")
 	}
 }
 

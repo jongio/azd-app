@@ -39,8 +39,10 @@ func NewAzdTokenCredential(token string) (*AzdTokenCredential, error) {
 	}
 	return &AzdTokenCredential{
 		token: token,
-		// Assume token is valid for 1 hour if we can't determine expiry
-		// In practice, azd tokens typically last longer
+		// AZD_ACCESS_TOKEN does not currently provide an expiry timestamp through the
+		// extension host API. We pick a conservative 1-hour default so SDK callers do
+		// not cache the token indefinitely; shorter-lived failures are safer than
+		// overstating validity for a token whose real expiry is unknown.
 		expiresOn: time.Now().Add(1 * time.Hour),
 	}, nil
 }

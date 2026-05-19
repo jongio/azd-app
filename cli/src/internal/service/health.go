@@ -13,6 +13,26 @@ import (
 	"github.com/cenkalti/backoff/v4"
 )
 
+var sharedHTTPClient = &http.Client{
+	Timeout: HTTPClientTimeout,
+	Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   ConnectionTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
 // Backoff configuration constants
 const (
 	// Health check backoff settings
@@ -56,9 +76,9 @@ func PerformHealthCheck(process *ServiceProcess) error {
 
 		switch config.Type {
 		case ServiceTypeHTTP:
-			err = HTTPHealthCheck(process.Port, config.Path)
+			err = HTTPHealthCheck(context.Background(), process.Port, config.Path)
 		case "tcp":
-			err = PortHealthCheck(process.Port)
+			err = PortHealthCheck(context.Background(), process.Port)
 		case "process":
 			err = ProcessHealthCheck(process)
 		case "output":
@@ -71,7 +91,7 @@ func PerformHealthCheck(process *ServiceProcess) error {
 		default:
 			// Default to HTTP health check if port is available, otherwise process check
 			if process.Port > 0 {
-				err = HTTPHealthCheck(process.Port, config.Path)
+				err = HTTPHealthCheck(context.Background(), process.Port, config.Path)
 			} else {
 				err = ProcessHealthCheck(process)
 			}
@@ -119,47 +139,31 @@ func OutputHealthCheck(process *ServiceProcess, pattern string) error {
 }
 
 // HTTPHealthCheck attempts HTTP requests to verify service is ready.
-func HTTPHealthCheck(port int, path string) error {
-	// Build URL
+func HTTPHealthCheck(ctx context.Context, port int, path string) error {
 	url := fmt.Sprintf("http://localhost:%d%s", port, path)
 
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: HTTPClientTimeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Don't follow redirects
-			return http.ErrUseLastResponse
-		},
-	}
-
-	ctx := context.Background()
-
-	// Try HEAD request first (lightweight)
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP HEAD request: %w", err)
 	}
-	resp, err := client.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err == nil {
 		defer SafeClose(resp.Body, "HEAD response body")
-		// Accept any 2xx or 3xx status code
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 			return nil
 		}
 	}
 
-	// If HEAD fails or returns error code, try GET
 	req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP GET request: %w", err)
 	}
-	resp, err = client.Do(req)
+	resp, err = sharedHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer SafeClose(resp.Body, "GET response body")
 
-	// Accept any 2xx or 3xx status code
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		return nil
 	}
@@ -168,16 +172,15 @@ func HTTPHealthCheck(port int, path string) error {
 }
 
 // PortHealthCheck verifies that a port is listening.
-func PortHealthCheck(port int) error {
+func PortHealthCheck(ctx context.Context, port int) error {
 	address := fmt.Sprintf("localhost:%d", port)
 	dialer := net.Dialer{Timeout: ConnectionTimeout}
-	conn, err := dialer.DialContext(context.Background(), "tcp", address)
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return fmt.Errorf("port %d not listening: %w", port, err)
 	}
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
-			// Log but don't fail health check on close error
 			slog.Warn("failed to close health check connection", "error", closeErr)
 		}
 	}()
@@ -213,7 +216,7 @@ func WaitForPort(port int, timeout time.Duration) error {
 	b.Multiplier = BackoffMultiplier
 
 	operation := func() error {
-		return PortHealthCheck(port)
+		return PortHealthCheck(context.Background(), port)
 	}
 
 	return backoff.Retry(operation, b)
@@ -221,15 +224,15 @@ func WaitForPort(port int, timeout time.Duration) error {
 
 // TryHTTPHealthCheck performs a single HTTP health check attempt without retries.
 func TryHTTPHealthCheck(port int, path string) bool {
-	err := HTTPHealthCheck(port, path)
+	err := HTTPHealthCheck(context.Background(), port, path)
 	return err == nil
 }
 
 // IsPortListening checks if a port is currently listening.
-func IsPortListening(port int) bool {
+func IsPortListening(ctx context.Context, port int) bool {
 	address := fmt.Sprintf("localhost:%d", port)
 	dialer := net.Dialer{Timeout: PortCheckTimeout}
-	conn, err := dialer.DialContext(context.Background(), "tcp", address)
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false
 	}

@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
@@ -27,7 +27,7 @@ func NewListenCommand() *cobra.Command {
 // handlePostProvision is called after azd provision completes for each service.
 // This handler refreshes the dashboard to show the latest environment values.
 func handlePostProvision(ctx context.Context, args *azdext.ServiceEventArgs) error {
-	log.Printf("[azd-app] Post-provision event received for service: %s", args.Service.GetName())
+	slog.Info("post-provision event received", "service", args.Service.GetName())
 
 	// The environment variables are now updated in the process by azd
 	// We just need to trigger a refresh of the cached environment and broadcast to dashboards
@@ -38,15 +38,15 @@ func handlePostProvision(ctx context.Context, args *azdext.ServiceEventArgs) err
 	// Refresh the environment cache from the current process environment
 	// (azd has already updated os.Environ() by the time this handler is called)
 	serviceinfo.RefreshEnvironmentCache()
-	log.Printf("[azd-app] Refreshed environment cache from updated process environment")
+	slog.Info("refreshed environment cache from updated process environment")
 
 	// Broadcast updated service info to all connected dashboard clients
 	srv := dashboard.GetServer(projectDir)
 	if srv != nil {
 		if err := srv.BroadcastServiceUpdate(projectDir); err != nil {
-			log.Printf("[azd-app] Warning: Failed to broadcast service update: %v", err)
+			slog.Warn("failed to broadcast service update", "error", err)
 		} else {
-			log.Printf("[azd-app] Successfully broadcasted environment update to dashboard clients")
+			slog.Info("broadcasted environment update to dashboard clients")
 		}
 	}
 
