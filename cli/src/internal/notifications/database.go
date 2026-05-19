@@ -28,14 +28,14 @@ const (
 
 // NotificationRecord represents a persisted notification
 type NotificationRecord struct {
-	ID           int64                  `json:"id"`
-	Type         string                 `json:"type"`
-	ServiceName  string                 `json:"serviceName"`
-	Message      string                 `json:"message"`
-	Severity     string                 `json:"severity"`
-	Timestamp    time.Time              `json:"timestamp"`
-	Read         bool                   `json:"read"`
-	Acknowledged bool                   `json:"acknowledged"`
+	ID           int64          `json:"id"`
+	Type         string         `json:"type"`
+	ServiceName  string         `json:"serviceName"`
+	Message      string         `json:"message"`
+	Severity     string         `json:"severity"`
+	Timestamp    time.Time      `json:"timestamp"`
+	Read         bool           `json:"read"`
+	Acknowledged bool           `json:"acknowledged"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 

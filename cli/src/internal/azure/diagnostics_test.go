@@ -217,4 +217,3 @@ func TestDiagnosticSettingsStatus_StringValues(t *testing.T) {
 		t.Errorf("DiagnosticSettingsError = %q, want %q", DiagnosticSettingsError, "error")
 	}
 }
-
