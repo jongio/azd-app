@@ -23,11 +23,11 @@ import (
 
 // InstallNodeDependencies installs dependencies using the detected package manager.
 func InstallNodeDependencies(project types.NodeProject) error {
-	return installNodeDependenciesWithWriter(project, nil)
+	return installNodeDependenciesWithContext(context.Background(), project, nil)
 }
 
-// installNodeDependenciesWithWriter installs dependencies with optional writer for progress tracking.
-func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter io.Writer) error {
+// installNodeDependenciesWithContext installs dependencies with context for cancellation support.
+func installNodeDependenciesWithContext(ctx context.Context, project types.NodeProject, progressWriter io.Writer) error {
 	// Validate inputs
 	if err := security.ValidatePath(project.Dir); err != nil {
 		return fmt.Errorf("invalid project directory: %w", err)
@@ -87,9 +87,9 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	if runtime.GOOS == "windows" {
 		// Use cmd.exe /c to properly invoke .cmd files
 		cmdArgs := append([]string{"/c", project.PackageManager}, args...)
-		cmd = exec.CommandContext(context.Background(), "cmd.exe", cmdArgs...)
+		cmd = exec.CommandContext(ctx, "cmd.exe", cmdArgs...)
 	} else {
-		cmd = exec.CommandContext(context.Background(), project.PackageManager, args...)
+		cmd = exec.CommandContext(ctx, project.PackageManager, args...)
 	}
 
 	cmd.Dir = project.Dir
@@ -120,7 +120,7 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 	}
 
 	// Run with retry logic for Windows file locking errors
-	err := runWithRetry(cmd, &stderrBuf, 3)
+	err := runWithRetry(ctx, cmd, &stderrBuf, 3)
 	if err != nil {
 		return formatNodeInstallError(project.PackageManager, project.Dir, cmd, err, stderrBuf.String())
 	}
@@ -133,11 +133,11 @@ func installNodeDependenciesWithWriter(project types.NodeProject, progressWriter
 
 // RestoreDotnetProject runs dotnet restore on a project.
 func RestoreDotnetProject(project types.DotnetProject) error {
-	return restoreDotnetProjectWithWriter(project, nil)
+	return restoreDotnetProjectWithContext(context.Background(), project, nil)
 }
 
-// restoreDotnetProjectWithWriter runs dotnet restore with optional progress writer.
-func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter io.Writer) error {
+// restoreDotnetProjectWithContext runs dotnet restore with context for cancellation.
+func restoreDotnetProjectWithContext(ctx context.Context, project types.DotnetProject, progressWriter io.Writer) error {
 	// Validate path
 	if err := security.ValidatePath(project.Path); err != nil {
 		return fmt.Errorf("invalid project path: %w", err)
@@ -149,7 +149,7 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 
 	// Run restore with streaming output
 	dir := filepath.Dir(project.Path)
-	cmd := exec.CommandContext(context.Background(), "dotnet", "restore", project.Path)
+	cmd := exec.CommandContext(ctx, "dotnet", "restore", project.Path)
 	cmd.Dir = dir
 
 	// Capture stderr for error reporting
@@ -181,31 +181,31 @@ func restoreDotnetProjectWithWriter(project types.DotnetProject, progressWriter 
 
 // SetupPythonVirtualEnv creates a virtual environment and installs dependencies.
 func SetupPythonVirtualEnv(project types.PythonProject) error {
-	return setupPythonVirtualEnvWithWriter(project, nil)
+	return setupPythonVirtualEnvWithContext(context.Background(), project, nil)
 }
 
-// setupPythonVirtualEnvWithWriter creates a virtual environment with optional progress writer.
-func setupPythonVirtualEnvWithWriter(project types.PythonProject, progressWriter io.Writer) error {
+// setupPythonVirtualEnvWithContext creates a virtual environment with context for cancellation.
+func setupPythonVirtualEnvWithContext(ctx context.Context, project types.PythonProject, progressWriter io.Writer) error {
 	switch project.PackageManager {
 	case "uv":
-		return setupWithUv(project.Dir, progressWriter)
+		return setupWithUv(ctx, project.Dir, progressWriter)
 	case "poetry":
-		return setupWithPoetry(project.Dir, progressWriter)
+		return setupWithPoetry(ctx, project.Dir, progressWriter)
 	case "pip":
-		return setupWithPip(project.Dir, progressWriter)
+		return setupWithPip(ctx, project.Dir, progressWriter)
 	default:
 		return fmt.Errorf("unknown package manager '%s' for Python project in %s", project.PackageManager, project.Dir)
 	}
 }
 
 // setupWithUv sets up a Python project using uv.
-func setupWithUv(projectDir string, progressWriter io.Writer) error {
+func setupWithUv(ctx context.Context, projectDir string, progressWriter io.Writer) error {
 	// Check if uv is installed
 	if _, err := exec.LookPath("uv"); err != nil {
 		if !cliout.IsJSON() && progressWriter == nil {
 			cliout.ItemWarning("uv not found, falling back to pip")
 		}
-		return setupWithPip(projectDir, progressWriter)
+		return setupWithPip(ctx, projectDir, progressWriter)
 	}
 
 	// uv automatically manages virtual environments
@@ -214,7 +214,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 		cliout.Item("Installing dependencies into .venv (uv)...")
 	}
 
-	cmd := exec.CommandContext(context.Background(), "uv", "sync", "--no-progress")
+	cmd := exec.CommandContext(ctx, "uv", "sync", "--no-progress")
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -237,7 +237,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			if !cliout.IsJSON() && progressWriter == nil {
 				cliout.Item("Creating virtual environment at .venv (uv)...")
 			}
-			venvCmd := exec.CommandContext(context.Background(), "uv", "venv")
+			venvCmd := exec.CommandContext(ctx, "uv", "venv")
 			venvCmd.Dir = projectDir
 			venvCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -261,7 +261,7 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 			if !cliout.IsJSON() && progressWriter == nil {
 				cliout.Item("Installing dependencies into .venv (uv pip)...")
 			}
-			installCmd := exec.CommandContext(context.Background(), "uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
+			installCmd := exec.CommandContext(ctx, "uv", "pip", "install", "-r", "requirements.txt", "--no-progress")
 			installCmd.Dir = projectDir
 			installCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -292,17 +292,17 @@ func setupWithUv(projectDir string, progressWriter io.Writer) error {
 }
 
 // setupWithPoetry sets up a Python project using poetry.
-func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
+func setupWithPoetry(ctx context.Context, projectDir string, progressWriter io.Writer) error {
 	// Check if poetry is installed
 	if _, err := exec.LookPath("poetry"); err != nil {
 		if !cliout.IsJSON() && progressWriter == nil {
 			cliout.ItemWarning("poetry not found, falling back to pip")
 		}
-		return setupWithPip(projectDir, progressWriter)
+		return setupWithPip(ctx, projectDir, progressWriter)
 	}
 
 	// Check if virtual environment exists
-	checkCmd := exec.CommandContext(context.Background(), "poetry", "env", "info", "--path")
+	checkCmd := exec.CommandContext(ctx, "poetry", "env", "info", "--path")
 	checkCmd.Dir = projectDir
 	checkCmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 	cmdOutput, err := checkCmd.CombinedOutput()
@@ -320,7 +320,7 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 	}
 
 	// Install dependencies (use --no-root to avoid installing the package itself)
-	cmd := exec.CommandContext(context.Background(), "poetry", "install", "--no-root")
+	cmd := exec.CommandContext(ctx, "poetry", "install", "--no-root")
 	cmd.Dir = projectDir
 	cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -347,7 +347,7 @@ func setupWithPoetry(projectDir string, progressWriter io.Writer) error {
 }
 
 // setupWithPip sets up a Python project using pip and venv.
-func setupWithPip(projectDir string, progressWriter io.Writer) error {
+func setupWithPip(ctx context.Context, projectDir string, progressWriter io.Writer) error {
 	venvPath := filepath.Join(projectDir, ".venv")
 
 	// Check if venv already exists, create if not
@@ -357,7 +357,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		}
 
 		// Create virtual environment
-		cmd := exec.CommandContext(context.Background(), "python", "-m", "venv", ".venv")
+		cmd := exec.CommandContext(ctx, "python", "-m", "venv", ".venv")
 		cmd.Dir = projectDir
 		cmd.Env = os.Environ() // Inherit azd context (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 
@@ -397,7 +397,7 @@ func setupWithPip(projectDir string, progressWriter io.Writer) error {
 		}
 
 		// Run pip install with streaming output and optimizations
-		pipCmd := exec.CommandContext(context.Background(), pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
+		pipCmd := exec.CommandContext(ctx, pipPath, "install", "-r", "requirements.txt", "--disable-pip-version-check", "--prefer-binary")
 		pipCmd.Dir = projectDir
 
 		var stderrBuf bytes.Buffer
@@ -788,7 +788,7 @@ func getPythonSuggestion(tool string, exitCode int, stderr string) string {
 // runWithRetry executes a command with retry logic for Windows file locking errors.
 // This is a safety net for race conditions in npm workspaces on Windows where
 // concurrent npm processes may compete for the same files.
-func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error {
+func runWithRetry(ctx context.Context, cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error {
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -824,7 +824,7 @@ func runWithRetry(cmd *exec.Cmd, stderrBuf *bytes.Buffer, maxRetries int) error 
 			stderrBuf.Reset()
 
 			// Recreate the command for the next attempt (exec.Cmd can only be run once)
-			newCmd := exec.CommandContext(context.Background(), cmd.Path, cmd.Args[1:]...)
+			newCmd := exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
 			newCmd.Dir = cmd.Dir
 			newCmd.Env = cmd.Env
 			newCmd.Stdout = cmd.Stdout

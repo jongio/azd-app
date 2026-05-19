@@ -357,7 +357,7 @@ func TestSetupWithPip_ExistingVenv(t *testing.T) {
 	}
 
 	// Should return nil when venv exists
-	err := setupWithPip(tmpDir, nil)
+	err := setupWithPip(context.Background(), tmpDir, nil)
 	if err != nil {
 		t.Errorf("setupWithPip() with existing venv should not error: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestSetupWithPip_NoRequirementsTxt(t *testing.T) {
 
 	// Try to create venv without requirements.txt
 	// This will succeed if python is available
-	err := setupWithPip(tmpDir, nil)
+	err := setupWithPip(context.Background(), tmpDir, nil)
 
 	// We don't assert success/failure as it depends on python availability
 	// Just verify it doesn't panic
@@ -388,7 +388,7 @@ func TestSetupWithPoetry_EnvExists(t *testing.T) {
 
 	// This tests the path where poetry env info succeeds
 	// In practice, this requires poetry to be installed
-	err := setupWithPoetry(tmpDir, nil)
+	err := setupWithPoetry(context.Background(), tmpDir, nil)
 
 	// We expect this to either succeed or fallback to pip
 	// Just verify it doesn't panic
@@ -409,7 +409,7 @@ func TestSetupWithUv_NoUvInstalled(t *testing.T) {
 	}
 
 	// This will fallback to pip if uv is not installed
-	err := setupWithUv(tmpDir, nil)
+	err := setupWithUv(context.Background(), tmpDir, nil)
 
 	// We don't assert success/failure as it depends on tool availability
 	// Just verify it doesn't panic
