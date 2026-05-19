@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,7 +18,6 @@ import (
 	cache "github.com/patrickmn/go-cache"
 	"github.com/sony/gobreaker"
 	"golang.org/x/time/rate"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -278,18 +276,7 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 }
 
 func (m *HealthMonitor) loadAzureYaml() (*service.AzureYaml, error) {
-	azureYamlPath := filepath.Join(m.config.ProjectDir, "azure.yaml")
-	data, err := os.ReadFile(azureYamlPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var azureYaml service.AzureYaml
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
-		return nil, err
-	}
-
-	return &azureYaml, nil
+	return service.ParseAzureYaml(m.config.ProjectDir)
 }
 
 func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registeredServices []*registry.ServiceRegistryEntry) []serviceInfo {

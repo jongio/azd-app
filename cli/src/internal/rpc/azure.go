@@ -15,7 +15,7 @@ import (
 	v1 "github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1"
 	"github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1/azdappv1connect"
 	"github.com/jongio/azd-app/cli/src/internal/azure"
-	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/common"
 )
 
 // AzureHandler implements azdapp.v1.AzureService via the AzureService
@@ -278,28 +278,10 @@ func toProtoAzureLogEntry(e azure.LogEntry) *v1.LogEntry {
 	return &v1.LogEntry{
 		Service:   e.Service,
 		Message:   e.Message,
-		Level:     toProtoLogLevel(convertAzureLogLevelToService(e.Level)),
+		Level:     toProtoLogLevel(common.ConvertAzureLogLevelToService(e.Level)),
 		Timestamp: timestamppb.New(e.Timestamp),
 		Stream:    v1.LogStream_LOG_STREAM_STDOUT,
 		Source:    v1.LogSource_LOG_SOURCE_AZURE,
-	}
-}
-
-// convertAzureLogLevelToService duplicates dashboard/azure_logs_conversion.go
-// so the rpc package doesn't import the dashboard package (would create a
-// cycle: dashboard imports rpc to mount handlers).
-func convertAzureLogLevelToService(l azure.LogLevel) service.LogLevel {
-	switch l {
-	case azure.LogLevelInfo:
-		return service.LogLevelInfo
-	case azure.LogLevelWarn:
-		return service.LogLevelWarn
-	case azure.LogLevelError:
-		return service.LogLevelError
-	case azure.LogLevelDebug:
-		return service.LogLevelDebug
-	default:
-		return service.LogLevelInfo
 	}
 }
 

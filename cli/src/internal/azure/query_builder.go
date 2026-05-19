@@ -19,6 +19,25 @@ const (
 	fieldMessage            = "Message"
 )
 
+type tableConfig struct {
+	filterColumn  string
+	messageColumn string
+}
+
+var tableConfigs = map[string]tableConfig{
+	"ContainerAppConsoleLogs_CL": {filterColumn: "ContainerAppName_s", messageColumn: "Log_s"},
+	"ContainerAppSystemLogs_CL":  {filterColumn: "ContainerAppName_s", messageColumn: "Log_s"},
+	"AppServiceConsoleLogs":      {filterColumn: "_ResourceId", messageColumn: "ResultDescription"},
+	"AppServiceHTTPLogs":         {filterColumn: "_ResourceId", messageColumn: "CsUriStem"},
+	"AppServicePlatformLogs":     {filterColumn: "_ResourceId", messageColumn: fieldMessage},
+	"AppServiceAppLogs":          {filterColumn: "_ResourceId", messageColumn: fieldMessage},
+	"FunctionAppLogs":            {filterColumn: "_ResourceId", messageColumn: fieldMessage},
+	"ContainerLogV2":             {filterColumn: "PodName", messageColumn: "LogMessage"},
+	"ContainerLog":               {filterColumn: "Name", messageColumn: "LogEntry"},
+	"ContainerInstanceLog_CL":    {filterColumn: "ContainerGroup_s", messageColumn: "Message_s"},
+	"KubeEvents":                 {filterColumn: "Name", messageColumn: fieldMessage},
+}
+
 // QueryBuilder helps construct KQL queries from table selections.
 type QueryBuilder struct {
 	tables      []string
@@ -144,24 +163,7 @@ func (qb *QueryBuilder) getServiceFilter(tableName string) string {
 
 // getServiceFilterColumn returns the column to filter by service name for a table.
 func getServiceFilterColumn(tableName string) string {
-	switch tableName {
-	case "ContainerAppConsoleLogs_CL", "ContainerAppSystemLogs_CL":
-		return "ContainerAppName_s"
-	case "AppServiceConsoleLogs", "AppServiceHTTPLogs", "AppServicePlatformLogs", "AppServiceAppLogs":
-		return "_ResourceId"
-	case "FunctionAppLogs":
-		return "_ResourceId"
-	case "ContainerLogV2":
-		return "PodName"
-	case "ContainerLog":
-		return "Name"
-	case "ContainerInstanceLog_CL":
-		return "ContainerGroup_s"
-	case "KubeEvents":
-		return "Name"
-	default:
-		return ""
-	}
+	return tableConfigs[tableName].filterColumn
 }
 
 // getProjectColumns returns the columns to project for a table.
@@ -192,30 +194,7 @@ func (qb *QueryBuilder) getProjectColumns(tableName string) string {
 
 // getMessageColumn returns the primary message column for a table.
 func getMessageColumn(tableName string) string {
-	switch tableName {
-	case "ContainerAppConsoleLogs_CL":
-		return "Log_s"
-	case "ContainerAppSystemLogs_CL":
-		return "Log_s"
-	case "AppServiceConsoleLogs":
-		return "ResultDescription"
-	case "AppServiceHTTPLogs":
-		return "CsUriStem"
-	case "AppServicePlatformLogs":
-		return fieldMessage
-	case "FunctionAppLogs":
-		return fieldMessage
-	case "ContainerLogV2":
-		return "LogMessage"
-	case "ContainerLog":
-		return "LogEntry"
-	case "ContainerInstanceLog_CL":
-		return "Message_s"
-	case "KubeEvents":
-		return fieldMessage
-	default:
-		return ""
-	}
+	return tableConfigs[tableName].messageColumn
 }
 
 // containsString checks if a slice contains a string.

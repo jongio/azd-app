@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -19,19 +18,12 @@ var classificationsMu sync.RWMutex
 
 // loadAzureYaml loads and parses the azure.yaml file.
 func loadAzureYaml(projectDir string) (*service.AzureYaml, error) {
-	azureYamlPath := filepath.Join(projectDir, "azure.yaml")
-
-	data, err := os.ReadFile(azureYamlPath)
+	azureYaml, err := service.ParseAzureYaml(projectDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	var azureYaml service.AzureYaml
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
 		return nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	return &azureYaml, nil
+	return azureYaml, nil
 }
 
 // saveAzureYaml saves the azure.yaml file atomically.

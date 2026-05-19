@@ -396,7 +396,7 @@ func getProjectDir() string {
 }
 
 // ServiceInfo represents the output schema for get_services tool
-type ServiceInfo struct {
+type ServicesResult struct {
 	Project  map[string]any   `json:"project" jsonschema:"description=Project metadata including name and directory"`
 	Services []ServiceDetails `json:"services" jsonschema:"description=List of services with their status and configuration"`
 }

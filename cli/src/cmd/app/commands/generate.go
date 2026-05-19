@@ -732,6 +732,7 @@ func mergeReqs(azureYamlPath string, detected []DetectedRequirement) (int, int, 
 	var azureYaml struct {
 		Reqs []Prerequisite `yaml:"reqs"`
 	}
+	// TODO: Replace this direct unmarshal once service.ParseAzureYaml supports the reqs schema used by generate.
 	if err = yaml.Unmarshal(data, &azureYaml); err != nil {
 		return 0, 0, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}

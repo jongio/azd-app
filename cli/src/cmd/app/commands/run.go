@@ -17,6 +17,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
+	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/browser"
@@ -45,13 +46,15 @@ var (
 
 // NewRunCommand creates the run command.
 func NewRunCommand() *cobra.Command {
+	commandOrchestrator := newCommandOrchestrator()
+
 	cmd := &cobra.Command{
 		Use:          "run",
 		Short:        "Run the development environment (services from azure.yaml, Aspire, pnpm, or docker compose)",
 		Long:         `Automatically detects and runs services defined in azure.yaml, or falls back to: Aspire (AppHost.cs), pnpm dev/start scripts, or docker compose from package.json`,
 		SilenceUsage: true, // Don't print usage on errors - it makes error messages hard to read
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWithServices(cmd.Context(), cmd, args)
+			return runWithServices(cmd.Context(), commandOrchestrator, cmd, args)
 		},
 	}
 
@@ -69,7 +72,7 @@ func NewRunCommand() *cobra.Command {
 }
 
 // runWithServices runs services from azure.yaml.
-func runWithServices(ctx context.Context, _ *cobra.Command, _ []string) error {
+func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orchestrator, _ *cobra.Command, _ []string) error {
 	cliout.CommandHeader("run", "Run the development environment")
 	if err := validateRuntimeMode(runRuntime); err != nil {
 		return err
@@ -84,7 +87,7 @@ func runWithServices(ctx context.Context, _ *cobra.Command, _ []string) error {
 
 	// Execute dependencies first (reqs -> deps -> run)
 	// The orchestrator automatically sets orchestrated mode for dependencies
-	if err := cmdOrchestrator.Run("run"); err != nil {
+	if err := commandOrchestrator.Run("run"); err != nil {
 		return fmt.Errorf("failed to execute command dependencies: %w", err)
 	}
 

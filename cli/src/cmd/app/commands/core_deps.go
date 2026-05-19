@@ -18,9 +18,10 @@ import (
 // DependencyInstaller handles installation of project dependencies.
 type DependencyInstaller struct {
 	searchRoot     string
-	nodeProjects   []types.NodeProject   // Pre-filtered Node.js projects (optional)
-	pythonProjects []types.PythonProject // Pre-filtered Python projects (optional)
-	dotnetProjects []types.DotnetProject // Pre-filtered .NET projects (optional)
+	projects       DetectedProjects // Pre-filtered projects (optional)
+	nodeProjects   []types.NodeProject
+	pythonProjects []types.PythonProject
+	dotnetProjects []types.DotnetProject
 }
 
 // NewDependencyInstaller creates a new dependency installer.
@@ -84,22 +85,27 @@ func (di *DependencyInstaller) InstallAll() ([]InstallResult, error) {
 func (di *DependencyInstaller) InstallAllFiltered() ([]InstallResult, error) {
 	var results []InstallResult
 
-	// Install Node.js dependencies from pre-filtered list
-	if len(di.nodeProjects) > 0 {
-		nodeResults := di.installNodeProjectList(di.nodeProjects)
-		results = append(results, nodeResults...)
+	nodeProjects := di.projects.Node
+	pythonProjects := di.projects.Python
+	dotnetProjects := di.projects.Dotnet
+	if nodeProjects == nil {
+		nodeProjects = di.nodeProjects
+	}
+	if pythonProjects == nil {
+		pythonProjects = di.pythonProjects
+	}
+	if dotnetProjects == nil {
+		dotnetProjects = di.dotnetProjects
 	}
 
-	// Install Python dependencies from pre-filtered list
-	if len(di.pythonProjects) > 0 {
-		pythonResults := di.installPythonProjectList(di.pythonProjects)
-		results = append(results, pythonResults...)
+	if len(nodeProjects) > 0 {
+		results = append(results, di.installNodeProjectList(nodeProjects)...)
 	}
-
-	// Install .NET dependencies from pre-filtered list
-	if len(di.dotnetProjects) > 0 {
-		dotnetResults := di.installDotnetProjectList(di.dotnetProjects)
-		results = append(results, dotnetResults...)
+	if len(pythonProjects) > 0 {
+		results = append(results, di.installPythonProjectList(pythonProjects)...)
+	}
+	if len(dotnetProjects) > 0 {
+		results = append(results, di.installDotnetProjectList(dotnetProjects)...)
 	}
 
 	return results, nil
@@ -261,53 +267,44 @@ func (di *DependencyInstaller) installProject(projectType, dir, manager string, 
 	return result
 }
 
-// filterProjectsByService filters projects to only include those matching the specified service names.
-func filterProjectsByService(
-	nodeProjects []types.NodeProject,
-	pythonProjects []types.PythonProject,
-	dotnetProjects []types.DotnetProject,
-	services []string,
-	searchRoot string,
-) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject) {
+// filterDetectedProjectsByService filters grouped projects to only include those matching the specified service names.
+func filterDetectedProjectsByService(projects DetectedProjects, services []string, searchRoot string) DetectedProjects {
 	// Build a set of service paths from azure.yaml
 	servicePaths := make(map[string]bool)
 
 	azureYamlPath, err := detector.FindAzureYaml(searchRoot)
 	if err != nil || azureYamlPath == "" {
 		// No azure.yaml found, can't filter by service
-		return nodeProjects, pythonProjects, dotnetProjects
+		return projects
 	}
 
 	azureYaml, err := parseAzureYaml(azureYamlPath)
 	if err != nil {
-		return nodeProjects, pythonProjects, dotnetProjects
+		return projects
 	}
-
-	azureYamlDir := filepath.Dir(azureYamlPath)
 
 	// Build map of service name to absolute path
 	for name, svc := range azureYaml.Services {
-		// Check if this service is in the filter list
 		for _, filterName := range services {
-			if name == filterName {
-				svcPath := filepath.Join(azureYamlDir, svc.Project)
-				absPath, err := filepath.Abs(svcPath)
-				if err != nil {
-					// Log warning but continue processing other services
-					if !cliout.IsJSON() {
-						cliout.Warning("Failed to resolve absolute path for service %s: %v", name, err)
-					}
-					continue
-				}
-				servicePaths[absPath] = true
-				break
+			if name != filterName {
+				continue
 			}
+
+			absPath, err := filepath.Abs(svc.Project)
+			if err != nil {
+				if !cliout.IsJSON() {
+					cliout.Warning("Failed to resolve absolute path for service %s: %v", name, err)
+				}
+				continue
+			}
+			servicePaths[absPath] = true
+			break
 		}
 	}
 
 	// Filter Node.js projects
 	var filteredNode []types.NodeProject
-	for _, p := range nodeProjects {
+	for _, p := range projects.Node {
 		absDir, _ := filepath.Abs(p.Dir)
 		if servicePaths[absDir] || isSubdirectory(absDir, servicePaths) {
 			filteredNode = append(filteredNode, p)
@@ -316,7 +313,7 @@ func filterProjectsByService(
 
 	// Filter Python projects
 	var filteredPython []types.PythonProject
-	for _, p := range pythonProjects {
+	for _, p := range projects.Python {
 		absDir, _ := filepath.Abs(p.Dir)
 		if servicePaths[absDir] || isSubdirectory(absDir, servicePaths) {
 			filteredPython = append(filteredPython, p)
@@ -325,7 +322,7 @@ func filterProjectsByService(
 
 	// Filter .NET projects
 	var filteredDotnet []types.DotnetProject
-	for _, p := range dotnetProjects {
+	for _, p := range projects.Dotnet {
 		absPath, _ := filepath.Abs(p.Path)
 		absDir := filepath.Dir(absPath)
 		if servicePaths[absDir] || isSubdirectory(absDir, servicePaths) {
@@ -333,7 +330,22 @@ func filterProjectsByService(
 		}
 	}
 
-	return filteredNode, filteredPython, filteredDotnet
+	return DetectedProjects{
+		Node:   filteredNode,
+		Python: filteredPython,
+		Dotnet: filteredDotnet,
+	}
+}
+
+// filterProjectsByService preserves the legacy test-facing signature while delegating to grouped project filtering.
+func filterProjectsByService(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, services []string, searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject) {
+	filtered := filterDetectedProjectsByService(DetectedProjects{
+		Node:   nodeProjects,
+		Python: pythonProjects,
+		Dotnet: dotnetProjects,
+	}, services, searchRoot)
+
+	return filtered.Node, filtered.Python, filtered.Dotnet
 }
 
 // detectProjectsFromAzureYaml reads azure.yaml and detects project types directly from
@@ -462,7 +474,7 @@ func isSubdirectory(path string, parentPaths map[string]bool) bool {
 }
 
 // runParallelInstallation runs the parallel installer for non-JSON mode.
-func runParallelInstallation(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, verbose bool) error {
+func runParallelInstallation(projects DetectedProjects, verbose bool) error {
 	parallelInstaller := installer.NewParallelInstaller()
 	parallelInstaller.Verbose = verbose
 
@@ -470,15 +482,15 @@ func runParallelInstallation(nodeProjects []types.NodeProject, pythonProjects []
 	// When a workspace root exists, only install at the root level to avoid race conditions
 	// on Windows where parallel npm installs compete for the same node_modules directory
 	workspaceHandler := workspace.NewHandler()
-	filteredNodeProjects := workspaceHandler.FilterNodeProjects(nodeProjects)
+	filteredNodeProjects := workspaceHandler.FilterNodeProjects(projects.Node)
 
 	for _, project := range filteredNodeProjects {
 		parallelInstaller.AddNodeProject(project)
 	}
-	for _, project := range pythonProjects {
+	for _, project := range projects.Python {
 		parallelInstaller.AddPythonProject(project)
 	}
-	for _, project := range dotnetProjects {
+	for _, project := range projects.Dotnet {
 		parallelInstaller.AddDotnetProject(project)
 	}
 
@@ -500,11 +512,9 @@ func runParallelInstallation(nodeProjects []types.NodeProject, pythonProjects []
 }
 
 // runJSONInstallation runs installation in JSON mode with sequential cliout.
-func runJSONInstallation(searchRoot string, nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
+func runJSONInstallation(searchRoot string, projects DetectedProjects) error {
 	depInstaller := NewDependencyInstaller(searchRoot)
-	depInstaller.nodeProjects = nodeProjects
-	depInstaller.pythonProjects = pythonProjects
-	depInstaller.dotnetProjects = dotnetProjects
+	depInstaller.projects = projects
 
 	results, err := depInstaller.InstallAllFiltered()
 	if err != nil {

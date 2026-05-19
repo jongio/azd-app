@@ -301,7 +301,7 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 				return runReqsFix()
 			}
 
-			return cmdOrchestrator.Run("reqs")
+			return newCommandOrchestrator().Run("reqs")
 		},
 	}
 
@@ -730,6 +730,86 @@ type FixResult struct {
 	Satisfied bool   `json:"satisfied"`
 }
 
+type reqsFixRunner struct {
+	checker *PrerequisiteChecker
+}
+
+func newReqsFixRunner() *reqsFixRunner {
+	return &reqsFixRunner{checker: NewPrerequisiteChecker()}
+}
+
+func (r *reqsFixRunner) parseReqs() (string, []Prerequisite, error) {
+	azureYamlPath, azureYaml, err := loadAzureYaml()
+	if err != nil {
+		return "", nil, err
+	}
+
+	reqs := append([]Prerequisite{}, azureYaml.Reqs...)
+	reqs = r.ensureDockerReq(azureYaml, reqs)
+	if len(reqs) == 0 {
+		return "", nil, fmt.Errorf("no reqs defined in azure.yaml - run 'azd app reqs --generate' to add them")
+	}
+
+	return azureYamlPath, reqs, nil
+}
+
+func (r *reqsFixRunner) ensureDockerReq(azureYaml *AzureYaml, reqs []Prerequisite) []Prerequisite {
+	if azureYaml.hasContainerServices() && !azureYaml.hasDockerReq() {
+		return append(reqs, Prerequisite{Name: "docker", MinVersion: "20.0.0", CheckRunning: true})
+	}
+	return reqs
+}
+
+func (r *reqsFixRunner) checkPrerequisite(prereq Prerequisite) FixResult {
+	fixResult := FixResult{Name: prereq.Name}
+	config := r.checker.getToolConfig(prereq)
+	toolCommand := config.Command
+
+	toolPath := pathutil.FindToolInPath(toolCommand)
+	if toolPath != "" {
+		fixResult.Found = true
+		fixResult.Path = toolPath
+		result := r.checker.Check(prereq)
+		if result.Satisfied {
+			fixResult.Fixed = true
+			fixResult.Satisfied = true
+			fixResult.Message = fmt.Sprintf("Found and verified: %s", toolPath)
+			if !cliout.IsJSON() {
+				cliout.ItemSuccess("Found: %s", toolPath)
+				cliout.ItemSuccess("Version verified successfully")
+			}
+			return fixResult
+		}
+		fixResult.Message = fmt.Sprintf("Found at %s but version check failed: %s", toolPath, result.Message)
+		if !cliout.IsJSON() {
+			cliout.ItemWarning("Found: %s", toolPath)
+			cliout.ItemWarning("Version check failed: %s", result.Message)
+		}
+		return fixResult
+	}
+
+	toolPath = pathutil.SearchToolInSystemPath(toolCommand)
+	if toolPath != "" {
+		fixResult.Found = true
+		fixResult.Path = toolPath
+		fixResult.Message = fmt.Sprintf("Found at %s but not in PATH - restart terminal may be needed", toolPath)
+		if !cliout.IsJSON() {
+			cliout.ItemWarning("Found: %s", toolPath)
+			cliout.ItemWarning("Tool is installed but not in current PATH")
+			cliout.Info("   %s Restart your terminal to update PATH", cliout.IconBulb)
+		}
+		return fixResult
+	}
+
+	suggestion := pathutil.GetInstallSuggestion(toolCommand)
+	fixResult.Message = fmt.Sprintf("Not found - %s", suggestion)
+	if !cliout.IsJSON() {
+		cliout.ItemError("Not found in system PATH")
+		cliout.Info("   %s %s", cliout.IconBulb, suggestion)
+	}
+	return fixResult
+}
+
 // runReqsFix attempts to fix PATH issues for missing tools.
 func runReqsFix() error {
 	cliout.CommandHeader("reqs --fix", "Fix PATH issues for missing tools")
@@ -737,161 +817,79 @@ func runReqsFix() error {
 		cliout.Section(cliout.IconTool, "Attempting to fix requirement issues...")
 	}
 
-	// Load azure.yaml
-	azureYamlPath, azureYaml, err := loadAzureYaml()
+	runner := newReqsFixRunner()
+	azureYamlPath, reqs, err := runner.parseReqs()
 	if err != nil {
 		return err
 	}
 
-	if len(azureYaml.Reqs) == 0 {
-		return fmt.Errorf("no reqs defined in azure.yaml - run 'azd app reqs --generate' to add them")
-	}
-
-	// Step 1: Run initial check to identify issues
-	initialChecker := NewPrerequisiteChecker()
 	var failedReqs []Prerequisite
-	for _, prereq := range azureYaml.Reqs {
-		result := initialChecker.Check(prereq)
-		if !result.Satisfied {
+	for _, prereq := range reqs {
+		if result := runner.checker.Check(prereq); !result.Satisfied {
 			failedReqs = append(failedReqs, prereq)
 		}
 	}
 
 	if len(failedReqs) == 0 {
 		if cliout.IsJSON() {
-			return cliout.PrintJSON(map[string]any{
-				"success": true,
-				"message": "All requirements already satisfied",
-			})
+			return cliout.PrintJSON(map[string]any{"success": true, "message": "All requirements already satisfied"})
 		}
 		cliout.Success("All requirements already satisfied!")
 		return nil
 	}
 
-	// Step 2: Refresh PATH
 	if !cliout.IsJSON() {
 		cliout.Newline()
 		cliout.Step(cliout.IconRefresh, "Refreshing environment PATH...")
 	}
-
-	_, err = pathutil.RefreshPATH()
-	if err != nil {
+	if _, err = pathutil.RefreshPATH(); err != nil {
 		if !cliout.IsJSON() {
 			cliout.Warning("Failed to refresh PATH: %v", err)
 		}
-	} else {
-		if !cliout.IsJSON() {
-			cliout.ItemSuccess("PATH refreshed successfully")
-		}
+	} else if !cliout.IsJSON() {
+		cliout.ItemSuccess("PATH refreshed successfully")
 	}
 
-	// Step 3: Try to find and fix each failed requirement
 	fixResults := make([]FixResult, 0, len(failedReqs))
 	fixedCount := 0
-
 	for _, prereq := range failedReqs {
 		if !cliout.IsJSON() {
 			cliout.Newline()
 			cliout.Step(cliout.IconSearch, "Searching for %s...", prereq.Name)
 		}
 
-		fixResult := FixResult{
-			Name:  prereq.Name,
-			Fixed: false,
-			Found: false,
+		fixResult := runner.checkPrerequisite(prereq)
+		if fixResult.Fixed && fixResult.Satisfied {
+			fixedCount++
 		}
-
-		// Get the command name to search for
-		config := initialChecker.getToolConfig(prereq)
-		toolCommand := config.Command
-
-		// Try to find tool in current PATH (after refresh)
-		toolPath := pathutil.FindToolInPath(toolCommand)
-		if toolPath != "" {
-			fixResult.Found = true
-			fixResult.Path = toolPath
-
-			// Re-check if it works now
-			result := initialChecker.Check(prereq)
-			if result.Satisfied {
-				fixResult.Fixed = true
-				fixResult.Satisfied = true
-				fixResult.Message = fmt.Sprintf("Found and verified: %s", toolPath)
-				fixedCount++
-				if !cliout.IsJSON() {
-					cliout.ItemSuccess("Found: %s", toolPath)
-					cliout.ItemSuccess("Version verified successfully")
-				}
-			} else {
-				fixResult.Message = fmt.Sprintf("Found at %s but version check failed: %s", toolPath, result.Message)
-				if !cliout.IsJSON() {
-					cliout.ItemWarning("Found: %s", toolPath)
-					cliout.ItemWarning("Version check failed: %s", result.Message)
-				}
-			}
-		} else {
-			// Tool not found in PATH, try searching common locations
-			toolPath = pathutil.SearchToolInSystemPath(toolCommand)
-			if toolPath != "" {
-				fixResult.Found = true
-				fixResult.Path = toolPath
-				fixResult.Message = fmt.Sprintf("Found at %s but not in PATH - restart terminal may be needed", toolPath)
-				if !cliout.IsJSON() {
-					cliout.ItemWarning("Found: %s", toolPath)
-					cliout.ItemWarning("Tool is installed but not in current PATH")
-					cliout.Info("   %s Restart your terminal to update PATH", cliout.IconBulb)
-				}
-			} else {
-				// Not found anywhere
-				suggestion := pathutil.GetInstallSuggestion(toolCommand)
-				fixResult.Message = fmt.Sprintf("Not found - %s", suggestion)
-				if !cliout.IsJSON() {
-					cliout.ItemError("Not found in system PATH")
-					cliout.Info("   %s %s", cliout.IconBulb, suggestion)
-				}
-			}
-		}
-
 		fixResults = append(fixResults, fixResult)
 	}
 
-	// Step 4: Invalidate cache so next check gets fresh results
 	if fixedCount > 0 {
-		// Use same azure.yaml path for cache clearing
 		cacheDir := filepath.Join(filepath.Dir(azureYamlPath), ".azure", "cache")
-		cacheManager, err := cache.NewCacheManagerWithOptions(cache.CacheOptions{
-			Enabled:  true,
-			CacheDir: cacheDir,
-		})
-		if err == nil {
-			if err := cacheManager.ClearCache(); err != nil {
-				// Log but don't fail on cache clear error
-				if !cliout.IsJSON() {
-					cliout.Warning("Failed to clear cache: %v", err)
-				}
+		cacheManager, cacheErr := cache.NewCacheManagerWithOptions(cache.CacheOptions{Enabled: true, CacheDir: cacheDir})
+		if cacheErr == nil {
+			if err := cacheManager.ClearCache(); err != nil && !cliout.IsJSON() {
+				cliout.Warning("Failed to clear cache: %v", err)
 			}
 		}
 	}
 
-	// Step 5: Re-check all requirements
 	if !cliout.IsJSON() {
 		cliout.Newline()
 		cliout.Section(cliout.IconCheck, "Re-checking requirements...")
 	}
 
-	checker := NewPrerequisiteChecker()
-	allResults := make([]ReqResult, 0, len(azureYaml.Reqs))
+	allResults := make([]ReqResult, 0, len(reqs))
 	allSatisfied := true
-
-	for _, prereq := range azureYaml.Reqs {
-		result := checker.Check(prereq)
+	for _, prereq := range reqs {
+		result := runner.checker.Check(prereq)
 		allResults = append(allResults, result)
 		if !result.Satisfied {
 			allSatisfied = false
 		}
 	}
 
-	// JSON output
 	if cliout.IsJSON() {
 		return cliout.PrintJSON(map[string]any{
 			"success":      fixedCount > 0,
@@ -903,7 +901,6 @@ func runReqsFix() error {
 		})
 	}
 
-	// Default output - summary
 	cliout.Newline()
 	if fixedCount > 0 {
 		cliout.Success("Fixed %d of %d issues!", fixedCount, len(failedReqs))
@@ -924,8 +921,6 @@ func runReqsFix() error {
 	cliout.Success("All requirements now satisfied!")
 	cliout.Newline()
 	cliout.Info("ℹ️  Note: Tools may not be available in THIS terminal session")
-
-	// Provide platform-specific refresh instructions
 	if runtime.GOOS == osWindows {
 		cliout.Info("   To refresh PATH in your current PowerShell session, run:")
 		cliout.Info("   %s$env:PATH = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")%s", cliout.Dim, cliout.Reset)

@@ -10,8 +10,37 @@ import (
 	"github.com/jongio/azd-core/cliout"
 )
 
-// Global orchestrator instance shared across all commands.
-var cmdOrchestrator *orchestrator.Orchestrator
+func newCommandOrchestrator() *orchestrator.Orchestrator {
+	cmdOrchestrator := orchestrator.NewOrchestrator()
+
+	register := func(command *orchestrator.Command) {
+		if err := cmdOrchestrator.Register(command); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to register %s command: %v\n", command.Name, err)
+		}
+	}
+
+	register(&orchestrator.Command{
+		Name:    "reqs",
+		Execute: executeReqs,
+	})
+	register(&orchestrator.Command{
+		Name:         "deps",
+		Dependencies: []string{"reqs"},
+		Execute:      executeDeps,
+	})
+	register(&orchestrator.Command{
+		Name:         "run",
+		Dependencies: []string{"deps"},
+		Execute:      executeRun,
+	})
+	register(&orchestrator.Command{
+		Name:         "test",
+		Dependencies: []string{"deps"},
+		Execute:      executeTest,
+	})
+
+	return cmdOrchestrator
+}
 
 // ExecutionContext holds runtime configuration for command execution.
 type ExecutionContext struct {
@@ -63,48 +92,6 @@ var execContext = &ExecutionContext{
 // SetCacheEnabled configures whether caching should be enabled.
 func SetCacheEnabled(enabled bool) {
 	execContext.CacheEnabled = enabled
-}
-
-// init initializes the command orchestrator and registers all commands.
-func init() {
-	cmdOrchestrator = orchestrator.NewOrchestrator()
-
-	// Register commands with their dependencies
-	// reqs has no dependencies
-	if err := cmdOrchestrator.Register(&orchestrator.Command{
-		Name:    "reqs",
-		Execute: executeReqs,
-	}); err != nil {
-		// Log error but don't exit - let the app handle it gracefully
-		fmt.Fprintf(os.Stderr, "Warning: Failed to register reqs command: %v\n", err)
-	}
-
-	// deps depends on reqs
-	if err := cmdOrchestrator.Register(&orchestrator.Command{
-		Name:         "deps",
-		Dependencies: []string{"reqs"},
-		Execute:      executeDeps,
-	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Failed to register deps command: %v\n", err)
-	}
-
-	// run depends on deps (which depends on reqs)
-	if err := cmdOrchestrator.Register(&orchestrator.Command{
-		Name:         "run",
-		Dependencies: []string{"deps"},
-		Execute:      executeRun,
-	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Failed to register run command: %v\n", err)
-	}
-
-	// test depends on deps (test tools like jest/vitest must be installed first)
-	if err := cmdOrchestrator.Register(&orchestrator.Command{
-		Name:         "test",
-		Dependencies: []string{"deps"},
-		Execute:      executeTest,
-	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: Failed to register test command: %v\n", err)
-	}
 }
 
 // executeReqs is the core logic for the reqs command.
