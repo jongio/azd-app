@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -1475,14 +1476,15 @@ type mockTestRunner struct {
 	started chan struct{}
 }
 
-func (m *mockTestRunner) RunTests(testType string, coverage bool) (*TestResult, error) {
+func (m *mockTestRunner) RunTests(ctx context.Context, testType string, coverage bool) (*TestResult, error) {
 	if m.started != nil {
 		close(m.started)
 	}
 	if m.delay > 0 {
-		// Use a select with time.After to simulate delay
+		// Use a select with context to respect cancellation during simulated delay
 		select {
-		case <-make(chan struct{}): // never closes
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		case <-func() <-chan struct{} {
 			ch := make(chan struct{})
 			go func() {

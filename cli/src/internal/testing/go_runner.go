@@ -28,7 +28,7 @@ func NewGoTestRunner(projectDir string, config *ServiceTestConfig) *GoTestRunner
 }
 
 // RunTests executes tests for the Go project.
-func (r *GoTestRunner) RunTests(testType string, coverage bool) (*TestResult, error) {
+func (r *GoTestRunner) RunTests(ctx context.Context, testType string, coverage bool) (*TestResult, error) {
 	result := &TestResult{
 		TestType: testType,
 		Success:  false,
@@ -38,7 +38,6 @@ func (r *GoTestRunner) RunTests(testType string, coverage bool) (*TestResult, er
 	command, args := r.buildTestCommand(testType, coverage)
 
 	// Execute the command
-	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
 
 	// Parse the output to extract results

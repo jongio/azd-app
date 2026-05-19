@@ -626,21 +626,21 @@ func (o *TestOrchestrator) executeWithTimeout(runner TestRunner, testType string
 		err    error
 	}
 
-	// Create a context with timeout
+	// Create a context with timeout - cancellation propagates to the runner
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Run tests in a goroutine
+	// Run tests in a goroutine with the cancellable context
 	resultChan := make(chan runResult, 1)
 	go func() {
-		result, err := runner.RunTests(testType, coverage)
+		result, err := runner.RunTests(ctx, testType, coverage)
 		resultChan <- runResult{result: result, err: err}
 	}()
 
 	// Wait for either completion or timeout
 	select {
 	case <-ctx.Done():
-		// Timeout exceeded
+		// Timeout exceeded - context cancellation will terminate the subprocess
 		return nil, fmt.Errorf("test execution timed out after %s", timeout)
 	case res := <-resultChan:
 		return res.result, res.err
@@ -649,7 +649,7 @@ func (o *TestOrchestrator) executeWithTimeout(runner TestRunner, testType string
 
 // TestRunner interface for language-specific test runners.
 type TestRunner interface {
-	RunTests(testType string, coverage bool) (*TestResult, error)
+	RunTests(ctx context.Context, testType string, coverage bool) (*TestResult, error)
 }
 
 // GetServicePaths returns the paths of all services for file watching.

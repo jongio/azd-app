@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -266,8 +267,7 @@ func TestNodeRunnerRunTests_Integration(t *testing.T) {
 	}
 
 	runner := NewNodeTestRunner(tmpDir, config)
-	result, err := runner.RunTests("unit", false)
-	// The command should execute (even if it's just echo)
+	result, err := runner.RunTests(context.Background(), "unit", false)
 	if err != nil {
 		// It's ok if it fails due to npm not being available
 		t.Logf("RunTests returned error (expected in test env): %v", err)

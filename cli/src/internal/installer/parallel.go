@@ -124,15 +124,15 @@ func (pi *ParallelInstaller) executeTask(task ProjectInstallTask, writer io.Writ
 	switch task.Type {
 	case "node":
 		if project, ok := task.Project.(types.NodeProject); ok {
-			return installNodeDependenciesWithWriter(project, writer)
+			return installNodeDependenciesWithContext(pi.ctx, project, writer)
 		}
 	case "python":
 		if project, ok := task.Project.(types.PythonProject); ok {
-			return setupPythonVirtualEnvWithWriter(project, writer)
+			return setupPythonVirtualEnvWithContext(pi.ctx, project, writer)
 		}
 	case "dotnet":
 		if project, ok := task.Project.(types.DotnetProject); ok {
-			return restoreDotnetProjectWithWriter(project, writer)
+			return restoreDotnetProjectWithContext(pi.ctx, project, writer)
 		}
 	}
 	return fmt.Errorf("unknown task type: %s", task.Type)

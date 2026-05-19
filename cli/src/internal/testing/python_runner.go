@@ -35,7 +35,7 @@ func NewPythonTestRunner(projectDir string, config *ServiceTestConfig) *PythonTe
 }
 
 // RunTests executes tests for the Python project.
-func (r *PythonTestRunner) RunTests(testType string, coverage bool) (*TestResult, error) {
+func (r *PythonTestRunner) RunTests(ctx context.Context, testType string, coverage bool) (*TestResult, error) {
 	result := &TestResult{
 		TestType: testType,
 		Success:  false,
@@ -45,7 +45,6 @@ func (r *PythonTestRunner) RunTests(testType string, coverage bool) (*TestResult
 	command, args := r.buildTestCommand(testType, coverage)
 
 	// Execute the command
-	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
 
 	// Parse the output to extract results

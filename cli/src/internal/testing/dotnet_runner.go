@@ -36,7 +36,7 @@ func NewDotnetTestRunner(projectDir string, config *ServiceTestConfig) *DotnetTe
 }
 
 // RunTests executes tests for the .NET project.
-func (r *DotnetTestRunner) RunTests(testType string, coverage bool) (*TestResult, error) {
+func (r *DotnetTestRunner) RunTests(ctx context.Context, testType string, coverage bool) (*TestResult, error) {
 	result := &TestResult{
 		TestType: testType,
 		Success:  false,
@@ -46,7 +46,6 @@ func (r *DotnetTestRunner) RunTests(testType string, coverage bool) (*TestResult
 	command, args := r.buildTestCommand(testType, coverage)
 
 	// Execute the command
-	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
 
 	// Parse the output to extract results

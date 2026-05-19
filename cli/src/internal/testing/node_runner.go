@@ -50,7 +50,7 @@ func NewNodeTestRunner(projectDir string, config *ServiceTestConfig) *NodeTestRu
 }
 
 // RunTests executes tests for the Node.js project.
-func (r *NodeTestRunner) RunTests(testType string, coverage bool) (*TestResult, error) {
+func (r *NodeTestRunner) RunTests(ctx context.Context, testType string, coverage bool) (*TestResult, error) {
 	result := &TestResult{
 		TestType: testType,
 		Success:  false,
@@ -60,7 +60,6 @@ func (r *NodeTestRunner) RunTests(testType string, coverage bool) (*TestResult, 
 	command, args := r.buildTestCommand(testType, coverage)
 
 	// Execute the command
-	ctx := context.Background()
 	output, err := executor.RunCommandWithOutput(ctx, command, args, r.projectDir)
 
 	// Parse the output to extract results

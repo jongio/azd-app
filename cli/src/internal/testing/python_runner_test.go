@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -325,8 +326,7 @@ func TestPythonRunnerRunTests_Integration(t *testing.T) {
 	}
 
 	runner := NewPythonTestRunner(tmpDir, config)
-	result, err := runner.RunTests("unit", false)
-	// The command might fail if pytest isn't installed, that's ok
+	result, err := runner.RunTests(context.Background(), "unit", false)
 	if err != nil {
 		t.Logf("RunTests returned error (expected in test env): %v", err)
 	}
