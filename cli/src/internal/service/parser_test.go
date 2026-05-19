@@ -7,9 +7,9 @@ import (
 func TestFilterServices(t *testing.T) {
 	azureYaml := &AzureYaml{
 		Services: map[string]Service{
-			"api":      {Host: "appservice"},
-			"web":      {Host: "appservice"},
-			"worker":   {Host: "containerapp"},
+			"api":    {Host: "appservice"},
+			"web":    {Host: "appservice"},
+			"worker": {Host: "containerapp"},
 		},
 	}
 

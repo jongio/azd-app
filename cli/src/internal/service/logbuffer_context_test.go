@@ -410,7 +410,7 @@ func TestLogBuffer_GetErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lb := newTestLogBuffer(tt.entries)
 
-errors := lb.GetErrors(tt.limit, tt.contextLines, tt.includeStderr, tt.since)
+			errors := lb.GetErrors(tt.limit, tt.contextLines, tt.includeStderr, tt.since)
 
 			if len(errors) != tt.wantCount {
 				t.Errorf("got %d errors, want %d", len(errors), tt.wantCount)
@@ -436,8 +436,8 @@ func TestLogBuffer_GetErrors_Context(t *testing.T) {
 
 	lb := newTestLogBuffer(entries)
 
-t.Run("extracts context lines", func(t *testing.T) {
-errors := lb.GetErrors(50, 2, false, time.Time{})
+	t.Run("extracts context lines", func(t *testing.T) {
+		errors := lb.GetErrors(50, 2, false, time.Time{})
 
 		if len(errors) != 1 {
 			t.Fatalf("got %d errors, want 1", len(errors))

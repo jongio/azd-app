@@ -148,10 +148,10 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 	// Parse YAML
 	var azureYaml struct {
 		Services map[string]struct {
-			Language string                 `yaml:"language"`
-			Project  string                 `yaml:"project"`
-			Test     *ServiceTestConfig     `yaml:"test"`
-			Config   map[string]any `yaml:",inline"`
+			Language string             `yaml:"language"`
+			Project  string             `yaml:"project"`
+			Test     *ServiceTestConfig `yaml:"test"`
+			Config   map[string]any     `yaml:",inline"`
 		} `yaml:"services"`
 	}
 
