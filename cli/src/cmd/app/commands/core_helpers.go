@@ -376,16 +376,7 @@ func cleanDirectory(path string) error {
 	return nil
 }
 
-// readFileSecure reads a file with security validation.
-// #nosec G304 -- Called after security validation
-func readFileSecure(path string) ([]byte, error) {
-	return os.ReadFile(path)
-}
 
-// unmarshalYaml unmarshals YAML data into a struct.
-func unmarshalYaml(data []byte, v any) error {
-	return yaml.Unmarshal(data, v)
-}
 
 // detectAllProjects detects all project types in the given directory.
 // This is a convenience wrapper for testing and backward compatibility.
