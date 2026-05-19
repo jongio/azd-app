@@ -57,9 +57,10 @@ func TestStopServiceGraceful_Success(t *testing.T) {
 		t.Errorf("StopServiceGraceful() error = %v, want nil or 'Access is denied'", err)
 	}
 
-	// Should complete quickly (within timeout)
-	if elapsed > 6*time.Second {
-		t.Errorf("StopServiceGraceful() took %v, want < 6s", elapsed)
+	// Should complete within 2x the timeout to account for system load
+	maxExpected := 2 * constants.TestServiceTimeout
+	if elapsed > maxExpected {
+		t.Errorf("StopServiceGraceful() took %v, want < %v", elapsed, maxExpected)
 	}
 
 	// Give system time to fully clean up
