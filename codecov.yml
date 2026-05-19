@@ -15,13 +15,11 @@ coverage:
         informational: false
 
     # Patch coverage - new code in PRs
-    # Set to informational to prevent blocking PRs on coverage
-    # Many code paths require integration tests with external dependencies (azd CLI)
     patch:
       default:
-        target: 50%  # Target 50% for new code
-        threshold: 10%  # Allow variance
-        informational: true  # Don't fail PRs, just report
+        target: 60%  # Enforce meaningful coverage for new code
+        threshold: 5%  # Allow limited variance
+        informational: false
 
 comment:
   layout: "header, diff, flags, files"

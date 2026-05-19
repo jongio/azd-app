@@ -46,9 +46,8 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@dd677812177e0c29f9c970a6c58d8607ae1bfefd # v4
-        continue-on-error: true
         with:
-          upload: false
+          upload: always
 
       - name: Upload SARIF (if Code Scanning enabled)
         uses: github/codeql-action/upload-sarif@dd677812177e0c29f9c970a6c58d8607ae1bfefd # v4

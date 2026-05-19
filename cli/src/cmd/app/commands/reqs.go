@@ -210,6 +210,60 @@ var toolAliases = map[string]string{
 	"azure-functions-core-tools": "func",
 }
 
+var allowedCustomPrereqCommands = map[string]struct{}{
+	"air":      {},
+	"aspire":   {},
+	"az":       {},
+	"azd":      {},
+	"cargo":    {},
+	toolDocker: {},
+	"dotnet":   {},
+	"func":     {},
+	"git":      {},
+	"go":       {},
+	"gradle":   {},
+	"java":     {},
+	"mvn":      {},
+	"node":     {},
+	"npm":      {},
+	"pip":      {},
+	"pipenv":   {},
+	"pnpm":     {},
+	"poetry":   {},
+	"python":   {},
+	"uv":       {},
+	"yarn":     {},
+}
+
+func normalizeAllowedCommandName(command string) string {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" || strings.ContainsAny(trimmed, `\\/`) {
+		return ""
+	}
+
+	name := strings.ToLower(filepath.Base(trimmed))
+	return strings.TrimSuffix(name, ".exe")
+}
+
+func isAllowedCustomPrereqCommand(command string) bool {
+	name := normalizeAllowedCommandName(command)
+	if name == "" {
+		return false
+	}
+	_, allowed := allowedCustomPrereqCommands[name]
+	return allowed
+}
+
+func validateCustomPrereqCommand(fieldName, command string) error {
+	if strings.TrimSpace(command) == "" {
+		return nil
+	}
+	if !isAllowedCustomPrereqCommand(command) {
+		return fmt.Errorf("invalid %s %q: only allowlisted tool commands are permitted", fieldName, command)
+	}
+	return nil
+}
+
 // installURLRegistry maps tool names to their installation page URLs.
 var installURLRegistry = map[string]string{
 	"node":     "https://nodejs.org/",
@@ -335,20 +389,31 @@ func NewPrerequisiteChecker() *PrerequisiteChecker {
 
 // Check checks a prerequisite and returns structured result.
 func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
-	installed, version, isPodman := pc.getInstalledVersion(prereq)
-
 	// Resolve install URL (custom overrides built-in)
 	installURL := pc.getInstallURL(prereq)
 
 	result := ReqResult{
 		Name:       prereq.Name,
-		Installed:  installed,
-		Version:    version,
 		Required:   prereq.MinVersion,
 		Satisfied:  false,
-		IsPodman:   isPodman,
 		InstallURL: installURL,
 	}
+
+	if err := validateCustomPrereqCommand("command", prereq.Command); err != nil {
+		result.Message = err.Error()
+		return result
+	}
+	if prereq.CheckRunning {
+		if err := validateCustomPrereqCommand("runningCheckCommand", prereq.RunningCheckCommand); err != nil {
+			result.Message = err.Error()
+			return result
+		}
+	}
+
+	installed, version, isPodman := pc.getInstalledVersion(prereq)
+	result.Installed = installed
+	result.Version = version
+	result.IsPodman = isPodman
 
 	if !installed {
 		result.Message = "Not installed"
@@ -472,7 +537,7 @@ func (pc *PrerequisiteChecker) getToolConfig(prereq Prerequisite) ToolConfig {
 	// Check if custom configuration is provided in prerequisite
 	if prereq.Command != "" {
 		return ToolConfig{
-			Command:       prereq.Command,
+			Command:       normalizeAllowedCommandName(prereq.Command),
 			Args:          prereq.Args,
 			VersionPrefix: prereq.VersionPrefix,
 			VersionField:  prereq.VersionField,
@@ -523,7 +588,11 @@ func (pc *PrerequisiteChecker) checkIsRunning(prereq Prerequisite) bool {
 		}
 	}
 
-	// #nosec G204 -- Command and args come from azure.yaml running check configuration or default Docker check
+	if prereq.RunningCheckCommand != "" {
+		command = normalizeAllowedCommandName(command)
+	}
+
+	// #nosec G204 -- Command and args are validated against an allowlist or come from the built-in Docker check
 	cmd := exec.CommandContext(context.Background(), command, args...)
 	output, err := cmd.CombinedOutput()
 

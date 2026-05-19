@@ -1083,56 +1083,38 @@ func TestCheckPrerequisiteWithRunningCheck(t *testing.T) {
 	}{
 		{
 			name: "installed and running",
-			prereq: func() Prerequisite {
-				versionCmd, versionArgs := shellCommand("echo 2.0.0")
-				runningCmd, runningArgs := shellCommand("echo running")
-				return Prerequisite{
-					Name:                 "test-tool",
-					MinVersion:           "1.0.0",
-					Command:              versionCmd,
-					Args:                 versionArgs,
-					CheckRunning:         true,
-					RunningCheckCommand:  runningCmd,
-					RunningCheckArgs:     runningArgs,
-					RunningCheckExpected: "running",
-				}
-			}(),
+			prereq: Prerequisite{
+				Name:                 "go",
+				MinVersion:           "1.0.0",
+				CheckRunning:         true,
+				RunningCheckCommand:  "go",
+				RunningCheckArgs:     []string{"version"},
+				RunningCheckExpected: "go version",
+			},
 			expected: true,
 		},
 		{
 			name: "installed but not running",
-			prereq: func() Prerequisite {
-				versionCmd, versionArgs := shellCommand("echo 2.0.0")
-				runningCmd, runningArgs := shellCommand("echo stopped")
-				return Prerequisite{
-					Name:                 "test-tool",
-					MinVersion:           "1.0.0",
-					Command:              versionCmd,
-					Args:                 versionArgs,
-					CheckRunning:         true,
-					RunningCheckCommand:  runningCmd,
-					RunningCheckArgs:     runningArgs,
-					RunningCheckExpected: "running", // Won't match
-				}
-			}(),
+			prereq: Prerequisite{
+				Name:                 "go",
+				MinVersion:           "1.0.0",
+				CheckRunning:         true,
+				RunningCheckCommand:  "go",
+				RunningCheckArgs:     []string{"version"},
+				RunningCheckExpected: "definitely-not-running",
+			},
 			expected: false,
 		},
 		{
 			name: "version too old but running",
-			prereq: func() Prerequisite {
-				versionCmd, versionArgs := shellCommand("echo 2.0.0")
-				runningCmd, runningArgs := shellCommand("echo running")
-				return Prerequisite{
-					Name:                 "test-tool",
-					MinVersion:           "3.0.0",
-					Command:              versionCmd,
-					Args:                 versionArgs,
-					CheckRunning:         true,
-					RunningCheckCommand:  runningCmd,
-					RunningCheckArgs:     runningArgs,
-					RunningCheckExpected: "running",
-				}
-			}(),
+			prereq: Prerequisite{
+				Name:                 "go",
+				MinVersion:           "999.0.0",
+				CheckRunning:         true,
+				RunningCheckCommand:  "go",
+				RunningCheckArgs:     []string{"version"},
+				RunningCheckExpected: "go version",
+			},
 			expected: false, // Version check should fail before running check
 		},
 	}

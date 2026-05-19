@@ -13,6 +13,8 @@ const (
 )
 
 func TestNewQueryBuilder(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder(testServiceName, testTimespan)
 
 	if qb == nil {
@@ -30,6 +32,8 @@ func TestNewQueryBuilder(t *testing.T) {
 }
 
 func TestQueryBuilder_WithTables(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan)
 	tables := []string{"ContainerAppConsoleLogs_CL", "AppServiceConsoleLogs"}
 
@@ -47,6 +51,8 @@ func TestQueryBuilder_WithTables(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_EmptyTables(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan)
 
 	query := qb.Build()
@@ -57,6 +63,8 @@ func TestQueryBuilder_Build_EmptyTables(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_SingleTable(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL"})
 
@@ -85,6 +93,8 @@ func TestQueryBuilder_Build_SingleTable(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_SingleTable_NoServiceFilter(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("", "1h").
 		WithTables([]string{"AppServiceConsoleLogs"})
 
@@ -104,6 +114,8 @@ func TestQueryBuilder_Build_SingleTable_NoServiceFilter(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_MultipleTablesUnion(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL", "ContainerAppSystemLogs_CL"})
 
@@ -132,6 +144,8 @@ func TestQueryBuilder_Build_MultipleTablesUnion(t *testing.T) {
 }
 
 func TestGetServiceFilterColumn(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		tableName string
 		want      string
@@ -149,7 +163,9 @@ func TestGetServiceFilterColumn(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.tableName, func(t *testing.T) {
+			t.Parallel()
 			got := getServiceFilterColumn(tt.tableName)
 			if got != tt.want {
 				t.Errorf("getServiceFilterColumn(%q) = %q, want %q", tt.tableName, got, tt.want)
@@ -159,6 +175,8 @@ func TestGetServiceFilterColumn(t *testing.T) {
 }
 
 func TestGetMessageColumn(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		tableName string
 		want      string
@@ -177,7 +195,9 @@ func TestGetMessageColumn(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.tableName, func(t *testing.T) {
+			t.Parallel()
 			got := getMessageColumn(tt.tableName)
 			if got != tt.want {
 				t.Errorf("getMessageColumn(%q) = %q, want %q", tt.tableName, got, tt.want)
@@ -187,6 +207,8 @@ func TestGetMessageColumn(t *testing.T) {
 }
 
 func TestGetProjectColumns(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan)
 
 	// Test with known table
@@ -212,6 +234,8 @@ func TestGetProjectColumns(t *testing.T) {
 }
 
 func TestContainsString(t *testing.T) {
+	t.Parallel()
+
 	slice := []string{"apple", "banana", "cherry"}
 
 	if !containsString(slice, "banana") {
@@ -226,6 +250,8 @@ func TestContainsString(t *testing.T) {
 }
 
 func TestBuildQueryFromTables(t *testing.T) {
+	t.Parallel()
+
 	tables := []string{"ContainerAppConsoleLogs_CL"}
 	query := BuildQueryFromTables(tables, "test-service", "1h")
 
@@ -245,6 +271,8 @@ func TestBuildQueryFromTables(t *testing.T) {
 }
 
 func TestBuildQueryFromTables_MultipleServices(t *testing.T) {
+	t.Parallel()
+
 	tables := []string{"AppServiceConsoleLogs", "AppServiceHTTPLogs"}
 	query := BuildQueryFromTables(tables, "my-app", testTimespan)
 
@@ -264,6 +292,8 @@ func TestBuildQueryFromTables_MultipleServices(t *testing.T) {
 }
 
 func TestSubstitutePlaceholders(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		query       string
@@ -302,7 +332,9 @@ func TestSubstitutePlaceholders(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := SubstitutePlaceholders(tt.query, tt.serviceName, tt.timespan)
 
 			for _, want := range tt.wantContain {
@@ -323,6 +355,8 @@ func TestSubstitutePlaceholders(t *testing.T) {
 }
 
 func TestSubstitutePlaceholders_SanitizeServiceName(t *testing.T) {
+	t.Parallel()
+
 	// Service names should be sanitized to prevent KQL injection
 	query := "MyTable | where Service == '{serviceName}'"
 	serviceName := "test'; drop table--"
@@ -349,6 +383,8 @@ func TestSubstitutePlaceholders_SanitizeServiceName(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_DifferentResourceTypes(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		table       string
@@ -388,7 +424,9 @@ func TestQueryBuilder_Build_DifferentResourceTypes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			qb := NewQueryBuilder(tt.serviceName, testTimespan).
 				WithTables([]string{tt.table})
 
@@ -402,6 +440,8 @@ func TestQueryBuilder_Build_DifferentResourceTypes(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_ResultLimit(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL"})
 
@@ -414,6 +454,8 @@ func TestQueryBuilder_Build_ResultLimit(t *testing.T) {
 }
 
 func TestQueryBuilder_Build_TimeOrdering(t *testing.T) {
+	t.Parallel()
+
 	qb := NewQueryBuilder("test-service", testTimespan).
 		WithTables([]string{"ContainerAppConsoleLogs_CL"})
 

@@ -168,11 +168,12 @@ function linkifyUrlsWithHtmlAware(
 
 /**
  * Sanitizes HTML to prevent XSS attacks.
- * Removes script tags and javascript: protocols.
+ * Removes dangerous tags, javascript: URLs, and inline event handlers.
  */
 function sanitizeHtml(html: string): string {
   return html
-    .replaceAll(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replaceAll(/<(script|iframe|object|embed|base|link)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/gi, '')
+    .replaceAll(/<(iframe|object|embed|base|link)\b[^>]*\/?>/gi, '')
     .replaceAll(/javascript:/gi, '')
     .replaceAll(/on\w+=/gi, '')
 }
