@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	corecache "github.com/jongio/azd-core/cache"
 )
 
 // BenchmarkCacheManagerGetCachedResults benchmarks cache retrieval.
@@ -91,7 +93,7 @@ func BenchmarkCalculateFileHash(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := calculateFileHash(testFile)
+		_, err := corecache.HashFile(testFile)
 		if err != nil {
 			b.Fatal(err)
 		}

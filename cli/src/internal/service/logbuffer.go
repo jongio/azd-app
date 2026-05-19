@@ -20,6 +20,8 @@ const (
 	MaxLogFileBackups = 2
 )
 
+var regexCache sync.Map
+
 // LogBuffer is a circular buffer for storing service logs with pub/sub support.
 // Uses a fixed-size ring buffer with head/count tracking for O(1) push
 // instead of O(n) slice shifting.
@@ -232,10 +234,26 @@ func (lb *LogBuffer) ContainsPatternRegex(pattern string) (bool, error) {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()
 
+	if cached, ok := regexCache.Load(pattern); ok {
+		re, ok := cached.(*regexp.Regexp)
+		if ok {
+			for i := 0; i < lb.count; i++ {
+				entry := lb.entries[(lb.head+i)%lb.maxSize]
+				if re.MatchString(entry.Message) {
+					return true, nil
+				}
+			}
+
+			return false, nil
+		}
+	}
+
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return false, fmt.Errorf("invalid regex pattern: %w", err)
 	}
+	actual, _ := regexCache.LoadOrStore(pattern, re)
+	re = actual.(*regexp.Regexp)
 
 	for i := 0; i < lb.count; i++ {
 		entry := lb.entries[(lb.head+i)%lb.maxSize]
@@ -510,15 +528,15 @@ func (lb *LogBuffer) Unsubscribe(ch chan LogEntry) {
 }
 
 // broadcast sends a log entry to all subscribers.
-// Uses non-blocking sends with timeout to prevent deadlocks.
+// Uses non-blocking sends to prevent slow subscribers from blocking.
 func (lb *LogBuffer) broadcast(entry LogEntry) {
 	lb.subMu.RLock()
 	defer lb.subMu.RUnlock()
 
 	for ch := range lb.subscribers {
-		// Non-blocking send with timeout to prevent slow subscribers from blocking
-		// If subscriber can't keep up, we drop the message rather than blocking
-		// Use a goroutine with recover to handle closed channel panics safely
+		// Non-blocking send prevents slow subscribers from blocking the producer.
+		// If a subscriber can't keep up, we drop the message rather than blocking.
+		// Use a goroutine with recover to handle closed channel panics safely.
 		func(c chan LogEntry) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -528,11 +546,8 @@ func (lb *LogBuffer) broadcast(entry LogEntry) {
 			select {
 			case c <- entry:
 				// Successfully sent
-			case <-time.After(DefaultLogSubscriberTimeout):
-				// Subscriber too slow, drop message
-				slog.Debug("dropped log entry for slow subscriber", "service", entry.Service)
 			default:
-				// Channel buffer full, skip this entry for this subscriber
+				slog.Debug("dropped log entry for slow subscriber", "service", entry.Service)
 			}
 		}(ch)
 	}

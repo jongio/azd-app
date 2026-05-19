@@ -23,7 +23,7 @@ package dashboard
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/rpc"
@@ -156,7 +156,7 @@ func (s *Server) runBulk(
 	// on failure: a missed broadcast is a UI-refresh nuisance, not a
 	// reason to fail the operation itself.
 	if err := s.BroadcastServiceUpdate(s.projectDir); err != nil {
-		log.Printf("Warning: failed to broadcast update: %v", err)
+		slog.Warn("failed to broadcast update", "error", err)
 	}
 
 	verb := handler.getOperationPastTense()

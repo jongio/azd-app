@@ -217,7 +217,7 @@ func (m *StateMonitor) captureServiceState(svc *registry.ServiceRegistryEntry) *
 
 	// Check if port is listening
 	if svc.Port > 0 {
-		state.PortListens = service.IsPortListening(svc.Port)
+		state.PortListens = service.IsPortListening(m.ctx, svc.Port)
 	}
 
 	return state

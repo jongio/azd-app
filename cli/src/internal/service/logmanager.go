@@ -41,6 +41,20 @@ func GetLogManager(projectDir string) *LogManager {
 		absPath = projectDir
 	}
 
+	logManagersMu.RLock()
+	if lm, exists := logManagers[absPath]; exists {
+		logManagersMu.RUnlock()
+		return lm
+	}
+	logManagersMu.RUnlock()
+
+	logFilter := loadLogFilterForProject(absPath)
+	candidate := &LogManager{
+		projectDir: absPath,
+		buffers:    make(map[string]*LogBuffer),
+		logFilter:  logFilter,
+	}
+
 	logManagersMu.Lock()
 	defer logManagersMu.Unlock()
 
@@ -48,14 +62,8 @@ func GetLogManager(projectDir string) *LogManager {
 		return lm
 	}
 
-	lm := &LogManager{
-		projectDir: absPath,
-		buffers:    make(map[string]*LogBuffer),
-		logFilter:  loadLogFilterForProject(absPath),
-	}
-	logManagers[absPath] = lm
-
-	return lm
+	logManagers[absPath] = candidate
+	return candidate
 }
 
 // loadLogFilterForProject loads the log filter configuration from azure.yaml.

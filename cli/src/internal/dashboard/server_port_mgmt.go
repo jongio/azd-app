@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -119,7 +118,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		errChan := make(chan error, 1)
 		go func() {
 			if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Printf("Dashboard server error on alternative port: %v", err)
+				slog.Error("dashboard server error on alternative port", "error", err)
 				errChan <- err
 			}
 		}()
@@ -129,9 +128,9 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			select {
 			case err := <-errChan:
 				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-					log.Printf("Dashboard server encountered port conflict on port %d: %v", port, err)
+					slog.Warn("dashboard server encountered port conflict", "port", port, "error", err)
 				} else {
-					log.Printf("Dashboard server encountered error after startup on port %d: %v", port, err)
+					slog.Error("dashboard server encountered error after startup", "port", port, "error", err)
 				}
 			case <-s.stopChan:
 				return

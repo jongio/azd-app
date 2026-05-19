@@ -3,7 +3,7 @@ package servicetarget
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 )
@@ -29,7 +29,7 @@ func NewLocalServiceTargetProvider(azdClient *azdext.AzdClient) azdext.ServiceTa
 // Initialize initializes the service target provider with service configuration
 func (p *LocalServiceTargetProvider) Initialize(ctx context.Context, serviceConfig *azdext.ServiceConfig) error {
 	p.serviceConfig = serviceConfig
-	log.Printf("[azd-app] LocalServiceTargetProvider initialized for service: %s", serviceConfig.GetName())
+	slog.Info("local service target provider initialized", "service", serviceConfig.GetName())
 	return nil
 }
 
@@ -42,7 +42,7 @@ func (p *LocalServiceTargetProvider) Endpoints(
 ) ([]string, error) {
 	// Local containers don't have Azure endpoints
 	// Return empty list - the service is available locally via Docker
-	log.Printf("[azd-app] Endpoints called for local service: %s (no Azure endpoints)", serviceConfig.GetName())
+	slog.Info("local service has no Azure endpoints", "service", serviceConfig.GetName())
 	return []string{}, nil
 }
 
@@ -54,7 +54,7 @@ func (p *LocalServiceTargetProvider) GetTargetResource(
 	serviceConfig *azdext.ServiceConfig,
 	defaultResolver func() (*azdext.TargetResource, error),
 ) (*azdext.TargetResource, error) {
-	log.Printf("[azd-app] GetTargetResource called for local service: %s (no Azure resource)", serviceConfig.GetName())
+	slog.Info("local service has no Azure target resource", "service", serviceConfig.GetName())
 	// Return a minimal target resource indicating this is local-only
 	return &azdext.TargetResource{
 		ResourceName: serviceConfig.GetName(),
@@ -70,7 +70,7 @@ func (p *LocalServiceTargetProvider) Package(
 	serviceContext *azdext.ServiceContext,
 	progress azdext.ProgressReporter,
 ) (*azdext.ServicePackageResult, error) {
-	log.Printf("[azd-app] Package skipped for local service: %s (local-only, not deployed)", serviceConfig.GetName())
+	slog.Info("skipping package for local-only service", "service", serviceConfig.GetName())
 	// Return success with empty artifacts to allow deployment to continue for other services
 	// Local services (azurite, postgres, redis, etc.) only run via 'azd app run'
 	return &azdext.ServicePackageResult{
@@ -88,7 +88,7 @@ func (p *LocalServiceTargetProvider) Publish(
 	publishOptions *azdext.PublishOptions,
 	progress azdext.ProgressReporter,
 ) (*azdext.ServicePublishResult, error) {
-	log.Printf("[azd-app] Publish skipped for local service: %s (local-only, not deployed)", serviceConfig.GetName())
+	slog.Info("skipping publish for local-only service", "service", serviceConfig.GetName())
 	// Return success to allow deployment to continue for other services
 	return &azdext.ServicePublishResult{}, nil
 }
@@ -102,7 +102,7 @@ func (p *LocalServiceTargetProvider) Deploy(
 	targetResource *azdext.TargetResource,
 	progress azdext.ProgressReporter,
 ) (*azdext.ServiceDeployResult, error) {
-	log.Printf("[azd-app] Deploy skipped for local service: %s (local-only, not deployed)", serviceConfig.GetName())
+	slog.Info("skipping deploy for local-only service", "service", serviceConfig.GetName())
 	// Return success to allow deployment to continue for other services
 	// Local services run via 'azd app run', not 'azd deploy'
 	return &azdext.ServiceDeployResult{
