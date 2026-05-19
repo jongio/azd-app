@@ -45,7 +45,11 @@ func TestPipeline(t *testing.T) {
 		err := pipeline.Publish(event)
 		require.NoError(t, err)
 
-		time.Sleep(100 * time.Millisecond)
+		require.Eventually(t, func() bool {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(handled) == 1
+		}, time.Second, 20*time.Millisecond)
 		mu.Lock()
 		require.Len(t, handled, 1)
 		assert.Equal(t, "api", handled[0].ServiceName)
@@ -83,7 +87,9 @@ func TestPipeline(t *testing.T) {
 		}
 
 		_ = pipeline.Publish(event)
-		time.Sleep(100 * time.Millisecond)
+		require.Eventually(t, func() bool {
+			return count1.Load() == 1 && count2.Load() == 1
+		}, time.Second, 20*time.Millisecond)
 
 		assert.Equal(t, int32(1), count1.Load())
 		assert.Equal(t, int32(1), count2.Load())
@@ -134,9 +140,11 @@ func TestOSNotificationHandler(t *testing.T) {
 		assert.Equal(t, 1, notifier.sendCount)
 
 		// After rate limit period, should go through
-		time.Sleep(1 * time.Second)
-		err = handler.Handle(ctx, event)
-		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			err = handler.Handle(ctx, event)
+			require.NoError(t, err)
+			return notifier.sendCount == 2
+		}, 2*time.Second, 50*time.Millisecond)
 		assert.Equal(t, 2, notifier.sendCount)
 	})
 

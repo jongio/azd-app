@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-core/registry"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewStateMonitor(t *testing.T) {
@@ -53,9 +54,6 @@ func TestStateMonitor_StartStop(t *testing.T) {
 
 	monitor := NewStateMonitor(reg, config)
 	monitor.Start()
-
-	// Let it run for a bit
-	time.Sleep(250 * time.Millisecond)
 
 	// Stop should not hang
 	done := make(chan bool)
@@ -124,8 +122,10 @@ func TestStateMonitor_DetectProcessCrash(t *testing.T) {
 	monitor.Start()
 	defer monitor.Stop()
 
-	// Wait for initial state capture
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, exists := monitor.GetCurrentState("test-service")
+		return exists
+	}, time.Second, 50*time.Millisecond)
 
 	// Kill the process
 	if err := cmd.Process.Kill(); err != nil {
@@ -137,27 +137,18 @@ func TestStateMonitor_DetectProcessCrash(t *testing.T) {
 		t.Fatalf("Failed to kill test process: %v", err)
 	}
 
-	// Wait for monitor to detect the crash
-	time.Sleep(500 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		transitionMu.Lock()
+		defer transitionMu.Unlock()
 
-	// Check if crash was detected
-	transitionMu.Lock()
-	defer transitionMu.Unlock()
-
-	found := false
-	for _, trans := range transitions {
-		if trans.Severity == SeverityCritical && trans.ServiceName == "test-service" {
-			found = true
-			if trans.Description == "" {
-				t.Error("Transition description is empty")
+		for _, trans := range transitions {
+			if trans.Severity == SeverityCritical && trans.ServiceName == "test-service" {
+				return trans.Description != ""
 			}
-			t.Logf("Detected transition: %s", trans.Description)
 		}
-	}
 
-	if !found {
-		t.Error("Process crash was not detected")
-	}
+		return false
+	}, time.Second, 50*time.Millisecond, "process crash was not detected")
 }
 
 func TestStateMonitor_DetectHealthChange(t *testing.T) {
@@ -194,34 +185,30 @@ func TestStateMonitor_DetectHealthChange(t *testing.T) {
 	monitor.Start()
 	defer monitor.Stop()
 
-	// Wait for initial state
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, exists := monitor.GetCurrentState("test-service")
+		return exists
+	}, time.Second, 50*time.Millisecond)
 
 	// Change status to error (health changes are now tracked via health stream, not registry)
 	if err := reg.UpdateStatus("test-service", "error"); err != nil {
 		t.Fatalf("Failed to update status: %v", err)
 	}
 
-	// Wait for detection
-	time.Sleep(300 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		transitionMu.Lock()
+		defer transitionMu.Unlock()
 
-	// Check transitions - now we detect status change instead of health change
-	transitionMu.Lock()
-	defer transitionMu.Unlock()
-
-	found := false
-	for _, trans := range transitions {
-		if trans.Severity == SeverityCritical &&
-			trans.ServiceName == "test-service" &&
-			trans.ToState.Status == "error" {
-			found = true
-			t.Logf("Detected status change: %s", trans.Description)
+		for _, trans := range transitions {
+			if trans.Severity == SeverityCritical &&
+				trans.ServiceName == "test-service" &&
+				trans.ToState.Status == "error" {
+				return true
+			}
 		}
-	}
 
-	if !found {
-		t.Error("Status change was not detected")
-	}
+		return false
+	}, time.Second, 50*time.Millisecond, "status change was not detected")
 }
 
 func TestStateMonitor_DetectStatusChange(t *testing.T) {
@@ -256,30 +243,28 @@ func TestStateMonitor_DetectStatusChange(t *testing.T) {
 	monitor.Start()
 	defer monitor.Stop()
 
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, exists := monitor.GetCurrentState("test-service")
+		return exists
+	}, time.Second, 50*time.Millisecond)
 
 	// Change status to error
 	if err := reg.UpdateStatus("test-service", "error"); err != nil {
 		t.Fatalf("Failed to update status: %v", err)
 	}
 
-	time.Sleep(300 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		transitionMu.Lock()
+		defer transitionMu.Unlock()
 
-	transitionMu.Lock()
-	defer transitionMu.Unlock()
-
-	found := false
-	for _, trans := range transitions {
-		if trans.Severity == SeverityCritical &&
-			trans.ToState.Status == "error" {
-			found = true
-			t.Logf("Detected status change: %s", trans.Description)
+		for _, trans := range transitions {
+			if trans.Severity == SeverityCritical && trans.ToState.Status == "error" {
+				return true
+			}
 		}
-	}
 
-	if !found {
-		t.Error("Status change to error was not detected")
-	}
+		return false
+	}, time.Second, 50*time.Millisecond, "status change to error was not detected")
 }
 
 func TestStateMonitor_RateLimiting(t *testing.T) {
@@ -314,7 +299,10 @@ func TestStateMonitor_RateLimiting(t *testing.T) {
 	monitor.Start()
 	defer monitor.Stop()
 
-	time.Sleep(100 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, exists := monitor.GetCurrentState("test-service")
+		return exists
+	}, time.Second, 50*time.Millisecond)
 
 	// Trigger multiple warning transitions rapidly
 	// These should be rate limited
@@ -498,24 +486,21 @@ func TestStateMonitor_MultipleListeners(t *testing.T) {
 	monitor.Start()
 	defer monitor.Stop()
 
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, exists := monitor.GetCurrentState("test-service")
+		return exists
+	}, time.Second, 50*time.Millisecond)
 
 	// Trigger transition
 	if err := reg.UpdateStatus("test-service", "error"); err != nil {
 		t.Fatalf("Failed to update status: %v", err)
 	}
 
-	time.Sleep(300 * time.Millisecond)
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	if !listener1Called {
-		t.Error("Listener 1 was not called")
-	}
-	if !listener2Called {
-		t.Error("Listener 2 was not called")
-	}
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return listener1Called && listener2Called
+	}, time.Second, 50*time.Millisecond, "expected all listeners to be called")
 }
 
 func TestStateMonitor_HistoryLimit(t *testing.T) {
