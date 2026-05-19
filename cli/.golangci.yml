@@ -13,3 +13,6 @@ linters:
     - unused
     - ineffassign
     - misspell
+  exclusions:
+    paths:
+      - dashboard/node_modules
