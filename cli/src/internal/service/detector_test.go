@@ -1291,9 +1291,9 @@ services:
 		t.Errorf("Expected Type = %q, got %q", service.ServiceTypeContainer, runtime.Type)
 	}
 
-	// Verify image is stored in Command
-	if runtime.Command != "mcr.microsoft.com/azure-storage/azurite" {
-		t.Errorf("Expected Command (image) = %q, got %q", "mcr.microsoft.com/azure-storage/azurite", runtime.Command)
+	// Verify image is stored in Image field
+	if runtime.Image != "mcr.microsoft.com/azure-storage/azurite" {
+		t.Errorf("Expected Image = %q, got %q", "mcr.microsoft.com/azure-storage/azurite", runtime.Image)
 	}
 
 	// Verify health check type

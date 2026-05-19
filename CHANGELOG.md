@@ -81,7 +81,7 @@ azd app test --watch --type unit
 azd app test --service api --coverage
 ```
 
-## [0.5.0] - Previous Release
+## [0.5.0] - 2025-09-15
 
 ### Added
 - Live dashboard with service monitoring
@@ -89,7 +89,7 @@ azd app test --service api --coverage
 - Azure environment integration
 - Python entry point auto-detection
 
-## [0.4.0] - Previous Release
+## [0.4.0] - 2025-07-20
 
 ### Added
 - Service orchestration from azure.yaml
