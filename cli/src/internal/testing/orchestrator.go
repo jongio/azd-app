@@ -12,6 +12,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/logging"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/security"
 	"gopkg.in/yaml.v3"
 )
@@ -72,10 +73,13 @@ type TestOrchestrator struct {
 
 // ServiceInfo represents a service with its test configuration.
 type ServiceInfo struct {
-	Name     string
-	Language string
-	Dir      string
-	Config   *ServiceTestConfig
+	Name      string
+	Host      string
+	Language  string
+	Framework string
+	Project   string
+	Dir       string
+	Config    *ServiceTestConfig
 }
 
 // NewTestOrchestrator creates a new test orchestrator.
@@ -131,6 +135,30 @@ func (o *TestOrchestrator) ValidateAllServices() []ServiceValidation {
 	return validations
 }
 
+func loadServiceTestConfigs(azureYamlPath string) (map[string]*ServiceTestConfig, error) {
+	// #nosec G304 -- Path validated by caller before invocation
+	data, err := os.ReadFile(azureYamlPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
+	}
+
+	var config struct {
+		Services map[string]struct {
+			Test *ServiceTestConfig `yaml:"test"`
+		} `yaml:"services"`
+	}
+	// TODO: Replace this direct unmarshal once service.ParseAzureYaml exposes service test configuration.
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse azure.yaml test config: %w", err)
+	}
+
+	serviceTestConfigs := make(map[string]*ServiceTestConfig, len(config.Services))
+	for name, svc := range config.Services {
+		serviceTestConfigs[name] = svc.Test
+	}
+	return serviceTestConfigs, nil
+}
+
 // LoadServicesFromAzureYaml loads service information from azure.yaml.
 func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error {
 	// Validate path
@@ -138,25 +166,15 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 		return fmt.Errorf("invalid azure.yaml path: %w", err)
 	}
 
-	// Read azure.yaml
-	// #nosec G304 -- Path validated by security.ValidatePath above
-	data, err := os.ReadFile(azureYamlPath)
+	azureYamlDir := filepath.Dir(azureYamlPath)
+	azureYaml, err := service.ParseAzureYaml(azureYamlDir)
 	if err != nil {
-		return fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	// Parse YAML
-	var azureYaml struct {
-		Services map[string]struct {
-			Language string             `yaml:"language"`
-			Project  string             `yaml:"project"`
-			Test     *ServiceTestConfig `yaml:"test"`
-			Config   map[string]any     `yaml:",inline"`
-		} `yaml:"services"`
-	}
-
-	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
+	}
+
+	serviceTestConfigs, err := loadServiceTestConfigs(azureYamlPath)
+	if err != nil {
+		return err
 	}
 
 	if len(azureYaml.Services) == 0 {
@@ -164,7 +182,6 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 	}
 
 	// Convert to ServiceInfo
-	azureYamlDir := filepath.Dir(azureYamlPath)
 	azureYamlDirAbs, err := filepath.Abs(azureYamlDir)
 	if err != nil {
 		return fmt.Errorf("failed to resolve azure.yaml directory: %w", err)
@@ -194,9 +211,11 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 
 		o.services = append(o.services, ServiceInfo{
 			Name:     name,
+			Host:     svc.Host,
 			Language: svc.Language,
+			Project:  svc.Project,
 			Dir:      projectDir,
-			Config:   svc.Test,
+			Config:   serviceTestConfigs[name],
 		})
 	}
 

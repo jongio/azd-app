@@ -7,14 +7,14 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
-	"gopkg.in/yaml.v3"
+	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 )
 
 // KQL query constants
@@ -36,11 +36,10 @@ type StandaloneLogsConfig struct {
 	Limit       int           // Max number of logs
 }
 
-// ServiceInfo holds information about a service for log querying.
-type ServiceInfo struct {
-	Name         string       // azure.yaml service name
+// standaloneLogService describes a service used for Azure log querying.
+type standaloneLogService struct {
+	serviceinfo.ServiceInfo
 	AzureName    string       // Azure resource name from SERVICE_*_NAME
-	Host         string       // azure.yaml host type
 	ResourceType ResourceType // Mapped resource type
 }
 
@@ -54,57 +53,44 @@ var HostToResourceType = map[string]ResourceType{
 }
 
 // getServicesFromAzureYAML reads azure.yaml and returns service info including host types.
-func getServicesFromAzureYAML(projectDir string) ([]ServiceInfo, error) {
-	azureYAMLPath := filepath.Join(projectDir, "azure.yaml")
-	content, err := os.ReadFile(azureYAMLPath)
+func getServicesFromAzureYAML(projectDir string) ([]standaloneLogService, error) {
+	config, err := service.ParseAzureYaml(projectDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	var config struct {
-		Services map[string]struct {
-			Host string `yaml:"host"`
-		} `yaml:"services"`
-	}
-	if err := yaml.Unmarshal(content, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	// Get service name mappings from env
 	serviceNameMap := getServiceNameMap(projectDir)
-
-	// Debug: log service name mapping
 	if os.Getenv("AZD_APP_DEBUG") == valTrue {
 		fmt.Fprintf(os.Stderr, "[DEBUG] Service name map from environment: %v\n", serviceNameMap)
 	}
 
-	services := make([]ServiceInfo, 0, len(config.Services))
+	services := make([]standaloneLogService, 0, len(config.Services))
 	for name, svc := range config.Services {
-		// Skip local-only services
 		if svc.Host == "local" || svc.Host == "" {
 			continue
 		}
 
-		info := ServiceInfo{
-			Name: name,
-			Host: svc.Host,
+		info := standaloneLogService{
+			ServiceInfo: serviceinfo.ServiceInfo{
+				Name:     name,
+				Host:     svc.Host,
+				Language: svc.Language,
+				Project:  svc.Project,
+			},
 		}
 
-		// Map host to resource type
 		if rt, ok := HostToResourceType[svc.Host]; ok {
 			info.ResourceType = rt
 		} else {
-			info.ResourceType = ResourceTypeContainerApp // default fallback
+			info.ResourceType = ResourceTypeContainerApp
 		}
 
-		// Get Azure resource name from env
 		if azureName, ok := serviceNameMap[strings.ToLower(name)]; ok {
 			info.AzureName = azureName
 		} else {
-			info.AzureName = name // fallback to azure.yaml name
+			info.AzureName = name
 		}
 
-		// Debug: log each service mapping
 		if os.Getenv("AZD_APP_DEBUG") == valTrue {
 			fmt.Fprintf(os.Stderr, "[DEBUG] Service %s: host=%s, resourceType=%s, azureName=%s\n",
 				name, svc.Host, info.ResourceType, info.AzureName)
@@ -230,13 +216,13 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	if err != nil {
 		slog.Warn("Failed to read azure.yaml services", "error", err)
 		// Fall back to Container App only if we can't read azure.yaml
-		allServices = []ServiceInfo{{ResourceType: ResourceTypeContainerApp}}
+		allServices = []standaloneLogService{{ResourceType: ResourceTypeContainerApp}}
 	}
 
 	slog.Debug("Read azure.yaml services", "count", len(allServices), "services", allServices)
 
 	// Filter services if specific ones requested
-	var targetServices []ServiceInfo
+	var targetServices []standaloneLogService
 	if len(config.Services) > 0 {
 		serviceMap := make(map[string]bool)
 		for _, s := range config.Services {
@@ -253,7 +239,7 @@ func FetchAzureLogsStandalone(ctx context.Context, config StandaloneLogsConfig) 
 	}
 
 	// Group services by resource type
-	servicesByType := make(map[ResourceType][]ServiceInfo)
+	servicesByType := make(map[ResourceType][]standaloneLogService)
 	for _, svc := range targetServices {
 		servicesByType[svc.ResourceType] = append(servicesByType[svc.ResourceType], svc)
 	}
@@ -826,11 +812,11 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	allServices, err := getServicesFromAzureYAML(config.ProjectDir)
 	if err != nil {
 		// Fall back to Container App only if we can't read azure.yaml
-		allServices = []ServiceInfo{{ResourceType: ResourceTypeContainerApp}}
+		allServices = []standaloneLogService{{ResourceType: ResourceTypeContainerApp}}
 	}
 
 	// Filter services if specific ones requested
-	var targetServices []ServiceInfo
+	var targetServices []standaloneLogService
 	if len(config.Services) > 0 {
 		serviceMap := make(map[string]bool)
 		for _, s := range config.Services {
@@ -846,7 +832,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 	}
 
 	// Group services by resource type
-	servicesByType := make(map[ResourceType][]ServiceInfo)
+	servicesByType := make(map[ResourceType][]standaloneLogService)
 	for _, svc := range targetServices {
 		servicesByType[svc.ResourceType] = append(servicesByType[svc.ResourceType], svc)
 	}
@@ -893,7 +879,7 @@ func StreamAzureLogsStandalone(ctx context.Context, config StreamConfig, logs ch
 }
 
 // fetchAndSendLogsMultiType fetches logs from multiple resource types and sends them to the channel.
-func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]ServiceInfo, _ time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
+func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, servicesByType map[ResourceType][]standaloneLogService, _ time.Time, logs chan<- LogEntry, lastSeen *time.Time) error {
 	// Use precise timestamp filtering instead of ago() to avoid duplicate fetches
 	// This queries: TimeGenerated > lastSeen instead of TimeGenerated > ago(Nm)
 
@@ -969,7 +955,7 @@ func fetchAndSendLogsMultiType(ctx context.Context, client *LogAnalyticsClient, 
 }
 
 // mapServiceNames remaps Azure resource names to logical service names from azure.yaml.
-func mapServiceNames(entries []LogEntry, services []ServiceInfo) []LogEntry {
+func mapServiceNames(entries []LogEntry, services []standaloneLogService) []LogEntry {
 	if len(entries) == 0 || len(services) == 0 {
 		return entries
 	}

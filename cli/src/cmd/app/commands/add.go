@@ -155,7 +155,7 @@ func listAvailableServices() error {
 	sort.Strings(names)
 
 	if cliout.IsJSON() {
-		type ServiceInfo struct {
+		type AvailableServiceInfo struct {
 			Name        string            `json:"name"`
 			DisplayName string            `json:"displayName"`
 			Description string            `json:"description"`
@@ -164,10 +164,10 @@ func listAvailableServices() error {
 			Ports       []string          `json:"ports"`
 			ConnStrings map[string]string `json:"connectionStrings"`
 		}
-		services := make([]ServiceInfo, 0, len(names))
+		services := make([]AvailableServiceInfo, 0, len(names))
 		for _, name := range names {
 			def := wellknown.Get(name)
-			services = append(services, ServiceInfo{
+			services = append(services, AvailableServiceInfo{
 				Name:        def.Name,
 				DisplayName: def.DisplayName,
 				Description: def.Description,

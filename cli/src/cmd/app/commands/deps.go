@@ -65,14 +65,18 @@ func (e *depsExecutor) execute() error {
 		return handleDepsError(err, "failed to detect projects from azure.yaml")
 	}
 
-	// Apply service filter if specified (further restricts to named services)
-	if len(e.opts.Services) > 0 {
-		nodeProjects, pythonProjects, dotnetProjects = e.filterProjectsByService(
-			nodeProjects, pythonProjects, dotnetProjects, searchRoot,
-		)
+	projects := DetectedProjects{
+		Node:   nodeProjects,
+		Python: pythonProjects,
+		Dotnet: dotnetProjects,
 	}
 
-	totalProjects := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
+	// Apply service filter if specified (further restricts to named services)
+	if len(e.opts.Services) > 0 {
+		projects = e.filterProjectsByService(projects, searchRoot)
+	}
+
+	totalProjects := projects.Total()
 
 	// Handle no projects case
 	if totalProjects == 0 {
@@ -81,33 +85,28 @@ func (e *depsExecutor) execute() error {
 
 	// Dry-run mode: show what would be installed and exit
 	if e.opts.DryRun {
-		return showDryRunSummary(nodeProjects, pythonProjects, dotnetProjects, searchRoot)
+		return showGroupedDryRunSummary(projects, searchRoot)
 	}
 
 	// Clean dependencies if requested
 	if e.opts.Clean {
-		if err := cleanDependencies(nodeProjects, pythonProjects, dotnetProjects); err != nil {
+		if err := cleanGroupedDependencies(projects); err != nil {
 			return fmt.Errorf("failed to clean dependencies: %w", err)
 		}
 	}
 
 	// Use parallel installer for concurrent installation with progress bars
 	if !cliout.IsJSON() {
-		return runParallelInstallation(nodeProjects, pythonProjects, dotnetProjects, e.opts.Verbose)
+		return runParallelInstallation(projects, e.opts.Verbose)
 	}
 
 	// JSON mode: use sequential installer
-	return runJSONInstallation(searchRoot, nodeProjects, pythonProjects, dotnetProjects)
+	return runJSONInstallation(searchRoot, projects)
 }
 
 // filterProjectsByService filters projects to only those matching the specified services.
-func (e *depsExecutor) filterProjectsByService(
-	nodeProjects []types.NodeProject,
-	pythonProjects []types.PythonProject,
-	dotnetProjects []types.DotnetProject,
-	searchRoot string,
-) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject) {
-	return filterProjectsByService(nodeProjects, pythonProjects, dotnetProjects, e.opts.Services, searchRoot)
+func (e *depsExecutor) filterProjectsByService(projects DetectedProjects, searchRoot string) DetectedProjects {
+	return filterDetectedProjectsByService(projects, e.opts.Services, searchRoot)
 }
 
 // handleNoProjectsCase handles the case when no projects are detected.
@@ -216,6 +215,8 @@ func NewDepsCommand() *cobra.Command {
 	// Create options for this command invocation
 	opts := &DepsOptions{}
 
+	commandOrchestrator := newCommandOrchestrator()
+
 	cmd := &cobra.Command{
 		Use:          "deps",
 		Short:        "Install dependencies for services defined in azure.yaml",
@@ -249,7 +250,7 @@ func NewDepsCommand() *cobra.Command {
 				SetCacheEnabled(false)
 			}
 			// Use orchestrator to run deps (which will automatically run reqs first)
-			return cmdOrchestrator.Run("deps")
+			return commandOrchestrator.Run("deps")
 		},
 	}
 

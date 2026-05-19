@@ -7,14 +7,12 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"gopkg.in/yaml.v3"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
 // DiagnosticSettingsStatus represents the status of diagnostic settings for a service.
@@ -66,7 +64,7 @@ func (c *DiagnosticSettingsChecker) CheckAllServices(ctx context.Context) (*Diag
 	yamlConfig, err := c.loadAzureYaml()
 	if err != nil {
 		slog.Debug("failed to load azure.yaml", "error", err)
-		yamlConfig = &azureYamlConfig{}
+		yamlConfig = &service.AzureYaml{}
 	}
 
 	// Discover resources
@@ -82,14 +80,14 @@ func (c *DiagnosticSettingsChecker) CheckAllServices(ctx context.Context) (*Diag
 
 	// If global logs.analytics is configured, all services are considered configured
 	// because azd queries logs directly from Log Analytics workspace
-	hasGlobalAnalytics := yamlConfig.hasGlobalLogsAnalytics()
+	hasGlobalAnalytics := hasGlobalLogsAnalytics(yamlConfig)
 
 	// Check each service
 	for serviceName, resource := range discoveryResult.Resources {
 		slog.Debug("checking diagnostic settings", "service", serviceName, "resourceId", resource.ResourceID, "hasGlobalAnalytics", hasGlobalAnalytics)
 
 		// If global analytics is configured or service has service-level analytics, it's configured
-		if hasGlobalAnalytics || yamlConfig.hasServiceLogsAnalytics(serviceName) {
+		if hasGlobalAnalytics || hasServiceLogsAnalytics(yamlConfig, serviceName) {
 			response.Services[serviceName] = &DiagnosticSettingsCheckResult{
 				Status:     DiagnosticSettingsConfigured,
 				ResourceID: resource.ResourceID,
@@ -364,60 +362,26 @@ func (c *DiagnosticSettingsChecker) CheckSingleService(ctx context.Context, serv
 	return c.checkDiagnosticSettings(ctx, serviceName, resource.ResourceID, discoveryResult.LogAnalyticsWorkspaceID), nil
 }
 
-// azureYamlConfig represents a minimal view of azure.yaml for checking logs.analytics configuration.
-type azureYamlConfig struct {
-	Services map[string]*serviceConfig `yaml:"services,omitempty"`
-	Logs     *logsConfig               `yaml:"logs,omitempty"`
-}
-
-// serviceConfig represents a minimal service definition.
-type serviceConfig struct {
-	Logs *serviceLogsConfig `yaml:"logs,omitempty"`
-}
-
-// logsConfig represents the project-level logs configuration.
-type logsConfig struct {
-	Analytics *analyticsConfig `yaml:"analytics,omitempty"`
-}
-
-// serviceLogsConfig represents service-level logs configuration.
-type serviceLogsConfig struct {
-	Analytics *analyticsConfig `yaml:"analytics,omitempty"`
-}
-
-// analyticsConfig represents either global or service-level analytics config.
-// We don't need the full structure, just to know if it exists.
-type analyticsConfig struct {
-	Workspace string `yaml:"workspace,omitempty"`
-}
-
 // loadAzureYaml loads the azure.yaml file from the project directory.
-func (c *DiagnosticSettingsChecker) loadAzureYaml() (*azureYamlConfig, error) {
-	yamlPath := filepath.Join(c.projectDir, "azure.yaml")
-
-	data, err := os.ReadFile(yamlPath)
+func (c *DiagnosticSettingsChecker) loadAzureYaml() (*service.AzureYaml, error) {
+	config, err := service.ParseAzureYaml(c.projectDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
-	}
-
-	var config azureYamlConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	return &config, nil
+	return config, nil
 }
 
 // hasGlobalLogsAnalytics checks if global logs.analytics is configured.
-func (c *azureYamlConfig) hasGlobalLogsAnalytics() bool {
-	return c.Logs != nil && c.Logs.Analytics != nil
+func hasGlobalLogsAnalytics(config *service.AzureYaml) bool {
+	return config != nil && config.Logs != nil && config.Logs.Analytics != nil
 }
 
 // hasServiceLogsAnalytics checks if service-level logs.analytics is configured.
-func (c *azureYamlConfig) hasServiceLogsAnalytics(serviceName string) bool {
-	if c.Services != nil {
-		if service, ok := c.Services[serviceName]; ok {
-			return service.Logs != nil && service.Logs.Analytics != nil
+func hasServiceLogsAnalytics(config *service.AzureYaml, serviceName string) bool {
+	if config != nil && config.Services != nil {
+		if serviceConfig, ok := config.Services[serviceName]; ok {
+			return serviceConfig.Logs != nil && serviceConfig.Logs.Analytics != nil
 		}
 	}
 	return false

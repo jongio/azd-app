@@ -45,7 +45,7 @@ func addGetServicesTool(b *azdext.MCPServerBuilder) {
 			ReadOnly:    true,
 			Idempotent:  true,
 		},
-		mcp.WithOutputSchema[ServiceInfo](),
+		mcp.WithOutputSchema[ServicesResult](),
 		mcp.WithString(
 			"projectDir",
 			mcp.Description("Optional project directory path. If not provided, uses current directory."),

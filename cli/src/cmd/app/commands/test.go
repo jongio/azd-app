@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	"github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
@@ -42,6 +43,8 @@ func NewTestCommand() *cobra.Command {
 	// Create options for this command invocation
 	opts := &TestOptions{}
 
+	commandOrchestrator := newCommandOrchestrator()
+
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Run tests for all services with coverage aggregation",
@@ -60,7 +63,7 @@ func NewTestCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTests(opts)
+			return runTests(commandOrchestrator, opts)
 		},
 	}
 
@@ -87,7 +90,7 @@ func NewTestCommand() *cobra.Command {
 }
 
 // runTests executes tests for all services.
-func runTests(opts *TestOptions) error {
+func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions) error {
 	// Validate test type
 	validTypes := map[string]bool{
 		"unit":        true,
@@ -124,7 +127,7 @@ func runTests(opts *TestOptions) error {
 	}
 
 	// Execute dependencies first (reqs)
-	if err := cmdOrchestrator.Run("test"); err != nil {
+	if err := commandOrchestrator.Run("test"); err != nil {
 		return fmt.Errorf("failed to execute command dependencies: %w", err)
 	}
 

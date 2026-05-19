@@ -79,6 +79,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 	}
 
 	var azureYaml AzureYaml
+	// TODO: Replace this direct unmarshal once service.ParseAzureYaml supports the reqs schema used by commands.AzureYaml.
 	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
 		return "", nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
@@ -278,7 +279,7 @@ func (rf *ResultFormatter) PrintAll(results []ReqResult) {
 }
 
 // cleanDependencies removes existing dependency directories for all detected projects.
-func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
+func cleanGroupedDependencies(projects DetectedProjects) error {
 	if !cliout.IsJSON() {
 		cliout.Newline()
 		cliout.Section("🧹", "Cleaning Dependencies")
@@ -288,7 +289,7 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 	var errors []error
 
 	// Clean Node.js projects
-	for _, project := range nodeProjects {
+	for _, project := range projects.Node {
 		nodeModulesPath := filepath.Join(project.Dir, "node_modules")
 		if err := cleanDirectory(nodeModulesPath); err != nil {
 			errors = append(errors, err)
@@ -296,7 +297,7 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 	}
 
 	// Clean Python projects
-	for _, project := range pythonProjects {
+	for _, project := range projects.Python {
 		venvPath := filepath.Join(project.Dir, ".venv")
 		if err := cleanDirectory(venvPath); err != nil {
 			errors = append(errors, err)
@@ -304,7 +305,7 @@ func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.
 	}
 
 	// Clean .NET projects (obj and bin directories)
-	for _, project := range dotnetProjects {
+	for _, project := range projects.Dotnet {
 		projectDir := filepath.Dir(project.Path)
 		for _, dir := range []string{"obj", "bin"} {
 			dirPath := filepath.Join(projectDir, dir)
@@ -409,23 +410,15 @@ func detectAllProjects(searchRoot string) ([]types.NodeProject, []types.PythonPr
 
 // parseAzureYaml parses the azure.yaml file.
 func parseAzureYaml(azureYamlPath string) (*service.AzureYaml, error) {
-	data, err := readFileSecure(azureYamlPath)
-	if err != nil {
-		return nil, err
-	}
-	var azureYaml service.AzureYaml
-	if err := unmarshalYaml(data, &azureYaml); err != nil {
-		return nil, err
-	}
-	return &azureYaml, nil
+	return service.ParseAzureYaml(filepath.Dir(azureYamlPath))
 }
 
 // showDryRunSummary displays what would be installed without actually installing.
-func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, searchRoot string) error {
+func showGroupedDryRunSummary(projects DetectedProjects, searchRoot string) error {
 	if cliout.IsJSON() {
 		// Build dry-run results
 		var results []InstallResult
-		for _, p := range nodeProjects {
+		for _, p := range projects.Node {
 			results = append(results, InstallResult{
 				Type:    "node",
 				Dir:     p.Dir,
@@ -433,7 +426,7 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 				Success: true, // Would succeed (dry-run)
 			})
 		}
-		for _, p := range pythonProjects {
+		for _, p := range projects.Python {
 			results = append(results, InstallResult{
 				Type:    "python",
 				Dir:     p.Dir,
@@ -441,7 +434,7 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 				Success: true,
 			})
 		}
-		for _, p := range dotnetProjects {
+		for _, p := range projects.Dotnet {
 			results = append(results, InstallResult{
 				Type:    "dotnet",
 				Path:    p.Path,
@@ -459,9 +452,9 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 	cliout.Section("📋", "Dry Run - Projects that would be installed")
 	cliout.Newline()
 
-	if len(nodeProjects) > 0 {
-		cliout.Step("📦", "Node.js projects (%d)", len(nodeProjects))
-		for _, p := range nodeProjects {
+	if len(projects.Node) > 0 {
+		cliout.Step("📦", "Node.js projects (%d)", len(projects.Node))
+		for _, p := range projects.Node {
 			relDir := p.Dir
 			if rel, err := filepath.Rel(searchRoot, p.Dir); err == nil && rel != "." {
 				relDir = rel
@@ -471,9 +464,9 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 		cliout.Newline()
 	}
 
-	if len(pythonProjects) > 0 {
-		cliout.Step("🐍", "Python projects (%d)", len(pythonProjects))
-		for _, p := range pythonProjects {
+	if len(projects.Python) > 0 {
+		cliout.Step("🐍", "Python projects (%d)", len(projects.Python))
+		for _, p := range projects.Python {
 			relDir := p.Dir
 			if rel, err := filepath.Rel(searchRoot, p.Dir); err == nil && rel != "." {
 				relDir = rel
@@ -483,9 +476,9 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 		cliout.Newline()
 	}
 
-	if len(dotnetProjects) > 0 {
-		cliout.Step("🔷", ".NET projects (%d)", len(dotnetProjects))
-		for _, p := range dotnetProjects {
+	if len(projects.Dotnet) > 0 {
+		cliout.Step("🔷", ".NET projects (%d)", len(projects.Dotnet))
+		for _, p := range projects.Dotnet {
 			relPath := p.Path
 			if rel, err := filepath.Rel(searchRoot, p.Path); err == nil && rel != "." {
 				relPath = rel
@@ -495,11 +488,27 @@ func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.
 		cliout.Newline()
 	}
 
-	total := len(nodeProjects) + len(pythonProjects) + len(dotnetProjects)
+	total := projects.Total()
 	cliout.Info("Total: %d project(s) would be installed", total)
 	cliout.Info("Run without --dry-run to install dependencies")
 
 	return nil
+}
+
+func cleanDependencies(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject) error {
+	return cleanGroupedDependencies(DetectedProjects{
+		Node:   nodeProjects,
+		Python: pythonProjects,
+		Dotnet: dotnetProjects,
+	})
+}
+
+func showDryRunSummary(nodeProjects []types.NodeProject, pythonProjects []types.PythonProject, dotnetProjects []types.DotnetProject, searchRoot string) error {
+	return showGroupedDryRunSummary(DetectedProjects{
+		Node:   nodeProjects,
+		Python: pythonProjects,
+		Dotnet: dotnetProjects,
+	}, searchRoot)
 }
 
 // handleNoProjectsCase handles the case when no projects are detected.
